@@ -77,9 +77,10 @@ Based on:
     `replaceKeys-selection-body`, `EvalFun-edge-le`.
   **0 postulates.**
 
-- **`TypingSemantics.agda`** — `convSound` (soundness of conversion).
-  **2 postulates** (beta and funext domain extensionality, to be
-  replaced by `LemmaForTS` lemmas).
+- **`TypingSemantics.agda`** — `theorem1` (typing soundness) and
+  `convSound` (soundness of conversion). Imports definitions and
+  lemmas from `LemmaForTS`; all cases proved by delegation.
+  **0 postulates.**
 
 ### Validity and adequacy
 
@@ -111,6 +112,6 @@ Based on:
 | RawSyntax, RawSemantics, EvalSubstitution | 0 |
 | LemmaForTS | 0 |
 | Reduction | 8 (axioms for contextual reduction) |
-| TypingSemantics | 2 |
+| TypingSemantics | 0 |
 | Validity | ~8 (Red interaction) |
 | Adequacy | ~11 (in progress) |
