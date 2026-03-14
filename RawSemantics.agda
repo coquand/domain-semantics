@@ -20,7 +20,7 @@ open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ; fst ; snd 
               Pair ; List ; nil ; cons ; Eq ; refl ; Eq-transport ; Eq-sym ;
               FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun)
 open import PaperSemantics using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-Bot ;
-  Coherent ; CoherentFun ; CoherentFunTail ; cft-from-cf ;
+  Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; mkCFT ; cft-from-cf ;
   NotBot ; Coherent-singleton-key ; Coherent-singleton-val ;
   FinMem ; FinMemAllU ; FinMem-coh-u ; FinMem-a-in-U ; Sup ; Sup-Bot-r ; Sup-Bot-l ;
   Comp ; CompFun ; CompStepFun ; CompStepStep ;
@@ -135,7 +135,7 @@ mutual
   CoherentFun-LeBot-absurd : (g : FinFun) -> CoherentFun g -> LeFunCode g nil -> Empty
   CoherentFun-LeBot-absurd nil cf lf = cf  -- CoherentFun nil = Empty
   CoherentFun-LeBot-absurd (cons p ps) cf lf =
-    Coherent-val-LeBot-absurd (snd p) (snd (fst cf)) (fst lf)
+    Coherent-val-LeBot-absurd (snd p) (mkSigma (CFTcons.val-coh cf) (CFTcons.val-nbot cf)) (fst lf)
 
   Coherent-val-LeBot-absurd : (v : FinEl) -> Pair (Coherent v) (NotBot v) -> LeCode v Bot -> Empty
   Coherent-val-LeBot-absurd Bot          cnb le = snd cnb  -- NotBot Bot = Empty
@@ -385,8 +385,8 @@ LeFunCode-Sup-pair v1 u1 v2 u2 comp-v comp-u cf c-supv =
       sel-inner = sel-take (comp-Bot-r v2) (comp-Bot-r u2) sel-nil
       -- sel-inner : Selection [(v2,u2)] (Sup v2 Bot) (Sup u2 Bot)
       -- Comp v1 with (Sup v2 Bot)
-      cv2  = fst (fst (snd (snd cf)))
-      cu2  = fst (snd (fst (snd (snd cf))))
+      cv2  = CFTcons.key-coh (CFTcons.tail-coh cf)
+      cu2  = CFTcons.val-coh (CFTcons.tail-coh cf)
       comp-v1-sv2 = Eq-transport (Comp v1) (Eq-sym (Sup-Bot-r v2)) comp-v
       comp-u1-su2 = Eq-transport (Comp u1) (Eq-sym (Sup-Bot-r u2)) comp-u
       sel-both = sel-take comp-v1-sv2 comp-u1-su2 sel-inner
@@ -403,7 +403,7 @@ LeFunCode-Sup-pair v1 u1 v2 u2 comp-v comp-u cf c-supv =
       c-key = Eq-transport Coherent (Eq-sym eq-key) c-supv
       le-raw = Selection-le-EvalFun g2 sel-both lf-refl cf cf c-key
       -- Transport to the correct types
-      c-sup-u = Eq-transport Coherent (Eq-sym eq-val) (Coherent-Sup u1 u2 comp-u (fst (snd (fst cf))) cu2)
+      c-sup-u = Eq-transport Coherent (Eq-sym eq-val) (Coherent-Sup u1 u2 comp-u (CFTcons.val-coh cf) cu2)
       c-ef = Coherent-EvalFun g2 (Sup v1 (Sup v2 Bot)) ctf c-key
       c-ef' = Eq-transport (\ z -> Coherent (EvalFun g2 z)) eq-key c-ef
       le-trans = Eq-transport (\ z -> LeCode z (EvalFun g2 (Sup v1 (Sup v2 Bot)))) eq-val le-raw
@@ -603,7 +603,7 @@ Lam-CompStepFun M rho a1 a2 s (cons t rest) crho cg2 ws wf ih =
             comp-x = Comp-sym xt xs step-b
         in Comp-via-body M rho xs xt (snd s) (snd t) crho comp-x cxs cxt ev-s ev-t
              (\ rho' crho' ev1 ev2 -> ih rho' crho' (snd s) (snd t) ev1 ev2)
-      tail = Lam-CompStepFun M rho a1 a2 s rest crho (snd (snd cg2))
+      tail = Lam-CompStepFun M rho a1 a2 s rest crho (CFTcons.tail-coh cg2)
                ws (\ t' ein -> wf t' (there ein)) ih
   in mkSigma step tail
 
@@ -632,7 +632,7 @@ Lam-CompFun M rho a1 a2 nil g2 crho cg1 cg2 wf1 wf2 ih = tt
 Lam-CompFun M rho a1 a2 (cons s rest) g2 crho cg1 cg2 wf1 wf2 ih =
   mkSigma (Lam-CompStepFun M rho a1 a2 s g2 crho cg2
              (wf1 s here) wf2 ih)
-          (Lam-CompFun M rho a1 a2 rest g2 crho (snd (snd cg1)) cg2
+          (Lam-CompFun M rho a1 a2 rest g2 crho (CFTcons.tail-coh cg1) cg2
              (\ s' ein -> wf1 s' (there ein)) wf2 ih)
 
 -- Main theorem
@@ -782,7 +782,7 @@ EvalRel-down (App M N) rho UCode UCode crho cu' ev le =
       le-u'-ef = LeCode-trans UCode UCode (EvalFun (cons (mkSigma v UCode) nil) v)
                    cu' tt c-ef le le-refl
       -- Coherent (FunEl [(v,UCode)])
-      c-vu' = mkSigma (mkSigma cv (mkSigma tt tt)) (mkSigma tt tt)
+      c-vu' = mkCFT cv tt tt tt tt
       -- EvalRel-down M (structural IH: M < App M N)
       evM' = EvalRel-down M rho
                (FunEl (cons (mkSigma v UCode) nil))
@@ -806,7 +806,7 @@ EvalRel-down (App M N) rho (FunEl g0) (FunEl g') crho cu' ev le =
       le-u'-ef = LeCode-trans (FunEl g') (FunEl g0) (EvalFun (cons (mkSigma v (FunEl g0)) nil) v)
                    cu' cu c-ef le le-refl
       -- Coherent (FunEl [(v,FunEl g')])
-      c-vu' = mkSigma (mkSigma cv (mkSigma cu' tt)) (mkSigma tt tt)
+      c-vu' = mkCFT cv cu' tt tt tt
       -- EvalRel-down M
       evM' = EvalRel-down M rho
                (FunEl (cons (mkSigma v (FunEl g0)) nil))
@@ -831,7 +831,7 @@ EvalRel-down (App M N) rho (PiCode a0 f0) (PiCode a' f') crho cu' ev le =
                    (EvalFun (cons (mkSigma v (PiCode a0 f0)) nil) v)
                    cu' cu c-ef le le-refl
       -- Coherent (FunEl [(v,PiCode a' f')])
-      c-vu' = mkSigma (mkSigma cv (mkSigma cu' tt)) (mkSigma tt tt)
+      c-vu' = mkCFT cv cu' tt tt tt
       -- EvalRel-down M
       evM' = EvalRel-down M rho
                (FunEl (cons (mkSigma v (PiCode a0 f0)) nil))
@@ -1054,7 +1054,7 @@ EvalRel-Sup (App M N) rho (FunEl g1') (FunEl g2') crho cu cv comp eu ev =
       c-result-val = Coherent-Sup (FunEl g1') (FunEl g2') comp cu cv
       le-down = LeFunCode-Sup-pair v1 (FunEl g1') v2 (FunEl g2') comp-v comp c-2graph c-supv
       -- Coherent singleton
-      c-singleton = mkSigma (mkSigma c-supv (mkSigma c-result-val tt)) (mkSigma tt tt)
+      c-singleton = mkCFT c-supv c-result-val tt tt tt
       -- EvalRel-down M: from 2-element graph to singleton
       evM-result = EvalRel-down M rho
                      (FunEl (cons (mkSigma v1 (FunEl g1')) (cons (mkSigma v2 (FunEl g2')) nil)))
@@ -1095,7 +1095,7 @@ EvalRel-Sup (App M N) rho (PiCode a1' f1') (PiCode a2' f2') crho cu cv comp eu e
       c-supv = Coherent-Sup v1 v2 comp-v cv1 cv2
       c-result-val = Coherent-Sup (PiCode a1' f1') (PiCode a2' f2') comp cu cv
       le-down = LeFunCode-Sup-pair v1 (PiCode a1' f1') v2 (PiCode a2' f2') comp-v comp c-2graph c-supv
-      c-singleton = mkSigma (mkSigma c-supv (mkSigma c-result-val tt)) (mkSigma tt tt)
+      c-singleton = mkCFT c-supv c-result-val tt tt tt
       evM-result = EvalRel-down M rho
                      (FunEl (cons (mkSigma v1 (PiCode a1' f1')) (cons (mkSigma v2 (PiCode a2' f2')) nil)))
                      (FunEl (cons (mkSigma (Sup v1 v2) (PiCode (Sup a1' a2') (append f1' f2'))) nil))

@@ -63,18 +63,22 @@ open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ;
               List ; nil ; cons ;
               isPos)
 open import RawSyntax using (Expr ; Var ; U ; Pi ; Lam ; App ; wkExpr ;
-  subst1 ; Fin ; fzero ; fsuc)
+  subst1 ; Fin ; fzero ; fsuc ;
+  Sub ; substExpr ; liftSub ;
+  Ren ; renExpr ; wkRen ; liftRen ; subst-ren ;
+  subst-subst ; substExpr-ext ; liftSub-subst-ext ; Eq-trans)
 open import TypingRules using (Ctx ; empty ; extend ; ConvTm ; conv-sym ;
   conv-trans)
 open import Reduction using (Red ; Red-wk ; red-to-conv ;
-  Red-refl ; Red-trans ; Red-beta-expand ; Red-Pi-inj ; Red-from-conv)
+  Red-refl ; Red-trans ; Red-beta-expand ; Red-Pi-inj ; Red-from-conv ;
+  Red-subst)
 open import PaperSemantics using (applyEl ; EvalFun ; EvalFun-step ;
   leFinEl ; leFinEl-sound ;
   LeCode ; LeFunCode ; LeCode-Bot ; LeCode-Sup-lub ;
   LeCode-Sup-left ; LeCode-Sup-right ;
   LeCode-refl ; LeCode-trans ;
   Sup ; append ; Comp ; CompStepFun ; Coherent-Sup ;
-  Coherent ; CoherentFun ; CoherentFunTail ; CoherentWith ; cft-from-cf ;
+  Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; mkCFT ; CoherentWith ; cft-from-cf ;
   Coherent-EvalFun ; EvalFun-mon ; EvalFun-mon-arg ;
   CoherentFun-append ;
   Comp-value-EvalFun ; comp-Bot-r ;
@@ -87,7 +91,9 @@ open import PaperSemantics using (applyEl ; EvalFun ; EvalFun-step ;
   Comp-down ; Comp-sym ;
   coherentWith-to-compStepFun ;
   finMem-upward ; finMemFun-upward ;
-  FinMemFun-append ; FinMem-Sup-element)
+  FinMemFun-append ; FinMem-Sup-element ;
+  comp-EvalFun ; EvalFun-append-eq ; FinMemAllU-append-Sup ;
+  LeFunCode-refl)
 open import Selection public
 open import RawSemantics using (absurd)
 
@@ -136,15 +142,15 @@ EvalFun-FinMem (cons p ps) b f v fmg cg cf allU cv mv =
   EvalFun-FinMem-step (leFinEl (fst p) v) p ps b f v refl fmg cg cf allU cv mv
 
 EvalFun-FinMem-step zero p ps b f v eq fmg cg cf allU cv mv =
-  EvalFun-FinMem ps b f v (snd fmg) (snd (snd cg)) cf allU cv mv
+  EvalFun-FinMem ps b f v (snd fmg) (CFTcons.tail-coh cg) cf allU cv mv
 EvalFun-FinMem-step (suc n) p ps b f v eq fmg cg cf allU cv mv =
   let le-k = leFinEl-sound (fst p) v (Eq-transport isPos (Eq-sym eq) tt)
-      cpv = fst (snd (fst cg))
-      cw = fst (snd cg)
-      ih = EvalFun-FinMem ps b f v (snd fmg) (snd (snd cg)) cf allU cv mv
-      c-efp = Coherent-EvalFun f (fst p) cf (fst (fst cg))
+      cpv = CFTcons.val-coh cg
+      cw = CFTcons.compat cg
+      ih = EvalFun-FinMem ps b f v (snd fmg) (CFTcons.tail-coh cg) cf allU cv mv
+      c-efp = Coherent-EvalFun f (fst p) cf (CFTcons.key-coh cg)
       c-efv = Coherent-EvalFun f v cf cv
-      le-ef = EvalFun-mon-arg f (fst p) v le-k cf (fst (fst cg)) cv
+      le-ef = EvalFun-mon-arg f (fst p) v le-k cf (CFTcons.key-coh cg) cv
       efvU = EvalFun-in-UCode f v b cf cv allU
       mem-p = finMem-upward (snd p) (EvalFun f (fst p)) (EvalFun f v)
                 le-ef c-efp c-efv (snd (fst fmg)) efvU
@@ -278,39 +284,39 @@ EqValTy-snd G M N UCode        _ = tt
 EqValTy-snd G M N (FunEl g)    _ = tt
 EqValTy-snd G M N (PiCode b f) e = fst (snd e)
 
--- PiEdgeVal: codomain validity -- selection-based on f, uses v directly
+-- PiEdgeVal: codomain validity -- fixed context, selection-based on f, uses v
 PiEdgeVal {n} G A B b f =
   (u v : FinEl) -> Selection f u v ->
   (N : Expr n) -> Val G N A u b ->
   ValTy G (subst1 B N) v
 
--- PiEdgeEq: codomain equality -- selection-based on f, uses v directly
+-- PiEdgeEq: codomain equality -- fixed context, selection-based on f, uses v
 PiEdgeEq {n} G A B b f =
   (u v : FinEl) -> Selection f u v ->
   (N1 N2 : Expr n) -> EqVal G N1 N2 A u b ->
   EqValTy G (subst1 B N1) (subst1 B N2) v
 
--- PiEdgeEqTy: heterogeneous codomain type equality -- selection-based
+-- PiEdgeEqTy: heterogeneous codomain type equality -- fixed context
 PiEdgeEqTy {n} G A B B' b f =
   (u v : FinEl) -> Selection f u v ->
   (P : Expr n) -> Val G P A u b ->
   EqValTy G (subst1 B P) (subst1 B' P) v
 
--- PiAppVal: function application validity -- selection-based on g
+-- PiAppVal: function application validity -- fixed context, selection-based on g
 -- Realizer is v (selection value aggregate), code is EvalFun f u.
 PiAppVal {n} G M A0 B0 b f g =
   (u v : FinEl) -> Selection g u v ->
   (N : Expr n) -> Val G N A0 u b ->
   Val G (App M N) (subst1 B0 N) v (EvalFun f u)
 
--- PiAppEq: function congruence -- selection-based on g
+-- PiAppEq: function congruence -- fixed context, selection-based on g
 PiAppEq {n} G M A0 B0 b f g =
   (u v : FinEl) -> Selection g u v ->
   (N1 N2 : Expr n) -> EqVal G N1 N2 A0 u b ->
   EqVal G (App M N1) (App M N2) (subst1 B0 N1)
     v (EvalFun f u)
 
--- PiAppEqVal: extensional equality -- selection-based on g
+-- PiAppEqVal: extensional equality -- fixed context, selection-based on g
 PiAppEqVal {n} G M N A0 B0 b f g =
   (u v : FinEl) -> Selection g u v ->
   (P : Expr n) -> Val G P A0 u b ->
@@ -387,6 +393,7 @@ Val-from-EqVal-second (FunEl g) (PiCode b f) ev =
   mkSigma (fst ev) (fst (snd (snd ev)))
 Val-from-EqVal-second (PiCode a' f') (PiCode b f) ev = tt
 
+
 ------------------------------------------------------------------------
 -- Val-conv-type / EqVal-conv-type -- DERIVED from Red infrastructure
 --
@@ -440,13 +447,12 @@ EqVal-conv-type u UCode conv eqv = eqv
 EqVal-conv-type u (FunEl h) conv eqv = tt
 EqVal-conv-type Bot (PiCode b f) conv eqv = tt
 EqVal-conv-type UCode (PiCode b f) conv eqv = tt
-EqVal-conv-type (FunEl g) (PiCode b f) conv eqv =
+EqVal-conv-type {G = G} {M = M} {N = N} {A = A} {B = B} (FunEl g) (PiCode b f) conv eqv =
   let valM = mkSigma (fst eqv) (fst (snd eqv))
       valN = mkSigma (fst eqv) (fst (snd (snd eqv)))
       epi  = snd (snd (snd eqv))
-      -- Transport Val M and Val N via Val-conv-type
-      valM' = Val-conv-type (FunEl g) (PiCode b f) conv valM
-      valN' = Val-conv-type (FunEl g) (PiCode b f) conv valN
+      valM' = Val-conv-type {M = M} (FunEl g) (PiCode b f) conv valM
+      valN' = Val-conv-type {M = N} (FunEl g) (PiCode b f) conv valN
       -- Transport EqValPi: A -> B in Red
       A0   = fst epi
       B0   = fst (snd epi)
@@ -456,7 +462,11 @@ EqVal-conv-type (FunEl g) (PiCode b f) conv eqv =
       rest = snd (snd (snd (snd (snd epi))))
       red' = Red-trans (Red-from-conv (conv-sym conv)) red
       epi' = mkSigma A0 (mkSigma B0 (mkSigma red' (mkSigma cg (mkSigma fmg rest))))
-  in mkSigma (fst valM') (mkSigma (snd valM') (mkSigma (snd valN') epi'))
+      valMB' : Val G M B (FunEl g) (PiCode b f)
+      valMB' = valM'
+      valNB' : Val G N B (FunEl g) (PiCode b f)
+      valNB' = valN'
+  in mkSigma (fst valMB') (mkSigma (snd valMB') (mkSigma (snd valNB') epi'))
 EqVal-conv-type (PiCode a' f') (PiCode b f) conv eqv = tt
 
 ------------------------------------------------------------------------
@@ -684,7 +694,6 @@ upPiAppEq G M A0 B0 b0 f0 b1 f1 g cf0 cf1 cg cb0 cb1 b1U allU1 b0U allU0 le fmg0
       ef1U = EvalFun-in-UCode f1 u b1 (cft-from-cf f1 cf1) cu allU1
       fmem-v-f1 = finMem-upward v (EvalFun f0 u) (EvalFun f1 u)
                     le-f c-ef0 c-ef1 fmem-v-f0 ef1U
-      -- Derive ValTy G (subst1 B0 N1) (EvalFun f1 u) from PiEdgeVal
       val-N1-b1 = Val-from-EqVal-first u b1 eqv-b1
       sb1  = selectionBelow f1 u cf1 cu
       u1   = fst sb1
@@ -723,7 +732,6 @@ upPiAppEqVal G M N A0 B0 b0 f0 b1 f1 g cf0 cf1 cg cb0 cb1 b1U allU1 b0U allU0 le
       ef1U = EvalFun-in-UCode f1 u b1 (cft-from-cf f1 cf1) cu allU1
       fmem-v-f1 = finMem-upward v (EvalFun f0 u) (EvalFun f1 u)
                     le-f c-ef0 c-ef1 fmem-v-f0 ef1U
-      -- Derive ValTy G (subst1 B0 P) (EvalFun f1 u) from PiEdgeVal
       sb1  = selectionBelow f1 u cf1 cu
       u1   = fst sb1
       v1   = fst (snd sb1)
@@ -780,7 +788,6 @@ restrictPiAppVal-sel G M A0 B0 b f g g' cf cg cg' cb allU bU le fmg' fmg piEV sr
       efuU' = EvalFun-in-UCode f u' b (cft-from-cf f cf) cu' allU
       fmem-vg-efu' = finMem-upward v_g (EvalFun f u_g) (EvalFun f u')
                         le-ef c-efug c-efu' fmem-vg-efug efuU'
-      -- Derive ValTy G (subst1 B0 N) (EvalFun f u') from PiEdgeVal
       sb-f  = selectionBelow f u' cf cu'
       u_f   = fst sb-f
       v_f   = fst (snd sb-f)
@@ -831,7 +838,6 @@ restrictPiAppEq-sel G M A0 B0 b f g g' cf cg cg' cb allU bU le fmg' fmg piEV src
       efuU' = EvalFun-in-UCode f u' b (cft-from-cf f cf) cu' allU
       fmem-vg-efu' = finMem-upward v_g (EvalFun f u_g) (EvalFun f u')
                         le-ef c-efug c-efu' fmem-vg-efug efuU'
-      -- Derive ValTy G (subst1 B0 N1) (EvalFun f u') from PiEdgeVal
       val-N1 = Val-from-EqVal-first u' b eqv-N
       sb-f  = selectionBelow f u' cf cu'
       u_f   = fst sb-f
@@ -883,7 +889,6 @@ restrictPiAppEqVal-sel G M N A0 B0 b f g g' cf cg cg' cb allU bU le fmg' fmg piE
       efuU' = EvalFun-in-UCode f u' b (cft-from-cf f cf) cu' allU
       fmem-vg-efu' = finMem-upward v_g (EvalFun f u_g) (EvalFun f u')
                         le-ef c-efug c-efu' fmem-vg-efug efuU'
-      -- Derive ValTy G (subst1 B0 P) (EvalFun f u') from PiEdgeVal
       sb-f  = selectionBelow f u' cf cu'
       u_f   = fst sb-f
       v_f   = fst (snd sb-f)
@@ -1510,15 +1515,10 @@ PiAppVal-lookup :
     Val G (App M N) (subst1 B0 N) (snd e) (EvalFun f (fst e))
 PiAppVal-lookup G M A0 B0 b f g pav e ein N valN =
   let sel = singleton-selection e g ein
-      -- sel : Selection g (Sup (fst e) Bot) (Sup (snd e) Bot)
       eqU = Sup-Bot-right (fst e)
       eqV = Sup-Bot-right (snd e)
-      -- Transport Val input: Val G N A0 (fst e) b -> Val G N A0 (Sup (fst e) Bot) b
       valN' = Eq-transport (\ x -> Val G N A0 x b) (Eq-sym eqU) valN
-      -- Apply PiAppVal with singleton selection
       result = pav (Sup (fst e) Bot) (Sup (snd e) Bot) sel N valN'
-      -- result : Val G (App M N) (subst1 B0 N) (Sup (snd e) Bot) (EvalFun f (Sup (fst e) Bot))
-      -- Transport output back
   in Eq-transport (\ x -> Val G (App M N) (subst1 B0 N) x (EvalFun f (fst e)))
        eqV
        (Eq-transport (\ x -> Val G (App M N) (subst1 B0 N) (Sup (snd e) Bot) (EvalFun f x))
@@ -1639,7 +1639,8 @@ EqValTy-sym {G = G} {M = M} {N = N} (PiCode b f) cu eqv =
                   (mkSigma rN (mkSigma rM (mkSigma cf (mkSigma fmU
                     (mkSigma (EqValTy-sym b cb eqC)
                       (\ u' v' sel P valP ->
-                        let valP-C = Val-EqValTy-fwd u' b cb (EqValTy-sym b cb eqC) valP
+                        let eqC' = EqValTy-sym b cb eqC
+                            valP-C = Val-EqValTy-fwd u' b cb eqC' valP
                             cv' = coh-from-aU v' (FinMem-Selection-UCode b sel fmU cf)
                             eqt    = pet u' v' sel P valP-C
                         in EqValTy-sym v' cv' eqt)))))))))
@@ -1709,11 +1710,8 @@ Val-EqValTy-fwd {G = G} {C = C} {C' = C'} {M = M}
       -- For PiAppVal: need to convert domain and codomain
       pav-E'F' : PiAppVal G M E' F' b0 f0 g
       pav-E'F' = \ u' v' sel N valN ->
-        let -- Convert input: Val G N E' u' b0 -> Val G N E u' b0
-            valN-E = Val-EqValTy-fwd u' b0 cb0 (EqValTy-sym b0 cb0 eqE) valN
-            -- Apply original PiAppVal
+        let valN-E = Val-EqValTy-fwd u' b0 cb0 (EqValTy-sym b0 cb0 eqE) valN
             body = pav-EF u' v' sel N valN-E
-            -- Restrict Val from u' to u-f for pet
             cu' = Coherent-Selection sel cg
             sb  = selectionBelow f0 u' cf0 cu'
             u-f = fst sb
@@ -1725,7 +1723,6 @@ Val-EqValTy-fwd {G = G} {C = C} {C' = C'} {M = M}
             fmu' = FinMem-Selection b0 f0 sel fmg cg cb0 b0U
             valN-uf = restrictVal G N E u' u-f b0 le-uf fmu-f fmu' valN-E
             eqt-vf = pet u-f v-f sel-f N valN-uf
-            eqt-ef : EqValTy G (subst1 F N) (subst1 F' N) (EvalFun f0 u')
             eqt-ef = Eq-transport (\ w -> EqValTy G (subst1 F N) (subst1 F' N) w)
                        (Eq-sym eq-ef) eqt-vf
             cev = Coherent-EvalFun f0 u' (cft-from-cf f0 cf0) cu'
@@ -1734,13 +1731,9 @@ Val-EqValTy-fwd {G = G} {C = C} {C' = C'} {M = M}
       -- Uses Val-from-EqVal-first to bridge EqVal input to pet's Val requirement
       pae-E'F' : PiAppEq G M E' F' b0 f0 g
       pae-E'F' = \ u' v' sel N1 N2 eqN ->
-        let -- Convert input: EqVal G N1 N2 E' u' b0 -> EqVal G N1 N2 E u' b0
-            eqN-E = EqVal-EqValTy-fwd u' b0 cb0 (EqValTy-sym b0 cb0 eqE) eqN
-            -- Extract Val for N1 to call pet
+        let eqN-E = EqVal-EqValTy-fwd u' b0 cb0 (EqValTy-sym b0 cb0 eqE) eqN
             valN1-E = Val-from-EqVal-first u' b0 eqN-E
-            -- Apply original PiAppEq
             body = pae-EF u' v' sel N1 N2 eqN-E
-            -- Restrict Val from u' to u-f for pet
             cu' = Coherent-Selection sel cg
             sb  = selectionBelow f0 u' cf0 cu'
             u-f = fst sb
@@ -1752,7 +1745,6 @@ Val-EqValTy-fwd {G = G} {C = C} {C' = C'} {M = M}
             fmu' = FinMem-Selection b0 f0 sel fmg cg cb0 b0U
             valN1-uf = restrictVal G N1 E u' u-f b0 le-uf fmu-f fmu' valN1-E
             eqt-vf = pet u-f v-f sel-f N1 valN1-uf
-            eqt-ef : EqValTy G (subst1 F N1) (subst1 F' N1) (EvalFun f0 u')
             eqt-ef = Eq-transport (\ w -> EqValTy G (subst1 F N1) (subst1 F' N1) w)
                        (Eq-sym eq-ef) eqt-vf
             cev = Coherent-EvalFun f0 u' (cft-from-cf f0 cf0) cu'
@@ -1819,11 +1811,8 @@ EqVal-EqValTy-fwd {G = G} {C = C} {C' = C'} {M = M} {N = N}
       -- PiAppEqVal takes Val (not EqVal!) as input, so pet works directly
       paev-E'F' : PiAppEqVal G M N E' F' b0 f0 g
       paev-E'F' = \ u' v' sel P valP ->
-        let -- Convert input: Val G P E' u' b0 -> Val G P E u' b0
-            valP-E = Val-EqValTy-fwd u' b0 cb0 (EqValTy-sym b0 cb0 eqE) valP
-            -- Apply original PiAppEqVal
+        let valP-E = Val-EqValTy-fwd u' b0 cb0 (EqValTy-sym b0 cb0 eqE) valP
             body = paev-EF u' v' sel P valP-E
-            -- Restrict Val from u' to u-f for pet
             cu' = Coherent-Selection sel cg
             sb  = selectionBelow f0 u' cf0 cu'
             u-f = fst sb
@@ -1835,7 +1824,6 @@ EqVal-EqValTy-fwd {G = G} {C = C} {C' = C'} {M = M} {N = N}
             fmu' = FinMem-Selection b0 f0 sel fmg cg cb0 b0U
             valP-uf = restrictVal G P E u' u-f b0 le-uf fmu-f fmu' valP-E
             eqt-vf = pet u-f v-f sel-f P valP-uf
-            eqt-ef : EqValTy G (subst1 F P) (subst1 F' P) (EvalFun f0 u')
             eqt-ef = Eq-transport (\ w -> EqValTy G (subst1 F P) (subst1 F' P) w)
                        (Eq-sym eq-ef) eqt-vf
             cev = Coherent-EvalFun f0 u' (cft-from-cf f0 cf0) cu'
@@ -1845,9 +1833,10 @@ EqVal-EqValTy-fwd {G = G} {C = C} {C' = C'} {M = M} {N = N}
       valM-C = mkSigma (fst ev) (fst (snd ev))
       valN-C : Val G N C (FunEl g) (PiCode b0 f0)
       valN-C = mkSigma (fst ev) (fst (snd (snd ev)))
-      valM-C' = Val-EqValTy-fwd (FunEl g) (PiCode b0 f0) cb eqv valM-C
-      valN-C' = Val-EqValTy-fwd (FunEl g) (PiCode b0 f0) cb eqv valN-C
-      -- Build EqValPi G M N C' g b0 f0
+      valM-C' : Val G M C' (FunEl g) (PiCode b0 f0)
+      valM-C' = Val-EqValTy-fwd {M = M} (FunEl g) (PiCode b0 f0) cb eqv valM-C
+      valN-C' : Val G N C' (FunEl g) (PiCode b0 f0)
+      valN-C' = Val-EqValTy-fwd {M = N} (FunEl g) (PiCode b0 f0) cb eqv valN-C
       eqvpi-C' = mkSigma E' (mkSigma F' (mkSigma rC' (mkSigma cg
                    (mkSigma fmg paev-E'F'))))
   in mkSigma vtyC' (mkSigma (snd valM-C') (mkSigma (snd valN-C') eqvpi-C'))
@@ -1916,22 +1905,13 @@ EqValTy-trans {G = G} {A = A} {B = B} {C = C} (PiCode b f) cu eqAB eqBC =
       -- Chain them using EqValTy-trans at v'
       petAC : PiEdgeEqTy G A0 B0 B1' b f
       petAC = \ u' v' sel P valP ->
-        let -- Transport eqDomAB to get Val G P A0' u' b
-            valP-A0' = Val-EqValTy-fwd u' b cb eqDomAB valP
-            -- Transport further to Val G P A1 u' b using A0' = A1
-            valP-A1 : Val G P A1 u' b
+        let valP-A0' = Val-EqValTy-fwd u' b cb eqDomAB valP
             valP-A1 = Eq-transport (\ X -> Val G P X u' b) eqA0'A1 valP-A0'
-            -- petAB: EqValTy G (subst1 B0 P) (subst1 B0' P) v'
             eqt1 = petAB u' v' sel P valP
-            -- petBC: EqValTy G (subst1 B1 P) (subst1 B1' P) v'
             eqt2 = petBC u' v' sel P valP-A1
-            -- Transport eqt2 from B1 to B0' using B0' = B1
-            eqt2' : EqValTy G (subst1 B0' P) (subst1 B1' P) v'
             eqt2' = Eq-transport (\ X -> EqValTy G (subst1 X P) (subst1 B1' P) v')
                        (Eq-sym eqB0'B1) eqt2
-            -- Coherent v' from selection
             cv' = coh-from-aU v' (FinMem-Selection-UCode b sel fmU1 cf1)
-            -- Chain: EqValTy-trans at v'
         in EqValTy-trans v' cv' eqt1 eqt2'
       -- Build result
       resultCore = mkSigma A0 (mkSigma B0 (mkSigma A1' (mkSigma B1'
@@ -2072,11 +2052,8 @@ Val-EqValTy-expr {G = G} {A = A} {B = B} {M = M}
       -- PiAppVal transport from (C, D) to (C', D')
       pav' : PiAppVal G M C' D' b f g
       pav' = \ u' v' sel N valN ->
-        let -- Convert domain: Val G N C' u' b -> Val G N C u' b
-            valN-C = Val-EqValTy-fwd u' b cb (EqValTy-sym b cb eqC) valN
-            -- Apply original
+        let valN-C = Val-EqValTy-fwd u' b cb (EqValTy-sym b cb eqC) valN
             body = pav-CD u' v' sel N valN-C
-            -- Get EqValTy at EvalFun f u' via selectionBelow
             cu' = Coherent-Selection sel cg
             sb  = selectionBelow f u' cf cu'
             u-f = fst sb
@@ -2088,22 +2065,16 @@ Val-EqValTy-expr {G = G} {A = A} {B = B} {M = M}
             fmu' = FinMem-Selection b f sel fmg cg cb bU
             valN-uf = restrictVal G N C u' u-f b le-uf fmu-f fmu' valN-C
             eqt-vf = pet u-f v-f sel-f N valN-uf
-            eqt-ef : EqValTy G (subst1 D N) (subst1 D' N) (EvalFun f u')
             eqt-ef = Eq-transport (\ w -> EqValTy G (subst1 D N) (subst1 D' N) w)
                        (Eq-sym eq-ef) eqt-vf
             cev = Coherent-EvalFun f u' (cft-from-cf f cf) cu'
             cv' = Coherent-Selection-val sel cg
         in Val-EqValTy-expr v' (EvalFun f u') cv' cev eqt-ef body
-      -- PiAppEq transport from (C, D) to (C', D')
       pae' : PiAppEq G M C' D' b f g
       pae' = \ u' v' sel N1 N2 eqN ->
-        let -- Convert domain: EqVal G N1 N2 C' u' b -> EqVal G N1 N2 C u' b
-            eqN-C = EqVal-EqValTy-fwd u' b cb (EqValTy-sym b cb eqC) eqN
-            -- Apply original
+        let eqN-C = EqVal-EqValTy-fwd u' b cb (EqValTy-sym b cb eqC) eqN
             body = pae-CD u' v' sel N1 N2 eqN-C
-            -- Extract Val for pet
             valN1-C = Val-from-EqVal-first u' b eqN-C
-            -- Get EqValTy at EvalFun f u' via selectionBelow
             cu' = Coherent-Selection sel cg
             sb  = selectionBelow f u' cf cu'
             u-f = fst sb
@@ -2115,7 +2086,6 @@ Val-EqValTy-expr {G = G} {A = A} {B = B} {M = M}
             fmu' = FinMem-Selection b f sel fmg cg cb bU
             valN1-uf = restrictVal G N1 C u' u-f b le-uf fmu-f fmu' valN1-C
             eqt-vf = pet u-f v-f sel-f N1 valN1-uf
-            eqt-ef : EqValTy G (subst1 D N1) (subst1 D' N1) (EvalFun f u')
             eqt-ef = Eq-transport (\ w -> EqValTy G (subst1 D N1) (subst1 D' N1) w)
                        (Eq-sym eq-ef) eqt-vf
             cev = Coherent-EvalFun f u' (cft-from-cf f cf) cu'
@@ -2181,11 +2151,8 @@ EqVal-EqValTy-expr {G = G} {A = A} {B = B} {M = M} {N = N}
                   (Eq-transport (\ Y -> PiAppEqVal G M N A0 Y b f g) eqB0D paev)
       paev' : PiAppEqVal G M N C' D' b f g
       paev' = \ u' v' sel P valP ->
-        let -- Convert domain: Val G P C' u' b -> Val G P C u' b
-            valP-C = Val-EqValTy-fwd u' b cb (EqValTy-sym b cb eqC) valP
-            -- Apply original
+        let valP-C = Val-EqValTy-fwd u' b cb (EqValTy-sym b cb eqC) valP
             body = paev-CD u' v' sel P valP-C
-            -- Get EqValTy at EvalFun f u' via selectionBelow
             cu' = Coherent-Selection sel cg
             sb  = selectionBelow f u' cf cu'
             u-f = fst sb
@@ -2197,16 +2164,17 @@ EqVal-EqValTy-expr {G = G} {A = A} {B = B} {M = M} {N = N}
             fmu' = FinMem-Selection b f sel fmg cg cb bU
             valP-uf = restrictVal G P C u' u-f b le-uf fmu-f fmu' valP-C
             eqt-vf = pet u-f v-f sel-f P valP-uf
-            eqt-ef : EqValTy G (subst1 D P) (subst1 D' P) (EvalFun f u')
             eqt-ef = Eq-transport (\ w -> EqValTy G (subst1 D P) (subst1 D' P) w)
                        (Eq-sym eq-ef) eqt-vf
             cev = Coherent-EvalFun f u' (cft-from-cf f cf) cu'
             cv' = Coherent-Selection-val sel cg
         in EqVal-EqValTy-expr v' (EvalFun f u') cv' cev eqt-ef body
       -- Transport ValPi for M and N using Val-EqValTy-expr
-      valM-B = Val-EqValTy-expr (FunEl g) (PiCode b f) cu ca eqv
+      valM-B : Val G M B (FunEl g) (PiCode b f)
+      valM-B = Val-EqValTy-expr {M = M} (FunEl g) (PiCode b f) cu ca eqv
                  (mkSigma (fst ev) vpiM)
-      valN-B = Val-EqValTy-expr (FunEl g) (PiCode b f) cu ca eqv
+      valN-B : Val G N B (FunEl g) (PiCode b f)
+      valN-B = Val-EqValTy-expr {M = N} (FunEl g) (PiCode b f) cu ca eqv
                  (mkSigma (fst ev) vpiN)
       epi' = mkSigma C' (mkSigma D' (mkSigma rB (mkSigma cg
                (mkSigma fmg paev'))))
@@ -2282,3 +2250,375 @@ EqVal-trans {G = G} {M1 = M1} {M2 = M2} {M3 = M3} {A = A}
       epi' = mkSigma Ax (mkSigma Bx (mkSigma redAx (mkSigma cg
                (mkSigma fmg paev'))))
   in mkSigma vty (mkSigma vpiM1 (mkSigma vpiM3 epi'))
+
+-------------------------------------------------------------------------
+-- ValTy-Sup / EqValTy-Sup: combining type validity at Sup
+-------------------------------------------------------------------------
+
+{-# TERMINATING #-}
+mutual
+ ValTy-Sup : {n : Nat} (G : Ctx n) (M : Expr n) (u1 u2 : FinEl) ->
+   Comp u1 u2 -> FinMem u1 UCode -> FinMem u2 UCode ->
+   ValTy G M u1 -> ValTy G M u2 -> ValTy G M (Sup u1 u2)
+ ValTy-Sup G M Bot u2 comp fm1 fm2 vt1 vt2 = vt2
+ ValTy-Sup G M UCode Bot comp fm1 fm2 vt1 vt2 = tt
+ ValTy-Sup G M UCode UCode comp fm1 fm2 vt1 vt2 = tt
+ ValTy-Sup G M UCode (FunEl g) ()
+ ValTy-Sup G M UCode (PiCode b g) ()
+ ValTy-Sup G M (FunEl g) Bot comp fm1 fm2 vt1 vt2 = tt
+ ValTy-Sup G M (FunEl g) UCode ()
+ ValTy-Sup G M (FunEl g) (FunEl h) comp fm1 fm2 vt1 vt2 = tt
+ ValTy-Sup G M (FunEl g) (PiCode b h) ()
+ ValTy-Sup G M (PiCode b1 f1) Bot comp fm1 fm2 vt1 vt2 = vt1
+ ValTy-Sup G M (PiCode b1 f1) UCode ()
+ ValTy-Sup G M (PiCode b1 f1) (FunEl h) ()
+ ValTy-Sup G M (PiCode b1 f1) (PiCode b2 f2) comp fm1 fm2 vt1 vt2 =
+  let -- Extract from vt1 : ValTyPi G M b1 f1
+      A1 = fst vt1
+      B1 = fst (snd vt1)
+      red1 = fst (snd (snd vt1))
+      cf1 = fst (snd (snd (snd vt1)))
+      allU1 = fst (snd (snd (snd (snd vt1))))
+      inn1 = snd (snd (snd (snd (snd vt1))))
+      vtAb1 = fst inn1
+      piEV1 = fst (snd inn1)
+      piEE1 = snd (snd inn1)
+      -- Extract from vt2 : ValTyPi G M b2 f2
+      A2 = fst vt2
+      B2 = fst (snd vt2)
+      red2 = fst (snd (snd vt2))
+      cf2 = fst (snd (snd (snd vt2)))
+      allU2 = fst (snd (snd (snd (snd vt2))))
+      inn2 = snd (snd (snd (snd (snd vt2))))
+      vtAb2 = fst inn2
+      piEV2 = fst (snd inn2)
+      piEE2 = snd (snd inn2)
+      -- Red-unique-Pi: A1 = A2, B1 = B2
+      uniq = Red-unique-Pi red1 red2
+      eqA = fst uniq
+      eqB = snd uniq
+      -- Transport vt2 components to A1, B1
+      vtAb2' : ValTy G A1 b2
+      vtAb2' = Eq-transport (\ X -> ValTy G X b2) (Eq-sym eqA) vtAb2
+      piEV2' : PiEdgeVal G A1 B1 b2 f2
+      piEV2' = Eq-transport (\ Y -> PiEdgeVal G A1 Y b2 f2) (Eq-sym eqB)
+                 (Eq-transport (\ X -> PiEdgeVal G X B2 b2 f2) (Eq-sym eqA) piEV2)
+      piEE2' : PiEdgeEq G A1 B1 b2 f2
+      piEE2' = Eq-transport (\ Y -> PiEdgeEq G A1 Y b2 f2) (Eq-sym eqB)
+                 (Eq-transport (\ X -> PiEdgeEq G X B2 b2 f2) (Eq-sym eqA) piEE2)
+      -- Infrastructure
+      comp-b = fst comp
+      comp-f = snd comp
+      b1U = fst fm1
+      allU1' = fst (snd fm1)
+      b2U = fst fm2
+      allU2' = fst (snd fm2)
+      cb1 = coh-from-aU b1 b1U
+      cb2 = coh-from-aU b2 b2U
+      supU = finMemUCode-Sup b1 b2 comp-b b1U b2U
+      c-sup = Coherent-Sup b1 b2 comp-b cb1 cb2
+      ctf1 = cft-from-cf f1 cf1
+      ctf2 = cft-from-cf f2 cf2
+      cf-app = CoherentFun-append f1 f2 cf1 cf2 comp-f
+      ctf-app = cft-from-cf (append f1 f2) cf-app
+      allU-app = FinMemAllU-append-Sup b1 b2 f1 f2 comp-b cb1 cb2
+                   b1U b2U ctf1 ctf2 allU1' allU2'
+      le-b1-sup = LeCode-Sup-left b1 b2 comp-b cb1 cb2
+      le-b2-sup = LeCode-Sup-right b1 b2 comp-b cb1 cb2
+      -- Recursive: ValTy G A1 (Sup b1 b2)
+      vtA-sup = ValTy-Sup G A1 b1 b2 comp-b b1U b2U vtAb1 vtAb2'
+      -- PiEdgeVal G A1 B1 (Sup b1 b2) (append f1 f2)
+      piEV : PiEdgeVal G A1 B1 (Sup b1 b2) (append f1 f2)
+      piEV = \ u v sel N valN ->
+        let cu = Coherent-Selection sel cf-app
+            fmu-sup = FinMemAllU-Selection (Sup b1 b2) sel allU-app
+                        cf-app c-sup supU
+            sb1 = selectionBelow f1 u cf1 cu
+            u1  = fst sb1
+            v1  = fst (snd sb1)
+            sel1 = fst (snd (snd sb1))
+            le-u1 = fst (snd (snd (snd sb1)))
+            eq-v1 = snd (snd (snd (snd sb1)))
+            sb2 = selectionBelow f2 u cf2 cu
+            u2  = fst sb2
+            v2  = fst (snd sb2)
+            sel2 = fst (snd (snd sb2))
+            le-u2 = fst (snd (snd (snd sb2)))
+            eq-v2 = snd (snd (snd (snd sb2)))
+            cu1 = Coherent-Selection sel1 cf1
+            cu2 = Coherent-Selection sel2 cf2
+            fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1' cf1 cb1 b1U
+            fmu2-b2 = FinMemAllU-Selection b2 sel2 allU2' cf2 cb2 b2U
+            fmu1-sup = finMem-Sup-left b1 b2 u1 comp-b cb1 cb2
+                         b2U cu1 fmu1-b1
+            fmu2-sup = finMem-Sup-right b1 b2 u2 comp-b b1U
+                         cu2 fmu2-b2
+            val-u1-sup = restrictVal G N A1 u u1
+                           (Sup b1 b2) le-u1 fmu1-sup fmu-sup valN
+            val-u1-b1 = downVal G N A1 u1 b1
+                          (Sup b1 b2) le-b1-sup fmu1-b1 cb1
+                          supU val-u1-sup
+            val-u2-sup = restrictVal G N A1 u u2
+                           (Sup b1 b2) le-u2 fmu2-sup fmu-sup valN
+            val-u2-b2 = downVal G N A1 u2 b2
+                          (Sup b1 b2) le-b2-sup fmu2-b2 cb2
+                          supU val-u2-sup
+            vt-v1 = piEV1 u1 v1 sel1 N val-u1-b1
+            vt-v2 = piEV2' u2 v2 sel2 N val-u2-b2
+            vt-ef1 = Eq-transport
+                       (\ x -> ValTy G (subst1 B1 N) x)
+                       (Eq-sym eq-v1) vt-v1
+            vt-ef2 = Eq-transport
+                       (\ x -> ValTy G (subst1 B1 N) x)
+                       (Eq-sym eq-v2) vt-v2
+            comp-ef = comp-EvalFun f1 f2 u comp-f ctf1 cu
+            fm-ef1U = EvalFun-in-UCode f1 u b1 ctf1 cu allU1'
+            fm-ef2U = EvalFun-in-UCode f2 u b2 ctf2 cu allU2'
+            vt-sup-cod = ValTy-Sup G
+                           (subst1 B1 N)
+                           (EvalFun f1 u) (EvalFun f2 u)
+                           comp-ef fm-ef1U fm-ef2U vt-ef1 vt-ef2
+            eq-app = EvalFun-append-eq f1 f2 u comp-f ctf1 cu
+            vt-ef-app = Eq-transport
+                          (\ x -> ValTy G (subst1 B1 N) x)
+                          (Eq-sym eq-app) vt-sup-cod
+            fmvU = FinMem-Selection-UCode (Sup b1 b2) sel
+                     allU-app cf-app
+            ef-appU = EvalFun-in-UCode (append f1 f2) u (Sup b1 b2)
+                        ctf-app cu allU-app
+            lf-refl = LeFunCode-refl (append f1 f2) ctf-app
+            le-v-ef = Selection-le-EvalFun (append f1 f2) sel
+                        lf-refl cf-app cf-app cu
+        in downValTy G (subst1 B1 N) v
+             (EvalFun (append f1 f2) u) le-v-ef fmvU ef-appU vt-ef-app
+      -- PiEdgeEq G A1 B1 (Sup b1 b2) (append f1 f2)
+      piEE : PiEdgeEq G A1 B1 (Sup b1 b2) (append f1 f2)
+      piEE = \ u v sel N1 N2 eqN ->
+        let cu = Coherent-Selection sel cf-app
+            fmu-sup = FinMemAllU-Selection (Sup b1 b2) sel allU-app
+                        cf-app c-sup supU
+            sb1 = selectionBelow f1 u cf1 cu
+            u1  = fst sb1
+            v1  = fst (snd sb1)
+            sel1 = fst (snd (snd sb1))
+            le-u1 = fst (snd (snd (snd sb1)))
+            eq-v1 = snd (snd (snd (snd sb1)))
+            sb2 = selectionBelow f2 u cf2 cu
+            u2  = fst sb2
+            v2  = fst (snd sb2)
+            sel2 = fst (snd (snd sb2))
+            le-u2 = fst (snd (snd (snd sb2)))
+            eq-v2 = snd (snd (snd (snd sb2)))
+            cu1 = Coherent-Selection sel1 cf1
+            cu2 = Coherent-Selection sel2 cf2
+            fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1' cf1 cb1 b1U
+            fmu2-b2 = FinMemAllU-Selection b2 sel2 allU2' cf2 cb2 b2U
+            fmu1-sup = finMem-Sup-left b1 b2 u1 comp-b cb1 cb2
+                         b2U cu1 fmu1-b1
+            fmu2-sup = finMem-Sup-right b1 b2 u2 comp-b b1U
+                         cu2 fmu2-b2
+            eqv-u1-sup = restrictEqVal G N1 N2 A1
+                           u u1 (Sup b1 b2) le-u1 fmu1-sup fmu-sup eqN
+            eqv-u1-b1 = downEqVal G N1 N2 A1 u1 b1
+                           (Sup b1 b2) le-b1-sup fmu1-b1 cb1
+                           supU eqv-u1-sup
+            eqv-u2-sup = restrictEqVal G N1 N2 A1
+                           u u2 (Sup b1 b2) le-u2 fmu2-sup fmu-sup eqN
+            eqv-u2-b2 = downEqVal G N1 N2 A1 u2 b2
+                           (Sup b1 b2) le-b2-sup fmu2-b2 cb2
+                           supU eqv-u2-sup
+            eqt-v1 = piEE1 u1 v1 sel1 N1 N2 eqv-u1-b1
+            eqt-v2 = piEE2' u2 v2 sel2 N1 N2 eqv-u2-b2
+            eqt-ef1 = Eq-transport
+                        (\ x -> EqValTy G (subst1 B1 N1) (subst1 B1 N2) x)
+                        (Eq-sym eq-v1) eqt-v1
+            eqt-ef2 = Eq-transport
+                        (\ x -> EqValTy G (subst1 B1 N1) (subst1 B1 N2) x)
+                        (Eq-sym eq-v2) eqt-v2
+            comp-ef = comp-EvalFun f1 f2 u comp-f ctf1 cu
+            fm-ef1U = EvalFun-in-UCode f1 u b1 ctf1 cu allU1'
+            fm-ef2U = EvalFun-in-UCode f2 u b2 ctf2 cu allU2'
+            eqt-sup-cod = EqValTy-Sup G
+                            (subst1 B1 N1)
+                            (subst1 B1 N2)
+                            (EvalFun f1 u) (EvalFun f2 u)
+                            comp-ef fm-ef1U fm-ef2U eqt-ef1 eqt-ef2
+            eq-app = EvalFun-append-eq f1 f2 u comp-f ctf1 cu
+            eqt-ef-app = Eq-transport
+                           (\ x -> EqValTy G (subst1 B1 N1) (subst1 B1 N2) x)
+                           (Eq-sym eq-app) eqt-sup-cod
+            fmvU = FinMem-Selection-UCode (Sup b1 b2) sel
+                     allU-app cf-app
+            ef-appU = EvalFun-in-UCode (append f1 f2) u (Sup b1 b2)
+                        ctf-app cu allU-app
+            lf-refl = LeFunCode-refl (append f1 f2) ctf-app
+            le-v-ef = Selection-le-EvalFun (append f1 f2) sel
+                        lf-refl cf-app cf-app cu
+        in downEqValTy G
+             (subst1 B1 N1)
+             (subst1 B1 N2)
+             v (EvalFun (append f1 f2) u) le-v-ef fmvU ef-appU
+             eqt-ef-app
+  in mkSigma A1 (mkSigma B1 (mkSigma red1 (mkSigma cf-app
+       (mkSigma allU-app (mkSigma vtA-sup (mkSigma piEV piEE))))))
+
+ EqValTy-Sup : {n : Nat} (G : Ctx n) (M N : Expr n) (u1 u2 : FinEl) ->
+   Comp u1 u2 -> FinMem u1 UCode -> FinMem u2 UCode ->
+   EqValTy G M N u1 -> EqValTy G M N u2 -> EqValTy G M N (Sup u1 u2)
+ EqValTy-Sup G M N Bot u2 comp fm1 fm2 eq1 eq2 = eq2
+ EqValTy-Sup G M N UCode Bot comp fm1 fm2 eq1 eq2 = tt
+ EqValTy-Sup G M N UCode UCode comp fm1 fm2 eq1 eq2 = tt
+ EqValTy-Sup G M N UCode (FunEl g) ()
+ EqValTy-Sup G M N UCode (PiCode b g) ()
+ EqValTy-Sup G M N (FunEl g) Bot comp fm1 fm2 eq1 eq2 = tt
+ EqValTy-Sup G M N (FunEl g) UCode ()
+ EqValTy-Sup G M N (FunEl g) (FunEl h) comp fm1 fm2 eq1 eq2 = tt
+ EqValTy-Sup G M N (FunEl g) (PiCode b h) ()
+ EqValTy-Sup G M N (PiCode b1 f1) Bot comp fm1 fm2 eq1 eq2 = eq1
+ EqValTy-Sup G M N (PiCode b1 f1) UCode ()
+ EqValTy-Sup G M N (PiCode b1 f1) (FunEl h) ()
+ EqValTy-Sup G M N (PiCode b1 f1) (PiCode b2 f2) comp fm1 fm2 eq1 eq2 =
+  let -- ValTy parts via ValTy-Sup
+      vtM-sup = ValTy-Sup G M (PiCode b1 f1) (PiCode b2 f2) comp
+                  fm1 fm2 (fst eq1) (fst eq2)
+      vtN-sup = ValTy-Sup G N (PiCode b1 f1) (PiCode b2 f2) comp
+                  fm1 fm2 (fst (snd eq1)) (fst (snd eq2))
+      -- Extract EqValTyPi
+      eqPi1 = snd (snd eq1)
+      eqPi2 = snd (snd eq2)
+      AM = fst eqPi1
+      BM = fst (snd eqPi1)
+      AN = fst (snd (snd eqPi1))
+      BN = fst (snd (snd (snd eqPi1)))
+      redM1 = fst (snd (snd (snd (snd eqPi1))))
+      redN1 = fst (snd (snd (snd (snd (snd eqPi1)))))
+      cfEq1 = fst (snd (snd (snd (snd (snd (snd eqPi1))))))
+      allUEq1 = fst (snd (snd (snd (snd (snd (snd (snd eqPi1)))))))
+      innEq1 = snd (snd (snd (snd (snd (snd (snd (snd eqPi1)))))))
+      eqvtA1 = fst innEq1
+      piEET1 = snd innEq1
+      AM2 = fst eqPi2
+      BM2 = fst (snd eqPi2)
+      AN2 = fst (snd (snd eqPi2))
+      BN2 = fst (snd (snd (snd eqPi2)))
+      redM2 = fst (snd (snd (snd (snd eqPi2))))
+      redN2 = fst (snd (snd (snd (snd (snd eqPi2)))))
+      cfEq2 = fst (snd (snd (snd (snd (snd (snd eqPi2))))))
+      allUEq2 = fst (snd (snd (snd (snd (snd (snd (snd eqPi2)))))))
+      innEq2 = snd (snd (snd (snd (snd (snd (snd (snd eqPi2)))))))
+      eqvtA2 = fst innEq2
+      piEET2 = snd innEq2
+      -- Red-unique-Pi
+      uniqM = Red-unique-Pi redM1 redM2
+      eqAM = fst uniqM
+      eqBM = snd uniqM
+      uniqN = Red-unique-Pi redN1 redN2
+      eqAN = fst uniqN
+      eqBN = snd uniqN
+      -- Transport eqvtA2 to use AM, AN
+      eqvtA2' : EqValTy G AM AN b2
+      eqvtA2' = Eq-transport (\ X -> EqValTy G X AN b2) (Eq-sym eqAM)
+                  (Eq-transport (\ X -> EqValTy G AM2 X b2)
+                    (Eq-sym eqAN) eqvtA2)
+      -- Transport piEET2 to use AM, BM, BN
+      piEET2' : PiEdgeEqTy G AM BM BN b2 f2
+      piEET2' = Eq-transport (\ X -> PiEdgeEqTy G AM BM X b2 f2)
+                  (Eq-sym eqBN)
+                  (Eq-transport (\ X -> PiEdgeEqTy G AM X BN2 b2 f2)
+                    (Eq-sym eqBM)
+                    (Eq-transport (\ X -> PiEdgeEqTy G X BM2 BN2 b2 f2)
+                      (Eq-sym eqAM) piEET2))
+      -- Infrastructure
+      comp-b = fst comp
+      comp-f = snd comp
+      b1U = fst fm1
+      allU1' = fst (snd fm1)
+      b2U = fst fm2
+      allU2' = fst (snd fm2)
+      cb1 = coh-from-aU b1 b1U
+      cb2 = coh-from-aU b2 b2U
+      supU = finMemUCode-Sup b1 b2 comp-b b1U b2U
+      c-sup = Coherent-Sup b1 b2 comp-b cb1 cb2
+      ctf1 = cft-from-cf f1 cfEq1
+      ctf2 = cft-from-cf f2 cfEq2
+      cf-app = CoherentFun-append f1 f2 cfEq1 cfEq2 comp-f
+      ctf-app = cft-from-cf (append f1 f2) cf-app
+      allU-app = FinMemAllU-append-Sup b1 b2 f1 f2 comp-b cb1 cb2
+                   b1U b2U ctf1 ctf2 allU1' allU2'
+      le-b1-sup = LeCode-Sup-left b1 b2 comp-b cb1 cb2
+      le-b2-sup = LeCode-Sup-right b1 b2 comp-b cb1 cb2
+      -- Recursive EqValTy-Sup at domain
+      eqvtA-sup = EqValTy-Sup G AM AN b1 b2 comp-b b1U b2U
+                    eqvtA1 eqvtA2'
+      -- PiEdgeEqTy G AM BM BN (Sup b1 b2) (append f1 f2)
+      piEET : PiEdgeEqTy G AM BM BN (Sup b1 b2) (append f1 f2)
+      piEET = \ u v sel P valP ->
+        let cu = Coherent-Selection sel cf-app
+            fmu-sup = FinMemAllU-Selection (Sup b1 b2) sel allU-app
+                        cf-app c-sup supU
+            sb1 = selectionBelow f1 u cfEq1 cu
+            u1  = fst sb1
+            v1  = fst (snd sb1)
+            sel1 = fst (snd (snd sb1))
+            le-u1 = fst (snd (snd (snd sb1)))
+            eq-v1 = snd (snd (snd (snd sb1)))
+            sb2 = selectionBelow f2 u cfEq2 cu
+            u2  = fst sb2
+            v2  = fst (snd sb2)
+            sel2 = fst (snd (snd sb2))
+            le-u2 = fst (snd (snd (snd sb2)))
+            eq-v2 = snd (snd (snd (snd sb2)))
+            cu1 = Coherent-Selection sel1 cfEq1
+            cu2 = Coherent-Selection sel2 cfEq2
+            fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1' cfEq1 cb1 b1U
+            fmu2-b2 = FinMemAllU-Selection b2 sel2 allU2' cfEq2 cb2 b2U
+            fmu1-sup = finMem-Sup-left b1 b2 u1 comp-b cb1 cb2
+                         b2U cu1 fmu1-b1
+            fmu2-sup = finMem-Sup-right b1 b2 u2 comp-b b1U
+                         cu2 fmu2-b2
+            val-u1-sup = restrictVal G P AM u u1
+                           (Sup b1 b2) le-u1 fmu1-sup fmu-sup valP
+            val-u1-b1 = downVal G P AM u1 b1
+                          (Sup b1 b2) le-b1-sup fmu1-b1 cb1
+                          supU val-u1-sup
+            val-u2-sup = restrictVal G P AM u u2
+                           (Sup b1 b2) le-u2 fmu2-sup fmu-sup valP
+            val-u2-b2 = downVal G P AM u2 b2
+                          (Sup b1 b2) le-b2-sup fmu2-b2 cb2
+                          supU val-u2-sup
+            eqt-v1 = piEET1 u1 v1 sel1 P val-u1-b1
+            eqt-v2 = piEET2' u2 v2 sel2 P val-u2-b2
+            eqt-ef1 = Eq-transport
+                        (\ x -> EqValTy G (subst1 BM P) (subst1 BN P) x)
+                        (Eq-sym eq-v1) eqt-v1
+            eqt-ef2 = Eq-transport
+                        (\ x -> EqValTy G (subst1 BM P) (subst1 BN P) x)
+                        (Eq-sym eq-v2) eqt-v2
+            comp-ef = comp-EvalFun f1 f2 u comp-f ctf1 cu
+            fm-ef1U = EvalFun-in-UCode f1 u b1 ctf1 cu allU1'
+            fm-ef2U = EvalFun-in-UCode f2 u b2 ctf2 cu allU2'
+            eqt-sup-cod = EqValTy-Sup G
+                            (subst1 BM P)
+                            (subst1 BN P)
+                            (EvalFun f1 u) (EvalFun f2 u)
+                            comp-ef fm-ef1U fm-ef2U eqt-ef1 eqt-ef2
+            eq-app = EvalFun-append-eq f1 f2 u comp-f ctf1 cu
+            eqt-ef-app = Eq-transport
+                           (\ x -> EqValTy G (subst1 BM P) (subst1 BN P) x)
+                           (Eq-sym eq-app) eqt-sup-cod
+            fmvU = FinMem-Selection-UCode (Sup b1 b2) sel
+                     allU-app cf-app
+            ef-appU = EvalFun-in-UCode (append f1 f2) u (Sup b1 b2)
+                        ctf-app cu allU-app
+            lf-refl = LeFunCode-refl (append f1 f2) ctf-app
+            le-v-ef = Selection-le-EvalFun (append f1 f2) sel
+                        lf-refl cf-app cf-app cu
+        in downEqValTy G
+             (subst1 BM P)
+             (subst1 BN P)
+             v (EvalFun (append f1 f2) u) le-v-ef fmvU ef-appU
+             eqt-ef-app
+      eqTyPi = mkSigma AM (mkSigma BM (mkSigma AN (mkSigma BN
+                 (mkSigma redM1 (mkSigma redN1 (mkSigma cf-app
+                   (mkSigma allU-app (mkSigma eqvtA-sup piEET))))))))
+  in mkSigma vtM-sup (mkSigma vtN-sup eqTyPi)

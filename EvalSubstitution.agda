@@ -25,14 +25,17 @@ module EvalSubstitution where
 import Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ; fst ; snd ;
               Sigma ; Eq ; refl ; Eq-transport ; Eq-sym ;
-              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun)
+              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun ; isPos)
 open import PaperSemantics using (LeCode ; LeCode-refl ; LeCode-trans ;
-  Coherent ; CoherentFun ; CoherentFunTail ; cft-from-cf ;
+  Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; cft-from-cf ;
   Comp ; Comp-down ; Comp-sym ;
   Sup ; Sup-Bot-l ; Sup-Bot-r ;
   Coherent-Sup ; LeCode-Sup-left ; LeCode-Sup-right ;
   LeCode-Sup-lub ; FinMem-Sup-element ;
-  FinMem ; FinMem-coh-u ; FinMem-coh-a ; FinMem-a-in-U)
+  FinMem ; FinMem-coh-u ; FinMem-coh-a ; FinMem-a-in-U ;
+  EvalFun ; EvalFun-step ; leFinEl ; leFinEl-sound ;
+  Coherent-EvalFun ; Comp-value-EvalFun ;
+  coherentWith-to-compStepFun)
 open import RawSemantics using (EnvApprox ; emptyEnv ; extendEnv ; lookupEnv ;
   EvalRel ; EvalRel-coh ; CoherentEnv ; lookupEnv-coh ; EvalRel-down ;
   EvalRel-mon-env ; EnvLe ; EnvLe-refl ;
@@ -992,12 +995,12 @@ EvalRel-subst-forward-wit sigma (Lam A M) rho (FunEl g) crho ev =
       (x v : FinEl) -> Selection g0 x v -> Coherent x
     sel-key-Coherent .nil cft .Bot .Bot sel-nil = tt
     sel-key-Coherent .(cons _ _) cft x v (sel-skip {p} sel) =
-      sel-key-Coherent _ (snd (snd cft)) x v sel
+      sel-key-Coherent _ (CFTcons.tail-coh cft) x v sel
     sel-key-Coherent .(cons p _) cft .(Sup (fst p) x0) .(Sup (snd p) v0)
       (sel-take {p} {x0} {v0} comp-k comp-v sel) =
       Coherent-Sup (fst p) x0 comp-k
-        (fst (fst cft))
-        (sel-key-Coherent _ (snd (snd cft)) x0 v0 sel)
+        (CFTcons.key-coh cft)
+        (sel-key-Coherent _ (CFTcons.tail-coh cft) x0 v0 sel)
     -- Rebuild selection body from per-edge evaluations
     sel-body-from-edges :
       (rho' : EnvApprox _) -> CoherentEnv rho' ->
@@ -1012,7 +1015,7 @@ EvalRel-subst-forward-wit sigma (Lam A M) rho (FunEl g) crho ev =
     sel-body-from-edges rho' crho' a aU0 .nil cft bodyMap .Bot .Bot sel-nil =
       mkSigma Bot (mkSigma tt (mkSigma aU0 (EvalRel-Bot M (extendEnv rho' Bot))))
     sel-body-from-edges rho' crho' a aU0 .(cons _ _) cft bodyMap x v (sel-skip {p} sel) =
-      sel-body-from-edges rho' crho' a aU0 _ (snd (snd cft))
+      sel-body-from-edges rho' crho' a aU0 _ (CFTcons.tail-coh cft)
         (\ q ein -> bodyMap q (there ein)) x v sel
     sel-body-from-edges rho' crho' a aU0 .(cons p _) cft bodyMap .(Sup (fst p) x0)
       .(Sup (snd p) v0) (sel-take {p} {x0} {v0} comp-k comp-v sel) =
@@ -1024,9 +1027,9 @@ EvalRel-subst-forward-wit sigma (Lam A M) rho (FunEl g) crho ev =
           evMp = snd (snd (snd wp))
           czp  = FinMem-coh-u zp a memp
           -- Coherence of fst p from CoherentFunTail
-          cfp  = fst (fst cft)
+          cfp  = CFTcons.key-coh cft
           -- Recursive result for the rest
-          rec   = sel-body-from-edges rho' crho' a aU0 _ (snd (snd cft))
+          rec   = sel-body-from-edges rho' crho' a aU0 _ (CFTcons.tail-coh cft)
                     (\ q ein -> bodyMap q (there ein)) x0 v0 sel
           zr    = fst rec
           lezr  = fst (snd rec)
@@ -1034,7 +1037,7 @@ EvalRel-subst-forward-wit sigma (Lam A M) rho (FunEl g) crho ev =
           evMr  = snd (snd (snd rec))
           czr   = FinMem-coh-u zr a memr
           -- Coherent x0 from recursive Selection
-          cx0   = sel-key-Coherent _ (snd (snd cft)) x0 v0 sel
+          cx0   = sel-key-Coherent _ (CFTcons.tail-coh cft) x0 v0 sel
           -- Derive Comp zp zr from Comp (fst p) x0 via Comp-down
           comp-zp-x0 = Comp-down zp (fst p) x0 lezp comp-k
           comp-zp-zr = Comp-sym zr zp
@@ -1117,12 +1120,12 @@ EvalRel-subst-forward-wit sigma (Pi A B) rho (PiCode a f) crho ev =
       (x v : FinEl) -> Selection g0 x v -> Coherent x
     pi-sel-key-Coherent .nil cft .Bot .Bot sel-nil = tt
     pi-sel-key-Coherent .(cons _ _) cft x v (sel-skip {p} sel) =
-      pi-sel-key-Coherent _ (snd (snd cft)) x v sel
+      pi-sel-key-Coherent _ (CFTcons.tail-coh cft) x v sel
     pi-sel-key-Coherent .(cons p _) cft .(Sup (fst p) x0) .(Sup (snd p) v0)
       (sel-take {p} {x0} {v0} comp-k comp-v sel) =
       Coherent-Sup (fst p) x0 comp-k
-        (fst (fst cft))
-        (pi-sel-key-Coherent _ (snd (snd cft)) x0 v0 sel)
+        (CFTcons.key-coh cft)
+        (pi-sel-key-Coherent _ (CFTcons.tail-coh cft) x0 v0 sel)
     -- Rebuild selection body for Pi case
     pi-sel-body :
       (rho' : EnvApprox _) -> CoherentEnv rho' ->
@@ -1137,7 +1140,7 @@ EvalRel-subst-forward-wit sigma (Pi A B) rho (PiCode a f) crho ev =
     pi-sel-body rho' crho' a' a'U0 .nil cft bodyMap .Bot .Bot sel-nil =
       mkSigma Bot (mkSigma tt (mkSigma a'U0 (EvalRel-Bot B (extendEnv rho' Bot))))
     pi-sel-body rho' crho' a' a'U0 .(cons _ _) cft bodyMap x v (sel-skip {p} sel) =
-      pi-sel-body rho' crho' a' a'U0 _ (snd (snd cft))
+      pi-sel-body rho' crho' a' a'U0 _ (CFTcons.tail-coh cft)
         (\ q ein -> bodyMap q (there ein)) x v sel
     pi-sel-body rho' crho' a' a'U0 .(cons p _) cft bodyMap .(Sup (fst p) x0)
       .(Sup (snd p) v0) (sel-take {p} {x0} {v0} comp-k comp-v sel) =
@@ -1147,15 +1150,15 @@ EvalRel-subst-forward-wit sigma (Pi A B) rho (PiCode a f) crho ev =
           memp = fst (snd (snd wp))
           evBp = snd (snd (snd wp))
           czp  = FinMem-coh-u zp a' memp
-          cfp  = fst (fst cft)
-          rec   = pi-sel-body rho' crho' a' a'U0 _ (snd (snd cft))
+          cfp  = CFTcons.key-coh cft
+          rec   = pi-sel-body rho' crho' a' a'U0 _ (CFTcons.tail-coh cft)
                     (\ q ein -> bodyMap q (there ein)) x0 v0 sel
           zr    = fst rec
           lezr  = fst (snd rec)
           memr  = fst (snd (snd rec))
           evBr  = snd (snd (snd rec))
           czr   = FinMem-coh-u zr a' memr
-          cx0   = pi-sel-key-Coherent _ (snd (snd cft)) x0 v0 sel
+          cx0   = pi-sel-key-Coherent _ (CFTcons.tail-coh cft) x0 v0 sel
           comp-zp-x0 = Comp-down zp (fst p) x0 lezp comp-k
           comp-zp-zr = Comp-sym zr zp
                          (Comp-down zr x0 zp lezr (Comp-sym zp x0 comp-zp-x0))
@@ -1231,3 +1234,104 @@ EvalRel-subst1-forward M N rho u crho ev =
            })
       evM'  = EvalRel-mon-env M rho' (extendEnv rho v) u evM envle
   in mkSigma v (mkSigma evN evM')
+
+------------------------------------------------------------------------
+-- Part 11: EvalRel-Pi-app-type
+--
+-- If EvalRel (Pi A B) rho (PiCode b f) and EvalRel a rho v,
+-- then EvalRel (subst1 B a) rho (EvalFun f v).
+--
+-- Proof: Pi-edgewise gives per-edge EvalRel B witnesses. By list
+-- induction on f, combine firing-edge witnesses via EvalRel-Sup to
+-- build EvalRel B (extendEnv rho v) (EvalFun f v), then apply
+-- EvalRel-subst1-backward.
+------------------------------------------------------------------------
+
+-- Helper: by list induction on f, build EvalRel B (extendEnv rho v) (EvalFun f v)
+-- from per-edge witnesses.
+mutual
+ EvalRel-body-EvalFun :
+  {n : Nat} (B : Expr (suc n)) (rho : EnvApprox n) (v : FinEl)
+  (a' : FinEl) (f : FinFun) ->
+  CoherentEnv rho -> Coherent v -> CoherentFunTail f ->
+  ((p : Edge) -> EdgeIn p f ->
+    Sigma FinEl (\ x ->
+      Pair (LeCode x (fst p))
+           (Pair (FinMem x a')
+                 (EvalRel B (extendEnv rho x) (snd p))))) ->
+  EvalRel B (extendEnv rho v) (EvalFun f v)
+ EvalRel-body-EvalFun B rho v a' nil crho cv cft wf = EvalRel-Bot B (extendEnv rho v)
+ EvalRel-body-EvalFun B rho v a' (cons q rest) crho cv cft wf =
+  EvalRel-body-EvalFun-step (leFinEl (fst q) v) B rho v a' q rest
+    crho cv cft refl wf
+
+ EvalRel-body-EvalFun-step :
+  (k : Nat) ->
+  {n : Nat} (B : Expr (suc n)) (rho : EnvApprox n) (v : FinEl)
+  (a' : FinEl) (q : Edge) (rest : FinFun) ->
+  CoherentEnv rho -> Coherent v -> CoherentFunTail (cons q rest) ->
+  Eq k (leFinEl (fst q) v) ->
+  ((p : Edge) -> EdgeIn p (cons q rest) ->
+    Sigma FinEl (\ x ->
+      Pair (LeCode x (fst p))
+           (Pair (FinMem x a')
+                 (EvalRel B (extendEnv rho x) (snd p))))) ->
+  EvalRel B (extendEnv rho v) (EvalFun-step k (snd q) rest v)
+ -- Non-firing edge: skip to rest
+ EvalRel-body-EvalFun-step zero B rho v a' q rest crho cv cft eq wf =
+  EvalRel-body-EvalFun B rho v a' rest crho cv (CFTcons.tail-coh cft)
+    (\ p ein -> wf p (there ein))
+ -- Firing edge: Sup (snd q) (EvalFun rest v)
+ EvalRel-body-EvalFun-step (suc _) B rho v a' q rest crho cv cft eq wf =
+  let -- IH for rest
+      ih = EvalRel-body-EvalFun B rho v a' rest crho cv
+             (CFTcons.tail-coh cft)
+             (\ p ein -> wf p (there ein))
+      -- Edge witness for q
+      w      = wf q here
+      x      = fst w
+      le-x-u = fst (snd w)
+      mem    = fst (snd (snd w))
+      evB-x  = snd (snd (snd w))
+      -- x <= fst q <= v
+      cx  = FinMem-coh-u x a' mem
+      cqu = CFTcons.key-coh cft
+      le-qu-v = leFinEl-sound (fst q) v (Eq-transport isPos eq tt)
+      le-x-v  = LeCode-trans x (fst q) v cx cqu cv le-x-u le-qu-v
+      -- Transport EvalRel B from (rho, x) to (rho, v)
+      envle = mkSigma (EnvLe-refl rho crho)
+                (mkSigma cx (mkSigma cv le-x-v))
+      evB-v = EvalRel-mon-env B (extendEnv rho x) (extendEnv rho v)
+                (snd q) evB-x envle
+      -- Combine via EvalRel-Sup
+      crho-v = mkSigma crho cv
+      cohv = EvalRel-coh B (extendEnv rho v) (snd q) evB-v
+      coh-rest = Coherent-EvalFun rest v (CFTcons.tail-coh cft) cv
+      comp-vr = Comp-value-EvalFun q rest v le-qu-v cv
+                  (CFTcons.val-coh cft)
+                  (CFTcons.compat cft)
+                  (coherentWith-to-compStepFun q rest (CFTcons.compat cft))
+  in EvalRel-Sup B (extendEnv rho v) (snd q) (EvalFun rest v)
+       crho-v cohv coh-rest comp-vr evB-v ih
+
+-- Main theorem
+EvalRel-Pi-app-type :
+  {n : Nat} (A : Expr n) (B : Expr (suc n)) (a : Expr n)
+  (rho : EnvApprox n) (b : FinEl) (f : FinFun) (v : FinEl) ->
+  CoherentEnv rho ->
+  EvalRel (Pi A B) rho (PiCode b f) ->
+  EvalRel a rho v ->
+  EvalRel (subst1 B a) rho (EvalFun f v)
+EvalRel-Pi-app-type A B a rho b f v crho evPi eva =
+  let -- Pi-edgewise decomposition
+      pew  = Pi-edgewise A B rho b f evPi
+      caf  = fst pew
+      a'   = fst (snd (snd pew))
+      wf   = snd (snd (snd (snd pew)))
+      -- Coherence
+      cf   = snd caf
+      cft  = cft-from-cf f cf
+      cv   = EvalRel-coh a rho v eva
+      -- Build EvalRel B (extendEnv rho v) (EvalFun f v)
+      evB  = EvalRel-body-EvalFun B rho v a' f crho cv cft wf
+  in EvalRel-subst1-backward B a rho v (EvalFun f v) crho eva evB

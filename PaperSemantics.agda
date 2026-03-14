@@ -254,11 +254,19 @@ mutual
   CoherentFun nil         = Empty
   CoherentFun (cons p ps) = CoherentFunTail (cons p ps)
 
+  record CFTcons (p : Pair FinEl FinEl) (ps : FinFun) : Set where
+    inductive
+    constructor mkCFT
+    field
+      key-coh  : Coherent (fst p)
+      val-coh  : Coherent (snd p)
+      val-nbot : NotBot (snd p)
+      compat   : CoherentWith p ps
+      tail-coh : CoherentFunTail ps
+
   CoherentFunTail : FinFun -> Set
   CoherentFunTail nil         = Top
-  CoherentFunTail (cons p ps) =
-    Pair (Pair (Coherent (fst p)) (Pair (Coherent (snd p)) (NotBot (snd p))))
-         (Pair (CoherentWith p ps) (CoherentFunTail ps))
+  CoherentFunTail (cons p ps) = CFTcons p ps
 
   -- Every pair in ps is compatible with p (when keys are compatible)
   CoherentWith : Pair FinEl FinEl -> FinFun -> Set
@@ -275,11 +283,11 @@ cft-from-cf (cons p ps) coh = coh
 -- Coherent (FunEl [(u,v)]) implies Coherent u and Coherent v
 Coherent-singleton-key : (u v : FinEl) ->
   Coherent (FunEl (cons (mkSigma u v) nil)) -> Coherent u
-Coherent-singleton-key u v coh = fst (fst coh)
+Coherent-singleton-key u v coh = CFTcons.key-coh coh
 
 Coherent-singleton-val : (u v : FinEl) ->
   Coherent (FunEl (cons (mkSigma u v) nil)) -> Coherent v
-Coherent-singleton-val u v coh = fst (snd (fst coh))
+Coherent-singleton-val u v coh = CFTcons.val-coh coh
 
 ------------------------------------------------------------------------
 -- Part 5b: Structural projections from FinMem
@@ -635,10 +643,10 @@ mutual
   CompFun-refl : (g : FinFun) -> CoherentFunTail g -> CompFun g g
   CompFun-refl nil         coh = tt
   CompFun-refl (cons s ss) coh =
-    mkSigma (mkSigma (\ _ -> Comp-refl (snd s) (fst (snd (fst coh))))
-                      (coherentWith-to-compStepFun s ss (fst (snd coh))))
-            (CompFun-cons-right s ss ss (fst (snd coh))
-              (CompFun-refl ss (snd (snd coh))))
+    mkSigma (mkSigma (\ _ -> Comp-refl (snd s) (CFTcons.val-coh coh))
+                      (coherentWith-to-compStepFun s ss (CFTcons.compat coh)))
+            (CompFun-cons-right s ss ss (CFTcons.compat coh)
+              (CompFun-refl ss (CFTcons.tail-coh coh)))
 
 ------------------------------------------------------------------------
 -- Part 7f-pre: Helper lemmas for "null" FunEl (all values <= Bot)
@@ -888,13 +896,13 @@ mutual
     CoherentFunTail (cons q rest) -> Coherent xi ->
     Comp (EvalFun-step n (snd q) rest xi) (EvalFun h xi)
   comp-EvalFun-step zero    q rest h xi eq csf crf cohk cxi =
-    comp-EvalFun rest h xi crf (snd (snd cohk)) cxi
+    comp-EvalFun rest h xi crf (CFTcons.tail-coh cohk) cxi
   comp-EvalFun-step (suc _) q rest h xi eq csf crf cohk cxi =
     let comp1 = Comp-value-EvalFun q h xi
                   (leFinEl-sound (fst q) xi (Eq-transport isPos eq tt))
-                  cxi (fst (snd (fst cohk)))
+                  cxi (CFTcons.val-coh cohk)
                   (compStepFun-to-coherentWith q h csf) csf
-        comp2 = comp-EvalFun rest h xi crf (snd (snd cohk)) cxi
+        comp2 = comp-EvalFun rest h xi crf (CFTcons.tail-coh cohk) cxi
     in comp-Sup-sym (snd q) (EvalFun rest xi) (EvalFun h xi) comp1 comp2
 
 -- Sup-assoc: associativity of Sup for compatible elements.
@@ -958,16 +966,16 @@ mutual
     Eq (EvalFun-step n (snd q) (append rest h) xi)
        (Sup (EvalFun-step n (snd q) rest xi) (EvalFun h xi))
   EvalFun-append-eq-step zero    q rest h xi eq csf crf cohk cxi =
-    EvalFun-append-eq rest h xi crf (snd (snd cohk)) cxi
+    EvalFun-append-eq rest h xi crf (CFTcons.tail-coh cohk) cxi
   EvalFun-append-eq-step (suc _) q rest h xi eq csf crf cohk cxi =
-    let ih = EvalFun-append-eq rest h xi crf (snd (snd cohk)) cxi
+    let ih = EvalFun-append-eq rest h xi crf (CFTcons.tail-coh cohk) cxi
         step1 : Eq (Sup (snd q) (EvalFun (append rest h) xi))
                     (Sup (snd q) (Sup (EvalFun rest xi) (EvalFun h xi)))
         step1 = Eq-cong (Sup (snd q)) ih
         le-q = leFinEl-sound (fst q) xi (Eq-transport isPos eq tt)
-        comp-qr = Comp-value-EvalFun q rest xi le-q cxi (fst (snd (fst cohk)))
-                    (fst (snd cohk)) (coherentWith-to-compStepFun q rest (fst (snd cohk)))
-        comp-rh = comp-EvalFun rest h xi crf (snd (snd cohk)) cxi
+        comp-qr = Comp-value-EvalFun q rest xi le-q cxi (CFTcons.val-coh cohk)
+                    (CFTcons.compat cohk) (coherentWith-to-compStepFun q rest (CFTcons.compat cohk))
+        comp-rh = comp-EvalFun rest h xi crf (CFTcons.tail-coh cohk) cxi
         step2 : Eq (Sup (Sup (snd q) (EvalFun rest xi)) (EvalFun h xi))
                     (Sup (snd q) (Sup (EvalFun rest xi) (EvalFun h xi)))
         step2 = Sup-assoc (snd q) (EvalFun rest xi) (EvalFun h xi)
@@ -1007,10 +1015,10 @@ mutual
     CoherentFunTail (append g h)
   CoherentFunTail-append nil h cohg cohh cgh = cohh
   CoherentFunTail-append (cons p ps) h cohg cohh cgh =
-    mkSigma (fst cohg)
-            (mkSigma (coherentWith-append p ps h (fst (snd cohg))
-                       (compStepFun-to-coherentWith p h (fst cgh)))
-                     (CoherentFunTail-append ps h (snd (snd cohg)) cohh (snd cgh)))
+    mkCFT (CFTcons.key-coh cohg) (CFTcons.val-coh cohg) (CFTcons.val-nbot cohg)
+          (coherentWith-append p ps h (CFTcons.compat cohg)
+            (compStepFun-to-coherentWith p h (fst cgh)))
+          (CoherentFunTail-append ps h (CFTcons.tail-coh cohg) cohh (snd cgh))
 
   -- CoherentFun for appended functions (wrapper taking CoherentFun)
   CoherentFun-append : (g h : FinFun) ->
@@ -1055,14 +1063,14 @@ mutual
     CoherentFunTail (cons q rest) -> Coherent x -> FinMemAllU (cons q rest) d ->
     FinMem (EvalFun-step n (snd q) rest x) UCode
   EvalFun-in-UCode-step zero    q rest x d eq cohf cx allU =
-    EvalFun-in-UCode rest x d (snd (snd cohf)) cx (snd allU)
+    EvalFun-in-UCode rest x d (CFTcons.tail-coh cohf) cx (snd allU)
   EvalFun-in-UCode-step (suc _) q rest x d eq cohf cx allU =
     let vU = snd (fst allU)
-        restU = EvalFun-in-UCode rest x d (snd (snd cohf)) cx (snd allU)
+        restU = EvalFun-in-UCode rest x d (CFTcons.tail-coh cohf) cx (snd allU)
         comp-vr = Comp-value-EvalFun q rest x
                     (leFinEl-sound (fst q) x (Eq-transport isPos eq tt))
-                    cx (fst (snd (fst cohf))) (fst (snd cohf))
-                    (coherentWith-to-compStepFun q rest (fst (snd cohf)))
+                    cx (CFTcons.val-coh cohf) (CFTcons.compat cohf)
+                    (coherentWith-to-compStepFun q rest (CFTcons.compat cohf))
     in finMemUCode-Sup (snd q) (EvalFun rest x) comp-vr vU restU
 
   -- FinMemAllU for appended functions with Sup domain
@@ -1077,10 +1085,10 @@ mutual
   FinMemAllU-append-Sup d c (cons p ps) h cd cohd cohc dU cU cohf cohh memf memh =
     mkSigma
       (mkSigma (finMem-Sup-left d c (fst p) cd cohd cohc cU
-                  (fst (fst cohf)) (fst (fst memf)))
+                  (CFTcons.key-coh cohf) (fst (fst memf)))
                (snd (fst memf)))
       (FinMemAllU-append-Sup d c ps h cd cohd cohc dU cU
-        (snd (snd cohf)) cohh (snd memf) memh)
+        (CFTcons.tail-coh cohf) cohh (snd memf) memh)
 
   -- FinMemAllU using finMem-Sup-right for the right-side entries
   FinMemAllU-Sup-right : (d c : FinEl) (h : FinFun) ->
@@ -1092,10 +1100,10 @@ mutual
   FinMemAllU-Sup-right d c (cons p ps) cd dU cohc cohh memh =
     mkSigma
       (mkSigma (finMem-Sup-right d c (fst p) cd dU
-                  (fst (fst cohh)) (fst (fst memh)))
+                  (CFTcons.key-coh cohh) (fst (fst memh)))
                (snd (fst memh)))
       (FinMemAllU-Sup-right d c ps cd dU cohc
-        (snd (snd cohh)) (snd memh))
+        (CFTcons.tail-coh cohh) (snd memh))
 
   -- finMem-Sup-right: membership in right component implies membership in Sup
   -- Strengthened: takes FinMem a UCode instead of Coherent a
@@ -1168,9 +1176,9 @@ mutual
     FinMemFun g c h -> FinMemFun g (Sup d c) (append k h)
   finMemFun-Sup-right d c k h nil cd ckh dU allUk cohk cohg mem = tt
   finMemFun-Sup-right d c k h (cons p ps) cd ckh dU allUk cohk cohg mem =
-    let key-mem = finMem-Sup-right d c (fst p) cd dU (fst (fst cohg)) (fst (fst mem))
-        val-mem = finMem-EvalFun-append d k h (fst p) (snd p) ckh cohk (fst (fst cohg)) (fst (snd (fst cohg))) allUk (snd (fst mem))
-        tail-mem = finMemFun-Sup-right d c k h ps cd ckh dU allUk cohk (snd (snd cohg)) (snd mem)
+    let key-mem = finMem-Sup-right d c (fst p) cd dU (CFTcons.key-coh cohg) (fst (fst mem))
+        val-mem = finMem-EvalFun-append d k h (fst p) (snd p) ckh cohk (CFTcons.key-coh cohg) (CFTcons.val-coh cohg) allUk (snd (fst mem))
+        tail-mem = finMemFun-Sup-right d c k h ps cd ckh dU allUk cohk (CFTcons.tail-coh cohg) (snd mem)
     in mkSigma (mkSigma key-mem val-mem) tail-mem
 
   -- Transfer membership through append (strengthened with FinMemAllU)
@@ -1180,16 +1188,16 @@ mutual
     FinMem yi (EvalFun h xi) -> FinMem yi (EvalFun (append k h) xi)
   finMem-EvalFun-append d nil h xi yi ckh cohk cxi cohyi allU mem = mem
   finMem-EvalFun-append d (cons q qs) h xi yi ckh cohk cxi cohyi allU mem =
-    let ih = finMem-EvalFun-append d qs h xi yi (snd ckh) (snd (snd cohk)) cxi cohyi (snd allU) mem
+    let ih = finMem-EvalFun-append d qs h xi yi (snd ckh) (CFTcons.tail-coh cohk) cxi cohyi (snd allU) mem
         csf = compStepFun-append q qs h
-                (coherentWith-to-compStepFun q qs (fst (snd cohk)))
+                (coherentWith-to-compStepFun q qs (CFTcons.compat cohk))
                 (fst ckh)
         cw  = coherentWith-append q qs h
-                (fst (snd cohk))
+                (CFTcons.compat cohk)
                 (compStepFun-to-coherentWith q h (fst ckh))
         vU  = snd (fst allU)
     in finMem-EvalFun-prepend (leFinEl (fst q) xi) q (append qs h) xi yi
-         refl cxi (fst (snd (fst cohk))) vU cw csf cohyi ih
+         refl cxi (CFTcons.val-coh cohk) vU cw csf cohyi ih
 
   -- Prepend: case split on leFinEl value (strengthened with FinMem (snd q) UCode)
   finMem-EvalFun-prepend : (n : Nat) (q : Pair FinEl FinEl) (rest : FinFun)
@@ -1277,18 +1285,18 @@ mutual
   finMemFun-Sup-left d c k h nil cd ckh cohd cohc cU allUh cohk cohh cohg mem = tt
   finMemFun-Sup-left d c k h (cons p ps) cd ckh cohd cohc cU allUh cohk cohh cohg mem =
     let key-mem = finMem-Sup-left d c (fst p) cd cohd cohc cU
-                    (fst (fst cohg)) (fst (fst mem))
-        eval-eq = EvalFun-append-eq k h (fst p) ckh cohk (fst (fst cohg))
-        comp-eval = comp-EvalFun k h (fst p) ckh cohk (fst (fst cohg))
-        coh-eval-k = Coherent-EvalFun k (fst p) cohk (fst (fst cohg))
-        coh-eval-h = Coherent-EvalFun h (fst p) cohh (fst (fst cohg))
-        evalh-U = EvalFun-in-UCode h (fst p) c cohh (fst (fst cohg)) allUh
+                    (CFTcons.key-coh cohg) (fst (fst mem))
+        eval-eq = EvalFun-append-eq k h (fst p) ckh cohk (CFTcons.key-coh cohg)
+        comp-eval = comp-EvalFun k h (fst p) ckh cohk (CFTcons.key-coh cohg)
+        coh-eval-k = Coherent-EvalFun k (fst p) cohk (CFTcons.key-coh cohg)
+        coh-eval-h = Coherent-EvalFun h (fst p) cohh (CFTcons.key-coh cohg)
+        evalh-U = EvalFun-in-UCode h (fst p) c cohh (CFTcons.key-coh cohg) allUh
         val-left = finMem-Sup-left (EvalFun k (fst p)) (EvalFun h (fst p)) (snd p)
                      comp-eval coh-eval-k coh-eval-h evalh-U
-                     (fst (snd (fst cohg))) (snd (fst mem))
+                     (CFTcons.val-coh cohg) (snd (fst mem))
         val-mem = Eq-transport (FinMem (snd p)) (Eq-sym eval-eq) val-left
         tail-mem = finMemFun-Sup-left d c k h ps cd ckh cohd cohc cU allUh cohk cohh
-                     (snd (snd cohg)) (snd mem)
+                     (CFTcons.tail-coh cohg) (snd mem)
     in mkSigma (mkSigma key-mem val-mem) tail-mem
 
   -- Coherent-EvalFun: evaluation of a coherent function at a coherent
@@ -1305,14 +1313,14 @@ mutual
     CoherentFunTail (cons q rest) -> Coherent u ->
     Coherent (EvalFun-step n (snd q) rest u)
   Coherent-EvalFun-step zero    q rest u eq cohk cohu =
-    Coherent-EvalFun rest u (snd (snd cohk)) cohu
+    Coherent-EvalFun rest u (CFTcons.tail-coh cohk) cohu
   Coherent-EvalFun-step (suc _) q rest u eq cohk cohu =
-    let cohv = fst (snd (fst cohk))
-        coh-rest = Coherent-EvalFun rest u (snd (snd cohk)) cohu
+    let cohv = CFTcons.val-coh cohk
+        coh-rest = Coherent-EvalFun rest u (CFTcons.tail-coh cohk) cohu
         comp-vr = Comp-value-EvalFun q rest u
                     (leFinEl-sound (fst q) u (Eq-transport isPos eq tt))
-                    cohu cohv (fst (snd cohk))
-                    (coherentWith-to-compStepFun q rest (fst (snd cohk)))
+                    cohu cohv (CFTcons.compat cohk)
+                    (coherentWith-to-compStepFun q rest (CFTcons.compat cohk))
     in Coherent-Sup (snd q) (EvalFun rest u) comp-vr cohv coh-rest
 
 ------------------------------------------------------------------------
@@ -1330,7 +1338,7 @@ Coherent-keys (cons p ps) = Pair (Coherent (fst p)) (Coherent-keys ps)
 CoherentFun-keys : (g : FinFun) -> CoherentFunTail g -> Coherent-keys g
 CoherentFun-keys nil         coh = tt
 CoherentFun-keys (cons p ps) coh =
-  mkSigma (fst (fst coh)) (CoherentFun-keys ps (snd (snd coh)))
+  mkSigma (CFTcons.key-coh coh) (CoherentFun-keys ps (CFTcons.tail-coh coh))
 
 {-# TERMINATING #-}
 mutual
@@ -1347,8 +1355,8 @@ mutual
   LeFunCode-refl (cons p ps) coh =
     mkSigma
       (LeFunCode-refl-head-step (leFinEl (fst p) (fst p)) p ps refl coh)
-      (LeFunCode-cons-lift ps p ps coh (snd (snd coh))
-        (LeFunCode-refl ps (snd (snd coh))))
+      (LeFunCode-cons-lift ps p ps coh (CFTcons.tail-coh coh)
+        (LeFunCode-refl ps (CFTcons.tail-coh coh)))
 
   LeFunCode-refl-head-step : (n : Nat) (p : Pair FinEl FinEl) (ps : FinFun) ->
     Eq n (leFinEl (fst p) (fst p)) ->
@@ -1357,16 +1365,16 @@ mutual
   LeFunCode-refl-head-step zero    p ps eq coh
     with Eq-transport isPos (Eq-sym eq)
            (leFinEl-complete (fst p) (fst p)
-             (LeCode-refl (fst p) (fst (fst coh))))
+             (LeCode-refl (fst p) (CFTcons.key-coh coh)))
   ... | ()
   LeFunCode-refl-head-step (suc _) p ps eq coh =
     LeCode-Sup-left (snd p) (EvalFun ps (fst p))
       (Comp-value-EvalFun p ps (fst p)
-        (LeCode-refl (fst p) (fst (fst coh))) (fst (fst coh))
-        (fst (snd (fst coh)))
-        (fst (snd coh)) (coherentWith-to-compStepFun p ps (fst (snd coh))))
-      (fst (snd (fst coh)))
-      (Coherent-EvalFun ps (fst p) (snd (snd coh)) (fst (fst coh)))
+        (LeCode-refl (fst p) (CFTcons.key-coh coh)) (CFTcons.key-coh coh)
+        (CFTcons.val-coh coh)
+        (CFTcons.compat coh) (coherentWith-to-compStepFun p ps (CFTcons.compat coh)))
+      (CFTcons.val-coh coh)
+      (Coherent-EvalFun ps (fst p) (CFTcons.tail-coh coh) (CFTcons.key-coh coh))
 
   -- Lifting: if LeFunCode g rest, then LeFunCode g (cons p rest)
   LeFunCode-cons-lift : (g : FinFun) (p : Pair FinEl FinEl) (rest : FinFun) ->
@@ -1376,12 +1384,12 @@ mutual
   LeFunCode-cons-lift (cons q qs) p rest coh cohg le =
     mkSigma
       (LeCode-trans (snd q) (EvalFun rest (fst q)) (EvalFun (cons p rest) (fst q))
-        (fst (snd (fst cohg)))
-        (Coherent-EvalFun rest (fst q) (snd (snd coh)) (fst (fst cohg)))
-        (Coherent-EvalFun (cons p rest) (fst q) coh (fst (fst cohg)))
+        (CFTcons.val-coh cohg)
+        (Coherent-EvalFun rest (fst q) (CFTcons.tail-coh coh) (CFTcons.key-coh cohg))
+        (Coherent-EvalFun (cons p rest) (fst q) coh (CFTcons.key-coh cohg))
         (fst le)
-        (EvalFun-cons-mono p rest (fst q) coh (fst (fst cohg))))
-      (LeFunCode-cons-lift qs p rest coh (snd (snd cohg)) (snd le))
+        (EvalFun-cons-mono p rest (fst q) coh (CFTcons.key-coh cohg)))
+      (LeFunCode-cons-lift qs p rest coh (CFTcons.tail-coh cohg) (snd le))
 
   -- Prepending entry: EvalFun rest u ≤ EvalFun (cons q rest) u
   EvalFun-cons-mono : (q : Pair FinEl FinEl) (rest : FinFun) (u : FinEl) ->
@@ -1396,12 +1404,12 @@ mutual
     CoherentFunTail (cons q rest) -> Coherent u ->
     LeCode (EvalFun rest u) (EvalFun-step n (snd q) rest u)
   EvalFun-cons-mono-step zero    q rest u eq coh cu =
-    LeCode-refl (EvalFun rest u) (Coherent-EvalFun rest u (snd (snd coh)) cu)
+    LeCode-refl (EvalFun rest u) (Coherent-EvalFun rest u (CFTcons.tail-coh coh) cu)
   EvalFun-cons-mono-step (suc _) q rest u eq coh cu =
     let le-key = leFinEl-sound (fst q) u (Eq-transport isPos eq tt)
-        cohv = fst (snd (fst coh))
-        cw = fst (snd coh)
-        cohrest = snd (snd coh)
+        cohv = CFTcons.val-coh coh
+        cw = CFTcons.compat coh
+        cohrest = CFTcons.tail-coh coh
         comp = Comp-value-EvalFun q rest u le-key cu cohv
                  cw (coherentWith-to-compStepFun q rest cw)
     in LeCode-Sup-right (snd q) (EvalFun rest u) comp
@@ -1486,12 +1494,12 @@ mutual
   LeFunCode-trans (cons p ps) h k cohg cohh cohk gh hk =
     mkSigma
       (LeCode-trans (snd p) (EvalFun h (fst p)) (EvalFun k (fst p))
-        (fst (snd (fst cohg)))
-        (Coherent-EvalFun h (fst p) cohh (fst (fst cohg)))
-        (Coherent-EvalFun k (fst p) cohk (fst (fst cohg)))
+        (CFTcons.val-coh cohg)
+        (Coherent-EvalFun h (fst p) cohh (CFTcons.key-coh cohg))
+        (Coherent-EvalFun k (fst p) cohk (CFTcons.key-coh cohg))
         (fst gh)
-        (EvalFun-mon h k (fst p) cohh cohk (fst (fst cohg)) hk))
-      (LeFunCode-trans ps h k (snd (snd cohg)) cohh cohk (snd gh) hk)
+        (EvalFun-mon h k (fst p) cohh cohk (CFTcons.key-coh cohg) hk))
+      (LeFunCode-trans ps h k (CFTcons.tail-coh cohg) cohh cohk (snd gh) hk)
 
   -- LeFunCode-nil-any: if all values in g are <= Bot, then g <= k for any k
   LeFunCode-nil-any : (g k : FinFun) ->
@@ -1500,11 +1508,11 @@ mutual
   LeFunCode-nil-any (cons p ps) k cohg cohk lg =
     mkSigma
       (LeCode-trans (snd p) Bot (EvalFun k (fst p))
-        (fst (snd (fst cohg)))
+        (CFTcons.val-coh cohg)
         tt
-        (Coherent-EvalFun k (fst p) cohk (fst (fst cohg)))
+        (Coherent-EvalFun k (fst p) cohk (CFTcons.key-coh cohg))
         (fst lg) tt)
-      (LeFunCode-nil-any ps k (snd (snd cohg)) cohk (snd lg))
+      (LeFunCode-nil-any ps k (CFTcons.tail-coh cohg) cohk (snd lg))
 
   -- EvalFun monotone in function arg
   EvalFun-mon : (h k : FinFun) (u : FinEl) ->
@@ -1521,11 +1529,11 @@ mutual
     LeFunCode (cons q qs) k ->
     LeCode (EvalFun-step n (snd q) qs u) (EvalFun k u)
   EvalFun-mon-step zero    q qs k u eq cohh cohk cu hk =
-    EvalFun-mon qs k u (snd (snd cohh)) cohk cu (snd hk)
+    EvalFun-mon qs k u (CFTcons.tail-coh cohh) cohk cu (snd hk)
   EvalFun-mon-step (suc _) q qs k u eq cohh cohk cu hk =
     let le-key = leFinEl-sound (fst q) u (Eq-transport isPos eq tt)
-        cq = fst (fst cohh)
-        cv = fst (snd (fst cohh))
+        cq = CFTcons.key-coh cohh
+        cv = CFTcons.val-coh cohh
     in LeCode-Sup-lub (snd q) (EvalFun qs u) (EvalFun k u)
          (LeCode-trans (snd q) (EvalFun k (fst q)) (EvalFun k u)
            cv
@@ -1533,7 +1541,7 @@ mutual
            (Coherent-EvalFun k u cohk cu)
            (fst hk)
            (EvalFun-mon-arg k (fst q) u le-key cohk cq cu))
-         (EvalFun-mon qs k u (snd (snd cohh)) cohk cu (snd hk))
+         (EvalFun-mon qs k u (CFTcons.tail-coh cohh) cohk cu (snd hk))
 
   -- Sup is LUB: a ≤ c and b ≤ c implies Sup a b ≤ c
   LeCode-Sup-lub : (a b c : FinEl) -> LeCode a c -> LeCode b c ->
@@ -1579,8 +1587,8 @@ mutual
         (leFinEl (fst p) (fst p)) p (append ps h) refl
         coh-append)
       (LeFunCode-cons-lift ps p (append ps h)
-        coh-append (snd (snd cohg))
-        (LeFunCode-append-left ps h (snd comp) (snd (snd cohg)) cohh))
+        coh-append (CFTcons.tail-coh cohg)
+        (LeFunCode-append-left ps h (snd comp) (CFTcons.tail-coh cohg) cohh))
 
   LeFunCode-append-right : (g h : FinFun) -> CompFun g h ->
     CoherentFunTail g -> CoherentFunTail h ->
@@ -1596,7 +1604,7 @@ mutual
   LeFunCode-append-right-go nil         h rest comp coh cohh le = le
   LeFunCode-append-right-go (cons p ps) h rest comp coh cohh le =
     LeFunCode-cons-lift h p (append ps rest) coh cohh
-      (LeFunCode-append-right-go ps h rest (snd comp) (snd (snd coh)) cohh le)
+      (LeFunCode-append-right-go ps h rest (snd comp) (CFTcons.tail-coh coh) cohh le)
 
   -- EvalFun monotone in argument: u ≤ v → EvalFun k u ≤ EvalFun k v
   EvalFun-mon-arg : (k : FinFun) (u v : FinEl) ->
@@ -1613,10 +1621,10 @@ mutual
     LeCode (EvalFun-step n (snd q) qs u) (EvalFun (cons q qs) v)
   EvalFun-mon-arg-step zero    q qs u v eq le cohk cu cv =
     LeCode-trans (EvalFun qs u) (EvalFun qs v) (EvalFun (cons q qs) v)
-      (Coherent-EvalFun qs u (snd (snd cohk)) cu)
-      (Coherent-EvalFun qs v (snd (snd cohk)) cv)
+      (Coherent-EvalFun qs u (CFTcons.tail-coh cohk) cu)
+      (Coherent-EvalFun qs v (CFTcons.tail-coh cohk) cv)
       (Coherent-EvalFun (cons q qs) v cohk cv)
-      (EvalFun-mon-arg qs u v le (snd (snd cohk)) cu cv)
+      (EvalFun-mon-arg qs u v le (CFTcons.tail-coh cohk) cu cv)
       (EvalFun-cons-mono q qs v cohk cv)
   EvalFun-mon-arg-step (suc x) q qs u v eq le cohk cu cv =
     EvalFun-mon-arg-suc x (leFinEl (fst q) v) q qs u v eq refl le cohk cu cv
@@ -1632,15 +1640,15 @@ mutual
     with Eq-transport isPos (Eq-sym eqv)
            (leFinEl-complete (fst q) v
              (LeCode-trans (fst q) u v
-               (fst (fst cohk)) cu cv
+               (CFTcons.key-coh cohk) cu cv
                (leFinEl-sound (fst q) u (Eq-transport isPos equ tt)) le))
   ... | ()
   EvalFun-mon-arg-suc x (suc _) q qs u v equ eqv le cohk cu cv =
-    let cohv = fst (snd (fst cohk))
-        cohrest = snd (snd cohk)
-        cw = fst (snd cohk)
+    let cohv = CFTcons.val-coh cohk
+        cohrest = CFTcons.tail-coh cohk
+        cw = CFTcons.compat cohk
         le-key-v = LeCode-trans (fst q) u v
-                     (fst (fst cohk)) cu cv
+                     (CFTcons.key-coh cohk) cu cv
                      (leFinEl-sound (fst q) u (Eq-transport isPos equ tt)) le
         coh-rest-u = Coherent-EvalFun qs u cohrest cu
         coh-rest-v = Coherent-EvalFun qs v cohrest cv

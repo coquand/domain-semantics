@@ -20,7 +20,7 @@ open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ; fst ; snd 
               Pair ; List ; nil ; cons ; Eq ; refl ; Eq-transport ; Eq-sym ;
               FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun)
 open import PaperSemantics using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-Bot ;
-  Coherent ; CoherentFun ; CoherentFunTail ; cft-from-cf ;
+  Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; mkCFT ; cft-from-cf ;
   CoherentWith ;
   NotBot ; FinMem ; FinMemFun ; FinMemAllU ; FinMem-coh-u ; FinMem-a-in-U ; coh-from-aU ;
   finMem-upward ;
@@ -33,6 +33,7 @@ open import PaperSemantics using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-B
   LeFunCode ; LeFunCode-refl ; append ;
   EvalFun-in-UCode ;
   finMemUCode-Sup ; Comp-refl)
+open CFTcons
 open import Selection using (Selection ; Edge ; EdgeIn ; here ; there ;
   sel-nil ; sel-take ; sel-skip ;
   Coherent-Selection ; Coherent-Selection-val ;
@@ -149,12 +150,11 @@ replaceKeys-CoherentFunTail M rho a (cons p ps) crho cg wf =
       mp  = fst (snd (snd wp))
       evp = snd (snd (snd wp))
       cxp = FinMem-coh-u xp a mp
-      cv-nb = snd (fst cg)
       cw = replaceKeys-CoherentWith M rho a (mkSigma xp (snd p)) ps crho mp evp
              (\ q qin -> wf q (there qin))
       tail-cft = replaceKeys-CoherentFunTail M rho a ps crho
-                   (snd (snd cg)) (\ q qin -> wf q (there qin))
-  in mkSigma (mkSigma cxp cv-nb) (mkSigma cw tail-cft)
+                   (tail-coh cg) (\ q qin -> wf q (there qin))
+  in mkCFT cxp (val-coh cg) (val-nbot cg) cw tail-cft
 
 ------------------------------------------------------------------------
 -- Helper: LeFunCode-lookup
@@ -188,10 +188,10 @@ EvalFun-edge-le e (cons p ps) u cg ein cu le =
     cft-edge-val : (e : Edge) (g : FinFun) ->
       CoherentFunTail g -> EdgeIn e g ->
       Pair (Coherent (snd e)) (NotBot (snd e))
-    cft-edge-val e (cons p ps) cg here = snd (fst cg)
+    cft-edge-val e (cons p ps) cg here = mkSigma (val-coh cg) (val-nbot cg)
     cft-edge-val e (cons p nil) cg (there ())
     cft-edge-val e (cons p (cons q qs)) cg (there ein) =
-      cft-edge-val e (cons q qs) (snd (snd cg)) ein
+      cft-edge-val e (cons q qs) (tail-coh cg) ein
 
 ------------------------------------------------------------------------
 -- Helper: LeFunCode from old graph to replacement graph
@@ -218,7 +218,7 @@ replaceKeys-LeFunCode M rho a (cons p ps) crho cg wf =
       wp   = wf p here
       xp   = fst wp
       le-x = fst (snd wp)
-      ck-p = fst (fst cg)
+      ck-p = key-coh cg
       head-le = EvalFun-edge-le (mkSigma xp (snd p)) g' (fst p)
                   cft' here ck-p le-x
       tail-le = replaceKeys-LeFunCode-tail ps (cons p ps) cg wf
@@ -229,10 +229,10 @@ replaceKeys-LeFunCode M rho a (cons p ps) crho cg wf =
     cft-edge : {g : FinFun} -> CoherentFunTail g -> {e : Edge} ->
       EdgeIn e g -> CoherentFunTail (cons e nil)
     cft-edge {cons p ps} cg here =
-      mkSigma (fst cg) (mkSigma tt tt)
+      mkCFT (key-coh cg) (val-coh cg) (val-nbot cg) tt tt
     cft-edge {cons p nil} cg (there ())
     cft-edge {cons p (cons q qs)} cg (there ein) =
-      cft-edge (snd (snd cg)) ein
+      cft-edge (tail-coh cg) ein
 
     replaceKeys-LeFunCode-tail :
       (ps orig : FinFun) ->
@@ -255,7 +255,7 @@ replaceKeys-LeFunCode M rho a (cons p ps) crho cg wf =
           xq    = fst wq
           le-xq = fst (snd wq)
           cft'  = replaceKeys-CoherentFunTail M rho a orig crho cg wf
-          ck-q  = fst (fst (cft-edge cg (shift q here)))
+          ck-q  = key-coh (cft-edge cg (shift q here))
           head  = EvalFun-edge-le
                     (mkSigma xq (snd q))
                     (replaceKeys orig (\ r rin -> fst (wf r rin)))
@@ -293,7 +293,7 @@ replaceKeys-selection-body M rho a (cons p g') u v crho aU cg' ew (sel-skip sel)
   where
     cft-tail : (g : FinFun) -> CoherentFunTail (cons p g) -> CoherentFunTail g
     cft-tail nil cft = tt
-    cft-tail (cons q qs) cft = snd (snd cft)
+    cft-tail (cons q qs) cft = tail-coh cft
 -- sel-take: combine edge with IH
 replaceKeys-selection-body M rho a (cons p g') .(Sup (fst p) u') .(Sup (snd p) v')
     crho aU cg' ew (sel-take {.p} {u'} {v'} comp-k comp-v sel) =
@@ -333,7 +333,7 @@ replaceKeys-selection-body M rho a (cons p g') .(Sup (fst p) u') .(Sup (snd p) v
   where
     cft-tail : (g : FinFun) -> CoherentFunTail (cons p g) -> CoherentFunTail g
     cft-tail nil cft = tt
-    cft-tail (cons q qs) cft = snd (snd cft)
+    cft-tail (cons q qs) cft = tail-coh cft
 
     -- Get Coherent u from Selection + edgewise evidence (keys have FinMem hence Coherent)
     coh-sel-key : (h : FinFun) ->
@@ -662,10 +662,10 @@ InvTyp-Lam A B M body-ih rho fits (FunEl g) ev =
 
     cft-edge : {g : FinFun} -> CoherentFunTail g -> {e : Edge} ->
       EdgeIn e g -> CoherentFunTail (cons e nil)
-    cft-edge {cons p ps} cg here = mkSigma (fst cg) (mkSigma tt tt)
+    cft-edge {cons p ps} cg here = mkCFT (key-coh cg) (val-coh cg) (val-nbot cg) tt tt
     cft-edge {cons p nil} cg (there ())
     cft-edge {cons p (cons q qs)} cg (there ein) =
-      cft-edge (snd (snd cg)) ein
+      cft-edge (tail-coh cg) ein
 
     -- CoherentWith for replaced-values graph
     rv-cw : (E : Expr (suc _)) ->
@@ -684,11 +684,11 @@ InvTyp-Lam A B M body-ih rho fits (FunEl g) ev =
       let wt = wf0 t here
           yt = fst wt
           evE-yt = fst (snd (snd (snd wt)))
-          ct = fst (fst crest)
+          ct = key-coh crest
           step : Comp sk (fst t) -> Comp sv yt
           step ck = EvalRel-Comp-ext E rho sk (fst t) sv yt
                       crho0 ck csk ct evs evE-yt
-          tail = rv-cw E sk sv ts crho0 csk (snd (snd crest)) evs
+          tail = rv-cw E sk sv ts crho0 csk (tail-coh crest) evs
                    (\ q qin -> wf0 q (there qin))
       in mkSigma step tail
 
@@ -708,17 +708,16 @@ InvTyp-Lam A B M body-ih rho fits (FunEl g) ev =
           le-vp = fst (snd (snd wp))
           evE-yp = fst (snd (snd (snd wp)))
           fm-yp = fst (snd (snd (snd (snd wp))))
-          ck  = fst (fst cg)
-          cv  = fst (snd (fst cg))
-          nb  = snd (snd (fst cg))
+          ck  = key-coh cg
+          cv  = val-coh cg
+          nb  = val-nbot cg
           cyp = FinMem-coh-u yp bp fm-yp
           nbyp = NotBot-from-Le (snd p) yp cv nb le-vp
-          cps = snd (snd cg)
-          cw  = rv-cw E (fst p) yp ps crho0 ck cps evE-yp
+          cw  = rv-cw E (fst p) yp ps crho0 ck (tail-coh cg) evE-yp
                   (\ q qin -> wf0 q (there qin))
-          tail = rv-cft E ps crho0 (snd (snd cg))
+          tail = rv-cft E ps crho0 (tail-coh cg)
                    (\ q qin -> wf0 q (there qin))
-      in mkSigma (mkSigma ck (mkSigma cyp nbyp)) (mkSigma cw tail)
+      in mkCFT ck cyp nbyp cw tail
 
     -- Edgewise for replaced-values graph (h = yi values)
     rv-ew : (E : Expr (suc _)) -> (a0 : FinEl) ->
@@ -767,11 +766,11 @@ InvTyp-Lam A B M body-ih rho fits (FunEl g) ev =
       let wt = wf0 t here
           bt = fst (snd wt)
           evB-bt = snd (snd (snd (snd (snd wt))))
-          ct = fst (fst crest)
+          ct = key-coh crest
           step : Comp sk (fst t) -> Comp bk bt
           step ck = EvalRel-Comp-ext B rho sk (fst t) bk bt
                       crho0 ck csk ct evs evB-bt
-          tail = rv-cw-f sk bk ts crho0 csk (snd (snd crest)) evs
+          tail = rv-cw-f sk bk ts crho0 csk (tail-coh crest) evs
                    (\ q qin -> wf0 q (there qin))
       in mkSigma step tail
 
@@ -786,18 +785,17 @@ InvTyp-Lam A B M body-ih rho fits (FunEl g) ev =
           le-vp = fst (snd (snd wp))
           fm-yp = fst (snd (snd (snd (snd wp))))
           evB-bp = snd (snd (snd (snd (snd wp))))
-          ck  = fst (fst cg)
-          cv  = fst (snd (fst cg))
-          nb  = snd (snd (fst cg))
+          ck  = key-coh cg
+          cv  = val-coh cg
+          nb  = val-nbot cg
           cbp = EvalRel-coh B (extendEnv rho (fst p)) bp evB-bp
           nbyp = NotBot-from-Le (snd p) yp cv nb le-vp
           nbbp = NotBot-from-FinMem yp bp nbyp fm-yp
-          cps = snd (snd cg)
-          cw  = rv-cw-f (fst p) bp ps crho0 ck cps evB-bp
+          cw  = rv-cw-f (fst p) bp ps crho0 ck (tail-coh cg) evB-bp
                   (\ q qin -> wf0 q (there qin))
-          tail = rv-cft-f ps crho0 (snd (snd cg))
+          tail = rv-cft-f ps crho0 (tail-coh cg)
                    (\ q qin -> wf0 q (there qin))
-      in mkSigma (mkSigma ck (mkSigma cbp nbbp)) (mkSigma cw tail)
+      in mkCFT ck cbp nbbp cw tail
 
     -- LeFunCode tail helper (must be before rv-lf)
     rv-lf-tail : (ps orig : FinFun) -> CoherentFunTail orig ->
@@ -816,8 +814,8 @@ InvTyp-Lam A B M body-ih rho fits (FunEl g) ev =
           le-vq = fst (snd (snd wq))
           fm-yq = fst (snd (snd (snd (snd wq))))
           cft-e = cft-edge cg (shift q here)
-          ck-q  = fst (fst cft-e)
-          cv-q  = fst (snd (fst cft-e))
+          ck-q  = key-coh cft-e
+          cv-q  = val-coh cft-e
           cyq   = FinMem-coh-u yq bq fm-yq
           head-le = EvalFun-edge-le (mkSigma (fst q) yq) h (fst q)
                       cft-h (corr q here) ck-q (LeCode-refl (fst q) ck-q)
@@ -841,8 +839,8 @@ InvTyp-Lam A B M body-ih rho fits (FunEl g) ev =
           yp   = fst wp ; bp = fst (snd wp)
           le-vp = fst (snd (snd wp))
           fm-yp = fst (snd (snd (snd (snd wp))))
-          ck-p = fst (fst cg)
-          cv-p = fst (snd (fst cg))
+          ck-p = key-coh cg
+          cv-p = val-coh cg
           cyp  = FinMem-coh-u yp bp fm-yp
           head-le = EvalFun-edge-le (mkSigma (fst p) yp) h (fst p)
                       cft-h here ck-p (LeCode-refl (fst p) ck-p)
@@ -1014,7 +1012,7 @@ InvTyp-App A B M N rho fits invM invN = invTyp-App-aux
                          (Coherent-EvalFun g' w (cft-from-cf g' cf-g') cw))) tt
           nbv0     = NotBot-from-Le v v0 cv nbv le-v-v0
           cf-v0-sing : Coherent (FunEl (cons (mkSigma w v0) nil))
-          cf-v0-sing = mkSigma (mkSigma cw (mkSigma cv0 nbv0)) (mkSigma tt tt)
+          cf-v0-sing = mkCFT cw cv0 nbv0 tt tt
           evM-v0-sing = EvalRel-down M rho (FunEl g')
                           (FunEl (cons (mkSigma w v0) nil))
                           crho cf-v0-sing evM-g' lf-v0
@@ -1129,7 +1127,7 @@ InvConv-beta {G = G} A B M N rho fits invN body-ih =
         evMy = EvalRel-mon-env M (extendEnv rho v) (extendEnv rho y) u evMv envle
         cu   = EvalRel-coh M (extendEnv rho y) u evMy
         cg-sing : CoherentFun (cons (mkSigma y u) nil)
-        cg-sing = mkSigma (mkSigma cy (mkSigma cu nbu)) (mkSigma tt tt)
+        cg-sing = mkCFT cy cu nbu tt tt
         selBody : (x0 v0 : FinEl) ->
           Selection (cons (mkSigma y u) nil) x0 v0 ->
           Sigma FinEl (\ z0 -> Pair (LeCode z0 x0)
@@ -1254,7 +1252,7 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
           fmui = fmf-key g' a _ fmf p ein
           -- EvalRel F rho (FunEl [(ui, vi)]) by EvalRel-down
           cf-sing : CoherentFun (cons (mkSigma ui vi) nil)
-          cf-sing = mkSigma (mkSigma cui (mkSigma cvi nbvi)) (mkSigma tt tt)
+          cf-sing = mkCFT cui cvi nbvi tt tt
           lf-sing : LeFunCode (cons (mkSigma ui vi) nil) g'
           lf-sing = mkSigma (EvalFun-edge-le p g' ui cft ein cui
                       (LeCode-refl ui cui)) tt
@@ -1276,9 +1274,9 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
         cft-edge-val : (e : Edge) (h : FinFun) ->
           CoherentFunTail h -> EdgeIn e h ->
           Pair (Coherent (snd e)) (NotBot (snd e))
-        cft-edge-val e (cons q qs) cft here = snd (fst cft)
+        cft-edge-val e (cons q qs) cft here = mkSigma (val-coh cft) (val-nbot cft)
         cft-edge-val e (cons q (cons r rs)) cft (there ein) =
-          cft-edge-val e (cons r rs) (snd (snd cft)) ein
+          cft-edge-val e (cons r rs) (tail-coh cft) ein
 
     -- Combine per-edge evidence: fold over a list of edges (subset of g'),
     -- building EvalRel F' rho (FunEl combined) via EvalRel-Sup.
@@ -1306,11 +1304,11 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
           cvi  = fst (cft-edge-val p gf cft-gf ein)
           nbvi = snd (cft-edge-val p gf cft-gf ein)
           cf-orig : CoherentFun (cons p nil)
-          cf-orig = mkSigma (mkSigma cui (mkSigma cvi nbvi)) (mkSigma tt tt)
+          cf-orig = mkCFT cui cvi nbvi tt tt
           -- LeFunCode [(fst p, snd p)] [(wp, snd p)]
           -- Need: LeCode (snd p) (EvalFun [(wp, snd p)] (fst p))
           cft-wp = cft-from-cf (cons (mkSigma wp (snd p)) nil)
-                     (mkSigma (mkSigma cwp (mkSigma cvi nbvi)) (mkSigma tt tt))
+                     (mkCFT cwp cvi nbvi tt tt)
           le-v = EvalFun-edge-le (mkSigma wp (snd p))
                    (cons (mkSigma wp (snd p)) nil) (fst p)
                    cft-wp here cui le-wp
@@ -1322,9 +1320,9 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
         cft-edge-val : (e : Edge) (h0 : FinFun) ->
           CoherentFunTail h0 -> EdgeIn e h0 ->
           Pair (Coherent (snd e)) (NotBot (snd e))
-        cft-edge-val e (cons q qs) cft0 here = snd (fst cft0)
+        cft-edge-val e (cons q qs) cft0 here = mkSigma (val-coh cft0) (val-nbot cft0)
         cft-edge-val e (cons q (cons r rs)) cft0 (there ein0) =
-          cft-edge-val e (cons r rs) (snd (snd cft0)) ein0
+          cft-edge-val e (cons r rs) (tail-coh cft0) ein0
 
     -- Build EvalRel F' rho (FunEl g') by folding over g' with EvalRel-Sup.
     -- Sup Bot (FunEl [(u1,v1)]) = FunEl [(u1,v1)]
@@ -1338,7 +1336,7 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
     build-graph F' (cons p nil) _ f = f p here
     build-graph F' (cons p (cons q qs)) cfg f =
       let evSing = f p here
-          cf-rest = snd (snd cfg)
+          cf-rest = tail-coh cfg
           evRest = build-graph F' (cons q qs) cf-rest (\ r rin -> f r (there rin))
           sing = FunEl (cons p nil)
           rest = FunEl (cons q qs)
@@ -1825,13 +1823,13 @@ InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
           xt  = fst dt
           vt' = fst (snd dt)
           evB-xt = fst (snd (snd (snd (snd (snd (snd dt))))))
-          ct  = fst (fst crest)
+          ct  = key-coh crest
           cxt = FinMem-coh-u xt a' (fst (snd (snd (snd dt))))
           step : Comp sk xt -> Comp sv vt'
           step ck = EvalRel-Comp-ext B rho sk xt sv vt'
                       crho ck csk cxt evBsk evB-xt
       in mkSigma step
-           (me-cw sk sv ts csk (snd (snd crest)) evBsk
+           (me-cw sk sv ts csk (tail-coh crest) evBsk
              (\ q qin -> ed q (there qin)))
 
     -- CoherentFunTail for mapEdges graph
@@ -1853,17 +1851,17 @@ InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
           cxp   = FinMem-coh-u xp a' (fst (snd (snd (snd dp))))
           vp'U  = snd (snd (snd (snd (snd (snd (snd dp))))))
           cvp'  = coh-from-aU vp' vp'U
-          ck    = fst (fst cg)
-          cv    = fst (snd (fst cg))
-          nb    = snd (snd (fst cg))
+          ck    = key-coh cg
+          cv    = val-coh cg
+          nb    = val-nbot cg
           le-vp = fst (snd (snd (snd (snd (snd dp)))))
           nbvp' = NotBot-from-Le (snd p) vp' cv nb le-vp
           evB-vp' = fst (snd (snd (snd (snd (snd (snd dp))))))
-          cw    = me-cw xp vp' ps cxp (snd (snd cg)) evB-vp'
+          cw    = me-cw xp vp' ps cxp (tail-coh cg) evB-vp'
                     (\ q qin -> ed q (there qin))
-          tail  = me-cft ps (snd (snd cg))
+          tail  = me-cft ps (tail-coh cg)
                     (\ q qin -> ed q (there qin))
-      in mkSigma (mkSigma cxp (mkSigma cvp' nbvp')) (mkSigma cw tail)
+      in mkCFT cxp cvp' nbvp' cw tail
 
     -- CoherentFun f'
     cft-f' : CoherentFunTail f'
@@ -1887,10 +1885,10 @@ InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
       where
         cft-edge : {g : FinFun} -> CoherentFunTail g -> {e : Edge} ->
           EdgeIn e g -> CoherentFunTail (cons e nil)
-        cft-edge {cons p ps} cg0 here = mkSigma (fst cg0) (mkSigma tt tt)
+        cft-edge {cons p ps} cg0 here = mkCFT (key-coh cg0) (val-coh cg0) (val-nbot cg0) tt tt
         cft-edge {cons p nil} cg0 (there ())
         cft-edge {cons p (cons q qs)} cg0 (there ein) =
-          cft-edge (snd (snd cg0)) ein
+          cft-edge (tail-coh cg0) ein
 
         me-lf-tail : (ps : FinFun) -> CoherentFunTail f ->
           (shift : (q : Edge) -> EdgeIn q ps -> EdgeIn q f) ->
@@ -1902,8 +1900,8 @@ InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
               vq'   = fst (snd dq)
               le-xq = fst (snd (snd dq))
               le-vq = fst (snd (snd (snd (snd (snd dq)))))
-              ck-q  = fst (fst (cft-edge cg0 (shift q here)))
-              cv-q  = fst (snd (fst (cft-edge cg0 (shift q here))))
+              ck-q  = key-coh (cft-edge cg0 (shift q here))
+              cv-q  = val-coh (cft-edge cg0 (shift q here))
               ein-f' = mapEdges-corr f new-edge q (shift q here)
               head-le = EvalFun-edge-le (new-edge q (shift q here)) f' (fst q)
                           cft-f' ein-f' ck-q le-xq

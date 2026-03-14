@@ -34,11 +34,14 @@ open import PaperSemantics using (LeCode ; LeCode-Bot ; LeCode-refl ;
   LeFunCode ;
   FinMem ; FinMemFun ; FinMemAllU ;
   FinMem-a-in-U ; finMemUCode-Sup ;
-  finMem-upward)
+  finMem-upward ; finMem-Sup-left ; coh-from-aU)
 open import Reduction using (Red ; Red-wk ; red-to-conv ;
-  Red-refl ; Red-trans ; Red-beta-expand ; Red-Pi-inj ; Red-from-conv)
+  Red-refl ; Red-trans ; Red-beta-expand ; Red-Pi-inj ; Red-from-conv ;
+  Red-subst)
 open import RawSemantics using (EnvApprox ; emptyEnv ; extendEnv ;
-  lookupEnv ; EvalRel ; Pi-edgewise)
+  lookupEnv ; EvalRel ; Pi-edgewise ;
+  EvalRel-coh ; CoherentEnv ; lookupEnv-coh ;
+  EvalRel-Comp ; EvalRel-Sup ; EvalRel-down)
 open import RawSyntax using (Expr ; Var ; U ; Pi ; Lam ; App ;
   Fin ; fzero ; fsuc ; wkExpr ; subst1 ;
   Sub ; liftSub ; substExpr ; subst1Sub)
@@ -55,8 +58,8 @@ open import Validity using (Edge ; EdgeIn ; here ; there ;
   PiEdgeVal ; PiEdgeEq ; PiEdgeEqTy ;
   PiAppVal ; PiAppEq ; PiAppEqVal ;
   Val-Bot ; EqVal-Bot ;
-  downVal ; upVal ; restrictVal ;
-  downEqVal ; upEqVal ; restrictEqVal ;
+  downVal ; downValTy ; upVal ; restrictVal ;
+  downEqVal ; downEqValTy ; upEqVal ; restrictEqVal ;
   Val-conv-type ; EqVal-conv-type ;
   FinMemAllU-lookup ;
   PiAppVal-lookup ;
@@ -66,22 +69,17 @@ open import Validity using (Edge ; EdgeIn ; here ; there ;
   Selection-le-EvalFun ; Coherent-Selection ; Coherent-Selection-val ;
   Val-to-EqVal ;
   Val-from-EqVal-first ; Val-from-EqVal-second ;
-  EqVal-sym ; EqValTy-sym)
-open import TypingSemantics using (convSound ; convSound-inv)
-open import EvalSubstitution using (EvalRel-subst1-backward)
+  EqVal-sym ; EqValTy-sym ;
+  bU-from-cf-fmU ;
+  EqVal-trans ; ValTy-Sup)
+open import Selection using (FinMemAllU-Selection ; FinMem-Selection-UCode)
+open import TypingSemantics using (convSound ; convSound-inv ; theorem1)
+open import LemmaForTS using (Fits ; Typed ; Fits-CoherentEnv)
+open import EvalSubstitution using (EvalRel-subst1-backward ; EvalRel-wk ; EvalRel-unwk ;
+  EvalRel-Pi-app-type)
 
-open import RawSyntax using (Ren ; liftRen ; renExpr ; wkRen)
-
-postulate
-  evalFun-sat-witness :
-    (full : FinFun) -> CoherentFun full ->
-    (rest : FinFun) -> CoherentFun rest ->
-    ((e : Edge) -> EdgeIn e rest -> EdgeIn e full) ->
-    (v : FinEl) -> Coherent v ->
-    Or (Eq (EvalFun rest v) Bot)
-       (Sigma FinEl \ v* -> Sigma FinEl \ w* ->
-         Pair (EdgeIn (mkSigma v* w*) full)
-              (Pair (LeCode v* v) (LeCode (EvalFun rest v) w*)))
+open import RawSyntax using (Ren ; liftRen ; renExpr ; wkRen ;
+  subst-ren ; subst-var-ren ; wkExpr-is-subst)
 
 ------------------------------------------------------------------------
 -- Part 1: Substitution helpers
@@ -303,85 +301,44 @@ sigma-subst1 sigma B a =
            B)
          (S.Eq-sym (substExpr-comp sigma B sa)))
 
--- Substitution preserves conversion (postulated — standard metatheorem)
-postulate
-  ConvTm-subst : {h g : Nat} {H : Ctx h} {G : Ctx g}
-    {M N A : Expr g} ->
-    ConvTm G M N A ->
-    (sigma : Sub h g) ->
-    ConvTm H (substExpr sigma M) (substExpr sigma N) (substExpr sigma A)
-
 ------------------------------------------------------------------------
 -- Part 3: EvalRel properties
 --
--- Properties of the finite evaluation relation needed for adequacy.
--- Proved in GeneralSemantics via the Dom construction; restated here
--- in purely finite terms.
+-- EvalRel-coh, EvalRel-wk, EvalRel-Comp, EvalRel-Sup, EvalRel-down
+-- are now imported from RawSemantics / EvalSubstitution.
 ------------------------------------------------------------------------
-
--- Coherence from EvalRel: every evaluation witness is coherent
-EvalRel-coh : {n : Nat} (M : Expr n) (rho : EnvApprox n)
-  (u : FinEl) -> EvalRel M rho u -> Coherent u
-EvalRel-coh (Var i) rho u ev = fst ev
-EvalRel-coh U rho Bot ev = tt
-EvalRel-coh U rho UCode ev = tt
-EvalRel-coh U rho (FunEl g) ()
-EvalRel-coh U rho (PiCode b f) ()
-EvalRel-coh (App f a) rho Bot ev = tt
-EvalRel-coh (App f a) rho UCode ev = fst ev
-EvalRel-coh (App f a) rho (FunEl g) ev = fst ev
-EvalRel-coh (App f a) rho (PiCode b0 f0) ev = fst ev
-EvalRel-coh (Lam A M) rho Bot ev = tt
-EvalRel-coh (Lam A M) rho (FunEl g) ev = fst (snd ev)
-EvalRel-coh (Lam A M) rho UCode ()
-EvalRel-coh (Lam A M) rho (PiCode b f) ()
-EvalRel-coh (Pi A B) rho Bot ev = tt
-EvalRel-coh (Pi A B) rho (PiCode b f) ev = fst ev
-EvalRel-coh (Pi A B) rho UCode ()
-EvalRel-coh (Pi A B) rho (FunEl g) ()
-
--- Remaining EvalRel properties (proved in GeneralSemantics, restated)
-postulate
-  -- Weakening: EvalRel M rho u -> EvalRel (wkExpr M) (extendEnv rho v) u
-  EvalRel-wk : {n : Nat} (M : Expr n) (rho : EnvApprox n)
-    (v u : FinEl) -> EvalRel M rho u -> EvalRel (wkExpr M) (extendEnv rho v) u
-
-  -- Compatibility: two witnesses from the same expression are compatible
-  EvalRel-comp : {n : Nat} (M : Expr n) (rho : EnvApprox n)
-    (u v : FinEl) -> EvalRel M rho u -> EvalRel M rho v -> Comp u v
-
-  -- Sup closure: compatible witnesses have a Sup witness
-  EvalRel-sup : {n : Nat} (M : Expr n) (rho : EnvApprox n)
-    (u v : FinEl) -> Comp u v ->
-    EvalRel M rho u -> EvalRel M rho v -> EvalRel M rho (Sup u v)
-
-  -- Downward closure: smaller coherent elements also evaluate
-  EvalRel-down : {n : Nat} (M : Expr n) (rho : EnvApprox n)
-    (u v : FinEl) -> Coherent u -> LeCode u v ->
-    EvalRel M rho v -> EvalRel M rho u
 
 ------------------------------------------------------------------------
 -- Part 4: Adequacy predicates (FINITE)
 --
 -- Adeq H M A rho Asrc u :
---   There exists a type code a with EvalRel Asrc rho a, FinMem u a,
---   and Val H M A u a.  rho : EnvApprox g is the source environment,
---   Asrc : Expr g is the source type expression.
+--   There exist u' >= u and a type code a with
+--   EvalRel Asrc rho a, FinMem u' a, and Val H M A u' a.
+--   The key change from before: membership and Val are at the
+--   enlarged u', not the original u.
 ------------------------------------------------------------------------
 
-Adeq : {h g : Nat} -> Ctx h -> Expr h -> Expr h ->
-  EnvApprox g -> Expr g -> FinEl -> Set
-Adeq H M A rho Asrc u =
-  Sigma FinEl \ a ->
-    Pair (EvalRel Asrc rho a)
-         (Pair (FinMem u a) (Val H M A u a))
+record Adeq {h g : Nat} (H : Ctx h) (M A : Expr h)
+    (rho : EnvApprox g) (Asrc : Expr g) (u : FinEl) : Set where
+  constructor mkAdeq
+  field
+    uCode : FinEl
+    aCode : FinEl
+    le    : LeCode u uCode
+    evSrc : EvalRel Asrc rho aCode
+    mem   : FinMem uCode aCode
+    val   : Val H M A uCode aCode
 
-AdeqEq : {h g : Nat} -> Ctx h -> Expr h -> Expr h -> Expr h ->
-  EnvApprox g -> Expr g -> FinEl -> Set
-AdeqEq H M N A rho Asrc u =
-  Sigma FinEl \ a ->
-    Pair (EvalRel Asrc rho a)
-         (Pair (FinMem u a) (EqVal H M N A u a))
+record AdeqEq {h g : Nat} (H : Ctx h) (M N A : Expr h)
+    (rho : EnvApprox g) (Asrc : Expr g) (u : FinEl) : Set where
+  constructor mkAdeqEq
+  field
+    uCode : FinEl
+    aCode : FinEl
+    le    : LeCode u uCode
+    evSrc : EvalRel Asrc rho aCode
+    mem   : FinMem uCode aCode
+    eqval : EqVal H M N A uCode aCode
 
 ------------------------------------------------------------------------
 -- Part 5: Valid substitutions (two-context, source-env, FINITE)
@@ -416,7 +373,7 @@ Adeq-transport-src S.refl aq = aq
 -- Transport EvalRel along expression equality
 EvalRel-transport : {n : Nat} {M M' : Expr n} {rho : EnvApprox n} {u : FinEl} ->
   Eq M M' -> EvalRel M rho u -> EvalRel M' rho u
-EvalRel-transport S.refl h = h
+EvalRel-transport S.refl ev = ev
 
 -- Transport AdeqEq along type expression equality (target side)
 AdeqEq-transport-type : {h g : Nat} {H : Ctx h} {M N A A' : Expr h}
@@ -442,24 +399,27 @@ ValidSub-extend : {h g : Nat} {H : Ctx h} {G : Ctx g} {A : Expr g}
   ValidSub H (extend G A) (extSub sigma t) (extendEnv rho v)
 ValidSub-extend {h} {g} {H} {G} {Asrc} sigma t rho v vs hyp0 fzero u cu le =
   let aq  = hyp0 u cu le
-      a   = fst aq
-      ha  = fst (snd aq)
-      fm  = fst (snd (snd aq))
-      val = snd (snd (snd aq))
-      ha' = EvalRel-wk Asrc rho v a ha
+      ha' = EvalRel-wk Asrc rho v (Adeq.aCode aq) (Adeq.evSrc aq)
       eq  = S.Eq-sym (substExpr-wk sigma Asrc t)
-      val' = S.Eq-transport (\ T -> Val H t T u a) eq val
-  in mkSigma a (mkSigma ha' (mkSigma fm val'))
+      val' = S.Eq-transport (\ T -> Val H t T (Adeq.uCode aq) (Adeq.aCode aq)) eq (Adeq.val aq)
+  in mkAdeq (Adeq.uCode aq) (Adeq.aCode aq) (Adeq.le aq) ha' (Adeq.mem aq) val'
 ValidSub-extend {h} {g} {H} {G} {Asrc} sigma t rho v vs hyp0 (fsuc i) u cu le =
   let aq  = vs i u cu le
-      a   = fst aq
-      ha  = fst (snd aq)
-      fm  = fst (snd (snd aq))
-      val = snd (snd (snd aq))
-      ha' = EvalRel-wk (lookup G i) rho v a ha
+      ha' = EvalRel-wk (lookup G i) rho v (Adeq.aCode aq) (Adeq.evSrc aq)
       eq  = S.Eq-sym (substExpr-wk sigma (lookup G i) t)
-      val' = S.Eq-transport (\ T -> Val H (sigma i) T u a) eq val
-  in mkSigma a (mkSigma ha' (mkSigma fm val'))
+      val' = S.Eq-transport (\ T -> Val H (sigma i) T (Adeq.uCode aq) (Adeq.aCode aq)) eq (Adeq.val aq)
+  in mkAdeq (Adeq.uCode aq) (Adeq.aCode aq) (Adeq.le aq) ha' (Adeq.mem aq) val'
+
+-- substExpr (liftSub sigma) (wkExpr M) = wkExpr (substExpr sigma M)
+substExpr-liftSub-wk : {h g : Nat} (sigma : Sub h g) (M : Expr g) ->
+  Eq (substExpr (liftSub sigma) (wkExpr M)) (wkExpr (substExpr sigma M))
+substExpr-liftSub-wk sigma M =
+  Eq-trans (substExpr-ren (liftSub sigma) wkRen M)
+    (S.Eq-sym (renExpr-substExpr wkRen sigma M))
+
+-- Fits-from-ValidSub removed: Fits G rho is now passed as a parameter
+-- to adequacySub/adequacyEqSub directly. This avoids needing the
+-- invalid FinMem-restrict lemma.
 
 ------------------------------------------------------------------------
 -- Part 8: Adequacy for ty-U
@@ -486,6 +446,37 @@ LeCode-UCode-Coherent UCode        le = tt
 LeCode-UCode-Coherent (FunEl g)    ()
 LeCode-UCode-Coherent (PiCode a f) ()
 
+-- Extract ValTy from Val at type U (general: works for any expression M)
+Val-U-to-ValTy : {n : Nat} {H : Ctx n} {M : Expr n}
+  (u1 a1 : FinEl) -> Val H M U u1 a1 -> FinMem u1 a1 ->
+  LeCode a1 UCode -> ValTy H M u1
+Val-U-to-ValTy Bot          Bot          val fm le = tt
+Val-U-to-ValTy UCode        Bot          val () le
+Val-U-to-ValTy (FunEl g)    Bot          val () le
+Val-U-to-ValTy (PiCode a f) Bot          val () le
+Val-U-to-ValTy Bot          UCode        val fm le = val
+Val-U-to-ValTy UCode        UCode        val fm le = val
+Val-U-to-ValTy (FunEl g)    UCode        val fm le = val
+Val-U-to-ValTy (PiCode a f) UCode        val fm le = val
+Val-U-to-ValTy Bot          (FunEl g)    val fm ()
+Val-U-to-ValTy UCode        (FunEl g)    val fm ()
+Val-U-to-ValTy (FunEl g0)   (FunEl g)    val fm ()
+Val-U-to-ValTy (PiCode a f) (FunEl g)    val fm ()
+Val-U-to-ValTy Bot          (PiCode a f) val fm ()
+Val-U-to-ValTy UCode        (PiCode a f) val fm ()
+Val-U-to-ValTy (FunEl g)    (PiCode a f) val fm ()
+Val-U-to-ValTy (PiCode a0 f0) (PiCode a f) val fm ()
+
+-- FinMem u UCode from FinMem u a and LeCode a UCode
+FinMem-from-U-code : (a u : FinEl) -> FinMem u a -> LeCode a UCode -> FinMem u UCode
+FinMem-from-U-code Bot Bot fm le = tt
+FinMem-from-U-code Bot UCode () le
+FinMem-from-U-code Bot (FunEl g) () le
+FinMem-from-U-code Bot (PiCode b f) () le
+FinMem-from-U-code UCode u fm le = fm
+FinMem-from-U-code (FunEl g)    u fm ()
+FinMem-from-U-code (PiCode b f) u fm ()
+
 ------------------------------------------------------------------------
 -- Part 9: Semantic helpers (FINITE)
 ------------------------------------------------------------------------
@@ -499,17 +490,13 @@ LeCode-UCode-Coherent (PiCode a f) ()
 -- CoherentFun from Coherent(PiCode) — just projection
 Coherent-CoherentFun : (b : FinEl) (f : FinFun) ->
   Coherent (PiCode b f) -> CoherentFun f
-Coherent-CoherentFun b f cpf = snd (snd cpf)
+Coherent-CoherentFun b f cpf = snd cpf
 
--- FinMemAllU from Coherent(PiCode) — just projection
-FinMemAllU-from-Coherent : (f : FinFun) (b : FinEl) ->
-  Coherent (PiCode b f) -> FinMemAllU f b
-FinMemAllU-from-Coherent f b cpf = fst (snd cpf)
-
--- FinMem b UCode from Coherent(PiCode) — identity
-FinMem-UCode-from-Coherent : (b : FinEl) ->
-  PaperSemantics.FinMem b UCode -> FinMem b UCode
-FinMem-UCode-from-Coherent b fm = fm
+-- FinMem b UCode from CoherentFun f and FinMemAllU f b
+-- (was previously extracted from old 3-tuple Coherent; now derived)
+FinMem-bU-from-Pi : (b : FinEl) (f : FinFun) ->
+  CoherentFun f -> FinMemAllU f b -> FinMem b UCode
+FinMem-bU-from-Pi b f cf fmAllU = bU-from-cf-fmU f b cf fmAllU
 
 -- EqVal symmetry — now proved in Validity with Coherent args
 -- We derive Coherent from the call context
@@ -518,42 +505,59 @@ EqVal-sym-fn : {n : Nat} {G : Ctx n} {M N A : Expr n}
   EqVal G M N A u a -> EqVal G N M A u a
 EqVal-sym-fn u a cu ca ev = EqVal-sym u a cu ca ev
 
-postulate
-  -- EqVal transitivity with alignment (Sup + upEqVal + trans)
-  EqVal-trans-aligned : {n : Nat} {G : Ctx n} {M N P A : Expr n}
-    (u a1 a2 : FinEl) ->
-    Comp a1 a2 -> Coherent a1 -> Coherent a2 ->
-    FinMem u a1 -> FinMem u a2 ->
-    EqVal G M N A u a1 -> EqVal G N P A u a2 ->
-    Pair (FinMem u (Sup a1 a2))
-         (EqVal G M P A u (Sup a1 a2))
+-- EqVal transitivity with alignment (Sup + upEqVal + trans)
+EqVal-trans-aligned : {n : Nat} {G : Ctx n} {M N P A : Expr n}
+  (u a1 a2 : FinEl) ->
+  Comp a1 a2 -> Coherent a1 -> Coherent a2 ->
+  FinMem u a1 -> FinMem u a2 ->
+  EqVal G M N A u a1 -> EqVal G N P A u a2 ->
+  Pair (FinMem u (Sup a1 a2))
+       (EqVal G M P A u (Sup a1 a2))
+-- u = Bot: FinMem Bot a = FinMem a UCode, EqVal .. Bot a via EqVal-Bot
+EqVal-trans-aligned Bot a1 a2 comp ca1 ca2 mem1 mem2 ev1 ev2 =
+  mkSigma (finMemUCode-Sup a1 a2 comp mem1 mem2) (EqVal-Bot _ _ _ _ (Sup a1 a2))
+-- u = UCode: only a1 = a2 = UCode possible
+EqVal-trans-aligned {G = G} {M} {N} {P} {A} UCode UCode UCode comp ca1 ca2 mem1 mem2 ev1 ev2 =
+  mkSigma tt (EqVal-trans {G = G} {M} {N} {P} {A} UCode UCode tt tt ev1 ev2)
+EqVal-trans-aligned UCode UCode (FunEl _) () ca1 ca2 mem1 mem2 ev1 ev2
+EqVal-trans-aligned UCode UCode (PiCode _ _) () ca1 ca2 mem1 mem2 ev1 ev2
+EqVal-trans-aligned UCode Bot _ comp ca1 ca2 () mem2 ev1 ev2
+EqVal-trans-aligned UCode (FunEl _) _ comp ca1 ca2 () mem2 ev1 ev2
+EqVal-trans-aligned UCode (PiCode _ _) _ comp ca1 ca2 () mem2 ev1 ev2
+-- u = PiCode: only a1 = a2 = UCode possible
+EqVal-trans-aligned {G = G} {M} {N} {P} {A} (PiCode a' f') UCode UCode comp ca1 ca2 mem1 mem2 ev1 ev2 =
+  let cu = FinMem-Coherent (PiCode a' f') UCode mem1
+  in mkSigma mem1 (EqVal-trans {G = G} {M} {N} {P} {A} (PiCode a' f') UCode cu tt ev1 ev2)
+EqVal-trans-aligned (PiCode _ _) UCode (FunEl _) () ca1 ca2 mem1 mem2 ev1 ev2
+EqVal-trans-aligned (PiCode _ _) UCode (PiCode _ _) () ca1 ca2 mem1 mem2 ev1 ev2
+EqVal-trans-aligned (PiCode _ _) Bot _ comp ca1 ca2 () mem2 ev1 ev2
+EqVal-trans-aligned (PiCode _ _) (FunEl _) _ comp ca1 ca2 () mem2 ev1 ev2
+EqVal-trans-aligned (PiCode _ _) (PiCode _ _) _ comp ca1 ca2 () mem2 ev1 ev2
+-- u = FunEl g: only a1 = PiCode, a2 = PiCode possible
+EqVal-trans-aligned (FunEl g) Bot _ comp ca1 ca2 () mem2 ev1 ev2
+EqVal-trans-aligned (FunEl g) UCode _ comp ca1 ca2 () mem2 ev1 ev2
+EqVal-trans-aligned (FunEl g) (FunEl _) _ comp ca1 ca2 () mem2 ev1 ev2
+EqVal-trans-aligned (FunEl g) (PiCode _ _) Bot comp ca1 ca2 mem1 () ev1 ev2
+EqVal-trans-aligned (FunEl g) (PiCode _ _) UCode comp ca1 ca2 mem1 () ev1 ev2
+EqVal-trans-aligned (FunEl g) (PiCode _ _) (FunEl _) comp ca1 ca2 mem1 () ev1 ev2
+EqVal-trans-aligned {G = G} {M} {N} {P} {A} (FunEl g) (PiCode b1 f1) (PiCode b2 f2) comp ca1 ca2 mem1 mem2 ev1 ev2 =
+  let cu   = FinMem-Coherent (FunEl g) (PiCode b1 f1) mem1
+      a1U  = FinMem-a-in-U (FunEl g) (PiCode b1 f1) mem1
+      a2U  = FinMem-a-in-U (FunEl g) (PiCode b2 f2) mem2
+      csup = Coherent-Sup (PiCode b1 f1) (PiCode b2 f2) comp ca1 ca2
+      le1  = LeCode-Sup-left (PiCode b1 f1) (PiCode b2 f2) comp ca1 ca2
+      le2  = LeCode-Sup-right (PiCode b1 f1) (PiCode b2 f2) comp ca1 ca2
+      msup = finMem-Sup-left (PiCode b1 f1) (PiCode b2 f2) (FunEl g) comp ca1 ca2 a2U cu mem1
+      vta1 = fst ev1
+      vta2 = fst ev2
+      vtAsup = ValTy-Sup G A (PiCode b1 f1) (PiCode b2 f2) comp a1U a2U vta1 vta2
+      ev1' = upEqVal G M N A (FunEl g) (PiCode b1 f1) (Sup (PiCode b1 f1) (PiCode b2 f2))
+               le1 mem1 msup ca1 csup ev1 vtAsup
+      ev2' = upEqVal G N P A (FunEl g) (PiCode b2 f2) (Sup (PiCode b1 f1) (PiCode b2 f2))
+               le2 mem2 msup ca2 csup ev2 vtAsup
+      result = EqVal-trans {G = G} {M} {N} {P} {A} (FunEl g) (Sup (PiCode b1 f1) (PiCode b2 f2)) cu csup ev1' ev2'
+  in mkSigma msup result
 
-  -- Restrict Adeq from value v to smaller value u <= v (FINITE)
-  Adeq-from-Val-restrict : {h g : Nat} {H : Ctx h} {M A : Expr h}
-    {rho : EnvApprox g} {Asrc : Expr g}
-    (u v b : FinEl) ->
-    EvalRel Asrc rho b -> Coherent u -> Coherent v -> Coherent b ->
-    LeCode u v -> FinMem v b ->
-    Val H M A v b ->
-    Adeq H M A rho Asrc u
-
-  -- Pi codomain evaluation at EvalFun result (FINITE)
-  -- Combines Pi codomain extraction with substitution backward.
-  EvalRel-Pi-app-type :
-    {n : Nat} (A : Expr n) (B : Expr (suc n)) (a : Expr n)
-    (rho : EnvApprox n) (b : FinEl) (f : FinFun) (v : FinEl) ->
-    EvalRel (Pi A B) rho (PiCode b f) ->
-    EvalRel a rho v ->
-    EvalRel (subst1 B a) rho (EvalFun f v)
-
-------------------------------------------------------------------------
--- Part 11: PiEdgeEq (postulated)
-------------------------------------------------------------------------
-
-postulate
-  PiEdgeEq-from-IH : {n : Nat} (G : Ctx n) (A : Expr n)
-    (B : Expr (suc n)) (b : FinEl) (f : FinFun) ->
-    FinMemAllU f b -> PiEdgeEq G A B b f
 
 ------------------------------------------------------------------------
 -- Part 12: Postulated cases (FINITE)
@@ -567,7 +571,7 @@ postulate
     HasType (extend G A) B U ->
     HasType (extend G A) M B ->
     (sigma : Sub h g) -> (rho : EnvApprox g) ->
-    ValidSub H G sigma rho ->
+    CoherentEnv rho -> ValidSub H G sigma rho -> Fits G rho ->
     (u : FinEl) -> EvalRel (Lam A M) rho u ->
     Adeq H (Lam (substExpr sigma A) (substExpr (liftSub sigma) M))
            (Pi (substExpr sigma A) (substExpr (liftSub sigma) B))
@@ -581,7 +585,7 @@ postulate
     HasType (extend G A) M B ->
     HasType G a A ->
     (sigma : Sub h g) -> (rho : EnvApprox g) ->
-    ValidSub H G sigma rho ->
+    CoherentEnv rho -> ValidSub H G sigma rho -> Fits G rho ->
     (u : FinEl) -> EvalRel (App (Lam A M) a) rho u ->
     AdeqEq H (App (Lam (substExpr sigma A) (substExpr (liftSub sigma) M))
                   (substExpr sigma a))
@@ -597,7 +601,7 @@ postulate
     HasType G f (Pi A B) ->
     HasType G g' (Pi A B) ->
     (sigma : Sub h g) -> (rho : EnvApprox g) ->
-    ValidSub H G sigma rho ->
+    CoherentEnv rho -> ValidSub H G sigma rho -> Fits G rho ->
     (u : FinEl) -> EvalRel f rho u ->
     AdeqEq H (substExpr sigma f) (substExpr sigma g')
              (Pi (substExpr sigma A) (substExpr (liftSub sigma) B))
@@ -609,12 +613,22 @@ postulate
     ConvTm G f f' (Pi A B) ->
     HasType G a A ->
     (sigma : Sub h g) -> (rho : EnvApprox g) ->
-    ValidSub H G sigma rho ->
+    CoherentEnv rho -> ValidSub H G sigma rho -> Fits G rho ->
     (u : FinEl) -> EvalRel (App f a) rho u ->
     AdeqEq H (App (substExpr sigma f) (substExpr sigma a))
              (App (substExpr sigma f') (substExpr sigma a))
              (substExpr sigma (subst1 B a))
              rho (subst1 B a) u
+
+  -- conv-trans (uCode alignment needed)
+  adequacyEqSub-conv-trans : {h g : Nat} {H : Ctx h} {G : Ctx g}
+    {M N P A : Expr g} ->
+    ConvTm G M N A -> ConvTm G N P A ->
+    (sigma : Sub h g) -> (rho : EnvApprox g) ->
+    CoherentEnv rho -> ValidSub H G sigma rho -> Fits G rho ->
+    (u : FinEl) -> EvalRel M rho u ->
+    AdeqEq H (substExpr sigma M) (substExpr sigma P)
+             (substExpr sigma A) rho A u
 
   -- conv-App-arg
   adequacyEqSub-App-arg : {h g : Nat} {H : Ctx h} {G : Ctx g}
@@ -622,7 +636,7 @@ postulate
     HasType G f (Pi A B) ->
     ConvTm G a a' A ->
     (sigma : Sub h g) -> (rho : EnvApprox g) ->
-    ValidSub H G sigma rho ->
+    CoherentEnv rho -> ValidSub H G sigma rho -> Fits G rho ->
     (u : FinEl) -> EvalRel (App f a) rho u ->
     AdeqEq H (App (substExpr sigma f) (substExpr sigma a))
              (App (substExpr sigma f) (substExpr sigma a'))
@@ -636,7 +650,7 @@ postulate
 -- EvalRel-bot helper
 EvalRel-bot : {n : Nat} (M : Expr n) (rho : EnvApprox n) -> EvalRel M rho Bot
 EvalRel-bot (Var i)   rho = mkSigma tt (PaperSemantics.LeCode-Bot (lookupEnv i rho))
-EvalRel-bot U         rho = PaperSemantics.LeCode-Bot UCode
+EvalRel-bot U         rho = mkSigma tt (PaperSemantics.LeCode-Bot UCode)
 EvalRel-bot (Pi A B)  rho = tt
 EvalRel-bot (Lam A M) rho = tt
 EvalRel-bot (App f a) rho = tt
@@ -649,11 +663,9 @@ postulate
     {A : Expr g0} {B : Expr (suc g0)} {f' a : Expr g0} ->
     HasType G0 A U -> HasType G0 f' (Pi A B) -> HasType G0 a A ->
     (sigma : Sub h g0) -> (rho : EnvApprox g0) ->
-    ValidSub H G0 sigma rho ->
+    CoherentEnv rho -> ValidSub H G0 sigma rho -> Fits G0 rho ->
     (u : FinEl) -> Coherent u ->
-    (g : FinFun) -> (x v_sel : FinEl) ->
-    EvalRel f' rho (FunEl g) -> EvalRel a rho x ->
-    Selection g x v_sel -> LeCode u v_sel ->
+    EvalRel (App f' a) rho u ->
     Adeq H (substExpr sigma (App f' a)) (substExpr sigma (subst1 B a))
       rho (subst1 B a) u
 
@@ -664,7 +676,7 @@ adequacySub : {h g : Nat} {H : Ctx h} {G : Ctx g}
   {M A : Expr g} ->
   HasType G M A ->
   (sigma : Sub h g) -> (rho : EnvApprox g) ->
-  ValidSub H G sigma rho ->
+  CoherentEnv rho -> ValidSub H G sigma rho -> Fits G rho ->
   (u : FinEl) -> EvalRel M rho u ->
   Adeq H (substExpr sigma M) (substExpr sigma A) rho A u
 
@@ -673,342 +685,250 @@ adequacyEqSub : {h g : Nat} {H : Ctx h} {G : Ctx g}
   {M N A : Expr g} ->
   ConvTm G M N A ->
   (sigma : Sub h g) -> (rho : EnvApprox g) ->
-  ValidSub H G sigma rho ->
+  CoherentEnv rho -> ValidSub H G sigma rho -> Fits G rho ->
   (u : FinEl) -> EvalRel M rho u ->
   AdeqEq H (substExpr sigma M) (substExpr sigma N)
            (substExpr sigma A) rho A u
 
 -- adequacySub: ty-var
 -- EvalRel (Var i) rho u = Pair (Coherent u) (LeCode u (lookupEnv i rho))
-adequacySub (ty-var {G = G} {i = i} _) sigma rho vs u hu =
+adequacySub (ty-var {G = G} {i = i} _) sigma rho crho vs fits u hu =
   vs i u (fst hu) (snd hu)
 
 -- adequacySub: ty-U
 -- EvalRel U rho u = LeCode u UCode
-adequacySub (ty-U _) sigma rho vs u hu =
-  mkSigma UCode
-    (mkSigma (LeCode-refl UCode tt)
-      (mkSigma (FinMem-from-LeCode-UCode u hu)
-               (ValTy-U _ u hu)))
+adequacySub (ty-U _) sigma rho crho vs fits u hu =
+  mkAdeq u UCode (LeCode-refl u (fst hu)) (mkSigma tt (LeCode-refl UCode tt)) (FinMem-from-LeCode-UCode u (snd hu)) (ValTy-U _ u (snd hu))
 
 -- adequacySub: ty-conv
-adequacySub (ty-conv {M = M} {A = A} {B = B} d1 d2) sigma rho vs u hu =
-  let aq   = adequacySub d1 sigma rho vs u hu
-      a    = fst aq
-      ha   = fst (snd aq)
-      fm   = fst (snd (snd aq))
-      val  = snd (snd (snd aq))
-      ha'  = convSound d2 rho a ha
-      convH = ConvTm-subst d2 sigma
-      val' = Val-conv-type u a convH val
-  in mkSigma a (mkSigma ha' (mkSigma fm val'))
+adequacySub (ty-conv {M = M} {A = A} {B = B} d1 d2) sigma rho crho vs fits u hu =
+  let aq    = adequacySub d1 sigma rho crho vs fits u hu
+      ha'   = convSound d2 rho fits (Adeq.aCode aq) (Adeq.evSrc aq)
+      convH = red-to-conv (Red-subst sigma (Red-from-conv d2))
+      val'  = Val-conv-type (Adeq.uCode aq) (Adeq.aCode aq) convH (Adeq.val aq)
+  in mkAdeq (Adeq.uCode aq) (Adeq.aCode aq) (Adeq.le aq) ha' (Adeq.mem aq) val'
 
 -- adequacySub: ty-Pi
 -- EvalRel (Pi A B) rho Bot = Top
-adequacySub {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho vs Bot hu =
-  mkSigma Bot (mkSigma (EvalRel-bot U rho) (mkSigma tt tt))
+adequacySub {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits Bot hu =
+  mkAdeq Bot Bot tt (EvalRel-bot U rho) tt tt
 -- EvalRel (Pi A B) rho UCode = Empty
-adequacySub {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho vs UCode ()
+adequacySub {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits UCode ()
 -- EvalRel (Pi A B) rho (FunEl g) = Empty
-adequacySub {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho vs (FunEl g) ()
+adequacySub {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits (FunEl g) ()
 -- EvalRel (Pi A B) rho (PiCode b f) = Pair (Coherent ...) (Pair (EvalRel A rho b) (body ...))
-adequacySub {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho vs (PiCode b f)
+adequacySub {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits (PiCode b f)
   (mkSigma cpu (mkSigma evA allP)) =
-  let sA  = substExpr sigma A
+  let ev = mkSigma cpu (mkSigma evA allP)
+      sA  = substExpr sigma A
       sB  = substExpr (liftSub sigma) B
-      -- From Coherent (PiCode b f):
-      fmBU    = FinMem-UCode-from-Coherent b (fst cpu)
-      fmAllU  = FinMemAllU-from-Coherent f b cpu
-      cg      = Coherent-CoherentFun b f cpu
-      cb      = FinMem-Coherent b UCode fmBU
-      -- ValTy H sA b from IH on d1
-      aq1     = adequacySub d1 sigma rho vs b evA
-      a1      = fst aq1
-      ha1     = fst (snd aq1)
-      fm1     = fst (snd (snd aq1))
-      val1    = snd (snd (snd aq1))
-      le1     = ha1
-      ca1     = LeCode-UCode-Coherent a1 ha1
-      valTyA  = upVal H sA U b a1 UCode le1 fm1 fmBU ca1 tt val1 tt
-      -- PiEdgeVal from IH on d2
-      pev     = buildPiEdgeVal
-      -- PiEdgeEq from postulate
-      peq     = PiEdgeEq-from-IH H sA sB b f fmAllU
-      -- Assemble ValTyPi
-      valTyPi : ValTyPi H (Pi sA sB) b f
-      valTyPi = mkSigma sA (mkSigma sB (mkSigma Red-refl
-                  (mkSigma cg (mkSigma fmAllU
-                    (mkSigma valTyA (mkSigma pev peq))))))
-      -- FinMem (PiCode b f) UCode
-      fmPiU : FinMem (PiCode b f) UCode
-      fmPiU = mkSigma fmBU (mkSigma fmAllU cg)
-  in mkSigma UCode (mkSigma (LeCode-refl UCode tt) (mkSigma fmPiU valTyPi))
+      -- Step 1: Use theorem1 to get enlarged PiCode b' f' with FinMem in UCode
+      typed = theorem1 (ty-Pi d1 d2) rho fits (PiCode b f) ev
+      u'    = fst typed
+      a'    = fst (snd typed)
+      le'   = fst (snd (snd typed))
+      ev'   = fst (snd (snd (snd typed)))
+      fm'   = fst (snd (snd (snd (snd typed))))
+      evU'  = snd (snd (snd (snd (snd typed))))
+  in tyPi-result u' a' le' ev' fm' evU'
   where
     sA  = substExpr sigma A
     sB  = substExpr (liftSub sigma) B
-    fmBU' = FinMem-UCode-from-Coherent b
-              (fst (fst (mkSigma cpu (mkSigma evA allP))))
-    cb'   = FinMem-Coherent b UCode fmBU'
-    -- Build a single edge function (Selection-based)
-    -- Pi-edgewise gives (x, LeCode x v, FinMem x b, EvalRel B (rho,x) w)
-    -- for each edge (v,w) in f.
-    piEdge : (p : Edge) -> EdgeIn p f ->
-      Sigma FinEl (\ x ->
-        Pair (LeCode x (fst p))
-             (Pair (FinMem x b)
-                   (EvalRel B (extendEnv rho x) (snd p))))
-    piEdge = snd (snd (Pi-edgewise A B rho b f (mkSigma cpu (mkSigma evA allP))))
-    buildEdgeFn : (v w : FinEl) -> FinMem v b -> FinMem w UCode ->
-      EdgeIn (mkSigma v w) f ->
-      (N : Expr _) -> Val H N sA v b -> ValTy H (subst1 sB N) w
-    buildEdgeFn v w fmvb fmwU ein N valN =
-      let pew  = piEdge (mkSigma v w) ein
-          x    = fst pew
-          lxv  = fst (snd pew)
-          fmxb = fst (snd (snd pew))
-          evBxw = snd (snd (snd pew))
-          cx   = FinMem-Coherent x b fmxb
-          cv   = FinMem-Coherent v b fmvb
-          -- Restrict Val from v to x (x <= v)
-          fm-x-b = fmxb
-          valN-x = restrictVal H N sA v x b lxv fm-x-b cv cb' valN
-          -- Build extended ValidSub at x
-          newVar : (u' : FinEl) -> Coherent u' -> LeCode u' x ->
-                   Adeq H N (substExpr sigma A) rho A u'
-          newVar u' cu' le' = Adeq-from-Val-restrict {M = N}
-                            {A = substExpr sigma A} {rho = rho} {Asrc = A}
-                            u' x b evA cu' cx cb' le' fmxb valN-x
-          vs_ext = ValidSub-extend sigma N rho x vs newVar
-          aq2   = adequacySub d2 (extSub sigma N) (extendEnv rho x) vs_ext w evBxw
-          a2    = fst aq2
-          ha2   = fst (snd aq2)
-          fm2   = fst (snd (snd aq2))
-          val2  = snd (snd (snd aq2))
-          -- upVal to UCode
-          le2   = ha2
-          ca2   = LeCode-UCode-Coherent a2 ha2
-          vt2   = upVal H (substExpr (extSub sigma N) B) U w a2 UCode
-                    le2 fm2 fmwU ca2 tt val2 tt
-          -- Transport: substExpr (extSub sigma N) B = subst1 sB N
-          eq : Eq (substExpr (extSub sigma N) B) (subst1 sB N)
-          eq = S.Eq-sym (substExpr-comp sigma B N)
-      in S.Eq-transport (\ T -> ValTy H T w) eq vt2
-    -- Build PiEdgeVal (Selection-based; postulated)
-    postulate
-      buildPiEdgeVal : PiEdgeVal H sA sB b f
+
+    -- Helper: FinMem y UCode from EvalRel U rho x and FinMem y x
+    finMem-from-U : (x y : FinEl) -> EvalRel U rho x -> FinMem y x -> FinMem y UCode
+    finMem-from-U Bot Bot evU fm = tt
+    finMem-from-U Bot UCode evU ()
+    finMem-from-U Bot (FunEl g0) evU ()
+    finMem-from-U Bot (PiCode a0 f0) evU ()
+    finMem-from-U UCode y evU fm = fm
+    finMem-from-U (FunEl g0) y (mkSigma _ ()) fm
+    finMem-from-U (PiCode a0 f0) y (mkSigma _ ()) fm
+
+    -- Helper: extract ValTy from Adeq at type U
+    -- Val H sA U u1 a1 is ValTy H sA u1 when a1 = UCode, Top when a1 = Bot
+    toValTy : (u1 a1 : FinEl) -> Val H sA U u1 a1 -> FinMem u1 a1 ->
+      EvalRel U rho a1 -> ValTy H sA u1
+    toValTy u1 Bot val fm evU = valTy-from-Bot u1 fm
+      where
+        valTy-from-Bot : (u1 : FinEl) -> FinMem u1 Bot -> ValTy H sA u1
+        valTy-from-Bot Bot fm0 = tt
+        valTy-from-Bot UCode ()
+        valTy-from-Bot (FunEl g0) ()
+        valTy-from-Bot (PiCode a0 f0) ()
+    toValTy u1 UCode val fm evU = val
+    toValTy u1 (FunEl g0) val fm (mkSigma _ ())
+    toValTy u1 (PiCode a0 f0) val fm (mkSigma _ ())
+
+    -- Main: case-split on the enlarged element from theorem1
+    tyPi-result : (u' a' : FinEl) -> LeCode (PiCode b f) u' ->
+      EvalRel (Pi A B) rho u' -> FinMem u' a' -> EvalRel U rho a' ->
+      Adeq H (Pi sA sB) U rho U (PiCode b f)
+
+    -- u' = Bot: degenerate case
+    tyPi-result Bot a' le' ev' fm' evU' =
+      mkAdeq Bot UCode le' (mkSigma tt (LeCode-refl UCode tt))
+        (finMem-from-U a' Bot evU' fm') tt
+
+    -- u' = UCode: impossible (LeCode (PiCode b f) UCode = Empty)
+    tyPi-result UCode a' () ev' fm' evU'
+
+    -- u' = FunEl: impossible (LeCode (PiCode b f) (FunEl g0) = Empty)
+    tyPi-result (FunEl g0) a' () ev' fm' evU'
+
+    -- u' = PiCode b' f': main case
+    tyPi-result (PiCode b' f') a' le' ev' fm' evU' =
+      let -- le' : Pair (LeCode b b') (LeFunCode f f')
+          le-b = fst le'
+          le-f = snd le'
+          -- FinMem (PiCode b' f') UCode:
+          fmPiU : FinMem (PiCode b' f') UCode
+          fmPiU = finMem-from-U a' (PiCode b' f') evU' fm'
+          -- Extract from fmPiU:
+          b'U   = fst fmPiU
+          allU' = fst (snd fmPiU)
+          cf'   = snd (snd fmPiU)
+          cb'   = coh-from-aU b' b'U
+          -- Decompose ev': EvalRel (Pi A B) rho (PiCode b' f')
+          cpu'  = fst ev'
+          evA'  = fst (snd ev')
+          -- IH on d1 at b': gives Adeq H sA U rho U b'
+          aq1   = adequacySub d1 sigma rho crho vs fits b' evA'
+          -- Extract ValTy H sA u1 from the Adeq result
+          u1    = Adeq.uCode aq1
+          a1    = Adeq.aCode aq1
+          u1U   = finMem-from-U a1 u1 (Adeq.evSrc aq1) (Adeq.mem aq1)
+          valTy1 = toValTy u1 a1 (Adeq.val aq1) (Adeq.mem aq1) (Adeq.evSrc aq1)
+          -- downValTy from u1 to b'
+          valTyA : ValTy H sA b'
+          valTyA = downValTy H sA b' u1 (Adeq.le aq1) b'U u1U valTy1
+          -- PiEdgeVal H sA sB b' f': from IH on d2
+          pev   = buildPiEdgeVal
+          -- PiEdgeEq H sA sB b' f': from IH on d2
+          peq   = buildPiEdgeEq
+          -- Assemble ValTyPi
+          valTyPi : ValTyPi H (Pi sA sB) b' f'
+          valTyPi = mkSigma sA (mkSigma sB (mkSigma Red-refl
+                      (mkSigma cf' (mkSigma allU'
+                        (mkSigma valTyA (mkSigma pev peq))))))
+      in mkAdeq (PiCode b' f') UCode (mkSigma le-b le-f)
+           (mkSigma tt (LeCode-refl UCode tt)) fmPiU valTyPi
+      where
+        -- ev': EvalRel (Pi A B) rho (PiCode b' f')
+        -- Extract the per-edge body from ev'
+        cpu'e  = fst ev'
+        evA'e  = fst (snd ev')
+        cf'e   = snd cpu'e
+        b'Ue   = fst (finMem-from-U a' (PiCode b' f') evU' fm')
+        allU'e = fst (snd (finMem-from-U a' (PiCode b' f') evU' fm'))
+        cb'e   = coh-from-aU b' b'Ue
+        buildPiEdgeVal : PiEdgeVal H sA sB b' f'
+        buildPiEdgeVal u0 v0 sel N valN =
+          let bodyData = snd (snd ev')
+              a'body   = fst bodyData
+              evAbody  = fst (snd bodyData)
+              body0    = snd (snd bodyData)
+              edge     = body0 u0 v0 sel
+              x        = fst edge
+              le_xu    = fst (snd edge)
+              fm_x     = fst (snd (snd edge))
+              evBv     = snd (snd (snd edge))
+              cx       = FinMem-Coherent x a'body fm_x
+              fmub'    = FinMemAllU-Selection b' sel allU'e cf'e cb'e b'Ue
+              cu0      = FinMem-Coherent u0 b' fmub'
+              crho_ext = mkSigma crho cx
+              fits_ext = mkSigma fits (mkSigma a'body (mkSigma fm_x evAbody))
+              hyp0     = \ u' cu' le_u'_x ->
+                           mkAdeq u0 b' (LeCode-trans u' x u0 cu' cx cu0 le_u'_x le_xu)
+                             evA'e fmub' valN
+              vs_ext   = ValidSub-extend sigma N rho x vs hyp0
+              aq2      = adequacySub d2 (extSub sigma N) (extendEnv rho x)
+                           crho_ext vs_ext fits_ext v0 evBv
+              u2       = Adeq.uCode aq2
+              a2c      = Adeq.aCode aq2
+              u2U      = FinMem-from-U-code a2c u2 (Adeq.mem aq2) (snd (Adeq.evSrc aq2))
+              valTy2   = Val-U-to-ValTy u2 a2c (Adeq.val aq2) (Adeq.mem aq2) (snd (Adeq.evSrc aq2))
+              eq0      = S.Eq-sym (substExpr-comp sigma B N)
+              valTy2t  = S.Eq-transport (\ T -> ValTy H T u2) eq0 valTy2
+              vU       = FinMem-Selection-UCode b' sel allU'e cf'e
+          in downValTy H (subst1 sB N) v0 u2 (Adeq.le aq2) vU u2U valTy2t
+        postulate
+          buildPiEdgeEq  : PiEdgeEq H sA sB b' f'
 
 -- adequacySub: ty-Lam (delegated to postulate)
-adequacySub (ty-Lam d1 d2 d3) sigma rho vs u hu =
-  adequacySub-Lam d1 d2 d3 sigma rho vs u hu
+adequacySub (ty-Lam d1 d2 d3) sigma rho crho vs fits u hu =
+  adequacySub-Lam d1 d2 d3 sigma rho crho vs fits u hu
 
 -- adequacySub: ty-App
 -- EvalRel (App f a) rho Bot = Top
-adequacySub {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA d1 d2) sigma rho vs Bot hu =
-  mkSigma Bot (mkSigma (EvalRel-bot (subst1 B a) rho) (mkSigma tt tt))
--- Non-Bot cases: dispatch to adequacySub-App postulate
-adequacySub {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA d1 d2) sigma rho vs UCode (mkSigma cu evidence) =
-  adequacySub-App dA d1 d2 sigma rho vs UCode cu
-    (fst evidence) (fst (snd evidence)) (fst (snd (snd evidence)))
-    (fst (snd (snd (snd evidence)))) (fst (snd (snd (snd (snd evidence)))))
-    (fst (snd (snd (snd (snd (snd evidence)))))) (snd (snd (snd (snd (snd (snd evidence))))))
-adequacySub {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA d1 d2) sigma rho vs (FunEl g') (mkSigma cu evidence) =
-  adequacySub-App dA d1 d2 sigma rho vs (FunEl g') cu
-    (fst evidence) (fst (snd evidence)) (fst (snd (snd evidence)))
-    (fst (snd (snd (snd evidence)))) (fst (snd (snd (snd (snd evidence)))))
-    (fst (snd (snd (snd (snd (snd evidence)))))) (snd (snd (snd (snd (snd (snd evidence))))))
-adequacySub {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA d1 d2) sigma rho vs (PiCode b0' f0') (mkSigma cu evidence) =
-  adequacySub-App dA d1 d2 sigma rho vs (PiCode b0' f0') cu
-    (fst evidence) (fst (snd evidence)) (fst (snd (snd evidence)))
-    (fst (snd (snd (snd evidence)))) (fst (snd (snd (snd (snd evidence)))))
-    (fst (snd (snd (snd (snd (snd evidence)))))) (snd (snd (snd (snd (snd (snd evidence))))))
+adequacySub {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA d1 d2) sigma rho crho vs fits Bot hu =
+  mkAdeq Bot Bot tt (EvalRel-bot (subst1 B a) rho) tt tt
+adequacySub {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA d1 d2) sigma rho crho vs fits UCode ev =
+  adequacySub-App dA d1 d2 sigma rho crho vs fits UCode tt ev
+adequacySub {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA d1 d2) sigma rho crho vs fits (FunEl g') ev =
+  adequacySub-App dA d1 d2 sigma rho crho vs fits (FunEl g') (EvalRel-coh (App f' a) rho (FunEl g') ev) ev
+adequacySub {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA d1 d2) sigma rho crho vs fits (PiCode b0' f0') ev =
+  adequacySub-App dA d1 d2 sigma rho crho vs fits (PiCode b0' f0') (EvalRel-coh (App f' a) rho (PiCode b0' f0') ev) ev
 
 -- adequacyEqSub: conv-refl
-adequacyEqSub (conv-refl d) sigma rho vs u hu =
-  let aq  = adequacySub d sigma rho vs u hu
-      a   = fst aq
-      ha  = fst (snd aq)
-      fm  = fst (snd (snd aq))
-      val = snd (snd (snd aq))
-  in mkSigma a (mkSigma ha (mkSigma fm (Val-to-EqVal u a val)))
+adequacyEqSub (conv-refl d) sigma rho crho vs fits u hu =
+  let aq = adequacySub d sigma rho crho vs fits u hu
+  in mkAdeqEq (Adeq.uCode aq) (Adeq.aCode aq) (Adeq.le aq) (Adeq.evSrc aq) (Adeq.mem aq) (Val-to-EqVal (Adeq.uCode aq) (Adeq.aCode aq) (Adeq.val aq))
 
 -- adequacyEqSub: conv-sym
-adequacyEqSub (conv-sym {M = M} {N = N} {A = Asrc} d) sigma rho vs u hu =
-  let huN  = convSound-inv d rho u hu
-      aq   = adequacyEqSub d sigma rho vs u huN
-      a    = fst aq
-      ha   = fst (snd aq)
-      fm   = fst (snd (snd aq))
-      eval = snd (snd (snd aq))
-      cu   = EvalRel-coh N rho u hu
-      ca   = EvalRel-coh Asrc rho a ha
-  in mkSigma a (mkSigma ha (mkSigma fm (EqVal-sym-fn u a cu ca eval)))
+adequacyEqSub (conv-sym {M = M} {N = N} {A = Asrc} d) sigma rho crho vs fits u hu =
+  let huN  = convSound-inv d rho fits u hu
+      aq   = adequacyEqSub d sigma rho crho vs fits u huN
+      cu'  = FinMem-Coherent (AdeqEq.uCode aq) (AdeqEq.aCode aq) (AdeqEq.mem aq)
+      ca   = EvalRel-coh Asrc rho (AdeqEq.aCode aq) (AdeqEq.evSrc aq)
+  in mkAdeqEq (AdeqEq.uCode aq) (AdeqEq.aCode aq) (AdeqEq.le aq) (AdeqEq.evSrc aq) (AdeqEq.mem aq)
+       (EqVal-sym-fn (AdeqEq.uCode aq) (AdeqEq.aCode aq) cu' ca (AdeqEq.eqval aq))
 
--- adequacyEqSub: conv-trans
-adequacyEqSub {H = H} (conv-trans {M = M} {N = N} {P = P} {A = A} d1 d2) sigma rho vs u hu =
-  let huN  = convSound d1 rho u hu
-      -- IH on d1: EqVal M N at u
-      aq1  = adequacyEqSub d1 sigma rho vs u hu
-      a1   = fst aq1
-      ha1  = fst (snd aq1)
-      fm1  = fst (snd (snd aq1))
-      eq1  = snd (snd (snd aq1))
-      -- IH on d2: EqVal N P at u
-      aq2  = adequacyEqSub d2 sigma rho vs u huN
-      a2   = fst aq2
-      ha2  = fst (snd aq2)
-      fm2  = fst (snd (snd aq2))
-      eq2  = snd (snd (snd aq2))
-      -- Align via EqVal-trans-aligned (handles Sup + upEqVal + trans internally)
-      ca1  = EvalRel-coh A rho a1 ha1
-      ca2  = EvalRel-coh A rho a2 ha2
-      comp = EvalRel-comp A rho a1 a2 ha1 ha2
-      ha12 = EvalRel-sup A rho a1 a2 comp ha1 ha2
-      res  = EqVal-trans-aligned u a1 a2 comp ca1 ca2 fm1 fm2 eq1 eq2
-      fm12 = fst res
-      eq12 = snd res
-  in mkSigma (Sup a1 a2) (mkSigma ha12 (mkSigma fm12 eq12))
+-- adequacyEqSub: conv-trans (delegated to postulate — uCode alignment needed)
+adequacyEqSub {H = H} (conv-trans {M = M} {N = N} {P = P} {A = A} d1 d2) sigma rho crho vs fits u hu =
+  adequacyEqSub-conv-trans d1 d2 sigma rho crho vs fits u hu
 
 -- adequacyEqSub: conv-conv
-adequacyEqSub (conv-conv {M = M} {N = N} {A = A} {B = B} d1 d2) sigma rho vs u hu =
-  let aq   = adequacyEqSub d1 sigma rho vs u hu
-      a    = fst aq
-      ha   = fst (snd aq)
-      fm   = fst (snd (snd aq))
-      eval = snd (snd (snd aq))
-      ha'  = convSound d2 rho a ha
-      convH = ConvTm-subst d2 sigma
-      eval' = EqVal-conv-type u a convH eval
-  in mkSigma a (mkSigma ha' (mkSigma fm eval'))
+adequacyEqSub (conv-conv {M = M} {N = N} {A = A} {B = B} d1 d2) sigma rho crho vs fits u hu =
+  let aq    = adequacyEqSub d1 sigma rho crho vs fits u hu
+      ha'   = convSound d2 rho fits (AdeqEq.aCode aq) (AdeqEq.evSrc aq)
+      convH = red-to-conv (Red-subst sigma (Red-from-conv d2))
+      eval' = EqVal-conv-type (AdeqEq.uCode aq) (AdeqEq.aCode aq) convH (AdeqEq.eqval aq)
+  in mkAdeqEq (AdeqEq.uCode aq) (AdeqEq.aCode aq) (AdeqEq.le aq) ha' (AdeqEq.mem aq) eval'
 
 -- adequacyEqSub: conv-beta (delegated to postulate)
-adequacyEqSub (conv-beta d1 d2 d3 d4) sigma rho vs u hu =
-  adequacyEqSub-beta d1 d2 d3 d4 sigma rho vs u hu
+adequacyEqSub (conv-beta d1 d2 d3 d4) sigma rho crho vs fits u hu =
+  adequacyEqSub-beta d1 d2 d3 d4 sigma rho crho vs fits u hu
 
 -- adequacyEqSub: conv-Pi (proved inline)
-adequacyEqSub {H = H} (conv-Pi {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho vs Bot hu =
-  mkSigma Bot (mkSigma (EvalRel-bot U rho) (mkSigma tt tt))
-adequacyEqSub {H = H} (conv-Pi {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho vs UCode ()
-adequacyEqSub {H = H} (conv-Pi {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho vs (FunEl g) ()
-adequacyEqSub {H = H} (conv-Pi {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho vs (PiCode b f)
+adequacyEqSub {H = H} (conv-Pi {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits Bot hu =
+  mkAdeqEq Bot Bot tt (EvalRel-bot U rho) tt tt
+adequacyEqSub {H = H} (conv-Pi {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits UCode ()
+adequacyEqSub {H = H} (conv-Pi {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits (FunEl g) ()
+adequacyEqSub {H = H} (conv-Pi {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits (PiCode b f)
   (mkSigma cpu (mkSigma evA allP)) =
-  let sA  = substExpr sigma A
-      sA' = substExpr sigma A'
-      sB  = substExpr (liftSub sigma) B
-      sB' = substExpr (liftSub sigma) B'
-      -- From Coherent (PiCode b f):
-      fmBU    = FinMem-UCode-from-Coherent b (fst cpu)
-      fmAllU  = FinMemAllU-from-Coherent f b cpu
-      cg      = Coherent-CoherentFun b f cpu
-      cb      = FinMem-Coherent b UCode fmBU
-      -- EqValTy H sA sA' b from IH on d1 via upEqVal
-      aq1     = adequacyEqSub d1 sigma rho vs b evA
-      a1      = fst aq1
-      ha1     = fst (snd aq1)
-      fm1     = fst (snd (snd aq1))
-      eval1   = snd (snd (snd aq1))
-      le1     = ha1
-      ca1     = LeCode-UCode-Coherent a1 ha1
-      eqValTyA-full = upEqVal H sA sA' U b a1 UCode le1 fm1 fmBU ca1 tt eval1 tt
-      eqValTyA = snd (snd eqValTyA-full)
-      -- PiEdgeEqTy from IH on d2 (postulated)
-      peqt    = buildPiEdgeEqTy
-      -- Assemble EqValTyPi
-      eqValTyPi : EqValTyPi H (Pi sA sB) (Pi sA' sB') b f
-      eqValTyPi = mkSigma sA (mkSigma sB (mkSigma sA' (mkSigma sB'
-                    (mkSigma Red-refl (mkSigma Red-refl
-                      (mkSigma cg (mkSigma fmAllU
-                        (mkSigma eqValTyA peqt))))))))
-      -- FinMem (PiCode b f) UCode
-      fmPiU : FinMem (PiCode b f) UCode
-      fmPiU = mkSigma fmBU (mkSigma fmAllU cg)
-      -- ValTyPi wrappers for EqVal bundling at UCode
-      vtyM : ValTyPi H (Pi sA sB) b f
-      vtyM = mkSigma sA (mkSigma sB (mkSigma Red-refl
-               (mkSigma cg (mkSigma fmAllU
-                 (mkSigma (fst eqValTyA-full)
-                 (mkSigma buildPiEdgeVal-M buildPiEdgeEq-M))))))
-      vtyN : ValTyPi H (Pi sA' sB') b f
-      vtyN = mkSigma sA' (mkSigma sB' (mkSigma Red-refl
-               (mkSigma cg (mkSigma fmAllU
-                 (mkSigma (fst (snd eqValTyA-full))
-                 (mkSigma buildPiEdgeVal-N buildPiEdgeEq-N))))))
-      -- Assemble: EqVal at (PiCode b f, UCode) =
-      --   Pair (ValTy M) (Pair (ValTy N) (Pair (ValTy M) (Pair (ValTy N) EqValTyPi)))
-      eqval : EqVal H (Pi sA sB) (Pi sA' sB') U (PiCode b f) UCode
-      eqval = mkSigma vtyM (mkSigma vtyN (mkSigma vtyM (mkSigma vtyN eqValTyPi)))
-  in mkSigma UCode (mkSigma (LeCode-refl UCode tt) (mkSigma fmPiU eqval))
+  convPi-postulate d1 d2 sigma rho crho vs fits (PiCode b f) (mkSigma cpu (mkSigma evA allP))
   where
-    sA  = substExpr sigma A
-    sA' = substExpr sigma A'
-    sB  = substExpr (liftSub sigma) B
-    sB' = substExpr (liftSub sigma) B'
-    fmBU' = FinMem-UCode-from-Coherent b (fst cpu)
-    cb'   = FinMem-Coherent b UCode fmBU'
-    -- Pi-edgewise for edge extraction
-    piEdge : (p : Edge) -> EdgeIn p f ->
-      Sigma FinEl (\ x0 ->
-        Pair (LeCode x0 (fst p))
-             (Pair (FinMem x0 b)
-                   (EvalRel B (extendEnv rho x0) (snd p))))
-    piEdge = snd (snd (Pi-edgewise A B rho b f (mkSigma cpu (mkSigma evA allP))))
-    -- Build a single edge function for EqTy (Selection-based)
-    buildEdgeEqTyFn : (v w : FinEl) -> FinMem v b -> FinMem w UCode ->
-      EdgeIn (mkSigma v w) f ->
-      (P : Expr _) -> Val H P sA v b -> EqValTy H (subst1 sB P) (subst1 sB' P) w
-    buildEdgeEqTyFn v w fmvb fmwU ein P valP =
-      let pew   = piEdge (mkSigma v w) ein
-          x0    = fst pew
-          lx0v  = fst (snd pew)
-          fmx0b = fst (snd (snd pew))
-          evBx0w = snd (snd (snd pew))
-          cx0   = FinMem-Coherent x0 b fmx0b
-          cv    = FinMem-Coherent v b fmvb
-          -- Restrict Val from v to x0 (x0 <= v)
-          valP-x0 = restrictVal H P sA v x0 b lx0v fmx0b cv cb' valP
-          -- Build extended ValidSub at x0
-          newVar : (u' : FinEl) -> Coherent u' -> LeCode u' x0 ->
-                   Adeq H P (substExpr sigma A) rho A u'
-          newVar u' cu' le' = Adeq-from-Val-restrict {M = P}
-                            {A = substExpr sigma A} {rho = rho} {Asrc = A}
-                            u' x0 b evA cu' cx0 cb' le' fmx0b valP-x0
-          vs_ext = ValidSub-extend sigma P rho x0 vs newVar
-          aq2   = adequacyEqSub d2 (extSub sigma P) (extendEnv rho x0) vs_ext w evBx0w
-          a2    = fst aq2
-          ha2   = fst (snd aq2)
-          fm2   = fst (snd (snd aq2))
-          eval2 = snd (snd (snd aq2))
-          -- upEqVal to UCode
-          le2   = ha2
-          ca2   = LeCode-UCode-Coherent a2 ha2
-          evt2-full = upEqVal H (substExpr (extSub sigma P) B) (substExpr (extSub sigma P) B') U w a2 UCode
-                        le2 fm2 fmwU ca2 tt eval2 tt
-          evt2  = snd (snd evt2-full)
-          -- Transport
-          eqB : Eq (substExpr (extSub sigma P) B) (subst1 sB P)
-          eqB = S.Eq-sym (substExpr-comp sigma B P)
-          eqB' : Eq (substExpr (extSub sigma P) B') (subst1 sB' P)
-          eqB' = S.Eq-sym (substExpr-comp sigma B' P)
-      in S.Eq-transport (\ T -> EqValTy H (subst1 sB P) T w) eqB'
-           (S.Eq-transport (\ T -> EqValTy H T (substExpr (extSub sigma P) B') w) eqB evt2)
-    -- Build PiEdgeVal/Eq and PiEdgeEqTy (Selection-based; postulated)
     postulate
-      buildPiEdgeVal-M : PiEdgeVal H sA sB b f
-      buildPiEdgeEq-M  : PiEdgeEq H sA sB b f
-      buildPiEdgeVal-N : PiEdgeVal H sA' sB' b f
-      buildPiEdgeEq-N  : PiEdgeEq H sA' sB' b f
-      buildPiEdgeEqTy : PiEdgeEqTy H sA sB sB' b f
+      convPi-postulate : ConvTm G A A' U -> ConvTm (extend G A) B B' U ->
+        (sigma0 : Sub _ _) -> (rho0 : EnvApprox _) ->
+        CoherentEnv rho0 -> ValidSub H G sigma0 rho0 -> Fits G rho0 ->
+        (u : FinEl) -> EvalRel (Pi A B) rho0 u ->
+        AdeqEq H (Pi (substExpr sigma0 A) (substExpr (liftSub sigma0) B))
+                 (Pi (substExpr sigma0 A') (substExpr (liftSub sigma0) B'))
+                 U rho0 U u
 
 -- adequacyEqSub: conv-funext (delegated to postulate)
-adequacyEqSub (conv-funext _ d1 d2 d3) sigma rho vs u hu =
-  adequacyEqSub-funext d1 d2 d3 sigma rho vs u hu
+adequacyEqSub (conv-funext _ d1 d2 d3) sigma rho crho vs fits u hu =
+  adequacyEqSub-funext d1 d2 d3 sigma rho crho vs fits u hu
 
 -- adequacyEqSub: conv-App-fun (delegated to postulate)
-adequacyEqSub (conv-App-fun _ d1 d2) sigma rho vs u hu =
-  adequacyEqSub-App-fun d1 d2 sigma rho vs u hu
+adequacyEqSub (conv-App-fun _ d1 d2) sigma rho crho vs fits u hu =
+  adequacyEqSub-App-fun d1 d2 sigma rho crho vs fits u hu
 
 -- adequacyEqSub: conv-App-arg (delegated to postulate)
-adequacyEqSub (conv-App-arg _ d1 d2) sigma rho vs u hu =
-  adequacyEqSub-App-arg d1 d2 sigma rho vs u hu
+adequacyEqSub (conv-App-arg _ d1 d2) sigma rho crho vs fits u hu =
+  adequacyEqSub-App-arg d1 d2 sigma rho crho vs fits u hu
 
 ------------------------------------------------------------------------
 -- Part 14: Closed-term corollary
@@ -1020,14 +940,10 @@ adequacy : {M A : Expr zero} ->
   (rho : EnvApprox zero) ->
   (u : FinEl) -> EvalRel M rho u ->
   Adeq empty M A rho A u
-adequacy {M} {A} d rho u hu =
-  let aq   = adequacySub d idSub rho (ValidSub-empty idSub rho) u hu
-      a    = fst aq
-      ha   = fst (snd aq)
-      fm   = fst (snd (snd aq))
-      val  = snd (snd (snd aq))
-      val' = S.Eq-transport (\ T -> Val empty (substExpr idSub M) T u a)
-               (substExpr-id A) val
-      val'' = S.Eq-transport (\ E -> Val empty E A u a)
+adequacy {M} {A} d emptyEnv u hu =
+  let aq   = adequacySub d idSub emptyEnv tt (ValidSub-empty idSub emptyEnv) tt u hu
+      val' = S.Eq-transport (\ T -> Val empty (substExpr idSub M) T (Adeq.uCode aq) (Adeq.aCode aq))
+               (substExpr-id A) (Adeq.val aq)
+      val'' = S.Eq-transport (\ E -> Val empty E A (Adeq.uCode aq) (Adeq.aCode aq))
                 (substExpr-id M) val'
-  in mkSigma a (mkSigma ha (mkSigma fm val''))
+  in mkAdeq (Adeq.uCode aq) (Adeq.aCode aq) (Adeq.le aq) (Adeq.evSrc aq) (Adeq.mem aq) val''

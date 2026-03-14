@@ -13,7 +13,8 @@ module Reduction where
 
 import Basic as S
 open S using (Nat ; suc ; Pair ; Eq)
-open import RawSyntax using (Expr ; Pi ; App ; Lam ; U ; wkExpr ; subst1)
+open import RawSyntax using (Expr ; Pi ; App ; Lam ; U ; wkExpr ; subst1 ;
+  Sub ; substExpr)
 open import TypingRules using (Ctx ; extend ; ConvTm)
 
 postulate
@@ -39,3 +40,7 @@ postulate
   -- Conversion to Red
   Red-from-conv : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
     ConvTm G M N A -> Red G M N A
+  -- Substitution
+  Red-subst : {n m : Nat} {G : Ctx n} {H : Ctx m}
+    {M N A : Expr n} (sigma : Sub m n) ->
+    Red G M N A -> Red H (substExpr sigma M) (substExpr sigma N) (substExpr sigma A)

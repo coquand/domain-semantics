@@ -25,7 +25,7 @@ open import PaperSemantics using (EvalFun ; EvalFun-step ;
   LeCode-Sup-left ; LeCode-Sup-right ;
   LeCode-refl ; LeCode-trans ;
   Sup ; Comp ; CompStepFun ; Coherent-Sup ;
-  Coherent ; CoherentFun ; CoherentFunTail ; CoherentWith ;
+  Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; CoherentWith ;
   cft-from-cf ;
   Coherent-EvalFun ; EvalFun-mon-arg ;
   Comp-value-EvalFun ; comp-Bot-r ;
@@ -53,10 +53,10 @@ data EdgeIn : Edge -> FinFun -> Set where
 
 CoherentFun-edge-key : (e : Edge) (g : FinFun) ->
   CoherentFun g -> EdgeIn e g -> Coherent (fst e)
-CoherentFun-edge-key e (cons p ps) cf here = fst (fst cf)
+CoherentFun-edge-key e (cons p ps) cf here = CFTcons.key-coh cf
 CoherentFun-edge-key e (cons p nil) cf (there ())
 CoherentFun-edge-key e (cons p (cons q qs)) cf (there ein) =
-  CoherentFun-edge-key e (cons q qs) (snd (snd cf)) ein
+  CoherentFun-edge-key e (cons q qs) (CFTcons.tail-coh cf) ein
 
 ------------------------------------------------------------------------
 -- TypedGraph and SatFinFun
@@ -138,40 +138,40 @@ Coherent-Selection : {f : FinFun} {u v : FinEl} ->
 Coherent-Selection sel-nil cf = tt
 Coherent-Selection (sel-skip sel-nil) cf = tt
 Coherent-Selection (sel-skip (sel-skip sel)) cf =
-  Coherent-Selection (sel-skip sel) (snd (snd cf))
+  Coherent-Selection (sel-skip sel) (CFTcons.tail-coh cf)
 Coherent-Selection (sel-skip (sel-take ck cv sel)) cf =
-  Coherent-Selection (sel-take ck cv sel) (snd (snd cf))
+  Coherent-Selection (sel-take ck cv sel) (CFTcons.tail-coh cf)
 Coherent-Selection (sel-take {p} comp-key comp-val sel-nil) cf =
   Coherent-Sup (fst p) Bot comp-key
-    (fst (fst cf)) tt
+    (CFTcons.key-coh cf) tt
 Coherent-Selection (sel-take {p} comp-key comp-val (sel-skip sel)) cf =
   Coherent-Sup (fst p) _ comp-key
-    (fst (fst cf))
-    (Coherent-Selection (sel-skip sel) (snd (snd cf)))
+    (CFTcons.key-coh cf)
+    (Coherent-Selection (sel-skip sel) (CFTcons.tail-coh cf))
 Coherent-Selection (sel-take {p} comp-key comp-val (sel-take ck cv sel)) cf =
   Coherent-Sup (fst p) _ comp-key
-    (fst (fst cf))
-    (Coherent-Selection (sel-take ck cv sel) (snd (snd cf)))
+    (CFTcons.key-coh cf)
+    (Coherent-Selection (sel-take ck cv sel) (CFTcons.tail-coh cf))
 
 Coherent-Selection-val : {f : FinFun} {u v : FinEl} ->
   Selection f u v -> CoherentFun f -> Coherent v
 Coherent-Selection-val sel-nil cf = tt
 Coherent-Selection-val (sel-skip sel-nil) cf = tt
 Coherent-Selection-val (sel-skip (sel-skip sel)) cf =
-  Coherent-Selection-val (sel-skip sel) (snd (snd cf))
+  Coherent-Selection-val (sel-skip sel) (CFTcons.tail-coh cf)
 Coherent-Selection-val (sel-skip (sel-take ck cv sel)) cf =
-  Coherent-Selection-val (sel-take ck cv sel) (snd (snd cf))
+  Coherent-Selection-val (sel-take ck cv sel) (CFTcons.tail-coh cf)
 Coherent-Selection-val (sel-take {p} comp-key comp-val sel-nil) cf =
   Coherent-Sup (snd p) Bot comp-val
-    (fst (snd (fst cf))) tt
+    (CFTcons.val-coh cf) tt
 Coherent-Selection-val (sel-take {p} comp-key comp-val (sel-skip sel)) cf =
   Coherent-Sup (snd p) _ comp-val
-    (fst (snd (fst cf)))
-    (Coherent-Selection-val (sel-skip sel) (snd (snd cf)))
+    (CFTcons.val-coh cf)
+    (Coherent-Selection-val (sel-skip sel) (CFTcons.tail-coh cf))
 Coherent-Selection-val (sel-take {p} comp-key comp-val (sel-take ck cv sel)) cf =
   Coherent-Sup (snd p) _ comp-val
-    (fst (snd (fst cf)))
-    (Coherent-Selection-val (sel-take ck cv sel) (snd (snd cf)))
+    (CFTcons.val-coh cf)
+    (Coherent-Selection-val (sel-take ck cv sel) (CFTcons.tail-coh cf))
 
 FinMem-Selection : {g : FinFun} {u v : FinEl} ->
   (b : FinEl) (f : FinFun) ->
@@ -181,9 +181,9 @@ FinMem-Selection : {g : FinFun} {u v : FinEl} ->
 FinMem-Selection b f sel-nil fmg cg cb bU = bU
 FinMem-Selection b f (sel-skip sel-nil) fmg cg cb bU = bU
 FinMem-Selection b f (sel-skip (sel-skip sel)) fmg cg cb bU =
-  FinMem-Selection b f (sel-skip sel) (snd fmg) (snd (snd cg)) cb bU
+  FinMem-Selection b f (sel-skip sel) (snd fmg) (CFTcons.tail-coh cg) cb bU
 FinMem-Selection b f (sel-skip (sel-take ck cv sel)) fmg cg cb bU =
-  FinMem-Selection b f (sel-take ck cv sel) (snd fmg) (snd (snd cg)) cb bU
+  FinMem-Selection b f (sel-take ck cv sel) (snd fmg) (CFTcons.tail-coh cg) cb bU
 FinMem-Selection b f (sel-take {p} comp-key comp-val sel-nil) fmg cg cb bU =
   FinMem-Sup-element (fst p) Bot b comp-key cb
     (fst (fst fmg))
@@ -191,11 +191,11 @@ FinMem-Selection b f (sel-take {p} comp-key comp-val sel-nil) fmg cg cb bU =
 FinMem-Selection b f (sel-take {p} comp-key comp-val (sel-skip sel)) fmg cg cb bU =
   FinMem-Sup-element (fst p) _ b comp-key cb
     (fst (fst fmg))
-    (FinMem-Selection b f (sel-skip sel) (snd fmg) (snd (snd cg)) cb bU)
+    (FinMem-Selection b f (sel-skip sel) (snd fmg) (CFTcons.tail-coh cg) cb bU)
 FinMem-Selection b f (sel-take {p} comp-key comp-val (sel-take ck cv sel)) fmg cg cb bU =
   FinMem-Sup-element (fst p) _ b comp-key cb
     (fst (fst fmg))
-    (FinMem-Selection b f (sel-take ck cv sel) (snd fmg) (snd (snd cg)) cb bU)
+    (FinMem-Selection b f (sel-take ck cv sel) (snd fmg) (CFTcons.tail-coh cg) cb bU)
 
 FinMemAllU-Selection : {f : FinFun} {u v : FinEl} ->
   (b : FinEl) ->
@@ -205,9 +205,9 @@ FinMemAllU-Selection : {f : FinFun} {u v : FinEl} ->
 FinMemAllU-Selection b sel-nil allU cf cb bU = bU
 FinMemAllU-Selection b (sel-skip sel-nil) allU cf cb bU = bU
 FinMemAllU-Selection b (sel-skip (sel-skip sel)) allU cf cb bU =
-  FinMemAllU-Selection b (sel-skip sel) (snd allU) (snd (snd cf)) cb bU
+  FinMemAllU-Selection b (sel-skip sel) (snd allU) (CFTcons.tail-coh cf) cb bU
 FinMemAllU-Selection b (sel-skip (sel-take ck cv sel)) allU cf cb bU =
-  FinMemAllU-Selection b (sel-take ck cv sel) (snd allU) (snd (snd cf)) cb bU
+  FinMemAllU-Selection b (sel-take ck cv sel) (snd allU) (CFTcons.tail-coh cf) cb bU
 FinMemAllU-Selection b (sel-take {p} comp-key comp-val sel-nil) allU cf cb bU =
   FinMem-Sup-element (fst p) Bot b comp-key cb
     (fst (fst allU))
@@ -215,11 +215,11 @@ FinMemAllU-Selection b (sel-take {p} comp-key comp-val sel-nil) allU cf cb bU =
 FinMemAllU-Selection b (sel-take {p} comp-key comp-val (sel-skip sel)) allU cf cb bU =
   FinMem-Sup-element (fst p) _ b comp-key cb
     (fst (fst allU))
-    (FinMemAllU-Selection b (sel-skip sel) (snd allU) (snd (snd cf)) cb bU)
+    (FinMemAllU-Selection b (sel-skip sel) (snd allU) (CFTcons.tail-coh cf) cb bU)
 FinMemAllU-Selection b (sel-take {p} comp-key comp-val (sel-take ck cv sel)) allU cf cb bU =
   FinMem-Sup-element (fst p) _ b comp-key cb
     (fst (fst allU))
-    (FinMemAllU-Selection b (sel-take ck cv sel) (snd allU) (snd (snd cf)) cb bU)
+    (FinMemAllU-Selection b (sel-take ck cv sel) (snd allU) (CFTcons.tail-coh cf) cb bU)
 
 FinMem-Selection-UCode : {f : FinFun} {u v : FinEl} ->
   (b : FinEl) ->
@@ -228,9 +228,9 @@ FinMem-Selection-UCode : {f : FinFun} {u v : FinEl} ->
 FinMem-Selection-UCode b sel-nil allU cf = tt
 FinMem-Selection-UCode b (sel-skip sel-nil) allU cf = tt
 FinMem-Selection-UCode b (sel-skip (sel-skip sel)) allU cf =
-  FinMem-Selection-UCode b (sel-skip sel) (snd allU) (snd (snd cf))
+  FinMem-Selection-UCode b (sel-skip sel) (snd allU) (CFTcons.tail-coh cf)
 FinMem-Selection-UCode b (sel-skip (sel-take ck cv sel)) allU cf =
-  FinMem-Selection-UCode b (sel-take ck cv sel) (snd allU) (snd (snd cf))
+  FinMem-Selection-UCode b (sel-take ck cv sel) (snd allU) (CFTcons.tail-coh cf)
 FinMem-Selection-UCode b (sel-take {p} comp-key comp-val sel-nil) allU cf =
   FinMem-Sup-element (snd p) Bot UCode comp-val tt
     (snd (fst allU))
@@ -238,11 +238,11 @@ FinMem-Selection-UCode b (sel-take {p} comp-key comp-val sel-nil) allU cf =
 FinMem-Selection-UCode b (sel-take {p} comp-key comp-val (sel-skip sel)) allU cf =
   FinMem-Sup-element (snd p) _ UCode comp-val tt
     (snd (fst allU))
-    (FinMem-Selection-UCode b (sel-skip sel) (snd allU) (snd (snd cf)))
+    (FinMem-Selection-UCode b (sel-skip sel) (snd allU) (CFTcons.tail-coh cf))
 FinMem-Selection-UCode b (sel-take {p} comp-key comp-val (sel-take ck cv sel)) allU cf =
   FinMem-Sup-element (snd p) _ UCode comp-val tt
     (snd (fst allU))
-    (FinMem-Selection-UCode b (sel-take ck cv sel) (snd allU) (snd (snd cf)))
+    (FinMem-Selection-UCode b (sel-take ck cv sel) (snd allU) (CFTcons.tail-coh cf))
 
 ------------------------------------------------------------------------
 -- selectionBelow
@@ -263,9 +263,9 @@ selectionBelow-step (suc m) p rest x eq cf cx u v sel le eqv =
       comp-ku = LeCode-Comp (fst p) u x cx le-k le
       comp-vr = Eq-transport (Comp (snd p)) eqv
                   (Comp-value-EvalFun p rest x le-k cx
-                    (fst (snd (fst cf)))
-                    (fst (snd cf))
-                    (coherentWith-to-compStepFun p rest (fst (snd cf))))
+                    (CFTcons.val-coh cf)
+                    (CFTcons.compat cf)
+                    (coherentWith-to-compStepFun p rest (CFTcons.compat cf)))
   in mkSigma (Sup (fst p) u) (mkSigma (Sup (snd p) v)
        (mkSigma (sel-take comp-ku comp-vr sel)
          (mkSigma (LeCode-Sup-lub (fst p) u x le-k le)
@@ -284,7 +284,7 @@ selectionBelow (cons p nil) x cf cx =
   selectionBelow-step (leFinEl (fst p) x) p nil x refl cf cx
        Bot Bot sel-nil (LeCode-Bot x) refl
 selectionBelow (cons p (cons q qs)) x cf cx =
-  let ih = selectionBelow (cons q qs) x (snd (snd cf)) cx
+  let ih = selectionBelow (cons q qs) x (CFTcons.tail-coh cf) cx
   in selectionBelow-step (leFinEl (fst p) x) p (cons q qs) x refl cf cx
        (fst ih) (fst (snd ih))
        (fst (snd (snd ih))) (fst (snd (snd (snd ih)))) (snd (snd (snd (snd ih))))
@@ -301,15 +301,15 @@ Selection-le-EvalFun : {f : FinFun} {u v : FinEl} ->
 Selection-le-EvalFun g sel-nil lf cf cg cu = LeCode-Bot (EvalFun g Bot)
 Selection-le-EvalFun g (sel-skip sel-nil) lf cf cg cu = LeCode-Bot (EvalFun g Bot)
 Selection-le-EvalFun g (sel-skip (sel-skip sel)) lf cf cg cu =
-  Selection-le-EvalFun g (sel-skip sel) (snd lf) (snd (snd cf)) cg cu
+  Selection-le-EvalFun g (sel-skip sel) (snd lf) (CFTcons.tail-coh cf) cg cu
 Selection-le-EvalFun g (sel-skip (sel-take ck cv sel)) lf cf cg cu =
-  Selection-le-EvalFun g (sel-take ck cv sel) (snd lf) (snd (snd cf)) cg cu
+  Selection-le-EvalFun g (sel-take ck cv sel) (snd lf) (CFTcons.tail-coh cf) cg cu
 Selection-le-EvalFun g (sel-take {p} comp-key comp-val sel-nil) lf cf cg cu =
   let cg' = cft-from-cf g cg
       cu-inner = tt
       cv-inner = tt
-      cp = fst (fst cf)
-      cpv = fst (snd (fst cf))
+      cp = CFTcons.key-coh cf
+      cpv = CFTcons.val-coh cf
       le-v0 = fst lf
       ih = LeCode-Bot (EvalFun g Bot)
       cu-sup = Coherent-Sup (fst p) Bot comp-key cp tt
@@ -327,12 +327,12 @@ Selection-le-EvalFun g (sel-take {p} comp-key comp-val sel-nil) lf cf cg cu =
   in LeCode-Sup-lub (snd p) Bot (EvalFun g (Sup (fst p) Bot)) le-v0-sup le-v-sup
 Selection-le-EvalFun g (sel-take {p} {u} {v} comp-key comp-val (sel-skip sel)) lf cf cg cu =
   let cg' = cft-from-cf g cg
-      cu-inner = Coherent-Selection (sel-skip sel) (snd (snd cf))
-      cv-inner = Coherent-Selection-val (sel-skip sel) (snd (snd cf))
-      cp = fst (fst cf)
-      cpv = fst (snd (fst cf))
+      cu-inner = Coherent-Selection (sel-skip sel) (CFTcons.tail-coh cf)
+      cv-inner = Coherent-Selection-val (sel-skip sel) (CFTcons.tail-coh cf)
+      cp = CFTcons.key-coh cf
+      cpv = CFTcons.val-coh cf
       le-v0 = fst lf
-      ih = Selection-le-EvalFun g (sel-skip sel) (snd lf) (snd (snd cf)) cg cu-inner
+      ih = Selection-le-EvalFun g (sel-skip sel) (snd lf) (CFTcons.tail-coh cf) cg cu-inner
       cu-sup = Coherent-Sup (fst p) u comp-key cp cu-inner
       c-ef-p = Coherent-EvalFun g (fst p) cg' cp
       c-ef-u = Coherent-EvalFun g u cg' cu-inner
@@ -348,12 +348,12 @@ Selection-le-EvalFun g (sel-take {p} {u} {v} comp-key comp-val (sel-skip sel)) l
   in LeCode-Sup-lub (snd p) v (EvalFun g (Sup (fst p) u)) le-v0-sup le-v-sup
 Selection-le-EvalFun g (sel-take {p} {u} {v} comp-key comp-val (sel-take ck cv sel)) lf cf cg cu =
   let cg' = cft-from-cf g cg
-      cu-inner = Coherent-Selection (sel-take ck cv sel) (snd (snd cf))
-      cv-inner = Coherent-Selection-val (sel-take ck cv sel) (snd (snd cf))
-      cp = fst (fst cf)
-      cpv = fst (snd (fst cf))
+      cu-inner = Coherent-Selection (sel-take ck cv sel) (CFTcons.tail-coh cf)
+      cv-inner = Coherent-Selection-val (sel-take ck cv sel) (CFTcons.tail-coh cf)
+      cp = CFTcons.key-coh cf
+      cpv = CFTcons.val-coh cf
       le-v0 = fst lf
-      ih = Selection-le-EvalFun g (sel-take ck cv sel) (snd lf) (snd (snd cf)) cg cu-inner
+      ih = Selection-le-EvalFun g (sel-take ck cv sel) (snd lf) (CFTcons.tail-coh cf) cg cu-inner
       cu-sup = Coherent-Sup (fst p) u comp-key cp cu-inner
       c-ef-p = Coherent-EvalFun g (fst p) cg' cp
       c-ef-u = Coherent-EvalFun g u cg' cu-inner
@@ -382,16 +382,16 @@ FinMem-Selection-codomain b f sel-nil fmg cg cf allU =
 FinMem-Selection-codomain b f (sel-skip sel-nil) fmg cg cf allU =
   EvalFun-in-UCode f Bot b (cft-from-cf f cf) tt allU
 FinMem-Selection-codomain b f (sel-skip (sel-skip sel)) fmg cg cf allU =
-  FinMem-Selection-codomain b f (sel-skip sel) (snd fmg) (snd (snd cg)) cf allU
+  FinMem-Selection-codomain b f (sel-skip sel) (snd fmg) (CFTcons.tail-coh cg) cf allU
 FinMem-Selection-codomain b f (sel-skip (sel-take ck cv sel)) fmg cg cf allU =
-  FinMem-Selection-codomain b f (sel-take ck cv sel) (snd fmg) (snd (snd cg)) cf allU
+  FinMem-Selection-codomain b f (sel-take ck cv sel) (snd fmg) (CFTcons.tail-coh cg) cf allU
 FinMem-Selection-codomain b f
   (sel-take {p} comp-key comp-val sel-nil) fmg cg cf allU =
   let cf' = cft-from-cf f cf
       cu = tt
       cv = tt
-      ck = fst (fst cg)
-      cpv = fst (snd (fst cg))
+      ck = CFTcons.key-coh cg
+      cpv = CFTcons.val-coh cg
       cu-sup = Coherent-Sup (fst p) Bot comp-key ck tt
       ih = EvalFun-in-UCode f Bot b cf' tt allU
       c-efp = Coherent-EvalFun f (fst p) cf' ck
@@ -411,12 +411,12 @@ FinMem-Selection-codomain b f
 FinMem-Selection-codomain b f
   (sel-take {p} {u} {v} comp-key comp-val (sel-skip sel)) fmg cg cf allU =
   let cf' = cft-from-cf f cf
-      cu = Coherent-Selection (sel-skip sel) (snd (snd cg))
-      cv0 = Coherent-Selection-val (sel-skip sel) (snd (snd cg))
-      ck = fst (fst cg)
-      cpv = fst (snd (fst cg))
+      cu = Coherent-Selection (sel-skip sel) (CFTcons.tail-coh cg)
+      cv0 = Coherent-Selection-val (sel-skip sel) (CFTcons.tail-coh cg)
+      ck = CFTcons.key-coh cg
+      cpv = CFTcons.val-coh cg
       cu-sup = Coherent-Sup (fst p) u comp-key ck cu
-      ih = FinMem-Selection-codomain b f (sel-skip sel) (snd fmg) (snd (snd cg)) cf allU
+      ih = FinMem-Selection-codomain b f (sel-skip sel) (snd fmg) (CFTcons.tail-coh cg) cf allU
       c-efp = Coherent-EvalFun f (fst p) cf' ck
       c-efu = Coherent-EvalFun f u cf' cu
       c-efsup = Coherent-EvalFun f (Sup (fst p) u) cf' cu-sup
@@ -434,12 +434,12 @@ FinMem-Selection-codomain b f
 FinMem-Selection-codomain b f
   (sel-take {p} {u} {v} comp-key comp-val (sel-take ck cv sel)) fmg cg cf allU =
   let cf' = cft-from-cf f cf
-      cu = Coherent-Selection (sel-take ck cv sel) (snd (snd cg))
-      cv' = Coherent-Selection-val (sel-take ck cv sel) (snd (snd cg))
-      ck' = fst (fst cg)
-      cpv = fst (snd (fst cg))
+      cu = Coherent-Selection (sel-take ck cv sel) (CFTcons.tail-coh cg)
+      cv' = Coherent-Selection-val (sel-take ck cv sel) (CFTcons.tail-coh cg)
+      ck' = CFTcons.key-coh cg
+      cpv = CFTcons.val-coh cg
       cu-sup = Coherent-Sup (fst p) u comp-key ck' cu
-      ih = FinMem-Selection-codomain b f (sel-take ck cv sel) (snd fmg) (snd (snd cg)) cf allU
+      ih = FinMem-Selection-codomain b f (sel-take ck cv sel) (snd fmg) (CFTcons.tail-coh cg) cf allU
       c-efp = Coherent-EvalFun f (fst p) cf' ck'
       c-efu = Coherent-EvalFun f u cf' cu
       c-efsup = Coherent-EvalFun f (Sup (fst p) u) cf' cu-sup
