@@ -63,12 +63,13 @@ data HasType where
     -> WfCtx G
     -> HasType G (Var i) (lookup G i)
 
-  -- Γ ⊢ M : A   Γ ⊢ A = B : U
-  -- ───────────────────────────
+  -- Γ ⊢ M : A   Γ ⊢ A = B : U   Γ ⊢ B : U
+  -- ──────────────────────────────────────
   -- Γ ⊢ M : B
   ty-conv : {n : Nat} {G : Ctx n} {M A B : Expr n}
     -> HasType G M A
     -> ConvTm G A B U
+    -> HasType G B U
     -> HasType G M B
 
   -- Γ ⊢
@@ -95,12 +96,13 @@ data HasType where
     -> HasType (extend G A) M B
     -> HasType G (Lam A M) (Pi A B)
 
-  -- Γ ⊢ A : U   Γ ⊢ f : Π(x:A)B   Γ ⊢ a : A
-  -- ──────────────────────────────────────────
+  -- Γ ⊢ A : U   Γ,x:A ⊢ B : U   Γ ⊢ f : Π(x:A)B   Γ ⊢ a : A
+  -- ─────────────────────────────────────────────────────────────
   -- Γ ⊢ f a : B[x/a]
   ty-App : {n : Nat} {G : Ctx n} {A : Expr n} {B : Expr (suc n)}
     {f a : Expr n}
     -> HasType G A U
+    -> HasType (extend G A) B U
     -> HasType G f (Pi A B)
     -> HasType G a A
     -> HasType G (App f a) (subst1 B a)
@@ -133,12 +135,13 @@ data ConvTm where
     -> ConvTm G N P A
     -> ConvTm G M P A
 
-  -- Γ ⊢ M = N : A   Γ ⊢ A = B : U
-  -- ───────────────────────────────
+  -- Γ ⊢ M = N : A   Γ ⊢ A = B : U   Γ ⊢ B : U
+  -- ─────────────────────────────────────────────
   -- Γ ⊢ M = N : B
   conv-conv : {n : Nat} {G : Ctx n} {M N A B : Expr n}
     -> ConvTm G M N A
     -> ConvTm G A B U
+    -> HasType G B U
     -> ConvTm G M N B
 
   -- β-rule:
@@ -178,23 +181,25 @@ data ConvTm where
     -> ConvTm G f g (Pi A B)
 
   -- Congruence: App (function slot)
-  -- Γ ⊢ A : U   Γ ⊢ f = f' : Π(x:A)B   Γ ⊢ a : A
-  -- ────────────────────────────────────────────────
+  -- Γ ⊢ A : U   Γ,x:A ⊢ B : U   Γ ⊢ f = f' : Π(x:A)B   Γ ⊢ a : A
+  -- ──────────────────────────────────────────────────────────────────
   -- Γ ⊢ f a = f' a : B[x/a]
   conv-App-fun : {n : Nat} {G : Ctx n} {A : Expr n} {B : Expr (suc n)}
     {f f' a : Expr n}
     -> HasType G A U
+    -> HasType (extend G A) B U
     -> ConvTm G f f' (Pi A B)
     -> HasType G a A
     -> ConvTm G (App f a) (App f' a) (subst1 B a)
 
   -- Congruence: App (argument slot)
-  -- Γ ⊢ A : U   Γ ⊢ f : Π(x:A)B   Γ ⊢ a = a' : A
-  -- ────────────────────────────────────────────────
+  -- Γ ⊢ A : U   Γ,x:A ⊢ B : U   Γ ⊢ f : Π(x:A)B   Γ ⊢ a = a' : A
+  -- ──────────────────────────────────────────────────────────────────
   -- Γ ⊢ f a = f a' : B[x/a]
   conv-App-arg : {n : Nat} {G : Ctx n} {A : Expr n} {B : Expr (suc n)}
     {f a a' : Expr n}
     -> HasType G A U
+    -> HasType (extend G A) B U
     -> HasType G f (Pi A B)
     -> ConvTm G a a' A
     -> ConvTm G (App f a) (App f a') (subst1 B a)

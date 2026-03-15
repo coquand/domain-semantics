@@ -1335,3 +1335,20 @@ EvalRel-Pi-app-type A B a rho b f v crho evPi eva =
       -- Build EvalRel B (extendEnv rho v) (EvalFun f v)
       evB  = EvalRel-body-EvalFun B rho v a' f crho cv cft wf
   in EvalRel-subst1-backward B a rho v (EvalFun f v) crho eva evB
+
+-- EvalRel-Pi-body: from Pi evaluation, derive EvalRel B (extendEnv rho v) (EvalFun f v)
+-- This is the intermediate step of EvalRel-Pi-app-type, before applying subst1-backward.
+EvalRel-Pi-body :
+  {n : Nat} (A : Expr n) (B : Expr (suc n))
+  (rho : EnvApprox n) (b : FinEl) (f : FinFun) (v : FinEl) ->
+  CoherentEnv rho -> Coherent v ->
+  EvalRel (Pi A B) rho (PiCode b f) ->
+  EvalRel B (extendEnv rho v) (EvalFun f v)
+EvalRel-Pi-body A B rho b f v crho cv evPi =
+  let pew  = Pi-edgewise A B rho b f evPi
+      caf  = fst pew
+      a'   = fst (snd (snd pew))
+      wf   = snd (snd (snd (snd pew)))
+      cf   = snd caf
+      cft  = cft-from-cf f cf
+  in EvalRel-body-EvalFun B rho v a' f crho cv cft wf

@@ -69,9 +69,8 @@ open import RawSyntax using (Expr ; Var ; U ; Pi ; Lam ; App ; wkExpr ;
   subst-subst ; substExpr-ext ; liftSub-subst-ext ; Eq-trans)
 open import TypingRules using (Ctx ; empty ; extend ; ConvTm ; conv-sym ;
   conv-trans)
-open import Reduction using (Red ; Red-wk ; red-to-conv ;
-  Red-refl ; Red-trans ; Red-beta-expand ; Red-Pi-inj ; Red-from-conv ;
-  Red-subst)
+open import Reduction using (Red ; mkRed ; HeadRed ; HeadRed-trans ;
+  HeadRed-App ; HeadRed-strip-Pi ; HeadRed-unique-Pi)
 open import PaperSemantics using (applyEl ; EvalFun ; EvalFun-step ;
   leFinEl ; leFinEl-sound ;
   LeCode ; LeFunCode ; LeCode-Bot ; LeCode-Sup-lub ;
@@ -395,79 +394,218 @@ Val-from-EqVal-second (PiCode a' f') (PiCode b f) ev = tt
 
 
 ------------------------------------------------------------------------
--- Val-conv-type / EqVal-conv-type -- DERIVED from Red infrastructure
+-- Val-conv-type / EqVal-conv-type -- Lemma 8 from the paper
 --
--- At PiCode/FunEl (the only nontrivial case), the type A appears
--- only in Red G A (Pi A0 B0) U.  We replace this Red using
--- Red-from-conv (conv-sym conv) and Red-trans.
+-- Transport Val/EqVal along semantic type equality (EqValTy),
+-- following Lemma 8 of Coquand & Huber 2018.
+-- These are just aliases for Val-EqValTy-fwd / EqVal-EqValTy-fwd,
+-- defined later in the mutual block.
 ------------------------------------------------------------------------
 
-Val-conv-type : {n : Nat} {G : Ctx n} {M A B : Expr n}
-  (u a : FinEl) ->
-  ConvTm G A B U -> Val G M A u a -> Val G M B u a
--- a = Bot: Val = Top
-Val-conv-type u Bot conv val = tt
--- a = UCode: ValTy doesn't mention A
-Val-conv-type u UCode conv val = val
--- a = FunEl: Val = Top
-Val-conv-type u (FunEl h) conv val = tt
--- a = PiCode, u = Bot: Top
-Val-conv-type Bot (PiCode b f) conv val = tt
--- a = PiCode, u = UCode: Top
-Val-conv-type UCode (PiCode b f) conv val = tt
--- a = PiCode, u = FunEl g: Pair ValTy ValPi, replace Red in both
-Val-conv-type {G = G} {A = A} {B = B} (FunEl g) (PiCode b f) conv val =
-  let vty = fst val
-      vpi = snd val
-      -- Transport ValTy: A -> B in Red
-      A0v  = fst vty
-      B0v  = fst (snd vty)
-      redv = fst (snd (snd vty))
-      restv = snd (snd (snd vty))
-      redv' = Red-trans (Red-from-conv (conv-sym conv)) redv
-      vty' = mkSigma A0v (mkSigma B0v (mkSigma redv' restv))
-      -- Transport ValPi: A -> B in Red
-      A0  = fst vpi
-      B0  = fst (snd vpi)
-      red = fst (snd (snd vpi))
-      cg  = fst (snd (snd (snd vpi)))
-      fmg = fst (snd (snd (snd (snd vpi))))
-      rest = snd (snd (snd (snd (snd vpi))))
-      red' = Red-trans (Red-from-conv (conv-sym conv)) red
-      vpi' = mkSigma A0 (mkSigma B0 (mkSigma red' (mkSigma cg (mkSigma fmg rest))))
-  in mkSigma vty' vpi'
--- a = PiCode, u = PiCode: Top
-Val-conv-type (PiCode a' f') (PiCode b f) conv val = tt
+------------------------------------------------------------------------
+-- Val-headred-expand / EqVal-headred-expand
+--
+-- If HeadRed M' M, then Val G M T u a implies Val G M' T u a.
+-- The term parameter M is phantom in Val except inside PiAppVal
+-- where it appears as (App M P); we lift HeadRed through App
+-- and recurse at (v, EvalFun f u).
+------------------------------------------------------------------------
 
-EqVal-conv-type : {n : Nat} {G : Ctx n} {M N A B : Expr n}
+{-# TERMINATING #-}
+mutual
+  Val-headred-expand : {n : Nat} {G : Ctx n} {M M' T : Expr n}
+    (u a : FinEl) -> HeadRed M' M ->
+    Val G M T u a -> Val G M' T u a
+  Val-headred-expand u Bot hr v = tt
+  Val-headred-expand u UCode hr v =
+    ValTy-headred-expand u hr v
+  Val-headred-expand u (FunEl h) hr v = tt
+  Val-headred-expand Bot (PiCode b f) hr v = tt
+  Val-headred-expand UCode (PiCode b f) hr v = tt
+  Val-headred-expand (FunEl g) (PiCode b f) hr (mkSigma vty vpi) =
+    mkSigma vty (ValPi-headred-expand g b f hr vpi)
+  Val-headred-expand (PiCode a' f') (PiCode b f) hr v = tt
+
+  EqVal-headred-expand : {n : Nat} {G : Ctx n} {M1 M2 M1' M2' T : Expr n}
+    (u a : FinEl) -> HeadRed M1' M1 -> HeadRed M2' M2 ->
+    EqVal G M1 M2 T u a -> EqVal G M1' M2' T u a
+  EqVal-headred-expand u Bot hr1 hr2 v = tt
+  EqVal-headred-expand u UCode hr1 hr2 (mkSigma vt1 (mkSigma vt2 eqvt)) =
+    mkSigma (ValTy-headred-expand u hr1 vt1)
+      (mkSigma (ValTy-headred-expand u hr2 vt2)
+        (EqValTy-headred-expand u hr1 hr2 eqvt))
+  EqVal-headred-expand u (FunEl h) hr1 hr2 v = tt
+  EqVal-headred-expand Bot (PiCode b f) hr1 hr2 v = tt
+  EqVal-headred-expand UCode (PiCode b f) hr1 hr2 v = tt
+  EqVal-headred-expand (FunEl g) (PiCode b f) hr1 hr2
+    (mkSigma vty (mkSigma vp1 (mkSigma vp2 eqvp))) =
+    mkSigma vty
+      (mkSigma (ValPi-headred-expand g b f hr1 vp1)
+        (mkSigma (ValPi-headred-expand g b f hr2 vp2)
+          (EqValPi-headred-expand g b f hr1 hr2 eqvp)))
+  EqVal-headred-expand (PiCode a' f') (PiCode b f) hr1 hr2 v = tt
+
+  ValTy-headred-expand : {n : Nat} {G : Ctx n} {M M' : Expr n}
+    (u : FinEl) -> HeadRed M' M ->
+    ValTy G M u -> ValTy G M' u
+  ValTy-headred-expand Bot hr v = tt
+  ValTy-headred-expand UCode hr v = tt
+  ValTy-headred-expand (FunEl g) hr v = tt
+  ValTy-headred-expand (PiCode b f) hr
+    (mkSigma A (mkSigma B (mkSigma (mkRed red) rest))) =
+    mkSigma A (mkSigma B (mkSigma (mkRed (HeadRed-trans hr red)) rest))
+
+  EqValTy-headred-expand : {n : Nat} {G : Ctx n} {M1 M2 M1' M2' : Expr n}
+    (u : FinEl) -> HeadRed M1' M1 -> HeadRed M2' M2 ->
+    EqValTy G M1 M2 u -> EqValTy G M1' M2' u
+  EqValTy-headred-expand Bot hr1 hr2 v = tt
+  EqValTy-headred-expand UCode hr1 hr2 v = tt
+  EqValTy-headred-expand (FunEl g) hr1 hr2 v = tt
+  EqValTy-headred-expand (PiCode b f) hr1 hr2
+    (mkSigma vt1 (mkSigma vt2
+      (mkSigma A (mkSigma B (mkSigma A' (mkSigma B'
+        (mkSigma (mkRed red1) (mkSigma (mkRed red2) rest)))))))) =
+    mkSigma (ValTy-headred-expand (PiCode b f) hr1 vt1)
+      (mkSigma (ValTy-headred-expand (PiCode b f) hr2 vt2)
+        (mkSigma A (mkSigma B (mkSigma A' (mkSigma B'
+          (mkSigma (mkRed (HeadRed-trans hr1 red1))
+            (mkSigma (mkRed (HeadRed-trans hr2 red2)) rest)))))))
+
+  ValPi-headred-expand : {n : Nat} {G : Ctx n} {M M' T : Expr n}
+    (g0 : FinFun) (b : FinEl) (f : FinFun) ->
+    HeadRed M' M -> ValPi G M T g0 b f -> ValPi G M' T g0 b f
+  ValPi-headred-expand g0 b f hr
+    (mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
+      (mkSigma pav pae)))))) =
+    mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
+      (mkSigma (\ u v sel N valN ->
+        Val-headred-expand v (EvalFun f u) (HeadRed-App hr)
+          (pav u v sel N valN))
+      (\ u v sel N1 N2 eqN ->
+        EqVal-headred-expand v (EvalFun f u) (HeadRed-App hr) (HeadRed-App hr)
+          (pae u v sel N1 N2 eqN)))))))
+
+  EqValPi-headred-expand : {n : Nat} {G : Ctx n} {M1 M2 M1' M2' T : Expr n}
+    (g0 : FinFun) (b : FinEl) (f : FinFun) ->
+    HeadRed M1' M1 -> HeadRed M2' M2 ->
+    EqValPi G M1 M2 T g0 b f -> EqValPi G M1' M2' T g0 b f
+  EqValPi-headred-expand g0 b f hr1 hr2
+    (mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg peqv))))) =
+    mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
+      (\ u v sel P valP ->
+        EqVal-headred-expand v (EvalFun f u) (HeadRed-App hr1) (HeadRed-App hr2)
+          (peqv u v sel P valP))))))
+
+-- Derived: Val-beta-expand / EqVal-beta-expand
+Val-beta-expand : {n : Nat} {G : Ctx n} {A : Expr n}
+  {M : Expr (suc n)} {N T : Expr n}
   (u a : FinEl) ->
-  ConvTm G A B U -> EqVal G M N A u a -> EqVal G M N B u a
-EqVal-conv-type u Bot conv eqv = tt
-EqVal-conv-type u UCode conv eqv = eqv
-EqVal-conv-type u (FunEl h) conv eqv = tt
-EqVal-conv-type Bot (PiCode b f) conv eqv = tt
-EqVal-conv-type UCode (PiCode b f) conv eqv = tt
-EqVal-conv-type {G = G} {M = M} {N = N} {A = A} {B = B} (FunEl g) (PiCode b f) conv eqv =
-  let valM = mkSigma (fst eqv) (fst (snd eqv))
-      valN = mkSigma (fst eqv) (fst (snd (snd eqv)))
-      epi  = snd (snd (snd eqv))
-      valM' = Val-conv-type {M = M} (FunEl g) (PiCode b f) conv valM
-      valN' = Val-conv-type {M = N} (FunEl g) (PiCode b f) conv valN
-      -- Transport EqValPi: A -> B in Red
-      A0   = fst epi
-      B0   = fst (snd epi)
-      red  = fst (snd (snd epi))
-      cg   = fst (snd (snd (snd epi)))
-      fmg  = fst (snd (snd (snd (snd epi))))
-      rest = snd (snd (snd (snd (snd epi))))
-      red' = Red-trans (Red-from-conv (conv-sym conv)) red
-      epi' = mkSigma A0 (mkSigma B0 (mkSigma red' (mkSigma cg (mkSigma fmg rest))))
-      valMB' : Val G M B (FunEl g) (PiCode b f)
-      valMB' = valM'
-      valNB' : Val G N B (FunEl g) (PiCode b f)
-      valNB' = valN'
-  in mkSigma (fst valMB') (mkSigma (snd valMB') (mkSigma (snd valNB') epi'))
-EqVal-conv-type (PiCode a' f') (PiCode b f) conv eqv = tt
+  Val G (subst1 M N) T u a -> Val G (App (Lam A M) N) T u a
+Val-beta-expand u a = Val-headred-expand u a (headred-step headred-beta headred-refl)
+  where open Reduction using (headred-step ; headred-beta ; headred-refl)
+
+EqVal-beta-expand : {n : Nat} {G : Ctx n} {A : Expr n}
+  {M : Expr (suc n)} {N T : Expr n}
+  (u a : FinEl) ->
+  EqVal G (subst1 M N) (subst1 M N) T u a ->
+  EqVal G (App (Lam A M) N) (App (Lam A M) N) T u a
+EqVal-beta-expand u a =
+  EqVal-headred-expand u a (headred-step headred-beta headred-refl)
+                            (headred-step headred-beta headred-refl)
+  where open Reduction using (headred-step ; headred-beta ; headred-refl)
+
+------------------------------------------------------------------------
+-- Val-headred-contract / EqVal-headred-contract
+--
+-- If HeadRed M M', then Val G M T u a implies Val G M' T u a.
+-- Forward direction (contraction) — dual of expand above.
+-- Uses HeadRed-strip-Pi for the Red inside ValTyPi/EqValTyPi.
+------------------------------------------------------------------------
+
+{-# TERMINATING #-}
+mutual
+  Val-headred-contract : {n : Nat} {G : Ctx n} {M M' T : Expr n}
+    (u a : FinEl) -> HeadRed M M' ->
+    Val G M T u a -> Val G M' T u a
+  Val-headred-contract u Bot hr v = tt
+  Val-headred-contract u UCode hr v =
+    ValTy-headred-contract u hr v
+  Val-headred-contract u (FunEl h) hr v = tt
+  Val-headred-contract Bot (PiCode b f) hr v = tt
+  Val-headred-contract UCode (PiCode b f) hr v = tt
+  Val-headred-contract (FunEl g) (PiCode b f) hr (mkSigma vty vpi) =
+    mkSigma vty (ValPi-headred-contract g b f hr vpi)
+  Val-headred-contract (PiCode a' f') (PiCode b f) hr v = tt
+
+  EqVal-headred-contract : {n : Nat} {G : Ctx n} {M1 M2 M1' M2' T : Expr n}
+    (u a : FinEl) -> HeadRed M1 M1' -> HeadRed M2 M2' ->
+    EqVal G M1 M2 T u a -> EqVal G M1' M2' T u a
+  EqVal-headred-contract u Bot hr1 hr2 v = tt
+  EqVal-headred-contract u UCode hr1 hr2 (mkSigma vt1 (mkSigma vt2 eqvt)) =
+    mkSigma (ValTy-headred-contract u hr1 vt1)
+      (mkSigma (ValTy-headred-contract u hr2 vt2)
+        (EqValTy-headred-contract u hr1 hr2 eqvt))
+  EqVal-headred-contract u (FunEl h) hr1 hr2 v = tt
+  EqVal-headred-contract Bot (PiCode b f) hr1 hr2 v = tt
+  EqVal-headred-contract UCode (PiCode b f) hr1 hr2 v = tt
+  EqVal-headred-contract (FunEl g) (PiCode b f) hr1 hr2
+    (mkSigma vty (mkSigma vp1 (mkSigma vp2 eqvp))) =
+    mkSigma vty
+      (mkSigma (ValPi-headred-contract g b f hr1 vp1)
+        (mkSigma (ValPi-headred-contract g b f hr2 vp2)
+          (EqValPi-headred-contract g b f hr1 hr2 eqvp)))
+  EqVal-headred-contract (PiCode a' f') (PiCode b f) hr1 hr2 v = tt
+
+  ValTy-headred-contract : {n : Nat} {G : Ctx n} {M M' : Expr n}
+    (u : FinEl) -> HeadRed M M' ->
+    ValTy G M u -> ValTy G M' u
+  ValTy-headred-contract Bot hr v = tt
+  ValTy-headred-contract UCode hr v = tt
+  ValTy-headred-contract (FunEl g) hr v = tt
+  ValTy-headred-contract (PiCode b f) hr
+    (mkSigma A (mkSigma B (mkSigma (mkRed red) rest))) =
+    mkSigma A (mkSigma B (mkSigma (mkRed (HeadRed-strip-Pi hr red)) rest))
+
+  EqValTy-headred-contract : {n : Nat} {G : Ctx n} {M1 M2 M1' M2' : Expr n}
+    (u : FinEl) -> HeadRed M1 M1' -> HeadRed M2 M2' ->
+    EqValTy G M1 M2 u -> EqValTy G M1' M2' u
+  EqValTy-headred-contract Bot hr1 hr2 v = tt
+  EqValTy-headred-contract UCode hr1 hr2 v = tt
+  EqValTy-headred-contract (FunEl g) hr1 hr2 v = tt
+  EqValTy-headred-contract (PiCode b f) hr1 hr2
+    (mkSigma vt1 (mkSigma vt2
+      (mkSigma A (mkSigma B (mkSigma A' (mkSigma B'
+        (mkSigma (mkRed red1) (mkSigma (mkRed red2) rest)))))))) =
+    mkSigma (ValTy-headred-contract (PiCode b f) hr1 vt1)
+      (mkSigma (ValTy-headred-contract (PiCode b f) hr2 vt2)
+        (mkSigma A (mkSigma B (mkSigma A' (mkSigma B'
+          (mkSigma (mkRed (HeadRed-strip-Pi hr1 red1))
+            (mkSigma (mkRed (HeadRed-strip-Pi hr2 red2)) rest)))))))
+
+  ValPi-headred-contract : {n : Nat} {G : Ctx n} {M M' T : Expr n}
+    (g0 : FinFun) (b : FinEl) (f : FinFun) ->
+    HeadRed M M' -> ValPi G M T g0 b f -> ValPi G M' T g0 b f
+  ValPi-headred-contract g0 b f hr
+    (mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
+      (mkSigma pav pae)))))) =
+    mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
+      (mkSigma (\ u v sel N valN ->
+        Val-headred-contract v (EvalFun f u) (HeadRed-App hr)
+          (pav u v sel N valN))
+      (\ u v sel N1 N2 eqN ->
+        EqVal-headred-contract v (EvalFun f u) (HeadRed-App hr) (HeadRed-App hr)
+          (pae u v sel N1 N2 eqN)))))))
+
+  EqValPi-headred-contract : {n : Nat} {G : Ctx n} {M1 M2 M1' M2' T : Expr n}
+    (g0 : FinFun) (b : FinEl) (f : FinFun) ->
+    HeadRed M1 M1' -> HeadRed M2 M2' ->
+    EqValPi G M1 M2 T g0 b f -> EqValPi G M1' M2' T g0 b f
+  EqValPi-headred-contract g0 b f hr1 hr2
+    (mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg peqv))))) =
+    mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
+      (\ u v sel P valP ->
+        EqVal-headred-contract v (EvalFun f u) (HeadRed-App hr1) (HeadRed-App hr2)
+          (peqv u v sel P valP))))))
 
 ------------------------------------------------------------------------
 -- Val-Bot -- Val at Bot realizer is Top for all type codes
@@ -511,9 +649,7 @@ Red-unique-Pi : {n : Nat} {G : Ctx n} {A B B' : Expr n}
   {F : Expr (suc n)} {F' : Expr (suc n)} ->
   Red G A (Pi B F) U -> Red G A (Pi B' F') U ->
   Pair (Eq B B') (Eq F F')
-Red-unique-Pi r1 r2 =
-  let r = Red-trans (Red-from-conv (conv-sym (red-to-conv r1))) r2
-  in Red-Pi-inj r
+Red-unique-Pi (mkRed r1) (mkRed r2) = HeadRed-unique-Pi r1 r2
 
 -- Derive FinMem b UCode from CoherentFun f and FinMemAllU f b
 bU-from-cf-fmU : (f : FinFun) (b : FinEl) -> CoherentFun f -> FinMemAllU f b -> FinMem b UCode

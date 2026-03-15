@@ -127,7 +127,7 @@ mutual
                   (\ u ev -> snd (snd (snd ih1)) u (snd (snd (snd ih2)) u ev))))
 
   -- conv-conv: transport InvTyp through type conversion
-  convSound' (conv-conv d dAB) rho fits =
+  convSound' (conv-conv d dAB _) rho fits =
     let ih = convSound' d rho fits
         invM = fst ih
         invN = fst (snd ih)
@@ -208,14 +208,14 @@ mutual
 
   -- conv-App-fun: from LTS.InvConv-App-fun
   convSound' (conv-App-fun {A = A} {B = B} {f = f} {f' = f'} {a = a}
-    dA dff' da) rho fits =
+    dA _ dff' da) rho fits =
     LTS.InvConv-App-fun A B f f' a rho fits
       (convSound' dff' rho fits)
       (theorem1 da rho fits)
 
   -- conv-App-arg: from LTS.InvConv-App-arg
   convSound' (conv-App-arg {A = A} {B = B} {f = f} {a = a} {a' = a'}
-    dA df daa') rho fits =
+    dA _ df daa') rho fits =
     LTS.InvConv-App-arg A B f a a' rho fits
       (theorem1 df rho fits)
       (convSound' daa' rho fits)
@@ -243,7 +243,7 @@ mutual
         (mkSigma (mkSigma tt tt) (mkSigma tt (mkSigma tt tt)))))
 
   -- ty-conv: transport type via conversion
-  theorem1 (ty-conv d1 d2) rho fits u ev =
+  theorem1 (ty-conv d1 d2 _) rho fits u ev =
     let ih  = theorem1 d1 rho fits u ev
         u'  = fst ih ; a' = fst (snd ih)
         le  = fst (snd (snd ih))
@@ -272,7 +272,7 @@ mutual
       rho fits u ev
 
   -- ty-App: from LTS.InvTyp-App
-  theorem1 (ty-App {A = A} {B = B} {f = f} {a = a} d1 d2 d3)
+  theorem1 (ty-App {A = A} {B = B} {f = f} {a = a} d1 _ d2 d3)
     rho fits u ev =
     LTS.InvTyp-App A B f a rho fits
       (theorem1 d2 rho fits)
