@@ -119,11 +119,13 @@ Based on:
 
 ## Technical notes
 
-- **Spartan Agda:** `--without-K --exact-split --type-in-type`
+- **Spartan Agda:** `--without-K --exact-split` (no `--type-in-type`)
 - **U : U** works because `rk UCode = 0` and `FinMem UCode UCode = Top`,
   so self-membership never triggers recursive rank-based calls.
 - The step-indexed recursion is driven by finite-element rank, not by
   a universe hierarchy.
+- The development does not require `--type-in-type`; all files compile
+  with standard universe checking.
 
 ## Postulate summary
 

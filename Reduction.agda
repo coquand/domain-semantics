@@ -1,4 +1,4 @@
-{-# OPTIONS --without-K --exact-split --type-in-type #-}
+{-# OPTIONS --without-K --exact-split #-}
 
 ------------------------------------------------------------------------
 -- Reduction.agda
