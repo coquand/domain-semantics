@@ -1,0 +1,223 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathpartir}
+\usepackage[margin=2.5cm]{geometry}
+
+\newcommand{\Ctx}{\mathsf{Ctx}}
+\newcommand{\wf}[1]{#1\;\mathsf{ctx}}
+\newcommand{\hastype}[3]{#1 \vdash #2 : #3}
+\newcommand{\conveq}[4]{#1 \vdash #2 = #3 : #4}
+\newcommand{\Pitype}[2]{\Pi(#1)#2}
+\newcommand{\Lamterm}[2]{\lambda(#1)#2}
+\newcommand{\App}[2]{#1\;#2}
+\newcommand{\substone}[2]{#1[#2]}
+\newcommand{\wkn}[1]{#1^+}
+\newcommand{\U}{\mathsf{U}}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\title{Typing Rules and Pi Injectivity\\
+  for Dependent Type Theory with $\U:\U$}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Judgments}
+
+We work with three mutually defined judgment forms:
+\begin{align*}
+  &\wf{\Gamma}                  &&\text{$\Gamma$ is a well-formed context}\\
+  &\hastype{\Gamma}{M}{A}       &&\text{$M$ has type $A$ in context $\Gamma$}\\
+  &\conveq{\Gamma}{M}{N}{A}     &&\text{$M$ and $N$ are definitionally equal at type $A$}
+\end{align*}
+Contexts are snoc-lists: $\Gamma ::= \cdot \mid \Gamma, x{:}A$.
+
+\section{Well-formed contexts}
+
+\begin{mathpar}
+  \inferrule{ }{\wf{\cdot}}
+  \and
+  \inferrule{\hastype{\Gamma}{A}{\U}}{\wf{\Gamma, x{:}A}}
+\end{mathpar}
+
+\section{Typing rules}
+
+\begin{mathpar}
+  \inferrule[\textsc{Var}]
+    {\wf{\Gamma} \\ (x{:}A) \in \Gamma}
+    {\hastype{\Gamma}{x}{A}}
+  \and
+  \inferrule[\textsc{Conv}]
+    {\hastype{\Gamma}{M}{A} \\
+     \conveq{\Gamma}{A}{B}{\U} \\
+     \hastype{\Gamma}{B}{\U}}
+    {\hastype{\Gamma}{M}{B}}
+  \and
+  \inferrule[\textsc{U}]
+    {\wf{\Gamma}}
+    {\hastype{\Gamma}{\U}{\U}}
+  \and
+  \inferrule[\textsc{Pi}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U}}
+    {\hastype{\Gamma}{\Pitype{x{:}A}{B}}{\U}}
+  \and
+  \inferrule[\textsc{Lam}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma, x{:}A}{M}{B}}
+    {\hastype{\Gamma}{\Lamterm{x{:}A}{M}}{\Pitype{x{:}A}{B}}}
+  \and
+  \inferrule[\textsc{App}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{f}{\Pitype{x{:}A}{B}} \\
+     \hastype{\Gamma}{a}{A}}
+    {\hastype{\Gamma}{\App{f}{a}}{\substone{B}{a}}}
+\end{mathpar}
+
+\section{Conversion rules}
+
+\begin{mathpar}
+  \inferrule[\textsc{Refl}]
+    {\hastype{\Gamma}{M}{A}}
+    {\conveq{\Gamma}{M}{M}{A}}
+  \and
+  \inferrule[\textsc{Sym}]
+    {\conveq{\Gamma}{M}{N}{A}}
+    {\conveq{\Gamma}{N}{M}{A}}
+  \and
+  \inferrule[\textsc{Trans}]
+    {\conveq{\Gamma}{M}{N}{A} \\
+     \conveq{\Gamma}{N}{P}{A}}
+    {\conveq{\Gamma}{M}{P}{A}}
+  \and
+  \inferrule[\textsc{Conv-Eq}]
+    {\conveq{\Gamma}{M}{N}{A} \\
+     \conveq{\Gamma}{A}{B}{\U} \\
+     \hastype{\Gamma}{B}{\U}}
+    {\conveq{\Gamma}{M}{N}{B}}
+  \and
+  \inferrule[\textsc{Beta}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma, x{:}A}{M}{B} \\
+     \hastype{\Gamma}{a}{A}}
+    {\conveq{\Gamma}
+       {\App{(\Lamterm{x{:}A}{M})}{a}}
+       {\substone{M}{a}}
+       {\substone{B}{a}}}
+  \and
+  \inferrule[\textsc{Pi-Cong}]
+    {\conveq{\Gamma}{A}{A'}{\U} \\
+     \conveq{\Gamma, x{:}A}{B}{B'}{\U}}
+    {\conveq{\Gamma}
+       {\Pitype{x{:}A}{B}}
+       {\Pitype{x{:}A'}{B'}}
+       {\U}}
+  \and
+  \inferrule[\textsc{Funext}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \conveq{\Gamma, x{:}A}{\App{\wkn{f}}{x}}{\App{\wkn{g}}{x}}{B} \\
+     \hastype{\Gamma}{f}{\Pitype{x{:}A}{B}} \\
+     \hastype{\Gamma}{g}{\Pitype{x{:}A}{B}}}
+    {\conveq{\Gamma}{f}{g}{\Pitype{x{:}A}{B}}}
+  \and
+  \inferrule[\textsc{App-Fun}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \conveq{\Gamma}{f}{f'}{\Pitype{x{:}A}{B}} \\
+     \hastype{\Gamma}{a}{A}}
+    {\conveq{\Gamma}
+       {\App{f}{a}}
+       {\App{f'}{a}}
+       {\substone{B}{a}}}
+  \and
+  \inferrule[\textsc{App-Arg}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{f}{\Pitype{x{:}A}{B}} \\
+     \conveq{\Gamma}{a}{a'}{A}}
+    {\conveq{\Gamma}
+       {\App{f}{a}}
+       {\App{f}{a'}}
+       {\substone{B}{a}}}
+\end{mathpar}
+
+\section{Head reduction}
+
+We define head reduction $M \leadsto N$ as the compatible closure
+of $\beta$-reduction at the head:
+\begin{mathpar}
+  \inferrule[\textsc{HR-Beta}]
+    { }
+    {\App{(\Lamterm{x{:}A}{M})}{a} \leadsto \substone{M}{a}}
+  \and
+  \inferrule[\textsc{HR-App}]
+    {M \leadsto M'}
+    {\App{M}{a} \leadsto \App{M'}{a}}
+\end{mathpar}
+
+\section{Main result: Pi injectivity (head reduction)}
+
+\begin{theorem}[Corollary 6, part 1; Coquand--Huber 2018, p.\,661]
+  If\/ $\conveq{\Gamma}{A_0}{\Pitype{x{:}B_1}{F_1}}{\U}$,
+  then there exist $B_0$, $F_0$ such that
+  \[
+    A_0 \leadsto^* \Pitype{x{:}B_0}{F_0}.
+  \]
+\end{theorem}
+
+\begin{proof}[Proof outline]
+  The proof proceeds by domain-theoretic adequacy.
+  \begin{enumerate}
+    \item From $\conveq{\Gamma}{A_0}{\Pi B_1\,F_1}{\U}$, extract
+      $\hastype{\Gamma}{A_0}{\U}$ by presupposition
+      (\textsc{SubstitutionLemma}).
+    \item Apply the soundness theorem (\textsc{convSound'}) at the
+      \emph{bottom environment} $\rho_\bot$ (mapping every variable to~$\bot$)
+      to obtain a bidirectional evaluation transfer: for every finite
+      approximation~$u$,
+      \[
+        \mathsf{EvalRel}(\Pi B_1\,F_1, \rho_\bot, u)
+        \;\Longrightarrow\;
+        \mathsf{EvalRel}(A_0, \rho_\bot, u).
+      \]
+    \item Instantiate with $u = \mathsf{PiCode}(\bot, \mathsf{nil})$,
+      which is coherent because
+      $\mathsf{CoherentFunTail}(\mathsf{nil}) = \top$.
+      The evaluation $\mathsf{EvalRel}(\Pi B_1\,F_1, \rho_\bot,
+      \mathsf{PiCode}(\bot,\mathsf{nil}))$ is constructible trivially
+      (domain~$\bot$, empty function graph, vacuous selection body).
+      Transfer gives $\mathsf{EvalRel}(A_0, \rho_\bot,
+      \mathsf{PiCode}(\bot,\mathsf{nil}))$.
+    \item Apply the bundled adequacy theorem (\textsc{adequacySub2})
+      with the identity substitution at~$\rho_\bot$ to obtain
+      \[
+        \mathsf{Val2}\;\Gamma\;A_0\;\U\;
+        (\mathsf{PiCode}(\bot,\mathsf{nil}))\;\mathsf{UCode}.
+      \]
+    \item By definition, $\mathsf{Val2}$ at $(\mathsf{PiCode}(\bot,
+      \mathsf{nil}), \mathsf{UCode})$ unfolds to
+      $\mathsf{ValTyPi2}\;\Gamma\;A_0\;\bot\;\mathsf{nil}$, which is a
+      $\Sigma$-type whose third component is a contextual reduction
+      $\mathsf{Red}\;\Gamma\;A_0\;(\Pi\,B_0\,F_0)\;\U$.
+      Extract the underlying head reduction
+      $A_0 \leadsto^* \Pi\,B_0\,F_0$.
+  \end{enumerate}
+  The entire proof is formalised in Agda with \texttt{--without-K
+  --exact-split}, no \texttt{--type-in-type}, and no postulates
+  (in the files on which \texttt{PiInjectivity.agda} depends).
+\end{proof}
+
+\begin{thebibliography}{1}
+\bibitem{CH2018}
+  T.~Coquand and S.~Huber,
+  ``An adequacy theorem for dependent type theory,''
+  \emph{Archive for Mathematical Logic}, vol.~57, pp.~649--676, 2018.
+\end{thebibliography}
+
+\end{document}

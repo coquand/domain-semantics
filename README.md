@@ -117,6 +117,12 @@ Based on:
   `HasType`/`ConvTm` at leaves (future work).
   **0 postulates.**
 
+## Documentation
+
+- **`rules.tex`** / **`rules.pdf`** — LaTeX presentation of the typing
+  and conversion rules, head reduction, and the Pi injectivity theorem
+  (Corollary 6, part 1) with proof outline.
+
 ## Technical notes
 
 - **Spartan Agda:** `--without-K --exact-split` (no `--type-in-type`)
