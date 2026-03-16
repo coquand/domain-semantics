@@ -126,6 +126,10 @@ data Red : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> Set where
 Red-refl : {n : Nat} {G : Ctx n} {M A : Expr n} -> Red G M M A
 Red-refl = mkRed headred-refl
 
+-- Extract the HeadRed from a Red
+Red-hr : {n : Nat} {G : Ctx n} {M N A : Expr n} -> Red G M N A -> HeadRed M N
+Red-hr (mkRed hr) = hr
+
 -- Pi-injectivity: Red from Pi to Pi implies syntactic equality
 Red-Pi-inj : {n : Nat} {G : Ctx n} {A A' : Expr n}
   {B B' : Expr (suc n)} ->

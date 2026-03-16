@@ -26,10 +26,12 @@ Based on:
 
 - **`PaperSemantics.agda`** — Trusted kernel. Sup-based evaluation
   `EvalFun`, decidable ordering `leFinEl`/`leFun`, propositional ordering
-  `LeCode`/`LeFunCode`, `Coherent`/`CoherentFun`, `FinMem`/`FinMemAllU`,
-  finitary projection `pCode`, monotonicity and compatibility lemmas
-  (`LeCode-refl`, `LeCode-trans`, `Comp-down`, `EvalFun-mon-arg`,
-  `finMem-upward`, `finMemUCode-Sup`, etc.).
+  `LeCode`/`LeFunCode`, `Coherent`/`CoherentFun`/`CoherentFunTail`,
+  `FinMem`/`FinMemAllU`, finitary projection `pCode`, monotonicity and
+  compatibility lemmas (`LeCode-refl`, `LeCode-trans`, `Comp-down`,
+  `EvalFun-mon-arg`, `finMem-upward`, `finMemUCode-Sup`, etc.).
+  Note: `Coherent (PiCode a f)` uses `CoherentFunTail f` (not
+  `CoherentFun f`), allowing `PiCode a nil` to be coherent.
   **0 postulates.**
 
 ### Syntax and raw semantics
@@ -56,9 +58,10 @@ Based on:
   `ty-App`/`conv-App-fun`/`conv-App-arg`/`conv-funext` carry
   `HasType G A U` premise.
 
-- **`Reduction.agda`** — Axioms for contextual reduction (`Red`).
-  Postulates: `Red`, `Red-wk`, `red-to-conv`, `Red-refl`, `Red-trans`,
-  `Red-beta-expand`, `Red-Pi-inj`, `Red-from-conv`.
+- **`Reduction.agda`** — Contextual reduction (`Red`, `HeadRed`).
+  `HeadRed` is a data type; `Red` wraps it with phantom context/type.
+  `Red-hr` extracts `HeadRed` from `Red`.
+  **0 postulates.**
 
 ### Semantic invariants and lemmas
 
@@ -82,19 +85,37 @@ Based on:
   lemmas from `LemmaForTS`; all cases proved by delegation.
   **0 postulates.**
 
+- **`SubstitutionLemma.agda`** — Renaming, substitution, presupposition,
+  context conversion for the typing judgement. `typing-ConvTm` extracts
+  `HasType` from `ConvTm`.
+  **0 postulates.**
+
 ### Validity and adequacy
 
 - **`Validity.agda`** — Logical relation for validity: `Val`/`EqVal`,
   `ValTy`/`EqValTy`, `ValPi`/`EqValPi`. Transport lemmas
-  (`downVal`, `upVal`, `restrictVal`). Postulates for `Red` interaction
-  (`Val-Red`, `Val-conv-type`).
+  (`downVal`, `upVal`, `restrictVal`).
+  **0 postulates.**
 
 - **`Adequacy.agda`** — Two-context adequacy with source-env semantics.
-  Several postulates remain (selection-based restructuring in progress).
+  **0 postulates.**
 
-### Other
+- **`Validity2.agda`** — Bundled logical relation `Val2`/`EqVal2` with
+  `Top` at leaves. `ValTyPi2` stores `Red` (head reduction), enabling
+  extraction of `HeadRed` from `Val2` at `PiCode`.
+  **0 postulates.**
 
-- **`bakupRS.agda`** — Backup of an earlier version of `RawSemantics`.
+- **`Adequacy2.agda`** — Bundled adequacy producing `Val2`/`EqVal2`.
+  **7 postulates** (Lam, App, beta, Pi, funext, App-fun, App-arg).
+
+### Pi injectivity
+
+- **`PiInjectivity.agda`** — Corollary 6, part 1 (paper p.661):
+  from `ConvTm G A₀ (Pi B₁ F₁) U`, extract `HeadRed A₀ (Pi B₀ F₀)`.
+  Strategy: `botEnv` + `PiCode Bot nil` + `convSound'` + `adequacySub2`
+  + `Val2` extraction. Parts 2–3 (domain/codomain `ConvTm`) require
+  `HasType`/`ConvTm` at leaves (future work).
+  **0 postulates.**
 
 ## Technical notes
 
@@ -110,8 +131,10 @@ Based on:
 |------|-----------|
 | Basic, Selection, PaperSemantics | 0 |
 | RawSyntax, RawSemantics, EvalSubstitution | 0 |
-| LemmaForTS | 0 |
-| Reduction | 8 (axioms for contextual reduction) |
-| TypingSemantics | 0 |
-| Validity | ~8 (Red interaction) |
-| Adequacy | ~11 (in progress) |
+| Reduction | 0 |
+| LemmaForTS, TypingSemantics | 0 |
+| SubstitutionLemma | 0 |
+| Validity, Adequacy | 0 |
+| Validity2 | 0 |
+| Adequacy2 | 7 (Lam, App, beta, Pi, funext, App-fun, App-arg) |
+| PiInjectivity | 0 |

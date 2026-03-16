@@ -632,12 +632,12 @@ InvTyp-Lam A B M body-ih rho fits (FunEl g) ev =
       evLam-h = mkSigma ac (mkSigma cf-h (mkSigma aU (mkSigma evA selbody-h)))
       -- EvalRel (Pi A B) rho (PiCode ac f)
       ca = coh-from-aU ac aU
-      evPi = mkSigma (mkSigma ca cf-f)
+      evPi = mkSigma (mkSigma ca cft-f)
                (mkSigma evA (mkSigma ac (mkSigma evA selbody-f)))
       -- FinMem (FunEl h) (PiCode ac f)
       fmAllU = rv-fmAllU ac g' ew' wf
       fm-pi-U : FinMem (PiCode ac f) UCode
-      fm-pi-U = mkSigma aU (mkSigma fmAllU cf-f)
+      fm-pi-U = mkSigma aU (mkSigma fmAllU cft-f)
       fmFun  = rv-fmFun ac g' ew' wf f cft-f fmAllU
                   (\ p ein -> replaceVals-corr g' (\ q qin -> fst (snd (wf q qin))) p ein)
       fm-h-pi = mkSigma fmFun (mkSigma cf-h fm-pi-U)
@@ -957,7 +957,8 @@ InvTyp-App A B M N rho fits invM invN = invTyp-App-aux
           -- Coherent w
           cw       = EvalRel-coh N rho w evN
           -- selectionBelow g' w: (u0, v0) with sel, u0<=w, v0=EvalFun g' w
-          sb       = selectionBelow g' w cf-g' cw
+          ctg'     = cft-from-cf g' cf-g'
+          sb       = selectionBelow g' w ctg' cw
           u0       = fst sb
           v0       = fst (snd sb)
           sel-g'   = fst (snd (snd sb))
@@ -966,14 +967,14 @@ InvTyp-App A B M N rho fits invM invN = invTyp-App-aux
           -- v <= v0 (since v <= EvalFun g' w = v0)
           le-v-v0  : LeCode v v0
           le-v-v0  = Eq-transport (LeCode v) eq-v0 le-v-ef
-          cu0      = Coherent-Selection sel-g' cf-g'
-          cv0      = Coherent-Selection-val sel-g' cf-g'
+          cu0      = Coherent-Selection sel-g' ctg'
+          cv0      = Coherent-Selection-val sel-g' ctg'
           -- FinMem u0 a (Lemma 2 keys)
-          fm-u0-a  = FinMem-Selection a f sel-g' fmFun-g' cf-g' ca aU
+          fm-u0-a  = FinMem-Selection a f sel-g' fmFun-g' ctg' ca aU
           -- FinMem v0 (EvalFun f u0) (Lemma 2 values)
-          fm-v0-fu0 = FinMem-Selection-codomain a f sel-g' fmFun-g' cf-g' cf-f fmAllU-f
+          fm-v0-fu0 = FinMem-Selection-codomain a f sel-g' fmFun-g' ctg' cf-f fmAllU-f
           fu0      = EvalFun f u0
-          fu0-U    = EvalFun-in-UCode f u0 a (cft-from-cf f cf-f) cu0 fmAllU-f
+          fu0-U    = EvalFun-in-UCode f u0 a cf-f cu0 fmAllU-f
           -- Pi's selection body for f
           selbody-f = snd (snd (snd (snd evPi)))
           -- selectionBelow f u0: (x-f, w-f) with sel, x-f<=u0, w-f=EvalFun f u0
@@ -1246,7 +1247,7 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
     edge-transfer F F' convDir a f evA g' cfg fmf evF-g' p ein =
       let ui  = fst p ; vi = snd p
           cft = cft-from-cf g' cfg
-          cui = CoherentFun-edge-key p g' cfg ein
+          cui = CoherentFun-edge-key p g' cft ein
           cvi-nb = cft-edge-val p g' cft ein
           cvi = fst cvi-nb ; nbvi = snd cvi-nb
           fmui = fmf-key g' a _ fmf p ein
@@ -1300,7 +1301,7 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
           cwp  = fst (snd (snd et))
           evF'-wp = snd (snd (snd et))
           cft-gf = cft-from-cf gf cfg
-          cui  = CoherentFun-edge-key p gf cfg ein
+          cui  = CoherentFun-edge-key p gf cft-gf ein
           cvi  = fst (cft-edge-val p gf cft-gf ein)
           nbvi = snd (cft-edge-val p gf cft-gf ein)
           cf-orig : CoherentFun (cons p nil)
@@ -1542,17 +1543,17 @@ Pi-L1 A B rho b f crho ev =
       a'     = fst (snd (snd pew))
       evA-a' = fst (snd (snd (snd pew)))
       ew     = snd (snd (snd (snd pew)))
+      -- Selection body from ev (for nil case)
+      selBody = snd (snd (snd (snd ev)))
       -- FinMem a' UCode from first edge
-      a'U    = get-a'U a' f cf ew
+      a'U    = get-a'U a' f cf ew selBody
       ca'    = coh-from-aU a' a'U
       -- Build f' by replacing keys (ui -> xi)
-      cft-f  = cft-from-cf f cf
+      cft-f  = cf
       f'     = replaceKeys f (\ p ein -> fst (ew p ein))
       cft'   = replaceKeys-CoherentFunTail B rho a' f crho cft-f ew
       ew'    = replaceKeys-edgewise B rho a' f ew
       lf     = replaceKeys-LeFunCode B rho a' f crho cft-f ew
-      -- CoherentFun f'
-      cf'    = cf-from-cons f cf (\ p ein -> fst (ew p ein)) cft'
       -- Selection body for EvalRel (Pi A B) rho (PiCode a' f')
       selbody : (u' v' : FinEl) -> Selection f' u' v' ->
         Sigma FinEl (\ x -> Pair (LeCode x u')
@@ -1560,18 +1561,23 @@ Pi-L1 A B rho b f crho ev =
       selbody u' v' sel =
         replaceKeys-selection-body B rho a' f' u' v' crho a'U cft' ew' sel
       -- EvalRel (Pi A B) rho (PiCode a' f')
-      evPi   = mkSigma (mkSigma ca' cf')
+      evPi   = mkSigma (mkSigma ca' cft')
                  (mkSigma evA-a' (mkSigma a' (mkSigma evA-a' selbody)))
   in mkSigma a' (mkSigma f' (mkSigma evA-a' (mkSigma a'U (mkSigma lf (mkSigma evPi ew')))))
   where
     get-a'U : (a0 : FinEl) ->
-      (g : FinFun) -> CoherentFun g ->
+      (g : FinFun) -> CoherentFunTail g ->
       ((p : Edge) -> EdgeIn p g ->
         Sigma FinEl (\ x -> Pair (LeCode x (fst p))
                                  (Pair (FinMem x a0) (EvalRel B (extendEnv rho x) (snd p))))) ->
+      ((u v : FinEl) -> Selection g u v ->
+        Sigma FinEl (\ x -> Pair (LeCode x u)
+                                 (Pair (FinMem x a0) (EvalRel B (extendEnv rho x) v)))) ->
       FinMem a0 UCode
-    get-a'U a0 nil () _
-    get-a'U a0 (cons p ps) _ ew0 =
+    get-a'U a0 nil _ _ rawBody =
+      let w = rawBody Bot Bot sel-nil
+      in FinMem-a-in-U (fst w) a0 (fst (snd (snd w)))
+    get-a'U a0 (cons p ps) _ ew0 _ =
       let w = ew0 p here
       in FinMem-a-in-U (fst w) a0 (fst (snd (snd w)))
 
@@ -1603,7 +1609,7 @@ InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
     -- Decompose ev
     coh   = fst ev              -- Coherent (PiCode b f)
     cb    = fst coh             -- Coherent b
-    cf    = snd coh             -- CoherentFun f
+    cf    = snd coh             -- CoherentFunTail f
     evA-b = fst (snd ev)        -- EvalRel A rho b
     a'    = fst (snd (snd ev))  -- inner witness code
     evA-a' = fst (snd (snd (snd ev)))
@@ -1645,15 +1651,22 @@ InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
     -- CoherentFun f = CoherentFun (cons p ps) since cf inhabited → f non-nil
     -- We need at least one edge to get FinMem xi a' → FinMem a' UCode
     a'U : FinMem a' UCode
-    a'U = get-a'U f cf ew
+    a'U = get-a'U f cf ew body
       where
-        get-a'U : (g : FinFun) -> CoherentFun g ->
+        get-a'U : (g : FinFun) -> CoherentFunTail g ->
           ((p : Edge) -> EdgeIn p g ->
             Sigma FinEl (\ x -> Pair (LeCode x (fst p))
                                      (Pair (FinMem x a') (EvalRel B (extendEnv rho x) (snd p))))) ->
+          ((u v : FinEl) -> Selection g u v ->
+            Sigma FinEl (\ x -> Pair (LeCode x u)
+                                     (Pair (FinMem x a') (EvalRel B (extendEnv rho x) v)))) ->
           FinMem a' UCode
-        get-a'U nil () _
-        get-a'U (cons p ps) _ ew0 =
+        get-a'U nil _ _ rawBody =
+          let w = rawBody Bot Bot sel-nil
+              xi = fst w
+              fm-xi = fst (snd (snd w))
+          in FinMem-a-in-U xi a' fm-xi
+        get-a'U (cons p ps) _ ew0 _ =
           let w = ew0 p here
               xi = fst w
               fm-xi = fst (snd (snd w))
@@ -1865,23 +1878,16 @@ InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
 
     -- CoherentFun f'
     cft-f' : CoherentFunTail f'
-    cft-f' = me-cft f (cft-from-cf f cf) edge-data
+    cft-f' = me-cft f cf edge-data
 
-    cf-f' : CoherentFun f'
-    cf-f' = cf-aux f new-edge cf cft-f'
-      where
-        cf-aux : (g : FinFun) ->
-          (ne : (p : Edge) -> EdgeIn p g -> Edge) ->
-          CoherentFun g ->
-          CoherentFunTail (mapEdges g ne) ->
-          CoherentFun (mapEdges g ne)
-        cf-aux (cons p ps) ne _ cft0 = cft0
+    cf-f' : CoherentFunTail f'
+    cf-f' = cft-f'
 
     -- LeFunCode f f': for each (ui,vi) in f, vi <= EvalFun f' ui
     -- Uses: for edge p in f, (xi, vi') is in f' via f'-has, and
     -- xi <= fst p, vi <= vi', so EvalFun-edge-le + LeCode-trans.
     lf-f-f' : LeFunCode f f'
-    lf-f-f' = me-lf-tail f (cft-from-cf f cf) (\ q qin -> qin)
+    lf-f-f' = me-lf-tail f cf (\ q qin -> qin)
       where
         cft-edge : {g : FinFun} -> CoherentFunTail g -> {e : Edge} ->
           EdgeIn e g -> CoherentFunTail (cons e nil)

@@ -225,7 +225,7 @@ mutual
   FinMem (FunEl g)    Bot            = Empty
   FinMem (FunEl g)    UCode          = Empty
   FinMem (FunEl g)    (FunEl h)      = Empty
-  FinMem (PiCode a f) UCode          = Pair (FinMem a UCode) (Pair (FinMemAllU f a) (CoherentFun f))
+  FinMem (PiCode a f) UCode          = Pair (FinMem a UCode) (Pair (FinMemAllU f a) (CoherentFunTail f))
   FinMem (PiCode a f) Bot            = Empty
   FinMem (PiCode a f) (FunEl g)      = Empty
   FinMem (PiCode a f) (PiCode b g)   = Empty
@@ -248,7 +248,7 @@ mutual
   Coherent Bot          = Top
   Coherent UCode        = Top
   Coherent (FunEl g)    = CoherentFun g
-  Coherent (PiCode a f) = Pair (Coherent a) (CoherentFun f)
+  Coherent (PiCode a f) = Pair (Coherent a) (CoherentFunTail f)
 
   CoherentFun : FinFun -> Set
   CoherentFun nil         = Empty
@@ -638,7 +638,7 @@ mutual
   Comp-refl UCode        coh = tt
   Comp-refl (FunEl g)    coh = CompFun-refl g (cft-from-cf g coh)
   Comp-refl (PiCode a f) coh =
-    mkSigma (Comp-refl a (fst coh)) (CompFun-refl f (cft-from-cf f (snd coh)))
+    mkSigma (Comp-refl a (fst coh)) (CompFun-refl f (snd coh))
 
   CompFun-refl : (g : FinFun) -> CoherentFunTail g -> CompFun g g
   CompFun-refl nil         coh = tt
@@ -1007,7 +1007,7 @@ mutual
   Coherent-Sup (PiCode a f) (FunEl h)    comp coha cohb = coha
   Coherent-Sup (PiCode a f) (PiCode c h) comp coha cohb =
     mkSigma (Coherent-Sup a c (fst comp) (fst coha) (fst cohb))
-            (CoherentFun-append f h (snd coha) (snd cohb) (snd comp))
+            (CoherentFunTail-append f h (snd coha) (snd cohb) (snd comp))
 
   -- CoherentFunTail for appended functions (both args as CoherentFunTail)
   CoherentFunTail-append : (g h : FinFun) ->
@@ -1045,9 +1045,9 @@ mutual
             (mkSigma (FinMemAllU-append-Sup a c f h (fst comp)
                        (coh-from-aU a (fst aU)) (coh-from-aU c (fst cU))
                        (fst aU) (fst cU)
-                       (cft-from-cf f (snd (snd aU))) (cft-from-cf h (snd (snd cU)))
+                       (snd (snd aU)) (snd (snd cU))
                        (fst (snd aU)) (fst (snd cU)))
-                     (CoherentFun-append f h (snd (snd aU)) (snd (snd cU)) (snd comp)))
+                     (CoherentFunTail-append f h (snd (snd aU)) (snd (snd cU)) (snd comp)))
 
   -- EvalFun-in-UCode: evaluation of a FinMemAllU function yields a type code
   EvalFun-in-UCode : (f : FinFun) (x d : FinEl) ->
@@ -1163,9 +1163,9 @@ mutual
         cohd = coh-from-aU d dU
         cohc = coh-from-aU c cU
         supU = finMemUCode-Sup d c (fst comp) dU cU
-        allUkh = FinMemAllU-append-Sup d c k h (fst comp) cohd cohc dU cU (cft-from-cf k cohk) (cft-from-cf h cohh) allUk allUh
-        cohkh = CoherentFun-append k h cohk cohh (snd comp)
-    in mkSigma (finMemFun-Sup-right d c k h g (fst comp) (snd comp) dU allUk (cft-from-cf k cohk) (cft-from-cf g cohg) (fst mem))
+        allUkh = FinMemAllU-append-Sup d c k h (fst comp) cohd cohc dU cU cohk cohh allUk allUh
+        cohkh = CoherentFunTail-append k h cohk cohh (snd comp)
+    in mkSigma (finMemFun-Sup-right d c k h g (fst comp) (snd comp) dU allUk cohk (cft-from-cf g cohg) (fst mem))
                (mkSigma (fst (snd mem)) (mkSigma supU (mkSigma allUkh cohkh)))
 
   -- finMemFun-Sup-right: FinMemFun g c h → FinMemFun g (Sup d c) (append k h)
@@ -1264,13 +1264,13 @@ mutual
         cU = fst bU
         allUh = fst (snd bU)
         -- CoherentFunTail versions for recursive calls
-        cohk = cft-from-cf k (snd coha)
-        cohh = cft-from-cf h (snd cohb)
+        cohk = snd coha
+        cohh = snd cohb
         cohg = cft-from-cf g (fst (snd mem))
         -- Build FinMem (PiCode (Sup d c) (append k h)) UCode
         supU = finMemUCode-Sup d c (fst comp) dU cU
         allUkh = FinMemAllU-append-Sup d c k h (fst comp) cohd cohc dU cU cohk cohh allUk allUh
-        cohkh = CoherentFun-append k h (snd coha) (snd cohb) (snd comp)
+        cohkh = CoherentFunTail-append k h cohk cohh (snd comp)
     in mkSigma (finMemFun-Sup-left d c k h g (fst comp) (snd comp) cohd cohc cU allUh cohk cohh cohg (fst mem))
                (mkSigma (fst (snd mem)) (mkSigma supU (mkSigma allUkh cohkh)))
 
@@ -1348,7 +1348,7 @@ mutual
   LeCode-refl (FunEl g)    ca = LeFunCode-refl g (cft-from-cf g ca)
   LeCode-refl (PiCode a f) ca =
     mkSigma (LeCode-refl a (fst ca))
-            (LeFunCode-refl f (cft-from-cf f (snd ca)))
+            (LeFunCode-refl f (snd ca))
 
   LeFunCode-refl : (g : FinFun) -> CoherentFunTail g -> LeFunCode g g
   LeFunCode-refl nil         coh = tt
@@ -1432,7 +1432,7 @@ mutual
   LeCode-Sup-left (PiCode a f) (FunEl h)    comp ca cb = LeCode-refl (PiCode a f) ca
   LeCode-Sup-left (PiCode a f) (PiCode b h) comp ca cb =
     mkSigma (LeCode-Sup-left a b (fst comp) (fst ca) (fst cb))
-            (LeFunCode-append-left f h (snd comp) (cft-from-cf f (snd ca)) (cft-from-cf h (snd cb)))
+            (LeFunCode-append-left f h (snd comp) (snd ca) (snd cb))
 
   LeCode-Sup-right : (a b : FinEl) -> Comp a b -> Coherent a -> Coherent b ->
     LeCode b (Sup a b)
@@ -1451,7 +1451,7 @@ mutual
   LeCode-Sup-right (FunEl g)    (PiCode b h) comp ca cb = LeCode-refl (PiCode b h) cb
   LeCode-Sup-right (PiCode a f) (PiCode b h) comp ca cb =
     mkSigma (LeCode-Sup-right a b (fst comp) (fst ca) (fst cb))
-            (LeFunCode-append-right f h (snd comp) (cft-from-cf f (snd ca)) (cft-from-cf h (snd cb)))
+            (LeFunCode-append-right f h (snd comp) (snd ca) (snd cb))
 
   LeCode-trans : (x y z : FinEl) -> Coherent x -> Coherent y -> Coherent z ->
     LeCode x y -> LeCode y z -> LeCode x z
@@ -1485,7 +1485,7 @@ mutual
   LeCode-trans (PiCode a f) (PiCode b g) (FunEl k)    cx cy cz xy ()
   LeCode-trans (PiCode a f) (PiCode b g) (PiCode c k) cx cy cz xy yz =
     mkSigma (LeCode-trans a b c (fst cx) (fst cy) (fst cz) (fst xy) (fst yz))
-            (LeFunCode-trans f g k (cft-from-cf f (snd cx)) (cft-from-cf g (snd cy)) (cft-from-cf k (snd cz)) (snd xy) (snd yz))
+            (LeFunCode-trans f g k (snd cx) (snd cy) (snd cz) (snd xy) (snd yz))
 
   LeFunCode-trans : (g h k : FinFun) ->
     CoherentFunTail g -> CoherentFunTail h -> CoherentFunTail k ->
@@ -1676,7 +1676,7 @@ finMem-upward : (v a b : FinEl) -> LeCode a b -> Coherent a -> Coherent b ->
   FinMem v a -> FinMem b UCode -> FinMem v b
 finMemFun-upward : (g : FinFun) (a b : FinEl) (f h : FinFun) ->
   LeCode a b -> Coherent a -> Coherent b ->
-  CoherentFun f -> CoherentFun h -> LeFunCode f h ->
+  CoherentFunTail f -> CoherentFunTail h -> LeFunCode f h ->
   FinMemFun g a f -> FinMem b UCode -> FinMemAllU h b -> FinMemFun g b h
 
 -- Bot: FinMem Bot a = FinMem a UCode, FinMem Bot b = FinMem b UCode
@@ -1714,10 +1714,10 @@ finMem-upward (PiCode a f) (PiCode c h) b le ca cb ()
 finMemFun-upward nil a b f h le-a ca cb cf ch lfh mem bU allUh = tt
 finMemFun-upward (cons p ps) a b f h le-a ca cb cf ch lfh mem bU allUh =
   let cp = FinMem-coh-u (fst p) a (fst (fst mem))
-      le-fh = EvalFun-mon f h (fst p) (cft-from-cf f cf) (cft-from-cf h ch) cp lfh
-      c-ef = Coherent-EvalFun f (fst p) (cft-from-cf f cf) cp
-      c-eh = Coherent-EvalFun h (fst p) (cft-from-cf h ch) cp
-      efhU = EvalFun-in-UCode h (fst p) b (cft-from-cf h ch) cp allUh
+      le-fh = EvalFun-mon f h (fst p) cf ch cp lfh
+      c-ef = Coherent-EvalFun f (fst p) cf cp
+      c-eh = Coherent-EvalFun h (fst p) ch cp
+      efhU = EvalFun-in-UCode h (fst p) b ch cp allUh
   in mkSigma
     (mkSigma
       (finMem-upward (fst p) a b le-a ca cb (fst (fst mem)) bU)

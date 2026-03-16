@@ -29,7 +29,7 @@ open import PaperSemantics using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-B
   LeCode-Comp ;
   EvalFun ; EvalFun-mon ; EvalFun-mon-arg ; comp-EvalFun ; Coherent-EvalFun ;
   EvalFun-append-eq ;
-  CoherentFun-append ; FinMem-Sup-element ;
+  CoherentFun-append ; CoherentFunTail-append ; FinMem-Sup-element ;
   finMem-Sup-left ; finMem-Sup-right ;
   finMem-upward ; LeFunCode ; LeFunCode-refl ; append)
 open import Selection using (Selection ; Edge ; EdgeIn ; here ; there ;
@@ -731,7 +731,7 @@ EvalRel-Comp (Pi A B) rho crho (PiCode a1 f1) (PiCode a2 f2) ev1 ev2 =
       -- CompFun f1 f2 via Lam-CompFun on the existential witnesses a1' a2'
       cf1 = snd (fst ev1)
       cf2 = snd (fst ev2)
-      comp-f = Lam-CompFun B rho a1' a2' f1 f2 crho (cft-from-cf f1 cf1) (cft-from-cf f2 cf2) wf1 wf2
+      comp-f = Lam-CompFun B rho a1' a2' f1 f2 crho cf1 cf2 wf1 wf2
                  (\ rho' crho' u v eu ev -> EvalRel-Comp B rho' crho' u v eu ev)
   in mkSigma comp-a comp-f
 
@@ -865,18 +865,18 @@ EvalRel-down (Lam A M) rho (FunEl g) (FunEl g') crho cu' ev le =
       ctg  = cft-from-cf g cg
   in mkSigma a (mkSigma cg' (mkSigma aU (mkSigma evA
        (\ u v sel ->
-          let cu  = Coherent-Selection sel cg'
-              cv  = Coherent-Selection-val sel cg'
+          let cu  = Coherent-Selection sel ctg'
+              cv  = Coherent-Selection-val sel ctg'
               -- v <= EvalFun g' u <= EvalFun g u
               lf-g' = LeCode-refl (FunEl g') cg'
-              le-v-efg' = Selection-le-EvalFun g' sel lf-g' cg' cg' cu
+              le-v-efg' = Selection-le-EvalFun g' sel lf-g' ctg' ctg' cu
               le-efg'-efg = EvalFun-mon g' g u ctg' ctg cu le
               c-efg'u = Coherent-EvalFun g' u ctg' cu
               c-efgu  = Coherent-EvalFun g u ctg cu
               le-v-efgu = LeCode-trans v (EvalFun g' u) (EvalFun g u)
                             cv c-efg'u c-efgu le-v-efg' le-efg'-efg
               -- selectionBelow g at u: genuine selection of g
-              sb     = selectionBelow g u cg cu
+              sb     = selectionBelow g u ctg cu
               u0     = fst sb
               v0     = fst (snd sb)
               sel-g  = fst (snd (snd sb))
@@ -891,7 +891,7 @@ EvalRel-down (Lam A M) rho (FunEl g) (FunEl g') crho cu' ev le =
               -- x <= u0 <= u
               cx     = FinMem-coh-u x a mem-x
               le-x-u = LeCode-trans x u0 u cx
-                         (Coherent-Selection sel-g cg) cu le-x-u0 le-u0
+                         (Coherent-Selection sel-g ctg) cu le-x-u0 le-u0
               -- v <= v0 (since v <= EvalFun g u = v0)
               le-v-v0 = Eq-transport (LeCode v) eq-v0 le-v-efgu
               -- IH: EvalRel-down M to go from v0 to v
@@ -927,8 +927,6 @@ EvalRel-down (Pi A B) rho (PiCode a f) (PiCode a' f') crho cu' ev le =
       ca'  = fst cu'
       cf'  = snd cu'
       cf-orig = snd caf
-      ctf' = cft-from-cf f' cf'
-      ctf  = cft-from-cf f cf-orig
   in mkSigma cu' (mkSigma
        (EvalRel-down A rho a a' crho ca' evA le-a)
        (mkSigma a0 (mkSigma evA0
@@ -936,11 +934,11 @@ EvalRel-down (Pi A B) rho (PiCode a f) (PiCode a' f') crho cu' ev le =
           let cu  = Coherent-Selection sel cf'
               cv  = Coherent-Selection-val sel cf'
               -- v <= EvalFun f' u <= EvalFun f u
-              lf-f' = LeCode-refl (FunEl f') cf'
+              lf-f' = LeFunCode-refl f' cf'
               le-v-eff' = Selection-le-EvalFun f' sel lf-f' cf' cf' cu
-              le-eff'-eff = EvalFun-mon f' f u ctf' ctf cu le-f
-              c-eff'u = Coherent-EvalFun f' u ctf' cu
-              c-effu  = Coherent-EvalFun f u ctf cu
+              le-eff'-eff = EvalFun-mon f' f u cf' cf-orig cu le-f
+              c-eff'u = Coherent-EvalFun f' u cf' cu
+              c-effu  = Coherent-EvalFun f u cf-orig cu
               le-v-effu = LeCode-trans v (EvalFun f' u) (EvalFun f u)
                             cv c-eff'u c-effu le-v-eff' le-eff'-eff
               -- selectionBelow f at u
@@ -1140,19 +1138,20 @@ EvalRel-Sup (Lam A M) rho (FunEl g1) (FunEl g2) crho cu cv comp eu ev =
       supU = FinMem-Sup-element a1 a2 UCode comp-a tt a1U a2U
       -- CoherentFun (append g1 g2)
       c-gab = CoherentFun-append g1 g2 cg1 cg2 comp
+      ct-gab = cft-from-cf (append g1 g2) c-gab
       -- Body: for every Selection (append g1 g2) u v, build witness
   in mkSigma (Sup a1 a2) (mkSigma c-gab (mkSigma supU (mkSigma evA-sup
        (\ u v sel ->
           let -- selectionBelow g1 u and g2 u
-              cu-sel = Coherent-Selection sel c-gab
-              cv-sel = Coherent-Selection-val sel c-gab
-              sb1    = selectionBelow g1 u cg1 cu-sel
+              cu-sel = Coherent-Selection sel ct-gab
+              cv-sel = Coherent-Selection-val sel ct-gab
+              sb1    = selectionBelow g1 u (cft-from-cf g1 cg1) cu-sel
               u1     = fst sb1
               v1     = fst (snd sb1)
               sel1   = fst (snd (snd sb1))
               le-u1  = fst (snd (snd (snd sb1)))
               eq-v1  = snd (snd (snd (snd sb1)))
-              sb2    = selectionBelow g2 u cg2 cu-sel
+              sb2    = selectionBelow g2 u (cft-from-cf g2 cg2) cu-sel
               u2     = fst sb2
               v2     = fst (snd sb2)
               sel2   = fst (snd (snd sb2))
@@ -1174,8 +1173,8 @@ EvalRel-Sup (Lam A M) rho (FunEl g1) (FunEl g2) crho cu cv comp eu ev =
               cx1    = FinMem-coh-u x1 a1 mem-x1
               cx2    = FinMem-coh-u x2 a2 mem-x2
               -- Comp x1 x2: both <= u via chains, so LeCode-Comp
-              le-x1-u = LeCode-trans x1 u1 u cx1 (Coherent-Selection sel1 cg1) cu-sel le-x1 le-u1
-              le-x2-u = LeCode-trans x2 u2 u cx2 (Coherent-Selection sel2 cg2) cu-sel le-x2 le-u2
+              le-x1-u = LeCode-trans x1 u1 u cx1 (Coherent-Selection sel1 (cft-from-cf g1 cg1)) cu-sel le-x1 le-u1
+              le-x2-u = LeCode-trans x2 u2 u cx2 (Coherent-Selection sel2 (cft-from-cf g2 cg2)) cu-sel le-x2 le-u2
               comp-x  = LeCode-Comp x1 x2 u cu-sel le-x1-u le-x2-u
               -- Sup x1 x2
               c-supx  = Coherent-Sup x1 x2 comp-x cx1 cx2
@@ -1201,9 +1200,8 @@ EvalRel-Sup (Lam A M) rho (FunEl g1) (FunEl g2) crho cu cv comp eu ev =
               evM-supv = EvalRel-Sup M (extendEnv rho (Sup x1 x2)) v1 v2 crho-sup cv1 cv2 comp-v evM-sup1 evM-sup2
               -- v <= Sup v1 v2 via Selection-le-EvalFun + EvalFun-append-eq
               -- v <= EvalFun (append g1 g2) u
-              ct-gab = cft-from-cf (append g1 g2) c-gab
               lf-gab = LeFunCode-refl (append g1 g2) ct-gab
-              le-v-ef = Selection-le-EvalFun (append g1 g2) sel lf-gab c-gab c-gab cu-sel
+              le-v-ef = Selection-le-EvalFun (append g1 g2) sel lf-gab ct-gab ct-gab cu-sel
               -- EvalFun (append g1 g2) u = Sup (EvalFun g1 u) (EvalFun g2 u)
               ctg1   = cft-from-cf g1 cg1
               eq-ef  = EvalFun-append-eq g1 g2 u comp ctg1 cu-sel
@@ -1266,7 +1264,7 @@ EvalRel-Sup (Pi A B) rho (PiCode a1 f1) (PiCode a2 f2) crho cu cv comp eu ev =
       -- CoherentFun (append f1 f2)
       cf1   = snd cu1
       cf2   = snd cu2
-      c-fab = CoherentFun-append f1 f2 cf1 cf2 comp-f
+      c-fab = CoherentFunTail-append f1 f2 cf1 cf2 comp-f
   in mkSigma c-result (mkSigma evA-sup
        (mkSigma (Sup a1' a2') (mkSigma evA'-sup
        (\ u v sel ->
@@ -1327,10 +1325,9 @@ EvalRel-Sup (Pi A B) rho (PiCode a1 f1) (PiCode a2 f2) crho cu cv comp eu ev =
               -- IH on B
               evB-supv = EvalRel-Sup B (extendEnv rho (Sup x1 x2)) v1 v2 crho-sup cv1 cv2 comp-v evB-sup1 evB-sup2
               -- v <= Sup v1 v2 via same chain as Lam case
-              ct-fab = cft-from-cf (append f1 f2) c-fab
-              lf-fab = LeFunCode-refl (append f1 f2) ct-fab
+              lf-fab = LeFunCode-refl (append f1 f2) c-fab
               le-v-ef = Selection-le-EvalFun (append f1 f2) sel lf-fab c-fab c-fab cu-sel
-              ctf1   = cft-from-cf f1 cf1
+              ctf1   = cf1
               eq-ef  = EvalFun-append-eq f1 f2 u comp-f ctf1 cu-sel
               le-v-supef = Eq-transport (LeCode v) eq-ef le-v-ef
               eq-sup = Eq-transport (\ z -> Eq (Sup z (EvalFun f2 u)) (Sup v1 v2))

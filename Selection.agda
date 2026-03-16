@@ -52,7 +52,7 @@ data EdgeIn : Edge -> FinFun -> Set where
           EdgeIn e (cons e' es)
 
 CoherentFun-edge-key : (e : Edge) (g : FinFun) ->
-  CoherentFun g -> EdgeIn e g -> Coherent (fst e)
+  CoherentFunTail g -> EdgeIn e g -> Coherent (fst e)
 CoherentFun-edge-key e (cons p ps) cf here = CFTcons.key-coh cf
 CoherentFun-edge-key e (cons p nil) cf (there ())
 CoherentFun-edge-key e (cons p (cons q qs)) cf (there ein) =
@@ -73,7 +73,7 @@ record SatFinFun (b : FinEl) : Set where
   field
     graph : FinFun
     typed : TypedGraph b graph
-    sat   : CoherentFun graph
+    sat   : CoherentFunTail graph
 
 ------------------------------------------------------------------------
 -- Or -- sum type
@@ -134,7 +134,7 @@ singleton-selection e (cons p es) (there ein) =
   sel-skip (singleton-selection e es ein)
 
 Coherent-Selection : {f : FinFun} {u v : FinEl} ->
-  Selection f u v -> CoherentFun f -> Coherent u
+  Selection f u v -> CoherentFunTail f -> Coherent u
 Coherent-Selection sel-nil cf = tt
 Coherent-Selection (sel-skip sel-nil) cf = tt
 Coherent-Selection (sel-skip (sel-skip sel)) cf =
@@ -154,7 +154,7 @@ Coherent-Selection (sel-take {p} comp-key comp-val (sel-take ck cv sel)) cf =
     (Coherent-Selection (sel-take ck cv sel) (CFTcons.tail-coh cf))
 
 Coherent-Selection-val : {f : FinFun} {u v : FinEl} ->
-  Selection f u v -> CoherentFun f -> Coherent v
+  Selection f u v -> CoherentFunTail f -> Coherent v
 Coherent-Selection-val sel-nil cf = tt
 Coherent-Selection-val (sel-skip sel-nil) cf = tt
 Coherent-Selection-val (sel-skip (sel-skip sel)) cf =
@@ -175,7 +175,7 @@ Coherent-Selection-val (sel-take {p} comp-key comp-val (sel-take ck cv sel)) cf 
 
 FinMem-Selection : {g : FinFun} {u v : FinEl} ->
   (b : FinEl) (f : FinFun) ->
-  Selection g u v -> FinMemFun g b f -> CoherentFun g ->
+  Selection g u v -> FinMemFun g b f -> CoherentFunTail g ->
   Coherent b -> FinMem b UCode ->
   FinMem u b
 FinMem-Selection b f sel-nil fmg cg cb bU = bU
@@ -199,7 +199,7 @@ FinMem-Selection b f (sel-take {p} comp-key comp-val (sel-take ck cv sel)) fmg c
 
 FinMemAllU-Selection : {f : FinFun} {u v : FinEl} ->
   (b : FinEl) ->
-  Selection f u v -> FinMemAllU f b -> CoherentFun f ->
+  Selection f u v -> FinMemAllU f b -> CoherentFunTail f ->
   Coherent b -> FinMem b UCode ->
   FinMem u b
 FinMemAllU-Selection b sel-nil allU cf cb bU = bU
@@ -223,7 +223,7 @@ FinMemAllU-Selection b (sel-take {p} comp-key comp-val (sel-take ck cv sel)) all
 
 FinMem-Selection-UCode : {f : FinFun} {u v : FinEl} ->
   (b : FinEl) ->
-  Selection f u v -> FinMemAllU f b -> CoherentFun f ->
+  Selection f u v -> FinMemAllU f b -> CoherentFunTail f ->
   FinMem v UCode
 FinMem-Selection-UCode b sel-nil allU cf = tt
 FinMem-Selection-UCode b (sel-skip sel-nil) allU cf = tt
@@ -250,7 +250,7 @@ FinMem-Selection-UCode b (sel-take {p} comp-key comp-val (sel-take ck cv sel)) a
 
 selectionBelow-step : (n : Nat) (p : Edge) (rest : FinFun) (x : FinEl) ->
   Eq (leFinEl (fst p) x) n ->
-  CoherentFun (cons p rest) -> Coherent x ->
+  CoherentFunTail (cons p rest) -> Coherent x ->
   (u : FinEl) -> (v : FinEl) ->
   Selection rest u v -> LeCode u x -> Eq (EvalFun rest x) v ->
   Sigma FinEl \ u' -> Sigma FinEl \ v' ->
@@ -273,7 +273,7 @@ selectionBelow-step (suc m) p rest x eq cf cx u v sel le eqv =
 
 selectionBelow :
   (f : FinFun) (x : FinEl) ->
-  CoherentFun f -> Coherent x ->
+  CoherentFunTail f -> Coherent x ->
   Sigma FinEl \ u ->
   Sigma FinEl \ v ->
     Pair (Selection f u v)
@@ -296,7 +296,7 @@ selectionBelow (cons p (cons q qs)) x cf cx =
 Selection-le-EvalFun : {f : FinFun} {u v : FinEl} ->
   (g : FinFun) ->
   Selection f u v -> LeFunCode f g ->
-  CoherentFun f -> CoherentFun g -> Coherent u ->
+  CoherentFunTail f -> CoherentFunTail g -> Coherent u ->
   LeCode v (EvalFun g u)
 Selection-le-EvalFun g sel-nil lf cf cg cu = LeCode-Bot (EvalFun g Bot)
 Selection-le-EvalFun g (sel-skip sel-nil) lf cf cg cu = LeCode-Bot (EvalFun g Bot)
@@ -305,63 +305,60 @@ Selection-le-EvalFun g (sel-skip (sel-skip sel)) lf cf cg cu =
 Selection-le-EvalFun g (sel-skip (sel-take ck cv sel)) lf cf cg cu =
   Selection-le-EvalFun g (sel-take ck cv sel) (snd lf) (CFTcons.tail-coh cf) cg cu
 Selection-le-EvalFun g (sel-take {p} comp-key comp-val sel-nil) lf cf cg cu =
-  let cg' = cft-from-cf g cg
-      cu-inner = tt
+  let cu-inner = tt
       cv-inner = tt
       cp = CFTcons.key-coh cf
       cpv = CFTcons.val-coh cf
       le-v0 = fst lf
       ih = LeCode-Bot (EvalFun g Bot)
       cu-sup = Coherent-Sup (fst p) Bot comp-key cp tt
-      c-ef-p = Coherent-EvalFun g (fst p) cg' cp
-      c-ef-u = Coherent-EvalFun g Bot cg' tt
-      c-ef-sup = Coherent-EvalFun g (Sup (fst p) Bot) cg' cu-sup
+      c-ef-p = Coherent-EvalFun g (fst p) cg cp
+      c-ef-u = Coherent-EvalFun g Bot cg tt
+      c-ef-sup = Coherent-EvalFun g (Sup (fst p) Bot) cg cu-sup
       le-key-sup = LeCode-Sup-left (fst p) Bot comp-key cp tt
       le-u-sup = LeCode-Sup-right (fst p) Bot comp-key cp tt
-      le-ef-p = EvalFun-mon-arg g (fst p) (Sup (fst p) Bot) le-key-sup cg' cp cu-sup
-      le-ef-u = EvalFun-mon-arg g Bot (Sup (fst p) Bot) le-u-sup cg' tt cu-sup
+      le-ef-p = EvalFun-mon-arg g (fst p) (Sup (fst p) Bot) le-key-sup cg cp cu-sup
+      le-ef-u = EvalFun-mon-arg g Bot (Sup (fst p) Bot) le-u-sup cg tt cu-sup
       le-v0-sup = LeCode-trans (snd p) (EvalFun g (fst p)) (EvalFun g (Sup (fst p) Bot))
                     cpv c-ef-p c-ef-sup le-v0 le-ef-p
       le-v-sup = LeCode-trans Bot (EvalFun g Bot) (EvalFun g (Sup (fst p) Bot))
                    tt c-ef-u c-ef-sup ih le-ef-u
   in LeCode-Sup-lub (snd p) Bot (EvalFun g (Sup (fst p) Bot)) le-v0-sup le-v-sup
 Selection-le-EvalFun g (sel-take {p} {u} {v} comp-key comp-val (sel-skip sel)) lf cf cg cu =
-  let cg' = cft-from-cf g cg
-      cu-inner = Coherent-Selection (sel-skip sel) (CFTcons.tail-coh cf)
+  let cu-inner = Coherent-Selection (sel-skip sel) (CFTcons.tail-coh cf)
       cv-inner = Coherent-Selection-val (sel-skip sel) (CFTcons.tail-coh cf)
       cp = CFTcons.key-coh cf
       cpv = CFTcons.val-coh cf
       le-v0 = fst lf
       ih = Selection-le-EvalFun g (sel-skip sel) (snd lf) (CFTcons.tail-coh cf) cg cu-inner
       cu-sup = Coherent-Sup (fst p) u comp-key cp cu-inner
-      c-ef-p = Coherent-EvalFun g (fst p) cg' cp
-      c-ef-u = Coherent-EvalFun g u cg' cu-inner
-      c-ef-sup = Coherent-EvalFun g (Sup (fst p) u) cg' cu-sup
+      c-ef-p = Coherent-EvalFun g (fst p) cg cp
+      c-ef-u = Coherent-EvalFun g u cg cu-inner
+      c-ef-sup = Coherent-EvalFun g (Sup (fst p) u) cg cu-sup
       le-key-sup = LeCode-Sup-left (fst p) u comp-key cp cu-inner
       le-u-sup = LeCode-Sup-right (fst p) u comp-key cp cu-inner
-      le-ef-p = EvalFun-mon-arg g (fst p) (Sup (fst p) u) le-key-sup cg' cp cu-sup
-      le-ef-u = EvalFun-mon-arg g u (Sup (fst p) u) le-u-sup cg' cu-inner cu-sup
+      le-ef-p = EvalFun-mon-arg g (fst p) (Sup (fst p) u) le-key-sup cg cp cu-sup
+      le-ef-u = EvalFun-mon-arg g u (Sup (fst p) u) le-u-sup cg cu-inner cu-sup
       le-v0-sup = LeCode-trans (snd p) (EvalFun g (fst p)) (EvalFun g (Sup (fst p) u))
                     cpv c-ef-p c-ef-sup le-v0 le-ef-p
       le-v-sup = LeCode-trans v (EvalFun g u) (EvalFun g (Sup (fst p) u))
                    cv-inner c-ef-u c-ef-sup ih le-ef-u
   in LeCode-Sup-lub (snd p) v (EvalFun g (Sup (fst p) u)) le-v0-sup le-v-sup
 Selection-le-EvalFun g (sel-take {p} {u} {v} comp-key comp-val (sel-take ck cv sel)) lf cf cg cu =
-  let cg' = cft-from-cf g cg
-      cu-inner = Coherent-Selection (sel-take ck cv sel) (CFTcons.tail-coh cf)
+  let cu-inner = Coherent-Selection (sel-take ck cv sel) (CFTcons.tail-coh cf)
       cv-inner = Coherent-Selection-val (sel-take ck cv sel) (CFTcons.tail-coh cf)
       cp = CFTcons.key-coh cf
       cpv = CFTcons.val-coh cf
       le-v0 = fst lf
       ih = Selection-le-EvalFun g (sel-take ck cv sel) (snd lf) (CFTcons.tail-coh cf) cg cu-inner
       cu-sup = Coherent-Sup (fst p) u comp-key cp cu-inner
-      c-ef-p = Coherent-EvalFun g (fst p) cg' cp
-      c-ef-u = Coherent-EvalFun g u cg' cu-inner
-      c-ef-sup = Coherent-EvalFun g (Sup (fst p) u) cg' cu-sup
+      c-ef-p = Coherent-EvalFun g (fst p) cg cp
+      c-ef-u = Coherent-EvalFun g u cg cu-inner
+      c-ef-sup = Coherent-EvalFun g (Sup (fst p) u) cg cu-sup
       le-key-sup = LeCode-Sup-left (fst p) u comp-key cp cu-inner
       le-u-sup = LeCode-Sup-right (fst p) u comp-key cp cu-inner
-      le-ef-p = EvalFun-mon-arg g (fst p) (Sup (fst p) u) le-key-sup cg' cp cu-sup
-      le-ef-u = EvalFun-mon-arg g u (Sup (fst p) u) le-u-sup cg' cu-inner cu-sup
+      le-ef-p = EvalFun-mon-arg g (fst p) (Sup (fst p) u) le-key-sup cg cp cu-sup
+      le-ef-u = EvalFun-mon-arg g u (Sup (fst p) u) le-u-sup cg cu-inner cu-sup
       le-v0-sup = LeCode-trans (snd p) (EvalFun g (fst p)) (EvalFun g (Sup (fst p) u))
                     cpv c-ef-p c-ef-sup le-v0 le-ef-p
       le-v-sup = LeCode-trans v (EvalFun g u) (EvalFun g (Sup (fst p) u))
@@ -374,34 +371,33 @@ Selection-le-EvalFun g (sel-take {p} {u} {v} comp-key comp-val (sel-take ck cv s
 
 FinMem-Selection-codomain : {g : FinFun} {u v : FinEl} ->
   (b : FinEl) (f : FinFun) ->
-  Selection g u v -> FinMemFun g b f -> CoherentFun g ->
-  CoherentFun f -> FinMemAllU f b ->
+  Selection g u v -> FinMemFun g b f -> CoherentFunTail g ->
+  CoherentFunTail f -> FinMemAllU f b ->
   FinMem v (EvalFun f u)
 FinMem-Selection-codomain b f sel-nil fmg cg cf allU =
-  EvalFun-in-UCode f Bot b (cft-from-cf f cf) tt allU
+  EvalFun-in-UCode f Bot b cf tt allU
 FinMem-Selection-codomain b f (sel-skip sel-nil) fmg cg cf allU =
-  EvalFun-in-UCode f Bot b (cft-from-cf f cf) tt allU
+  EvalFun-in-UCode f Bot b cf tt allU
 FinMem-Selection-codomain b f (sel-skip (sel-skip sel)) fmg cg cf allU =
   FinMem-Selection-codomain b f (sel-skip sel) (snd fmg) (CFTcons.tail-coh cg) cf allU
 FinMem-Selection-codomain b f (sel-skip (sel-take ck cv sel)) fmg cg cf allU =
   FinMem-Selection-codomain b f (sel-take ck cv sel) (snd fmg) (CFTcons.tail-coh cg) cf allU
 FinMem-Selection-codomain b f
   (sel-take {p} comp-key comp-val sel-nil) fmg cg cf allU =
-  let cf' = cft-from-cf f cf
-      cu = tt
+  let cu = tt
       cv = tt
       ck = CFTcons.key-coh cg
       cpv = CFTcons.val-coh cg
       cu-sup = Coherent-Sup (fst p) Bot comp-key ck tt
-      ih = EvalFun-in-UCode f Bot b cf' tt allU
-      c-efp = Coherent-EvalFun f (fst p) cf' ck
-      c-efu = Coherent-EvalFun f Bot cf' tt
-      c-efsup = Coherent-EvalFun f (Sup (fst p) Bot) cf' cu-sup
+      ih = EvalFun-in-UCode f Bot b cf tt allU
+      c-efp = Coherent-EvalFun f (fst p) cf ck
+      c-efu = Coherent-EvalFun f Bot cf tt
+      c-efsup = Coherent-EvalFun f (Sup (fst p) Bot) cf cu-sup
       le-k-sup = LeCode-Sup-left (fst p) Bot comp-key ck tt
       le-u-sup = LeCode-Sup-right (fst p) Bot comp-key ck tt
-      le-efp = EvalFun-mon-arg f (fst p) (Sup (fst p) Bot) le-k-sup cf' ck cu-sup
-      le-efu = EvalFun-mon-arg f Bot (Sup (fst p) Bot) le-u-sup cf' tt cu-sup
-      efSupU = EvalFun-in-UCode f (Sup (fst p) Bot) b cf' cu-sup allU
+      le-efp = EvalFun-mon-arg f (fst p) (Sup (fst p) Bot) le-k-sup cf ck cu-sup
+      le-efu = EvalFun-mon-arg f Bot (Sup (fst p) Bot) le-u-sup cf tt cu-sup
+      efSupU = EvalFun-in-UCode f (Sup (fst p) Bot) b cf cu-sup allU
       mem-p = finMem-upward (snd p) (EvalFun f (fst p)) (EvalFun f (Sup (fst p) Bot))
                 le-efp c-efp c-efsup (snd (fst fmg)) efSupU
       mem-ih = finMem-upward Bot (EvalFun f Bot) (EvalFun f (Sup (fst p) Bot))
@@ -410,21 +406,20 @@ FinMem-Selection-codomain b f
        comp-val c-efsup mem-p mem-ih
 FinMem-Selection-codomain b f
   (sel-take {p} {u} {v} comp-key comp-val (sel-skip sel)) fmg cg cf allU =
-  let cf' = cft-from-cf f cf
-      cu = Coherent-Selection (sel-skip sel) (CFTcons.tail-coh cg)
+  let cu = Coherent-Selection (sel-skip sel) (CFTcons.tail-coh cg)
       cv0 = Coherent-Selection-val (sel-skip sel) (CFTcons.tail-coh cg)
       ck = CFTcons.key-coh cg
       cpv = CFTcons.val-coh cg
       cu-sup = Coherent-Sup (fst p) u comp-key ck cu
       ih = FinMem-Selection-codomain b f (sel-skip sel) (snd fmg) (CFTcons.tail-coh cg) cf allU
-      c-efp = Coherent-EvalFun f (fst p) cf' ck
-      c-efu = Coherent-EvalFun f u cf' cu
-      c-efsup = Coherent-EvalFun f (Sup (fst p) u) cf' cu-sup
+      c-efp = Coherent-EvalFun f (fst p) cf ck
+      c-efu = Coherent-EvalFun f u cf cu
+      c-efsup = Coherent-EvalFun f (Sup (fst p) u) cf cu-sup
       le-k-sup = LeCode-Sup-left (fst p) u comp-key ck cu
       le-u-sup = LeCode-Sup-right (fst p) u comp-key ck cu
-      le-efp = EvalFun-mon-arg f (fst p) (Sup (fst p) u) le-k-sup cf' ck cu-sup
-      le-efu = EvalFun-mon-arg f u (Sup (fst p) u) le-u-sup cf' cu cu-sup
-      efSupU = EvalFun-in-UCode f (Sup (fst p) u) b cf' cu-sup allU
+      le-efp = EvalFun-mon-arg f (fst p) (Sup (fst p) u) le-k-sup cf ck cu-sup
+      le-efu = EvalFun-mon-arg f u (Sup (fst p) u) le-u-sup cf cu cu-sup
+      efSupU = EvalFun-in-UCode f (Sup (fst p) u) b cf cu-sup allU
       mem-p = finMem-upward (snd p) (EvalFun f (fst p)) (EvalFun f (Sup (fst p) u))
                 le-efp c-efp c-efsup (snd (fst fmg)) efSupU
       mem-ih = finMem-upward v (EvalFun f u) (EvalFun f (Sup (fst p) u))
@@ -433,21 +428,20 @@ FinMem-Selection-codomain b f
        comp-val c-efsup mem-p mem-ih
 FinMem-Selection-codomain b f
   (sel-take {p} {u} {v} comp-key comp-val (sel-take ck cv sel)) fmg cg cf allU =
-  let cf' = cft-from-cf f cf
-      cu = Coherent-Selection (sel-take ck cv sel) (CFTcons.tail-coh cg)
+  let cu = Coherent-Selection (sel-take ck cv sel) (CFTcons.tail-coh cg)
       cv' = Coherent-Selection-val (sel-take ck cv sel) (CFTcons.tail-coh cg)
       ck' = CFTcons.key-coh cg
       cpv = CFTcons.val-coh cg
       cu-sup = Coherent-Sup (fst p) u comp-key ck' cu
       ih = FinMem-Selection-codomain b f (sel-take ck cv sel) (snd fmg) (CFTcons.tail-coh cg) cf allU
-      c-efp = Coherent-EvalFun f (fst p) cf' ck'
-      c-efu = Coherent-EvalFun f u cf' cu
-      c-efsup = Coherent-EvalFun f (Sup (fst p) u) cf' cu-sup
+      c-efp = Coherent-EvalFun f (fst p) cf ck'
+      c-efu = Coherent-EvalFun f u cf cu
+      c-efsup = Coherent-EvalFun f (Sup (fst p) u) cf cu-sup
       le-k-sup = LeCode-Sup-left (fst p) u comp-key ck' cu
       le-u-sup = LeCode-Sup-right (fst p) u comp-key ck' cu
-      le-efp = EvalFun-mon-arg f (fst p) (Sup (fst p) u) le-k-sup cf' ck' cu-sup
-      le-efu = EvalFun-mon-arg f u (Sup (fst p) u) le-u-sup cf' cu cu-sup
-      efSupU = EvalFun-in-UCode f (Sup (fst p) u) b cf' cu-sup allU
+      le-efp = EvalFun-mon-arg f (fst p) (Sup (fst p) u) le-k-sup cf ck' cu-sup
+      le-efu = EvalFun-mon-arg f u (Sup (fst p) u) le-u-sup cf cu cu-sup
+      efSupU = EvalFun-in-UCode f (Sup (fst p) u) b cf cu-sup allU
       mem-p = finMem-upward (snd p) (EvalFun f (fst p)) (EvalFun f (Sup (fst p) u))
                 le-efp c-efp c-efsup (snd (fst fmg)) efSupU
       mem-ih = finMem-upward v (EvalFun f u) (EvalFun f (Sup (fst p) u))
@@ -460,11 +454,10 @@ FinMem-Selection-codomain b f
 ------------------------------------------------------------------------
 
 EvalFun-le-graph : (g' g : FinFun) (x : FinEl) ->
-  LeFunCode g' g -> CoherentFun g' -> CoherentFun g -> Coherent x ->
+  LeFunCode g' g -> CoherentFunTail g' -> CoherentFunTail g -> Coherent x ->
   LeCode (EvalFun g' x) (EvalFun g x)
 EvalFun-le-graph g' g x lf cg' cg cx =
-  let cg-t = cft-from-cf g cg
-      sb = selectionBelow g' x cg' cx
+  let sb = selectionBelow g' x cg' cx
       u' = fst sb
       v' = fst (snd sb)
       sel' = fst (snd (snd sb))
@@ -473,8 +466,8 @@ EvalFun-le-graph g' g x lf cg' cg cx =
       cu' = Coherent-Selection sel' cg'
       cv' = Coherent-Selection-val sel' cg'
       le-v'-gu' = Selection-le-EvalFun g sel' lf cg' cg cu'
-      c-gu' = Coherent-EvalFun g u' cg-t cu'
-      c-gx = Coherent-EvalFun g x cg-t cx
-      le-gu'-gx = EvalFun-mon-arg g u' x le-u' cg-t cu' cx
+      c-gu' = Coherent-EvalFun g u' cg cu'
+      c-gx = Coherent-EvalFun g x cg cx
+      le-gu'-gx = EvalFun-mon-arg g u' x le-u' cg cu' cx
       le-v'-gx = LeCode-trans v' (EvalFun g u') (EvalFun g x) cv' c-gu' c-gx le-v'-gu' le-gu'-gx
   in Eq-transport (\ z -> LeCode z (EvalFun g x)) (Eq-sym eq-v') le-v'-gx

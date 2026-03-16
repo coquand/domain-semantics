@@ -679,6 +679,24 @@ extractFinMemU a0 nil cf _ with cf
 extractFinMemU a0 (cons p0 ps) cf bodyMap =
   FinMem-a-in-U (fst (bodyMap p0 here)) a0 (fst (snd (snd (bodyMap p0 here))))
 
+-- Like extractFinMemU but takes CoherentFunTail and handles nil via raw body
+extractFinMemU-cft :
+  {P : FinEl -> FinEl -> Set} {Q : FinEl -> FinEl -> Set}
+  (a0 : FinEl) (f0 : FinFun) -> CoherentFunTail f0 ->
+  ((p : Edge) -> EdgeIn p f0 ->
+    Sigma FinEl (\ z -> Pair (LeCode z (fst p))
+      (Pair (FinMem z a0) (P z (snd p))))) ->
+  ((u v : FinEl) -> Selection f0 u v ->
+    Sigma FinEl (\ x -> Pair (LeCode x u)
+      (Pair (FinMem x a0) (Q x v)))) ->
+  FinMem a0 UCode
+extractFinMemU-cft a0 nil cft edgeMap rawBody =
+  let w = rawBody Bot Bot sel-nil
+      x = fst w
+  in FinMem-a-in-U x a0 (fst (snd (snd w)))
+extractFinMemU-cft a0 (cons p0 ps) cft edgeMap rawBody =
+  FinMem-a-in-U (fst (edgeMap p0 here)) a0 (fst (snd (snd (edgeMap p0 here))))
+
 -- Forward declaration for mutual recursion with foldEdgeFwd
 EvalRel-subst-forward-wit :
   {h g : Nat} (sigma : Sub h g)
@@ -1104,12 +1122,13 @@ EvalRel-subst-forward-wit sigma (Pi A B) rho (PiCode a f) crho ev =
       leAa'-rho' = EnvLe-trans rhoAa' rhoAc rho' leAa' leAc
       evAa-rho'  = EvalRel-mon-env A rhoAa rho' a evAa leAa-rho'
       evAa'-rho' = EvalRel-mon-env A rhoAa' rho' a' evAa'0 leAa'-rho'
-      -- Extract FinMem a' UCode from first edge (f is non-nil since CoherentFun f)
-      a'U   = extractFinMemU a' f cf bodyAll
+      -- Extract FinMem a' UCode: from edges if f non-nil, from sel-nil body if f = nil
+      rawBody = snd (snd (snd (snd ev)))
+      a'U   = extractFinMemU-cft a' f cf bodyAll rawBody
       -- Build the selection body
       selBody : (x v : FinEl) -> Selection f x v ->
         Sigma FinEl (\ z -> Pair (LeCode z x) (Pair (FinMem z a') (EvalRel B (extendEnv rho' z) v)))
-      selBody = pi-sel-body rho' crho' a' a'U f (cft-from-cf f cf) bodyAll
+      selBody = pi-sel-body rho' crho' a' a'U f cf bodyAll
   in mkSigma rho' (mkSigma crho' (mkSigma sr'
        (mkSigma caf (mkSigma evAa-rho'
          (mkSigma a' (mkSigma evAa'-rho' selBody))))))
@@ -1330,10 +1349,9 @@ EvalRel-Pi-app-type A B a rho b f v crho evPi eva =
       wf   = snd (snd (snd (snd pew)))
       -- Coherence
       cf   = snd caf
-      cft  = cft-from-cf f cf
       cv   = EvalRel-coh a rho v eva
       -- Build EvalRel B (extendEnv rho v) (EvalFun f v)
-      evB  = EvalRel-body-EvalFun B rho v a' f crho cv cft wf
+      evB  = EvalRel-body-EvalFun B rho v a' f crho cv cf wf
   in EvalRel-subst1-backward B a rho v (EvalFun f v) crho eva evB
 
 -- EvalRel-Pi-body: from Pi evaluation, derive EvalRel B (extendEnv rho v) (EvalFun f v)
@@ -1350,5 +1368,4 @@ EvalRel-Pi-body A B rho b f v crho cv evPi =
       a'   = fst (snd (snd pew))
       wf   = snd (snd (snd (snd pew)))
       cf   = snd caf
-      cft  = cft-from-cf f cf
-  in EvalRel-body-EvalFun B rho v a' f crho cv cft wf
+  in EvalRel-body-EvalFun B rho v a' f crho cv cf wf
