@@ -101,27 +101,34 @@ Based on:
   **0 postulates.**
 
 - **`Validity2.agda`** — Bundled logical relation `Val2`/`EqVal2` with
-  `Top` at leaves. `ValTyPi2` stores `Red` (head reduction), enabling
-  extraction of `HeadRed` from `Val2` at `PiCode`.
+  `Top` at leaves. `ValTyPi2` stores `Red` (head reduction),
+  `HasType` for domain/codomain, and `ConvTm` for domain/codomain
+  equality in `EqValTyPi2`.
   **0 postulates.**
 
 - **`Adequacy2.agda`** — Bundled adequacy producing `Val2`/`EqVal2`.
-  **7 postulates** (Lam, App, beta, Pi, funext, App-fun, App-arg).
+  **7 postulates** (substitution lemmas for HasType/ConvTm fields,
+  twoValTy2-to-EqValTy2, twoVal2-to-EqVal2).
 
 ### Pi injectivity
 
-- **`PiInjectivity.agda`** — Corollary 6, part 1 (paper p.661):
-  from `ConvTm G A₀ (Pi B₁ F₁) U`, extract `HeadRed A₀ (Pi B₀ F₀)`.
-  Strategy: `botEnv` + `PiCode Bot nil` + `convSound'` + `adequacySub2`
-  + `Val2` extraction. Parts 2–3 (domain/codomain `ConvTm`) require
-  `HasType`/`ConvTm` at leaves (future work).
+- **`PiInjectivity.agda`** — Corollary 6 (paper p.661), full Pi injectivity:
+  - `piHeadRed`: from `ConvTm G A₀ (Pi B₁ F₁) U`, extract
+    `HeadRed A₀ (Pi B₀ F₀)` (part 1).
+  - `piConv`: additionally extract `ConvTm G B₀ B₁ U` (part 2)
+    and `ConvTm (extend G B₀) F₀ F₁ U` (part 3).
+  - `piInjectivity`: from `ConvTm G (Pi A₀ B₀) (Pi A₁ B₁) U`,
+    extract `ConvTm G A₀ A₁ U` and `ConvTm (extend G A₀) B₀ B₁ U`.
+  Strategy: `botEnv` + `PiCode Bot nil` + `convSound'` +
+  `adequacyEqSub2` + `EqValTyPi2` extraction + `Red-unique-Pi`.
   **0 postulates.**
 
 ## Documentation
 
 - **`rules.tex`** / **`rules.pdf`** — LaTeX presentation of the typing
-  and conversion rules, head reduction, and the Pi injectivity theorem
-  (Corollary 6, part 1) with proof outline.
+  and conversion rules, head reduction, and the full Pi injectivity
+  theorem (Corollary 6, parts 1–3 and the Pi–Pi corollary) with
+  proof outline.
 
 ## Technical notes
 

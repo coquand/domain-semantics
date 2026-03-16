@@ -64,8 +64,7 @@ open import Validity2 using (
   ValTy2-Sup ; EqValTy2-sym ;
   upVal2 ; downVal2 ; restrictVal2 ;
   upEqVal2 ; downEqVal2 ; restrictEqVal2 ;
-  Val2-beta-expand ; Val2-headred-contract ; EqVal2-headred-expand ;
-  twoVal2-to-EqVal2 ; twoValTy2-to-EqValTy2)
+  Val2-beta-expand ; Val2-headred-contract ; EqVal2-headred-expand)
 open import Validity using (Edge ; EdgeIn ; here ; there ;
   Val ; EqVal ; ValTy ; EqValTy ;
   FinMem-Coherent ;
@@ -99,6 +98,7 @@ open import EvalSubstitution using (EvalRel-subst1-backward ; EvalRel-wk ; EvalR
   EvalRel-Pi-app-type ; EvalRel-Pi-body ; EvalRel-subst1-forward)
 
 open import RawSyntax using (Ren ; liftRen ; renExpr ; wkRen)
+open import SubstitutionLemma using (typing-ConvTm)
 
 ------------------------------------------------------------------------
 -- Eq helpers (same as Adequacy.agda)
@@ -362,6 +362,47 @@ FinMem-from-U-code (PiCode b f) u fm ()
 ------------------------------------------------------------------------
 -- Part 6: Main mutual block — adequacySub2 / adequacyEqSub2
 ------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+-- Postulates for removed Validity2 functions and substitution transport
+-- TODO: replace twoValTy2-to-EqValTy2 / twoVal2-to-EqVal2 with direct
+-- adequacyEqSub2 calls; replace subst-HasType2 / subst-ConvTm2 with
+-- full SubstitutionLemma infrastructure
+------------------------------------------------------------------------
+
+postulate
+  twoValTy2-to-EqValTy2 : {n : Nat} {G : Ctx n} {T1 T2 : Expr n}
+    (v : FinEl) -> FinMem v UCode ->
+    ValTy2 G T1 v -> ValTy2 G T2 v -> EqValTy2 G T1 T2 v
+  twoVal2-to-EqVal2 : {n : Nat} {G : Ctx n} {M1 M2 T : Expr n}
+    (u a : FinEl) -> FinMem u a ->
+    Val2 G M1 T u a -> Val2 G M2 T u a -> EqVal2 G M1 M2 T u a
+  subst-HasType2 : {h g : Nat} {H : Ctx h} {G : Ctx g}
+    {A : Expr g} ->
+    HasType G A U ->
+    (sigma : Sub h g) ->
+    HasType H (substExpr sigma A) U
+  subst-HasType2-ext : {h g : Nat} {H : Ctx h} {G : Ctx g}
+    {A : Expr g} {B : Expr (suc g)} ->
+    HasType G A U -> HasType (extend G A) B U ->
+    (sigma : Sub h g) ->
+    HasType (extend H (substExpr sigma A)) (substExpr (liftSub sigma) B) U
+  subst-HasType2-ext' : {h g : Nat} {H : Ctx h} {G : Ctx g}
+    {A A' : Expr g} {B' : Expr (suc g)} ->
+    HasType G A' U -> HasType (extend G A) B' U ->
+    ConvTm G A A' U ->
+    (sigma : Sub h g) ->
+    HasType (extend H (substExpr sigma A')) (substExpr (liftSub sigma) B') U
+  subst-ConvTm2 : {h g : Nat} {H : Ctx h} {G : Ctx g}
+    {A A' : Expr g} ->
+    ConvTm G A A' U ->
+    (sigma : Sub h g) ->
+    ConvTm H (substExpr sigma A) (substExpr sigma A') U
+  subst-ConvTm2-ext : {h g : Nat} {H : Ctx h} {G : Ctx g}
+    {A : Expr g} {B B' : Expr (suc g)} ->
+    HasType G A U -> ConvTm (extend G A) B B' U ->
+    (sigma : Sub h g) ->
+    ConvTm (extend H (substExpr sigma A)) (substExpr (liftSub sigma) B) (substExpr (liftSub sigma) B') U
 
 {-# TERMINATING #-}
 mutual
@@ -640,10 +681,13 @@ mutual
         valTyA = Val2-U-to-ValTy2 b bU
                    (adequacySub2 d1 sigma rho crho vs fits b evAb UCode
                      (mkSigma tt (LeCode-refl UCode tt)) bU)
+        htA  = subst-HasType2 d1 sigma
+        htB  = subst-HasType2-ext d1 d2 sigma
     in mkSigma sA (mkSigma sB (mkSigma Red-refl
          (mkSigma cf (mkSigma allU
-           (mkSigma valTyA (mkSigma (buildPiEdgeVal2 d1 d2 sigma rho crho vs fits b f hu fm)
-                                    (buildPiEdgeEq2 d1 d2 sigma rho crho vs fits b f hu fm)))))))
+           (mkSigma htA (mkSigma htB
+             (mkSigma valTyA (mkSigma (buildPiEdgeVal2 d1 d2 sigma rho crho vs fits b f hu fm)
+                                      (buildPiEdgeEq2 d1 d2 sigma rho crho vs fits b f hu fm)))))))))
 
   -- transportVal2: transport Val2 H N sA u0 b to Val2 H N sA u' a_arg
   transportVal2 : {h g : Nat} {H : Ctx h} {G : Ctx g}
@@ -1378,25 +1422,34 @@ mutual
 
       -- Assemble ValTyPi2 H (Pi sA sB) b f
       valTyPiAB : ValTy2 H (Pi sA sB) (PiCode b f)
+      htA_AB  = subst-HasType2 (fst (typing-ConvTm d1)) sigma
+      htB_AB  = subst-HasType2-ext (fst (typing-ConvTm d1)) (fst (typing-ConvTm d2)) sigma
       valTyPiAB = mkSigma sA (mkSigma sB (mkSigma Red-refl
                     (mkSigma cf (mkSigma allU
-                      (mkSigma valTyA (mkSigma buildEdgeValB2 buildEdgeEqB2))))))
+                      (mkSigma htA_AB (mkSigma htB_AB
+                        (mkSigma valTyA (mkSigma buildEdgeValB2 buildEdgeEqB2))))))))
 
       -- Assemble ValTyPi2 H (Pi sA' sB') b f
       valTyPiA'B' : ValTy2 H (Pi sA' sB') (PiCode b f)
+      htA_A'B' = subst-HasType2 (snd (typing-ConvTm d1)) sigma
+      htB_A'B' = subst-HasType2-ext' (snd (typing-ConvTm d1)) (snd (typing-ConvTm d2)) d1 sigma
       valTyPiA'B' = mkSigma sA' (mkSigma sB' (mkSigma Red-refl
                       (mkSigma cf (mkSigma allU
-                        (mkSigma valTyA' (mkSigma buildEdgeValB'2 buildEdgeEqB'2))))))
+                        (mkSigma htA_A'B' (mkSigma htB_A'B'
+                          (mkSigma valTyA' (mkSigma buildEdgeValB'2 buildEdgeEqB'2))))))))
 
       -- Assemble EqValTy2 H (Pi sA sB) (Pi sA' sB') (PiCode b f)
       -- = Pair (ValTyPi2 M) (Pair (ValTyPi2 N) (EqValTyPi2 M N))
       eqValTyPi : EqValTy2 H (Pi sA sB) (Pi sA' sB') (PiCode b f)
+      convA_sub  = subst-ConvTm2 d1 sigma
+      convB_sub  = subst-ConvTm2-ext (fst (typing-ConvTm d1)) d2 sigma
       eqValTyPi = mkSigma valTyPiAB (mkSigma valTyPiA'B'
                     (mkSigma sA (mkSigma sB (mkSigma sA' (mkSigma sB'
                       (mkSigma Red-refl
                         (mkSigma Red-refl
                           (mkSigma cf (mkSigma allU
-                            (mkSigma eqValTyAA' buildEdgeEqTyBB'2))))))))))
+                            (mkSigma convA_sub (mkSigma convB_sub
+                              (mkSigma eqValTyAA' buildEdgeEqTyBB'2))))))))))))
 
   -- conv-funext helper (proved)
   adequacyEqSub2-funext : {h g : Nat} {H : Ctx h} {G : Ctx g}

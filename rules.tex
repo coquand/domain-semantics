@@ -161,17 +161,29 @@ of $\beta$-reduction at the head:
     {\App{M}{a} \leadsto \App{M'}{a}}
 \end{mathpar}
 
-\section{Main result: Pi injectivity (head reduction)}
+\section{Main result: Pi injectivity}
 
-\begin{theorem}[Corollary 6, part 1; Coquand--Huber 2018, p.\,661]
+\begin{theorem}[Corollary 6; Coquand--Huber 2018, p.\,661]
   If\/ $\conveq{\Gamma}{A_0}{\Pitype{x{:}B_1}{F_1}}{\U}$,
   then there exist $B_0$, $F_0$ such that
-  \[
-    A_0 \leadsto^* \Pitype{x{:}B_0}{F_0}.
-  \]
+  \begin{enumerate}
+    \item $A_0 \leadsto^* \Pitype{x{:}B_0}{F_0}$,
+    \item $\conveq{\Gamma}{B_0}{B_1}{\U}$,
+    \item $\conveq{\Gamma, x{:}B_0}{F_0}{F_1}{\U}$.
+  \end{enumerate}
 \end{theorem}
 
-\begin{proof}[Proof outline]
+\begin{corollary}[Pi--Pi injectivity]
+  If\/ $\conveq{\Gamma}{\Pitype{x{:}A_0}{B_0}}{\Pitype{x{:}A_1}{B_1}}{\U}$,
+  then
+  \[
+    \conveq{\Gamma}{A_0}{A_1}{\U}
+    \qquad\text{and}\qquad
+    \conveq{\Gamma, x{:}A_0}{B_0}{B_1}{\U}.
+  \]
+\end{corollary}
+
+\begin{proof}[Proof outline (Theorem)]
   The proof proceeds by domain-theoretic adequacy.
   \begin{enumerate}
     \item From $\conveq{\Gamma}{A_0}{\Pi B_1\,F_1}{\U}$, extract
@@ -194,24 +206,44 @@ of $\beta$-reduction at the head:
       (domain~$\bot$, empty function graph, vacuous selection body).
       Transfer gives $\mathsf{EvalRel}(A_0, \rho_\bot,
       \mathsf{PiCode}(\bot,\mathsf{nil}))$.
-    \item Apply the bundled adequacy theorem (\textsc{adequacySub2})
-      with the identity substitution at~$\rho_\bot$ to obtain
+    \item Apply the bundled equality adequacy theorem
+      (\textsc{adequacyEqSub2}) with the identity substitution
+      at~$\rho_\bot$ to obtain
       \[
-        \mathsf{Val2}\;\Gamma\;A_0\;\U\;
+        \mathsf{EqVal2}\;\Gamma\;A_0\;(\Pi B_1\,F_1)\;\U\;
         (\mathsf{PiCode}(\bot,\mathsf{nil}))\;\mathsf{UCode}.
       \]
-    \item By definition, $\mathsf{Val2}$ at $(\mathsf{PiCode}(\bot,
-      \mathsf{nil}), \mathsf{UCode})$ unfolds to
-      $\mathsf{ValTyPi2}\;\Gamma\;A_0\;\bot\;\mathsf{nil}$, which is a
-      $\Sigma$-type whose third component is a contextual reduction
-      $\mathsf{Red}\;\Gamma\;A_0\;(\Pi\,B_0\,F_0)\;\U$.
-      Extract the underlying head reduction
-      $A_0 \leadsto^* \Pi\,B_0\,F_0$.
+    \item This unfolds to $\mathsf{EqValTyPi2}$, a $\Sigma$-type
+      containing:
+      \begin{itemize}
+        \item $\mathsf{Red}\;\Gamma\;A_0\;(\Pi\,B_0\,F_0)\;\U$
+          \quad (giving part~1),
+        \item $\conveq{\Gamma}{B_0}{B_1'}{\U}$ and
+          $\conveq{\Gamma, x{:}B_0}{F_0}{F_1'}{\U}$,
+        \item $\mathsf{Red}\;\Gamma\;(\Pi B_1\,F_1)\;(\Pi B_1'\,F_1')\;\U$.
+      \end{itemize}
+      Since $\Pi$ is a head normal form,
+      $\mathsf{Red\text{-}unique\text{-}Pi}$ forces $B_1' = B_1$ and
+      $F_1' = F_1$, giving parts~2 and~3.
   \end{enumerate}
-  The entire proof is formalised in Agda with \texttt{--without-K
-  --exact-split}, no \texttt{--type-in-type}, and no postulates
-  (in the files on which \texttt{PiInjectivity.agda} depends).
 \end{proof}
+
+\begin{proof}[Proof of Corollary]
+  Apply the theorem to
+  $\conveq{\Gamma}{\Pi A_0\,B_0}{\Pi A_1\,B_1}{\U}$.
+  This yields $B_0'$, $F_0'$ with
+  $\Pi A_0\,B_0 \leadsto^* \Pi B_0'\,F_0'$.
+  Since $\Pi$ is a head normal form, $\mathsf{Red\text{-}unique\text{-}Pi}$
+  gives $B_0' = A_0$ and $F_0' = B_0$, so the domain and codomain
+  conversions become
+  $\conveq{\Gamma}{A_0}{A_1}{\U}$ and
+  $\conveq{\Gamma, x{:}A_0}{B_0}{B_1}{\U}$.
+\end{proof}
+
+\medskip\noindent
+The entire proof is formalised in Agda with \texttt{--without-K
+--exact-split}, no \texttt{--type-in-type}, and no postulates
+(in the files on which \texttt{PiInjectivity.agda} depends).
 
 \begin{thebibliography}{1}
 \bibitem{CH2018}
