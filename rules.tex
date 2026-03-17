@@ -147,6 +147,25 @@ Contexts are snoc-lists: $\Gamma ::= \cdot \mid \Gamma, x{:}A$.
        {\substone{B}{a}}}
 \end{mathpar}
 
+\begin{theorem}[Eta-conversion]
+  If\/ $\hastype{\Gamma}{A}{\U}$, $\hastype{\Gamma, x{:}A}{B}{\U}$,
+  and $\hastype{\Gamma}{f}{\Pitype{x{:}A}{B}}$, then
+  \[
+    \conveq{\Gamma}{f}{\Lamterm{x{:}A}{\App{\wkn{f}}{x}}}{\Pitype{x{:}A}{B}}.
+  \]
+\end{theorem}
+
+\begin{proof}
+  By \textsc{Funext} it suffices to show
+  $\conveq{\Gamma, x{:}A}{\App{\wkn{f}}{x}}
+    {\App{\wkn{(\Lamterm{x{:}A}{\App{\wkn{f}}{x}})}}{x}}{B}$.
+  Since $\wkn{(\Lamterm{x{:}A}{M})} = \Lamterm{x{:}\wkn{A}}{M^{+\ell}}$
+  (where ${+\ell}$ denotes weakening under the binder), the right-hand
+  side is a $\beta$-redex.  Applying \textsc{Beta} and the
+  substitution identity $\substone{M^{+\ell}}{x_0} = M$ gives the result.
+  Formalised in \texttt{EtaConversion.agda}.
+\end{proof}
+
 \section{Head reduction}
 
 We define head reduction $M \leadsto N$ as the compatible closure
@@ -238,25 +257,6 @@ of $\beta$-reduction at the head:
   conversions become
   $\conveq{\Gamma}{A_0}{A_1}{\U}$ and
   $\conveq{\Gamma, x{:}A_0}{B_0}{B_1}{\U}$.
-\end{proof}
-
-\begin{corollary}[Eta-conversion]
-  If\/ $\hastype{\Gamma}{A}{\U}$, $\hastype{\Gamma, x{:}A}{B}{\U}$,
-  and $\hastype{\Gamma}{f}{\Pitype{x{:}A}{B}}$, then
-  \[
-    \conveq{\Gamma}{f}{\Lamterm{x{:}A}{\App{\wkn{f}}{x}}}{\Pitype{x{:}A}{B}}.
-  \]
-\end{corollary}
-
-\begin{proof}
-  By \textsc{Funext} it suffices to show
-  $\conveq{\Gamma, x{:}A}{\App{\wkn{f}}{x}}
-    {\App{\wkn{(\Lamterm{x{:}A}{\App{\wkn{f}}{x}})}}{x}}{B}$.
-  Since $\wkn{(\Lamterm{x{:}A}{M})} = \Lamterm{x{:}\wkn{A}}{M^{+\ell}}$
-  (where ${+\ell}$ denotes weakening under the binder), the right-hand
-  side is a $\beta$-redex.  Applying \textsc{Beta} and the
-  substitution identity $\substone{M^{+\ell}}{x_0} = M$ gives the result.
-  Formalised in \texttt{EtaConversion.agda}.
 \end{proof}
 
 \medskip\noindent
