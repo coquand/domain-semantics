@@ -97,9 +97,6 @@ Based on:
   (`downVal`, `upVal`, `restrictVal`).
   **0 postulates.**
 
-- **`Adequacy.agda`** — Two-context adequacy with source-env semantics.
-  **0 postulates.**
-
 - **`Validity2.agda`** — Bundled logical relation `Val2`/`EqVal2` with
   `Top` at leaves. `ValTyPi2` stores `Red` (head reduction),
   `HasType` for domain/codomain, and `ConvTm` for domain/codomain
@@ -134,6 +131,9 @@ Based on:
 ## Technical notes
 
 - **Spartan Agda:** `--without-K --exact-split` (no `--type-in-type`)
+- **Sup simplification:** Cross-constructor `Sup` returns `Bot`
+  (`Sup UCode (FunEl _) = Sup (FunEl _) UCode = Sup (FunEl _) (PiCode _ _) = Sup (PiCode _ _) (FunEl _) = Bot`),
+  matching the fact that cross-constructor `Comp` is `Empty`.
 - **U : U** works because `rk UCode = 0` and `FinMem UCode UCode = Top`,
   so self-membership never triggers recursive rank-based calls.
 - The step-indexed recursion is driven by finite-element rank, not by
@@ -150,7 +150,7 @@ Based on:
 | Reduction | 0 |
 | LemmaForTS, TypingSemantics | 0 |
 | SubstitutionLemma | 0 |
-| Validity, Adequacy | 0 |
+| Validity | 0 |
 | Validity2 | 0 |
 | Adequacy2 | 0 |
 | PiInjectivity | 0 |

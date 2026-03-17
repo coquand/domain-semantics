@@ -991,13 +991,13 @@ EvalRel-Sup (App M N) rho UCode Bot crho cu cv comp eu ev = eu
 EvalRel-Sup (App M N) rho (FunEl g1') Bot crho cu cv comp eu ev = eu
 EvalRel-Sup (App M N) rho (PiCode a1' f1') Bot crho cu cv comp eu ev = eu
 
--- Cross-constructor non-Bot: Sup collapses
-EvalRel-Sup (App M N) rho UCode (FunEl g2') crho cu cv comp eu ev = eu
+-- Cross-constructor non-Bot: Comp = Empty, Sup = Bot
+EvalRel-Sup (App M N) rho UCode (FunEl g2') crho cu cv () eu ev
 EvalRel-Sup (App M N) rho UCode (PiCode a2' f2') crho cu cv () eu ev
-EvalRel-Sup (App M N) rho (FunEl g1') UCode crho cu cv comp eu ev = ev
-EvalRel-Sup (App M N) rho (FunEl g1') (PiCode a2' f2') crho cu cv comp eu ev = ev
+EvalRel-Sup (App M N) rho (FunEl g1') UCode crho cu cv () eu ev
+EvalRel-Sup (App M N) rho (FunEl g1') (PiCode a2' f2') crho cu cv () eu ev
 EvalRel-Sup (App M N) rho (PiCode a1' f1') UCode crho cu cv () eu ev
-EvalRel-Sup (App M N) rho (PiCode a1' f1') (FunEl g2') crho cu cv comp eu ev = eu
+EvalRel-Sup (App M N) rho (PiCode a1' f1') (FunEl g2') crho cu cv () eu ev
 
 -- UCode-UCode: Sup UCode UCode = UCode
 EvalRel-Sup (App M N) rho UCode UCode crho cu cv comp eu ev = eu
