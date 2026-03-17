@@ -10,7 +10,7 @@
 -- Red G M N A  = HeadRed M N  (G and A are phantom)
 --
 -- All proved, 0 postulates.
--- Key results: HeadRed1-det, HeadRed-unique-Pi, HeadRed-wk, HeadRed-subst
+-- Key results: HeadRed1-det, HeadRed-unique-Pi, subst-subst1-comm
 ------------------------------------------------------------------------
 
 module Reduction where
@@ -19,9 +19,9 @@ import Basic as S
 open S using (Nat ; suc ; Pair ; mkSigma ; Eq ; refl ; fst ; snd ; Empty ;
   Eq-sym ; Eq-transport)
 open import RawSyntax using (Expr ; Var ; Pi ; App ; Lam ; U ; wkExpr ; subst1 ;
-  Sub ; substExpr ; subst1Sub ; liftSub ; liftRen ; wkRen ; renExpr ;
+  Sub ; substExpr ; subst1Sub ; liftSub ; wkRen ;
   Fin ; fzero ; fsuc ; Eq-trans ; Eq-cong2-Expr ;
-  subst-ren ; ren-subst ; subst-subst ; substExpr-ext)
+  subst-ren ; subst-subst ; substExpr-ext)
 open import TypingRules using (Ctx)
 
 ------------------------------------------------------------------------
@@ -130,13 +130,6 @@ Red-refl = mkRed headred-refl
 Red-hr : {n : Nat} {G : Ctx n} {M N A : Expr n} -> Red G M N A -> HeadRed M N
 Red-hr (mkRed hr) = hr
 
--- Pi-injectivity: Red from Pi to Pi implies syntactic equality
-Red-Pi-inj : {n : Nat} {G : Ctx n} {A A' : Expr n}
-  {B B' : Expr (suc n)} ->
-  Red G (Pi A B) (Pi A' B') U ->
-  Pair (Eq A A') (Eq B B')
-Red-Pi-inj (mkRed r) = HeadRed-Pi-refl r
-
 ------------------------------------------------------------------------
 -- Identity substitution
 ------------------------------------------------------------------------
@@ -159,38 +152,6 @@ substExpr-id (Lam A M) =
               (substExpr-id M))
 substExpr-id (App f a) =
   Eq-cong2-Expr App (substExpr-id f) (substExpr-id a)
-
-------------------------------------------------------------------------
--- HeadRed commutes with weakening
---
--- Key lemma: subst1 (renExpr (liftRen wkRen) M) (wkExpr N) = wkExpr (subst1 M N)
--- Proof: both sides reduce to the same substitution by subst-ren/ren-subst + ext.
-------------------------------------------------------------------------
-
-wk-subst1-comm : {n : Nat} (M : Expr (suc n)) (N : Expr n) ->
-  Eq (subst1 (renExpr (liftRen wkRen) M) (wkExpr N)) (wkExpr (subst1 M N))
-wk-subst1-comm M N =
-  Eq-trans (subst-ren (subst1Sub (wkExpr N)) (liftRen wkRen) M)
-    (Eq-trans (substExpr-ext _ _ ext M)
-      (Eq-sym (ren-subst wkRen (subst1Sub N) M)))
-  where
-    ext : (i : Fin _) ->
-      Eq (subst1Sub (wkExpr N) (liftRen wkRen i))
-         (renExpr wkRen (subst1Sub N i))
-    ext fzero    = refl
-    ext (fsuc i) = refl
-
-HeadRed1-wk : {n : Nat} {M N : Expr n} ->
-  HeadRed1 M N -> HeadRed1 (wkExpr M) (wkExpr N)
-HeadRed1-wk {M = App (Lam A M) N} (headred-beta {A = .A} {M = .M} {N = .N}) =
-  Eq-transport (\ X -> HeadRed1 (App (Lam (wkExpr A) (renExpr (liftRen wkRen) M))
-    (wkExpr N)) X) (wk-subst1-comm M N) headred-beta
-HeadRed1-wk (headred-app s) = headred-app (HeadRed1-wk s)
-
-HeadRed-wk : {n : Nat} {M N : Expr n} ->
-  HeadRed M N -> HeadRed (wkExpr M) (wkExpr N)
-HeadRed-wk headred-refl = headred-refl
-HeadRed-wk (headred-step s hr) = headred-step (HeadRed1-wk s) (HeadRed-wk hr)
 
 ------------------------------------------------------------------------
 -- HeadRed commutes with substitution
@@ -220,16 +181,4 @@ subst-subst1-comm sigma M N =
         (Eq-trans (substExpr-ext _ idSub (\ j -> refl) (sigma i))
           (substExpr-id (sigma i)))
 
-HeadRed1-subst : {n m : Nat} {M N : Expr n} (sigma : Sub m n) ->
-  HeadRed1 M N -> HeadRed1 (substExpr sigma M) (substExpr sigma N)
-HeadRed1-subst {M = App (Lam A M) N} sigma (headred-beta {A = .A} {M = .M} {N = .N}) =
-  Eq-transport (\ X -> HeadRed1 (App (Lam (substExpr sigma A) (substExpr (liftSub sigma) M))
-    (substExpr sigma N)) X) (subst-subst1-comm sigma M N) headred-beta
-HeadRed1-subst sigma (headred-app s) = headred-app (HeadRed1-subst sigma s)
-
-HeadRed-subst : {n m : Nat} {M N : Expr n} (sigma : Sub m n) ->
-  HeadRed M N -> HeadRed (substExpr sigma M) (substExpr sigma N)
-HeadRed-subst sigma headred-refl = headred-refl
-HeadRed-subst sigma (headred-step s hr) =
-  headred-step (HeadRed1-subst sigma s) (HeadRed-subst sigma hr)
 

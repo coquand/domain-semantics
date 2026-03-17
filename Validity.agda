@@ -49,8 +49,8 @@
 --   6. Val at Bot realizer is Top for ALL type codes.
 --      Non-FunEl realizers at PiCode are Top (unreachable when typed).
 --
--- Background postulates (contextual reduction + selection infrastructure).
 -- Termination: rk(EvalFun f v) <= rkFun f < rk(PiCode b f).
+-- 0 postulates.
 ------------------------------------------------------------------------
 
 module Validity where
@@ -159,7 +159,7 @@ EvalFun-FinMem-step (suc n) p ps b f v eq fmg cg cf allU cv mv =
        comp-pv c-efv mem-p ih
 
 ------------------------------------------------------------------------
--- Red -- contextual typed multi-step reduction (postulated)
+-- Red -- contextual typed multi-step reduction
 ------------------------------------------------------------------------
 
 ------------------------------------------------------------------------
@@ -269,20 +269,6 @@ EqValTy G M N (PiCode b f) =
        (Pair (ValTy G N (PiCode b f))
              (EqValTyPi G M N b f))
 
-EqValTy-fst : {n : Nat} (G : Ctx n) (M N : Expr n) (u : FinEl) ->
-  EqValTy G M N u -> ValTy G M u
-EqValTy-fst G M N Bot          _ = tt
-EqValTy-fst G M N UCode        _ = tt
-EqValTy-fst G M N (FunEl g)    _ = tt
-EqValTy-fst G M N (PiCode b f) e = fst e
-
-EqValTy-snd : {n : Nat} (G : Ctx n) (M N : Expr n) (u : FinEl) ->
-  EqValTy G M N u -> ValTy G N u
-EqValTy-snd G M N Bot          _ = tt
-EqValTy-snd G M N UCode        _ = tt
-EqValTy-snd G M N (FunEl g)    _ = tt
-EqValTy-snd G M N (PiCode b f) e = fst (snd e)
-
 -- PiEdgeVal: codomain validity -- fixed context, selection-based on f, uses v
 PiEdgeVal {n} G A B b f =
   (u v : FinEl) -> Selection f u v ->
@@ -366,7 +352,7 @@ EqValPi {n} G M N A g b f =
   PiAppEqVal G M N A0 B0 b f g
 
 ------------------------------------------------------------------------
--- Red/Val transport postulates (placed after Val/EqVal definitions)
+-- Red/Val transport lemmas (placed after Val/EqVal definitions)
 ------------------------------------------------------------------------
 
 -- Extract Val for first/second term from EqVal (now provable by bundling)
@@ -622,24 +608,6 @@ EqVal-Bot G M N A Bot          = tt
 EqVal-Bot G M N A UCode        = mkSigma tt (mkSigma tt tt)
 EqVal-Bot G M N A (FunEl g)    = tt
 EqVal-Bot G M N A (PiCode b f) = tt
-
-------------------------------------------------------------------------
--- ValTy-from-Bot / EqValTy-from-Bot
-------------------------------------------------------------------------
-
-ValTy-from-Bot : {n : Nat} (G : Ctx n) (M : Expr n) (w : FinEl) ->
-  LeCode w Bot -> ValTy G M w
-ValTy-from-Bot G M Bot          le = tt
-ValTy-from-Bot G M UCode        ()
-ValTy-from-Bot G M (FunEl g)    le = tt
-ValTy-from-Bot G M (PiCode b f) ()
-
-EqValTy-from-Bot : {n : Nat} (G : Ctx n) (M N : Expr n) (w : FinEl) ->
-  LeCode w Bot -> EqValTy G M N w
-EqValTy-from-Bot G M N Bot          le = tt
-EqValTy-from-Bot G M N UCode        ()
-EqValTy-from-Bot G M N (FunEl g)    le = tt
-EqValTy-from-Bot G M N (PiCode b f) ()
 
 ------------------------------------------------------------------------
 -- Red-unique-Pi: two Reds from the same term to Pi types are equal
