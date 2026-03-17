@@ -531,7 +531,7 @@ mutual
   --
   -- Uses adequacySub2 on d1 with converted type, then
   -- adequacyEqSub2 on d2 for the type equality.
-  -- For Val2, we need Val2-EqValTy2-fwd (postulated below).
+  -- For Val2, we need Val2-EqValTy2-fwd (from Validity2).
   ----------------------------------------------------------------------
 
   adequacySub2 (ty-conv {M = M} {A = A} {B = B} d1 d2 dB) sigma rho crho vs fits wtsub wfH u hu Bot evA fm = tt
