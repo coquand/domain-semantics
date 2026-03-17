@@ -27,7 +27,7 @@ open import TypingRules using (Ctx ; empty ; extend ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ;
   conv-Pi ; ty-conv)
 open import Reduction using (Red ; mkRed ; Red-hr ; HeadRed ; HeadRed-trans ;
-  HeadRed-App ; HeadRed-strip-Pi ; HeadRed-unique-Pi)
+  HeadRed-App ; HeadRed-strip-Pi)
 open import PaperSemantics using (EvalFun ;
   CoherentFun ; FinMemFun ; FinMemAllU ;
   Coherent ; Comp ; Sup ;
@@ -54,36 +54,6 @@ open import Validity using (Red-unique-Pi ;
   Coherent-Selection ; Coherent-Selection-val ;
   bU-from-cf-fmFun)
 open import SubstitutionLemma using (typing-ConvTm ; ctx-conv-ConvTm ; ctx-conv-HasType)
-
-------------------------------------------------------------------------
--- Red2: head reduction bundled with ConvTm
-------------------------------------------------------------------------
-
-Red2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> Set
-Red2 G M N A = Pair (HeadRed M N) (ConvTm G M N A)
-
-Red2-refl : {n : Nat} {G : Ctx n} {M A : Expr n} ->
-  HasType G M A -> Red2 G M M A
-Red2-refl ht = mkSigma Reduction.headred-refl (conv-refl ht)
-
-Red2-hr : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
-  Red2 G M N A -> HeadRed M N
-Red2-hr r = fst r
-
-Red2-conv : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
-  Red2 G M N A -> ConvTm G M N A
-Red2-conv r = snd r
-
-Red2-trans : {n : Nat} {G : Ctx n} {M N P A : Expr n} ->
-  Red2 G M N A -> Red2 G N P A -> Red2 G M P A
-Red2-trans r1 r2 = mkSigma (HeadRed-trans (fst r1) (fst r2))
-                           (conv-trans (snd r1) (snd r2))
-
-Red2-unique-Pi : {n : Nat} {G : Ctx n} {M A A' : Expr n}
-  {B B' : Expr (suc n)} ->
-  Red2 G M (Pi A B) U -> Red2 G M (Pi A' B') U ->
-  Pair (Eq A A') (Eq B B')
-Red2-unique-Pi r1 r2 = HeadRed-unique-Pi (fst r1) (fst r2)
 
 ------------------------------------------------------------------------
 -- Bundled validity relations (mutual)
@@ -302,8 +272,6 @@ mutual
 ------------------------------------------------------------------------
 -- Extraction helpers
 ------------------------------------------------------------------------
-
--- (ValTyPi2-to-HasType and EqValTyPi2-to-ConvTm: now stored directly)
 
 ------------------------------------------------------------------------
 -- Val2-Bot / EqVal2-Bot: u = Bot means Val2/EqVal2 = Top at all a
