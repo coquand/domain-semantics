@@ -27,7 +27,7 @@ open import TypingRules using (Ctx ; empty ; extend ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ;
   conv-Pi ; ty-conv)
 open import Reduction using (Red ; mkRed ; Red-hr ; HeadRed ; HeadRed-trans ;
-  HeadRed-App ; HeadRed-strip-Pi)
+  HeadRed-App ; HeadRed-strip-Pi ; HeadRed-unique-Pi)
 open import PaperSemantics using (EvalFun ;
   CoherentFun ; FinMemFun ; FinMemAllU ;
   Coherent ; Comp ; Sup ;
@@ -54,6 +54,36 @@ open import Validity using (Red-unique-Pi ;
   Coherent-Selection ; Coherent-Selection-val ;
   bU-from-cf-fmFun)
 open import SubstitutionLemma using (typing-ConvTm ; ctx-conv-ConvTm ; ctx-conv-HasType)
+
+------------------------------------------------------------------------
+-- Red2: head reduction bundled with ConvTm
+------------------------------------------------------------------------
+
+Red2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> Set
+Red2 G M N A = Pair (HeadRed M N) (ConvTm G M N A)
+
+Red2-refl : {n : Nat} {G : Ctx n} {M A : Expr n} ->
+  HasType G M A -> Red2 G M M A
+Red2-refl ht = mkSigma Reduction.headred-refl (conv-refl ht)
+
+Red2-hr : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
+  Red2 G M N A -> HeadRed M N
+Red2-hr r = fst r
+
+Red2-conv : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
+  Red2 G M N A -> ConvTm G M N A
+Red2-conv r = snd r
+
+Red2-trans : {n : Nat} {G : Ctx n} {M N P A : Expr n} ->
+  Red2 G M N A -> Red2 G N P A -> Red2 G M P A
+Red2-trans r1 r2 = mkSigma (HeadRed-trans (fst r1) (fst r2))
+                           (conv-trans (snd r1) (snd r2))
+
+Red2-unique-Pi : {n : Nat} {G : Ctx n} {M A A' : Expr n}
+  {B B' : Expr (suc n)} ->
+  Red2 G M (Pi A B) U -> Red2 G M (Pi A' B') U ->
+  Pair (Eq A A') (Eq B B')
+Red2-unique-Pi r1 r2 = HeadRed-unique-Pi (fst r1) (fst r2)
 
 ------------------------------------------------------------------------
 -- Bundled validity relations (mutual)
@@ -179,32 +209,34 @@ mutual
 
   PiEdgeVal2 {n} G A B b f =
     (u v : FinEl) -> Selection f u v ->
-    (N : Expr n) -> Val2 G N A u b ->
+    (N : Expr n) -> HasType G N A -> Val2 G N A u b ->
     ValTy2 G (subst1 B N) v
 
   PiEdgeEq2 {n} G A B b f =
     (u v : FinEl) -> Selection f u v ->
-    (N1 N2 : Expr n) -> EqVal2 G N1 N2 A u b ->
+    (N1 N2 : Expr n) -> HasType G N1 A -> HasType G N2 A ->
+    ConvTm G N1 N2 A -> EqVal2 G N1 N2 A u b ->
     EqValTy2 G (subst1 B N1) (subst1 B N2) v
 
   PiEdgeEqTy2 {n} G A B B' b f =
     (u v : FinEl) -> Selection f u v ->
-    (P : Expr n) -> Val2 G P A u b ->
+    (P : Expr n) -> HasType G P A -> Val2 G P A u b ->
     EqValTy2 G (subst1 B P) (subst1 B' P) v
 
   PiAppVal2 {n} G M A0 B0 b f g =
     (u v : FinEl) -> Selection g u v ->
-    (N : Expr n) -> Val2 G N A0 u b ->
+    (N : Expr n) -> HasType G N A0 -> Val2 G N A0 u b ->
     Val2 G (App M N) (subst1 B0 N) v (EvalFun f u)
 
   PiAppEq2 {n} G M A0 B0 b f g =
     (u v : FinEl) -> Selection g u v ->
-    (N1 N2 : Expr n) -> EqVal2 G N1 N2 A0 u b ->
+    (N1 N2 : Expr n) -> HasType G N1 A0 -> HasType G N2 A0 ->
+    ConvTm G N1 N2 A0 -> EqVal2 G N1 N2 A0 u b ->
     EqVal2 G (App M N1) (App M N2) (subst1 B0 N1) v (EvalFun f u)
 
   PiAppEqVal2 {n} G M N A0 B0 b f g =
     (u v : FinEl) -> Selection g u v ->
-    (P : Expr n) -> Val2 G P A0 u b ->
+    (P : Expr n) -> HasType G P A0 -> Val2 G P A0 u b ->
     EqVal2 G (App M P) (App N P) (subst1 B0 P) v (EvalFun f u)
 
   --------------------------------------------------------------------
@@ -348,8 +380,8 @@ mutual
         fmg  = fst (snd (snd (snd (snd vpiM))))
         pav  = fst (snd (snd (snd (snd (snd vpiM)))))
         eqvpi = mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
-                  (\ u' v' sel P valP ->
-                    Val2-to-EqVal2 v' (EvalFun f u') (pav u' v' sel P valP))))))
+                  (\ u' v' sel P htP valP ->
+                    Val2-to-EqVal2 v' (EvalFun f u') (pav u' v' sel P htP valP))))))
     in mkSigma vty (mkSigma vpiM (mkSigma vpiM eqvpi))
   Val2-to-EqVal2 (PiCode a' f') (PiCode b f) tt = tt
 
@@ -371,7 +403,7 @@ mutual
         vtA  = fst inn
         pev  = fst (snd inn)
         eqVtA = ValTy2-to-EqValTy2 b vtA
-        pet   = (\ u' v' sel P valP -> ValTy2-to-EqValTy2 v' (pev u' v' sel P valP))
+        pet   = (\ u' v' sel P htP valP -> ValTy2-to-EqValTy2 v' (pev u' v' sel P htP valP))
         coreEq = mkSigma A (mkSigma B (mkSigma A (mkSigma B
                    (mkSigma red (mkSigma red (mkSigma cf (mkSigma fmU
                      (mkSigma (conv-refl htA)
@@ -457,11 +489,12 @@ mutual
                       (mkSigma (conv-sym convAA)
                         (mkSigma (ctx-conv-ConvTm htA htA' convAA (conv-sym convBB))
                           (mkSigma (EqValTy2-sym b cb eqC)
-                            (\ u' v' sel P valP ->
+                            (\ u' v' sel P htP valP ->
                               let eqC' = EqValTy2-sym b cb eqC
+                                  htP-A = ty-conv htP (conv-sym convAA) htA
                                   valP-A' = Val2-EqValTy2-fwd u' b cb eqC' valP
                                   cv' = coh-from-aU v' (FinMem-Selection-UCode b sel fmU cf)
-                              in EqValTy2-sym v' cv' (pet u' v' sel P valP-A'))))))))))))
+                              in EqValTy2-sym v' cv' (pet u' v' sel P htP-A valP-A'))))))))))))
     in mkSigma vtyN (mkSigma vtyM symCore)
 
   ------------------------------------------------------------------------
@@ -514,12 +547,19 @@ mutual
         cb = fst cu
         eqDomBC' = Eq-transport (\ X -> EqValTy2 _ X A1' b) (Eq-sym eqA0'A1) eqDomBC
         eqDomAC  = EqValTy2-trans b cb eqDomAB eqDomBC'
+        -- htA0' needed early for petAC
+        redB1-vty-e = fst (snd (snd vtyB1))
+        uniqB1-dom-e = Red-unique-Pi redB1-vty-e rB1
+        htA0'-raw-e = fst (snd (snd (snd (snd (snd vtyB1)))))
+        htA0'-e = Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom-e) htA0'-raw-e
         petAC : PiEdgeEqTy2 _ A0 B0 B1' b f
-        petAC = \ u' v' sel P valP ->
+        petAC = \ u' v' sel P htP valP ->
           let valP-A0' = Val2-EqValTy2-fwd u' b cb eqDomAB valP
               valP-A1  = Eq-transport (\ X -> Val2 _ P X u' b) eqA0'A1 valP-A0'
-              eqt1 = petAB u' v' sel P valP
-              eqt2 = petBC u' v' sel P valP-A1
+              htP-A0'  = ty-conv htP convAA_AB htA0'-e
+              htP-A1   = Eq-transport (\ X -> HasType _ P X) eqA0'A1 htP-A0'
+              eqt1 = petAB u' v' sel P htP valP
+              eqt2 = petBC u' v' sel P htP-A1 valP-A1
               eqt2' = Eq-transport (\ X -> EqValTy2 _ (subst1 X P) (subst1 B1' P) v')
                         (Eq-sym eqB0'B1) eqt2
               cv' = coh-from-aU v' (FinMem-Selection-UCode b sel fmU1 cf1)
@@ -584,8 +624,8 @@ mutual
         paev   = snd (snd (snd (snd (snd eqvp))))
         cf     = snd ca
         paev'  : PiAppEqVal2 _ _ _ _ B0 b f g
-        paev'  = \ u' v' sel P valP ->
-          let body = paev u' v' sel P valP
+        paev'  = \ u' v' sel P htP valP ->
+          let body = paev u' v' sel P htP valP
               ctg  = cft-from-cf g cg
               cu'  = Coherent-Selection sel ctg
               cv'  = Coherent-Selection-val sel ctg
@@ -638,9 +678,9 @@ mutual
                    (Eq-transport (\ Y -> PiAppEqVal2 _ _ _ Ay Y b f g) (Eq-sym eqB0) paev2)
         cf     = snd ca
         paev'  : PiAppEqVal2 _ _ _ Ax Bx b f g
-        paev'  = \ u' v' sel P valP ->
-          let body1 = paev1 u' v' sel P valP
-              body2 = paev2' u' v' sel P valP
+        paev'  = \ u' v' sel P htP valP ->
+          let body1 = paev1 u' v' sel P htP valP
+              body2 = paev2' u' v' sel P htP valP
               ctg  = cft-from-cf g cg
               cv'  = Coherent-Selection-val sel ctg
               cu'  = Coherent-Selection sel ctg
@@ -682,9 +722,16 @@ mutual
         rC'   = fst (snd (snd (snd (snd (snd core)))))
         cf0   = fst (snd (snd (snd (snd (snd (snd core))))))
         fmU   = fst (snd (snd (snd (snd (snd (snd (snd core)))))))
+        convEE' = fst (snd (snd (snd (snd (snd (snd (snd (snd core))))))))
         tail12 = snd (snd (snd (snd (snd (snd (snd (snd (snd (snd core)))))))))
         eqE   = fst tail12
         pet   = snd tail12
+        -- htE : HasType G E U from vtyC
+        Ac-C  = fst vtyC
+        redCv = fst (snd (snd vtyC))
+        htAc  = fst (snd (snd (snd (snd (snd vtyC)))))
+        uniqC2 = Red-unique-Pi redCv rC
+        htE   = Eq-transport (\ X -> HasType _ X _) (fst uniqC2) htAc
         -- Extract from val : Val2 G M C (FunEl g) (PiCode b0 f0)
         --   = Pair (ValTy2 G C (PiCode b0 f0)) (ValPi2 G M C g b0 f0)
         vpiM = snd val
@@ -708,9 +755,10 @@ mutual
         b0U = bU-from-cf-fmFun g b0 f0 cg fmg
         ctg  = cft-from-cf g cg
         pav-E'F' : PiAppVal2 _ _ E' F' b0 f0 g
-        pav-E'F' = \ u' v' sel N valN ->
-          let valN-E = Val2-EqValTy2-fwd u' b0 cb0 (EqValTy2-sym b0 cb0 eqE) valN
-              body   = pav-EF u' v' sel N valN-E
+        pav-E'F' = \ u' v' sel N htN valN ->
+          let htN-E  = ty-conv htN (conv-sym convEE') htE
+              valN-E = Val2-EqValTy2-fwd u' b0 cb0 (EqValTy2-sym b0 cb0 eqE) valN
+              body   = pav-EF u' v' sel N htN-E valN-E
               cu'    = Coherent-Selection sel ctg
               sb     = selectionBelow f0 u' cf0 cu'
               u-f    = fst sb
@@ -721,15 +769,18 @@ mutual
               fmu-f  = FinMemAllU-Selection b0 sel-f fmU cf0 cb0 b0U
               fmu'   = FinMem-Selection b0 f0 sel fmg ctg cb0 b0U
               valN-uf = restrictVal2 _ _ E u' u-f b0 le-uf fmu-f fmu' valN-E
-              eqt-vf = pet u-f v-f sel-f N valN-uf
+              eqt-vf = pet u-f v-f sel-f N htN-E valN-uf
               eqt-ef = Eq-transport (\ w -> EqValTy2 _ (subst1 F N) (subst1 F' N) w)
                          (Eq-sym eq-ef) eqt-vf
               cev    = Coherent-EvalFun f0 u' cf0 cu'
           in Val2-EqValTy2-fwd v' (EvalFun f0 u') cev eqt-ef body
         pae-E'F' : PiAppEq2 _ _ E' F' b0 f0 g
-        pae-E'F' = \ u' v' sel N1 N2 eqN ->
-          let eqN-E  = EqVal2-EqValTy2-fwd u' b0 cb0 (EqValTy2-sym b0 cb0 eqE) eqN
-              body   = pae-EF u' v' sel N1 N2 eqN-E
+        pae-E'F' = \ u' v' sel N1 N2 htN1 htN2 cvN eqN ->
+          let htN1-E = ty-conv htN1 (conv-sym convEE') htE
+              htN2-E = ty-conv htN2 (conv-sym convEE') htE
+              cvN-E  = conv-conv cvN (conv-sym convEE') htE
+              eqN-E  = EqVal2-EqValTy2-fwd u' b0 cb0 (EqValTy2-sym b0 cb0 eqE) eqN
+              body   = pae-EF u' v' sel N1 N2 htN1-E htN2-E cvN-E eqN-E
               cu'    = Coherent-Selection sel ctg
               sb     = selectionBelow f0 u' cf0 cu'
               u-f    = fst sb
@@ -741,7 +792,7 @@ mutual
               fmu'   = FinMem-Selection b0 f0 sel fmg ctg cb0 b0U
               valN1-uf = restrictVal2 _ _ E u' u-f b0 le-uf fmu-f fmu'
                            (Val2-from-EqVal2-first u' b0 eqN-E)
-              eqt-vf = pet u-f v-f sel-f N1 valN1-uf
+              eqt-vf = pet u-f v-f sel-f N1 htN1-E valN1-uf
               eqt-ef = Eq-transport (\ w -> EqValTy2 _ (subst1 F N1) (subst1 F' N1) w)
                          (Eq-sym eq-ef) eqt-vf
               cev    = Coherent-EvalFun f0 u' cf0 cu'
@@ -783,9 +834,16 @@ mutual
         rC'   = fst (snd (snd (snd (snd (snd core)))))
         cf0   = fst (snd (snd (snd (snd (snd (snd core))))))
         fmU   = fst (snd (snd (snd (snd (snd (snd (snd core)))))))
+        convEE'-eq = fst (snd (snd (snd (snd (snd (snd (snd (snd core))))))))
         tail12 = snd (snd (snd (snd (snd (snd (snd (snd (snd (snd core)))))))))
         eqE   = fst tail12
         pet   = snd tail12
+        -- htE : HasType G E U from vtyC
+        Ac-Ceq  = fst vtyC
+        redCv-eq = fst (snd (snd vtyC))
+        htAc-eq = fst (snd (snd (snd (snd (snd vtyC)))))
+        uniqC2-eq = Red-unique-Pi redCv-eq rC
+        htE-eq  = Eq-transport (\ X -> HasType _ X _) (fst uniqC2-eq) htAc-eq
         -- ev : EqVal2 G M N C (FunEl g) (PiCode b0 f0)
         --    = Pair ValTy2 (Pair ValPi2_M (Pair ValPi2_N EqValPi2))
         vtyC-ev = fst ev
@@ -809,9 +867,10 @@ mutual
                     (Eq-transport (\ Y -> PiAppEqVal2 _ _ _ A0 Y b0 f0 g) eqB0F paev)
         ctg  = cft-from-cf g cg
         paev-E'F' : PiAppEqVal2 _ _ _ E' F' b0 f0 g
-        paev-E'F' = \ u' v' sel P valP ->
-          let valP-E = Val2-EqValTy2-fwd u' b0 cb0 (EqValTy2-sym b0 cb0 eqE) valP
-              body   = paev-EF u' v' sel P valP-E
+        paev-E'F' = \ u' v' sel P htP valP ->
+          let htP-E  = ty-conv htP (conv-sym convEE'-eq) htE-eq
+              valP-E = Val2-EqValTy2-fwd u' b0 cb0 (EqValTy2-sym b0 cb0 eqE) valP
+              body   = paev-EF u' v' sel P htP-E valP-E
               cu'    = Coherent-Selection sel ctg
               sb     = selectionBelow f0 u' cf0 cu'
               u-f    = fst sb
@@ -822,7 +881,7 @@ mutual
               fmu-f  = FinMemAllU-Selection b0 sel-f fmU cf0 cb0 b0U
               fmu'   = FinMem-Selection b0 f0 sel fmg ctg cb0 b0U
               valP-uf = restrictVal2 _ _ E u' u-f b0 le-uf fmu-f fmu' valP-E
-              eqt-vf = pet u-f v-f sel-f P valP-uf
+              eqt-vf = pet u-f v-f sel-f P htP-E valP-uf
               eqt-ef = Eq-transport (\ w -> EqValTy2 _ (subst1 F P) (subst1 F' P) w)
                          (Eq-sym eq-ef) eqt-vf
               cev    = Coherent-EvalFun f0 u' cf0 cu'
@@ -914,7 +973,7 @@ mutual
         le-b2-sup = LeCode-Sup-right b1 b2 comp-b cb1 cb2
         vtA-sup = ValTy2-Sup G A1 b1 b2 comp-b b1U b2U vtAb1 vtAb2'
         piEV : PiEdgeVal2 G A1 B1 (Sup b1 b2) (append f1 f2)
-        piEV = \ u v sel N valN ->
+        piEV = \ u v sel N htN valN ->
           let cu     = Coherent-Selection sel ctf-app
               fmu-sup = FinMemAllU-Selection (Sup b1 b2) sel allU-app ctf-app c-sup supU
               sb1    = selectionBelow f1 u ctf1 cu
@@ -939,8 +998,8 @@ mutual
               val-u1-b1  = downVal2 _ _ A1 u1 b1 (Sup b1 b2) le-b1-sup fmu1-b1 cb1 supU val-u1-sup
               val-u2-sup = restrictVal2 _ _ A1 u u2 (Sup b1 b2) le-u2 fmu2-sup fmu-sup valN
               val-u2-b2  = downVal2 _ _ A1 u2 b2 (Sup b1 b2) le-b2-sup fmu2-b2 cb2 supU val-u2-sup
-              vt-v1  = piEV1 u1 v1 sel1 N val-u1-b1
-              vt-v2  = piEV2' u2 v2 sel2 N val-u2-b2
+              vt-v1  = piEV1 u1 v1 sel1 N htN val-u1-b1
+              vt-v2  = piEV2' u2 v2 sel2 N htN val-u2-b2
               vt-ef1 = Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-v1) vt-v1
               vt-ef2 = Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-v2) vt-v2
               comp-ef = comp-EvalFun f1 f2 u comp-f ctf1 cu
@@ -956,7 +1015,7 @@ mutual
               le-v-ef = Selection-le-EvalFun (append f1 f2) sel lf-refl ctf-app ctf-app cu
           in downValTy2 _ (subst1 B1 N) v (EvalFun (append f1 f2) u) le-v-ef fmvU ef-appU vt-ef-app
         piEE : PiEdgeEq2 G A1 B1 (Sup b1 b2) (append f1 f2)
-        piEE = \ u v sel N1 N2 eqN ->
+        piEE = \ u v sel N1 N2 htN1 htN2 cvN eqN ->
           let cu     = Coherent-Selection sel ctf-app
               fmu-sup = FinMemAllU-Selection (Sup b1 b2) sel allU-app ctf-app c-sup supU
               sb1    = selectionBelow f1 u ctf1 cu
@@ -981,8 +1040,8 @@ mutual
               eqv-u1-b1  = downEqVal2 _ _ _ A1 u1 b1 (Sup b1 b2) le-b1-sup fmu1-b1 cb1 supU eqv-u1-sup
               eqv-u2-sup = restrictEqVal2 _ _ _ A1 u u2 (Sup b1 b2) le-u2 fmu2-sup fmu-sup eqN
               eqv-u2-b2  = downEqVal2 _ _ _ A1 u2 b2 (Sup b1 b2) le-b2-sup fmu2-b2 cb2 supU eqv-u2-sup
-              eqt-v1 = piEE1 u1 v1 sel1 N1 N2 eqv-u1-b1
-              eqt-v2 = piEE2' u2 v2 sel2 N1 N2 eqv-u2-b2
+              eqt-v1 = piEE1 u1 v1 sel1 N1 N2 htN1 htN2 cvN eqv-u1-b1
+              eqt-v2 = piEE2' u2 v2 sel2 N1 N2 htN1 htN2 cvN eqv-u2-b2
               eqt-ef1 = Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
                           (Eq-sym eq-v1) eqt-v1
               eqt-ef2 = Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
@@ -1091,7 +1150,7 @@ mutual
         le-b2-sup = LeCode-Sup-right b1 b2 comp-b cb1 cb2
         eqvtA-sup = EqValTy2-Sup G AM AN b1 b2 comp-b b1U b2U eqvtA1 eqvtA2'
         piEET : PiEdgeEqTy2 G AM BM BN (Sup b1 b2) (append f1 f2)
-        piEET = \ u v sel P valP ->
+        piEET = \ u v sel P htP valP ->
           let cu     = Coherent-Selection sel ctf-app
               fmu-sup = FinMemAllU-Selection (Sup b1 b2) sel allU-app ctf-app c-sup supU
               sb1    = selectionBelow f1 u ctf1 cu
@@ -1116,8 +1175,8 @@ mutual
               val-u1-b1  = downVal2 _ _ AM u1 b1 (Sup b1 b2) le-b1-sup fmu1-b1 cb1 supU val-u1-sup
               val-u2-sup = restrictVal2 _ _ AM u u2 (Sup b1 b2) le-u2 fmu2-sup fmu-sup valP
               val-u2-b2  = downVal2 _ _ AM u2 b2 (Sup b1 b2) le-b2-sup fmu2-b2 cb2 supU val-u2-sup
-              eqt-v1  = piEET1 u1 v1 sel1 P val-u1-b1
-              eqt-v2  = piEET2' u2 v2 sel2 P val-u2-b2
+              eqt-v1  = piEET1 u1 v1 sel1 P htP val-u1-b1
+              eqt-v2  = piEET2' u2 v2 sel2 P htP val-u2-b2
               eqt-ef1 = Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
                           (Eq-sym eq-v1) eqt-v1
               eqt-ef2 = Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
@@ -1713,8 +1772,8 @@ mutual
         pae = snd (snd (snd (snd (snd (snd vpiM)))))
     in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
          (mkSigma
-           (\ u v sel N valN -> Val2-beta-expand v (EvalFun f u) (HeadRed-App hr) (pav u v sel N valN))
-           (\ u v sel N1 N2 eqN -> EqVal2-headred-expand v (EvalFun f u) (HeadRed-App hr) (HeadRed-App hr) (pae u v sel N1 N2 eqN)))))))
+           (\ u v sel N htN valN -> Val2-beta-expand v (EvalFun f u) (HeadRed-App hr) (pav u v sel N htN valN))
+           (\ u v sel N1 N2 htN1 htN2 cvN eqN -> EqVal2-headred-expand v (EvalFun f u) (HeadRed-App hr) (HeadRed-App hr) (pae u v sel N1 N2 htN1 htN2 cvN eqN)))))))
 
   EqValPi2-headred-expand : {n : Nat} {G : Ctx n} {M1 M2 M1' M2' T : Expr n}
     (g0 : FinFun) (b : FinEl) (f : FinFun) ->
@@ -1728,9 +1787,9 @@ mutual
         fmg  = fst (snd (snd (snd (snd epi))))
         paev = snd (snd (snd (snd (snd epi))))
     in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
-         (\ u v sel P valP ->
+         (\ u v sel P htP valP ->
            EqVal2-headred-expand v (EvalFun f u) (HeadRed-App hr1) (HeadRed-App hr2)
-             (paev u v sel P valP))))))
+             (paev u v sel P htP valP))))))
 
   ValTy2-headred-contract : {n : Nat} {G : Ctx n} {M M' : Expr n}
     (u : FinEl) -> HeadRed M M' ->
@@ -1759,8 +1818,8 @@ mutual
         pae = snd (snd (snd (snd (snd (snd vpiM)))))
     in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
          (mkSigma
-           (\ u v sel N valN -> Val2-headred-contract v (EvalFun f u) (HeadRed-App hr) (pav u v sel N valN))
-           (\ u v sel N1 N2 eqN -> EqVal2-headred-contract v (EvalFun f u) (HeadRed-App hr) (HeadRed-App hr) (pae u v sel N1 N2 eqN)))))))
+           (\ u v sel N htN valN -> Val2-headred-contract v (EvalFun f u) (HeadRed-App hr) (pav u v sel N htN valN))
+           (\ u v sel N1 N2 htN1 htN2 cvN eqN -> EqVal2-headred-contract v (EvalFun f u) (HeadRed-App hr) (HeadRed-App hr) (pae u v sel N1 N2 htN1 htN2 cvN eqN)))))))
 
   EqVal2-headred-contract : {n : Nat} {G : Ctx n} {M1 M2 M1' M2' T : Expr n}
     (u a : FinEl) -> HeadRed M1 M1' -> HeadRed M2 M2' ->
@@ -1819,9 +1878,9 @@ mutual
         fmg  = fst (snd (snd (snd (snd epi))))
         paev = snd (snd (snd (snd (snd epi))))
     in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg (mkSigma fmg
-         (\ u v sel P valP ->
+         (\ u v sel P htP valP ->
            EqVal2-headred-contract v (EvalFun f u) (HeadRed-App hr1) (HeadRed-App hr2)
-             (paev u v sel P valP))))))
+             (paev u v sel P htP valP))))))
 
   ------------------------------------------------------------------------
   -- Pi helper lemmas (selection-based)
@@ -1838,7 +1897,7 @@ mutual
     PiAppVal2 G M A0 B0 b1 f1 g ->
     PiAppVal2 G M A0 B0 b0 f0 g
   downPiAppVal2 G M A0 B0 b0 f0 b1 f1 g cf0 cf1 cg fmg0 cb0 cb1 b1U b0U allU0 allU1 le fmg1 vtAb1 pav
-    = \ u v sel N valN ->
+    = \ u v sel N htN valN ->
         let ctg   = cft-from-cf g cg
             cu    = Coherent-Selection sel ctg
             lef0  = fst le
@@ -1846,7 +1905,7 @@ mutual
             fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
             fmu1  = finMem-upward u b0 b1 lef0 cb0 cb1 fmu0 b1U
             val-b1 = upVal2 _ _ A0 u b0 b1 lef0 fmu0 fmu1 cb0 cb1 valN vtAb1
-            body  = pav u v sel N val-b1
+            body  = pav u v sel N htN val-b1
             le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu lef1
             c-ef0 = Coherent-EvalFun f0 u cf0 cu
             ef1U  = EvalFun-in-UCode f1 u b1 cf1 cu allU1
@@ -1864,7 +1923,7 @@ mutual
     PiAppEq2 G M A0 B0 b1 f1 g ->
     PiAppEq2 G M A0 B0 b0 f0 g
   downPiAppEq2 G M A0 B0 b0 f0 b1 f1 g cf0 cf1 cg fmg0 cb0 cb1 b1U b0U allU0 allU1 le fmg1 vtAb1 pae
-    = \ u v sel N1 N2 eqN ->
+    = \ u v sel N1 N2 htN1 htN2 cvN eqN ->
         let ctg   = cft-from-cf g cg
             cu    = Coherent-Selection sel ctg
             lef0  = fst le
@@ -1872,7 +1931,7 @@ mutual
             fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
             fmu1  = finMem-upward u b0 b1 lef0 cb0 cb1 fmu0 b1U
             eqN-b1 = upEqVal2 _ _ _ A0 u b0 b1 lef0 fmu0 fmu1 cb0 cb1 eqN vtAb1
-            body  = pae u v sel N1 N2 eqN-b1
+            body  = pae u v sel N1 N2 htN1 htN2 cvN eqN-b1
             le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu lef1
             c-ef0 = Coherent-EvalFun f0 u cf0 cu
             ef1U  = EvalFun-in-UCode f1 u b1 cf1 cu allU1
@@ -1890,7 +1949,7 @@ mutual
     PiAppEqVal2 G M N A0 B0 b1 f1 g ->
     PiAppEqVal2 G M N A0 B0 b0 f0 g
   downPiAppEqVal2 G M N A0 B0 b0 f0 b1 f1 g cf0 cf1 cg fmg0 cb0 cb1 b1U b0U allU0 allU1 le fmg1 vtAb1 paev
-    = \ u v sel P valP ->
+    = \ u v sel P htP valP ->
         let ctg   = cft-from-cf g cg
             cu    = Coherent-Selection sel ctg
             lef0  = fst le
@@ -1898,7 +1957,7 @@ mutual
             fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
             fmu1  = finMem-upward u b0 b1 lef0 cb0 cb1 fmu0 b1U
             valP-b1 = upVal2 _ _ A0 u b0 b1 lef0 fmu0 fmu1 cb0 cb1 valP vtAb1
-            body  = paev u v sel P valP-b1
+            body  = paev u v sel P htP valP-b1
             le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu lef1
             c-ef0 = Coherent-EvalFun f0 u cf0 cu
             ef1U  = EvalFun-in-UCode f1 u b1 cf1 cu allU1
@@ -1916,12 +1975,12 @@ mutual
     PiAppVal2 G M A0 B0 b0 f0 g ->
     PiAppVal2 G M A0 B0 b1 f1 g
   upPiAppVal2 G M A0 B0 b0 f0 b1 f1 g cf0 cf1 cg cb0 cb1 b1U allU1 b0U allU0 le fmg0 piEV1 pav
-    = \ u v sel N valN ->
+    = \ u v sel N htN valN ->
         let ctg   = cft-from-cf g cg
             cu    = Coherent-Selection sel ctg
             fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
             valN-b0 = downVal2 _ _ A0 u b0 b1 (fst le) fmu0 cb0 b1U valN
-            body  = pav u v sel N valN-b0
+            body  = pav u v sel N htN valN-b0
             le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu (snd le)
             c-ef0 = Coherent-EvalFun f0 u cf0 cu
             c-ef1 = Coherent-EvalFun f1 u cf1 cu
@@ -1936,7 +1995,7 @@ mutual
             fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
             fmu-b1  = finMem-upward u b0 b1 (fst le) cb0 cb1 fmu0 b1U
             valN-u1 = restrictVal2 _ _ A0 u u1 b1 le-u1 fmu1-b1 fmu-b1 valN
-            vty-v1  = piEV1 u1 v1 sel1 N valN-u1
+            vty-v1  = piEV1 u1 v1 sel1 N htN valN-u1
             vty-ef1 = Eq-transport (\ x -> ValTy2 G (subst1 B0 N) x) (Eq-sym eq-v1) vty-v1
         in upVal2 _ _ (subst1 B0 N) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
              (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
@@ -1953,12 +2012,12 @@ mutual
     PiAppEq2 G M A0 B0 b0 f0 g ->
     PiAppEq2 G M A0 B0 b1 f1 g
   upPiAppEq2 G M A0 B0 b0 f0 b1 f1 g cf0 cf1 cg cb0 cb1 b1U allU1 b0U allU0 le fmg0 piEV1 pae
-    = \ u v sel N1 N2 eqN ->
+    = \ u v sel N1 N2 htN1 htN2 cvN eqN ->
         let ctg   = cft-from-cf g cg
             cu    = Coherent-Selection sel ctg
             fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
             eqN-b0  = downEqVal2 _ _ _ A0 u b0 b1 (fst le) fmu0 cb0 b1U eqN
-            body    = pae u v sel N1 N2 eqN-b0
+            body    = pae u v sel N1 N2 htN1 htN2 cvN eqN-b0
             le-f    = EvalFun-mon f0 f1 u cf0 cf1 cu (snd le)
             c-ef0   = Coherent-EvalFun f0 u cf0 cu
             c-ef1   = Coherent-EvalFun f1 u cf1 cu
@@ -1974,7 +2033,7 @@ mutual
             fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
             fmu-b1  = finMem-upward u b0 b1 (fst le) cb0 cb1 fmu0 b1U
             valN1-u1 = restrictVal2 _ _ A0 u u1 b1 le-u1 fmu1-b1 fmu-b1 valN1-b1
-            vty-v1  = piEV1 u1 v1 sel1 N1 valN1-u1
+            vty-v1  = piEV1 u1 v1 sel1 N1 htN1 valN1-u1
             vty-ef1 = Eq-transport (\ x -> ValTy2 G (subst1 B0 N1) x) (Eq-sym eq-v1) vty-v1
         in upEqVal2 _ _ _ (subst1 B0 N1) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
              (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
@@ -1991,12 +2050,12 @@ mutual
     PiAppEqVal2 G M N A0 B0 b0 f0 g ->
     PiAppEqVal2 G M N A0 B0 b1 f1 g
   upPiAppEqVal2 G M N A0 B0 b0 f0 b1 f1 g cf0 cf1 cg cb0 cb1 b1U allU1 b0U allU0 le fmg0 piEV1 paev
-    = \ u v sel P valP ->
+    = \ u v sel P htP valP ->
         let ctg   = cft-from-cf g cg
             cu    = Coherent-Selection sel ctg
             fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
             valP-b0 = downVal2 _ _ A0 u b0 b1 (fst le) fmu0 cb0 b1U valP
-            body    = paev u v sel P valP-b0
+            body    = paev u v sel P htP valP-b0
             le-f    = EvalFun-mon f0 f1 u cf0 cf1 cu (snd le)
             c-ef0   = Coherent-EvalFun f0 u cf0 cu
             c-ef1   = Coherent-EvalFun f1 u cf1 cu
@@ -2011,7 +2070,7 @@ mutual
             fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
             fmu-b1  = finMem-upward u b0 b1 (fst le) cb0 cb1 fmu0 b1U
             valP-u1 = restrictVal2 _ _ A0 u u1 b1 le-u1 fmu1-b1 fmu-b1 valP
-            vty-v1  = piEV1 u1 v1 sel1 P valP-u1
+            vty-v1  = piEV1 u1 v1 sel1 P htP valP-u1
             vty-ef1 = Eq-transport (\ x -> ValTy2 G (subst1 B0 P) x) (Eq-sym eq-v1) vty-v1
         in upEqVal2 _ _ _ (subst1 B0 P) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
              (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
@@ -2028,7 +2087,7 @@ mutual
     PiEdgeVal2 G A B b1 f1 ->
     PiEdgeVal2 G A B b0 f0
   transportPiEdgeVal2-sel G A B b0 f0 b1 f1 cb0 cb1 b1U b0U leb lef allU0 cf0 cf1 allU1 vtAb1 pev1
-    = \ u v sel N valN ->
+    = \ u v sel N htN valN ->
         let cu    = Coherent-Selection sel cf0
             fmu0-b0 = FinMemAllU-Selection b0 sel allU0 cf0 cb0 b0U
             fmu0-b1 = finMem-upward u b0 b1 leb cb0 cb1 fmu0-b0 b1U
@@ -2041,7 +2100,7 @@ mutual
             eq-v1 = snd (snd (snd (snd sb1)))
             fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
             valN-u1 = restrictVal2 _ _ A u u1 b1 le-u1 fmu1-b1 fmu0-b1 valN-b1
-            vt-v1   = pev1 u1 v1 sel1 N valN-u1
+            vt-v1   = pev1 u1 v1 sel1 N htN valN-u1
             vt-ef   = Eq-transport (\ x -> ValTy2 G (subst1 B N) x) (Eq-sym eq-v1) vt-v1
             le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
             le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
@@ -2061,7 +2120,7 @@ mutual
     PiEdgeEq2 G A B b1 f1 ->
     PiEdgeEq2 G A B b0 f0
   transportPiEdgeEq2-sel G A B b0 f0 b1 f1 cb0 cb1 b1U b0U leb lef allU0 cf0 cf1 allU1 vtAb1 pee1
-    = \ u v sel N1 N2 eqN ->
+    = \ u v sel N1 N2 htN1 htN2 cvN eqN ->
         let cu    = Coherent-Selection sel cf0
             fmu0-b0 = FinMemAllU-Selection b0 sel allU0 cf0 cb0 b0U
             fmu0-b1 = finMem-upward u b0 b1 leb cb0 cb1 fmu0-b0 b1U
@@ -2074,7 +2133,7 @@ mutual
             eq-v1 = snd (snd (snd (snd sb1)))
             fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
             eqN-u1  = restrictEqVal2 _ _ _ A u u1 b1 le-u1 fmu1-b1 fmu0-b1 eqN-b1
-            eqt-v1  = pee1 u1 v1 sel1 N1 N2 eqN-u1
+            eqt-v1  = pee1 u1 v1 sel1 N1 N2 htN1 htN2 cvN eqN-u1
             le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
             le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
             fmem-v-U = FinMem-Selection-UCode b0 sel allU0 cf0
@@ -2093,7 +2152,7 @@ mutual
     PiEdgeEqTy2 G A B B' b1 f1 ->
     PiEdgeEqTy2 G A B B' b0 f0
   transportPiEdgeEqTy2-sel G A B B' b0 f0 b1 f1 cb0 cb1 b1U b0U leb lef allU0 cf0 cf1 allU1 vtAb1 pet1
-    = \ u v sel P valP ->
+    = \ u v sel P htP valP ->
         let cu    = Coherent-Selection sel cf0
             fmu0-b0 = FinMemAllU-Selection b0 sel allU0 cf0 cb0 b0U
             fmu0-b1 = finMem-upward u b0 b1 leb cb0 cb1 fmu0-b0 b1U
@@ -2106,7 +2165,7 @@ mutual
             eq-v1 = snd (snd (snd (snd sb1)))
             fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
             valP-u1 = restrictVal2 _ _ A u u1 b1 le-u1 fmu1-b1 fmu0-b1 valP-b1
-            eqt-v1  = pet1 u1 v1 sel1 P valP-u1
+            eqt-v1  = pet1 u1 v1 sel1 P htP valP-u1
             le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
             le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
             fmem-v-U = FinMem-Selection-UCode b0 sel allU0 cf0
@@ -2122,7 +2181,7 @@ mutual
     PiEdgeVal2 G A0 B0 b f ->
     PiAppVal2 G M A0 B0 b f g -> PiAppVal2 G M A0 B0 b f g'
   restrictPiAppVal2-sel G M A0 B0 b f g g' cf cg cg' cb allU bU le fmg' fmg piEV pav
-    u' v' sel' N valN =
+    u' v' sel' N htN valN =
     let ctg      = cft-from-cf g cg
         ctg'     = cft-from-cf g' cg'
         cu'      = Coherent-Selection sel' ctg'
@@ -2136,7 +2195,7 @@ mutual
         cu_g     = Coherent-Selection sel_g ctg
         fmu_g    = FinMem-Selection b f sel_g fmg ctg cb bU
         valN-ug  = restrictVal2 _ _ A0 u' u_g b le-ug fmu_g fmu'-b valN
-        body     = pav u_g v_g sel_g N valN-ug
+        body     = pav u_g v_g sel_g N htN valN-ug
         le-ef    = EvalFun-mon-arg f u_g u' le-ug cf cu_g cu'
         c-efug   = Coherent-EvalFun f u_g cf cu_g
         c-efu'   = Coherent-EvalFun f u' cf cu'
@@ -2152,7 +2211,7 @@ mutual
         eq-ef    = snd (snd (snd (snd sb-f)))
         fmu_f-b  = FinMemAllU-Selection b sel_f allU cf cb bU
         valN-uf  = restrictVal2 _ _ A0 u' u_f b le-uf fmu_f-b fmu'-b valN
-        vty-vf   = piEV u_f v_f sel_f N valN-uf
+        vty-vf   = piEV u_f v_f sel_f N htN valN-uf
         vty-efu' = Eq-transport (\ x -> ValTy2 G (subst1 B0 N) x) (Eq-sym eq-ef) vty-vf
         body2    = upVal2 _ _ (subst1 B0 N) v_g (EvalFun f u_g) (EvalFun f u') le-ef
                      fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
@@ -2170,7 +2229,7 @@ mutual
     PiEdgeVal2 G A0 B0 b f ->
     PiAppEq2 G M A0 B0 b f g -> PiAppEq2 G M A0 B0 b f g'
   restrictPiAppEq2-sel G M A0 B0 b f g g' cf cg cg' cb allU bU le fmg' fmg piEV pae
-    u' v' sel' N1 N2 eqN =
+    u' v' sel' N1 N2 htN1 htN2 cvN eqN =
     let ctg      = cft-from-cf g cg
         ctg'     = cft-from-cf g' cg'
         cu'      = Coherent-Selection sel' ctg'
@@ -2184,7 +2243,7 @@ mutual
         cu_g     = Coherent-Selection sel_g ctg
         fmu_g    = FinMem-Selection b f sel_g fmg ctg cb bU
         eqN-ug   = restrictEqVal2 _ _ _ A0 u' u_g b le-ug fmu_g fmu'-b eqN
-        body     = pae u_g v_g sel_g N1 N2 eqN-ug
+        body     = pae u_g v_g sel_g N1 N2 htN1 htN2 cvN eqN-ug
         le-ef    = EvalFun-mon-arg f u_g u' le-ug cf cu_g cu'
         c-efug   = Coherent-EvalFun f u_g cf cu_g
         c-efu'   = Coherent-EvalFun f u' cf cu'
@@ -2201,7 +2260,7 @@ mutual
         eq-ef    = snd (snd (snd (snd sb-f)))
         fmu_f-b  = FinMemAllU-Selection b sel_f allU cf cb bU
         valN1-uf = restrictVal2 _ _ A0 u' u_f b le-uf fmu_f-b fmu'-b valN1-b
-        vty-vf   = piEV u_f v_f sel_f N1 valN1-uf
+        vty-vf   = piEV u_f v_f sel_f N1 htN1 valN1-uf
         vty-efu' = Eq-transport (\ x -> ValTy2 G (subst1 B0 N1) x) (Eq-sym eq-ef) vty-vf
         body2    = upEqVal2 _ _ _ (subst1 B0 N1) v_g (EvalFun f u_g) (EvalFun f u') le-ef
                      fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
@@ -2219,7 +2278,7 @@ mutual
     PiEdgeVal2 G A0 B0 b f ->
     PiAppEqVal2 G M N A0 B0 b f g -> PiAppEqVal2 G M N A0 B0 b f g'
   restrictPiAppEqVal2-sel G M N A0 B0 b f g g' cf cg cg' cb allU bU le fmg' fmg piEV paev
-    u' v' sel' P valP =
+    u' v' sel' P htP valP =
     let ctg      = cft-from-cf g cg
         ctg'     = cft-from-cf g' cg'
         cu'      = Coherent-Selection sel' ctg'
@@ -2233,7 +2292,7 @@ mutual
         cu_g     = Coherent-Selection sel_g ctg
         fmu_g    = FinMem-Selection b f sel_g fmg ctg cb bU
         valP-ug  = restrictVal2 _ _ A0 u' u_g b le-ug fmu_g fmu'-b valP
-        body     = paev u_g v_g sel_g P valP-ug
+        body     = paev u_g v_g sel_g P htP valP-ug
         le-ef    = EvalFun-mon-arg f u_g u' le-ug cf cu_g cu'
         c-efug   = Coherent-EvalFun f u_g cf cu_g
         c-efu'   = Coherent-EvalFun f u' cf cu'
@@ -2249,7 +2308,7 @@ mutual
         eq-ef    = snd (snd (snd (snd sb-f)))
         fmu_f-b  = FinMemAllU-Selection b sel_f allU cf cb bU
         valP-uf  = restrictVal2 _ _ A0 u' u_f b le-uf fmu_f-b fmu'-b valP
-        vty-vf   = piEV u_f v_f sel_f P valP-uf
+        vty-vf   = piEV u_f v_f sel_f P htP valP-uf
         vty-efu' = Eq-transport (\ x -> ValTy2 G (subst1 B0 P) x) (Eq-sym eq-ef) vty-vf
         body2    = upEqVal2 _ _ _ (subst1 B0 P) v_g (EvalFun f u_g) (EvalFun f u') le-ef
                      fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'

@@ -51,10 +51,10 @@ open import Validity2 using (Val2 ; EqVal2 ; ValTy2 ; EqValTy2 ;
   Val2-Bot)
 open import Validity using (Red-unique-Pi)
 open import Adequacy2 using (adequacySub2 ; adequacyEqSub2 ;
-  ValidSub2 ; ValidSub2-empty)
+  ValidSub2 ; ValidSub2-empty ; idSub-WtSub)
 open import TypingSemantics using (convSound' ; theorem1)
 open import LemmaForTS using (Fits ; Typed ; InvTyp ; InvConv)
-open import SubstitutionLemma using (typing-ConvTm)
+open import SubstitutionLemma using (typing-ConvTm ; typing-WfCtx)
 import Selection
 
 ------------------------------------------------------------------------
@@ -187,9 +187,11 @@ piHeadRed {n} {G} {A₀} {B₁} {F₁} d =
       -- Step 5: Apply adequacySub2 with idSub
       crho = botEnv-coherent n
       vs   = botEnv-validSub2 G
+      wfG  = typing-WfCtx dA₀
+      wsId = idSub-WtSub wfG
 
       raw : Val2 G (substExpr idSub A₀) (substExpr idSub U) (PiCode Bot nil) UCode
-      raw = adequacySub2 dA₀ idSub rho crho vs fits
+      raw = adequacySub2 dA₀ idSub rho crho vs fits wsId wfG
               (PiCode Bot nil) evA₀ UCode evU fmPU
 
       -- Transport: substExpr idSub A₀ = A₀, substExpr idSub U = U
@@ -256,10 +258,13 @@ piConv {n} {G} {A₀} {B₁} {F₁} d =
       fmPU : FinMem (PiCode Bot nil) UCode
       fmPU = mkSigma tt (mkSigma tt tt)
 
+      wfG  = typing-WfCtx (fst (typing-ConvTm d))
+      wsId = idSub-WtSub wfG
+
       -- Step 2: Apply adequacyEqSub2
       raw : EqVal2 G (substExpr idSub A₀) (substExpr idSub (Pi B₁ F₁))
                       (substExpr idSub U) (PiCode Bot nil) UCode
-      raw = adequacyEqSub2 d idSub rho crho vs fits
+      raw = adequacyEqSub2 d idSub rho crho vs fits wsId wfG
               (PiCode Bot nil) evA₀ UCode evU fmPU
 
       -- Transport: substExpr idSub X = X

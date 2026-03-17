@@ -57,6 +57,15 @@ subst1-wk e a =
     (Eq-trans (substExpr-ext _ idSub (\ i -> refl) e)
       (substExpr-id e))
 
+-- subst1 (renExpr (liftRen wkRen) e) (Var fzero) = e
+-- (weakening under a binder then substituting Var 0 cancels)
+subst1-liftWk-cancel : {n : Nat} (e : Expr (suc n)) ->
+  Eq (subst1 (renExpr (liftRen wkRen) e) (Var fzero)) e
+subst1-liftWk-cancel e =
+  Eq-trans (subst-ren (subst1Sub (Var fzero)) (liftRen wkRen) e)
+    (Eq-trans (substExpr-ext _ idSub (\ { fzero -> refl ; (fsuc i) -> refl }) e)
+      (substExpr-id e))
+
 ------------------------------------------------------------------------
 -- Part 2: Type-preserving renamings
 ------------------------------------------------------------------------
@@ -85,6 +94,11 @@ liftRen-RenTypes {G = G} {r = r} rt (fsuc i) =
 
 WtSub : {h g : Nat} -> Ctx h -> Ctx g -> Sub h g -> Set
 WtSub H G sigma = (i : Fin _) -> HasType H (sigma i) (substExpr sigma (lookup G i))
+
+-- Two convertible well-typed substitutions
+WtConvSub : {h g : Nat} -> Ctx h -> Ctx g -> Sub h g -> Sub h g -> Set
+WtConvSub H G sigma sigma' =
+  (i : Fin _) -> ConvTm H (sigma i) (sigma' i) (substExpr sigma (lookup G i))
 
 ------------------------------------------------------------------------
 -- Part 4: The big mutual block
@@ -571,6 +585,23 @@ mutual
       (Eq-sym (subst1-wk (lookup G i) a))
       (ty-var (typing-WfCtx dA))
 
+  -- Substitution congruence: if B : U in context (G, x:A) and t1 ≡ t2 : A in G,
+  -- then B[t1] ≡ B[t2] : U in G.
+  -- Uses the U:U trick (λ(x:A).B : Π(x:A).U, then conv-beta + conv-App-arg).
+  subst1-cong-ConvTm : {n : Nat} {G : Ctx n} {A : Expr n}
+    {B : Expr (suc n)} {t1 t2 : Expr n} ->
+    HasType G A U -> HasType (extend G A) B U ->
+    HasType G t1 A -> HasType G t2 A ->
+    ConvTm G t1 t2 A ->
+    ConvTm G (subst1 B t1) (subst1 B t2) U
+  subst1-cong-ConvTm dA dB dt1 dt2 cvt =
+    let dU     = ty-U (wf-extend dA)
+        dLamAB = ty-Lam dA dU dB
+        beta1  = conv-beta dA dU dB dt1
+        beta2  = conv-beta dA dU dB dt2
+        appCng = conv-App-arg dA dU dLamAB cvt
+    in conv-trans (conv-sym beta1) (conv-trans appCng beta2)
+
   -- Helper: extract WfCtx from HasType
   typing-WfCtx : {n : Nat} {G : Ctx n} {M A : Expr n} ->
     HasType G M A -> WfCtx G
@@ -580,3 +611,196 @@ mutual
   typing-WfCtx (ty-Pi d _)       = typing-WfCtx d
   typing-WfCtx (ty-Lam d _ _)    = typing-WfCtx d
   typing-WfCtx (ty-App d _ _ _)  = typing-WfCtx d
+
+  -- Type presupposition: HasType G M A implies HasType G A U
+  typing-type : {n : Nat} {G : Ctx n} {M A : Expr n} ->
+    HasType G M A -> HasType G A U
+  typing-type (ty-var wf)              = wfCtx-lookup wf _
+  typing-type (ty-conv _ _ d3)         = d3
+  typing-type (ty-U wf)               = ty-U wf
+  typing-type (ty-Pi d1 _)            = ty-U (typing-WfCtx d1)
+  typing-type (ty-Lam d1 d2 _)        = ty-Pi d1 d2
+  typing-type (ty-App d1 d2 _ d4)     =
+    subst-HasType (subst1-WtSub d1 d4) (typing-WfCtx d1) d2
+
+  -- Lookup in well-formed context gives a type in U
+  wfCtx-lookup : {n : Nat} {G : Ctx n} ->
+    WfCtx G -> (i : Fin n) -> HasType G (lookup G i) U
+  wfCtx-lookup (wf-extend dA) fzero    = wk-HasType dA dA
+  wfCtx-lookup (wf-extend dA) (fsuc i) =
+    wk-HasType dA (wfCtx-lookup (typing-WfCtx dA) i)
+
+  -- Lifting WtConvSub to extended contexts
+  liftSub-WtConvSub : {h g : Nat} {H : Ctx h} {G : Ctx g}
+    {sigma sigma' : Sub h g} {A : Expr g} ->
+    WtSub H G sigma -> WtConvSub H G sigma sigma' ->
+    WfCtx H -> HasType G A U ->
+    WtConvSub (extend H (substExpr sigma A)) (extend G A)
+              (liftSub sigma) (liftSub sigma')
+  liftSub-WtConvSub {sigma = sigma} {sigma' = sigma'} {A = A} ws wcs wfH dA fzero =
+    -- Both liftSub sigma fzero = Var fzero = liftSub sigma' fzero
+    -- Need: ConvTm (extend H sA) (Var fzero) (Var fzero) (substExpr (liftSub sigma) (wkExpr A))
+    Eq-transport (\ T -> ConvTm (extend _ (substExpr sigma A)) (Var fzero) (Var fzero) T)
+      (Eq-sym (subst-wk-comm sigma A))
+      (conv-refl (ty-var (wf-extend (subst-HasType ws wfH dA))))
+  liftSub-WtConvSub {H = H} {G = G} {sigma = sigma} {sigma' = sigma'} {A = A} ws wcs wfH dA (fsuc i) =
+    -- Need: ConvTm (extend H sA) (wkExpr (sigma i)) (wkExpr (sigma' i))
+    --              (substExpr (liftSub sigma) (wkExpr (Gi)))
+    -- From wcs i: ConvTm H (sigma i) (sigma' i) (substExpr sigma (Gi))
+    -- Weaken: wk-ConvTm ... : ConvTm (extend H sA) (wk (sigma i)) (wk (sigma' i)) (wk (substExpr sigma (Gi)))
+    -- Transport: wk (substExpr sigma (Gi)) = substExpr (liftSub sigma) (wkExpr (Gi))
+    Eq-transport (\ T -> ConvTm (extend H (substExpr sigma A)) (wkExpr (sigma i)) (wkExpr (sigma' i)) T)
+      (Eq-sym (subst-wk-comm sigma (lookup G i)))
+      (wk-ConvTm (subst-HasType ws wfH dA) (wcs i))
+
+  -- Cross-substitution conversion:
+  -- Given HasType G M A and σ conv σ' (pointwise), derive ConvTm H (Mσ) (Mσ') (Aσ).
+  subst-ConvTm-cross : {h g : Nat} {H : Ctx h} {G : Ctx g}
+    {sigma sigma' : Sub h g} {M A : Expr g} ->
+    HasType G M A ->
+    WtSub H G sigma -> WtSub H G sigma' ->
+    WtConvSub H G sigma sigma' -> WfCtx H ->
+    ConvTm H (substExpr sigma M) (substExpr sigma' M) (substExpr sigma A)
+
+  -- ty-var
+  subst-ConvTm-cross (ty-var {i = i} _) ws ws' wcs wfH = wcs i
+
+  -- ty-U
+  subst-ConvTm-cross (ty-U _) ws ws' wcs wfH = conv-refl (ty-U wfH)
+
+  -- ty-conv
+  subst-ConvTm-cross (ty-conv d1 d2 d3) ws ws' wcs wfH =
+    conv-conv (subst-ConvTm-cross d1 ws ws' wcs wfH)
+              (subst-ConvTm ws wfH d2) (subst-HasType ws wfH d3)
+
+  -- ty-Pi
+  subst-ConvTm-cross {H = H} {sigma = sigma} {sigma' = sigma'} (ty-Pi {A = A} d1 d2) ws ws' wcs wfH =
+    let sA   = substExpr sigma A
+        dA'  = subst-HasType ws wfH d1
+        ws2  = liftSub-WtSub ws wfH d1
+        ws2' = liftSub-WtSub ws' wfH d1
+        -- Need WtSub and WtConvSub for liftSub sigma' in context (extend H sA)
+        -- ws' gives WtSub (extend H (Aσ')) ..., need it in (extend H (Aσ))
+        cvA  = subst-ConvTm-cross d1 ws ws' wcs wfH  -- ConvTm H (Aσ) (Aσ') U
+        dA'' = subst-HasType ws' wfH d1  -- HasType H (Aσ') U
+        -- Context-convert ws2' from (extend H (Aσ')) to (extend H (Aσ))
+        ws2'_ctx : WtSub (extend H sA) (extend _ A) (liftSub sigma')
+        ws2'_ctx = \ i ->
+          ctx-conv-HasType dA'' dA' (conv-sym cvA) (liftSub-WtSub ws' wfH d1 i)
+        wcs2 = liftSub-WtConvSub ws wcs wfH d1
+        -- IH on d2 in extended context
+        wfH' = wf-extend dA'
+        ihB  = subst-ConvTm-cross d2 ws2 ws2'_ctx wcs2 wfH'
+    in conv-Pi cvA ihB
+
+  -- ty-Lam: use conv-funext with beta reduction on both sides
+  subst-ConvTm-cross {H = H} {sigma = sigma} {sigma' = sigma'}
+    (ty-Lam {A = A} {B = B} {M = M} d1 d2 d3) ws ws' wcs wfH =
+    let sA   = substExpr sigma A
+        sA'  = substExpr sigma' A
+        dA   = subst-HasType ws wfH d1    -- HasType H sA U
+        dA'  = subst-HasType ws' wfH d1   -- HasType H sA' U
+        wfH' = wf-extend dA
+        ws2  = liftSub-WtSub ws wfH d1
+        dB   = subst-HasType ws2 wfH' d2  -- HasType (extend H sA) sB U
+        dM   = subst-HasType ws2 wfH' d3  -- HasType (extend H sA) sM sB
+        cvA  = subst-ConvTm-cross d1 ws ws' wcs wfH  -- ConvTm H sA sA' U
+        -- ws2' context-converted to (extend H sA)
+        ws2'_ctx = \ i -> ctx-conv-HasType dA' dA (conv-sym cvA)
+                            (liftSub-WtSub ws' wfH d1 i)
+        wcs2 = liftSub-WtConvSub ws wcs wfH d1
+        -- IH on B: ConvTm (extend H sA) sB sB' U
+        ihB  = subst-ConvTm-cross d2 ws2 ws2'_ctx wcs2 wfH'
+        -- IH on M: ConvTm (extend H sA) sM sM' sB
+        ihM  = subst-ConvTm-cross d3 ws2 ws2'_ctx wcs2 wfH'
+        -- Types in context (extend H sA')
+        wfH'2 = wf-extend dA'
+        ws2'  = liftSub-WtSub ws' wfH d1
+        dB'_raw = subst-HasType ws2' wfH'2 d2  -- HasType (extend H sA') sB' U
+        dM'_raw = subst-HasType ws2' wfH'2 d3  -- HasType (extend H sA') sM' sB'
+        -- htLam : HasType H (Lam sA sM) (Pi sA sB)
+        htLam  = ty-Lam dA dB dM
+        -- htLam' : HasType H (Lam sA' sM') (Pi sA sB) via ty-conv
+        ihB_ctx = ctx-conv-ConvTm dA dA' cvA ihB
+          -- ConvTm (extend H sA') sB sB' U (context-converted ihB)
+        htLam' = ty-conv (ty-Lam dA' dB'_raw dM'_raw)
+                   (conv-Pi (conv-sym cvA) (conv-sym ihB_ctx))
+                   (ty-Pi dA dB)
+        -- beta1 in context (extend H sA):
+        -- App (wk (Lam sA sM)) (Var 0) conv sM : sB
+        wkA  = wk-HasType dA dA
+        rt1  = liftRen-RenTypes (wkRen-RenTypes {G = H} {C = sA})
+        wfH1 = wf-extend wkA
+        wkB  = ren-HasType rt1 wfH1 dB
+        wkM  = ren-HasType rt1 wfH1 dM
+        beta1_raw = conv-beta wkA wkB wkM (ty-var wfH')
+        -- beta1_raw at subst1 types; transport to sM and sB using subst1-liftWk-cancel
+        sM_eq = subst1-liftWk-cancel (substExpr (liftSub sigma) M)
+        sB_eq = subst1-liftWk-cancel (substExpr (liftSub sigma) B)
+        beta1 = Eq-transport
+                  (\ T -> ConvTm (extend H sA) (App (wkExpr (Lam sA (substExpr (liftSub sigma) M))) (Var fzero))
+                    (subst1 (renExpr (liftRen wkRen) (substExpr (liftSub sigma) M)) (Var fzero)) T)
+                  sB_eq
+                  beta1_raw
+        beta1' = Eq-transport
+                   (\ S -> ConvTm (extend H sA) (App (wkExpr (Lam sA (substExpr (liftSub sigma) M))) (Var fzero))
+                     S (substExpr (liftSub sigma) B))
+                   sM_eq beta1
+        -- beta2 in context (extend H sA'):
+        -- App (wk (Lam sA' sM')) (Var 0) conv sM' : sB'
+        wkA' = wk-HasType dA' dA'
+        rt2  = liftRen-RenTypes (wkRen-RenTypes {G = H} {C = sA'})
+        wfH2 = wf-extend wkA'
+        wkB' = ren-HasType rt2 wfH2 dB'_raw
+        wkM' = ren-HasType rt2 wfH2 dM'_raw
+        beta2_raw = conv-beta wkA' wkB' wkM' (ty-var wfH'2)
+        sM'_eq = subst1-liftWk-cancel (substExpr (liftSub sigma') M)
+        sB'_eq = subst1-liftWk-cancel (substExpr (liftSub sigma') B)
+        beta2_t1 = Eq-transport
+                     (\ T -> ConvTm (extend H sA') (App (wkExpr (Lam sA' (substExpr (liftSub sigma') M))) (Var fzero))
+                       (subst1 (renExpr (liftRen wkRen) (substExpr (liftSub sigma') M)) (Var fzero)) T)
+                     sB'_eq beta2_raw
+        beta2_t2 = Eq-transport
+                     (\ S -> ConvTm (extend H sA') (App (wkExpr (Lam sA' (substExpr (liftSub sigma') M))) (Var fzero))
+                       S (substExpr (liftSub sigma') B))
+                     sM'_eq beta2_t1
+        -- Context-convert beta2 from (extend H sA') to (extend H sA)
+        beta2_ctx = ctx-conv-ConvTm dA' dA (conv-sym cvA) beta2_t2
+        -- conv-conv to change type from sB' to sB
+        beta2 = conv-conv beta2_ctx (conv-sym ihB) dB
+        -- Chain: App(wk f)(x) conv sM conv sM' conv App(wk g)(x) : sB
+        body_conv = conv-trans beta1' (conv-trans ihM (conv-sym beta2))
+    in conv-funext dA body_conv htLam htLam'
+
+  -- ty-App
+  subst-ConvTm-cross {sigma = sigma} {sigma' = sigma'}
+    (ty-App {A = A} {B = B} {f = f} {a = a} d1 d2 d3 d4) ws ws' wcs wfH =
+    let dA   = subst-HasType ws wfH d1  -- HasType H sA U
+        wfH' = wf-extend dA
+        ws2  = liftSub-WtSub ws wfH d1
+        dB   = subst-HasType ws2 wfH' d2  -- HasType (extend H sA) sB U
+        -- IH on f (d3): ConvTm H (fσ) (fσ') (Pi sA sB)
+        ihF  = subst-ConvTm-cross d3 ws ws' wcs wfH
+        -- IH on a (d4): ConvTm H (aσ) (aσ') sA
+        ihA  = subst-ConvTm-cross d4 ws ws' wcs wfH
+        -- Step 1: conv-App-fun: App (fσ) (aσ) conv App (fσ') (aσ) : subst1 sB (aσ)
+        htA  = subst-HasType ws wfH d4  -- HasType H (aσ) sA
+        step1 = conv-App-fun dA dB ihF htA
+        -- Step 2: conv-App-arg: App (fσ') (aσ) conv App (fσ') (aσ') : subst1 sB (aσ)
+        htF' = subst-HasType ws' wfH d3  -- HasType H (fσ') (Pi sA' sB')
+        -- Need HasType H (fσ') (Pi sA sB). Use ty-conv with conv-Pi.
+        cvA  = subst-ConvTm-cross d1 ws ws' wcs wfH
+        dA'  = subst-HasType ws' wfH d1
+        cvB  = subst-ConvTm-cross d2 ws2
+                 (\ i -> ctx-conv-HasType dA' dA (conv-sym cvA) (liftSub-WtSub ws' wfH d1 i))
+                 (liftSub-WtConvSub ws wcs wfH d1)
+                 wfH'
+        cvB_ctx = ctx-conv-ConvTm dA dA' cvA (conv-sym cvB)
+          -- ConvTm (extend H sA') sB' sB U
+        htF'_Pi = ty-conv htF' (conv-Pi (conv-sym cvA) cvB_ctx) (ty-Pi dA dB)
+        step2 = conv-App-arg dA dB htF'_Pi ihA
+    in Eq-transport
+         (\ T -> ConvTm _ (App (substExpr sigma f) (substExpr sigma a))
+                           (App (substExpr sigma' f) (substExpr sigma' a)) T)
+         (subst-subst1-comm sigma B a)
+         (conv-trans step1 step2)

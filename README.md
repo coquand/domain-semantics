@@ -107,8 +107,9 @@ Based on:
   **0 postulates.**
 
 - **`Adequacy2.agda`** — Bundled adequacy producing `Val2`/`EqVal2`.
-  **7 postulates** (substitution lemmas for HasType/ConvTm fields,
-  twoValTy2-to-EqValTy2, twoVal2-to-EqVal2).
+  Uses the paper's two-substitution approach (Theorem 2, p.660) with
+  `adequacyConvSub2` for cross-substitution equality.
+  **0 postulates.**
 
 ### Pi injectivity
 
@@ -151,5 +152,5 @@ Based on:
 | SubstitutionLemma | 0 |
 | Validity, Adequacy | 0 |
 | Validity2 | 0 |
-| Adequacy2 | 7 (Lam, App, beta, Pi, funext, App-fun, App-arg) |
+| Adequacy2 | 0 |
 | PiInjectivity | 0 |
