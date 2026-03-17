@@ -97,25 +97,21 @@ botEnv-fits {suc n} (extend G A) =
 -- ValidSub2 G G idSub (botEnv n): trivial because u = Bot forced
 ------------------------------------------------------------------------
 
--- Helper: LeCode u (lookupEnv i (botEnv n)) forces u = Bot
-botEnv-le-Bot : {n : Nat} (i : Fin n) (u : FinEl) ->
-  LeCode u (lookupEnv i (botEnv n)) -> LeCode u Bot
-botEnv-le-Bot i u le = S.Eq-transport (LeCode u) (botEnv-lookup i) le
+-- Val2-from-LeBot: LeCode u Bot forces u = Bot, giving Val2-Bot
+Val2-from-LeBot : {n : Nat} {G : Ctx n} {M A : Expr n}
+  (u a : FinEl) -> LeCode u Bot -> Val2 G M A u a
+Val2-from-LeBot Bot          a le = Val2-Bot a
+Val2-from-LeBot UCode        a ()
+Val2-from-LeBot (FunEl _)    a ()
+Val2-from-LeBot (PiCode _ _) a ()
 
 botEnv-validSub2 : {n : Nat} (G : Ctx n) ->
   ValidSub2 G G idSub (botEnv n)
 botEnv-validSub2 {zero}  empty ()
-botEnv-validSub2 {suc n} (extend G A) fzero Bot cu le a evA fm = Val2-Bot a
-botEnv-validSub2 {suc n} (extend G A) fzero UCode cu () a evA fm
-botEnv-validSub2 {suc n} (extend G A) fzero (FunEl _) cu () a evA fm
-botEnv-validSub2 {suc n} (extend G A) fzero (PiCode _ _) cu () a evA fm
-botEnv-validSub2 {suc n} (extend G A) (fsuc i) Bot cu le a evA fm = Val2-Bot a
-botEnv-validSub2 {suc n} (extend G A) (fsuc i) UCode cu le a evA fm =
-  RawSemantics.absurd (botEnv-le-Bot i UCode le)
-botEnv-validSub2 {suc n} (extend G A) (fsuc i) (FunEl g) cu le a evA fm =
-  RawSemantics.absurd (botEnv-le-Bot i (FunEl g) le)
-botEnv-validSub2 {suc n} (extend G A) (fsuc i) (PiCode b f) cu le a evA fm =
-  RawSemantics.absurd (botEnv-le-Bot i (PiCode b f) le)
+botEnv-validSub2 {suc n} (extend G A) fzero u cu le a evA fm =
+  Val2-from-LeBot u a le
+botEnv-validSub2 {suc n} (extend G A) (fsuc i) u cu le a evA fm =
+  Val2-from-LeBot u a (S.Eq-transport (LeCode u) (botEnv-lookup i) le)
 
 ------------------------------------------------------------------------
 -- EvalRel (Pi A B) rho (PiCode Bot nil): always constructible
@@ -140,81 +136,7 @@ evalRel-Pi-trivial A B rho =
       mkSigma Bot (mkSigma tt (mkSigma tt (EvalRel-Bot B (extendEnv rho Bot))))
 
 ------------------------------------------------------------------------
--- Pi head-reduction extraction (Corollary 6, output 1)
---
--- From ConvTm G A₀ (Pi B₁ F₁) U, extract HeadRed A₀ (Pi B₀ F₀).
---
--- Strategy:
--- 1. typing-ConvTm → HasType G A₀ U
--- 2. convSound' → eval_bwd: Pi evals to PiCode → A₀ evals to PiCode
--- 3. adequacySub2 with idSub at botEnv → Val2 at (PiCode, UCode)
--- 4. Val2 at (PiCode Bot nil, UCode) = ValTyPi2 → extract Red → HeadRed
-------------------------------------------------------------------------
-
-piHeadRed : {n : Nat} {G : Ctx n} {A₀ : Expr n}
-  {B₁ : Expr n} {F₁ : Expr (suc n)} ->
-  ConvTm G A₀ (Pi B₁ F₁) U ->
-  Sigma (Expr n) (\ B₀ -> Sigma (Expr (suc n)) (\ F₀ -> HeadRed A₀ (Pi B₀ F₀)))
-piHeadRed {n} {G} {A₀} {B₁} {F₁} d =
-  let -- Step 1: Extract HasType G A₀ U from ConvTm
-      dA₀ : HasType G A₀ U
-      dA₀ = fst (typing-ConvTm d)
-
-      -- Step 2: Use convSound' to get bidirectional evaluation
-      rho  = botEnv n
-      fits = botEnv-fits G
-      ic   = convSound' d rho fits
-      -- ic : InvConv G A₀ (Pi B₁ F₁) U rho
-      -- eval_bwd : EvalRel (Pi B₁ F₁) rho u → EvalRel A₀ rho u
-      eval-bwd = snd (snd (snd ic))
-
-      -- Step 3: Pi B₁ F₁ evaluates to PiCode Bot nil at any rho
-      evPi : EvalRel (Pi B₁ F₁) rho (PiCode Bot nil)
-      evPi = evalRel-Pi-trivial B₁ F₁ rho
-
-      -- A₀ also evaluates to PiCode Bot nil
-      evA₀ : EvalRel A₀ rho (PiCode Bot nil)
-      evA₀ = eval-bwd (PiCode Bot nil) evPi
-
-      -- Step 4: EvalRel U rho UCode
-      evU : EvalRel U rho UCode
-      evU = mkSigma tt (LeCode-refl UCode tt)
-
-      -- FinMem (PiCode Bot nil) UCode
-      fmPU : FinMem (PiCode Bot nil) UCode
-      fmPU = mkSigma tt (mkSigma tt tt)
-
-      -- Step 5: Apply adequacySub2 with idSub
-      crho = botEnv-coherent n
-      vs   = botEnv-validSub2 G
-      wfG  = typing-WfCtx dA₀
-      wsId = idSub-WtSub wfG
-
-      raw : Val2 G (substExpr idSub A₀) (substExpr idSub U) (PiCode Bot nil) UCode
-      raw = adequacySub2 dA₀ idSub rho crho vs fits wsId wfG
-              (PiCode Bot nil) evA₀ UCode evU fmPU
-
-      -- Transport: substExpr idSub A₀ = A₀, substExpr idSub U = U
-      step1 : Val2 G (substExpr idSub A₀) U (PiCode Bot nil) UCode
-      step1 = Val2-transport-A {M = substExpr idSub A₀}
-               {u = PiCode Bot nil} {a = UCode} (substExpr-id U) raw
-      vt : Val2 G A₀ U (PiCode Bot nil) UCode
-      vt = Val2-transport-M {A = U}
-             {u = PiCode Bot nil} {a = UCode} (substExpr-id A₀) step1
-
-      -- Val2 G A₀ U (PiCode Bot nil) UCode = ValTy2 G A₀ (PiCode Bot nil)
-      --                                     = ValTyPi2 G A₀ Bot nil
-      -- ValTyPi2 = Sigma Expr \ A → Sigma Expr \ B → Sigma Red \ _ → ...
-      -- Extract the Red
-      B₀  = fst vt
-      F₀  = fst (snd vt)
-      red = fst (snd (snd vt))
-      hr  = Red-hr red
-
-  in mkSigma B₀ (mkSigma F₀ hr)
-
-------------------------------------------------------------------------
--- Pi domain/codomain conversion (Corollary 6, parts 2–3)
+-- Pi domain/codomain conversion (Corollary 6, parts 1–3)
 --
 -- From ConvTm G A₀ (Pi B₁ F₁) U, extract:
 --   (2) ConvTm G B₀ B₁ U
