@@ -2,6 +2,7 @@
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{mathpartir}
 \usepackage[margin=2.5cm]{geometry}
+\usepackage{stmaryrd}
 
 \newcommand{\Ctx}{\mathsf{Ctx}}
 \newcommand{\wf}[1]{#1\;\mathsf{ctx}}
@@ -13,11 +14,28 @@
 \newcommand{\substone}[2]{#1[#2]}
 \newcommand{\wkn}[1]{#1^+}
 \newcommand{\U}{\mathsf{U}}
+\newcommand{\FinEl}{\mathsf{FinEl}}
+\newcommand{\FinFun}{\mathsf{FinFun}}
+\newcommand{\Bot}{\bot}
+\newcommand{\UCode}{\mathsf{U}_c}
+\newcommand{\FunEl}[1]{\mathsf{Fun}(#1)}
+\newcommand{\PiC}[2]{\mathsf{Pi}_c(#1,#2)}
+\newcommand{\EvalFun}{\mathsf{ev}}
+\newcommand{\LeCode}{\leq}
+\newcommand{\Sup}{\sqcup}
+\newcommand{\Coh}{\mathsf{Coh}}
+\newcommand{\FinMem}{\mathrel{:_f}}
+\newcommand{\EvalRel}[3]{\llbracket #1 \rrbracket_{#2} \ni #3}
+\newcommand{\ValR}{\mathsf{Val}}
+\newcommand{\EqValR}{\mathsf{EqVal}}
+\newcommand{\Red}{\mathrel{\leadsto^*}}
 
 \newtheorem{theorem}{Theorem}
 \newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{lemma}[theorem]{Lemma}
 
-\title{Typing Rules and Pi Injectivity\\
+\title{Typing Rules, Domain Semantics, and Pi Injectivity\\
   for Dependent Type Theory with $\U:\U$}
 \author{}
 \date{}
@@ -179,6 +197,378 @@ of $\beta$-reduction at the head:
     {M \leadsto M'}
     {\App{M}{a} \leadsto \App{M'}{a}}
 \end{mathpar}
+
+%% ================================================================
+%%  PART II: DOMAIN SEMANTICS
+%% ================================================================
+
+\section{Finite elements and the information ordering}
+
+Following Coquand--Huber~\cite{CH2018}, we interpret types and terms
+as ideal-domain elements, approximated from below by \emph{finite
+elements}.  The set $\FinEl$ and its auxiliary $\FinFun$ are defined
+by mutual induction:
+\[
+  \begin{array}{rcl}
+    u,v,a,b &::=& \Bot \mid \UCode \mid \FunEl{g} \mid \PiC{a}{f} \\[3pt]
+    g,f &\in& \FinFun \;=\; \mathsf{List}(\FinEl \times \FinEl)
+  \end{array}
+\]
+Here $\Bot$ is the least element (no information),
+$\UCode$ is the code for the universe,
+$\FunEl{g}$ is a function element with graph~$g$
+(a finite list of input--output pairs),
+and $\PiC{a}{f}$ is a code for a $\Pi$-type with domain
+approximation~$a$ and codomain graph~$f$.
+
+\paragraph{Binary supremum.}
+A partial binary supremum $u \Sup v$ is defined by case analysis:
+it combines compatible codes ($\PiC{a}{f} \Sup \PiC{b}{g} =
+\PiC{a \Sup b}{f \mathbin{+\!\!+} g}$,
+$\FunEl{g} \Sup \FunEl{h} = \FunEl{g \mathbin{+\!\!+} h}$)
+and returns $\Bot$ for incompatible pairs
+(e.g.\ $\UCode \Sup \FunEl{g} = \Bot$).
+
+\paragraph{Evaluation of finite functions.}
+Given a finite function $f = [(u_1,v_1), \dots, (u_k,v_k)]$ and an
+input $u$, the sup-based evaluation collects all outputs whose keys
+are below~$u$:
+\[
+  \EvalFun(f, u) \;=\; \bigsqcup\{ v_i \mid u_i \LeCode u \}.
+\]
+
+\paragraph{Information ordering.}
+The ordering $u \LeCode v$ on $\FinEl$ is defined mutually with
+an ordering on finite functions.  The key clauses are:
+\begin{align*}
+  \Bot \LeCode v &\;=\; \top \\
+  \UCode \LeCode \UCode &\;=\; \top \\
+  \FunEl{g} \LeCode \FunEl{h}
+    &\;\Longleftrightarrow\; g \LeCode_{\mathsf{fun}} h \\
+  \PiC{a}{f} \LeCode \PiC{b}{g}
+    &\;\Longleftrightarrow\;
+      a \LeCode b \;\wedge\; f \LeCode_{\mathsf{fun}} g
+\end{align*}
+where the ordering on finite functions uses the
+\emph{finite condition}:
+\[
+  g \LeCode_{\mathsf{fun}} h
+  \quad\Longleftrightarrow\quad
+  \forall (u_i, v_i) \in g.\;
+    v_i \LeCode \EvalFun(h, u_i).
+\]
+All other combinations (e.g.\ $\UCode \LeCode \FunEl{g}$)
+are empty.
+
+\paragraph{Coherence.}
+A finite element is \emph{coherent} ($\Coh(u)$) when its
+internal data is consistent.  Specifically,
+$\Coh(\PiC{a}{f})$ requires $\Coh(a)$ and that $f$ is a
+\emph{coherent finite function}: whenever two edges
+$(u_1,v_1),(u_2,v_2) \in f$ have compatible keys
+($\mathsf{Comp}(u_1,u_2)$), their values are also compatible
+($\mathsf{Comp}(v_1,v_2)$).  This condition ensures that finite
+functions represent well-defined continuous maps between domains.
+
+\paragraph{Finite membership.}
+The \emph{finite typing} relation $u \FinMem a$ (``$u$ is an element
+of the type coded by~$a$'') is defined by mutual recursion on
+$u$ and~$a$:
+\begin{align*}
+  \Bot \FinMem a &\;\Longleftrightarrow\; a \FinMem \UCode
+    \qquad\text{(every type has $\Bot$)} \\
+  \UCode \FinMem \UCode &\;=\; \top \\
+  \FunEl{g} \FinMem \PiC{a}{f}
+    &\;\Longleftrightarrow\;
+    \mathsf{FinMemFun}(g,a,f) \;\wedge\;
+    \Coh(\FunEl{g}) \;\wedge\;
+    \PiC{a}{f} \FinMem \UCode \\
+  \PiC{a}{f} \FinMem \UCode
+    &\;\Longleftrightarrow\;
+    a \FinMem \UCode \;\wedge\;
+    \mathsf{FinMemAllU}(f,a) \;\wedge\;
+    \mathsf{CohFunTail}(f)
+\end{align*}
+where $\mathsf{FinMemFun}(g,a,f)$ checks that every edge
+$(u_i,v_i) \in g$ satisfies $u_i \FinMem a$ and
+$v_i \FinMem \EvalFun(f, u_i)$,
+and $\mathsf{FinMemAllU}(f,a)$ checks that every edge
+$(a_i,b_i) \in f$ satisfies $a_i \FinMem a$ and $b_i \FinMem \UCode$.
+
+Key structural properties:
+\begin{itemize}
+  \item $u \FinMem a$ implies $\Coh(u)$, $\Coh(a)$, and $a \FinMem \UCode$.
+  \item If $u \FinMem a$ and $a \LeCode a'$ with $u \FinMem a'$,
+    then the membership is upward-closed.
+\end{itemize}
+
+\section{Selections}
+
+A \emph{selection} of a finite function $f$ is a compatible subset
+of edges from~$f$, yielding an aggregate key~$u$ and aggregate
+value~$v$.  Formally, $\mathsf{Selection}(f, u, v)$ is an inductive
+type with three constructors:
+\begin{mathpar}
+  \inferrule[\textsc{Sel-Nil}]
+    { }
+    {\mathsf{Selection}(\mathsf{nil}, \Bot, \Bot)}
+  \and
+  \inferrule[\textsc{Sel-Skip}]
+    {\mathsf{Selection}(g, u, v)}
+    {\mathsf{Selection}((a_i,b_i){::}g, \; u, \; v)}
+  \and
+  \inferrule[\textsc{Sel-Take}]
+    {\mathsf{Comp}(a_i, u) \\
+     \mathsf{Comp}(b_i, v) \\
+     \mathsf{Selection}(g, u, v)}
+    {\mathsf{Selection}((a_i,b_i){::}g, \;
+       a_i \Sup u, \; b_i \Sup v)}
+\end{mathpar}
+The compatibility conditions in \textsc{Sel-Take} ensure that the
+accumulated $u$ and $v$ remain coherent.  A key property is that
+$\mathsf{Selection}(f,u,v)$ implies $v \LeCode \EvalFun(f,u)$.
+Selections are used in both the relational semantics and the
+validity relation to handle $\Pi$-types and $\lambda$-terms
+in a purely finite, relational way.
+
+\section{Relational semantics on finite approximants}
+
+\begin{definition}[Evaluation relation]
+  Given a raw term $M$ in context of size~$n$, a finite environment
+  $\rho$ (mapping each variable to a $\FinEl$), and a finite
+  element~$u$, the relation $\EvalRel{M}{\rho}{u}$ (``$M$ evaluates
+  to at least~$u$ in~$\rho$'') is defined by recursion on~$M$:
+
+  \begin{itemize}
+    \item \textbf{Variable:}\;
+      $\EvalRel{x_i}{\rho}{u}$
+      iff $\Coh(u)$ and $u \LeCode \rho(i)$.
+
+    \item \textbf{Universe:}\;
+      $\EvalRel{\U}{\rho}{u}$ iff $\Coh(u)$ and $u \LeCode \UCode$.
+
+    \item \textbf{Application:}\;
+      $\EvalRel{\App{M}{N}}{\rho}{\Bot}$ always holds.
+      For non-$\Bot$ output~$u$: there exists~$v$ such that
+      $\EvalRel{N}{\rho}{v}$ and
+      $\EvalRel{M}{\rho}{\FunEl{[(v,u)]}}$.
+      (One-edge form: the function $M$ maps input~$v$
+      to output~$u$.)
+
+    \item \textbf{Lambda:}\;
+      $\EvalRel{\Lamterm{x{:}A}{M}}{\rho}{\Bot}$ always holds.
+      $\EvalRel{\Lamterm{x{:}A}{M}}{\rho}{\FunEl{g}}$
+      requires a domain code~$a$ with
+      $\Coh(\FunEl{g})$, $a \FinMem \UCode$,
+      $\EvalRel{A}{\rho}{a}$,
+      and for every selection of $g$ with key~$u$ and value~$v$,
+      there exists~$x \LeCode u$ with $x \FinMem a$ and
+      $\EvalRel{M}{\rho[x]}{v}$.
+
+    \item \textbf{Pi:}\;
+      $\EvalRel{\Pitype{x{:}A}{B}}{\rho}{\Bot}$ always holds.
+      $\EvalRel{\Pitype{x{:}A}{B}}{\rho}{\PiC{a}{f}}$
+      requires $\Coh(\PiC{a}{f})$,
+      $\EvalRel{A}{\rho}{a}$,
+      and a witness $a'$ with $\EvalRel{A}{\rho}{a'}$ such that
+      for every selection of $f$ with key~$u$ and value~$v$,
+      there exists~$x \LeCode u$ with $x \FinMem a'$ and
+      $\EvalRel{B}{\rho[x]}{v}$.
+  \end{itemize}
+\end{definition}
+
+The relation is purely finite and has no reference to ideal
+semantic functions.  Key properties:
+\begin{itemize}
+  \item \emph{Coherence extraction}: $\EvalRel{M}{\rho}{u}$
+    implies $\Coh(u)$.
+  \item \emph{Compatibility}: if $\EvalRel{M}{\rho}{u}$ and
+    $\EvalRel{M}{\rho}{v}$ with $\Coh(\rho)$, then
+    $\mathsf{Comp}(u,v)$.
+  \item \emph{Monotonicity in $\rho$}: if $\rho \LeCode \rho'$
+    pointwise and $\EvalRel{M}{\rho}{u}$, then
+    $\EvalRel{M}{\rho'}{u}$.
+  \item \emph{Downward closure}: $\EvalRel{M}{\rho}{u}$ and
+    $u' \LeCode u$ with $\Coh(u')$ implies
+    $\EvalRel{M}{\rho}{u'}$.
+  \item \emph{Sup closure}: $\EvalRel{M}{\rho}{u}$ and
+    $\EvalRel{M}{\rho}{v}$ implies
+    $\EvalRel{M}{\rho}{u \Sup v}$ (when the environment is
+    coherent).
+\end{itemize}
+
+\section{Soundness of the relational semantics}
+
+\begin{definition}[Fitting environment]
+  An environment $\rho$ \emph{fits} a context $\Gamma$ (written
+  $\mathsf{Fits}(\Gamma, \rho)$) when, for each variable
+  $x_i : A_i$ in~$\Gamma$, there exists a code~$a'$ such that
+  $\rho(i) \FinMem a'$ and $\EvalRel{A_i}{\rho{\upharpoonright i}}{a'}$.
+\end{definition}
+
+\begin{definition}[Typed evaluation]
+  $\mathsf{Typed}(M,A,\rho,u)$ asserts that $u$ can be enlarged to
+  some $u' \geq u$ which is a member of some code~$a'$ that
+  $A$ evaluates to: there exist $u'$ and $a'$ such that
+  $u \LeCode u'$, $\EvalRel{M}{\rho}{u'}$, $u' \FinMem a'$, and
+  $\EvalRel{A}{\rho}{a'}$.
+\end{definition}
+
+\begin{theorem}[Typing soundness --- Theorem~1 of~\cite{CH2018}]
+  \label{thm:typing-sound}
+  If\/ $\hastype{\Gamma}{M}{A}$ and $\mathsf{Fits}(\Gamma, \rho)$,
+  then for every $u$ with $\EvalRel{M}{\rho}{u}$,
+  we have $\mathsf{Typed}(M,A,\rho,u)$.
+\end{theorem}
+
+\begin{theorem}[Conversion soundness]
+  \label{thm:conv-sound}
+  If\/ $\conveq{\Gamma}{M}{N}{A}$ and $\mathsf{Fits}(\Gamma,\rho)$,
+  then:
+  \begin{enumerate}
+    \item Typing: $\mathsf{Typed}(M,A,\rho,u)$ for all
+      $\EvalRel{M}{\rho}{u}$, and likewise for~$N$.
+    \item Bidirectional transfer: for all~$u$,
+      $\EvalRel{M}{\rho}{u} \Longleftrightarrow \EvalRel{N}{\rho}{u}$.
+  \end{enumerate}
+\end{theorem}
+
+The proofs proceed by mutual induction on the typing and conversion
+derivations.  The $\beta$ and function extensionality cases use the
+evaluation--substitution lemma: if $\EvalRel{M}{\rho[v]}{u}$ and
+$\EvalRel{N}{\rho}{v}$, then
+$\EvalRel{M[N/x]}{\rho}{u}$ (and conversely).
+Formalised in \texttt{TypingSemantics.agda} and
+\texttt{LemmaForTS.agda}, with 0~postulates.
+
+\section{Logical relation (validity)}
+
+The validity relation is defined by mutual structural recursion on
+the type code~$a \in \FinEl$.  It connects the syntactic judgments
+to the finite semantics.
+
+\begin{definition}[Validity]
+  For a context~$\Gamma$, terms $M$, $A$, a realizer $u$, and a
+  type code~$a$, we define mutually:
+
+  \medskip
+  \noindent\textbf{Term validity} $\ValR(\Gamma, M, A, u, a)$
+  by case split on~$a$:
+  \begin{itemize}
+    \item At $a = \Bot$: always $\top$ (trivially valid).
+    \item At $a = \UCode$: reduces to type validity
+      $\mathsf{ValTy}(\Gamma, M, u)$.
+    \item At $a = \PiC{b}{f}$ with $u = \FunEl{g}$: a
+      $\Sigma$-type containing
+      \begin{enumerate}
+        \item type validity of $A$ at $\PiC{b}{f}$
+          (head-reduces to some $\Pi\,A_0\,B_0$),
+        \item $\Coh(\FunEl{g})$ and
+          $\mathsf{FinMemFun}(g,b,f)$,
+        \item for every selection of $g$ with key~$u'$ and
+          value~$v$, and argument $N$ with
+          $\ValR(\Gamma, N, A_0, u', b)$:
+          \[
+            \ValR(\Gamma, \App{M}{N}, B_0[N], v, \EvalFun(f, u')).
+          \]
+      \end{enumerate}
+    \item At $a = \PiC{b}{f}$ with $u \neq \FunEl{g}$: always $\top$.
+  \end{itemize}
+
+  \medskip
+  \noindent\textbf{Type validity} $\mathsf{ValTy}(\Gamma, M, u)$
+  at $u = \PiC{b}{f}$:
+  a $\Sigma$-type containing terms $A$, $B$ such that
+  $M \Red \Pitype{x{:}A}{B}$ in~$\Gamma$,
+  $\mathsf{CohFunTail}(f)$,
+  $\mathsf{FinMemAllU}(f,b)$,
+  type validity $\mathsf{ValTy}(\Gamma, A, b)$,
+  and for every selection of $f$ with key~$u'$ and value~$v$,
+  and argument~$N$ with $\ValR(\Gamma, N, A, u', b)$:
+  $\mathsf{ValTy}(\Gamma, B[N], v)$.
+
+  \medskip
+  \noindent\textbf{Equality validity} $\EqValR(\Gamma, M, N, A, u, a)$
+  bundles validity of both $M$ and $N$, plus type-equality data at
+  $\Pi$-codes.
+\end{definition}
+
+The key feature of this logical relation is that it recurses on
+the type code~$a$ rather than on syntactic types.  Since
+$\EvalFun(f, u')$ is structurally smaller than $\PiC{b}{f}$
+(its rank is bounded by $\mathsf{rk}_{\mathsf{fun}}(f)
+< \mathsf{rk}(\PiC{b}{f})$), the recursion is well-founded
+despite the type-in-type universe.
+
+\paragraph{Monotonicity properties.}
+Three mutual monotonicity families are proved:
+\begin{itemize}
+  \item \emph{Downward in $a$}: if $a' \LeCode a$ and
+    $u \FinMem a'$, then
+    $\ValR(\Gamma,M,A,u,a) \Rightarrow \ValR(\Gamma,M,A,u,a')$.
+  \item \emph{Upward in $a$}: if $a \LeCode a'$ and both
+    $u \FinMem a$ and $u \FinMem a'$, then
+    $\ValR(\Gamma,M,A,u,a) \Rightarrow \ValR(\Gamma,M,A,u,a')$.
+  \item \emph{Restriction in $u$}: if $u' \LeCode u$ and
+    $u' \FinMem a$, then
+    $\ValR(\Gamma,M,A,u,a) \Rightarrow \ValR(\Gamma,M,A,u',a)$.
+\end{itemize}
+Formalised in \texttt{Validity.agda} with 0~postulates.
+
+\section{Adequacy}
+
+The adequacy theorem is the bridge between the syntactic typing
+judgments and the semantic validity relation.  It is proved using
+the two-substitution technique of~\cite{CH2018}, Theorem~2.
+
+\begin{definition}[Bundled validity]
+  $\mathsf{Val2}(\Gamma, M, A, u, a)$ refines $\ValR$ by
+  requiring $\hastype{\Gamma}{M}{A}$ at the leaves (at
+  $\Bot$-realizer or $\Bot$-code positions).  Similarly,
+  $\mathsf{EqVal2}$ requires $\conveq{\Gamma}{M}{N}{A}$.
+  These bundled versions are defined in \texttt{Validity2.agda}.
+\end{definition}
+
+\begin{theorem}[Adequacy --- two-substitution form]
+  \label{thm:adequacy}
+  The following are proved by mutual induction on typing/conversion
+  derivations, instantiated at two substitutions $\sigma_1$,
+  $\sigma_2$ simultaneously:
+  \begin{enumerate}
+    \item If\/ $\hastype{\Gamma}{M}{A}$, then for all codes
+      $u,a$ with $\EvalRel{M}{\rho}{u}$ and
+      $\EvalRel{A}{\rho}{a}$:
+      \[
+        \mathsf{Val2}(\Delta,\, M[\sigma],\, A[\sigma],\, u,\, a).
+      \]
+    \item If\/ $\conveq{\Gamma}{M}{N}{A}$, then under the same
+      conditions:
+      \[
+        \mathsf{EqVal2}(\Delta,\, M[\sigma],\, N[\sigma],\,
+          A[\sigma],\, u,\, a).
+      \]
+  \end{enumerate}
+\end{theorem}
+
+The proof uses the substitution lemma (well-typed substitutions
+preserve typing and conversion), context conversion, the soundness
+theorems~\ref{thm:typing-sound} and~\ref{thm:conv-sound},
+and the monotonicity properties of the validity relation.
+Key cases:
+\begin{itemize}
+  \item \textsc{Beta}: uses the evaluation--substitution
+    correspondence and $\beta$-expansion/contraction lemmas for
+    $\mathsf{Val2}$.
+  \item \textsc{Funext}: uses weakening for
+    $\mathsf{EvalRel}$ and the selection-based Pi clauses.
+  \item \textsc{Conv}: uses the bidirectional transfer from
+    conversion soundness and the downward/upward monotonicity
+    of $\mathsf{Val2}$.
+  \item \textsc{Pi}: constructs a $\PiC{b}{f}$-realizer by
+    building selections from the domain and codomain adequacy
+    hypotheses.
+\end{itemize}
+Formalised in \texttt{Adequacy2.agda} with 0~postulates.
 
 \section{Main result: Pi injectivity}
 
