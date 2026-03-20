@@ -309,8 +309,8 @@ $(a_i,b_i) \in f$ satisfies $a_i \FinMem a$ and $b_i \FinMem \UCode$.
 Key structural properties:
 \begin{itemize}
   \item $u \FinMem a$ implies $\Coh(u)$, $\Coh(a)$, and $a \FinMem \UCode$.
-  \item If $u \FinMem a$ and $a \LeCode a'$ with $u \FinMem a'$,
-    then the membership is upward-closed.
+  \item Membership is monotone: if $u \FinMem a$ and $a \LeCode a'$
+    with $a' \FinMem \UCode$, then $u \FinMem a'$.
 \end{itemize}
 
 \section{Selections}
@@ -338,9 +338,17 @@ type with three constructors:
 The compatibility conditions in \textsc{Sel-Take} ensure that the
 accumulated $u$ and $v$ remain coherent.  A key property is that
 $\mathsf{Selection}(f,u,v)$ implies $v \LeCode \EvalFun(f,u)$.
-Selections are used in both the relational semantics and the
-validity relation to handle $\Pi$-types and $\lambda$-terms
-in a purely finite, relational way.
+
+Why selections rather than individual edges?  The evaluation
+$\EvalFun(f,u)$ is defined as a supremum: it aggregates the outputs
+of \emph{all} edges in~$f$ whose keys lie below~$u$.  Working with
+single edges would not capture this aggregate character.  A selection
+encodes a finite compatible subfamily of edges whose joins approximate
+$\EvalFun(f,u)$ from below, and the compatibility check guarantees
+that these joins are well-defined (i.e.\ coherent).  This is the
+mechanism that lets the relational semantics and the validity relation
+handle $\Pi$-types and $\lambda$-terms in a purely finite way, without
+ever computing an infinite supremum.
 
 \section{Relational semantics on finite approximants}
 
