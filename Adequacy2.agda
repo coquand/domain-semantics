@@ -93,6 +93,13 @@ open import TypingSemantics using (convSound ; convSound-inv ; convSound' ; theo
 open import LemmaForTS using (Fits ; Typed ; Fits-CoherentEnv)
 open import EvalSubstitution using (EvalRel-subst1-backward ; EvalRel-wk ; EvalRel-unwk ;
   EvalRel-Pi-app-type ; EvalRel-Pi-body ; EvalRel-subst1-forward)
+open import LemmaForA2 using (tyU2-helper ;
+  sup-transport-Val2 ; sup-transport-EqVal2 ;
+  app-transport-Val2 ; app-transport-EqVal2)
+  renaming (Val2-U-to-ValTy2 to Val2-U-to-ValTy2' ;
+            EqVal2-U-to-ValTy2-fst to EqVal2-U-to-ValTy2-fst' ;
+            EqVal2-U-to-ValTy2-snd to EqVal2-U-to-ValTy2-snd' ;
+            EqVal2-U-to-EqValTy2 to EqVal2-U-to-EqValTy2')
 
 open import RawSyntax using (Ren ; liftRen ; renExpr ; wkRen)
 open import SubstitutionLemma using (typing-ConvTm ; WtSub ;
@@ -515,16 +522,6 @@ mutual
 
   adequacySub2 {H = H} (ty-U _) sigma rho crho vs fits wtsub wfH u hu a evA fm =
     tyU2-helper u a (snd hu) (snd evA) fm
-    where
-      tyU2-helper : (u0 a0 : FinEl) -> LeCode u0 UCode -> LeCode a0 UCode ->
-        FinMem u0 a0 -> Val2 _ U U u0 a0
-      tyU2-helper u0 Bot          _  _  _   = tt
-      tyU2-helper Bot UCode        _  _  _   = tt
-      tyU2-helper UCode UCode       _  _  _   = tt
-      tyU2-helper (FunEl _)    UCode () _  _
-      tyU2-helper (PiCode _ _) UCode () _  _
-      tyU2-helper u0 (FunEl _)    _  () _
-      tyU2-helper u0 (PiCode _ _) _  () _
 
   ----------------------------------------------------------------------
   -- adequacySub2: ty-conv
@@ -704,14 +701,11 @@ mutual
   ----------------------------------------------------------------------
 
   -- Helper: Val2 at U b UCode is the same as ValTy2 b
-  -- (substExpr sigma U = U definitionally, but Agda doesn't see through it)
+  -- (delegated to LemmaForA2)
   Val2-U-to-ValTy2 : {n : Nat} {G : Ctx n} {M : Expr n}
     (b : FinEl) -> FinMem b UCode ->
     Val2 G M U b UCode -> ValTy2 G M b
-  Val2-U-to-ValTy2 Bot            fm v = v
-  Val2-U-to-ValTy2 UCode          fm v = v
-  Val2-U-to-ValTy2 (FunEl g)      fm v = v
-  Val2-U-to-ValTy2 (PiCode a f)   fm v = v
+  Val2-U-to-ValTy2 = Val2-U-to-ValTy2'
 
   -- ty-Pi at (PiCode b f, UCode): build ValTyPi2
   adequacySub2-Pi : {h g : Nat} {H : Ctx h} {G : Ctx g}
@@ -761,27 +755,12 @@ mutual
     (a_arg : FinEl) -> EvalRel A rho a_arg -> FinMem u' a_arg ->
     Val2 H N (substExpr sigma A) u' a_arg
   transportVal2 {H = H} {A = A} d1 d2 sigma rho crho vs fits wtsub wfH b bU evAb u0 fm_u0_b N valN u' cu' le_u'_u0 a_arg evA_arg fm_u'_a =
-    let sA       = substExpr sigma A
-        comp_b_a = EvalRel-Comp A rho crho b a_arg evAb evA_arg
-        ca_arg   = EvalRel-coh A rho a_arg evA_arg
-        cb       = coh-from-aU b bU
+    let comp_b_a = EvalRel-Comp A rho crho b a_arg evAb evA_arg
         a_argU   = FinMem-a-in-U u' a_arg fm_u'_a
-        sup_bU   = finMemUCode-Sup b a_arg comp_b_a bU a_argU
-        c_sup    = Coherent-Sup b a_arg comp_b_a cb ca_arg
-        le_b_sup = LeCode-Sup-left b a_arg comp_b_a cb ca_arg
-        le_a_sup = LeCode-Sup-right b a_arg comp_b_a cb ca_arg
-        fm_u0_sup = finMem-upward u0 b (Sup b a_arg) le_b_sup cb c_sup fm_u0_b sup_bU
-        fm_u'_sup = finMem-upward u' a_arg (Sup b a_arg) le_a_sup ca_arg c_sup fm_u'_a sup_bU
         evU      = mkSigma tt (LeCode-refl UCode tt)
         vtA_b    = Val2-U-to-ValTy2 b bU (adequacySub2 d1 sigma rho crho vs fits wtsub wfH b evAb UCode evU bU)
         vtA_a    = Val2-U-to-ValTy2 a_arg a_argU (adequacySub2 d1 sigma rho crho vs fits wtsub wfH a_arg evA_arg UCode evU a_argU)
-        vtA_sup  = ValTy2-Sup H sA b a_arg comp_b_a bU a_argU vtA_b vtA_a
-        val1     = upVal2 H N sA u0 b (Sup b a_arg) le_b_sup fm_u0_b fm_u0_sup
-                     cb c_sup valN vtA_sup
-        fm_u_sup = finMem-upward u0 b (Sup b a_arg) le_b_sup cb c_sup fm_u0_b sup_bU
-        val2     = restrictVal2 H N sA u0 u' (Sup b a_arg) le_u'_u0 fm_u'_sup fm_u_sup val1
-        val3     = downVal2 H N sA u' a_arg (Sup b a_arg) le_a_sup fm_u'_a ca_arg sup_bU val2
-    in val3
+    in sup-transport-Val2 b a_arg comp_b_a bU a_argU u0 u' fm_u0_b cu' le_u'_u0 fm_u'_a vtA_b vtA_a valN
 
   -- transportEqVal2: transport EqVal2 H N1 N2 sA u0 b to EqVal2 H N1 N2 sA u' a_arg
   -- Returns a function suitable for ValidConvSub2-extend
@@ -799,29 +778,12 @@ mutual
     (a_arg : FinEl) -> EvalRel A rho a_arg -> FinMem u' a_arg ->
     EqVal2 H N1 N2 (substExpr sigma A) u' a_arg
   transportEqVal2 {H = H} {A = A} d1 d2 sigma rho crho vs fits wtsub wfH b bU evAb u0 fm_u0_b eqN u' cu' le_u'_u0 a_arg evA_arg fm_u'_a =
-    let sA       = substExpr sigma A
-        comp_b_a = EvalRel-Comp A rho crho b a_arg evAb evA_arg
-        ca_arg   = EvalRel-coh A rho a_arg evA_arg
-        cb       = coh-from-aU b bU
+    let comp_b_a = EvalRel-Comp A rho crho b a_arg evAb evA_arg
         a_argU   = FinMem-a-in-U u' a_arg fm_u'_a
-        sup_bU   = finMemUCode-Sup b a_arg comp_b_a bU a_argU
-        c_sup    = Coherent-Sup b a_arg comp_b_a cb ca_arg
-        le_b_sup = LeCode-Sup-left b a_arg comp_b_a cb ca_arg
-        le_a_sup = LeCode-Sup-right b a_arg comp_b_a cb ca_arg
-        fm_u0_sup = finMem-upward u0 b (Sup b a_arg) le_b_sup cb c_sup fm_u0_b sup_bU
-        fm_u'_sup = finMem-upward u' a_arg (Sup b a_arg) le_a_sup ca_arg c_sup fm_u'_a sup_bU
         evU      = mkSigma tt (LeCode-refl UCode tt)
         vtA_b    = Val2-U-to-ValTy2 b bU (adequacySub2 d1 sigma rho crho vs fits wtsub wfH b evAb UCode evU bU)
         vtA_a    = Val2-U-to-ValTy2 a_arg a_argU (adequacySub2 d1 sigma rho crho vs fits wtsub wfH a_arg evA_arg UCode evU a_argU)
-        vtA_sup  = ValTy2-Sup H sA b a_arg comp_b_a bU a_argU vtA_b vtA_a
-        eq1      = upEqVal2 H _ _ sA u0 b (Sup b a_arg)
-                     le_b_sup fm_u0_b fm_u0_sup cb c_sup eqN vtA_sup
-        fm_u_sup = finMem-upward u0 b (Sup b a_arg) le_b_sup cb c_sup fm_u0_b sup_bU
-        eq2      = restrictEqVal2 H _ _ sA u0 u' (Sup b a_arg)
-                     le_u'_u0 fm_u'_sup fm_u_sup eq1
-        eq3      = downEqVal2 H _ _ sA u' a_arg (Sup b a_arg)
-                     le_a_sup fm_u'_a ca_arg sup_bU eq2
-    in eq3
+    in sup-transport-EqVal2 b a_arg comp_b_a bU a_argU u0 u' fm_u0_b cu' le_u'_u0 fm_u'_a vtA_b vtA_a eqN
 
   -- buildPiEdgeVal2: PiEdgeVal2 for the Pi case
   buildPiEdgeVal2 : {h g : Nat} {H : Ctx h} {G : Ctx g}
@@ -1210,19 +1172,10 @@ mutual
             c_efusel = Coherent-EvalFun f_pi u_sel cft_fpi cu_sel
             evBa_efusel = EvalRel-down (subst1 B a) rho (EvalFun f_pi v0) ef_usel crho c_efusel evBa_efv le_ef
             comp_ac_ef = EvalRel-Comp (subst1 B a) rho crho ac1 ef_usel evAc1 evBa_efusel
-            c_ac     = EvalRel-coh (subst1 B a) rho ac1 evAc1
-
-            sup_code = Sup ac1 ef_usel
-            c_sup    = Coherent-Sup ac1 ef_usel comp_ac_ef c_ac c_efusel
-            le_ac_sup = LeCode-Sup-left ac1 ef_usel comp_ac_ef c_ac c_efusel
-            le_ef_sup = LeCode-Sup-right ac1 ef_usel comp_ac_ef c_ac c_efusel
 
             ac1_U    = FinMem-a-in-U u1 ac1 fm1
             ef_uselU = EvalFun-in-UCode f_pi u_sel b_pi cft_fpi cu_sel allU_fpi
-            sup_U    = finMemUCode-Sup ac1 ef_usel comp_ac_ef ac1_U ef_uselU
-            fm_u1_sup = finMem-upward u1 ac1 sup_code le_ac_sup c_ac c_sup fm1 sup_U
             fm_vsel_ef = FinMem-Selection-codomain b_pi f_pi sel_big fmg_big (cft-from-cf g_big cg_big) cf_pi allU_fpi
-            fm_vsel_sup = finMem-upward v_sel ef_usel sup_code le_ef_sup c_efusel c_sup fm_vsel_ef sup_U
 
             -- ValTy2 at Sup: need ValTy2 at ac1 and at ef_usel
             evU      = mkSigma tt (LeCode-refl UCode tt)
@@ -1287,18 +1240,8 @@ mutual
                             crho_ef vs_ef fits_ef wtsub_ext wfH ef_usel evB_vfef' UCode evU ef_uselU)
             vt_ef     = S.Eq-transport (\ T -> ValTy2 H T ef_usel) eq_comp vt_ef_raw
 
-            -- ValTy2-Sup
-            vt_sup   = ValTy2-Sup H (subst1 sB sa) ac1 ef_usel
-                         comp_ac_ef ac1_U ef_uselU vt_ac vt_ef
-
-            -- Transport chain
-            val_up   = upVal2 H (App sf sa) (subst1 sB sa) v_sel ef_usel sup_code
-                         le_ef_sup fm_vsel_ef fm_vsel_sup c_efusel c_sup val_app vt_sup
-            val_res  = restrictVal2 H (App sf sa) (subst1 sB sa) v_sel u1 sup_code
-                         le_u1_vsel' fm_u1_sup fm_vsel_sup val_up
-            val_down = downVal2 H (App sf sa) (subst1 sB sa) u1
-                         ac1 sup_code le_ac_sup fm1 c_ac sup_U val_res
-        in val_down
+        in app-transport-Val2 ac1 ef_usel comp_ac_ef ac1_U ef_uselU
+             v_sel u1 fm_vsel_ef fm1 le_u1_vsel' vt_ac vt_ef val_app
 
       -- Dispatch on u_big (FunEl) and a_pi (PiCode)
       transported : Val2 H (App sf sa) (subst1 sB sa) u1 ac1
@@ -1333,31 +1276,21 @@ mutual
         eqval_diag = Val2-to-EqVal2 u ac val_subst
     in EqVal2-headred-expand u ac beta-hr headred-refl eqval_diag
 
-  -- EqVal2-U extraction helpers: EqVal2 at UCode case-splits on u
-  -- (unbundled EqVal at UCode is uniform Pair for all u; bundled has Top at Bot)
+  -- EqVal2-U extraction helpers (delegated to LemmaForA2)
   EqVal2-U-to-ValTy2-fst : {n : Nat} {G : Ctx n} {M N : Expr n}
     (v0 : FinEl) -> FinMem v0 UCode ->
     EqVal2 G M N U v0 UCode -> ValTy2 G M v0
-  EqVal2-U-to-ValTy2-fst Bot            fm ev = tt
-  EqVal2-U-to-ValTy2-fst UCode          fm ev = fst ev
-  EqVal2-U-to-ValTy2-fst (FunEl g)      fm ev = fst ev
-  EqVal2-U-to-ValTy2-fst (PiCode a' f') fm ev = fst ev
+  EqVal2-U-to-ValTy2-fst = EqVal2-U-to-ValTy2-fst'
 
   EqVal2-U-to-ValTy2-snd : {n : Nat} {G : Ctx n} {M N : Expr n}
     (v0 : FinEl) -> FinMem v0 UCode ->
     EqVal2 G M N U v0 UCode -> ValTy2 G N v0
-  EqVal2-U-to-ValTy2-snd Bot            fm ev = tt
-  EqVal2-U-to-ValTy2-snd UCode          fm ev = fst (snd ev)
-  EqVal2-U-to-ValTy2-snd (FunEl g)      fm ev = fst (snd ev)
-  EqVal2-U-to-ValTy2-snd (PiCode a' f') fm ev = fst (snd ev)
+  EqVal2-U-to-ValTy2-snd = EqVal2-U-to-ValTy2-snd'
 
   EqVal2-U-to-EqValTy2 : {n : Nat} {G : Ctx n} {M N : Expr n}
     (v0 : FinEl) -> FinMem v0 UCode ->
     EqVal2 G M N U v0 UCode -> EqValTy2 G M N v0
-  EqVal2-U-to-EqValTy2 Bot            fm ev = tt
-  EqVal2-U-to-EqValTy2 UCode          fm ev = snd (snd ev)
-  EqVal2-U-to-EqValTy2 (FunEl g)      fm ev = snd (snd ev)
-  EqVal2-U-to-EqValTy2 (PiCode a' f') fm ev = snd (snd ev)
+  EqVal2-U-to-EqValTy2 = EqVal2-U-to-EqValTy2'
 
   adequacyEqSub2-Pi : {h g : Nat} {H : Ctx h} {G : Ctx g}
     {A A' : Expr g} {B B' : Expr (suc g)} ->
@@ -2041,15 +1974,8 @@ mutual
                             crho_ef vs_ef fits_ef wtsub_ext wfH ef_usel evB_vfef' UCode evU ef_uselU)
             vt_ef     = S.Eq-transport (\ T -> ValTy2 H T ef_usel) eq_comp vt_ef_raw
 
-            vt_sup   = ValTy2-Sup H (subst1 sB sa) ac1 ef_usel
-                         comp_ac_ef ac1_U ef_uselU vt_ac vt_ef
-            eqval_up   = upEqVal2 H (App sf sa) (App sf' sa) (subst1 sB sa) v_sel ef_usel sup_code
-                           le_ef_sup fm_vsel_ef fm_vsel_sup c_efusel c_sup eqval_app vt_sup
-            eqval_res  = restrictEqVal2 H (App sf sa) (App sf' sa) (subst1 sB sa) v_sel u1 sup_code
-                           le_u1_vsel' fm_u1_sup fm_vsel_sup eqval_up
-            eqval_down = downEqVal2 H (App sf sa) (App sf' sa) (subst1 sB sa) u1
-                           ac1 sup_code le_ac_sup fm1 c_ac sup_U eqval_res
-        in eqval_down
+        in app-transport-EqVal2 ac1 ef_usel comp_ac_ef ac1_U ef_uselU
+             v_sel u1 fm_vsel_ef fm1 le_u1_vsel' vt_ac vt_ef eqval_app
 
       transported : EqVal2 H (App sf sa) (App sf' sa) (subst1 sB sa) u1 ac1
       transported = appEqVal-dispatch u_big a_pi le_sing evF_big evPi fm_big eqval_fun
@@ -2292,15 +2218,8 @@ mutual
                             crho_ef vs_ef fits_ef wtsub_ext wfH ef_usel evB_vfef' UCode evU ef_uselU)
             vt_ef     = S.Eq-transport (\ T -> ValTy2 H T ef_usel) eq_comp vt_ef_raw
 
-            vt_sup   = ValTy2-Sup H (subst1 sB sa) ac1 ef_usel
-                         comp_ac_ef ac1_U ef_uselU vt_ac vt_ef
-            eqval_up   = upEqVal2 H (App sf sa) (App sf sa') (subst1 sB sa) v_sel ef_usel sup_code
-                           le_ef_sup fm_vsel_ef fm_vsel_sup c_efusel c_sup eqval_app vt_sup
-            eqval_res  = restrictEqVal2 H (App sf sa) (App sf sa') (subst1 sB sa) v_sel u1 sup_code
-                           le_u1_vsel' fm_u1_sup fm_vsel_sup eqval_up
-            eqval_down = downEqVal2 H (App sf sa) (App sf sa') (subst1 sB sa) u1
-                           ac1 sup_code le_ac_sup fm1 c_ac sup_U eqval_res
-        in eqval_down
+        in app-transport-EqVal2 ac1 ef_usel comp_ac_ef ac1_U ef_uselU
+             v_sel u1 fm_vsel_ef fm1 le_u1_vsel' vt_ac vt_ef eqval_app
 
       transported : EqVal2 H (App sf sa) (App sf sa') (subst1 sB sa) u1 ac1
       transported = appEqVal-dispatch u_big a_pi le_sing evF_big evPi fm_big val_fun
@@ -2887,15 +2806,8 @@ mutual
                             crho_ef vs_ef fits_ef wtsub_ext wfH ef_usel evB_vfef' UCode evU ef_uselU)
             vt_ef     = S.Eq-transport (\ T -> ValTy2 H T ef_usel) eq_comp vt_ef_raw
 
-            vt_sup   = ValTy2-Sup H (subst1 sB sa) ac1 ef_usel
-                         comp_ac_ef ac1_U ef_uselU vt_ac vt_ef
-            eqval_up   = upEqVal2 H (App sf sa) (App sf' sa') (subst1 sB sa) v_sel ef_usel sup_code
-                           le_ef_sup fm_vsel_ef fm_vsel_sup c_efusel c_sup eqval_combined vt_sup
-            eqval_res  = restrictEqVal2 H (App sf sa) (App sf' sa') (subst1 sB sa) v_sel u1 sup_code
-                           le_u1_vsel' fm_u1_sup fm_vsel_sup eqval_up
-            eqval_down = downEqVal2 H (App sf sa) (App sf' sa') (subst1 sB sa) u1
-                           ac1 sup_code le_ac_sup fm1 c_ac sup_U eqval_res
-        in eqval_down
+        in app-transport-EqVal2 ac1 ef_usel comp_ac_ef ac1_U ef_uselU
+             v_sel u1 fm_vsel_ef fm1 le_u1_vsel' vt_ac vt_ef eqval_combined
 
       transported : EqVal2 H (App sf sa) (App sf' sa') (subst1 sB sa) u1 ac1
       transported = appEqVal-dispatch u_big a_pi le_sing evF_big evPi fm_big eqval_f
