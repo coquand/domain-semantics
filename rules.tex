@@ -17,14 +17,14 @@
 \newcommand{\FinEl}{\mathsf{FinEl}}
 \newcommand{\FinFun}{\mathsf{FinFun}}
 \newcommand{\Bot}{\bot}
-\newcommand{\UCode}{\mathsf{U}_c}
+\newcommand{\UCode}{\mathsf{U}}
 \newcommand{\FunEl}[1]{\mathsf{Fun}(#1)}
-\newcommand{\PiC}[2]{\mathsf{Pi}_c(#1,#2)}
+\newcommand{\PiC}[2]{\mathsf{Pi}(#1,#2)}
 \newcommand{\EvalFun}{\mathsf{ev}}
 \newcommand{\LeCode}{\leq}
 \newcommand{\Sup}{\sqcup}
 \newcommand{\Coh}{\mathsf{Coh}}
-\newcommand{\FinMem}{\mathrel{:_f}}
+\newcommand{\FinMem}{\mathrel{:}}
 \newcommand{\EvalRel}[3]{\llbracket #1 \rrbracket_{#2} \ni #3}
 \newcommand{\ValR}{\mathsf{Val}}
 \newcommand{\EqValR}{\mathsf{EqVal}}
@@ -197,6 +197,17 @@ of $\beta$-reduction at the head:
     {M \leadsto M'}
     {\App{M}{a} \leadsto \App{M'}{a}}
 \end{mathpar}
+
+We write $M \Red N$ for the reflexive-transitive closure.
+The validity relation uses a wrapper $\mathsf{Red}\;\Gamma\;M\;N\;A$,
+which carries only a proof of $M \Red N$; the context~$\Gamma$ and
+type~$A$ are phantom parameters kept for inference convenience.
+In~\cite{CH2018}, the reduction relation is defined as a subrelation
+of conversion, requiring both $M \Red N$ and $\conveq{\Gamma}{M}{N}{A}$.
+Here, reduction is purely syntactic: the conversion witnesses are
+instead stored directly at the leaves of the bundled validity
+relation ($\mathsf{Val2}$/$\mathsf{EqVal2}$), so the
+$\mathsf{Red}$ wrapper need not carry them.
 
 %% ================================================================
 %%  PART II: DOMAIN SEMANTICS
@@ -503,14 +514,15 @@ despite the type-in-type universe.
 \paragraph{Monotonicity properties.}
 Three mutual monotonicity families are proved:
 \begin{itemize}
-  \item \emph{Downward in $a$}: if $a' \LeCode a$ and
-    $u \FinMem a'$, then
-    $\ValR(\Gamma,M,A,u,a) \Rightarrow \ValR(\Gamma,M,A,u,a')$.
-  \item \emph{Upward in $a$}: if $a \LeCode a'$ and both
-    $u \FinMem a$ and $u \FinMem a'$, then
-    $\ValR(\Gamma,M,A,u,a) \Rightarrow \ValR(\Gamma,M,A,u,a')$.
-  \item \emph{Restriction in $u$}: if $u' \LeCode u$ and
-    $u' \FinMem a$, then
+  \item \emph{Downward in $a$}: if $a_0 \LeCode a_1$,
+    $u \FinMem a_0$, $\Coh(a_0)$, and $a_1 \FinMem \UCode$, then
+    $\ValR(\Gamma,M,A,u,a_1) \Rightarrow \ValR(\Gamma,M,A,u,a_0)$.
+  \item \emph{Upward in $a$}: if $a_0 \LeCode a_1$,
+    $u \FinMem a_0$, $u \FinMem a_1$, $\Coh(a_0)$, $\Coh(a_1)$,
+    and $\mathsf{ValTy}(\Gamma, A, a_1)$, then
+    $\ValR(\Gamma,M,A,u,a_0) \Rightarrow \ValR(\Gamma,M,A,u,a_1)$.
+  \item \emph{Restriction in $u$}: if $u' \LeCode u$,
+    $u' \FinMem a$, and $u \FinMem a$, then
     $\ValR(\Gamma,M,A,u,a) \Rightarrow \ValR(\Gamma,M,A,u',a)$.
 \end{itemize}
 Formalised in \texttt{Validity.agda} with 0~postulates.
