@@ -171,8 +171,11 @@ piConv {n} {G} {A₀} {B₁} {F₁} d =
       evPi : EvalRel (Pi B₁ F₁) rho (PiCode Bot nil)
       evPi = evalRel-Pi-trivial B₁ F₁ rho
 
+      -- convSound' returns a 4-tuple; extract the transfer function
+      mkSigma _ (mkSigma _ (mkSigma _ transfer)) = convSound' d rho fits
+
       evA₀ : EvalRel A₀ rho (PiCode Bot nil)
-      evA₀ = snd (snd (snd (convSound' d rho fits))) (PiCode Bot nil) evPi
+      evA₀ = transfer (PiCode Bot nil) evPi
 
       evU : EvalRel U rho UCode
       evU = mkSigma tt (LeCode-refl UCode tt)
@@ -180,7 +183,8 @@ piConv {n} {G} {A₀} {B₁} {F₁} d =
       fmPU : FinMem (PiCode Bot nil) UCode
       fmPU = mkSigma tt (mkSigma tt tt)
 
-      wfG  = typing-WfCtx (fst (typing-ConvTm d))
+      mkSigma htM _ = typing-ConvTm d
+      wfG  = typing-WfCtx htM
       wsId = idSub-WtSub wfG
 
       -- Step 2: Apply adequacyEqSub2
@@ -213,35 +217,21 @@ piConv {n} {G} {A₀} {B₁} {F₁} d =
       --              (EqValTyPi2 G A₀ (Pi B₁ F₁) Bot nil))
       -- ev2 has this type
 
-      -- Step 3: Extract from EqValTyPi2
-      -- ev2 : Pair (ValTy2 G A₀ (PiCode Bot nil))
-      --             (Pair (ValTy2 G (Pi B₁ F₁) (PiCode Bot nil))
-      --                   (EqValTy2 G A₀ (Pi B₁ F₁) (PiCode Bot nil)))
-      -- EqValTy2 at PiCode = Pair ValTyPi2_M (Pair ValTyPi2_N EqValTyPi2)
-      eqvty = snd (snd ev2)     -- EqValTy2
-      core  = snd (snd eqvty)   -- EqValTyPi2 G A₀ (Pi B₁ F₁) Bot nil
-      -- Fields: A, B, A', B', RedM, RedN, cf, fmU, ConvTm G A A' U, ConvTm (extend G A) B B' U, Pair(...)
-      B₀    = fst core
-      F₀    = fst (snd core)
-      B₁'   = fst (snd (snd core))
-      F₁'   = fst (snd (snd (snd core)))
-      redA₀ = fst (snd (snd (snd (snd core))))
-      redPi = fst (snd (snd (snd (snd (snd core)))))
+      -- Step 3: Extract from EqValTyPi2 via pattern matching
+      -- ev2 at (PiCode, UCode) = Pair ValTyPi2_M (Pair ValTyPi2_N EqValTyPi2)
+      mkSigma _ (mkSigma _ eqvty) = ev2
+      mkSigma _ (mkSigma _ core)  = eqvty
+      -- core : EqValTyPi2 G A₀ (Pi B₁ F₁) Bot nil
+      --   = Sigma A B A' B' RedM RedN cf fmU ConvDom ConvCod (Pair ...)
+      mkSigma B₀ (mkSigma F₀ (mkSigma B₁' (mkSigma F₁'
+        (mkSigma redA₀ (mkSigma redPi (mkSigma _ (mkSigma _
+          (mkSigma convDom (mkSigma convCod _))))))))) = core
 
-      -- Extract HeadRed
+      -- HeadRed from Red
       hrA₀  = Red-hr redA₀
 
-      -- Red for (Pi B₁ F₁) must be reflexive: B₁' = B₁, F₁' = F₁
-      -- Use Red-unique-Pi with mkRed headred-refl as one witness
-      uniqPi = Red-unique-Pi redPi (mkRed headred-refl)
-      eqB₁  = fst uniqPi
-      eqF₁  = snd uniqPi
-
-      -- ConvTm fields (positions 9 and 10 in EqValTyPi2)
-      convDom : ConvTm G B₀ B₁' U
-      convDom = fst (snd (snd (snd (snd (snd (snd (snd (snd core))))))))
-      convCod : ConvTm (extend G B₀) F₀ F₁' U
-      convCod = fst (snd (snd (snd (snd (snd (snd (snd (snd (snd core)))))))))
+      -- Red for (Pi B₁ F₁) is reflexive: B₁' = B₁, F₁' = F₁
+      mkSigma eqB₁ eqF₁ = Red-unique-Pi redPi (mkRed headred-refl)
 
       -- Transport ConvTm along B₁' = B₁ and F₁' = F₁
       convDom' : ConvTm G B₀ B₁ U
@@ -265,20 +255,12 @@ piInjectivity : {n : Nat} {G : Ctx n}
   ConvTm G (Pi A₀ B₀) (Pi A₁ B₁) U ->
   Pair (ConvTm G A₀ A₁ U) (ConvTm (extend G A₀) B₀ B₁ U)
 piInjectivity {n} {G} {A₀} {B₀} {A₁} {B₁} d =
-  let result = piConv d
-      B₀'   = fst result
-      F₀'   = fst (snd result)
-      hr    = fst (snd (snd result))
-      convD = fst (snd (snd (snd result)))
-      convC = snd (snd (snd (snd result)))
+  let mkSigma B₀' (mkSigma F₀' (mkSigma hr (mkSigma convD convC))) = piConv d
 
       -- hr : HeadRed (Pi A₀ B₀) (Pi B₀' F₀')
       -- Pi is a normal form, so B₀' = A₀ and F₀' = B₀
-      uniq = Red-unique-Pi {G = G} {B = B₀'} {F = F₀'} (mkRed hr) (mkRed (headred-refl {M = Pi A₀ B₀}))
-      eqA : Eq B₀' A₀
-      eqA = fst uniq
-      eqB : Eq F₀' B₀
-      eqB = snd uniq
+      mkSigma eqA eqB = Red-unique-Pi {G = G} {B = B₀'} {F = F₀'}
+        (mkRed hr) (mkRed (headred-refl {M = Pi A₀ B₀}))
 
       -- Transport: ConvTm G B₀' A₁ U  →  ConvTm G A₀ A₁ U
       convD' : ConvTm G A₀ A₁ U
