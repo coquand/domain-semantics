@@ -64,13 +64,17 @@ mutual
     ConvTm G M N A ->
     (rho : EnvApprox n) -> Fits G rho ->
     (u : FinEl) -> EvalRel M rho u -> EvalRel N rho u
-  convSound d rho fits = fst (snd (snd (convSound' d rho fits)))
+  convSound d rho fits =
+    let mkSigma _ (mkSigma _ (mkSigma fwd _)) = convSound' d rho fits
+    in fwd
 
   convSound-inv : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
     ConvTm G M N A ->
     (rho : EnvApprox n) -> Fits G rho ->
     (u : FinEl) -> EvalRel N rho u -> EvalRel M rho u
-  convSound-inv d rho fits = snd (snd (snd (convSound' d rho fits)))
+  convSound-inv d rho fits =
+    let mkSigma _ (mkSigma _ (mkSigma _ bwd)) = convSound' d rho fits
+    in bwd
 
   --------------------------------------------------------------------
   -- Helper: Pi congruence on evaluation
@@ -93,11 +97,7 @@ mutual
     mkSigma coh (mkSigma (eqA b evA-b)
       (mkSigma a' (mkSigma (eqA a' evA')
         (\ u v sel ->
-          let w   = body u v sel
-              x   = fst w
-              le  = fst (snd w)
-              mem = fst (snd (snd w))
-              evB = snd (snd (snd w))
+          let mkSigma x (mkSigma le (mkSigma mem evB)) = body u v sel
           in mkSigma x (mkSigma le (mkSigma mem (eqB x a' mem evA' v evB)))))))
   convSound-Pi-fwd A A' B B' rho UCode eqA eqB ()
   convSound-Pi-fwd A A' B B' rho (FunEl g) eqA eqB ()
@@ -114,42 +114,27 @@ mutual
 
   -- conv-sym
   convSound' (conv-sym d) rho fits =
-    let ih = convSound' d rho fits
-    in mkSigma (fst (snd ih)) (mkSigma (fst ih)
-         (mkSigma (snd (snd (snd ih))) (fst (snd (snd ih)))))
+    let mkSigma invM (mkSigma invN (mkSigma fwd bwd)) = convSound' d rho fits
+    in mkSigma invN (mkSigma invM (mkSigma bwd fwd))
 
   -- conv-trans
   convSound' (conv-trans d1 d2) rho fits =
-    let ih1 = convSound' d1 rho fits
-        ih2 = convSound' d2 rho fits
-    in mkSigma (fst ih1) (mkSigma (fst (snd ih2))
-         (mkSigma (\ u ev -> fst (snd (snd ih2)) u (fst (snd (snd ih1)) u ev))
-                  (\ u ev -> snd (snd (snd ih1)) u (snd (snd (snd ih2)) u ev))))
+    let mkSigma invM (mkSigma _    (mkSigma fwd1 bwd1)) = convSound' d1 rho fits
+        mkSigma _    (mkSigma invP (mkSigma fwd2 bwd2)) = convSound' d2 rho fits
+    in mkSigma invM (mkSigma invP
+         (mkSigma (\ u ev -> fwd2 u (fwd1 u ev))
+                  (\ u ev -> bwd1 u (bwd2 u ev))))
 
   -- conv-conv: transport InvTyp through type conversion
   convSound' (conv-conv d dAB _) rho fits =
-    let ih = convSound' d rho fits
-        invM = fst ih
-        invN = fst (snd ih)
-        fwd = fst (snd (snd ih))
-        bwd = snd (snd (snd ih))
+    let mkSigma invM (mkSigma invN (mkSigma fwd bwd)) = convSound' d rho fits
         fwdAB = \ a' ev -> convSound dAB rho fits a' ev
         invM' = \ u ev ->
-          let r = invM u ev
-              u' = fst r ; a' = fst (snd r)
-              le = fst (snd (snd r))
-              evM = fst (snd (snd (snd r)))
-              fm = fst (snd (snd (snd (snd r))))
-              evA = snd (snd (snd (snd (snd r))))
+          let mkSigma u' (mkSigma a' (mkSigma le (mkSigma evM (mkSigma fm evA)))) = invM u ev
           in mkSigma u' (mkSigma a'
                (mkSigma le (mkSigma evM (mkSigma fm (fwdAB a' evA)))))
         invN' = \ u ev ->
-          let r = invN u ev
-              u' = fst r ; a' = fst (snd r)
-              le = fst (snd (snd r))
-              evN = fst (snd (snd (snd r)))
-              fm = fst (snd (snd (snd (snd r))))
-              evA = snd (snd (snd (snd (snd r))))
+          let mkSigma u' (mkSigma a' (mkSigma le (mkSigma evN (mkSigma fm evA)))) = invN u ev
           in mkSigma u' (mkSigma a'
                (mkSigma le (mkSigma evN (mkSigma fm (fwdAB a' evA)))))
     in mkSigma invM' (mkSigma invN' (mkSigma fwd bwd))
@@ -167,11 +152,7 @@ mutual
   -- InvTyp from LTS.InvTyp-Pi
   convSound' (conv-Pi {A = A} {A' = A'} {B = B} {B' = B'} d1 d2)
     rho fits =
-    let ih1   = convSound' d1 rho fits
-        invA  = fst ih1
-        invA' = fst (snd ih1)
-        fwdA  = fst (snd (snd ih1))
-        bwdA  = snd (snd (snd ih1))
+    let mkSigma invA (mkSigma invA' (mkSigma fwdA bwdA)) = convSound' d1 rho fits
         fwd = \ u ev -> convSound-Pi-fwd A A' B B' rho u
                 fwdA
                 (\ x a0 fm evA w ->
@@ -187,13 +168,15 @@ mutual
                 ev
         invPiLHS = LTS.InvTyp-Pi A B rho fits invA
           (\ x a0 fm evA ->
-            fst (convSound' d2 (extendEnv rho x)
-              (mkSigma fits (mkSigma a0 (mkSigma fm evA)))))
+            let mkSigma invB _ = convSound' d2 (extendEnv rho x)
+                  (mkSigma fits (mkSigma a0 (mkSigma fm evA)))
+            in invB)
         invPiRHS = LTS.InvTyp-Pi A' B' rho fits invA'
           (\ x a0 fm evA' ->
-            fst (snd (convSound' d2 (extendEnv rho x)
-              (mkSigma fits (mkSigma a0 (mkSigma fm
-                (bwdA a0 evA')))))))
+            let mkSigma _ (mkSigma invB' _) = convSound' d2 (extendEnv rho x)
+                  (mkSigma fits (mkSigma a0 (mkSigma fm
+                    (bwdA a0 evA'))))
+            in invB')
     in mkSigma invPiLHS (mkSigma invPiRHS (mkSigma fwd bwd))
 
   -- conv-funext: from LTS.InvConv-funext
@@ -226,10 +209,7 @@ mutual
 
   -- ty-var: u ≤ lookupEnv i rho, enlarge to lookupEnv i rho itself
   theorem1 (ty-var {i = i} wf) rho fits u (mkSigma cu le) =
-    let fv  = LTS.Fits-var rho fits i
-        a'  = fst fv
-        fm  = fst (snd fv)
-        evA = snd (snd fv)
+    let mkSigma a' (mkSigma fm evA) = LTS.Fits-var rho fits i
         li  = lookupEnv i rho
         cli = FinMem-coh-u li a' fm
     in mkSigma li (mkSigma a'
@@ -244,12 +224,8 @@ mutual
 
   -- ty-conv: transport type via conversion
   theorem1 (ty-conv d1 d2 _) rho fits u ev =
-    let ih  = theorem1 d1 rho fits u ev
-        u'  = fst ih ; a' = fst (snd ih)
-        le  = fst (snd (snd ih))
-        evM = fst (snd (snd (snd ih)))
-        fm  = fst (snd (snd (snd (snd ih))))
-        evA = snd (snd (snd (snd (snd ih))))
+    let mkSigma u' (mkSigma a' (mkSigma le (mkSigma evM (mkSigma fm evA)))) =
+          theorem1 d1 rho fits u ev
     in mkSigma u' (mkSigma a'
          (mkSigma le (mkSigma evM
            (mkSigma fm (convSound d2 rho fits a' evA)))))
