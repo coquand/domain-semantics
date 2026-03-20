@@ -136,7 +136,19 @@ Contexts are snoc-lists: $\Gamma ::= \cdot \mid \Gamma, x{:}A$.
        {\Pitype{x{:}A}{B}}
        {\Pitype{x{:}A'}{B'}}
        {\U}}
-  \and
+\end{mathpar}
+\noindent
+Note that in \textsc{Pi-Cong} the codomain premise compares $B$ and
+$B'$ in the context extended by the \emph{left} domain~$A$, not
+by~$A'$.  This is the standard convention: since $A = A' : \U$ holds,
+one could equivalently use~$A'$ (via the conversion rule on contexts),
+but fixing the left side avoids a mutual dependency between the
+congruence rule and context conversion.
+
+We write $M^+$ for the weakening of a term~$M$ by one fresh
+variable, i.e.\ $M^+$ is $M$ viewed in the extended context
+$\Gamma, x{:}A$ where it does not depend on~$x$.
+\begin{mathpar}
   \inferrule[\textsc{Funext}]
     {\hastype{\Gamma}{A}{\U} \\
      \conveq{\Gamma, x{:}A}{\App{\wkn{f}}{x}}{\App{\wkn{g}}{x}}{B} \\
@@ -177,10 +189,12 @@ Contexts are snoc-lists: $\Gamma ::= \cdot \mid \Gamma, x{:}A$.
   By \textsc{Funext} it suffices to show
   $\conveq{\Gamma, x{:}A}{\App{\wkn{f}}{x}}
     {\App{\wkn{(\Lamterm{x{:}A}{\App{\wkn{f}}{x}})}}{x}}{B}$.
-  Since $\wkn{(\Lamterm{x{:}A}{M})} = \Lamterm{x{:}\wkn{A}}{M^{+\ell}}$
-  (where ${+\ell}$ denotes weakening under the binder), the right-hand
-  side is a $\beta$-redex.  Applying \textsc{Beta} and the
-  substitution identity $\substone{M^{+\ell}}{x_0} = M$ gives the result.
+  Since weakening distributes under $\lambda$, we have
+  $\wkn{(\Lamterm{x{:}A}{M})} = \Lamterm{x{:}\wkn{A}}{\wkn{M}}$
+  (where the inner weakening acts on the next-to-last variable,
+  skipping the binder).  The right-hand side is therefore a
+  $\beta$-redex.  Applying \textsc{Beta} and the substitution
+  identity $\substone{\wkn{M}}{x_0} = M$ gives the result.
   Formalised in \texttt{EtaConversion.agda}.
 \end{proof}
 
@@ -668,6 +682,32 @@ Formalised in \texttt{Adequacy2.agda} with 0~postulates.
   $\conveq{\Gamma}{A_0}{A_1}{\U}$ and
   $\conveq{\Gamma, x{:}A_0}{B_0}{B_1}{\U}$.
 \end{proof}
+
+\medskip\noindent\textbf{Key intermediate lemmas.}
+The proof above relies on several results that deserve explicit mention:
+\begin{itemize}
+  \item \emph{Presupposition}
+    (\texttt{SubstitutionLemma.agda}): from a conversion judgment
+    $\conveq{\Gamma}{M}{N}{A}$ one can extract
+    $\hastype{\Gamma}{M}{A}$, $\hastype{\Gamma}{N}{A}$, and
+    $\hastype{\Gamma}{A}{\U}$.  This is proved by mutual induction
+    on typing and conversion, using the substitution and renaming
+    lemmas.
+  \item \emph{Conversion soundness} (\texttt{convSound'} in
+    \texttt{TypingSemantics.agda}): if
+    $\conveq{\Gamma}{M}{N}{A}$ and $\mathsf{EvalRel}(N,\rho,u)$,
+    then $\mathsf{EvalRel}(M,\rho,u)$ (and vice versa).
+  \item \emph{Bundled adequacy} (\texttt{adequacyEqSub2} in
+    \texttt{Adequacy2.agda}): the bridge from $\mathsf{EvalRel}$
+    to the validity relation $\mathsf{EqVal2}$, which packages both
+    a semantic value and the corresponding syntactic typing/conversion
+    derivation.
+  \item \emph{Reduction uniqueness for} $\Pi$
+    (\texttt{Red-unique-Pi}): since $\Pi$ is a head normal form,
+    $\Pi\,A\,B \leadsto^* \Pi\,A'\,B'$ implies $A = A'$ and $B = B'$.
+    This is the step that turns the ``up to reduction'' output of
+    adequacy into exact equalities on the domain and codomain.
+\end{itemize}
 
 \medskip\noindent
 The entire proof is formalised in Agda with \texttt{--without-K
