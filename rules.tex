@@ -11,7 +11,7 @@
 \newcommand{\Pitype}[2]{\Pi(#1)#2}
 \newcommand{\Lamterm}[2]{\lambda(#1)#2}
 \newcommand{\App}[2]{#1\;#2}
-\newcommand{\substone}[2]{#1\,#2}
+\newcommand{\substone}[2]{#1[#2]}
 \newcommand{\wkn}[1]{#1^+}
 \newcommand{\U}{\mathsf{U}}
 \newcommand{\FinEl}{\mathsf{FinEl}}
@@ -52,6 +52,10 @@ We work with three mutually defined judgment forms:
   &\conveq{\Gamma}{M}{N}{A}     &&\text{$M$ and $N$ are definitionally equal at type $A$}
 \end{align*}
 Contexts are snoc-lists: $\Gamma ::= \cdot \mid \Gamma, x{:}A$.
+We write $M\sigma$ for the result of applying a substitution
+$\sigma$ to a term~$M$, and $[t]$ for the substitution
+$\Gamma \to \Gamma, x{:}A$ extending the identity by~$t$,
+so that $B[a]$ means $B(\mathrm{id}, a)$.
 
 \section{Well-formed contexts}
 
