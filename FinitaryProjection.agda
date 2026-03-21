@@ -8,8 +8,11 @@
 --
 -- pCode a u : FinEl  with  pCode a u = u  iff  FinMem u a
 --
--- Forward direction proved.  Backward direction requires coherence
--- lemmas that are work in progress.
+-- Both directions proved (backward needs Coherent u and FinMem a UCode).
+--
+-- Note: LeCode (pCode a u) u does NOT hold in general for function
+-- elements because projected keys are smaller, which can reduce
+-- EvalFun at that key below the projected value.
 ------------------------------------------------------------------------
 
 module FinitaryProjection where
@@ -23,7 +26,9 @@ open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ;
 open import PaperSemantics using (EvalFun ; FinMem ; FinMemFun ; FinMemAllU ;
   Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; mkCFT ;
   cft-from-cf ; NotBot ;
-  FinMem-a-in-U ; FinMem-coh-u ; EvalFun-in-UCode)
+  FinMem-a-in-U ; FinMem-coh-u ; EvalFun-in-UCode ;
+  LeCode ; LeFunCode ; LeCode-refl ;
+  Comp ; Comp-down ; Comp-sym ; comp-Bot-r ; LeCode-Comp)
 
 ------------------------------------------------------------------------
 -- pCode: finitary projection on finite elements
@@ -122,12 +127,6 @@ mutual
 
 ------------------------------------------------------------------------
 -- Backward: Coherent u -> FinMem a UCode -> Eq (pCode a u) u -> FinMem u a
---
--- The coherence hypothesis is needed because FinMem now includes
--- CoherentFun/CoherentFunTail fields.  The type-well-formedness
--- hypothesis (FinMem a UCode) is needed because FinMem (FunEl g)
--- (PiCode a f) includes FinMem (PiCode a f) UCode, which cannot
--- be derived from pCode (PiCode a f) (FunEl g) = FunEl g alone.
 ------------------------------------------------------------------------
 
 Bot-not-UCode : Eq Bot UCode -> Empty
@@ -166,7 +165,7 @@ mutual
   -- u = Bot: FinMem Bot a = FinMem a UCode, use hypothesis
   pCode-backward a Bot cu aU eq = aU
 
-  -- a = Bot: pCode Bot u = Bot, so u must be Bot (handled above) or absurd
+  -- a = Bot
   pCode-backward Bot UCode        cu aU eq = Bot-not-UCode eq
   pCode-backward Bot (FunEl g)    cu aU eq = Bot-not-FunEl g eq
   pCode-backward Bot (PiCode b h) cu aU eq = Bot-not-PiCode b h eq
@@ -181,7 +180,7 @@ mutual
            (projectUFun-backward b h (snd cu) bU (PiCode-inj-cod eq))
            (snd cu))
 
-  -- a = FunEl g: FinMem (FunEl g) UCode = Empty, so aU is absurd
+  -- a = FunEl g: FinMem (FunEl g) UCode = Empty
   pCode-backward (FunEl g) UCode        cu () eq
   pCode-backward (FunEl g) (FunEl h)    cu () eq
   pCode-backward (FunEl g) (PiCode b h) cu () eq
@@ -195,7 +194,6 @@ mutual
          (mkSigma cu aU)
   pCode-backward (PiCode a' f') (PiCode b h) cu aU eq = Bot-not-PiCode b h eq
 
-  -- projectUFun b h = h  with  CoherentFunTail h  implies  FinMemAllU h b
   projectUFun-backward : (b : FinEl) (h : FinFun) ->
     CoherentFunTail h -> FinMem b UCode ->
     Eq (projectUFun b h) h -> FinMemAllU h b
@@ -210,8 +208,6 @@ mutual
                   (pCode-backward UCode (snd p) (CFTcons.val-coh cft) tt val-eq))
          (projectUFun-backward b ps (CFTcons.tail-coh cft) bU tail-eq)
 
-  -- projectPiFun a f g = g  with  CoherentFun g  implies  FinMemFun g a f
-  -- Needs FinMem a UCode, FinMemAllU f a, CoherentFunTail f for EvalFun-in-UCode
   projectPiFun-backward : (a : FinEl) (f : FinFun) (g : FinFun) ->
     CoherentFun g -> FinMem a UCode -> FinMemAllU f a -> CoherentFunTail f ->
     Eq (projectPiFun a f g) g -> FinMemFun g a f
@@ -232,7 +228,6 @@ mutual
                     (CFTcons.val-coh cf) efp-U val-eq))
          (projectPiFun-backward-tail a f p ps cf aU allU cftf tail-eq)
 
-  -- Helper: backward for the tail of a cons in projectPiFun
   projectPiFun-backward-tail : (a : FinEl) (f : FinFun)
     (p : Pair FinEl FinEl) (ps : FinFun) ->
     CoherentFunTail (cons p ps) -> FinMem a UCode ->
