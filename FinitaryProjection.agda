@@ -237,3 +237,201 @@ mutual
   projectPiFun-backward-tail a f p (cons q qs) cft aU allU cftf eq =
     projectPiFun-backward a f (cons q qs)
       (CFTcons.tail-coh cft) aU allU cftf eq
+
+------------------------------------------------------------------------
+-- Lemma 2: Coherent (pCode a u)
+-- Lemma 3: Comp (pCode a u) (pCode a v)   (same type code)
+--
+-- Both require FinMem a UCode (type well-formedness) to ensure
+-- projected values in type-code graphs are non-Bot.
+------------------------------------------------------------------------
+
+open import PaperSemantics using (comp-Bot-l ; comp-EvalFun ;
+  CompFun ; CompStepFun ; CompStepStep ;
+  CoherentWith)
+
+{-# TERMINATING #-}
+mutual
+
+  -- Lemma 2: projection output is coherent
+  -- Requires FinMem u a (not just Coherent u) to access FinMemAllU etc.
+  pCode-coherent : (a u : FinEl) -> FinMem a UCode -> FinMem u a ->
+    Coherent (pCode a u)
+  pCode-coherent Bot          Bot aU mem = tt
+  pCode-coherent UCode        Bot aU mem = tt
+  pCode-coherent (FunEl g)    Bot () mem
+  pCode-coherent (PiCode a f) Bot aU mem = tt
+  pCode-coherent Bot UCode aU ()
+  pCode-coherent Bot (FunEl g) aU ()
+  pCode-coherent Bot (PiCode b h) aU ()
+  pCode-coherent UCode UCode aU mem = tt
+  pCode-coherent UCode (FunEl g) aU ()
+  pCode-coherent UCode (PiCode b h) aU mem =
+    let mkSigma bU (mkSigma allU cfth) = mem
+    in mkSigma (pCode-coherent UCode b tt bU)
+               (projectUFun-cft b h bU cfth allU)
+  pCode-coherent (FunEl g) u () mem
+  pCode-coherent (PiCode a f) UCode aU ()
+  pCode-coherent (PiCode a f) (FunEl g) aU mem =
+    let mkSigma a'U (mkSigma allU cftf) = aU
+    in projectPiFun-cf a f g a'U allU cftf (fst mem) (fst (snd mem))
+  pCode-coherent (PiCode a f) (PiCode b h) aU ()
+
+  -- CoherentFunTail of projectUFun output
+  -- Needs FinMemAllU to ensure values satisfy FinMem (snd p) UCode,
+  -- which excludes FunEl values (pCode UCode (FunEl g) = Bot, violating NotBot)
+  projectUFun-cft : (b : FinEl) (h : FinFun) ->
+    FinMem b UCode -> CoherentFunTail h -> FinMemAllU h b ->
+    CoherentFunTail (projectUFun b h)
+  projectUFun-cft b nil bU cft allU = tt
+  projectUFun-cft b (cons p ps) bU cft allU =
+    mkCFT (pCode-coherent b (fst p) bU (fst (fst allU)))
+          (pCode-coherent UCode (snd p) tt (snd (fst allU)))
+          (pCode-nbot-valU (snd p) (snd (fst allU)) (CFTcons.val-nbot cft))
+          (projectUFun-cwt b p ps bU cft allU)
+          (projectUFun-cft b ps bU (CFTcons.tail-coh cft) (snd allU))
+
+  -- NotBot for pCode UCode u when FinMem u UCode and NotBot u
+  pCode-nbot-valU : (u : FinEl) -> FinMem u UCode -> NotBot u -> NotBot (pCode UCode u)
+  pCode-nbot-valU Bot          mem ()
+  pCode-nbot-valU UCode        mem nb = tt
+  pCode-nbot-valU (FunEl g)    ()  nb
+  pCode-nbot-valU (PiCode a f) mem nb = tt
+
+  -- CoherentWith for projectUFun head vs tail
+  -- Key compatibility: pCode b (fst p) ~ pCode b (fst q) follows from
+  -- both being FinMem in b, hence in Principal b (compatible by LeCode-Comp).
+  -- Value compatibility: pCode UCode (snd p) ~ pCode UCode (snd q) similarly.
+  projectUFun-cwt : (b : FinEl) (p : Pair FinEl FinEl) (ps : FinFun) ->
+    FinMem b UCode -> CoherentFunTail (cons p ps) -> FinMemAllU (cons p ps) b ->
+    CoherentWith (mkSigma (pCode b (fst p)) (pCode UCode (snd p)))
+                 (projectUFun b ps)
+  projectUFun-cwt b p nil bU cft allU = tt
+  projectUFun-cwt b p (cons q qs) bU cft allU =
+    let step-orig = fst (CFTcons.compat cft)
+        -- allU : FinMemAllU (cons p (cons q qs)) b
+        -- fst allU : Pair (FinMem (fst p) b) (FinMem (snd p) UCode)
+        -- snd allU : FinMemAllU (cons q qs) b
+        -- fst (snd allU) : Pair (FinMem (fst q) b) (FinMem (snd q) UCode)
+        eq-kp = pCode-forward b (fst p) (fst (fst allU))
+        eq-kq = pCode-forward b (fst q) (fst (fst (snd allU)))
+        eq-vp = pCode-forward UCode (snd p) (snd (fst allU))
+        eq-vq = pCode-forward UCode (snd q) (snd (fst (snd allU)))
+    in mkSigma
+         (\ ck ->
+           let -- ck : Comp (pCode b (fst p)) (pCode b (fst q))
+               -- Transport to Comp (fst p) (fst q) using forward eqs
+               key-comp = S.Eq-transport (\ x -> Comp x (fst q))
+                            eq-kp (S.Eq-transport (\ x -> Comp (pCode b (fst p)) x) eq-kq ck)
+               val-comp = step-orig key-comp
+               -- Transport back: Comp (snd p) (snd q) → Comp (pCode UCode (snd p)) (pCode UCode (snd q))
+           in S.Eq-transport (\ x -> Comp x (pCode UCode (snd q)))
+                (S.Eq-sym eq-vp) (S.Eq-transport (\ x -> Comp (snd p) x) (S.Eq-sym eq-vq) val-comp))
+         (projectUFun-cwt b p qs bU
+            (mkCFT (CFTcons.key-coh cft) (CFTcons.val-coh cft)
+                   (CFTcons.val-nbot cft)
+                   (snd (CFTcons.compat cft))
+                   (CFTcons.tail-coh (CFTcons.tail-coh cft)))
+            (mkSigma (fst allU) (snd (snd allU))))
+
+  -- Drop first element from CoherentWith
+  projectUFun-cwt-drop-head : {p : Pair FinEl FinEl} {q : Pair FinEl FinEl} {qs : FinFun} ->
+    CoherentWith p (cons q qs) -> CoherentWith p qs
+  projectUFun-cwt-drop-head (mkSigma _ rest) = rest
+
+  -- Compatibility of pCode c u and pCode c v when both FinMem in c
+  -- Uses forward direction: FinMem u c → pCode c u = u, so Comp (pCode c u) (pCode c v)
+  -- reduces to Comp u v when both are fixed points.
+  -- When one is not a fixed point, pCode gives Bot.
+  pCode-comp-from-mem : (c u v : FinEl) -> FinMem c UCode ->
+    FinMem u c -> FinMem v c ->
+    Comp (pCode c u) (pCode c v) -> Comp (pCode c u) (pCode c v)
+  pCode-comp-from-mem c u v cU mu mv comp = comp
+
+  -- CoherentFun of projectPiFun output
+  projectPiFun-cf : (a : FinEl) (f : FinFun) (g : FinFun) ->
+    FinMem a UCode -> FinMemAllU f a -> CoherentFunTail f ->
+    FinMemFun g a f -> CoherentFun g ->
+    CoherentFun (projectPiFun a f g)
+  projectPiFun-cf a f nil aU allU cftf fmf ()
+  projectPiFun-cf a f (cons p nil) aU allU cftf fmf cfg =
+    let key-mem = fst (fst fmf)
+        val-mem = snd (fst fmf)
+        eq-kp = pCode-forward a (fst p) key-mem
+        efpU = S.Eq-transport (\ x -> FinMem (EvalFun f x) UCode) (S.Eq-sym eq-kp)
+                 (EvalFun-in-UCode f (fst p) a cftf (CFTcons.key-coh cfg) allU)
+        val-mem' = S.Eq-transport (\ x -> FinMem (snd p) (EvalFun f x)) (S.Eq-sym eq-kp) val-mem
+    in mkCFT (pCode-coherent a (fst p) aU key-mem)
+             (pCode-coherent (EvalFun f (pCode a (fst p))) (snd p) efpU val-mem')
+             (pCode-nbot-mem (EvalFun f (pCode a (fst p))) (snd p) efpU val-mem' (CFTcons.val-nbot cfg))
+             tt tt
+  projectPiFun-cf a f (cons p (cons q qs)) aU allU cftf fmf cfg =
+    let key-mem = fst (fst fmf)
+        val-mem = snd (fst fmf)
+        eq-kp = pCode-forward a (fst p) key-mem
+        efpU = S.Eq-transport (\ x -> FinMem (EvalFun f x) UCode) (S.Eq-sym eq-kp)
+                 (EvalFun-in-UCode f (fst p) a cftf (CFTcons.key-coh cfg) allU)
+        val-mem' = S.Eq-transport (\ x -> FinMem (snd p) (EvalFun f x)) (S.Eq-sym eq-kp) val-mem
+    in mkCFT (pCode-coherent a (fst p) aU key-mem)
+             (pCode-coherent (EvalFun f (pCode a (fst p))) (snd p) efpU val-mem')
+             (pCode-nbot-mem (EvalFun f (pCode a (fst p))) (snd p) efpU val-mem' (CFTcons.val-nbot cfg))
+             (projectPiFun-cwt a f p (cons q qs) aU allU cftf fmf cfg)
+             (projectPiFun-cf a f (cons q qs) aU allU cftf (snd fmf) (CFTcons.tail-coh cfg))
+
+  -- NotBot for pCode c u when FinMem u c and NotBot u
+  pCode-nbot-mem : (c u : FinEl) -> FinMem c UCode -> FinMem u c ->
+    NotBot u -> NotBot (pCode c u)
+  pCode-nbot-mem c Bot cU mem ()
+  pCode-nbot-mem Bot UCode cU () nb
+  pCode-nbot-mem UCode UCode cU mem nb = tt
+  pCode-nbot-mem UCode (FunEl g) cU () nb
+  pCode-nbot-mem UCode (PiCode b h) cU mem nb = tt
+  pCode-nbot-mem (FunEl g) u () mem nb
+  pCode-nbot-mem (PiCode a f) UCode cU () nb
+  pCode-nbot-mem (PiCode a f) (FunEl g) cU mem nb = tt
+  pCode-nbot-mem (PiCode a f) (PiCode b h) cU () nb
+
+  -- CoherentWith for projectPiFun head vs tail
+  projectPiFun-cwt : (a : FinEl) (f : FinFun)
+    (p : Pair FinEl FinEl) (ps : FinFun) ->
+    FinMem a UCode -> FinMemAllU f a -> CoherentFunTail f ->
+    FinMemFun (cons p ps) a f -> CoherentFunTail (cons p ps) ->
+    CoherentWith (mkSigma (pCode a (fst p))
+                          (pCode (EvalFun f (pCode a (fst p))) (snd p)))
+                 (projectPiFun a f ps)
+  projectPiFun-cwt a f p nil aU allU cftf fmf cfg = tt
+  projectPiFun-cwt a f p (cons q qs) aU allU cftf fmf cfg =
+    let step-orig = fst (CFTcons.compat cfg)
+        -- step-orig : Comp (fst p) (fst q) → Comp (snd p) (snd q)
+        key-mem-p = fst (fst fmf)
+        key-mem-q = fst (fst (snd fmf))
+        val-mem-p = snd (fst fmf)
+        val-mem-q = snd (fst (snd fmf))
+        eq-kp = pCode-forward a (fst p) key-mem-p
+        eq-kq = pCode-forward a (fst q) key-mem-q
+        eq-vp = pCode-forward (EvalFun f (fst p)) (snd p) val-mem-p
+        eq-vq = pCode-forward (EvalFun f (fst q)) (snd q) val-mem-q
+    in mkSigma
+         (\ ck ->
+           let -- Transport key comp via forward eqs
+               key-comp = S.Eq-transport (\ x -> Comp x (fst q))
+                            eq-kp (S.Eq-transport (\ x -> Comp (pCode a (fst p)) x) eq-kq ck)
+               val-comp = step-orig key-comp
+               -- Transport val comp back through pCode-forward
+           in S.Eq-transport
+                (\ x -> Comp (pCode (EvalFun f x) (snd p))
+                             (pCode (EvalFun f (pCode a (fst q))) (snd q)))
+                (S.Eq-sym eq-kp)
+                (S.Eq-transport
+                  (\ x -> Comp (pCode (EvalFun f (fst p)) (snd p))
+                               (pCode (EvalFun f x) (snd q)))
+                  (S.Eq-sym eq-kq)
+                  (S.Eq-transport (\ x -> Comp x (pCode (EvalFun f (fst q)) (snd q)))
+                    (S.Eq-sym eq-vp)
+                    (S.Eq-transport (\ x -> Comp (snd p) x) (S.Eq-sym eq-vq) val-comp))))
+         (projectPiFun-cwt a f p qs aU allU cftf
+           (mkSigma (fst fmf) (snd (snd fmf)))
+           (mkCFT (CFTcons.key-coh cfg) (CFTcons.val-coh cfg)
+                  (CFTcons.val-nbot cfg)
+                  (snd (CFTcons.compat cfg))
+                  (CFTcons.tail-coh (CFTcons.tail-coh cfg))))
