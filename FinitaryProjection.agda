@@ -21,9 +21,9 @@ import Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ;
               fst ; snd ; Pair ; List ; nil ; cons ; Eq ; refl ;
               Eq-transport ; Eq-sym ; Eq-cong ;
-              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun ;
+              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun ;
               pair-eq ; cons-eq)
-open import PaperSemantics using (EvalFun ; FinMem ; FinMemFun ; FinMemAllU ;
+open import PaperSemantics using (EvalFun ; FinMem ; FinMemFun ; FinMemAllU ; FinMemAllProp ;
   Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; mkCFT ;
   cft-from-cf ; NotBot ;
   FinMem-a-in-U ; FinMem-coh-u ; EvalFun-in-UCode ;
@@ -39,12 +39,20 @@ mutual
   pCode : FinEl -> FinEl -> FinEl
   pCode Bot          u            = Bot
   pCode UCode        UCode        = UCode
+  pCode UCode        PropCode     = PropCode
   pCode UCode        Bot          = Bot
   pCode UCode        (FunEl g)    = Bot
   pCode UCode        (PiCode a f) = PiCode (pCode UCode a) (projectUFun a f)
+  pCode PropCode     Bot          = Bot
+  pCode PropCode     UCode        = Bot
+  pCode PropCode     PropCode     = Bot
+  pCode PropCode     (FunEl g)    = Bot
+  pCode PropCode     (PiCode a f) = PiCode (pCode UCode a) (projectPropFun a f)
+
   pCode (FunEl g)    u            = Bot
   pCode (PiCode a f) Bot          = Bot
   pCode (PiCode a f) UCode        = Bot
+  pCode (PiCode a f) PropCode     = Bot
   pCode (PiCode a f) (FunEl g)    = FunEl (projectPiFun a f g)
   pCode (PiCode a f) (PiCode b h) = Bot
 
@@ -53,6 +61,12 @@ mutual
   projectUFun a (cons p ps) =
     cons (mkSigma (pCode a (fst p)) (pCode UCode (snd p)))
          (projectUFun a ps)
+
+  projectPropFun : FinEl -> FinFun -> FinFun
+  projectPropFun a nil         = nil
+  projectPropFun a (cons p ps) =
+    cons (mkSigma (pCode a (fst p)) (pCode PropCode (snd p)))
+         (projectPropFun a ps)
 
   projectPiFun : FinEl -> FinFun -> FinFun -> FinFun
   projectPiFun a f nil         = nil
@@ -72,6 +86,7 @@ PiCode-cong refl refl = refl
 pCode-Bot : (a : FinEl) -> Eq (pCode a Bot) Bot
 pCode-Bot Bot          = refl
 pCode-Bot UCode        = refl
+pCode-Bot PropCode     = refl
 pCode-Bot (FunEl g)    = refl
 pCode-Bot (PiCode a f) = refl
 
@@ -87,8 +102,15 @@ mutual
 
   pCode-forward UCode UCode mem = refl
   pCode-forward Bot          UCode ()
+  pCode-forward PropCode     UCode ()
   pCode-forward (FunEl g)    UCode ()
   pCode-forward (PiCode a f) UCode ()
+
+  pCode-forward UCode PropCode mem = refl
+  pCode-forward Bot          PropCode ()
+  pCode-forward PropCode     PropCode ()
+  pCode-forward (FunEl g)    PropCode ()
+  pCode-forward (PiCode a f) PropCode ()
 
   pCode-forward UCode (PiCode a' f') mem =
     let dom-eq = pCode-forward UCode a' (fst mem)
@@ -97,11 +119,16 @@ mutual
   pCode-forward Bot          (PiCode a' f') ()
   pCode-forward (FunEl g)    (PiCode a' f') ()
   pCode-forward (PiCode b h) (PiCode a' f') ()
+  pCode-forward PropCode (PiCode a' f') mem =
+    let dom-eq = pCode-forward UCode a' (fst mem)
+        cod-eq = projectPropFun-forward a' f' (fst (snd mem))
+    in PiCode-cong dom-eq cod-eq
 
   pCode-forward (PiCode a f) (FunEl g) mem =
     Eq-cong FunEl (projectPiFun-forward a f g (fst mem))
   pCode-forward Bot       (FunEl g) ()
   pCode-forward UCode     (FunEl g) ()
+  pCode-forward PropCode  (FunEl g) ()
   pCode-forward (FunEl h) (FunEl g) ()
 
   projectUFun-forward : (a : FinEl) (f : FinFun) ->
@@ -111,6 +138,15 @@ mutual
     let key-eq = pCode-forward a (fst p) (fst (fst mem))
         val-eq = pCode-forward UCode (snd p) (snd (fst mem))
         tail-eq = projectUFun-forward a ps (snd mem)
+    in cons-eq (pair-eq key-eq val-eq) tail-eq
+
+  projectPropFun-forward : (a : FinEl) (f : FinFun) ->
+    FinMemAllProp f a -> Eq (projectPropFun a f) f
+  projectPropFun-forward a nil mem = refl
+  projectPropFun-forward a (cons p ps) mem =
+    let key-eq = pCode-forward a (fst p) (fst (fst mem))
+        val-eq = pCode-forward PropCode (snd p) (snd (fst mem))
+        tail-eq = projectPropFun-forward a ps (snd mem)
     in cons-eq (pair-eq key-eq val-eq) tail-eq
 
   projectPiFun-forward : (a : FinEl) (f : FinFun) (g : FinFun) ->
@@ -131,6 +167,9 @@ mutual
 
 Bot-not-UCode : Eq Bot UCode -> Empty
 Bot-not-UCode ()
+
+Bot-not-PropCode : Eq Bot PropCode -> Empty
+Bot-not-PropCode ()
 
 Bot-not-FunEl : (g : FinFun) -> Eq Bot (FunEl g) -> Empty
 Bot-not-FunEl g ()
@@ -167,11 +206,13 @@ mutual
 
   -- a = Bot
   pCode-backward Bot UCode        cu aU eq = Bot-not-UCode eq
+  pCode-backward Bot PropCode     cu aU eq = Bot-not-PropCode eq
   pCode-backward Bot (FunEl g)    cu aU eq = Bot-not-FunEl g eq
   pCode-backward Bot (PiCode b h) cu aU eq = Bot-not-PiCode b h eq
 
   -- a = UCode
   pCode-backward UCode UCode        cu aU eq = tt
+  pCode-backward UCode PropCode     cu aU eq = tt
   pCode-backward UCode (FunEl g)    cu aU eq = Bot-not-FunEl g eq
   pCode-backward UCode (PiCode b h) cu aU eq =
     let bU = pCode-backward UCode b (fst cu) tt (PiCode-inj-dom eq)
@@ -180,8 +221,21 @@ mutual
            (projectUFun-backward b h (snd cu) bU (PiCode-inj-cod eq))
            (snd cu))
 
+  -- a = PropCode: pCode PropCode Bot/UCode/PropCode/FunEl = Bot
+  pCode-backward PropCode UCode        cu aU eq = Bot-not-UCode eq
+  pCode-backward PropCode PropCode     cu aU eq = Bot-not-PropCode eq
+  pCode-backward PropCode (FunEl g)    cu aU eq = Bot-not-FunEl g eq
+  -- pCode PropCode (PiCode b h) = PiCode (pCode UCode b) (projectPropFun b h)
+  pCode-backward PropCode (PiCode b h) cu aU eq =
+    let bU = pCode-backward UCode b (fst cu) tt (PiCode-inj-dom eq)
+    in mkSigma bU
+         (mkSigma
+           (projectPropFun-backward b h (snd cu) bU (PiCode-inj-cod eq))
+           (snd cu))
+
   -- a = FunEl g: FinMem (FunEl g) UCode = Empty
   pCode-backward (FunEl g) UCode        cu () eq
+  pCode-backward (FunEl g) PropCode     cu () eq
   pCode-backward (FunEl g) (FunEl h)    cu () eq
   pCode-backward (FunEl g) (PiCode b h) cu () eq
 
@@ -192,6 +246,7 @@ mutual
     in mkSigma
          (projectPiFun-backward a' f' g cu a'U allU cftf' (FunEl-inj eq))
          (mkSigma cu aU)
+  pCode-backward (PiCode a' f') PropCode     cu aU eq = Bot-not-PropCode eq
   pCode-backward (PiCode a' f') (PiCode b h) cu aU eq = Bot-not-PiCode b h eq
 
   projectUFun-backward : (b : FinEl) (h : FinFun) ->
@@ -207,6 +262,20 @@ mutual
          (mkSigma (pCode-backward b (fst p) (CFTcons.key-coh cft) bU key-eq)
                   (pCode-backward UCode (snd p) (CFTcons.val-coh cft) tt val-eq))
          (projectUFun-backward b ps (CFTcons.tail-coh cft) bU tail-eq)
+
+  projectPropFun-backward : (b : FinEl) (h : FinFun) ->
+    CoherentFunTail h -> FinMem b UCode ->
+    Eq (projectPropFun b h) h -> FinMemAllProp h b
+  projectPropFun-backward b nil cft bU eq = tt
+  projectPropFun-backward b (cons p ps) cft bU eq =
+    let hd-eq = cons-head eq
+        key-eq = Eq-cong fst hd-eq
+        val-eq = Eq-cong snd hd-eq
+        tail-eq = cons-tail eq
+    in mkSigma
+         (mkSigma (pCode-backward b (fst p) (CFTcons.key-coh cft) bU key-eq)
+                  (pCode-backward PropCode (snd p) (CFTcons.val-coh cft) tt val-eq))
+         (projectPropFun-backward b ps (CFTcons.tail-coh cft) bU tail-eq)
 
   projectPiFun-backward : (a : FinEl) (f : FinFun) (g : FinFun) ->
     CoherentFun g -> FinMem a UCode -> FinMemAllU f a -> CoherentFunTail f ->
@@ -259,19 +328,31 @@ mutual
     Coherent (pCode a u)
   pCode-coherent Bot          Bot aU mem = tt
   pCode-coherent UCode        Bot aU mem = tt
+  pCode-coherent PropCode     Bot aU mem = tt
   pCode-coherent (FunEl g)    Bot () mem
   pCode-coherent (PiCode a f) Bot aU mem = tt
   pCode-coherent Bot UCode aU ()
+  pCode-coherent Bot PropCode aU ()
   pCode-coherent Bot (FunEl g) aU ()
   pCode-coherent Bot (PiCode b h) aU ()
   pCode-coherent UCode UCode aU mem = tt
+  pCode-coherent UCode PropCode aU mem = tt
   pCode-coherent UCode (FunEl g) aU ()
   pCode-coherent UCode (PiCode b h) aU mem =
     let mkSigma bU (mkSigma allU cfth) = mem
     in mkSigma (pCode-coherent UCode b tt bU)
                (projectUFun-cft b h bU cfth allU)
+  -- a = PropCode: pCode PropCode u = Bot, Coherent Bot = Top
+  pCode-coherent PropCode UCode        aU ()
+  pCode-coherent PropCode PropCode     aU ()
+  pCode-coherent PropCode (FunEl g)    aU ()
+  pCode-coherent PropCode (PiCode b h) aU mem =
+    let bU = fst mem
+    in mkSigma (pCode-coherent UCode b tt bU)
+               (projectPropFun-cft b h bU (snd (snd mem)) (fst (snd mem)))
   pCode-coherent (FunEl g) u () mem
   pCode-coherent (PiCode a f) UCode aU ()
+  pCode-coherent (PiCode a f) PropCode aU ()
   pCode-coherent (PiCode a f) (FunEl g) aU mem =
     let mkSigma a'U (mkSigma allU cftf) = aU
     in projectPiFun-cf a f g a'U allU cftf (fst mem) (fst (snd mem))
@@ -295,8 +376,56 @@ mutual
   pCode-nbot-valU : (u : FinEl) -> FinMem u UCode -> NotBot u -> NotBot (pCode UCode u)
   pCode-nbot-valU Bot          mem ()
   pCode-nbot-valU UCode        mem nb = tt
+  pCode-nbot-valU PropCode     mem nb = tt
   pCode-nbot-valU (FunEl g)    ()  nb
   pCode-nbot-valU (PiCode a f) mem nb = tt
+
+  -- NotBot for pCode PropCode u when FinMem u PropCode and NotBot u
+  -- Only non-empty case is u = PiCode a f, giving PiCode which is NotBot
+  pCode-nbot-valProp : (u : FinEl) -> FinMem u PropCode -> NotBot u -> NotBot (pCode PropCode u)
+  pCode-nbot-valProp Bot          mem ()
+  pCode-nbot-valProp UCode        ()  nb
+  pCode-nbot-valProp PropCode     ()  nb
+  pCode-nbot-valProp (FunEl g)    ()  nb
+  pCode-nbot-valProp (PiCode a f) mem nb = tt
+
+  -- CoherentFunTail of projectPropFun output
+  projectPropFun-cft : (b : FinEl) (h : FinFun) ->
+    FinMem b UCode -> CoherentFunTail h -> FinMemAllProp h b ->
+    CoherentFunTail (projectPropFun b h)
+  projectPropFun-cft b nil bU cft allP = tt
+  projectPropFun-cft b (cons p ps) bU cft allP =
+    mkCFT (pCode-coherent b (fst p) bU (fst (fst allP)))
+          (pCode-coherent PropCode (snd p) tt (snd (fst allP)))
+          (pCode-nbot-valProp (snd p) (snd (fst allP)) (CFTcons.val-nbot cft))
+          (projectPropFun-cwt b p ps bU cft allP)
+          (projectPropFun-cft b ps bU (CFTcons.tail-coh cft) (snd allP))
+
+  -- CoherentWith for projectPropFun head vs tail
+  projectPropFun-cwt : (b : FinEl) (p : Pair FinEl FinEl) (ps : FinFun) ->
+    FinMem b UCode -> CoherentFunTail (cons p ps) -> FinMemAllProp (cons p ps) b ->
+    CoherentWith (mkSigma (pCode b (fst p)) (pCode PropCode (snd p)))
+                 (projectPropFun b ps)
+  projectPropFun-cwt b p nil bU cft allP = tt
+  projectPropFun-cwt b p (cons q qs) bU cft allP =
+    let step-orig = fst (CFTcons.compat cft)
+        eq-kp = pCode-forward b (fst p) (fst (fst allP))
+        eq-kq = pCode-forward b (fst q) (fst (fst (snd allP)))
+        eq-vp = pCode-forward PropCode (snd p) (snd (fst allP))
+        eq-vq = pCode-forward PropCode (snd q) (snd (fst (snd allP)))
+    in mkSigma
+         (\ ck ->
+           let key-comp = S.Eq-transport (\ x -> Comp x (fst q))
+                            eq-kp (S.Eq-transport (\ x -> Comp (pCode b (fst p)) x) eq-kq ck)
+               val-comp = step-orig key-comp
+           in S.Eq-transport (\ x -> Comp x (pCode PropCode (snd q)))
+                (S.Eq-sym eq-vp) (S.Eq-transport (\ x -> Comp (snd p) x) (S.Eq-sym eq-vq) val-comp))
+         (projectPropFun-cwt b p qs bU
+            (mkCFT (CFTcons.key-coh cft) (CFTcons.val-coh cft)
+                   (CFTcons.val-nbot cft)
+                   (snd (CFTcons.compat cft))
+                   (CFTcons.tail-coh (CFTcons.tail-coh cft)))
+            (mkSigma (fst allP) (snd (snd allP))))
 
   -- CoherentWith for projectUFun head vs tail
   -- Key compatibility: pCode b (fst p) ~ pCode b (fst q) follows from
@@ -383,11 +512,18 @@ mutual
     NotBot u -> NotBot (pCode c u)
   pCode-nbot-mem c Bot cU mem ()
   pCode-nbot-mem Bot UCode cU () nb
+  pCode-nbot-mem Bot PropCode cU () nb
   pCode-nbot-mem UCode UCode cU mem nb = tt
+  pCode-nbot-mem UCode PropCode cU mem nb = tt
   pCode-nbot-mem UCode (FunEl g) cU () nb
   pCode-nbot-mem UCode (PiCode b h) cU mem nb = tt
+  pCode-nbot-mem PropCode UCode cU () nb
+  pCode-nbot-mem PropCode PropCode cU () nb
+  pCode-nbot-mem PropCode (FunEl g) cU () nb
+  pCode-nbot-mem PropCode (PiCode b h) cU mem nb = tt
   pCode-nbot-mem (FunEl g) u () mem nb
   pCode-nbot-mem (PiCode a f) UCode cU () nb
+  pCode-nbot-mem (PiCode a f) PropCode cU () nb
   pCode-nbot-mem (PiCode a f) (FunEl g) cU mem nb = tt
   pCode-nbot-mem (PiCode a f) (PiCode b h) cU () nb
 

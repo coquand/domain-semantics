@@ -20,7 +20,7 @@ import Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ;
               fst ; snd ; Pair ; List ; nil ; cons ; Eq ; refl ;
               Eq-transport ; Eq-sym ; Eq-cong ;
-              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun)
+              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun)
 open import PaperSemantics hiding (LeCode-refl ; LeCode-trans)
 open import PaperSemantics using (LeCode-refl ; LeCode-trans)
 
@@ -82,6 +82,7 @@ Coherent-applyEl : (f a : FinEl) -> Coherent f -> Coherent a ->
   Coherent (applyEl f a)
 Coherent-applyEl Bot          a cf ca = tt
 Coherent-applyEl UCode        a cf ca = tt
+Coherent-applyEl PropCode     a cf ca = tt
 Coherent-applyEl (FunEl g)    a cf ca = Coherent-EvalFun g a (cft-from-cf g cf) ca
 Coherent-applyEl (PiCode b h) a cf ca = tt
 
@@ -92,10 +93,17 @@ applyEl-le-Sup-left : (f1 f2 a1 a2 : FinEl) ->
 applyEl-le-Sup-left Bot          f2           a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
 applyEl-le-Sup-left UCode        Bot          a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
 applyEl-le-Sup-left UCode        UCode        a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
+applyEl-le-Sup-left UCode        PropCode     a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-left UCode        (FunEl g2)   a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-left UCode        (PiCode b h) a1 a2 cf1 cf2 ca1 ca2 ()
+applyEl-le-Sup-left PropCode     Bot          a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
+applyEl-le-Sup-left PropCode     UCode        a1 a2 cf1 cf2 ca1 ca2 ()
+applyEl-le-Sup-left PropCode     PropCode     a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
+applyEl-le-Sup-left PropCode     (FunEl g2)   a1 a2 cf1 cf2 ca1 ca2 ()
+applyEl-le-Sup-left PropCode     (PiCode b h) a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-left (PiCode b h) Bot          a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
 applyEl-le-Sup-left (PiCode b h) UCode        a1 a2 cf1 cf2 ca1 ca2 ()
+applyEl-le-Sup-left (PiCode b h) PropCode     a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-left (PiCode b h) (FunEl g2)   a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-left (PiCode b h) (PiCode c k) a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
 applyEl-le-Sup-left (FunEl g1) Bot a1 a2 cf1 cf2 ca1 ca2 compf compa =
@@ -103,6 +111,7 @@ applyEl-le-Sup-left (FunEl g1) Bot a1 a2 cf1 cf2 ca1 ca2 compf compa =
     (LeCode-Sup-left a1 a2 compa ca1 ca2)
     (cft-from-cf g1 cf1) ca1 (Coherent-Sup a1 a2 compa ca1 ca2)
 applyEl-le-Sup-left (FunEl g1) UCode        a1 a2 cf1 cf2 ca1 ca2 ()
+applyEl-le-Sup-left (FunEl g1) PropCode     a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-left (FunEl g1) (PiCode b h) a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-left (FunEl g1) (FunEl g2) a1 a2 cf1 cf2 ca1 ca2 compf compa =
   let cgh  = CoherentFun-append g1 g2 cf1 cf2 compf
@@ -128,10 +137,17 @@ applyEl-le-Sup-right : (f1 f2 a1 a2 : FinEl) ->
 applyEl-le-Sup-right f1           Bot          a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
 applyEl-le-Sup-right Bot          UCode        a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
 applyEl-le-Sup-right UCode        UCode        a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
+applyEl-le-Sup-right PropCode     UCode        a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-right (FunEl g1)   UCode        a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-right (PiCode b h) UCode        a1 a2 cf1 cf2 ca1 ca2 ()
+applyEl-le-Sup-right Bot          PropCode     a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
+applyEl-le-Sup-right UCode        PropCode     a1 a2 cf1 cf2 ca1 ca2 ()
+applyEl-le-Sup-right PropCode     PropCode     a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
+applyEl-le-Sup-right (FunEl g1)   PropCode     a1 a2 cf1 cf2 ca1 ca2 ()
+applyEl-le-Sup-right (PiCode b h) PropCode     a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-right Bot          (PiCode c k) a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
 applyEl-le-Sup-right UCode        (PiCode c k) a1 a2 cf1 cf2 ca1 ca2 ()
+applyEl-le-Sup-right PropCode     (PiCode c k) a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-right (FunEl g1)   (PiCode c k) a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-right (PiCode b h) (PiCode c k) a1 a2 cf1 cf2 ca1 ca2 compf compa = tt
 applyEl-le-Sup-right Bot (FunEl g2) a1 a2 cf1 cf2 ca1 ca2 compf compa =
@@ -139,6 +155,7 @@ applyEl-le-Sup-right Bot (FunEl g2) a1 a2 cf1 cf2 ca1 ca2 compf compa =
     (LeCode-Sup-right a1 a2 compa ca1 ca2)
     (cft-from-cf g2 cf2) ca2 (Coherent-Sup a1 a2 compa ca1 ca2)
 applyEl-le-Sup-right UCode        (FunEl g2) a1 a2 cf1 cf2 ca1 ca2 ()
+applyEl-le-Sup-right PropCode     (FunEl g2) a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-right (PiCode b h) (FunEl g2) a1 a2 cf1 cf2 ca1 ca2 ()
 applyEl-le-Sup-right (FunEl g1) (FunEl g2) a1 a2 cf1 cf2 ca1 ca2 compf compa =
   let cgh  = CoherentFun-append g1 g2 cf1 cf2 compf
