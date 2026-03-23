@@ -18,7 +18,7 @@ module LemmaForTS where
 import Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ; fst ; snd ;
               Pair ; List ; nil ; cons ; Eq ; refl ; Eq-transport ; Eq-sym ;
-              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun)
+              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun)
 open import PaperSemantics using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-Bot ;
   Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; mkCFT ; cft-from-cf ;
   CoherentWith ;
@@ -32,7 +32,8 @@ open import PaperSemantics using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-B
   FinMem-Sup-element ;
   LeFunCode ; LeFunCode-refl ; append ;
   EvalFun-in-UCode ;
-  finMemUCode-Sup ; Comp-refl)
+  finMemUCode-Sup ; Comp-refl ;
+  FinMemAllProp ; EvalFun-in-PropCode ; finMemPropCode-Sup ; FinMem-Prop-to-U)
 open CFTcons
 open import Selection using (Selection ; Edge ; EdgeIn ; here ; there ;
   sel-nil ; sel-take ; sel-skip ;
@@ -40,7 +41,7 @@ open import Selection using (Selection ; Edge ; EdgeIn ; here ; there ;
   CoherentFun-edge-key ;
   singleton-selection ; Selection-le-EvalFun ; selectionBelow ;
   FinMem-Selection ; FinMem-Selection-codomain)
-open import RawSyntax using (Expr ; Var ; U ; Pi ; Lam ; App ;
+open import RawSyntax using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
   Fin ; fzero ; fsuc ; Ren ; liftRen ; renExpr ; wkRen ; wkExpr ; subst1)
 open import RawSemantics
 open import TypingRules using (Ctx ; empty ; extend ; lookup ;
@@ -375,6 +376,7 @@ Lam-L1 : {n : Nat} (A : Expr n) (M : Expr (suc n))
                 Pair (FinMem (fst p) a)
                      (EvalRel M (extendEnv rho (fst p)) (snd p))))))))
 Lam-L1 A M rho UCode        nb crho ()
+Lam-L1 A M rho PropCode     nb crho ()
 Lam-L1 A M rho (PiCode a f) nb crho ()
 Lam-L1 A M rho (FunEl g)    nb crho ev =
   Lam-L1-aux A M rho g nb crho ev
@@ -472,6 +474,7 @@ NotBot-from-Le : (u v : FinEl) -> Coherent u -> NotBot u ->
 NotBot-from-Le u Bot cu nbu le =
   Coherent-val-LeBot-absurd u (mkSigma cu nbu) le
 NotBot-from-Le u UCode cu nbu le = tt
+NotBot-from-Le u PropCode cu nbu le = tt
 NotBot-from-Le u (FunEl g) cu nbu le = tt
 NotBot-from-Le u (PiCode a f) cu nbu le = tt
 
@@ -479,14 +482,22 @@ NotBot-from-FinMem : (u a : FinEl) -> NotBot u -> FinMem u a -> NotBot a
 NotBot-from-FinMem Bot a () fm
 NotBot-from-FinMem UCode Bot nbu ()
 NotBot-from-FinMem UCode UCode nbu fm = tt
+NotBot-from-FinMem UCode PropCode nbu ()
 NotBot-from-FinMem UCode (FunEl g) nbu ()
 NotBot-from-FinMem UCode (PiCode a f) nbu ()
+NotBot-from-FinMem PropCode UCode nbu fm = tt
+NotBot-from-FinMem PropCode Bot nbu ()
+NotBot-from-FinMem PropCode PropCode nbu ()
+NotBot-from-FinMem PropCode (FunEl g) nbu ()
+NotBot-from-FinMem PropCode (PiCode a f) nbu ()
 NotBot-from-FinMem (FunEl g) Bot nbu ()
 NotBot-from-FinMem (FunEl g) (PiCode a f) nbu fm = tt
+NotBot-from-FinMem (FunEl g) PropCode nbu ()
 NotBot-from-FinMem (FunEl g) UCode nbu ()
 NotBot-from-FinMem (FunEl g) (FunEl h) nbu ()
 NotBot-from-FinMem (PiCode a f) Bot nbu ()
 NotBot-from-FinMem (PiCode a f) UCode nbu fm = tt
+NotBot-from-FinMem (PiCode a f) PropCode nbu fm = tt
 NotBot-from-FinMem (PiCode a f) (PiCode c h) nbu ()
 NotBot-from-FinMem (PiCode a f) (FunEl h) nbu ()
 
@@ -566,6 +577,7 @@ InvTyp-Lam : {n : Nat} {G : Ctx n} (A : Expr n) (B : Expr (suc n))
 InvTyp-Lam A B M body-ih rho fits Bot ev =
   mkSigma Bot (mkSigma Bot (mkSigma tt (mkSigma tt (mkSigma tt tt))))
 InvTyp-Lam A B M body-ih rho fits UCode ()
+InvTyp-Lam A B M body-ih rho fits PropCode ()
 InvTyp-Lam A B M body-ih rho fits (PiCode a0 f0) ()
 InvTyp-Lam A B M body-ih rho fits (FunEl g) ev =
   let crho = Fits-CoherentEnv rho fits
@@ -920,6 +932,7 @@ InvTyp-App A B M N rho fits invM invN = invTyp-App-aux
       EvalRel (App M N) rho v0
     mkEvalApp Bot () w evN evM-sing
     mkEvalApp UCode nbv0 w evN evM-sing = mkSigma w (mkSigma evN evM-sing)
+    mkEvalApp PropCode nbv0 w evN evM-sing = mkSigma w (mkSigma evN evM-sing)
     mkEvalApp (FunEl g) nbv0 w evN evM-sing = mkSigma w (mkSigma evN evM-sing)
     mkEvalApp (PiCode a0 f0) nbv0 w evN evM-sing = mkSigma w (mkSigma evN evM-sing)
 
@@ -936,12 +949,14 @@ InvTyp-App A B M N rho fits invM invN = invTyp-App-aux
       Typed (App M N) (subst1 B N) rho v
     -- h = Bot: LeCode (FunEl _) Bot = Empty
     app-h-case w v nbv cv evN evM-sing Bot piaf () evM-h fm-h evPi
-    -- h = UCode/PiCode: FinMem impossible
+    -- h = UCode/PropCode/PiCode: FinMem impossible
     app-h-case w v nbv cv evN evM-sing UCode piaf () evPi
+    app-h-case w v nbv cv evN evM-sing PropCode piaf () evPi
     app-h-case w v nbv cv evN evM-sing (PiCode _ _) piaf () evPi
     -- h = FunEl g': case split on piaf
     app-h-case w v nbv cv evN evM-sing (FunEl g') Bot le-g' evM-g' () evPi
     app-h-case w v nbv cv evN evM-sing (FunEl g') UCode le-g' evM-g' () evPi
+    app-h-case w v nbv cv evN evM-sing (FunEl g') PropCode le-g' evM-g' () evPi
     app-h-case w v nbv cv evN evM-sing (FunEl g') (FunEl _) le-g' evM-g' () evPi
     app-h-case w v nbv cv evN evM-sing (FunEl g') (PiCode a f) le-g' evM-g' fm-g' evPi =
       let -- Extract from FinMem (FunEl g') (PiCode a f)
@@ -1044,6 +1059,10 @@ InvTyp-App A B M N rho fits invM invN = invTyp-App-aux
       let w = fst ev ; evN = fst (snd ev) ; evM-sing = snd (snd ev)
           cv = EvalRel-coh (App M N) rho UCode ev
       in app-main w UCode tt cv evN evM-sing
+    invTyp-App-aux PropCode ev =
+      let w = fst ev ; evN = fst (snd ev) ; evM-sing = snd (snd ev)
+          cv = EvalRel-coh (App M N) rho PropCode ev
+      in app-main w PropCode tt cv evN evM-sing
     invTyp-App-aux (FunEl g) ev =
       let w = fst ev ; evN = fst (snd ev) ; evM-sing = snd (snd ev)
           cv = EvalRel-coh (App M N) rho (FunEl g) ev
@@ -1100,6 +1119,7 @@ InvConv-beta {G = G} A B M N rho fits invN body-ih =
       EvalRel (subst1 M N) rho u
     conv-app-to-sub Bot ev = EvalRel-Bot (subst1 M N) rho
     conv-app-to-sub UCode ev = conv-app-to-sub-nonbot UCode tt ev
+    conv-app-to-sub PropCode ev = conv-app-to-sub-nonbot PropCode tt ev
     conv-app-to-sub (FunEl g') ev = conv-app-to-sub-nonbot (FunEl g') tt ev
     conv-app-to-sub (PiCode a0 f0) ev = conv-app-to-sub-nonbot (PiCode a0 f0) tt ev
 
@@ -1150,6 +1170,9 @@ InvConv-beta {G = G} A B M N rho fits invN body-ih =
     conv-sub-to-app Bot ev = tt
     conv-sub-to-app UCode ev =
       let r = mkLamEvidence UCode tt ev
+      in mkSigma (fst r) (mkSigma (fst (snd r)) (snd (snd r)))
+    conv-sub-to-app PropCode ev =
+      let r = mkLamEvidence PropCode tt ev
       in mkSigma (fst r) (mkSigma (fst (snd r)) (snd (snd r)))
     conv-sub-to-app (FunEl g') ev =
       let r = mkLamEvidence (FunEl g') tt ev
@@ -1205,6 +1228,9 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
     mkAppEvidence F x UCode cx nbvi evF =
       mkSigma x (mkSigma (mkSigma cx (LeCode-refl x cx))
         (EvalRel-wk F rho x (FunEl (cons (mkSigma x UCode) nil)) evF))
+    mkAppEvidence F x PropCode cx nbvi evF =
+      mkSigma x (mkSigma (mkSigma cx (LeCode-refl x cx))
+        (EvalRel-wk F rho x (FunEl (cons (mkSigma x PropCode) nil)) evF))
     mkAppEvidence F x (FunEl g') cx nbvi evF =
       mkSigma x (mkSigma (mkSigma cx (LeCode-refl x cx))
         (EvalRel-wk F rho x (FunEl (cons (mkSigma x (FunEl g')) nil)) evF))
@@ -1221,6 +1247,10 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
       let w = fst ev ; evV0 = fst (snd ev) ; evWkF = snd (snd ev)
       in mkSigma w (mkSigma (snd evV0) (mkSigma (fst evV0)
            (EvalRel-unwk F rho x (FunEl (cons (mkSigma w UCode) nil)) evWkF)))
+    decompAppEvidence F x PropCode nbvi ev =
+      let w = fst ev ; evV0 = fst (snd ev) ; evWkF = snd (snd ev)
+      in mkSigma w (mkSigma (snd evV0) (mkSigma (fst evV0)
+           (EvalRel-unwk F rho x (FunEl (cons (mkSigma w PropCode) nil)) evWkF)))
     decompAppEvidence F x (FunEl g') nbvi ev =
       let w = fst ev ; evV0 = fst (snd ev) ; evWkF = snd (snd ev)
       in mkSigma w (mkSigma (snd evV0) (mkSigma (fst evV0)
@@ -1359,15 +1389,18 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
     conv-main F F' convDir Bot Bot piaf cu le-u evF fm evPi =
       EvalRel-Bot F' rho
     conv-main F F' convDir UCode Bot piaf cu () evF fm evPi
+    conv-main F F' convDir PropCode Bot piaf cu () evF fm evPi
     conv-main F F' convDir (FunEl _) Bot piaf cu () evF fm evPi
     conv-main F F' convDir (PiCode _ _) Bot piaf cu () evF fm evPi
     -- u' = FunEl g', case split on piaf
     conv-main F F' convDir u (FunEl g') Bot cu le-u evF () evPi
     conv-main F F' convDir u (FunEl g') UCode cu le-u evF () evPi
+    conv-main F F' convDir u (FunEl g') PropCode cu le-u evF () evPi
     conv-main F F' convDir u (FunEl g') (FunEl _) cu le-u evF () evPi
     conv-main F F' convDir Bot (FunEl g') (PiCode a f) cu le-u evF fm evPi =
       EvalRel-Bot F' rho
     conv-main F F' convDir UCode (FunEl g') (PiCode a f) cu () evF fm evPi
+    conv-main F F' convDir PropCode (FunEl g') (PiCode a f) cu () evF fm evPi
     conv-main F F' convDir (FunEl h) (FunEl g') (PiCode a f) cu le-u evF fm evPi =
       let cf-g'  = fst (snd fm)
           fmf-g' = fst fm
@@ -1378,10 +1411,17 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
     conv-main F F' convDir (PiCode _ _) (FunEl g') (PiCode a f) cu () evF fm evPi
     conv-main F F' convDir u UCode Bot cu le-u evF () evPi
     conv-main F F' convDir u UCode UCode cu le-u evF fm ()
+    conv-main F F' convDir u UCode PropCode cu le-u evF () evPi
     conv-main F F' convDir u UCode (FunEl _) cu le-u evF () evPi
     conv-main F F' convDir u UCode (PiCode _ _) cu le-u evF () evPi
+    conv-main F F' convDir u PropCode Bot cu le-u evF () evPi
+    conv-main F F' convDir u PropCode UCode cu le-u evF fm ()
+    conv-main F F' convDir u PropCode PropCode cu le-u evF () evPi
+    conv-main F F' convDir u PropCode (FunEl _) cu le-u evF () evPi
+    conv-main F F' convDir u PropCode (PiCode _ _) cu le-u evF () evPi
     conv-main F F' convDir u (PiCode a0 f0) Bot cu le-u evF () evPi
     conv-main F F' convDir u (PiCode a0 f0) UCode cu le-u evF fm ()
+    conv-main F F' convDir u (PiCode a0 f0) PropCode cu le-u evF fm ()
     conv-main F F' convDir u (PiCode a0 f0) (FunEl _) cu le-u evF () evPi
     conv-main F F' convDir u (PiCode a0 f0) (PiCode _ _) cu le-u evF () evPi
 
@@ -1414,6 +1454,8 @@ InvConv-funext {G = G} A B M N rho fits invM invN ih =
     conv-one-dir F F' invF convDir Bot ev = EvalRel-Bot F' rho
     conv-one-dir F F' invF convDir UCode ev =
       conv-nonbot F F' invF convDir UCode tt ev
+    conv-one-dir F F' invF convDir PropCode ev =
+      conv-nonbot F F' invF convDir PropCode tt ev
     conv-one-dir F F' invF convDir (FunEl g0) ev =
       conv-nonbot F F' invF convDir (FunEl g0) tt ev
     conv-one-dir F F' invF convDir (PiCode a0 f0) ev =
@@ -1450,6 +1492,8 @@ InvConv-App-fun A B f f' a rho fits invFF' invA =
     conv-fwd eqF Bot ev = tt
     conv-fwd eqF UCode (mkSigma v (mkSigma eva evf)) =
       mkSigma v (mkSigma eva (eqF (FunEl (cons (mkSigma v UCode) nil)) evf))
+    conv-fwd eqF PropCode (mkSigma v (mkSigma eva evf)) =
+      mkSigma v (mkSigma eva (eqF (FunEl (cons (mkSigma v PropCode) nil)) evf))
     conv-fwd eqF (FunEl g') (mkSigma v (mkSigma eva evf)) =
       mkSigma v (mkSigma eva (eqF (FunEl (cons (mkSigma v (FunEl g')) nil)) evf))
     conv-fwd eqF (PiCode a0 f0) (mkSigma v (mkSigma eva evf)) =
@@ -1481,6 +1525,8 @@ InvConv-App-arg {G = G} A B f a a' rho fits invF invAA' =
     conv-fwd Bot ev = tt
     conv-fwd UCode (mkSigma v (mkSigma eva evf)) =
       mkSigma v (mkSigma (fwdA v eva) evf)
+    conv-fwd PropCode (mkSigma v (mkSigma eva evf)) =
+      mkSigma v (mkSigma (fwdA v eva) evf)
     conv-fwd (FunEl g') (mkSigma v (mkSigma eva evf)) =
       mkSigma v (mkSigma (fwdA v eva) evf)
     conv-fwd (PiCode a0 f0) (mkSigma v (mkSigma eva evf)) =
@@ -1490,6 +1536,8 @@ InvConv-App-arg {G = G} A B f a a' rho fits invF invAA' =
     conv-bwd : (u : FinEl) -> EvalRel (App f a') rho u -> EvalRel (App f a) rho u
     conv-bwd Bot ev = tt
     conv-bwd UCode (mkSigma v (mkSigma eva' evf)) =
+      mkSigma v (mkSigma (bwdA v eva') evf)
+    conv-bwd PropCode (mkSigma v (mkSigma eva' evf)) =
       mkSigma v (mkSigma (bwdA v eva') evf)
     conv-bwd (FunEl g') (mkSigma v (mkSigma eva' evf)) =
       mkSigma v (mkSigma (bwdA v eva') evf)
@@ -1601,6 +1649,7 @@ InvTyp-Pi : {n : Nat} {G : Ctx n} (A : Expr n) (B : Expr (suc n)) ->
 InvTyp-Pi A B rho fits invA body-ih Bot ev =
   mkSigma Bot (mkSigma UCode (mkSigma tt (mkSigma tt (mkSigma tt (mkSigma tt tt)))))
 InvTyp-Pi A B rho fits invA body-ih UCode ()
+InvTyp-Pi A B rho fits invA body-ih PropCode ()
 InvTyp-Pi A B rho fits invA body-ih (FunEl g) ()
 InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
   where
@@ -1638,9 +1687,11 @@ InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
       (y : FinEl) -> FinMem y x -> FinMem y UCode
     finMem-from-U-top Bot evU Bot fm = tt
     finMem-from-U-top Bot evU UCode ()
+    finMem-from-U-top Bot evU PropCode ()
     finMem-from-U-top Bot evU (FunEl g) ()
     finMem-from-U-top Bot evU (PiCode a0 f0) ()
     finMem-from-U-top UCode evU y fm = fm
+    finMem-from-U-top PropCode (mkSigma _ ()) y fm
     finMem-from-U-top (FunEl g) (mkSigma _ ()) y fm
     finMem-from-U-top (PiCode a0 f0) (mkSigma _ ()) y fm
 
@@ -1698,9 +1749,11 @@ InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
       EvalRel U (extendEnv rho vi0) x -> (y : FinEl) -> FinMem y x -> FinMem y UCode
     finMem-from-U vi0 Bot evU Bot fm = tt
     finMem-from-U vi0 Bot evU UCode ()
+    finMem-from-U vi0 Bot evU PropCode ()
     finMem-from-U vi0 Bot evU (FunEl g) ()
     finMem-from-U vi0 Bot evU (PiCode a0 f0) ()
     finMem-from-U vi0 UCode evU y fm = fm
+    finMem-from-U vi0 PropCode (mkSigma _ ()) y fm
     finMem-from-U vi0 (FunEl g) (mkSigma _ ()) y fm
     finMem-from-U vi0 (PiCode a0 f0) (mkSigma _ ()) y fm
 
@@ -1937,3 +1990,349 @@ InvTyp-Pi A B rho fits invA body-ih (PiCode b f) ev = result
     result = mkSigma (PiCode b_new f') (mkSigma UCode
       (mkSigma (mkSigma le-b-b_new lf-f-f')
         (mkSigma evPi-new (mkSigma fm-pi-U (mkSigma tt tt)))))
+
+InvTyp-Pi-Prop : {n : Nat} {G : Ctx n} (A : Expr n) (B : Expr (suc n)) ->
+  (rho : EnvApprox n) -> Fits G rho ->
+  InvTyp G A U rho ->
+  ((x a : FinEl) -> FinMem x a -> EvalRel A rho a ->
+    InvTyp (extend G A) B Prop (extendEnv rho x)) ->
+  InvTyp G (Pi A B) Prop rho
+InvTyp-Pi-Prop A B rho fits invA body-ih Bot ev =
+  mkSigma Bot (mkSigma PropCode (mkSigma tt (mkSigma tt (mkSigma tt (mkSigma tt tt)))))
+InvTyp-Pi-Prop A B rho fits invA body-ih UCode ()
+InvTyp-Pi-Prop A B rho fits invA body-ih PropCode ()
+InvTyp-Pi-Prop A B rho fits invA body-ih (FunEl g) ()
+InvTyp-Pi-Prop A B rho fits invA body-ih (PiCode b f) ev = result
+  where
+    crho = Fits-CoherentEnv rho fits
+
+    -- Decompose ev
+    coh   = fst ev              -- Coherent (PiCode b f)
+    cb    = fst coh             -- Coherent b
+    cf    = snd coh             -- CoherentFunTail f
+    evA-b = fst (snd ev)        -- EvalRel A rho b
+    a'    = fst (snd (snd ev))  -- inner witness code
+    evA-a' = fst (snd (snd (snd ev)))
+    body  = snd (snd (snd (snd ev)))  -- selection body for f
+
+    -- Pi-edgewise: per-edge data
+    pew = Pi-edgewise A B rho b f ev
+    ew : (p : Edge) -> EdgeIn p f ->
+      Sigma FinEl (\ x -> Pair (LeCode x (fst p))
+                               (Pair (FinMem x a') (EvalRel B (extendEnv rho x) (snd p))))
+    ew = snd (snd (snd (snd pew)))
+
+    -- Step 1: type b using invA
+    typed-b = invA b evA-b
+    b1    = fst typed-b
+    ab1   = fst (snd typed-b)
+    le-b-b1 = fst (snd (snd typed-b))
+    evA-b1 = fst (snd (snd (snd typed-b)))
+    fm-b1  = fst (snd (snd (snd (snd typed-b))))
+    evU-ab1 = snd (snd (snd (snd (snd typed-b))))
+    -- ab1 : EvalRel U rho ab1 = (Coherent ab1, LeCode ab1 UCode)
+    -- Helper: extract FinMem y UCode from EvalRel U rho x and FinMem y x
+    finMem-from-U-top : (x : FinEl) -> EvalRel U rho x ->
+      (y : FinEl) -> FinMem y x -> FinMem y UCode
+    finMem-from-U-top Bot evU Bot fm = tt
+    finMem-from-U-top Bot evU UCode ()
+    finMem-from-U-top Bot evU PropCode ()
+    finMem-from-U-top Bot evU (FunEl g) ()
+    finMem-from-U-top Bot evU (PiCode a0 f0) ()
+    finMem-from-U-top UCode evU y fm = fm
+    finMem-from-U-top PropCode (mkSigma _ ()) y fm
+    finMem-from-U-top (FunEl g) (mkSigma _ ()) y fm
+    finMem-from-U-top (PiCode a0 f0) (mkSigma _ ()) y fm
+
+    b1U : FinMem b1 UCode
+    b1U = finMem-from-U-top ab1 evU-ab1 b1 fm-b1
+
+    -- Step 2: get FinMem a' UCode from first edge
+    a'U : FinMem a' UCode
+    a'U = get-a'U f cf ew body
+      where
+        get-a'U : (g : FinFun) -> CoherentFunTail g ->
+          ((p : Edge) -> EdgeIn p g ->
+            Sigma FinEl (\ x -> Pair (LeCode x (fst p))
+                                     (Pair (FinMem x a') (EvalRel B (extendEnv rho x) (snd p))))) ->
+          ((u v : FinEl) -> Selection g u v ->
+            Sigma FinEl (\ x -> Pair (LeCode x u)
+                                     (Pair (FinMem x a') (EvalRel B (extendEnv rho x) v)))) ->
+          FinMem a' UCode
+        get-a'U nil _ _ rawBody =
+          let w = rawBody Bot Bot sel-nil
+              xi = fst w
+              fm-xi = fst (snd (snd w))
+          in FinMem-a-in-U xi a' fm-xi
+        get-a'U (cons p ps) _ ew0 _ =
+          let w = ew0 p here
+              xi = fst w
+              fm-xi = fst (snd (snd w))
+          in FinMem-a-in-U xi a' fm-xi
+
+    -- Step 3: build b_new = Sup a' b1
+    cb1 = coh-from-aU b1 b1U
+    ca' = coh-from-aU a' a'U
+    comp-a'-b1 : Comp a' b1
+    comp-a'-b1 = EvalRel-Comp A rho crho a' b1 evA-a' evA-b1
+    b_new = Sup a' b1
+    b_newU : FinMem b_new UCode
+    b_newU = finMemUCode-Sup a' b1 comp-a'-b1 a'U b1U
+    cb_new = coh-from-aU b_new b_newU
+    le-a'-b_new : LeCode a' b_new
+    le-a'-b_new = LeCode-Sup-left a' b1 comp-a'-b1 ca' cb1
+    le-b1-b_new : LeCode b1 b_new
+    le-b1-b_new = LeCode-Sup-right a' b1 comp-a'-b1 ca' cb1
+    le-b-b_new : LeCode b b_new
+    le-b-b_new = LeCode-trans b b1 b_new cb cb1 cb_new le-b-b1 le-b1-b_new
+    evA-b_new : EvalRel A rho b_new
+    evA-b_new = EvalRel-Sup A rho a' b1 crho ca' cb1 comp-a'-b1 evA-a' evA-b1
+
+    -- Step 4: per-edge IH — for each edge (ui, vi) in f,
+    -- get xi <= ui with FinMem xi a', EvalRel B (rho, xi) vi,
+    -- then type vi using body-ih to get vi' >= vi with FinMem vi' PropCode
+    -- Helper: extract FinMem y PropCode from EvalRel Prop (ext) x and FinMem y x
+    finMem-from-Prop : (vi0 : FinEl) -> (x : FinEl) ->
+      EvalRel Prop (extendEnv rho vi0) x -> (y : FinEl) -> FinMem y x -> FinMem y PropCode
+    finMem-from-Prop vi0 Bot evP Bot fm = tt
+    finMem-from-Prop vi0 Bot evP UCode ()
+    finMem-from-Prop vi0 Bot evP PropCode ()
+    finMem-from-Prop vi0 Bot evP (FunEl g) ()
+    finMem-from-Prop vi0 Bot evP (PiCode a0 f0) ()
+    finMem-from-Prop vi0 PropCode evP y fm = fm
+    finMem-from-Prop vi0 UCode (mkSigma _ ()) y fm
+    finMem-from-Prop vi0 (FunEl g) (mkSigma _ ()) y fm
+    finMem-from-Prop vi0 (PiCode a0 f0) (mkSigma _ ()) y fm
+
+    edge-data : (p : Edge) -> EdgeIn p f ->
+      Sigma FinEl (\ xi -> Sigma FinEl (\ vi' ->
+        Pair (LeCode xi (fst p))
+        (Pair (FinMem xi a')
+        (Pair (EvalRel B (extendEnv rho xi) (snd p))
+        (Pair (LeCode (snd p) vi')
+        (Pair (EvalRel B (extendEnv rho xi) vi')
+              (FinMem vi' PropCode)))))))
+    edge-data p ein =
+      let w    = ew p ein
+          xi   = fst w
+          le-xi = fst (snd w)
+          fm-xi = fst (snd (snd w))
+          evB-xi = snd (snd (snd w))
+          typed-vi = body-ih xi a' fm-xi evA-a' (snd p) evB-xi
+          vi' = fst typed-vi
+          bvi = fst (snd typed-vi)
+          le-vi = fst (snd (snd typed-vi))
+          evB-vi' = fst (snd (snd (snd typed-vi)))
+          fm-vi' = fst (snd (snd (snd (snd typed-vi))))
+          evP-bvi = snd (snd (snd (snd (snd typed-vi))))
+          vi'P = finMem-from-Prop xi bvi evP-bvi vi' fm-vi'
+      in mkSigma xi (mkSigma vi'
+           (mkSigma le-xi (mkSigma fm-xi (mkSigma evB-xi
+             (mkSigma le-vi (mkSigma evB-vi' vi'P))))))
+
+    -- Step 5: build f' using mapEdges (single-pass key+value replacement)
+    new-edge : (p : Edge) -> EdgeIn p f -> Edge
+    new-edge p ein =
+      let d = edge-data p ein
+      in mkSigma (fst d) (fst (snd d))
+
+    f' : FinFun
+    f' = mapEdges f new-edge
+
+    -- Edge correspondence: for each edge p in f, new-edge p ein is in f'
+    f'-has : (p : Edge) -> (ein : EdgeIn p f) ->
+      EdgeIn (new-edge p ein) f'
+    f'-has p ein = mapEdges-corr f new-edge p ein
+
+    -- Accessors for edge-data projections
+    xi-p : (p : Edge) -> EdgeIn p f -> FinEl
+    xi-p p ein = fst (edge-data p ein)
+    vi'-p : (p : Edge) -> EdgeIn p f -> FinEl
+    vi'-p p ein = fst (snd (edge-data p ein))
+    le-xi-p : (p : Edge) -> (ein : EdgeIn p f) -> LeCode (xi-p p ein) (fst p)
+    le-xi-p p ein = fst (snd (snd (edge-data p ein)))
+    fm-xi-p : (p : Edge) -> (ein : EdgeIn p f) -> FinMem (xi-p p ein) a'
+    fm-xi-p p ein = fst (snd (snd (snd (edge-data p ein))))
+    evB-xi-p : (p : Edge) -> (ein : EdgeIn p f) ->
+      EvalRel B (extendEnv rho (xi-p p ein)) (vi'-p p ein)
+    evB-xi-p p ein = fst (snd (snd (snd (snd (snd (snd (edge-data p ein)))))))
+    le-vi-p : (p : Edge) -> (ein : EdgeIn p f) -> LeCode (snd p) (vi'-p p ein)
+    le-vi-p p ein = fst (snd (snd (snd (snd (snd (edge-data p ein))))))
+    vi'P-p : (p : Edge) -> (ein : EdgeIn p f) -> FinMem (vi'-p p ein) PropCode
+    vi'P-p p ein = snd (snd (snd (snd (snd (snd (snd (edge-data p ein)))))))
+
+    -- FinMem xi b_new (upward from FinMem xi a')
+    fm-xi-b_new : (p : Edge) -> (ein : EdgeIn p f) -> FinMem (xi-p p ein) b_new
+    fm-xi-b_new p ein =
+      finMem-upward (xi-p p ein) a' b_new le-a'-b_new ca' cb_new (fm-xi-p p ein) b_newU
+
+    -- Step 6: Properties of f' — all by induction on f
+
+    -- Edgewise: for each edge of f', FinMem key b_new and EvalRel B (rho, key) val
+    f'-ew : (e : Edge) -> EdgeIn e f' ->
+      Pair (FinMem (fst e) b_new) (EvalRel B (extendEnv rho (fst e)) (snd e))
+    f'-ew = me-ew f edge-data
+      where
+        me-ew : (g : FinFun) ->
+          (ed : (p : Edge) -> EdgeIn p g ->
+            Sigma FinEl (\ xi -> Sigma FinEl (\ vi' ->
+              Pair (LeCode xi (fst p))
+              (Pair (FinMem xi a')
+              (Pair (EvalRel B (extendEnv rho xi) (snd p))
+              (Pair (LeCode (snd p) vi')
+              (Pair (EvalRel B (extendEnv rho xi) vi')
+                    (FinMem vi' PropCode)))))))) ->
+          (e : Edge) ->
+          EdgeIn e (mapEdges g (\ p ein -> mkSigma (fst (ed p ein)) (fst (snd (ed p ein))))) ->
+          Pair (FinMem (fst e) b_new) (EvalRel B (extendEnv rho (fst e)) (snd e))
+        me-ew (cons p ps) ed .(mkSigma (fst (ed p here)) (fst (snd (ed p here)))) here =
+          let d = ed p here
+          in mkSigma (finMem-upward (fst d) a' b_new le-a'-b_new ca' cb_new
+                        (fst (snd (snd (snd d)))) b_newU)
+                     (fst (snd (snd (snd (snd (snd (snd d)))))))
+        me-ew (cons p ps) ed e (there ein) =
+          me-ew ps (\ q qin -> ed q (there qin)) e ein
+
+    -- FinMemAllProp f' b_new
+    fmAllProp-f' : FinMemAllProp f' b_new
+    fmAllProp-f' = me-fmAllProp f edge-data
+      where
+        me-fmAllProp : (g : FinFun) ->
+          (ed : (p : Edge) -> EdgeIn p g ->
+            Sigma FinEl (\ xi -> Sigma FinEl (\ vi' ->
+              Pair (LeCode xi (fst p))
+              (Pair (FinMem xi a')
+              (Pair (EvalRel B (extendEnv rho xi) (snd p))
+              (Pair (LeCode (snd p) vi')
+              (Pair (EvalRel B (extendEnv rho xi) vi')
+                    (FinMem vi' PropCode)))))))) ->
+          FinMemAllProp (mapEdges g (\ p ein -> mkSigma (fst (ed p ein)) (fst (snd (ed p ein))))) b_new
+        me-fmAllProp nil ed = tt
+        me-fmAllProp (cons p ps) ed =
+          let d = ed p here
+              fm-xi = finMem-upward (fst d) a' b_new le-a'-b_new ca' cb_new
+                        (fst (snd (snd (snd d)))) b_newU
+              vi'P = snd (snd (snd (snd (snd (snd (snd d))))))
+          in mkSigma (mkSigma fm-xi vi'P)
+                     (me-fmAllProp ps (\ q qin -> ed q (there qin)))
+
+    -- CoherentWith for mapEdges graph
+    me-cw : (sk sv : FinEl) -> (rest : FinFun) ->
+      Coherent sk -> CoherentFunTail rest ->
+      EvalRel B (extendEnv rho sk) sv ->
+      (ed : (q : Edge) -> EdgeIn q rest ->
+        Sigma FinEl (\ xi -> Sigma FinEl (\ vi' ->
+          Pair (LeCode xi (fst q))
+          (Pair (FinMem xi a')
+          (Pair (EvalRel B (extendEnv rho xi) (snd q))
+          (Pair (LeCode (snd q) vi')
+          (Pair (EvalRel B (extendEnv rho xi) vi')
+                (FinMem vi' PropCode)))))))) ->
+      CoherentWith (mkSigma sk sv)
+        (mapEdges rest (\ q ein -> mkSigma (fst (ed q ein)) (fst (snd (ed q ein)))))
+    me-cw sk sv nil csk crest evBsk ed = tt
+    me-cw sk sv (cons t ts) csk crest evBsk ed =
+      let dt  = ed t here
+          xt  = fst dt
+          vt' = fst (snd dt)
+          evB-xt = fst (snd (snd (snd (snd (snd (snd dt))))))
+          ct  = key-coh crest
+          cxt = FinMem-coh-u xt a' (fst (snd (snd (snd dt))))
+          step : Comp sk xt -> Comp sv vt'
+          step ck = EvalRel-Comp-ext B rho sk xt sv vt'
+                      crho ck csk cxt evBsk evB-xt
+      in mkSigma step
+           (me-cw sk sv ts csk (tail-coh crest) evBsk
+             (\ q qin -> ed q (there qin)))
+
+    -- CoherentFunTail for mapEdges graph
+    me-cft : (g : FinFun) -> CoherentFunTail g ->
+      (ed : (p : Edge) -> EdgeIn p g ->
+        Sigma FinEl (\ xi -> Sigma FinEl (\ vi' ->
+          Pair (LeCode xi (fst p))
+          (Pair (FinMem xi a')
+          (Pair (EvalRel B (extendEnv rho xi) (snd p))
+          (Pair (LeCode (snd p) vi')
+          (Pair (EvalRel B (extendEnv rho xi) vi')
+                (FinMem vi' PropCode)))))))) ->
+      CoherentFunTail (mapEdges g (\ p ein -> mkSigma (fst (ed p ein)) (fst (snd (ed p ein)))))
+    me-cft nil cg ed = tt
+    me-cft (cons p ps) cg ed =
+      let dp    = ed p here
+          xp    = fst dp
+          vp'   = fst (snd dp)
+          cxp   = FinMem-coh-u xp a' (fst (snd (snd (snd dp))))
+          vp'P  = snd (snd (snd (snd (snd (snd (snd dp))))))
+          cvp'  = FinMem-coh-u vp' PropCode vp'P
+          ck    = key-coh cg
+          cv    = val-coh cg
+          nb    = val-nbot cg
+          le-vp = fst (snd (snd (snd (snd (snd dp)))))
+          nbvp' = NotBot-from-Le (snd p) vp' cv nb le-vp
+          evB-vp' = fst (snd (snd (snd (snd (snd (snd dp))))))
+          cw    = me-cw xp vp' ps cxp (tail-coh cg) evB-vp'
+                    (\ q qin -> ed q (there qin))
+          tail  = me-cft ps (tail-coh cg)
+                    (\ q qin -> ed q (there qin))
+      in mkCFT cxp cvp' nbvp' cw tail
+
+    -- CoherentFunTail f'
+    cft-f' : CoherentFunTail f'
+    cft-f' = me-cft f cf edge-data
+
+    cf-f' : CoherentFunTail f'
+    cf-f' = cft-f'
+
+    -- LeFunCode f f': for each (ui,vi) in f, vi <= EvalFun f' ui
+    lf-f-f' : LeFunCode f f'
+    lf-f-f' = me-lf-tail f cf (\ q qin -> qin)
+      where
+        cft-edge : {g : FinFun} -> CoherentFunTail g -> {e : Edge} ->
+          EdgeIn e g -> CoherentFunTail (cons e nil)
+        cft-edge {cons p ps} cg0 here = mkCFT (key-coh cg0) (val-coh cg0) (val-nbot cg0) tt tt
+        cft-edge {cons p nil} cg0 (there ())
+        cft-edge {cons p (cons q qs)} cg0 (there ein) =
+          cft-edge (tail-coh cg0) ein
+
+        me-lf-tail : (ps : FinFun) -> CoherentFunTail f ->
+          (shift : (q : Edge) -> EdgeIn q ps -> EdgeIn q f) ->
+          LeFunCode ps f'
+        me-lf-tail nil cg0 shift = tt
+        me-lf-tail (cons q qs) cg0 shift =
+          let dq    = edge-data q (shift q here)
+              xq    = fst dq
+              vq'   = fst (snd dq)
+              le-xq = fst (snd (snd dq))
+              le-vq = fst (snd (snd (snd (snd (snd dq)))))
+              ck-q  = key-coh (cft-edge cg0 (shift q here))
+              cv-q  = val-coh (cft-edge cg0 (shift q here))
+              ein-f' = mapEdges-corr f new-edge q (shift q here)
+              head-le = EvalFun-edge-le (new-edge q (shift q here)) f' (fst q)
+                          cft-f' ein-f' ck-q le-xq
+              vq'P  = snd (snd (snd (snd (snd (snd (snd dq))))))
+              cvq'  = FinMem-coh-u vq' PropCode vq'P
+              cefg' = Coherent-EvalFun f' (fst q) cft-f' ck-q
+              head  = LeCode-trans (snd q) vq' (EvalFun f' (fst q))
+                        cv-q cvq' cefg' le-vq head-le
+              tail  = me-lf-tail qs cg0 (\ r rin -> shift r (there rin))
+          in mkSigma head tail
+
+    -- EvalRel (Pi A B) rho (PiCode b_new f')
+    evPi-new : EvalRel (Pi A B) rho (PiCode b_new f')
+    evPi-new =
+      let selbody : (u' v' : FinEl) -> Selection f' u' v' ->
+            Sigma FinEl (\ x -> Pair (LeCode x u')
+              (Pair (FinMem x b_new) (EvalRel B (extendEnv rho x) v')))
+          selbody u' v' sel =
+            replaceKeys-selection-body B rho b_new f' u' v' crho b_newU cft-f' f'-ew sel
+      in mkSigma (mkSigma cb_new cf-f')
+           (mkSigma evA-b_new (mkSigma b_new (mkSigma evA-b_new selbody)))
+
+    -- FinMem (PiCode b_new f') PropCode
+    fm-pi-P : FinMem (PiCode b_new f') PropCode
+    fm-pi-P = mkSigma b_newU (mkSigma fmAllProp-f' cf-f')
+
+    result : Typed (Pi A B) Prop rho (PiCode b f)
+    result = mkSigma (PiCode b_new f') (mkSigma PropCode
+      (mkSigma (mkSigma le-b-b_new lf-f-f')
+        (mkSigma evPi-new (mkSigma fm-pi-P (mkSigma tt tt)))))

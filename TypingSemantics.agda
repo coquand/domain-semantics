@@ -18,22 +18,28 @@ module TypingSemantics where
 import Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ; fst ; snd ;
               Sigma ; Eq ; refl ; Eq-transport ; Eq-sym ;
-              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun ;
+              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun ;
               nil ; cons)
 open import PaperSemantics using (LeCode ; LeCode-Bot ; LeCode-refl ;
-  LeCode-trans ; FinMem ; FinMem-coh-u ;
-  Coherent ; CoherentFun)
+  LeCode-trans ; LeFunCode ;
+  FinMem ; FinMemFun ; FinMemAllProp ; FinMem-coh-u ; FinMem-a-in-U ;
+  Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; cft-from-cf ; NotBot ;
+  FinMem-Prop-Bot ; FinMem-Prop-to-U ; EvalFun-in-PropCode ;
+  EvalFun ; EvalFun-mon ; Coherent-EvalFun ;
+  finMem-upward ;
+  LeCode-PropCode-cases ; Or ; inl ; inr ;
+  absurdEl)
 open import Selection using (Selection)
 open import RawSemantics using (EnvApprox ; emptyEnv ; extendEnv ; lookupEnv ;
   EvalRel ; EvalRel-coh ; CoherentEnv ; lookupEnv-coh ;
   EvalRel-Bot ; EvalRel-down ; EvalRel-mon-env ; EnvLe)
-open import RawSyntax using (Expr ; Var ; U ; Pi ; Lam ; App ;
+open import RawSyntax using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
   Fin ; fzero ; fsuc ; wkExpr ; subst1)
 open import TypingRules using (Ctx ; empty ; extend ; lookup ;
-  HasType ; ty-var ; ty-conv ; ty-U ; ty-Pi ; ty-Lam ; ty-App ;
+  HasType ; ty-var ; ty-conv ; ty-U ; ty-Prop ; ty-Prop-U ; ty-Pi ; ty-Pi-Prop ; ty-Lam ; ty-App ;
   WfCtx ; wf-empty ; wf-extend ;
   ConvTm ;
-  conv-refl ; conv-sym ; conv-trans ; conv-conv ;
+  conv-refl ; conv-sym ; conv-trans ; conv-conv ; conv-Prop ;
   conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg)
 
 -- All hard lemmas come from LemmaForTS (0 postulates).
@@ -41,8 +47,157 @@ import LemmaForTS as LTS
 open LTS using (Fits ; Typed ; InvTyp ; InvConv)
 
 ------------------------------------------------------------------------
--- Mutual declarations
+-- Helpers for proof-irrelevance
 ------------------------------------------------------------------------
+
+-- If FinMem u' Bot, then u' = Bot
+FinMem-Bot-elim : (u' : FinEl) -> FinMem u' Bot -> Eq u' Bot
+FinMem-Bot-elim Bot          mem = refl
+FinMem-Bot-elim UCode        ()
+FinMem-Bot-elim PropCode     ()
+FinMem-Bot-elim (FunEl g)    ()
+FinMem-Bot-elim (PiCode a f) ()
+
+-- If LeCode u u' and u' = Bot, then u = Bot (since LeCode u Bot = Top only for u = Bot)
+LeCode-Bot-eq : (u u' : FinEl) -> LeCode u u' -> Eq u' Bot -> Eq u Bot
+LeCode-Bot-eq Bot u' le eq = refl
+LeCode-Bot-eq UCode Bot ()
+LeCode-Bot-eq UCode UCode le ()
+LeCode-Bot-eq UCode PropCode le ()
+LeCode-Bot-eq UCode (FunEl h) le ()
+LeCode-Bot-eq UCode (PiCode b g) le ()
+LeCode-Bot-eq PropCode Bot ()
+LeCode-Bot-eq PropCode UCode le ()
+LeCode-Bot-eq PropCode PropCode le ()
+LeCode-Bot-eq PropCode (FunEl h) le ()
+LeCode-Bot-eq PropCode (PiCode b g) le ()
+LeCode-Bot-eq (FunEl g) Bot ()
+LeCode-Bot-eq (FunEl g) UCode le ()
+LeCode-Bot-eq (FunEl g) PropCode le ()
+LeCode-Bot-eq (FunEl g) (FunEl h) le ()
+LeCode-Bot-eq (FunEl g) (PiCode b h) le ()
+LeCode-Bot-eq (PiCode a f) Bot ()
+LeCode-Bot-eq (PiCode a f) UCode le ()
+LeCode-Bot-eq (PiCode a f) PropCode le ()
+LeCode-Bot-eq (PiCode a f) (FunEl h) le ()
+LeCode-Bot-eq (PiCode a f) (PiCode b g) le ()
+
+-- If LeCode a' PropCode and FinMem u' a', produce FinMem u' UCode
+-- a' = Bot: u' = Bot, FinMem Bot UCode = Top.
+-- a' = PropCode: FinMem u' PropCode, use FinMem-Prop-to-U.
+FinMem-Prop-in-U : (u' a' : FinEl) -> FinMem u' a' -> LeCode a' PropCode ->
+  FinMem u' UCode
+FinMem-Prop-in-U u' Bot fm le =
+  Eq-transport (\ x -> FinMem x UCode) (Eq-sym (FinMem-Bot-elim u' fm)) tt
+FinMem-Prop-in-U u' UCode fm ()
+FinMem-Prop-in-U u' PropCode fm le = FinMem-Prop-to-U u' fm
+FinMem-Prop-in-U u' (FunEl g) fm ()
+FinMem-Prop-in-U u' (PiCode a f) fm ()
+
+------------------------------------------------------------------------
+-- Prop-collapse: if FinMem u a, LeCode a a', FinMem a' PropCode,
+-- then u = Bot.
+--
+-- The only non-trivial case is u = FunEl h at a = PiCode c' g'
+-- with a' = PiCode c g in PropCode. Each value yi in h has
+-- FinMem yi (EvalFun g' xi). By EvalFun-mon + EvalFun-in-PropCode +
+-- finMem-upward + FinMem-Prop-Bot: yi = Bot. Contradicts NotBot.
+------------------------------------------------------------------------
+
+-- Helper: FinMem (FunEl h) (PiCode c' g') is impossible when
+-- LeFunCode g' g and FinMem (PiCode c g) PropCode
+{-# TERMINATING #-}
+Prop-collapse-FunEl-absurd : (h : FinFun) (c' : FinEl) (g' : FinFun)
+  (c : FinEl) (g : FinFun) ->
+  FinMemFun h c' g' -> CoherentFun h ->
+  LeFunCode g' g -> CoherentFunTail g' -> CoherentFunTail g ->
+  FinMem c' UCode -> FinMemAllProp g c -> Empty
+Prop-collapse-FunEl-absurd nil c' g' c g fmf ()
+Prop-collapse-FunEl-absurd (cons p ps) c' g' c g fmf coh lfg cg' cg c'U allP =
+  let cohT = cft-from-cf (cons p ps) coh
+      nb = CFTcons.val-nbot cohT
+      cp = CFTcons.key-coh cohT
+      cv = CFTcons.val-coh cohT
+      -- FinMem (snd p) (EvalFun g' (fst p))
+      mem-v = snd (fst fmf)
+      -- EvalFun g' (fst p) ≤ EvalFun g (fst p) by monotonicity
+      le-eval = EvalFun-mon g' g (fst p) cg' cg cp lfg
+      -- EvalFun g (fst p) : PropCode
+      evalP = EvalFun-in-PropCode g (fst p) c cg cp allP
+      -- EvalFun g (fst p) : UCode (from Prop-to-U)
+      evalU = FinMem-Prop-to-U (EvalFun g (fst p)) evalP
+      -- Coherent
+      coh-g' = Coherent-EvalFun g' (fst p) cg' cp
+      coh-g = Coherent-EvalFun g (fst p) cg cp
+      -- FinMem (snd p) (EvalFun g (fst p)) by finMem-upward
+      mem-v-up = finMem-upward (snd p) (EvalFun g' (fst p)) (EvalFun g (fst p))
+                   le-eval coh-g' coh-g mem-v evalU
+      -- snd p = Bot by FinMem-Prop-Bot
+      eq = FinMem-Prop-Bot (snd p) (EvalFun g (fst p)) mem-v-up evalP
+  in Eq-transport NotBot eq nb
+
+-- Prop-collapse: FinMem u a, LeCode a a', FinMem a' PropCode → u = Bot
+Prop-collapse : (u a a' : FinEl) ->
+  FinMem u a -> LeCode a a' -> FinMem a' PropCode -> Eq u Bot
+Prop-collapse u a a' fm le a'P with FinMem-Prop-in-U-helper a' a'P
+  where
+    -- Case split on a': either Bot or PiCode with PropCode membership
+    FinMem-Prop-in-U-helper : (a' : FinEl) -> FinMem a' PropCode ->
+      Or (Eq a' Bot) (Sigma FinEl (\ c -> Sigma FinFun (\ g ->
+        Pair (Eq a' (PiCode c g)) (Pair (FinMem c UCode)
+          (Pair (FinMemAllProp g c) (CoherentFunTail g))))))
+    FinMem-Prop-in-U-helper Bot          mem = inl refl
+    FinMem-Prop-in-U-helper UCode        ()
+    FinMem-Prop-in-U-helper PropCode     ()
+    FinMem-Prop-in-U-helper (FunEl g)    ()
+    FinMem-Prop-in-U-helper (PiCode c g) mem =
+      inr (mkSigma c (mkSigma g (mkSigma refl mem)))
+... | inl a'bot =
+  let abot = LeCode-Bot-eq a a' le a'bot
+  in FinMem-Bot-elim u (Eq-transport (FinMem u) abot fm)
+... | inr (mkSigma c (mkSigma g (mkSigma a'eq (mkSigma cU (mkSigma allP cohg))))) =
+  let le' = Eq-transport (LeCode a) a'eq le
+  in Prop-collapse-inner u a c g fm le' cU allP cohg
+  where
+    Prop-collapse-inner : (u a : FinEl) (c : FinEl) (g : FinFun) ->
+      FinMem u a -> LeCode a (PiCode c g) ->
+      FinMem c UCode -> FinMemAllProp g c -> CoherentFunTail g ->
+      Eq u Bot
+    -- a = Bot: FinMem u Bot → u = Bot
+    Prop-collapse-inner u Bot c g fm le cU allP cohg = FinMem-Bot-elim u fm
+    -- a = UCode: LeCode UCode (PiCode c g) = Empty
+    Prop-collapse-inner u UCode c g fm ()
+    Prop-collapse-inner u PropCode c g fm ()
+    Prop-collapse-inner u (FunEl h) c g fm ()
+    -- a = PiCode c' g': FinMem u (PiCode c' g')
+    Prop-collapse-inner Bot (PiCode c' g') c g fm le cU allP cohg = refl
+    Prop-collapse-inner UCode (PiCode c' g') c g ()
+    Prop-collapse-inner PropCode (PiCode c' g') c g ()
+    Prop-collapse-inner (PiCode x y) (PiCode c' g') c g ()
+    Prop-collapse-inner (FunEl h) (PiCode c' g') c g fm le cU allP cohg =
+      let -- Extract from FinMem (FunEl h) (PiCode c' g')
+          fmf = fst fm
+          cfh = fst (snd fm)
+          piU = snd (snd fm)
+          -- From LeCode (PiCode c' g') (PiCode c g)
+          le-g = snd le
+          -- CoherentFunTail g'
+          cohg' = snd (snd piU)
+      in absurdEl (Prop-collapse-FunEl-absurd h c' g' c g fmf cfh le-g cohg' cohg (fst piU) allP)
+
+-- Helper for conv-Prop: chain from FinMem through Prop to Bot
+conv-Prop-chain : (u' a1 a2 b : FinEl) ->
+  FinMem u' a1 -> LeCode a1 a2 -> FinMem a2 b -> LeCode b PropCode ->
+  Eq u' Bot
+conv-Prop-chain u' a1 a2 Bot fm1 le-a fm2 le-b =
+  let a2bot = FinMem-Bot-elim a2 fm2
+      a1bot = LeCode-Bot-eq a1 a2 le-a a2bot
+  in FinMem-Bot-elim u' (Eq-transport (FinMem u') a1bot fm1)
+conv-Prop-chain u' a1 a2 UCode fm1 le-a fm2 ()
+conv-Prop-chain u' a1 a2 PropCode fm1 le-a fm2 le-b =
+  Prop-collapse u' a1 a2 fm1 le-a fm2
+conv-Prop-chain u' a1 a2 (FunEl g) fm1 le-a fm2 ()
+conv-Prop-chain u' a1 a2 (PiCode c g) fm1 le-a fm2 ()
 
 {-# TERMINATING #-}
 mutual
@@ -100,6 +255,7 @@ mutual
           let mkSigma x (mkSigma le (mkSigma mem evB)) = body u v sel
           in mkSigma x (mkSigma le (mkSigma mem (eqB x a' mem evA' v evB)))))))
   convSound-Pi-fwd A A' B B' rho UCode eqA eqB ()
+  convSound-Pi-fwd A A' B B' rho PropCode eqA eqB ()
   convSound-Pi-fwd A A' B B' rho (FunEl g) eqA eqB ()
 
   --------------------------------------------------------------------
@@ -138,6 +294,33 @@ mutual
           in mkSigma u' (mkSigma a'
                (mkSigma le (mkSigma evN (mkSigma fm (fwdAB a' evA)))))
     in mkSigma invM' (mkSigma invN' (mkSigma fwd bwd))
+
+  -- conv-Prop: proof-irrelevance
+  -- If A : Prop, M : A, N : A, then EvalRel M rho u -> EvalRel N rho u.
+  -- Key: by theorem1, any u with EvalRel M rho u has enlargement u'
+  -- with FinMem u' a' and EvalRel A rho a' where A : Prop, so the type
+  -- derivation gives a' with LeCode a' PropCode via theorem1 on dP.
+  -- Actually: dM : HasType G M A with dP : HasType G A Prop.
+  -- theorem1 dM gives u', a', FinMem u' a', EvalRel A rho a'.
+  -- Then theorem1 dP applied to a' gives a'', b, FinMem a'' b,
+  -- EvalRel Prop rho b, i.e., b ≤ PropCode. By FinMem-Prop-in-U-helper,
+  -- a'' = Bot, so a' ≤ a'' = Bot, so a' = Bot, so u' = Bot, so u = Bot.
+  convSound' (conv-Prop {n = n} {G = G} {M = M} {N = N} {A = A} dP dM dN) rho fits =
+    let invM = theorem1 dM rho fits
+        invN = theorem1 dN rho fits
+        invP = theorem1 dP rho fits
+        collapse : (T : Expr n) -> LTS.InvTyp G T A rho ->
+          (u : FinEl) -> EvalRel T rho u -> Eq u Bot
+        collapse T invT u ev =
+          let mkSigma u' (mkSigma a1 (mkSigma le-u (mkSigma _ (mkSigma fm1 evA)))) = invT u ev
+              mkSigma a2 (mkSigma b (mkSigma le-a (mkSigma _ (mkSigma fm2 evProp)))) = invP a1 evA
+          in LeCode-Bot-eq u u' le-u
+               (conv-Prop-chain u' a1 a2 b fm1 le-a fm2 (snd evProp))
+    in mkSigma invM (mkSigma invN
+         (mkSigma (\ u ev -> Eq-transport (EvalRel N rho)
+                    (Eq-sym (collapse M invM u ev)) (EvalRel-Bot N rho))
+                  (\ u ev -> Eq-transport (EvalRel M rho)
+                    (Eq-sym (collapse N invN u ev)) (EvalRel-Bot M rho))))
 
   -- conv-beta: from LTS.InvConv-beta
   convSound' (conv-beta {A = A} {B = B} {M = M} {a = a} dA dB dM da)
@@ -221,6 +404,38 @@ mutual
     mkSigma UCode (mkSigma UCode
       (mkSigma (snd ev)
         (mkSigma (mkSigma tt tt) (mkSigma tt (mkSigma tt tt)))))
+
+  -- ty-Prop: enlarge to PropCode, type code is UCode (Prop : U)
+  theorem1 (ty-Prop wf) rho fits u ev =
+    mkSigma PropCode (mkSigma UCode
+      (mkSigma (snd ev)
+        (mkSigma (mkSigma tt tt) (mkSigma tt (mkSigma tt tt)))))
+
+  -- ty-Prop-U: A : Prop implies A : U
+  -- From theorem1 on dA, we get u', a', FinMem u' a', EvalRel Prop rho a'.
+  -- a' ≤ PropCode. FinMem u' a' gives FinMem u' UCode via FinMem-Prop-in-U.
+  theorem1 (ty-Prop-U dA) rho fits u ev =
+    let mkSigma u' (mkSigma a' (mkSigma le (mkSigma evM (mkSigma fm evProp)))) =
+          theorem1 dA rho fits u ev
+        fmU = FinMem-Prop-in-U u' a' fm (snd evProp)
+    in mkSigma u' (mkSigma UCode
+         (mkSigma le (mkSigma evM (mkSigma fmU (mkSigma tt tt)))))
+
+  -- ty-Pi-Prop: Pi A B : Prop when A : U, B : Prop
+  -- Since Pi A B : Prop implies Pi A B : U (via ty-Pi + ty-Prop-U),
+  -- and all inhabitants of Prop-typed codes collapse to Bot,
+  -- InvTyp is trivially satisfiable: u collapses to Bot.
+  -- We use ty-Pi for the U version, then note any caller at Prop
+  -- will see only Bot anyway.
+  -- FUTURE: dedicated InvTyp-Pi-Prop for FinMem u' PropCode evidence.
+  -- ty-Pi-Prop: from InvTyp-Pi-Prop
+  theorem1 (ty-Pi-Prop {A = A} {B = B} d1 d2) rho fits u ev =
+    LTS.InvTyp-Pi-Prop A B rho fits
+      (theorem1 d1 rho fits)
+      (\ x a fm evA ->
+        theorem1 d2 (extendEnv rho x)
+          (mkSigma fits (mkSigma a (mkSigma fm evA))))
+      u ev
 
   -- ty-conv: transport type via conversion
   theorem1 (ty-conv d1 d2 _) rho fits u ev =

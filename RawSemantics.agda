@@ -18,7 +18,7 @@ module RawSemantics where
 import Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ; fst ; snd ;
               Pair ; List ; nil ; cons ; Eq ; refl ; Eq-transport ; Eq-sym ;
-              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun)
+              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun)
 open import PaperSemantics using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-Bot ;
   Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; mkCFT ; cft-from-cf ;
   NotBot ; Coherent-singleton-key ; Coherent-singleton-val ;
@@ -73,12 +73,18 @@ EvalRel (Var i) rho b = Pair (Coherent b) (LeCode b (lookupEnv i rho))
 -- Universe: b <= UCode (with Coherent b bundled)
 EvalRel U rho b = Pair (Coherent b) (LeCode b UCode)
 
+-- Prop: b <= PropCode (with Coherent b bundled)
+EvalRel Prop rho b = Pair (Coherent b) (LeCode b PropCode)
+
 -- Application: Bot always approximates.
 -- Non-Bot u: one-edge form.
 EvalRel (App M N) rho Bot = Top
 EvalRel (App M N) rho UCode =
   Sigma FinEl (\ v -> Pair (EvalRel N rho v)
                            (EvalRel M rho (FunEl (cons (mkSigma v UCode) nil))))
+EvalRel (App M N) rho PropCode =
+  Sigma FinEl (\ v -> Pair (EvalRel N rho v)
+                           (EvalRel M rho (FunEl (cons (mkSigma v PropCode) nil))))
 EvalRel (App M N) rho (FunEl g') =
   Sigma FinEl (\ v -> Pair (EvalRel N rho v)
                            (EvalRel M rho (FunEl (cons (mkSigma v (FunEl g')) nil))))
@@ -102,6 +108,7 @@ EvalRel (Lam A M) rho (FunEl g) =
                    (Pair (FinMem x a)
                          (EvalRel M (extendEnv rho x) v)))))))
 EvalRel (Lam A M) rho UCode        = Empty
+EvalRel (Lam A M) rho PropCode     = Empty
 EvalRel (Lam A M) rho (PiCode a f) = Empty
 
 -- Pi: PiCode a f bundles Coherent (PiCode a f) and FinMem a UCode.
@@ -119,6 +126,7 @@ EvalRel (Pi A B) rho (PiCode a f) =
                    (Pair (FinMem x a')
                          (EvalRel B (extendEnv rho x) v)))))))
 EvalRel (Pi A B) rho UCode        = Empty
+EvalRel (Pi A B) rho PropCode     = Empty
 EvalRel (Pi A B) rho (FunEl g)    = Empty
 
 ------------------------------------------------------------------------
@@ -140,6 +148,7 @@ mutual
   Coherent-val-LeBot-absurd : (v : FinEl) -> Pair (Coherent v) (NotBot v) -> LeCode v Bot -> Empty
   Coherent-val-LeBot-absurd Bot          cnb le = snd cnb  -- NotBot Bot = Empty
   Coherent-val-LeBot-absurd UCode        cnb ()             -- LeCode UCode Bot = Empty
+  Coherent-val-LeBot-absurd PropCode     cnb ()             -- LeCode PropCode Bot = Empty
   Coherent-val-LeBot-absurd (PiCode a f) cnb ()             -- LeCode PiCode Bot = Empty
   Coherent-val-LeBot-absurd (FunEl h)    cnb ()  -- LeCode (FunEl h) Bot = Empty
 
@@ -153,8 +162,10 @@ EvalRel-coh : {n : Nat} (M : Expr n) (rho : EnvApprox n) (u : FinEl) ->
 
 EvalRel-coh (Var i) rho u ev = fst ev
 EvalRel-coh U rho u ev = fst ev
+EvalRel-coh Prop rho u ev = fst ev
 EvalRel-coh (App M N) rho Bot ev = tt
 EvalRel-coh (App M N) rho UCode ev = tt
+EvalRel-coh (App M N) rho PropCode ev = tt
 EvalRel-coh (App M N) rho (FunEl g') ev =
   Coherent-singleton-val (fst ev) (FunEl g')
     (EvalRel-coh M rho (FunEl (cons (mkSigma (fst ev) (FunEl g')) nil)) (snd (snd ev)))
@@ -164,10 +175,12 @@ EvalRel-coh (App M N) rho (PiCode a' f') ev =
 EvalRel-coh (Lam A M) rho Bot ev = tt
 EvalRel-coh (Lam A M) rho (FunEl g) ev = fst (snd ev)
 EvalRel-coh (Lam A M) rho UCode ()
+EvalRel-coh (Lam A M) rho PropCode ()
 EvalRel-coh (Lam A M) rho (PiCode a f) ()
 EvalRel-coh (Pi A B) rho Bot ev = tt
 EvalRel-coh (Pi A B) rho (PiCode a f) ev = fst ev
 EvalRel-coh (Pi A B) rho UCode ()
+EvalRel-coh (Pi A B) rho PropCode ()
 EvalRel-coh (Pi A B) rho (FunEl g) ()
 
 ------------------------------------------------------------------------
@@ -260,6 +273,9 @@ EvalRel-mon-env (Var i) rho rho' u ev envle =
 -- U: no dependence on environment
 EvalRel-mon-env U rho rho' u ev envle = ev
 
+-- Prop: no dependence on environment
+EvalRel-mon-env Prop rho rho' u ev envle = ev
+
 -- App Bot: trivial
 EvalRel-mon-env (App M N) rho rho' Bot ev envle = tt
 
@@ -276,6 +292,12 @@ EvalRel-mon-env (App M N) rho rho' (FunEl g') ev envle =
       evM = snd (snd ev)
   in mkSigma v (mkSigma (EvalRel-mon-env N rho rho' v evN envle)
                         (EvalRel-mon-env M rho rho' (FunEl (cons (mkSigma v (FunEl g')) nil)) evM envle))
+EvalRel-mon-env (App M N) rho rho' PropCode ev envle =
+  let v   = fst ev
+      evN = fst (snd ev)
+      evM = snd (snd ev)
+  in mkSigma v (mkSigma (EvalRel-mon-env N rho rho' v evN envle)
+                        (EvalRel-mon-env M rho rho' (FunEl (cons (mkSigma v PropCode) nil)) evM envle))
 EvalRel-mon-env (App M N) rho rho' (PiCode a' f') ev envle =
   let v   = fst ev
       evN = fst (snd ev)
@@ -311,6 +333,9 @@ EvalRel-mon-env (Lam A M) rho rho' (FunEl g) ev envle =
 -- Lam UCode: absurd
 EvalRel-mon-env (Lam A M) rho rho' UCode () envle
 
+-- Lam PropCode: absurd
+EvalRel-mon-env (Lam A M) rho rho' PropCode () envle
+
 -- Lam (PiCode a f): absurd
 EvalRel-mon-env (Lam A M) rho rho' (PiCode a f) () envle
 
@@ -342,6 +367,9 @@ EvalRel-mon-env (Pi A B) rho rho' (PiCode a f) ev envle =
 -- Pi UCode: absurd
 EvalRel-mon-env (Pi A B) rho rho' UCode () envle
 
+-- Pi PropCode: absurd
+EvalRel-mon-env (Pi A B) rho rho' PropCode () envle
+
 -- Pi (FunEl g): absurd
 EvalRel-mon-env (Pi A B) rho rho' (FunEl g) () envle
 
@@ -361,6 +389,7 @@ App-decompose : {n : Nat} (M N : Expr n) (rho : EnvApprox n)
   Sigma FinEl (\ v -> Pair (EvalRel N rho v)
                            (EvalRel M rho (FunEl (cons (mkSigma v u) nil))))
 App-decompose M N rho UCode        nb ev = ev
+App-decompose M N rho PropCode     nb ev = ev
 App-decompose M N rho (FunEl g')   nb ev = ev
 App-decompose M N rho (PiCode a f) nb ev = ev
 
@@ -508,6 +537,7 @@ EvalRel-Bot : {n : Nat} (M : Expr n) (rho : EnvApprox n) ->
   EvalRel M rho Bot
 EvalRel-Bot (Var i) rho = mkSigma tt tt
 EvalRel-Bot U rho = mkSigma tt tt
+EvalRel-Bot Prop rho = mkSigma tt tt
 EvalRel-Bot (App M N) rho = tt
 EvalRel-Bot (Lam A M) rho = tt
 EvalRel-Bot (Pi A B) rho = tt
@@ -648,12 +678,44 @@ EvalRel-Comp (Var i) rho crho u v ev1 ev2 =
 -- U: both u,v <= UCode
 EvalRel-Comp U rho crho u v ev1 ev2 = LeCode-Comp u v UCode tt (snd ev1) (snd ev2)
 
+-- Prop: both u,v <= PropCode
+EvalRel-Comp Prop rho crho u v ev1 ev2 = LeCode-Comp u v PropCode tt (snd ev1) (snd ev2)
+
 -- App: Bot cases trivial, non-Bot via App-Comp-helper
 -- App: Bot cases trivial, non-Bot via App-Comp-helper
 EvalRel-Comp (App M N) rho crho Bot v ev1 ev2 = comp-Bot-l v
 EvalRel-Comp (App M N) rho crho UCode Bot ev1 ev2 = comp-Bot-r UCode
 EvalRel-Comp (App M N) rho crho (FunEl g1') Bot ev1 ev2 = comp-Bot-r (FunEl g1')
 EvalRel-Comp (App M N) rho crho (PiCode a1' f1') Bot ev1 ev2 = comp-Bot-r (PiCode a1' f1')
+EvalRel-Comp (App M N) rho crho PropCode Bot ev1 ev2 = comp-Bot-r PropCode
+EvalRel-Comp (App M N) rho crho PropCode PropCode ev1 ev2 =
+  App-Comp-helper M N rho (EvalRel-Comp M rho crho) (EvalRel-Comp N rho crho)
+    PropCode PropCode (fst ev1) (fst (snd ev1)) (snd (snd ev1))
+                      (fst ev2) (fst (snd ev2)) (snd (snd ev2))
+EvalRel-Comp (App M N) rho crho PropCode UCode ev1 ev2 =
+  App-Comp-helper M N rho (EvalRel-Comp M rho crho) (EvalRel-Comp N rho crho)
+    PropCode UCode (fst ev1) (fst (snd ev1)) (snd (snd ev1))
+                   (fst ev2) (fst (snd ev2)) (snd (snd ev2))
+EvalRel-Comp (App M N) rho crho PropCode (FunEl g2') ev1 ev2 =
+  App-Comp-helper M N rho (EvalRel-Comp M rho crho) (EvalRel-Comp N rho crho)
+    PropCode (FunEl g2') (fst ev1) (fst (snd ev1)) (snd (snd ev1))
+                         (fst ev2) (fst (snd ev2)) (snd (snd ev2))
+EvalRel-Comp (App M N) rho crho PropCode (PiCode a2' f2') ev1 ev2 =
+  App-Comp-helper M N rho (EvalRel-Comp M rho crho) (EvalRel-Comp N rho crho)
+    PropCode (PiCode a2' f2') (fst ev1) (fst (snd ev1)) (snd (snd ev1))
+                              (fst ev2) (fst (snd ev2)) (snd (snd ev2))
+EvalRel-Comp (App M N) rho crho UCode PropCode ev1 ev2 =
+  App-Comp-helper M N rho (EvalRel-Comp M rho crho) (EvalRel-Comp N rho crho)
+    UCode PropCode (fst ev1) (fst (snd ev1)) (snd (snd ev1))
+                   (fst ev2) (fst (snd ev2)) (snd (snd ev2))
+EvalRel-Comp (App M N) rho crho (FunEl g1') PropCode ev1 ev2 =
+  App-Comp-helper M N rho (EvalRel-Comp M rho crho) (EvalRel-Comp N rho crho)
+    (FunEl g1') PropCode (fst ev1) (fst (snd ev1)) (snd (snd ev1))
+                         (fst ev2) (fst (snd ev2)) (snd (snd ev2))
+EvalRel-Comp (App M N) rho crho (PiCode a1' f1') PropCode ev1 ev2 =
+  App-Comp-helper M N rho (EvalRel-Comp M rho crho) (EvalRel-Comp N rho crho)
+    (PiCode a1' f1') PropCode (fst ev1) (fst (snd ev1)) (snd (snd ev1))
+                              (fst ev2) (fst (snd ev2)) (snd (snd ev2))
 EvalRel-Comp (App M N) rho crho UCode UCode ev1 ev2 =
   App-Comp-helper M N rho (EvalRel-Comp M rho crho) (EvalRel-Comp N rho crho)
     UCode UCode (fst ev1) (fst (snd ev1)) (snd (snd ev1))
@@ -695,8 +757,10 @@ EvalRel-Comp (App M N) rho crho (PiCode a1' f1') (PiCode a2' f2') ev1 ev2 =
 EvalRel-Comp (Lam A M) rho crho Bot v ev1 ev2 = comp-Bot-l v
 EvalRel-Comp (Lam A M) rho crho (FunEl g1) Bot ev1 ev2 = comp-Bot-r (FunEl g1)
 EvalRel-Comp (Lam A M) rho crho UCode v () ev2
+EvalRel-Comp (Lam A M) rho crho PropCode v () ev2
 EvalRel-Comp (Lam A M) rho crho (PiCode a1 f1) v () ev2
 EvalRel-Comp (Lam A M) rho crho (FunEl g1) UCode ev1 ()
+EvalRel-Comp (Lam A M) rho crho (FunEl g1) PropCode ev1 ()
 EvalRel-Comp (Lam A M) rho crho (FunEl g1) (PiCode a2 f2) ev1 ()
 EvalRel-Comp (Lam A M) rho crho (FunEl g1) (FunEl g2) ev1 ev2 =
   let ew1 = Lam-edgewise A M rho g1 ev1
@@ -714,8 +778,10 @@ EvalRel-Comp (Lam A M) rho crho (FunEl g1) (FunEl g2) ev1 ev2 =
 EvalRel-Comp (Pi A B) rho crho Bot v ev1 ev2 = comp-Bot-l v
 EvalRel-Comp (Pi A B) rho crho (PiCode a1 f1) Bot ev1 ev2 = comp-Bot-r (PiCode a1 f1)
 EvalRel-Comp (Pi A B) rho crho UCode v () ev2
+EvalRel-Comp (Pi A B) rho crho PropCode v () ev2
 EvalRel-Comp (Pi A B) rho crho (FunEl g1) v () ev2
 EvalRel-Comp (Pi A B) rho crho (PiCode a1 f1) UCode ev1 ()
+EvalRel-Comp (Pi A B) rho crho (PiCode a1 f1) PropCode ev1 ()
 EvalRel-Comp (Pi A B) rho crho (PiCode a1 f1) (FunEl g2) ev1 ()
 EvalRel-Comp (Pi A B) rho crho (PiCode a1 f1) (PiCode a2 f2) ev1 ev2 =
   let pew1 = Pi-edgewise A B rho a1 f1 ev1
@@ -760,6 +826,10 @@ EvalRel-down (Var i) rho u u' crho cu' ev le =
 EvalRel-down U rho u u' crho cu' ev le =
   mkSigma cu' (LeCode-trans u' u UCode cu' (fst ev) tt le (snd ev))
 
+-- Prop: compose LeCode u' u and LeCode u PropCode
+EvalRel-down Prop rho u u' crho cu' ev le =
+  mkSigma cu' (LeCode-trans u' u PropCode cu' (fst ev) tt le (snd ev))
+
 -- App: u' = Bot is trivial; u = Bot forces u' = Bot (absurd for non-Bot)
 -- Non-Bot cases delegate to the existing App-down chain
 -- App: u' = Bot trivial; u = Bot forces absurd for non-Bot u';
@@ -767,6 +837,7 @@ EvalRel-down U rho u u' crho cu' ev le =
 -- Cross-constructor non-Bot: absurd by LeCode.
 EvalRel-down (App M N) rho u Bot crho cu' ev le = tt
 EvalRel-down (App M N) rho Bot UCode crho cu' ev ()
+EvalRel-down (App M N) rho Bot PropCode crho cu' ev ()
 EvalRel-down (App M N) rho Bot (FunEl g') crho cu' ev ()
 EvalRel-down (App M N) rho Bot (PiCode a' f') crho cu' ev ()
 EvalRel-down (App M N) rho UCode UCode crho cu' ev le =
@@ -789,8 +860,33 @@ EvalRel-down (App M N) rho UCode UCode crho cu' ev le =
                (FunEl (cons (mkSigma v UCode) nil))
                crho c-vu' evM (mkSigma le-u'-ef tt)
   in mkSigma v (mkSigma evN evM')
+EvalRel-down (App M N) rho UCode PropCode crho cu' ev ()
 EvalRel-down (App M N) rho UCode (FunEl g') crho cu' ev ()
 EvalRel-down (App M N) rho UCode (PiCode a' f') crho cu' ev ()
+EvalRel-down (App M N) rho PropCode PropCode crho cu' ev le =
+  let v   = fst ev
+      evN = fst (snd ev)
+      evM = snd (snd ev)
+      -- Coherence from M evidence
+      c-vu = EvalRel-coh M rho (FunEl (cons (mkSigma v PropCode) nil)) evM
+      cv   = Coherent-singleton-key v PropCode c-vu
+      -- LeCode PropCode (EvalFun [(v,PropCode)] v) from LeCode-refl
+      le-refl = fst (LeCode-refl (FunEl (cons (mkSigma v PropCode) nil)) c-vu)
+      c-ef = Coherent-EvalFun (cons (mkSigma v PropCode) nil) v c-vu cv
+      le-u'-ef = LeCode-trans PropCode PropCode (EvalFun (cons (mkSigma v PropCode) nil) v)
+                   cu' tt c-ef le le-refl
+      -- Coherent (FunEl [(v,PropCode)])
+      c-vu' = mkCFT cv tt tt tt tt
+      -- EvalRel-down M (structural IH: M < App M N)
+      evM' = EvalRel-down M rho
+               (FunEl (cons (mkSigma v PropCode) nil))
+               (FunEl (cons (mkSigma v PropCode) nil))
+               crho c-vu' evM (mkSigma le-u'-ef tt)
+  in mkSigma v (mkSigma evN evM')
+EvalRel-down (App M N) rho PropCode UCode crho cu' ev ()
+EvalRel-down (App M N) rho PropCode (FunEl g') crho cu' ev ()
+EvalRel-down (App M N) rho PropCode (PiCode a' f') crho cu' ev ()
+EvalRel-down (App M N) rho (FunEl g0) PropCode crho cu' ev ()
 EvalRel-down (App M N) rho (FunEl g0) UCode crho cu' ev ()
 EvalRel-down (App M N) rho (FunEl g0) (FunEl g') crho cu' ev le =
   let v   = fst ev
@@ -815,6 +911,7 @@ EvalRel-down (App M N) rho (FunEl g0) (FunEl g') crho cu' ev le =
   in mkSigma v (mkSigma evN evM')
 EvalRel-down (App M N) rho (FunEl g0) (PiCode a' f') crho cu' ev ()
 EvalRel-down (App M N) rho (PiCode a0 f0) UCode crho cu' ev ()
+EvalRel-down (App M N) rho (PiCode a0 f0) PropCode crho cu' ev ()
 EvalRel-down (App M N) rho (PiCode a0 f0) (FunEl g') crho cu' ev ()
 EvalRel-down (App M N) rho (PiCode a0 f0) (PiCode a' f') crho cu' ev le =
   let v   = fst ev
@@ -839,18 +936,21 @@ EvalRel-down (App M N) rho (PiCode a0 f0) (PiCode a' f') crho cu' ev le =
                crho c-vu' evM (mkSigma le-u'-ef tt)
   in mkSigma v (mkSigma evN evM')
 
--- Lam: absurd cases for UCode/PiCode outputs
+-- Lam: absurd cases for UCode/PropCode/PiCode outputs
 EvalRel-down (Lam A M) rho UCode u' crho cu' () le
+EvalRel-down (Lam A M) rho PropCode u' crho cu' () le
 EvalRel-down (Lam A M) rho (PiCode a f) u' crho cu' () le
 -- Lam Bot: u' <= Bot forces u' = Bot
 EvalRel-down (Lam A M) rho Bot Bot crho cu' ev le = tt
 EvalRel-down (Lam A M) rho Bot UCode crho cu' ev ()
+EvalRel-down (Lam A M) rho Bot PropCode crho cu' ev ()
 EvalRel-down (Lam A M) rho Bot (FunEl g') crho cu' ev ()
 EvalRel-down (Lam A M) rho Bot (PiCode a' f') crho cu' ev ()
 -- Lam (FunEl g) Bot: trivial
 EvalRel-down (Lam A M) rho (FunEl g) Bot crho cu' ev le = tt
 -- Lam (FunEl g) absurd cross-constructors
 EvalRel-down (Lam A M) rho (FunEl g) UCode crho cu' ev ()
+EvalRel-down (Lam A M) rho (FunEl g) PropCode crho cu' ev ()
 EvalRel-down (Lam A M) rho (FunEl g) (PiCode a' f') crho cu' ev ()
 -- Lam (FunEl g) (FunEl g'): the key case
 -- Uses selectionBelow + original body + IH on M
@@ -899,18 +999,21 @@ EvalRel-down (Lam A M) rho (FunEl g) (FunEl g') crho cu' ev le =
               evM-v  = EvalRel-down M (extendEnv rho x) v0 v cx-env cv evM-v0 le-v-v0
           in mkSigma x (mkSigma le-x-u (mkSigma mem-x evM-v))))))
 
--- Pi: absurd cases for UCode/FunEl outputs
+-- Pi: absurd cases for UCode/PropCode/FunEl outputs
 EvalRel-down (Pi A B) rho UCode u' crho cu' () le
+EvalRel-down (Pi A B) rho PropCode u' crho cu' () le
 EvalRel-down (Pi A B) rho (FunEl g) u' crho cu' () le
 -- Pi Bot: u' <= Bot forces u' = Bot
 EvalRel-down (Pi A B) rho Bot Bot crho cu' ev le = tt
 EvalRel-down (Pi A B) rho Bot UCode crho cu' ev ()
+EvalRel-down (Pi A B) rho Bot PropCode crho cu' ev ()
 EvalRel-down (Pi A B) rho Bot (FunEl g') crho cu' ev ()
 EvalRel-down (Pi A B) rho Bot (PiCode a' f') crho cu' ev ()
 -- Pi (PiCode a f) Bot: trivial
 EvalRel-down (Pi A B) rho (PiCode a f) Bot crho cu' ev le = tt
 -- Pi (PiCode a f) absurd cross-constructors
 EvalRel-down (Pi A B) rho (PiCode a f) UCode crho cu' ev ()
+EvalRel-down (Pi A B) rho (PiCode a f) PropCode crho cu' ev ()
 EvalRel-down (Pi A B) rho (PiCode a f) (FunEl g') crho cu' ev ()
 -- Pi (PiCode a f) (PiCode a' f'): harder than Lam because the domain
 -- changes from a to a'. The body gives FinMem x a, but target needs
@@ -984,23 +1087,37 @@ EvalRel-Sup (Var i) rho u v crho cu cv comp eu ev =
 EvalRel-Sup U rho u v crho cu cv comp eu ev =
   mkSigma (Coherent-Sup u v comp cu cv) (LeCode-Sup-lub u v UCode (snd eu) (snd ev))
 
+-- Prop: LeCode-Sup-lub from the two LeCode-to-PropCode witnesses
+EvalRel-Sup Prop rho u v crho cu cv comp eu ev =
+  mkSigma (Coherent-Sup u v comp cu cv) (LeCode-Sup-lub u v PropCode (snd eu) (snd ev))
+
 -- App: case split on both u and v
 -- Bot cases: Sup Bot v = v, Sup u Bot = u
 EvalRel-Sup (App M N) rho Bot v crho cu cv comp eu ev = ev
 EvalRel-Sup (App M N) rho UCode Bot crho cu cv comp eu ev = eu
 EvalRel-Sup (App M N) rho (FunEl g1') Bot crho cu cv comp eu ev = eu
 EvalRel-Sup (App M N) rho (PiCode a1' f1') Bot crho cu cv comp eu ev = eu
+EvalRel-Sup (App M N) rho PropCode Bot crho cu cv comp eu ev = eu
 
 -- Cross-constructor non-Bot: Comp = Empty, Sup = Bot
 EvalRel-Sup (App M N) rho UCode (FunEl g2') crho cu cv () eu ev
 EvalRel-Sup (App M N) rho UCode (PiCode a2' f2') crho cu cv () eu ev
+EvalRel-Sup (App M N) rho UCode PropCode crho cu cv () eu ev
 EvalRel-Sup (App M N) rho (FunEl g1') UCode crho cu cv () eu ev
 EvalRel-Sup (App M N) rho (FunEl g1') (PiCode a2' f2') crho cu cv () eu ev
+EvalRel-Sup (App M N) rho (FunEl g1') PropCode crho cu cv () eu ev
 EvalRel-Sup (App M N) rho (PiCode a1' f1') UCode crho cu cv () eu ev
 EvalRel-Sup (App M N) rho (PiCode a1' f1') (FunEl g2') crho cu cv () eu ev
+EvalRel-Sup (App M N) rho (PiCode a1' f1') PropCode crho cu cv () eu ev
+EvalRel-Sup (App M N) rho PropCode UCode crho cu cv () eu ev
+EvalRel-Sup (App M N) rho PropCode (FunEl g2') crho cu cv () eu ev
+EvalRel-Sup (App M N) rho PropCode (PiCode a2' f2') crho cu cv () eu ev
 
 -- UCode-UCode: Sup UCode UCode = UCode
 EvalRel-Sup (App M N) rho UCode UCode crho cu cv comp eu ev = eu
+
+-- PropCode-PropCode: Sup PropCode PropCode = PropCode
+EvalRel-Sup (App M N) rho PropCode PropCode crho cu cv comp eu ev = eu
 
 -- FunEl-FunEl: one-edge Sup
 -- eu: v1, evN1, evM1 with evM1 : EvalRel M rho (FunEl [(v1, FunEl g1')])
@@ -1107,8 +1224,10 @@ EvalRel-Sup (Lam A M) rho (FunEl g1) Bot crho cu cv comp eu ev = eu
 
 -- Absurd cases
 EvalRel-Sup (Lam A M) rho UCode v crho cu cv comp () ev
+EvalRel-Sup (Lam A M) rho PropCode v crho cu cv comp () ev
 EvalRel-Sup (Lam A M) rho (PiCode a1 f1) v crho cu cv comp () ev
 EvalRel-Sup (Lam A M) rho (FunEl g1) UCode crho cu cv comp eu ()
+EvalRel-Sup (Lam A M) rho (FunEl g1) PropCode crho cu cv comp eu ()
 EvalRel-Sup (Lam A M) rho (FunEl g1) (PiCode a2 f2) crho cu cv comp eu ()
 
 -- FunEl-FunEl: the hard case for Lam
@@ -1229,8 +1348,10 @@ EvalRel-Sup (Pi A B) rho (PiCode a1 f1) Bot crho cu cv comp eu ev = eu
 
 -- Absurd cases
 EvalRel-Sup (Pi A B) rho UCode v crho cu cv comp () ev
+EvalRel-Sup (Pi A B) rho PropCode v crho cu cv comp () ev
 EvalRel-Sup (Pi A B) rho (FunEl g1) v crho cu cv comp () ev
 EvalRel-Sup (Pi A B) rho (PiCode a1 f1) UCode crho cu cv comp eu ()
+EvalRel-Sup (Pi A B) rho (PiCode a1 f1) PropCode crho cu cv comp eu ()
 EvalRel-Sup (Pi A B) rho (PiCode a1 f1) (FunEl g2) crho cu cv comp eu ()
 
 -- PiCode-PiCode: the hard case for Pi

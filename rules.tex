@@ -14,6 +14,8 @@
 \newcommand{\substone}[2]{#1[#2]}
 \newcommand{\wkn}[1]{#1^+}
 \newcommand{\U}{\mathsf{U}}
+\newcommand{\Prop}{\mathsf{Prop}}
+\newcommand{\PropCode}{\mathsf{Prop}}
 \newcommand{\FinEl}{\mathsf{FinEl}}
 \newcommand{\FinFun}{\mathsf{FinFun}}
 \newcommand{\Bot}{\bot}
@@ -36,7 +38,7 @@
 \newtheorem{lemma}[theorem]{Lemma}
 
 \title{Typing Rules, Domain Semantics, and Pi Injectivity\\
-  for Dependent Type Theory with $\U:\U$}
+  for Dependent Type Theory with $\U:\U$ and $\Prop:\U$}
 \author{}
 \date{}
 
@@ -101,6 +103,23 @@ so that $B[a]$ means $B(\mathrm{id}, a)$.
     {\hastype{\Gamma}{\App{f}{a}}{\substone{B}{a}}}
 \end{mathpar}
 
+\subsection*{Propositions}
+
+\begin{mathpar}
+  \inferrule[\textsc{Prop}]
+    {\wf{\Gamma}}
+    {\hastype{\Gamma}{\Prop}{\U}}
+  \and
+  \inferrule[\textsc{Prop-U}]
+    {\hastype{\Gamma}{A}{\Prop}}
+    {\hastype{\Gamma}{A}{\U}}
+  \and
+  \inferrule[\textsc{Pi-Prop}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\Prop}}
+    {\hastype{\Gamma}{\Pitype{x{:}A}{B}}{\Prop}}
+\end{mathpar}
+
 \section{Conversion rules}
 
 \begin{mathpar}
@@ -122,6 +141,12 @@ so that $B[a]$ means $B(\mathrm{id}, a)$.
      \conveq{\Gamma}{A}{B}{\U} \\
      \hastype{\Gamma}{B}{\U}}
     {\conveq{\Gamma}{M}{N}{B}}
+  \and
+  \inferrule[\textsc{Prop-Irr}]
+    {\hastype{\Gamma}{A}{\Prop} \\
+     \hastype{\Gamma}{M}{A} \\
+     \hastype{\Gamma}{N}{A}}
+    {\conveq{\Gamma}{M}{N}{A}}
   \and
   \inferrule[\textsc{Beta}]
     {\hastype{\Gamma}{A}{\U} \\
@@ -239,16 +264,20 @@ elements}.  The set $\FinEl$ and its auxiliary $\FinFun$ are defined
 by mutual induction:
 \[
   \begin{array}{rcl}
-    u,v,a,b &::=& \Bot \mid \UCode \mid \FunEl{g} \mid \PiC{a}{f} \\[3pt]
+    u,v,a,b &::=& \Bot \mid \UCode \mid \PropCode \mid \FunEl{g} \mid \PiC{a}{f} \\[3pt]
     g,f &\in& \FinFun \;=\; \mathsf{List}(\FinEl \times \FinEl)
   \end{array}
 \]
 Here $\Bot$ is the least element (no information),
 $\UCode$ is the code for the universe,
+$\PropCode$ is the code for the type of propositions,
 $\FunEl{g}$ is a function element with graph~$g$
 (a finite list of input--output pairs),
 and $\PiC{a}{f}$ is a code for a $\Pi$-type with domain
 approximation~$a$ and codomain graph~$f$.
+The codes $\PropCode$ and $\UCode$ are incompatible in the ordering
+($\PropCode \Sup \UCode = \Bot$), but $\PropCode \FinMem \UCode$
+holds (propositions are types).
 
 \paragraph{Binary supremum.}
 A partial binary supremum $u \Sup v$ is defined by case analysis:
@@ -272,6 +301,7 @@ an ordering on finite functions.  The key clauses are:
 \begin{align*}
   \Bot \LeCode v &\;=\; \top \\
   \UCode \LeCode \UCode &\;=\; \top \\
+  \PropCode \LeCode \PropCode &\;=\; \top \\
   \FunEl{g} \LeCode \FunEl{h}
     &\;\Longleftrightarrow\; g \LeCode_{\mathsf{fun}} h \\
   \PiC{a}{f} \LeCode \PiC{b}{g}
@@ -307,6 +337,7 @@ $u$ and~$a$:
   \Bot \FinMem a &\;\Longleftrightarrow\; a \FinMem \UCode
     \qquad\text{(every type has $\Bot$)} \\
   \UCode \FinMem \UCode &\;=\; \top \\
+  \PropCode \FinMem \UCode &\;=\; \top \\
   \FunEl{g} \FinMem \PiC{a}{f}
     &\;\Longleftrightarrow\;
     \mathsf{FinMemFun}(g,a,f) \;\wedge\;
@@ -316,8 +347,15 @@ $u$ and~$a$:
     &\;\Longleftrightarrow\;
     a \FinMem \UCode \;\wedge\;
     \mathsf{FinMemAllU}(f,a) \;\wedge\;
+    \mathsf{CohFunTail}(f) \\
+  \PiC{a}{f} \FinMem \PropCode
+    &\;\Longleftrightarrow\;
+    a \FinMem \UCode \;\wedge\;
+    \mathsf{FinMemAllProp}(f,a) \;\wedge\;
     \mathsf{CohFunTail}(f)
 \end{align*}
+where $\mathsf{FinMemAllProp}(f,a)$ checks that every edge
+$(a_i,b_i) \in f$ satisfies $a_i \FinMem a$ and $b_i \FinMem \PropCode$.
 where $\mathsf{FinMemFun}(g,a,f)$ checks that every edge
 $(u_i,v_i) \in g$ satisfies $u_i \FinMem a$ and
 $v_i \FinMem \EvalFun(f, u_i)$,
@@ -329,6 +367,10 @@ Key structural properties:
   \item $u \FinMem a$ implies $\Coh(u)$, $\Coh(a)$, and $a \FinMem \UCode$.
   \item Membership is monotone: if $u \FinMem a$ and $a \LeCode a'$
     with $a' \FinMem \UCode$, then $u \FinMem a'$.
+  \item \emph{Prop collapse}: if $u \FinMem a$ and $a \FinMem \PropCode$,
+    then $u = \Bot$.  (Inhabitants of propositions carry no information.)
+  \item \emph{Prop subtyping}: $u \FinMem \PropCode$ implies $u \FinMem \UCode$.
+  \item $a \LeCode \PropCode$ implies $a = \Bot$ or $a = \PropCode$.
 \end{itemize}
 
 \section{Selections}
@@ -383,6 +425,9 @@ ever computing an infinite supremum.
 
     \item \textbf{Universe:}\;
       $\EvalRel{\U}{\rho}{u}$ iff $\Coh(u)$ and $u \LeCode \UCode$.
+
+    \item \textbf{Prop:}\;
+      $\EvalRel{\Prop}{\rho}{u}$ iff $\Coh(u)$ and $u \LeCode \PropCode$.
 
     \item \textbf{Application:}\;
       $\EvalRel{\App{M}{N}}{\rho}{\Bot}$ always holds.
@@ -471,7 +516,12 @@ semantic functions.  Key properties:
 \end{theorem}
 
 The proofs proceed by mutual induction on the typing and conversion
-derivations.  The $\beta$ and function extensionality cases use the
+derivations.  The proof-irrelevance case (\textsc{Prop-Irr}) uses the
+Prop collapse lemma: if $A : \Prop$ and $M : A$, then any finite
+approximation $u$ of~$M$ satisfies $u = \Bot$.  Since
+$\mathsf{EvalRel}(N, \rho, \Bot) = \top$ for all~$N$, the
+bidirectional transfer is immediate.
+The $\beta$ and function extensionality cases use the
 evaluation--substitution lemma: if $\EvalRel{M}{\rho[v]}{u}$ and
 $\EvalRel{N}{\rho}{v}$, then
 $\EvalRel{M[N/x]}{\rho}{u}$ (and conversely).
@@ -495,6 +545,8 @@ to the finite semantics.
     \item At $a = \Bot$: always $\top$ (trivially valid).
     \item At $a = \UCode$: reduces to type validity
       $\mathsf{ValTy}(\Gamma, M, u)$.
+    \item At $a = \PropCode$: always $\top$ (proof-irrelevance:
+      all inhabitants of a proposition are trivially valid).
     \item At $a = \PiC{b}{f}$ with $u = \FunEl{g}$: a
       $\Sigma$-type containing
       \begin{enumerate}

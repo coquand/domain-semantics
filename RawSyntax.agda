@@ -24,11 +24,12 @@ data Fin : Nat -> Set where
 ------------------------------------------------------------------------
 
 data Expr : Nat -> Set where
-  Var : {n : Nat} -> Fin n -> Expr n
-  U   : {n : Nat} -> Expr n
-  Pi  : {n : Nat} -> Expr n -> Expr (suc n) -> Expr n
-  Lam : {n : Nat} -> Expr n -> Expr (suc n) -> Expr n
-  App : {n : Nat} -> Expr n -> Expr n -> Expr n
+  Var  : {n : Nat} -> Fin n -> Expr n
+  U    : {n : Nat} -> Expr n
+  Prop : {n : Nat} -> Expr n
+  Pi   : {n : Nat} -> Expr n -> Expr (suc n) -> Expr n
+  Lam  : {n : Nat} -> Expr n -> Expr (suc n) -> Expr n
+  App  : {n : Nat} -> Expr n -> Expr n -> Expr n
 
 ------------------------------------------------------------------------
 -- Ren — renamings
@@ -44,6 +45,7 @@ liftRen r (fsuc i) = fsuc (r i)
 renExpr : {n m : Nat} -> Ren n m -> Expr n -> Expr m
 renExpr r (Var i)   = Var (r i)
 renExpr r U         = U
+renExpr r Prop      = Prop
 renExpr r (Pi A B)  = Pi (renExpr r A) (renExpr (liftRen r) B)
 renExpr r (Lam A M) = Lam (renExpr r A) (renExpr (liftRen r) M)
 renExpr r (App f a) = App (renExpr r f) (renExpr r a)
@@ -72,6 +74,7 @@ liftSub sigma (fsuc i) = wkExpr (sigma i)
 substExpr : {h g : Nat} -> Sub h g -> Expr g -> Expr h
 substExpr sigma (Var i)   = sigma i
 substExpr sigma U         = U
+substExpr sigma Prop      = Prop
 substExpr sigma (Pi A B)  = Pi (substExpr sigma A) (substExpr (liftSub sigma) B)
 substExpr sigma (Lam A M) = Lam (substExpr sigma A) (substExpr (liftSub sigma) M)
 substExpr sigma (App f a) = App (substExpr sigma f) (substExpr sigma a)
@@ -114,6 +117,7 @@ substExpr-ext : {h g : Nat} (sigma tau : Sub h g) ->
   (e : Expr g) -> Eq (substExpr sigma e) (substExpr tau e)
 substExpr-ext sigma tau ext (Var i)   = ext i
 substExpr-ext sigma tau ext U         = refl
+substExpr-ext sigma tau ext Prop      = refl
 substExpr-ext sigma tau ext (Pi A B)  =
   Eq-cong2-Expr Pi (substExpr-ext sigma tau ext A)
     (substExpr-ext (liftSub sigma) (liftSub tau) (liftSub-ext sigma tau ext) B)
@@ -132,6 +136,7 @@ subst-ren : {h g k : Nat} (sigma : Sub h g) (r : Ren k g) (e : Expr k) ->
   Eq (substExpr sigma (renExpr r e)) (substExpr (\ i -> sigma (r i)) e)
 subst-ren sigma r (Var i)   = refl
 subst-ren sigma r U         = refl
+subst-ren sigma r Prop      = refl
 subst-ren sigma r (Pi A B)  =
   let ihA = subst-ren sigma r A
       ihB = subst-ren (liftSub sigma) (liftRen r) B
@@ -168,6 +173,7 @@ renExpr-ext : {n m : Nat} (r1 r2 : Ren n m) ->
   (e : Expr n) -> Eq (renExpr r1 e) (renExpr r2 e)
 renExpr-ext r1 r2 ext (Var i)   = Eq-cong Var (ext i)
 renExpr-ext r1 r2 ext U         = refl
+renExpr-ext r1 r2 ext Prop      = refl
 renExpr-ext r1 r2 ext (Pi A B)  =
   Eq-cong2-Expr Pi (renExpr-ext r1 r2 ext A)
     (renExpr-ext (liftRen r1) (liftRen r2) (liftRen-ext r1 r2 ext) B)
@@ -187,6 +193,7 @@ ren-ren : {n m k : Nat} (r1 : Ren m k) (r2 : Ren n m) (e : Expr n) ->
   Eq (renExpr r1 (renExpr r2 e)) (renExpr (\ i -> r1 (r2 i)) e)
 ren-ren r1 r2 (Var i)   = refl
 ren-ren r1 r2 U         = refl
+ren-ren r1 r2 Prop      = refl
 ren-ren r1 r2 (Pi A B)  =
   let ihA = ren-ren r1 r2 A
       ihB = ren-ren (liftRen r1) (liftRen r2) B
@@ -230,6 +237,7 @@ ren-subst : {h g k : Nat} (r : Ren g k) (sigma : Sub g h) (e : Expr h) ->
   Eq (renExpr r (substExpr sigma e)) (substExpr (\ i -> renExpr r (sigma i)) e)
 ren-subst r sigma (Var i)   = refl
 ren-subst r sigma U         = refl
+ren-subst r sigma Prop      = refl
 ren-subst r sigma (Pi A B)  =
   let ihA = ren-subst r sigma A
       ihB = ren-subst (liftRen r) (liftSub sigma) B
@@ -273,6 +281,7 @@ subst-subst : {h g k : Nat} (tau : Sub k g) (sigma : Sub g h) (e : Expr h) ->
   Eq (substExpr tau (substExpr sigma e)) (substExpr (\ i -> substExpr tau (sigma i)) e)
 subst-subst tau sigma (Var i)   = refl
 subst-subst tau sigma U         = refl
+subst-subst tau sigma Prop      = refl
 subst-subst tau sigma (Pi A B)  =
   let ihA = subst-subst tau sigma A
       ihB = subst-subst (liftSub tau) (liftSub sigma) B
@@ -308,6 +317,7 @@ subst-var-ren : {n m : Nat} (r : Ren n m) (e : Expr n) ->
   Eq (substExpr (\ i -> Var (r i)) e) (renExpr r e)
 subst-var-ren r (Var i)   = refl
 subst-var-ren r U         = refl
+subst-var-ren r Prop      = refl
 subst-var-ren r (Pi A B)  =
   let ihA = subst-var-ren r A
       ihB = Eq-trans

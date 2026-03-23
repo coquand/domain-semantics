@@ -25,7 +25,7 @@ module EvalSubstitution where
 import Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ; fst ; snd ;
               Sigma ; Eq ; refl ; Eq-transport ; Eq-sym ;
-              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun ; isPos)
+              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun ; isPos)
 open import PaperSemantics using (LeCode ; LeCode-refl ; LeCode-trans ;
   Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; cft-from-cf ;
   Comp ; Comp-down ; Comp-sym ;
@@ -81,6 +81,9 @@ EvalRel-ren r (Var i) rho rho' eq u (mkSigma cu le) =
 -- U: identity
 EvalRel-ren r U rho rho' eq u ev = ev
 
+-- Prop: identity
+EvalRel-ren r Prop rho rho' eq u ev = ev
+
 -- App Bot: trivial
 EvalRel-ren r (App M N) rho rho' eq Bot ev = tt
 
@@ -90,6 +93,10 @@ EvalRel-ren r (App M N) rho rho' eq UCode
   mkSigma v (mkSigma (EvalRel-ren r N rho rho' eq v evN)
                       (EvalRel-ren r M rho rho' eq _ evM))
 EvalRel-ren r (App M N) rho rho' eq (FunEl g')
+  (mkSigma v (mkSigma evN evM)) =
+  mkSigma v (mkSigma (EvalRel-ren r N rho rho' eq v evN)
+                      (EvalRel-ren r M rho rho' eq _ evM))
+EvalRel-ren r (App M N) rho rho' eq PropCode
   (mkSigma v (mkSigma evN evM)) =
   mkSigma v (mkSigma (EvalRel-ren r N rho rho' eq v evN)
                       (EvalRel-ren r M rho rho' eq _ evM))
@@ -120,6 +127,9 @@ EvalRel-ren r (Lam A M) rho rho' eq (FunEl g)
 -- Lam UCode: absurd
 EvalRel-ren r (Lam A M) rho rho' eq UCode ()
 
+-- Lam PropCode: absurd
+EvalRel-ren r (Lam A M) rho rho' eq PropCode ()
+
 -- Lam (PiCode a f): absurd
 EvalRel-ren r (Lam A M) rho rho' eq (PiCode a f) ()
 
@@ -145,6 +155,9 @@ EvalRel-ren r (Pi A B) rho rho' eq (PiCode a f)
 -- Pi UCode: absurd
 EvalRel-ren r (Pi A B) rho rho' eq UCode ()
 
+-- Pi PropCode: absurd
+EvalRel-ren r (Pi A B) rho rho' eq PropCode ()
+
 -- Pi (FunEl g): absurd
 EvalRel-ren r (Pi A B) rho rho' eq (FunEl g) ()
 
@@ -162,12 +175,18 @@ EvalRel-ren-inv r (Var i) rho rho' eq u (mkSigma cu le) =
 
 EvalRel-ren-inv r U rho rho' eq u ev = ev
 
+EvalRel-ren-inv r Prop rho rho' eq u ev = ev
+
 EvalRel-ren-inv r (App M N) rho rho' eq Bot ev = tt
 EvalRel-ren-inv r (App M N) rho rho' eq UCode
   (mkSigma v (mkSigma evN evM)) =
   mkSigma v (mkSigma (EvalRel-ren-inv r N rho rho' eq v evN)
                       (EvalRel-ren-inv r M rho rho' eq _ evM))
 EvalRel-ren-inv r (App M N) rho rho' eq (FunEl g')
+  (mkSigma v (mkSigma evN evM)) =
+  mkSigma v (mkSigma (EvalRel-ren-inv r N rho rho' eq v evN)
+                      (EvalRel-ren-inv r M rho rho' eq _ evM))
+EvalRel-ren-inv r (App M N) rho rho' eq PropCode
   (mkSigma v (mkSigma evN evM)) =
   mkSigma v (mkSigma (EvalRel-ren-inv r N rho rho' eq v evN)
                       (EvalRel-ren-inv r M rho rho' eq _ evM))
@@ -192,6 +211,7 @@ EvalRel-ren-inv r (Lam A M) rho rho' eq (FunEl g)
              (EvalRel-ren-inv (liftRen r) M (extendEnv rho x)
                (extendEnv rho' x) eq' v evM)))))))
 EvalRel-ren-inv r (Lam A M) rho rho' eq UCode ()
+EvalRel-ren-inv r (Lam A M) rho rho' eq PropCode ()
 EvalRel-ren-inv r (Lam A M) rho rho' eq (PiCode a f) ()
 
 EvalRel-ren-inv r (Pi A B) rho rho' eq Bot ev = tt
@@ -210,6 +230,7 @@ EvalRel-ren-inv r (Pi A B) rho rho' eq (PiCode a f)
              (EvalRel-ren-inv (liftRen r) B (extendEnv rho x)
                (extendEnv rho' x) eq' v evB)))))))
 EvalRel-ren-inv r (Pi A B) rho rho' eq UCode ()
+EvalRel-ren-inv r (Pi A B) rho rho' eq PropCode ()
 EvalRel-ren-inv r (Pi A B) rho rho' eq (FunEl g) ()
 
 ------------------------------------------------------------------------
@@ -270,6 +291,9 @@ EvalRel-subst sigma (Var i) rho rho' crho sr u (mkSigma cu le) =
 -- U: identity
 EvalRel-subst sigma U rho rho' crho sr u ev = ev
 
+-- Prop: identity
+EvalRel-subst sigma Prop rho rho' crho sr u ev = ev
+
 -- App Bot: trivial
 EvalRel-subst sigma (App M N) rho rho' crho sr Bot ev = tt
 
@@ -279,6 +303,10 @@ EvalRel-subst sigma (App M N) rho rho' crho sr UCode
   mkSigma v (mkSigma (EvalRel-subst sigma N rho rho' crho sr v evN)
                       (EvalRel-subst sigma M rho rho' crho sr _ evM))
 EvalRel-subst sigma (App M N) rho rho' crho sr (FunEl g')
+  (mkSigma v (mkSigma evN evM)) =
+  mkSigma v (mkSigma (EvalRel-subst sigma N rho rho' crho sr v evN)
+                      (EvalRel-subst sigma M rho rho' crho sr _ evM))
+EvalRel-subst sigma (App M N) rho rho' crho sr PropCode
   (mkSigma v (mkSigma evN evM)) =
   mkSigma v (mkSigma (EvalRel-subst sigma N rho rho' crho sr v evN)
                       (EvalRel-subst sigma M rho rho' crho sr _ evM))
@@ -311,6 +339,9 @@ EvalRel-subst sigma (Lam A M) rho rho' crho sr (FunEl g)
 -- Lam UCode: absurd
 EvalRel-subst sigma (Lam A M) rho rho' crho sr UCode ()
 
+-- Lam PropCode: absurd
+EvalRel-subst sigma (Lam A M) rho rho' crho sr PropCode ()
+
 -- Lam (PiCode a f): absurd
 EvalRel-subst sigma (Lam A M) rho rho' crho sr (PiCode a f) ()
 
@@ -337,6 +368,9 @@ EvalRel-subst sigma (Pi A B) rho rho' crho sr (PiCode a f)
 
 -- Pi UCode: absurd
 EvalRel-subst sigma (Pi A B) rho rho' crho sr UCode ()
+
+-- Pi PropCode: absurd
+EvalRel-subst sigma (Pi A B) rho rho' crho sr PropCode ()
 
 -- Pi (FunEl g): absurd
 EvalRel-subst sigma (Pi A B) rho rho' crho sr (FunEl g) ()
@@ -412,6 +446,9 @@ EvalRel-subst-forward-max sigma (Var i) rho rho' crho crho' msr u ev =
 -- U
 EvalRel-subst-forward-max sigma U rho rho' crho crho' msr u ev = ev
 
+-- Prop
+EvalRel-subst-forward-max sigma Prop rho rho' crho crho' msr u ev = ev
+
 -- App Bot
 EvalRel-subst-forward-max sigma (App M N) rho rho' crho crho' msr Bot ev = tt
 
@@ -421,6 +458,10 @@ EvalRel-subst-forward-max sigma (App M N) rho rho' crho crho' msr UCode
   mkSigma v (mkSigma (EvalRel-subst-forward-max sigma N rho rho' crho crho' msr v evN)
                       (EvalRel-subst-forward-max sigma M rho rho' crho crho' msr _ evM))
 EvalRel-subst-forward-max sigma (App M N) rho rho' crho crho' msr (FunEl g')
+  (mkSigma v (mkSigma evN evM)) =
+  mkSigma v (mkSigma (EvalRel-subst-forward-max sigma N rho rho' crho crho' msr v evN)
+                      (EvalRel-subst-forward-max sigma M rho rho' crho crho' msr _ evM))
+EvalRel-subst-forward-max sigma (App M N) rho rho' crho crho' msr PropCode
   (mkSigma v (mkSigma evN evM)) =
   mkSigma v (mkSigma (EvalRel-subst-forward-max sigma N rho rho' crho crho' msr v evN)
                       (EvalRel-subst-forward-max sigma M rho rho' crho crho' msr _ evM))
@@ -453,6 +494,9 @@ EvalRel-subst-forward-max sigma (Lam A M) rho rho' crho crho' msr (FunEl g)
 -- Lam UCode: absurd
 EvalRel-subst-forward-max sigma (Lam A M) rho rho' crho crho' msr UCode ()
 
+-- Lam PropCode: absurd
+EvalRel-subst-forward-max sigma (Lam A M) rho rho' crho crho' msr PropCode ()
+
 -- Lam (PiCode a f): absurd
 EvalRel-subst-forward-max sigma (Lam A M) rho rho' crho crho' msr (PiCode a f) ()
 
@@ -479,6 +523,9 @@ EvalRel-subst-forward-max sigma (Pi A B) rho rho' crho crho' msr (PiCode a f)
 
 -- Pi UCode: absurd
 EvalRel-subst-forward-max sigma (Pi A B) rho rho' crho crho' msr UCode ()
+
+-- Pi PropCode: absurd
+EvalRel-subst-forward-max sigma (Pi A B) rho rho' crho crho' msr PropCode ()
 
 -- Pi (FunEl g): absurd
 EvalRel-subst-forward-max sigma (Pi A B) rho rho' crho crho' msr (FunEl g) ()
@@ -556,6 +603,7 @@ lookupEnv-botEnv (fsuc i) = lookupEnv-botEnv i
 Comp-Bot-right : (u : FinEl) -> Comp u Bot
 Comp-Bot-right Bot          = tt
 Comp-Bot-right UCode        = tt
+Comp-Bot-right PropCode     = tt
 Comp-Bot-right (FunEl g)    = tt
 Comp-Bot-right (PiCode a f) = tt
 
@@ -917,6 +965,11 @@ EvalRel-subst-forward-wit sigma U rho u crho ev =
   mkSigma botEnv (mkSigma botEnv-Coherent
     (mkSigma (SubRel-botEnv sigma rho) ev))
 
+-- Prop: botEnv works
+EvalRel-subst-forward-wit sigma Prop rho u crho ev =
+  mkSigma botEnv (mkSigma botEnv-Coherent
+    (mkSigma (SubRel-botEnv sigma rho) ev))
+
 -- App Bot
 EvalRel-subst-forward-wit sigma (App M N) rho Bot crho ev =
   mkSigma botEnv (mkSigma botEnv-Coherent
@@ -941,6 +994,23 @@ EvalRel-subst-forward-wit sigma (App M N) rho UCode crho
                            (EvalRel-mon-env M rhoM rho' _ evM' leM)))))
 
 EvalRel-subst-forward-wit sigma (App M N) rho (FunEl g') crho
+  (mkSigma v (mkSigma evN evM)) =
+  let rN = EvalRel-subst-forward-wit sigma N rho v crho evN
+      rM = EvalRel-subst-forward-wit sigma M rho _ crho evM
+      rhoN = fst rN ; crhoN = fst (snd rN) ; srN = fst (snd (snd rN))
+      evN' = snd (snd (snd rN))
+      rhoM = fst rM ; crhoM = fst (snd rM) ; srM = fst (snd (snd rM))
+      evM' = snd (snd (snd rM))
+      comb = combineFwd sigma rho crho rhoM rhoN crhoM crhoN srM srN
+      rho' = fst comb ; crho' = fst (snd comb)
+      sr'  = fst (snd (snd comb))
+      leM  = fst (snd (snd (snd comb)))
+      leN  = snd (snd (snd (snd comb)))
+  in mkSigma rho' (mkSigma crho' (mkSigma sr'
+       (mkSigma v (mkSigma (EvalRel-mon-env N rhoN rho' v evN' leN)
+                           (EvalRel-mon-env M rhoM rho' _ evM' leM)))))
+
+EvalRel-subst-forward-wit sigma (App M N) rho PropCode crho
   (mkSigma v (mkSigma evN evM)) =
   let rN = EvalRel-subst-forward-wit sigma N rho v crho evN
       rM = EvalRel-subst-forward-wit sigma M rho _ crho evM
@@ -1080,6 +1150,9 @@ EvalRel-subst-forward-wit sigma (Lam A M) rho (FunEl g) crho ev =
 -- Lam UCode: absurd
 EvalRel-subst-forward-wit sigma (Lam A M) rho UCode crho ()
 
+-- Lam PropCode: absurd
+EvalRel-subst-forward-wit sigma (Lam A M) rho PropCode crho ()
+
 -- Lam (PiCode a f): absurd
 EvalRel-subst-forward-wit sigma (Lam A M) rho (PiCode a f) crho ()
 
@@ -1197,6 +1270,9 @@ EvalRel-subst-forward-wit sigma (Pi A B) rho (PiCode a f) crho ev =
 
 -- Pi UCode: absurd
 EvalRel-subst-forward-wit sigma (Pi A B) rho UCode crho ()
+
+-- Pi PropCode: absurd
+EvalRel-subst-forward-wit sigma (Pi A B) rho PropCode crho ()
 
 -- Pi (FunEl g): absurd
 EvalRel-subst-forward-wit sigma (Pi A B) rho (FunEl g) crho ()

@@ -48,7 +48,7 @@ open import Basic
         ; Eq ; refl ; Eq-transport ; Eq-sym ; Eq-cong
         ; Sigma ; mkSigma ; fst ; snd ; Pair
         ; List ; nil ; cons ; All
-        ; FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun
+        ; FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun
         ; rk ; rkFun
         ; min ; isPos ; min-isPos
         ; pair-eq ; cons-eq
@@ -71,14 +71,22 @@ Sup : FinEl -> FinEl -> FinEl
 Sup Bot          x            = x
 Sup UCode        Bot          = UCode
 Sup UCode        UCode        = UCode
+Sup UCode        PropCode     = Bot
 Sup UCode        (FunEl g)    = Bot
 Sup UCode        (PiCode b g) = Bot
+Sup PropCode     Bot          = PropCode
+Sup PropCode     UCode        = Bot
+Sup PropCode     PropCode     = PropCode
+Sup PropCode     (FunEl g)    = Bot
+Sup PropCode     (PiCode b g) = Bot
 Sup (FunEl g)    Bot          = FunEl g
 Sup (FunEl g)    UCode        = Bot
+Sup (FunEl g)    PropCode     = Bot
 Sup (FunEl g)    (FunEl h)    = FunEl (append g h)
 Sup (FunEl g)    (PiCode b h) = Bot
 Sup (PiCode a f) Bot          = PiCode a f
 Sup (PiCode a f) UCode        = Bot
+Sup (PiCode a f) PropCode     = Bot
 Sup (PiCode a f) (FunEl h)    = Bot
 Sup (PiCode a f) (PiCode b g) = PiCode (Sup a b) (append f g)
 
@@ -108,14 +116,22 @@ mutual
   leFinEl Bot          x            = 1
   leFinEl UCode        Bot          = 0
   leFinEl UCode        UCode        = 1
+  leFinEl UCode        PropCode     = 0
   leFinEl UCode        (FunEl h)    = 0
   leFinEl UCode        (PiCode b g) = 0
+  leFinEl PropCode     Bot          = 0
+  leFinEl PropCode     UCode        = 0
+  leFinEl PropCode     PropCode     = 1
+  leFinEl PropCode     (FunEl h)    = 0
+  leFinEl PropCode     (PiCode b g) = 0
   leFinEl (FunEl g)    Bot          = 0
   leFinEl (FunEl g)    UCode        = 0
+  leFinEl (FunEl g)    PropCode     = 0
   leFinEl (FunEl g)    (FunEl h)    = leFun g h
   leFinEl (FunEl g)    (PiCode b h) = 0
   leFinEl (PiCode a f) Bot          = 0
   leFinEl (PiCode a f) UCode        = 0
+  leFinEl (PiCode a f) PropCode     = 0
   leFinEl (PiCode a f) (FunEl h)    = 0
   leFinEl (PiCode a f) (PiCode b g) = min (leFinEl a b) (leFun f g)
 
@@ -140,14 +156,22 @@ mutual
   LeCode Bot          v            = Top
   LeCode UCode        Bot          = Empty
   LeCode UCode        UCode        = Top
+  LeCode UCode        PropCode     = Empty
   LeCode UCode        (FunEl h)    = Empty
   LeCode UCode        (PiCode b g) = Empty
+  LeCode PropCode     Bot          = Empty
+  LeCode PropCode     UCode        = Empty
+  LeCode PropCode     PropCode     = Top
+  LeCode PropCode     (FunEl h)    = Empty
+  LeCode PropCode     (PiCode b g) = Empty
   LeCode (FunEl g)    Bot          = Empty
   LeCode (FunEl g)    UCode        = Empty
+  LeCode (FunEl g)    PropCode     = Empty
   LeCode (FunEl g)    (FunEl h)    = LeFunCode g h
   LeCode (FunEl g)    (PiCode b h) = Empty
   LeCode (PiCode a f) Bot          = Empty
   LeCode (PiCode a f) UCode        = Empty
+  LeCode (PiCode a f) PropCode     = Empty
   LeCode (PiCode a f) (FunEl h)    = Empty
   LeCode (PiCode a f) (PiCode b g) = Pair (LeCode a b) (LeFunCode f g)
 
@@ -164,6 +188,7 @@ mutual
 applyEl : FinEl -> FinEl -> FinEl
 applyEl Bot          v = Bot
 applyEl UCode        v = Bot
+applyEl PropCode     v = Bot
 applyEl (FunEl g)    v = EvalFun g v
 applyEl (PiCode a f) v = Bot
 
@@ -181,14 +206,22 @@ mutual
   Comp Bot          x            = Top
   Comp UCode        Bot          = Top
   Comp UCode        UCode        = Top
+  Comp UCode        PropCode     = Empty
   Comp UCode        (FunEl g)    = Empty
   Comp UCode        (PiCode b g) = Empty
+  Comp PropCode     Bot          = Top
+  Comp PropCode     UCode        = Empty
+  Comp PropCode     PropCode     = Top
+  Comp PropCode     (FunEl g)    = Empty
+  Comp PropCode     (PiCode b g) = Empty
   Comp (FunEl g)    Bot          = Top
   Comp (FunEl g)    UCode        = Empty
+  Comp (FunEl g)    PropCode     = Empty
   Comp (FunEl g)    (FunEl h)    = CompFun g h
   Comp (FunEl g)    (PiCode b h) = Empty
   Comp (PiCode a f) Bot          = Top
   Comp (PiCode a f) UCode        = Empty
+  Comp (PiCode a f) PropCode     = Empty
   Comp (PiCode a f) (FunEl h)    = Empty
   Comp (PiCode a f) (PiCode b g) = Pair (Comp a b) (CompFun f g)
 
@@ -210,6 +243,7 @@ mutual
 NotBot : FinEl -> Set
 NotBot Bot          = Empty
 NotBot UCode        = Top
+NotBot PropCode     = Top
 NotBot (FunEl g)    = Top
 NotBot (PiCode a f) = Top
 
@@ -218,14 +252,22 @@ mutual
   FinMem : FinEl -> FinEl -> Set
   FinMem Bot          a              = FinMem a UCode
   FinMem UCode        UCode          = Top
+  FinMem UCode        PropCode       = Empty
   FinMem UCode        Bot            = Empty
   FinMem UCode        (FunEl g)      = Empty
   FinMem UCode        (PiCode a f)   = Empty
+  FinMem PropCode     UCode          = Top
+  FinMem PropCode     PropCode       = Empty
+  FinMem PropCode     Bot            = Empty
+  FinMem PropCode     (FunEl g)      = Empty
+  FinMem PropCode     (PiCode a f)   = Empty
   FinMem (FunEl g)    (PiCode a f)   = Pair (FinMemFun g a f) (Pair (CoherentFun g) (FinMem (PiCode a f) UCode))
   FinMem (FunEl g)    Bot            = Empty
   FinMem (FunEl g)    UCode          = Empty
+  FinMem (FunEl g)    PropCode       = Empty
   FinMem (FunEl g)    (FunEl h)      = Empty
   FinMem (PiCode a f) UCode          = Pair (FinMem a UCode) (Pair (FinMemAllU f a) (CoherentFunTail f))
+  FinMem (PiCode a f) PropCode       = Pair (FinMem a UCode) (Pair (FinMemAllProp f a) (CoherentFunTail f))
   FinMem (PiCode a f) Bot            = Empty
   FinMem (PiCode a f) (FunEl g)      = Empty
   FinMem (PiCode a f) (PiCode b g)   = Empty
@@ -244,9 +286,17 @@ mutual
     Pair (Pair (FinMem (fst p) a) (FinMem (snd p) UCode))
          (FinMemAllU ps a)
 
+  -- Every pair (ai,bi) in f: ai in a and bi in PropCode
+  FinMemAllProp : FinFun -> FinEl -> Set
+  FinMemAllProp nil         a = Top
+  FinMemAllProp (cons p ps) a =
+    Pair (Pair (FinMem (fst p) a) (FinMem (snd p) PropCode))
+         (FinMemAllProp ps a)
+
   Coherent : FinEl -> Set
   Coherent Bot          = Top
   Coherent UCode        = Top
+  Coherent PropCode     = Top
   Coherent (FunEl g)    = CoherentFun g
   Coherent (PiCode a f) = Pair (Coherent a) (CoherentFunTail f)
 
@@ -300,14 +350,22 @@ mutual
   FinMem-coh-u : (u a : FinEl) -> FinMem u a -> Coherent u
   FinMem-coh-u Bot          a            mem = tt
   FinMem-coh-u UCode        UCode        mem = tt
+  FinMem-coh-u UCode        PropCode     ()
   FinMem-coh-u UCode        Bot          ()
   FinMem-coh-u UCode        (FunEl g)    ()
   FinMem-coh-u UCode        (PiCode a f) ()
+  FinMem-coh-u PropCode     UCode        mem = tt
+  FinMem-coh-u PropCode     PropCode     ()
+  FinMem-coh-u PropCode     Bot          ()
+  FinMem-coh-u PropCode     (FunEl g)    ()
+  FinMem-coh-u PropCode     (PiCode a f) ()
   FinMem-coh-u (FunEl g)    (PiCode a f) mem = fst (snd mem)
   FinMem-coh-u (FunEl g)    Bot          ()
   FinMem-coh-u (FunEl g)    UCode        ()
+  FinMem-coh-u (FunEl g)    PropCode     ()
   FinMem-coh-u (FunEl g)    (FunEl h)    ()
   FinMem-coh-u (PiCode a f) UCode        mem = mkSigma (FinMem-coh-u a UCode (fst mem)) (snd (snd mem))
+  FinMem-coh-u (PiCode a f) PropCode     mem = mkSigma (FinMem-coh-u a UCode (fst mem)) (snd (snd mem))
   FinMem-coh-u (PiCode a f) Bot          ()
   FinMem-coh-u (PiCode a f) (FunEl g)    ()
   FinMem-coh-u (PiCode a f) (PiCode b g) ()
@@ -315,14 +373,22 @@ mutual
   FinMem-a-in-U : (u a : FinEl) -> FinMem u a -> FinMem a UCode
   FinMem-a-in-U Bot          a            mem = mem
   FinMem-a-in-U UCode        UCode        mem = tt
+  FinMem-a-in-U UCode        PropCode     ()
   FinMem-a-in-U UCode        Bot          ()
   FinMem-a-in-U UCode        (FunEl g)    ()
   FinMem-a-in-U UCode        (PiCode a f) ()
+  FinMem-a-in-U PropCode     UCode        mem = tt
+  FinMem-a-in-U PropCode     PropCode     ()
+  FinMem-a-in-U PropCode     Bot          ()
+  FinMem-a-in-U PropCode     (FunEl g)    ()
+  FinMem-a-in-U PropCode     (PiCode a f) ()
   FinMem-a-in-U (FunEl g)    (PiCode a f) mem = snd (snd mem)
   FinMem-a-in-U (FunEl g)    Bot          ()
   FinMem-a-in-U (FunEl g)    UCode        ()
+  FinMem-a-in-U (FunEl g)    PropCode     ()
   FinMem-a-in-U (FunEl g)    (FunEl h)    ()
   FinMem-a-in-U (PiCode a f) UCode        mem = tt
+  FinMem-a-in-U (PiCode a f) PropCode     mem = tt
   FinMem-a-in-U (PiCode a f) Bot          ()
   FinMem-a-in-U (PiCode a f) (FunEl g)    ()
   FinMem-a-in-U (PiCode a f) (PiCode b g) ()
@@ -330,14 +396,22 @@ mutual
   FinMem-coh-a : (u a : FinEl) -> FinMem u a -> Coherent a
   FinMem-coh-a Bot          a            mem = FinMem-coh-u a UCode mem
   FinMem-coh-a UCode        UCode        mem = tt
+  FinMem-coh-a UCode        PropCode     ()
   FinMem-coh-a UCode        Bot          ()
   FinMem-coh-a UCode        (FunEl g)    ()
   FinMem-coh-a UCode        (PiCode a f) ()
+  FinMem-coh-a PropCode     UCode        mem = tt
+  FinMem-coh-a PropCode     PropCode     ()
+  FinMem-coh-a PropCode     Bot          ()
+  FinMem-coh-a PropCode     (FunEl g)    ()
+  FinMem-coh-a PropCode     (PiCode a f) ()
   FinMem-coh-a (FunEl g)    (PiCode a f) mem = FinMem-coh-u (PiCode a f) UCode (snd (snd mem))
   FinMem-coh-a (FunEl g)    Bot          ()
   FinMem-coh-a (FunEl g)    UCode        ()
+  FinMem-coh-a (FunEl g)    PropCode     ()
   FinMem-coh-a (FunEl g)    (FunEl h)    ()
   FinMem-coh-a (PiCode a f) UCode        mem = tt
+  FinMem-coh-a (PiCode a f) PropCode     mem = tt
   FinMem-coh-a (PiCode a f) Bot          ()
   FinMem-coh-a (PiCode a f) (FunEl g)    ()
   FinMem-coh-a (PiCode a f) (PiCode b g) ()
@@ -358,14 +432,22 @@ mutual
   leFinEl-sound Bot          v            h = tt
   leFinEl-sound UCode        Bot          ()
   leFinEl-sound UCode        UCode        h = tt
+  leFinEl-sound UCode        PropCode     ()
   leFinEl-sound UCode        (FunEl g)    ()
   leFinEl-sound UCode        (PiCode b g) ()
+  leFinEl-sound PropCode     Bot          ()
+  leFinEl-sound PropCode     UCode        ()
+  leFinEl-sound PropCode     PropCode     h = tt
+  leFinEl-sound PropCode     (FunEl g)    ()
+  leFinEl-sound PropCode     (PiCode b g) ()
   leFinEl-sound (FunEl g)    Bot          ()
   leFinEl-sound (FunEl g)    UCode        ()
+  leFinEl-sound (FunEl g)    PropCode     ()
   leFinEl-sound (FunEl g)    (FunEl h)    p = leFun-sound g h p
   leFinEl-sound (FunEl g)    (PiCode b h) ()
   leFinEl-sound (PiCode a f) Bot          ()
   leFinEl-sound (PiCode a f) UCode        ()
+  leFinEl-sound (PiCode a f) PropCode     ()
   leFinEl-sound (PiCode a f) (FunEl h)    ()
   leFinEl-sound (PiCode a f) (PiCode b g) p =
     let pp = min-isPos (leFinEl a b) (leFun f g) p
@@ -395,18 +477,27 @@ mutual
   leFinEl-complete : (u v : FinEl) -> LeCode u v -> isPos (leFinEl u v)
   leFinEl-complete Bot          Bot          _ = tt
   leFinEl-complete Bot          UCode        _ = tt
+  leFinEl-complete Bot          PropCode     _ = tt
   leFinEl-complete Bot          (FunEl h)    _ = tt
   leFinEl-complete Bot          (PiCode b g) _ = tt
   leFinEl-complete UCode        Bot          ()
   leFinEl-complete UCode        UCode        _ = tt
+  leFinEl-complete UCode        PropCode     ()
   leFinEl-complete UCode        (FunEl g)    ()
   leFinEl-complete UCode        (PiCode b g) ()
+  leFinEl-complete PropCode     Bot          ()
+  leFinEl-complete PropCode     UCode        ()
+  leFinEl-complete PropCode     PropCode     _ = tt
+  leFinEl-complete PropCode     (FunEl g)    ()
+  leFinEl-complete PropCode     (PiCode b g) ()
   leFinEl-complete (FunEl g)    Bot          ()
   leFinEl-complete (FunEl g)    UCode        ()
+  leFinEl-complete (FunEl g)    PropCode     ()
   leFinEl-complete (FunEl g)    (FunEl h)    p = leFun-complete g h p
   leFinEl-complete (FunEl g)    (PiCode b h) ()
   leFinEl-complete (PiCode a f) Bot          ()
   leFinEl-complete (PiCode a f) UCode        ()
+  leFinEl-complete (PiCode a f) PropCode     ()
   leFinEl-complete (PiCode a f) (FunEl h)    ()
   leFinEl-complete (PiCode a f) (PiCode b g) p =
     isPos-min (leFinEl a b) (leFun f g)
@@ -428,6 +519,7 @@ mutual
 Sup-Bot-l : (v : FinEl) -> Eq (Sup Bot v) v
 Sup-Bot-l Bot          = refl
 Sup-Bot-l UCode        = refl
+Sup-Bot-l PropCode     = refl
 Sup-Bot-l (FunEl g)    = refl
 Sup-Bot-l (PiCode b g) = refl
 
@@ -435,6 +527,7 @@ Sup-Bot-l (PiCode b g) = refl
 Sup-Bot-r : (u : FinEl) -> Eq (Sup u Bot) u
 Sup-Bot-r Bot          = refl
 Sup-Bot-r UCode        = refl
+Sup-Bot-r PropCode     = refl
 Sup-Bot-r (FunEl g)    = refl
 Sup-Bot-r (PiCode a f) = refl
 
@@ -464,18 +557,21 @@ LeCode-Bot v = tt
 comp-Bot-r : (u : FinEl) -> Comp u Bot
 comp-Bot-r Bot          = tt
 comp-Bot-r UCode        = tt
+comp-Bot-r PropCode     = tt
 comp-Bot-r (FunEl g)    = tt
 comp-Bot-r (PiCode a f) = tt
 
 Sup-Bot-right : (x : FinEl) -> Eq (Sup x Bot) x
 Sup-Bot-right Bot          = refl
 Sup-Bot-right UCode        = refl
+Sup-Bot-right PropCode     = refl
 Sup-Bot-right (FunEl g)    = refl
 Sup-Bot-right (PiCode a f) = refl
 
 comp-Bot-l : (u : FinEl) -> Comp Bot u
 comp-Bot-l Bot          = tt
 comp-Bot-l UCode        = tt
+comp-Bot-l PropCode     = tt
 comp-Bot-l (FunEl g)    = tt
 comp-Bot-l (PiCode a f) = tt
 
@@ -508,44 +604,86 @@ comp-Sup : (a b c : FinEl) -> Comp a b -> Comp a c -> Comp a (Sup b c)
 comp-Sup Bot          b            c            ab ac = comp-Bot-l (Sup b c)
 comp-Sup UCode        Bot          Bot          ab ac = tt
 comp-Sup UCode        Bot          UCode        ab ac = tt
+comp-Sup UCode        Bot          PropCode     ab ac = ac
 comp-Sup UCode        Bot          (FunEl j)    ab ac = ac
 comp-Sup UCode        Bot          (PiCode e j) ab ()
 comp-Sup UCode        UCode        Bot          ab ac = tt
 comp-Sup UCode        UCode        UCode        ab ac = tt
+comp-Sup UCode        UCode        PropCode     ab ac = tt
 comp-Sup UCode        UCode        (FunEl j)    ab ac = tt
 comp-Sup UCode        UCode        (PiCode e j) ab ()
+comp-Sup UCode        PropCode     Bot          () ac
+comp-Sup UCode        PropCode     UCode        () ac
+comp-Sup UCode        PropCode     PropCode     () ac
+comp-Sup UCode        PropCode     (FunEl j)    () ac
+comp-Sup UCode        PropCode     (PiCode e j) () ac
 comp-Sup UCode        (FunEl h)    Bot          () ac
 comp-Sup UCode        (FunEl h)    UCode        () ac
+comp-Sup UCode        (FunEl h)    PropCode     () ac
 comp-Sup UCode        (FunEl h)    (FunEl j)    () ac
 comp-Sup UCode        (FunEl h)    (PiCode e j) () ac
 comp-Sup UCode        (PiCode d k) c            () ac
+comp-Sup PropCode     Bot          Bot          ab ac = tt
+comp-Sup PropCode     Bot          UCode        ab ac = ac
+comp-Sup PropCode     Bot          PropCode     ab ac = tt
+comp-Sup PropCode     Bot          (FunEl j)    ab ac = ac
+comp-Sup PropCode     Bot          (PiCode e j) ab ()
+comp-Sup PropCode     UCode        Bot          () ac
+comp-Sup PropCode     UCode        UCode        () ac
+comp-Sup PropCode     UCode        PropCode     () ac
+comp-Sup PropCode     UCode        (FunEl j)    () ac
+comp-Sup PropCode     UCode        (PiCode e j) () ac
+comp-Sup PropCode     PropCode     Bot          ab ac = tt
+comp-Sup PropCode     PropCode     UCode        ab ()
+comp-Sup PropCode     PropCode     PropCode     ab ac = tt
+comp-Sup PropCode     PropCode     (FunEl j)    ab ()
+comp-Sup PropCode     PropCode     (PiCode e j) ab ()
+comp-Sup PropCode     (FunEl h)    Bot          () ac
+comp-Sup PropCode     (FunEl h)    UCode        () ac
+comp-Sup PropCode     (FunEl h)    PropCode     () ac
+comp-Sup PropCode     (FunEl h)    (FunEl j)    () ac
+comp-Sup PropCode     (FunEl h)    (PiCode e j) () ac
+comp-Sup PropCode     (PiCode d k) c            () ac
 comp-Sup (FunEl g)    Bot          Bot          ab ac = comp-Bot-r (FunEl g)
 comp-Sup (FunEl g)    Bot          UCode        ab ac = ac
+comp-Sup (FunEl g)    Bot          PropCode     ab ac = ac
 comp-Sup (FunEl g)    Bot          (FunEl j)    ab ac = ac
 comp-Sup (FunEl g)    Bot          (PiCode e j) ab ac = ac
 comp-Sup (FunEl g)    UCode        Bot          () ac
 comp-Sup (FunEl g)    UCode        UCode        () ac
+comp-Sup (FunEl g)    UCode        PropCode     () ac
 comp-Sup (FunEl g)    UCode        (FunEl j)    () ac
 comp-Sup (FunEl g)    UCode        (PiCode e j) () ac
+comp-Sup (FunEl g)    PropCode     Bot          () ac
+comp-Sup (FunEl g)    PropCode     UCode        () ac
+comp-Sup (FunEl g)    PropCode     PropCode     () ac
+comp-Sup (FunEl g)    PropCode     (FunEl j)    () ac
+comp-Sup (FunEl g)    PropCode     (PiCode e j) () ac
 comp-Sup (FunEl g)    (FunEl h)    Bot          ab ac = ab
 comp-Sup (FunEl g)    (FunEl h)    UCode        ab ()
+comp-Sup (FunEl g)    (FunEl h)    PropCode     ab ()
 comp-Sup (FunEl g)    (FunEl h)    (FunEl j)    ab ac = compFun-append g h j ab ac
 comp-Sup (FunEl g)    (FunEl h)    (PiCode d k) ab ()
 comp-Sup (FunEl g)    (PiCode d k) Bot          () ac
 comp-Sup (FunEl g)    (PiCode d k) UCode        () ac
+comp-Sup (FunEl g)    (PiCode d k) PropCode     () ac
 comp-Sup (FunEl g)    (PiCode d k) (FunEl j)    () ac
 comp-Sup (FunEl g)    (PiCode d k) (PiCode e j) () ac
 comp-Sup (PiCode a f) Bot          Bot          ab ac = comp-Bot-r (PiCode a f)
 comp-Sup (PiCode a f) Bot          UCode        ab ()
+comp-Sup (PiCode a f) Bot          PropCode     ab ()
 comp-Sup (PiCode a f) Bot          (FunEl j)    ab ac = ac
 comp-Sup (PiCode a f) Bot          (PiCode e j) ab ac = ac
 comp-Sup (PiCode a f) UCode        c            () ac
+comp-Sup (PiCode a f) PropCode     c            () ac
 comp-Sup (PiCode a f) (FunEl h)    Bot          () ac
 comp-Sup (PiCode a f) (FunEl h)    UCode        () ac
+comp-Sup (PiCode a f) (FunEl h)    PropCode     () ac
 comp-Sup (PiCode a f) (FunEl h)    (FunEl j)    () ac
 comp-Sup (PiCode a f) (FunEl h)    (PiCode e j) () ac
 comp-Sup (PiCode a f) (PiCode d k) Bot          ab ac = ab
 comp-Sup (PiCode a f) (PiCode d k) UCode        ab ()
+comp-Sup (PiCode a f) (PiCode d k) PropCode     ab ()
 comp-Sup (PiCode a f) (PiCode d k) (FunEl h)    ab ()
 comp-Sup (PiCode a f) (PiCode d k) (PiCode e j) ab ac =
   mkSigma (comp-Sup a d e (fst ab) (fst ac))
@@ -574,18 +712,27 @@ mutual
   Comp-sym : (u v : FinEl) -> Comp u v -> Comp v u
   Comp-sym Bot          Bot          c = tt
   Comp-sym Bot          UCode        c = tt
+  Comp-sym Bot          PropCode     c = tt
   Comp-sym Bot          (FunEl h)    c = tt
   Comp-sym Bot          (PiCode b g) c = tt
   Comp-sym UCode        Bot          c = tt
   Comp-sym UCode        UCode        c = tt
+  Comp-sym UCode        PropCode     ()
   Comp-sym UCode        (FunEl h)    c = c
   Comp-sym UCode        (PiCode b g) ()
+  Comp-sym PropCode     Bot          c = tt
+  Comp-sym PropCode     UCode        ()
+  Comp-sym PropCode     PropCode     c = tt
+  Comp-sym PropCode     (FunEl h)    c = c
+  Comp-sym PropCode     (PiCode b g) ()
   Comp-sym (FunEl g)    Bot          c = tt
   Comp-sym (FunEl g)    UCode        c = c
+  Comp-sym (FunEl g)    PropCode     c = c
   Comp-sym (FunEl g)    (FunEl h)    c = CompFun-sym g h c
   Comp-sym (FunEl g)    (PiCode b h) c = c
   Comp-sym (PiCode a f) Bot          c = tt
   Comp-sym (PiCode a f) UCode        ()
+  Comp-sym (PiCode a f) PropCode     ()
   Comp-sym (PiCode a f) (FunEl h)    c = c
   Comp-sym (PiCode a f) (PiCode b g) c =
     mkSigma (Comp-sym a b (fst c)) (CompFun-sym f g (snd c))
@@ -636,6 +783,7 @@ mutual
   Comp-refl : (v : FinEl) -> Coherent v -> Comp v v
   Comp-refl Bot          coh = tt
   Comp-refl UCode        coh = tt
+  Comp-refl PropCode     coh = tt
   Comp-refl (FunEl g)    coh = CompFun-refl g (cft-from-cf g coh)
   Comp-refl (PiCode a f) coh =
     mkSigma (Comp-refl a (fst coh)) (CompFun-refl f (snd coh))
@@ -656,6 +804,7 @@ mutual
 LeCode-Sup-Bot : (x y : FinEl) -> LeCode x Bot -> LeCode y Bot -> LeCode (Sup x y) Bot
 LeCode-Sup-Bot Bot          y            lx ly = ly
 LeCode-Sup-Bot UCode        y            ()   ly
+LeCode-Sup-Bot PropCode     y            ()   ly
 LeCode-Sup-Bot (FunEl g)    y            () ly
 LeCode-Sup-Bot (PiCode a f) y            ()   ly
 
@@ -679,14 +828,22 @@ mutual
   LeCode-trans-to-Bot Bot          v            lu lv = tt
   LeCode-trans-to-Bot UCode        Bot          ()   lv
   LeCode-trans-to-Bot UCode        UCode        lu   ()
+  LeCode-trans-to-Bot UCode        PropCode     ()   lv
   LeCode-trans-to-Bot UCode        (FunEl h)    ()   lv
   LeCode-trans-to-Bot UCode        (PiCode b h) ()   lv
+  LeCode-trans-to-Bot PropCode     Bot          ()   lv
+  LeCode-trans-to-Bot PropCode     UCode        ()   lv
+  LeCode-trans-to-Bot PropCode     PropCode     lu   ()
+  LeCode-trans-to-Bot PropCode     (FunEl h)    ()   lv
+  LeCode-trans-to-Bot PropCode     (PiCode b h) ()   lv
   LeCode-trans-to-Bot (FunEl g)    Bot          ()   lv
   LeCode-trans-to-Bot (FunEl g)    UCode        ()   lv
+  LeCode-trans-to-Bot (FunEl g)    PropCode     ()   lv
   LeCode-trans-to-Bot (FunEl g)    (FunEl h)    lu   ()
   LeCode-trans-to-Bot (FunEl g)    (PiCode b h) ()   lv
   LeCode-trans-to-Bot (PiCode a f) Bot          ()   lv
   LeCode-trans-to-Bot (PiCode a f) UCode        ()   lv
+  LeCode-trans-to-Bot (PiCode a f) PropCode     ()   lv
   LeCode-trans-to-Bot (PiCode a f) (FunEl h)    ()   lv
   LeCode-trans-to-Bot (PiCode a f) (PiCode b g) lu   ()
 
@@ -739,21 +896,31 @@ mutual
   Comp-down Bot          u'           v le c = comp-Bot-l v
   Comp-down UCode        Bot          v ()   c
   Comp-down UCode        UCode        v le   c = c
+  Comp-down UCode        PropCode     v ()   c
   Comp-down UCode        (FunEl h)    v ()   c
   Comp-down UCode        (PiCode b g) v ()   c
+  Comp-down PropCode     Bot          v ()   c
+  Comp-down PropCode     UCode        v ()   c
+  Comp-down PropCode     PropCode     v le   c = c
+  Comp-down PropCode     (FunEl h)    v ()   c
+  Comp-down PropCode     (PiCode b g) v ()   c
   Comp-down (FunEl g)    Bot          v le c = LeCode-Bot-Comp (FunEl g) v le
   Comp-down (FunEl g)    UCode        v le c = LeCode-Bot-Comp (FunEl g) v le
+  Comp-down (FunEl g)    PropCode     v le c = LeCode-Bot-Comp (FunEl g) v le
   Comp-down (FunEl g)    (FunEl h)    Bot          le c = tt
   Comp-down (FunEl g)    (FunEl h)    UCode        le ()
+  Comp-down (FunEl g)    (FunEl h)    PropCode     le ()
   Comp-down (FunEl g)    (FunEl h)    (FunEl j)    le c =
     LeFunCode-CompFun-trans g h j le c
   Comp-down (FunEl g)    (FunEl h)    (PiCode b k) le ()
   Comp-down (FunEl g)    (PiCode b h) v le c = LeCode-Bot-Comp (FunEl g) v le
   Comp-down (PiCode a f) Bot          v ()   c
   Comp-down (PiCode a f) UCode        v ()   c
+  Comp-down (PiCode a f) PropCode     v ()   c
   Comp-down (PiCode a f) (FunEl h)    v ()   c
   Comp-down (PiCode a f) (PiCode b g) Bot          le c = tt
   Comp-down (PiCode a f) (PiCode b g) UCode        le ()
+  Comp-down (PiCode a f) (PiCode b g) PropCode     le ()
   Comp-down (PiCode a f) (PiCode b g) (FunEl j)    le c = c
   Comp-down (PiCode a f) (PiCode b g) (PiCode c k) le comp =
     mkSigma (Comp-down a b c (fst le) (fst comp))
@@ -913,23 +1080,38 @@ Sup-assoc Bot          b            c            cab cbc = refl
 Sup-assoc UCode        Bot          c            cab cbc = refl
 Sup-assoc UCode        UCode        Bot          cab cbc = refl
 Sup-assoc UCode        UCode        UCode        cab cbc = refl
+Sup-assoc UCode        UCode        PropCode     cab ()
 Sup-assoc UCode        UCode        (FunEl j)    cab ()
 Sup-assoc UCode        UCode        (PiCode e j) cab ()
+Sup-assoc UCode        PropCode     c            () cbc
 Sup-assoc UCode        (FunEl h)    c            () cbc
 Sup-assoc UCode        (PiCode d h) c            () cbc
+Sup-assoc PropCode     Bot          c            cab cbc = refl
+Sup-assoc PropCode     UCode        c            () cbc
+Sup-assoc PropCode     PropCode     Bot          cab cbc = refl
+Sup-assoc PropCode     PropCode     UCode        cab ()
+Sup-assoc PropCode     PropCode     PropCode     cab cbc = refl
+Sup-assoc PropCode     PropCode     (FunEl j)    cab ()
+Sup-assoc PropCode     PropCode     (PiCode e j) cab ()
+Sup-assoc PropCode     (FunEl h)    c            () cbc
+Sup-assoc PropCode     (PiCode d h) c            () cbc
 Sup-assoc (FunEl g)    Bot          c            cab cbc = refl
 Sup-assoc (FunEl g)    UCode        c            () cbc
+Sup-assoc (FunEl g)    PropCode     c            () cbc
 Sup-assoc (FunEl g)    (FunEl h)    Bot          cab cbc = refl
 Sup-assoc (FunEl g)    (FunEl h)    UCode        cab ()
+Sup-assoc (FunEl g)    (FunEl h)    PropCode     cab ()
 Sup-assoc (FunEl g)    (FunEl h)    (FunEl j)    cab cbc =
   Eq-cong FunEl (Eq-sym (append-assoc g h j))
 Sup-assoc (FunEl g)    (FunEl h)    (PiCode e j) cab ()
 Sup-assoc (FunEl g)    (PiCode d h) c            () cbc
 Sup-assoc (PiCode a f) Bot          c            cab cbc = refl
 Sup-assoc (PiCode a f) UCode        c            () cbc
+Sup-assoc (PiCode a f) PropCode     c            () cbc
 Sup-assoc (PiCode a f) (FunEl h)    c            () cbc
 Sup-assoc (PiCode a f) (PiCode d h) Bot          cab cbc = refl
 Sup-assoc (PiCode a f) (PiCode d h) UCode        cab ()
+Sup-assoc (PiCode a f) (PiCode d h) PropCode     cab ()
 Sup-assoc (PiCode a f) (PiCode d h) (FunEl j)    cab ()
 Sup-assoc (PiCode a f) (PiCode d h) (PiCode e j) cab cbc =
   PiCode-cong (Sup-assoc a d e (fst cab) (fst cbc))
@@ -983,15 +1165,23 @@ mutual
   Coherent-Sup Bot          b            comp coha cohb = cohb
   Coherent-Sup UCode        Bot          comp coha cohb = tt
   Coherent-Sup UCode        UCode        comp coha cohb = tt
+  Coherent-Sup UCode        PropCode     ()   coha cohb
   Coherent-Sup UCode        (FunEl h)    comp coha cohb = tt
   Coherent-Sup UCode        (PiCode c h) ()   coha cohb
+  Coherent-Sup PropCode     Bot          comp coha cohb = tt
+  Coherent-Sup PropCode     UCode        ()   coha cohb
+  Coherent-Sup PropCode     PropCode     comp coha cohb = tt
+  Coherent-Sup PropCode     (FunEl h)    comp coha cohb = tt
+  Coherent-Sup PropCode     (PiCode c h) ()   coha cohb
   Coherent-Sup (FunEl g)    Bot          comp coha cohb = coha
   Coherent-Sup (FunEl g)    UCode        comp coha cohb = tt
+  Coherent-Sup (FunEl g)    PropCode     comp coha cohb = tt
   Coherent-Sup (FunEl g)    (FunEl h)    comp coha cohb =
     CoherentFun-append g h coha cohb comp
   Coherent-Sup (FunEl g)    (PiCode c h) () coha cohb
   Coherent-Sup (PiCode a f) Bot          comp coha cohb = coha
   Coherent-Sup (PiCode a f) UCode        ()   coha cohb
+  Coherent-Sup (PiCode a f) PropCode     ()   coha cohb
   Coherent-Sup (PiCode a f) (FunEl h)    () coha cohb
   Coherent-Sup (PiCode a f) (PiCode c h) comp coha cohb =
     mkSigma (Coherent-Sup a c (fst comp) (fst coha) (fst cohb))
@@ -1022,11 +1212,18 @@ mutual
   finMemUCode-Sup Bot          c            comp aU cU = cU
   finMemUCode-Sup UCode        Bot          comp aU cU = tt
   finMemUCode-Sup UCode        UCode        comp aU cU = tt
+  finMemUCode-Sup UCode        PropCode     ()   aU cU
   finMemUCode-Sup UCode        (FunEl h)    comp aU ()
   finMemUCode-Sup UCode        (PiCode c h) ()   aU cU
+  finMemUCode-Sup PropCode     Bot          comp aU cU = tt
+  finMemUCode-Sup PropCode     UCode        ()   aU cU
+  finMemUCode-Sup PropCode     PropCode     comp aU cU = tt
+  finMemUCode-Sup PropCode     (FunEl h)    comp aU ()
+  finMemUCode-Sup PropCode     (PiCode c h) ()   aU cU
   finMemUCode-Sup (FunEl g)    c            comp ()  cU
   finMemUCode-Sup (PiCode a f) Bot          comp aU cU = aU
   finMemUCode-Sup (PiCode a f) UCode        ()   aU cU
+  finMemUCode-Sup (PiCode a f) PropCode     ()   aU cU
   finMemUCode-Sup (PiCode a f) (FunEl h)    comp aU ()
   finMemUCode-Sup (PiCode a f) (PiCode c h) comp aU cU =
     mkSigma (finMemUCode-Sup a c (fst comp) (fst aU) (fst cU))
@@ -1036,6 +1233,34 @@ mutual
                        (snd (snd aU)) (snd (snd cU))
                        (fst (snd aU)) (fst (snd cU)))
                      (CoherentFunTail-append f h (snd (snd aU)) (snd (snd cU)) (snd comp)))
+
+  -- finMemPropCode-Sup: Sup of two PropCode-typed elements stays in PropCode
+  finMemPropCode-Sup : (a c : FinEl) -> Comp a c ->
+    FinMem a PropCode -> FinMem c PropCode -> FinMem (Sup a c) PropCode
+  finMemPropCode-Sup Bot          c            comp aP cP = cP
+  finMemPropCode-Sup UCode        Bot          comp aP cP = aP
+  finMemPropCode-Sup UCode        UCode        comp aP ()
+  finMemPropCode-Sup UCode        PropCode     ()   aP cP
+  finMemPropCode-Sup UCode        (FunEl h)    comp aP ()
+  finMemPropCode-Sup UCode        (PiCode c h) ()   aP cP
+  finMemPropCode-Sup PropCode     Bot          comp aP cP = aP
+  finMemPropCode-Sup PropCode     UCode        ()   aP cP
+  finMemPropCode-Sup PropCode     PropCode     comp aP ()
+  finMemPropCode-Sup PropCode     (FunEl h)    comp aP ()
+  finMemPropCode-Sup PropCode     (PiCode c h) ()   aP cP
+  finMemPropCode-Sup (FunEl g)    c            comp ()  cP
+  finMemPropCode-Sup (PiCode a f) Bot          comp aP cP = aP
+  finMemPropCode-Sup (PiCode a f) UCode        ()   aP cP
+  finMemPropCode-Sup (PiCode a f) PropCode     ()   aP cP
+  finMemPropCode-Sup (PiCode a f) (FunEl h)    comp aP ()
+  finMemPropCode-Sup (PiCode a f) (PiCode c h) comp aP cP =
+    mkSigma (finMemUCode-Sup a c (fst comp) (fst aP) (fst cP))
+            (mkSigma (FinMemAllProp-append-Sup a c f h (fst comp)
+                       (coh-from-aU a (fst aP)) (coh-from-aU c (fst cP))
+                       (fst aP) (fst cP)
+                       (snd (snd aP)) (snd (snd cP))
+                       (fst (snd aP)) (fst (snd cP)))
+                     (CoherentFunTail-append f h (snd (snd aP)) (snd (snd cP)) (snd comp)))
 
   -- EvalFun-in-UCode: evaluation of a FinMemAllU function yields a type code
   EvalFun-in-UCode : (f : FinFun) (x d : FinEl) ->
@@ -1060,6 +1285,30 @@ mutual
                     cx (CFTcons.val-coh cohf) (CFTcons.compat cohf)
                     (coherentWith-to-compStepFun q rest (CFTcons.compat cohf))
     in finMemUCode-Sup (snd q) (EvalFun rest x) comp-vr vU restU
+
+  -- EvalFun-in-PropCode: evaluation of a FinMemAllProp function yields a PropCode code
+  EvalFun-in-PropCode : (f : FinFun) (x d : FinEl) ->
+    CoherentFunTail f -> Coherent x -> FinMemAllProp f d ->
+    FinMem (EvalFun f x) PropCode
+  EvalFun-in-PropCode nil x d cohf cx allP = tt
+  EvalFun-in-PropCode (cons q rest) x d cohf cx allP =
+    EvalFun-in-PropCode-step (leFinEl (fst q) x) q rest x d refl cohf cx allP
+
+  EvalFun-in-PropCode-step : (n : Nat) (q : Pair FinEl FinEl) (rest : FinFun)
+    (x d : FinEl) ->
+    Eq n (leFinEl (fst q) x) ->
+    CoherentFunTail (cons q rest) -> Coherent x -> FinMemAllProp (cons q rest) d ->
+    FinMem (EvalFun-step n (snd q) rest x) PropCode
+  EvalFun-in-PropCode-step zero    q rest x d eq cohf cx allP =
+    EvalFun-in-PropCode rest x d (CFTcons.tail-coh cohf) cx (snd allP)
+  EvalFun-in-PropCode-step (suc _) q rest x d eq cohf cx allP =
+    let vP = snd (fst allP)
+        restP = EvalFun-in-PropCode rest x d (CFTcons.tail-coh cohf) cx (snd allP)
+        comp-vr = Comp-value-EvalFun q rest x
+                    (leFinEl-sound (fst q) x (Eq-transport isPos eq tt))
+                    cx (CFTcons.val-coh cohf) (CFTcons.compat cohf)
+                    (coherentWith-to-compStepFun q rest (CFTcons.compat cohf))
+    in finMemPropCode-Sup (snd q) (EvalFun rest x) comp-vr vP restP
 
   -- FinMemAllU for appended functions with Sup domain
   FinMemAllU-append-Sup : (d c : FinEl) (f h : FinFun) ->
@@ -1093,6 +1342,38 @@ mutual
       (FinMemAllU-Sup-right d c ps cd dU cohc
         (CFTcons.tail-coh cohh) (snd memh))
 
+  -- FinMemAllProp for appended functions with Sup domain
+  FinMemAllProp-append-Sup : (d c : FinEl) (f h : FinFun) ->
+    Comp d c -> Coherent d -> Coherent c ->
+    FinMem d UCode -> FinMem c UCode ->
+    CoherentFunTail f -> CoherentFunTail h ->
+    FinMemAllProp f d -> FinMemAllProp h c ->
+    FinMemAllProp (append f h) (Sup d c)
+  FinMemAllProp-append-Sup d c nil h cd cohd cohc dU cU cohf cohh memf memh =
+    FinMemAllProp-Sup-right d c h cd dU cohc cohh memh
+  FinMemAllProp-append-Sup d c (cons p ps) h cd cohd cohc dU cU cohf cohh memf memh =
+    mkSigma
+      (mkSigma (finMem-Sup-left d c (fst p) cd cohd cohc cU
+                  (CFTcons.key-coh cohf) (fst (fst memf)))
+               (snd (fst memf)))
+      (FinMemAllProp-append-Sup d c ps h cd cohd cohc dU cU
+        (CFTcons.tail-coh cohf) cohh (snd memf) memh)
+
+  -- FinMemAllProp using finMem-Sup-right for the right-side entries
+  FinMemAllProp-Sup-right : (d c : FinEl) (h : FinFun) ->
+    Comp d c -> FinMem d UCode -> Coherent c ->
+    CoherentFunTail h ->
+    FinMemAllProp h c ->
+    FinMemAllProp h (Sup d c)
+  FinMemAllProp-Sup-right d c nil cd dU cohc cohh memh = tt
+  FinMemAllProp-Sup-right d c (cons p ps) cd dU cohc cohh memh =
+    mkSigma
+      (mkSigma (finMem-Sup-right d c (fst p) cd dU
+                  (CFTcons.key-coh cohh) (fst (fst memh)))
+               (snd (fst memh)))
+      (FinMemAllProp-Sup-right d c ps cd dU cohc
+        (CFTcons.tail-coh cohh) (snd memh))
+
   -- finMem-Sup-right: membership in right component implies membership in Sup
   -- Strengthened: takes FinMem a UCode instead of Coherent a
   finMem-Sup-right : (a b u : FinEl) -> Comp a b -> FinMem a UCode -> Coherent u ->
@@ -1104,15 +1385,30 @@ mutual
   -- u = UCode: FinMem UCode b requires b = UCode
   finMem-Sup-right Bot          UCode UCode comp aU cohu mem = tt
   finMem-Sup-right UCode        UCode UCode comp aU cohu mem = tt
+  finMem-Sup-right PropCode     UCode UCode ()   aU cohu mem
   finMem-Sup-right (FunEl g)    UCode UCode comp ()  cohu mem
   finMem-Sup-right (PiCode d k) UCode UCode ()   aU cohu mem
   finMem-Sup-right a Bot          UCode comp aU cohu ()
+  finMem-Sup-right a PropCode     UCode comp aU cohu ()
   finMem-Sup-right a (FunEl h)    UCode comp aU cohu ()
   finMem-Sup-right a (PiCode c h) UCode comp aU cohu ()
 
-  -- u = PiCode b' h': FinMem (PiCode b' h') requires target = UCode
+  -- u = PropCode: FinMem PropCode b requires b = UCode
+  finMem-Sup-right Bot          UCode PropCode comp aU cohu mem = tt
+  finMem-Sup-right UCode        UCode PropCode comp aU cohu mem = tt
+  finMem-Sup-right PropCode     UCode PropCode ()   aU cohu mem
+  finMem-Sup-right (FunEl g)    UCode PropCode comp ()  cohu mem
+  finMem-Sup-right (PiCode d k) UCode PropCode ()   aU cohu mem
+  finMem-Sup-right a Bot          PropCode comp aU cohu ()
+  finMem-Sup-right a PropCode     PropCode comp aU cohu ()
+  finMem-Sup-right a (FunEl h)    PropCode comp aU cohu ()
+  finMem-Sup-right a (PiCode c h) PropCode comp aU cohu ()
+
+  -- u = PiCode b' h': FinMem (PiCode b' h') requires target = UCode or PropCode
   finMem-Sup-right a UCode (PiCode b' h') comp aU cohu mem =
-    finMem-Sup-right-PiCode a b' h' comp aU mem
+    finMem-Sup-right-PiCode a UCode b' h' comp aU mem
+  finMem-Sup-right a PropCode (PiCode b' h') comp aU cohu mem =
+    finMem-Sup-right-PiCode a PropCode b' h' comp aU mem
   finMem-Sup-right a Bot          (PiCode b' h') comp aU cohu ()
   finMem-Sup-right a (FunEl g)    (PiCode b' h') comp aU cohu ()
   finMem-Sup-right a (PiCode c h) (PiCode b' h') comp aU cohu ()
@@ -1122,16 +1418,23 @@ mutual
     finMem-Sup-right-FunEl a c h g comp aU cohu mem
   finMem-Sup-right a Bot       (FunEl g) comp aU cohu ()
   finMem-Sup-right a UCode     (FunEl g) comp aU cohu ()
+  finMem-Sup-right a PropCode  (FunEl g) comp aU cohu ()
   finMem-Sup-right a (FunEl h) (FunEl g) comp aU cohu ()
 
-  -- Helper: PiCode case (u = PiCode b' h', b = UCode)
-  finMem-Sup-right-PiCode : (a : FinEl) (b' : FinEl) (h' : FinFun) ->
-    Comp a UCode -> FinMem a UCode ->
-    FinMem (PiCode b' h') UCode -> FinMem (PiCode b' h') (Sup a UCode)
-  finMem-Sup-right-PiCode Bot   b' h' comp aU mem = mem
-  finMem-Sup-right-PiCode UCode b' h' comp aU mem = mem
-  finMem-Sup-right-PiCode (FunEl g)    b' h' comp () mem
-  finMem-Sup-right-PiCode (PiCode d k) b' h' () aU mem
+  -- Helper: PiCode case (u = PiCode b' h', b = UCode or PropCode)
+  finMem-Sup-right-PiCode : (a b : FinEl) (b' : FinEl) (h' : FinFun) ->
+    Comp a b -> FinMem a UCode ->
+    FinMem (PiCode b' h') b -> FinMem (PiCode b' h') (Sup a b)
+  finMem-Sup-right-PiCode Bot   UCode b' h' comp aU mem = mem
+  finMem-Sup-right-PiCode UCode UCode b' h' comp aU mem = mem
+  finMem-Sup-right-PiCode PropCode UCode b' h' ()   aU mem
+  finMem-Sup-right-PiCode (FunEl g)    UCode b' h' comp () mem
+  finMem-Sup-right-PiCode (PiCode d k) UCode b' h' () aU mem
+  finMem-Sup-right-PiCode Bot   PropCode b' h' comp aU mem = mem
+  finMem-Sup-right-PiCode UCode PropCode b' h' ()   aU mem
+  finMem-Sup-right-PiCode PropCode PropCode b' h' comp aU mem = mem
+  finMem-Sup-right-PiCode (FunEl g)    PropCode b' h' comp () mem
+  finMem-Sup-right-PiCode (PiCode d k) PropCode b' h' () aU mem
 
   -- Helper: FunEl case (u = FunEl g, b = PiCode c h)
   finMem-Sup-right-FunEl : (a : FinEl) (c : FinEl) (h : FinFun) (g : FinFun) ->
@@ -1139,6 +1442,7 @@ mutual
     FinMem (FunEl g) (PiCode c h) -> FinMem (FunEl g) (Sup a (PiCode c h))
   finMem-Sup-right-FunEl Bot          c h g comp aU cohg mem = mem
   finMem-Sup-right-FunEl UCode        c h g ()   aU cohg mem
+  finMem-Sup-right-FunEl PropCode     c h g ()   aU cohg mem
   finMem-Sup-right-FunEl (FunEl j)    c h g comp ()  cohg mem
   finMem-Sup-right-FunEl (PiCode d k) c h g comp aU cohg mem =
     let piU = snd (snd mem)
@@ -1216,26 +1520,47 @@ mutual
   finMem-Sup-left Bot          b UCode comp coha cohb bU cohu ()
   finMem-Sup-left UCode        Bot          UCode comp coha cohb bU cohu mem = tt
   finMem-Sup-left UCode        UCode        UCode comp coha cohb bU cohu mem = tt
+  finMem-Sup-left UCode        PropCode     UCode ()   coha cohb bU cohu mem
   finMem-Sup-left UCode        (FunEl h)    UCode () coha cohb bU cohu mem
   finMem-Sup-left UCode        (PiCode c h) UCode ()   coha cohb bU cohu mem
+  finMem-Sup-left PropCode     b UCode comp coha cohb bU cohu ()
   finMem-Sup-left (FunEl g)    b UCode comp coha cohb bU cohu ()
   finMem-Sup-left (PiCode a f) b UCode comp coha cohb bU cohu ()
 
-  -- u = PiCode b' h': a must be UCode
+  -- u = PropCode: a must be UCode
+  finMem-Sup-left Bot          b PropCode comp coha cohb bU cohu ()
+  finMem-Sup-left UCode        Bot          PropCode comp coha cohb bU cohu mem = tt
+  finMem-Sup-left UCode        UCode        PropCode comp coha cohb bU cohu mem = tt
+  finMem-Sup-left UCode        PropCode     PropCode ()   coha cohb bU cohu mem
+  finMem-Sup-left UCode        (FunEl h)    PropCode () coha cohb bU cohu mem
+  finMem-Sup-left UCode        (PiCode c h) PropCode ()   coha cohb bU cohu mem
+  finMem-Sup-left PropCode     b PropCode comp coha cohb bU cohu ()
+  finMem-Sup-left (FunEl g)    b PropCode comp coha cohb bU cohu ()
+  finMem-Sup-left (PiCode a f) b PropCode comp coha cohb bU cohu ()
+
+  -- u = PiCode b' h': a must be UCode or PropCode
   finMem-Sup-left Bot          b (PiCode b' h') comp coha cohb bU cohu ()
   finMem-Sup-left UCode        Bot          (PiCode b' h') comp coha cohb bU cohu mem = mem
   finMem-Sup-left UCode        UCode        (PiCode b' h') comp coha cohb bU cohu mem = mem
+  finMem-Sup-left UCode        PropCode     (PiCode b' h') ()   coha cohb bU cohu mem
   finMem-Sup-left UCode        (FunEl h)    (PiCode b' h') () coha cohb bU cohu mem
   finMem-Sup-left UCode        (PiCode c h) (PiCode b' h') ()   coha cohb bU cohu mem
+  finMem-Sup-left PropCode     Bot          (PiCode b' h') comp coha cohb bU cohu mem = mem
+  finMem-Sup-left PropCode     UCode        (PiCode b' h') ()   coha cohb bU cohu mem
+  finMem-Sup-left PropCode     PropCode     (PiCode b' h') comp coha cohb bU cohu mem = mem
+  finMem-Sup-left PropCode     (FunEl h)    (PiCode b' h') () coha cohb bU cohu mem
+  finMem-Sup-left PropCode     (PiCode c h) (PiCode b' h') ()   coha cohb bU cohu mem
   finMem-Sup-left (FunEl g)    b (PiCode b' h') comp coha cohb bU cohu ()
   finMem-Sup-left (PiCode a f) b (PiCode b' h') comp coha cohb bU cohu ()
 
   -- u = FunEl g: a must be PiCode d k
   finMem-Sup-left Bot          b            (FunEl g) comp coha cohb bU cohu ()
   finMem-Sup-left UCode        b            (FunEl g) comp coha cohb bU cohu ()
+  finMem-Sup-left PropCode     b            (FunEl g) comp coha cohb bU cohu ()
   finMem-Sup-left (FunEl j)    b            (FunEl g) comp coha cohb bU cohu ()
   finMem-Sup-left (PiCode d k) Bot          (FunEl g) comp coha cohb bU cohu mem = mem
   finMem-Sup-left (PiCode d k) UCode        (FunEl g) ()   coha cohb bU cohu mem
+  finMem-Sup-left (PiCode d k) PropCode     (FunEl g) ()   coha cohb bU cohu mem
   finMem-Sup-left (PiCode d k) (FunEl h)    (FunEl g) () coha cohb bU cohu mem
   finMem-Sup-left (PiCode d k) (PiCode c h) (FunEl g) comp coha cohb bU cohu mem =
     let -- Extract from Coherent (PiCode d k) and Coherent (PiCode c h)
@@ -1333,6 +1658,7 @@ mutual
   LeCode-refl : (a : FinEl) -> Coherent a -> LeCode a a
   LeCode-refl Bot          ca = tt
   LeCode-refl UCode        ca = tt
+  LeCode-refl PropCode     ca = tt
   LeCode-refl (FunEl g)    ca = LeFunCode-refl g (cft-from-cf g ca)
   LeCode-refl (PiCode a f) ca =
     mkSigma (LeCode-refl a (fst ca))
@@ -1408,15 +1734,23 @@ mutual
   LeCode-Sup-left Bot          b            comp ca cb = tt
   LeCode-Sup-left UCode        Bot          comp ca cb = tt
   LeCode-Sup-left UCode        UCode        comp ca cb = tt
+  LeCode-Sup-left UCode        PropCode     ()
   LeCode-Sup-left UCode        (FunEl h)    () ca cb
   LeCode-Sup-left UCode        (PiCode b h) ()
+  LeCode-Sup-left PropCode     Bot          comp ca cb = tt
+  LeCode-Sup-left PropCode     UCode        ()
+  LeCode-Sup-left PropCode     PropCode     comp ca cb = tt
+  LeCode-Sup-left PropCode     (FunEl h)    () ca cb
+  LeCode-Sup-left PropCode     (PiCode b h) ()
   LeCode-Sup-left (FunEl g)    Bot          comp ca cb = LeCode-refl (FunEl g) ca
   LeCode-Sup-left (FunEl g)    UCode        () ca cb
+  LeCode-Sup-left (FunEl g)    PropCode     () ca cb
   LeCode-Sup-left (FunEl g)    (FunEl h)    comp ca cb =
     LeFunCode-append-left g h comp (cft-from-cf g ca) (cft-from-cf h cb)
   LeCode-Sup-left (FunEl g)    (PiCode b h) () ca cb
   LeCode-Sup-left (PiCode a f) Bot          comp ca cb = LeCode-refl (PiCode a f) ca
   LeCode-Sup-left (PiCode a f) UCode        ()
+  LeCode-Sup-left (PiCode a f) PropCode     ()
   LeCode-Sup-left (PiCode a f) (FunEl h)    () ca cb
   LeCode-Sup-left (PiCode a f) (PiCode b h) comp ca cb =
     mkSigma (LeCode-Sup-left a b (fst comp) (fst ca) (fst cb))
@@ -1427,15 +1761,23 @@ mutual
   LeCode-Sup-right a            Bot          comp ca cb = tt
   LeCode-Sup-right Bot          UCode        comp ca cb = tt
   LeCode-Sup-right UCode        UCode        comp ca cb = tt
+  LeCode-Sup-right PropCode     UCode        () ca cb
   LeCode-Sup-right (FunEl g)    UCode        () ca cb
   LeCode-Sup-right (PiCode a f) UCode        ()
+  LeCode-Sup-right Bot          PropCode     comp ca cb = tt
+  LeCode-Sup-right UCode        PropCode     ()
+  LeCode-Sup-right PropCode     PropCode     comp ca cb = tt
+  LeCode-Sup-right (FunEl g)    PropCode     () ca cb
+  LeCode-Sup-right (PiCode a f) PropCode     ()
   LeCode-Sup-right Bot          (FunEl h)    comp ca cb = LeCode-refl (FunEl h) cb
   LeCode-Sup-right UCode        (FunEl h)    () ca cb
+  LeCode-Sup-right PropCode     (FunEl h)    () ca cb
   LeCode-Sup-right (FunEl g)    (FunEl h)    comp ca cb =
     LeFunCode-append-right g h comp (cft-from-cf g ca) (cft-from-cf h cb)
   LeCode-Sup-right (PiCode a f) (FunEl h)    () ca cb
   LeCode-Sup-right Bot          (PiCode b h) comp ca cb = LeCode-refl (PiCode b h) cb
   LeCode-Sup-right UCode        (PiCode b h) ()
+  LeCode-Sup-right PropCode     (PiCode b h) ()
   LeCode-Sup-right (FunEl g)    (PiCode b h) () ca cb
   LeCode-Sup-right (PiCode a f) (PiCode b h) comp ca cb =
     mkSigma (LeCode-Sup-right a b (fst comp) (fst ca) (fst cb))
@@ -1446,30 +1788,47 @@ mutual
   LeCode-trans Bot          y            z            cx cy cz xy yz = tt
   LeCode-trans UCode        Bot          z            cx cy cz ()
   LeCode-trans UCode        UCode        z            cx cy cz xy yz = yz
+  LeCode-trans UCode        PropCode     z            cx cy cz ()
   LeCode-trans UCode        (FunEl h)    z            cx cy cz ()
   LeCode-trans UCode        (PiCode b g) z            cx cy cz ()
+  LeCode-trans PropCode     Bot          z            cx cy cz ()
+  LeCode-trans PropCode     UCode        z            cx cy cz ()
+  LeCode-trans PropCode     PropCode     z            cx cy cz xy yz = yz
+  LeCode-trans PropCode     (FunEl h)    z            cx cy cz ()
+  LeCode-trans PropCode     (PiCode b g) z            cx cy cz ()
   LeCode-trans (FunEl g)    Bot          Bot          cx cy cz ()
   LeCode-trans (FunEl g)    Bot          UCode        cx cy cz ()
+  LeCode-trans (FunEl g)    Bot          PropCode     cx cy cz ()
   LeCode-trans (FunEl g)    Bot          (FunEl k)    cx cy cz ()
   LeCode-trans (FunEl g)    Bot          (PiCode c k) cx cy cz ()
   LeCode-trans (FunEl g)    UCode        Bot          cx cy cz ()
   LeCode-trans (FunEl g)    UCode        UCode        cx cy cz ()
+  LeCode-trans (FunEl g)    UCode        PropCode     cx cy cz ()
   LeCode-trans (FunEl g)    UCode        (FunEl k)    cx cy cz ()
   LeCode-trans (FunEl g)    UCode        (PiCode c k) cx cy cz ()
+  LeCode-trans (FunEl g)    PropCode     Bot          cx cy cz ()
+  LeCode-trans (FunEl g)    PropCode     UCode        cx cy cz ()
+  LeCode-trans (FunEl g)    PropCode     PropCode     cx cy cz ()
+  LeCode-trans (FunEl g)    PropCode     (FunEl k)    cx cy cz ()
+  LeCode-trans (FunEl g)    PropCode     (PiCode c k) cx cy cz ()
   LeCode-trans (FunEl g)    (FunEl h)    Bot          cx cy cz xy ()
   LeCode-trans (FunEl g)    (FunEl h)    UCode        cx cy cz xy ()
+  LeCode-trans (FunEl g)    (FunEl h)    PropCode     cx cy cz xy ()
   LeCode-trans (FunEl g)    (FunEl h)    (FunEl k)    cx cy cz xy yz =
     LeFunCode-trans g h k (cft-from-cf g cx) (cft-from-cf h cy) (cft-from-cf k cz) xy yz
   LeCode-trans (FunEl g)    (FunEl h)    (PiCode c k) cx cy cz xy ()
   LeCode-trans (FunEl g)    (PiCode b h) Bot          cx cy cz ()
   LeCode-trans (FunEl g)    (PiCode b h) UCode        cx cy cz ()
+  LeCode-trans (FunEl g)    (PiCode b h) PropCode     cx cy cz ()
   LeCode-trans (FunEl g)    (PiCode b h) (FunEl k)    cx cy cz ()
   LeCode-trans (FunEl g)    (PiCode b h) (PiCode c k) cx cy cz ()
   LeCode-trans (PiCode a f) Bot          z            cx cy cz ()
   LeCode-trans (PiCode a f) UCode        z            cx cy cz ()
+  LeCode-trans (PiCode a f) PropCode     z            cx cy cz ()
   LeCode-trans (PiCode a f) (FunEl h)    z            cx cy cz ()
   LeCode-trans (PiCode a f) (PiCode b g) Bot          cx cy cz xy ()
   LeCode-trans (PiCode a f) (PiCode b g) UCode        cx cy cz xy ()
+  LeCode-trans (PiCode a f) (PiCode b g) PropCode     cx cy cz xy ()
   LeCode-trans (PiCode a f) (PiCode b g) (FunEl k)    cx cy cz xy ()
   LeCode-trans (PiCode a f) (PiCode b g) (PiCode c k) cx cy cz xy yz =
     mkSigma (LeCode-trans a b c (fst cx) (fst cy) (fst cz) (fst xy) (fst yz))
@@ -1537,21 +1896,31 @@ mutual
   LeCode-Sup-lub Bot          b            c            ac bc = bc
   LeCode-Sup-lub UCode        Bot          c            ac bc = ac
   LeCode-Sup-lub UCode        UCode        c            ac bc = ac
+  LeCode-Sup-lub UCode        PropCode     c            ac bc = tt
   LeCode-Sup-lub UCode        (FunEl h)    c            ac bc = tt
   LeCode-Sup-lub UCode        (PiCode b h) c            ac bc = tt
+  LeCode-Sup-lub PropCode     Bot          c            ac bc = ac
+  LeCode-Sup-lub PropCode     UCode        c            ac bc = tt
+  LeCode-Sup-lub PropCode     PropCode     c            ac bc = ac
+  LeCode-Sup-lub PropCode     (FunEl h)    c            ac bc = tt
+  LeCode-Sup-lub PropCode     (PiCode b h) c            ac bc = tt
   LeCode-Sup-lub (FunEl g)    Bot          c            ac bc = ac
   LeCode-Sup-lub (FunEl g)    UCode        c            ac bc = tt
+  LeCode-Sup-lub (FunEl g)    PropCode     c            ac bc = tt
   LeCode-Sup-lub (FunEl g)    (FunEl h)    Bot          ()  bc
   LeCode-Sup-lub (FunEl g)    (FunEl h)    UCode        ()  bc
+  LeCode-Sup-lub (FunEl g)    (FunEl h)    PropCode     ()  bc
   LeCode-Sup-lub (FunEl g)    (FunEl h)    (FunEl k)    ac bc =
     LeFunCode-append-combine g h k ac bc
   LeCode-Sup-lub (FunEl g)    (FunEl h)    (PiCode c k) ()  bc
   LeCode-Sup-lub (FunEl g)    (PiCode b h) c            ac bc = tt
   LeCode-Sup-lub (PiCode a f) Bot          c            ac bc = ac
   LeCode-Sup-lub (PiCode a f) UCode        c            ac bc = tt
+  LeCode-Sup-lub (PiCode a f) PropCode     c            ac bc = tt
   LeCode-Sup-lub (PiCode a f) (FunEl h)    c            ac bc = tt
   LeCode-Sup-lub (PiCode a f) (PiCode b g) Bot          ac ()
   LeCode-Sup-lub (PiCode a f) (PiCode b g) UCode        ac ()
+  LeCode-Sup-lub (PiCode a f) (PiCode b g) PropCode     ac ()
   LeCode-Sup-lub (PiCode a f) (PiCode b g) (FunEl k)    ac ()
   LeCode-Sup-lub (PiCode a f) (PiCode b g) (PiCode c k) ac bc =
     mkSigma (LeCode-Sup-lub a b c (fst ac) (fst bc))
@@ -1671,12 +2040,24 @@ finMemFun-upward : (g : FinFun) (a b : FinEl) (f h : FinFun) ->
 finMem-upward Bot a b le ca cb mem bU = bU
 -- UCode: a must be UCode, b must be UCode
 finMem-upward UCode UCode UCode le ca cb mem bU = tt
+finMem-upward UCode UCode PropCode ()
 finMem-upward UCode UCode Bot ()
 finMem-upward UCode UCode (FunEl h) ()
 finMem-upward UCode UCode (PiCode c h) ()
+finMem-upward UCode PropCode b le ca cb ()
 finMem-upward UCode Bot b le ca cb ()
 finMem-upward UCode (FunEl g) b le ca cb ()
 finMem-upward UCode (PiCode c h) b le ca cb ()
+-- PropCode: a must be UCode, b must be UCode
+finMem-upward PropCode UCode UCode le ca cb mem bU = tt
+finMem-upward PropCode UCode PropCode ()
+finMem-upward PropCode UCode Bot ()
+finMem-upward PropCode UCode (FunEl h) ()
+finMem-upward PropCode UCode (PiCode c h) ()
+finMem-upward PropCode PropCode b le ca cb ()
+finMem-upward PropCode Bot b le ca cb ()
+finMem-upward PropCode (FunEl g) b le ca cb ()
+finMem-upward PropCode (PiCode c h) b le ca cb ()
 -- FunEl g: a must be PiCode, b must be PiCode
 finMem-upward (FunEl g) (PiCode a f) (PiCode b h) le ca cb mem bU =
   mkSigma
@@ -1685,15 +2066,23 @@ finMem-upward (FunEl g) (PiCode a f) (PiCode b h) le ca cb mem bU =
     (mkSigma (fst (snd mem)) bU)
 finMem-upward (FunEl g) (PiCode a f) Bot ()
 finMem-upward (FunEl g) (PiCode a f) UCode ()
+finMem-upward (FunEl g) (PiCode a f) PropCode ()
 finMem-upward (FunEl g) (PiCode a f) (FunEl h) ()
 finMem-upward (FunEl g) Bot b le ca cb ()
 finMem-upward (FunEl g) UCode b le ca cb ()
+finMem-upward (FunEl g) PropCode b le ca cb ()
 finMem-upward (FunEl g) (FunEl h) b le ca cb ()
--- PiCode: a must be UCode, b must be UCode
+-- PiCode: a must be UCode or PropCode, b must be UCode or PropCode
 finMem-upward (PiCode a f) UCode UCode le ca cb mem bU = mem
+finMem-upward (PiCode a f) UCode PropCode ()
 finMem-upward (PiCode a f) UCode Bot ()
 finMem-upward (PiCode a f) UCode (FunEl h) ()
 finMem-upward (PiCode a f) UCode (PiCode c h) ()
+finMem-upward (PiCode a f) PropCode PropCode le ca cb mem bU = mem
+finMem-upward (PiCode a f) PropCode UCode ()
+finMem-upward (PiCode a f) PropCode Bot ()
+finMem-upward (PiCode a f) PropCode (FunEl h) ()
+finMem-upward (PiCode a f) PropCode (PiCode c h) ()
 finMem-upward (PiCode a f) Bot b le ca cb ()
 finMem-upward (PiCode a f) (FunEl g) b le ca cb ()
 finMem-upward (PiCode a f) (PiCode c h) b le ca cb ()
@@ -1731,34 +2120,52 @@ FinMem-Sup-element : (u v a : FinEl) -> Comp u v -> Coherent a ->
 FinMem-Sup-element Bot v a comp ca mu mv = mv
 -- v = Bot: Sup u Bot = u (case split on u for exact-split)
 FinMem-Sup-element UCode Bot a comp ca mu mv = mu
+FinMem-Sup-element PropCode Bot a comp ca mu mv = mu
 FinMem-Sup-element (FunEl g) Bot a comp ca mu mv = mu
 FinMem-Sup-element (PiCode a1 f1) Bot a comp ca mu mv = mu
 -- u = UCode, v = UCode: Sup UCode UCode = UCode
 FinMem-Sup-element UCode UCode UCode comp ca mu mv = tt
+FinMem-Sup-element UCode UCode PropCode comp ca () mv
 FinMem-Sup-element UCode UCode Bot comp ca () mv
 FinMem-Sup-element UCode UCode (FunEl h) comp ca () mv
 FinMem-Sup-element UCode UCode (PiCode b f) comp ca () mv
--- u = UCode, v = FunEl/PiCode: Comp = Empty
+-- u = UCode, v = PropCode/FunEl/PiCode: Comp = Empty
+FinMem-Sup-element UCode PropCode a () ca mu mv
 FinMem-Sup-element UCode (FunEl h) a () ca mu mv
 FinMem-Sup-element UCode (PiCode b f) a () ca mu mv
--- u = FunEl, v = UCode/PiCode: Sup absorbs FunEl
+-- u = PropCode, v = PropCode: Sup PropCode PropCode = PropCode
+FinMem-Sup-element PropCode PropCode UCode comp ca mu mv = tt
+FinMem-Sup-element PropCode PropCode PropCode comp ca () mv
+FinMem-Sup-element PropCode PropCode Bot comp ca () mv
+FinMem-Sup-element PropCode PropCode (FunEl h) comp ca () mv
+FinMem-Sup-element PropCode PropCode (PiCode b f) comp ca () mv
+-- u = PropCode, v = UCode/FunEl/PiCode: Comp = Empty
+FinMem-Sup-element PropCode UCode a () ca mu mv
+FinMem-Sup-element PropCode (FunEl h) a () ca mu mv
+FinMem-Sup-element PropCode (PiCode b f) a () ca mu mv
+-- u = FunEl, v = UCode/PropCode/PiCode: Sup absorbs FunEl
 FinMem-Sup-element (FunEl g) UCode a () ca mu mv
+FinMem-Sup-element (FunEl g) PropCode a () ca mu mv
 FinMem-Sup-element (FunEl g) (PiCode b f) a () ca mu mv
 -- u = FunEl g, v = FunEl h: Sup = FunEl (append g h), a = PiCode b' f'
 FinMem-Sup-element (FunEl g) (FunEl h) Bot comp ca () mv
 FinMem-Sup-element (FunEl g) (FunEl h) UCode comp ca () mv
+FinMem-Sup-element (FunEl g) (FunEl h) PropCode comp ca () mv
 FinMem-Sup-element (FunEl g) (FunEl h) (FunEl k) comp ca () mv
 FinMem-Sup-element (FunEl g) (FunEl h) (PiCode b f) comp ca mu mv =
   mkSigma (FinMemFun-append g h b f (fst mu) (fst mv))
     (mkSigma (CoherentFun-append g h (fst (snd mu)) (fst (snd mv)) comp)
              (snd (snd mu)))
--- u = PiCode, v = UCode/FunEl: Comp = Empty
+-- u = PiCode, v = UCode/PropCode/FunEl: Comp = Empty
 FinMem-Sup-element (PiCode a1 f1) UCode a () ca mu mv
+FinMem-Sup-element (PiCode a1 f1) PropCode a () ca mu mv
 FinMem-Sup-element (PiCode a1 f1) (FunEl h) a () ca mu mv
--- u = PiCode, v = PiCode: a = UCode, use finMemUCode-Sup
+-- u = PiCode, v = PiCode: a = UCode or PropCode, use finMemUCode-Sup
 FinMem-Sup-element (PiCode a1 f1) (PiCode a2 f2) Bot comp ca () mv
 FinMem-Sup-element (PiCode a1 f1) (PiCode a2 f2) UCode comp ca mu mv =
   finMemUCode-Sup (PiCode a1 f1) (PiCode a2 f2) comp mu mv
+FinMem-Sup-element (PiCode a1 f1) (PiCode a2 f2) PropCode comp ca mu mv =
+  finMemPropCode-Sup (PiCode a1 f1) (PiCode a2 f2) comp mu mv
 FinMem-Sup-element (PiCode a1 f1) (PiCode a2 f2) (FunEl h) comp ca () mv
 FinMem-Sup-element (PiCode a1 f1) (PiCode a2 f2) (PiCode b f) comp ca () mv
 
@@ -1783,4 +2190,114 @@ finMem-Sup-both a1 a2 u1 u2 m1 m2 comp-u comp-a =
       m1'   = finMem-Sup-left u1 u2 a1 comp-u cu1 cu2 u2U ca1 m1
       m2'   = finMem-Sup-right u1 u2 a2 comp-u u1U ca2 m2
   in FinMem-Sup-element a1 a2 (Sup u1 u2) comp-a c-sup m1' m2'
+
+------------------------------------------------------------------------
+-- FinMem-Prop-Bot: inhabitants of Prop-typed codes are Bot
+--
+-- If FinMem u a and FinMem a PropCode, then u = Bot.
+-- Key: FunEl g case requires CoherentFun g (so g is non-nil with
+-- NotBot values), but EvalFun-in-PropCode + IH forces values to Bot.
+------------------------------------------------------------------------
+
+absurdEl : {A : Set} -> Empty -> A
+absurdEl ()
+
+{-# TERMINATING #-}
+mutual
+  FinMem-Prop-Bot : (u a : FinEl) -> FinMem u a -> FinMem a PropCode -> Eq u Bot
+  -- u = Bot: trivial
+  FinMem-Prop-Bot Bot a mem aP = refl
+  -- u = UCode: FinMem UCode a requires a = UCode, but FinMem UCode PropCode = Empty
+  FinMem-Prop-Bot UCode UCode        mem ()
+  FinMem-Prop-Bot UCode PropCode     ()
+  FinMem-Prop-Bot UCode Bot          ()
+  FinMem-Prop-Bot UCode (FunEl g)    ()
+  FinMem-Prop-Bot UCode (PiCode a f) ()
+  -- u = PropCode: same as UCode
+  FinMem-Prop-Bot PropCode UCode        mem ()
+  FinMem-Prop-Bot PropCode PropCode     ()
+  FinMem-Prop-Bot PropCode Bot          ()
+  FinMem-Prop-Bot PropCode (FunEl g)    ()
+  FinMem-Prop-Bot PropCode (PiCode a f) ()
+  -- u = PiCode: FinMem (PiCode a' f') a requires a = UCode or a = PropCode
+  FinMem-Prop-Bot (PiCode a' f') UCode        mem ()
+  FinMem-Prop-Bot (PiCode a' f') PropCode     mem ()
+  FinMem-Prop-Bot (PiCode a' f') Bot          ()
+  FinMem-Prop-Bot (PiCode a' f') (FunEl g)    ()
+  FinMem-Prop-Bot (PiCode a' f') (PiCode b g) ()
+  -- u = FunEl g: a must be PiCode b f with FinMem (PiCode b f) PropCode
+  FinMem-Prop-Bot (FunEl g) (PiCode b f) mem aP =
+    FinMem-Prop-Bot-FunEl g b f mem aP
+  FinMem-Prop-Bot (FunEl g) Bot          ()
+  FinMem-Prop-Bot (FunEl g) UCode        ()
+  FinMem-Prop-Bot (FunEl g) PropCode     ()
+  FinMem-Prop-Bot (FunEl g) (FunEl h)    ()
+
+  -- Helper: FunEl g case — leads to contradiction
+  -- FinMem (FunEl g) (PiCode b f) gives CoherentFun g (g non-nil, NotBot values)
+  -- FinMem (PiCode b f) PropCode gives FinMemAllProp f b
+  -- Each value yi in g: FinMem yi (EvalFun f xi), and EvalFun-in-PropCode gives
+  -- FinMem (EvalFun f xi) PropCode, so by IH yi = Bot, contradicting NotBot.
+  FinMem-Prop-Bot-FunEl : (g : FinFun) (b : FinEl) (f : FinFun) ->
+    FinMem (FunEl g) (PiCode b f) -> FinMem (PiCode b f) PropCode ->
+    Eq (FunEl g) Bot
+  FinMem-Prop-Bot-FunEl nil b f mem aP
+    with fst (snd mem)
+  ... | ()
+  FinMem-Prop-Bot-FunEl (cons p ps) b f mem aP =
+    let cft = cft-from-cf (cons p ps) (fst (snd mem))
+        nb = CFTcons.val-nbot cft
+        allP = fst (snd aP)
+        cohf = snd (snd aP)
+        cp = CFTcons.key-coh cft
+        evP = EvalFun-in-PropCode f (fst p) b cohf cp allP
+        mem-v = snd (fst (fst mem))
+        eq = FinMem-Prop-Bot (snd p) (EvalFun f (fst p)) mem-v evP
+    in absurdEl (Eq-transport NotBot eq nb)
+
+------------------------------------------------------------------------
+-- LeCode-PropCode-cases: a ≤ PropCode implies a = Bot or a = PropCode
+------------------------------------------------------------------------
+
+data Or (A B : Set) : Set where
+  inl : A -> Or A B
+  inr : B -> Or A B
+
+LeCode-PropCode-cases : (a : FinEl) -> LeCode a PropCode ->
+  Or (Eq a Bot) (Eq a PropCode)
+LeCode-PropCode-cases Bot          le = inl refl
+LeCode-PropCode-cases UCode        ()
+LeCode-PropCode-cases PropCode     le = inr refl
+LeCode-PropCode-cases (FunEl g)    ()
+LeCode-PropCode-cases (PiCode a f) ()
+
+------------------------------------------------------------------------
+-- FinMem-Prop-to-U: subtyping — Prop-typed codes are also U-typed
+--
+-- FinMem u PropCode -> FinMem u UCode
+-- By FinMem-Prop-Bot applied to FinMem u PropCode with PropCode : UCode,
+-- but actually simpler: the only u with FinMem u PropCode non-empty
+-- are Bot and PiCode a f. Bot is in UCode trivially. PiCode a f in
+-- PropCode gives domain in UCode and codomain in PropCode, so by IH
+-- codomain in UCode, hence PiCode a f in UCode.
+------------------------------------------------------------------------
+
+{-# TERMINATING #-}
+mutual
+  FinMem-Prop-to-U : (u : FinEl) -> FinMem u PropCode -> FinMem u UCode
+  FinMem-Prop-to-U Bot          mem = tt
+  FinMem-Prop-to-U UCode        ()
+  FinMem-Prop-to-U PropCode     ()
+  FinMem-Prop-to-U (FunEl g)    ()
+  FinMem-Prop-to-U (PiCode a f) mem =
+    mkSigma (fst mem)
+      (mkSigma (FinMemAllProp-to-AllU f a (fst (snd mem)))
+               (snd (snd mem)))
+
+  FinMemAllProp-to-AllU : (f : FinFun) (a : FinEl) ->
+    FinMemAllProp f a -> FinMemAllU f a
+  FinMemAllProp-to-AllU nil         a allP = tt
+  FinMemAllProp-to-AllU (cons p ps) a allP =
+    mkSigma (mkSigma (fst (fst allP)) (FinMem-Prop-to-U (snd p) (snd (fst allP))))
+            (FinMemAllProp-to-AllU ps a (snd allP))
 

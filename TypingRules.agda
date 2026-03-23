@@ -14,7 +14,7 @@ module TypingRules where
 
 open import Basic using (Nat ; zero ; suc)
 open import RawSyntax using (Fin ; fzero ; fsuc ;
-  Expr ; Var ; U ; Pi ; Lam ; App ; wkExpr ; subst1)
+  Expr ; Var ; U ; Prop ; Pi ; Lam ; App ; wkExpr ; subst1)
 
 ------------------------------------------------------------------------
 -- Ctx — typing contexts as snoc-lists
@@ -79,6 +79,20 @@ data HasType where
     -> WfCtx G
     -> HasType G U U
 
+  -- Γ ⊢
+  -- ─────────────
+  -- Γ ⊢ Prop : U
+  ty-Prop : {n : Nat} {G : Ctx n}
+    -> WfCtx G
+    -> HasType G Prop U
+
+  -- Γ ⊢ A : Prop
+  -- ─────────────
+  -- Γ ⊢ A : U
+  ty-Prop-U : {n : Nat} {G : Ctx n} {A : Expr n}
+    -> HasType G A Prop
+    -> HasType G A U
+
   -- Γ ⊢ A : U   Γ, x:A ⊢ B : U
   -- ─────────────────────────────
   -- Γ ⊢ Π(x:A)B : U
@@ -86,6 +100,14 @@ data HasType where
     -> HasType G A U
     -> HasType (extend G A) B U
     -> HasType G (Pi A B) U
+
+  -- Γ ⊢ A : U   Γ, x:A ⊢ B : Prop
+  -- ────────────────────────────────
+  -- Γ ⊢ Π(x:A)B : Prop
+  ty-Pi-Prop : {n : Nat} {G : Ctx n} {A : Expr n} {B : Expr (suc n)}
+    -> HasType G A U
+    -> HasType (extend G A) B Prop
+    -> HasType G (Pi A B) Prop
 
   -- Γ ⊢ A : U   Γ, x:A ⊢ B : U   Γ, x:A ⊢ N : B
   -- ─────────────────────────────────────────────────
@@ -155,6 +177,16 @@ data ConvTm where
     -> HasType (extend G A) M B
     -> HasType G a A
     -> ConvTm G (App (Lam A M) a) (subst1 M a) (subst1 B a)
+
+  -- Proof-irrelevance:
+  -- Γ ⊢ A : Prop   Γ ⊢ M : A   Γ ⊢ N : A
+  -- ─────────────────────────────────────────
+  -- Γ ⊢ M = N : A
+  conv-Prop : {n : Nat} {G : Ctx n} {M N A : Expr n}
+    -> HasType G A Prop
+    -> HasType G M A
+    -> HasType G N A
+    -> ConvTm G M N A
 
   -- Congruence: Pi
   -- Γ ⊢ A = A' : U   Γ, x:A ⊢ B = B' : U

@@ -1,4 +1,4 @@
-# Adequacy for Dependent Type Theory with U : U
+# Adequacy for Dependent Type Theory with U : U and Prop : U
 
 Agda formalisation of the logical-relation core of the adequacy proof
 for dependent type theory, adapted to a single-universe setting (U : U).
@@ -14,7 +14,7 @@ Based on:
 
 - **`Basic.agda`** — Base types (`Top`, `Empty`, `Nat`, `Pair`, `Sigma`),
   natural number operations (`max`, `Le`, `Le-refl`), lists, and
-  finite elements (`FinEl`: `Bot`, `UCode`, `FunEl`, `PiCode`) with rank `rk`.
+  finite elements (`FinEl`: `Bot`, `UCode`, `PropCode`, `FunEl`, `PiCode`) with rank `rk`.
   **0 postulates.**
 
 - **`Selection.agda`** — `Edge`, `EdgeIn`, `Selection` (compatible
@@ -27,16 +27,19 @@ Based on:
 - **`PaperSemantics.agda`** — Trusted kernel. Sup-based evaluation
   `EvalFun`, decidable ordering `leFinEl`/`leFun`, propositional ordering
   `LeCode`/`LeFunCode`, `Coherent`/`CoherentFun`/`CoherentFunTail`,
-  `FinMem`/`FinMemAllU`, finitary projection `pCode`, monotonicity and
+  `FinMem`/`FinMemAllU`/`FinMemAllProp`, monotonicity and
   compatibility lemmas (`LeCode-refl`, `LeCode-trans`, `Comp-down`,
   `EvalFun-mon-arg`, `finMem-upward`, `finMemUCode-Sup`, etc.).
+  Prop-specific lemmas: `EvalFun-in-PropCode`, `FinMem-Prop-Bot`
+  (inhabitants of Prop-typed codes are Bot), `FinMem-Prop-to-U`
+  (Prop subtyping), `LeCode-PropCode-cases`.
   Note: `Coherent (PiCode a f)` uses `CoherentFunTail f` (not
   `CoherentFun f`), allowing `PiCode a nil` to be coherent.
   **0 postulates.**
 
 ### Syntax and raw semantics
 
-- **`RawSyntax.agda`** — Expressions (`Expr`: `Var`, `U`, `Pi`, `Lam`, `App`),
+- **`RawSyntax.agda`** — Expressions (`Expr`: `Var`, `U`, `Prop`, `Pi`, `Lam`, `App`),
   de Bruijn indices (`Fin`), substitution (`subst1`), weakening (`wkExpr`),
   renaming.
   **0 postulates.**
@@ -55,6 +58,8 @@ Based on:
 ### Typing
 
 - **`TypingRules.agda`** — `Ctx`, `HasType`, `ConvTm`, `WfCtx`.
+  Includes `ty-Prop`, `ty-Prop-U` (Prop subtyping), `ty-Pi-Prop`
+  (Pi in Prop), and `conv-Prop` (proof-irrelevance).
   `ty-App`/`conv-App-fun`/`conv-App-arg`/`conv-funext` carry
   `HasType G A U` premise.
 
@@ -72,6 +77,7 @@ Based on:
   - `Pi-L1` — Pi inversion with typed keys
   - `InvTyp-Lam` — Lam case of InvTyp
   - `InvTyp-Pi` — Pi case of InvTyp
+  - `InvTyp-Pi-Prop` — Pi-Prop case of InvTyp (codomain in PropCode)
   - `InvTyp-App` — App case of InvTyp
   - `InvConv-beta` — Beta conversion
   - `InvConv-funext` — Function extensionality conversion
@@ -81,8 +87,10 @@ Based on:
   **0 postulates.**
 
 - **`TypingSemantics.agda`** — `theorem1` (typing soundness) and
-  `convSound` (soundness of conversion). Imports definitions and
-  lemmas from `LemmaForTS`; all cases proved by delegation.
+  `convSound` (soundness of conversion). Includes the proof-irrelevance
+  case (`conv-Prop`): if `A : Prop` and `M : A`, then all finite
+  approximations of `M` are `Bot`, so `EvalRel M rho u` implies `u = Bot`.
+  Uses `Prop-collapse` and `FinMem-Prop-Bot`.
   **0 postulates.**
 
 - **`SubstitutionLemma.agda`** — Renaming, substitution, presupposition,
@@ -132,10 +140,14 @@ Based on:
 
 - **Spartan Agda:** `--without-K --exact-split` (no `--type-in-type`)
 - **Sup simplification:** Cross-constructor `Sup` returns `Bot`
-  (`Sup UCode (FunEl _) = Sup (FunEl _) UCode = Sup (FunEl _) (PiCode _ _) = Sup (PiCode _ _) (FunEl _) = Bot`),
+  (e.g. `Sup UCode (FunEl _) = Sup PropCode UCode = Bot`),
   matching the fact that cross-constructor `Comp` is `Empty`.
 - **U : U** works because `rk UCode = 0` and `FinMem UCode UCode = Top`,
   so self-membership never triggers recursive rank-based calls.
+- **Prop : U** with proof-irrelevance. `PropCode` is incompatible with
+  `UCode` in the ordering but `FinMem PropCode UCode = Top`. The key
+  semantic lemma `FinMem-Prop-Bot` shows that inhabitants of Prop-typed
+  codes collapse to `Bot`, validating proof-irrelevance.
 - The step-indexed recursion is driven by finite-element rank, not by
   a universe hierarchy.
 - The development does not require `--type-in-type`; all files compile

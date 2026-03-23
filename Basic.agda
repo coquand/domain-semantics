@@ -116,10 +116,11 @@ All P (cons x xs) = Pair (P x) (All P xs)
 
 mutual
   data FinEl : Set where
-    Bot    : FinEl
-    UCode  : FinEl
-    FunEl  : FinFun -> FinEl
-    PiCode : FinEl -> FinFun -> FinEl
+    Bot      : FinEl
+    UCode    : FinEl
+    PropCode : FinEl
+    FunEl    : FinFun -> FinEl
+    PiCode   : FinEl -> FinFun -> FinEl
 
   FinFun : Set
   FinFun = List (Pair FinEl FinEl)
@@ -132,6 +133,7 @@ mutual
   rk : FinEl -> Nat
   rk Bot            = 0
   rk UCode          = 0
+  rk PropCode       = 0
   rk (FunEl g)      = rkFun g
   rk (PiCode a f)   = suc (max (rk a) (rkFun f))
 

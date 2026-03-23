@@ -18,7 +18,7 @@ module Reduction where
 import Basic as S
 open S using (Nat ; suc ; Pair ; mkSigma ; Eq ; refl ; fst ; snd ; Empty ;
   Eq-sym ; Eq-transport)
-open import RawSyntax using (Expr ; Var ; Pi ; App ; Lam ; U ; wkExpr ; subst1 ;
+open import RawSyntax using (Expr ; Var ; Pi ; App ; Lam ; U ; Prop ; wkExpr ; subst1 ;
   Sub ; substExpr ; subst1Sub ; liftSub ; wkRen ;
   Fin ; fzero ; fsuc ; Eq-trans ; Eq-cong2-Expr ;
   subst-ren ; subst-subst ; substExpr-ext)
@@ -140,6 +140,7 @@ idSub i = Var i
 substExpr-id : {n : Nat} (M : Expr n) -> Eq (substExpr idSub M) M
 substExpr-id (Var i)   = refl
 substExpr-id U         = refl
+substExpr-id Prop      = refl
 substExpr-id (Pi A B)  =
   Eq-cong2-Expr Pi (substExpr-id A)
     (Eq-trans (substExpr-ext (liftSub idSub) idSub
