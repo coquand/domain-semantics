@@ -129,6 +129,19 @@ Based on:
   `adequacyEqSub2` + `EqValTyPi2` extraction + `Red-unique-Pi`.
   **0 postulates.**
 
+### Subject reduction
+
+- **`SubjectReduction.agda`** — Subject reduction for single-step
+  head reduction:
+  - `subject-red1`: `HasType G M A → HeadRed1 M N → HasType G N A`.
+  - `ty-Lam-body`: Lam body extraction through conversion. Given
+    `HasType G (Lam A M) T` and `ConvTm G T (Pi A₀ B₀) U`, produce
+    `HasType (extend G A₀) M B₀`. Uses `piInjectivity` for the
+    `ty-Lam` case and `piConv` to eliminate the `ty-Prop-U` case
+    (conversion from `U` to a Pi type is impossible since `U` is
+    a head normal form distinct from `Pi`).
+  **0 postulates.**
+
 ## Documentation
 
 - **`rules.tex`** / **`rules.pdf`** — LaTeX presentation of the typing
@@ -166,3 +179,4 @@ Based on:
 | Validity2 | 0 |
 | Adequacy2 | 0 |
 | PiInjectivity | 0 |
+| SubjectReduction | 0 |

@@ -38,7 +38,7 @@ open import RawSyntax using (Expr ; Var ; U ; Pi ; Lam ; App ;
   Sub ; liftSub ; substExpr)
 open import TypingRules using (Ctx ; empty ; extend ; lookup ;
   HasType ; ConvTm ; WfCtx ;
-  ty-var ; ty-conv ; ty-U ; ty-Pi ; ty-Lam ; ty-App ;
+  ty-var ; ty-conv ; ty-U ; ty-Prop-U ; ty-Pi ; ty-Pi-Prop ; ty-Lam ; ty-App ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ;
   conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg)
 open import Reduction using (Red ; mkRed ; Red-hr ; HeadRed ;
@@ -66,6 +66,8 @@ ty-Pi-invert : {n : Nat} {G : Ctx n} {A : Expr n} {B : Expr (suc n)}
   {T : Expr n} ->
   HasType G (Pi A B) T -> Pair (HasType G A U) (HasType (extend G A) B U)
 ty-Pi-invert (ty-Pi dA dB) = mkSigma dA dB
+ty-Pi-invert (ty-Pi-Prop dA dB) = mkSigma dA (ty-Prop-U dB)
+ty-Pi-invert (ty-Prop-U d) = ty-Pi-invert d
 ty-Pi-invert (ty-conv d _ _) = ty-Pi-invert d
 
 ------------------------------------------------------------------------

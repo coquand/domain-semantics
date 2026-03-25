@@ -791,6 +791,44 @@ The entire proof is formalised in Agda with \texttt{--without-K
 --exact-split}, no \texttt{--type-in-type}, and no postulates
 (in the files on which \texttt{PiInjectivity.agda} depends).
 
+\section{Subject reduction}
+
+As an application of Pi injectivity, we prove subject reduction
+for single-step head reduction.
+
+\begin{theorem}[Subject reduction]
+  If\/ $\hastype{\Gamma}{M}{A}$ and $M \leadsto_1 N$ (single-step
+  head reduction), then $\hastype{\Gamma}{N}{A}$.
+\end{theorem}
+
+\begin{proof}
+  By induction on the typing derivation, case-splitting on the
+  reduction step.
+  \begin{itemize}
+    \item \textsc{Conv} and \textsc{Prop-U}: peel off and recurse.
+    \item \textsc{App} with $f \leadsto_1 f'$ (congruence under
+      application): the induction hypothesis gives
+      $\hastype{\Gamma}{f'}{\Pitype{x{:}A}{B}}$, and we rebuild
+      with \textsc{App}.
+    \item \textsc{App} with $\beta$-reduction
+      ($\App{(\Lamterm{x{:}A'}{M'})}{a} \leadsto_1 M'[a]$):
+      the key case.  Given
+      $\hastype{\Gamma}{\Lamterm{x{:}A'}{M'}}{\Pitype{x{:}A_0}{B_0}}$
+      and $\hastype{\Gamma}{a}{A_0}$, we extract
+      $\hastype{\Gamma, x{:}A_0}{M'}{B_0}$ by walking the derivation
+      through \textsc{Conv} (using Pi injectivity to connect the
+      $\lambda$-annotation $A'$ with the $\Pi$-domain $A_0$ and
+      context/type-converting the body) and through \textsc{Prop-U}
+      (which is eliminated: $\mathsf{piConv}$ applied to
+      $\conveq{\Gamma}{\U}{\Pitype{x{:}A_0}{B_0}}{\U}$ yields
+      $\U \Red \Pi\,B_0'\,F_0'$, which is impossible since $\U$
+      is a head normal form distinct from~$\Pi$).
+      Substitution then gives
+      $\hastype{\Gamma}{M'[a]}{B_0[a]}$.
+  \end{itemize}
+  Formalised in \texttt{SubjectReduction.agda} with 0~postulates.
+\end{proof}
+
 \begin{thebibliography}{1}
 \bibitem{CH2018}
   T.~Coquand and S.~Huber,
