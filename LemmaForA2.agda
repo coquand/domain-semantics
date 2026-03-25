@@ -13,7 +13,7 @@ module LemmaForA2 where
 import Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ;
               fst ; snd ; Pair ; Eq ;
-              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun)
+              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun)
 open import PaperSemantics using (LeCode ; LeCode-refl ; LeCode-trans ;
   LeCode-Bot ;
   Coherent ; Comp ; Sup ; Coherent-Sup ;
@@ -45,6 +45,7 @@ Val2-U-to-ValTy2 : {n : Nat} {G : Ctx n} {M : Expr n}
   Val2 G M U b UCode -> ValTy2 G M b
 Val2-U-to-ValTy2 Bot            fm v = v
 Val2-U-to-ValTy2 UCode          fm v = v
+Val2-U-to-ValTy2 PropCode       fm v = v
 Val2-U-to-ValTy2 (FunEl g)      fm v = v
 Val2-U-to-ValTy2 (PiCode a f)   fm v = v
 
@@ -53,6 +54,7 @@ EqVal2-U-to-ValTy2-fst : {n : Nat} {G : Ctx n} {M N : Expr n}
   EqVal2 G M N U v0 UCode -> ValTy2 G M v0
 EqVal2-U-to-ValTy2-fst Bot            fm ev = tt
 EqVal2-U-to-ValTy2-fst UCode          fm ev = fst ev
+EqVal2-U-to-ValTy2-fst PropCode       fm ev = tt
 EqVal2-U-to-ValTy2-fst (FunEl g)      fm ev = fst ev
 EqVal2-U-to-ValTy2-fst (PiCode a' f') fm ev = fst ev
 
@@ -61,6 +63,7 @@ EqVal2-U-to-ValTy2-snd : {n : Nat} {G : Ctx n} {M N : Expr n}
   EqVal2 G M N U v0 UCode -> ValTy2 G N v0
 EqVal2-U-to-ValTy2-snd Bot            fm ev = tt
 EqVal2-U-to-ValTy2-snd UCode          fm ev = fst (snd ev)
+EqVal2-U-to-ValTy2-snd PropCode       fm ev = tt
 EqVal2-U-to-ValTy2-snd (FunEl g)      fm ev = fst (snd ev)
 EqVal2-U-to-ValTy2-snd (PiCode a' f') fm ev = fst (snd ev)
 
@@ -69,6 +72,7 @@ EqVal2-U-to-EqValTy2 : {n : Nat} {G : Ctx n} {M N : Expr n}
   EqVal2 G M N U v0 UCode -> EqValTy2 G M N v0
 EqVal2-U-to-EqValTy2 Bot            fm ev = tt
 EqVal2-U-to-EqValTy2 UCode          fm ev = snd (snd ev)
+EqVal2-U-to-EqValTy2 PropCode       fm ev = tt
 EqVal2-U-to-EqValTy2 (FunEl g)      fm ev = snd (snd ev)
 EqVal2-U-to-EqValTy2 (PiCode a' f') fm ev = snd (snd ev)
 
@@ -84,10 +88,12 @@ tyU2-helper : {n : Nat} {H : Ctx n}
 tyU2-helper u0 Bot          _  _  _   = tt
 tyU2-helper Bot UCode        _  _  _   = tt
 tyU2-helper UCode UCode       _  _  _   = tt
+tyU2-helper PropCode UCode   () _  _
 tyU2-helper (FunEl _)    UCode () _  _
 tyU2-helper (PiCode _ _) UCode () _  _
 tyU2-helper u0 (FunEl _)    _  () _
 tyU2-helper u0 (PiCode _ _) _  () _
+tyU2-helper u0 PropCode      _  () _
 
 ------------------------------------------------------------------------
 -- 3. sup-transport-Val2

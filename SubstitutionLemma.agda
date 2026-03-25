@@ -24,10 +24,11 @@ open import RawSyntax using (Fin ; fzero ; fsuc ;
   wkExpr-is-subst ; subst-var-ren)
 open import TypingRules using (Ctx ; empty ; extend ; lookup ;
   WfCtx ; wf-empty ; wf-extend ;
-  HasType ; ty-var ; ty-conv ; ty-U ; ty-Pi ; ty-Lam ; ty-App ;
+  HasType ; ty-var ; ty-conv ; ty-U ; ty-Prop ; ty-Prop-U ; ty-Pi ; ty-Pi-Prop ; ty-Lam ; ty-App ;
   ConvTm ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ;
-  conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg)
+  conv-beta ; conv-Prop ; conv-Prop-U ; conv-Pi ; conv-Pi-Prop ;
+  conv-funext ; conv-App-fun ; conv-App-arg)
 open import Reduction using (idSub ; substExpr-id ; subst-subst1-comm)
 
 ------------------------------------------------------------------------
@@ -227,6 +228,17 @@ mutual
   -- ty-U
   ren-HasType rt wfH (ty-U _) = ty-U wfH
 
+  -- ty-Prop
+  ren-HasType rt wfH (ty-Prop _) = ty-Prop wfH
+
+  -- ty-Prop-U
+  ren-HasType rt wfH (ty-Prop-U d) = ty-Prop-U (ren-HasType rt wfH d)
+
+  -- ty-Pi-Prop
+  ren-HasType {r = r} rt wfH (ty-Pi-Prop {A = A} d1 d2) =
+    let d1' = ren-HasType rt wfH d1
+    in ty-Pi-Prop d1' (ren-HasType (liftRen-RenTypes rt) (wf-extend d1') d2)
+
   -- ty-conv
   ren-HasType rt wfH (ty-conv d1 d2 d3) =
     ty-conv (ren-HasType rt wfH d1)
@@ -361,6 +373,22 @@ mutual
            (ren-HasType rt wfH d1)
            (ren-ConvTm rt wfH d2))
 
+  -- conv-Prop
+  ren-ConvTm rt wfH (conv-Prop d1 d2 d3) =
+    conv-Prop (ren-HasType rt wfH d1) (ren-HasType rt wfH d2) (ren-HasType rt wfH d3)
+
+  -- conv-Prop-U
+  ren-ConvTm rt wfH (conv-Prop-U d) = conv-Prop-U (ren-ConvTm rt wfH d)
+
+  -- conv-Pi-Prop
+  ren-ConvTm {r = r} rt wfH (conv-Pi-Prop {A = A} d1 d2) =
+    let dA = fst (typing-ConvTm d1)
+        dA' = ren-HasType rt wfH dA
+        wfH' = wf-extend dA'
+        rt' = liftRen-RenTypes rt
+    in conv-Pi-Prop (ren-ConvTm rt wfH d1)
+                    (ren-ConvTm rt' wfH' d2)
+
   --------------------------------------------------------------------
   -- subst-HasType cases
   --------------------------------------------------------------------
@@ -370,6 +398,17 @@ mutual
 
   -- ty-U
   subst-HasType ws wfH (ty-U _) = ty-U wfH
+
+  -- ty-Prop
+  subst-HasType ws wfH (ty-Prop _) = ty-Prop wfH
+
+  -- ty-Prop-U
+  subst-HasType ws wfH (ty-Prop-U d) = ty-Prop-U (subst-HasType ws wfH d)
+
+  -- ty-Pi-Prop
+  subst-HasType {sigma = sigma} ws wfH (ty-Pi-Prop {A = A} d1 d2) =
+    let d1' = subst-HasType ws wfH d1
+    in ty-Pi-Prop d1' (subst-HasType (liftSub-WtSub ws wfH d1) (wf-extend d1') d2)
 
   -- ty-conv
   subst-HasType ws wfH (ty-conv d1 d2 d3) =
@@ -504,6 +543,20 @@ mutual
            (subst-HasType ws wfH d1)
            (subst-ConvTm ws wfH d2))
 
+  -- conv-Prop
+  subst-ConvTm ws wfH (conv-Prop d1 d2 d3) =
+    conv-Prop (subst-HasType ws wfH d1) (subst-HasType ws wfH d2) (subst-HasType ws wfH d3)
+
+  -- conv-Prop-U
+  subst-ConvTm ws wfH (conv-Prop-U d) = conv-Prop-U (subst-ConvTm ws wfH d)
+
+  -- conv-Pi-Prop
+  subst-ConvTm {sigma = sigma} ws wfH (conv-Pi-Prop {A = A} d1 d2) =
+    let dA = fst (typing-ConvTm d1)
+        dA' = subst-HasType ws wfH dA
+    in conv-Pi-Prop (subst-ConvTm ws wfH d1)
+                    (subst-ConvTm (liftSub-WtSub ws wfH dA) (wf-extend dA') d2)
+
   --------------------------------------------------------------------
   -- typing-ConvTm: extract HasType from ConvTm
   --------------------------------------------------------------------
@@ -574,6 +627,22 @@ mutual
       -- HasType G (App f a') (subst1 B a) via ty-conv
       sndD = ty-conv (ty-App dA dB d1 da') convBa'Ba dBa
 
+  -- conv-Prop
+  typing-ConvTm (conv-Prop dP dM dN) = mkSigma dM dN
+
+  -- conv-Prop-U
+  typing-ConvTm (conv-Prop-U d) =
+    let ih = typing-ConvTm d
+    in mkSigma (ty-Prop-U (fst ih)) (ty-Prop-U (snd ih))
+
+  -- conv-Pi-Prop
+  typing-ConvTm (conv-Pi-Prop d1 d2) =
+    let dA  = fst (typing-ConvTm d1)
+        dA' = snd (typing-ConvTm d1)
+        dB  = fst (typing-ConvTm d2)
+        dB' = ctx-conv-HasType dA dA' d1 (snd (typing-ConvTm d2))
+    in mkSigma (ty-Pi-Prop dA dB) (ty-Pi-Prop dA' dB')
+
   -- Helper: build WtSub for subst1Sub a
   subst1-WtSub : {n : Nat} {G : Ctx n} {A a : Expr n} ->
     HasType G A U -> HasType G a A ->
@@ -608,7 +677,10 @@ mutual
   typing-WfCtx (ty-var wf)       = wf
   typing-WfCtx (ty-conv d _ _)   = typing-WfCtx d
   typing-WfCtx (ty-U wf)         = wf
+  typing-WfCtx (ty-Prop wf)      = wf
+  typing-WfCtx (ty-Prop-U d)     = typing-WfCtx d
   typing-WfCtx (ty-Pi d _)       = typing-WfCtx d
+  typing-WfCtx (ty-Pi-Prop d _)  = typing-WfCtx d
   typing-WfCtx (ty-Lam d _ _)    = typing-WfCtx d
   typing-WfCtx (ty-App d _ _ _)  = typing-WfCtx d
 
@@ -618,7 +690,10 @@ mutual
   typing-type (ty-var wf)              = wfCtx-lookup wf _
   typing-type (ty-conv _ _ d3)         = d3
   typing-type (ty-U wf)               = ty-U wf
+  typing-type (ty-Prop wf)             = ty-U wf
+  typing-type (ty-Prop-U d)            = ty-U (typing-WfCtx d)
   typing-type (ty-Pi d1 _)            = ty-U (typing-WfCtx d1)
+  typing-type (ty-Pi-Prop d1 _)       = ty-Prop (typing-WfCtx d1)
   typing-type (ty-Lam d1 d2 _)        = ty-Pi d1 d2
   typing-type (ty-App d1 d2 _ d4)     =
     subst-HasType (subst1-WtSub d1 d4) (typing-WfCtx d1) d2
@@ -667,6 +742,29 @@ mutual
 
   -- ty-U
   subst-ConvTm-cross (ty-U _) ws ws' wcs wfH = conv-refl (ty-U wfH)
+
+  -- ty-Prop
+  subst-ConvTm-cross (ty-Prop _) ws ws' wcs wfH = conv-refl (ty-Prop wfH)
+
+  -- ty-Prop-U
+  subst-ConvTm-cross (ty-Prop-U d) ws ws' wcs wfH =
+    conv-Prop-U (subst-ConvTm-cross d ws ws' wcs wfH)
+
+  -- ty-Pi-Prop
+  subst-ConvTm-cross {H = H} {sigma = sigma} {sigma' = sigma'} (ty-Pi-Prop {A = A} d1 d2) ws ws' wcs wfH =
+    let sA   = substExpr sigma A
+        dA'  = subst-HasType ws wfH d1
+        ws2  = liftSub-WtSub ws wfH d1
+        ws2' = liftSub-WtSub ws' wfH d1
+        cvA  = subst-ConvTm-cross d1 ws ws' wcs wfH
+        dA'' = subst-HasType ws' wfH d1
+        ws2'_ctx : WtSub (extend H sA) (extend _ A) (liftSub sigma')
+        ws2'_ctx = \ i ->
+          ctx-conv-HasType dA'' dA' (conv-sym cvA) (liftSub-WtSub ws' wfH d1 i)
+        wcs2 = liftSub-WtConvSub ws wcs wfH d1
+        wfH' = wf-extend dA'
+        ihB  = subst-ConvTm-cross d2 ws2 ws2'_ctx wcs2 wfH'
+    in conv-Pi-Prop cvA ihB
 
   -- ty-conv
   subst-ConvTm-cross (ty-conv d1 d2 d3) ws ws' wcs wfH =

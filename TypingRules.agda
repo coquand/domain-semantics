@@ -188,6 +188,14 @@ data ConvTm where
     -> HasType G N A
     -> ConvTm G M N A
 
+  -- Prop-to-U subtyping for conversions:
+  -- Γ ⊢ M = N : Prop
+  -- ──────────────────
+  -- Γ ⊢ M = N : U
+  conv-Prop-U : {n : Nat} {G : Ctx n} {M N : Expr n}
+    -> ConvTm G M N Prop
+    -> ConvTm G M N U
+
   -- Congruence: Pi
   -- Γ ⊢ A = A' : U   Γ, x:A ⊢ B = B' : U
   -- ───────────────────────────────────────
@@ -196,6 +204,15 @@ data ConvTm where
     -> ConvTm G A A' U
     -> ConvTm (extend G A) B B' U
     -> ConvTm G (Pi A B) (Pi A' B') U
+
+  -- Congruence: Pi at Prop (codomain in Prop)
+  -- Γ ⊢ A = A' : U   Γ, x:A ⊢ B = B' : Prop
+  -- ────────────────────────────────────────────
+  -- Γ ⊢ Π(x:A)B = Π(x:A')B' : Prop
+  conv-Pi-Prop : {n : Nat} {G : Ctx n} {A A' : Expr n} {B B' : Expr (suc n)}
+    -> ConvTm G A A' U
+    -> ConvTm (extend G A) B B' Prop
+    -> ConvTm G (Pi A B) (Pi A' B') Prop
 
   -- Extensional function equality:
   -- Γ ⊢ A : U   Γ, x:A ⊢ f x = g x : B   Γ ⊢ f : Π(x:A)B   Γ ⊢ g : Π(x:A)B

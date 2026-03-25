@@ -17,7 +17,7 @@ module Adequacy2 where
 import Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ;
               fst ; snd ; Pair ; Eq ;
-              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun ;
+              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun ;
               List ; nil ; cons)
 open import PaperSemantics using (LeCode ; LeCode-Bot ; LeCode-refl ;
   LeCode-trans ; Coherent ;
@@ -29,7 +29,9 @@ open import PaperSemantics using (LeCode ; LeCode-Bot ; LeCode-refl ;
   FinMem-a-in-U ; finMemUCode-Sup ;
   finMem-upward ; finMem-Sup-left ; finMem-Sup-right ; coh-from-aU ;
   FinMem-coh-u ; cft-from-cf ; CoherentFunTail ; CoherentFunTail-append ;
-  mkCFT ; NotBot)
+  mkCFT ; NotBot ;
+  FinMem-Prop-Bot ;
+  FinMem-Prop-to-U ; absurdEl)
 open import Reduction using (Red ; Red-refl ; Red-hr ; HeadRed ;
   headred-step ; headred-beta ; headred-refl ; subst-subst1-comm ;
   idSub ; substExpr-id)
@@ -38,14 +40,15 @@ open import RawSemantics using (EnvApprox ; emptyEnv ; extendEnv ;
   EvalRel-coh ; CoherentEnv ; lookupEnv-coh ;
   EvalRel-Comp ; EvalRel-Sup ; EvalRel-down ;
   EvalRel-mon-env ; EnvLe ; EnvLe-refl)
-open import RawSyntax using (Expr ; Var ; U ; Pi ; Lam ; App ;
+open import RawSyntax using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
   Fin ; fzero ; fsuc ; wkExpr ; subst1 ;
   Sub ; liftSub ; substExpr ; subst1Sub)
 open import TypingRules using (Ctx ; empty ; extend ; lookup ;
   HasType ; ConvTm ; WfCtx ; wf-empty ; wf-extend ;
-  ty-var ; ty-conv ; ty-U ; ty-Pi ; ty-Lam ; ty-App ;
+  ty-var ; ty-conv ; ty-U ; ty-Prop ; ty-Prop-U ; ty-Pi ; ty-Pi-Prop ; ty-Lam ; ty-App ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ;
-  conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg)
+  conv-beta ; conv-Prop ; conv-Prop-U ; conv-Pi ; conv-Pi-Prop ;
+  conv-funext ; conv-App-fun ; conv-App-arg)
 open import Validity2 using (
   Val2 ; EqVal2 ; ValTy2 ; EqValTy2 ;
   ValTyPi2 ; ValPi2 ; EqValTyPi2 ; EqValPi2 ;
@@ -89,7 +92,8 @@ open import Validity using (Edge ; EdgeIn ; here ; there ;
 open import Selection using (FinMemAllU-Selection ; FinMem-Selection-UCode ;
   FinMem-Selection ; FinMem-Selection-codomain ;
   selectionBelow)
-open import TypingSemantics using (convSound ; convSound-inv ; convSound' ; theorem1)
+open import TypingSemantics using (convSound ; convSound-inv ; convSound' ; theorem1 ;
+  conv-Prop-chain ; LeCode-Bot-eq)
 open import LemmaForTS using (Fits ; Typed ; Fits-CoherentEnv)
 open import EvalSubstitution using (EvalRel-subst1-backward ; EvalRel-wk ; EvalRel-unwk ;
   EvalRel-Pi-app-type ; EvalRel-Pi-body ; EvalRel-subst1-forward)
@@ -132,6 +136,7 @@ substExpr-ext : {h g : Nat} (sigma sigma' : Sub h g) ->
   (M : Expr g) -> Eq (substExpr sigma M) (substExpr sigma' M)
 substExpr-ext sigma sigma' hyp (Var i)   = hyp i
 substExpr-ext sigma sigma' hyp U         = S.refl
+substExpr-ext sigma sigma' hyp Prop      = S.refl
 substExpr-ext sigma sigma' hyp (Pi A B)  =
   Eq-cong2 Pi (substExpr-ext sigma sigma' hyp A)
               (substExpr-ext (liftSub sigma) (liftSub sigma')
@@ -148,6 +153,7 @@ substExpr-ren : {k h g : Nat} (sigma : Sub h g) (rho : Ren k g) (M : Expr k) ->
   Eq (substExpr sigma (renExpr rho M)) (substExpr (\ i -> sigma (rho i)) M)
 substExpr-ren sigma rho (Var i)   = S.refl
 substExpr-ren sigma rho U         = S.refl
+substExpr-ren sigma rho Prop      = S.refl
 substExpr-ren sigma rho (Pi A B)  =
   Eq-cong2 Pi (substExpr-ren sigma rho A)
     (Eq-trans (substExpr-ren (liftSub sigma) (liftRen rho) B)
@@ -174,6 +180,7 @@ renExpr-ext : {n m : Nat} (r1 r2 : Ren n m) ->
   (M : Expr n) -> Eq (renExpr r1 M) (renExpr r2 M)
 renExpr-ext r1 r2 hyp (Var i)   = S.Eq-cong Var (hyp i)
 renExpr-ext r1 r2 hyp U         = S.refl
+renExpr-ext r1 r2 hyp Prop      = S.refl
 renExpr-ext r1 r2 hyp (Pi A B)  =
   Eq-cong2 Pi (renExpr-ext r1 r2 hyp A)
     (renExpr-ext (liftRen r1) (liftRen r2)
@@ -189,6 +196,7 @@ renExpr-comp : {a b c : Nat} (r2 : Ren b c) (r1 : Ren a b) (M : Expr a) ->
   Eq (renExpr r2 (renExpr r1 M)) (renExpr (\ i -> r2 (r1 i)) M)
 renExpr-comp r2 r1 (Var i)   = S.refl
 renExpr-comp r2 r1 U         = S.refl
+renExpr-comp r2 r1 Prop      = S.refl
 renExpr-comp r2 r1 (Pi A B)  =
   Eq-cong2 Pi (renExpr-comp r2 r1 A)
     (Eq-trans (renExpr-comp (liftRen r2) (liftRen r1) B)
@@ -215,6 +223,7 @@ renExpr-substExpr : {k h g : Nat} (rho : Ren h k) (sigma : Sub h g) (M : Expr g)
      (substExpr (\ i -> renExpr rho (sigma i)) M)
 renExpr-substExpr rho sigma (Var i) = S.refl
 renExpr-substExpr rho sigma U = S.refl
+renExpr-substExpr rho sigma Prop = S.refl
 renExpr-substExpr rho sigma (Pi A B) =
   Eq-cong2 Pi (renExpr-substExpr rho sigma A)
     (Eq-trans (renExpr-substExpr (liftRen rho) (liftSub sigma) B)
@@ -239,6 +248,7 @@ substExpr-sub : {k h g : Nat} (tau : Sub k h) (sigma : Sub h g) (M : Expr g) ->
      (substExpr (\ i -> substExpr tau (sigma i)) M)
 substExpr-sub tau sigma (Var i) = S.refl
 substExpr-sub tau sigma U = S.refl
+substExpr-sub tau sigma Prop = S.refl
 substExpr-sub tau sigma (Pi A B) =
   Eq-cong2 Pi (substExpr-sub tau sigma A)
     (Eq-trans (substExpr-sub (liftSub tau) (liftSub sigma) B)
@@ -373,6 +383,7 @@ extSub-WtConvSub {H = H} {G = G} {A = A} {sigma = sigma} {sigma' = sigma'} {t = 
 EvalRel-bot : {n : Nat} (M : Expr n) (rho : EnvApprox n) -> EvalRel M rho Bot
 EvalRel-bot (Var i)   rho = mkSigma tt (PaperSemantics.LeCode-Bot (lookupEnv i rho))
 EvalRel-bot U         rho = mkSigma tt (PaperSemantics.LeCode-Bot UCode)
+EvalRel-bot Prop      rho = mkSigma tt (PaperSemantics.LeCode-Bot PropCode)
 EvalRel-bot (Pi A B)  rho = tt
 EvalRel-bot (Lam A M) rho = tt
 EvalRel-bot (App f a) rho = tt
@@ -393,29 +404,76 @@ EqVal-sym-fn u a cu ca ev = EqVal-sym u a cu ca ev
 FinMem-from-LeCode-UCode : (u : FinEl) -> LeCode u UCode -> FinMem u UCode
 FinMem-from-LeCode-UCode Bot          le = tt
 FinMem-from-LeCode-UCode UCode        le = tt
+FinMem-from-LeCode-UCode PropCode     ()
 FinMem-from-LeCode-UCode (FunEl g)    ()
 FinMem-from-LeCode-UCode (PiCode a f) ()
 
 ValTy-U : {n : Nat} (G : Ctx n) (u : FinEl) -> LeCode u UCode -> ValTy G U u
 ValTy-U G Bot          le = tt
 ValTy-U G UCode        le = tt
+ValTy-U G PropCode     ()
 ValTy-U G (FunEl g)    ()
 ValTy-U G (PiCode a f) ()
 
 LeCode-UCode-Coherent : (u : FinEl) -> LeCode u UCode -> Coherent u
 LeCode-UCode-Coherent Bot          le = tt
 LeCode-UCode-Coherent UCode        le = tt
+LeCode-UCode-Coherent PropCode     ()
 LeCode-UCode-Coherent (FunEl g)    ()
 LeCode-UCode-Coherent (PiCode a f) ()
 
 FinMem-from-U-code : (a u : FinEl) -> FinMem u a -> LeCode a UCode -> FinMem u UCode
 FinMem-from-U-code Bot Bot fm le = tt
 FinMem-from-U-code Bot UCode () le
+FinMem-from-U-code Bot PropCode () le
 FinMem-from-U-code Bot (FunEl g) () le
 FinMem-from-U-code Bot (PiCode b f) () le
 FinMem-from-U-code UCode u fm le = fm
+FinMem-from-U-code PropCode    u fm ()
 FinMem-from-U-code (FunEl g)    u fm ()
 FinMem-from-U-code (PiCode b f) u fm ()
+
+------------------------------------------------------------------------
+-- Part 4b: PropCode helpers
+------------------------------------------------------------------------
+
+FinMem-PropCode-to-UCode : (u : FinEl) -> FinMem u PropCode -> FinMem u UCode
+FinMem-PropCode-to-UCode = FinMem-Prop-to-U
+
+Val2-UCode-to-PropCode : {n : Nat} {G : Ctx n} {M A : Expr n}
+  (u : FinEl) -> FinMem u PropCode ->
+  Val2 G M A u UCode -> Val2 G M A u PropCode
+Val2-UCode-to-PropCode Bot            _ v = v
+Val2-UCode-to-PropCode (PiCode a' f') _ v = v
+Val2-UCode-to-PropCode UCode          () _
+Val2-UCode-to-PropCode PropCode       () _
+Val2-UCode-to-PropCode (FunEl _)      () _
+
+EqVal2-UCode-to-PropCode : {n : Nat} {G : Ctx n} {M N A : Expr n}
+  (u : FinEl) -> FinMem u PropCode ->
+  EqVal2 G M N A u UCode -> EqVal2 G M N A u PropCode
+EqVal2-UCode-to-PropCode Bot            _ v = v
+EqVal2-UCode-to-PropCode (PiCode a' f') _ v = v
+EqVal2-UCode-to-PropCode UCode          () _
+EqVal2-UCode-to-PropCode PropCode       () _
+EqVal2-UCode-to-PropCode (FunEl _)      () _
+
+-- PropCode as first argument: EqVal2 G M N A PropCode a = Top for all a
+EqVal2-PropCode : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
+  (a : FinEl) -> EqVal2 G M N A PropCode a
+EqVal2-PropCode Bot          = tt
+EqVal2-PropCode UCode        = tt
+EqVal2-PropCode PropCode     = tt
+EqVal2-PropCode (FunEl h)    = tt
+EqVal2-PropCode (PiCode b f) = tt
+
+Val2-PropCode : {n : Nat} {G : Ctx n} {M A : Expr n} ->
+  (a : FinEl) -> Val2 G M A PropCode a
+Val2-PropCode Bot          = tt
+Val2-PropCode UCode        = tt
+Val2-PropCode PropCode     = tt
+Val2-PropCode (FunEl h)    = tt
+Val2-PropCode (PiCode b f) = tt
 
 ------------------------------------------------------------------------
 -- Part 5b: WfCtx inversion and extSub-WtSub
@@ -447,6 +505,8 @@ ty-Pi-invert : {n : Nat} {G : Ctx n} {A : Expr n} {B : Expr (suc n)}
   {T : Expr n} ->
   HasType G (Pi A B) T -> Pair (HasType G A U) (HasType (extend G A) B U)
 ty-Pi-invert (ty-Pi dA dB) = mkSigma dA dB
+ty-Pi-invert (ty-Pi-Prop dA dB) = mkSigma dA (ty-Prop-U dB)
+ty-Pi-invert (ty-Prop-U d) = ty-Pi-invert d
 ty-Pi-invert (ty-conv d _ _) = ty-Pi-invert d
 
 -- Type presupposition for Pi codomain.
@@ -504,6 +564,73 @@ mutual
     EqVal2 H (substExpr sigma M) (substExpr sigma' M) (substExpr sigma A) u a
 
   ----------------------------------------------------------------------
+  -- adequacySub2-Prop-U-PiCode: ty-Prop-U at (PiCode a' f', UCode)
+  --
+  -- M : Prop and M evaluates to PiCode a' f' with FinMem in UCode.
+  -- Use theorem1 to get enlarged u' = PiCode b g with FinMem u' PropCode,
+  -- then call adequacySub2 on d (structurally smaller) at (PiCode b g, PropCode),
+  -- then restrict down to (PiCode a' f', UCode).
+  -- Val2 at (PiCode, PropCode) = ValTy2 = Val2 at (PiCode, UCode) definitionally.
+  ----------------------------------------------------------------------
+
+  adequacySub2-Prop-U-PiCode-aux : {h g : Nat} {H : Ctx h} {G : Ctx g} {M : Expr g} ->
+    HasType G M Prop ->
+    (sigma : Sub h g) -> (rho : EnvApprox g) ->
+    CoherentEnv rho -> ValidSub2 H G sigma rho -> Fits G rho ->
+    WtSub H G sigma -> WfCtx H ->
+    (a' : FinEl) -> (f' : FinFun) ->
+    FinMem (PiCode a' f') UCode ->
+    Sigma FinEl (\ u' -> Sigma FinEl (\ a_t ->
+      Pair (LeCode (PiCode a' f') u')
+      (Pair (EvalRel M rho u')
+      (Pair (FinMem u' a_t) (EvalRel Prop rho a_t))))) ->
+    Val2 H (substExpr sigma M) (substExpr sigma U) (PiCode a' f') UCode
+  -- u' = Bot: LeCode (PiCode a' f') Bot = Empty
+  adequacySub2-Prop-U-PiCode-aux d sigma rho crho vs fits wtsub wfH a' f' fm
+    (mkSigma Bot (mkSigma a_t (mkSigma () _)))
+  -- u' = UCode: LeCode (PiCode a' f') UCode = Empty
+  adequacySub2-Prop-U-PiCode-aux d sigma rho crho vs fits wtsub wfH a' f' fm
+    (mkSigma UCode (mkSigma a_t (mkSigma () _)))
+  -- u' = PropCode: LeCode (PiCode a' f') PropCode = Empty
+  adequacySub2-Prop-U-PiCode-aux d sigma rho crho vs fits wtsub wfH a' f' fm
+    (mkSigma PropCode (mkSigma a_t (mkSigma () _)))
+  -- u' = FunEl: LeCode (PiCode a' f') (FunEl _) = Empty
+  adequacySub2-Prop-U-PiCode-aux d sigma rho crho vs fits wtsub wfH a' f' fm
+    (mkSigma (FunEl _) (mkSigma a_t (mkSigma () _)))
+  -- u' = PiCode b g, a_t = Bot: FinMem (PiCode b g) Bot = Empty
+  adequacySub2-Prop-U-PiCode-aux d sigma rho crho vs fits wtsub wfH a' f' fm
+    (mkSigma (PiCode b g) (mkSigma Bot (mkSigma le (mkSigma hu' (mkSigma () _)))))
+  -- u' = PiCode b g, a_t = UCode: LeCode UCode PropCode = Empty
+  adequacySub2-Prop-U-PiCode-aux d sigma rho crho vs fits wtsub wfH a' f' fm
+    (mkSigma (PiCode b g) (mkSigma UCode (mkSigma le (mkSigma hu' (mkSigma fmBG (mkSigma _ ()))))))
+  -- u' = PiCode b g, a_t = FunEl: LeCode (FunEl _) PropCode = Empty
+  adequacySub2-Prop-U-PiCode-aux d sigma rho crho vs fits wtsub wfH a' f' fm
+    (mkSigma (PiCode b g) (mkSigma (FunEl _) (mkSigma le (mkSigma hu' (mkSigma fmBG (mkSigma _ ()))))))
+  -- u' = PiCode b g, a_t = PiCode: LeCode (PiCode _ _) PropCode = Empty
+  adequacySub2-Prop-U-PiCode-aux d sigma rho crho vs fits wtsub wfH a' f' fm
+    (mkSigma (PiCode b g) (mkSigma (PiCode _ _) (mkSigma le (mkSigma hu' (mkSigma fmBG (mkSigma _ ()))))))
+  -- u' = PiCode b g, a_t = PropCode: the productive case
+  adequacySub2-Prop-U-PiCode-aux {H = H} {M = M} d sigma rho crho vs fits wtsub wfH a' f' fm
+    (mkSigma (PiCode b g) (mkSigma PropCode (mkSigma le (mkSigma hu' (mkSigma fmBG evProp))))) =
+      let fmBG_U = FinMem-Prop-to-U (PiCode b g) fmBG
+          val_bg = adequacySub2 d sigma rho crho vs fits wtsub wfH
+                     (PiCode b g) hu' PropCode (mkSigma tt tt) fmBG
+      in restrictVal2 H (substExpr sigma M) U (PiCode b g) (PiCode a' f') UCode
+           le fm fmBG_U val_bg
+
+  adequacySub2-Prop-U-PiCode : {h g : Nat} {H : Ctx h} {G : Ctx g} {M : Expr g} ->
+    HasType G M Prop ->
+    (sigma : Sub h g) -> (rho : EnvApprox g) ->
+    CoherentEnv rho -> ValidSub2 H G sigma rho -> Fits G rho ->
+    WtSub H G sigma -> WfCtx H ->
+    (a' : FinEl) -> (f' : FinFun) ->
+    EvalRel M rho (PiCode a' f') -> FinMem (PiCode a' f') UCode ->
+    Val2 H (substExpr sigma M) (substExpr sigma U) (PiCode a' f') UCode
+  adequacySub2-Prop-U-PiCode d sigma rho crho vs fits wtsub wfH a' f' hu fm =
+    adequacySub2-Prop-U-PiCode-aux d sigma rho crho vs fits wtsub wfH a' f' fm
+      (theorem1 d rho fits (PiCode a' f') hu)
+
+  ----------------------------------------------------------------------
   -- adequacySub2: ty-var
   ----------------------------------------------------------------------
 
@@ -524,6 +651,48 @@ mutual
     tyU2-helper u a (snd hu) (snd evA) fm
 
   ----------------------------------------------------------------------
+  -- adequacySub2: ty-Prop
+  --
+  -- EvalRel Prop rho u means u ≤ PropCode.
+  -- EvalRel U rho a means a ≤ UCode.
+  -- PropCode ≤ UCode = Empty, so u can only be Bot.
+  ----------------------------------------------------------------------
+
+  adequacySub2 {H = H} (ty-Prop _) sigma rho crho vs fits wtsub wfH u hu a evA fm =
+    adequacySub2-Prop-helper u a (snd hu) (snd evA) fm
+    where
+      adequacySub2-Prop-helper : (u a : FinEl) -> LeCode u PropCode -> LeCode a UCode ->
+        FinMem u a -> Val2 H (substExpr sigma Prop) (substExpr sigma U) u a
+      adequacySub2-Prop-helper Bot a _ _ _ = Val2-Bot a
+      adequacySub2-Prop-helper UCode _ () _ _
+      adequacySub2-Prop-helper PropCode Bot _ _ ()
+      adequacySub2-Prop-helper PropCode UCode _ _ _ = tt
+      adequacySub2-Prop-helper PropCode PropCode _ () _
+      adequacySub2-Prop-helper PropCode (FunEl _) _ () _
+      adequacySub2-Prop-helper PropCode (PiCode _ _) _ () _
+      adequacySub2-Prop-helper (FunEl _) _ () _ _
+      adequacySub2-Prop-helper (PiCode _ _) _ () _ _
+
+  ----------------------------------------------------------------------
+  -- adequacySub2: ty-Prop-U
+  --
+  -- If HasType G M Prop then HasType G M U.
+  -- Case split on (u, a) where a ≤ UCode.
+  -- For PiCode at UCode: need adequacySub2-Prop-U-PiCode.
+  ----------------------------------------------------------------------
+
+  adequacySub2 (ty-Prop-U d) sigma rho crho vs fits wtsub wfH u hu Bot evA fm = tt
+  adequacySub2 {H = H} (ty-Prop-U d) sigma rho crho vs fits wtsub wfH Bot hu UCode evA fm = tt
+  adequacySub2 {H = H} (ty-Prop-U d) sigma rho crho vs fits wtsub wfH UCode hu UCode evA fm = tt
+  adequacySub2 {H = H} (ty-Prop-U d) sigma rho crho vs fits wtsub wfH PropCode hu UCode evA fm = tt
+  adequacySub2 (ty-Prop-U d) sigma rho crho vs fits wtsub wfH (FunEl _) hu UCode evA ()
+  adequacySub2 {H = H} (ty-Prop-U d) sigma rho crho vs fits wtsub wfH (PiCode a' f') hu UCode evA fm =
+    adequacySub2-Prop-U-PiCode d sigma rho crho vs fits wtsub wfH a' f' hu fm
+  adequacySub2 (ty-Prop-U d) sigma rho crho vs fits wtsub wfH u hu (FunEl _) (mkSigma _ ()) fm
+  adequacySub2 (ty-Prop-U d) sigma rho crho vs fits wtsub wfH u hu (PiCode _ _) (mkSigma _ ()) fm
+  adequacySub2 (ty-Prop-U d) sigma rho crho vs fits wtsub wfH u hu PropCode (mkSigma _ ()) fm
+
+  ----------------------------------------------------------------------
   -- adequacySub2: ty-conv
   --
   -- Uses adequacySub2 on d1 with converted type, then
@@ -541,6 +710,13 @@ mutual
         eqvty = snd (snd eqAB)
     in Val2-EqValTy2-fwd u UCode tt eqvty val
   adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH u hu (FunEl g) evA fm = tt
+  adequacySub2 (ty-conv {M = M} {A = A} {B = B} d1 d2 dB) sigma rho crho vs fits wtsub wfH (PiCode a' f') hu PropCode evA fm =
+    let evA'  = convSound-inv d2 rho fits PropCode evA
+    in adequacySub2 d1 sigma rho crho vs fits wtsub wfH (PiCode a' f') hu PropCode evA' fm
+  adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH Bot hu PropCode evA fm = tt
+  adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH UCode hu PropCode evA ()
+  adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH PropCode hu PropCode evA ()
+  adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH (FunEl _) hu PropCode evA ()
   adequacySub2 (ty-conv {M = M} {A = A} {B = B} d1 d2 dB) sigma rho crho vs fits wtsub wfH u hu (PiCode b' f') evA fm =
     let evA'  = convSound-inv d2 rho fits (PiCode b' f') evA
         val   = adequacySub2 d1 sigma rho crho vs fits wtsub wfH u hu (PiCode b' f') evA' fm
@@ -557,6 +733,7 @@ mutual
   adequacySub2 {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits wtsub wfH Bot hu a evA fm =
     Val2-Bot a
   adequacySub2 {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits wtsub wfH UCode ()
+  adequacySub2 {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits wtsub wfH PropCode ()
   adequacySub2 {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits wtsub wfH (FunEl g) ()
   adequacySub2 {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits wtsub wfH (PiCode b f)
     hu Bot evA fm = tt
@@ -564,9 +741,34 @@ mutual
     hu UCode evA fm =
     adequacySub2-Pi d1 d2 sigma rho crho vs fits wtsub wfH b f hu evA fm
   adequacySub2 {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits wtsub wfH (PiCode b f)
+    hu PropCode evA fm =
+    adequacySub2-Pi d1 d2 sigma rho crho vs fits wtsub wfH b f hu
+      (mkSigma tt (LeCode-refl UCode tt)) (FinMem-PropCode-to-UCode (PiCode b f) fm)
+  adequacySub2 {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits wtsub wfH (PiCode b f)
     hu (FunEl _) evA ()
   adequacySub2 {H = H} (ty-Pi {G = G} {A = A} {B = B} d1 d2) sigma rho crho vs fits wtsub wfH (PiCode b f)
     hu (PiCode _ _) evA ()
+
+  ----------------------------------------------------------------------
+  -- adequacySub2: ty-Pi-Prop
+  -- Pi A B : Prop. EvalRel Prop rho a means a ≤ PropCode.
+  ----------------------------------------------------------------------
+
+  adequacySub2 {H = H} (ty-Pi-Prop {A = A} {B = B} d1 d2) sigma rho crho vs fits wtsub wfH u hu a evA fm =
+    adequacySub2-at-Prop u a hu (snd evA) fm
+    where
+      adequacySub2-at-Prop : (u a : FinEl) -> EvalRel (Pi A B) rho u -> LeCode a PropCode -> FinMem u a -> Val2 H (Pi (substExpr sigma A) (substExpr (liftSub sigma) B)) Prop u a
+      adequacySub2-at-Prop u Bot _ _ fm = tt
+      adequacySub2-at-Prop u UCode _ () _
+      adequacySub2-at-Prop (PiCode a' f') PropCode hu' _ fm =
+        adequacySub2-Pi d1 (ty-Prop-U d2) sigma rho crho vs fits wtsub wfH a' f' hu'
+          (mkSigma tt (LeCode-refl UCode tt)) (FinMem-PropCode-to-UCode (PiCode a' f') fm)
+      adequacySub2-at-Prop Bot PropCode _ _ fm = tt
+      adequacySub2-at-Prop UCode PropCode _ _ ()
+      adequacySub2-at-Prop PropCode PropCode _ _ ()
+      adequacySub2-at-Prop (FunEl _) PropCode _ _ ()
+      adequacySub2-at-Prop u (FunEl _) _ () _
+      adequacySub2-at-Prop u (PiCode _ _) _ () _
 
   ----------------------------------------------------------------------
   -- adequacySub2: ty-Lam
@@ -575,9 +777,11 @@ mutual
   adequacySub2 (ty-Lam {A = A} {B = B} {M = M} d1 d2 d3) sigma rho crho vs fits wtsub wfH Bot hu a evA fm =
     Val2-Bot a
   adequacySub2 (ty-Lam d1 d2 d3) sigma rho crho vs fits wtsub wfH UCode () a evA fm
+  adequacySub2 (ty-Lam d1 d2 d3) sigma rho crho vs fits wtsub wfH PropCode () a evA fm
   adequacySub2 (ty-Lam d1 d2 d3) sigma rho crho vs fits wtsub wfH (PiCode _ _) () a evA fm
   adequacySub2 (ty-Lam d1 d2 d3) sigma rho crho vs fits wtsub wfH (FunEl g) hu Bot evA fm = tt
   adequacySub2 (ty-Lam {A = A} d1 d2 d3) sigma rho crho vs fits wtsub wfH (FunEl g) hu UCode () fm
+  adequacySub2 (ty-Lam {A = A} d1 d2 d3) sigma rho crho vs fits wtsub wfH (FunEl g) hu PropCode () fm
   adequacySub2 (ty-Lam {A = A} d1 d2 d3) sigma rho crho vs fits wtsub wfH (FunEl g) hu (FunEl h) () fm
   adequacySub2 {H = H} {G = G} (ty-Lam {A = A} {B = B} {M = M} d1 d2 d3)
     sigma rho crho vs fits wtsub wfH (FunEl g) hu (PiCode b f0) evA fm =
@@ -595,6 +799,11 @@ mutual
     adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH (FunEl g') (EvalRel-coh (App f' a) rho (FunEl g') ev) ev ac evAc fm
   adequacySub2 {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA dB d1 d2) sigma rho crho vs fits wtsub wfH (PiCode b0' f0') ev ac evAc fm =
     adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH (PiCode b0' f0') (EvalRel-coh (App f' a) rho (PiCode b0' f0') ev) ev ac evAc fm
+  adequacySub2 {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA dB d1 d2) sigma rho crho vs fits wtsub wfH PropCode ev Bot evAc fm = tt
+  adequacySub2 {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA dB d1 d2) sigma rho crho vs fits wtsub wfH PropCode ev UCode evAc fm = tt
+  adequacySub2 {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA dB d1 d2) sigma rho crho vs fits wtsub wfH PropCode ev PropCode evAc fm = tt
+  adequacySub2 {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA dB d1 d2) sigma rho crho vs fits wtsub wfH PropCode ev (FunEl _) evAc fm = tt
+  adequacySub2 {H = H} (ty-App {G = G} {A = A} {B = B} {f = f'} {a = a} dA dB d1 d2) sigma rho crho vs fits wtsub wfH PropCode ev (PiCode _ _) evAc fm = tt
 
   ----------------------------------------------------------------------
   -- adequacyEqSub2: conv-refl
@@ -640,6 +849,14 @@ mutual
         eqvty = snd (snd eqAB)
     in EqVal2-EqValTy2-fwd u UCode tt eqvty eq
   adequacyEqSub2 (conv-conv d1 d2 _) sigma rho crho vs fits wtsub wfH u hu (FunEl g) evA fm = tt
+  adequacyEqSub2 (conv-conv d1 d2 _) sigma rho crho vs fits wtsub wfH Bot hu PropCode evA fm = tt
+  adequacyEqSub2 (conv-conv d1 d2 _) sigma rho crho vs fits wtsub wfH UCode hu PropCode evA ()
+  adequacyEqSub2 (conv-conv d1 d2 _) sigma rho crho vs fits wtsub wfH PropCode hu PropCode evA ()
+  adequacyEqSub2 (conv-conv d1 d2 _) sigma rho crho vs fits wtsub wfH (FunEl _) hu PropCode evA ()
+  adequacyEqSub2 (conv-conv {M = M} {N = N} {A = A} {B = B} d1 d2 _) sigma rho crho vs fits wtsub wfH (PiCode a' f') hu PropCode evA fm =
+    let evA' = convSound-inv d2 rho fits PropCode evA
+        eq   = adequacyEqSub2 d1 sigma rho crho vs fits wtsub wfH (PiCode a' f') hu PropCode evA' fm
+    in EqVal2-EqValTy2-fwd {C = substExpr sigma A} {C' = substExpr sigma B} (PiCode a' f') PropCode tt tt eq
   adequacyEqSub2 (conv-conv {M = M} {N = N} {A = A} {B = B} d1 d2 _) sigma rho crho vs fits wtsub wfH u hu (PiCode b' f') evA fm =
     let evA'  = convSound-inv d2 rho fits (PiCode b' f') evA
         eq    = adequacyEqSub2 d1 sigma rho crho vs fits wtsub wfH u hu (PiCode b' f') evA' fm
@@ -695,6 +912,108 @@ mutual
 
   adequacyEqSub2 (conv-App-arg _ dB d1 d2) sigma rho crho vs fits wtsub wfH u hu a evA fm =
     adequacyEqSub2-App-arg dB d1 d2 sigma rho crho vs fits wtsub wfH u hu a evA fm
+
+  ----------------------------------------------------------------------
+  -- adequacyEqSub2: conv-Prop (proof irrelevance)
+  --
+  -- conv-Prop dP dM dN : ConvTm G M N A where dP : HasType G A Prop.
+  -- Type A evaluates to a ≤ PropCode.
+  -- For (PiCode, PropCode): use adequacySub2 on dM and dN for the Val2s,
+  -- then combine. Actually, conv-Prop at PiCode is the hardest case
+  -- (proof irrelevance for Pi in Prop). Leave as hole if needed.
+  ----------------------------------------------------------------------
+
+  adequacyEqSub2 {H = H} (conv-Prop {M = M} {N = N} {A = A} dP dM dN) sigma rho crho vs fits wtsub wfH u hu a evA fm =
+    let mkSigma u' (mkSigma a1 (mkSigma le_u (mkSigma hu' (mkSigma fm1 evA1)))) = theorem1 dM rho fits u hu
+        mkSigma a2 (mkSigma b (mkSigma le_a (mkSigma evA2 (mkSigma fm2 evProp)))) = theorem1 dP rho fits a1 evA1
+        eq = LeCode-Bot-eq u u' le_u (conv-Prop-chain u' a1 a2 b fm1 le_a fm2 (snd evProp))
+    in S.Eq-transport (\ x -> EqVal2 H (substExpr sigma M) (substExpr sigma N) (substExpr sigma A) x a) (S.Eq-sym eq) (EqVal2-Bot a)
+
+  ----------------------------------------------------------------------
+  -- adequacyEqSub2: conv-Prop-U
+  --
+  -- conv-Prop-U d : ConvTm G M N U where d : ConvTm G M N Prop.
+  -- Type is U. Most (u, UCode) cases trivial.
+  -- PiCode at UCode: use theorem1 + restrictEqVal2 from PropCode.
+  ----------------------------------------------------------------------
+
+  adequacyEqSub2 (conv-Prop-U d) sigma rho crho vs fits wtsub wfH u hu Bot evA fm = tt
+  adequacyEqSub2 (conv-Prop-U d) sigma rho crho vs fits wtsub wfH Bot hu UCode evA fm = tt
+  adequacyEqSub2 (conv-Prop-U d) sigma rho crho vs fits wtsub wfH UCode hu UCode evA fm =
+    mkSigma tt (mkSigma tt tt)
+  adequacyEqSub2 (conv-Prop-U d) sigma rho crho vs fits wtsub wfH PropCode hu UCode evA fm =
+    tt
+  adequacyEqSub2 (conv-Prop-U d) sigma rho crho vs fits wtsub wfH (FunEl g) hu UCode evA fm =
+    mkSigma tt (mkSigma tt tt)
+  adequacyEqSub2 {H = H} (conv-Prop-U d) sigma rho crho vs fits wtsub wfH (PiCode a' f') hu UCode evA fm =
+    adequacyEqSub2-Prop-U-PiCode-aux d sigma rho crho vs fits wtsub wfH a' f' fm
+      (theorem1 (fst (typing-ConvTm d)) rho fits (PiCode a' f') hu)
+    where
+      adequacyEqSub2-Prop-U-PiCode-aux : {h' g' : Nat} {H' : Ctx h'} {G' : Ctx g'} {M' N' : Expr g'} ->
+        ConvTm G' M' N' Prop ->
+        (sigma' : Sub h' g') -> (rho' : EnvApprox g') ->
+        CoherentEnv rho' -> ValidSub2 H' G' sigma' rho' -> Fits G' rho' ->
+        WtSub H' G' sigma' -> WfCtx H' ->
+        (a0 : FinEl) -> (f0 : FinFun) ->
+        FinMem (PiCode a0 f0) UCode ->
+        Sigma FinEl (\ u' -> Sigma FinEl (\ a_t ->
+          Pair (LeCode (PiCode a0 f0) u')
+          (Pair (EvalRel M' rho' u')
+          (Pair (FinMem u' a_t) (EvalRel Prop rho' a_t))))) ->
+        EqVal2 H' (substExpr sigma' M') (substExpr sigma' N') U (PiCode a0 f0) UCode
+      adequacyEqSub2-Prop-U-PiCode-aux d' sigma' rho' crho' vs' fits' wtsub' wfH' a0 f0 fm0
+        (mkSigma Bot (mkSigma _ (mkSigma () _)))
+      adequacyEqSub2-Prop-U-PiCode-aux d' sigma' rho' crho' vs' fits' wtsub' wfH' a0 f0 fm0
+        (mkSigma UCode (mkSigma _ (mkSigma () _)))
+      adequacyEqSub2-Prop-U-PiCode-aux d' sigma' rho' crho' vs' fits' wtsub' wfH' a0 f0 fm0
+        (mkSigma PropCode (mkSigma _ (mkSigma () _)))
+      adequacyEqSub2-Prop-U-PiCode-aux d' sigma' rho' crho' vs' fits' wtsub' wfH' a0 f0 fm0
+        (mkSigma (FunEl _) (mkSigma _ (mkSigma () _)))
+      adequacyEqSub2-Prop-U-PiCode-aux d' sigma' rho' crho' vs' fits' wtsub' wfH' a0 f0 fm0
+        (mkSigma (PiCode b g) (mkSigma Bot (mkSigma le (mkSigma hu' (mkSigma () _)))))
+      adequacyEqSub2-Prop-U-PiCode-aux d' sigma' rho' crho' vs' fits' wtsub' wfH' a0 f0 fm0
+        (mkSigma (PiCode b g) (mkSigma UCode (mkSigma le (mkSigma hu' (mkSigma fmBG (mkSigma _ ()))))))
+      adequacyEqSub2-Prop-U-PiCode-aux d' sigma' rho' crho' vs' fits' wtsub' wfH' a0 f0 fm0
+        (mkSigma (PiCode b g) (mkSigma (FunEl _) (mkSigma le (mkSigma hu' (mkSigma fmBG (mkSigma _ ()))))))
+      adequacyEqSub2-Prop-U-PiCode-aux d' sigma' rho' crho' vs' fits' wtsub' wfH' a0 f0 fm0
+        (mkSigma (PiCode b g) (mkSigma (PiCode _ _) (mkSigma le (mkSigma hu' (mkSigma fmBG (mkSigma _ ()))))))
+      adequacyEqSub2-Prop-U-PiCode-aux {H' = H'} {M' = M'} {N' = N'} d' sigma' rho' crho' vs' fits' wtsub' wfH' a0 f0 fm0
+        (mkSigma (PiCode b g) (mkSigma PropCode (mkSigma le (mkSigma hu' (mkSigma fmBG evProp))))) =
+          let fmBG_U = FinMem-Prop-to-U (PiCode b g) fmBG
+              eq_bg = adequacyEqSub2 d' sigma' rho' crho' vs' fits' wtsub' wfH'
+                        (PiCode b g) hu' PropCode (mkSigma tt tt) fmBG
+          in restrictEqVal2 H' (substExpr sigma' M') (substExpr sigma' N') U
+               (PiCode b g) (PiCode a0 f0) UCode le fm0 fmBG_U eq_bg
+  adequacyEqSub2 (conv-Prop-U d) sigma rho crho vs fits wtsub wfH u hu (FunEl _) (mkSigma _ ()) fm
+  adequacyEqSub2 (conv-Prop-U d) sigma rho crho vs fits wtsub wfH u hu (PiCode _ _) (mkSigma _ ()) fm
+  adequacyEqSub2 (conv-Prop-U d) sigma rho crho vs fits wtsub wfH u hu PropCode (mkSigma _ ()) fm
+
+  ----------------------------------------------------------------------
+  -- adequacyEqSub2: conv-Pi-Prop
+  --
+  -- conv-Pi-Prop d1 d2 : ConvTm G (Pi A B) (Pi A' B') Prop
+  -- where d1 : ConvTm G A A' U, d2 : ConvTm (extend G A) B B' Prop.
+  -- Use conv-Prop-U d2 to lift to U, then delegate to adequacyEqSub2-Pi.
+  ----------------------------------------------------------------------
+
+  adequacyEqSub2 {H = H} (conv-Pi-Prop {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits wtsub wfH Bot hu a evA fm =
+    EqVal2-Bot a
+  adequacyEqSub2 {H = H} (conv-Pi-Prop {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits wtsub wfH UCode ()
+  adequacyEqSub2 {H = H} (conv-Pi-Prop {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits wtsub wfH (FunEl g) ()
+  adequacyEqSub2 {H = H} (conv-Pi-Prop {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits wtsub wfH PropCode ()
+  adequacyEqSub2 {H = H} (conv-Pi-Prop {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits wtsub wfH (PiCode b f)
+    hu Bot evA ()
+  adequacyEqSub2 {H = H} (conv-Pi-Prop {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits wtsub wfH (PiCode b f)
+    hu (FunEl _) evA ()
+  adequacyEqSub2 {H = H} (conv-Pi-Prop {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits wtsub wfH (PiCode b f)
+    hu (PiCode _ _) evA ()
+  adequacyEqSub2 {H = H} (conv-Pi-Prop {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits wtsub wfH (PiCode b f)
+    hu UCode evA fm =
+    -- evA : EvalRel Prop rho UCode = Pair Top Empty → absurd
+    absurdEl (snd evA)
+  adequacyEqSub2 {H = H} (conv-Pi-Prop {G = G} {A = A} {A' = A'} {B = B} {B' = B'} d1 d2) sigma rho crho vs fits wtsub wfH (PiCode b f)
+    hu PropCode evA fm =
+    adequacyEqSub2-Pi d1 (conv-Prop-U d2) sigma rho crho vs fits wtsub wfH b f hu (mkSigma tt (LeCode-refl UCode tt)) (FinMem-Prop-to-U (PiCode b f) fm)
 
   ----------------------------------------------------------------------
   -- Hard case helpers
@@ -1031,15 +1350,23 @@ mutual
   -- u = UCode: Val2 at UCode ac is Top for ac = Bot/UCode, absurd otherwise
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH UCode cu ev Bot evAc fm = tt
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH UCode cu ev UCode evAc fm = tt
+  adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH UCode cu ev PropCode evAc fm = tt
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH UCode cu ev (FunEl _) evAc ()
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH UCode cu ev (PiCode _ _) evAc ()
-  -- u = PiCode: FinMem forces ac = UCode (or Bot, absurd)
+  -- u = PropCode: FinMem PropCode ac = Empty for all ac except UCode (where it's Top)
+  adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH PropCode cu ev Bot evAc ()
+  adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH PropCode cu ev UCode evAc fm = tt
+  adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH PropCode cu ev PropCode evAc ()
+  adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH PropCode cu ev (FunEl _) evAc ()
+  adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH PropCode cu ev (PiCode _ _) evAc ()
+  -- u = PiCode: FinMem forces ac = UCode or PropCode (or Bot, absurd)
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH (PiCode _ _) cu ev Bot evAc ()
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH (PiCode _ _) cu ev (FunEl _) evAc ()
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH (PiCode _ _) cu ev (PiCode _ _) evAc ()
   -- u = FunEl: FinMem forces ac = PiCode (or Bot, absurd)
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH (FunEl _) cu ev Bot evAc ()
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH (FunEl _) cu ev UCode evAc ()
+  adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH (FunEl _) cu ev PropCode evAc ()
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH (FunEl _) cu ev (FunEl _) evAc ()
   -- Bot case (shouldn't be called but needed for coverage)
   adequacySub2-App dA dB d1 d2 sigma rho crho vs fits wtsub wfH Bot cu ev ac evAc fm = Val2-Bot ac
@@ -1048,6 +1375,11 @@ mutual
     dA dB d1 d2 sigma rho crho vs fits wtsub wfH (PiCode b0pc f0pc) cu1 ev1 UCode evAc1 fm1 =
     adequacySub2-App-core {H = H} dA dB d1 d2 sigma rho crho vs fits wtsub wfH (PiCode b0pc f0pc) cu1
       (fst ev1) (fst (snd ev1)) (snd (snd ev1)) UCode evAc1 fm1
+  -- PiCode/PropCode case
+  adequacySub2-App {H = H} {A = A} {B = B} {f' = f'} {a = a}
+    dA dB d1 d2 sigma rho crho vs fits wtsub wfH (PiCode b0pc f0pc) cu1 ev1 PropCode evAc1 fm1 =
+    adequacySub2-App-core {H = H} dA dB d1 d2 sigma rho crho vs fits wtsub wfH (PiCode b0pc f0pc) cu1
+      (fst ev1) (fst (snd ev1)) (snd (snd ev1)) PropCode evAc1 fm1
   -- FunEl/PiCode case
   adequacySub2-App {H = H} {A = A} {B = B} {f' = f'} {a = a}
     dA dB d1 d2 sigma rho crho vs fits wtsub wfH (FunEl gfe) cu1 ev1 (PiCode bacfe facfe) evAc1 fm1 =
@@ -1648,6 +1980,7 @@ mutual
         (P : Expr _) -> HasType H P sA -> Val2 H P sA u0 b ->
         EqVal2 H (App (substExpr sigma f) P) (App (substExpr sigma g') P) (subst1 sB P) v0 (EvalFun f0 u0)
       buildEqBody u0 Bot sel P htP valP = EqVal2-Bot (EvalFun f0 u0)
+      buildEqBody u0 PropCode sel P htP valP = EqVal2-PropCode (EvalFun f0 u0)
       buildEqBody u0 UCode sel P htP valP =
         let cu0       = Coherent-Selection sel ctg0
             cv0       = Coherent-Selection-val sel ctg0
@@ -1766,8 +2099,10 @@ mutual
              (substExpr sigma (subst1 B a))
              u ac
   adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH Bot ev ac evAc fm = EqVal2-Bot ac
+  adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH PropCode ev ac evAc fm = EqVal2-PropCode ac
   adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH UCode ev Bot evAc ()
   adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH UCode ev UCode evAc fm = mkSigma tt (mkSigma tt tt)
+  adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH UCode ev PropCode evAc fm = tt
   adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH UCode ev (FunEl _) evAc ()
   adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH UCode ev (PiCode _ _) evAc ()
   adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH (PiCode _ _) ev Bot evAc ()
@@ -1775,12 +2110,17 @@ mutual
   adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH (PiCode _ _) ev (PiCode _ _) evAc ()
   adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH (FunEl _) ev Bot evAc ()
   adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH (FunEl _) ev UCode evAc ()
+  adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH (FunEl _) ev PropCode evAc ()
   adequacyEqSub2-App-fun dB dff' da sigma rho crho vs fits wtsub wfH (FunEl _) ev (FunEl _) evAc ()
-  -- PiCode/UCode and FunEl/PiCode: decompose ev and delegate
+  -- PiCode/UCode, PiCode/PropCode, and FunEl/PiCode: decompose ev and delegate
   adequacyEqSub2-App-fun {H = H} {A = A} {B = B} {f = f0} {f' = f'} {a = a}
     dB dff' da sigma rho crho vs fits wtsub wfH (PiCode b0pc f0pc) ev UCode evAc fm =
     adequacyEqSub2-App-fun-core {H = H} dB dff' da sigma rho crho vs fits wtsub wfH (PiCode b0pc f0pc)
       (fst ev) (fst (snd ev)) (snd (snd ev)) UCode evAc fm
+  adequacyEqSub2-App-fun {H = H} {A = A} {B = B} {f = f0} {f' = f'} {a = a}
+    dB dff' da sigma rho crho vs fits wtsub wfH (PiCode b0pc f0pc) ev PropCode evAc fm =
+    adequacyEqSub2-App-fun-core {H = H} dB dff' da sigma rho crho vs fits wtsub wfH (PiCode b0pc f0pc)
+      (fst ev) (fst (snd ev)) (snd (snd ev)) PropCode evAc fm
   adequacyEqSub2-App-fun {H = H} {A = A} {B = B} {f = f0} {f' = f'} {a = a}
     dB dff' da sigma rho crho vs fits wtsub wfH (FunEl gfe) ev (PiCode bacfe facfe) evAc fm =
     adequacyEqSub2-App-fun-core {H = H} dB dff' da sigma rho crho vs fits wtsub wfH (FunEl gfe)
@@ -1996,6 +2336,7 @@ mutual
              (substExpr sigma (subst1 B a))
              u ac
   adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH Bot ev ac evAc fm = EqVal2-Bot ac
+  adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH PropCode ev ac evAc fm = EqVal2-PropCode ac
   adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH UCode ev Bot evAc ()
   adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH UCode ev UCode evAc fm = mkSigma tt (mkSigma tt tt)
   adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH UCode ev (FunEl _) evAc ()
@@ -2003,6 +2344,10 @@ mutual
   adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH (PiCode _ _) ev Bot evAc ()
   adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH (PiCode _ _) ev (FunEl _) evAc ()
   adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH (PiCode _ _) ev (PiCode _ _) evAc ()
+  adequacyEqSub2-App-arg {H = H}
+    dB df daa' sigma rho crho vs fits wtsub wfH (PiCode b0pc f0pc) ev PropCode evAc fm =
+    adequacyEqSub2-App-arg-core {H = H} dB df daa' sigma rho crho vs fits wtsub wfH (PiCode b0pc f0pc)
+      (fst ev) (fst (snd ev)) (snd (snd ev)) PropCode evAc fm
   adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH (FunEl _) ev Bot evAc ()
   adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH (FunEl _) ev UCode evAc ()
   adequacyEqSub2-App-arg dB df daa' sigma rho crho vs fits wtsub wfH (FunEl _) ev (FunEl _) evAc ()
@@ -2236,6 +2581,62 @@ mutual
   adequacyConvSub2 (ty-U wfG) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu a evA fm =
     Val2-to-EqVal2 u a (adequacySub2 (ty-U wfG) sigma rho crho vs fits wtsub wfH u hu a evA fm)
 
+  -- ty-Prop: substExpr sigma Prop = Prop, substExpr sigma' Prop = Prop
+  adequacyConvSub2 (ty-Prop wfG) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu a evA fm =
+    Val2-to-EqVal2 u a (adequacySub2 (ty-Prop wfG) sigma rho crho vs fits wtsub wfH u hu a evA fm)
+
+  -- ty-Prop-U: M : Prop implies M : U. Use theorem1 + restrict for PiCode/UCode.
+  adequacyConvSub2 (ty-Prop-U d) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu Bot evA fm = tt
+  adequacyConvSub2 (ty-Prop-U d) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH Bot hu UCode evA fm = tt
+  adequacyConvSub2 (ty-Prop-U d) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH UCode hu UCode evA fm =
+    mkSigma tt (mkSigma tt tt)
+  adequacyConvSub2 (ty-Prop-U d) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH PropCode hu UCode evA fm = tt
+  adequacyConvSub2 (ty-Prop-U d) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl _) hu UCode evA ()
+  adequacyConvSub2 {H = H} {M = M} (ty-Prop-U d) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode a' f') hu UCode evA fm =
+    convSub2-Prop-U-PiCode-aux (theorem1 d rho fits (PiCode a' f') hu)
+    where
+      convSub2-Prop-U-PiCode-aux :
+        Sigma FinEl (\ u' -> Sigma FinEl (\ a_t ->
+          Pair (LeCode (PiCode a' f') u')
+          (Pair (EvalRel M rho u')
+          (Pair (FinMem u' a_t) (EvalRel Prop rho a_t))))) ->
+        EqVal2 H (substExpr sigma M) (substExpr sigma' M) U (PiCode a' f') UCode
+      convSub2-Prop-U-PiCode-aux (mkSigma Bot (mkSigma _ (mkSigma () _)))
+      convSub2-Prop-U-PiCode-aux (mkSigma UCode (mkSigma _ (mkSigma () _)))
+      convSub2-Prop-U-PiCode-aux (mkSigma PropCode (mkSigma _ (mkSigma () _)))
+      convSub2-Prop-U-PiCode-aux (mkSigma (FunEl _) (mkSigma _ (mkSigma () _)))
+      convSub2-Prop-U-PiCode-aux (mkSigma (PiCode b g) (mkSigma Bot (mkSigma le (mkSigma hu' (mkSigma () _)))))
+      convSub2-Prop-U-PiCode-aux (mkSigma (PiCode b g) (mkSigma UCode (mkSigma le (mkSigma hu' (mkSigma fmBG (mkSigma _ ()))))))
+      convSub2-Prop-U-PiCode-aux (mkSigma (PiCode b g) (mkSigma (FunEl _) (mkSigma le (mkSigma hu' (mkSigma fmBG (mkSigma _ ()))))))
+      convSub2-Prop-U-PiCode-aux (mkSigma (PiCode b g) (mkSigma (PiCode _ _) (mkSigma le (mkSigma hu' (mkSigma fmBG (mkSigma _ ()))))))
+      convSub2-Prop-U-PiCode-aux (mkSigma (PiCode b g) (mkSigma PropCode (mkSigma le (mkSigma hu' (mkSigma fmBG evProp))))) =
+        let fmBG_U = FinMem-Prop-to-U (PiCode b g) fmBG
+            eq_bg = adequacyConvSub2 d sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH
+                      (PiCode b g) hu' PropCode (mkSigma tt tt) fmBG
+        in restrictEqVal2 H (substExpr sigma M) (substExpr sigma' M) U
+             (PiCode b g) (PiCode a' f') UCode le fm fmBG_U eq_bg
+  adequacyConvSub2 (ty-Prop-U d) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu (FunEl _) (mkSigma _ ()) fm
+  adequacyConvSub2 (ty-Prop-U d) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu (PiCode _ _) (mkSigma _ ()) fm
+  adequacyConvSub2 (ty-Prop-U d) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu PropCode (mkSigma _ ()) fm
+
+  -- ty-Pi-Prop: Pi A B : Prop. Like ty-Pi but with adequacySub2-Pi at Prop level.
+  adequacyConvSub2 {H = H} (ty-Pi-Prop {A = A} {B = B} d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu a evA fm =
+    adequacyConvSub2-at-Prop u a hu (snd evA) fm
+    where
+      adequacyConvSub2-at-Prop : (u0 a0 : FinEl) -> EvalRel (Pi A B) rho u0 -> LeCode a0 PropCode -> FinMem u0 a0 ->
+        EqVal2 H (Pi (substExpr sigma A) (substExpr (liftSub sigma) B)) (Pi (substExpr sigma' A) (substExpr (liftSub sigma') B)) Prop u0 a0
+      adequacyConvSub2-at-Prop u0 Bot _ _ fm0 = tt
+      adequacyConvSub2-at-Prop u0 UCode _ () _
+      adequacyConvSub2-at-Prop Bot PropCode _ _ fm0 = tt
+      adequacyConvSub2-at-Prop UCode PropCode _ _ ()
+      adequacyConvSub2-at-Prop PropCode PropCode _ _ ()
+      adequacyConvSub2-at-Prop (FunEl _) PropCode _ _ ()
+      adequacyConvSub2-at-Prop (PiCode a' f') PropCode hu' _ fm0 =
+        adequacyConvSub2 (ty-Pi d1 (ty-Prop-U d2)) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode a' f') hu' UCode
+          (mkSigma tt (LeCode-refl UCode tt)) (FinMem-PropCode-to-UCode (PiCode a' f') fm0)
+      adequacyConvSub2-at-Prop u0 (FunEl _) _ () _
+      adequacyConvSub2-at-Prop u0 (PiCode _ _) _ () _
+
   -- ty-conv: dispatch on a
   adequacyConvSub2 (ty-conv d1 d2 dB) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu Bot evA fm = tt
   adequacyConvSub2 (ty-conv {M = M} {A = A} {B = B} d1 d2 dB) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu UCode evA fm =
@@ -2247,6 +2648,10 @@ mutual
         eqvty = snd (snd eqAB)
     in EqVal2-EqValTy2-fwd u UCode tt eqvty ih
   adequacyConvSub2 (ty-conv d1 d2 dB) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu (FunEl g) evA fm = tt
+  adequacyConvSub2 (ty-conv {M = M} {A = A} {B = B} d1 d2 dB) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu PropCode evA fm =
+    let evA' = convSound-inv d2 rho fits PropCode evA
+        ih   = adequacyConvSub2 d1 sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu PropCode evA' fm
+    in EqVal2-EqValTy2-fwd {C' = substExpr sigma B} u PropCode tt tt ih
   adequacyConvSub2 (ty-conv {M = M} {A = A} {B = B} d1 d2 dB) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu (PiCode b' f') evA fm =
     let evA'  = convSound-inv d2 rho fits (PiCode b' f') evA
         ih    = adequacyConvSub2 d1 sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu (PiCode b' f') evA' fm
@@ -2260,10 +2665,14 @@ mutual
   adequacyConvSub2 (ty-Pi d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH Bot hu a evA fm =
     EqVal2-Bot a
   adequacyConvSub2 (ty-Pi d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH UCode () a evA fm
+  adequacyConvSub2 (ty-Pi d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH PropCode () a evA fm
   adequacyConvSub2 (ty-Pi d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl _) () a evA fm
   adequacyConvSub2 (ty-Pi d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode b f0) hu Bot evA fm = tt
   adequacyConvSub2 (ty-Pi d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode b f0) hu (FunEl _) evA ()
   adequacyConvSub2 (ty-Pi d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode b f0) hu (PiCode _ _) evA ()
+  adequacyConvSub2 {H = H} {G = G} (ty-Pi {A = A} {B = B} d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode b f0) hu PropCode evA fm =
+    adequacyConvSub2 (ty-Pi d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode b f0) hu UCode
+      (mkSigma tt (LeCode-refl UCode tt)) (FinMem-PropCode-to-UCode (PiCode b f0) fm)
   adequacyConvSub2 {H = H} {G = G} (ty-Pi {A = A} {B = B} d1 d2) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode b f0) hu UCode evA fm =
     mkSigma valTyPi_s (mkSigma valTyPi_s' (mkSigma valTyPi_s (mkSigma valTyPi_s' eqValTyPi)))
     where
@@ -2361,9 +2770,11 @@ mutual
   adequacyConvSub2 (ty-Lam d1 d2 d3) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH Bot hu a evA fm =
     EqVal2-Bot a
   adequacyConvSub2 (ty-Lam d1 d2 d3) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH UCode () a evA fm
+  adequacyConvSub2 (ty-Lam d1 d2 d3) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH PropCode () a evA fm
   adequacyConvSub2 (ty-Lam d1 d2 d3) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode _ _) () a evA fm
   adequacyConvSub2 (ty-Lam d1 d2 d3) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl g0) hu Bot evA fm = tt
   adequacyConvSub2 (ty-Lam d1 d2 d3) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl g0) hu UCode evA ()
+  adequacyConvSub2 (ty-Lam d1 d2 d3) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl g0) hu PropCode evA ()
   adequacyConvSub2 (ty-Lam d1 d2 d3) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl g0) hu (FunEl _) evA ()
   adequacyConvSub2 {H = H} {G = G} (ty-Lam {A = A} {B = B} {M = M} d1 d2 d3) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl g0) hu (PiCode b f0) evA fm =
     mkSigma valTyPi (mkSigma valPi_s (mkSigma valPi_s' eqValPi))
@@ -2552,9 +2963,11 @@ mutual
   -- ty-App: decompose into function variation + argument variation + EqVal2-trans
   adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH Bot hu a evA fm =
     EqVal2-Bot a
+  adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH PropCode hu ac evA fm = EqVal2-PropCode ac
   adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH UCode hu Bot evA ()
   adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH UCode hu UCode evA fm =
     mkSigma tt (mkSigma tt tt)
+  adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH UCode hu PropCode evA fm = tt
   adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH UCode hu (FunEl _) evA ()
   adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH UCode hu (PiCode _ _) evA ()
   adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode _ _) hu Bot evA ()
@@ -2562,11 +2975,16 @@ mutual
   adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode _ _) hu (PiCode _ _) evA ()
   adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl _) hu Bot evA ()
   adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl _) hu UCode evA ()
+  adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl _) hu PropCode evA ()
   adequacyConvSub2 (ty-App d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl _) hu (FunEl _) evA ()
   adequacyConvSub2 {H = H} (ty-App {A = A} {B = B} {f = f0} {a = a} d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode b0pc f0pc) hu UCode evA fm =
     adequacyConvSub2-App-core {H = H} {A = A} {B = B} {f = f0} {a = a}
       d1 d2 d3 d4 sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH
       (PiCode b0pc f0pc) (fst hu) (fst (snd hu)) (snd (snd hu)) UCode evA fm
+  adequacyConvSub2 {H = H} (ty-App {A = A} {B = B} {f = f0} {a = a} d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (PiCode b0pc f0pc) hu PropCode evA fm =
+    adequacyConvSub2-App-core {H = H} {A = A} {B = B} {f = f0} {a = a}
+      d1 d2 d3 d4 sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH
+      (PiCode b0pc f0pc) (fst hu) (fst (snd hu)) (snd (snd hu)) PropCode evA fm
   adequacyConvSub2 {H = H} (ty-App {A = A} {B = B} {f = f0} {a = a} d1 d2 d3 d4) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH (FunEl gfe) hu (PiCode bacfe facfe) evA fm =
     adequacyConvSub2-App-core {H = H} {A = A} {B = B} {f = f0} {a = a}
       d1 d2 d3 d4 sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH

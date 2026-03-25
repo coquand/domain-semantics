@@ -166,6 +166,23 @@ so that $B[a]$ means $B(\mathrm{id}, a)$.
        {\Pitype{x{:}A'}{B'}}
        {\U}}
 \end{mathpar}
+
+\subsection*{Conversion rules for propositions}
+
+\begin{mathpar}
+  \inferrule[\textsc{Prop-U-Eq}]
+    {\conveq{\Gamma}{M}{N}{\Prop}}
+    {\conveq{\Gamma}{M}{N}{\U}}
+  \and
+  \inferrule[\textsc{Pi-Prop-Cong}]
+    {\conveq{\Gamma}{A}{A'}{\U} \\
+     \conveq{\Gamma, x{:}A}{B}{B'}{\Prop}}
+    {\conveq{\Gamma}
+       {\Pitype{x{:}A}{B}}
+       {\Pitype{x{:}A'}{B'}}
+       {\Prop}}
+\end{mathpar}
+
 \noindent
 Note that in \textsc{Pi-Cong} the codomain premise compares $B$ and
 $B'$ in the context extended by the \emph{left} domain~$A$, not
@@ -654,6 +671,10 @@ Key cases:
   \item \textsc{Conv}: uses the bidirectional transfer from
     conversion soundness and the downward/upward monotonicity
     of $\mathsf{Val2}$.
+  \item \textsc{Prop-Irr}: by the Prop collapse lemma
+    (Theorem~\ref{thm:typing-sound} applied twice), any
+    realizer $u$ of a term in a Prop-type satisfies $u = \Bot$,
+    so $\mathsf{EqVal2}$ at $\Bot$ is trivially $\top$.
   \item \textsc{Pi}: constructs a $\PiC{b}{f}$-realizer by
     building selections from the domain and codomain adequacy
     hypotheses.

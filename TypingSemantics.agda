@@ -39,8 +39,8 @@ open import TypingRules using (Ctx ; empty ; extend ; lookup ;
   HasType ; ty-var ; ty-conv ; ty-U ; ty-Prop ; ty-Prop-U ; ty-Pi ; ty-Pi-Prop ; ty-Lam ; ty-App ;
   WfCtx ; wf-empty ; wf-extend ;
   ConvTm ;
-  conv-refl ; conv-sym ; conv-trans ; conv-conv ; conv-Prop ;
-  conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg)
+  conv-refl ; conv-sym ; conv-trans ; conv-conv ; conv-Prop ; conv-Prop-U ;
+  conv-beta ; conv-Pi ; conv-Pi-Prop ; conv-funext ; conv-App-fun ; conv-App-arg)
 
 -- All hard lemmas come from LemmaForTS (0 postulates).
 import LemmaForTS as LTS
@@ -385,6 +385,46 @@ mutual
     LTS.InvConv-App-arg A B f a a' rho fits
       (theorem1 df rho fits)
       (convSound' daa' rho fits)
+
+  -- conv-Prop-U: lift InvConv from Prop to U
+  convSound' (conv-Prop-U {G = G} {M = M} {N = N} d) rho fits =
+    let mkSigma invM (mkSigma invN (mkSigma fwd bwd)) = convSound' d rho fits
+        liftInv : {T : Expr _} -> InvTyp G T Prop rho -> InvTyp G T U rho
+        liftInv inv u ev =
+          let mkSigma u' (mkSigma a' (mkSigma le (mkSigma evT (mkSigma fm evProp)))) = inv u ev
+              fmU = FinMem-Prop-in-U u' a' fm (snd evProp)
+          in mkSigma u' (mkSigma UCode
+               (mkSigma le (mkSigma evT (mkSigma fmU (mkSigma tt tt)))))
+    in mkSigma (liftInv invM) (mkSigma (liftInv invN) (mkSigma fwd bwd))
+
+  -- conv-Pi-Prop: Pi at Prop level
+  convSound' (conv-Pi-Prop {A = A} {A' = A'} {B = B} {B' = B'} d1 d2)
+    rho fits =
+    let mkSigma invA (mkSigma invA' (mkSigma fwdA bwdA)) = convSound' d1 rho fits
+        fwd = \ u ev -> convSound-Pi-fwd A A' B B' rho u
+                fwdA
+                (\ x a0 fm evA w ->
+                  convSound d2 (extendEnv rho x)
+                    (mkSigma fits (mkSigma a0 (mkSigma fm evA))) w)
+                ev
+        bwd = \ u ev -> convSound-Pi-fwd A' A B' B rho u
+                bwdA
+                (\ x a0 fm evA' w ->
+                  convSound-inv d2 (extendEnv rho x)
+                    (mkSigma fits (mkSigma a0 (mkSigma fm
+                      (bwdA a0 evA')))) w)
+                ev
+        invPiLHS = LTS.InvTyp-Pi-Prop A B rho fits invA
+          (\ x a0 fm evA ->
+            let mkSigma invBx _ = convSound' d2 (extendEnv rho x)
+                  (mkSigma fits (mkSigma a0 (mkSigma fm evA)))
+            in invBx)
+        invPiRHS = LTS.InvTyp-Pi-Prop A' B' rho fits invA'
+          (\ x a0 fm evA' ->
+            let mkSigma _ (mkSigma invB'x _) = convSound' d2 (extendEnv rho x)
+                  (mkSigma fits (mkSigma a0 (mkSigma fm (bwdA a0 evA'))))
+            in invB'x)
+    in mkSigma invPiLHS (mkSigma invPiRHS (mkSigma fwd bwd))
 
   --------------------------------------------------------------------
   -- theorem1 — case analysis

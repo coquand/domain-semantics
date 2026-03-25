@@ -17,7 +17,7 @@ import Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ;
               fst ; snd ; Sigma ; Eq ; refl ; Eq-transport ; Eq-sym ;
               Eq-cong ;
-              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun ;
+              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun ;
               List ; nil ; cons)
 open import RawSyntax using (Expr ; Var ; U ; Pi ; Lam ; App ; wkExpr ;
   subst1 ; Fin ; fzero ; fsuc)
@@ -45,7 +45,8 @@ open import PaperSemantics using (EvalFun ;
   LeFunCode-refl ; LeFunCode ; append ;
   Comp-refl ; comp-Sup ; comp-Bot-r ;
   Comp-value-EvalFun ; coherentWith-to-compStepFun ;
-  CFTcons ; CoherentFunTail ; CoherentWith)
+  CFTcons ; CoherentFunTail ; CoherentWith ;
+  FinMem-Prop-to-U)
 open import Selection using (Selection ;
   FinMemAllU-Selection ; FinMem-Selection-UCode ;
   FinMem-Selection ; FinMem-Selection-codomain ;
@@ -118,14 +119,21 @@ mutual
   -- Val2: Top at leaves (like unbundled), structured at UCode / FunEl+PiCode
   --------------------------------------------------------------------
 
-  Val2 G M A u Bot          = Top
-  Val2 G M A Bot UCode      = Top
-  Val2 G M A UCode UCode    = ValTy2 G M UCode
-  Val2 G M A (FunEl g) UCode = ValTy2 G M (FunEl g)
+  Val2 G M A u Bot              = Top
+  Val2 G M A Bot UCode          = Top
+  Val2 G M A UCode UCode        = ValTy2 G M UCode
+  Val2 G M A (FunEl g) UCode    = ValTy2 G M (FunEl g)
   Val2 G M A (PiCode a' f') UCode = ValTy2 G M (PiCode a' f')
-  Val2 G M A u (FunEl h)    = Top
+  Val2 G M A PropCode UCode     = Top
+  Val2 G M A (PiCode a' f') PropCode = ValTy2 G M (PiCode a' f')
+  Val2 G M A Bot PropCode            = Top
+  Val2 G M A UCode PropCode          = Top
+  Val2 G M A PropCode PropCode       = Top
+  Val2 G M A (FunEl g) PropCode      = Top
+  Val2 G M A u (FunEl h)        = Top
   Val2 G M A Bot            (PiCode b f) = Top
   Val2 G M A UCode          (PiCode b f) = Top
+  Val2 G M A PropCode       (PiCode b f) = Top
   Val2 G M A (FunEl g)      (PiCode b f) =
     Pair (ValTy2 G A (PiCode b f)) (ValPi2 G M A g b f)
   Val2 G M A (PiCode a' f') (PiCode b f) = Top
@@ -134,17 +142,25 @@ mutual
   -- EqVal2: ConvTm at leaves
   --------------------------------------------------------------------
 
-  EqVal2 G M N A u Bot          = Top
-  EqVal2 G M N A Bot UCode      = Top
-  EqVal2 G M N A UCode UCode    =
+  EqVal2 G M N A u Bot              = Top
+  EqVal2 G M N A Bot UCode          = Top
+  EqVal2 G M N A UCode UCode        =
     Pair (ValTy2 G M UCode) (Pair (ValTy2 G N UCode) (EqValTy2 G M N UCode))
-  EqVal2 G M N A (FunEl g) UCode =
+  EqVal2 G M N A (FunEl g) UCode    =
     Pair (ValTy2 G M (FunEl g)) (Pair (ValTy2 G N (FunEl g)) (EqValTy2 G M N (FunEl g)))
   EqVal2 G M N A (PiCode a' f') UCode =
     Pair (ValTy2 G M (PiCode a' f')) (Pair (ValTy2 G N (PiCode a' f')) (EqValTy2 G M N (PiCode a' f')))
-  EqVal2 G M N A u (FunEl h)    = Top
+  EqVal2 G M N A PropCode UCode    = Top
+  EqVal2 G M N A (PiCode a' f') PropCode =
+    Pair (ValTy2 G M (PiCode a' f')) (Pair (ValTy2 G N (PiCode a' f')) (EqValTy2 G M N (PiCode a' f')))
+  EqVal2 G M N A Bot PropCode            = Top
+  EqVal2 G M N A UCode PropCode          = Top
+  EqVal2 G M N A PropCode PropCode       = Top
+  EqVal2 G M N A (FunEl g) PropCode      = Top
+  EqVal2 G M N A u (FunEl h)       = Top
   EqVal2 G M N A Bot            (PiCode b f) = Top
   EqVal2 G M N A UCode          (PiCode b f) = Top
+  EqVal2 G M N A PropCode       (PiCode b f) = Top
   EqVal2 G M N A (FunEl g)      (PiCode b f) =
     Pair (ValTy2 G A (PiCode b f))
          (Pair (ValPi2 G M A g b f)
@@ -158,6 +174,7 @@ mutual
 
   ValTy2 G M Bot          = Top
   ValTy2 G M UCode        = Top
+  ValTy2 G M PropCode     = Top
   ValTy2 G M (FunEl g)    = Top
   ValTy2 G M (PiCode b f) = ValTyPi2 G M b f
 
@@ -167,6 +184,7 @@ mutual
 
   EqValTy2 G M N Bot          = Top
   EqValTy2 G M N UCode        = Top
+  EqValTy2 G M N PropCode     = Top
   EqValTy2 G M N (FunEl g)    = Top
   EqValTy2 G M N (PiCode b f) =
     Pair (ValTyPi2 G M b f)
@@ -281,6 +299,7 @@ Val2-Bot : {n : Nat} {G : Ctx n} {M A : Expr n} ->
   (a : FinEl) -> Val2 G M A Bot a
 Val2-Bot Bot          = tt
 Val2-Bot UCode        = tt
+Val2-Bot PropCode     = tt
 Val2-Bot (FunEl h)    = tt
 Val2-Bot (PiCode b f) = tt
 
@@ -288,6 +307,7 @@ EqVal2-Bot : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
   (a : FinEl) -> EqVal2 G M N A Bot a
 EqVal2-Bot Bot          = tt
 EqVal2-Bot UCode        = tt
+EqVal2-Bot PropCode     = tt
 EqVal2-Bot (FunEl h)    = tt
 EqVal2-Bot (PiCode b f) = tt
 
@@ -334,9 +354,16 @@ mutual
   Val2-to-EqVal2 UCode UCode    tt = mkSigma tt (mkSigma tt tt)
   Val2-to-EqVal2 (FunEl g) UCode tt = mkSigma tt (mkSigma tt tt)
   Val2-to-EqVal2 (PiCode a' f') UCode vty = mkSigma vty (mkSigma vty (ValTy2-to-EqValTy2 (PiCode a' f') vty))
+  Val2-to-EqVal2 PropCode UCode tt = tt
+  Val2-to-EqVal2 (PiCode a' f') PropCode vty = mkSigma vty (mkSigma vty (ValTy2-to-EqValTy2 (PiCode a' f') vty))
+  Val2-to-EqVal2 Bot PropCode tt = tt
+  Val2-to-EqVal2 UCode PropCode tt = tt
+  Val2-to-EqVal2 PropCode PropCode tt = tt
+  Val2-to-EqVal2 (FunEl g) PropCode tt = tt
   Val2-to-EqVal2 u (FunEl h) tt = tt
   Val2-to-EqVal2 Bot (PiCode b f) tt = tt
   Val2-to-EqVal2 UCode (PiCode b f) tt = tt
+  Val2-to-EqVal2 PropCode (PiCode b f) tt = tt
   Val2-to-EqVal2 (FunEl g) (PiCode b f) val =
     let vty  = fst val
         vpiM = snd val
@@ -357,6 +384,7 @@ mutual
     (u : FinEl) -> ValTy2 G M u -> EqValTy2 G M M u
   ValTy2-to-EqValTy2 Bot          tt = tt
   ValTy2-to-EqValTy2 UCode        tt = tt
+  ValTy2-to-EqValTy2 PropCode     tt = tt
   ValTy2-to-EqValTy2 (FunEl g)    tt = tt
   ValTy2-to-EqValTy2 (PiCode b f) vtyM =
     let -- ValTyPi2: A, B, Red, cf, fmU, htA, htB, Pair(vtA, Pair(pev, pee))
@@ -390,9 +418,16 @@ mutual
   Val2-from-EqVal2-first UCode UCode    ev = tt
   Val2-from-EqVal2-first (FunEl g) UCode ev = tt
   Val2-from-EqVal2-first (PiCode a' f') UCode ev = fst ev
+  Val2-from-EqVal2-first PropCode UCode tt = tt
+  Val2-from-EqVal2-first (PiCode a' f') PropCode ev = fst ev
+  Val2-from-EqVal2-first Bot PropCode tt = tt
+  Val2-from-EqVal2-first UCode PropCode tt = tt
+  Val2-from-EqVal2-first PropCode PropCode tt = tt
+  Val2-from-EqVal2-first (FunEl g) PropCode tt = tt
   Val2-from-EqVal2-first u (FunEl h)    tt = tt
   Val2-from-EqVal2-first Bot (PiCode b f) tt = tt
   Val2-from-EqVal2-first UCode (PiCode b f) tt = tt
+  Val2-from-EqVal2-first PropCode (PiCode b f) tt = tt
   Val2-from-EqVal2-first (FunEl g) (PiCode b f) ev =
     -- EqVal2 G M N A (FunEl g) (PiCode b f) = Pair ValTy2 (Pair ValPi2_M (Pair ValPi2_N EqValPi2))
     mkSigma (fst ev) (fst (snd ev))
@@ -405,9 +440,16 @@ mutual
   Val2-from-EqVal2-second UCode UCode    ev = tt
   Val2-from-EqVal2-second (FunEl g) UCode ev = tt
   Val2-from-EqVal2-second (PiCode a' f') UCode ev = fst (snd ev)
+  Val2-from-EqVal2-second PropCode UCode tt = tt
+  Val2-from-EqVal2-second (PiCode a' f') PropCode ev = fst (snd ev)
+  Val2-from-EqVal2-second Bot PropCode tt = tt
+  Val2-from-EqVal2-second UCode PropCode tt = tt
+  Val2-from-EqVal2-second PropCode PropCode tt = tt
+  Val2-from-EqVal2-second (FunEl g) PropCode tt = tt
   Val2-from-EqVal2-second u (FunEl h)    tt = tt
   Val2-from-EqVal2-second Bot (PiCode b f) tt = tt
   Val2-from-EqVal2-second UCode (PiCode b f) tt = tt
+  Val2-from-EqVal2-second PropCode (PiCode b f) tt = tt
   Val2-from-EqVal2-second (FunEl g) (PiCode b f) ev =
     mkSigma (fst ev) (fst (snd (snd ev)))
   Val2-from-EqVal2-second (PiCode a' f') (PiCode b f) tt = tt
@@ -420,6 +462,7 @@ mutual
     (u : FinEl) -> Coherent u -> EqValTy2 G M N u -> EqValTy2 G N M u
   EqValTy2-sym Bot          cu tt = tt
   EqValTy2-sym UCode        cu tt = tt
+  EqValTy2-sym PropCode     cu tt = tt
   EqValTy2-sym (FunEl g)    cu tt = tt
   EqValTy2-sym (PiCode b f) cu eqv =
     let vtyM = fst eqv
@@ -474,6 +517,7 @@ mutual
     EqValTy2 G A B u -> EqValTy2 G B C u -> EqValTy2 G A C u
   EqValTy2-trans Bot cu tt tt = tt
   EqValTy2-trans UCode cu tt tt = tt
+  EqValTy2-trans PropCode cu tt tt = tt
   EqValTy2-trans (FunEl g) cu tt tt = tt
   EqValTy2-trans (PiCode b f) cu eqAB eqBC =
     let vtyA  = fst eqAB
@@ -575,9 +619,17 @@ mutual
   EqVal2-sym (FunEl g) UCode cu ca ev = mkSigma tt (mkSigma tt tt)
   EqVal2-sym (PiCode a' f') UCode cu ca ev =
     mkSigma (fst (snd ev)) (mkSigma (fst ev) (EqValTy2-sym (PiCode a' f') cu (snd (snd ev))))
+  EqVal2-sym PropCode UCode cu ca tt = tt
+  EqVal2-sym (PiCode a' f') PropCode cu ca ev =
+    mkSigma (fst (snd ev)) (mkSigma (fst ev) (EqValTy2-sym (PiCode a' f') cu (snd (snd ev))))
+  EqVal2-sym Bot PropCode cu ca tt = tt
+  EqVal2-sym UCode PropCode cu ca tt = tt
+  EqVal2-sym PropCode PropCode cu ca tt = tt
+  EqVal2-sym (FunEl g) PropCode cu ca tt = tt
   EqVal2-sym u (FunEl h) cu ca tt = tt
   EqVal2-sym Bot (PiCode b f) cu ca tt = tt
   EqVal2-sym UCode (PiCode b f) cu ca tt = tt
+  EqVal2-sym PropCode (PiCode b f) cu ca tt = tt
   EqVal2-sym (FunEl g) (PiCode b f) cu ca ev =
     let vty  = fst ev
         vpiM = fst (snd ev)
@@ -618,9 +670,18 @@ mutual
   EqVal2-trans (PiCode a' f') UCode cu ca ev1 ev2 =
     mkSigma (fst ev1) (mkSigma (fst (snd ev2))
       (EqValTy2-trans (PiCode a' f') cu (snd (snd ev1)) (snd (snd ev2))))
+  EqVal2-trans PropCode UCode cu ca tt tt = tt
+  EqVal2-trans (PiCode a' f') PropCode cu ca ev1 ev2 =
+    mkSigma (fst ev1) (mkSigma (fst (snd ev2))
+      (EqValTy2-trans (PiCode a' f') cu (snd (snd ev1)) (snd (snd ev2))))
+  EqVal2-trans Bot PropCode cu ca tt tt = tt
+  EqVal2-trans UCode PropCode cu ca tt tt = tt
+  EqVal2-trans PropCode PropCode cu ca tt tt = tt
+  EqVal2-trans (FunEl g) PropCode cu ca tt tt = tt
   EqVal2-trans u (FunEl h) cu ca tt tt = tt
   EqVal2-trans Bot (PiCode b f) cu ca tt tt = tt
   EqVal2-trans UCode (PiCode b f) cu ca tt tt = tt
+  EqVal2-trans PropCode (PiCode b f) cu ca tt tt = tt
   EqVal2-trans (FunEl g) (PiCode b f) cu ca ev1 ev2 =
     let vty    = fst ev1
         vpiM1  = fst (snd ev1)
@@ -668,9 +729,16 @@ mutual
   -- Leaf cases: Val2 = Top on both sides, return tt
   Val2-EqValTy2-fwd u Bot cb eqv val = tt
   Val2-EqValTy2-fwd Bot UCode cb eqv val = tt
+  Val2-EqValTy2-fwd PropCode UCode cb eqv val = tt
+  Val2-EqValTy2-fwd Bot PropCode cb eqv val = tt
+  Val2-EqValTy2-fwd UCode PropCode cb eqv val = tt
+  Val2-EqValTy2-fwd PropCode PropCode cb eqv val = tt
+  Val2-EqValTy2-fwd (FunEl g) PropCode cb eqv val = tt
+  Val2-EqValTy2-fwd (PiCode a' f') PropCode cb eqv val = val
   Val2-EqValTy2-fwd u (FunEl h) cb eqv val = tt
   Val2-EqValTy2-fwd Bot (PiCode b0 f0) cb eqv val = tt
   Val2-EqValTy2-fwd UCode (PiCode b0 f0) cb eqv val = tt
+  Val2-EqValTy2-fwd PropCode (PiCode b0 f0) cb eqv val = tt
   Val2-EqValTy2-fwd (PiCode a' ff) (PiCode b0 f0) cb eqv val = tt
   -- UCode cases: Val2 = ValTy2 G M u, does not depend on C, return val unchanged
   Val2-EqValTy2-fwd UCode UCode cb eqv val = val
@@ -779,9 +847,16 @@ mutual
   -- Leaf cases: EqVal2 = Top on both sides, return tt
   EqVal2-EqValTy2-fwd u Bot cb eqv ev = tt
   EqVal2-EqValTy2-fwd Bot UCode cb eqv ev = tt
+  EqVal2-EqValTy2-fwd PropCode UCode cb eqv ev = tt
+  EqVal2-EqValTy2-fwd Bot PropCode cb eqv ev = ev
+  EqVal2-EqValTy2-fwd UCode PropCode cb eqv ev = ev
+  EqVal2-EqValTy2-fwd PropCode PropCode cb eqv ev = ev
+  EqVal2-EqValTy2-fwd (FunEl g) PropCode cb eqv ev = ev
+  EqVal2-EqValTy2-fwd (PiCode a' f') PropCode cb eqv ev = ev
   EqVal2-EqValTy2-fwd u (FunEl h) cb eqv ev = tt
   EqVal2-EqValTy2-fwd Bot (PiCode b0 f0) cb eqv ev = tt
   EqVal2-EqValTy2-fwd UCode (PiCode b0 f0) cb eqv ev = tt
+  EqVal2-EqValTy2-fwd PropCode (PiCode b0 f0) cb eqv ev = tt
   EqVal2-EqValTy2-fwd (PiCode a' ff) (PiCode b0 f0) cb eqv ev = tt
   -- UCode cases: EqVal2 = Pair (ValTy2 G M u) (Pair (ValTy2 G N u) (EqValTy2 G M N u))
   -- None of these depend on C, return ev unchanged
@@ -875,6 +950,11 @@ mutual
     Comp a1 a2 -> FinMem a1 UCode -> FinMem a2 UCode ->
     ValTy2 G T a1 -> ValTy2 G T a2 -> ValTy2 G T (Sup a1 a2)
   ValTy2-Sup G T Bot a2 comp fm1 fm2 vt1 vt2 = vt2
+  ValTy2-Sup G T PropCode Bot comp fm1 fm2 vt1 vt2 = vt1
+  ValTy2-Sup G T PropCode UCode ()
+  ValTy2-Sup G T PropCode PropCode comp fm1 fm2 vt1 vt2 = vt1
+  ValTy2-Sup G T PropCode (FunEl g) ()
+  ValTy2-Sup G T PropCode (PiCode b g) ()
   ValTy2-Sup G T UCode Bot comp fm1 fm2 vt1 vt2 = vt2
   ValTy2-Sup G T UCode UCode comp fm1 fm2 vt1 vt2 = vt1
   ValTy2-Sup G T UCode (FunEl g) ()
@@ -1040,6 +1120,11 @@ mutual
     Comp u1 u2 -> FinMem u1 UCode -> FinMem u2 UCode ->
     EqValTy2 G M N u1 -> EqValTy2 G M N u2 -> EqValTy2 G M N (Sup u1 u2)
   EqValTy2-Sup G M N Bot u2 comp fm1 fm2 eq1 eq2 = eq2
+  EqValTy2-Sup G M N PropCode Bot comp fm1 fm2 eq1 eq2 = eq1
+  EqValTy2-Sup G M N PropCode UCode ()
+  EqValTy2-Sup G M N PropCode PropCode comp fm1 fm2 eq1 eq2 = eq1
+  EqValTy2-Sup G M N PropCode (FunEl g) ()
+  EqValTy2-Sup G M N PropCode (PiCode b g) ()
   EqValTy2-Sup G M N UCode Bot comp fm1 fm2 eq1 eq2 = eq1
   EqValTy2-Sup G M N UCode UCode comp fm1 fm2 eq1 eq2 = eq1
   EqValTy2-Sup G M N UCode (FunEl g) ()
@@ -1198,6 +1283,11 @@ mutual
   downVal2 G M T u (FunEl g)    UCode          le mem ca0 ca1 src = tt
   downVal2 G M T u (FunEl g)    (FunEl h)      le mem ca0 ca1 src = tt
   downVal2 G M T u (FunEl g)    (PiCode b f)   le mem ca0 ca1 src = tt
+  downVal2 G M T u PropCode       Bot            ()
+  downVal2 G M T u PropCode       UCode          ()
+  downVal2 G M T u PropCode       PropCode       le mem ca0 ca1 src = src
+  downVal2 G M T u PropCode       (FunEl h)      ()
+  downVal2 G M T u PropCode       (PiCode b f)   ()
   downVal2 G M T u (PiCode b0 f0) Bot          ()
   downVal2 G M T u (PiCode b0 f0) UCode        ()
   downVal2 G M T u (PiCode b0 f0) (FunEl h)    ()
@@ -1249,6 +1339,11 @@ mutual
   downEqVal2 G M N T u (FunEl g)    UCode          le mem ca0 ca1 src = tt
   downEqVal2 G M N T u (FunEl g)    (FunEl h)      le mem ca0 ca1 src = tt
   downEqVal2 G M N T u (FunEl g)    (PiCode b f)   le mem ca0 ca1 src = tt
+  downEqVal2 G M N T u PropCode       Bot            ()
+  downEqVal2 G M N T u PropCode       UCode          ()
+  downEqVal2 G M N T u PropCode       PropCode       le mem ca0 ca1 src = src
+  downEqVal2 G M N T u PropCode       (FunEl h)      ()
+  downEqVal2 G M N T u PropCode       (PiCode b f)   ()
   downEqVal2 G M N T u (PiCode b0 f0) Bot          ()
   downEqVal2 G M N T u (PiCode b0 f0) UCode        ()
   downEqVal2 G M N T u (PiCode b0 f0) (FunEl h)    ()
@@ -1296,6 +1391,11 @@ mutual
   downValTy2 G M UCode        UCode          le fmem cu1 src = src
   downValTy2 G M UCode        (FunEl h)      ()
   downValTy2 G M UCode        (PiCode b f)   ()
+  downValTy2 G M PropCode      Bot            ()
+  downValTy2 G M PropCode      UCode          ()
+  downValTy2 G M PropCode      PropCode       le fmem cu1 src = src
+  downValTy2 G M PropCode      (FunEl h)      ()
+  downValTy2 G M PropCode      (PiCode b f)   ()
   downValTy2 G M (FunEl g)    u1             le ()
   downValTy2 G M (PiCode b0 f0) Bot          ()
   downValTy2 G M (PiCode b0 f0) UCode        ()
@@ -1331,6 +1431,11 @@ mutual
   downEqValTy2 G M N UCode        UCode          le fmem cu1 src = src
   downEqValTy2 G M N UCode        (FunEl h)      ()
   downEqValTy2 G M N UCode        (PiCode b f)   ()
+  downEqValTy2 G M N PropCode      Bot            ()
+  downEqValTy2 G M N PropCode      UCode          ()
+  downEqValTy2 G M N PropCode      PropCode       le fmem cu1 src = src
+  downEqValTy2 G M N PropCode      (FunEl h)      ()
+  downEqValTy2 G M N PropCode      (PiCode b f)   ()
   downEqValTy2 G M N (FunEl g)    u1             le ()
   downEqValTy2 G M N (PiCode b0 f0) Bot          ()
   downEqValTy2 G M N (PiCode b0 f0) UCode        ()
@@ -1393,30 +1498,51 @@ mutual
 
   upVal2 G M T Bot Bot          Bot             le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T Bot Bot          UCode           le mem0 mem1 ca0 ca1 src vta1 = src
+  upVal2 G M T Bot Bot          PropCode        le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T Bot Bot          (FunEl h)       le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T Bot Bot          (PiCode b1 f1)  le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T UCode        Bot a1 le ()
   upVal2 G M T (FunEl g)    Bot a1 le ()
   upVal2 G M T (PiCode a f) Bot a1 le ()
+  upVal2 G M T PropCode     Bot a1 le ()
   upVal2 G M T Bot            UCode UCode le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T UCode          UCode UCode le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T (FunEl g')     UCode UCode le ()
+  upVal2 G M T PropCode        UCode UCode le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T (PiCode a' f') UCode UCode le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T u UCode Bot          ()
+  upVal2 G M T u UCode PropCode     ()
   upVal2 G M T u UCode (FunEl h)    ()
   upVal2 G M T u UCode (PiCode b h) ()
   upVal2 G M T Bot            (FunEl g) Bot            le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T Bot            (FunEl g) UCode          le mem0 mem1 ca0 ca1 src vta1 = src
+  upVal2 G M T Bot            (FunEl g) PropCode       le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T Bot            (FunEl g) (FunEl h)      le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T Bot            (FunEl g) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T UCode          (FunEl g) a1             le ()
+  upVal2 G M T PropCode       (FunEl g) a1             le ()
   upVal2 G M T (FunEl g')     (FunEl g) a1             le ()
   upVal2 G M T (PiCode a' f') (FunEl g) a1             le ()
+  upVal2 G M T UCode          PropCode a1             le ()
+  upVal2 G M T PropCode       PropCode a1             le ()
+  upVal2 G M T (FunEl g)      PropCode a1             le ()
+  upVal2 G M T Bot            PropCode Bot             ()
+  upVal2 G M T Bot            PropCode UCode           ()
+  upVal2 G M T Bot            PropCode PropCode        le mem0 mem1 ca0 ca1 src vta1 = src
+  upVal2 G M T Bot            PropCode (FunEl h)       ()
+  upVal2 G M T Bot            PropCode (PiCode b1 f1)  ()
+  upVal2 G M T (PiCode a' f') PropCode Bot             ()
+  upVal2 G M T (PiCode a' f') PropCode UCode           ()
+  upVal2 G M T (PiCode a' f') PropCode PropCode        le mem0 mem1 ca0 ca1 src vta1 = src
+  upVal2 G M T (PiCode a' f') PropCode (FunEl h)       ()
+  upVal2 G M T (PiCode a' f') PropCode (PiCode b1 f1)  ()
   upVal2 G M T u (PiCode b0 f0) Bot       ()
   upVal2 G M T u (PiCode b0 f0) UCode     ()
+  upVal2 G M T u (PiCode b0 f0) PropCode  ()
   upVal2 G M T u (PiCode b0 f0) (FunEl h) ()
   upVal2 G M T Bot            (PiCode b0 f0) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 = src
   upVal2 G M T UCode          (PiCode b0 f0) (PiCode b1 f1) le ()
+  upVal2 G M T PropCode       (PiCode b0 f0) (PiCode b1 f1) le ()
   upVal2 G M T (FunEl g)      (PiCode b0 f0) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 =
     let vty  = fst src
         vpiM = snd src
@@ -1460,30 +1586,51 @@ mutual
 
   upEqVal2 G M N T Bot Bot          Bot             le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T Bot Bot          UCode           le mem0 mem1 ca0 ca1 src vta1 = src
+  upEqVal2 G M N T Bot Bot          PropCode        le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T Bot Bot          (FunEl h)       le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T Bot Bot          (PiCode b1 f1)  le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T UCode        Bot a1 le ()
   upEqVal2 G M N T (FunEl g)    Bot a1 le ()
   upEqVal2 G M N T (PiCode a f) Bot a1 le ()
+  upEqVal2 G M N T PropCode     Bot a1 le ()
   upEqVal2 G M N T Bot            UCode UCode le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T UCode          UCode UCode le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T (FunEl g')     UCode UCode le ()
+  upEqVal2 G M N T PropCode        UCode UCode le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T (PiCode a' f') UCode UCode le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T u UCode Bot          ()
+  upEqVal2 G M N T u UCode PropCode     ()
   upEqVal2 G M N T u UCode (FunEl h)    ()
   upEqVal2 G M N T u UCode (PiCode b h) ()
   upEqVal2 G M N T Bot            (FunEl g) Bot            le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T Bot            (FunEl g) UCode          le mem0 mem1 ca0 ca1 src vta1 = src
+  upEqVal2 G M N T Bot            (FunEl g) PropCode       le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T Bot            (FunEl g) (FunEl h)      le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T Bot            (FunEl g) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T UCode          (FunEl g) a1             le ()
+  upEqVal2 G M N T PropCode       (FunEl g) a1             le ()
   upEqVal2 G M N T (FunEl g')     (FunEl g) a1             le ()
   upEqVal2 G M N T (PiCode a' f') (FunEl g) a1             le ()
+  upEqVal2 G M N T UCode          PropCode a1             le ()
+  upEqVal2 G M N T PropCode       PropCode a1             le ()
+  upEqVal2 G M N T (FunEl g)      PropCode a1             le ()
+  upEqVal2 G M N T Bot            PropCode Bot             ()
+  upEqVal2 G M N T Bot            PropCode UCode           ()
+  upEqVal2 G M N T Bot            PropCode PropCode        le mem0 mem1 ca0 ca1 src vta1 = src
+  upEqVal2 G M N T Bot            PropCode (FunEl h)       ()
+  upEqVal2 G M N T Bot            PropCode (PiCode b1 f1)  ()
+  upEqVal2 G M N T (PiCode a' f') PropCode Bot             ()
+  upEqVal2 G M N T (PiCode a' f') PropCode UCode           ()
+  upEqVal2 G M N T (PiCode a' f') PropCode PropCode        le mem0 mem1 ca0 ca1 src vta1 = src
+  upEqVal2 G M N T (PiCode a' f') PropCode (FunEl h)       ()
+  upEqVal2 G M N T (PiCode a' f') PropCode (PiCode b1 f1)  ()
   upEqVal2 G M N T u (PiCode b0 f0) Bot       ()
   upEqVal2 G M N T u (PiCode b0 f0) UCode     ()
+  upEqVal2 G M N T u (PiCode b0 f0) PropCode  ()
   upEqVal2 G M N T u (PiCode b0 f0) (FunEl h) ()
   upEqVal2 G M N T Bot            (PiCode b0 f0) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 = src
   upEqVal2 G M N T UCode          (PiCode b0 f0) (PiCode b1 f1) le ()
+  upEqVal2 G M N T PropCode       (PiCode b0 f0) (PiCode b1 f1) le ()
   upEqVal2 G M N T (FunEl g)      (PiCode b0 f0) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 =
     let vty  = fst src
         vpiM = fst (snd src)
@@ -1557,6 +1704,29 @@ mutual
   restrictVal2 G M T (PiCode a' f') (FunEl _) UCode ()
   restrictVal2 G M T (PiCode a' f') (PiCode a2 f2) UCode le mem fmu src =
     downValTy2 G M (PiCode a2 f2) (PiCode a' f') le mem fmu src
+  restrictVal2 G M T PropCode Bot UCode le mem fmu src = tt
+  restrictVal2 G M T PropCode UCode UCode ()
+  restrictVal2 G M T PropCode PropCode UCode le mem fmu src = src
+  restrictVal2 G M T PropCode (FunEl _) UCode ()
+  restrictVal2 G M T PropCode (PiCode _ _) UCode ()
+  restrictVal2 G M T Bot PropCode UCode ()
+  restrictVal2 G M T UCode PropCode UCode ()
+  restrictVal2 G M T (FunEl g) PropCode UCode ()
+  restrictVal2 G M T (PiCode a' f') PropCode UCode ()
+  restrictVal2 G M T Bot Bot PropCode le mem fmu src = src
+  restrictVal2 G M T Bot UCode PropCode le ()
+  restrictVal2 G M T Bot PropCode PropCode ()
+  restrictVal2 G M T Bot (FunEl _) PropCode le ()
+  restrictVal2 G M T Bot (PiCode _ _) PropCode ()
+  restrictVal2 G M T UCode u' PropCode le mem ()
+  restrictVal2 G M T PropCode u' PropCode le mem ()
+  restrictVal2 G M T (FunEl _) u' PropCode le mem ()
+  restrictVal2 G M T (PiCode a' f') Bot PropCode le mem fmu src = tt
+  restrictVal2 G M T (PiCode a' f') UCode PropCode le ()
+  restrictVal2 G M T (PiCode a' f') PropCode PropCode ()
+  restrictVal2 G M T (PiCode a' f') (FunEl _) PropCode le ()
+  restrictVal2 G M T (PiCode a' f') (PiCode a2 f2) PropCode le mem fmu src =
+    downValTy2 G M (PiCode a2 f2) (PiCode a' f') le (FinMem-Prop-to-U (PiCode a2 f2) mem) (FinMem-Prop-to-U (PiCode a' f') fmu) src
   restrictVal2 G M T u u' (FunEl h)    le mem fmu src = src
   restrictVal2 G M T Bot Bot            (PiCode b f) le mem fmu src = src
   restrictVal2 G M T Bot UCode          (PiCode b f) le ()
@@ -1602,6 +1772,31 @@ mutual
     mkSigma (downValTy2 G M (PiCode a2 f2) (PiCode a' f') le mem fmu vtM)
       (mkSigma (downValTy2 G N (PiCode a2 f2) (PiCode a' f') le mem fmu vtN)
         (downEqValTy2 G M N (PiCode a2 f2) (PiCode a' f') le mem fmu eqvt))
+  restrictEqVal2 G M N T PropCode Bot UCode le mem fmu src = tt
+  restrictEqVal2 G M N T PropCode UCode UCode ()
+  restrictEqVal2 G M N T PropCode PropCode UCode le mem fmu src = src
+  restrictEqVal2 G M N T PropCode (FunEl _) UCode ()
+  restrictEqVal2 G M N T PropCode (PiCode _ _) UCode ()
+  restrictEqVal2 G M N T Bot PropCode UCode ()
+  restrictEqVal2 G M N T UCode PropCode UCode ()
+  restrictEqVal2 G M N T (FunEl g) PropCode UCode ()
+  restrictEqVal2 G M N T (PiCode a' f') PropCode UCode ()
+  restrictEqVal2 G M N T Bot Bot PropCode le mem fmu src = src
+  restrictEqVal2 G M N T Bot UCode PropCode le ()
+  restrictEqVal2 G M N T Bot PropCode PropCode ()
+  restrictEqVal2 G M N T Bot (FunEl _) PropCode ()
+  restrictEqVal2 G M N T Bot (PiCode _ _) PropCode ()
+  restrictEqVal2 G M N T UCode u' PropCode le mem ()
+  restrictEqVal2 G M N T PropCode u' PropCode le mem ()
+  restrictEqVal2 G M N T (FunEl _) u' PropCode le mem ()
+  restrictEqVal2 G M N T (PiCode a' f') Bot PropCode le mem fmu src = tt
+  restrictEqVal2 G M N T (PiCode a' f') UCode PropCode le ()
+  restrictEqVal2 G M N T (PiCode a' f') PropCode PropCode ()
+  restrictEqVal2 G M N T (PiCode a' f') (FunEl _) PropCode le ()
+  restrictEqVal2 G M N T (PiCode a' f') (PiCode a2 f2) PropCode le mem fmu (mkSigma vtM (mkSigma vtN eqvt)) =
+    mkSigma (downValTy2 G M (PiCode a2 f2) (PiCode a' f') le (FinMem-Prop-to-U (PiCode a2 f2) mem) (FinMem-Prop-to-U (PiCode a' f') fmu) vtM)
+      (mkSigma (downValTy2 G N (PiCode a2 f2) (PiCode a' f') le (FinMem-Prop-to-U (PiCode a2 f2) mem) (FinMem-Prop-to-U (PiCode a' f') fmu) vtN)
+        (downEqValTy2 G M N (PiCode a2 f2) (PiCode a' f') le (FinMem-Prop-to-U (PiCode a2 f2) mem) (FinMem-Prop-to-U (PiCode a' f') fmu) eqvt))
   restrictEqVal2 G M N T u u' (FunEl h)    le mem fmu src = src
   restrictEqVal2 G M N T Bot Bot            (PiCode b f) le mem fmu src = src
   restrictEqVal2 G M N T Bot UCode          (PiCode b f) le ()
@@ -1643,9 +1838,16 @@ mutual
   Val2-beta-expand UCode UCode hr tt = tt
   Val2-beta-expand (FunEl g) UCode hr tt = tt
   Val2-beta-expand (PiCode a' f') UCode hr vt = ValTy2-headred-expand (PiCode a' f') hr vt
+  Val2-beta-expand PropCode UCode hr tt = tt
+  Val2-beta-expand (PiCode a' f') PropCode hr vt = ValTy2-headred-expand (PiCode a' f') hr vt
+  Val2-beta-expand Bot PropCode hr tt = tt
+  Val2-beta-expand UCode PropCode hr tt = tt
+  Val2-beta-expand PropCode PropCode hr tt = tt
+  Val2-beta-expand (FunEl g) PropCode hr tt = tt
   Val2-beta-expand u (FunEl h) hr tt = tt
   Val2-beta-expand Bot (PiCode b f) hr tt = tt
   Val2-beta-expand UCode (PiCode b f) hr tt = tt
+  Val2-beta-expand PropCode (PiCode b f) hr tt = tt
   Val2-beta-expand (FunEl g) (PiCode b f) hr val =
     mkSigma (fst val) (ValPi2-headred-expand g b f hr (snd val))
   Val2-beta-expand (PiCode a' f') (PiCode b f) hr tt = tt
@@ -1658,9 +1860,16 @@ mutual
   Val2-headred-contract UCode UCode hr tt = tt
   Val2-headred-contract (FunEl g) UCode hr tt = tt
   Val2-headred-contract (PiCode a' f') UCode hr vt = ValTy2-headred-contract (PiCode a' f') hr vt
+  Val2-headred-contract PropCode UCode hr tt = tt
+  Val2-headred-contract (PiCode a' f') PropCode hr vt = ValTy2-headred-contract (PiCode a' f') hr vt
+  Val2-headred-contract Bot PropCode hr tt = tt
+  Val2-headred-contract UCode PropCode hr tt = tt
+  Val2-headred-contract PropCode PropCode hr tt = tt
+  Val2-headred-contract (FunEl g) PropCode hr tt = tt
   Val2-headred-contract u (FunEl h) hr tt = tt
   Val2-headred-contract Bot (PiCode b f) hr tt = tt
   Val2-headred-contract UCode (PiCode b f) hr tt = tt
+  Val2-headred-contract PropCode (PiCode b f) hr tt = tt
   Val2-headred-contract (FunEl g) (PiCode b f) hr val =
     mkSigma (fst val) (ValPi2-headred-contract g b f hr (snd val))
   Val2-headred-contract (PiCode a' f') (PiCode b f) hr tt = tt
@@ -1679,9 +1888,22 @@ mutual
     in mkSigma (ValTy2-headred-expand (PiCode a' f') hr1 vtM)
          (mkSigma (ValTy2-headred-expand (PiCode a' f') hr2 vtN)
            (EqValTy2-headred-expand (PiCode a' f') hr1 hr2 eqvt))
+  EqVal2-headred-expand PropCode UCode hr1 hr2 tt = tt
+  EqVal2-headred-expand (PiCode a' f') PropCode hr1 hr2 ev =
+    let vtM = fst ev
+        vtN = fst (snd ev)
+        eqvt = snd (snd ev)
+    in mkSigma (ValTy2-headred-expand (PiCode a' f') hr1 vtM)
+         (mkSigma (ValTy2-headred-expand (PiCode a' f') hr2 vtN)
+           (EqValTy2-headred-expand (PiCode a' f') hr1 hr2 eqvt))
+  EqVal2-headred-expand Bot PropCode hr1 hr2 tt = tt
+  EqVal2-headred-expand UCode PropCode hr1 hr2 tt = tt
+  EqVal2-headred-expand PropCode PropCode hr1 hr2 tt = tt
+  EqVal2-headred-expand (FunEl g) PropCode hr1 hr2 tt = tt
   EqVal2-headred-expand u (FunEl h) hr1 hr2 tt = tt
   EqVal2-headred-expand Bot (PiCode b f) hr1 hr2 tt = tt
   EqVal2-headred-expand UCode (PiCode b f) hr1 hr2 tt = tt
+  EqVal2-headred-expand PropCode (PiCode b f) hr1 hr2 tt = tt
   EqVal2-headred-expand (FunEl g) (PiCode b f) hr1 hr2 ev =
     mkSigma (fst ev)
       (mkSigma (ValPi2-headred-expand g b f hr1 (fst (snd ev)))
@@ -1694,6 +1916,7 @@ mutual
     ValTy2 G M u -> ValTy2 G M' u
   ValTy2-headred-expand Bot hr tt = tt
   ValTy2-headred-expand UCode hr tt = tt
+  ValTy2-headred-expand PropCode hr tt = tt
   ValTy2-headred-expand (FunEl g) hr tt = tt
   ValTy2-headred-expand (PiCode b f) hr vt =
     let A   = fst vt
@@ -1708,6 +1931,7 @@ mutual
     EqValTy2 G M1 M2 u -> EqValTy2 G M1' M2' u
   EqValTy2-headred-expand Bot hr1 hr2 tt = tt
   EqValTy2-headred-expand UCode hr1 hr2 tt = tt
+  EqValTy2-headred-expand PropCode hr1 hr2 tt = tt
   EqValTy2-headred-expand (FunEl g) hr1 hr2 tt = tt
   EqValTy2-headred-expand (PiCode b f) hr1 hr2 eqvt =
     let vt1  = fst eqvt
@@ -1764,6 +1988,7 @@ mutual
     ValTy2 G M u -> ValTy2 G M' u
   ValTy2-headred-contract Bot hr tt = tt
   ValTy2-headred-contract UCode hr tt = tt
+  ValTy2-headred-contract PropCode hr tt = tt
   ValTy2-headred-contract (FunEl g) hr tt = tt
   ValTy2-headred-contract (PiCode b f) hr vt =
     let A   = fst vt
@@ -1800,9 +2025,19 @@ mutual
     mkSigma (ValTy2-headred-contract (PiCode a' f') hr1 (fst ev))
          (mkSigma (ValTy2-headred-contract (PiCode a' f') hr2 (fst (snd ev)))
            (EqValTy2-headred-contract (PiCode a' f') hr1 hr2 (snd (snd ev))))
+  EqVal2-headred-contract PropCode UCode hr1 hr2 tt = tt
+  EqVal2-headred-contract (PiCode a' f') PropCode hr1 hr2 ev =
+    mkSigma (ValTy2-headred-contract (PiCode a' f') hr1 (fst ev))
+         (mkSigma (ValTy2-headred-contract (PiCode a' f') hr2 (fst (snd ev)))
+           (EqValTy2-headred-contract (PiCode a' f') hr1 hr2 (snd (snd ev))))
+  EqVal2-headred-contract Bot PropCode hr1 hr2 tt = tt
+  EqVal2-headred-contract UCode PropCode hr1 hr2 tt = tt
+  EqVal2-headred-contract PropCode PropCode hr1 hr2 tt = tt
+  EqVal2-headred-contract (FunEl g) PropCode hr1 hr2 tt = tt
   EqVal2-headred-contract u (FunEl h) hr1 hr2 tt = tt
   EqVal2-headred-contract Bot (PiCode b f) hr1 hr2 tt = tt
   EqVal2-headred-contract UCode (PiCode b f) hr1 hr2 tt = tt
+  EqVal2-headred-contract PropCode (PiCode b f) hr1 hr2 tt = tt
   EqVal2-headred-contract (FunEl g) (PiCode b f) hr1 hr2 ev =
     mkSigma (fst ev)
       (mkSigma (ValPi2-headred-contract g b f hr1 (fst (snd ev)))
@@ -1815,6 +2050,7 @@ mutual
     EqValTy2 G M1 M2 u -> EqValTy2 G M1' M2' u
   EqValTy2-headred-contract Bot hr1 hr2 tt = tt
   EqValTy2-headred-contract UCode hr1 hr2 tt = tt
+  EqValTy2-headred-contract PropCode hr1 hr2 tt = tt
   EqValTy2-headred-contract (FunEl g) hr1 hr2 tt = tt
   EqValTy2-headred-contract (PiCode b f) hr1 hr2 eqvt =
     let vt1  = fst eqvt
