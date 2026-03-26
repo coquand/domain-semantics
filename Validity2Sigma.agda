@@ -184,7 +184,7 @@ mutual
   Val2 G M A (FunEl g)        (SigmaCode b f) = Top
   Val2 G M A (PiCode a' f')  (SigmaCode b f) = Top
   Val2 G M A (SigmaCode a' f') (SigmaCode b f) = Top
-  Val2 G M A (PairCode u' v') (SigmaCode b f) = Top
+  Val2 G M A (PairCode u' v') (SigmaCode b f) = ValPair2 G M A u' v' b f
   -- PairCode at a: Val always Top (unreachable when typed)
   Val2 G M A u (PairCode x y) = Top
 
@@ -231,7 +231,7 @@ mutual
   EqVal2 G M N A (FunEl g)        (SigmaCode b f) = Top
   EqVal2 G M N A (PiCode a' f')  (SigmaCode b f) = Top
   EqVal2 G M N A (SigmaCode a' f') (SigmaCode b f) = Top
-  EqVal2 G M N A (PairCode u' v') (SigmaCode b f) = Top
+  EqVal2 G M N A (PairCode u' v') (SigmaCode b f) = EqValPair2 G M N A u' v' b f
   -- PairCode at a: EqVal always Top
   EqVal2 G M N A u (PairCode x y) = Top
 
@@ -457,25 +457,8 @@ Val2-Bot (PiCode b f)     = tt
 Val2-Bot (SigmaCode b f)  = tt
 Val2-Bot (PairCode x y)   = tt
 
-Val2-SigmaTop : {n : Nat} {G : Ctx n} {M A : Expr n} ->
-  (u : FinEl) -> (b : FinEl) -> (f : FinFun) -> Val2 G M A u (SigmaCode b f)
-Val2-SigmaTop Bot _ _              = tt
-Val2-SigmaTop UCode _ _            = tt
-Val2-SigmaTop PropCode _ _         = tt
-Val2-SigmaTop (FunEl _) _ _        = tt
-Val2-SigmaTop (PiCode _ _) _ _     = tt
-Val2-SigmaTop (SigmaCode _ _) _ _  = tt
-Val2-SigmaTop (PairCode _ _) _ _   = tt
-
-EqVal2-SigmaTop : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
-  (u : FinEl) -> (b : FinEl) -> (f : FinFun) -> EqVal2 G M N A u (SigmaCode b f)
-EqVal2-SigmaTop Bot _ _              = tt
-EqVal2-SigmaTop UCode _ _            = tt
-EqVal2-SigmaTop PropCode _ _         = tt
-EqVal2-SigmaTop (FunEl _) _ _        = tt
-EqVal2-SigmaTop (PiCode _ _) _ _     = tt
-EqVal2-SigmaTop (SigmaCode _ _) _ _  = tt
-EqVal2-SigmaTop (PairCode _ _) _ _   = tt
+-- Val2-SigmaTop / EqVal2-SigmaTop: NOT total for PairCode (ValPair2 is structured).
+-- Use case-split on u instead.
 
 EqVal2-Bot : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
   (a : FinEl) -> EqVal2 G M N A Bot a
@@ -574,7 +557,14 @@ mutual
   Val2-to-EqVal2 (FunEl g) (SigmaCode b f) tt = tt
   Val2-to-EqVal2 (PiCode a' f') (SigmaCode b f) tt = tt
   Val2-to-EqVal2 (SigmaCode a' f') (SigmaCode b f) tt = tt
-  Val2-to-EqVal2 (PairCode u' v') (SigmaCode b f) tt = tt
+  Val2-to-EqVal2 (PairCode u' v') (SigmaCode b f) val =
+    let A0  = fst val
+        B0  = fst (snd val)
+        red = fst (snd (snd val))
+        htF = fst (snd (snd (snd val)))
+        v2F = snd (snd (snd (snd val)))
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma htF (mkSigma htF
+         (mkSigma v2F (mkSigma v2F (Val2-to-EqVal2 u' b v2F)))))))
   Val2-to-EqVal2 u (PairCode x y) tt = tt
 
   ValTy2-to-EqValTy2 : {n : Nat} {G : Ctx n} {M : Expr n}
@@ -659,7 +649,16 @@ mutual
   Val2-from-EqVal2-first (FunEl g) (SigmaCode b f) tt = tt
   Val2-from-EqVal2-first (PiCode a' f') (SigmaCode b f) tt = tt
   Val2-from-EqVal2-first (SigmaCode a' f') (SigmaCode b f) tt = tt
-  Val2-from-EqVal2-first (PairCode u' v') (SigmaCode b f) tt = tt
+  Val2-from-EqVal2-first (PairCode u' v') (SigmaCode b f) ev =
+    let A0   = fst ev
+        B0   = fst (snd ev)
+        red  = fst (snd (snd ev))
+        htM  = fst (snd (snd (snd ev)))
+        htN  = fst (snd (snd (snd (snd ev))))
+        v2M  = fst (snd (snd (snd (snd (snd ev)))))
+        v2N  = fst (snd (snd (snd (snd (snd (snd ev))))))
+        eq   = snd (snd (snd (snd (snd (snd (snd ev))))))
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma htM v2M)))
   Val2-from-EqVal2-first u (PairCode x y) tt = tt
 
   Val2-from-EqVal2-second : {n : Nat} {G : Ctx n} {M N A : Expr n}
@@ -694,7 +693,16 @@ mutual
   Val2-from-EqVal2-second (FunEl g) (SigmaCode b f) tt = tt
   Val2-from-EqVal2-second (PiCode a' f') (SigmaCode b f) tt = tt
   Val2-from-EqVal2-second (SigmaCode a' f') (SigmaCode b f) tt = tt
-  Val2-from-EqVal2-second (PairCode u' v') (SigmaCode b f) tt = tt
+  Val2-from-EqVal2-second (PairCode u' v') (SigmaCode b f) ev =
+    let A0   = fst ev
+        B0   = fst (snd ev)
+        red  = fst (snd (snd ev))
+        htM  = fst (snd (snd (snd ev)))
+        htN  = fst (snd (snd (snd (snd ev))))
+        v2M  = fst (snd (snd (snd (snd (snd ev)))))
+        v2N  = fst (snd (snd (snd (snd (snd (snd ev))))))
+        eq   = snd (snd (snd (snd (snd (snd (snd ev))))))
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma htN v2N)))
   Val2-from-EqVal2-second u (PairCode x y) tt = tt
 
   ------------------------------------------------------------------------
@@ -732,8 +740,8 @@ mutual
         uniqN = Red-unique-Pi redN-vty rN
         htA-raw = fst (snd (snd (snd (snd (snd vtyM)))))
         htA'-raw = fst (snd (snd (snd (snd (snd vtyN)))))
-        htA  = Eq-transport (\ X -> HasType _ X _) (fst uniqM) htA-raw
-        htA' = Eq-transport (\ X -> HasType _ X _) (fst uniqN) htA'-raw
+        htA  = S.Eq-transport (\ X -> HasType _ X _) (fst uniqM) htA-raw
+        htA' = S.Eq-transport (\ X -> HasType _ X _) (fst uniqN) htA'-raw
         symCore = mkSigma A' (mkSigma B' (mkSigma A (mkSigma B
                     (mkSigma rN (mkSigma rM (mkSigma cf (mkSigma fmU
                       (mkSigma (conv-sym convAA)
@@ -770,8 +778,8 @@ mutual
         uniqN = Red-unique-Sigma redN-vty rN
         htA-raw = fst (snd (snd (snd (snd (snd vtyM)))))
         htA'-raw = fst (snd (snd (snd (snd (snd vtyN)))))
-        htA  = Eq-transport (\ X -> HasType _ X _) (fst uniqM) htA-raw
-        htA' = Eq-transport (\ X -> HasType _ X _) (fst uniqN) htA'-raw
+        htA  = S.Eq-transport (\ X -> HasType _ X _) (fst uniqM) htA-raw
+        htA' = S.Eq-transport (\ X -> HasType _ X _) (fst uniqN) htA'-raw
         symCore = mkSigma A' (mkSigma B' (mkSigma A (mkSigma B
                     (mkSigma rN (mkSigma rM (mkSigma cf (mkSigma fmU
                       (mkSigma (conv-sym convAA)
@@ -834,36 +842,36 @@ mutual
         eqA0'A1 = fst uniq
         eqB0'B1 = snd uniq
         cb = fst cu
-        eqDomBC' = Eq-transport (\ X -> EqValTy2 _ X A1' b) (Eq-sym eqA0'A1) eqDomBC
+        eqDomBC' = S.Eq-transport (\ X -> EqValTy2 _ X A1' b) (Eq-sym eqA0'A1) eqDomBC
         eqDomAC  = EqValTy2-trans b cb eqDomAB eqDomBC'
         redB1-vty-e = fst (snd (snd vtyB1))
         uniqB1-dom-e = Red-unique-Pi redB1-vty-e rB1
         htA0'-raw-e = fst (snd (snd (snd (snd (snd vtyB1)))))
-        htA0'-e = Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom-e) htA0'-raw-e
+        htA0'-e = S.Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom-e) htA0'-raw-e
         petAC : PiEdgeEqTy2 _ A0 B0 B1' b f
         petAC = \ u' v' sel P htP valP ->
           let valP-A0' = Val2-EqValTy2-fwd u' b cb eqDomAB valP
-              valP-A1  = Eq-transport (\ X -> Val2 _ P X u' b) eqA0'A1 valP-A0'
+              valP-A1  = S.Eq-transport (\ X -> Val2 _ P X u' b) eqA0'A1 valP-A0'
               htP-A0'  = ty-conv htP convAA_AB htA0'-e
-              htP-A1   = Eq-transport (\ X -> HasType _ P X) eqA0'A1 htP-A0'
+              htP-A1   = S.Eq-transport (\ X -> HasType _ P X) eqA0'A1 htP-A0'
               eqt1 = petAB u' v' sel P htP valP
               eqt2 = petBC u' v' sel P htP-A1 valP-A1
-              eqt2' = Eq-transport (\ X -> EqValTy2 _ (subst1 X P) (subst1 B1' P) v')
+              eqt2' = S.Eq-transport (\ X -> EqValTy2 _ (subst1 X P) (subst1 B1' P) v')
                         (Eq-sym eqB0'B1) eqt2
               cv' = coh-from-aU v' (FinMem-Selection-UCode b sel fmU1 cf1)
           in EqValTy2-trans v' cv' eqt1 eqt2'
-        convAA_BC' = Eq-transport (\ X -> ConvTm _ X A1' _) (Eq-sym eqA0'A1) convAA_BC
+        convAA_BC' = S.Eq-transport (\ X -> ConvTm _ X A1' _) (Eq-sym eqA0'A1) convAA_BC
         convAA_AC = conv-trans convAA_AB convAA_BC'
-        convBB_BC-transported = Eq-transport (\ X -> ConvTm (extend _ A0') X B1' _) (Eq-sym eqB0'B1)
+        convBB_BC-transported = S.Eq-transport (\ X -> ConvTm (extend _ A0') X B1' _) (Eq-sym eqB0'B1)
                                   (Eq-transport (\ X -> ConvTm (extend _ X) B1 B1' _) (Eq-sym eqA0'A1) convBB_BC)
         redA-vty = fst (snd (snd vtyA))
         uniqA-dom = Red-unique-Pi redA-vty rA
         htA0-raw = fst (snd (snd (snd (snd (snd vtyA)))))
-        htA0  = Eq-transport (\ X -> HasType _ X _) (fst uniqA-dom) htA0-raw
+        htA0  = S.Eq-transport (\ X -> HasType _ X _) (fst uniqA-dom) htA0-raw
         redB1-vty = fst (snd (snd vtyB1))
         uniqB1-dom = Red-unique-Pi redB1-vty rB1
         htA0'-raw = fst (snd (snd (snd (snd (snd vtyB1)))))
-        htA0' = Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom) htA0'-raw
+        htA0' = S.Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom) htA0'-raw
         convBB_BC' = ctx-conv-ConvTm htA0' htA0 (conv-sym convAA_AB) convBB_BC-transported
         convBB_AC = conv-trans convBB_AB convBB_BC'
         resultCore = mkSigma A0 (mkSigma B0 (mkSigma A1' (mkSigma B1'
@@ -909,36 +917,36 @@ mutual
         eqA0'A1 = fst uniq
         eqB0'B1 = snd uniq
         cb = fst cu
-        eqDomBC' = Eq-transport (\ X -> EqValTy2 _ X A1' b) (Eq-sym eqA0'A1) eqDomBC
+        eqDomBC' = S.Eq-transport (\ X -> EqValTy2 _ X A1' b) (Eq-sym eqA0'A1) eqDomBC
         eqDomAC  = EqValTy2-trans b cb eqDomAB eqDomBC'
         redB1-vty-e = fst (snd (snd vtyB1))
         uniqB1-dom-e = Red-unique-Sigma redB1-vty-e rB1
         htA0'-raw-e = fst (snd (snd (snd (snd (snd vtyB1)))))
-        htA0'-e = Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom-e) htA0'-raw-e
+        htA0'-e = S.Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom-e) htA0'-raw-e
         setAC : SigmaEdgeEqTy2 _ A0 B0 B1' b f
         setAC = \ u' v' sel P htP valP ->
           let valP-A0' = Val2-EqValTy2-fwd u' b cb eqDomAB valP
-              valP-A1  = Eq-transport (\ X -> Val2 _ P X u' b) eqA0'A1 valP-A0'
+              valP-A1  = S.Eq-transport (\ X -> Val2 _ P X u' b) eqA0'A1 valP-A0'
               htP-A0'  = ty-conv htP convAA_AB htA0'-e
-              htP-A1   = Eq-transport (\ X -> HasType _ P X) eqA0'A1 htP-A0'
+              htP-A1   = S.Eq-transport (\ X -> HasType _ P X) eqA0'A1 htP-A0'
               eqt1 = setAB u' v' sel P htP valP
               eqt2 = setBC u' v' sel P htP-A1 valP-A1
-              eqt2' = Eq-transport (\ X -> EqValTy2 _ (subst1 X P) (subst1 B1' P) v')
+              eqt2' = S.Eq-transport (\ X -> EqValTy2 _ (subst1 X P) (subst1 B1' P) v')
                         (Eq-sym eqB0'B1) eqt2
               cv' = coh-from-aU v' (FinMem-Selection-UCode b sel fmU1 cf1)
           in EqValTy2-trans v' cv' eqt1 eqt2'
-        convAA_BC' = Eq-transport (\ X -> ConvTm _ X A1' _) (Eq-sym eqA0'A1) convAA_BC
+        convAA_BC' = S.Eq-transport (\ X -> ConvTm _ X A1' _) (Eq-sym eqA0'A1) convAA_BC
         convAA_AC = conv-trans convAA_AB convAA_BC'
-        convBB_BC-transported = Eq-transport (\ X -> ConvTm (extend _ A0') X B1' _) (Eq-sym eqB0'B1)
+        convBB_BC-transported = S.Eq-transport (\ X -> ConvTm (extend _ A0') X B1' _) (Eq-sym eqB0'B1)
                                   (Eq-transport (\ X -> ConvTm (extend _ X) B1 B1' _) (Eq-sym eqA0'A1) convBB_BC)
         redA-vty = fst (snd (snd vtyA))
         uniqA-dom = Red-unique-Sigma redA-vty rA
         htA0-raw = fst (snd (snd (snd (snd (snd vtyA)))))
-        htA0  = Eq-transport (\ X -> HasType _ X _) (fst uniqA-dom) htA0-raw
+        htA0  = S.Eq-transport (\ X -> HasType _ X _) (fst uniqA-dom) htA0-raw
         redB1-vty = fst (snd (snd vtyB1))
         uniqB1-dom = Red-unique-Sigma redB1-vty rB1
         htA0'-raw = fst (snd (snd (snd (snd (snd vtyB1)))))
-        htA0' = Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom) htA0'-raw
+        htA0' = S.Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom) htA0'-raw
         convBB_BC' = ctx-conv-ConvTm htA0' htA0 (conv-sym convAA_AB) convBB_BC-transported
         convBB_AC = conv-trans convBB_AB convBB_BC'
         resultCore = mkSigma A0 (mkSigma B0 (mkSigma A1' (mkSigma B1'
@@ -1008,7 +1016,19 @@ mutual
   EqVal2-sym (FunEl g) (SigmaCode b f) cu ca tt = tt
   EqVal2-sym (PiCode a' f') (SigmaCode b f) cu ca tt = tt
   EqVal2-sym (SigmaCode a' f') (SigmaCode b f) cu ca tt = tt
-  EqVal2-sym (PairCode u' v') (SigmaCode b f) cu ca tt = tt
+  EqVal2-sym (PairCode u' v') (SigmaCode b f) cu ca ev =
+    let A0   = fst ev
+        B0   = fst (snd ev)
+        red  = fst (snd (snd ev))
+        htM  = fst (snd (snd (snd ev)))
+        htN  = fst (snd (snd (snd (snd ev))))
+        v2M  = fst (snd (snd (snd (snd (snd ev)))))
+        v2N  = fst (snd (snd (snd (snd (snd (snd ev))))))
+        eq   = snd (snd (snd (snd (snd (snd (snd ev))))))
+        cb   = fst ca
+        cu'  = fst (fst cu)
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma htN (mkSigma htM
+         (mkSigma v2N (mkSigma v2M (EqVal2-sym u' b cu' cb eq)))))))
   EqVal2-sym u (PairCode x y) cu ca tt = tt
 
   ------------------------------------------------------------------------
@@ -1064,7 +1084,7 @@ mutual
         eqA0   = fst uniq
         eqB0   = snd uniq
         paev2' : PiAppEqVal2 _ _ _ Ax Bx b f g
-        paev2' = Eq-transport (\ X -> PiAppEqVal2 _ _ _ X Bx b f g) (Eq-sym eqA0)
+        paev2' = S.Eq-transport (\ X -> PiAppEqVal2 _ _ _ X Bx b f g) (Eq-sym eqA0)
                    (Eq-transport (\ Y -> PiAppEqVal2 _ _ _ Ay Y b f g) (Eq-sym eqB0) paev2)
         cf     = snd ca
         paev'  : PiAppEqVal2 _ _ _ Ax Bx b f g
@@ -1087,7 +1107,31 @@ mutual
   EqVal2-trans (FunEl g) (SigmaCode b f) cu ca tt tt = tt
   EqVal2-trans (PiCode a' f') (SigmaCode b f) cu ca tt tt = tt
   EqVal2-trans (SigmaCode a' f') (SigmaCode b f) cu ca tt tt = tt
-  EqVal2-trans (PairCode u' v') (SigmaCode b f) cu ca tt tt = tt
+  EqVal2-trans (PairCode u' v') (SigmaCode b f) cu ca ev1 ev2 =
+    let A0    = fst ev1
+        B0    = fst (snd ev1)
+        red1  = fst (snd (snd ev1))
+        htM   = fst (snd (snd (snd ev1)))
+        htN1  = fst (snd (snd (snd (snd ev1))))
+        v2M   = fst (snd (snd (snd (snd (snd ev1)))))
+        v2N1  = fst (snd (snd (snd (snd (snd (snd ev1))))))
+        eq1   = snd (snd (snd (snd (snd (snd (snd ev1))))))
+        A1    = fst ev2
+        red2  = fst (snd (snd ev2))
+        htN2  = fst (snd (snd (snd ev2)))
+        htP-raw = fst (snd (snd (snd (snd ev2))))
+        v2N2  = fst (snd (snd (snd (snd (snd ev2)))))
+        v2P-raw = fst (snd (snd (snd (snd (snd (snd ev2))))))
+        eq2-raw = snd (snd (snd (snd (snd (snd (snd ev2))))))
+        uniq  = Red-unique-Sigma red1 red2
+        eqA   = S.Eq-sym (fst uniq)
+        htP   = S.Eq-transport (\ X -> HasType _ (Fst _) X) eqA htP-raw
+        v2P   = S.Eq-transport (\ X -> Val2 _ (Fst _) X u' b) eqA v2P-raw
+        eq2   = S.Eq-transport (\ X -> EqVal2 _ (Fst _) (Fst _) X u' b) eqA eq2-raw
+        cb    = fst ca
+        cu'   = fst (fst cu)
+    in mkSigma A0 (mkSigma B0 (mkSigma red1 (mkSigma htM (mkSigma htP
+         (mkSigma v2M (mkSigma v2P (EqVal2-trans u' b cu' cb eq1 eq2)))))))
   EqVal2-trans u (PairCode x y) cu ca tt tt = tt
 
   ------------------------------------------------------------------------
@@ -1141,7 +1185,7 @@ mutual
         redCv = fst (snd (snd vtyC))
         htAc  = fst (snd (snd (snd (snd (snd vtyC)))))
         uniqC2 = Red-unique-Pi redCv rC
-        htE   = Eq-transport (\ X -> HasType _ X _) (fst uniqC2) htAc
+        htE   = S.Eq-transport (\ X -> HasType _ X _) (fst uniqC2) htAc
         vpiM = snd val
         A0   = fst vpiM
         B0   = fst (snd vpiM)
@@ -1154,10 +1198,10 @@ mutual
         eqA0E = fst uniq
         eqB0F = snd uniq
         pav-EF : PiAppVal2 _ _ E F b0 f0 g
-        pav-EF = Eq-transport (\ X -> PiAppVal2 _ _ X F b0 f0 g) eqA0E
+        pav-EF = S.Eq-transport (\ X -> PiAppVal2 _ _ X F b0 f0 g) eqA0E
                    (Eq-transport (\ Y -> PiAppVal2 _ _ A0 Y b0 f0 g) eqB0F pav)
         pae-EF : PiAppEq2 _ _ E F b0 f0 g
-        pae-EF = Eq-transport (\ X -> PiAppEq2 _ _ X F b0 f0 g) eqA0E
+        pae-EF = S.Eq-transport (\ X -> PiAppEq2 _ _ X F b0 f0 g) eqA0E
                    (Eq-transport (\ Y -> PiAppEq2 _ _ A0 Y b0 f0 g) eqB0F pae)
         cb0 = fst cb
         b0U = bU-from-cf-fmFun g b0 f0 cg fmg
@@ -1178,7 +1222,7 @@ mutual
               fmu'   = FinMem-Selection b0 f0 sel fmg ctg cb0 b0U
               valN-uf = restrictVal2 _ _ E u' u-f b0 le-uf fmu-f fmu' valN-E
               eqt-vf = pet u-f v-f sel-f N htN-E valN-uf
-              eqt-ef = Eq-transport (\ w -> EqValTy2 _ (subst1 F N) (subst1 F' N) w)
+              eqt-ef = S.Eq-transport (\ w -> EqValTy2 _ (subst1 F N) (subst1 F' N) w)
                          (Eq-sym eq-ef) eqt-vf
               cev    = Coherent-EvalFun f0 u' cf0 cu'
           in Val2-EqValTy2-fwd v' (EvalFun f0 u') cev eqt-ef body
@@ -1201,7 +1245,7 @@ mutual
               valN1-uf = restrictVal2 _ _ E u' u-f b0 le-uf fmu-f fmu'
                            (Val2-from-EqVal2-first u' b0 eqN-E)
               eqt-vf = pet u-f v-f sel-f N1 htN1-E valN1-uf
-              eqt-ef = Eq-transport (\ w -> EqValTy2 _ (subst1 F N1) (subst1 F' N1) w)
+              eqt-ef = S.Eq-transport (\ w -> EqValTy2 _ (subst1 F N1) (subst1 F' N1) w)
                          (Eq-sym eq-ef) eqt-vf
               cev    = Coherent-EvalFun f0 u' cf0 cu'
           in EqVal2-EqValTy2-fwd v' (EvalFun f0 u') cev eqt-ef body
@@ -1215,7 +1259,40 @@ mutual
   Val2-EqValTy2-fwd (FunEl g) (SigmaCode b0 f0) cb eqv val = tt
   Val2-EqValTy2-fwd (PiCode a' ff) (SigmaCode b0 f0) cb eqv val = tt
   Val2-EqValTy2-fwd (SigmaCode a' ff) (SigmaCode b0 f0) cb eqv val = tt
-  Val2-EqValTy2-fwd (PairCode u' v') (SigmaCode b0 f0) cb eqv val = tt
+  Val2-EqValTy2-fwd (PairCode u' v') (SigmaCode b0 f0) cb eqv val =
+    let vtyC  = fst eqv
+        vtyC' = fst (snd eqv)
+        core  = snd (snd eqv)
+        E     = fst core
+        F     = fst (snd core)
+        E'    = fst (snd (snd core))
+        F'    = fst (snd (snd (snd core)))
+        rC    = fst (snd (snd (snd (snd core))))
+        rC'   = fst (snd (snd (snd (snd (snd core)))))
+        cf0   = fst (snd (snd (snd (snd (snd (snd core))))))
+        fmU   = fst (snd (snd (snd (snd (snd (snd (snd core)))))))
+        convEE' = fst (snd (snd (snd (snd (snd (snd (snd (snd core))))))))
+        tail12 = snd (snd (snd (snd (snd (snd (snd (snd (snd (snd core)))))))))
+        eqE   = fst tail12
+        A0    = fst val
+        B0    = fst (snd val)
+        redT  = fst (snd (snd val))
+        htF   = fst (snd (snd (snd val)))
+        v2F   = snd (snd (snd (snd val)))
+        uniq  = Red-unique-Sigma redT rC
+        eqA0E = fst uniq
+        cb0   = fst cb
+        v2F-E = S.Eq-transport (\ X -> Val2 _ (Fst _) X u' b0) eqA0E v2F
+        htF-E = S.Eq-transport (\ X -> HasType _ (Fst _) X) eqA0E htF
+        -- transport Val2 from E to E' using EqValTy2 eqE
+        v2F'  = Val2-EqValTy2-fwd u' b0 cb0 eqE v2F-E
+        Ac'   = fst vtyC'
+        redC'-vty = fst (snd (snd vtyC'))
+        uniqC' = Red-unique-Sigma redC'-vty rC'
+        htAc' = fst (snd (snd (snd (snd (snd vtyC')))))
+        htE'  = S.Eq-transport (\ X -> HasType _ X _) (fst uniqC') htAc'
+        htF'  = ty-conv htF-E convEE' htE'
+    in mkSigma E' (mkSigma F' (mkSigma rC' (mkSigma htF' v2F')))
   Val2-EqValTy2-fwd u (PairCode x y) cb eqv val = tt
 
   ------------------------------------------------------------------------
@@ -1269,7 +1346,7 @@ mutual
         redCv-eq = fst (snd (snd vtyC))
         htAc-eq = fst (snd (snd (snd (snd (snd vtyC)))))
         uniqC2-eq = Red-unique-Pi redCv-eq rC
-        htE-eq  = Eq-transport (\ X -> HasType _ X _) (fst uniqC2-eq) htAc-eq
+        htE-eq  = S.Eq-transport (\ X -> HasType _ X _) (fst uniqC2-eq) htAc-eq
         vtyC-ev = fst ev
         vpiM = fst (snd ev)
         vpiN = fst (snd (snd ev))
@@ -1286,7 +1363,7 @@ mutual
         cb0 = fst cb
         b0U = bU-from-cf-fmFun g b0 f0 cg fmg
         paev-EF : PiAppEqVal2 _ _ _ E F b0 f0 g
-        paev-EF = Eq-transport (\ X -> PiAppEqVal2 _ _ _ X F b0 f0 g) eqA0E
+        paev-EF = S.Eq-transport (\ X -> PiAppEqVal2 _ _ _ X F b0 f0 g) eqA0E
                     (Eq-transport (\ Y -> PiAppEqVal2 _ _ _ A0 Y b0 f0 g) eqB0F paev)
         ctg  = cft-from-cf g cg
         paev-E'F' : PiAppEqVal2 _ _ _ E' F' b0 f0 g
@@ -1305,7 +1382,7 @@ mutual
               fmu'   = FinMem-Selection b0 f0 sel fmg ctg cb0 b0U
               valP-uf = restrictVal2 _ _ E u' u-f b0 le-uf fmu-f fmu' valP-E
               eqt-vf = pet u-f v-f sel-f P htP-E valP-uf
-              eqt-ef = Eq-transport (\ w -> EqValTy2 _ (subst1 F P) (subst1 F' P) w)
+              eqt-ef = S.Eq-transport (\ w -> EqValTy2 _ (subst1 F P) (subst1 F' P) w)
                          (Eq-sym eq-ef) eqt-vf
               cev    = Coherent-EvalFun f0 u' cf0 cu'
           in EqVal2-EqValTy2-fwd v' (EvalFun f0 u') cev eqt-ef body
@@ -1322,7 +1399,48 @@ mutual
   EqVal2-EqValTy2-fwd (FunEl g) (SigmaCode b0 f0) cb eqv ev = tt
   EqVal2-EqValTy2-fwd (PiCode a' ff) (SigmaCode b0 f0) cb eqv ev = tt
   EqVal2-EqValTy2-fwd (SigmaCode a' ff) (SigmaCode b0 f0) cb eqv ev = tt
-  EqVal2-EqValTy2-fwd (PairCode u' v') (SigmaCode b0 f0) cb eqv ev = tt
+  EqVal2-EqValTy2-fwd (PairCode u' v') (SigmaCode b0 f0) cb eqv ev =
+    let vtyC  = fst eqv
+        vtyC' = fst (snd eqv)
+        core  = snd (snd eqv)
+        E     = fst core
+        F     = fst (snd core)
+        E'    = fst (snd (snd core))
+        F'    = fst (snd (snd (snd core)))
+        rC    = fst (snd (snd (snd (snd core))))
+        rC'   = fst (snd (snd (snd (snd (snd core)))))
+        cf0   = fst (snd (snd (snd (snd (snd (snd core))))))
+        fmU   = fst (snd (snd (snd (snd (snd (snd (snd core)))))))
+        convEE' = fst (snd (snd (snd (snd (snd (snd (snd (snd core))))))))
+        tail12 = snd (snd (snd (snd (snd (snd (snd (snd (snd (snd core)))))))))
+        eqE   = fst tail12
+        A0    = fst ev
+        B0    = fst (snd ev)
+        redT  = fst (snd (snd ev))
+        htM   = fst (snd (snd (snd ev)))
+        htN   = fst (snd (snd (snd (snd ev))))
+        v2M   = fst (snd (snd (snd (snd (snd ev)))))
+        v2N   = fst (snd (snd (snd (snd (snd (snd ev))))))
+        eq    = snd (snd (snd (snd (snd (snd (snd ev))))))
+        uniq  = Red-unique-Sigma redT rC
+        eqA0E = fst uniq
+        cb0   = fst cb
+        v2M-E = S.Eq-transport (\ X -> Val2 _ (Fst _) X u' b0) eqA0E v2M
+        v2N-E = S.Eq-transport (\ X -> Val2 _ (Fst _) X u' b0) eqA0E v2N
+        eq-E  = S.Eq-transport (\ X -> EqVal2 _ (Fst _) (Fst _) X u' b0) eqA0E eq
+        htM-E = S.Eq-transport (\ X -> HasType _ (Fst _) X) eqA0E htM
+        htN-E = S.Eq-transport (\ X -> HasType _ (Fst _) X) eqA0E htN
+        redC'-vty = fst (snd (snd vtyC'))
+        uniqC' = Red-unique-Sigma redC'-vty rC'
+        htAc'raw = fst (snd (snd (snd (snd (snd vtyC')))))
+        htE'  = S.Eq-transport (\ X -> HasType _ X _) (fst uniqC') htAc'raw
+        v2M'  = Val2-EqValTy2-fwd u' b0 cb0 eqE v2M-E
+        v2N'  = Val2-EqValTy2-fwd u' b0 cb0 eqE v2N-E
+        eq'   = EqVal2-EqValTy2-fwd u' b0 cb0 eqE eq-E
+        htM'  = ty-conv htM-E convEE' htE'
+        htN'  = ty-conv htN-E convEE' htE'
+    in mkSigma E' (mkSigma F' (mkSigma rC' (mkSigma htM' (mkSigma htN'
+         (mkSigma v2M' (mkSigma v2N' eq'))))))
   EqVal2-EqValTy2-fwd u (PairCode x y) cb eqv ev = tt
 
   ------------------------------------------------------------------------
@@ -1387,12 +1505,12 @@ mutual
         eqA   = fst uniq
         eqB   = snd uniq
         vtAb2' : ValTy2 G A1 b2
-        vtAb2' = Eq-transport (\ X -> ValTy2 G X b2) (Eq-sym eqA) vtAb2
+        vtAb2' = S.Eq-transport (\ X -> ValTy2 G X b2) (Eq-sym eqA) vtAb2
         piEV2' : PiEdgeVal2 G A1 B1 b2 f2
-        piEV2' = Eq-transport (\ Y -> PiEdgeVal2 G A1 Y b2 f2) (Eq-sym eqB)
+        piEV2' = S.Eq-transport (\ Y -> PiEdgeVal2 G A1 Y b2 f2) (Eq-sym eqB)
                    (Eq-transport (\ X -> PiEdgeVal2 G X B2 b2 f2) (Eq-sym eqA) piEV2)
         piEE2' : PiEdgeEq2 G A1 B1 b2 f2
-        piEE2' = Eq-transport (\ Y -> PiEdgeEq2 G A1 Y b2 f2) (Eq-sym eqB)
+        piEE2' = S.Eq-transport (\ Y -> PiEdgeEq2 G A1 Y b2 f2) (Eq-sym eqB)
                    (Eq-transport (\ X -> PiEdgeEq2 G X B2 b2 f2) (Eq-sym eqA) piEE2)
         comp-b = fst comp
         comp-f = snd comp
@@ -1441,15 +1559,15 @@ mutual
               val-u2-b2  = downVal2 _ _ A1 u2 b2 (Sup b1 b2) le-b2-sup fmu2-b2 cb2 supU val-u2-sup
               vt-v1  = piEV1 u1 v1 sel1 N htN val-u1-b1
               vt-v2  = piEV2' u2 v2 sel2 N htN val-u2-b2
-              vt-ef1 = Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-v1) vt-v1
-              vt-ef2 = Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-v2) vt-v2
+              vt-ef1 = S.Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-v1) vt-v1
+              vt-ef2 = S.Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-v2) vt-v2
               comp-ef = comp-EvalFun f1 f2 u comp-f ctf1 cu
               fm-ef1U = EvalFun-in-UCode f1 u b1 ctf1 cu allU1'
               fm-ef2U = EvalFun-in-UCode f2 u b2 ctf2 cu allU2'
               vt-sup  = ValTy2-Sup G (subst1 B1 N) (EvalFun f1 u) (EvalFun f2 u)
                           comp-ef fm-ef1U fm-ef2U vt-ef1 vt-ef2
               eq-app  = EvalFun-append-eq f1 f2 u comp-f ctf1 cu
-              vt-ef-app = Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-app) vt-sup
+              vt-ef-app = S.Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-app) vt-sup
               fmvU   = FinMem-Selection-UCode (Sup b1 b2) sel allU-app ctf-app
               ef-appU = EvalFun-in-UCode (append f1 f2) u (Sup b1 b2) ctf-app cu allU-app
               lf-refl = LeFunCode-refl (append f1 f2) ctf-app
@@ -1483,9 +1601,9 @@ mutual
               eqv-u2-b2  = downEqVal2 _ _ _ A1 u2 b2 (Sup b1 b2) le-b2-sup fmu2-b2 cb2 supU eqv-u2-sup
               eqt-v1 = piEE1 u1 v1 sel1 N1 N2 htN1 htN2 cvN eqv-u1-b1
               eqt-v2 = piEE2' u2 v2 sel2 N1 N2 htN1 htN2 cvN eqv-u2-b2
-              eqt-ef1 = Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
+              eqt-ef1 = S.Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
                           (Eq-sym eq-v1) eqt-v1
-              eqt-ef2 = Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
+              eqt-ef2 = S.Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
                           (Eq-sym eq-v2) eqt-v2
               comp-ef = comp-EvalFun f1 f2 u comp-f ctf1 cu
               fm-ef1U = EvalFun-in-UCode f1 u b1 ctf1 cu allU1'
@@ -1493,7 +1611,7 @@ mutual
               eqt-sup = EqValTy2-Sup G (subst1 B1 N1) (subst1 B1 N2)
                           (EvalFun f1 u) (EvalFun f2 u) comp-ef fm-ef1U fm-ef2U eqt-ef1 eqt-ef2
               eq-app  = EvalFun-append-eq f1 f2 u comp-f ctf1 cu
-              eqt-ef-app = Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
+              eqt-ef-app = S.Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
                              (Eq-sym eq-app) eqt-sup
               fmvU   = FinMem-Selection-UCode (Sup b1 b2) sel allU-app ctf-app
               ef-appU = EvalFun-in-UCode (append f1 f2) u (Sup b1 b2) ctf-app cu allU-app
@@ -1535,12 +1653,12 @@ mutual
         eqA   = fst uniq
         eqB   = snd uniq
         vtAb2' : ValTy2 G A1 b2
-        vtAb2' = Eq-transport (\ X -> ValTy2 G X b2) (Eq-sym eqA) vtAb2
+        vtAb2' = S.Eq-transport (\ X -> ValTy2 G X b2) (Eq-sym eqA) vtAb2
         sEV2' : SigmaEdgeVal2 G A1 B1 b2 f2
-        sEV2' = Eq-transport (\ Y -> SigmaEdgeVal2 G A1 Y b2 f2) (Eq-sym eqB)
+        sEV2' = S.Eq-transport (\ Y -> SigmaEdgeVal2 G A1 Y b2 f2) (Eq-sym eqB)
                    (Eq-transport (\ X -> SigmaEdgeVal2 G X B2 b2 f2) (Eq-sym eqA) sEV2)
         sEE2' : SigmaEdgeEq2 G A1 B1 b2 f2
-        sEE2' = Eq-transport (\ Y -> SigmaEdgeEq2 G A1 Y b2 f2) (Eq-sym eqB)
+        sEE2' = S.Eq-transport (\ Y -> SigmaEdgeEq2 G A1 Y b2 f2) (Eq-sym eqB)
                    (Eq-transport (\ X -> SigmaEdgeEq2 G X B2 b2 f2) (Eq-sym eqA) sEE2)
         comp-b = fst comp
         comp-f = snd comp
@@ -1589,15 +1707,15 @@ mutual
               val-u2-b2  = downVal2 _ _ A1 u2 b2 (Sup b1 b2) le-b2-sup fmu2-b2 cb2 supU val-u2-sup
               vt-v1  = sEV1 u1 v1 sel1 N htN val-u1-b1
               vt-v2  = sEV2' u2 v2 sel2 N htN val-u2-b2
-              vt-ef1 = Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-v1) vt-v1
-              vt-ef2 = Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-v2) vt-v2
+              vt-ef1 = S.Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-v1) vt-v1
+              vt-ef2 = S.Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-v2) vt-v2
               comp-ef = comp-EvalFun f1 f2 u comp-f ctf1 cu
               fm-ef1U = EvalFun-in-UCode f1 u b1 ctf1 cu allU1'
               fm-ef2U = EvalFun-in-UCode f2 u b2 ctf2 cu allU2'
               vt-sup  = ValTy2-Sup G (subst1 B1 N) (EvalFun f1 u) (EvalFun f2 u)
                           comp-ef fm-ef1U fm-ef2U vt-ef1 vt-ef2
               eq-app  = EvalFun-append-eq f1 f2 u comp-f ctf1 cu
-              vt-ef-app = Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-app) vt-sup
+              vt-ef-app = S.Eq-transport (\ x -> ValTy2 G (subst1 B1 N) x) (Eq-sym eq-app) vt-sup
               fmvU   = FinMem-Selection-UCode (Sup b1 b2) sel allU-app ctf-app
               ef-appU = EvalFun-in-UCode (append f1 f2) u (Sup b1 b2) ctf-app cu allU-app
               lf-refl = LeFunCode-refl (append f1 f2) ctf-app
@@ -1631,9 +1749,9 @@ mutual
               eqv-u2-b2  = downEqVal2 _ _ _ A1 u2 b2 (Sup b1 b2) le-b2-sup fmu2-b2 cb2 supU eqv-u2-sup
               eqt-v1 = sEE1 u1 v1 sel1 N1 N2 htN1 htN2 cvN eqv-u1-b1
               eqt-v2 = sEE2' u2 v2 sel2 N1 N2 htN1 htN2 cvN eqv-u2-b2
-              eqt-ef1 = Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
+              eqt-ef1 = S.Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
                           (Eq-sym eq-v1) eqt-v1
-              eqt-ef2 = Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
+              eqt-ef2 = S.Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
                           (Eq-sym eq-v2) eqt-v2
               comp-ef = comp-EvalFun f1 f2 u comp-f ctf1 cu
               fm-ef1U = EvalFun-in-UCode f1 u b1 ctf1 cu allU1'
@@ -1641,7 +1759,7 @@ mutual
               eqt-sup = EqValTy2-Sup G (subst1 B1 N1) (subst1 B1 N2)
                           (EvalFun f1 u) (EvalFun f2 u) comp-ef fm-ef1U fm-ef2U eqt-ef1 eqt-ef2
               eq-app  = EvalFun-append-eq f1 f2 u comp-f ctf1 cu
-              eqt-ef-app = Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
+              eqt-ef-app = S.Eq-transport (\ x -> EqValTy2 G (subst1 B1 N1) (subst1 B1 N2) x)
                              (Eq-sym eq-app) eqt-sup
               fmvU   = FinMem-Selection-UCode (Sup b1 b2) sel allU-app ctf-app
               ef-appU = EvalFun-in-UCode (append f1 f2) u (Sup b1 b2) ctf-app cu allU-app
@@ -1727,10 +1845,10 @@ mutual
         eqAN    = fst uniqN
         eqBN    = snd uniqN
         eqvtA2' : EqValTy2 G AM AN b2
-        eqvtA2' = Eq-transport (\ X -> EqValTy2 G X AN b2) (Eq-sym eqAM)
+        eqvtA2' = S.Eq-transport (\ X -> EqValTy2 G X AN b2) (Eq-sym eqAM)
                     (Eq-transport (\ X -> EqValTy2 G AM2 X b2) (Eq-sym eqAN) eqvtA2)
         piEET2' : PiEdgeEqTy2 G AM BM BN b2 f2
-        piEET2' = Eq-transport (\ X -> PiEdgeEqTy2 G AM BM X b2 f2) (Eq-sym eqBN)
+        piEET2' = S.Eq-transport (\ X -> PiEdgeEqTy2 G AM BM X b2 f2) (Eq-sym eqBN)
                     (Eq-transport (\ X -> PiEdgeEqTy2 G AM X BN2 b2 f2) (Eq-sym eqBM)
                       (Eq-transport (\ X -> PiEdgeEqTy2 G X BM2 BN2 b2 f2) (Eq-sym eqAM) piEET2))
         comp-b  = fst comp
@@ -1780,9 +1898,9 @@ mutual
               val-u2-b2  = downVal2 _ _ AM u2 b2 (Sup b1 b2) le-b2-sup fmu2-b2 cb2 supU val-u2-sup
               eqt-v1  = piEET1 u1 v1 sel1 P htP val-u1-b1
               eqt-v2  = piEET2' u2 v2 sel2 P htP val-u2-b2
-              eqt-ef1 = Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
+              eqt-ef1 = S.Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
                           (Eq-sym eq-v1) eqt-v1
-              eqt-ef2 = Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
+              eqt-ef2 = S.Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
                           (Eq-sym eq-v2) eqt-v2
               comp-ef = comp-EvalFun f1 f2 u comp-f ctf1 cu
               fm-ef1U = EvalFun-in-UCode f1 u b1 ctf1 cu allU1'
@@ -1790,7 +1908,7 @@ mutual
               eqt-sup = EqValTy2-Sup G (subst1 BM P) (subst1 BN P)
                           (EvalFun f1 u) (EvalFun f2 u) comp-ef fm-ef1U fm-ef2U eqt-ef1 eqt-ef2
               eq-app  = EvalFun-append-eq f1 f2 u comp-f ctf1 cu
-              eqt-ef-app = Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
+              eqt-ef-app = S.Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
                              (Eq-sym eq-app) eqt-sup
               fmvU   = FinMem-Selection-UCode (Sup b1 b2) sel allU-app ctf-app
               ef-appU = EvalFun-in-UCode (append f1 f2) u (Sup b1 b2) ctf-app cu allU-app
@@ -1846,10 +1964,10 @@ mutual
         eqAN    = fst uniqN
         eqBN    = snd uniqN
         eqvtA2' : EqValTy2 G AM AN b2
-        eqvtA2' = Eq-transport (\ X -> EqValTy2 G X AN b2) (Eq-sym eqAM)
+        eqvtA2' = S.Eq-transport (\ X -> EqValTy2 G X AN b2) (Eq-sym eqAM)
                     (Eq-transport (\ X -> EqValTy2 G AM2 X b2) (Eq-sym eqAN) eqvtA2)
         sEET2' : SigmaEdgeEqTy2 G AM BM BN b2 f2
-        sEET2' = Eq-transport (\ X -> SigmaEdgeEqTy2 G AM BM X b2 f2) (Eq-sym eqBN)
+        sEET2' = S.Eq-transport (\ X -> SigmaEdgeEqTy2 G AM BM X b2 f2) (Eq-sym eqBN)
                     (Eq-transport (\ X -> SigmaEdgeEqTy2 G AM X BN2 b2 f2) (Eq-sym eqBM)
                       (Eq-transport (\ X -> SigmaEdgeEqTy2 G X BM2 BN2 b2 f2) (Eq-sym eqAM) sEET2))
         comp-b  = fst comp
@@ -1899,9 +2017,9 @@ mutual
               val-u2-b2  = downVal2 _ _ AM u2 b2 (Sup b1 b2) le-b2-sup fmu2-b2 cb2 supU val-u2-sup
               eqt-v1  = sEET1 u1 v1 sel1 P htP val-u1-b1
               eqt-v2  = sEET2' u2 v2 sel2 P htP val-u2-b2
-              eqt-ef1 = Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
+              eqt-ef1 = S.Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
                           (Eq-sym eq-v1) eqt-v1
-              eqt-ef2 = Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
+              eqt-ef2 = S.Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
                           (Eq-sym eq-v2) eqt-v2
               comp-ef = comp-EvalFun f1 f2 u comp-f ctf1 cu
               fm-ef1U = EvalFun-in-UCode f1 u b1 ctf1 cu allU1'
@@ -1909,7 +2027,7 @@ mutual
               eqt-sup = EqValTy2-Sup G (subst1 BM P) (subst1 BN P)
                           (EvalFun f1 u) (EvalFun f2 u) comp-ef fm-ef1U fm-ef2U eqt-ef1 eqt-ef2
               eq-app  = EvalFun-append-eq f1 f2 u comp-f ctf1 cu
-              eqt-ef-app = Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
+              eqt-ef-app = S.Eq-transport (\ x -> EqValTy2 G (subst1 BM P) (subst1 BN P) x)
                              (Eq-sym eq-app) eqt-sup
               fmvU   = FinMem-Selection-UCode (Sup b1 b2) sel allU-app ctf-app
               ef-appU = EvalFun-in-UCode (append f1 f2) u (Sup b1 b2) ctf-app cu allU-app
@@ -2059,7 +2177,7 @@ mutual
         Bv    = fst (snd vty)
         redv  = fst (snd (snd vty))
         vtAb1 : ValTy2 G A0 b1
-        vtAb1 = Eq-transport (\ X -> ValTy2 G X b1) (Eq-sym (fst (Red-unique-Pi red redv)))
+        vtAb1 = S.Eq-transport (\ X -> ValTy2 G X b1) (Eq-sym (fst (Red-unique-Pi red redv)))
                    (fst (snd (snd (snd (snd (snd (snd (snd vty))))))))
         vpi' = mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma sat0
                  (mkSigma (fst mem)
@@ -2084,7 +2202,16 @@ mutual
   downVal2 G M T (FunEl g) (SigmaCode b0 f0) (SigmaCode b1 f1) le mem ca0 ca1 src = tt
   downVal2 G M T (PiCode a' ff) (SigmaCode b0 f0) (SigmaCode b1 f1) le mem ca0 ca1 src = tt
   downVal2 G M T (SigmaCode a' ff) (SigmaCode b0 f0) (SigmaCode b1 f1) le mem ca0 ca1 src = tt
-  downVal2 G M T (PairCode u' v') (SigmaCode b0 f0) (SigmaCode b1 f1) le mem ca0 ca1 src = tt
+  downVal2 G M T (PairCode u' v') (SigmaCode b0 f0) (SigmaCode b1 f1) le mem ca0 ca1 src =
+    let A0   = fst src
+        B0   = fst (snd src)
+        red  = fst (snd (snd src))
+        htF  = fst (snd (snd (snd src)))
+        v2F  = snd (snd (snd (snd src)))
+        cb0  = fst ca0
+        fm-u'-b0 = fst (fst mem)
+        v2F' = downVal2 G (Fst M) A0 u' b0 b1 (fst le) fm-u'-b0 cb0 (fst ca1) v2F
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma htF v2F')))
   -- PairCode: all Val2 cases = Top
   downVal2 G M T Bot (PairCode x0 y0) a1 le mem ca0 ca1 src = tt
   downVal2 G M T UCode (PairCode x0 y0) a1 le mem ca0 ca1 src = tt
@@ -2192,7 +2319,7 @@ mutual
         Bv    = fst (snd vty)
         redv  = fst (snd (snd vty))
         vtAb1 : ValTy2 G A0 b1
-        vtAb1 = Eq-transport (\ X -> ValTy2 G X b1) (Eq-sym (fst (Red-unique-Pi red redv)))
+        vtAb1 = S.Eq-transport (\ X -> ValTy2 G X b1) (Eq-sym (fst (Red-unique-Pi red redv)))
                    (fst (snd (snd (snd (snd (snd (snd (snd vty))))))))
         valM  = mkSigma vty vpiM
         valN  = mkSigma vty vpiN
@@ -2219,7 +2346,22 @@ mutual
   downEqVal2 G M N T (FunEl g) (SigmaCode b0 f0) (SigmaCode b1 f1) le mem ca0 ca1 src = tt
   downEqVal2 G M N T (PiCode a' ff) (SigmaCode b0 f0) (SigmaCode b1 f1) le mem ca0 ca1 src = tt
   downEqVal2 G M N T (SigmaCode a' ff) (SigmaCode b0 f0) (SigmaCode b1 f1) le mem ca0 ca1 src = tt
-  downEqVal2 G M N T (PairCode u' v') (SigmaCode b0 f0) (SigmaCode b1 f1) le mem ca0 ca1 src = tt
+  downEqVal2 G M N T (PairCode u' v') (SigmaCode b0 f0) (SigmaCode b1 f1) le mem ca0 ca1 src =
+    let A0   = fst src
+        B0   = fst (snd src)
+        red  = fst (snd (snd src))
+        htM  = fst (snd (snd (snd src)))
+        htN  = fst (snd (snd (snd (snd src))))
+        v2M  = fst (snd (snd (snd (snd (snd src)))))
+        v2N  = fst (snd (snd (snd (snd (snd (snd src))))))
+        eq   = snd (snd (snd (snd (snd (snd (snd src))))))
+        cb0  = fst ca0
+        fm-u'-b0 = fst (fst mem)
+        v2M' = downVal2 G (Fst M) A0 u' b0 b1 (fst le) fm-u'-b0 cb0 (fst ca1) v2M
+        v2N' = downVal2 G (Fst N) A0 u' b0 b1 (fst le) fm-u'-b0 cb0 (fst ca1) v2N
+        eq'  = downEqVal2 G (Fst M) (Fst N) A0 u' b0 b1 (fst le) fm-u'-b0 cb0 (fst ca1) eq
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma htM (mkSigma htN
+         (mkSigma v2M' (mkSigma v2N' eq'))))))
   -- PairCode: all EqVal2 = Top
   downEqVal2 G M N T Bot (PairCode x0 y0) a1 le mem ca0 ca1 src = tt
   downEqVal2 G M N T UCode (PairCode x0 y0) a1 le mem ca0 ca1 src = tt
@@ -2356,7 +2498,7 @@ mutual
         redM2  = fst (snd (snd vtyM1))
         uniqM  = Red-unique-Pi redM2 redM
         eqAMA  = fst uniqM
-        vtA-b1 = Eq-transport (\ X -> ValTy2 G X b1) eqAMA vtA_M
+        vtA-b1 = S.Eq-transport (\ X -> ValTy2 G X b1) eqAMA vtA_M
         fmem-b0  = fst fmem
         fmemAll0 = fst (snd fmem)
         sat0     = snd (snd fmem)
@@ -2401,7 +2543,7 @@ mutual
         redM2  = fst (snd (snd vtyM1))
         uniqM  = Red-unique-Sigma redM2 redM
         eqAMA  = fst uniqM
-        vtA-b1 = Eq-transport (\ X -> ValTy2 G X b1) eqAMA vtA_M
+        vtA-b1 = S.Eq-transport (\ X -> ValTy2 G X b1) eqAMA vtA_M
         fmem-b0  = fst fmem
         fmemAll0 = fst (snd fmem)
         sat0     = snd (snd fmem)
@@ -2507,7 +2649,7 @@ mutual
         inner-vta1 = snd (snd (snd (snd (snd (snd (snd vta1))))))
         piEVv = fst (snd inner-vta1)
         piEV1 : PiEdgeVal2 G A0 B0 b1 f1
-        piEV1 = Eq-transport (\ Y -> PiEdgeVal2 G A0 Y b1 f1) (Eq-sym (snd uniq))
+        piEV1 = S.Eq-transport (\ Y -> PiEdgeVal2 G A0 Y b1 f1) (Eq-sym (snd uniq))
                   (Eq-transport (\ X -> PiEdgeVal2 G X Bv b1 f1) (Eq-sym (fst uniq)) piEVv)
         vpi' = mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma sat0
                  (mkSigma (fst mem1)
@@ -2529,7 +2671,26 @@ mutual
   upVal2 G M T (PairCode u' v') (SigmaCode b0 f0) (FunEl h) ()
   upVal2 G M T (PairCode u' v') (SigmaCode b0 f0) (PiCode b1 f1) ()
   upVal2 G M T (PairCode u' v') (SigmaCode b0 f0) (PairCode x y) ()
-  upVal2 G M T (PairCode u' v') (SigmaCode b0 f0) (SigmaCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 = tt
+  upVal2 G M T (PairCode u' v') (SigmaCode b0 f0) (SigmaCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 =
+    let A0   = fst src
+        B0   = fst (snd src)
+        red  = fst (snd (snd src))
+        htF  = fst (snd (snd (snd src)))
+        v2F  = snd (snd (snd (snd src)))
+        fm-u'-b0 = fst (fst mem0)
+        fm-u'-b1 = fst (fst mem1)
+        cb0  = fst ca0
+        cb1  = fst ca1
+        -- Get ValTy2 at b1 for the domain A0
+        A1   = fst vta1
+        red1 = fst (snd (snd vta1))
+        uniq = Red-unique-Sigma red red1
+        eqA  = fst uniq
+        inn1 = snd (snd (snd (snd (snd (snd (snd vta1))))))
+        vtAb1-raw = fst inn1
+        vtAb1 = S.Eq-transport (\ X -> ValTy2 _ X b1) (Eq-sym eqA) vtAb1-raw
+        v2F' = upVal2 G (Fst M) A0 u' b0 b1 (fst le) fm-u'-b0 fm-u'-b1 cb0 cb1 v2F vtAb1
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma htF v2F')))
   -- PairCode cases: all Top (need case split on u for reduction)
   -- Bot case already caught above
   upVal2 G M T UCode (PairCode x0 y0) a1 le () mem1 ca0 ca1 src vta1
@@ -2622,7 +2783,7 @@ mutual
         inner-vta1 = snd (snd (snd (snd (snd (snd (snd vta1))))))
         piEVv = fst (snd inner-vta1)
         piEV1 : PiEdgeVal2 G A0 B0 b1 f1
-        piEV1 = Eq-transport (\ Y -> PiEdgeVal2 G A0 Y b1 f1) (Eq-sym (snd uniq))
+        piEV1 = S.Eq-transport (\ Y -> PiEdgeVal2 G A0 Y b1 f1) (Eq-sym (snd uniq))
                   (Eq-transport (\ X -> PiEdgeVal2 G X Bv b1 f1) (Eq-sym (fst uniq)) piEVv)
         valM   = mkSigma vty vpiM
         valN   = mkSigma vty vpiN
@@ -2645,7 +2806,31 @@ mutual
   upEqVal2 G M N T (PairCode u' v') (SigmaCode b0 f0) (FunEl h) ()
   upEqVal2 G M N T (PairCode u' v') (SigmaCode b0 f0) (PiCode b1 f1) ()
   upEqVal2 G M N T (PairCode u' v') (SigmaCode b0 f0) (PairCode x y) ()
-  upEqVal2 G M N T (PairCode u' v') (SigmaCode b0 f0) (SigmaCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 = tt
+  upEqVal2 G M N T (PairCode u' v') (SigmaCode b0 f0) (SigmaCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 =
+    let A0   = fst src
+        B0   = fst (snd src)
+        red  = fst (snd (snd src))
+        htM  = fst (snd (snd (snd src)))
+        htN  = fst (snd (snd (snd (snd src))))
+        v2M  = fst (snd (snd (snd (snd (snd src)))))
+        v2N  = fst (snd (snd (snd (snd (snd (snd src))))))
+        eq   = snd (snd (snd (snd (snd (snd (snd src))))))
+        fm-u'-b0 = fst (fst mem0)
+        fm-u'-b1 = fst (fst mem1)
+        cb0  = fst ca0
+        cb1  = fst ca1
+        A1   = fst vta1
+        red1 = fst (snd (snd vta1))
+        uniq = Red-unique-Sigma red red1
+        eqA  = fst uniq
+        inn1 = snd (snd (snd (snd (snd (snd (snd vta1))))))
+        vtAb1-raw = fst inn1
+        vtAb1 = S.Eq-transport (\ X -> ValTy2 _ X b1) (Eq-sym eqA) vtAb1-raw
+        v2M' = upVal2 G (Fst M) A0 u' b0 b1 (fst le) fm-u'-b0 fm-u'-b1 cb0 cb1 v2M vtAb1
+        v2N' = upVal2 G (Fst N) A0 u' b0 b1 (fst le) fm-u'-b0 fm-u'-b1 cb0 cb1 v2N vtAb1
+        eq'  = upEqVal2 G (Fst M) (Fst N) A0 u' b0 b1 (fst le) fm-u'-b0 fm-u'-b1 cb0 cb1 eq vtAb1
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma htM (mkSigma htN
+         (mkSigma v2M' (mkSigma v2N' eq'))))))
   -- PairCode cases: all Top (Bot case already caught above)
   upEqVal2 G M N T UCode (PairCode x0 y0) a1 le () mem1 ca0 ca1 src vta1
   upEqVal2 G M N T PropCode (PairCode x0 y0) a1 le () mem1 ca0 ca1 src vta1
@@ -2822,7 +3007,16 @@ mutual
   restrictVal2 G M T (PairCode u1 v1) (FunEl g') (SigmaCode b f) ()
   restrictVal2 G M T (PairCode u1 v1) (PiCode a2 f2) (SigmaCode b f) ()
   restrictVal2 G M T (PairCode u1 v1) (SigmaCode a2 f2) (SigmaCode b f) ()
-  restrictVal2 G M T (PairCode u1 v1) (PairCode u2 v2) (SigmaCode b f) le mem fmu src = tt
+  restrictVal2 G M T (PairCode u1 v1) (PairCode u2 v2) (SigmaCode b f) le mem fmu src =
+    let A0   = fst src
+        B0   = fst (snd src)
+        red  = fst (snd (snd src))
+        htF  = fst (snd (snd (snd src)))
+        v2F  = snd (snd (snd (snd src)))
+        fm-u2-b = fst (fst mem)
+        fm-u1-b = fst (fst fmu)
+        v2F' = restrictVal2 G (Fst M) A0 u1 u2 b (fst le) fm-u2-b fm-u1-b v2F
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma htF v2F')))
   restrictVal2 G M T Bot (PairCode u2 v2) (SigmaCode b f) ()
   restrictVal2 G M T UCode (PairCode u2 v2) (SigmaCode b f) ()
   restrictVal2 G M T PropCode (PairCode u2 v2) (SigmaCode b f) ()
@@ -3048,7 +3242,22 @@ mutual
   restrictEqVal2 G M N T (PairCode u1 v1) (FunEl g') (SigmaCode b f) ()
   restrictEqVal2 G M N T (PairCode u1 v1) (PiCode a2 f2) (SigmaCode b f) ()
   restrictEqVal2 G M N T (PairCode u1 v1) (SigmaCode a2 f2) (SigmaCode b f) ()
-  restrictEqVal2 G M N T (PairCode u1 v1) (PairCode u2 v2) (SigmaCode b f) le mem fmu src = tt
+  restrictEqVal2 G M N T (PairCode u1 v1) (PairCode u2 v2) (SigmaCode b f) le mem fmu src =
+    let A0   = fst src
+        B0   = fst (snd src)
+        red  = fst (snd (snd src))
+        htM  = fst (snd (snd (snd src)))
+        htN  = fst (snd (snd (snd (snd src))))
+        v2M  = fst (snd (snd (snd (snd (snd src)))))
+        v2N  = fst (snd (snd (snd (snd (snd (snd src))))))
+        eq   = snd (snd (snd (snd (snd (snd (snd src))))))
+        fm-u2-b = fst (fst mem)
+        fm-u1-b = fst (fst fmu)
+        v2M' = restrictVal2 G (Fst M) A0 u1 u2 b (fst le) fm-u2-b fm-u1-b v2M
+        v2N' = restrictVal2 G (Fst N) A0 u1 u2 b (fst le) fm-u2-b fm-u1-b v2N
+        eq'  = restrictEqVal2 G (Fst M) (Fst N) A0 u1 u2 b (fst le) fm-u2-b fm-u1-b eq
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma htM (mkSigma htN
+         (mkSigma v2M' (mkSigma v2N' eq'))))))
   restrictEqVal2 G M N T Bot (PairCode u2 v2) (SigmaCode b f) ()
   restrictEqVal2 G M N T UCode (PairCode u2 v2) (SigmaCode b f) ()
   restrictEqVal2 G M N T PropCode (PairCode u2 v2) (SigmaCode b f) ()
@@ -3194,11 +3403,11 @@ mutual
             fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
             valN-u1 = restrictVal2 _ _ A u u1 b1 le-u1 fmu1-b1 fmu0-b1 valN-b1
             vt-v1   = pev1 u1 v1 sel1 N htN valN-u1
-            vt-ef   = Eq-transport (\ x -> ValTy2 G (subst1 B N) x) (Eq-sym eq-v1) vt-v1
+            vt-ef   = S.Eq-transport (\ x -> ValTy2 G (subst1 B N) x) (Eq-sym eq-v1) vt-v1
             le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
-            le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
+            le-v-v1 = S.Eq-transport (LeCode v) eq-v1 le-v-ef
             fmem-v-U = FinMem-Selection-UCode b0 sel allU0 cf0
-            v1U = Eq-transport (\ x -> FinMem x UCode) eq-v1
+            v1U = S.Eq-transport (\ x -> FinMem x UCode) eq-v1
                     (EvalFun-in-UCode f1 u b1 cf1 cu allU1)
         in downValTy2 G (subst1 B N) v v1 le-v-v1 fmem-v-U v1U vt-v1
 
@@ -3228,9 +3437,9 @@ mutual
             eqN-u1  = restrictEqVal2 _ _ _ A u u1 b1 le-u1 fmu1-b1 fmu0-b1 eqN-b1
             eqt-v1  = pee1 u1 v1 sel1 N1 N2 htN1 htN2 cvN eqN-u1
             le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
-            le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
+            le-v-v1 = S.Eq-transport (LeCode v) eq-v1 le-v-ef
             fmem-v-U = FinMem-Selection-UCode b0 sel allU0 cf0
-            v1U = Eq-transport (\ x -> FinMem x UCode) eq-v1
+            v1U = S.Eq-transport (\ x -> FinMem x UCode) eq-v1
                     (EvalFun-in-UCode f1 u b1 cf1 cu allU1)
         in downEqValTy2 G (subst1 B N1) (subst1 B N2) v v1 le-v-v1 fmem-v-U v1U eqt-v1
 
@@ -3260,9 +3469,9 @@ mutual
             valP-u1 = restrictVal2 _ _ A u u1 b1 le-u1 fmu1-b1 fmu0-b1 valP-b1
             eqt-v1  = pet1 u1 v1 sel1 P htP valP-u1
             le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
-            le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
+            le-v-v1 = S.Eq-transport (LeCode v) eq-v1 le-v-ef
             fmem-v-U = FinMem-Selection-UCode b0 sel allU0 cf0
-            v1U = Eq-transport (\ x -> FinMem x UCode) eq-v1
+            v1U = S.Eq-transport (\ x -> FinMem x UCode) eq-v1
                     (EvalFun-in-UCode f1 u b1 cf1 cu allU1)
         in downEqValTy2 G (subst1 B P) (subst1 B' P) v v1 le-v-v1 fmem-v-U v1U eqt-v1
 
@@ -3337,7 +3546,7 @@ mutual
             fmu-b1  = finMem-upward u b0 b1 (fst le) cb0 cb1 fmu0 b1U
             valN-u1 = restrictVal2 _ _ A0 u u1 b1 le-u1 fmu1-b1 fmu-b1 valN
             vty-v1  = piEV1 u1 v1 sel1 N htN valN-u1
-            vty-ef1 = Eq-transport (\ x -> ValTy2 G (subst1 B0 N) x) (Eq-sym eq-v1) vty-v1
+            vty-ef1 = S.Eq-transport (\ x -> ValTy2 G (subst1 B0 N) x) (Eq-sym eq-v1) vty-v1
         in upVal2 _ _ (subst1 B0 N) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
              (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
              c-ef0 c-ef1 body vty-ef1
@@ -3376,7 +3585,7 @@ mutual
             fmu-b1  = finMem-upward u b0 b1 (fst le) cb0 cb1 fmu0 b1U
             valN1-u1 = restrictVal2 _ _ A0 u u1 b1 le-u1 fmu1-b1 fmu-b1 valN1-b1
             vty-v1  = piEV1 u1 v1 sel1 N1 htN1 valN1-u1
-            vty-ef1 = Eq-transport (\ x -> ValTy2 G (subst1 B0 N1) x) (Eq-sym eq-v1) vty-v1
+            vty-ef1 = S.Eq-transport (\ x -> ValTy2 G (subst1 B0 N1) x) (Eq-sym eq-v1) vty-v1
         in upEqVal2 _ _ _ (subst1 B0 N1) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
              (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
              c-ef0 c-ef1 body vty-ef1
@@ -3414,7 +3623,7 @@ mutual
             fmu-b1  = finMem-upward u b0 b1 (fst le) cb0 cb1 fmu0 b1U
             valP-u1 = restrictVal2 _ _ A0 u u1 b1 le-u1 fmu1-b1 fmu-b1 valP
             vty-v1  = piEV1 u1 v1 sel1 P htP valP-u1
-            vty-ef1 = Eq-transport (\ x -> ValTy2 G (subst1 B0 P) x) (Eq-sym eq-v1) vty-v1
+            vty-ef1 = S.Eq-transport (\ x -> ValTy2 G (subst1 B0 P) x) (Eq-sym eq-v1) vty-v1
         in upEqVal2 _ _ _ (subst1 B0 P) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
              (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
              c-ef0 c-ef1 body vty-ef1
@@ -3445,7 +3654,7 @@ mutual
         inner-vty = snd (snd (snd (snd (snd (snd (snd vtyT))))))
         piEVv = fst (snd inner-vty)
         piEV : PiEdgeVal2 G A0 B0 b f
-        piEV = Eq-transport (\ Y -> PiEdgeVal2 G A0 Y b f) (Eq-sym (snd uniq))
+        piEV = S.Eq-transport (\ Y -> PiEdgeVal2 G A0 Y b f) (Eq-sym (snd uniq))
                  (Eq-transport (\ X -> PiEdgeVal2 G X Bv b f) (Eq-sym (fst uniq)) piEVv)
     in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg'
          (mkSigma fmg'
@@ -3480,7 +3689,7 @@ mutual
         inner-vty = snd (snd (snd (snd (snd (snd (snd vtyT))))))
         piEVv = fst (snd inner-vty)
         piEV : PiEdgeVal2 G A0 B0 b f
-        piEV = Eq-transport (\ Y -> PiEdgeVal2 G A0 Y b f) (Eq-sym (snd uniq))
+        piEV = S.Eq-transport (\ Y -> PiEdgeVal2 G A0 Y b f) (Eq-sym (snd uniq))
                  (Eq-transport (\ X -> PiEdgeVal2 G X Bv b f) (Eq-sym (fst uniq)) piEVv)
     in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma cg'
          (mkSigma fmg'
@@ -3529,11 +3738,11 @@ mutual
         fmu_f-b  = FinMemAllU-Selection b sel_f allU cf cb bU
         valN-uf  = restrictVal2 _ _ A0 u' u_f b le-uf fmu_f-b fmu'-b valN
         vty-vf   = piEV u_f v_f sel_f N htN valN-uf
-        vty-efu' = Eq-transport (\ x -> ValTy2 G (subst1 B0 N) x) (Eq-sym eq-ef) vty-vf
+        vty-efu' = S.Eq-transport (\ x -> ValTy2 G (subst1 B0 N) x) (Eq-sym eq-ef) vty-vf
         body2    = upVal2 _ _ (subst1 B0 N) v_g (EvalFun f u_g) (EvalFun f u') le-ef
                      fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
         le-v'-efgu' = Selection-le-EvalFun g sel' le ctg' ctg cu'
-        le-v'-vg = Eq-transport (LeCode v') eq-vg le-v'-efgu'
+        le-v'-vg = S.Eq-transport (LeCode v') eq-vg le-v'-efgu'
         fmem-v'-efu' = FinMem-Selection-codomain b f sel' fmg' ctg' cf allU
     in restrictVal2 _ _ (subst1 B0 N) v_g v' (EvalFun f u')
          le-v'-vg fmem-v'-efu' fmem-vg-efu' body2
@@ -3578,11 +3787,11 @@ mutual
         fmu_f-b  = FinMemAllU-Selection b sel_f allU cf cb bU
         valN1-uf = restrictVal2 _ _ A0 u' u_f b le-uf fmu_f-b fmu'-b valN1-b
         vty-vf   = piEV u_f v_f sel_f N1 htN1 valN1-uf
-        vty-efu' = Eq-transport (\ x -> ValTy2 G (subst1 B0 N1) x) (Eq-sym eq-ef) vty-vf
+        vty-efu' = S.Eq-transport (\ x -> ValTy2 G (subst1 B0 N1) x) (Eq-sym eq-ef) vty-vf
         body2    = upEqVal2 _ _ _ (subst1 B0 N1) v_g (EvalFun f u_g) (EvalFun f u') le-ef
                      fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
         le-v'-efgu' = Selection-le-EvalFun g sel' le ctg' ctg cu'
-        le-v'-vg = Eq-transport (LeCode v') eq-vg le-v'-efgu'
+        le-v'-vg = S.Eq-transport (LeCode v') eq-vg le-v'-efgu'
         fmem-v'-efu' = FinMem-Selection-codomain b f sel' fmg' ctg' cf allU
     in restrictEqVal2 _ _ _ (subst1 B0 N1) v_g v' (EvalFun f u')
          le-v'-vg fmem-v'-efu' fmem-vg-efu' body2
@@ -3626,11 +3835,11 @@ mutual
         fmu_f-b  = FinMemAllU-Selection b sel_f allU cf cb bU
         valP-uf  = restrictVal2 _ _ A0 u' u_f b le-uf fmu_f-b fmu'-b valP
         vty-vf   = piEV u_f v_f sel_f P htP valP-uf
-        vty-efu' = Eq-transport (\ x -> ValTy2 G (subst1 B0 P) x) (Eq-sym eq-ef) vty-vf
+        vty-efu' = S.Eq-transport (\ x -> ValTy2 G (subst1 B0 P) x) (Eq-sym eq-ef) vty-vf
         body2    = upEqVal2 _ _ _ (subst1 B0 P) v_g (EvalFun f u_g) (EvalFun f u') le-ef
                      fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
         le-v'-efgu' = Selection-le-EvalFun g sel' le ctg' ctg cu'
-        le-v'-vg = Eq-transport (LeCode v') eq-vg le-v'-efgu'
+        le-v'-vg = S.Eq-transport (LeCode v') eq-vg le-v'-efgu'
         fmem-v'-efu' = FinMem-Selection-codomain b f sel' fmg' ctg' cf allU
     in restrictEqVal2 _ _ _ (subst1 B0 P) v_g v' (EvalFun f u')
          le-v'-vg fmem-v'-efu' fmem-vg-efu' body2
