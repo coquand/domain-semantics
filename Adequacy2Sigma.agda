@@ -75,7 +75,6 @@ open import Validity2Sigma using (
   PiAppVal2 ; PiAppEq2 ; PiAppEqVal2 ;
   SigmaEdgeVal2 ; SigmaEdgeEq2 ; SigmaEdgeEqTy2 ;
   Val2-Bot ; EqVal2-Bot ;
-  Val2-SigmaTop ; EqVal2-SigmaTop ;
   Val2-transport-M ; Val2-transport-A ;
   EqVal2-transport-A ;
   ValTy2-transport ; EqValTy2-transport ;
@@ -728,7 +727,15 @@ mutual
   Val2-beta-expand (FunEl _) (SigmaCode _ _) hr tt = tt
   Val2-beta-expand (PiCode _ _) (SigmaCode _ _) hr tt = tt
   Val2-beta-expand (SigmaCode _ _) (SigmaCode _ _) hr tt = tt
-  Val2-beta-expand (PairCode _ _) (SigmaCode _ _) hr tt = tt
+  Val2-beta-expand (PairCode u' v') (SigmaCode b0 f0) hr val =
+    let A0  = fst val
+        B0  = fst (snd val)
+        red = fst (snd (snd val))
+        v2F = snd (snd (snd val))
+        -- Red G T (Sigma A0 B0) U and HeadRed M' M give Red G T (Sigma A0 B0) U unchanged
+        -- (Red is on T, not on M, and HeadRed is M' → M, so Fst M' → Fst M)
+        v2F' = Val2-beta-expand u' b0 (HeadRed-Fst hr) v2F
+    in mkSigma A0 (mkSigma B0 (mkSigma red v2F'))
   Val2-beta-expand Bot (PairCode _ _) hr tt = tt
   Val2-beta-expand UCode (PairCode _ _) hr tt = tt
   Val2-beta-expand PropCode (PairCode _ _) hr tt = tt
@@ -770,7 +777,13 @@ mutual
   Val2-headred-contract (FunEl _) (SigmaCode _ _) hr tt = tt
   Val2-headred-contract (PiCode _ _) (SigmaCode _ _) hr tt = tt
   Val2-headred-contract (SigmaCode _ _) (SigmaCode _ _) hr tt = tt
-  Val2-headred-contract (PairCode _ _) (SigmaCode _ _) hr tt = tt
+  Val2-headred-contract (PairCode u' v') (SigmaCode b0 f0) hr val =
+    let A0  = fst val
+        B0  = fst (snd val)
+        red = fst (snd (snd val))
+        v2F = snd (snd (snd val))
+        v2F' = Val2-headred-contract u' b0 (HeadRed-Fst hr) v2F
+    in mkSigma A0 (mkSigma B0 (mkSigma red v2F'))
   Val2-headred-contract Bot (PairCode _ _) hr tt = tt
   Val2-headred-contract UCode (PairCode _ _) hr tt = tt
   Val2-headred-contract PropCode (PairCode _ _) hr tt = tt
@@ -824,7 +837,17 @@ mutual
   EqVal2-headred-expand (FunEl _) (SigmaCode _ _) hr1 hr2 tt = tt
   EqVal2-headred-expand (PiCode _ _) (SigmaCode _ _) hr1 hr2 tt = tt
   EqVal2-headred-expand (SigmaCode _ _) (SigmaCode _ _) hr1 hr2 tt = tt
-  EqVal2-headred-expand (PairCode _ _) (SigmaCode _ _) hr1 hr2 tt = tt
+  EqVal2-headred-expand (PairCode u' v') (SigmaCode b0 f0) hr1 hr2 ev =
+    let A0  = fst ev
+        B0  = fst (snd ev)
+        red = fst (snd (snd ev))
+        v2M = fst (snd (snd (snd ev)))
+        v2N = fst (snd (snd (snd (snd ev))))
+        eq  = snd (snd (snd (snd (snd ev))))
+        v2M' = Val2-beta-expand u' b0 (HeadRed-Fst hr1) v2M
+        v2N' = Val2-beta-expand u' b0 (HeadRed-Fst hr2) v2N
+        eq'  = EqVal2-headred-expand u' b0 (HeadRed-Fst hr1) (HeadRed-Fst hr2) eq
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma v2M' (mkSigma v2N' eq'))))
   EqVal2-headred-expand Bot (PairCode _ _) hr1 hr2 tt = tt
   EqVal2-headred-expand UCode (PairCode _ _) hr1 hr2 tt = tt
   EqVal2-headred-expand PropCode (PairCode _ _) hr1 hr2 tt = tt
@@ -878,7 +901,17 @@ mutual
   EqVal2-headred-contract (FunEl _) (SigmaCode _ _) hr1 hr2 tt = tt
   EqVal2-headred-contract (PiCode _ _) (SigmaCode _ _) hr1 hr2 tt = tt
   EqVal2-headred-contract (SigmaCode _ _) (SigmaCode _ _) hr1 hr2 tt = tt
-  EqVal2-headred-contract (PairCode _ _) (SigmaCode _ _) hr1 hr2 tt = tt
+  EqVal2-headred-contract (PairCode u' v') (SigmaCode b0 f0) hr1 hr2 ev =
+    let A0  = fst ev
+        B0  = fst (snd ev)
+        red = fst (snd (snd ev))
+        v2M = fst (snd (snd (snd ev)))
+        v2N = fst (snd (snd (snd (snd ev))))
+        eq  = snd (snd (snd (snd (snd ev))))
+        v2M' = Val2-headred-contract u' b0 (HeadRed-Fst hr1) v2M
+        v2N' = Val2-headred-contract u' b0 (HeadRed-Fst hr2) v2N
+        eq'  = EqVal2-headred-contract u' b0 (HeadRed-Fst hr1) (HeadRed-Fst hr2) eq
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma v2M' (mkSigma v2N' eq'))))
   EqVal2-headred-contract Bot (PairCode _ _) hr1 hr2 tt = tt
   EqVal2-headred-contract UCode (PairCode _ _) hr1 hr2 tt = tt
   EqVal2-headred-contract PropCode (PairCode _ _) hr1 hr2 tt = tt
@@ -1191,7 +1224,14 @@ mutual
   adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH (FunEl g) hu (SigmaCode b' f') evA fm = tt
   adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH (PiCode a'' f'') hu (SigmaCode b' f') evA fm = tt
   adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH (SigmaCode a'' f'') hu (SigmaCode b' f') evA fm = tt
-  adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (SigmaCode b' f') evA fm = tt
+  adequacySub2 (ty-conv {M = M} {A = A} {B = B} d1 d2 dB) sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (SigmaCode b' f') evA fm =
+    let evA'  = convSound-inv d2 rho fits (SigmaCode b' f') evA
+        val   = adequacySub2 d1 sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (SigmaCode b' f') evA' fm
+        aU    = FinMem-a-in-U (PairCode u' v') (SigmaCode b' f') fm
+        evU   = mkSigma tt (LeCode-refl UCode tt)
+        eqAB  = adequacyEqSub2 d2 sigma rho crho vs fits wtsub wfH (SigmaCode b' f') evA' UCode evU aU
+        eqvty = snd (snd eqAB)
+    in Val2-EqValTy2-fwd (PairCode u' v') (SigmaCode b' f') (EvalRel-coh A rho (SigmaCode b' f') evA') eqvty val
   adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH Bot hu (PairCode _ _) evA fm = tt
   adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH UCode hu (PairCode _ _) evA fm = tt
   adequacySub2 (ty-conv d1 d2 dB) sigma rho crho vs fits wtsub wfH PropCode hu (PairCode _ _) evA fm = tt
@@ -1304,7 +1344,28 @@ mutual
   adequacySub2 (ty-MkPair d1 d2 d3 d4) sigma rho crho vs fits wtsub wfH (PairCode u' v') hu PropCode evA fm = tt
   adequacySub2 (ty-MkPair d1 d2 d3 d4) sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (FunEl _) evA fm = tt
   adequacySub2 (ty-MkPair d1 d2 d3 d4) sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (PiCode _ _) evA fm = tt
-  adequacySub2 (ty-MkPair d1 d2 d3 d4) sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (SigmaCode _ _) evA fm = tt
+  adequacySub2 {H = H} (ty-MkPair {A = A} {B = B} {M = M0} {N = N0} d1 d2 d3 d4) sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (SigmaCode b0 f0) evA fm =
+    -- hu : EvalRel (MkPair M0 N0) rho (PairCode u' v') = Pair Coh (Pair (EvalRel M0 rho u') (EvalRel N0 rho v'))
+    -- Need: ValPair2 H (MkPair sM sN) (Sigma sA sB) u' v' b0 f0
+    --   = Σ A₀ B₀. Σ (Red H (Sigma sA sB) (Sigma A₀ B₀) U). Val2 H (Fst (MkPair sM sN)) A₀ u' b0
+    -- Red is reflexive: A₀ = sA, B₀ = sB
+    -- Val2 H (Fst (MkPair sM sN)) sA u' b0 comes from Val2 H sM sA u' b0 via beta-expand
+    let sA  = substExpr sigma A
+        sB  = substExpr (liftSub sigma) B
+        sM  = substExpr sigma M0
+        sN  = substExpr sigma N0
+        evM = fst (snd hu)
+        -- Get EvalRel A rho b0 from evA : EvalRel (SigmaE A B) rho (SigmaCode b0 f0)
+        evA_b0 = fst (snd evA)
+        -- FinMem u' b0 from FinMem (PairCode u' v') (SigmaCode b0 f0)
+        fm_u'_b0 = fst (fst fm)
+        -- Val2 for M at (u', b0)
+        val_M = adequacySub2 d3 sigma rho crho vs fits wtsub wfH u' evM b0 evA_b0 fm_u'_b0
+        -- Beta-expand: Fst (MkPair sM sN) →* sM, so expand Val2 from sM to Fst (MkPair sM sN)
+        hr-beta : HeadRed (Fst (MkPair sM sN)) sM
+        hr-beta = headred-step (headred-beta-fst {M = sM} {N = sN}) headred-refl
+        val_fst = Val2-beta-expand u' b0 hr-beta val_M
+    in mkSigma sA (mkSigma sB (mkSigma (mkRed headred-refl) val_fst))
   adequacySub2 (ty-MkPair d1 d2 d3 d4) sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (PairCode _ _) evA fm = tt
 
   ----------------------------------------------------------------------
@@ -1848,8 +1909,13 @@ mutual
   adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH u hu (FunEl _) () fm
   adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH u hu (PiCode _ _) () fm
   adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH u hu (PairCode _ _) () fm
-  adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH u hu (SigmaCode b f) evA fm =
-    EqVal2-SigmaTop u b f
+  adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH Bot hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH UCode hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH PropCode hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH (FunEl _) hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH (PiCode _ _) hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH (SigmaCode _ _) hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-pair-eta dA dB dM) sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (SigmaCode b f) evA fm = {!!}
 
   ----------------------------------------------------------------------
   -- adequacyEqSub2: conv-MkPair-fst, conv-MkPair-snd
@@ -1863,8 +1929,13 @@ mutual
   adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH u hu (FunEl _) () fm
   adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH u hu (PiCode _ _) () fm
   adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH u hu (PairCode _ _) () fm
-  adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH u hu (SigmaCode b f) evA fm =
-    EqVal2-SigmaTop u b f
+  adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH Bot hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH UCode hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH PropCode hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH (FunEl _) hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH (PiCode _ _) hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH (SigmaCode _ _) hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-fst dA dB dMM' dN) sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (SigmaCode b f) evA fm = {!!}
 
   adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH u hu Bot evA fm = tt
   adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH u hu UCode () fm
@@ -1872,8 +1943,13 @@ mutual
   adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH u hu (FunEl _) () fm
   adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH u hu (PiCode _ _) () fm
   adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH u hu (PairCode _ _) () fm
-  adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH u hu (SigmaCode b f) evA fm =
-    EqVal2-SigmaTop u b f
+  adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH Bot hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH UCode hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH PropCode hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH (FunEl _) hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH (PiCode _ _) hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH (SigmaCode _ _) hu (SigmaCode b f) evA fm = tt
+  adequacyEqSub2 (conv-MkPair-snd dA dB dM dNN') sigma rho crho vs fits wtsub wfH (PairCode u' v') hu (SigmaCode b f) evA fm = {!!}
 
   ----------------------------------------------------------------------
   -- adequacyEqSub2: conv-Fst
@@ -2479,17 +2555,88 @@ mutual
   adequacySub2-Fst-Pi dA dB dM sigma rho crho vs fits wtsub wfH (SigmaCode _ _) hu b f evA fm _ = tt
   adequacySub2-Fst-Pi dA dB dM sigma rho crho vs fits wtsub wfH (PairCode _ _) hu b f evA fm _ = tt
   adequacySub2-Fst-Pi {H = H} {A = A} {B = B} {M = M} dA dB dM sigma rho crho vs fits wtsub wfH (FunEl gu) hu b f evA fm typed =
-    let u'   = fst typed
-        a'   = fst (snd typed)
-        le'  = fst (snd (snd typed))
-        evU' = fst (snd (snd (snd typed)))
-        fm'  = fst (snd (snd (snd (snd typed))))
-        evA' = snd (snd (snd (snd (snd typed))))
-        -- Get Val2 for Fst M at (FunEl gu, a'), then transport to PiCode b f
-        -- But we need theorem1 result re-applied. This reduces to:
-        -- adequacySub2 for the type A at FunEl gu
-        -- TODO: need EvalRel A rho (FunEl gu) from typed evidence
-    in {!!}
+    -- Extract Val2 for Fst sM from M's ValPair2
+    -- hu : EvalRel (Fst M) rho (FunEl gu) = Sigma v. EvalRel M rho (PairCode (FunEl gu) v)
+    let v_snd  = fst hu
+        evM_pair = snd hu
+        -- Enlarge M's evaluation via theorem1
+        typed_M = theorem1 dM rho fits (PairCode (FunEl gu) v_snd) evM_pair
+        u_big   = fst typed_M
+        a_sig   = fst (snd typed_M)
+        le_pair = fst (snd (snd typed_M))
+        evM_big = fst (snd (snd (snd typed_M)))
+        fm_big  = fst (snd (snd (snd (snd typed_M))))
+        evSig   = snd (snd (snd (snd (snd typed_M))))
+    in adequacySub2-Fst-dispatch dA dB dM sigma rho crho vs fits wtsub wfH
+         (FunEl gu) v_snd u_big a_sig le_pair evM_big fm_big evSig
+         b f evA fm
+    where
+      sM = substExpr sigma M
+      sA = substExpr sigma A
+      -- Dispatch on (u_big, a_sig) from theorem1 output
+      adequacySub2-Fst-dispatch : {h' g' : Nat} {H' : Ctx h'} {G' : Ctx g'}
+        {A' : Expr g'} {B' : Expr (suc g')} {M' : Expr g'} ->
+        HasType G' A' U -> HasType (extend G' A') B' U ->
+        HasType G' M' (SigmaE A' B') ->
+        (sigma' : Sub h' g') -> (rho' : EnvApprox g') ->
+        CoherentEnv rho' -> ValidSub2 H' G' sigma' rho' -> Fits G' rho' ->
+        WtSub H' G' sigma' -> WfCtx H' ->
+        (u_fst v_snd' : FinEl) ->
+        (u_big' a_sig' : FinEl) ->
+        LeCode (PairCode u_fst v_snd') u_big' ->
+        EvalRel M' rho' u_big' ->
+        FinMem u_big' a_sig' ->
+        EvalRel (SigmaE A' B') rho' a_sig' ->
+        (b' : FinEl) -> (f' : FinFun) ->
+        EvalRel A' rho' (PiCode b' f') -> FinMem u_fst (PiCode b' f') ->
+        Val2 H' (Fst (substExpr sigma' M')) (substExpr sigma' A') u_fst (PiCode b' f')
+      -- a_sig = Bot: EvalRel (Sigma A B) rho Bot = Top, FinMem u_big Bot forces u_big = Bot,
+      -- but LeCode (PairCode ...) Bot = Empty
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' Bot a_sig' (mkSigma () _) evM_big fm_big evSig b' f' evA' fm'
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' UCode a_sig' (mkSigma () _) evM_big fm_big evSig b' f' evA' fm'
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' PropCode a_sig' (mkSigma () _) evM_big fm_big evSig b' f' evA' fm'
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' (FunEl _) a_sig' (mkSigma () _) evM_big fm_big evSig b' f' evA' fm'
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' (PiCode _ _) a_sig' (mkSigma () _) evM_big fm_big evSig b' f' evA' fm'
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' (SigmaCode _ _) a_sig' (mkSigma () _) evM_big fm_big evSig b' f' evA' fm'
+      -- PairCode case: dispatch on a_sig
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' (PairCode u0 v0) Bot le_pair evM_big () evSig b' f' evA' fm'
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' (PairCode u0 v0) UCode le_pair evM_big () evSig b' f' evA' fm'
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' (PairCode u0 v0) PropCode le_pair evM_big () evSig b' f' evA' fm'
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' (PairCode u0 v0) (FunEl _) le_pair evM_big () evSig b' f' evA' fm'
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' (PairCode u0 v0) (PiCode _ _) le_pair evM_big () evSig b' f' evA' fm'
+      adequacySub2-Fst-dispatch dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' (PairCode u0 v0) (PairCode _ _) le_pair evM_big () evSig b' f' evA' fm'
+      -- The productive case: (PairCode u0 v0, SigmaCode b0 f0)
+      adequacySub2-Fst-dispatch {H' = H'} {A' = A'} {B' = B'} {M' = M'}
+        dA' dB' dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+        u_fst v_snd' (PairCode u0 v0) (SigmaCode b0 f0) le_pair evM_big fm_big evSig b' f' evA' fm' =
+        let -- Get ValPair2 from adequacySub2 dM
+            val_M = adequacySub2 dM' sigma' rho' crho' vs' fits' wtsub' wfH'
+                      (PairCode u0 v0) evM_big (SigmaCode b0 f0) evSig fm_big
+            -- val_M : ValPair2 H' sM' sΣ u0 v0 b0 f0
+            -- Extract: A₀, B₀, Red, HasType (Fst sM') A₀, Val2 (Fst sM') A₀ u0 b0
+            val_fst = snd (snd (snd (snd val_M)))
+            -- val_fst : Val2 H' (Fst sM') A₀ u0 b0
+            -- le_pair gives LeCode u_fst u0 (first component)
+            le_u = fst le_pair
+            -- FinMem u0 b0 from FinMem (PairCode u0 v0) (SigmaCode b0 f0)
+            fm_u0_b0 = fst (fst fm_big)
+            -- Restrict from u0 to u_fst at b0
+            fm_ufst_b0 = FinMem-U-to-PropCode u_fst u0 fm' le_u fm_u0_b0
+            restricted = restrictVal2 H' (Fst (substExpr sigma' M')) (fst val_M) u0 u_fst b0
+                           le_u fm_ufst_b0 fm_u0_b0 val_fst
+        in restricted
 
   adequacySub2-Snd-Pi : {h g : Nat} {H : Ctx h} {G : Ctx g}
     {A : Expr g} {B : Expr (suc g)} {M : Expr g} ->
