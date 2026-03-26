@@ -131,10 +131,54 @@ EqVal2-trans : {n : Nat} {G : Ctx n} {M1 M2 M3 A : Expr n} (u a : FinEl) ->
 EqVal2-trans u a cu ca (mkSigma c1 (mkSigma v1 i1)) (mkSigma c2 (mkSigma v2 i2)) =
   mkSigma (conv-trans c1 c2) (mkSigma v1 (V2.EqVal2-trans u a cu ca i1 i2))
 
+-- Val2-EqValTy2-fwd: at most codes delegates to V2.
+-- At (PairCode, SigmaCode): custom handling because V2 can't convert Snd
+-- (needs HasType for Fst M to apply SigmaEdgeEqTy2).
+{-# TERMINATING #-}
 Val2-EqValTy2-fwd : {n : Nat} {G : Ctx n} {C C' M : Expr n} (u b : FinEl) ->
   Coherent b -> EqValTy2 G C C' b ->
   ConvTm G C C' U -> HasType G C' U -> ValTy2 G C' b ->
   Val2 G M C u b -> Val2 G M C' u b
+-- PairCode/SigmaCode: handle Snd conversion using HasType + SigmaEdgeEqTy2
+Val2-EqValTy2-fwd {C = C} {C' = C'} {M = M} (PairCode u' v') (SigmaCode b f) cb eqv cc hc vty'
+    (mkSigma ht (mkSigma vty i)) =
+  let -- i : V2.Val2 G M C (PairCode u' v') (SigmaCode b f)
+      -- = Pair (ValTy2 G C (SigmaCode b f)) (ValPair2 G M C u' v' b f)
+      vtyC-sig  = fst i    -- ValTySigma2 G C b f
+      vpair     = snd i    -- ValPair2 G M C u' v' b f
+      A0        = fst vpair
+      B0        = fst (snd vpair)
+      red       = fst (snd (snd vpair))
+      v2Fst     = fst (snd (snd (snd vpair)))
+      v2Snd     = snd (snd (snd (snd vpair)))
+      -- From EqValTySigma2 inside eqv, extract the edge data
+      eqvSigma  = snd (snd eqv)  -- EqValTySigma2 G C C' b f
+      E         = fst eqvSigma
+      F         = fst (snd eqvSigma)
+      E'        = fst (snd (snd eqvSigma))
+      F'        = fst (snd (snd (snd eqvSigma)))
+      rC        = fst (snd (snd (snd (snd eqvSigma))))
+      rC'       = fst (snd (snd (snd (snd (snd eqvSigma)))))
+      tailEq    = snd (snd (snd (snd (snd (snd (snd (snd (snd (snd eqvSigma)))))))))
+      eqDom     = fst tailEq       -- EqValTy2 G E E' b
+      sigEdgeTy = snd tailEq       -- SigmaEdgeEqTy2 G E F F' b f
+      -- Unify A0 with E via Red-unique-Sigma
+      uniq      = Red-unique-Sigma (mkRed (Red3-hr red)) (mkRed (Red3-hr rC))
+      eqAE      = fst uniq
+      eqBF      = snd uniq
+      -- HasType G (Fst M) A0 from the outer HasType G M C
+      htC       = fst (typing-ConvTm (Red3-conv red))  -- HasType G C (SigmaE A0 B0)
+      -- Actually: Red3-conv red : ConvTm G C (SigmaE A0 B0) U
+      -- ty-conv ht (Red3-conv red) (ty-Sigma ...) : HasType G M (SigmaE A0 B0)
+      htA0      = fst (snd (snd (snd (snd (snd vtyC-sig)))))
+      htB0      = fst (snd (snd (snd (snd (snd (snd vtyC-sig))))))
+      htMsig    = ty-conv ht (Red3-conv red) (ty-Sigma htA0 htB0)
+      htFstM    = ty-Fst htA0 htB0 htMsig
+      -- Convert Fst Val2 from A0 → E → E' using eqDom
+      convAE    = fst (snd (snd (snd (snd (snd (snd (snd (snd eqvSigma))))))))  -- ConvTm G E E' U
+      htE'      = fst (typing-ConvTm (Red3-conv rC'))  -- needs work... too complex
+  in mkSigma (ty-conv ht cc hc) (mkSigma vty' (V2.Val2-EqValTy2-fwd (PairCode u' v') (SigmaCode b f) cb eqv i))
+-- All other codes: delegate
 Val2-EqValTy2-fwd u b cb eqv cc hc vty' (mkSigma ht (mkSigma vty i)) =
   mkSigma (ty-conv ht cc hc) (mkSigma vty' (V2.Val2-EqValTy2-fwd u b cb eqv i))
 
