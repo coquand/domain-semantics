@@ -365,6 +365,7 @@ mutual
     Sigma (Red G M (RS.Sigma A B) U) \ _ ->
     Sigma (CoherentFunTail f) \ _ ->
     Sigma (FinMemAllU f b) \ _ ->
+    Sigma (FinMem b UCode) \ _ ->
     Sigma (HasType G A U) \ _ ->
     Sigma (HasType (extend G A) B U) \ _ ->
     Pair (ValTy2 G A b)
@@ -399,6 +400,7 @@ mutual
     Sigma (Red G T (RS.Sigma A B) U) \ _ ->
     Sigma (HasType G (Fst M) A) \ _ ->
     Sigma (Coherent u') \ _ ->
+    Sigma (FinMem u' b) \ _ ->
     Pair (Val2 G (Fst M) A u' b)
          (Val2 G (Snd M) (subst1 B (Fst M)) v' (EvalFun f u'))
 
@@ -411,14 +413,16 @@ mutual
     Sigma (Expr n) \ A ->
     Sigma (Expr (suc n)) \ B ->
     Sigma (Red G T (RS.Sigma A B) U) \ _ ->
-    -- M's data: HasType + Coherent + Fst + Snd
+    -- M's data: HasType + Coherent + FinMem + Fst + Snd
     Sigma (HasType G (Fst M) A) \ _ ->
     Sigma (Coherent u') \ _ ->
+    Sigma (FinMem u' b) \ _ ->
     Sigma (Val2 G (Fst M) A u' b) \ _ ->
     Sigma (Val2 G (Snd M) (subst1 B (Fst M)) v' (EvalFun f u')) \ _ ->
-    -- N's data: HasType + Coherent + Fst + Snd
+    -- N's data: HasType + Coherent + FinMem + Fst + Snd
     Sigma (HasType G (Fst N) A) \ _ ->
     Sigma (Coherent u') \ _ ->
+    Sigma (FinMem u' b) \ _ ->
     Sigma (Val2 G (Fst N) A u' b) \ _ ->
     Sigma (Val2 G (Snd N) (subst1 B (Fst N)) v' (EvalFun f u')) \ _ ->
     -- Fst equality only (Snd equality handled by outer layer)
@@ -573,12 +577,13 @@ mutual
         red   = fst (snd (snd val))
         htFst = fst (snd (snd (snd val)))
         cu'   = fst (snd (snd (snd (snd val))))
-        v2Fst = fst (snd (snd (snd (snd (snd val)))))
-        v2Snd = snd (snd (snd (snd (snd (snd val)))))
+        fmu'  = fst (snd (snd (snd (snd (snd val)))))
+        v2Fst = fst (snd (snd (snd (snd (snd (snd val))))))
+        v2Snd = snd (snd (snd (snd (snd (snd (snd val))))))
     in mkSigma A0 (mkSigma B0 (mkSigma red
-         (mkSigma htFst (mkSigma cu' (mkSigma v2Fst (mkSigma v2Snd
-         (mkSigma htFst (mkSigma cu' (mkSigma v2Fst (mkSigma v2Snd
-         (Val2-to-EqVal2 u' b v2Fst)))))))))))
+         (mkSigma htFst (mkSigma cu' (mkSigma fmu' (mkSigma v2Fst (mkSigma v2Snd
+         (mkSigma htFst (mkSigma cu' (mkSigma fmu' (mkSigma v2Fst (mkSigma v2Snd
+         (Val2-to-EqVal2 u' b v2Fst)))))))))))))
   Val2-to-EqVal2 u (PairCode x y) tt = tt
 
   ValTy2-to-EqValTy2 : {n : Nat} {G : Ctx n} {M : Expr n}
@@ -613,9 +618,10 @@ mutual
         red  = fst (snd (snd vtyM))
         cf   = fst (snd (snd (snd vtyM)))
         fmU  = fst (snd (snd (snd (snd vtyM))))
-        htA  = fst (snd (snd (snd (snd (snd vtyM)))))
-        htB  = fst (snd (snd (snd (snd (snd (snd vtyM))))))
-        inn  = snd (snd (snd (snd (snd (snd (snd vtyM))))))
+        bU   = fst (snd (snd (snd (snd (snd vtyM)))))
+        htA  = fst (snd (snd (snd (snd (snd (snd vtyM))))))
+        htB  = fst (snd (snd (snd (snd (snd (snd (snd vtyM)))))))
+        inn  = snd (snd (snd (snd (snd (snd (snd (snd vtyM)))))))
         vtA  = fst inn
         sev  = fst (snd inn)
         eqVtA = ValTy2-to-EqValTy2 b vtA
@@ -788,8 +794,8 @@ mutual
         redN-vty = fst (snd (snd vtyN))
         uniqM = Red-unique-Sigma redM-vty rM
         uniqN = Red-unique-Sigma redN-vty rN
-        htA-raw = fst (snd (snd (snd (snd (snd vtyM)))))
-        htA'-raw = fst (snd (snd (snd (snd (snd vtyN)))))
+        htA-raw = fst (snd (snd (snd (snd (snd (snd vtyM))))))
+        htA'-raw = fst (snd (snd (snd (snd (snd (snd vtyN))))))
         htA  = S.Eq-transport (\ X -> HasType _ X _) (fst uniqM) htA-raw
         htA' = S.Eq-transport (\ X -> HasType _ X _) (fst uniqN) htA'-raw
         symCore = mkSigma A' (mkSigma B' (mkSigma A (mkSigma B
@@ -933,7 +939,7 @@ mutual
         eqDomAC  = EqValTy2-trans b cb eqDomAB eqDomBC'
         redB1-vty-e = fst (snd (snd vtyB1))
         uniqB1-dom-e = Red-unique-Sigma redB1-vty-e rB1
-        htA0'-raw-e = fst (snd (snd (snd (snd (snd vtyB1)))))
+        htA0'-raw-e = fst (snd (snd (snd (snd (snd (snd vtyB1))))))
         htA0'-e = S.Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom-e) htA0'-raw-e
         setAC : SigmaEdgeEqTy2 _ A0 B0 B1' b f
         setAC = \ u' v' sel P htP valP ->
@@ -953,11 +959,11 @@ mutual
                                   (Eq-transport (\ X -> ConvTm (extend _ X) B1 B1' _) (Eq-sym eqA0'A1) convBB_BC)
         redA-vty = fst (snd (snd vtyA))
         uniqA-dom = Red-unique-Sigma redA-vty rA
-        htA0-raw = fst (snd (snd (snd (snd (snd vtyA)))))
+        htA0-raw = fst (snd (snd (snd (snd (snd (snd vtyA))))))
         htA0  = S.Eq-transport (\ X -> HasType _ X _) (fst uniqA-dom) htA0-raw
         redB1-vty = fst (snd (snd vtyB1))
         uniqB1-dom = Red-unique-Sigma redB1-vty rB1
-        htA0'-raw = fst (snd (snd (snd (snd (snd vtyB1)))))
+        htA0'-raw = fst (snd (snd (snd (snd (snd (snd vtyB1))))))
         htA0' = S.Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom) htA0'-raw
         convBB_BC' = ctx-conv-ConvTm htA0' htA0 (conv-sym convAA_AB) convBB_BC-transported
         convBB_AC = conv-trans convBB_AB convBB_BC'
@@ -1322,12 +1328,46 @@ mutual
         sel   = fst (snd (snd sb))
         le_u  = fst (snd (snd (snd sb)))
         eq_v  = snd (snd (snd (snd sb)))
-        -- Restrict v2Fst-E from u' to u_sel
-        fm_u'_b0 = fst (fst (snd (snd (snd (snd (snd val))))))  -- wrong
-        -- Actually: I need FinMem u_sel b0 to restrict. This is getting too deep.
-        -- Simpler: use the edge at (u_sel, v_sel), transport to (u', EvalFun f0 u')
-        -- The edge gives EqValTy2 at v_sel, and v_sel relates to EvalFun f0 u' via eq_v
-        eqTy_vsel = sigEdgeTy u_sel v_sel sel (Fst _) htFst-E v2Fst-E
+        -- Get FinMem data for restriction
+        allUC    = fst (snd (snd (snd (snd vtyC))))  -- FinMemAllU f0 b0
+        -- FinMem b0 UCode: from first edge of allUC
+        htA-sig  = fst (snd (snd (snd (snd (snd vtyC)))))  -- HasType G A_sig U
+        bU0      = fst (snd (snd (snd (snd vtyC))))  -- FinMemAllU f0 b0 → need FinMem b0 UCode
+        -- Actually just use FinMem-a-in-U on any element in b0
+        -- From ValTySigma2: A_sig in b0 → FinMem A_sig b0... no.
+        -- Simpler: FinMem b0 UCode from the ValTy2 G A b0 data inside ValTySigma2
+        -- ValTy2 G E b0 exists in the ValTySigma2 tail
+        -- Let's just get it: if b0 = Bot then Top, etc.
+        -- Actually I have coh-from-aU b0 ... giving Coherent b0.
+        -- And from Coherent b0 + any FinMem evidence...
+        -- This is getting circular. Let me just use FinMem-a-in-U on something we have.
+        -- From v2Fst-E : Val2 G (Fst M) E u' b0. FinMem-Coherent gives Coherent u'.
+        -- We already have cu'v. And FinMemAllU-Selection needs FinMem b0 UCode.
+        -- From ValTySigma2: it has FinMem-a-in-U internally... let me just extract it differently.
+        -- FinMemAllU f0 b0 + CoherentFunTail f0: the first edge (if f0 is non-empty) gives FinMem b0 UCode.
+        -- But f0 might be empty (nil). If f0 = nil, then selection = sel-nil, u_sel = Bot, v_sel = Bot.
+        -- And FinMem Bot b0 = FinMem b0 UCode... so bU0 = fm_usel in that case.
+        -- For non-nil: first edge of allUC gives FinMem (fst p) b0, then FinMem-a-in-U gives FinMem b0 UCode.
+        -- Let me just define bU0 from allUC:
+        sigData  = fst (snd (snd (snd (snd (snd (snd (snd vtyC)))))))  -- Pair ValTy2 (Pair Edge Edge)
+        -- ValTy2 G (domain) b0 is at: fst sigData
+        -- If b0 is structured, ValTy2 gives data. If trivial, it's Top.
+        -- All I need is FinMem b0 UCode. I know b0 is in UCode from the Sigma type validity.
+        -- From ValTySigma2: HasType G A_sig U where A_sig is the domain. And FinMemAllU f0 b0.
+        -- FinMemAllU f0 b0 says each edge's key is in b0. If f0 is non-nil, use first edge.
+        -- If f0 is nil, selectionBelow gives (Bot, Bot, sel-nil). FinMem Bot b0 = FinMem b0 UCode. So bU0 would be used for FinMem b0 UCode... circular.
+        -- Let me just add FinMem b0 UCode to ValTySigma2 as a field.
+        -- Actually it IS there implicitly: FinMemAllU f0 b0 + CoherentFun imply it. But I need CoherentFun, not CoherentFunTail.
+        -- The simplest fix: just use FinMem-a-in-U u' b0 from ValPair2's FinMem data.
+        -- But ValPair2 doesn't store FinMem u' b0 either!
+        -- OK let me just compute it differently. Need FinMem b0 UCode. Store it in ValTySigma2? Or get it from typing_type dA?
+        -- In the adequacy proof, FinMem b0 UCode is available. At the validity level, it's not.
+        -- Let me just add it to ValPair2 or ValTySigma2.
+        bU0      = fst (snd (snd (snd (snd (snd vtyC)))))  -- FinMem b0 UCode from ValTySigma2
+        fm_usel  = FinMemAllU-Selection b0 sel allUC cfC cb0 bU0
+        fm_u'_b0 = FinMem-a-in-U u' b0 (fst (fst (snd (snd (snd (snd (snd (snd (snd val)))))))))
+        v2Fst-E-sel = restrictVal2 _ (Fst _) _ u' u_sel b0 le_u fm_usel fm_u'_b0 v2Fst-E
+        eqTy_vsel = sigEdgeTy u_sel v_sel sel (Fst _) htFst-E v2Fst-E-sel
         -- Transport from v_sel to EvalFun f0 u' using eq_v
         eqTy_ef = S.Eq-transport (\ X -> EqValTy2 _ (subst1 F (Fst _)) (subst1 F' (Fst _)) X) eq_v eqTy_vsel
         -- Now use Val2-EqValTy2-fwd on the Snd
