@@ -26,8 +26,34 @@ open import TypingRules using (Ctx ; empty ; extend ;
   WfCtx ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ;
   conv-Pi ; ty-conv)
-open import Reduction using (Red ; mkRed ; Red-hr ; HeadRed ; HeadRed-trans ;
-  HeadRed-App ; HeadRed-strip-Pi)
+open import Reduction using (HeadRed ; HeadRed-trans ;
+  HeadRed-App ; HeadRed-strip-Pi ;
+  headred-refl ; headred-step)
+
+-- Red3: HeadRed bundled with ConvTm (paper's definition)
+data Red3 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> Set where
+  mkRed3 : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
+    HeadRed M N -> ConvTm G M N A -> Red3 G M N A
+
+Red3-hr : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
+  Red3 G M N A -> HeadRed M N
+Red3-hr (mkRed3 hr _) = hr
+
+Red3-conv : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
+  Red3 G M N A -> ConvTm G M N A
+Red3-conv (mkRed3 _ ct) = ct
+
+Red3-refl : {n : Nat} {G : Ctx n} {M A : Expr n} ->
+  HasType G M A -> Red3 G M M A
+Red3-refl ht = mkRed3 headred-refl (conv-refl ht)
+
+Red3-unique-Pi : {n : Nat} {G : Ctx n} {A B B' : Expr n}
+  {F : Expr (suc n)} {F' : Expr (suc n)} ->
+  Red3 G A (Pi B F) U -> Red3 G A (Pi B' F') U ->
+  Pair (Eq B B') (Eq F F')
+Red3-unique-Pi (mkRed3 r1 _) (mkRed3 r2 _) = HeadRed3-unique-Pi r1 r2
+  where
+    open import Reduction using (HeadRed3-unique-Pi)
 open import PaperSemantics using (EvalFun ;
   CoherentFun ; FinMemFun ; FinMemAllU ;
   Coherent ; Comp ; Sup ;
@@ -51,7 +77,7 @@ open import Selection using (Selection ;
   FinMemAllU-Selection ; FinMem-Selection-UCode ;
   FinMem-Selection ; FinMem-Selection-codomain ;
   selectionBelow ; Selection-le-EvalFun ; sel-nil)
-open import Validity using (Red-unique-Pi ;
+open import Validity using (
   Coherent-Selection ; Coherent-Selection-val ;
   bU-from-cf-fmFun)
 open import SubstitutionLemma using (typing-ConvTm ; ctx-conv-ConvTm ; ctx-conv-HasType)
@@ -240,7 +266,7 @@ mutual
   ValTyPi2 {n} G M b f =
     Sigma (Expr n) \ A ->
     Sigma (Expr (suc n)) \ B ->
-    Sigma (Red G M (Pi A B) U) \ _ ->
+    Sigma (Red3 G M (Pi A B) U) \ _ ->
     Sigma (CoherentFunTail f) \ _ ->
     Sigma (FinMemAllU f b) \ _ ->
     Sigma (HasType G A U) \ _ ->
@@ -258,8 +284,8 @@ mutual
     Sigma (Expr (suc n)) \ B ->
     Sigma (Expr n) \ A' ->
     Sigma (Expr (suc n)) \ B' ->
-    Sigma (Red G M (Pi A B) U) \ _ ->
-    Sigma (Red G N (Pi A' B') U) \ _ ->
+    Sigma (Red3 G M (Pi A B) U) \ _ ->
+    Sigma (Red3 G N (Pi A' B') U) \ _ ->
     Sigma (CoherentFunTail f) \ _ ->
     Sigma (FinMemAllU f b) \ _ ->
     Sigma (ConvTm G A A' U) \ _ ->
@@ -274,7 +300,7 @@ mutual
   ValPi2 {n} G M A g b f =
     Sigma (Expr n) \ A0 ->
     Sigma (Expr (suc n)) \ B0 ->
-    Sigma (Red G A (Pi A0 B0) U) \ _ ->
+    Sigma (Red3 G A (Pi A0 B0) U) \ _ ->
     Sigma (CoherentFun g) \ _ ->
     Sigma (FinMemFun g b f) \ _ ->
     Pair (PiAppVal2 G M A0 B0 b f g)
@@ -287,7 +313,7 @@ mutual
   EqValPi2 {n} G M N A g b f =
     Sigma (Expr n) \ A0 ->
     Sigma (Expr (suc n)) \ B0 ->
-    Sigma (Red G A (Pi A0 B0) U) \ _ ->
+    Sigma (Red3 G A (Pi A0 B0) U) \ _ ->
     Sigma (CoherentFun g) \ _ ->
     Sigma (FinMemFun g b f) \ _ ->
     PiAppEqVal2 G M N A0 B0 b f g
@@ -491,11 +517,11 @@ mutual
         -- For sym: need HasType at core's A and A'
         -- htA from vtyM is at fst vtyM, need at A = fst core
         -- htA from vtyN is at fst vtyN, need at A' = fst (snd (snd core))
-        -- Use Red-unique-Pi to bridge
+        -- Use Red3-unique-Pi to bridge
         redM-vty = fst (snd (snd vtyM))
         redN-vty = fst (snd (snd vtyN))
-        uniqM = Red-unique-Pi redM-vty rM
-        uniqN = Red-unique-Pi redN-vty rN
+        uniqM = Red3-unique-Pi redM-vty rM
+        uniqN = Red3-unique-Pi redN-vty rN
         htA-raw = fst (snd (snd (snd (snd (snd vtyM)))))
         htA'-raw = fst (snd (snd (snd (snd (snd vtyN)))))
         htA  = Eq-transport (\ X -> HasType _ X _) (fst uniqM) htA-raw
@@ -558,7 +584,7 @@ mutual
         tailBC = snd (snd (snd (snd (snd (snd (snd (snd (snd (snd coreBC)))))))))
         eqDomBC = fst tailBC
         petBC   = snd tailBC
-        uniq = Red-unique-Pi rB1 rB2
+        uniq = Red3-unique-Pi rB1 rB2
         eqA0'A1 = fst uniq
         eqB0'B1 = snd uniq
         cb = fst cu
@@ -566,7 +592,7 @@ mutual
         eqDomAC  = EqValTy2-trans b cb eqDomAB eqDomBC'
         -- htA0' needed early for petAC
         redB1-vty-e = fst (snd (snd vtyB1))
-        uniqB1-dom-e = Red-unique-Pi redB1-vty-e rB1
+        uniqB1-dom-e = Red3-unique-Pi redB1-vty-e rB1
         htA0'-raw-e = fst (snd (snd (snd (snd (snd vtyB1)))))
         htA0'-e = Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom-e) htA0'-raw-e
         petAC : PiEdgeEqTy2 _ A0 B0 B1' b f
@@ -582,7 +608,7 @@ mutual
               cv' = coh-from-aU v' (FinMem-Selection-UCode b sel fmU1 cf1)
           in EqValTy2-trans v' cv' eqt1 eqt2'
         -- For convAA_trans: convAA_AB : ConvTm G A0 A0' U, convAA_BC : ConvTm G A1 A1' U
-        -- A0' = A1 by Red-unique-Pi (Eq), so transport convAA_BC
+        -- A0' = A1 by Red3-unique-Pi (Eq), so transport convAA_BC
         convAA_BC' = Eq-transport (\ X -> ConvTm _ X A1' _) (Eq-sym eqA0'A1) convAA_BC
         convAA_AC = conv-trans convAA_AB convAA_BC'
         -- For convBB_trans: convBB_AB : ConvTm (extend G A0) B0 B0' U
@@ -594,12 +620,12 @@ mutual
         -- ctx-conv from (extend G A0') to (extend G A0)
         -- htA from vtyA is at fst vtyA, need at A0 = fst coreAB
         redA-vty = fst (snd (snd vtyA))
-        uniqA-dom = Red-unique-Pi redA-vty rA
+        uniqA-dom = Red3-unique-Pi redA-vty rA
         htA0-raw = fst (snd (snd (snd (snd (snd vtyA)))))
         htA0  = Eq-transport (\ X -> HasType _ X _) (fst uniqA-dom) htA0-raw
         -- htA from vtyB1 is at fst vtyB1, need at A0' = fst (snd (snd coreAB))
         redB1-vty = fst (snd (snd vtyB1))
-        uniqB1-dom = Red-unique-Pi redB1-vty rB1
+        uniqB1-dom = Red3-unique-Pi redB1-vty rB1
         htA0'-raw = fst (snd (snd (snd (snd (snd vtyB1)))))
         htA0' = Eq-transport (\ X -> HasType _ X _) (fst uniqB1-dom) htA0'-raw
         convBB_BC' = ctx-conv-ConvTm htA0' htA0 (conv-sym convAA_AB) convBB_BC-transported
@@ -704,7 +730,7 @@ mutual
         By     = fst (snd epi2)
         redAy  = fst (snd (snd epi2))
         paev2  = snd (snd (snd (snd (snd epi2))))
-        uniq   = Red-unique-Pi redAx redAy
+        uniq   = Red3-unique-Pi redAx redAy
         eqA0   = fst uniq
         eqB0   = snd uniq
         paev2' : PiAppEqVal2 _ _ _ Ax Bx b f g
@@ -771,7 +797,7 @@ mutual
         Ac-C  = fst vtyC
         redCv = fst (snd (snd vtyC))
         htAc  = fst (snd (snd (snd (snd (snd vtyC)))))
-        uniqC2 = Red-unique-Pi redCv rC
+        uniqC2 = Red3-unique-Pi redCv rC
         htE   = Eq-transport (\ X -> HasType _ X _) (fst uniqC2) htAc
         -- Extract from val : Val2 G M C (FunEl g) (PiCode b0 f0)
         --   = Pair (ValTy2 G C (PiCode b0 f0)) (ValPi2 G M C g b0 f0)
@@ -783,7 +809,7 @@ mutual
         fmg  = fst (snd (snd (snd (snd vpiM))))
         pav  = fst (snd (snd (snd (snd (snd vpiM)))))
         pae  = snd (snd (snd (snd (snd (snd vpiM)))))
-        uniq = Red-unique-Pi redC rC
+        uniq = Red3-unique-Pi redC rC
         eqA0E = fst uniq
         eqB0F = snd uniq
         pav-EF : PiAppVal2 _ _ E F b0 f0 g
@@ -890,7 +916,7 @@ mutual
         Ac-Ceq  = fst vtyC
         redCv-eq = fst (snd (snd vtyC))
         htAc-eq = fst (snd (snd (snd (snd (snd vtyC)))))
-        uniqC2-eq = Red-unique-Pi redCv-eq rC
+        uniqC2-eq = Red3-unique-Pi redCv-eq rC
         htE-eq  = Eq-transport (\ X -> HasType _ X _) (fst uniqC2-eq) htAc-eq
         -- ev : EqVal2 G M N C (FunEl g) (PiCode b0 f0)
         --    = Pair ValTy2 (Pair ValPi2_M (Pair ValPi2_N EqValPi2))
@@ -905,7 +931,7 @@ mutual
         cg    = fst (snd (snd (snd epi)))
         fmg   = fst (snd (snd (snd (snd epi))))
         paev  = snd (snd (snd (snd (snd epi))))
-        uniq = Red-unique-Pi redC rC
+        uniq = Red3-unique-Pi redC rC
         eqA0E = fst uniq
         eqB0F = snd uniq
         cb0 = fst cb
@@ -995,7 +1021,7 @@ mutual
         vtAb2 = fst inn2
         piEV2 = fst (snd inn2)
         piEE2 = snd (snd inn2)
-        uniq  = Red-unique-Pi red1 red2
+        uniq  = Red3-unique-Pi red1 red2
         eqA   = fst uniq
         eqB   = snd uniq
         vtAb2' : ValTy2 G A1 b2
@@ -1175,10 +1201,10 @@ mutual
         innEq2  = snd (snd (snd (snd (snd (snd (snd (snd (snd (snd eqPi2)))))))))
         eqvtA2  = fst innEq2
         piEET2  = snd innEq2
-        uniqM   = Red-unique-Pi redM1 redM2
+        uniqM   = Red3-unique-Pi redM1 redM2
         eqAM    = fst uniqM
         eqBM    = snd uniqM
-        uniqN   = Red-unique-Pi redN1 redN2
+        uniqN   = Red3-unique-Pi redN1 redN2
         eqAN    = fst uniqN
         eqBN    = snd uniqN
         eqvtA2' : EqValTy2 G AM AN b2
@@ -1324,7 +1350,7 @@ mutual
         Bv    = fst (snd vty)
         redv  = fst (snd (snd vty))
         vtAb1 : ValTy2 G A0 b1
-        vtAb1 = Eq-transport (\ X -> ValTy2 G X b1) (Eq-sym (fst (Red-unique-Pi red redv)))
+        vtAb1 = Eq-transport (\ X -> ValTy2 G X b1) (Eq-sym (fst (Red3-unique-Pi red redv)))
                    (fst (snd (snd (snd (snd (snd (snd (snd vty))))))))
         vpi' = mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma sat0
                  (mkSigma (fst mem)
@@ -1378,7 +1404,7 @@ mutual
         Bv    = fst (snd vty)
         redv  = fst (snd (snd vty))
         vtAb1 : ValTy2 G A0 b1
-        vtAb1 = Eq-transport (\ X -> ValTy2 G X b1) (Eq-sym (fst (Red-unique-Pi red redv)))
+        vtAb1 = Eq-transport (\ X -> ValTy2 G X b1) (Eq-sym (fst (Red3-unique-Pi red redv)))
                    (fst (snd (snd (snd (snd (snd (snd (snd vty))))))))
         valM  = mkSigma vty vpiM
         valN  = mkSigma vty vpiN
@@ -1466,7 +1492,7 @@ mutual
         A_M    = fst vtyM1
         vtA_M  = fst (snd (snd (snd (snd (snd (snd (snd vtyM1)))))))
         redM2  = fst (snd (snd vtyM1))
-        uniqM  = Red-unique-Pi redM2 redM
+        uniqM  = Red3-unique-Pi redM2 redM
         eqAMA  = fst uniqM
         vtA-b1 = Eq-transport (\ X -> ValTy2 G X b1) eqAMA vtA_M
         fmem-b0  = fst fmem
@@ -1573,7 +1599,7 @@ mutual
         Av   = fst vta1
         Bv   = fst (snd vta1)
         redv = fst (snd (snd vta1))
-        uniq = Red-unique-Pi red redv
+        uniq = Red3-unique-Pi red redv
         inner-vta1 = snd (snd (snd (snd (snd (snd (snd vta1))))))
         piEVv = fst (snd inner-vta1)
         piEV1 : PiEdgeVal2 G A0 B0 b1 f1
@@ -1662,7 +1688,7 @@ mutual
         Av    = fst vta1
         Bv    = fst (snd vta1)
         redv  = fst (snd (snd vta1))
-        uniq  = Red-unique-Pi red redv
+        uniq  = Red3-unique-Pi red redv
         inner-vta1 = snd (snd (snd (snd (snd (snd (snd vta1))))))
         piEVv = fst (snd inner-vta1)
         piEV1 : PiEdgeVal2 G A0 B0 b1 f1
@@ -2550,7 +2576,7 @@ mutual
         Av   = fst vtyT
         Bv   = fst (snd vtyT)
         redv = fst (snd (snd vtyT))
-        uniq = Red-unique-Pi red redv
+        uniq = Red3-unique-Pi red redv
         inner-vty = snd (snd (snd (snd (snd (snd (snd vtyT))))))
         piEVv = fst (snd inner-vty)
         piEV : PiEdgeVal2 G A0 B0 b f
@@ -2586,7 +2612,7 @@ mutual
         Av   = fst vtyT
         Bv   = fst (snd vtyT)
         redv = fst (snd (snd vtyT))
-        uniq = Red-unique-Pi red redv
+        uniq = Red3-unique-Pi red redv
         inner-vty = snd (snd (snd (snd (snd (snd (snd vtyT))))))
         piEVv = fst (snd inner-vty)
         piEV : PiEdgeVal2 G A0 B0 b f
