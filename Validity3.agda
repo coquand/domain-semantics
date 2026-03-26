@@ -3,294 +3,115 @@
 ------------------------------------------------------------------------
 -- Validity3.agda
 --
--- Full paper bundling: Val2 bundles HasType, EqVal2 bundles ConvTm,
--- at EVERY code pair. Red3 bundles HeadRed + ConvTm.
+-- Full paper bundling: Val2 = Pair HasType V2.Val2,
+--                      EqVal2 = Pair ConvTm V2.EqVal2.
+-- All transport functions delegate to Validity2.
 --
--- Pi + U only (no Prop, no Sigma). Test for the design.
--- 0 postulates.
+-- Pi + U + Prop. 0 postulates.
 ------------------------------------------------------------------------
 
 module Validity3 where
 
 import Basic as S
-open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ;
-              fst ; snd ; Pair ; Eq ; refl ; Eq-transport ; Eq-sym ;
-              Eq-cong ;
-              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun ;
-              List ; nil ; cons)
-open import RawSyntax using (Expr ; Var ; U ; Pi ; Lam ; App ; wkExpr ;
-  subst1 ; Fin ; fzero ; fsuc)
-open import TypingRules using (Ctx ; empty ; extend ;
+open S using (Nat ; zero ; suc ; Top ; tt ; Sigma ; mkSigma ;
+              fst ; snd ; Pair ; Eq ; refl ;
+              FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; FinFun)
+open import RawSyntax using (Expr ; U ; Pi ; subst1)
+open import TypingRules using (Ctx ; extend ;
   HasType ; ConvTm ;
-  WfCtx ;
-  ty-conv ; conv-refl ; conv-sym ; conv-trans ; conv-conv ;
-  conv-Pi)
-open import Reduction using (HeadRed ; HeadRed-trans ;
-  HeadRed-App ; HeadRed-strip-Pi ; HeadRed-unique-Pi ;
-  headred-refl ; headred-step)
+  ty-conv ; conv-refl ; conv-sym ; conv-trans ; conv-conv)
+open import Reduction using (HeadRed ; headred-refl)
 open import SubstitutionLemma using (typing-ConvTm)
-open import PaperSemantics using (EvalFun ;
-  CoherentFun ; FinMemFun ; FinMemAllU ;
-  Coherent ; CoherentFunTail ;
-  FinMem ; LeCode ; LeCode-refl ; LeCode-trans ;
-  Comp ; Comp-down ; Sup ;
-  coh-from-aU ; cft-from-cf ; FinMem-coh-u ;
-  LeCode-Sup-left ; LeCode-Sup-right ;
-  Coherent-Sup ; Coherent-EvalFun ;
-  FinMem-a-in-U ; finMem-upward ;
-  finMem-Sup-left ; finMem-Sup-right ;
-  finMemUCode-Sup ; EvalFun-mon-arg ;
-  EvalFun-in-UCode)
-open import Validity using (
-  Selection ; sel-nil ; sel-skip ; sel-take ;
-  Selection-le-EvalFun ; Coherent-Selection ; Coherent-Selection-val ;
-  bU-from-cf-fmU)
+open import PaperSemantics using (Coherent ; EvalFun ; FinMem ;
+  LeCode ; Comp ; Sup)
 
--- Red3: HeadRed bundled with ConvTm
-data Red3 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> Set where
-  mkRed3 : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
-    HeadRed M N -> ConvTm G M N A -> Red3 G M N A
+import Validity2 as V2
 
-Red3-hr : {n : Nat} {G : Ctx n} {M N A : Expr n} -> Red3 G M N A -> HeadRed M N
-Red3-hr (mkRed3 hr _) = hr
-
-Red3-conv : {n : Nat} {G : Ctx n} {M N A : Expr n} -> Red3 G M N A -> ConvTm G M N A
-Red3-conv (mkRed3 _ ct) = ct
-
-Red3-refl : {n : Nat} {G : Ctx n} {M A : Expr n} -> HasType G M A -> Red3 G M M A
-Red3-refl ht = mkRed3 headred-refl (conv-refl ht)
-
-Red3-unique-Pi : {n : Nat} {G : Ctx n} {A B B' : Expr n}
-  {F : Expr (suc n)} {F' : Expr (suc n)} ->
-  Red3 G A (Pi B F) U -> Red3 G A (Pi B' F') U -> Pair (Eq B B') (Eq F F')
-Red3-unique-Pi (mkRed3 r1 _) (mkRed3 r2 _) = HeadRed-unique-Pi r1 r2
+-- Re-export inner types unchanged
+open V2 public using (
+  ValTy2 ; EqValTy2 ;
+  ValTyPi2 ; EqValTyPi2 ;
+  ValPi2 ; EqValPi2 ;
+  PiEdgeVal2 ; PiEdgeEq2 ; PiEdgeEqTy2 ;
+  PiAppVal2 ; PiAppEq2 ; PiAppEqVal2 ;
+  ValTy2-Sup ; EqValTy2-sym ;
+  FinMem-Coherent)
 
 ------------------------------------------------------------------------
--- Mutual definitions — full paper bundling
+-- Outer layer
 ------------------------------------------------------------------------
 
-{-# TERMINATING #-}
-mutual
+Val2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> FinEl -> Set
+Val2 G M A u a = Pair (HasType G M A) (V2.Val2 G M A u a)
 
-  -- Val2: HasType at leaves, structured + HasType at Pi codes
-  Val2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> FinEl -> Set
+EqVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> FinEl -> FinEl -> Set
+EqVal2 G M N A u a = Pair (ConvTm G M N A) (V2.EqVal2 G M N A u a)
 
-  EqVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n ->
-    FinEl -> FinEl -> Set
+Val2-ht : {n : Nat} {G : Ctx n} {M A : Expr n} {u a : FinEl} -> Val2 G M A u a -> HasType G M A
+Val2-ht = fst
 
-  ValTy2 : {n : Nat} -> Ctx n -> Expr n -> FinEl -> Set
-  EqValTy2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> Set
-  ValTyPi2 : {n : Nat} -> Ctx n -> Expr n -> FinEl -> FinFun -> Set
-  EqValTyPi2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> FinFun -> Set
-  ValPi2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinFun -> FinEl -> FinFun -> Set
-  EqValPi2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n ->
-    FinFun -> FinEl -> FinFun -> Set
-  PiEdgeVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> Set
-  PiEdgeEq2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> Set
-  PiEdgeEqTy2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) ->
-    Expr (suc n) -> FinEl -> FinFun -> Set
-  PiAppVal2 : {n : Nat} -> Ctx n -> Expr n ->
-    Expr n -> Expr (suc n) -> FinEl -> FinFun -> FinFun -> Set
-  PiAppEq2 : {n : Nat} -> Ctx n -> Expr n ->
-    Expr n -> Expr (suc n) -> FinEl -> FinFun -> FinFun -> Set
-  PiAppEqVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr n ->
-    Expr n -> Expr (suc n) -> FinEl -> FinFun -> FinFun -> Set
+EqVal2-ct : {n : Nat} {G : Ctx n} {M N A : Expr n} {u a : FinEl} -> EqVal2 G M N A u a -> ConvTm G M N A
+EqVal2-ct = fst
 
-  -- FinMem-Coherent
-  FinMem-Coherent : (u a : FinEl) -> FinMem u a -> Coherent u
-  FinMem-Coherent u a fm = FinMem-coh-u u a fm
+Val2-Bot : {n : Nat} {G : Ctx n} {M A : Expr n} -> HasType G M A -> (a : FinEl) -> Val2 G M A Bot a
+Val2-Bot ht a = mkSigma ht (V2.Val2-Bot a)
 
-  --------------------------------------------------------------------
-  -- Val2: HasType G M A at every code pair
-  --------------------------------------------------------------------
+EqVal2-Bot : {n : Nat} {G : Ctx n} {M N A : Expr n} -> ConvTm G M N A -> (a : FinEl) -> EqVal2 G M N A Bot a
+EqVal2-Bot ct a = mkSigma ct (V2.EqVal2-Bot a)
 
-  Val2 G M A u Bot              = HasType G M A
-  Val2 G M A Bot UCode          = HasType G M A
-  Val2 G M A UCode UCode        = Pair (HasType G M A) (ValTy2 G M UCode)
-  Val2 G M A (FunEl g) UCode    = Pair (HasType G M A) (ValTy2 G M (FunEl g))
-  Val2 G M A (PiCode a' f') UCode = Pair (HasType G M A) (ValTy2 G M (PiCode a' f'))
-  Val2 G M A PropCode UCode     = HasType G M A
-  Val2 G M A (PiCode a' f') PropCode = Pair (HasType G M A) (ValTy2 G M (PiCode a' f'))
-  Val2 G M A Bot PropCode            = HasType G M A
-  Val2 G M A UCode PropCode          = HasType G M A
-  Val2 G M A PropCode PropCode       = HasType G M A
-  Val2 G M A (FunEl g) PropCode      = HasType G M A
-  Val2 G M A u (FunEl h)        = HasType G M A
-  Val2 G M A Bot            (PiCode b f) = HasType G M A
-  Val2 G M A UCode          (PiCode b f) = HasType G M A
-  Val2 G M A PropCode       (PiCode b f) = HasType G M A
-  Val2 G M A (FunEl g)      (PiCode b f) =
-    Pair (HasType G M A)
-         (Pair (ValTy2 G A (PiCode b f)) (ValPi2 G M A g b f))
-  Val2 G M A (PiCode a' f') (PiCode b f) = HasType G M A
+Val2-transport-M : {n : Nat} {G : Ctx n} {M M' A : Expr n} {u a : FinEl} -> Eq M M' -> Val2 G M A u a -> Val2 G M' A u a
+Val2-transport-M refl v = v
 
-  --------------------------------------------------------------------
-  -- EqVal2: ConvTm G M N A at every code pair
-  --------------------------------------------------------------------
+Val2-transport-A : {n : Nat} {G : Ctx n} {M A A' : Expr n} {u a : FinEl} -> Eq A A' -> Val2 G M A u a -> Val2 G M A' u a
+Val2-transport-A refl v = v
 
-  EqVal2 G M N A u Bot              = ConvTm G M N A
-  EqVal2 G M N A Bot UCode          = ConvTm G M N A
-  EqVal2 G M N A UCode UCode        =
-    Pair (ConvTm G M N A)
-         (Pair (ValTy2 G M UCode) (Pair (ValTy2 G N UCode) (EqValTy2 G M N UCode)))
-  EqVal2 G M N A (FunEl g) UCode    =
-    Pair (ConvTm G M N A)
-         (Pair (ValTy2 G M (FunEl g)) (Pair (ValTy2 G N (FunEl g)) (EqValTy2 G M N (FunEl g))))
-  EqVal2 G M N A (PiCode a' f') UCode =
-    Pair (ConvTm G M N A)
-         (Pair (ValTy2 G M (PiCode a' f')) (Pair (ValTy2 G N (PiCode a' f')) (EqValTy2 G M N (PiCode a' f'))))
-  EqVal2 G M N A PropCode UCode    = ConvTm G M N A
-  EqVal2 G M N A (PiCode a' f') PropCode =
-    Pair (ConvTm G M N A)
-         (Pair (ValTy2 G M (PiCode a' f')) (Pair (ValTy2 G N (PiCode a' f')) (EqValTy2 G M N (PiCode a' f'))))
-  EqVal2 G M N A Bot PropCode            = ConvTm G M N A
-  EqVal2 G M N A UCode PropCode          = ConvTm G M N A
-  EqVal2 G M N A PropCode PropCode       = ConvTm G M N A
-  EqVal2 G M N A (FunEl g) PropCode      = ConvTm G M N A
-  EqVal2 G M N A u (FunEl h)       = ConvTm G M N A
-  EqVal2 G M N A Bot            (PiCode b f) = ConvTm G M N A
-  EqVal2 G M N A UCode          (PiCode b f) = ConvTm G M N A
-  EqVal2 G M N A PropCode       (PiCode b f) = ConvTm G M N A
-  EqVal2 G M N A (FunEl g)      (PiCode b f) =
-    Pair (ConvTm G M N A)
-         (Pair (ValTy2 G A (PiCode b f))
-               (Pair (ValPi2 G M A g b f)
-                     (Pair (ValPi2 G N A g b f)
-                           (EqValPi2 G M N A g b f))))
-  EqVal2 G M N A (PiCode a' f') (PiCode b f) = ConvTm G M N A
+EqVal2-transport-A : {n : Nat} {G : Ctx n} {M N A A' : Expr n} {u a : FinEl} -> Eq A A' -> EqVal2 G M N A u a -> EqVal2 G M N A' u a
+EqVal2-transport-A refl v = v
 
-  -- ValTy2 / EqValTy2: unchanged (Top at leaves)
-  ValTy2 G M Bot          = Top
-  ValTy2 G M UCode        = Top
-  ValTy2 G M PropCode     = Top
-  ValTy2 G M (FunEl g)    = Top
-  ValTy2 G M (PiCode b f) = ValTyPi2 G M b f
+Val2-to-EqVal2 : {n : Nat} {G : Ctx n} {M A : Expr n} (u a : FinEl) -> Val2 G M A u a -> EqVal2 G M M A u a
+Val2-to-EqVal2 u a (mkSigma ht i) = mkSigma (conv-refl ht) (V2.Val2-to-EqVal2 u a i)
 
-  EqValTy2 G M N Bot          = Top
-  EqValTy2 G M N UCode        = Top
-  EqValTy2 G M N PropCode     = Top
-  EqValTy2 G M N (FunEl g)    = Top
-  EqValTy2 G M N (PiCode b f) =
-    Pair (ValTyPi2 G M b f)
-         (Pair (ValTyPi2 G N b f)
-               (EqValTyPi2 G M N b f))
+Val2-from-EqVal2-first : {n : Nat} {G : Ctx n} {M N A : Expr n} (u a : FinEl) -> EqVal2 G M N A u a -> Val2 G M A u a
+Val2-from-EqVal2-first u a (mkSigma ct i) = mkSigma (fst (typing-ConvTm ct)) (V2.Val2-from-EqVal2-first u a i)
 
-  -- Pi structures: Red3 instead of Red, but otherwise same
-  ValTyPi2 {n} G M b f =
-    Sigma (Expr n) \ A ->
-    Sigma (Expr (suc n)) \ B ->
-    Sigma (Red3 G M (Pi A B) U) \ _ ->
-    Sigma (CoherentFunTail f) \ _ ->
-    Sigma (FinMemAllU f b) \ _ ->
-    Sigma (HasType G A U) \ _ ->
-    Sigma (HasType (extend G A) B U) \ _ ->
-    Pair (ValTy2 G A b)
-         (Pair (PiEdgeVal2 G A B b f)
-               (PiEdgeEq2 G A B b f))
+Val2-from-EqVal2-second : {n : Nat} {G : Ctx n} {M N A : Expr n} (u a : FinEl) -> EqVal2 G M N A u a -> Val2 G N A u a
+Val2-from-EqVal2-second u a (mkSigma ct i) = mkSigma (snd (typing-ConvTm ct)) (V2.Val2-from-EqVal2-second u a i)
 
-  EqValTyPi2 {n} G M N b f =
-    Sigma (Expr n) \ A ->
-    Sigma (Expr (suc n)) \ B ->
-    Sigma (Expr n) \ A' ->
-    Sigma (Expr (suc n)) \ B' ->
-    Sigma (Red3 G M (Pi A B) U) \ _ ->
-    Sigma (Red3 G N (Pi A' B') U) \ _ ->
-    Sigma (CoherentFunTail f) \ _ ->
-    Sigma (FinMemAllU f b) \ _ ->
-    Sigma (ConvTm G A A' U) \ _ ->
-    Sigma (ConvTm (extend G A) B B' U) \ _ ->
-    Pair (EqValTy2 G A A' b)
-         (PiEdgeEqTy2 G A B B' b f)
+EqVal2-sym : {n : Nat} {G : Ctx n} {M N A : Expr n} (u a : FinEl) -> Coherent u -> Coherent a -> EqVal2 G M N A u a -> EqVal2 G N M A u a
+EqVal2-sym u a cu ca (mkSigma ct i) = mkSigma (conv-sym ct) (V2.EqVal2-sym u a cu ca i)
 
-  ValPi2 {n} G M A g b f =
-    Sigma (Expr n) \ A0 ->
-    Sigma (Expr (suc n)) \ B0 ->
-    Sigma (Red3 G A (Pi A0 B0) U) \ _ ->
-    Sigma (CoherentFun g) \ _ ->
-    Sigma (FinMemFun g b f) \ _ ->
-    Pair (PiAppVal2 G M A0 B0 b f g)
-         (PiAppEq2 G M A0 B0 b f g)
+EqVal2-trans : {n : Nat} {G : Ctx n} {M1 M2 M3 A : Expr n} (u a : FinEl) -> Coherent u -> Coherent a -> EqVal2 G M1 M2 A u a -> EqVal2 G M2 M3 A u a -> EqVal2 G M1 M3 A u a
+EqVal2-trans u a cu ca (mkSigma c1 i1) (mkSigma c2 i2) = mkSigma (conv-trans c1 c2) (V2.EqVal2-trans u a cu ca i1 i2)
 
-  EqValPi2 {n} G M N A g b f =
-    Sigma (Expr n) \ A0 ->
-    Sigma (Expr (suc n)) \ B0 ->
-    Sigma (Red3 G A (Pi A0 B0) U) \ _ ->
-    Sigma (CoherentFun g) \ _ ->
-    Sigma (FinMemFun g b f) \ _ ->
-    PiAppEqVal2 G M N A0 B0 b f g
+Val2-EqValTy2-fwd : {n : Nat} {G : Ctx n} {C C' M : Expr n} (u b : FinEl) -> Coherent b -> EqValTy2 G C C' b -> ConvTm G C C' U -> HasType G C' U -> Val2 G M C u b -> Val2 G M C' u b
+Val2-EqValTy2-fwd u b cb eqv cc hc (mkSigma ht i) = mkSigma (ty-conv ht cc hc) (V2.Val2-EqValTy2-fwd u b cb eqv i)
 
-  PiEdgeVal2 {n} G A B b f =
-    (u v : FinEl) -> Selection f u v ->
-    (N : Expr n) -> HasType G N A -> Val2 G N A u b ->
-    ValTy2 G (subst1 B N) v
+EqVal2-EqValTy2-fwd : {n : Nat} {G : Ctx n} {C C' M N : Expr n} (u b : FinEl) -> Coherent b -> EqValTy2 G C C' b -> ConvTm G C C' U -> HasType G C' U -> EqVal2 G M N C u b -> EqVal2 G M N C' u b
+EqVal2-EqValTy2-fwd u b cb eqv cc hc (mkSigma ct i) = mkSigma (conv-conv ct cc hc) (V2.EqVal2-EqValTy2-fwd u b cb eqv i)
 
-  PiEdgeEq2 {n} G A B b f =
-    (u v : FinEl) -> Selection f u v ->
-    (N1 N2 : Expr n) -> HasType G N1 A -> HasType G N2 A ->
-    ConvTm G N1 N2 A -> EqVal2 G N1 N2 A u b ->
-    EqValTy2 G (subst1 B N1) (subst1 B N2) v
+Val2-beta-expand : {n : Nat} {G : Ctx n} {M M' T : Expr n} (u a : FinEl) -> HeadRed M' M -> ConvTm G M' M T -> Val2 G M T u a -> Val2 G M' T u a
+Val2-beta-expand u a hr ct (mkSigma ht i) = mkSigma (fst (typing-ConvTm ct)) (V2.Val2-beta-expand u a hr i)
 
-  PiEdgeEqTy2 {n} G A B B' b f =
-    (u v : FinEl) -> Selection f u v ->
-    (P : Expr n) -> HasType G P A -> Val2 G P A u b ->
-    EqValTy2 G (subst1 B P) (subst1 B' P) v
+Val2-headred-contract : {n : Nat} {G : Ctx n} {M M' T : Expr n} (u a : FinEl) -> HeadRed M M' -> ConvTm G M M' T -> Val2 G M T u a -> Val2 G M' T u a
+Val2-headred-contract u a hr ct (mkSigma ht i) = mkSigma (snd (typing-ConvTm ct)) (V2.Val2-headred-contract u a hr i)
 
-  PiAppVal2 {n} G M A0 B0 b f g =
-    (u v : FinEl) -> Selection g u v ->
-    (N : Expr n) -> HasType G N A0 -> Val2 G N A0 u b ->
-    Val2 G (App M N) (subst1 B0 N) v (EvalFun f u)
+EqVal2-headred-expand : {n : Nat} {G : Ctx n} {M1 M2 M1' M2' T : Expr n} (u a : FinEl) -> HeadRed M1' M1 -> HeadRed M2' M2 -> ConvTm G M1' M1 T -> ConvTm G M2' M2 T -> EqVal2 G M1 M2 T u a -> EqVal2 G M1' M2' T u a
+EqVal2-headred-expand u a hr1 hr2 ct1 ct2 (mkSigma ct i) = mkSigma (conv-trans ct1 (conv-trans ct (conv-sym ct2))) (V2.EqVal2-headred-expand u a hr1 hr2 i)
 
-  PiAppEq2 {n} G M A0 B0 b f g =
-    (u v : FinEl) -> Selection g u v ->
-    (N1 N2 : Expr n) -> HasType G N1 A0 -> HasType G N2 A0 ->
-    ConvTm G N1 N2 A0 -> EqVal2 G N1 N2 A0 u b ->
-    EqVal2 G (App M N1) (App M N2) (subst1 B0 N1) v (EvalFun f u)
+upVal2 : {n : Nat} (G : Ctx n) (M T : Expr n) (u : FinEl) (a0 a1 : FinEl) -> LeCode a0 a1 -> FinMem u a0 -> FinMem u a1 -> Coherent a0 -> Coherent a1 -> Val2 G M T u a0 -> ValTy2 G T a1 -> Val2 G M T u a1
+upVal2 G M T u a0 a1 le m0 m1 c0 c1 (mkSigma ht i) vt = mkSigma ht (V2.upVal2 G M T u a0 a1 le m0 m1 c0 c1 i vt)
 
-  PiAppEqVal2 {n} G M N A0 B0 b f g =
-    (u v : FinEl) -> Selection g u v ->
-    (P : Expr n) -> HasType G P A0 -> Val2 G P A0 u b ->
-    EqVal2 G (App M P) (App N P) (subst1 B0 P) v (EvalFun f u)
+downVal2 : {n : Nat} (G : Ctx n) (M T : Expr n) (u : FinEl) (a0 a1 : FinEl) -> LeCode a0 a1 -> FinMem u a0 -> Coherent a0 -> FinMem a1 UCode -> Val2 G M T u a1 -> Val2 G M T u a0
+downVal2 G M T u a0 a1 le m0 c0 aU (mkSigma ht i) = mkSigma ht (V2.downVal2 G M T u a0 a1 le m0 c0 aU i)
 
-------------------------------------------------------------------------
--- Extraction helpers
-------------------------------------------------------------------------
+restrictVal2 : {n : Nat} (G : Ctx n) (M T : Expr n) (u u' a : FinEl) -> LeCode u' u -> FinMem u' a -> FinMem u a -> Val2 G M T u a -> Val2 G M T u' a
+restrictVal2 G M T u u' a le m' m (mkSigma ht i) = mkSigma ht (V2.restrictVal2 G M T u u' a le m' m i)
 
-Val2-ht : {n : Nat} {G : Ctx n} {M A : Expr n} {u a : FinEl} ->
-  Val2 G M A u a -> HasType G M A
-Val2-ht {u = u}          {a = Bot} v = v
-Val2-ht {u = Bot}        {a = UCode} v = v
-Val2-ht {u = UCode}      {a = UCode} v = fst v
-Val2-ht {u = FunEl g}    {a = UCode} v = fst v
-Val2-ht {u = PiCode _ _} {a = UCode} v = fst v
-Val2-ht {u = PropCode}   {a = UCode} v = v
-Val2-ht {u = PiCode _ _} {a = PropCode} v = fst v
-Val2-ht {u = Bot}        {a = PropCode} v = v
-Val2-ht {u = UCode}      {a = PropCode} v = v
-Val2-ht {u = PropCode}   {a = PropCode} v = v
-Val2-ht {u = FunEl _}    {a = PropCode} v = v
-Val2-ht {u = u}          {a = FunEl _} v = v
-Val2-ht {u = Bot}        {a = PiCode _ _} v = v
-Val2-ht {u = UCode}      {a = PiCode _ _} v = v
-Val2-ht {u = PropCode}   {a = PiCode _ _} v = v
-Val2-ht {u = FunEl _}    {a = PiCode _ _} v = fst v
-Val2-ht {u = PiCode _ _} {a = PiCode _ _} v = v
+upEqVal2 : {n : Nat} (G : Ctx n) (M N T : Expr n) (u : FinEl) (a0 a1 : FinEl) -> LeCode a0 a1 -> FinMem u a0 -> FinMem u a1 -> Coherent a0 -> Coherent a1 -> EqVal2 G M N T u a0 -> ValTy2 G T a1 -> EqVal2 G M N T u a1
+upEqVal2 G M N T u a0 a1 le m0 m1 c0 c1 (mkSigma ct i) vt = mkSigma ct (V2.upEqVal2 G M N T u a0 a1 le m0 m1 c0 c1 i vt)
 
-EqVal2-ct : {n : Nat} {G : Ctx n} {M N A : Expr n} {u a : FinEl} ->
-  EqVal2 G M N A u a -> ConvTm G M N A
-EqVal2-ct {u = u}          {a = Bot} v = v
-EqVal2-ct {u = Bot}        {a = UCode} v = v
-EqVal2-ct {u = UCode}      {a = UCode} v = fst v
-EqVal2-ct {u = FunEl g}    {a = UCode} v = fst v
-EqVal2-ct {u = PiCode _ _} {a = UCode} v = fst v
-EqVal2-ct {u = PropCode}   {a = UCode} v = v
-EqVal2-ct {u = PiCode _ _} {a = PropCode} v = fst v
-EqVal2-ct {u = Bot}        {a = PropCode} v = v
-EqVal2-ct {u = UCode}      {a = PropCode} v = v
-EqVal2-ct {u = PropCode}   {a = PropCode} v = v
-EqVal2-ct {u = FunEl _}    {a = PropCode} v = v
-EqVal2-ct {u = u}          {a = FunEl _} v = v
-EqVal2-ct {u = Bot}        {a = PiCode _ _} v = v
-EqVal2-ct {u = UCode}      {a = PiCode _ _} v = v
-EqVal2-ct {u = PropCode}   {a = PiCode _ _} v = v
-EqVal2-ct {u = FunEl _}    {a = PiCode _ _} v = fst v
-EqVal2-ct {u = PiCode _ _} {a = PiCode _ _} v = v
+downEqVal2 : {n : Nat} (G : Ctx n) (M N T : Expr n) (u : FinEl) (a0 a1 : FinEl) -> LeCode a0 a1 -> FinMem u a0 -> Coherent a0 -> FinMem a1 UCode -> EqVal2 G M N T u a1 -> EqVal2 G M N T u a0
+downEqVal2 G M N T u a0 a1 le m0 c0 aU (mkSigma ct i) = mkSigma ct (V2.downEqVal2 G M N T u a0 a1 le m0 c0 aU i)
+
+restrictEqVal2 : {n : Nat} (G : Ctx n) (M N T : Expr n) (u u' a : FinEl) -> LeCode u' u -> FinMem u' a -> FinMem u a -> EqVal2 G M N T u a -> EqVal2 G M N T u' a
+restrictEqVal2 G M N T u u' a le m' m (mkSigma ct i) = mkSigma ct (V2.restrictEqVal2 G M N T u u' a le m' m i)
