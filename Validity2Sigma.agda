@@ -397,18 +397,25 @@ mutual
     Sigma (Expr n) \ A ->
     Sigma (Expr (suc n)) \ B ->
     Sigma (Red G T (RS.Sigma A B) U) \ _ ->
-    Val2 G (Fst M) A u' b
+    Pair (Val2 G (Fst M) A u' b)
+         (Val2 G (Snd M) (subst1 B (Fst M)) v' (EvalFun f u'))
 
   --------------------------------------------------------------------
-  -- EqValPair2: term equality at (PairCode u' v', SigmaCode b f)
+  -- EqValPair2: stores full ValPair2 for M and N + Fst equality.
+  -- NO Snd equality at the inner level (handled by outer layer).
   --------------------------------------------------------------------
 
   EqValPair2 {n} G M N T u' v' b f =
     Sigma (Expr n) \ A ->
     Sigma (Expr (suc n)) \ B ->
     Sigma (Red G T (RS.Sigma A B) U) \ _ ->
+    -- M's data (Fst + Snd)
     Sigma (Val2 G (Fst M) A u' b) \ _ ->
+    Sigma (Val2 G (Snd M) (subst1 B (Fst M)) v' (EvalFun f u')) \ _ ->
+    -- N's data (Fst + Snd)
     Sigma (Val2 G (Fst N) A u' b) \ _ ->
+    Sigma (Val2 G (Snd N) (subst1 B (Fst N)) v' (EvalFun f u')) \ _ ->
+    -- Fst equality only (Snd equality handled by outer layer)
     EqVal2 G (Fst M) (Fst N) A u' b
 
   --------------------------------------------------------------------
@@ -558,9 +565,11 @@ mutual
     let A0    = fst val
         B0    = fst (snd val)
         red   = fst (snd (snd val))
-        v2Fst = snd (snd (snd val))
+        v2Fst = fst (snd (snd (snd val)))
+        v2Snd = snd (snd (snd (snd val)))
     in mkSigma A0 (mkSigma B0 (mkSigma red
-         (mkSigma v2Fst (mkSigma v2Fst (Val2-to-EqVal2 u' b v2Fst)))))
+         (mkSigma v2Fst (mkSigma v2Snd (mkSigma v2Fst (mkSigma v2Snd
+         (Val2-to-EqVal2 u' b v2Fst)))))))
   Val2-to-EqVal2 u (PairCode x y) tt = tt
 
   ValTy2-to-EqValTy2 : {n : Nat} {G : Ctx n} {M : Expr n}
@@ -650,7 +659,8 @@ mutual
         B0     = fst (snd ev)
         red    = fst (snd (snd ev))
         v2FstM = fst (snd (snd (snd ev)))
-    in mkSigma A0 (mkSigma B0 (mkSigma red v2FstM))
+        v2SndM = fst (snd (snd (snd (snd ev))))
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma v2FstM v2SndM)))
   Val2-from-EqVal2-first u (PairCode x y) tt = tt
 
   Val2-from-EqVal2-second : {n : Nat} {G : Ctx n} {M N A : Expr n}
@@ -689,8 +699,9 @@ mutual
     let A0     = fst ev
         B0     = fst (snd ev)
         red    = fst (snd (snd ev))
-        v2FstN = fst (snd (snd (snd (snd ev))))
-    in mkSigma A0 (mkSigma B0 (mkSigma red v2FstN))
+        v2FstN = fst (snd (snd (snd (snd (snd ev)))))
+        v2SndN = fst (snd (snd (snd (snd (snd (snd ev))))))
+    in mkSigma A0 (mkSigma B0 (mkSigma red (mkSigma v2FstN v2SndN)))
   Val2-from-EqVal2-second u (PairCode x y) tt = tt
 
   ------------------------------------------------------------------------
@@ -1009,12 +1020,15 @@ mutual
         B0      = fst (snd ev)
         red     = fst (snd (snd ev))
         v2FstM  = fst (snd (snd (snd ev)))
-        v2FstN  = fst (snd (snd (snd (snd ev))))
-        eqFst   = snd (snd (snd (snd (snd ev))))
+        v2SndM  = fst (snd (snd (snd (snd ev))))
+        v2FstN  = fst (snd (snd (snd (snd (snd ev)))))
+        v2SndN  = fst (snd (snd (snd (snd (snd (snd ev))))))
+        eqFst   = snd (snd (snd (snd (snd (snd (snd ev))))))
         cb      = fst ca
         cu'     = fst (fst cu)
     in mkSigma A0 (mkSigma B0 (mkSigma red
-         (mkSigma v2FstN (mkSigma v2FstM (EqVal2-sym u' b cu' cb eqFst)))))
+         (mkSigma v2FstN (mkSigma v2SndN (mkSigma v2FstM (mkSigma v2SndM
+         (EqVal2-sym u' b cu' cb eqFst)))))))
   EqVal2-sym u (PairCode x y) cu ca tt = tt
 
   ------------------------------------------------------------------------
@@ -1097,19 +1111,26 @@ mutual
     let A0       = fst ev1
         B0       = fst (snd ev1)
         red1     = fst (snd (snd ev1))
-        v2FstM   = fst (snd (snd (snd ev1)))
-        eqFst1   = snd (snd (snd (snd (snd ev1))))
+        -- M1's data from ev1
+        v2FstM1  = fst (snd (snd (snd ev1)))
+        v2SndM1  = fst (snd (snd (snd (snd ev1))))
+        eqFst1   = snd (snd (snd (snd (snd (snd (snd ev1))))))
+        -- M3's data from ev2 (needs transport from ev2's A to ev1's A)
         red2     = fst (snd (snd ev2))
-        v2FstP-raw = fst (snd (snd (snd (snd ev2))))
-        eqFst2-raw = snd (snd (snd (snd (snd ev2))))
         uniq     = Red-unique-Sigma red1 red2
         eqA      = S.Eq-sym (fst uniq)
-        v2FstP   = S.Eq-transport (\ X -> Val2 _ (Fst _) X u' b) eqA v2FstP-raw
+        eqB      = S.Eq-sym (snd uniq)
+        v2FstM3-raw = fst (snd (snd (snd (snd (snd ev2)))))
+        v2SndM3-raw = fst (snd (snd (snd (snd (snd (snd ev2))))))
+        eqFst2-raw  = snd (snd (snd (snd (snd (snd (snd ev2))))))
+        v2FstM3  = S.Eq-transport (\ X -> Val2 _ (Fst _) X u' b) eqA v2FstM3-raw
+        v2SndM3  = S.Eq-transport (\ X -> Val2 _ (Snd _) (subst1 X (Fst _)) v' (EvalFun f u')) eqB v2SndM3-raw
         eqFst2   = S.Eq-transport (\ X -> EqVal2 _ (Fst _) (Fst _) X u' b) eqA eqFst2-raw
         cb       = fst ca
         cu'      = fst (fst cu)
     in mkSigma A0 (mkSigma B0 (mkSigma red1
-         (mkSigma v2FstM (mkSigma v2FstP (EqVal2-trans u' b cu' cb eqFst1 eqFst2)))))
+         (mkSigma v2FstM1 (mkSigma v2SndM1 (mkSigma v2FstM3 (mkSigma v2SndM3
+         (EqVal2-trans u' b cu' cb eqFst1 eqFst2)))))))
   EqVal2-trans u (PairCode x y) cu ca tt tt = tt
 
   ------------------------------------------------------------------------
