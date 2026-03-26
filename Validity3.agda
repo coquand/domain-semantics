@@ -51,9 +51,9 @@ Red3-unique-Pi : {n : Nat} {G : Ctx n} {A B B' : Expr n}
   {F : Expr (suc n)} {F' : Expr (suc n)} ->
   Red3 G A (Pi B F) U -> Red3 G A (Pi B' F') U ->
   Pair (Eq B B') (Eq F F')
-Red3-unique-Pi (mkRed3 r1 _) (mkRed3 r2 _) = HeadRed3-unique-Pi r1 r2
+Red3-unique-Pi (mkRed3 r1 _) (mkRed3 r2 _) = HeadRed-unique-Pi r1 r2
   where
-    open import Reduction using (HeadRed3-unique-Pi)
+    open import Reduction using (HeadRed-unique-Pi)
 open import PaperSemantics using (EvalFun ;
   CoherentFun ; FinMemFun ; FinMemAllU ;
   Coherent ; Comp ; Sup ;
@@ -1862,26 +1862,28 @@ mutual
   ------------------------------------------------------------------------
 
   Val2-beta-expand : {n : Nat} {G : Ctx n} {M M' T : Expr n}
-    (u a : FinEl) -> HeadRed M' M ->
+    (u a : FinEl) -> HeadRed M' M -> ConvTm G M' M T ->
     Val2 G M T u a -> Val2 G M' T u a
-  Val2-beta-expand u Bot hr tt = tt
-  Val2-beta-expand Bot UCode hr tt = tt
-  Val2-beta-expand UCode UCode hr tt = tt
-  Val2-beta-expand (FunEl g) UCode hr tt = tt
-  Val2-beta-expand (PiCode a' f') UCode hr vt = ValTy2-headred-expand (PiCode a' f') hr vt
-  Val2-beta-expand PropCode UCode hr tt = tt
-  Val2-beta-expand (PiCode a' f') PropCode hr vt = ValTy2-headred-expand (PiCode a' f') hr vt
-  Val2-beta-expand Bot PropCode hr tt = tt
-  Val2-beta-expand UCode PropCode hr tt = tt
-  Val2-beta-expand PropCode PropCode hr tt = tt
-  Val2-beta-expand (FunEl g) PropCode hr tt = tt
-  Val2-beta-expand u (FunEl h) hr tt = tt
-  Val2-beta-expand Bot (PiCode b f) hr tt = tt
-  Val2-beta-expand UCode (PiCode b f) hr tt = tt
-  Val2-beta-expand PropCode (PiCode b f) hr tt = tt
-  Val2-beta-expand (FunEl g) (PiCode b f) hr val =
-    mkSigma (fst val) (ValPi2-headred-expand g b f hr (snd val))
-  Val2-beta-expand (PiCode a' f') (PiCode b f) hr tt = tt
+  Val2-beta-expand u Bot hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand Bot UCode hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand UCode UCode hr ct (mkSigma ht vty) = mkSigma (fst (typing-ConvTm ct)) vty
+  Val2-beta-expand (FunEl g) UCode hr ct (mkSigma ht vty) = mkSigma (fst (typing-ConvTm ct)) vty
+  Val2-beta-expand (PiCode a' f') UCode hr ct (mkSigma ht vt) =
+    mkSigma (fst (typing-ConvTm ct)) (ValTy2-headred-expand (PiCode a' f') hr ct vt)
+  Val2-beta-expand PropCode UCode hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand (PiCode a' f') PropCode hr ct (mkSigma ht vt) =
+    mkSigma (fst (typing-ConvTm ct)) (ValTy2-headred-expand (PiCode a' f') hr ct vt)
+  Val2-beta-expand Bot PropCode hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand UCode PropCode hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand PropCode PropCode hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand (FunEl g) PropCode hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand u (FunEl h) hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand Bot (PiCode b f) hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand UCode (PiCode b f) hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand PropCode (PiCode b f) hr ct ht = fst (typing-ConvTm ct)
+  Val2-beta-expand (FunEl g) (PiCode b f) hr ct (mkSigma ht val) =
+    mkSigma (fst (typing-ConvTm ct)) (mkSigma (fst val) (ValPi2-headred-expand g b f hr (snd val)))
+  Val2-beta-expand (PiCode a' f') (PiCode b f) hr ct ht = fst (typing-ConvTm ct)
 
   Val2-headred-contract : {n : Nat} {G : Ctx n} {M M' T : Expr n}
     (u a : FinEl) -> HeadRed M M' ->
@@ -1943,19 +1945,21 @@ mutual
   EqVal2-headred-expand (PiCode a' f') (PiCode b f) hr1 hr2 tt = tt
 
   ValTy2-headred-expand : {n : Nat} {G : Ctx n} {M M' : Expr n}
-    (u : FinEl) -> HeadRed M' M ->
+    (u : FinEl) -> HeadRed M' M -> ConvTm G M' M U ->
     ValTy2 G M u -> ValTy2 G M' u
-  ValTy2-headred-expand Bot hr tt = tt
-  ValTy2-headred-expand UCode hr tt = tt
-  ValTy2-headred-expand PropCode hr tt = tt
-  ValTy2-headred-expand (FunEl g) hr tt = tt
-  ValTy2-headred-expand (PiCode b f) hr vt =
+  ValTy2-headred-expand Bot hr ct tt = tt
+  ValTy2-headred-expand UCode hr ct tt = tt
+  ValTy2-headred-expand PropCode hr ct tt = tt
+  ValTy2-headred-expand (FunEl g) hr ct tt = tt
+  ValTy2-headred-expand (PiCode b f) hr ct vt =
     let A   = fst vt
         B   = fst (snd vt)
         red = fst (snd (snd vt))
+        hrNew = HeadRed-trans hr (Red3-hr red)
+        ctNew = conv-trans ct (Red3-conv red)
         inn = snd (snd (snd vt))
     in mkSigma A (mkSigma B
-         (mkSigma (mkRed (HeadRed-trans hr (Red-hr red))) inn))
+         (mkSigma (mkRed3 hrNew ctNew) inn))
 
   EqValTy2-headred-expand : {n : Nat} {G : Ctx n} {M1 M2 M1' M2' : Expr n}
     (u : FinEl) -> HeadRed M1' M1 -> HeadRed M2' M2 ->
