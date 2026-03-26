@@ -23,11 +23,13 @@ open import TypingRulesSigma using (Ctx ; extend ;
   HasType ; ConvTm ; WfCtx ;
   ty-conv ; ty-Fst ; ty-Snd ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv)
+import TypingRulesSigma
 open import SubstitutionLemmaSigma using (typing-ConvTm)
+import SubstitutionLemmaSigma
 open import PaperSemanticsSigma using (Coherent ; EvalFun ;
   CoherentFun ; CoherentFunTail ; FinMem ; FinMemFun ; FinMemAllU ;
   Coherent-EvalFun ; coh-from-aU ; cft-from-cf)
-open import ReductionSigma using (HeadRed ; headred-refl)
+open import ReductionSigma using (Red ; mkRed ; HeadRed ; headred-refl)
 open import ValiditySigma using (
   Selection ; sel-nil ; sel-skip ; sel-take ;
   Red-unique-Sigma)
@@ -39,6 +41,9 @@ open import ValiditySigma using (
 data Red3 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> Set where
   mkRed3 : {n : Nat} {G : Ctx n} {M N A : Expr n} ->
     HeadRed M N -> ConvTm G M N A -> Red3 G M N A
+
+Red3-hr : {n : Nat} {G : Ctx n} {M N A : Expr n} -> Red3 G M N A -> HeadRed M N
+Red3-hr (mkRed3 hr _) = hr
 
 Red3-conv : {n : Nat} {G : Ctx n} {M N A : Expr n} -> Red3 G M N A -> ConvTm G M N A
 Red3-conv (mkRed3 _ ct) = ct
@@ -125,6 +130,21 @@ mutual
     ConvTm G N1 N2 A -> EqVal2 G N1 N2 A u b ->
     EqValTy2 G (subst1 B N1) (subst1 B N2) v
 
+  -- Convert EqVal2c type parameter using EqValTy2
+  EqVal2c-EqValTy2-fwd : {n : Nat} {G : Ctx n} {C C' M N : Expr n}
+    (u b : FinEl) -> EqValTy2 G C C' b ->
+    EqVal2c G M N C u b -> EqVal2c G M N C' u b
+  EqVal2c-EqValTy2-fwd (PairCode _ _) (SigmaCode _ _) eqv inner = inner  -- EqValTy2 is Top here
+  EqVal2c-EqValTy2-fwd u a eqv tt = tt
+
+  EqVal2-ct : {n : Nat} {G : Ctx n} {M N A : Expr n} {u a : FinEl} ->
+    EqVal2 G M N A u a -> ConvTm G M N A
+  EqVal2-ct = fst
+
+  EqVal2-inner : {n : Nat} {G : Ctx n} {M N A : Expr n} {u a : FinEl} ->
+    EqVal2 G M N A u a -> EqVal2c G M N A u a
+  EqVal2-inner = snd
+
   ------------------------------------------------------------------
   -- THE KEY TEST: EqVal2-sym at (PairCode, SigmaCode)
   ------------------------------------------------------------------
@@ -156,7 +176,9 @@ mutual
         redSig = fst (snd (snd vty))
         htA0   = fst (snd (snd (snd (snd (snd vty)))))
         htB0   = fst (snd (snd (snd (snd (snd (snd vty))))))
-        -- ConvTm G A (SigmaE A0 B0) U from Red3
+        -- Unify A0/B0 with A0sig/B0sig via Red uniqueness
+        mkSigma eqA0 eqB0 = Red-unique-Sigma (mkRed (Red3-hr red)) (mkRed (Red3-hr redSig))
+        -- ConvTm G A (SigmaE A0sig B0sig) U from Red3
         convASig = Red3-conv redSig
         -- HasType G M (SigmaE A0 B0) via ty-conv
         htMsig = ty-conv htM convASig (TypingRulesSigma.ty-Sigma htA0 htB0)
@@ -167,20 +189,36 @@ mutual
         eqFstSym = EqVal2-sym u' b (fst (fst cu)) (fst ca) eqFst
         -- SigmaEdgeEq2 from ValTySigma2
         sigEdgeEq = snd (snd (snd (snd (snd (snd (snd (snd (snd vty))))))))
-        -- Get EqValTy2 for Snd type conversion: subst1 B (Fst N) = subst1 B (Fst M)
-        -- by applying SigmaEdgeEq2 with Fst N, Fst M and their equality (sym of eqFst)
-        -- TODO: need a selection of f at (u', v') to apply sigEdgeEq
-        -- For now, use eqTySnd which is stored
-        eqTySndSym = eqTySnd  -- EqValTy2-sym would flip this
-        -- Sym Snd EqVal2 at subst1 B0 (Fst M)
-        eqSndSym = EqVal2-sym v' (EvalFun f u') (snd (fst cu)) (Coherent-EvalFun f u' (snd ca) (fst (fst cu))) eqSnd
-        -- Convert from subst1 B0 (Fst M) to subst1 B0 (Fst N) using eqTySndSym
-        -- eqSndConverted = EqVal2c-EqValTy2-fwd ... eqTySndSym eqSndSym
-        -- For this test, eqTySnd is Top (simplified), so conversion is trivial
+        -- ConvTm G M N (SigmaE A0sig B0sig) via conv-conv
+        htSig   = TypingRulesSigma.ty-Sigma htA0 htB0
+        ctMNsig = conv-conv ctMN convASig htSig
+        -- ConvTm G (Fst M) (Fst N) A0sig via conv-Fst
+        ctFst   = TypingRulesSigma.conv-Fst htA0 htB0 ctMNsig
+        -- ConvTm G (subst1 B0sig (Fst M)) (subst1 B0sig (Fst N)) U
+        convBFst0 = SubstitutionLemmaSigma.subst1-cong-ConvTm htA0 htB0 htFstM htFstN ctFst
+        -- Transport to B0 (from EqValPair2) via eqB0
+        convBFst = Eq-transport (\ X -> ConvTm _ (subst1 X (Fst _)) (subst1 X (Fst _)) U) (Eq-sym eqB0) convBFst0
+        -- HasType G (subst1 B0 (Fst N)) U
+        htBFstN0 = SubstitutionLemmaSigma.subst-HasType (SubstitutionLemmaSigma.subst1-WtSub htA0 htFstN) (SubstitutionLemmaSigma.typing-WfCtx htA0) htB0
+        htBFstN = Eq-transport (\ X -> HasType _ (subst1 X (Fst _)) U) (Eq-sym eqB0) htBFstN0
+        -- Sym the Snd EqVal2
+        cv'     = snd (fst cu)
+        cev     = Coherent-EvalFun f u' (snd ca) (fst (fst cu))
+        eqSndSym = EqVal2-sym v' (EvalFun f u') cv' cev eqSnd
+        -- Convert Snd from subst1 B0 (Fst M) to subst1 B0 (Fst N)
+        -- outer ConvTm: conv-conv
+        ctSndSym = EqVal2-ct eqSndSym  -- ConvTm G (Snd N) (Snd M) (subst1 B0 (Fst M))
+        ctSndConverted = conv-conv ctSndSym convBFst htBFstN
+        -- inner EqVal2c: EqValTy2 is Top in this test, so the inner is unchanged
+        innerSndSym = EqVal2-inner eqSndSym
+        -- Build converted EqVal2
+        eqSndFinal = mkSigma ctSndConverted innerSndSym
+        -- EqValTy2 sym (Top in this test)
+        eqTySndSym = eqTySnd
     in mkSigma vty
          (mkSigma vpairN (mkSigma vpairM
            (mkSigma A0 (mkSigma B0 (mkSigma red
-             (mkSigma eqFstSym (mkSigma eqTySndSym eqSndSym)))))))
+             (mkSigma eqFstSym (mkSigma eqTySndSym eqSndFinal)))))))
 
   -- Non-Sigma cases
   EqVal2c-sym u a cu ca ct tt = tt
