@@ -401,9 +401,8 @@ mutual
     Sigma (HasType G (Fst M) A) \ _ ->
     Sigma (Coherent u') \ _ ->
     Sigma (FinMem u' b) \ _ ->
-    Sigma (Expr n) \ SndTy ->
     Pair (Val2 G (Fst M) A u' b)
-         (Val2 G (Snd M) SndTy v' (EvalFun f u'))
+         (Val2 G (Snd M) (subst1 B (Fst M)) v' (EvalFun f u'))
 
   --------------------------------------------------------------------
   -- EqValPair2: stores full ValPair2 for M and N + Fst equality.
@@ -414,20 +413,18 @@ mutual
     Sigma (Expr n) \ A ->
     Sigma (Expr (suc n)) \ B ->
     Sigma (Red G T (RS.Sigma A B) U) \ _ ->
-    -- M's data: HasType + Coherent + FinMem + SndTy + Fst + Snd
+    -- M's data: HasType + Coherent + FinMem + Fst + Snd
     Sigma (HasType G (Fst M) A) \ _ ->
     Sigma (Coherent u') \ _ ->
     Sigma (FinMem u' b) \ _ ->
-    Sigma (Expr n) \ SndTyM ->
     Sigma (Val2 G (Fst M) A u' b) \ _ ->
-    Sigma (Val2 G (Snd M) SndTyM v' (EvalFun f u')) \ _ ->
-    -- N's data: HasType + Coherent + FinMem + SndTy + Fst + Snd
+    Sigma (Val2 G (Snd M) (subst1 B (Fst M)) v' (EvalFun f u')) \ _ ->
+    -- N's data: HasType + Coherent + FinMem + Fst + Snd
     Sigma (HasType G (Fst N) A) \ _ ->
     Sigma (Coherent u') \ _ ->
     Sigma (FinMem u' b) \ _ ->
-    Sigma (Expr n) \ SndTyN ->
     Sigma (Val2 G (Fst N) A u' b) \ _ ->
-    Sigma (Val2 G (Snd N) SndTyN v' (EvalFun f u')) \ _ ->
+    Sigma (Val2 G (Snd N) (subst1 B (Fst N)) v' (EvalFun f u')) \ _ ->
     -- Fst equality only (Snd equality handled by outer layer)
     EqVal2 G (Fst M) (Fst N) A u' b
 
@@ -581,13 +578,12 @@ mutual
         htFst = fst (snd (snd (snd val)))
         cu'   = fst (snd (snd (snd (snd val))))
         fmu'  = fst (snd (snd (snd (snd (snd val)))))
-        sndTy = fst (snd (snd (snd (snd (snd (snd val))))))
-        v2Fst = fst (snd (snd (snd (snd (snd (snd (snd val)))))))
-        v2Snd = snd (snd (snd (snd (snd (snd (snd (snd val)))))))
+        v2Fst = fst (snd (snd (snd (snd (snd (snd val))))))
+        v2Snd = snd (snd (snd (snd (snd (snd (snd val))))))
     in mkSigma A0 (mkSigma B0 (mkSigma red
-         (mkSigma htFst (mkSigma cu' (mkSigma fmu' (mkSigma sndTy (mkSigma v2Fst (mkSigma v2Snd
-         (mkSigma htFst (mkSigma cu' (mkSigma fmu' (mkSigma sndTy (mkSigma v2Fst (mkSigma v2Snd
-         (Val2-to-EqVal2 u' b v2Fst)))))))))))))))
+         (mkSigma htFst (mkSigma cu' (mkSigma fmu' (mkSigma v2Fst (mkSigma v2Snd
+         (mkSigma htFst (mkSigma cu' (mkSigma fmu' (mkSigma v2Fst (mkSigma v2Snd
+         (Val2-to-EqVal2 u' b v2Fst)))))))))))))
   Val2-to-EqVal2 u (PairCode x y) tt = tt
 
   ValTy2-to-EqValTy2 : {n : Nat} {G : Ctx n} {M : Expr n}
