@@ -1,0 +1,6 @@
+# Sigma extension files (private)
+*Sigma*
+SigmaInjectivity*
+sigma-validity.*
+!sigma-validity.tex
+!sigma-validity.pdf
