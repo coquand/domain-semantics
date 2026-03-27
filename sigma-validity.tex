@@ -283,6 +283,42 @@ The proof has the following modular structure:
   $\beta$-reduction cases (application, $\pj{}{1}$-$\beta$, $\pj{}{2}$-$\beta$).
 \end{enumerate}
 
+\section{Bundling requirements}
+
+For $\Pi$, $\Type$, and $\Prop$ alone, the following simpler choices suffice:
+\begin{itemize}
+\item Head reduction ($\mathsf{Red}$) stores only $T \HeadRed \Pi\,A\,B$,
+  without the convertibility judgment $\Gamma \HasType T \ConvTm \Pi\,A\,B : \Type$.
+\item The head-reduction transport lemma can return just $\Val$
+  (validity of the expanded term), without the equality $\EqVal$.
+\item Term validity $\Val\;\Gamma\;M\;T\;u\;a$ need not be bundled with
+  type validity $\ValTy\;\Gamma\;T\;a$.
+\end{itemize}
+For $\Sigma$-types, all three must be strengthened:
+\begin{enumerate}
+\item \textbf{$\mathsf{Red}$ must bundle convertibility.}
+  The head-reduction transport for $\Sigma$ needs to derive
+  $\Gamma \HasType \pj{M}{1} \ConvTm \pj{M'}{1} : A$ (via the congruence
+  rule for projections).  This congruence rule requires
+  $\Gamma \HasType M \ConvTm M' : \Sigma\,A\,B$, which is obtained from
+  the input $\Gamma \HasType M \ConvTm M' : T$ by converting the type using
+  $\Gamma \HasType T \ConvTm \Sigma\,A\,B : \Type$---the convertibility
+  stored in the type validity record alongside the head reduction
+  $T \HeadRed \Sigma\,A\,B$.
+
+\item \textbf{Head-reduction transport must return $\EqVal$.}
+  The equality $\EqVal$ at the first projection is needed to invoke
+  the equality edge function (Step~2), which produces the type equality
+  $\EqValTy\;\Gamma\;B[\pj{M'}{1}]\;B[\pj{M}{1}]\;f(\pj{w}{1})$ used
+  in the transport (Step~4).
+
+\item \textbf{$\Val$ must be bundled with $\ValTy$.}
+  Step~2 uses the equality edge function from $\ValTy\;\Gamma\;T\;(\Sigma\,b\,f)$.
+  This must be accessible from within the term validity data.
+  Therefore $\Val\;\Gamma\;M\;T\;w\;(\Sigma\,b\,f)$ must include
+  $\ValTy\;\Gamma\;T\;(\Sigma\,b\,f)$ as a component.
+\end{enumerate}
+
 \section{Comparison with $\Pi$}
 
 \begin{center}
@@ -295,6 +331,8 @@ Stored data & $\Val\;(\App\,M\,N)\;B[N]\;\ldots$ & $\Val\;\pj{M}{1}\;A\;\ldots$
 Type depends on $M$? & No ($B[N]$) & Yes ($B[\pj{M}{1}]$) \\
 HeadRed transport & Direct IH & IH + edge + transport \\
 Returns $\EqVal$? & Useful & Essential \\
+Red bundles ConvTm? & Not needed & Needed (for conv-Fst/conv-Snd) \\
+Val bundles ValTy? & Not needed & Needed (for equality edge) \\
 \end{tabular}
 \end{center}
 
