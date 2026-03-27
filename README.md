@@ -149,6 +149,16 @@ Based on:
   theorem (Corollary 6, parts 1–3 and the Pi–Pi corollary) with
   proof outline.
 
+- **`sigma-validity.tex`** / **`sigma-validity.pdf`** — Informal
+  description of how the validity proof extends to Sigma types.
+  Documents the uniform definition using code projections
+  ($w.1$, $w.2$), the type-equality transport lemma, and the
+  4-step head-reduction transport argument (IH on first projection,
+  edge function for type equality, IH on second projection,
+  transport). Explains why the head-reduction lemma must return
+  EqVal (not just Val): the equality edge is needed to bridge
+  $B[M'.1]$ and $B[M.1]$.
+
 ## Technical notes
 
 - **Spartan Agda:** `--without-K --exact-split` (no `--type-in-type`)
