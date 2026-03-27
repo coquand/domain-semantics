@@ -298,88 +298,53 @@ mutual
   -- Val2: pattern matching on codes
   ------------------------------------------------------------------
 
+  -- Val2: case on a, then relevant u cases, catch-all Top
   Val2 G M A u Bot              = Top
-  Val2 G M A Bot UCode          = Top
   Val2 G M A UCode UCode        = ValTy2 G M UCode
-  Val2 G M A (FunEl g) UCode    = ValTy2 G M (FunEl g)
   Val2 G M A (PiCode a' f') UCode = ValTy2 G M (PiCode a' f')
   Val2 G M A (SigmaCode a' f') UCode = ValTy2 G M (SigmaCode a' f')
-  Val2 G M A (PairCode u' v') UCode = Top
-  Val2 G M A PropCode UCode     = Top
+  Val2 G M A u UCode            = Top
   Val2 G M A (PiCode a' f') PropCode = ValTy2 G M (PiCode a' f')
-  Val2 G M A Bot PropCode            = Top
-  Val2 G M A UCode PropCode          = Top
-  Val2 G M A PropCode PropCode       = Top
-  Val2 G M A (FunEl g) PropCode      = Top
-  Val2 G M A (SigmaCode a' f') PropCode = Top
-  Val2 G M A (PairCode u' v') PropCode = Top
+  Val2 G M A u PropCode         = Top
   Val2 G M A u (FunEl h)        = Top
-  Val2 G M A Bot            (PiCode b f) = Top
-  Val2 G M A UCode          (PiCode b f) = Top
-  Val2 G M A PropCode       (PiCode b f) = Top
-  Val2 G M A (FunEl g)      (PiCode b f) =
+  Val2 G M A (FunEl g) (PiCode b f) =
     Pair (ValTy2 G A (PiCode b f)) (RValPi G M A g b f)
-  Val2 G M A (PiCode a' f') (PiCode b f) = Top
-  Val2 G M A (SigmaCode a' f') (PiCode b f) = Top
-  Val2 G M A (PairCode u' v') (PiCode b f) = Top
-  Val2 G M A Bot              (SigmaCode b f) = Top
-  Val2 G M A UCode            (SigmaCode b f) = Top
-  Val2 G M A PropCode         (SigmaCode b f) = Top
-  Val2 G M A (FunEl g)        (SigmaCode b f) = Top
-  Val2 G M A (PiCode a' f')   (SigmaCode b f) = Top
-  Val2 G M A (SigmaCode a' f') (SigmaCode b f) = Top
+  Val2 G M A u (PiCode b f)     = Top
   Val2 G M A (PairCode u' v') (SigmaCode b f) =
     Pair (ValTy2 G A (SigmaCode b f)) (RValPair G M A u' v' b f)
-  Val2 G M A u (PairCode x y) = Top
+  Val2 G M A u (SigmaCode b f)  = Top
+  Val2 G M A u (PairCode x y)   = Top
 
   ------------------------------------------------------------------
   -- EqVal2: pattern matching on codes
   ------------------------------------------------------------------
 
+  -- EqVal2: case on a, then relevant u cases, catch-all Top
   EqVal2 G M N A u Bot              = Top
-  EqVal2 G M N A Bot UCode          = Top
   EqVal2 G M N A UCode UCode        =
     Pair (ValTy2 G M UCode) (Pair (ValTy2 G N UCode) (EqValTy2 G M N UCode))
-  EqVal2 G M N A (FunEl g) UCode    =
-    Pair (ValTy2 G M (FunEl g)) (Pair (ValTy2 G N (FunEl g)) (EqValTy2 G M N (FunEl g)))
   EqVal2 G M N A (PiCode a' f') UCode =
     Pair (ValTy2 G M (PiCode a' f')) (Pair (ValTy2 G N (PiCode a' f')) (EqValTy2 G M N (PiCode a' f')))
   EqVal2 G M N A (SigmaCode a' f') UCode =
     Pair (ValTy2 G M (SigmaCode a' f')) (Pair (ValTy2 G N (SigmaCode a' f')) (EqValTy2 G M N (SigmaCode a' f')))
-  EqVal2 G M N A (PairCode u' v') UCode = Top
-  EqVal2 G M N A PropCode UCode    = Top
+  EqVal2 G M N A u UCode            = Top
   EqVal2 G M N A (PiCode a' f') PropCode =
     Pair (ValTy2 G M (PiCode a' f')) (Pair (ValTy2 G N (PiCode a' f')) (EqValTy2 G M N (PiCode a' f')))
-  EqVal2 G M N A Bot PropCode            = Top
-  EqVal2 G M N A UCode PropCode          = Top
-  EqVal2 G M N A PropCode PropCode       = Top
-  EqVal2 G M N A (FunEl g) PropCode      = Top
-  EqVal2 G M N A (SigmaCode a' f') PropCode = Top
-  EqVal2 G M N A (PairCode u' v') PropCode = Top
-  EqVal2 G M N A u (FunEl h)       = Top
-  EqVal2 G M N A Bot            (PiCode b f) = Top
-  EqVal2 G M N A UCode          (PiCode b f) = Top
-  EqVal2 G M N A PropCode       (PiCode b f) = Top
-  EqVal2 G M N A (FunEl g)      (PiCode b f) =
+  EqVal2 G M N A u PropCode         = Top
+  EqVal2 G M N A u (FunEl h)        = Top
+  EqVal2 G M N A (FunEl g) (PiCode b f) =
     Pair (ValTy2 G A (PiCode b f))
          (Pair (RValPi G M A g b f)
                (Pair (RValPi G N A g b f)
                      (REqValPi G M N A g b f)))
-  EqVal2 G M N A (PiCode a' f') (PiCode b f) = Top
-  EqVal2 G M N A (SigmaCode a' f') (PiCode b f) = Top
-  EqVal2 G M N A (PairCode u' v') (PiCode b f) = Top
-  EqVal2 G M N A Bot              (SigmaCode b f) = Top
-  EqVal2 G M N A UCode            (SigmaCode b f) = Top
-  EqVal2 G M N A PropCode         (SigmaCode b f) = Top
-  EqVal2 G M N A (FunEl g)        (SigmaCode b f) = Top
-  EqVal2 G M N A (PiCode a' f')   (SigmaCode b f) = Top
-  EqVal2 G M N A (SigmaCode a' f') (SigmaCode b f) = Top
+  EqVal2 G M N A u (PiCode b f)     = Top
   EqVal2 G M N A (PairCode u' v') (SigmaCode b f) =
     Pair (ValTy2 G A (SigmaCode b f))
          (Pair (RValPair G M A u' v' b f)
                (Pair (RValPair G N A u' v' b f)
                      (REqValPair G M N A u' v' b f)))
-  EqVal2 G M N A u (PairCode x y) = Top
+  EqVal2 G M N A u (SigmaCode b f)  = Top
+  EqVal2 G M N A u (PairCode x y)   = Top
 
   ------------------------------------------------------------------
   -- ValTy2 / EqValTy2
@@ -440,7 +405,7 @@ mutual
   Val2-to-EqVal2 u Bot v = tt
   Val2-to-EqVal2 Bot UCode v = tt
   Val2-to-EqVal2 UCode UCode v = mkSigma v (mkSigma v (mkSigma v v))
-  Val2-to-EqVal2 (FunEl g) UCode v = mkSigma v (mkSigma v tt)
+  Val2-to-EqVal2 (FunEl g) UCode v = tt
   Val2-to-EqVal2 (PiCode a f) UCode v = mkSigma v (mkSigma v (ValTy2-to-EqValTy2 (PiCode a f) v))
   Val2-to-EqVal2 (SigmaCode a f) UCode v = mkSigma v (mkSigma v (ValTy2-to-EqValTy2 (SigmaCode a f) v))
   Val2-to-EqVal2 (PairCode u' v') UCode v = tt
@@ -573,7 +538,7 @@ mutual
   Val2-from-EqVal2-first u Bot ev = tt
   Val2-from-EqVal2-first Bot UCode ev = tt
   Val2-from-EqVal2-first UCode UCode ev = fst ev
-  Val2-from-EqVal2-first (FunEl g) UCode ev = fst ev
+  Val2-from-EqVal2-first (FunEl g) UCode ev = tt
   Val2-from-EqVal2-first (PiCode a f) UCode ev = fst ev
   Val2-from-EqVal2-first (SigmaCode a f) UCode ev = fst ev
   Val2-from-EqVal2-first (PairCode u' v') UCode ev = tt
@@ -609,7 +574,7 @@ mutual
   Val2-from-EqVal2-second u Bot ev = tt
   Val2-from-EqVal2-second Bot UCode ev = tt
   Val2-from-EqVal2-second UCode UCode ev = fst (snd ev)
-  Val2-from-EqVal2-second (FunEl g) UCode ev = fst (snd ev)
+  Val2-from-EqVal2-second (FunEl g) UCode ev = tt
   Val2-from-EqVal2-second (PiCode a f) UCode ev = fst (snd ev)
   Val2-from-EqVal2-second (SigmaCode a f) UCode ev = fst (snd ev)
   Val2-from-EqVal2-second (PairCode u' v') UCode ev = tt
@@ -895,7 +860,7 @@ mutual
   EqVal2-sym Bot UCode cu ca tt = tt
   EqVal2-sym UCode UCode cu ca ev =
     mkSigma (fst (snd ev)) (mkSigma (fst ev) (EqValTy2-sym UCode cu (snd (snd ev))))
-  EqVal2-sym (FunEl g) UCode cu ca ev = mkSigma tt (mkSigma tt tt)
+  EqVal2-sym (FunEl g) UCode cu ca ev = tt
   EqVal2-sym (PiCode a' f') UCode cu ca ev =
     mkSigma (fst (snd ev)) (mkSigma (fst ev) (EqValTy2-sym (PiCode a' f') cu (snd (snd ev))))
   EqVal2-sym (SigmaCode a' f') UCode cu ca ev =
@@ -985,7 +950,7 @@ mutual
   EqVal2-trans Bot UCode cu ca tt tt = tt
   EqVal2-trans UCode UCode cu ca ev1 ev2 =
     mkSigma (fst ev1) (mkSigma (fst (snd ev2)) (EqValTy2-trans UCode cu (snd (snd ev1)) (snd (snd ev2))))
-  EqVal2-trans (FunEl g) UCode cu ca ev1 ev2 = mkSigma tt (mkSigma tt tt)
+  EqVal2-trans (FunEl g) UCode cu ca ev1 ev2 = tt
   EqVal2-trans (PiCode a' f') UCode cu ca ev1 ev2 =
     mkSigma (fst ev1) (mkSigma (fst (snd ev2))
       (EqValTy2-trans (PiCode a' f') cu (snd (snd ev1)) (snd (snd ev2))))
@@ -2936,10 +2901,7 @@ mutual
   restrictEqVal2 G M N T UCode (PiCode _ _) UCode ()
   restrictEqVal2 G M N T (FunEl g) Bot UCode le mem fmu src = tt
   restrictEqVal2 G M N T (FunEl g) UCode UCode ()
-  restrictEqVal2 G M N T (FunEl g) (FunEl g') UCode le mem fmu (mkSigma vtM (mkSigma vtN eqvt)) =
-    mkSigma (downValTy2 G M (FunEl g') (FunEl g) le mem fmu vtM)
-      (mkSigma (downValTy2 G N (FunEl g') (FunEl g) le mem fmu vtN)
-        (downEqValTy2 G M N (FunEl g') (FunEl g) le mem fmu eqvt))
+  restrictEqVal2 G M N T (FunEl g) (FunEl g') UCode le mem fmu src = tt
   restrictEqVal2 G M N T (FunEl g) (PiCode _ _) UCode ()
   restrictEqVal2 G M N T (PiCode a' f') Bot UCode le mem fmu src = tt
   restrictEqVal2 G M N T (PiCode a' f') UCode UCode ()
