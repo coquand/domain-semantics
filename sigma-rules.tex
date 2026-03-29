@@ -1,0 +1,594 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathpartir}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{stmaryrd}
+
+\newcommand{\Ctx}{\mathsf{Ctx}}
+\newcommand{\wf}[1]{#1\;\mathsf{ctx}}
+\newcommand{\hastype}[3]{#1 \vdash #2 : #3}
+\newcommand{\conveq}[4]{#1 \vdash #2 = #3 : #4}
+\newcommand{\Pitype}[2]{\Pi(#1)#2}
+\newcommand{\Lamterm}[2]{\lambda(#1)#2}
+\newcommand{\App}[2]{#1\;#2}
+\newcommand{\substone}[2]{#1[#2]}
+\newcommand{\wkn}[1]{#1^+}
+\newcommand{\U}{\mathsf{U}}
+\newcommand{\Prop}{\mathsf{Prop}}
+\newcommand{\PropCode}{\mathsf{Prop}}
+\newcommand{\UCode}{\mathsf{U}}
+\newcommand{\PiC}[2]{\mathsf{Pi}(#1,#2)}
+\newcommand{\SigmaC}[2]{\mathsf{Sigma}(#1,#2)}
+\newcommand{\Red}{\mathrel{\leadsto^*}}
+\newcommand{\Sigmatype}[2]{\Sigma(#1)#2}
+\newcommand{\MkPair}[2]{\mathsf{pair}(#1,#2)}
+\newcommand{\Fst}[1]{\mathsf{fst}(#1)}
+\newcommand{\Snd}[1]{\mathsf{snd}(#1)}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{lemma}[theorem]{Lemma}
+
+\title{Typing Rules, Injectivity, and Subject Reduction\\
+  for Dependent Type Theory with $\Pi$, $\Sigma$, $\U{:}\U$, and $\Prop{:}\U$}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Judgments}
+
+We work with three mutually defined judgment forms:
+\begin{align*}
+  &\wf{\Gamma}                  &&\text{$\Gamma$ is a well-formed context}\\
+  &\hastype{\Gamma}{M}{A}       &&\text{$M$ has type $A$ in context $\Gamma$}\\
+  &\conveq{\Gamma}{M}{N}{A}     &&\text{$M$ and $N$ are definitionally equal at type $A$}
+\end{align*}
+Contexts are snoc-lists: $\Gamma ::= \cdot \mid \Gamma, x{:}A$.
+We write $M\sigma$ for the result of applying a substitution
+$\sigma$ to a term~$M$, and $[t]$ for the substitution
+$\Gamma \to \Gamma, x{:}A$ extending the identity by~$t$,
+so that $B[a]$ means $B(\mathrm{id}, a)$.
+
+\section{Well-formed contexts}
+
+\begin{mathpar}
+  \inferrule{ }{\wf{\cdot}}
+  \and
+  \inferrule{\hastype{\Gamma}{A}{\U}}{\wf{\Gamma, x{:}A}}
+\end{mathpar}
+
+\section{Typing rules}
+
+\subsection*{Core rules}
+
+\begin{mathpar}
+  \inferrule[\textsc{Var}]
+    {\wf{\Gamma} \\ (x{:}A) \in \Gamma}
+    {\hastype{\Gamma}{x}{A}}
+  \and
+  \inferrule[\textsc{Conv}]
+    {\hastype{\Gamma}{M}{A} \\
+     \conveq{\Gamma}{A}{B}{\U} \\
+     \hastype{\Gamma}{B}{\U}}
+    {\hastype{\Gamma}{M}{B}}
+  \and
+  \inferrule[\textsc{U}]
+    {\wf{\Gamma}}
+    {\hastype{\Gamma}{\U}{\U}}
+\end{mathpar}
+
+\subsection*{Pi types}
+
+\begin{mathpar}
+  \inferrule[\textsc{Pi}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U}}
+    {\hastype{\Gamma}{\Pitype{x{:}A}{B}}{\U}}
+  \and
+  \inferrule[\textsc{Lam}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma, x{:}A}{M}{B}}
+    {\hastype{\Gamma}{\Lamterm{x{:}A}{M}}{\Pitype{x{:}A}{B}}}
+  \and
+  \inferrule[\textsc{App}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{f}{\Pitype{x{:}A}{B}} \\
+     \hastype{\Gamma}{a}{A}}
+    {\hastype{\Gamma}{\App{f}{a}}{\substone{B}{a}}}
+\end{mathpar}
+
+\subsection*{Sigma types}
+
+\begin{mathpar}
+  \inferrule[\textsc{Sigma}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U}}
+    {\hastype{\Gamma}{\Sigmatype{x{:}A}{B}}{\U}}
+  \and
+  \inferrule[\textsc{MkPair}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{M}{A} \\
+     \hastype{\Gamma}{N}{\substone{B}{M}}}
+    {\hastype{\Gamma}{\MkPair{M}{N}}{\Sigmatype{x{:}A}{B}}}
+  \and
+  \inferrule[\textsc{Fst}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{M}{\Sigmatype{x{:}A}{B}}}
+    {\hastype{\Gamma}{\Fst{M}}{A}}
+  \and
+  \inferrule[\textsc{Snd}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{M}{\Sigmatype{x{:}A}{B}}}
+    {\hastype{\Gamma}{\Snd{M}}{\substone{B}{\Fst{M}}}}
+\end{mathpar}
+
+\subsection*{Propositions}
+
+\begin{mathpar}
+  \inferrule[\textsc{Prop}]
+    {\wf{\Gamma}}
+    {\hastype{\Gamma}{\Prop}{\U}}
+  \and
+  \inferrule[\textsc{Prop-U}]
+    {\hastype{\Gamma}{A}{\Prop}}
+    {\hastype{\Gamma}{A}{\U}}
+  \and
+  \inferrule[\textsc{Pi-Prop}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\Prop}}
+    {\hastype{\Gamma}{\Pitype{x{:}A}{B}}{\Prop}}
+\end{mathpar}
+
+\section{Conversion rules}
+
+\subsection*{General}
+
+\begin{mathpar}
+  \inferrule[\textsc{Refl}]
+    {\hastype{\Gamma}{M}{A}}
+    {\conveq{\Gamma}{M}{M}{A}}
+  \and
+  \inferrule[\textsc{Sym}]
+    {\conveq{\Gamma}{M}{N}{A}}
+    {\conveq{\Gamma}{N}{M}{A}}
+  \and
+  \inferrule[\textsc{Trans}]
+    {\conveq{\Gamma}{M}{N}{A} \\
+     \conveq{\Gamma}{N}{P}{A}}
+    {\conveq{\Gamma}{M}{P}{A}}
+  \and
+  \inferrule[\textsc{Conv-Eq}]
+    {\conveq{\Gamma}{M}{N}{A} \\
+     \conveq{\Gamma}{A}{B}{\U} \\
+     \hastype{\Gamma}{B}{\U}}
+    {\conveq{\Gamma}{M}{N}{B}}
+\end{mathpar}
+
+\subsection*{Pi computation and congruence}
+
+\begin{mathpar}
+  \inferrule[\textsc{Beta}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma, x{:}A}{M}{B} \\
+     \hastype{\Gamma}{a}{A}}
+    {\conveq{\Gamma}
+       {\App{(\Lamterm{x{:}A}{M})}{a}}
+       {\substone{M}{a}}
+       {\substone{B}{a}}}
+  \and
+  \inferrule[\textsc{Pi-Cong}]
+    {\conveq{\Gamma}{A}{A'}{\U} \\
+     \conveq{\Gamma, x{:}A}{B}{B'}{\U}}
+    {\conveq{\Gamma}
+       {\Pitype{x{:}A}{B}}
+       {\Pitype{x{:}A'}{B'}}
+       {\U}}
+  \and
+  \inferrule[\textsc{Funext}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \conveq{\Gamma, x{:}A}{\App{\wkn{f}}{x}}{\App{\wkn{g}}{x}}{B} \\
+     \hastype{\Gamma}{f}{\Pitype{x{:}A}{B}} \\
+     \hastype{\Gamma}{g}{\Pitype{x{:}A}{B}}}
+    {\conveq{\Gamma}{f}{g}{\Pitype{x{:}A}{B}}}
+  \and
+  \inferrule[\textsc{App-Fun}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \conveq{\Gamma}{f}{f'}{\Pitype{x{:}A}{B}} \\
+     \hastype{\Gamma}{a}{A}}
+    {\conveq{\Gamma}
+       {\App{f}{a}}
+       {\App{f'}{a}}
+       {\substone{B}{a}}}
+  \and
+  \inferrule[\textsc{App-Arg}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{f}{\Pitype{x{:}A}{B}} \\
+     \conveq{\Gamma}{a}{a'}{A}}
+    {\conveq{\Gamma}
+       {\App{f}{a}}
+       {\App{f}{a'}}
+       {\substone{B}{a}}}
+\end{mathpar}
+
+\subsection*{Sigma computation and congruence}
+
+\begin{mathpar}
+  \inferrule[\textsc{Sigma-Cong}]
+    {\conveq{\Gamma}{A}{A'}{\U} \\
+     \conveq{\Gamma, x{:}A}{B}{B'}{\U}}
+    {\conveq{\Gamma}
+       {\Sigmatype{x{:}A}{B}}
+       {\Sigmatype{x{:}A'}{B'}}
+       {\U}}
+  \and
+  \inferrule[\textsc{Beta-Fst}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{M}{A} \\
+     \hastype{\Gamma}{N}{\substone{B}{M}}}
+    {\conveq{\Gamma}
+       {\Fst{\MkPair{M}{N}}}
+       {M}
+       {A}}
+  \and
+  \inferrule[\textsc{Beta-Snd}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{M}{A} \\
+     \hastype{\Gamma}{N}{\substone{B}{M}}}
+    {\conveq{\Gamma}
+       {\Snd{\MkPair{M}{N}}}
+       {N}
+       {\substone{B}{M}}}
+  \and
+  \inferrule[\textsc{Pair-Eta}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{M}{\Sigmatype{x{:}A}{B}}}
+    {\conveq{\Gamma}
+       {\MkPair{\Fst{M}}{\Snd{M}}}
+       {M}
+       {\Sigmatype{x{:}A}{B}}}
+  \and
+  \inferrule[\textsc{MkPair-Fst}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \conveq{\Gamma}{M}{M'}{A} \\
+     \hastype{\Gamma}{N}{\substone{B}{M}} \\
+     \hastype{\Gamma}{N'}{\substone{B}{M'}}}
+    {\conveq{\Gamma}
+       {\MkPair{M}{N}}
+       {\MkPair{M'}{N'}}
+       {\Sigmatype{x{:}A}{B}}}
+  \and
+  \inferrule[\textsc{MkPair-Snd}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{M}{A} \\
+     \conveq{\Gamma}{N}{N'}{\substone{B}{M}}}
+    {\conveq{\Gamma}
+       {\MkPair{M}{N}}
+       {\MkPair{M}{N'}}
+       {\Sigmatype{x{:}A}{B}}}
+  \and
+  \inferrule[\textsc{Fst-Cong}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \conveq{\Gamma}{M}{M'}{\Sigmatype{x{:}A}{B}}}
+    {\conveq{\Gamma}
+       {\Fst{M}}
+       {\Fst{M'}}
+       {A}}
+  \and
+  \inferrule[\textsc{Snd-Cong}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \conveq{\Gamma}{M}{M'}{\Sigmatype{x{:}A}{B}}}
+    {\conveq{\Gamma}
+       {\Snd{M}}
+       {\Snd{M'}}
+       {\substone{B}{\Fst{M}}}}
+\end{mathpar}
+
+\subsection*{Propositions}
+
+\begin{mathpar}
+  \inferrule[\textsc{Prop-Irr}]
+    {\hastype{\Gamma}{A}{\Prop} \\
+     \hastype{\Gamma}{M}{A} \\
+     \hastype{\Gamma}{N}{A}}
+    {\conveq{\Gamma}{M}{N}{A}}
+  \and
+  \inferrule[\textsc{Prop-U-Eq}]
+    {\conveq{\Gamma}{M}{N}{\Prop}}
+    {\conveq{\Gamma}{M}{N}{\U}}
+  \and
+  \inferrule[\textsc{Pi-Prop-Cong}]
+    {\conveq{\Gamma}{A}{A'}{\U} \\
+     \conveq{\Gamma, x{:}A}{B}{B'}{\Prop}}
+    {\conveq{\Gamma}
+       {\Pitype{x{:}A}{B}}
+       {\Pitype{x{:}A'}{B'}}
+       {\Prop}}
+\end{mathpar}
+
+\section{Head reduction}
+
+We define single-step head reduction $M \leadsto_1 N$ as the
+compatible closure of $\beta$-reduction at the head, extended with
+projection reductions for Sigma types:
+\begin{mathpar}
+  \inferrule[\textsc{HR-Beta}]
+    { }
+    {\App{(\Lamterm{x{:}A}{M})}{a} \leadsto_1 \substone{M}{a}}
+  \and
+  \inferrule[\textsc{HR-App}]
+    {M \leadsto_1 M'}
+    {\App{M}{a} \leadsto_1 \App{M'}{a}}
+  \and
+  \inferrule[\textsc{HR-Beta-Fst}]
+    { }
+    {\Fst{\MkPair{M}{N}} \leadsto_1 M}
+  \and
+  \inferrule[\textsc{HR-Beta-Snd}]
+    { }
+    {\Snd{\MkPair{M}{N}} \leadsto_1 N}
+  \and
+  \inferrule[\textsc{HR-Fst}]
+    {M \leadsto_1 M'}
+    {\Fst{M} \leadsto_1 \Fst{M'}}
+  \and
+  \inferrule[\textsc{HR-Snd}]
+    {M \leadsto_1 M'}
+    {\Snd{M} \leadsto_1 \Snd{M'}}
+\end{mathpar}
+
+\noindent
+We write $M \Red N$ for the reflexive-transitive closure of
+$\leadsto_1$.  As in the Pi-only system, the validity relation uses
+a wrapper $\mathsf{Red}\;\Gamma\;M\;N\;A$ with phantom context and
+type parameters.
+
+\section{Pi injectivity}
+
+\begin{theorem}[Pi injectivity --- Corollary 6]
+  \label{thm:pi-conv}
+  If\/ $\conveq{\Gamma}{A_0}{\Pitype{x{:}B_1}{F_1}}{\U}$,
+  then there exist $B_0$, $F_0$ such that
+  \begin{enumerate}
+    \item $A_0 \Red \Pitype{x{:}B_0}{F_0}$,
+    \item $\conveq{\Gamma}{B_0}{B_1}{\U}$,
+    \item $\conveq{\Gamma, x{:}B_0}{F_0}{F_1}{\U}$.
+  \end{enumerate}
+\end{theorem}
+
+\begin{corollary}[Pi--Pi injectivity]
+  If\/ $\conveq{\Gamma}{\Pitype{x{:}A_0}{B_0}}{\Pitype{x{:}A_1}{B_1}}{\U}$,
+  then
+  \[
+    \conveq{\Gamma}{A_0}{A_1}{\U}
+    \qquad\text{and}\qquad
+    \conveq{\Gamma, x{:}A_0}{B_0}{B_1}{\U}.
+  \]
+\end{corollary}
+
+\begin{proof}[Proof outline]
+  The proof proceeds by domain-theoretic adequacy:
+  \begin{enumerate}
+    \item From the conversion, extract $\hastype{\Gamma}{A_0}{\U}$
+      by presupposition.
+    \item Apply conversion soundness at the bottom environment
+      $\rho_\bot$ to transfer
+      $\mathsf{EvalRel}(\Pi B_1\,F_1, \rho_\bot, \PiC{\bot}{\mathsf{nil}})$
+      to $\mathsf{EvalRel}(A_0, \rho_\bot, \PiC{\bot}{\mathsf{nil}})$.
+    \item Apply bundled equality adequacy (\texttt{adequacyEqSub2})
+      to obtain $\mathsf{EqVal2}$ at the $\PiC{\bot}{\mathsf{nil}}$
+      code, which unfolds to $\mathsf{EqValTyPi2}$ containing the
+      head reduction and domain/codomain conversions.
+    \item Since $\Pi$ is a head normal form, reduction uniqueness
+      (\texttt{Red-unique-Pi}) gives exact equalities.
+  \end{enumerate}
+\end{proof}
+
+\section{Sigma injectivity}
+
+\begin{theorem}[Sigma injectivity]
+  \label{thm:sigma-conv}
+  If\/ $\conveq{\Gamma}{A_0}{\Sigmatype{x{:}B_1}{F_1}}{\U}$,
+  then there exist $B_0$, $F_0$ such that
+  \begin{enumerate}
+    \item $A_0 \Red \Sigmatype{x{:}B_0}{F_0}$,
+    \item $\conveq{\Gamma}{B_0}{B_1}{\U}$,
+    \item $\conveq{\Gamma, x{:}B_0}{F_0}{F_1}{\U}$.
+  \end{enumerate}
+\end{theorem}
+
+\begin{corollary}[Sigma--Sigma injectivity]
+  If\/ $\conveq{\Gamma}{\Sigmatype{x{:}A_0}{B_0}}{\Sigmatype{x{:}A_1}{B_1}}{\U}$,
+  then
+  \[
+    \conveq{\Gamma}{A_0}{A_1}{\U}
+    \qquad\text{and}\qquad
+    \conveq{\Gamma, x{:}A_0}{B_0}{B_1}{\U}.
+  \]
+\end{corollary}
+
+\begin{proof}[Proof outline]
+  The proof follows the same strategy as Pi injectivity:
+  \begin{enumerate}
+    \item Extract $\hastype{\Gamma}{A_0}{\U}$ by presupposition.
+    \item Transfer
+      $\mathsf{EvalRel}(\Sigma B_1\,F_1, \rho_\bot, \SigmaC{\bot}{\mathsf{nil}})$
+      to $\mathsf{EvalRel}(A_0, \rho_\bot, \SigmaC{\bot}{\mathsf{nil}})$
+      via conversion soundness.
+    \item Apply bundled equality adequacy to obtain
+      $\mathsf{EqValTySigma2}$ containing head reduction and
+      domain/codomain conversions.
+    \item Since $\Sigma$ is a head normal form, reduction uniqueness
+      (\texttt{Red-unique-Sigma}) gives exact equalities.
+  \end{enumerate}
+\end{proof}
+
+\section{Subject reduction}
+
+As an application of Pi and Sigma injectivity, we prove subject
+reduction for single-step head reduction.  The proof requires two
+mutually defined theorems due to the Snd case.
+
+\begin{theorem}[Subject reduction and subject conversion]
+  \label{thm:subject-red}
+  The following are proved by mutual induction on the typing
+  derivation:
+  \begin{enumerate}
+    \item \textbf{Subject reduction.}\; If\/
+      $\hastype{\Gamma}{M}{A}$ and $M \leadsto_1 N$, then
+      $\hastype{\Gamma}{N}{A}$.
+    \item \textbf{Subject conversion.}\; If\/
+      $\hastype{\Gamma}{M}{A}$ and $M \leadsto_1 N$, then
+      $\conveq{\Gamma}{M}{N}{A}$.
+  \end{enumerate}
+\end{theorem}
+
+\noindent
+The mutual definition is necessary because of the \textsc{Snd} case:
+when $M \leadsto_1 M'$ and we have $\hastype{\Gamma}{\Snd{M}}{\substone{B}{\Fst{M}}}$,
+subject reduction for $\Snd{M} \leadsto_1 \Snd{M'}$ must produce
+$\hastype{\Gamma}{\Snd{M'}}{\substone{B}{\Fst{M}}}$.  But
+the direct application of \textsc{Snd} gives type $\substone{B}{\Fst{M'}}$.
+To bridge the gap, we need $\conveq{\Gamma}{\Fst{M}}{\Fst{M'}}{A}$,
+which requires subject conversion (not just subject reduction)
+applied to~$M$.
+
+\begin{proof}[Proof outline]
+  By mutual induction on the typing derivation, case-splitting on
+  the head reduction step.
+
+  \medskip\noindent\textbf{Subject reduction cases:}
+  \begin{itemize}
+    \item \textsc{Conv} and \textsc{Prop-U}: peel off and recurse.
+    \item \textsc{App} with \textsc{HR-App} ($f \leadsto_1 f'$):
+      induction gives $\hastype{\Gamma}{f'}{\Pitype{x{:}A}{B}}$;
+      rebuild with \textsc{App}.
+    \item \textsc{App} with \textsc{HR-Beta}
+      ($\App{(\Lamterm{x{:}A'}{M'})}{a} \leadsto_1 \substone{M'}{a}$):
+      the key case.  Use Pi injectivity to extract the body typing
+      $\hastype{\Gamma, x{:}A_0}{M'}{B_0}$ from the lambda
+      derivation (walking through \textsc{Conv} layers), then apply
+      substitution.  The helper lemma \texttt{ty-Lam-body} performs
+      this extraction.
+    \item \textsc{Fst} with \textsc{HR-Fst} ($M \leadsto_1 M'$):
+      induction gives $\hastype{\Gamma}{M'}{\Sigmatype{x{:}A}{B}}$;
+      rebuild with \textsc{Fst}.
+    \item \textsc{Fst} with \textsc{HR-Beta-Fst}
+      ($\Fst{\MkPair{M}{N}} \leadsto_1 M$):
+      use Sigma injectivity to extract
+      $\hastype{\Gamma}{M}{A}$ from the MkPair derivation.
+      The helper \texttt{ty-MkPair-components} performs this
+      extraction.
+    \item \textsc{Snd} with \textsc{HR-Snd} ($M \leadsto_1 M'$):
+      induction on subject conversion gives
+      $\conveq{\Gamma}{M}{M'}{{\Sigmatype{x{:}A}{B}}}$, hence
+      $\conveq{\Gamma}{\Fst{M}}{\Fst{M'}}{A}$ by \textsc{Fst-Cong}.
+      Subject reduction gives
+      $\hastype{\Gamma}{\Snd{M'}}{\substone{B}{\Fst{M'}}}$;
+      type conversion via $\Fst{M} = \Fst{M'}$ yields
+      $\hastype{\Gamma}{\Snd{M'}}{\substone{B}{\Fst{M}}}$.
+    \item \textsc{Snd} with \textsc{HR-Beta-Snd}
+      ($\Snd{\MkPair{M}{N}} \leadsto_1 N$):
+      use Sigma injectivity and \texttt{ty-MkPair-components}
+      to extract $\hastype{\Gamma}{N}{\substone{B}{M}}$, then
+      convert using $\conveq{\Gamma}{M}{\Fst{\MkPair{M}{N}}}{A}$
+      (the symmetric Beta-Fst).
+  \end{itemize}
+
+  \medskip\noindent\textbf{Subject conversion} follows from subject
+  reduction: given $\hastype{\Gamma}{M}{A}$ and $M \leadsto_1 N$,
+  subject reduction gives $\hastype{\Gamma}{N}{A}$, and the
+  corresponding conversion rule for the head reduction step
+  ($\beta$, $\beta$-fst, $\beta$-snd, or congruence) gives
+  $\conveq{\Gamma}{M}{N}{A}$.
+
+  \medskip\noindent\textbf{Key helper lemmas:}
+  \begin{itemize}
+    \item \texttt{ty-Lam-body}: If
+      $\hastype{\Gamma}{\Lamterm{x{:}A'}{M}}{\Pitype{x{:}A}{B}}$,
+      then $\hastype{\Gamma, x{:}A}{M}{B}$.  Proved by walking
+      through \textsc{Conv} (using Pi injectivity) and eliminating
+      \textsc{Prop-U} (since $\U$ cannot head-reduce to $\Pi$).
+    \item \texttt{ty-MkPair-components}: If
+      $\hastype{\Gamma}{\MkPair{M}{N}}{\Sigmatype{x{:}A}{B}}$,
+      then $\hastype{\Gamma}{M}{A}$ and
+      $\hastype{\Gamma}{N}{\substone{B}{M}}$.  Proved by walking
+      through \textsc{Conv} (using Sigma injectivity) and
+      eliminating \textsc{Prop-U}.
+  \end{itemize}
+\end{proof}
+
+\section{Agda formalization}
+
+The entire development is formalised in Agda with flags
+\texttt{--without-K --exact-split --type-in-type} and
+\textbf{0 postulates} throughout.
+
+\medskip\noindent\textbf{Core files:}
+\begin{itemize}
+  \item \texttt{RawSyntax.agda} --- raw terms ($\Pi$, $\Sigma$,
+    $\lambda$, App, MkPair, Fst, Snd, U, Prop), substitution,
+    weakening.
+  \item \texttt{TypingRules.agda} --- typing and conversion judgments.
+  \item \texttt{PaperSemantics.agda} --- trusted kernel: finite
+    elements ($\mathsf{FinEl}$, $\mathsf{FinFun}$), information
+    ordering, coherence, finite membership.  No postulates.
+  \item \texttt{RawSemantics.agda} --- selection-based evaluation
+    relation.  No postulates.
+  \item \texttt{TypingSemantics.agda} --- typing and conversion
+    soundness.  0 postulates.
+  \item \texttt{Reduction.agda} --- head reduction
+    ($\mathsf{HeadRed1}$, $\mathsf{Red}$).
+\end{itemize}
+
+\medskip\noindent\textbf{Validity stack} (Validity5 series):
+\begin{itemize}
+  \item \texttt{Validity5Core.agda} --- base definitions of
+    $\mathsf{Val2}$/$\mathsf{EqVal2}$ with record types.
+  \item \texttt{Validity5DownUpRestrict.agda} --- monotonicity:
+    downward, upward, and restriction in the code argument.
+  \item \texttt{Validity5Fwd.agda} --- forward lemmas.
+  \item \texttt{Validity5SymTrans.agda} --- symmetry and
+    transitivity for $\mathsf{EqVal2}$.
+  \item \texttt{Validity5Sup.agda} --- sup closure.
+  \item \texttt{Validity5Lemmas.agda} --- collected utility lemmas.
+\end{itemize}
+
+\medskip\noindent\textbf{Main results:}
+\begin{itemize}
+  \item \texttt{Adequacy5.agda} + \texttt{Adequacy5Cases.agda} ---
+    adequacy proof (two-substitution form).  0 postulates.
+  \item \texttt{Adequacy5Helpers.agda},
+    \texttt{Adequacy5HeadRed.agda} --- helper lemmas for adequacy.
+  \item \texttt{Injectivity5.agda} --- Pi and Sigma injectivity.
+    0 postulates.
+  \item \texttt{SubjectReduction5.agda} --- subject reduction +
+    subject conversion (mutual).  0 postulates.
+\end{itemize}
+
+\begin{thebibliography}{1}
+\bibitem{CH2018}
+  T.~Coquand and S.~Huber,
+  ``An adequacy theorem for dependent type theory,''
+  \emph{Archive for Mathematical Logic}, vol.~57, pp.~649--676, 2018.
+\end{thebibliography}
+
+\end{document}

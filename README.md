@@ -1,7 +1,7 @@
-# Adequacy for Dependent Type Theory with U : U and Prop : U
+# Adequacy for Dependent Type Theory with U : U, Sigma, and Prop : U
 
 Agda formalisation of the logical-relation core of the adequacy proof
-for dependent type theory, adapted to a single-universe setting (U : U).
+for dependent type theory with Pi, Sigma, and a single-universe setting (U : U).
 
 Based on:
 
@@ -142,12 +142,50 @@ Based on:
     a head normal form distinct from `Pi`).
   **0 postulates.**
 
+### Sigma extension (Validity5/Adequacy5 stack)
+
+- **`Validity5Core.agda`** through **`Validity5Lemmas.agda`** — Record-based
+  `Val2`/`EqVal2` logical relation with `Red3`, `RValTyPi`, `RValTySigma`,
+  `REqValTyPi`, `REqValTySigma`, etc. Import chain:
+  Validity5Core -> Validity5DownUpRestrict -> Validity5Fwd ->
+  Validity5SymTrans -> Validity5Sup -> Validity5Lemmas.
+  **0 postulates.**
+
+- **`Adequacy5Helpers.agda`** — Helper definitions for the adequacy proof:
+  `ValidSub2`, `extSub`, `substExpr-comp`, `ValidSub2-extend`, etc.
+  **0 postulates.**
+
+- **`Adequacy5HeadRed.agda`** — Head reduction lemmas for adequacy.
+  **0 postulates.**
+
+- **`Adequacy5Cases.agda`** — Factored-out `App`-core bodies for fast
+  type-checking. Fixes `Red-unique-Pi2` metas with
+  `{G = H} {M = Pi sA sB} {A = U}`.
+  **0 postulates.**
+
+- **`Adequacy5.agda`** — Main adequacy mutual block for Pi + Sigma + U.
+  **0 postulates, 0 holes, 0 unsolved metas.**
+
+- **`Injectivity5.agda`** — Pi and Sigma injectivity (Corollary 6):
+  `piConv`, `piInjectivity`, `sigmaConv`, `sigmaInjectivity`.
+  **0 postulates.**
+
+- **`SubjectReduction5.agda`** — Subject reduction and subject conversion
+  for Pi + Sigma. `subject-red1` and `subject-conv1` (mutual). Handles all
+  6 `HeadRed1` constructors including `beta-fst`, `beta-snd`,
+  `fst-reduction`, `snd-reduction`.
+  **0 postulates.**
+
 ## Documentation
 
 - **`rules.tex`** / **`rules.pdf`** — LaTeX presentation of the typing
   and conversion rules, head reduction, and the full Pi injectivity
-  theorem (Corollary 6, parts 1–3 and the Pi–Pi corollary) with
+  theorem (Corollary 6, parts 1-3 and the Pi-Pi corollary) with
   proof outline.
+
+- **`sigma-rules.tex`** / **`sigma-rules.pdf`** — Typing and conversion
+  rules for the Sigma-extended system (MkPair, Fst, Snd, beta-fst,
+  beta-snd, fst-reduction, snd-reduction, pair-eta, etc.).
 
 - **`sigma-validity.tex`** / **`sigma-validity.pdf`** — Informal
   description of how the validity proof extends to Sigma types.
@@ -190,3 +228,8 @@ Based on:
 | Adequacy2 | 0 |
 | PiInjectivity | 0 |
 | SubjectReduction | 0 |
+| Validity5Core -- Validity5Lemmas | 0 |
+| Adequacy5Helpers, Adequacy5HeadRed | 0 |
+| Adequacy5Cases, Adequacy5 | 0 |
+| Injectivity5 | 0 |
+| SubjectReduction5 | 0 |

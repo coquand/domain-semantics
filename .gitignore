@@ -1,6 +1,18 @@
-# Sigma extension files (private)
-*Sigma*
+# Agda build artifacts
+*.agdai
+
+# Old/superseded Sigma files (replaced by Validity5/Adequacy5 stack)
 SigmaInjectivity*
+Adequacy2Sigma*
+Validity2Sigma*
+Validity3Sigma*
+LemmaForA2Sigma*
+
+# Sigma validity notes (informal)
 sigma-validity.*
 !sigma-validity.tex
 !sigma-validity.pdf
+
+# Editor/temp files
+*~
+\#*\#
