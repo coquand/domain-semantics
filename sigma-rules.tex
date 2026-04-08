@@ -25,12 +25,23 @@
 \newcommand{\Fst}[1]{\mathsf{fst}(#1)}
 \newcommand{\Snd}[1]{\mathsf{snd}(#1)}
 
+% Semantic notation (validity / adequacy)
+\newcommand{\Val}{\mathsf{Val}}
+\newcommand{\EqVal}{\mathsf{EqVal}}
+\newcommand{\ValTy}{\mathsf{ValTy}}
+\newcommand{\EqValTy}{\mathsf{EqValTy}}
+\newcommand{\FinEl}{\mathsf{Code}}
+\newcommand{\FinFun}{\mathsf{FunCode}}
+\newcommand{\EvalFun}{\mathsf{Eval}}
+\newcommand{\Bot}{\bot}
+\newcommand{\pj}[2]{#1\mbox{.}#2}
+
 \newtheorem{theorem}{Theorem}
 \newtheorem{corollary}[theorem]{Corollary}
 \newtheorem{definition}[theorem]{Definition}
 \newtheorem{lemma}[theorem]{Lemma}
 
-\title{Typing Rules, Injectivity, and Subject Reduction\\
+\title{Typing Rules, Validity, Injectivity, and Subject Reduction\\
   for Dependent Type Theory with $\Pi$, $\Sigma$, $\U{:}\U$, and $\Prop{:}\U$}
 \author{}
 \date{}
@@ -535,6 +546,282 @@ applied to~$M$.
       eliminating \textsc{Prop-U}.
   \end{itemize}
 \end{proof}
+
+\section{Validity for Sigma types}
+
+We describe the extension of the logical relation (validity) to handle
+$\Sigma$-types.  The presentation follows Coquand--Huber (2018), where the
+logical relation is indexed by \emph{codes} from a domain-theoretic model.
+The key new difficulty compared to $\Pi$-types is in the head-reduction
+transport lemma.
+
+\subsection{Codes and projections}
+
+The set $\FinEl$ of codes includes:
+\[
+  u,v ::= \Bot \mid \U \mid \Prop \mid \lambda g \mid \PiC{b}{f}
+         \mid \SigmaC{b}{f} \mid (u,v)
+\]
+A code $\SigmaC{b}{f}$ represents a $\Sigma$-type whose domain has code~$b$
+and whose codomain is the finite function~$f$.
+A code $(u,v)$ represents a pair value.
+
+We use a uniform projection notation for both terms and codes:
+\[
+  \pj{M}{1},\quad \pj{M}{2} \qquad\text{(first and second projection of a term)}
+\]
+\[
+  \pj{w}{1},\quad \pj{w}{2} \qquad\text{(first and second projection of a code)}
+\]
+On codes, the projections are defined by:
+\[
+  \pj{(u,v)}{1} = u, \qquad \pj{w}{1} = \Bot \text{ otherwise}
+\]
+\[
+  \pj{(u,v)}{2} = v, \qquad \pj{w}{2} = \Bot \text{ otherwise}
+\]
+
+\subsection{Term validity at $\Sigma$}
+
+\begin{definition}[Term validity at $\Sigma$]
+We define $\Val\;\Gamma\;M\;T\;w\;\SigmaC{b}{f}$ to hold when:
+\begin{enumerate}
+\item $\ValTy\;\Gamma\;T\;(\SigmaC{b}{f})$ (type validity of~$T$), which
+  includes $T \Red \Sigmatype{x{:}A}{B}$ with $\hastype{\Gamma}{A}{\U}$ and
+  $\hastype{\Gamma, x{:}A}{B}{\U}$, together with the edge functions;
+\item $\Val\;\Gamma\;\pj{M}{1}\;A\;\pj{w}{1}\;b$ (validity of the
+  first projection);
+\item $\Val\;\Gamma\;\pj{M}{2}\;\substone{B}{\pj{M}{1}}\;\pj{w}{2}\;f(\pj{w}{1})$
+  (validity of the second projection).
+\end{enumerate}
+\end{definition}
+
+\begin{remark}
+When $w$ is not a pair $(u,v)$, we have $\pj{w}{1} = \Bot$ and
+$\pj{w}{2} = \Bot$.  Since $\Val$ at code $\Bot$ is trivially $\top$,
+conditions (2) and (3) are automatically satisfied.  This means there is no
+need for separate case analysis on whether $w$ is a pair or not: the
+definition is \emph{uniform} in~$w$.
+\end{remark}
+
+\begin{remark}
+Compared to the $\Pi$-case, where term validity at $\PiC{b}{f}$ is
+defined for $w = \lambda g$ and stores
+$\Val\;\Gamma\;(\App{M}{N})\;(\substone{B}{N})\;v\;(f(u))$, the type
+$\substone{B}{N}$ does not mention~$M$.  For $\Sigma$, the second
+component's type $\substone{B}{\pj{M}{1}}$ \emph{does} mention~$M$.
+This is the source of the difficulty in head-reduction transport.
+\end{remark}
+
+\subsection{Type validity at $\Sigma$}
+
+\begin{definition}[Type validity at $\Sigma$]
+$\ValTy\;\Gamma\;T\;(\SigmaC{b}{f})$ holds when:
+\begin{itemize}
+\item $T \Red \Sigmatype{x{:}A}{B}$ and
+  $\conveq{\Gamma}{T}{\Sigmatype{x{:}A}{B}}{\U}$;
+\item $\hastype{\Gamma}{A}{\U}$ and $\hastype{\Gamma, x{:}A}{B}{\U}$;
+\item $\ValTy\;\Gamma\;A\;b$ (domain type validity);
+\item For each $(u,v) \in f$ and $N$ with $\hastype{\Gamma}{N}{A}$ and
+  $\Val\;\Gamma\;N\;A\;u\;b$, we have $\ValTy\;\Gamma\;\substone{B}{N}\;v$
+  (edge function for values);
+\item Similarly for the equality edge.
+\end{itemize}
+\end{definition}
+
+\section{Type-equality transport}
+
+\begin{lemma}[Transport along type equality]\label{lem:transport}
+For all codes $u$ and $a$:
+\[
+  \EqValTy\;\Gamma\;C\;C'\;a \;\;\Longrightarrow\;\;
+  \Val\;\Gamma\;N\;C\;u\;a \;\;\Longrightarrow\;\;
+  \Val\;\Gamma\;N\;C'\;u\;a
+\]
+\end{lemma}
+
+\begin{proof}
+By induction on $a$.  The type parameter $C$ appears in $\Val\;\Gamma\;N\;C\;u\;a$
+only in two cases: $a = \PiC{b}{f}$ with $u = \lambda g$, and
+$a = \SigmaC{b}{f}$ with $u = (u',v')$.  In these cases the validity
+record stores a head reduction $C \Red \Pitype{x{:}A}{B}$
+or $C \Red \Sigmatype{x{:}A}{B}$, and $\EqValTy\;\Gamma\;C\;C'\;a$
+provides the corresponding data for~$C'$, allowing
+the record to be rebuilt.  In all other cases---including $a = \U$,
+where $\Val$ depends on~$N$ but not on~$C$---the result is immediate.
+\end{proof}
+
+\begin{remark}
+This lemma plays a central role in the $\Sigma$ case of
+head-reduction transport (Lemma~\ref{lem:headred}, Step~4), where it
+transports $\Val$ from type $\substone{B}{\pj{M'}{1}}$ to type
+$\substone{B}{\pj{M}{1}}$.
+For $\Pi$-types alone, this lemma is not needed in head-reduction transport.
+\end{remark}
+
+\section{Head-reduction transport}
+
+The central lemma for adequacy is:
+
+\begin{lemma}[Head-reduction produces equality]\label{lem:headred}
+Given:
+\begin{itemize}
+\item $M \Red M'$ and $\conveq{\Gamma}{M}{M'}{T}$,
+\item $\Val\;\Gamma\;M'\;T\;u\;a$ \quad (validity of the reduct),
+\end{itemize}
+we can conclude:
+\[
+  \EqVal\;\Gamma\;M'\;M\;T\;u\;a
+\]
+which bundles $\Val\;\Gamma\;M\;T\;u\;a$ and $\Val\;\Gamma\;M'\;T\;u\;a$
+and the equality $\EqVal\;\Gamma\;M'\;M\;T\;u\;a$.
+\end{lemma}
+
+\begin{remark}
+The return type is $\EqVal$ (not just $\Val$).  This is essential
+for the $\Sigma$ case: the equality at the first projection is needed to
+transport the second projection's type.
+\end{remark}
+
+\subsection{The $\Pi$ case}
+
+For $a = \PiC{b}{f}$ and $u = \lambda g$, the validity data for~$M'$
+stores, for each $(u_0, v_0) \in g$ and argument~$N$:
+\[
+  \Val\;\Gamma\;(\App{M'}{N})\;(\substone{B_0}{N})\;v_0\;(f(u_0))
+\]
+Since $M \Red M'$, we have $\App{M}{N} \Red \App{M'}{N}$.
+The type $\substone{B_0}{N}$ does not mention~$M$, so the induction hypothesis
+applies directly at code $(v_0, f(u_0))$:
+\[
+  \EqVal\;\Gamma\;(\App{M'}{N})\;(\App{M}{N})\;(\substone{B_0}{N})\;v_0\;(f(u_0))
+\]
+No type transport is needed.
+
+\subsection{The $\Sigma$ case}\label{sec:sigma}
+
+For $a = \SigmaC{b}{f}$, we work with the uniform definition.
+The validity data for~$M'$ includes:
+\begin{align}
+  &\Val\;\Gamma\;\pj{M'}{1}\;A\;\pj{w}{1}\;b  \label{eq:fstM'}\\
+  &\Val\;\Gamma\;\pj{M'}{2}\;\substone{B}{\pj{M'}{1}}\;\pj{w}{2}\;f(\pj{w}{1})
+    \label{eq:sndM'}
+\end{align}
+
+We need to produce the same data for~$M$, plus equality.
+
+\medskip
+\noindent\textbf{Step 1: First projection.}
+From $M \Red M'$ we get $\pj{M}{1} \Red \pj{M'}{1}$.  From
+$\conveq{\Gamma}{M}{M'}{\Sigmatype{x{:}A}{B}}$ we derive (by the congruence
+rule for projections):
+\[
+  \conveq{\Gamma}{\pj{M}{1}}{\pj{M'}{1}}{A}
+\]
+Together with~\eqref{eq:fstM'}, the induction hypothesis at code
+$(\pj{w}{1}, b)$ gives:
+\begin{equation}\label{eq:eqfst}
+  \EqVal\;\Gamma\;\pj{M'}{1}\;\pj{M}{1}\;A\;\pj{w}{1}\;b
+\end{equation}
+This bundles $\Val\;\Gamma\;\pj{M}{1}\;A\;\pj{w}{1}\;b$.
+
+\medskip
+\noindent\textbf{Step 2: Type transport via the edge function.}
+The equality~\eqref{eq:eqfst} and the equality edge function from $\ValTy$ at
+$\SigmaC{b}{f}$ give:
+\begin{equation}\label{eq:eqty}
+  \EqValTy\;\Gamma\;\substone{B}{\pj{M'}{1}}\;\substone{B}{\pj{M}{1}}\;f(\pj{w}{1})
+\end{equation}
+This is the key step: the \emph{equality} edge function converts the equality of
+\emph{values} ($\pj{M'}{1} = \pj{M}{1}$) into an equality of \emph{types}
+($\substone{B}{\pj{M'}{1}} = \substone{B}{\pj{M}{1}}$).  This step has no
+analogue in the $\Pi$ case.
+
+Note that the \emph{value} edge (which only takes $\Val$ data) would not suffice
+here: we genuinely need the \emph{equality} at the first projection to produce
+the type equality for the transport.  This is why
+Lemma~\ref{lem:headred} must return $\EqVal$ rather than just $\Val$.
+
+\medskip
+\noindent\textbf{Step 3: Second projection.}
+From $M \Red M'$ we get $\pj{M}{2} \Red \pj{M'}{2}$.  The congruence
+rule for the second projection, applied to
+$\conveq{\Gamma}{M'}{M}{\Sigmatype{x{:}A}{B}}$
+(note the swap, so that $\pj{M'}{1}$ appears in the type), gives:
+\[
+  \conveq{\Gamma}{\pj{M'}{2}}{\pj{M}{2}}{\substone{B}{\pj{M'}{1}}}
+\]
+Together with~\eqref{eq:sndM'}, the induction hypothesis at code
+$(\pj{w}{2}, f(\pj{w}{1}))$ gives:
+\begin{equation}\label{eq:eqsnd}
+  \EqVal\;\Gamma\;\pj{M'}{2}\;\pj{M}{2}\;\substone{B}{\pj{M'}{1}}\;\pj{w}{2}\;f(\pj{w}{1})
+\end{equation}
+In particular, $\Val\;\Gamma\;\pj{M}{2}\;\substone{B}{\pj{M'}{1}}\;\pj{w}{2}\;f(\pj{w}{1})$.
+
+\medskip
+\noindent\textbf{Step 4: Transport.}
+The validity data for~$M$ at $\Sigma$ requires:
+\[
+  \Val\;\Gamma\;\pj{M}{2}\;\substone{B}{\pj{M}{1}}\;\pj{w}{2}\;f(\pj{w}{1})
+\]
+We have $\Val$ at $\substone{B}{\pj{M'}{1}}$ from Step~3, and $\EqValTy$ between
+$\substone{B}{\pj{M'}{1}}$ and $\substone{B}{\pj{M}{1}}$ from Step~2.
+Lemma~\ref{lem:transport} gives
+$\Val\;\Gamma\;\pj{M}{2}\;\substone{B}{\pj{M}{1}}\;\pj{w}{2}\;f(\pj{w}{1})$.
+
+\section{Bundling requirements}
+
+For $\Pi$, $\U$, and $\Prop$ alone, the following simpler choices suffice:
+\begin{itemize}
+\item Head reduction ($\mathsf{Red}$) stores only $T \Red \Pitype{x{:}A}{B}$,
+  without the convertibility judgment $\conveq{\Gamma}{T}{\Pitype{x{:}A}{B}}{\U}$.
+\item The head-reduction transport lemma can return just $\Val$
+  (validity of the expanded term), without the equality $\EqVal$.
+\item Term validity $\Val\;\Gamma\;M\;T\;u\;a$ need not be bundled with
+  type validity $\ValTy\;\Gamma\;T\;a$.
+\end{itemize}
+For $\Sigma$-types, all three must be strengthened:
+\begin{enumerate}
+\item \textbf{$\mathsf{Red}$ must bundle convertibility.}
+  The head-reduction transport for $\Sigma$ needs to derive
+  $\conveq{\Gamma}{\pj{M}{1}}{\pj{M'}{1}}{A}$ (via the congruence
+  rule for projections).  This congruence rule requires
+  $\conveq{\Gamma}{M}{M'}{\Sigmatype{x{:}A}{B}}$, which is obtained from
+  the input $\conveq{\Gamma}{M}{M'}{T}$ by converting the type using
+  $\conveq{\Gamma}{T}{\Sigmatype{x{:}A}{B}}{\U}$---the convertibility
+  stored in the type validity record alongside the head reduction
+  $T \Red \Sigmatype{x{:}A}{B}$.
+
+\item \textbf{Head-reduction transport must return $\EqVal$.}
+  The equality $\EqVal$ at the first projection is needed to invoke
+  the equality edge function (Step~2), which produces the type equality
+  $\EqValTy\;\Gamma\;\substone{B}{\pj{M'}{1}}\;\substone{B}{\pj{M}{1}}\;f(\pj{w}{1})$
+  used in the transport (Step~4).
+
+\item \textbf{$\Val$ must be bundled with $\ValTy$.}
+  Step~2 uses the equality edge function from
+  $\ValTy\;\Gamma\;T\;(\SigmaC{b}{f})$.
+  This must be accessible from within the term validity data.
+  Therefore $\Val\;\Gamma\;M\;T\;w\;(\SigmaC{b}{f})$ must include
+  $\ValTy\;\Gamma\;T\;(\SigmaC{b}{f})$ as a component.
+\end{enumerate}
+
+\subsection{Comparison with $\Pi$}
+
+\begin{center}
+\begin{tabular}{l|l|l}
+  & $\Pi$ & $\Sigma$ \\
+\hline
+Value code & $\lambda g$ & any $w$ (uniform via $\pj{w}{1}/\pj{w}{2}$) \\
+Stored data & $\Val\;(\App{M}{N})\;\substone{B}{N}\;\ldots$ & $\Val\;\pj{M}{1}\;A\;\ldots$
+  and $\Val\;\pj{M}{2}\;\substone{B}{\pj{M}{1}}\;\ldots$ \\
+Type depends on $M$? & No ($\substone{B}{N}$) & Yes ($\substone{B}{\pj{M}{1}}$) \\
+HeadRed transport & Direct IH & IH + edge + transport \\
+Returns $\EqVal$? & Useful & Essential \\
+Red bundles ConvTm? & Not needed & Needed (for conv-Fst/conv-Snd) \\
+Val bundles ValTy? & Not needed & Needed (for equality edge) \\
+\end{tabular}
+\end{center}
 
 \section{Agda formalization}
 

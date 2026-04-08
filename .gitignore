@@ -8,10 +8,10 @@ Validity2Sigma*
 Validity3Sigma*
 LemmaForA2Sigma*
 
-# Sigma validity notes (informal)
-sigma-validity.*
-!sigma-validity.tex
-!sigma-validity.pdf
+# LaTeX auxiliary files
+*.aux
+*.log
+*.out
 
 # Editor/temp files
 *~
