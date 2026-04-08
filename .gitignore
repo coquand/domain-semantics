@@ -1,7 +1,17 @@
 # Agda build artifacts
 *.agdai
 
-# Old/superseded Sigma files (replaced by Validity5/Adequacy5 stack)
+# Old/superseded files (replaced by Validity5/Adequacy5 stack)
+Validity.agda
+Validity2.agda
+Validity3.agda
+Validity4.agda
+Validity5.agda
+Adequacy2.agda
+Adequacy3.agda
+LemmaForA2.agda
+PiInjectivity.agda
+SubjectReduction.agda
 SigmaInjectivity*
 Adequacy2Sigma*
 Validity2Sigma*
