@@ -372,6 +372,196 @@ $\leadsto_1$.  As in the Pi-only system, the validity relation uses
 a wrapper $\mathsf{Red}\;\Gamma\;M\;N\;A$ with phantom context and
 type parameters.
 
+\section{Domain model}
+
+We describe the domain-theoretic semantics following Coquand--Huber (2018).
+The model interprets types as \emph{codes} (finite elements of a Scott domain)
+and terms as elements approximated by these codes.
+
+\subsection{Finite elements}
+
+The set $\FinEl$ of \emph{codes} is defined inductively, together with
+a set $\FinFun$ of \emph{finite functions} (finite lists of input-output pairs):
+\begin{align*}
+  u,v,a &::= \Bot \mid \U \mid \Prop \mid \lambda g \mid \PiC{a}{f}
+              \mid \SigmaC{a}{f} \mid (u,v) \\
+  g,f,h &::= [] \mid (u,v) :: g
+\end{align*}
+Here $\Bot$ is the bottom element (no information), $\U$ and $\Prop$ are
+the codes for the universe and the propositional universe, $\lambda g$
+is a function value with finite graph~$g$, $\PiC{a}{f}$ is a Pi-type code
+with domain code~$a$ and codomain function~$f$, $\SigmaC{a}{f}$ is a
+Sigma-type code, and $(u,v)$ is a pair code.
+
+\subsection{Evaluation}
+
+The evaluation of a finite function $f$ at input $u$ computes the
+\emph{supremum} of all outputs whose keys are below~$u$ in the
+information ordering:
+\[
+  \EvalFun(f, u) = \bigsqcup\{ v_i \mid (u_i, v_i) \in f,\ u_i \leq u \}
+\]
+The binary supremum $u \sqcup v$ combines compatible elements:
+$\Bot \sqcup u = u$, $\U \sqcup \U = \U$,
+$(\lambda g) \sqcup (\lambda h) = \lambda(g \mathbin{+\!+} h)$,
+$\PiC{a}{f} \sqcup \PiC{b}{g} = \PiC{a \sqcup b}{f \mathbin{+\!+} g}$,
+and $u \sqcup v = \Bot$ when $u$ and $v$ have different top-level constructors.
+
+\subsection{Information ordering}
+
+The ordering $u \leq v$ (written $\mathsf{LeCode}\;u\;v$ in the formalisation)
+is defined by structural recursion.  On base codes, $\Bot$ is below everything,
+$\U \leq \U$, and $\Prop \leq \Prop$.
+On compound codes:
+\begin{align*}
+  \lambda g \leq \lambda h
+  &\quad\text{iff}\quad
+  \text{for each } (u_i,v_i) \in g,\;\; v_i \leq \EvalFun(h, u_i) \\
+  \PiC{a}{f} \leq \PiC{b}{g}
+  &\quad\text{iff}\quad
+  a \leq b \;\;\text{and}\;\;
+  \text{for each } (u_i,v_i) \in f,\;\; v_i \leq \EvalFun(g, u_i)
+\end{align*}
+Codes with different top-level constructors are incomparable.
+The ordering on finite functions uses the \emph{finite condition}:
+$g \leq h$ iff for each $(u,v) \in g$, $v \leq \EvalFun(h, u)$.
+For coherent functions, this is equivalent to pointwise ordering
+$\forall u.\; \EvalFun(g,u) \leq \EvalFun(h,u)$.
+
+\subsection{Coherence}
+
+A finite function $g = [(u_1,v_1), \ldots, (u_n,v_n)]$ represents a
+well-defined continuous function only if it is \emph{coherent}: whenever
+two keys are \emph{compatible} (have a common upper bound), their values
+must also be compatible.  Formally, $\mathsf{Comp}(u,v)$ holds when $u$
+and $v$ can be combined via the supremum (same constructor, recursively
+compatible), and $\mathsf{CoherentFun}(g)$ requires:
+\begin{itemize}
+\item each key $u_i$ and value $v_i$ is coherent (recursively),
+\item each value $v_i$ is non-$\Bot$,
+\item for all $i < j$, if $\mathsf{Comp}(u_i, u_j)$ then
+  $\mathsf{Comp}(v_i, v_j)$.
+\end{itemize}
+On compound elements: $\mathsf{Coherent}(\PiC{a}{f})$ requires
+$\mathsf{Coherent}(a)$ and $\mathsf{CoherentFun}(f)$, and similarly for
+$\SigmaC{a}{f}$.  Base codes ($\Bot$, $\U$, $\Prop$) are always coherent.
+
+Coherence ensures that the supremum-based evaluation is monotone: if
+$u \leq v$ and $g$ is coherent, then $\EvalFun(g, u) \leq \EvalFun(g, v)$.
+
+\subsection{Finite membership}
+
+The predicate $\mathsf{FinMem}(u, a)$ asserts that code $u$ is a valid
+\emph{approximation to an element of type~$a$}.  Its key clauses are:
+\begin{align*}
+  \mathsf{FinMem}(\Bot, a) &= \mathsf{FinMem}(a, \U) \\
+  \mathsf{FinMem}(\U, \U) &= \top  \qquad\qquad
+  \mathsf{FinMem}(\Prop, \U) = \top \\
+  \mathsf{FinMem}(\PiC{a}{f}, \U) &=
+    \mathsf{FinMem}(a, \U) \;\wedge\;
+    \mathsf{FinMemAllU}(f, a) \;\wedge\;
+    \mathsf{CoherentFun}(f) \\
+  \mathsf{FinMem}(\lambda g, \PiC{a}{f}) &=
+    \mathsf{FinMemFun}(g, a, f) \;\wedge\;
+    \mathsf{CoherentFun}(g) \;\wedge\;
+    \mathsf{FinMem}(\PiC{a}{f}, \U)
+\end{align*}
+Here $\mathsf{FinMemFun}(g, a, f)$ requires that for each $(u_i, v_i) \in g$,
+$\mathsf{FinMem}(u_i, a)$ and $\mathsf{FinMem}(v_i, \EvalFun(f, u_i))$;
+and $\mathsf{FinMemAllU}(f, a)$ requires that each pair in $f$ has its key in~$a$
+and its value in~$\U$.  The clause $\mathsf{FinMem}(\Bot, a) = \mathsf{FinMem}(a,\U)$
+means that $\Bot$ is a valid approximation in any well-formed type.
+
+\subsection{Key properties}
+
+The following lemmas, all proved in the Agda formalisation without postulates,
+are central to the adequacy proof:
+\begin{itemize}
+\item \textbf{Sup closure:} $\mathsf{FinMem}(u,a)$ and $\mathsf{FinMem}(v,a)$
+  imply $\mathsf{FinMem}(u \sqcup v, a)$.
+\item \textbf{Coherent evaluation:} If $\mathsf{Coherent}(\lambda f)$ and
+  $\mathsf{Coherent}(u)$, then $\mathsf{Coherent}(\EvalFun(f, u))$.
+\item \textbf{Monotonicity of FinMem:} If $u \leq v$ and
+  $\mathsf{FinMem}(v, a)$, then $\mathsf{FinMem}(u, a)$.
+\item \textbf{Comp-down:} If $u \leq u'$ and $\mathsf{Comp}(u', v)$,
+  then $\mathsf{Comp}(u, v)$.
+\end{itemize}
+
+\section{The logical relation}
+
+The logical relation connects the domain-theoretic model to the syntax.
+It is defined by mutual recursion on codes, with six mutually defined
+predicates.  We describe the main ones.
+
+\subsection{Term validity}
+
+$\Val\;\Gamma\;M\;A\;u\;a$ asserts that term $M$ of type $A$ in context
+$\Gamma$ is valid at value code $u$ and type code~$a$.  The definition is
+by case analysis on the pair $(u, a)$:
+\begin{itemize}
+\item $\Val\;\Gamma\;M\;A\;u\;\Bot = \top$ \quad (trivially valid at bottom type).
+\item At the universe: $\Val\;\Gamma\;M\;A\;u\;\U$ is non-trivial only when
+  $u \in \{\U, \Prop, \PiC{b}{f}, \SigmaC{b}{f}\}$, in which case it
+  requires $\ValTy\;\Gamma\;A\;\U$ (the type $A$ is valid at $\U$) together
+  with $\ValTy\;\Gamma\;M\;u$ (the term $M$ is a valid type code~$u$).
+\item At a Pi-type: $\Val\;\Gamma\;M\;A\;(\lambda g)\;(\PiC{b}{f})$ requires
+  $\ValTy\;\Gamma\;A\;(\PiC{b}{f})$ together with application data: for each
+  $(u_0, v_0) \in g$ and argument $N$ with $\hastype{\Gamma}{N}{A_0}$ and
+  $\Val\;\Gamma\;N\;A_0\;u_0\;b$, one has
+  $\Val\;\Gamma\;(\App{M}{N})\;(\substone{B_0}{N})\;v_0\;\EvalFun(f, u_0)$.
+\item At a Sigma-type: $\Val\;\Gamma\;M\;A\;(u',v')\;(\SigmaC{b}{f})$
+  requires $\ValTy\;\Gamma\;A\;(\SigmaC{b}{f})$ together with validity
+  of both projections (see Section~\ref{sec:sigma-val} below).
+\item All other combinations are trivially $\top$.
+\end{itemize}
+
+\subsection{Type validity}
+
+$\ValTy\;\Gamma\;M\;a$ asserts that $M$ is a valid type at code~$a$.
+The interesting cases are:
+\begin{itemize}
+\item $\ValTy\;\Gamma\;M\;\U$ requires a head reduction
+  $M \Red \U$ together with $\conveq{\Gamma}{M}{\U}{\U}$.
+\item $\ValTy\;\Gamma\;M\;(\PiC{b}{f})$ unpacks to specific
+  types $A,B$ with $M \Red \Pitype{x{:}A}{B}$, typing evidence
+  $\hastype{\Gamma}{A}{\U}$ and $\hastype{\Gamma,x{:}A}{B}{\U}$,
+  domain validity $\ValTy\;\Gamma\;A\;b$, and \emph{edge functions}:
+  for each $(u,v) \in f$ and well-typed argument $N$,
+  $\ValTy\;\Gamma\;\substone{B}{N}\;v$.
+\item $\ValTy\;\Gamma\;M\;(\SigmaC{b}{f})$ is analogous, with
+  $M \Red \Sigmatype{x{:}A}{B}$.
+\end{itemize}
+
+\subsection{Equality}
+
+$\EqVal\;\Gamma\;M\;N\;A\;u\;a$ bundles $\Val$ for both $M$ and $N$
+together with an equality witness.  It follows the same case structure.
+$\EqValTy\;\Gamma\;M\;N\;a$ is the corresponding type-level equality.
+
+\subsection{Adequacy}
+
+The \emph{adequacy theorem} (Theorem~2 of Coquand--Huber 2018, extended to
+$\Sigma$) states that typability implies validity.  In the two-substitution form:
+
+\begin{theorem}[Adequacy]
+If $\hastype{\Gamma}{M}{A}$, then for any coherent environment $\rho$ with
+a valid substitution $\sigma$ into a context $H$, and any codes $u$, $a$ such
+that $M$ evaluates to $u$ at $\rho$ and $A$ evaluates to $a$ at $\rho$ with
+$\mathsf{FinMem}(u,a)$, we have $\Val\;H\;\sigma(M)\;\sigma(A)\;u\;a$.
+\end{theorem}
+
+\noindent
+The proof proceeds by mutual induction on the typing derivation, with a
+parallel statement for conversion ($\conveq{\Gamma}{M}{N}{A}$ implies
+$\EqVal$) and a two-substitution variant ($M$ under two related substitutions
+gives $\EqVal$).
+
+\medskip\noindent
+The injectivity results and subject reduction below are
+\emph{corollaries} of adequacy: one evaluates at the trivial bottom
+environment $\rho_\bot$ to extract head-reduction and conversion data from
+the logical relation.
+
 \section{Pi injectivity}
 
 \begin{theorem}[Pi injectivity --- Corollary 6]
@@ -547,11 +737,10 @@ applied to~$M$.
   \end{itemize}
 \end{proof}
 
-\section{Validity for Sigma types}
+\section{Validity for Sigma types}\label{sec:sigma-val}
 
 We describe the extension of the logical relation (validity) to handle
-$\Sigma$-types.  The presentation follows Coquand--Huber (2018), where the
-logical relation is indexed by \emph{codes} from a domain-theoretic model.
+$\Sigma$-types.
 The key new difficulty compared to $\Pi$-types is in the head-reduction
 transport lemma.
 
