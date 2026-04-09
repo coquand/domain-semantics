@@ -23,11 +23,12 @@ data Empty : Set where
 -- Natural numbers
 ------------------------------------------------------------------------
 
-data Nat : Set where
-  zero : Nat
-  suc  : Nat -> Nat
-
-{-# BUILTIN NATURAL Nat #-}
+-- Nat is shared with Basic.agda to avoid a "Duplicate binding for
+-- built-in thing NATURAL" error whenever a consumer ends up importing
+-- both modules in the same import graph. We re-export Basic.Nat (and
+-- its constructors) here so BasicSigma.Nat keeps numeric-literal sugar
+-- without redeclaring the BUILTIN.
+open import Basic public using (Nat ; zero ; suc)
 
 max : Nat -> Nat -> Nat
 max zero    n       = n
