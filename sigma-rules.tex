@@ -717,14 +717,19 @@ membership sub-proofs (domain code, codomain entries), even though $u$ is
 not a subterm of~$\U$.
 
 \medskip\noindent\textbf{Positivity.}
-The records ($\mathsf{RValPi}$, $\mathsf{RValTyPi}$, etc.)
-are marked \texttt{NO\_POSITIVITY\_CHECK} in the formalisation because
 $\Val$ and $\EqVal$ appear in negative position within the edge
-functions (as hypotheses: ``for all $N$ with
-$\Val\;\Gamma\;N\;A\;u\;b$, \ldots'').  This is sound because the
-edge functions are \emph{stored data}, not computationally inspected
-by the definition of $\Val$ itself---they are produced by the adequacy
-proof, which constructs them by induction on typing derivations.
+functions stored in the validity records (as hypotheses: ``for all $N$
+with $\Val\;\Gamma\;N\;A\;u\;b$, \ldots'').  In the formalisation,
+this is handled by defining the records in a parameterised module
+\texttt{OpenRecords} that takes the four relation functions ($\Val$,
+$\EqVal$, $\ValTy$, $\EqValTy$) as module parameters.  Since the
+records are not mutually defined with the relations---only
+instantiated with them---Agda's positivity checker is satisfied
+without any \texttt{NO\_POSITIVITY\_CHECK} pragma.  Semantically, this
+is sound because the edge functions are \emph{stored data}, not
+computationally inspected by the definition of $\Val$ itself---they
+are produced by the adequacy proof, which constructs them by induction
+on typing derivations.
 
 \subsection{Adequacy}
 
@@ -1226,7 +1231,8 @@ The entire development is formalised in Agda with flags
 \medskip\noindent\textbf{Validity stack} (Validity5 series):
 \begin{itemize}
   \item \texttt{Validity5Core.agda} --- base definitions of
-    $\mathsf{Val2}$/$\mathsf{EqVal2}$ with record types.
+    $\mathsf{Val2}$/$\mathsf{EqVal2}$ with record types in a
+    parameterised \texttt{OpenRecords} module (no positivity pragmas).
   \item \texttt{Validity5DownUpRestrict.agda} --- monotonicity:
     downward, upward, and restriction in the code argument.
   \item \texttt{Validity5Fwd.agda} --- forward lemmas.
