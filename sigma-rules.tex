@@ -63,6 +63,12 @@ $\sigma$ to a term~$M$, and $[t]$ for the substitution
 $\Gamma \to \Gamma, x{:}A$ extending the identity by~$t$,
 so that $B[a]$ means $B(\mathrm{id}, a)$.
 
+We work in a type-in-type setting: $\U : \U$.  This makes the
+system inconsistent (cf.\ Girard's paradox), so we do not
+address normalization.  Our results---adequacy, injectivity,
+and subject reduction---concern the logical relation and are
+independent of consistency.
+
 \section{Well-formed contexts}
 
 \begin{mathpar}
@@ -233,6 +239,13 @@ so that $B[a]$ means $B(\mathrm{id}, a)$.
        {\substone{B}{a}}}
 \end{mathpar}
 
+\noindent
+The \textsc{Funext} rule is validated by the domain model:
+two functions with the same finite graph are identified, and
+the selection-based evaluation ensures that pointwise equality
+of applications lifts to equality of function codes.
+This is the only extensionality principle assumed at the syntax level.
+
 \subsection*{Sigma computation and congruence}
 
 \begin{mathpar}
@@ -371,6 +384,14 @@ We write $M \Red N$ for the reflexive-transitive closure of
 $\leadsto_1$.  As in the Pi-only system, the validity relation uses
 a wrapper $\mathsf{Red}\;\Gamma\;M\;N\;A$ with phantom context and
 type parameters.
+
+Head reduction---rather than full $\beta\eta$-reduction under
+binders---suffices because the domain model only needs to track
+the head normal form of a term: the type validity records store
+$T \Red \Pitype{x{:}A}{B}$ or $T \Red \Sigmatype{x{:}A}{B}$,
+and the adequacy proof reconstructs convertibility from these head
+reductions together with the logical relation.  Reducing under
+binders is never required.
 
 \section{Domain model}
 
@@ -639,7 +660,10 @@ $\Val\;\Gamma\;(\App{M}{N})\;\substone{B_0}{N}\;v\;\EvalFun(f,u)$.
 
 The four mutually defined predicates $\Val$, $\EqVal$, $\ValTy$, $\EqValTy$
 and their associated record types form a single mutual block, marked
-\texttt{TERMINATING} in the formalisation.  The well-foundedness argument
+\texttt{TERMINATING} in the formalisation.  Intuitively, the recursion
+follows the structure of finite membership evidence ($\mathsf{FinMem}$
+derivations) rather than the syntactic structure of codes or terms.
+The well-foundedness argument
 is more subtle than for the domain-level predicates: the recursion cannot
 be measured by the type code~$a$ alone.
 
@@ -734,7 +758,8 @@ on typing derivations.
 \subsection{Adequacy}
 
 The \emph{adequacy theorem} (Theorem~2 of Coquand--Huber 2018, extended to
-$\Sigma$) states that typability implies validity.  In the two-substitution form:
+$\Sigma$) states that typability implies validity: every well-typed term
+is semantically valid under any interpretation.  In the two-substitution form:
 
 \begin{theorem}[Adequacy]
 If $\hastype{\Gamma}{M}{A}$, then for any coherent environment $\rho$ with
