@@ -7,6 +7,10 @@
 -- Uses RValSigma/REqValSigma (uniform in w) instead of RValPair/REqValPair.
 -- No transport lemmas — those will be added separately.
 --
+-- Records are defined in a parameterized module (OpenRecords) to avoid
+-- NO_POSITIVITY_CHECK: Val2/EqVal2 appear only as module parameters,
+-- not as the type being defined, so Agda's positivity checker is satisfied.
+--
 -- 0 postulates.
 ------------------------------------------------------------------------
 
@@ -88,86 +92,83 @@ Red3-unique-Sigma {G = G} {A} r1 r2 =
   Red-unique-Sigma {G = G} {A} (mkRed (Red3.hr r1)) (mkRed (Red3.hr r2))
 
 ------------------------------------------------------------------------
--- Bundled validity relations (mutual block with records)
+-- OpenRecords: records and edge types parameterized by abstract relations
+--
+-- By defining records outside the mutual block with Val2/EqVal2 as
+-- parameters (not as the type being defined), Agda's positivity checker
+-- is satisfied without NO_POSITIVITY_CHECK.
 ------------------------------------------------------------------------
 
-{-# TERMINATING #-}
-mutual
+module OpenRecords
+  (V2   : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> FinEl -> Set)
+  (EV2  : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> FinEl -> FinEl -> Set)
+  (VT2  : {n : Nat} -> Ctx n -> Expr n -> FinEl -> Set)
+  (EVT2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> Set)
+  where
 
-  -- Val2, EqVal2: top-level relations, defined by pattern matching on codes
-  Val2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> FinEl -> Set
-  EqVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> FinEl -> FinEl -> Set
-
-  -- ValTy2, EqValTy2: type validity / type equality
-  ValTy2 : {n : Nat} -> Ctx n -> Expr n -> FinEl -> Set
-  EqValTy2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> Set
-
-  -- Sigma edge functions (identical type signatures to Pi edges)
-  SigmaEdgeVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> Set
-  SigmaEdgeEq2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> Set
-  SigmaEdgeEqTy2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> Expr (suc n) -> FinEl -> FinFun -> Set
-
-  -- Edge functions (unchanged — these are function types, not tuples)
+  -- Edge function types for Pi
   PiEdgeVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> Set
   PiEdgeVal2 {n} G A B b f =
     (u v : FinEl) -> Selection f u v ->
-    (N : Expr n) -> HasType G N A -> Val2 G N A u b ->
-    ValTy2 G (subst1 B N) v
+    (N : Expr n) -> HasType G N A -> V2 G N A u b ->
+    VT2 G (subst1 B N) v
 
   PiEdgeEq2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> Set
   PiEdgeEq2 {n} G A B b f =
     (u v : FinEl) -> Selection f u v ->
     (N1 N2 : Expr n) -> HasType G N1 A -> HasType G N2 A ->
-    ConvTm G N1 N2 A -> EqVal2 G N1 N2 A u b ->
-    EqValTy2 G (subst1 B N1) (subst1 B N2) v
+    ConvTm G N1 N2 A -> EV2 G N1 N2 A u b ->
+    EVT2 G (subst1 B N1) (subst1 B N2) v
 
   PiEdgeEqTy2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> Expr (suc n) -> FinEl -> FinFun -> Set
   PiEdgeEqTy2 {n} G A B B' b f =
     (u v : FinEl) -> Selection f u v ->
-    (P : Expr n) -> HasType G P A -> Val2 G P A u b ->
-    EqValTy2 G (subst1 B P) (subst1 B' P) v
+    (P : Expr n) -> HasType G P A -> V2 G P A u b ->
+    EVT2 G (subst1 B P) (subst1 B' P) v
 
   PiAppVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> FinFun -> Set
   PiAppVal2 {n} G M A0 B0 b f g =
     (u v : FinEl) -> Selection g u v ->
-    (N : Expr n) -> HasType G N A0 -> Val2 G N A0 u b ->
-    Val2 G (App M N) (subst1 B0 N) v (EvalFun f u)
+    (N : Expr n) -> HasType G N A0 -> V2 G N A0 u b ->
+    V2 G (App M N) (subst1 B0 N) v (EvalFun f u)
 
   PiAppEq2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> FinFun -> Set
   PiAppEq2 {n} G M A0 B0 b f g =
     (u v : FinEl) -> Selection g u v ->
     (N1 N2 : Expr n) -> HasType G N1 A0 -> HasType G N2 A0 ->
-    ConvTm G N1 N2 A0 -> EqVal2 G N1 N2 A0 u b ->
-    EqVal2 G (App M N1) (App M N2) (subst1 B0 N1) v (EvalFun f u)
+    ConvTm G N1 N2 A0 -> EV2 G N1 N2 A0 u b ->
+    EV2 G (App M N1) (App M N2) (subst1 B0 N1) v (EvalFun f u)
 
   PiAppEqVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> FinFun -> Set
   PiAppEqVal2 {n} G M N A0 B0 b f g =
     (u v : FinEl) -> Selection g u v ->
-    (P : Expr n) -> HasType G P A0 -> Val2 G P A0 u b ->
-    EqVal2 G (App M P) (App N P) (subst1 B0 P) v (EvalFun f u)
+    (P : Expr n) -> HasType G P A0 -> V2 G P A0 u b ->
+    EV2 G (App M P) (App N P) (subst1 B0 P) v (EvalFun f u)
 
+  -- Edge function types for Sigma (identical signatures)
+  SigmaEdgeVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> Set
   SigmaEdgeVal2 {n} G A B b f =
     (u v : FinEl) -> Selection f u v ->
-    (N : Expr n) -> HasType G N A -> Val2 G N A u b ->
-    ValTy2 G (subst1 B N) v
+    (N : Expr n) -> HasType G N A -> V2 G N A u b ->
+    VT2 G (subst1 B N) v
 
+  SigmaEdgeEq2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> FinEl -> FinFun -> Set
   SigmaEdgeEq2 {n} G A B b f =
     (u v : FinEl) -> Selection f u v ->
     (N1 N2 : Expr n) -> HasType G N1 A -> HasType G N2 A ->
-    ConvTm G N1 N2 A -> EqVal2 G N1 N2 A u b ->
-    EqValTy2 G (subst1 B N1) (subst1 B N2) v
+    ConvTm G N1 N2 A -> EV2 G N1 N2 A u b ->
+    EVT2 G (subst1 B N1) (subst1 B N2) v
 
+  SigmaEdgeEqTy2 : {n : Nat} -> Ctx n -> Expr n -> Expr (suc n) -> Expr (suc n) -> FinEl -> FinFun -> Set
   SigmaEdgeEqTy2 {n} G A B B' b f =
     (u v : FinEl) -> Selection f u v ->
-    (P : Expr n) -> HasType G P A -> Val2 G P A u b ->
-    EqValTy2 G (subst1 B P) (subst1 B' P) v
+    (P : Expr n) -> HasType G P A -> V2 G P A u b ->
+    EVT2 G (subst1 B P) (subst1 B' P) v
 
   ------------------------------------------------------------------
   -- Records for Pi type structures
   ------------------------------------------------------------------
 
-  -- ValTyPi2: type validity at PiCode b f
-  {-# NO_POSITIVITY_CHECK #-}
   record RValTyPi {n : Nat} (G : Ctx n) (M : Expr n) (b : FinEl) (f : FinFun) : Set where
     inductive
     field
@@ -178,12 +179,10 @@ mutual
       fmAllU : FinMemAllU f b
       htA    : HasType G domA U
       htB    : HasType (extend G domA) codB U
-      valA   : ValTy2 G domA b
+      valA   : VT2 G domA b
       edgeV  : PiEdgeVal2 G domA codB b f
       edgeE  : PiEdgeEq2 G domA codB b f
 
-  -- EqValTyPi2: type equality at PiCode b f
-  {-# NO_POSITIVITY_CHECK #-}
   record REqValTyPi {n : Nat} (G : Ctx n) (M N : Expr n) (b : FinEl) (f : FinFun) : Set where
     inductive
     field
@@ -197,11 +196,9 @@ mutual
       fmAllU : FinMemAllU f b
       convA  : ConvTm G domA domA' U
       convB  : ConvTm (extend G domA) codB codB' U
-      eqA    : EqValTy2 G domA domA' b
+      eqA    : EVT2 G domA domA' b
       edgeET : PiEdgeEqTy2 G domA codB codB' b f
 
-  -- ValPi2: term validity at (FunEl g, PiCode b f)
-  {-# NO_POSITIVITY_CHECK #-}
   record RValPi {n : Nat} (G : Ctx n) (M A : Expr n) (g : FinFun) (b : FinEl) (f : FinFun) : Set where
     inductive
     field
@@ -213,8 +210,6 @@ mutual
       appV   : PiAppVal2 G M domA0 codB0 b f g
       appE   : PiAppEq2 G M domA0 codB0 b f g
 
-  -- EqValPi2: equality at (FunEl g, PiCode b f)
-  {-# NO_POSITIVITY_CHECK #-}
   record REqValPi {n : Nat} (G : Ctx n) (M N A : Expr n) (g : FinFun) (b : FinEl) (f : FinFun) : Set where
     inductive
     field
@@ -229,8 +224,6 @@ mutual
   -- Records for Sigma type structures
   ------------------------------------------------------------------
 
-  -- RValTySigma: type validity at SigmaCode b f
-  {-# NO_POSITIVITY_CHECK #-}
   record RValTySigma {n : Nat} (G : Ctx n) (M : Expr n) (b : FinEl) (f : FinFun) : Set where
     inductive
     field
@@ -242,12 +235,10 @@ mutual
       fmBU   : FinMem b UCode
       htA    : HasType G domA U
       htB    : HasType (extend G domA) codB U
-      valA   : ValTy2 G domA b
+      valA   : VT2 G domA b
       edgeV  : SigmaEdgeVal2 G domA codB b f
       edgeE  : SigmaEdgeEq2 G domA codB b f
 
-  -- REqValTySigma: type equality at SigmaCode b f
-  {-# NO_POSITIVITY_CHECK #-}
   record REqValTySigma {n : Nat} (G : Ctx n) (M N : Expr n) (b : FinEl) (f : FinFun) : Set where
     inductive
     field
@@ -261,11 +252,9 @@ mutual
       fmAllU : FinMemAllU f b
       convA  : ConvTm G domA domA' U
       convB  : ConvTm (extend G domA) codB codB' U
-      eqA    : EqValTy2 G domA domA' b
+      eqA    : EVT2 G domA domA' b
       edgeET : SigmaEdgeEqTy2 G domA codB codB' b f
 
-  -- RValSigma: term validity at (w, SigmaCode b f), uniform in w
-  {-# NO_POSITIVITY_CHECK #-}
   record RValSigma {n : Nat} (G : Ctx n) (M A : Expr n) (w : FinEl) (b : FinEl) (f : FinFun) : Set where
     inductive
     field
@@ -275,11 +264,9 @@ mutual
       htFst  : HasType G (Fst M) domA
       cohW1  : Coherent (codeFst w)
       fmW1   : FinMem (codeFst w) b
-      valFst : Val2 G (Fst M) domA (codeFst w) b
-      valSnd : Val2 G (Snd M) (subst1 codB (Fst M)) (codeSnd w) (EvalFun f (codeFst w))
+      valFst : V2 G (Fst M) domA (codeFst w) b
+      valSnd : V2 G (Snd M) (subst1 codB (Fst M)) (codeSnd w) (EvalFun f (codeFst w))
 
-  -- REqValSigma: equality at (w, SigmaCode b f), uniform in w
-  {-# NO_POSITIVITY_CHECK #-}
   record REqValSigma {n : Nat} (G : Ctx n) (M N A : Expr n) (w : FinEl) (b : FinEl) (f : FinFun) : Set where
     inductive
     field
@@ -290,11 +277,29 @@ mutual
       htFstN  : HasType G (Fst N) domA
       cohW1   : Coherent (codeFst w)
       fmW1    : FinMem (codeFst w) b
-      valFstM : Val2 G (Fst M) domA (codeFst w) b
-      valSndM : Val2 G (Snd M) (subst1 codB (Fst M)) (codeSnd w) (EvalFun f (codeFst w))
-      valFstN : Val2 G (Fst N) domA (codeFst w) b
-      valSndN : Val2 G (Snd N) (subst1 codB (Fst N)) (codeSnd w) (EvalFun f (codeFst w))
-      eqFst   : EqVal2 G (Fst M) (Fst N) domA (codeFst w) b
+      valFstM : V2 G (Fst M) domA (codeFst w) b
+      valSndM : V2 G (Snd M) (subst1 codB (Fst M)) (codeSnd w) (EvalFun f (codeFst w))
+      valFstN : V2 G (Fst N) domA (codeFst w) b
+      valSndN : V2 G (Snd N) (subst1 codB (Fst N)) (codeSnd w) (EvalFun f (codeFst w))
+      eqFst   : EV2 G (Fst M) (Fst N) domA (codeFst w) b
+
+------------------------------------------------------------------------
+-- Bundled validity relations (mutual block)
+------------------------------------------------------------------------
+
+{-# TERMINATING #-}
+mutual
+
+  -- Val2, EqVal2: top-level relations, defined by pattern matching on codes
+  Val2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> FinEl -> Set
+  EqVal2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> FinEl -> FinEl -> Set
+
+  -- ValTy2, EqValTy2: type validity / type equality
+  ValTy2 : {n : Nat} -> Ctx n -> Expr n -> FinEl -> Set
+  EqValTy2 : {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> Set
+
+  -- Instantiate records with the concrete relations
+  open OpenRecords Val2 EqVal2 ValTy2 EqValTy2 public
 
   ------------------------------------------------------------------
   -- Val2: pattern matching on codes
