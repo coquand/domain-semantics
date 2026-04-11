@@ -612,6 +612,103 @@ $\EqVal\;\Gamma\;M\;N\;A\;u\;a$ bundles $\Val$ for both $M$ and $N$
 together with an equality witness.  It follows the same case structure.
 $\EqValTy\;\Gamma\;M\;N\;a$ is the corresponding type-level equality.
 
+\subsection{Edge functions and selections}
+
+The records for $\ValTy$ at $\PiC{b}{f}$ and $\SigmaC{b}{f}$ contain
+\emph{edge functions} that witness how the codomain type varies with the
+input.  For instance, the value edge in the Pi case has the form:
+\[
+  \text{for all } (u,v) \text{ selected from } f, \text{ and }
+  N \text{ with } \hastype{\Gamma}{N}{A} \text{ and }
+  \Val\;\Gamma\;N\;A\;u\;b,
+  \text{ one has }
+  \ValTy\;\Gamma\;\substone{B}{N}\;v.
+\]
+Here $(u,v)$ is \emph{selected} from~$f$ in the sense of
+$\mathsf{Selection}(f, u, v)$: each entry $(u_i, v_i)$ in $f$ is either
+skipped (contributing $(\Bot,\Bot)$) or taken (combining via $\sqcup$
+with a compatibility proof), yielding a pair $(u,v)$ that satisfies
+$u \leq \EvalFun(f, u)$ and is built from subterms of~$f$.
+
+Similarly, the application data in $\Val$ at $(\lambda g, \PiC{b}{f})$
+requires: for all $(u,v)$ selected from~$g$ and well-typed argument $N$ with
+$\Val\;\Gamma\;N\;A_0\;u\;b$, one has
+$\Val\;\Gamma\;(\App{M}{N})\;\substone{B_0}{N}\;v\;\EvalFun(f,u)$.
+
+\subsection{Termination of the logical relation}
+
+The four mutually defined predicates $\Val$, $\EqVal$, $\ValTy$, $\EqValTy$
+and their associated record types form a single mutual block, marked
+\texttt{TERMINATING} in the formalisation.  The recursion is well-founded
+on the \emph{type code}~$a$ (the last argument of $\Val$), ordered by the
+structural subterm relation on $\FinEl$.
+
+\medskip\noindent\textbf{Base cases.}
+When $a = \Bot$, all four predicates return $\top$ immediately.
+When $a = \U$ or $a = \Prop$, the predicates $\ValTy$ and $\EqValTy$ return
+head-reduction data ($\mathsf{Red3}$) with no further recursive calls into
+the logical relation.  The predicates $\Val$ and $\EqVal$ at $(\cdot, \U)$
+or $(\cdot, \Prop)$ reduce to $\ValTy/\EqValTy$ calls at the \emph{value code}
+$u$: for instance $\Val\;\Gamma\;M\;A\;(\PiC{a'}{f'})\;\U$ reduces to
+$\ValTy\;\Gamma\;A\;\U$ paired with $\ValTy\;\Gamma\;M\;(\PiC{a'}{f'})$.
+Here the recursive call $\ValTy\;\Gamma\;M\;(\PiC{a'}{f'})$ is at a code
+that is a \emph{subterm of the value code~$u$}, not of the type code~$a = \U$.
+This is the key subtlety: the universe cases recurse on~$u$, which is
+constrained by $\mathsf{FinMem}(u, \U)$ to be a type code.
+
+\medskip\noindent\textbf{Pi case.}
+$\Val\;\Gamma\;M\;A\;(\lambda g)\;(\PiC{b}{f})$ unfolds to a record
+$\mathsf{RValPi}$ containing:
+\begin{itemize}
+\item $\ValTy\;\Gamma\;A\;(\PiC{b}{f})$, which is at the same code~$a$;
+  this is not a recursive descent, but the record $\mathsf{RValTyPi}$ stores
+  data at strictly smaller codes: $\ValTy\;\Gamma\;A_0\;b$ (at the domain
+  code $b$, a subterm of $\PiC{b}{f}$) and edge functions that produce
+  $\ValTy\;\Gamma\;\substone{B_0}{N}\;v$ for $(u,v)$ selected from~$f$
+  (where $v$ is built from values of entries of~$f$, hence bounded by~$f$).
+\item Application data: $\Val\;\Gamma\;(\App{M}{N})\;\substone{B_0}{N}\;v\;\EvalFun(f,u)$
+  for $(u,v)$ selected from~$g$.  Here the type code $\EvalFun(f,u)$ is bounded
+  by~$f$ (a subterm of~$a = \PiC{b}{f}$), so this is a strict descent.
+\end{itemize}
+
+\medskip\noindent\textbf{Sigma case.}
+$\Val\;\Gamma\;M\;A\;(u',v')\;(\SigmaC{b}{f})$ unfolds to a record
+$\mathsf{RValSigma}$ containing:
+\begin{itemize}
+\item $\Val\;\Gamma\;\Fst{M}\;A_0\;\mathsf{codeFst}(w)\;b$ where $b$ is a
+  subterm of~$\SigmaC{b}{f}$.
+\item $\Val\;\Gamma\;\Snd{M}\;\substone{B_0}{\Fst{M}}\;\mathsf{codeSnd}(w)\;\EvalFun(f, \mathsf{codeFst}(w))$
+  where $\EvalFun(f, \mathsf{codeFst}(w))$ is bounded by~$f$, a subterm
+  of~$\SigmaC{b}{f}$.
+\end{itemize}
+Both recursive calls descend strictly in the type code.
+
+\medskip\noindent\textbf{Catch-all cases.}
+All remaining combinations of $(u,a)$ (e.g.\ $\Val$ at $(\lambda g, \SigmaC{b}{f})$
+or at $(u, \mathsf{FunEl}\;h)$) return $\top$ with no recursion.
+
+\medskip\noindent\textbf{Summary.}
+The recursion follows a well-founded measure on the type code~$a$:
+at $\Bot$, $\U$, $\Prop$, $\mathsf{FunEl}$, and $\mathsf{PairCode}$
+the relation is trivial or reduces to non-recursive data; at
+$\PiC{b}{f}$ and $\SigmaC{b}{f}$ it recurses on $b$, on entries of~$f$
+(via selections), and on $\EvalFun(f,u)$ (bounded by~$f$).
+The universe case introduces a secondary recursion on the value code~$u$,
+but only for $u \in \{\PiC{a'}{f'}, \SigmaC{a'}{f'}\}$, where the
+recursive call is at $\ValTy\;\Gamma\;M\;u$ with $u$ itself as the new
+type code---this terminates because $u$ is finite and the recursion at $u$
+follows the same structural descent.
+
+\medskip\noindent\textbf{Positivity.}
+The records ($\mathsf{RValPi}$, $\mathsf{RValTyPi}$, etc.)
+are marked \texttt{NO\_POSITIVITY\_CHECK} in the formalisation because
+$\Val$ and $\EqVal$ appear in negative position within the edge
+functions (as hypotheses: ``for all $N$ with
+$\Val\;\Gamma\;N\;A\;u\;b$, \ldots'').  This is sound because the
+edge functions are \emph{stored data}, not computationally inspected
+by the definition of $\Val$ itself---they are produced by the adequacy
+proof, which constructs them by induction on typing derivations.
+
 \subsection{Adequacy}
 
 The \emph{adequacy theorem} (Theorem~2 of Coquand--Huber 2018, extended to
