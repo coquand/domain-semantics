@@ -487,6 +487,80 @@ are central to the adequacy proof:
   then $\mathsf{Comp}(u, v)$.
 \end{itemize}
 
+\subsection{Termination}
+
+All definitions in the mutual block ($\mathsf{LeCode}$, $\mathsf{LeFunCode}$,
+$\EvalFun$, $\mathsf{Comp}$, $\mathsf{CompFun}$, $\mathsf{Coherent}$,
+$\mathsf{FinMem}$, and their auxiliaries) are terminating, although Agda's
+termination checker requires a \texttt{TERMINATING} pragma for the
+non-structural cases.  We sketch the informal arguments.
+
+\medskip\noindent\textbf{LeCode and Comp.}
+These are defined by pattern-matching on the pair of constructors.
+Same-constructor cases recurse structurally: $\PiC{a}{f} \leq \PiC{b}{g}$
+recurses on $(a,b)$ and on $\mathsf{LeFunCode}(f,g)$, which in turn
+checks $v_i \leq \EvalFun(g, u_i)$ for each $(u_i,v_i) \in f$.
+The result $\EvalFun(g, u_i)$ is built from values of entries of~$g$
+glued by~$\sqcup$; it is bounded in size by~$g$.  Meanwhile $v_i$ is a
+strict subterm of the first argument.  So all recursive calls operate on
+strictly smaller data in the total-size measure $\mathsf{rk}$.
+Cross-constructor cases return $\bot$ (empty type) immediately.
+The same argument applies verbatim to $\mathsf{Comp}$ and $\mathsf{CompFun}$.
+
+\medskip\noindent\textbf{Coherent.}
+$\mathsf{Coherent}(u)$ is defined by structural recursion on~$u$.
+On $\PiC{a}{f}$ it recurses into $\mathsf{Coherent}(a)$ and
+$\mathsf{CoherentFunTail}(f)$, which walks the list~$f$ checking
+$\mathsf{Coherent}$ on each key and value (strict subterms) and
+$\mathsf{CoherentWith}$ between each entry and the tail (which calls
+$\mathsf{Comp}$, already shown terminating).  No non-structural step occurs.
+
+\medskip\noindent\textbf{FinMem.}
+The only non-structural clause is $\mathsf{FinMem}(\Bot, a) = \mathsf{FinMem}(a, \U)$,
+which swaps the arguments.  This can fire \emph{at most once}: after the swap,
+the first argument is~$a$ (the original second argument), and every clause for a
+non-$\Bot$ first argument either returns $\top$/$\bot$ immediately, or recurses
+on strict subterms of both arguments.  In particular:
+\begin{itemize}
+\item If $a = \Bot$, we get $\mathsf{FinMem}(\Bot, \U) = \mathsf{FinMem}(\U, \U) = \top$.
+\item If $a$ is non-$\Bot$, the subsequent recursive calls
+  (e.g.\ $\mathsf{FinMem}(\PiC{a'}{f}, \U)$ reducing to $\mathsf{FinMem}(a', \U)$)
+  always have a structurally smaller first argument and a non-$\Bot$ second argument,
+  so the $\Bot$-swap never triggers again.
+\end{itemize}
+The auxiliary $\mathsf{FinMemFun}(g, a, f)$ recurses on the list~$g$,
+calling $\mathsf{FinMem}$ on keys and values of~$g$ (strict subterms of the
+original first argument) with second arguments $a$ and $\EvalFun(f, u_i)$
+(derived from subterms of the original type code).
+After the initial $\Bot$-swap, all recursion is well-founded on the
+total size of the arguments.
+
+\subsection{Decidability}
+
+All the relations defined on finite elements are decidable.
+
+\medskip\noindent\textbf{LeCode.}
+Decidability is built into the definition via the numeric function
+$\mathsf{leFinEl} : \FinEl \to \FinEl \to \mathbb{N}$, which mirrors the
+structure of $\mathsf{LeCode}$ but returns a natural number (0 or positive).
+Soundness and completeness lemmas establish that $\mathsf{leFinEl}(u,v) > 0$
+if and only if $\mathsf{LeCode}(u,v)$.
+
+\medskip\noindent\textbf{Comp, Coherent, FinMem.}
+The file \texttt{FinMemDecidable.agda} provides decision procedures for
+the remaining predicates, using $\mathsf{Dec}\;A = A + (A \to \bot)$:
+\begin{align*}
+  &\mathsf{decComp}   : (u\;v : \FinEl) \to \mathsf{Dec}(\mathsf{Comp}(u,v)) \\
+  &\mathsf{decCoherent} : (u : \FinEl) \to \mathsf{Dec}(\mathsf{Coherent}(u)) \\
+  &\mathsf{decFinMem} : (u\;a : \FinEl) \to \mathsf{Dec}(\mathsf{FinMem}(u,a))
+\end{align*}
+Each decision procedure follows the same case structure as the corresponding
+definition, composing decisions through generic combinators for pairs
+($\mathsf{dec\text{-}Pair}$), disjunctions ($\mathsf{dec\text{-}Or}$), and
+implications ($\mathsf{dec\text{-}impl}$, using decidability of the premise
+to either produce a witness or refute by applying the function to it).
+All proofs are postulate-free.
+
 \section{The logical relation}
 
 The logical relation connects the domain-theoretic model to the syntax.
