@@ -35,6 +35,14 @@
 \newcommand{\EvalFun}{\mathsf{Eval}}
 \newcommand{\Bot}{\bot}
 \newcommand{\pj}[2]{#1\mbox{.}#2}
+\newcommand{\FunEl}[1]{\lambda #1}
+\newcommand{\Selection}{\mathsf{Selection}}
+\newcommand{\Nat}{\mathbb{N}}
+\newcommand{\RValTyPi}{\mathsf{RValTy\Pi}}
+\newcommand{\RValPi}{\mathsf{RVal\Pi}}
+\newcommand{\depthFM}[2]{|\mathsf{FinMem}(#1,#2)|}
+\newcommand{\depthAllU}[2]{|\mathsf{FinMemAllU}(#1,#2)|}
+\newcommand{\depthFun}[3]{|\mathsf{FinMemFun}(#1,#2,#3)|}
 
 \newtheorem{theorem}{Theorem}
 \newtheorem{corollary}[theorem]{Corollary}
@@ -657,15 +665,13 @@ $\Val\;\Gamma\;N\;A_0\;u\;b$, one has
 $\Val\;\Gamma\;(\App{M}{N})\;\substone{B_0}{N}\;v\;\EvalFun(f,u)$.
 
 \subsection{Termination of the logical relation}
+\label{sec:val-termination}
 
 The four mutually defined predicates $\Val$, $\EqVal$, $\ValTy$, $\EqValTy$
 and their associated record types form a single mutual block, marked
-\texttt{TERMINATING} in the formalisation.  Intuitively, the recursion
-follows the structure of finite membership evidence ($\mathsf{FinMem}$
-derivations) rather than the syntactic structure of codes or terms.
-The well-foundedness argument
-is more subtle than for the domain-level predicates: the recursion cannot
-be measured by the type code~$a$ alone.
+\texttt{TERMINATING} in the formalisation.  The recursion is not structural
+on the type code~$a$ (nor on the value code~$u$), so we need an external
+measure.
 
 \medskip\noindent\textbf{The difficulty at the universe.}
 Consider $\Val\;\Gamma\;M\;A\;(\PiC{a'}{f'})\;\U$.
@@ -675,70 +681,133 @@ type code $\PiC{a'}{f'}$, which is not a subterm of the original type code
 $\U$---it is part of the \emph{value code}.  Moreover $a'$ can itself be
 $\U$, so the recursion is not simply structural on either code.
 
-\medskip\noindent\textbf{The measure: depth of $\mathsf{FinMem}(u,a)$.}
-The relation $\Val\;\Gamma\;M\;A\;u\;a$ is only meaningful when
-$\mathsf{FinMem}(u,a)$ holds---this is a precondition maintained by the
-adequacy proof.  The correct well-foundedness measure is the
-\emph{size of the $\mathsf{FinMem}(u,a)$ derivation}: at each recursive
-call, the corresponding membership proof is a strict sub-derivation.
+\medskip\noindent\textbf{A first (wrong) attempt: sub-derivations of
+$\mathsf{FinMem}$.}  One might hope that the size of the
+$\mathsf{FinMem}(u,a)$ derivation is a well-founded measure, with each
+recursive call landing on a structural sub-derivation.  This works in the
+universe case---$\mathsf{FinMem}(\PiC{a'}{f'},\U)$ does contain
+$\mathsf{FinMem}(a',\U)$ and $\mathsf{FinMemAllU}(f',a')$ as
+components---but it fails at Pi and Sigma.  The edge functions in
+$\RValTyPi$ are quantified over \emph{selections}
+$\Selection\;f\;u\;v$, and the application data in $\RValPi$ recurses at
+$\Val\;\Gamma\;(\App{M}{N})\;\substone{B_0}{N}\;v\;\EvalFun(f,u)$ where
+again $(u,v)$ ranges over $\Selection\;g\;u\;v$.  In both cases $u$ is a
+$\mathsf{Sup}$ of keys drawn from the underlying finite function, $v$ is
+a $\mathsf{Sup}$ of values, and $\EvalFun(f,u)$ is computed by
+selection on~$u$.  The resulting $\mathsf{FinMem}$ evidence is
+\emph{derived} (via \texttt{FinMem-Selection} and
+\texttt{EvalFun-in-UCode}), not a structural child of the ambient
+membership proof.  A plain sub-derivation argument therefore does not go
+through.
 
-We trace this through the cases:
+\medskip\noindent\textbf{The fix: a depth measure on finite elements.}
+We assign, to every finite element~$u$ together with a membership witness
+$\mathsf{FinMem}(u,a)$, a natural number
+$\depthFM{u}{a} \in \Nat$.  The measure is defined by recursion on the
+$\mathsf{FinMem}$ clauses
+(PaperSemanticsSigma.agda, lines 314--374):
+\begin{align*}
+  \depthFM{\Bot}{a}            &= 1 + \depthFM{a}{\U} \\
+  \depthFM{\U}{\U}             &= 0 \qquad
+  \depthFM{\Prop}{\U} = 0 \\
+  \depthFM{\PiC{a}{f}}{\U}     &= 1 + \max\bigl(\depthFM{a}{\U},\;
+                                  \depthAllU{f}{a}\bigr) \\
+  \depthFM{\SigmaC{a}{f}}{\U}  &= 1 + \max\bigl(\depthFM{a}{\U},\;
+                                  \depthAllU{f}{a}\bigr) \\
+  \depthFM{\FunEl{g}}{\PiC{a}{f}} &=
+       1 + \max\bigl(\depthFun{g}{a}{f},\;\depthFM{\PiC{a}{f}}{\U}\bigr)\\
+  \depthFM{(u,v)}{\SigmaC{a}{f}} &=
+       1 + \max\bigl(\depthFM{u}{a},\;\depthFM{v}{\EvalFun(f,u)},\;
+                     \depthFM{\SigmaC{a}{f}}{\U}\bigr)
+\end{align*}
+where the auxiliary measures
+$\depthAllU{f}{a}$ and $\depthFun{g}{a}{f}$ recurse on the list structure
+of the associated $\mathsf{FinMemAllU}$ / $\mathsf{FinMemFun}$ proofs,
+taking the max of depths of the keys and values at their respective
+codes.  In the other (empty) clauses of $\mathsf{FinMem}$ the depth is
+never needed, since the relation trivialises.
+
+The key fact about this measure is that it is preserved under the two
+operations used in the edge functions:
+\begin{lemma}[Selection bound]\label{lem:sel-depth}
+  Let $\Selection\;f\;u\;v$ be a selection.
+  \begin{enumerate}
+  \item If $\mathsf{FinMemAllU}(f,a)$, then
+    $\depthFM{u}{a}, \depthFM{v}{\U} \leq \depthAllU{f}{a}$.
+  \item If $\mathsf{FinMemFun}(g,b,f)$, then
+    $\depthFM{u}{b}, \depthFM{v}{\EvalFun(f,u)} \leq \depthFun{g}{b}{f}$.
+  \end{enumerate}
+\end{lemma}
+
+\begin{lemma}[$\EvalFun$ bound]\label{lem:eval-depth}
+  If $\mathsf{FinMemAllU}(f,a)$ and $\mathsf{FinMem}(u,a)$, then
+  $\depthFM{\EvalFun(f,u)}{\U} \leq \depthAllU{f}{a}$.
+\end{lemma}
+
+\noindent Both lemmas follow from the standard fact that
+$\depthFM{u \sqcup u'}{a} \leq \max(\depthFM{u}{a}, \depthFM{u'}{a})$,
+which is immediate from the pointwise characterisation of $\sqcup$ on
+finite elements: a $\mathsf{Sup}$ of ingredients drawn from the same
+$\mathsf{FinMemAllU}$ / $\mathsf{FinMemFun}$ data is bounded by the depth
+of that data.  This is where the argument departs from pure structural
+induction on $\mathsf{FinMem}$: the resulting membership proof is
+constructed, but the depth does not grow.
+
+\medskip\noindent\textbf{Termination of the recursion.}
+With depth in hand we check each clause of $\Val$:
 
 \begin{itemize}
 \item \textbf{$a = \Bot$:} $\Val$ returns $\top$, no recursion.
 
 \item \textbf{$a = \U$, $u = \PiC{a'}{f'}$:}
-  The membership $\mathsf{FinMem}(\PiC{a'}{f'}, \U)$ consists of
-  $\mathsf{FinMem}(a', \U)$, $\mathsf{FinMemAllU}(f', a')$, and
-  $\mathsf{CoherentFunTail}(f')$.
-  The definition produces $\ValTy\;\Gamma\;M\;(\PiC{a'}{f'})$, which
-  unfolds to $\mathsf{RValTyPi}$ containing:
+  $\ValTy\;\Gamma\;M\;(\PiC{a'}{f'})$ recurses on:
   \begin{itemize}
-  \item $\ValTy\;\Gamma\;A_0\;a'$, with membership
-    $\mathsf{FinMem}(a', \U)$---a sub-derivation of the original
-    $\mathsf{FinMem}(\PiC{a'}{f'}, \U)$.  But this call is at $(a', \U)$
-    which itself unfolds further: if $a' = \PiC{a''}{f''}$, the
-    membership $\mathsf{FinMem}(a'', \U)$ is again strictly smaller.
-    Since the membership derivation is finite, this chain terminates.
-  \item Edge functions producing $\ValTy\;\Gamma\;\substone{B}{N}\;v$
-    for $(u_0,v_0)$ selected from~$f'$, where the membership evidence for
-    $v_0$ at~$\U$ comes from $\mathsf{FinMemAllU}(f', a')$---again a
-    sub-derivation.
+  \item $\ValTy\;\Gamma\;A_0\;a'$, at depth $\depthFM{a'}{\U}$, which
+    is strictly less than $\depthFM{\PiC{a'}{f'}}{\U}$ by the
+    definition of the depth at $\PiC{a'}{f'}$.
+  \item $\ValTy\;\Gamma\;\substone{B}{N}\;v$ for each selection
+    $\Selection\;f'\;u\;v$.  By Lemma~\ref{lem:sel-depth}(1),
+    $\depthFM{v}{\U} \leq \depthAllU{f'}{a'}
+     < \depthFM{\PiC{a'}{f'}}{\U}$.
   \end{itemize}
   The case $u = \SigmaC{a'}{f'}$ at $\U$ is analogous.
 
-\item \textbf{$a = \PiC{b}{f}$, $u = \lambda g$:}
-  The membership $\mathsf{FinMem}(\lambda g, \PiC{b}{f})$ consists of
-  $\mathsf{FinMemFun}(g, b, f)$, $\mathsf{CoherentFun}(g)$, and
-  $\mathsf{FinMem}(\PiC{b}{f}, \U)$.
-  The application data requires
-  $\Val\;\Gamma\;(\App{M}{N})\;\substone{B_0}{N}\;v\;\EvalFun(f,u_0)$
-  for $(u_0,v_0)$ selected from~$g$.  The membership
-  $\mathsf{FinMem}(v_0, \EvalFun(f, u_0))$ is derivable from
-  $\mathsf{FinMemFun}(g, b, f)$---a sub-derivation.
-  The bundled $\ValTy\;\Gamma\;A\;(\PiC{b}{f})$ recurses at the
-  membership $\mathsf{FinMem}(\PiC{b}{f}, \U)$, which is a component of
-  the original membership.
+\item \textbf{$a = \PiC{b}{f}$, $u = \FunEl{g}$:}
+  $\RValTyPi$ asks for $\ValTy\;\Gamma\;A\;(\PiC{b}{f})$ and edge
+  functions over selections $\Selection\;f\;u\;v$; for the application
+  data $\RValPi$ additionally recurses at
+  $\Val\;\Gamma\;(\App{M}{N})\;\substone{B_0}{N}\;v\;\EvalFun(f,u)$ for
+  each selection $\Selection\;g\;u\;v$.  By
+  Lemma~\ref{lem:sel-depth}(2) the latter call has depth
+  $\leq \depthFun{g}{b}{f} < \depthFM{\FunEl{g}}{\PiC{b}{f}}$, and the
+  bundled $\ValTy$ recurses at
+  $\depthFM{\PiC{b}{f}}{\U} < \depthFM{\FunEl{g}}{\PiC{b}{f}}$.  The
+  codomain depth $\depthFM{\EvalFun(f,u)}{\U}$ that appears implicitly
+  in the recursive $\Val\;\ldots\;\EvalFun(f,u)$ call is bounded by
+  Lemma~\ref{lem:eval-depth}.
 
-\item \textbf{$a = \SigmaC{b}{f}$, $u = (u', v')$:}
-  The membership $\mathsf{FinMem}((u',v'), \SigmaC{b}{f})$ contains
-  $\mathsf{FinMem}(u', b)$ and $\mathsf{FinMem}(v', \EvalFun(f, u'))$.
+\item \textbf{$a = \SigmaC{b}{f}$, $u = (u',v')$:}
   The recursive calls $\Val\;\Gamma\;\Fst{M}\;A_0\;u'\;b$ and
   $\Val\;\Gamma\;\Snd{M}\;\substone{B_0}{\Fst{M}}\;v'\;\EvalFun(f,u')$
-  use exactly these sub-derivations as their membership evidence.
+  have depths $\depthFM{u'}{b}$ and $\depthFM{v'}{\EvalFun(f,u')}$,
+  both strictly less than $\depthFM{(u',v')}{\SigmaC{b}{f}}$ by
+  construction.
 
 \item \textbf{All other $(u,a)$:} $\Val$ returns $\top$, no recursion.
 \end{itemize}
 
 \medskip\noindent\textbf{Summary.}
-The recursion is well-founded on the size of the $\mathsf{FinMem}(u,a)$
-derivation.  At each recursive call---whether descending into domain codes,
-edge functions, application data, or projections---the corresponding
-membership evidence is a strict sub-derivation.  The universe case, where
-$a = \U$ and the recursion shifts to the value code~$u$, is controlled by
-the fact that $\mathsf{FinMem}(u, \U)$ decomposes $u$ into strictly smaller
-membership sub-proofs (domain code, codomain entries), even though $u$ is
-not a subterm of~$\U$.
+The logical relation terminates by well-founded recursion on the depth
+measure $\depthFM{u}{a}$.  At each recursive call, either the code
+decomposes structurally (universe, Sigma projections) or the call
+lands on a selection/evaluation whose depth is bounded by
+Lemmas~\ref{lem:sel-depth}--\ref{lem:eval-depth}.  The appeal to a
+depth measure is essential: because the edge functions traffic in
+selections and $\EvalFun$, the membership witnesses produced at each
+recursive site are \emph{derived} rather than structural
+sub-derivations of the ambient $\mathsf{FinMem}(u,a)$.  Depth is
+preserved under these operations even though the derivation tree is
+not a sub-tree.
 
 \medskip\noindent\textbf{Positivity.}
 $\Val$ and $\EqVal$ appear in negative position within the edge
