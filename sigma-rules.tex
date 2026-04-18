@@ -333,6 +333,57 @@ This is the only extensionality principle assumed at the syntax level.
        {\substone{B}{\Fst{M}}}}
 \end{mathpar}
 
+\subsection*{Pair-$\eta$ and $\Sigma$-extensionality are interderivable}
+
+The surjective-pairing rule \textsc{Pair-Eta} is equivalent, in the
+presence of \textsc{Beta-Fst}, \textsc{Beta-Snd} and the \textsc{MkPair}
+congruences, to the following $\Sigma$-extensionality rule:
+\begin{mathpar}
+  \inferrule[\textsc{Sigma-Ext}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{M}{\Sigmatype{x{:}A}{B}} \\
+     \hastype{\Gamma}{N}{\Sigmatype{x{:}A}{B}} \\
+     \conveq{\Gamma}{\Fst{M}}{\Fst{N}}{A} \\
+     \conveq{\Gamma}{\Snd{M}}{\Snd{N}}{\substone{B}{\Fst{M}}}}
+    {\conveq{\Gamma}{M}{N}{\Sigmatype{x{:}A}{B}}}
+\end{mathpar}
+
+\paragraph{\textsc{Pair-Eta} $\Rightarrow$ \textsc{Sigma-Ext}.}
+Assume the premises of \textsc{Sigma-Ext}.  First, congruence of
+substitution on $B$ (via \textsc{Sigma-Cong} applied to $\Fst{M} = \Fst{N}$
+at $A$) gives
+$\conveq{\Gamma}{\substone{B}{\Fst{M}}}{\substone{B}{\Fst{N}}}{\U}$,
+whence by \textsc{Conv-Eq} we can transport the hypothesis to obtain
+$\conveq{\Gamma}{\Snd{M}}{\Snd{N}}{\substone{B}{\Fst{N}}}$.
+Then:
+\begin{align*}
+  M
+  &= \MkPair{\Fst{M}}{\Snd{M}}
+     && \text{(\textsc{Sym} of \textsc{Pair-Eta} on $M$)} \\
+  &= \MkPair{\Fst{N}}{\Snd{M}}
+     && \text{(\textsc{MkPair-Fst}, using $\Fst{M} = \Fst{N}$)} \\
+  &= \MkPair{\Fst{N}}{\Snd{N}}
+     && \text{(\textsc{MkPair-Snd}, using $\Snd{M} = \Snd{N}$ at $\substone{B}{\Fst{N}}$)} \\
+  &= N
+     && \text{(\textsc{Pair-Eta} on $N$)}
+\end{align*}
+
+\paragraph{\textsc{Sigma-Ext} $\Rightarrow$ \textsc{Pair-Eta}.}
+Let $P := \MkPair{\Fst{M}}{\Snd{M}}$, which is well-typed of type
+$\Sigmatype{x{:}A}{B}$ by \textsc{MkPair} applied to $\Fst{M}$ and
+$\Snd{M}$.  By \textsc{Beta-Fst} and \textsc{Beta-Snd} (with \textsc{Sym}):
+\[
+  \conveq{\Gamma}{\Fst{M}}{\Fst{P}}{A}
+  \qquad\text{and}\qquad
+  \conveq{\Gamma}{\Snd{M}}{\Snd{P}}{\substone{B}{\Fst{M}}}.
+\]
+Applying \textsc{Sigma-Ext} yields $\conveq{\Gamma}{M}{P}{\Sigmatype{x{:}A}{B}}$,
+and \textsc{Sym} gives \textsc{Pair-Eta}.
+
+This equivalence is formalised in \texttt{SigmaEtaExt.agda} as
+\texttt{eta->ext} and \texttt{ext->eta}.
+
 \subsection*{Propositions}
 
 \begin{mathpar}
