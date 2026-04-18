@@ -298,11 +298,10 @@ This is the only extensionality principle assumed at the syntax level.
     {\hastype{\Gamma}{A}{\U} \\
      \hastype{\Gamma, x{:}A}{B}{\U} \\
      \conveq{\Gamma}{M}{M'}{A} \\
-     \hastype{\Gamma}{N}{\substone{B}{M}} \\
-     \hastype{\Gamma}{N'}{\substone{B}{M'}}}
+     \hastype{\Gamma}{N}{\substone{B}{M}}}
     {\conveq{\Gamma}
        {\MkPair{M}{N}}
-       {\MkPair{M'}{N'}}
+       {\MkPair{M'}{N}}
        {\Sigmatype{x{:}A}{B}}}
   \and
   \inferrule[\textsc{MkPair-Snd}]
