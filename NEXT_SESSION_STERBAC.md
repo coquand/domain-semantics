@@ -41,10 +41,12 @@ admissible by normalisation, deferred for later.
 | `Erasure.agda` | ~160 | ✅ done | 0 | erase : T.Expr n → R.Expr n + commutation with ren and parallel subst |
 | `Postulates.agda` | ~110 | ✅ done | 8 (allowed) | Pi-inj, U-inj, U-Π no-conf for T_T and T_R; UCode/PiCode injectivity + no-conf for T_T |
 | `TarskiMeta.agda` | ~900 | ✅ done | 0 | Full Tarski meta-theory mutual block: ren, wk, presup-l/r for ConvTy and ConvTm, subst, ctx-conv. Uses `{-# TERMINATING #-}`. |
+| `TarskiMetaCong.agda` | ~200 | ✅ done | 0 | Cross-substitution congruence. Mutual `subst-cong-{IsType,HasType}` block parameterised by `ConvTmSub`. Wrapper `subst1-cong-Ty : ConvTm G a a' A → IsType G A → IsType (extend G A) B → ConvTy G (subst1 B a) (subst1 B a')`. Uses `{-# TERMINATING #-}`. |
 | `Uniqueness.agda` | ~560 | ⚠ type-uniq DONE, term-uniq postulated | 1 (need to discharge) | Defines `size`, `CommonLift` (with `LiftStep` wrapper for trivial lifts), 6 inversion lemmas (`inv-Var`, `inv-Lam`, `inv-App`, `inv-PiCode`, `inv-UCode`, `inv-Lift`), Russell-syntax injectivity helpers, and **`type-uniq` is now fully proved**. `term-uniq` remains the postulate to discharge. |
 | `Equivalence.agda` | ~370 | ⚠ erase done, lift postulated | 4 (need to discharge) | `eraseCtx`, `erase-WfCtx/IsType/HasType/ConvTy/ConvTm` all proved. Records `LiftIsType`/`LiftHasType`/`LiftConvTy`/`LiftConvTm` defined. `lift-*` POSTULATED. |
+| `UniquenessTermPartial.agda` | ~270 | ⚠ structural cases done, Lift cases postulated | 1 (need to discharge) | Partial `term-uniq`: ty-conv peeling, (Var, Var), (Lam, Lam), (App, App) via `subst1-cong-Ty`, (PiCode, PiCode), cross-shape impossible cases — all proven.  Lift-related cases factored into a single auxiliary postulate `term-uniq-Lift-cases`. |
 
-Total: ~3400 lines of Agda. 8 allowed postulates + 5 to discharge.
+Total: ~3870 lines of Agda. 8 allowed postulates + 5 (lift-*) + 1 (term-uniq-Lift-cases) to discharge.
 
 ## Progress in this session (2026-05-10)
 
@@ -63,6 +65,39 @@ Total: ~3400 lines of Agda. 8 allowed postulates + 5 to discharge.
   strict `Lift` constructor. The Rocq formalisation uses a unified
   `cLift` with `Le` and `cLift l l u = u`; our `LiftStep` is the
   meta-level equivalent.
+
+## Progress in second session (2026-05-10)
+
+* **`Sterbac/TarskiMetaCong.agda` added** (~200 lines, 0 postulates).
+  Cross-substitution congruence proven via parametric `ConvTmSub`,
+  with public wrapper:
+
+  ```agda
+  subst1-cong-Ty : ConvTm G a a' A
+                -> IsType G A
+                -> IsType (extend G A) B
+                -> ConvTy G (subst1 B a) (subst1 B a')
+  ```
+
+  Uses `{-# TERMINATING #-}` (recursion is on the IsType/HasType
+  derivation but Agda can't see it through the mutual block).
+  Unblocks the (App, App) case of `term-uniq`.
+
+* **`Sterbac/UniquenessTermPartial.agda` added** (~270 lines).  A
+  partial proof of `term-uniq`: the structural cases — ty-conv
+  peeling on either side, (Var, Var), (Lam, Lam), (App, App) using
+  `subst1-cong-Ty`, (PiCode, PiCode), and the cross-shape impossible
+  cases — are fully discharged.  The Lift-related cases (UCode-UCode,
+  Lift on either side, etc.) are deferred to a single auxiliary
+  postulate `term-uniq-Lift-cases`.
+
+  This file is independent of `Uniqueness.agda` (which still
+  postulates `term-uniq` directly).  Once `term-uniq-Lift-cases` is
+  proven, `Uniqueness.term-uniq` can be re-defined to call this
+  partial implementation.
+
+  Compile: ✅ (with `--exact-split` warnings about ty-conv overlap
+  and the `_` patterns; warnings only, no errors).
 
 ## Quick verification
 
