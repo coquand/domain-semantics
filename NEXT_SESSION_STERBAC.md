@@ -202,12 +202,52 @@ with explicit user input.
    (because erase-soundness uses them). If Russell metatheory becomes
    needed, consider promoting to a `Sterbac.RussellMeta` module.
 
+## Correspondence with `sterbac1.pdf`
+
+The Agda formalization parallels paper §4.2:
+
+| Paper | Agda |
+|---|---|
+| Lemma 4.10 (Catch-up), types case | `Uniqueness.type-uniq` ✓ |
+| Lemma 4.10, terms case (with universe-codes second case) | `term-uniq` (postulated in `Uniqueness`, proved up to one narrow case in `UniquenessTermPartial`) |
+| Universe-codes second case figure (`u_i = t^{n_i}_k(v_i)` with `v₀ ≡ v₁ : U_k`) | `CommonLift` record + `LiftStep` (`trivial`/`proper`) |
+| Lemma 4.11 (same A₀=A₁ ⇒ convertible) | `commonLift-same-A` ✓ |
+| Cor. 4.12 (Judgemental injectivity of erasure) | `extract-conv-same` ✓ |
+| Theorem 4.13 (Section of erasure) | `Equivalence.lift-*` (postulated) |
+| Lemmas 4.7, 4.8, 4.9 (inversion + modify-along-conv) | `TarskiMeta` ✓ |
+| Cross-subst (used by lemma 4.9 / app-arg congruence) | `TarskiMetaCong.subst1-cong-Ty` ✓ |
+| Section 3.2 (injectivity / no-confusion via normalisation) | `Sterbac.Postulates` (8 allowed postulates) |
+
 ## What's left, in priority order
 
-### Step 1 — Prove `Uniqueness.term-uniq`
+### Step 1 — Finish `term-uniq` (very narrow remaining case)
 
-`type-uniq` is **done**.  `term-uniq` remains postulated; the
-statement is unchanged.
+`type-uniq` is **done**.  `term-uniq` is **~95% done** in
+`UniquenessTermPartial.agda`; only one narrow case remains:
+
+**Remaining case** (in `term-uniq-Lift-cases` postulate, single
+call site at `UniquenessTermPartial.agda:275`): the (PiCode, PiCode)
+case when the inner-`a` recursion returns CommonLift with potentially
+different outer universe levels (`l1 ≠ l2`).  Building the outer
+CommonLift requires constructing a "common base" PiCode at a lower
+shared level by *also* recursively decomposing the body to the same
+common level.  This is the propagation-outward of paper Lemma 4.10's
+universe-codes second case.
+
+To finish:
+1. Recurse on bodies (b1, b2) with appropriate ctx-conv.  The body
+   recursion may itself return inl or inr.
+2. If body returns inl: combine with the inr on a's via lift cong
+   to build CommonLift on outer PiCodes at level cl_a.k.
+3. If body also returns inr: combine the two CommonLifts (on a's
+   and on b's) at the max common level.
+
+Estimated: ~150-250 lines.
+
+To unify `Uniqueness.term-uniq` with the partial proof: once the
+above is discharged, the partial proof is total.  Then in
+`Uniqueness.agda`, replace the `postulate term-uniq` with a re-export
+from `UniquenessTermPartial.term-uniq`.
 
 **Proof structure (Sterbac slide 17):** mutual induction on size of
 `u₀`. Use `{-# TERMINATING #-}`.
@@ -265,14 +305,32 @@ Estimated remaining: ~500-700 lines.
 
 ### Step 2 — Discharge `lift-*` in `Equivalence.agda`
 
-Postulated at `Sterbac/Equivalence.agda:307-322`. Each is structural
-recursion on the Russell derivation, choosing Tarski terms whose
-erasure recovers the Russell ones.
+Postulated at `Sterbac/Equivalence.agda:336-355`. Theorem 4.13 of
+the paper (Section of erasure).  Mutual recursion on Russell
+derivations, choosing Tarski terms whose erasure recovers the Russell
+ones.
+
+Mutual block needed:
+- `lift-WfCtx` (helper, not currently postulated)
+- `lift-IsType`     (1 case: `is-Ty-from-U` reduces to `lift-HasType`)
+- `lift-HasType`    (7 cases: var, conv, U, cum, Pi, Lam, App)
+- `lift-ConvTy`     (5 cases: refl, sym, trans, Pi, from-U)
+- `lift-ConvTm`     (~12 cases)
+
+Also need:
+- `hasType-IsType` lemma in `TarskiMeta` (for type-uniq inputs).
 
 Key insight: most of the work is reconciling that recursive lift
 results from independent calls produce *convertible* Tarski
 derivations. Each reconciliation is exactly an instance of
 `type-uniq` or `term-uniq` from Step 1.
+
+Estimated size: ~300-500 lines.
+
+Strategy: create `Sterbac/EquivalencePartial.agda` analogous to
+`UniquenessTermPartial.agda`, prove the simpler cases first
+(lift-WfCtx, lift-IsType, lift-HasType ty-var/ty-U) and incrementally
+discharge.
 
 For each Russell rule, write the Tarski lifted form:
 
@@ -290,8 +348,6 @@ For `ty-cum`: if the lifted term `M'` has Tarski type `T'` (with
 `erase T' = R.U l`), and we want type `R.U (l+1)`, take
 `Lift (l+1) l (Eq-transport ty-conv to U l)`. The `ty-conv` step uses
 `type-uniq` to identify `T'` with `T.U l`.
-
-Estimated size: ~300-500 lines.
 
 ### Step 3 — Optional: derive the strong `conv-cong-App` and `conv-cong-Lam`
 
