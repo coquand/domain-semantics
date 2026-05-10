@@ -19,11 +19,12 @@
 --                                and conv-Lift-Lift
 --   * (*, Lift)               -- symmetric to (Lift, *)
 --
--- Remaining `term-uniq-Lift-cases` postulate: bundles the inr-fallback
--- branches inside (Lam, Lam), (PiCode, PiCode), (App, App) that arise
--- when an inner recursive call returns CommonLift instead of inl.
--- These are reachable only when the relevant inner term has type
--- U_n and is itself Lift-shaped — a narrow class.
+-- Remaining `term-uniq-Lift-cases` postulate: now used in exactly
+-- one place — the (PiCode, PiCode) case when the inner `a` recursion
+-- returns CommonLift, i.e., when the two PiCodes have potentially
+-- different outer universe levels.  Building a CommonLift on the
+-- outer PiCodes requires constructing a "common base" PiCode at a
+-- shared lower level; deferred for future work.
 ------------------------------------------------------------------------
 
 module Sterbac.UniquenessTermPartial where
@@ -39,12 +40,12 @@ open import Sterbac.Postulates
 open import Sterbac.Uniqueness hiding (term-uniq)
 
 ------------------------------------------------------------------------
--- Auxiliary postulate covering only inr-fallback branches that arise
--- when a recursive call inside (Lam, Lam), (PiCode, PiCode) or
--- (App, App) returns a CommonLift result (the inner pieces being
--- Lift-shaped at a U-typed position).  Those situations don't arise
--- in the (Lift, *), (*, Lift), (UCode, UCode) branches, which are
--- now handled directly below.
+-- Auxiliary postulate.  After dismantling the (Lam, Lam), (App, App),
+-- and (PiCode, PiCode) inr-fallbacks via `extract-conv-same`, this
+-- postulate is used only in ONE place: the (PiCode, PiCode) case
+-- when the inner-`a` recursion returns CommonLift with potentially
+-- different outer universe levels (l1 ≠ l2 is permitted, since
+-- `erase (PiCode l a b) = R.Pi (erase a) (erase b)` discards `l`).
 ------------------------------------------------------------------------
 
 postulate
@@ -63,6 +64,86 @@ Lt-trans-Lt : {a b c : Nat} -> Lt a b -> Lt b c -> Lt a c
 Lt-trans-Lt {a = a} {b = b} {c = c} h1 h2 =
   Le-trans (suc a) (suc b) c
     (Le-trans (suc a) b (suc b) h1 (Le-suc b b (Le-refl b))) h2
+
+------------------------------------------------------------------------
+-- Lt is anti-reflexive
+------------------------------------------------------------------------
+
+Lt-not-self : (n : Nat) -> Lt n n -> Empty
+Lt-not-self zero    ()
+Lt-not-self (suc n) h = Lt-not-self n h
+
+------------------------------------------------------------------------
+-- Extract a direct ConvTm from a same-type CommonLift.
+--
+-- When CommonLift relates u₀ : A and u₁ : A (the same type on both
+-- sides), we can extract `ConvTm G u₀ u₁ A` directly:
+--
+--   * (trivial, trivial): u₀ ≡ v₀, u₁ ≡ v₁, v₀ ≡ v₁ ⇒ u₀ ≡ u₁.
+--   * (proper,  proper):  u₀ ≡ Lift n k v₀, u₁ ≡ Lift n k v₁,
+--                          and Lift n k v₀ ≡ Lift n k v₁ via cong.
+--   * (trivial, proper) and (proper, trivial): impossible because
+--     they force `n = k` and `Lt k n` simultaneously.
+------------------------------------------------------------------------
+
+commonLift-same-A :
+  {n : Nat} {G : TT.Ctx n} {u₀ u₁ A : T.Expr n}
+  -> CommonLift G u₀ u₁ A A
+  -> TT.ConvTm G u₀ u₁ A
+commonLift-same-A {A = A} cl
+  with U-inj-Ty-T (TT.conv-Ty-trans
+                    (TT.conv-Ty-sym (CommonLift.A₀≡U cl))
+                    (CommonLift.A₁≡U cl))
+... | n₀≡n₁ = go n₀≡n₁ (CommonLift.u₀≡ cl) (CommonLift.u₁≡ cl)
+  where
+    go : Eq (CommonLift.n₀ cl) (CommonLift.n₁ cl)
+       -> LiftStep _ _ (CommonLift.n₀ cl) (CommonLift.k cl)
+                       (CommonLift.v₀ cl) A
+       -> LiftStep _ _ (CommonLift.n₁ cl) (CommonLift.k cl)
+                       (CommonLift.v₁ cl) A
+       -> TT.ConvTm _ _ _ A
+    go refl (trivial e₀ ctm₀) (trivial e₁ ctm₁) =
+      let vv = CommonLift.v₀≡v₁ cl
+          A₀U = CommonLift.A₀≡U cl
+          v₀ = CommonLift.v₀ cl
+          v₁ = CommonLift.v₁ cl
+          n₀ = CommonLift.n₀ cl
+          vv-at-Un₀ : TT.ConvTm _ v₀ v₁ (T.U n₀)
+          vv-at-Un₀ =
+            Eq-transport (\ kk -> TT.ConvTm _ v₀ v₁ (T.U kk))
+              (Eq-sym e₀) vv
+          vv-at-A = TT.conv-conv vv-at-Un₀ (TT.conv-Ty-sym A₀U)
+      in TT.conv-trans ctm₀ (TT.conv-trans vv-at-A (TT.conv-sym ctm₁))
+    go refl (trivial e₀ _) (proper h _) =
+      absurd (Lt-not-self (CommonLift.k cl)
+               (Eq-transport (\ nn -> Lt (CommonLift.k cl) nn)
+                 e₀ h))
+    go refl (proper h _) (trivial e₁ _) =
+      absurd (Lt-not-self (CommonLift.k cl)
+               (Eq-transport (\ nn -> Lt (CommonLift.k cl) nn)
+                 e₁ h))
+    go refl (proper h₀ ctm₀) (proper h₁ ctm₁) =
+      let vv = CommonLift.v₀≡v₁ cl
+          A₀U = CommonLift.A₀≡U cl
+          n₀ = CommonLift.n₀ cl
+          k  = CommonLift.k  cl
+          v₀ = CommonLift.v₀ cl
+          v₁ = CommonLift.v₁ cl
+          lc : TT.ConvTm _ (T.Lift n₀ k v₀) (T.Lift n₀ k v₁) (T.U n₀)
+          lc = TT.conv-cong-Lift {m = n₀} {l = k} h₀ vv
+          lc-at-A = TT.conv-conv lc (TT.conv-Ty-sym A₀U)
+      in TT.conv-trans ctm₀ (TT.conv-trans lc-at-A (TT.conv-sym ctm₁))
+
+------------------------------------------------------------------------
+-- Extract a ConvTm from any TermUniqResult at same type on both sides.
+------------------------------------------------------------------------
+
+extract-conv-same :
+  {n : Nat} {G : TT.Ctx n} {u₀ u₁ A : T.Expr n}
+  -> TermUniqResult G u₀ u₁ A A
+  -> TT.ConvTm G u₀ u₁ A
+extract-conv-same (inl (mkSigma _ ctm)) = ctm
+extract-conv-same (inr cl)              = commonLift-same-A cl
 
 ------------------------------------------------------------------------
 -- term-uniq, with structural cases proved
@@ -147,28 +228,15 @@ term-uniq {G = G} (TT.ty-Lam {A = A1} {B = B1} {b = b1} dA1 dB1 db1)
       dB2' = dA2-conv dB2
       db2' = TM.ctx-conv-HasType dA2 dA1 (TT.conv-Ty-sym cA) db2
       cB = type-uniq dB1 dB2' eqB
-      -- Recurse on bodies (in extend G A1 with type B1)
       db2'' = TT.ty-conv db2' (TT.conv-Ty-sym cB)
-      bodyResult = term-uniq db1 db2'' eqb
-  in case-body bodyResult cA cB
-  where
-    case-body : TermUniqResult (TT.extend G _) _ _ _ _
-              -> TT.ConvTy G _ _ -> TT.ConvTy (TT.extend G _) _ _
-              -> TermUniqResult G (T.Lam _ _ _) (T.Lam _ _ _) (T.Pi _ _) (T.Pi _ _)
-    case-body (inl (mkSigma _ cb)) cA cB =
-      let lam-body-conv = TT.conv-cong-Lam-body
-            (TM.presup-l-ConvTy cA)
-            (TM.presup-l-ConvTy cB)
-            cb
-          lam-Ty-conv = TT.conv-cong-Lam-Ty cA cB (TM.presup-r-ConvTm cb)
-      in inl (mkSigma (TT.conv-Ty-Pi cA cB)
-                      (TT.conv-trans lam-body-conv lam-Ty-conv))
-    -- Body cannot be in CommonLift mode because Lam's body type is B1,
-    -- not a U.  (CommonLift requires the body type to be U_n0.)  But
-    -- we can't easily refute this without B1's shape; defer to the
-    -- generic Lift case handler.
-    case-body (inr _) cA cB =
-      term-uniq-Lift-cases (TT.ty-Lam dA1 dB1 db1) (TT.ty-Lam dA2 dB2 db2) eq
+      cb = extract-conv-same (term-uniq db1 db2'' eqb)
+      lam-body-conv = TT.conv-cong-Lam-body
+        (TM.presup-l-ConvTy cA)
+        (TM.presup-l-ConvTy cB)
+        cb
+      lam-Ty-conv = TT.conv-cong-Lam-Ty cA cB (TM.presup-r-ConvTm cb)
+  in inl (mkSigma (TT.conv-Ty-Pi cA cB)
+                  (TT.conv-trans lam-body-conv lam-Ty-conv))
 
 ------------------------------------------------------------------------
 -- (PiCode, PiCode) — uses PiCode-inj-T
@@ -199,22 +267,10 @@ term-uniq {G = G} (TT.ty-PiCode {a = a1} {b = b1} {l = l1} da1 db1)
                        (TT.is-Ty-El {l = l1} da2)
                        (TT.is-Ty-El {l = l1} da1)
                        (TT.conv-Ty-sym aEl-conv) db2
-              ihB = term-uniq db1 db2' eqB
-          in case-PiCode-b ca ihB
-          where
-            case-PiCode-b :
-                 TT.ConvTm G a1 a2 (T.U l1)
-              -> TermUniqResult (TT.extend G (T.El l1 a1))
-                                 b1 b2 (T.U l1) (T.U l1)
-              -> TermUniqResult G (T.PiCode l1 a1 b1) (T.PiCode l1 a2 b2)
-                                   (T.U l1) (T.U l1)
-            case-PiCode-b ca (inl (mkSigma _ cb)) =
-              inl (mkSigma (TT.conv-Ty-refl
-                              (TT.is-Ty-U {l = l1} (TM.typing-WfCtx da1)))
-                           (TT.conv-cong-PiCode {l = l1} ca cb))
-            case-PiCode-b _ (inr _) =
-              term-uniq-Lift-cases (TT.ty-PiCode da1 db1)
-                                    (TT.ty-PiCode da2 db2) eq
+              cb = extract-conv-same (term-uniq db1 db2' eqB)
+          in inl (mkSigma (TT.conv-Ty-refl
+                            (TT.is-Ty-U {l = l1} (TM.typing-WfCtx da1)))
+                          (TT.conv-cong-PiCode {l = l1} ca cb))
     case-PiCode-a eqB (inr _) =
       term-uniq-Lift-cases (TT.ty-PiCode da1 db1)
                             (TT.ty-PiCode da2 db2) eq
@@ -234,39 +290,21 @@ term-uniq {G = G} (TT.ty-App {A = A1} {B = B1} {c = c1} {a = a1} dA1 dB1 dc1 da1
       da2-c = TT.ty-conv da2 (TT.conv-Ty-sym cA)
       dc2-c : TT.HasType G c2 (T.Pi A1 B1)
       dc2-c = TT.ty-conv dc2 (TT.conv-Ty-sym (TT.conv-Ty-Pi cA cB))
-      ihA-arg = term-uniq da1 da2-c eqa
-      ihC     = term-uniq dc1 dc2-c eqc
-  in case-AppA ihA-arg ihC cA cB da2-c dc2-c
-  where
-    case-AppA : TermUniqResult G a1 a2 A1 A1
-             -> TermUniqResult G c1 c2 (T.Pi A1 B1) (T.Pi A1 B1)
-             -> TT.ConvTy G A1 A2
-             -> TT.ConvTy (TT.extend G A1) B1 B2
-             -> TT.HasType G a2 A1
-             -> TT.HasType G c2 (T.Pi A1 B1)
-             -> TermUniqResult G (T.App A1 B1 c1 a1) (T.App A2 B2 c2 a2)
-                                  (T.subst1 B1 a1) (T.subst1 B2 a2)
-    case-AppA (inl (mkSigma _ ca)) (inl (mkSigma _ cc)) cA cB da2-c dc2-c =
-      let dA1 = TM.presup-l-ConvTy cA
-          BsubstCong : TT.ConvTy G (T.subst1 B1 a1) (T.subst1 B1 a2)
-          BsubstCong = TMC.subst1-cong-Ty ca dA1 (TM.presup-l-ConvTy cB)
-          step1 = TT.conv-cong-App-fun dA1 (TM.presup-l-ConvTy cB) cc da1
-          step2 = TT.conv-cong-App-arg dA1 (TM.presup-l-ConvTy cB) dc2-c ca BsubstCong
-          step3raw = TT.conv-cong-App-Ty cA cB dc2-c da2-c
-          -- step3raw has type subst1 B1 a2; bring back to subst1 B1 a1
-          step3 = TT.conv-conv step3raw (TT.conv-Ty-sym BsubstCong)
-          composite = TT.conv-trans step1 (TT.conv-trans step2 step3)
-          -- result type: ConvTy from (subst1 B1 a1) to (subst1 B2 a2)
-          subst1-tyConv : TT.ConvTy G (T.subst1 B1 a1) (T.subst1 B2 a2)
-          subst1-tyConv =
-            TT.conv-Ty-trans BsubstCong
-              (TM.subst-ConvTy (TM.subst1-WtSub dA1 da2-c)
-                                (TM.isType-WfCtx dA1) cB)
-      in inl (mkSigma subst1-tyConv composite)
-    case-AppA _ _ cA cB da2-c dc2-c =
-      term-uniq-Lift-cases (TT.ty-App dA1 dB1 dc1 da1)
-                            (TT.ty-App dA2 dB2 dc2 da2)
-                            eq
+      ca = extract-conv-same (term-uniq da1 da2-c eqa)
+      cc = extract-conv-same (term-uniq dc1 dc2-c eqc)
+      BsubstCong : TT.ConvTy G (T.subst1 B1 a1) (T.subst1 B1 a2)
+      BsubstCong = TMC.subst1-cong-Ty ca dA1 dB1
+      step1 = TT.conv-cong-App-fun dA1 dB1 cc da1
+      step2 = TT.conv-cong-App-arg dA1 dB1 dc2-c ca BsubstCong
+      step3raw = TT.conv-cong-App-Ty cA cB dc2-c da2-c
+      step3 = TT.conv-conv step3raw (TT.conv-Ty-sym BsubstCong)
+      composite = TT.conv-trans step1 (TT.conv-trans step2 step3)
+      subst1-tyConv : TT.ConvTy G (T.subst1 B1 a1) (T.subst1 B2 a2)
+      subst1-tyConv =
+        TT.conv-Ty-trans BsubstCong
+          (TM.subst-ConvTy (TM.subst1-WtSub dA1 da2-c)
+                            (TM.isType-WfCtx dA1) cB)
+  in inl (mkSigma subst1-tyConv composite)
 
 ------------------------------------------------------------------------
 -- (UCode, UCode) — same inner level (forced by erasure), possibly

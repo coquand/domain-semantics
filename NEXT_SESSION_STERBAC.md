@@ -44,9 +44,9 @@ admissible by normalisation, deferred for later.
 | `TarskiMetaCong.agda` | ~200 | ✅ done | 0 | Cross-substitution congruence. Mutual `subst-cong-{IsType,HasType}` block parameterised by `ConvTmSub`. Wrapper `subst1-cong-Ty : ConvTm G a a' A → IsType G A → IsType (extend G A) B → ConvTy G (subst1 B a) (subst1 B a')`. Uses `{-# TERMINATING #-}`. |
 | `Uniqueness.agda` | ~560 | ⚠ type-uniq DONE, term-uniq postulated | 1 (need to discharge) | Defines `size`, `CommonLift` (with `LiftStep` wrapper for trivial lifts), 6 inversion lemmas (`inv-Var`, `inv-Lam`, `inv-App`, `inv-PiCode`, `inv-UCode`, `inv-Lift`), Russell-syntax injectivity helpers, and **`type-uniq` is now fully proved**. `term-uniq` remains the postulate to discharge. |
 | `Equivalence.agda` | ~370 | ⚠ erase done, lift postulated | 4 (need to discharge) | `eraseCtx`, `erase-WfCtx/IsType/HasType/ConvTy/ConvTm` all proved. Records `LiftIsType`/`LiftHasType`/`LiftConvTy`/`LiftConvTm` defined. `lift-*` POSTULATED. |
-| `UniquenessTermPartial.agda` | ~440 | ⚠ structural + Lift + UCode-UCode done | 1 (narrow scope) | Partial `term-uniq`: structural cases plus (UCode, UCode), (Lift, *), (*, Lift) all proven directly.  `term-uniq-Lift-cases` postulate now only handles inr-fallbacks inside (Lam, Lam), (PiCode, PiCode), (App, App). |
+| `UniquenessTermPartial.agda` | ~430 | ⚠ ~95% complete | 1 (very narrow) | Partial `term-uniq`: all cases proven except (PiCode, PiCode) when inner-`a` recursion returns CommonLift with different outer universe levels.  `extract-conv-same` helper bridges TermUniqResult-at-same-type to a direct ConvTm, dismantling the (Lam, Lam), (App, App), and (PiCode, PiCode) inr-fallbacks. |
 
-Total: ~4040 lines of Agda. 8 allowed postulates + 5 (lift-*) + 1 (narrow term-uniq-Lift-cases) to discharge.
+Total: ~4030 lines of Agda. 8 allowed postulates + 5 (lift-*) + 1 (very narrow term-uniq-Lift-cases) to discharge.
 
 ## Progress in this session (2026-05-10)
 
@@ -99,11 +99,16 @@ Total: ~4040 lines of Agda. 8 allowed postulates + 5 (lift-*) + 1 (narrow term-u
     the existing CommonLift's outer level via Lift congruence).
   - **(*, Lift)** — symmetric to (Lift, *).
 
-  Remaining `term-uniq-Lift-cases` postulate (now with narrow scope):
-  bundles only the inr-fallback branches inside (Lam, Lam),
-  (PiCode, PiCode), (App, App) when an *inner* recursive call
-  returns CommonLift.  These are reachable only when the relevant
-  inner term has a U-typed head, a narrow situation.
+  After adding the `extract-conv-same` helper (which extracts a
+  direct ConvTm from a TermUniqResult at the same type on both sides,
+  using `commonLift-same-A`), the (Lam, Lam), (App, App), and
+  (PiCode, PiCode)-body inr-fallbacks are also dismantled.
+
+  Remaining `term-uniq-Lift-cases` postulate (one call site only):
+  the (PiCode, PiCode) case when the inner-`a` recursion returns
+  CommonLift with potentially different outer universe levels —
+  building a CommonLift on the outer PiCodes requires constructing
+  a "common base" PiCode at a lower shared level.
 
   This file is independent of `Uniqueness.agda` (which still
   postulates `term-uniq` directly).  Once `term-uniq-Lift-cases` is
