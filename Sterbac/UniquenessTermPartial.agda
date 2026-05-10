@@ -3,23 +3,27 @@
 ------------------------------------------------------------------------
 -- Sterbac.UniquenessTermPartial
 --
--- Partial proof of `term-uniq`: handles the easy cases, factors the
--- harder Lift-related cases into a single named auxiliary
--- `term-uniq-Lift-cases`.
+-- Partial proof of `term-uniq`.
 --
--- The "easy" cases (output via `inl`):
+-- Discharged cases:
 --   * ty-conv peeling on either side
 --   * (Var, Var)
---   * (Lam, Lam) — needs body recursion
---   * (App, App) — uses subst1-cong-Ty for cross-subst
---   * (PiCode, PiCode) — uses PiCode-inj-T
+--   * (Lam, Lam)              -- recurses on body
+--   * (App, App)              -- uses subst1-cong-Ty for cross-subst
+--   * (PiCode, PiCode)        -- uses PiCode-inj-T
+--   * cross-shape impossible cases (Var-vs-Lam, etc.)
+--   * (UCode, UCode)          -- direct CommonLift via canonical
+--                                witness UCode (suc l) l : U (suc l)
+--   * (Lift, *)               -- recurse on inner of left Lift,
+--                                build CommonLift via Lift-cong
+--                                and conv-Lift-Lift
+--   * (*, Lift)               -- symmetric to (Lift, *)
 --
--- The "hard" cases (output via `inr`, building CommonLift):
---   * (UCode, UCode), (UCode, Lift), (Lift, UCode), (Lift, Lift)
---   * (Var, Lift), (Lift, Var), (Lam, Lift), (Lift, Lam),
---     (App, Lift), (Lift, App), (PiCode, Lift), (Lift, PiCode)
--- These are factored into `term-uniq-Lift-cases`, which dispatches
--- on the head shapes after both sides have been ty-conv-peeled.
+-- Remaining `term-uniq-Lift-cases` postulate: bundles the inr-fallback
+-- branches inside (Lam, Lam), (PiCode, PiCode), (App, App) that arise
+-- when an inner recursive call returns CommonLift instead of inl.
+-- These are reachable only when the relevant inner term has type
+-- U_n and is itself Lift-shaped — a narrow class.
 ------------------------------------------------------------------------
 
 module Sterbac.UniquenessTermPartial where
@@ -35,11 +39,12 @@ open import Sterbac.Postulates
 open import Sterbac.Uniqueness hiding (term-uniq)
 
 ------------------------------------------------------------------------
--- Postulate covering the Lift-related branches.
---
--- This will be discharged by future work; the present file proves the
--- non-Lift "structural" branches assuming a uniform handle on the
--- Lift-mixing cases.
+-- Auxiliary postulate covering only inr-fallback branches that arise
+-- when a recursive call inside (Lam, Lam), (PiCode, PiCode) or
+-- (App, App) returns a CommonLift result (the inner pieces being
+-- Lift-shaped at a U-typed position).  Those situations don't arise
+-- in the (Lift, *), (*, Lift), (UCode, UCode) branches, which are
+-- now handled directly below.
 ------------------------------------------------------------------------
 
 postulate
@@ -48,9 +53,16 @@ postulate
     -> TT.HasType G u₀ A₀
     -> TT.HasType G u₁ A₁
     -> Eq (E.erase u₀) (E.erase u₁)
-    -- A flag: true iff at least one of u₀, u₁ is a Lift-headed term
-    -- (or the peeled inner is — but we keep the statement simple here).
     -> TermUniqResult G u₀ u₁ A₀ A₁
+
+------------------------------------------------------------------------
+-- Lt-trans helper (Lt is Le ∘ suc; transitivity by chaining)
+------------------------------------------------------------------------
+
+Lt-trans-Lt : {a b c : Nat} -> Lt a b -> Lt b c -> Lt a c
+Lt-trans-Lt {a = a} {b = b} {c = c} h1 h2 =
+  Le-trans (suc a) (suc b) c
+    (Le-trans (suc a) b (suc b) h1 (Le-suc b b (Le-refl b))) h2
 
 ------------------------------------------------------------------------
 -- term-uniq, with structural cases proved
@@ -257,12 +269,186 @@ term-uniq {G = G} (TT.ty-App {A = A1} {B = B1} {c = c1} {a = a1} dA1 dB1 dc1 da1
                             eq
 
 ------------------------------------------------------------------------
--- All remaining cases (Lift on either side, UCode-UCode, etc.)
--- delegated to the auxiliary postulate.
+-- (UCode, UCode) — same inner level (forced by erasure), possibly
+-- different outer levels.  Direct CommonLift construction.
 ------------------------------------------------------------------------
-term-uniq dM₀@(TT.ty-UCode _ _) dM₁ eq =
-  term-uniq-Lift-cases dM₀ dM₁ eq
-term-uniq dM₀@(TT.ty-Lift _ _) dM₁ eq =
-  term-uniq-Lift-cases dM₀ dM₁ eq
-term-uniq dM₀ dM₁@(TT.ty-Lift _ _) eq =
-  term-uniq-Lift-cases dM₀ dM₁ eq
+term-uniq {G = G} (TT.ty-UCode {m = m₀} {l = l₀} dG h₀)
+                  (TT.ty-UCode {m = m₁} {l = l₁} _ h₁) refl =
+  -- erase (UCode m₀ l₀) = R.U l₀; erase (UCode m₁ l₁) = R.U l₁; refl ⇒ l₀ = l₁
+  -- l = l₀ = l₁; pick canonical witness UCode (suc l) l : U (suc l).
+  let v₀ = T.UCode (suc l₀) l₀
+      sucl<m₀ : Lt l₀ m₀
+      sucl<m₀ = h₀
+      sucl<m₁ : Lt l₁ m₁
+      sucl<m₁ = h₁
+      isU-m₀ : TT.IsType G (T.U m₀)
+      isU-m₀ = TT.is-Ty-U {l = m₀} dG
+      isU-m₁ : TT.IsType G (T.U m₁)
+      isU-m₁ = TT.is-Ty-U {l = m₁} dG
+      -- u₀≡ : LiftStep G (UCode m₀ l₀) m₀ (suc l₀) (UCode (suc l₀) l₀) (U m₀)
+      --       i.e. relate UCode m₀ l₀ to v₀ via either trivial or proper Lift.
+      --       Trivial when m₀ = suc l₀; proper when suc l₀ < m₀.
+      step₀ : LiftStep G (T.UCode m₀ l₀) m₀ (suc l₀) v₀ (T.U m₀)
+      step₀ = mk-step h₀ dG
+      step₁ : LiftStep G (T.UCode m₁ l₀) m₁ (suc l₀) v₀ (T.U m₁)
+      step₁ = mk-step h₁ dG
+  in inr (mkCommonLift m₀ m₁ (suc l₀) v₀ v₀
+            (TT.conv-Ty-refl isU-m₀)
+            (TT.conv-Ty-refl isU-m₁)
+            step₀ step₁
+            (TT.conv-refl (TT.ty-UCode {m = suc l₀} {l = l₀} dG (Le-refl l₀))))
+  where
+    -- Build the LiftStep for UCode m l : U m given Lt l m and dG.
+    -- If m = suc l, use trivial; otherwise proper via conv-sym (Lift-UCode).
+    mk-step : {m l : Nat}
+            -> Lt l m -> TT.WfCtx G
+            -> LiftStep G (T.UCode m l) m (suc l) (T.UCode (suc l) l) (T.U m)
+    mk-step {m = m} {l = l} h dG with Le-cases (suc l) m h
+    ... | inl refl =
+            -- m = suc l: trivial step
+            trivial refl (TT.conv-refl (TT.ty-UCode {m = m} {l = l} dG h))
+    ... | inr h' =
+            -- suc l < m: proper.  conv-Lift-UCode :
+            --   Lift m (suc l) (UCode (suc l) l) ≡ UCode m l : U m
+            -- We need:  ConvTm G (UCode m l) (Lift m (suc l) (UCode (suc l) l)) (U m)
+            -- (sym).  Here `nu = l` in conv-Lift-UCode's API (the inner
+            -- universe code's level), `l = suc l` (the intermediate level
+            -- of the Lift), `m = m` (the outer).
+            proper h'
+              (TT.conv-sym
+                 (TT.conv-Lift-UCode
+                    {m = m} {l = suc l} {nu = l}
+                    dG (Le-refl l) h'))
+
+------------------------------------------------------------------------
+-- (Lift, *) — recurse on the inner of the Lift on the left.
+-- Catches all (Lift, X) including (Lift, Lift) by recursion.
+------------------------------------------------------------------------
+term-uniq {G = G} (TT.ty-Lift {m = m₀} {l = k₀} h₀ da₀) dM₁ eq =
+  case-Lift-l (term-uniq da₀ dM₁ eq)
+  where
+    dG : TT.WfCtx G
+    dG = TM.typing-WfCtx da₀
+
+    case-Lift-l : TermUniqResult G _ _ (T.U k₀) _
+               -> TermUniqResult G (T.Lift m₀ k₀ _) _ (T.U m₀) _
+    case-Lift-l (inl (mkSigma cTy ctm)) =
+      inr (mkCommonLift m₀ k₀ k₀ _ _
+            (TT.conv-Ty-refl (TT.is-Ty-U {l = m₀} dG))
+            (TT.conv-Ty-sym cTy)
+            (proper h₀ (TT.conv-refl
+                         (TT.ty-Lift {m = m₀} {l = k₀} h₀ da₀)))
+            (trivial refl (TT.conv-refl dM₁))
+            ctm)
+    case-Lift-l (inr cl) =
+      go (CommonLift.u₀≡ cl) (U-inj-Ty-T (CommonLift.A₀≡U cl))
+      where
+        n₀ = CommonLift.n₀ cl
+        n₁ = CommonLift.n₁ cl
+        k  = CommonLift.k  cl
+        v₀ = CommonLift.v₀ cl
+        v₁ = CommonLift.v₁ cl
+        wrap : LiftStep G (T.Lift m₀ k₀ _) m₀ k v₀ (T.U m₀)
+            -> TermUniqResult G (T.Lift m₀ k₀ _) _ (T.U m₀) _
+        wrap step =
+          inr (mkCommonLift m₀ n₁ k v₀ v₁
+                 (TT.conv-Ty-refl (TT.is-Ty-U {l = m₀} dG))
+                 (CommonLift.A₁≡U cl)
+                 step
+                 (CommonLift.u₁≡ cl)
+                 (CommonLift.v₀≡v₁ cl))
+        go : LiftStep G _ n₀ k v₀ (T.U k₀)
+          -> Eq k₀ n₀
+          -> TermUniqResult G (T.Lift m₀ k₀ _) _ (T.U m₀) _
+        go (trivial e ctm) refl =
+          -- e : Eq n₀ k = Eq k₀ k.  ctm : ConvTm G a₀ v₀ (U k₀).
+          -- Goal: LiftStep G (Lift m₀ k₀ a₀) m₀ k v₀ (U m₀).
+          -- Build with cl.k → k₀ via Eq-transport on e.
+          wrap (Eq-transport
+                 (\ kk -> LiftStep G (T.Lift m₀ k₀ _) m₀ kk v₀ (T.U m₀))
+                 e
+                 (proper {n = _} {G = G} {u = T.Lift m₀ k₀ _}
+                         {m = m₀} {k = k₀} {v = v₀} {A = T.U m₀}
+                         h₀
+                         (TT.conv-cong-Lift {m = m₀} {l = k₀} h₀ ctm)))
+        go (proper h ctm) refl =
+          -- h : Lt k n₀ = Lt k k₀.  ctm : ConvTm G a₀ (Lift k₀ k v₀) (U k₀).
+          -- Goal: LiftStep G (Lift m₀ k₀ a₀) m₀ k v₀ (U m₀)
+          let lift-cong = TT.conv-cong-Lift {m = m₀} {l = k₀} h₀ ctm
+              v₀-typed : TT.HasType G v₀ (T.U k)
+              v₀-typed = TM.presup-l-ConvTm (CommonLift.v₀≡v₁ cl)
+              ll-eq = TT.conv-Lift-Lift {nu = m₀} {m = k₀} {l = k}
+                                         h h₀ v₀-typed
+              composite = TT.conv-trans lift-cong ll-eq
+              k<m₀ : Lt k m₀
+              k<m₀ = Lt-trans-Lt {a = k} {b = k₀} {c = m₀} h h₀
+          in wrap (proper {n = _} {G = G} {u = T.Lift m₀ k₀ _}
+                          {m = m₀} {k = k} {v = v₀} {A = T.U m₀}
+                          k<m₀ composite)
+
+------------------------------------------------------------------------
+-- (X, Lift) — symmetric to (Lift, *) for non-Lift left.
+------------------------------------------------------------------------
+term-uniq {G = G} dM₀ (TT.ty-Lift {m = m₁} {l = k₁} h₁ da₁) eq =
+  case-Lift-r (term-uniq dM₀ da₁ eq)
+  where
+    dG : TT.WfCtx G
+    dG = TM.typing-WfCtx da₁
+
+    case-Lift-r : TermUniqResult G _ _ _ (T.U k₁)
+               -> TermUniqResult G _ (T.Lift m₁ k₁ _) _ (T.U m₁)
+    case-Lift-r (inl (mkSigma cTy ctm)) =
+      inr (mkCommonLift k₁ m₁ k₁ _ _
+            cTy
+            (TT.conv-Ty-refl (TT.is-Ty-U {l = m₁} dG))
+            (trivial refl (TT.conv-refl dM₀))
+            (proper h₁ (TT.conv-refl
+                         (TT.ty-Lift {m = m₁} {l = k₁} h₁ da₁)))
+            (TT.conv-conv ctm cTy))
+    case-Lift-r (inr cl) =
+      go (CommonLift.u₁≡ cl) (U-inj-Ty-T (CommonLift.A₁≡U cl))
+      where
+        n₀ = CommonLift.n₀ cl
+        n₁ = CommonLift.n₁ cl
+        k  = CommonLift.k  cl
+        v₀ = CommonLift.v₀ cl
+        v₁ = CommonLift.v₁ cl
+        wrap : LiftStep G (T.Lift m₁ k₁ _) m₁ k v₁ (T.U m₁)
+            -> TermUniqResult G _ (T.Lift m₁ k₁ _) _ (T.U m₁)
+        wrap step =
+          inr (mkCommonLift n₀ m₁ k v₀ v₁
+                 (CommonLift.A₀≡U cl)
+                 (TT.conv-Ty-refl (TT.is-Ty-U {l = m₁} dG))
+                 (CommonLift.u₀≡ cl)
+                 step
+                 (CommonLift.v₀≡v₁ cl))
+        go : LiftStep G _ n₁ k v₁ (T.U k₁)
+          -> Eq k₁ n₁
+          -> TermUniqResult G _ (T.Lift m₁ k₁ _) _ (T.U m₁)
+        go (trivial e ctm) refl =
+          wrap (Eq-transport
+                 (\ kk -> LiftStep G (T.Lift m₁ k₁ _) m₁ kk v₁ (T.U m₁))
+                 e
+                 (proper {n = _} {G = G} {u = T.Lift m₁ k₁ _}
+                         {m = m₁} {k = k₁} {v = v₁} {A = T.U m₁}
+                         h₁
+                         (TT.conv-cong-Lift {m = m₁} {l = k₁} h₁ ctm)))
+        go (proper h ctm) refl =
+          let lift-cong = TT.conv-cong-Lift {m = m₁} {l = k₁} h₁ ctm
+              v₁-typed : TT.HasType G v₁ (T.U k)
+              v₁-typed = TM.presup-r-ConvTm (CommonLift.v₀≡v₁ cl)
+              ll-eq = TT.conv-Lift-Lift {nu = m₁} {m = k₁} {l = k}
+                                         h h₁ v₁-typed
+              composite = TT.conv-trans lift-cong ll-eq
+              k<m₁ : Lt k m₁
+              k<m₁ = Lt-trans-Lt {a = k} {b = k₁} {c = m₁} h h₁
+          in wrap (proper {n = _} {G = G} {u = T.Lift m₁ k₁ _}
+                          {m = m₁} {k = k} {v = v₁} {A = T.U m₁}
+                          k<m₁ composite)
+
+------------------------------------------------------------------------
+-- Remaining UCode-against-non-Lift impossibilities are already
+-- absurd (covered by the cross-shape () patterns earlier).
+-- Note: (UCode, Lift) and (Lift, UCode) are absorbed into the (Lift, *)
+-- and (*, Lift) cases above.
+------------------------------------------------------------------------

@@ -44,9 +44,9 @@ admissible by normalisation, deferred for later.
 | `TarskiMetaCong.agda` | ~200 | ✅ done | 0 | Cross-substitution congruence. Mutual `subst-cong-{IsType,HasType}` block parameterised by `ConvTmSub`. Wrapper `subst1-cong-Ty : ConvTm G a a' A → IsType G A → IsType (extend G A) B → ConvTy G (subst1 B a) (subst1 B a')`. Uses `{-# TERMINATING #-}`. |
 | `Uniqueness.agda` | ~560 | ⚠ type-uniq DONE, term-uniq postulated | 1 (need to discharge) | Defines `size`, `CommonLift` (with `LiftStep` wrapper for trivial lifts), 6 inversion lemmas (`inv-Var`, `inv-Lam`, `inv-App`, `inv-PiCode`, `inv-UCode`, `inv-Lift`), Russell-syntax injectivity helpers, and **`type-uniq` is now fully proved**. `term-uniq` remains the postulate to discharge. |
 | `Equivalence.agda` | ~370 | ⚠ erase done, lift postulated | 4 (need to discharge) | `eraseCtx`, `erase-WfCtx/IsType/HasType/ConvTy/ConvTm` all proved. Records `LiftIsType`/`LiftHasType`/`LiftConvTy`/`LiftConvTm` defined. `lift-*` POSTULATED. |
-| `UniquenessTermPartial.agda` | ~270 | ⚠ structural cases done, Lift cases postulated | 1 (need to discharge) | Partial `term-uniq`: ty-conv peeling, (Var, Var), (Lam, Lam), (App, App) via `subst1-cong-Ty`, (PiCode, PiCode), cross-shape impossible cases — all proven.  Lift-related cases factored into a single auxiliary postulate `term-uniq-Lift-cases`. |
+| `UniquenessTermPartial.agda` | ~440 | ⚠ structural + Lift + UCode-UCode done | 1 (narrow scope) | Partial `term-uniq`: structural cases plus (UCode, UCode), (Lift, *), (*, Lift) all proven directly.  `term-uniq-Lift-cases` postulate now only handles inr-fallbacks inside (Lam, Lam), (PiCode, PiCode), (App, App). |
 
-Total: ~3870 lines of Agda. 8 allowed postulates + 5 (lift-*) + 1 (term-uniq-Lift-cases) to discharge.
+Total: ~4040 lines of Agda. 8 allowed postulates + 5 (lift-*) + 1 (narrow term-uniq-Lift-cases) to discharge.
 
 ## Progress in this session (2026-05-10)
 
@@ -83,18 +83,32 @@ Total: ~3870 lines of Agda. 8 allowed postulates + 5 (lift-*) + 1 (term-uniq-Lif
   derivation but Agda can't see it through the mutual block).
   Unblocks the (App, App) case of `term-uniq`.
 
-* **`Sterbac/UniquenessTermPartial.agda` added** (~270 lines).  A
-  partial proof of `term-uniq`: the structural cases — ty-conv
-  peeling on either side, (Var, Var), (Lam, Lam), (App, App) using
-  `subst1-cong-Ty`, (PiCode, PiCode), and the cross-shape impossible
-  cases — are fully discharged.  The Lift-related cases (UCode-UCode,
-  Lift on either side, etc.) are deferred to a single auxiliary
-  postulate `term-uniq-Lift-cases`.
+* **`Sterbac/UniquenessTermPartial.agda` added** (~440 lines).  A
+  partial proof of `term-uniq`.  Discharged cases:
+  - ty-conv peeling on either side
+  - (Var, Var), (Lam, Lam), (App, App) using `subst1-cong-Ty`,
+    (PiCode, PiCode), all cross-shape impossible cases
+  - **(UCode, UCode)** — direct CommonLift construction via the
+    canonical witness `UCode (suc l) l : U (suc l)`.  Dispatches on
+    `Le-cases (suc l) m` to choose `trivial` (when `m = suc l`) or
+    `proper` (using sym of `conv-Lift-UCode`).
+  - **(Lift, *)** — recurses on inner of the left Lift; the result
+    is wrapped via `conv-cong-Lift` and `conv-Lift-Lift`.  Handles
+    the case where the recursive call returns `inl` (build a
+    `CommonLift` with `proper`/`trivial` LiftSteps) or `inr` (extend
+    the existing CommonLift's outer level via Lift congruence).
+  - **(*, Lift)** — symmetric to (Lift, *).
+
+  Remaining `term-uniq-Lift-cases` postulate (now with narrow scope):
+  bundles only the inr-fallback branches inside (Lam, Lam),
+  (PiCode, PiCode), (App, App) when an *inner* recursive call
+  returns CommonLift.  These are reachable only when the relevant
+  inner term has a U-typed head, a narrow situation.
 
   This file is independent of `Uniqueness.agda` (which still
   postulates `term-uniq` directly).  Once `term-uniq-Lift-cases` is
-  proven, `Uniqueness.term-uniq` can be re-defined to call this
-  partial implementation.
+  fully discharged, `Uniqueness.term-uniq` can be re-defined to call
+  this implementation.
 
   Compile: ✅ (with `--exact-split` warnings about ty-conv overlap
   and the `_` patterns; warnings only, no errors).
