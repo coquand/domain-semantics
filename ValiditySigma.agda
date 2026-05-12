@@ -771,6 +771,38 @@ bU-from-cf-fmFun (cons p ps) b f cg fmFun = FinMem-a-in-U (fst p) b (fst (fst fm
 -- Part 2: Monotonicity -- downward/upward transport
 ------------------------------------------------------------------------
 
+-- Termination measure for the mutual block below:
+--   lex (rk-of-primary-code, function-priority)
+-- where the primary code per function is:
+--   down/upVal, down/upEqVal G ... u a0 a1     -> rk a1
+--   down/upValTy, down/upEqValTy G ... u0 u1   -> rk u1
+--   restrictVal, restrictEqVal G ... u u' a    -> max (rk u) (rk a)
+--   down/upPiApp{Val,Eq,EqVal} ... b1 f1 g     -> rk (PiCode b1 f1)
+--   restrictPiApp*-sel        ... b f g g'     -> rk (PiCode b f)
+--   restrictVal/EqVal-PiCode  ... g g' b f     -> rk (PiCode b f)
+--   transportPiEdge*-sel      ... b0 f0 b1 f1  -> rk (PiCode b1 f1)
+--   (Sigma analogues use SigmaCode b1 f1 / b f)
+-- Priority breaks same-rank ties along delegation chains, e.g.
+--   restrictVal > downValTy (line "restrictVal ... u u' UCode = downValTy u' u")
+--   downValTy   > transportPiEdge*-sel
+--   downVal     > downValTy
+--   downEqVal   > downVal
+--   restrictVal-PiCode > restrictPiApp*-sel
+--
+-- Strict rank-drops rely on these metatheoretic facts (none proved as Agda
+-- lemmas here, hence the pragma):
+--   (1) rk (Sup x y)   <= max (rk x) (rk y)
+--   (2) rk (snd p)     <  rkFun (cons p ps)
+--       => rk (EvalFun f u) <= rkFun f, strict when f is non-nil
+--       => rk (EvalFun f u) < rk (PiCode b f), rk (SigmaCode b f)
+--   (3) FinMemFun g b f -> rkFun g <= rk (PiCode b f)   (and analogues)
+--   (4) LeCode u' u    -> rk u' <= rk u  (with the accompanying coherence
+--       and FinMem constraints used throughout this block)
+--   (5) Selection f u v -> rk u <= rkFun f
+-- Without (3)-(5), lambda-bound codes (u') inside the *-sel helpers would
+-- not be bounded by the outer primary code, which is what makes the
+-- measure on restrictVal need rk u and not just rk a.
+
 {-# TERMINATING #-}
 
 -- Forward declarations for mutual recursion block
