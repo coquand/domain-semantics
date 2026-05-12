@@ -773,44 +773,59 @@ bU-from-cf-fmFun (cons p ps) b f cg fmFun = FinMem-a-in-U (fst p) b (fst (fst fm
 
 -- Termination of the mutual block below (down/up/restrict + Pi/Sigma
 -- helpers + transport*-sel) is ASSERTED by {-# TERMINATING #-}.  No
--- measure has been worked out and checked.  Two attempts to write one
--- in this comment failed:
+-- measure has been worked out, and the natural rk-based candidates
+-- are provably WRONG.
 --
---   (1) "rk a1 for down/up, rk a for restrict" fails at
+-- See RankCounterexamplesSigma.agda for closed-form Agda witnesses
+-- (every `Eq ... refl` there reduces) that on coherent data:
+--   * rkFun (append f g)  >  max (rkFun f) (rkFun g)        [counterex 1]
+--   * rk (Sup x y)        >  max (rk x) (rk y)              [counterex 2]
+--   * rk (EvalFun f u)    >  rkFun f                        [counterex 3]
+-- The smallest concrete witness: A = cons (Bot,UCode) repeated 3x,
+-- f = cons (UCode, FunEl A) repeated 3x.  Then rkFun f = 6 but
+-- rk (EvalFun f UCode) = 9.  All of f and A satisfy Coherent.
+--
+-- Why this kills rk as a measure: every cons in rkFun adds a `suc`,
+-- so rkFun behaves like SIZE (additive under append), not DEPTH.  Sup
+-- on FunEl appends the inner FunFuns, so any single Sup can grow rk
+-- by the appended length, and EvalFun chains many Sups together.
+--
+-- Three attempted lex measures and where each one fails:
+--
+--   (a) "rk a1 for down/up, rk a for restrict" fails at
 --           restrictVal G M A u u' UCode = downValTy G M u' u
 --       (line ~2053): parent rk UCode = 0, child rk u unbounded.
 --
---   (2) "max (rk u) (rk a) for restrict" fails at
+--   (b) "max (rk u) (rk a) for restrict" fails at
 --           upPiAppVal ... -> restrictVal u u1 b1     (line ~913)
---       because the lambda-bound u inside the *-sel helpers is not
---       bounded by the surrounding primary code -- there's no Agda
---       lemma here saying Selection f u v -> rk u <= rkFun f, and one
---       cannot recover it from LeCode either: with Coherence,
---           u' = PiCode UCode (cons (UCode,UCode) (cons (UCode,UCode) nil))
---           u  = PiCode UCode (cons (UCode,UCode) nil)
---       both satisfy LeCode u' u, but rk u' = 3 > 2 = rk u.
+--       because the lambda-bound u from Selection is not rk-bounded
+--       by the surrounding primary code; LeCode is not rank-monotone
+--       either (counterexample: u' = PiCode UCode (cons (UCode,UCode)
+--       (cons (UCode,UCode) nil)), u = PiCode UCode (cons (UCode,UCode)
+--       nil): both Coherent, LeCode u' u holds, rk u' = 3 > 2 = rk u).
 --
--- The author's belief, by which this block is shipped:
---   * The call tree on any concrete input is finite, because every
---     non-trivial recursive call decomposes the (u, a) data
---     structurally (down through PiCode/SigmaCode wrappers or via
---     EvalFun, using rk (EvalFun f u) <= rkFun f, strict for non-nil f),
---     and the delegation chains
---         restrictVal -> downValTy             (UCode clause)
---         restrictVal-PiCode -> restrictPiApp*-sel
---         downValTy -> transport*-sel
---     each pass control to a different function that does the actual
---     structural descent.
---   * Lambda-bound codes in *-sel helpers are believed to be
---     Selection-bounded by the surrounding FunFun, which in turn is
---     FinMem-bounded by the outer primary code.  Neither bound is
---     proved as an Agda lemma.
+--   (c) "rk descends through EvalFun" fails at
+--           transportPiEdgeVal-sel -> downValTy ... v0 v1
+--       with v1 = EvalFun f1 u0.  Counterexample 3 above shows the
+--       bound rk (EvalFun f u) <= rkFun f is FALSE on coherent data,
+--       so rk does not strictly descend here either.
 --
--- Promoting this to an actual termination proof requires, at minimum:
---   * proving rk-bound lemmas for Selection and FinMem in
---     SelectionSigma / PaperSemanticsSigma,
---   * refactoring this block to recurse on an explicit Acc / sized
---     witness driven by those bounds.
+-- The author's belief, by which this block is shipped: the call tree
+-- on any CONCRETE input is finite.  Even though no rk-based lex
+-- measure works, the data threaded through recursive calls is built
+-- by EvalFun / Sup / selectionBelow from a fixed finite input, and
+-- the reachable code set is finite.  This is a semantic argument, not
+-- a syntactic well-foundedness argument, and Agda's TERMINATING
+-- pragma does not verify it -- so the block ships on trust.
+--
+-- Promoting this to an actual termination proof would require either:
+--   * finding a non-rank measure that survives Sup/append/EvalFun
+--     (e.g. an ordinal or a multiset on the reachable-code closure),
+--     proving it well-founded, and refactoring the block to recurse on
+--     an Acc-style witness; or
+--   * a semantic argument (e.g. via interpretation in the domain
+--     model) that side-steps Agda's syntactic termination checker.
+-- Neither has been done.
 
 {-# TERMINATING #-}
 
