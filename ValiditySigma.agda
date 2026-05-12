@@ -122,6 +122,13 @@ EvalFun-FinMem-step (suc n) p ps b f v eq fmg cg cf allU cv mv =
 --   Bot -> Top, others -> Top (unreachable when typed).
 ------------------------------------------------------------------------
 
+-- Termination: by structural recursion on the code parameter `a`,
+-- with the iterative-stage RANK in mind (NOT the size measure `rk` in
+-- BasicSigma).  The PiCode/SigmaCode cases dispatch to ValTyPi /
+-- ValTySigma whose body mentions ValTy at the inner code `b` with
+-- RANK b < RANK (PiCode b f).  The syntactic-cons-counting `rk` does
+-- NOT serve here (see RankCounterexamplesSigma); the intended RANK
+-- does.
 {-# TERMINATING #-}
 
 -- Val G M A u a : term M has type A, with realizer u at code a, in context G
@@ -446,6 +453,11 @@ Val-from-EqVal-second u (PairCode x y) ev = tt
 -- Val-headred-expand / EqVal-headred-expand
 ------------------------------------------------------------------------
 
+-- Termination: structural on the FinEl code parameter (Bot / UCode /
+-- PropCode / FunEl base cases are immediate; PiCode/SigmaCode recurse
+-- into the inner ValPi / ValTySigma payload which is well-founded by
+-- record-field structure plus inner RANK on `b`).  Same iterative-
+-- stage RANK story as the type-definition block at line ~125.
 {-# TERMINATING #-}
 mutual
   Val-headred-expand : {n : Nat} {G : Ctx n} {M M' T : Expr n}
@@ -594,6 +606,9 @@ EqVal-beta-expand u a =
 -- Val-headred-contract / EqVal-headred-contract
 ------------------------------------------------------------------------
 
+-- Termination: same shape as Val-headred-expand above -- structural on
+-- the FinEl code parameter, with iterative-stage RANK on the inner
+-- `b` in the PiCode/SigmaCode cases.
 {-# TERMINATING #-}
 mutual
   Val-headred-contract : {n : Nat} {G : Ctx n} {M M' T : Expr n}

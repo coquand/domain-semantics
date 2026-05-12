@@ -95,6 +95,13 @@ Sup (PairCode u1 v1) (PairCode u2 v2) = PairCode (Sup u1 u2) (Sup v1 v2)
 -- Part 2: Main mutual block
 ------------------------------------------------------------------------
 
+-- Termination: lex (iterative-stage RANK of the FinEl arg, list length
+-- of the FinFun arg) on each function.  leFinEl/LeCode recurse into
+-- strictly-smaller-RANK FinEl components; leFun/LeFunCode/EvalFun
+-- recurse into the FinFun tail (smaller list); EvalFun-step decreases
+-- the Nat n.  The intended RANK is the iterative-stage measure (NOT
+-- the syntactic `rk` of BasicSigma -- see RankCounterexamplesSigma for
+-- why `rk` is the wrong notion).
 {-# TERMINATING #-}
 mutual
   leFinEl : FinEl -> FinEl -> Nat
@@ -309,6 +316,16 @@ NotBot (PiCode a f)    = Top
 NotBot (SigmaCode a f) = Top
 NotBot (PairCode u v)  = Top
 
+-- Termination: lex (RANK u + RANK a, RANK a) on FinMem, where RANK is
+-- the iterative-stage rank (Bot, UCode, PropCode at stage 0; PiCode /
+-- SigmaCode / FunEl / PairCode add a stage).  The swap clause
+-- `FinMem Bot a = FinMem a UCode` preserves the first component
+-- (RANK Bot = RANK UCode = 0) and strictly drops the second from
+-- RANK a to 0.  The PairCode/SigmaCode clause `FinMem (PairCode u v)
+-- (SigmaCode a f) = ... FinMem v (EvalFun f u) ...` works because
+-- RANK v < RANK (PairCode u v) and RANK (EvalFun f u) <= RANKFun f <
+-- RANK (SigmaCode a f).  Iterative-stage RANK, NOT the syntactic `rk`
+-- in BasicSigma -- see RankCounterexamplesSigma.
 {-# TERMINATING #-}
 mutual
   FinMem : FinEl -> FinEl -> Set
@@ -1400,6 +1417,18 @@ Or-NotBot-Sup u1 v1 u2 v2 (inr nb) cu cv = inr (NotBot-Sup-Comp v1 v2 nb cv)
 -- Part 7h: Comp-value-EvalFun, Coherent-Sup, finMem-Sup, etc.
 ------------------------------------------------------------------------
 
+-- Termination: every recursive call in this large mutual block either
+--   (i) descends the FinFun list (cons -> tail) for the helpers
+--       parametrised by a FinFun (Comp-value-EvalFun, comp-EvalFun,
+--       EvalFun-append-eq, finMem-EvalFun-append, CoherentFunTail-append,
+--       FinMemAllU-append-Sup, etc.), or
+--  (ii) descends the iterative-stage RANK of a FinEl argument
+--       (Sup-assoc, Coherent-Sup, finMem-Sup-{left,right},
+--        finMemUCode-Sup, finMemPropCode-Sup), using
+--          RANK (Sup x y) <= max (RANK x) (RANK y)
+--          RANK (EvalFun f u) <= RANKFun f < RANK (FunEl f) <= RANK (PiCode b f)
+-- under the iterative-stage RANK (NOT the syntactic `rk` of BasicSigma;
+-- see RankCounterexamplesSigma).
 {-# TERMINATING #-}
 mutual
   Comp-value-EvalFun : (q : Pair FinEl FinEl) (rest : FinFun) (xi : FinEl) ->
