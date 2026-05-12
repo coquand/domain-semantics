@@ -772,47 +772,45 @@ bU-from-cf-fmFun (cons p ps) b f cg fmFun = FinMem-a-in-U (fst p) b (fst (fst fm
 ------------------------------------------------------------------------
 
 -- Termination of the mutual block below (down/up/restrict + Pi/Sigma
--- helpers + transport*-sel) is asserted by {-# TERMINATING #-} rather
--- than proved.  Articulating a single lex measure that Agda would accept
--- is genuinely delicate, and a previous attempt to write one here got
--- it wrong.  The pitfalls worth recording:
+-- helpers + transport*-sel) is ASSERTED by {-# TERMINATING #-}.  No
+-- measure has been worked out and checked.  Two attempts to write one
+-- in this comment failed:
 --
--- * A naive "rk a1 for down/up, rk a for restrict" measure fails on the
---   clause
---       restrictVal G M A u u' UCode = downValTy G M u' u
---   (line ~2053): parent measure rk UCode = 0 but the child downValTy
---   has measure rk u, which is unbounded.  So restrictVal's primary
---   code must include rk u, not just rk a.
+--   (1) "rk a1 for down/up, rk a for restrict" fails at
+--           restrictVal G M A u u' UCode = downValTy G M u' u
+--       (line ~2053): parent rk UCode = 0, child rk u unbounded.
 --
--- * Once rk u is part of the measure, lambda-bound codes inside the
---   *-sel helpers must be bounded by an outer parameter.  For Selection-
---   produced keys (u, u_g, u_f, ...) one wants a bound via Selection or
---   FinMemFun.  Caveat:
+--   (2) "max (rk u) (rk a) for restrict" fails at
+--           upPiAppVal ... -> restrictVal u u1 b1     (line ~913)
+--       because the lambda-bound u inside the *-sel helpers is not
+--       bounded by the surrounding primary code -- there's no Agda
+--       lemma here saying Selection f u v -> rk u <= rkFun f, and one
+--       cannot recover it from LeCode either: with Coherence,
+--           u' = PiCode UCode (cons (UCode,UCode) (cons (UCode,UCode) nil))
+--           u  = PiCode UCode (cons (UCode,UCode) nil)
+--       both satisfy LeCode u' u, but rk u' = 3 > 2 = rk u.
 --
---     LeCode u' u does NOT imply rk u' <= rk u, even with Coherence.
---     Counterexample (both coherent, LeCode holds):
---       u' = PiCode UCode (cons (UCode,UCode) (cons (UCode,UCode) nil))
---       u  = PiCode UCode (cons (UCode,UCode) nil)
---       rk u' = 3, rk u = 2.
---   So one cannot lean on rank-monotonicity of LeCode to bound
---   lambda-bound codes.
+-- The author's belief, by which this block is shipped:
+--   * The call tree on any concrete input is finite, because every
+--     non-trivial recursive call decomposes the (u, a) data
+--     structurally (down through PiCode/SigmaCode wrappers or via
+--     EvalFun, using rk (EvalFun f u) <= rkFun f, strict for non-nil f),
+--     and the delegation chains
+--         restrictVal -> downValTy             (UCode clause)
+--         restrictVal-PiCode -> restrictPiApp*-sel
+--         downValTy -> transport*-sel
+--     each pass control to a different function that does the actual
+--     structural descent.
+--   * Lambda-bound codes in *-sel helpers are believed to be
+--     Selection-bounded by the surrounding FunFun, which in turn is
+--     FinMem-bounded by the outer primary code.  Neither bound is
+--     proved as an Agda lemma.
 --
--- What is clear and is enough to convince a reader that the block
--- terminates by hand:
---   (a) rk (Sup x y) <= max (rk x) (rk y), and rk (snd p) < rkFun (cons p ps),
---       hence rk (EvalFun f u) <= rkFun f, strict when f is non-nil;
---       in particular rk (EvalFun f u) < rk (PiCode b f).
---   (b) Every non-trivial recursive call in the block either reduces the
---       structural complexity of the (u, a) pair (via (a) or by stripping
---       a PiCode/SigmaCode wrapper) or delegates to a "smaller" function
---       in the call graph (restrictVal -> downValTy at the UCode clause;
---       restrictVal-PiCode -> restrictPiApp*-sel; downValTy -> transport*-sel).
---       The delegation chains are finite and bottom out at structural
---       descent.
--- Turning (b) into a single lex measure that handles every clause
--- (especially the lambda-bound codes in *-sel helpers) would require
--- proving auxiliary rank-bound lemmas about Selection and FinMem first.
--- That work is left for a future pass.
+-- Promoting this to an actual termination proof requires, at minimum:
+--   * proving rk-bound lemmas for Selection and FinMem in
+--     SelectionSigma / PaperSemanticsSigma,
+--   * refactoring this block to recurse on an explicit Acc / sized
+--     witness driven by those bounds.
 
 {-# TERMINATING #-}
 
