@@ -771,37 +771,48 @@ bU-from-cf-fmFun (cons p ps) b f cg fmFun = FinMem-a-in-U (fst p) b (fst (fst fm
 -- Part 2: Monotonicity -- downward/upward transport
 ------------------------------------------------------------------------
 
--- Termination measure for the mutual block below:
---   lex (rk-of-primary-code, function-priority)
--- where the primary code per function is:
---   down/upVal, down/upEqVal G ... u a0 a1     -> rk a1
---   down/upValTy, down/upEqValTy G ... u0 u1   -> rk u1
---   restrictVal, restrictEqVal G ... u u' a    -> max (rk u) (rk a)
---   down/upPiApp{Val,Eq,EqVal} ... b1 f1 g     -> rk (PiCode b1 f1)
---   restrictPiApp*-sel        ... b f g g'     -> rk (PiCode b f)
---   restrictVal/EqVal-PiCode  ... g g' b f     -> rk (PiCode b f)
---   transportPiEdge*-sel      ... b0 f0 b1 f1  -> rk (PiCode b1 f1)
---   (Sigma analogues use SigmaCode b1 f1 / b f)
--- Priority breaks same-rank ties along delegation chains, e.g.
---   restrictVal > downValTy (line "restrictVal ... u u' UCode = downValTy u' u")
---   downValTy   > transportPiEdge*-sel
---   downVal     > downValTy
---   downEqVal   > downVal
---   restrictVal-PiCode > restrictPiApp*-sel
+-- Termination of the mutual block below (down/up/restrict + Pi/Sigma
+-- helpers + transport*-sel) is asserted by {-# TERMINATING #-} rather
+-- than proved.  Articulating a single lex measure that Agda would accept
+-- is genuinely delicate, and a previous attempt to write one here got
+-- it wrong.  The pitfalls worth recording:
 --
--- Strict rank-drops rely on these metatheoretic facts (none proved as Agda
--- lemmas here, hence the pragma):
---   (1) rk (Sup x y)   <= max (rk x) (rk y)
---   (2) rk (snd p)     <  rkFun (cons p ps)
---       => rk (EvalFun f u) <= rkFun f, strict when f is non-nil
---       => rk (EvalFun f u) < rk (PiCode b f), rk (SigmaCode b f)
---   (3) FinMemFun g b f -> rkFun g <= rk (PiCode b f)   (and analogues)
---   (4) LeCode u' u    -> rk u' <= rk u  (with the accompanying coherence
---       and FinMem constraints used throughout this block)
---   (5) Selection f u v -> rk u <= rkFun f
--- Without (3)-(5), lambda-bound codes (u') inside the *-sel helpers would
--- not be bounded by the outer primary code, which is what makes the
--- measure on restrictVal need rk u and not just rk a.
+-- * A naive "rk a1 for down/up, rk a for restrict" measure fails on the
+--   clause
+--       restrictVal G M A u u' UCode = downValTy G M u' u
+--   (line ~2053): parent measure rk UCode = 0 but the child downValTy
+--   has measure rk u, which is unbounded.  So restrictVal's primary
+--   code must include rk u, not just rk a.
+--
+-- * Once rk u is part of the measure, lambda-bound codes inside the
+--   *-sel helpers must be bounded by an outer parameter.  For Selection-
+--   produced keys (u, u_g, u_f, ...) one wants a bound via Selection or
+--   FinMemFun.  Caveat:
+--
+--     LeCode u' u does NOT imply rk u' <= rk u, even with Coherence.
+--     Counterexample (both coherent, LeCode holds):
+--       u' = PiCode UCode (cons (UCode,UCode) (cons (UCode,UCode) nil))
+--       u  = PiCode UCode (cons (UCode,UCode) nil)
+--       rk u' = 3, rk u = 2.
+--   So one cannot lean on rank-monotonicity of LeCode to bound
+--   lambda-bound codes.
+--
+-- What is clear and is enough to convince a reader that the block
+-- terminates by hand:
+--   (a) rk (Sup x y) <= max (rk x) (rk y), and rk (snd p) < rkFun (cons p ps),
+--       hence rk (EvalFun f u) <= rkFun f, strict when f is non-nil;
+--       in particular rk (EvalFun f u) < rk (PiCode b f).
+--   (b) Every non-trivial recursive call in the block either reduces the
+--       structural complexity of the (u, a) pair (via (a) or by stripping
+--       a PiCode/SigmaCode wrapper) or delegates to a "smaller" function
+--       in the call graph (restrictVal -> downValTy at the UCode clause;
+--       restrictVal-PiCode -> restrictPiApp*-sel; downValTy -> transport*-sel).
+--       The delegation chains are finite and bottom out at structural
+--       descent.
+-- Turning (b) into a single lex measure that handles every clause
+-- (especially the lambda-bound codes in *-sel helpers) would require
+-- proving auxiliary rank-bound lemmas about Selection and FinMem first.
+-- That work is left for a future pass.
 
 {-# TERMINATING #-}
 
