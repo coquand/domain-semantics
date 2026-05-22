@@ -1,0 +1,439 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathpartir}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{stmaryrd}
+
+% ---- syntax -------------------------------------------------------------
+\newcommand{\Ctx}{\mathsf{Ctx}}
+\newcommand{\wf}[1]{#1\;\mathsf{ctx}}
+\newcommand{\hastype}[3]{#1 \vdash #2 : #3}
+\newcommand{\conveq}[4]{#1 \vdash #2 = #3 : #4}
+\newcommand{\Pitype}[2]{\Pi(#1)\,#2}
+\newcommand{\Lamterm}[2]{\lambda(#1)\,#2}
+\newcommand{\App}[2]{#1\;#2}
+\newcommand{\substone}[2]{#1[#2]}
+\newcommand{\wkn}[1]{#1^{+}}
+\newcommand{\U}{\mathsf{U}}
+\newcommand{\Red}{\mathrel{\leadsto^{*}}}
+
+% ---- domain model -------------------------------------------------------
+\newcommand{\Bot}{\bot}
+\newcommand{\PiC}[2]{\Pi(#1,#2)}        % Pi-type code
+\newcommand{\FunEl}[1]{\lambda #1}      % function value with finite graph
+\newcommand{\ev}[2]{#1\!\cdot\!#2}      % evaluation Eval(f,u)
+\newcommand{\app}{\mathbin{+\!\!+}}     % append of finite functions
+\newcommand{\comp}{\mathbin{\uparrow}}  % compatibility (common upper bound)
+\newcommand{\Code}{\mathsf{Code}}
+\newcommand{\FunCode}{\mathsf{FunCode}}
+\newcommand{\rk}{\mathrm{rk}}
+\newcommand{\Coh}{\mathsf{Coh}}
+\newcommand{\Nat}{\mathbb{N}}
+% stage-indexed relations
+\newcommand{\lest}[1]{\mathrel{\leq_{#1}}}      % u <=_n v
+\newcommand{\memst}[3]{#1 \mathrel{:_{#2}} #3}   % u :_n a   (\memst{u}{n}{a})
+% validity
+\newcommand{\Val}{\mathsf{Val}}
+\newcommand{\TVal}{\mathsf{TVal}}
+\newcommand{\EqVal}{\mathsf{EqVal}}
+\newcommand{\EqTVal}{\mathsf{EqTVal}}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+
+\title{A Stratified Domain Model for $\U:\U$ with $\Pi$-types:\\
+       Typing, Validity, Adequacy, and $\Pi$-Injectivity}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+This note describes the $\Pi+\U$ fragment of the domain-theoretic model of
+Coquand--Huber, in the form mechanised in the \texttt{MIN/} development.
+It is a simplification of the $\Pi+\Sigma+\U$ presentation
+(\texttt{sigma-rules.tex}): there are no $\Sigma$-types and no $\mathsf{Prop}$
+universe.  The novelty here is methodological.  Rather than defining the
+information order $\leq$ and the semantic membership $u : a$ directly---which
+forces a \texttt{TERMINATING} pragma in Agda---we define them
+\emph{by stratification}: a family of relations $\lest{n}$, $\memst{\cdot}{n}{\cdot}$
+indexed by a stage $n\in\Nat$, each obtained from the previous one, together
+with a \emph{stability} lemma that lets us pass to the limit.  The same idea
+is used for the logical relation.  Every definition is then structurally
+recursive on the stage index, so the whole development is free of
+\texttt{TERMINATING} and \texttt{NO\_POSITIVITY} pragmas, of postulates, and
+of holes.
+
+\section{Judgments}
+
+We use the two judgment forms (well-formedness of contexts is folded in):
+\[
+  \wf{\Gamma}\,, \qquad
+  \hastype{\Gamma}{M}{A}\,, \qquad
+  \conveq{\Gamma}{M}{N}{A}\,.
+\]
+Contexts are snoc-lists $\Gamma ::= \cdot \mid \Gamma, x{:}A$.  We write
+$M\sigma$ for substitution and $\substone{B}{a}$ for the substitution of $a$
+for the last variable.  We work in a type-in-type setting, $\U:\U$; the system
+is therefore logically inconsistent (Girard's paradox), so we do not address
+normalisation.  Adequacy, $\Pi$-injectivity, and subject reduction are
+statements about the logical relation and are independent of consistency.
+
+\section{Typing rules}
+
+\begin{mathpar}
+  \inferrule[\textsc{Var}]
+    {\wf{\Gamma} \\ (x{:}A) \in \Gamma}
+    {\hastype{\Gamma}{x}{A}}
+  \and
+  \inferrule[\textsc{U}]
+    {\wf{\Gamma}}
+    {\hastype{\Gamma}{\U}{\U}}
+  \and
+  \inferrule[\textsc{Conv}]
+    {\hastype{\Gamma}{M}{A} \\
+     \conveq{\Gamma}{A}{B}{\U} \\
+     \hastype{\Gamma}{B}{\U}}
+    {\hastype{\Gamma}{M}{B}}
+  \\
+  \inferrule[\textsc{Pi}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U}}
+    {\hastype{\Gamma}{\Pitype{x{:}A}{B}}{\U}}
+  \and
+  \inferrule[\textsc{Lam}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma, x{:}A}{M}{B}}
+    {\hastype{\Gamma}{\Lamterm{x{:}A}{M}}{\Pitype{x{:}A}{B}}}
+  \and
+  \inferrule[\textsc{App}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma}{f}{\Pitype{x{:}A}{B}} \\
+     \hastype{\Gamma}{a}{A}}
+    {\hastype{\Gamma}{\App{f}{a}}{\substone{B}{a}}}
+\end{mathpar}
+The context-formation rule is $\wf{\cdot}$ and
+$\hastype{\Gamma}{A}{\U} \Rightarrow \wf{(\Gamma, x{:}A)}$.
+
+\section{Conversion rules}
+
+\begin{mathpar}
+  \inferrule[\textsc{Refl}]{\hastype{\Gamma}{M}{A}}{\conveq{\Gamma}{M}{M}{A}}
+  \and
+  \inferrule[\textsc{Sym}]{\conveq{\Gamma}{M}{N}{A}}{\conveq{\Gamma}{N}{M}{A}}
+  \and
+  \inferrule[\textsc{Trans}]
+    {\conveq{\Gamma}{M}{N}{A} \\ \conveq{\Gamma}{N}{P}{A}}
+    {\conveq{\Gamma}{M}{P}{A}}
+  \and
+  \inferrule[\textsc{Conv-Eq}]
+    {\conveq{\Gamma}{M}{N}{A} \\ \conveq{\Gamma}{A}{B}{\U} \\ \hastype{\Gamma}{B}{\U}}
+    {\conveq{\Gamma}{M}{N}{B}}
+  \\
+  \inferrule[\textsc{Beta}]
+    {\hastype{\Gamma}{A}{\U} \\
+     \hastype{\Gamma, x{:}A}{B}{\U} \\
+     \hastype{\Gamma, x{:}A}{M}{B} \\
+     \hastype{\Gamma}{a}{A}}
+    {\conveq{\Gamma}{\App{(\Lamterm{x{:}A}{M})}{a}}{\substone{M}{a}}{\substone{B}{a}}}
+  \and
+  \inferrule[\textsc{Pi-Cong}]
+    {\conveq{\Gamma}{A}{A'}{\U} \\ \conveq{\Gamma, x{:}A}{B}{B'}{\U}}
+    {\conveq{\Gamma}{\Pitype{x{:}A}{B}}{\Pitype{x{:}A'}{B'}}{\U}}
+  \and
+  \inferrule[\textsc{App-Fun}]
+    {\conveq{\Gamma}{f}{f'}{\Pitype{x{:}A}{B}} \\ \hastype{\Gamma}{a}{A} \\ \cdots}
+    {\conveq{\Gamma}{\App{f}{a}}{\App{f'}{a}}{\substone{B}{a}}}
+  \and
+  \inferrule[\textsc{App-Arg}]
+    {\hastype{\Gamma}{f}{\Pitype{x{:}A}{B}} \\ \conveq{\Gamma}{a}{a'}{A} \\ \cdots}
+    {\conveq{\Gamma}{\App{f}{a}}{\App{f}{a'}}{\substone{B}{a}}}
+  \and
+  \inferrule[\textsc{Funext}]
+    {\conveq{\Gamma, x{:}A}{\App{\wkn{f}}{x}}{\App{\wkn{g}}{x}}{B} \\
+     \hastype{\Gamma}{f}{\Pitype{x{:}A}{B}} \\
+     \hastype{\Gamma}{g}{\Pitype{x{:}A}{B}} \\ \cdots}
+    {\conveq{\Gamma}{f}{g}{\Pitype{x{:}A}{B}}}
+\end{mathpar}
+\textsc{Funext} is the only extensionality principle; it is validated by the
+model, where two functions with the same finite graph are identified.
+
+\section{Head reduction}
+
+Single-step head reduction $M \leadsto_1 N$ is $\beta$ at the head, closed under
+the application head:
+\begin{mathpar}
+  \inferrule[\textsc{HR-Beta}]{ }
+    {\App{(\Lamterm{x{:}A}{M})}{a} \leadsto_1 \substone{M}{a}}
+  \and
+  \inferrule[\textsc{HR-App}]{M \leadsto_1 M'}{\App{M}{a} \leadsto_1 \App{M'}{a}}
+\end{mathpar}
+We write $M \Red N$ for its reflexive--transitive closure.  The model tracks
+only head normal forms: type validity stores $T \Red \Pitype{x{:}A}{B}$, and
+adequacy reconstructs convertibility from these reductions.  Reduction under
+binders is never used.
+
+\section{The domain model}
+
+\subsection{Finite elements}
+
+Codes (finite elements of the Scott domain $D$) and finite functions are given
+inductively:
+\[
+  u,v,a \in \Code ::= \Bot \mid \U \mid \FunEl g \mid \PiC{a}{f},
+  \qquad
+  f,g \in \FunCode ::= [\,] \mid (u,v) :: f.
+\]
+$\Bot$ carries no information, $\U$ is the universe code, $\FunEl g$ is a
+function value with finite graph $g$ (a finite list of input/output pairs),
+and $\PiC{a}{f}$ is a $\Pi$-type code with domain code $a$ and codomain
+function $f$.  Each $u$ has a \emph{rank} $\rk(u)\in\Nat$
+(with $\rk(\PiC{a}{f}),\rk(\FunEl g) = 1+\max(\cdots)$), measuring how many
+iterative stages are needed to build it.
+
+\subsection{Supremum and evaluation}
+
+The binary supremum combines elements with the same head constructor and is
+$\Bot$ otherwise:
+\[
+  \Bot \sqcup u = u,\quad \U\sqcup\U = \U,\quad
+  \FunEl g \sqcup \FunEl h = \FunEl{(g\app h)},\quad
+  \PiC{a}{f}\sqcup\PiC{b}{g} = \PiC{a\sqcup b}{f\app g}.
+\]
+We write $u \comp v$ (``$u$ and $v$ are \emph{compatible}'') when they have a
+common upper bound; on coherent elements this is exactly ``same head, and
+recursively compatible''.  Evaluation of a finite function takes the supremum
+of the outputs whose keys are below the argument:
+\[
+  \ev f u \;=\; \bigsqcup\{\, v_i \mid (u_i,v_i)\in f,\ u_i \leq u \,\}.
+\]
+
+\subsection{Stages: a stratified construction}
+\label{sec:stages}
+
+The domain $D$ is the limit (ideal completion) of an increasing chain
+$D_0 \subseteq D_1 \subseteq \cdots$ of finite approximations.  A central
+methodological point is that \emph{we do not reason through projections}
+$p_n : D \to D_n$: the naive transfer ``$u : a \Rightarrow p_n u : p_n a$''
+\emph{fails}.  Instead, every finite element of $D$ is presented as the union
+of an increasing sequence of finite elements of the $D_n$, and we work
+entirely with these finite elements.  At each stage $D_n$ is a
+\emph{conditional sup-semilattice} (compatible elements have a least upper
+bound).
+
+Concretely we define, by induction on the stage $n$, a relation $\lest{n}$ on
+codes and a relation $\memst{\cdot}{n}{\cdot}$ (``$u :_n a$''), each defined
+``extensionally'' from the level below.  The level-$(n{+}1)$ clauses mention
+only level-$n$ data, so the definitions are structurally recursive in $n$.
+For example, type membership at a $\Pi$-code is
+\begin{equation}
+  \label{eq:stage-pi}
+  \memst{\PiC{a}{f}}{n+1}{\U}
+  \;\;\Longleftrightarrow\;\;
+  \memst{a}{n}{\U}
+  \;\wedge\;
+  \bigl(\forall x\,\exists y\leq x.\ \memst{y}{n}{a}\ \wedge\ \ev f x = \ev f y\bigr)
+  \;\wedge\;
+  \bigl(\forall x.\ \memst{(\ev f x)}{n}{\U}\bigr),
+\end{equation}
+expressing that $\PiC{a}{f}$ is a well-formed type at stage $n{+}1$ iff its
+domain is a type, its graph is determined by finitely many points each lying
+in $a$, and all its outputs are types --- all checked one stage down.  The
+order on functions is likewise extensional, $f \lest{n} g \iff \forall x.\,
+\ev f x \lest{n} \ev g x$.
+
+\begin{lemma}[Stability]\label{lem:stab}
+  For codes $u,a$ with ranks bounded by $n$,
+  \[
+    u \lest{n} v \iff u \lest{n+1} v
+    \qquad\text{and}\qquad
+    \memst{u}{n}{a} \iff \memst{u}{n+1}{a}.
+  \]
+\end{lemma}
+Stability is proved by induction on $n$, using that a function value has a
+finite representation $(u_1,v_1),\dots,(u_m,v_m)$ with $\memst{u_i}{n}{a}$ and
+$\memst{v_i}{n}{\U}$.  By stability the stage stops mattering above the rank,
+and we define the limit relations
+\[
+  u \leq v \;:=\; u \lest{n} v
+  \qquad\text{and}\qquad
+  u : a \;:=\; \memst{u}{n}{a}
+  \qquad\text{for any } n > \max(\rk u, \rk v),\ n > \max(\rk u, \rk a),
+\]
+which are well-defined by Lemma~\ref{lem:stab}.  Because the construction is
+recursion on $n$, the Agda kernel needs no \texttt{TERMINATING} pragma.
+
+\subsection{The information order $\leq$}
+
+Unfolding the limit, $\leq$ is the expected structural order: $\Bot \leq u$ for
+all $u$; $\U \leq \U$; on compound codes
+\[
+  \FunEl g \leq \FunEl h \iff
+  \forall (u_i,v_i)\in g.\ v_i \leq \ev h {u_i},
+  \qquad
+  \PiC{a}{f} \leq \PiC{b}{g} \iff a\leq b \ \wedge\ f \leq g,
+\]
+and codes with different heads are incomparable.
+
+\subsection{Coherence}
+
+A finite function is \emph{coherent} when compatible keys force compatible
+values: $\Coh(g)$ requires that each key and value be coherent and non-$\Bot$,
+and that $u_i \comp u_j \Rightarrow v_i \comp v_j$.  On codes,
+$\Coh(\PiC{a}{f}) = \Coh(a)\wedge\Coh(f)$, while $\Bot$ and $\U$ are always
+coherent.  Coherence makes evaluation monotone:
+$u \leq v$ and $\Coh(g)$ imply $\ev g u \leq \ev g v$.
+
+\subsection{The membership relation $u : a$}
+
+The relation $u : a$ (``the finite element $u$ approximates an element of the
+type $a$'') unfolds, on heads, to:
+\[
+  \begin{aligned}
+    \Bot : a &\iff a : \U
+      &&\text{(}\Bot\text{ approximates every type),}\\
+    \U : \U &\iff \top, \\
+    \PiC{a}{f} : \U &\iff a : \U \ \wedge\ (\forall (u_i,v_i)\in f.\ u_i : a \wedge v_i : \U)\ \wedge\ \Coh(f),\\
+    \FunEl g : \PiC{a}{f} &\iff \bigl(\forall (u_i,v_i)\in g.\ u_i : a \wedge v_i : \ev f {u_i}\bigr)
+      \ \wedge\ \Coh(g)\ \wedge\ \PiC{a}{f} : \U,
+  \end{aligned}
+\]
+all other head combinations being trivial.  The last clause is the meaning of
+``\,$\FunEl g$ is a function in $\PiC{a}{f}$\,'': every entry of its graph sends
+a domain point $u_i : a$ to a value $v_i$ of the corresponding fibre
+$\ev f{u_i}$, the graph is coherent, and $\PiC{a}{f}$ is itself a type.
+
+\subsection{Main properties}
+
+All proved in Agda, pragma-free and postulate-free:
+\begin{itemize}
+  \item \textbf{Order.} $\leq$ is reflexive on coherent codes, transitive, and
+    $\Bot$ is least.  Compatible codes have a least upper bound: if $u\comp v$
+    then $u\leq u\sqcup v$, $v\leq u\sqcup v$, and $u\sqcup v$ is below any
+    common bound.  \textbf{(Comp-down)} $u\leq u'$ and $u'\comp v$ imply
+    $u\comp v$.  Evaluation is monotone in both function and argument.
+  \item \textbf{Type-hood.} $\Bot : a \iff a : \U$, i.e.\ $a$ is a type.
+  \item \textbf{Compatible supremum.} If $u_1 : a$ and $u_2 : a$ and
+    $u_1 \comp u_2$, then $u_1 \sqcup u_2 : a$.  (Membership is closed under
+    conditional sups; this is the semilattice property at the membership
+    level.)
+  \item \textbf{Monotonicity.} If $u : a$ and $a \leq b$ and $b : \U$, then
+    $u : b$.  (A member of a smaller type is a member of a larger one.)
+  \item \textbf{Evaluation in $\U$.} If $f$'s values lie in $\U$ over $a$ and
+    $x : a$, then $\ev f x : \U$.
+\end{itemize}
+
+\section{The logical relation (validity)}
+
+The logical relation connects the model to the syntax.  It is built from four
+mutually-defined predicates, again \emph{stratified by a stage} $n$ (the
+\texttt{ValidityStratified}/\texttt{GoodStage} construction) and collapsed by a
+stability lemma, so that it too is structurally recursive on $n$.
+
+\subsection{Term and type validity}
+
+\begin{itemize}
+  \item $\Val\;\Gamma\;M\;A\;u\;a$: the term $M:A$ in $\Gamma$ is valid at value
+    code $u$ and type code $a$.
+  \item $\TVal\;\Gamma\;M\;a$: the type $M$ is valid at code $a$.
+  \item $\EqVal$, $\EqTVal$: the corresponding equality (two-sided) relations.
+\end{itemize}
+The defining clauses mirror the membership relation.  At the universe,
+$\Val\;\Gamma\;M\;A\;u\;\U$ (for $u\in\{\U,\PiC{b}{f}\}$) asks for
+$\TVal\;\Gamma\;A\;\U$ and $\TVal\;\Gamma\;M\;u$.  At a $\Pi$-code,
+$\TVal\;\Gamma\;M\;\PiC{b}{f}$ unpacks to a head reduction
+$M \Red \Pitype{x{:}A}{B}$ with $\hastype{\Gamma}{A}{\U}$,
+$\hastype{\Gamma,x{:}A}{B}{\U}$, domain validity $\TVal\;\Gamma\;A\;b$, and an
+\emph{edge function}: for every selection $(u,v)$ from $f$ and well-typed
+argument $N$ with $\Val\;\Gamma\;N\;A\;u\;b$, one has
+$\TVal\;\Gamma\;\substone{B}{N}\;v$.  Dually, $\Val$ at $(\FunEl g,\PiC{b}{f})$
+asks, for every selection $(u,v)$ from $g$ and such $N$, that
+$\Val\;\Gamma\;(\App M N)\;\substone{B}{N}\;v\;(\ev f u)$.  A \emph{selection}
+of $f$ takes or skips each entry, combining the taken pairs by $\sqcup$, and
+yields $(u,v)$ with $u \leq \ev f u$ built from subterms of $f$.
+
+\subsection{Stages and stability for validity}
+
+As in Section~\ref{sec:stages}, $\Val,\TVal,\EqVal,\EqTVal$ are defined by
+induction on $n$.  One proves, by induction on $n$, that if the four relations
+satisfy all the required properties at stage $n$ then they satisfy them at
+stage $n{+}1$; among these properties is \emph{monotonicity of type validity}:
+if $\TVal\;\Gamma\;A\;a$ and $a' \leq a$ with $a' : \U$, then
+$\TVal\;\Gamma\;A\;a'$.  Monotonicity then drives stability: for $a$ at stage
+$n$, $\TVal_n\;\Gamma\;A\;a \iff \TVal_{n+1}\;\Gamma\;A\;a$, and similarly for
+the other three.  The collapsed relations are the stage limits.  (The edge
+functions store $\Val$ in negative position; defining the records in a module
+parameterised by the four relations keeps the positivity checker satisfied
+with no \texttt{NO\_POSITIVITY} pragma.)
+
+\subsection{Main properties}
+
+\begin{itemize}
+  \item \textbf{Monotonicity (down/up).} Validity transports along $\leq$ on the
+    type code, in both directions where the codes are types.
+  \item \textbf{Supremum.} Validity is closed under compatible sups of codes,
+    matching the membership-level property.
+  \item \textbf{Reflexivity / symmetry / transitivity} of the equality
+    relations $\EqVal,\EqTVal$, and the bundling that exposes the syntactic
+    \textsc{HasType}/\textsc{ConvTm} witnesses at the leaves.
+  \item \textbf{Head expansion.} Validity is preserved by head reduction of the
+    subject (used in the $\beta$ case of adequacy).
+\end{itemize}
+
+\section{Adequacy}
+
+\begin{theorem}[Adequacy]\label{thm:adequacy}
+  If $\hastype{\Gamma}{M}{A}$ then, for any coherent environment $\rho$ with a
+  valid substitution $\sigma$ into a context $H$, and codes $u,a$ such that $M$
+  evaluates to $u$ at $\rho$, $A$ evaluates to $a$ at $\rho$, and $u : a$, we
+  have $\Val\;H\;\sigma(M)\;\sigma(A)\;u\;a$.
+\end{theorem}
+The proof is by induction on the typing derivation, with a parallel statement
+for conversion ($\conveq{\Gamma}{M}{N}{A}$ implies $\EqVal$) and a
+two-substitution variant ($M$ under two related substitutions yields $\EqVal$).
+Injectivity and subject reduction are corollaries, obtained by evaluating at
+the trivial bottom environment $\rho_\bot$ (under which $\Pi B\,F$ evaluates to
+$\PiC{\Bot}{[\,]}$) and reading the head-reduction and conversion data off the
+logical relation.
+
+\section{$\Pi$-injectivity}
+
+\begin{theorem}[$\Pi$-injectivity]\label{thm:pi-inj}
+  If $\conveq{\Gamma}{A_0}{\Pitype{x{:}B_1}{F_1}}{\U}$, then there exist
+  $B_0, F_0$ with
+  \begin{enumerate}
+    \item $A_0 \Red \Pitype{x{:}B_0}{F_0}$,
+    \item $\conveq{\Gamma}{B_0}{B_1}{\U}$,
+    \item $\conveq{\Gamma, x{:}B_0}{F_0}{F_1}{\U}$.
+  \end{enumerate}
+\end{theorem}
+
+\begin{corollary}[$\Pi$--$\Pi$ injectivity]
+  If $\conveq{\Gamma}{\Pitype{x{:}A_0}{B_0}}{\Pitype{x{:}A_1}{B_1}}{\U}$ then
+  $\conveq{\Gamma}{A_0}{A_1}{\U}$ and
+  $\conveq{\Gamma, x{:}A_0}{B_0}{B_1}{\U}$.
+\end{corollary}
+
+\begin{proof}[Proof outline]
+  By presupposition $\hastype{\Gamma}{A_0}{\U}$.  Conversion soundness at
+  $\rho_\bot$ transfers the evaluation of $\Pitype{x{:}B_1}{F_1}$ to
+  $\PiC{\Bot}{[\,]}$ onto $A_0$.  Bundled equality adequacy yields $\EqVal$ at
+  the code $\PiC{\Bot}{[\,]}$, whose type-validity component records the head
+  reduction $A_0 \Red \Pitype{x{:}B_0}{F_0}$ together with the domain and
+  codomain conversions.  Since $\Pi$ is a head normal form, reduction
+  uniqueness gives the stated equalities.
+\end{proof}
+
+\medskip\noindent\textbf{Subject reduction} (a corollary, in
+\texttt{MIN/SubjectReduction.agda}): if $\hastype{\Gamma}{M}{A}$ and
+$M \leadsto_1 N$ then $\hastype{\Gamma}{N}{A}$.  The only nontrivial case is
+$\beta$, where $\Pi$-injectivity inverts the typing of the redex's
+$\lambda$-abstraction through the conversion.
+
+\end{document}
