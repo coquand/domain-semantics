@@ -1,22 +1,24 @@
 # Agda build artifacts
 *.agdai
 
-# Old/superseded files (replaced by Validity5/Adequacy5 stack)
-Validity.agda
-Validity2.agda
-Validity3.agda
-Validity4.agda
-Validity5.agda
-Adequacy2.agda
-Adequacy3.agda
-LemmaForA2.agda
-PiInjectivity.agda
-SubjectReduction.agda
-SigmaInjectivity*
-Adequacy2Sigma*
-Validity2Sigma*
-Validity3Sigma*
-LemmaForA2Sigma*
+# Old/superseded files (replaced by Validity5/Adequacy5 stack).
+# Anchored to the repo root (leading /) so they only match the top-level
+# superseded files and do NOT shadow the kernel copies under MIN/.
+/Validity.agda
+/Validity2.agda
+/Validity3.agda
+/Validity4.agda
+/Validity5.agda
+/Adequacy2.agda
+/Adequacy3.agda
+/LemmaForA2.agda
+/PiInjectivity.agda
+/SubjectReduction.agda
+/SigmaInjectivity*
+/Adequacy2Sigma*
+/Validity2Sigma*
+/Validity3Sigma*
+/LemmaForA2Sigma*
 
 # LaTeX auxiliary files
 *.aux
