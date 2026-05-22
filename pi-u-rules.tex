@@ -76,16 +76,14 @@ off the logical relation by evaluating at the bottom environment.  This is the
 method of~\cite{CH2018}; the point of interest is that a purely syntactic
 fact is obtained from the semantic model.
 
-The technical novelty here is methodological.  Rather than defining the
-information order $\leq$ and the semantic membership $u : a$ directly --- which
-forces a \texttt{TERMINATING} pragma in Agda --- we define them
-\emph{by stratification}: a family of relations $\lest{n}$, $\memst{\cdot}{n}{\cdot}$
-indexed by a stage $n\in\Nat$, each obtained from the previous one, together
-with a \emph{stability} lemma that lets us pass to the limit.  The same idea
-is used for the logical relation.  Every definition is then structurally
-recursive on the stage index, so the whole development is free of
-\texttt{TERMINATING} and \texttt{NO\_POSITIVITY} pragmas, of postulates, and
-of holes.
+The presentation here is methodological.  The domain is the limit of an
+increasing chain of finite stages, and we define the information order $\leq$
+and the semantic membership $u : a$ accordingly --- \emph{by stratification}:
+a family of relations $\lest{n}$, $\memst{\cdot}{n}{\cdot}$ indexed by a stage
+$n\in\Nat$, each obtained from the one below, together with a \emph{stability}
+lemma that lets us pass to the limit.  This avoids reasoning through
+projections (see Section~\ref{sec:stages}), and the same idea organises the
+logical relation.
 
 \section{Judgments}
 
@@ -290,8 +288,8 @@ and we define the limit relations
   u : a \;:=\; \memst{u}{n}{a}
   \qquad\text{for any } n > \max(\rk u, \rk v),\ n > \max(\rk u, \rk a),
 \]
-which are well-defined by Lemma~\ref{lem:stab}.  Because the construction is
-recursion on $n$, the Agda kernel needs no \texttt{TERMINATING} pragma.
+which are well-defined by Lemma~\ref{lem:stab}.  Since each relation is given
+by recursion on the stage $n$, the construction is manifestly well-founded.
 
 \subsection{The information order $\leq$}
 
@@ -335,7 +333,7 @@ $\ev f{u_i}$, the graph is coherent, and $\PiC{a}{f}$ is itself a type.
 
 \subsection{Main properties}
 
-All proved in Agda, pragma-free and postulate-free:
+All of the following are established in the formalisation:
 \begin{itemize}
   \item \textbf{Order.} $\leq$ is reflexive on coherent codes, transitive, and
     $\Bot$ is least.  Compatible codes have a least upper bound: if $u\comp v$
@@ -391,10 +389,10 @@ stage $n{+}1$; among these properties is \emph{monotonicity of type validity}:
 if $\TVal\;\Gamma\;A\;a$ and $a' \leq a$ with $a' : \U$, then
 $\TVal\;\Gamma\;A\;a'$.  Monotonicity then drives stability: for $a$ at stage
 $n$, $\TVal_n\;\Gamma\;A\;a \iff \TVal_{n+1}\;\Gamma\;A\;a$, and similarly for
-the other three.  The collapsed relations are the stage limits.  (The edge
-functions store $\Val$ in negative position; defining the records in a module
-parameterised by the four relations keeps the positivity checker satisfied
-with no \texttt{NO\_POSITIVITY} pragma.)
+the other three.  The collapsed relations are the stage limits.  The edge
+functions hold $\Val$ only as \emph{stored data} --- hypotheses of the form
+``for all $N$ with $\Val\;\Gamma\;N\;A\;u\;b$, \ldots'' --- never inspecting it,
+so the records are well-formed.
 
 \subsection{Main properties}
 
