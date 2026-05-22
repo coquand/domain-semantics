@@ -73,7 +73,7 @@ model whose elements are finite approximations (finite elements of a Scott
 domain), define a logical relation linking the model to the syntax, prove
 \emph{adequacy} (every well-typed term is valid), and then read $\Pi$-injectivity
 off the logical relation by evaluating at the bottom environment.  This is the
-method of Coquand--Huber; the point of interest is that a purely syntactic
+method of~\cite{CH2018}; the point of interest is that a purely syntactic
 fact is obtained from the semantic model.
 
 The technical novelty here is methodological.  Rather than defining the
@@ -459,5 +459,12 @@ logical relation.
 $M \leadsto_1 N$ then $\hastype{\Gamma}{N}{A}$.  The only nontrivial case is
 $\beta$, where $\Pi$-injectivity inverts the typing of the redex's
 $\lambda$-abstraction through the conversion.
+
+\begin{thebibliography}{1}
+\bibitem{CH2018}
+  T.~Coquand and S.~Huber,
+  ``An adequacy theorem for dependent type theory,''
+  \emph{Archive for Mathematical Logic}, vol.~57, pp.~649--676, 2018.
+\end{thebibliography}
 
 \end{document}
