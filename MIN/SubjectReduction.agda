@@ -12,7 +12,7 @@
 -- (ty-Prop-U), so a Lam can only arise from ty-Lam / ty-conv and the
 -- proof is correspondingly simpler.
 --
--- 0 postulates, 0 TERMINATING.
+-- 0 postulates.
 ------------------------------------------------------------------------
 
 module MIN.SubjectReduction where

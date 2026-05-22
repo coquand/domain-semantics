@@ -14,7 +14,7 @@
 -- comp-EvalFun / EvalFun-append-eq fire on leiC (the new EvalFun's
 -- decision) and use the EvalFun-step shape, via LeqC-to-LeCode . leiC-sound.
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.LeqStageEval2 where

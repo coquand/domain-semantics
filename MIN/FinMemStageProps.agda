@@ -18,7 +18,7 @@
 -- fuel = the max of the relevant RANKs) + the structural extras
 -- (finMem-upward, FinMemFun-append, FinMem-Sup-element, finMem-Sup-both).
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.FinMemStageProps where

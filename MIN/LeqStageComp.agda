@@ -8,14 +8,14 @@
 -- CoherentFunTail / NotBot / Sup / append (all defined in LeqStage) and
 -- NEVER the order `leq`/`lei` or the evaluation `ev`/`EvalFun`.  Hence
 -- they are ordinary structural recursions on FinEl (descending RANK) or
--- FinFun (descending the list) and need NO TERMINATING pragma and no
+-- FinFun (descending the list) and need no
 -- stage index.
 --
 -- Re-founded PaperOrder re-exports these; LeqStageProps uses the
 -- Coherent/Comp ones (Coherent-Sup etc.) in the stage-indexed order
 -- property pack.
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.LeqStageComp where

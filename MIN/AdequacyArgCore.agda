@@ -5,7 +5,7 @@
 --
 -- Standalone, recursor-parameterised SINGLE-substitution combinator for
 -- the conv-App-arg congruence rule, factored out of Adequacy.agda's
--- TERMINATING mutual block.
+-- mutual block.
 --
 --   adequacyEqSub2-App-arg-core-body / adequacyEqSub2-App-arg
 --     : the single-sub conversion  App f a = App f a' : subst1 B a

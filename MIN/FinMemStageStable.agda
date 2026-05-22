@@ -18,7 +18,7 @@
 --
 -- Then the stage-shift (finMem-shift etc.) and the public collapse hooks.
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.FinMemStageStable where

@@ -12,7 +12,7 @@
 -- a smaller code = the IH (goodStageX n), same-code = local, edge work uses
 -- upstream packs (goodStage / goodStageFwd) at the needed stage.
 --
--- No TERMINATING, no NO_POSITIVITY_CHECK, no postulates.
+-- No NO_POSITIVITY_CHECK, no postulates.
 ------------------------------------------------------------------------
 
 module MIN.ValidityProps where

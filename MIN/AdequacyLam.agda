@@ -4,7 +4,7 @@
 -- AdequacyLam.agda  (MIN/ -- PROTOTYPE)
 --
 -- Standalone, NON-RECURSIVE combinators for the ty-Lam rule, factored out
--- of Adequacy.agda's TERMINATING mutual block.  Two combinators:
+-- of Adequacy.agda's mutual block.  Two combinators:
 --
 --   adequacy-ty-Lam  : the single-substitution Val2 of  Lam A M : Pi A B
 --                      (port of adequacySub2-Lam).

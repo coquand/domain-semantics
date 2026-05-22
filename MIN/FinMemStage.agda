@@ -25,7 +25,7 @@
 --   * `finMem'` is therefore NON-recursive at the current stage (all its
 --     FinEl recursions go to `fmP`); only `finMemFun'`/`finMemAllU'`
 --     recurse, structurally on their FinFun list.  So `buildMemStage` is
---     foetus-trivial -- NO TERMINATING pragma.
+--     foetus-trivial.
 --   * EvalFun is the FINISHED structural function from the order
 --     (MIN.PaperOrder / LeqStageBridge); it is NOT stage-indexed here.
 --
@@ -34,7 +34,7 @@
 -- projection and closure properties are proved (via stability) in the
 -- downstream FinMemStage* files and re-exported by PaperTyping.
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.FinMemStage where

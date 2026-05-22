@@ -13,7 +13,7 @@
 -- redex  App (Lam A M) a.  The OLD version manufactured a derivation
 --   ty-App d1 d2 (ty-Lam d1 d2 d3) d4
 -- and recursed adequacySub2 on it -- a non-subterm, which is exactly why the
--- TERMINATING pragma was load-bearing.
+-- old definition was not structurally recursive.
 --
 -- Instead we state the obligation on the CONTRACTUM:  subst1 M a : subst1 B a
 -- is adequate by the SINGLE-SUBSTITUTION lemma applied to d3 (M:B) and d4 (a:A)

@@ -12,7 +12,7 @@
 -- Demonstration that the public canonical-level relations get the property
 -- package: downValTy2-pub / downEqValTy2-pub on ValidityStratified.ValTy2.
 --
--- No TERMINATING, no NO_POSITIVITY_CHECK, no postulates.
+-- No NO_POSITIVITY_CHECK, no postulates.
 ------------------------------------------------------------------------
 
 module MIN.ValidityLevels where

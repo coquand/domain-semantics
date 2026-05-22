@@ -16,7 +16,7 @@
 --   * finMemAllU cons/nil  finMemAllUC-{hd,hv,tl,mk,nil}
 --   * projections          FinMem-coh-u/-a-in-U/-coh-a/coh-from-aU
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.FinMemStageUnfold where

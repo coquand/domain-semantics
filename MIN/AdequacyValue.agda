@@ -14,7 +14,7 @@
 -- in its OWN file and is parameterised by the recursors / IH values.  The
 -- only recursive calls in this mutual block's SCC are the three functions
 -- applied to SUBDERIVATIONS (or to the conv-Pi premises dA/dB/dB', which are
--- now genuine subterms) -- so the block is structural, NO TERMINATING pragma.
+-- now genuine subterms) -- so the block is structural.
 --
 -- This replaces the monolithic (pragma'd) MIN.Adequacy as the source of the
 -- value-only recursors used by the bundled driver and by PiInjectivity.

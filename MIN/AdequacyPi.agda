@@ -10,7 +10,7 @@
 -- induction hypotheses for the premises (the FULLY GENERAL adequacy
 -- statements for the domain d1 and codomain d2) as explicit parameters,
 -- and produces the property for the conclusion.  Because it never calls
--- adequacy* itself, it needs no TERMINATING pragma.  The driver (the
+-- adequacy* itself, it is structural.  The driver (the
 -- mutual block in Adequacy) would dispatch:
 --
 --   adequacySub2 (ty-Pi d1 d2) sigma rho ... =
@@ -23,7 +23,7 @@
 -- This file is self-contained (it re-derives the few non-recursive
 -- helpers it needs) so the prototype does not disturb Adequacy.agda.
 --
--- No TERMINATING, no postulates.
+-- No postulates.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyPi where

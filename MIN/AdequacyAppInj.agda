@@ -22,7 +22,7 @@
 -- bundled validity types: the bundled->callback bridging (via the
 -- combinator's TySub and AdqE2-to-AdqV2-left) happens in AdequacyBundle.
 --
--- No TERMINATING, no postulates.
+-- No postulates.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyAppInj where

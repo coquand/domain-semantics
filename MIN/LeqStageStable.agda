@@ -8,7 +8,7 @@
 -- then the public properties of the collapsed order LeqC, via the
 -- stage-shift.  Definition = LeqStage; per-stage properties = LeqStageProps.
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.LeqStageStable where

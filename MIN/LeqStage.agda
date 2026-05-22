@@ -21,7 +21,7 @@
 -- order `Leq` and its abstract properties, so `ev`'s stage-collapse is
 -- invisible (cf. the Val2 collapse).
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.LeqStage where

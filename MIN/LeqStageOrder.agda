@@ -17,7 +17,7 @@
 -- are derived in PaperOrder, where the structural EvalFun and its bridge
 -- to OB.ev are in scope.
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.LeqStageOrder where

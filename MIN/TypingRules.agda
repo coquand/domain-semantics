@@ -134,7 +134,7 @@ data ConvTm where
   -- Extra (popl18-style "grey") premises dA/dB/dB': the domain typing and the
   -- two codomain typings, so that the adequacy fundamental theorem can recurse
   -- on them as genuine subterms (rather than on typing-ConvTm presuppositions),
-  -- which is what lets the conv-Pi case be structural / TERMINATING-pragma-free.
+  -- which is what lets the conv-Pi case be structural.
   conv-Pi : {n : Nat} {G : Ctx n} {A A' : Expr n} {B B' : Expr (suc n)}
     -> HasType G A U
     -> HasType (extend G A) B U

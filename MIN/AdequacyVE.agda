@@ -17,7 +17,7 @@
 -- is instead derived from the cross IH `adequacyE d2` purely via
 -- EqVal2-trans / EqVal2-sym -- i.e. from the pattern-bound subterm d2.
 --
--- No TERMINATING, no postulates.
+-- No postulates.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyVE where

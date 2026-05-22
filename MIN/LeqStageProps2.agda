@@ -24,7 +24,7 @@
 -- Each lemma carries `Le (RANK arg) n` side-conditions; at stage 0 the
 -- conditions force atoms, where the base bundle is correct (cf. goodStab).
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.LeqStageProps2 where

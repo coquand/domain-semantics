@@ -18,7 +18,7 @@
 -- validity (TySub) and type two-sub (TyConvSub), so ty-var can supply the
 -- type component from the context.
 --
--- No TERMINATING, no postulates.
+-- No postulates.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyBundle where

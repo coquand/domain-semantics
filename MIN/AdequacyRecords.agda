@@ -19,7 +19,7 @@
 -- structural inequalities + SelectionRank), so the shifts always validate.
 --
 -- Adequacy then manipulates Pi records only through these, never seeing a
--- stage.  No TERMINATING, no postulates.
+-- stage.  No postulates.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyRecords where

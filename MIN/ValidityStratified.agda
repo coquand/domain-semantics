@@ -3,7 +3,7 @@
 ------------------------------------------------------------------------
 -- ValidityStratified.agda  (MIN/ — Pi + U fragment)
 --
--- Rank-stratified replacement for the TERMINATING mutual block in
+-- Rank-stratified replacement for the mutual block in
 -- ValidityCore.agda.  Instead of defining Val2/EqVal2/ValTy2/EqValTy2
 -- by recursion through FinEl codes (which Agda cannot see terminates),
 -- we define a `Stage : Nat -> Bundle` family by *structural recursion
@@ -15,7 +15,7 @@
 -- The public relations are recovered at the canonical level
 --   suc (max (RANK u) (RANK a))   -- enough levels for the codes present.
 --
--- No TERMINATING, no NO_POSITIVITY_CHECK, no postulates.
+-- No NO_POSITIVITY_CHECK, no postulates.
 ------------------------------------------------------------------------
 
 module MIN.ValidityStratified where

@@ -19,9 +19,9 @@
 --
 -- All bridges are structural on the first FinEl arg / the FinFun list
 -- (the EvalFun-result sits only in a non-measure position), with a
--- stage-shift (lei-shift) at the leaves -- NO TERMINATING pragma.
+-- stage-shift (lei-shift) at the leaves.
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.LeqStageBridge where

@@ -16,7 +16,7 @@
 --     (from ValidityLevels), matching the original implicit/explicit
 --     argument conventions.
 --
--- No TERMINATING, no postulates.
+-- No postulates.
 ------------------------------------------------------------------------
 
 module MIN.ValidityPublic where

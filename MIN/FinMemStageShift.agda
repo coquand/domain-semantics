@@ -10,7 +10,7 @@
 -- finMemC / finMemAllUC / finMemFunC (the "expected computation rules"
 -- of FinMem, now as propositional iso pairs), and the projections.
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.FinMemStageShift where

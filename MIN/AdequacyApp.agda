@@ -4,7 +4,7 @@
 -- AdequacyApp.agda  (MIN/ -- PROTOTYPE)
 --
 -- Standalone value-only CROSS combinator for the ty-App rule, factored
--- out of Adequacy.agda's TERMINATING mutual block.
+-- out of Adequacy.agda's mutual block.
 --
 --   adequacyV-ty-App : the two-substitution (cross) EqVal2 of  App f a
 --                      : subst1 B a   (port of  adequacyConvSub2 (ty-App ...)).

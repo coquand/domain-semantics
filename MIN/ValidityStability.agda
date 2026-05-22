@@ -13,9 +13,9 @@
 -- stage indices.  With the NO-LAG buildStage (val and valty strip levels
 -- at the SAME index), val-stability reduces to valty-stability at the same
 -- index, so the rank bounds match with no +-1 offset and NO monotonicity is
--- needed.  Structural on j; no TERMINATING, no postulates.
+-- needed.  Structural on j; no postulates.
 --
--- STATUS: COMPLETE — 0 holes, 0 postulates, 0 TERMINATING (2026-05-20).
+-- STATUS: COMPLETE — 0 holes, 0 postulates (2026-05-20).
 ------------------------------------------------------------------------
 
 module MIN.ValidityStability where

@@ -5,7 +5,7 @@
 --
 -- Standalone, recursor-parameterised SINGLE-substitution combinator for
 -- the conv-funext extensionality rule, factored out of Adequacy.agda's
--- TERMINATING mutual block.
+-- mutual block.
 --
 --   adequacyEqSub2-funext : the single-sub conversion  f = g' : Pi A B
 --   (the "Y" piece of the bundled conv-funext recipe).

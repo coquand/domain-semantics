@@ -5,12 +5,12 @@
 --
 -- Aggregator for the adequacy stack: re-exports AdequacyHelpers (the
 -- public validity API + records + converters) and the stratified
--- head-expansion family (MIN.ValidityHeadRed, TERMINATING-free).
+-- head-expansion family (MIN.ValidityHeadRed).
 --
 -- The only thing defined here is the code-fixed Val2->Val2 beta-expansion
 -- used by the adequacy fundamental lemma.
 --
--- 0 postulates, no TERMINATING.
+-- 0 postulates.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyHeadRed where

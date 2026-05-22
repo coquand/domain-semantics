@@ -11,7 +11,7 @@
 --   * [TODO] the big mutual property pack PropsPack n + goodProps:
 --       monotonicity, refl, trans, Sup-lub/-left/-right, Comp.
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.LeqStageProps where

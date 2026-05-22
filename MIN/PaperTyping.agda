@@ -3,7 +3,7 @@
 ------------------------------------------------------------------------
 -- PaperTyping.agda  (MIN/ — Pi + U fragment)
 --
--- RE-FOUNDED, TERMINATING-FREE.  Formerly an ~550-line block with 3
+-- RE-FOUNDED.  Formerly an ~550-line block with 3
 -- termination-pragmas (the FinMem swap/promote that Agda's foetus checker
 -- cannot certify).  The membership ":" (FinMem) is now built by structural
 -- recursion on a stage index in the MIN/FinMemStage* family and collapsed
@@ -21,7 +21,7 @@
 -- monotonicity  u:a, a<=b, b:U -> u:b) come from MIN.FinMemStageProps,
 -- bridged where they mention FinMemFun / FinMemAllU.
 --
--- 0 TERMINATING, 0 postulates, 0 holes -- across the whole family.
+-- 0 postulates, 0 holes -- across the whole family.
 ------------------------------------------------------------------------
 
 module MIN.PaperTyping where

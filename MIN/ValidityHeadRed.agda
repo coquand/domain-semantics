@@ -3,7 +3,7 @@
 -- ValidityHeadRed.agda  (MIN/ — Pi + U fragment)
 --
 -- Stratified head-expansion / head-contraction transport, replacing the
--- TERMINATING mutual block that used to live in AdequacyHeadRed.
+-- mutual block that used to live in AdequacyHeadRed.
 --
 -- These functions keep the codes (u,a) FIXED and only rewrite the
 -- expressions; the only recursion descends a Pi edge to the strictly
@@ -12,13 +12,13 @@
 -- as `HeadRedPack k` and prove `goodStageHeadRed : (k) -> HeadRedPack k`
 -- by structural recursion on the stage index k.  Within `goodStageHeadRed
 -- (suc n)` the Pi-edge recursion lands at stage n = the IH pack, so there
--- is no cycle and no TERMINATING pragma.
+-- is no cycle.
 --
 -- Public (canonical-level) wrappers at the end: since the transport is
 -- code-fixed, input and output sit at the SAME canonical level, so no
 -- `shift*` is needed (unlike the rank-changing lemmas in ValidityLevels).
 --
--- No TERMINATING, no NO_POSITIVITY_CHECK, no postulates.
+-- No NO_POSITIVITY_CHECK, no postulates.
 ------------------------------------------------------------------------
 
 module MIN.ValidityHeadRed where

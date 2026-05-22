@@ -16,7 +16,7 @@
 --     m, apply the `*-n` lemma at m, ev-bridge the OB.ev-results back to
 --     EvalFun, fromLeq the conclusion back to LeCode.
 --
--- NO TERMINATING, NO postulates.
+-- NO postulates.
 ------------------------------------------------------------------------
 
 module MIN.LeqStageInterface where

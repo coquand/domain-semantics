@@ -3,7 +3,7 @@
 ------------------------------------------------------------------------
 -- PaperOrder.agda  (MIN/ — Pi + U fragment)
 --
--- RE-FOUNDED, TERMINATING-FREE.  Formerly an 1215-line block with 11
+-- RE-FOUNDED.  Formerly an 1215-line block with 11
 -- termination-pragmas (the EvalFun <-> order cycle).  The order
 -- is now built by structural recursion on a stage index in the
 -- MIN/LeqStage* family and collapsed by stability; PaperOrder is a thin
@@ -25,7 +25,7 @@
 --   * MIN.LeqStageEval2     : leFinEl/leFun + soundness, comp-EvalFun,
 --                             EvalFun-append-eq.
 --
--- 0 TERMINATING, 0 postulates -- across the whole family.
+-- 0 postulates -- across the whole family.
 ------------------------------------------------------------------------
 
 module MIN.PaperOrder where
