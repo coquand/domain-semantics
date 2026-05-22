@@ -7,7 +7,7 @@
 -- core (AdequacyCases.adequacyEqSub2-App-fun-core-body), supplying the
 -- recursors.  This is the "Y" piece of the bundled conv-App-fun recipe:
 --   App f a = App f' a : subst1 B a   (single substitution).
--- Non-recursive: no pragma, no postulate.
+-- Non-recursive: no postulate.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyFunCore where

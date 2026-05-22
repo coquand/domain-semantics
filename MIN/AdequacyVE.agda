@@ -535,7 +535,7 @@ convPi-single {h = h} {g = g} {H = H} {G = G} {A = A} {A' = A'} {B = B} {B' = B'
 --   (Pi A B)[s'] = (Pi A' B')[s'] -- convPi-single    (term conversion at s')
 -- glued by EqVal2-trans.  All IHs are on the subterms d1, d2; the
 -- codomain two-sub flows through AdqE-to-AdqConv-{left,right}-U.
--- NON-recursive, no pragma, no postulate.
+-- NON-recursive, no postulate.
 ------------------------------------------------------------------------
 
 adequacyE-conv-Pi : {h g : Nat} {H : Ctx h} {G : Ctx g} {A A' : Expr g} {B B' : Expr (suc g)} ->

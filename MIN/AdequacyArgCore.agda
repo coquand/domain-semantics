@@ -13,7 +13,7 @@
 --
 -- The original recurses on adequacySub2 (df, dB) and adequacyEqSub2 (daa');
 -- here those are recursor PARAMETERS, so the combinator is non-recursive:
--- no pragma, no postulate.
+-- no postulate.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyArgCore where

@@ -6,7 +6,7 @@
 -- Stage-stratified MEMBERSHIP predicate FinMem (= the typing ":" of the
 -- iterative domain), built by structural recursion on a stage index `n`
 -- (the same GoodStage / LeqStage `Bundle` template, one level up from the
--- order).  This is the pragma-free replacement for PaperTyping's literal
+-- order).  This is the replacement for PaperTyping's literal
 -- `FinMem`/`FinMemFun`/`FinMemAllU` mutual block, whose only obstruction
 -- to Agda's foetus checker is the swap (`FinMem Bot a = FinMem a UCode`)
 -- and the promote (`FinMem (FunEl g)(PiCode a f) -> FinMem (PiCode a f) UCode`)

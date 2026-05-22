@@ -3,7 +3,7 @@
 ------------------------------------------------------------------------
 -- AdequacyBeta.agda  (MIN/ -- PROTOTYPE)
 --
--- Structural (pragma-free) combinator for the conv-beta computation rule.
+-- Structural combinator for the conv-beta computation rule.
 --
 --   adequacyEqSub2-beta : the single-sub conversion
 --       App (Lam A M) a = subst1 M a : subst1 B a
@@ -20,7 +20,7 @@
 -- -- both genuine subterms -- and the redex's value coincides with the
 -- contractum's (beta is a head reduction), so the conversion is obtained by a
 -- final beta head-EXPANSION of the diagonal.  No fabricated derivation; every
--- recursive call is on d3/d4 (via the IH VALUES IH-M / IH-a).  No pragma.
+-- recursive call is on d3/d4 (via the IH VALUES IH-M / IH-a).
 --
 -- The single-substitution VALUE lemma is  adequacyV-subst1-term  below.  Its
 -- only subtlety is the codomain: applying IH-M needs M and B evaluated at the

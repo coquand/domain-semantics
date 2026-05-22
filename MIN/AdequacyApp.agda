@@ -14,7 +14,7 @@
 -- adConvSub2 cross) -- and inside it every recursor call is on a SUBTERM
 -- (d1=A, d2=B, d3=f, d4=a), so no constructed-derivation recursion occurs.
 -- This file just supplies the App's value/argument evaluation dispatch and
--- threads the recursors + the two transport helpers.  No pragma, no postulate.
+-- threads the recursors + the two transport helpers.  No postulate.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyApp where

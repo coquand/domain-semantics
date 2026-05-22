@@ -4,7 +4,7 @@
 -- PaperTyping.agda  (MIN/ — Pi + U fragment)
 --
 -- RE-FOUNDED.  Formerly an ~550-line block with 3
--- termination-pragmas (the FinMem swap/promote that Agda's foetus checker
+-- non-structural recursions (the FinMem swap/promote that Agda's foetus checker
 -- cannot certify).  The membership ":" (FinMem) is now built by structural
 -- recursion on a stage index in the MIN/FinMemStage* family and collapsed
 -- by stability; PaperTyping PRESENTS its properties.

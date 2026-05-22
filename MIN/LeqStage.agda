@@ -70,7 +70,7 @@ mutual
   RANKFun (cons p ps) = max (RANK (fst p)) (max (RANK (snd p)) (RANKFun ps))
 
 ------------------------------------------------------------------------
--- Compatibility and Coherence (copied from PaperOrder; pragma-free and
+-- Compatibility and Coherence (copied from PaperOrder; structural and
 -- INDEPENDENT of the order's recursion -- Comp/Coherent never mention
 -- leFinEl/EvalFun, so they live safely in the definition layer.  The
 -- order properties refl/trans/Sup-* are conditional on Coherent.)

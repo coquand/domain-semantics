@@ -16,7 +16,7 @@
 -- applied to SUBDERIVATIONS (or to the conv-Pi premises dA/dB/dB', which are
 -- now genuine subterms) -- so the block is structural.
 --
--- This replaces the monolithic (pragma'd) MIN.Adequacy as the source of the
+-- This replaces the monolithic MIN.Adequacy as the source of the
 -- value-only recursors used by the bundled driver and by PiInjectivity.
 ------------------------------------------------------------------------
 

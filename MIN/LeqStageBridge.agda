@@ -4,7 +4,7 @@
 -- LeqStageBridge.agda  (MIN/ — Pi + U fragment)
 --
 -- The re-founded ORDER CORE (what PaperOrder's line-66 block becomes),
--- pragma-free, plus the bridges connecting it to the stage-stratified
+-- structural, plus the bridges connecting it to the stage-stratified
 -- order of LeqStage.
 --
 --   * EvalFun : structural recursion over the FINISHED decision leiC
@@ -71,7 +71,7 @@ private
 ------------------------------------------------------------------------
 
 -- EvalFun via EvalFun-step, firing on the FINISHED decision leiC (so it
--- is structural / terminating, NOT mutual with leFinEl), and keeping the
+-- is structural, NOT mutual with leFinEl), and keeping the
 -- EvalFun-step shape the cone (Selection, PaperTyping) consumes.
 mutual
   EvalFun : FinFun -> FinEl -> FinEl

@@ -6,8 +6,8 @@
 -- The "injection variant" of the ty-App cross machinery: instead of
 -- calling the value-only recursors on the FUNCTION and ARGUMENT typings
 -- (d3 / d4), it takes their per-substitution VALIDITY as CALLBACK
--- parameters.  This is the one genuinely-missing piece for pragma-free
--- adequacy (NEXT_SESSION_ADEQUACY_PRAGMAFREE.md): the conv-rules
+-- parameters.  This is the one genuinely-missing piece for
+-- adequacy: the conv-rules
 -- (conv-beta / conv-App-fun / conv-App-arg) feed the function/argument a
 -- validity sourced from a closure lemma or the bundled equality
 -- extractor on a genuine SUBTERM, never the recursor on a constructed

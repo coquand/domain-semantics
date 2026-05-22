@@ -4,7 +4,7 @@
 -- PaperOrder.agda  (MIN/ — Pi + U fragment)
 --
 -- RE-FOUNDED.  Formerly an 1215-line block with 11
--- termination-pragmas (the EvalFun <-> order cycle).  The order
+-- non-structural recursions (the EvalFun <-> order cycle).  The order
 -- is now built by structural recursion on a stage index in the
 -- MIN/LeqStage* family and collapsed by stability; PaperOrder is a thin
 -- re-export of that family, name-for-name compatible with the old

@@ -304,7 +304,7 @@ adequacyV2-U sigma sigma' rho crho vsσ vsσ' vcs tyσ tyσ' tycs fits wtσ wtσ
 -- (valTyU-le pattern, identical to ty-U).  The VALUE cross is delegated to
 -- AdequacyVE.adequacyV-ty-Pi, fed the VALUE-ONLY cross IHs (AdqConv) for
 -- the domain and codomain -- which the mutual driver supplies from the
--- (total, pragma-free) value-only HasType-cross recursion on the SUBTERMS
+-- (total) value-only HasType-cross recursion on the SUBTERMS
 -- d1, d2.  No TySub threading is needed here: the codomain edge IHs are
 -- value-only.  Case structure mirrors  adequacyConvSub2 (ty-Pi ...).
 ------------------------------------------------------------------------
@@ -414,7 +414,7 @@ adequacy-ty-Lam-full d1 d2 d3 IH-A IH-Pi IH-M IH-cM sigma rho crho vs fits wtsub
 -- The recursor parameters are H-polymorphic (AdqV2 binds H internally), and
 -- App-core fundamentally needs the full single/cross recursors -- but every
 -- recursor call (here and inside adequacyV-subst1-cod / App-core-body) is on a
--- subterm (A/B/f/a), so the eventual driver stays structural / pragma-free.
+-- subterm (A/B/f/a), so the eventual driver stays structural.
 ------------------------------------------------------------------------
 
 adequacyV2-ty-App : {g : Nat} {G : Ctx g} {A : Expr g} {B : Expr (suc g)} {f a : Expr g} ->

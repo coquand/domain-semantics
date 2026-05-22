@@ -13,7 +13,7 @@
 -- The original recurses on adequacySub2 (df, dg), adequacyEqSub2 (the body
 -- conversion d), and transportVal2 (dA, ...).  Here those become the
 -- params adSub2 / adEqSub2 / IH-A (= Adq G A U, fed to transportVal2').
--- Non-recursive: no pragma, no postulate.
+-- Non-recursive: no postulate.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyFunext where

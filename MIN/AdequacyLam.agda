@@ -15,13 +15,13 @@
 -- the original clauses recurse on CONSTRUCTED derivations (ty-Pi d1 d2,
 -- ty-Lam d1 d2 d3) and on the same derivation through a different mutual
 -- function -- neither is structurally smaller, which is exactly why the
--- pragma was load-bearing.  Here those become parameters:
+-- old definition was not structurally recursive.  Here those become parameters:
 --   adequacySub2 (ty-Pi d1 d2)   -> IH-Pi  : Adq G (Pi A B) U
 --   adequacySub2 (ty-Lam d1 d2 d3) -> IH-Lam : Adq G (Lam A M) (Pi A B)
 --   transportVal2 d1 d2          -> transportVal2'  IH-A   (domain single IH)
 --   transportEqVal2 d1 d2        -> transportEqVal2' IH-A
 --   adequacyConvSub2 (ty-Pi d1 d2) -> adequacyV-ty-Pi (...) (Pi-type cross)
--- so neither combinator recurses; no pragma, no postulate.
+-- so neither combinator recurses; no postulate.
 ------------------------------------------------------------------------
 
 module MIN.AdequacyLam where
