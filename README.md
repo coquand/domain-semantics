@@ -1,235 +1,101 @@
-# Adequacy for Dependent Type Theory with U : U, Sigma, and Prop : U
+# Π-injectivity and subject reduction for `U : U`, by domain theory
 
-Agda formalisation of the logical-relation core of the adequacy proof
-for dependent type theory with Pi, Sigma, and a single-universe setting (U : U).
+An Agda formalisation of a dependent type theory with a universe `U : U` and
+dependent function (`Π`) types, and a **domain-theoretic** proof of two
+syntactic metatheorems about it:
 
-Based on:
+- **Π-injectivity** — if `Γ ⊢ Π(x:A₀)B₀ = Π(x:A₁)B₁ : U` then
+  `Γ ⊢ A₀ = A₁ : U` and `Γ, x:A₀ ⊢ B₀ = B₁ : U`;
+- **subject reduction** — if `Γ ⊢ M : A` and `M ⤳₁ N` then `Γ ⊢ N : A`.
 
-> Coquand & Huber, "An Adequacy Theorem for Dependent Type Theory",
-> Archive for Mathematical Logic, 2018.
+Because the theory is type-in-type (`U : U`) it is logically inconsistent and
+has no normalisation, so the usual syntactic route (confluence + normal forms)
+is unavailable. Instead the results are obtained **semantically**: we build a
+domain-theoretic model (finite elements of a Scott domain), define a logical
+relation linking the model to the syntax, prove **adequacy** (every well-typed
+term is valid), and read both metatheorems off the logical relation by
+evaluating at the bottom environment. This is the method of Coquand–Huber,
+*An adequacy theorem for dependent type theory*, Arch. Math. Logic 57 (2018).
 
-## Files
+The development is machine-checked with Agda (`--without-K --exact-split`),
+**with no postulates and no holes**. The information order `u ≤ v` and the
+semantic membership `u : a` (and the validity relation) are built by
+**stage stratification** — a family of relations indexed by a stage `n`, each
+obtained from the one below, collapsed by a stability lemma — so the kernel is
+structurally well-founded by construction. A self-contained mathematical
+write-up is in [`pi-u-rules.tex`](pi-u-rules.tex).
 
-### Foundation
+This `MIN/` development is the current, complete one. (The repository also
+contains an extension to Σ-types and a `Prop` universe; see the end.)
 
-- **`Basic.agda`** — Base types (`Top`, `Empty`, `Nat`, `Pair`, `Sigma`),
-  natural number operations (`max`, `Le`, `Le-refl`), lists, and
-  finite elements (`FinEl`: `Bot`, `UCode`, `PropCode`, `FunEl`, `PiCode`) with rank `rk`.
-  **0 postulates.**
+## Main results — where they are proved
 
-- **`Selection.agda`** — `Edge`, `EdgeIn`, `Selection` (compatible
-  sub-multisets), `CoherentWith`, `CoherentFun-edge-key`,
-  `singleton-selection`, and lookup lemmas.
-  **0 postulates.**
+| Result | File | Name |
+|---|---|---|
+| **Π-injectivity** | [`MIN/PiInjectivity.agda`](MIN/PiInjectivity.agda) | `piInjectivity`, `piConv` |
+| **Subject reduction** | [`MIN/SubjectReduction.agda`](MIN/SubjectReduction.agda) | `subject-red1` |
 
-### Domain model
+Both are corollaries of **adequacy**, proved in
+[`MIN/AdequacyValue.agda`](MIN/AdequacyValue.agda):
 
-- **`PaperSemantics.agda`** — Trusted kernel. Sup-based evaluation
-  `EvalFun`, decidable ordering `leFinEl`/`leFun`, propositional ordering
-  `LeCode`/`LeFunCode`, `Coherent`/`CoherentFun`/`CoherentFunTail`,
-  `FinMem`/`FinMemAllU`/`FinMemAllProp`, monotonicity and
-  compatibility lemmas (`LeCode-refl`, `LeCode-trans`, `Comp-down`,
-  `EvalFun-mon-arg`, `finMem-upward`, `finMemUCode-Sup`, etc.).
-  Prop-specific lemmas: `EvalFun-in-PropCode`, `FinMem-Prop-Bot`
-  (inhabitants of Prop-typed codes are Bot), `FinMem-Prop-to-U`
-  (Prop subtyping), `LeCode-PropCode-cases`.
-  Note: `Coherent (PiCode a f)` uses `CoherentFunTail f` (not
-  `CoherentFun f`), allowing `PiCode a nil` to be coherent.
-  **0 postulates.**
+- `adequacySub2`  — `Γ ⊢ M : A` ⟹ `Val2 …` (typing implies validity);
+- `adequacyEqSub2` — `Γ ⊢ M = N : A` ⟹ `EqVal2 …` (conversion implies equality validity).
 
-### Syntax and raw semantics
+`piConv` runs `adequacyEqSub2` at the bottom environment and reads the head
+reduction and component conversions out of the resulting `EqValTyPi`; subject
+reduction inverts `Lam` typing through `piInjectivity` in the β case.
 
-- **`RawSyntax.agda`** — Expressions (`Expr`: `Var`, `U`, `Prop`, `Pi`, `Lam`, `App`),
-  de Bruijn indices (`Fin`), substitution (`subst1`), weakening (`wkExpr`),
-  renaming.
-  **0 postulates.**
+## Where everything lives (`MIN/`)
 
-- **`RawSemantics.agda`** — Selection-based `EvalRel` with coherence
-  bundling. One-edge form for `App`. `Pi-edgewise`, `Lam-edgewise`,
-  `EvalRel-coh`, `EvalRel-mon-env`, `EvalRel-Comp`, `EvalRel-Comp-ext`,
-  `EvalRel-Sup`, `EvalRel-down-App`.
-  **0 postulates.**
+**Syntax and rules**
+- `RawSyntax.agda` — terms (`Var, U, Pi, Lam, App`) and substitution.
+- `TypingRules.agda` — typing `HasType` and conversion `ConvTm`.
+- `Reduction.agda` — head reduction `HeadRed1` / `Red`.
 
-- **`EvalSubstitution.agda`** — `EvalRel-ren`, `EvalRel-wk`, `SubRel`,
-  `EvalRel-subst` (general substitution theorem),
-  `EvalRel-subst1-backward`.
-  **0 postulates.**
+**Domain model (finite elements)** — the order `u ≤ v` and membership `u : a`
+- `PaperOrder.agda` — order `≤` (`LeCode`), compatibility `Comp`, `Coherent`,
+  supremum `Sup`, evaluation `EvalFun`. A thin re-export of the stratified
+  construction in `LeqStage{,Comp,Props,Props2,Stable,Order,Bridge,Interface,Eval2}.agda`.
+- `PaperTyping.agda` — membership `FinMem` (`u : a`) with its unfolding,
+  projection, and closure/monotonicity properties. A thin re-export of the
+  stratified construction in `FinMemStage{,Stable,Shift,Unfold,Props}.agda`.
+- `PaperSemantics.agda` — re-exports the two above.
 
-### Typing
+**Logical relation (validity)** — stage-stratified
+- `Validity.agda`, `ValidityStratified.agda`, `ValidityMono.agda`,
+  `ValidityProps.agda`, `ValidityStability.agda`, `ValidityLevels.agda`,
+  `ValidityHeadRed.agda`, `ValidityPublic.agda` — the predicates
+  `Val2 / ValTy2 / EqVal2 / EqValTy2` and their properties (monotonicity,
+  supremum, stability, …).
+- `AdequacyRecords.agda` — the validity record types and their builders.
 
-- **`TypingRules.agda`** — `Ctx`, `HasType`, `ConvTm`, `WfCtx`.
-  Includes `ty-Prop`, `ty-Prop-U` (Prop subtyping), `ty-Pi-Prop`
-  (Pi in Prop), and `conv-Prop` (proof-irrelevance).
-  `ty-App`/`conv-App-fun`/`conv-App-arg`/`conv-funext` carry
-  `HasType G A U` premise.
+**Adequacy**
+- `AdequacyValue.agda` — the two adequacy theorems above (the mutual driver).
+- `AdequacyBundle.agda` and `Adequacy{VE,Pi,Lam,App,ArgCore,FunCore,AppInj,Beta,Funext,Cases,Helpers,HeadRed}.agda`
+  — per-rule combinators feeding the driver.
 
-- **`Reduction.agda`** — Contextual reduction (`Red`, `HeadRed`).
-  `HeadRed` is a data type; `Red` wraps it with phantom context/type.
-  `Red-hr` extracts `HeadRed` from `Red`.
-  **0 postulates.**
+**Supporting infrastructure**
+- `Basic.agda` (prelude), `RawSemantics.agda` (evaluation `EvalRel`,
+  environments), `Selection.agda`, `EvalSubstitution.agda`,
+  `SubstitutionLemma.agda`, `LemmaForTS.agda`, `TypingSemantics.agda`
+  (`convSound'`), `Rank.agda`, `SelectionRank.agda`.
 
-### Semantic invariants and lemmas
+## Building
 
-- **`LemmaForTS.agda`** — Key intermediate lemmas for the typing
-  semantics proof. Defines `Fits` (well-typed environments), `Typed`,
-  `InvTyp`, `InvConv`. Contains:
-  - `Lam-L1` — Lambda inversion with typed keys
-  - `Pi-L1` — Pi inversion with typed keys
-  - `InvTyp-Lam` — Lam case of InvTyp
-  - `InvTyp-Pi` — Pi case of InvTyp
-  - `InvTyp-Pi-Prop` — Pi-Prop case of InvTyp (codomain in PropCode)
-  - `InvTyp-App` — App case of InvTyp
-  - `InvConv-beta` — Beta conversion
-  - `InvConv-funext` — Function extensionality conversion
-  - `InvConv-App-fun`, `InvConv-App-arg` — Congruence conversions
-  - Helper infrastructure: `mapEdges`, `replaceKeys`, `replaceVals`,
-    `replaceKeys-selection-body`, `EvalFun-edge-le`.
-  **0 postulates.**
+Requires Agda `2.9.0` (no external library). Type-check the two entry points:
 
-- **`TypingSemantics.agda`** — `theorem1` (typing soundness) and
-  `convSound` (soundness of conversion). Includes the proof-irrelevance
-  case (`conv-Prop`): if `A : Prop` and `M : A`, then all finite
-  approximations of `M` are `Bot`, so `EvalRel M rho u` implies `u = Bot`.
-  Uses `Prop-collapse` and `FinMem-Prop-Bot`.
-  **0 postulates.**
+```sh
+agda --without-K MIN/PiInjectivity.agda
+agda --without-K MIN/SubjectReduction.agda
+```
 
-- **`SubstitutionLemma.agda`** — Renaming, substitution, presupposition,
-  context conversion for the typing judgement. `typing-ConvTm` extracts
-  `HasType` from `ConvTm`.
-  **0 postulates.**
+Type-checking `MIN/PiInjectivity.agda` exercises the whole cone (model,
+logical relation, adequacy, injectivity).
 
-### Validity and adequacy
+## Also in this repository: the Π + Σ + `Prop` extension
 
-- **`Validity.agda`** — Logical relation for validity: `Val`/`EqVal`,
-  `ValTy`/`EqValTy`, `ValPi`/`EqValPi`. Transport lemmas
-  (`downVal`, `upVal`, `restrictVal`).
-  **0 postulates.**
-
-- **`Validity2.agda`** — Bundled logical relation `Val2`/`EqVal2` with
-  `Top` at leaves. `ValTyPi2` stores `Red` (head reduction),
-  `HasType` for domain/codomain, and `ConvTm` for domain/codomain
-  equality in `EqValTyPi2`.
-  **0 postulates.**
-
-- **`Adequacy2.agda`** — Bundled adequacy producing `Val2`/`EqVal2`.
-  Uses the paper's two-substitution approach (Theorem 2, p.660) with
-  `adequacyConvSub2` for cross-substitution equality.
-  **0 postulates.**
-
-### Pi injectivity
-
-- **`PiInjectivity.agda`** — Corollary 6 (paper p.661), full Pi injectivity:
-  - `piHeadRed`: from `ConvTm G A₀ (Pi B₁ F₁) U`, extract
-    `HeadRed A₀ (Pi B₀ F₀)` (part 1).
-  - `piConv`: additionally extract `ConvTm G B₀ B₁ U` (part 2)
-    and `ConvTm (extend G B₀) F₀ F₁ U` (part 3).
-  - `piInjectivity`: from `ConvTm G (Pi A₀ B₀) (Pi A₁ B₁) U`,
-    extract `ConvTm G A₀ A₁ U` and `ConvTm (extend G A₀) B₀ B₁ U`.
-  Strategy: `botEnv` + `PiCode Bot nil` + `convSound'` +
-  `adequacyEqSub2` + `EqValTyPi2` extraction + `Red-unique-Pi`.
-  **0 postulates.**
-
-### Subject reduction
-
-- **`SubjectReduction.agda`** — Subject reduction for single-step
-  head reduction:
-  - `subject-red1`: `HasType G M A → HeadRed1 M N → HasType G N A`.
-  - `ty-Lam-body`: Lam body extraction through conversion. Given
-    `HasType G (Lam A M) T` and `ConvTm G T (Pi A₀ B₀) U`, produce
-    `HasType (extend G A₀) M B₀`. Uses `piInjectivity` for the
-    `ty-Lam` case and `piConv` to eliminate the `ty-Prop-U` case
-    (conversion from `U` to a Pi type is impossible since `U` is
-    a head normal form distinct from `Pi`).
-  **0 postulates.**
-
-### Sigma extension (Validity5/Adequacy5 stack)
-
-- **`Validity5Core.agda`** through **`Validity5Lemmas.agda`** — Record-based
-  `Val2`/`EqVal2` logical relation with `Red3`, `RValTyPi`, `RValTySigma`,
-  `REqValTyPi`, `REqValTySigma`, etc. Import chain:
-  Validity5Core -> Validity5DownUpRestrict -> Validity5Fwd ->
-  Validity5SymTrans -> Validity5Sup -> Validity5Lemmas.
-  **0 postulates.**
-
-- **`Adequacy5Helpers.agda`** — Helper definitions for the adequacy proof:
-  `ValidSub2`, `extSub`, `substExpr-comp`, `ValidSub2-extend`, etc.
-  **0 postulates.**
-
-- **`Adequacy5HeadRed.agda`** — Head reduction lemmas for adequacy.
-  **0 postulates.**
-
-- **`Adequacy5Cases.agda`** — Factored-out `App`-core bodies for fast
-  type-checking. Fixes `Red-unique-Pi2` metas with
-  `{G = H} {M = Pi sA sB} {A = U}`.
-  **0 postulates.**
-
-- **`Adequacy5.agda`** — Main adequacy mutual block for Pi + Sigma + U.
-  **0 postulates, 0 holes, 0 unsolved metas.**
-
-- **`Injectivity5.agda`** — Pi and Sigma injectivity (Corollary 6):
-  `piConv`, `piInjectivity`, `sigmaConv`, `sigmaInjectivity`.
-  **0 postulates.**
-
-- **`SubjectReduction5.agda`** — Subject reduction and subject conversion
-  for Pi + Sigma. `subject-red1` and `subject-conv1` (mutual). Handles all
-  6 `HeadRed1` constructors including `beta-fst`, `beta-snd`,
-  `fst-reduction`, `snd-reduction`.
-  **0 postulates.**
-
-## Documentation
-
-- **`rules.tex`** / **`rules.pdf`** — LaTeX presentation of the typing
-  and conversion rules, head reduction, and the full Pi injectivity
-  theorem (Corollary 6, parts 1-3 and the Pi-Pi corollary) with
-  proof outline.
-
-- **`sigma-rules.tex`** / **`sigma-rules.pdf`** — Typing and conversion
-  rules for the Sigma-extended system (MkPair, Fst, Snd, beta-fst,
-  beta-snd, fst-reduction, snd-reduction, pair-eta, etc.).
-
-- **`sigma-validity.tex`** / **`sigma-validity.pdf`** — Informal
-  description of how the validity proof extends to Sigma types.
-  Documents the uniform definition using code projections
-  ($w.1$, $w.2$), the type-equality transport lemma, and the
-  4-step head-reduction transport argument (IH on first projection,
-  edge function for type equality, IH on second projection,
-  transport). Explains why the head-reduction lemma must return
-  EqVal (not just Val): the equality edge is needed to bridge
-  $B[M'.1]$ and $B[M.1]$.
-
-## Technical notes
-
-- **Spartan Agda:** `--without-K --exact-split` (no `--type-in-type`)
-- **Sup simplification:** Cross-constructor `Sup` returns `Bot`
-  (e.g. `Sup UCode (FunEl _) = Sup PropCode UCode = Bot`),
-  matching the fact that cross-constructor `Comp` is `Empty`.
-- **U : U** works because `rk UCode = 0` and `FinMem UCode UCode = Top`,
-  so self-membership never triggers recursive rank-based calls.
-- **Prop : U** with proof-irrelevance. `PropCode` is incompatible with
-  `UCode` in the ordering but `FinMem PropCode UCode = Top`. The key
-  semantic lemma `FinMem-Prop-Bot` shows that inhabitants of Prop-typed
-  codes collapse to `Bot`, validating proof-irrelevance.
-- The step-indexed recursion is driven by finite-element rank, not by
-  a universe hierarchy.
-- The development does not require `--type-in-type`; all files compile
-  with standard universe checking.
-
-## Postulate summary
-
-| File | Postulates |
-|------|-----------|
-| Basic, Selection, PaperSemantics | 0 |
-| RawSyntax, RawSemantics, EvalSubstitution | 0 |
-| Reduction | 0 |
-| LemmaForTS, TypingSemantics | 0 |
-| SubstitutionLemma | 0 |
-| Validity | 0 |
-| Validity2 | 0 |
-| Adequacy2 | 0 |
-| PiInjectivity | 0 |
-| SubjectReduction | 0 |
-| Validity5Core -- Validity5Lemmas | 0 |
-| Adequacy5Helpers, Adequacy5HeadRed | 0 |
-| Adequacy5Cases, Adequacy5 | 0 |
-| Injectivity5 | 0 |
-| SubjectReduction5 | 0 |
+The same domain-theoretic method is carried out for an extended theory with
+dependent pairs (Σ) and a `Prop` universe, as a separate set of top-level
+files: `Adequacy5.agda` (adequacy), `Injectivity5.agda` (Π- and Σ-injectivity),
+`SubjectReduction5.agda` (subject reduction), the `Validity5*` logical-relation
+stack, and the write-up [`sigma-rules.tex`](sigma-rules.tex).
