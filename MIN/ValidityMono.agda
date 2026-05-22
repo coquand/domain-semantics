@@ -15,7 +15,7 @@
 --     code becomes a projection of the IH (goodStage n), because at
 --     Stage (suc n) the records (SR n) expose Stage-n relations.
 --
--- No NO_POSITIVITY_CHECK, no postulates.
+-- No postulates.
 ------------------------------------------------------------------------
 
 module MIN.ValidityMono where

@@ -18,7 +18,7 @@
 -- code-fixed, input and output sit at the SAME canonical level, so no
 -- `shift*` is needed (unlike the rank-changing lemmas in ValidityLevels).
 --
--- No NO_POSITIVITY_CHECK, no postulates.
+-- No postulates.
 ------------------------------------------------------------------------
 
 module MIN.ValidityHeadRed where

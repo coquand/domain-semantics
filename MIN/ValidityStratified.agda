@@ -15,7 +15,7 @@
 -- The public relations are recovered at the canonical level
 --   suc (max (RANK u) (RANK a))   -- enough levels for the codes present.
 --
--- No NO_POSITIVITY_CHECK, no postulates.
+-- No postulates.
 ------------------------------------------------------------------------
 
 module MIN.ValidityStratified where
@@ -45,7 +45,7 @@ record Red3 {n : Nat} (G : Ctx n) (M N A : Expr n) : Set where
 ------------------------------------------------------------------------
 -- OpenRecords: edge types + records parameterized by abstract relations.
 -- (Same as ValidityCore; the relations are supplied by the *previous*
--- Stage level, so there is no cycle and no positivity problem.)
+-- Stage level, so there is no cycle.)
 ------------------------------------------------------------------------
 
 module OpenRecords
