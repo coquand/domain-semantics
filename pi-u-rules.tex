@@ -53,13 +53,32 @@
 \begin{document}
 \maketitle
 
-This note describes the $\Pi+\U$ fragment of the domain-theoretic model of
-Coquand--Huber, in the form mechanised in the \texttt{MIN/} development.
-It is a simplification of the $\Pi+\Sigma+\U$ presentation
-(\texttt{sigma-rules.tex}): there are no $\Sigma$-types and no $\mathsf{Prop}$
-universe.  The novelty here is methodological.  Rather than defining the
-information order $\leq$ and the semantic membership $u : a$ directly---which
-forces a \texttt{TERMINATING} pragma in Agda---we define them
+We study a dependent type theory with a universe $\U:\U$ and dependent
+function ($\Pi$) types, in the form mechanised in the \texttt{MIN/} Agda
+development.  The main goal is a \emph{syntactic} result --- a statement about
+the conversion (definitional-equality) judgment alone --- namely
+\emph{injectivity of $\Pi$}:
+\[
+  \conveq{\Gamma}{\Pitype{x{:}A_0}{B_0}}{\Pitype{x{:}A_1}{B_1}}{\U}
+  \;\Longrightarrow\;
+  \conveq{\Gamma}{A_0}{A_1}{\U}
+  \ \text{ and }\
+  \conveq{\Gamma, x{:}A_0}{B_0}{B_1}{\U}.
+\]
+Because the theory is type-in-type ($\U:\U$) it is logically inconsistent and
+has no normalisation, so the usual syntactic route to injectivity (via
+confluence and normal forms) is unavailable.  We therefore prove the result
+\emph{semantically}, by \emph{domain theory}: we build a domain-theoretic
+model whose elements are finite approximations (finite elements of a Scott
+domain), define a logical relation linking the model to the syntax, prove
+\emph{adequacy} (every well-typed term is valid), and then read $\Pi$-injectivity
+off the logical relation by evaluating at the bottom environment.  This is the
+method of Coquand--Huber; the point of interest is that a purely syntactic
+fact is obtained from the semantic model.
+
+The technical novelty here is methodological.  Rather than defining the
+information order $\leq$ and the semantic membership $u : a$ directly --- which
+forces a \texttt{TERMINATING} pragma in Agda --- we define them
 \emph{by stratification}: a family of relations $\lest{n}$, $\memst{\cdot}{n}{\cdot}$
 indexed by a stage $n\in\Nat$, each obtained from the previous one, together
 with a \emph{stability} lemma that lets us pass to the limit.  The same idea
@@ -161,6 +180,11 @@ $\hastype{\Gamma}{A}{\U} \Rightarrow \wf{(\Gamma, x{:}A)}$.
      \hastype{\Gamma}{g}{\Pitype{x{:}A}{B}} \\ \cdots}
     {\conveq{\Gamma}{f}{g}{\Pitype{x{:}A}{B}}}
 \end{mathpar}
+\emph{Convention.}  In \textsc{App-Fun}, \textsc{App-Arg}, and \textsc{Funext}
+the ellipsis ``$\cdots$'' abbreviates the two formation premises
+$\hastype{\Gamma}{A}{\U}$ and $\hastype{\Gamma, x{:}A}{B}{\U}$, which every
+$\Pi$-rule carries; we leave them implicit to keep the rules readable.
+
 \textsc{Funext} is the only extensionality principle; it is validated by the
 model, where two functions with the same finite graph are identified.
 
