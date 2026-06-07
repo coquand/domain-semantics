@@ -18,11 +18,13 @@ evaluating at the bottom environment. This is the method of Coquand–Huber,
 *An adequacy theorem for dependent type theory*, Arch. Math. Logic 57 (2018).
 
 The development is machine-checked with Agda (`--without-K --exact-split`),
-**with no postulates and no holes**. The information order `u ≤ v` and the
-semantic membership `u : a` (and the validity relation) are built by
-**stage stratification** — a family of relations indexed by a stage `n`, each
-obtained from the one below, collapsed by a stability lemma — so the kernel is
-structurally well-founded by construction. A self-contained mathematical
+**with no postulates, no holes, and no `TERMINATING` / `NO_POSITIVITY`
+pragmas** — every definition passes Agda's termination and positivity checkers
+as written. The information order `u ≤ v` and the semantic membership `u : a`
+(and the validity relation) are built by **stage stratification** — a family of
+relations indexed by a stage `n`, each obtained from the one below, collapsed by
+a stability lemma — so the kernel is structurally well-founded by construction
+and needs no pragma to convince the checker. A self-contained mathematical
 write-up is in [`pi-u-rules.tex`](pi-u-rules.tex).
 
 This `MIN/` development is the current, complete one. (The repository also
@@ -90,7 +92,11 @@ agda --without-K MIN/SubjectReduction.agda
 ```
 
 Type-checking `MIN/PiInjectivity.agda` exercises the whole cone (model,
-logical relation, adequacy, injectivity).
+logical relation, adequacy, injectivity); `MIN/SubjectReduction.agda` checks
+the remaining subject-reduction layer on top of it. A clean rebuild of the
+subject-reduction entry point covers 54 source files and finishes with no
+errors, no warnings, and no termination/positivity pragmas anywhere in the
+cone.
 
 ## Also in this repository: the Π + Σ + `Prop` extension
 
