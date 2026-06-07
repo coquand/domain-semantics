@@ -1,8 +1,8 @@
 {-# OPTIONS --without-K #-}
-module Validity5Fwd where
-open import Validity5DownUpRestrict public
+module SigmaProp.Validity5Fwd where
+open import SigmaProp.Validity5DownUpRestrict public
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ;
               fst ; snd ; Sigma ; Eq ; refl ; Eq-transport ; Eq-sym ;
               Eq-cong ;
@@ -10,19 +10,19 @@ open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ;
               SigmaCode ; PairCode ; FinFun ;
               List ; nil ; cons ;
               codeFst ; codeSnd)
-import RawSyntaxSigma as RS
+import SigmaProp.RawSyntaxSigma as RS
 open RS using (Expr ; Var ; U ; Pi ; Lam ; App ; Fst ; Snd ; MkPair ;
   wkExpr ; subst1 ; Fin ; fzero ; fsuc)
-open import TypingRulesSigma using (Ctx ; empty ; extend ;
+open import SigmaProp.TypingRulesSigma using (Ctx ; empty ; extend ;
   HasType ; ConvTm ; WfCtx ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ;
   conv-Pi ; conv-Sigma ; conv-Fst ; conv-Snd ;
   conv-App-fun ; conv-App-arg ;
   ty-conv ; ty-Pi ; ty-Sigma ; ty-Fst ; ty-Snd ; ty-App)
-open import ReductionSigma using (Red ; mkRed ; Red-hr ; HeadRed ; headred-refl ; HeadRed-trans ;
+open import SigmaProp.ReductionSigma using (Red ; mkRed ; Red-hr ; HeadRed ; headred-refl ; HeadRed-trans ;
   HeadRed-App ; HeadRed-Fst ; HeadRed-Snd ;
   HeadRed-strip-Pi ; HeadRed-strip-Sigma)
-open import PaperSemanticsSigma using (EvalFun ;
+open import SigmaProp.PaperSemanticsSigma using (EvalFun ;
   CoherentFun ; FinMemFun ; FinMemAllU ;
   Coherent ; Comp ; Sup ;
   LeCode-Sup-left ; LeCode-Sup-right ;
@@ -41,14 +41,14 @@ open import PaperSemanticsSigma using (EvalFun ;
   Comp-value-EvalFun ; coherentWith-to-compStepFun ;
   CFTcons ; CoherentFunTail ; CoherentWith ;
   FinMem-Prop-to-U)
-open import SelectionSigma using (Selection ;
+open import SigmaProp.SelectionSigma using (Selection ;
   FinMemAllU-Selection ; FinMem-Selection-UCode ;
   FinMem-Selection ; FinMem-Selection-codomain ;
   selectionBelow ; Selection-le-EvalFun ; sel-nil ;
   Coherent-Selection ; Coherent-Selection-val)
-open import ValiditySigma using (Red-unique-Pi ; Red-unique-Sigma ;
+open import SigmaProp.ValiditySigma using (Red-unique-Pi ; Red-unique-Sigma ;
   bU-from-cf-fmFun ; FinMem-Coherent)
-open import SubstitutionLemmaSigma using (typing-ConvTm ; ctx-conv-ConvTm ; ctx-conv-HasType ;
+open import SigmaProp.SubstitutionLemmaSigma using (typing-ConvTm ; ctx-conv-ConvTm ; ctx-conv-HasType ;
   subst1-cong-ConvTm)
 
 ------------------------------------------------------------------------

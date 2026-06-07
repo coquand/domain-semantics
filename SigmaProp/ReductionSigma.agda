@@ -12,18 +12,18 @@
 --   Congruence: Fst M → Fst M', Snd M → Snd M' under head reduction
 ------------------------------------------------------------------------
 
-module ReductionSigma where
+module SigmaProp.ReductionSigma where
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; suc ; Pair ; mkSigma ; Eq ; refl ; fst ; snd ; Empty ;
   Eq-sym ; Eq-transport)
-open import RawSyntaxSigma using (Expr ; Var ; Pi ; App ; Lam ; U ; Prop ;
+open import SigmaProp.RawSyntaxSigma using (Expr ; Var ; Pi ; App ; Lam ; U ; Prop ;
   Sigma ; MkPair ; Fst ; Snd ;
   wkExpr ; subst1 ;
   Sub ; substExpr ; subst1Sub ; liftSub ; wkRen ;
   Fin ; fzero ; fsuc ; Eq-trans ; Eq-cong2-Expr ;
   subst-ren ; subst-subst ; substExpr-ext)
-open import TypingRulesSigma using (Ctx)
+open import SigmaProp.TypingRulesSigma using (Ctx)
 
 ------------------------------------------------------------------------
 -- HeadRed1: single-step head reduction
@@ -114,10 +114,10 @@ HeadRed1-det (headred-snd s) headred-beta-snd with HeadRed1-not-MkPair s
 ... | ()
 HeadRed1-det (headred-fst s1) (headred-fst s2) =
   Eq-cong Fst (HeadRed1-det s1 s2)
-  where open import BasicSigma using (Eq-cong)
+  where open import SigmaProp.BasicSigma using (Eq-cong)
 HeadRed1-det (headred-snd s1) (headred-snd s2) =
   Eq-cong Snd (HeadRed1-det s1 s2)
-  where open import BasicSigma using (Eq-cong)
+  where open import SigmaProp.BasicSigma using (Eq-cong)
 
 -- HeadRed from Pi to Pi must be reflexivity
 HeadRed-Pi-refl : {n : Nat} {A A' : Expr n} {B B' : Expr (suc n)} ->
@@ -215,10 +215,10 @@ substExpr-id (MkPair a b) =
   Eq-cong2-Expr MkPair (substExpr-id a) (substExpr-id b)
 substExpr-id (Fst M)      =
   Eq-cong Fst (substExpr-id M)
-  where open import BasicSigma using (Eq-cong)
+  where open import SigmaProp.BasicSigma using (Eq-cong)
 substExpr-id (Snd M)      =
   Eq-cong Snd (substExpr-id M)
-  where open import BasicSigma using (Eq-cong)
+  where open import SigmaProp.BasicSigma using (Eq-cong)
 
 ------------------------------------------------------------------------
 -- HeadRed commutes with substitution

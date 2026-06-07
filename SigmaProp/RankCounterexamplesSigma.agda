@@ -24,10 +24,10 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module RankCounterexamplesSigma where
+module SigmaProp.RankCounterexamplesSigma where
 
-open import BasicSigma
-open import PaperSemanticsSigma using (append ; Sup ; EvalFun)
+open import SigmaProp.BasicSigma
+open import SigmaProp.PaperSemanticsSigma using (append ; Sup ; EvalFun)
 
 ------------------------------------------------------------------------
 -- The size measure `rk` in BasicSigma is defined with a `suc` per cons:

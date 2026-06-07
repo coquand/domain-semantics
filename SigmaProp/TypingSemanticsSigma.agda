@@ -15,14 +15,14 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module TypingSemanticsSigma where
+module SigmaProp.TypingSemanticsSigma where
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ; fst ; snd ;
               Sigma ; Eq ; refl ; Eq-transport ; Eq-sym ;
               FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; SigmaCode ; PairCode ; FinFun ;
               nil ; cons)
-open import PaperSemanticsSigma using (LeCode ; LeCode-Bot ; LeCode-refl ;
+open import SigmaProp.PaperSemanticsSigma using (LeCode ; LeCode-Bot ; LeCode-refl ;
   LeCode-trans ; LeFunCode ;
   FinMem ; FinMemFun ; FinMemAllProp ; FinMem-coh-u ; FinMem-a-in-U ; coh-from-aU ;
   Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; cft-from-cf ; NotBot ;
@@ -35,15 +35,15 @@ open import PaperSemanticsSigma using (LeCode ; LeCode-Bot ; LeCode-refl ;
   Comp ; comp-Bot-r ; comp-Bot-l ;
   Coherent-Sup ; LeCode-Sup-left ; LeCode-Sup-right ;
   FinMemAllU)
-open import SelectionSigma using (Selection)
-open import RawSemanticsSigma using (EnvApprox ; emptyEnv ; extendEnv ; lookupEnv ;
+open import SigmaProp.SelectionSigma using (Selection)
+open import SigmaProp.RawSemanticsSigma using (EnvApprox ; emptyEnv ; extendEnv ; lookupEnv ;
   EvalRel ; EvalRel-coh ; CoherentEnv ; lookupEnv-coh ;
   EvalRel-Bot ; EvalRel-down ; EvalRel-mon-env ; EnvLe ; EnvLe-refl ;
   EvalRel-Comp ; EvalRel-Sup)
-open import RawSyntaxSigma using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
+open import SigmaProp.RawSyntaxSigma using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
   Fin ; fzero ; fsuc ; wkExpr ; subst1)
   renaming (Sigma to SigmaE ; MkPair to MkPairE ; Fst to FstE ; Snd to SndE)
-open import TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
+open import SigmaProp.TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
   HasType ; ty-var ; ty-conv ; ty-U ; ty-Prop ; ty-Prop-U ; ty-Pi ; ty-Pi-Prop ; ty-Lam ; ty-App ;
   ty-Sigma ; ty-MkPair ; ty-Fst ; ty-Snd ;
   WfCtx ; wf-empty ; wf-extend ;
@@ -55,10 +55,10 @@ open import TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
   conv-MkPair-fst ; conv-MkPair-snd ; conv-Fst ; conv-Snd)
 
 -- All hard lemmas come from LemmaForTSSigma (0 postulates).
-import LemmaForTSSigma as LTS
+import SigmaProp.LemmaForTSSigma as LTS
 open LTS using (Fits ; Typed ; InvTyp ; InvConv ;
   Fits-CoherentEnv ; Fits-var ; InvTyp-MkPair)
-open import EvalSubstitutionSigma using (EvalRel-ren ; EvalRel-wk ; EvalRel-unwk ;
+open import SigmaProp.EvalSubstitutionSigma using (EvalRel-ren ; EvalRel-wk ; EvalRel-unwk ;
   EvalRel-subst1-backward ; EvalRel-subst1-forward-bounded ;
   EvalRel-subst1-forward)
 

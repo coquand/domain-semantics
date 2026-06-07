@@ -7,20 +7,20 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module Adequacy5 where
-open import Adequacy5HeadRed public
-open import Adequacy5Cases using (tyMkPair-conv-case ;
+module SigmaProp.Adequacy5 where
+open import SigmaProp.Adequacy5HeadRed public
+open import SigmaProp.Adequacy5Cases using (tyMkPair-conv-case ;
   adequacyEqSub2-App-fun-core-body ; adequacySub2-App-core-body ;
   adequacyConvSub2-App-core-body)
 
-import Validity5Lemmas as V5L
+import SigmaProp.Validity5Lemmas as V5L
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ;
               fst ; snd ; Pair ; Eq ;
               FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; SigmaCode ; PairCode ; FinFun ;
               List ; nil ; cons ; codeFst ; codeSnd)
-open import PaperSemanticsSigma using (LeCode ; LeCode-Bot ; LeCode-refl ;
+open import SigmaProp.PaperSemanticsSigma using (LeCode ; LeCode-Bot ; LeCode-refl ;
   LeCode-trans ; Coherent ;
   CoherentFun ; Comp ; Comp-down ; Sup ; LeCode-Sup-left ; LeCode-Sup-right ;
   Coherent-Sup ; EvalFun ; EvalFun-in-UCode ;
@@ -32,23 +32,23 @@ open import PaperSemanticsSigma using (LeCode ; LeCode-Bot ; LeCode-refl ;
   FinMem-coh-u ; cft-from-cf ; CoherentFunTail ; CoherentFunTail-append ;
   mkCFT ; NotBot ; FinMem-Prop-Bot ; FinMem-Prop-Bot-FunEl ;
   FinMem-Prop-to-U ; FinMem-U-to-PropCode ; absurdEl)
-open import ReductionSigma using (Red ; mkRed ; Red-refl ; Red-hr ; HeadRed ; HeadRed-trans ;
+open import SigmaProp.ReductionSigma using (Red ; mkRed ; Red-refl ; Red-hr ; HeadRed ; HeadRed-trans ;
   HeadRed-App ; HeadRed-Fst ; HeadRed-Snd ;
   HeadRed-strip-Pi ; HeadRed-strip-Sigma ;
   headred-step ; headred-beta ; headred-refl ; subst-subst1-comm ;
   headred-beta-fst ; headred-beta-snd ; headred-fst ; headred-snd ;
   idSub ; substExpr-id ; HeadRed1-det)
-open import RawSemanticsSigma using (EnvApprox ; emptyEnv ; extendEnv ;
+open import SigmaProp.RawSemanticsSigma using (EnvApprox ; emptyEnv ; extendEnv ;
   lookupEnv ; EvalRel ; Pi-edgewise ; Sigma-edgewise ;
   EvalRel-coh ; CoherentEnv ; lookupEnv-coh ;
   EvalRel-Comp ; EvalRel-Sup ; EvalRel-down ;
   EvalRel-mon-env ; EnvLe ; EnvLe-refl)
-open import RawSyntaxSigma using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
+open import SigmaProp.RawSyntaxSigma using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
   MkPair ; Fst ; Snd ;
   Fin ; fzero ; fsuc ; wkExpr ; subst1 ;
   Sub ; liftSub ; substExpr ; subst1Sub)
   renaming (Sigma to SigmaE)
-open import TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
+open import SigmaProp.TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
   HasType ; ConvTm ; WfCtx ; wf-empty ; wf-extend ;
   ty-var ; ty-conv ; ty-U ; ty-Prop ; ty-Prop-U ; ty-Pi ; ty-Pi-Prop ; ty-Lam ; ty-App ;
   ty-Sigma ; ty-MkPair ; ty-Fst ; ty-Snd ;
@@ -57,24 +57,24 @@ open import TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
   conv-Sigma ; conv-beta-fst ; conv-beta-snd ; conv-pair-eta ;
   conv-MkPair-fst ; conv-MkPair-snd ; conv-Fst ; conv-Snd ;
   conv-Prop ; conv-Prop-U ; conv-Pi-Prop)
-open import ValiditySigma using (Edge ; EdgeIn ; here ; there ;
+open import SigmaProp.ValiditySigma using (Edge ; EdgeIn ; here ; there ;
   Red-unique-Pi ; Red-unique-Sigma ;
   FinMem-Coherent ;
   Selection ; sel-nil ; sel-skip ; sel-take ;
   Selection-le-EvalFun ; Coherent-Selection ; Coherent-Selection-val ;
   bU-from-cf-fmU)
-open import ValiditySigma using () renaming (Red-unique-Pi to Red-unique-Pi2)
-open import SelectionSigma using (FinMemAllU-Selection ; FinMem-Selection-UCode ;
+open import SigmaProp.ValiditySigma using () renaming (Red-unique-Pi to Red-unique-Pi2)
+open import SigmaProp.SelectionSigma using (FinMemAllU-Selection ; FinMem-Selection-UCode ;
   FinMem-Selection ; FinMem-Selection-codomain ;
   selectionBelow)
-open import TypingSemanticsSigma using (convSound ; convSound-inv ; convSound' ; theorem1 ;
+open import SigmaProp.TypingSemanticsSigma using (convSound ; convSound-inv ; convSound' ; theorem1 ;
   conv-Prop-chain ; LeCode-Bot-eq ; mkFstEv ; mkSndEv)
-open import LemmaForTSSigma using (Fits ; Typed ; Fits-CoherentEnv)
-open import EvalSubstitutionSigma using (EvalRel-subst1-backward ; EvalRel-wk ; EvalRel-unwk ;
+open import SigmaProp.LemmaForTSSigma using (Fits ; Typed ; Fits-CoherentEnv)
+open import SigmaProp.EvalSubstitutionSigma using (EvalRel-subst1-backward ; EvalRel-wk ; EvalRel-unwk ;
   EvalRel-Pi-app-type ; EvalRel-Pi-body ; EvalRel-subst1-forward ;
   EvalRel-body-EvalFun)
-open import RawSyntaxSigma using (Ren ; liftRen ; renExpr ; wkRen)
-open import SubstitutionLemmaSigma using (typing-ConvTm ; WtSub ;
+open import SigmaProp.RawSyntaxSigma using (Ren ; liftRen ; renExpr ; wkRen)
+open import SigmaProp.SubstitutionLemmaSigma using (typing-ConvTm ; WtSub ;
   subst-HasType ; subst-ConvTm ; liftSub-WtSub ; subst1-WtSub ;
   typing-WfCtx ; typing-type ; ctx-conv-HasType ; ctx-conv-ConvTm ;
   subst1-cong-ConvTm ; wk-HasType ; wk-ConvTm ;

@@ -25,7 +25,8 @@ as written. The information order `u ≤ v` and the semantic membership `u : a`
 relations indexed by a stage `n`, each obtained from the one below, collapsed by
 a stability lemma — so the kernel is structurally well-founded by construction
 and needs no pragma to convince the checker. A self-contained mathematical
-write-up is in [`pi-u-rules.tex`](pi-u-rules.tex).
+write-up is in [`pi-u-rules.tex`](pi-u-rules.tex) (built:
+[`pi-u-rules.pdf`](pi-u-rules.pdf)).
 
 This `MIN/` development is the current, complete one. (The repository also
 contains an extension to Σ-types and a `Prop` universe; see the end.)
@@ -98,10 +99,25 @@ subject-reduction entry point covers 54 source files and finishes with no
 errors, no warnings, and no termination/positivity pragmas anywhere in the
 cone.
 
-## Also in this repository: the Π + Σ + `Prop` extension
+## Also in this repository: the Π + Σ + `Prop` extension (`SigmaProp/`)
 
 The same domain-theoretic method is carried out for an extended theory with
-dependent pairs (Σ) and a `Prop` universe, as a separate set of top-level
-files: `Adequacy5.agda` (adequacy), `Injectivity5.agda` (Π- and Σ-injectivity),
-`SubjectReduction5.agda` (subject reduction), the `Validity5*` logical-relation
-stack, and the write-up [`sigma-rules.tex`](sigma-rules.tex).
+dependent pairs (Σ) and a `Prop` universe. It is kept entirely separate, in the
+[`SigmaProp/`](SigmaProp/) subdirectory (modules `SigmaProp.*`), so it does not
+interfere with the core `MIN/` development above.
+
+| Result | Entry point |
+|---|---|
+| Adequacy | [`SigmaProp/Adequacy5.agda`](SigmaProp/Adequacy5.agda) |
+| Π- and Σ-injectivity | [`SigmaProp/Injectivity5.agda`](SigmaProp/Injectivity5.agda) |
+| Subject reduction | [`SigmaProp/SubjectReduction5.agda`](SigmaProp/SubjectReduction5.agda) |
+
+The logical relation lives in the `SigmaProp/Validity5*` stack and the
+`SigmaProp/*Sigma` files; the write-up is
+[`SigmaProp/sigma-rules.tex`](SigmaProp/sigma-rules.tex) (built:
+[`SigmaProp/sigma-rules.pdf`](SigmaProp/sigma-rules.pdf)). Type-check it with,
+e.g.,
+
+```sh
+agda --without-K SigmaProp/Injectivity5.agda
+```

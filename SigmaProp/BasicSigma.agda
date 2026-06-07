@@ -8,7 +8,7 @@
 -- No postulates.
 ------------------------------------------------------------------------
 
-module BasicSigma where
+module SigmaProp.BasicSigma where
 
 ------------------------------------------------------------------------
 -- Basic types
@@ -28,7 +28,7 @@ data Empty : Set where
 -- both modules in the same import graph. We re-export Basic.Nat (and
 -- its constructors) here so BasicSigma.Nat keeps numeric-literal sugar
 -- without redeclaring the BUILTIN.
-open import Basic public using (Nat ; zero ; suc)
+open import SigmaProp.Basic public using (Nat ; zero ; suc)
 
 max : Nat -> Nat -> Nat
 max zero    n       = n

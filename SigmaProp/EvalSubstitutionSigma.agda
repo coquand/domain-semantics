@@ -22,13 +22,14 @@
 -- NO postulates.
 ------------------------------------------------------------------------
 
-module EvalSubstitutionSigma where
+module SigmaProp.EvalSubstitutionSigma where
+import SigmaProp.RawSyntaxSigma as RawSyntaxSigma
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ; fst ; snd ;
               Sigma ; Eq ; refl ; Eq-transport ; Eq-sym ;
               FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; SigmaCode ; PairCode ; FinFun ; isPos)
-open import PaperSemanticsSigma using (LeCode ; LeCode-refl ; LeCode-trans ;
+open import SigmaProp.PaperSemanticsSigma using (LeCode ; LeCode-refl ; LeCode-trans ;
   Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; mkCFT ; cft-from-cf ;
   Comp ; Comp-down ; Comp-sym ;
   Sup ; Sup-Bot-l ; Sup-Bot-r ;
@@ -50,7 +51,7 @@ open import PaperSemanticsSigma using (LeCode ; LeCode-refl ; LeCode-trans ;
   Or ; inl ; inr ;
   fstEl ; sndEl ;
   NotBot-Sup-Comp ; Or-NotBot-Sup)
-open import RawSemanticsSigma using (EnvApprox ; emptyEnv ; extendEnv ; lookupEnv ;
+open import SigmaProp.RawSemanticsSigma using (EnvApprox ; emptyEnv ; extendEnv ; lookupEnv ;
   EvalRel ; EvalRel-coh ; CoherentEnv ; lookupEnv-coh ; EvalRel-down ;
   EvalRel-mon-env ; EnvLe ; EnvLe-refl ;
   EnvLe-extend-left ; EnvLe-extend-right ;
@@ -61,12 +62,12 @@ open import RawSemanticsSigma using (EnvApprox ; emptyEnv ; extendEnv ; lookupEn
   App-decompose ;
   lookupEnv-coh-left ; lookupEnv-coh-right ; lookupEnv-mon)
 open S using (List ; nil ; cons)
-open import SelectionSigma using (Edge ; EdgeIn ; here ; there ; Selection ;
+open import SigmaProp.SelectionSigma using (Edge ; EdgeIn ; here ; there ; Selection ;
   sel-nil ; sel-skip ; sel-take ;
   Coherent-Selection ; Coherent-Selection-val ;
   singleton-selection ; Selection-le-EvalFun ; selectionBelow ;
   FinMemAllU-Selection)
-open import RawSyntaxSigma hiding (Sigma)
+open import SigmaProp.RawSyntaxSigma hiding (Sigma)
 
 ------------------------------------------------------------------------
 -- Part 1: Renaming preserves evaluation

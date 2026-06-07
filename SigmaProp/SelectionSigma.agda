@@ -10,16 +10,16 @@
 -- sel-take carries Comp on both keys and values for coherence.
 ------------------------------------------------------------------------
 
-module SelectionSigma where
+module SigmaProp.SelectionSigma where
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ;
               fst ; snd ; Sigma ; Eq ; refl ; Eq-transport ; Eq-sym ;
               Eq-cong ;
               FinEl ; Bot ; UCode ; FunEl ; PiCode ; SigmaCode ; PairCode ; FinFun ;
               List ; nil ; cons ;
               isPos)
-open import PaperSemanticsSigma using (EvalFun ; EvalFun-step ;
+open import SigmaProp.PaperSemanticsSigma using (EvalFun ; EvalFun-step ;
   leFinEl ; leFinEl-sound ;
   LeCode ; LeFunCode ; LeCode-Bot ; LeCode-Sup-lub ;
   LeCode-Sup-left ; LeCode-Sup-right ;

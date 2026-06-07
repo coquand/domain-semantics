@@ -18,9 +18,10 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module ValiditySigma where
+module SigmaProp.ValiditySigma where
+import SigmaProp.ReductionSigma as ReductionSigma
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ;
               fst ; snd ; Sigma ; Eq ; refl ; Eq-transport ; Eq-sym ;
               Eq-cong ;
@@ -28,20 +29,20 @@ open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ;
               SigmaCode ; PairCode ; FinFun ;
               List ; nil ; cons ;
               isPos)
-import RawSyntaxSigma as RS
+import SigmaProp.RawSyntaxSigma as RS
 open RS using (Expr ; Var ; U ; Pi ; Lam ; App ;
   MkPair ; Fst ; Snd ;
   wkExpr ; subst1 ; Fin ; fzero ; fsuc ;
   Sub ; substExpr ; liftSub ;
   Ren ; renExpr ; wkRen ; liftRen ; subst-ren ;
   subst-subst ; substExpr-ext ; liftSub-subst-ext ; Eq-trans)
-open import TypingRulesSigma using (Ctx ; empty ; extend ; ConvTm ;
+open import SigmaProp.TypingRulesSigma using (Ctx ; empty ; extend ; ConvTm ;
   conv-sym ; conv-trans)
-open import ReductionSigma using (Red ; mkRed ; HeadRed ; HeadRed-trans ;
+open import SigmaProp.ReductionSigma using (Red ; mkRed ; HeadRed ; HeadRed-trans ;
   HeadRed-App ; HeadRed-Fst ; HeadRed-Snd ;
   HeadRed-strip-Pi ; HeadRed-unique-Pi ;
   HeadRed-strip-Sigma ; HeadRed-unique-Sigma)
-open import PaperSemanticsSigma using (applyEl ; EvalFun ; EvalFun-step ;
+open import SigmaProp.PaperSemanticsSigma using (applyEl ; EvalFun ; EvalFun-step ;
   leFinEl ; leFinEl-sound ;
   LeCode ; LeFunCode ; LeCode-Bot ; LeCode-Sup-lub ;
   LeCode-Sup-left ; LeCode-Sup-right ;
@@ -63,8 +64,8 @@ open import PaperSemanticsSigma using (applyEl ; EvalFun ; EvalFun-step ;
   FinMemFun-append ; FinMem-Sup-element ;
   comp-EvalFun ; EvalFun-append-eq ; FinMemAllU-append-Sup ;
   LeFunCode-refl)
-open import SelectionSigma public
-open import RawSemanticsSigma using (absurd)
+open import SigmaProp.SelectionSigma public
+open import SigmaProp.RawSemanticsSigma using (absurd)
 
 ------------------------------------------------------------------------
 -- FinMem-Coherent

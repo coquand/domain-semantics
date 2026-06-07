@@ -15,13 +15,14 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module RawSemanticsSigma where
+module SigmaProp.RawSemanticsSigma where
+import SigmaProp.RawSyntaxSigma as RawSyntaxSigma
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ; fst ; snd ;
               Pair ; List ; nil ; cons ; Eq ; refl ; Eq-transport ; Eq-sym ;
               FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; SigmaCode ; PairCode ; FinFun)
-open import PaperSemanticsSigma using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-Bot ;
+open import SigmaProp.PaperSemanticsSigma using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-Bot ;
   Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; mkCFT ; cft-from-cf ;
   NotBot ; Coherent-singleton-key ; Coherent-singleton-val ;
   FinMem ; FinMemAllU ; FinMem-coh-u ; FinMem-a-in-U ; Sup ; Sup-Bot-r ; Sup-Bot-l ;
@@ -37,12 +38,12 @@ open import PaperSemanticsSigma using (LeCode ; LeCode-refl ; LeCode-trans ; LeC
   Or ; inl ; inr ;
   fstEl ; sndEl ;
   NotBot-Sup-Comp ; Or-NotBot-Sup)
-open import SelectionSigma using (Selection ; Edge ; EdgeIn ; here ; there ;
+open import SigmaProp.SelectionSigma using (Selection ; Edge ; EdgeIn ; here ; there ;
   sel-nil ; sel-take ; sel-skip ; sel-skip-all ;
   Coherent-Selection ; Coherent-Selection-val ;
   singleton-selection ; Selection-le-EvalFun ; selectionBelow ;
   FinMemAllU-Selection)
-open import RawSyntaxSigma hiding (Sigma)
+open import SigmaProp.RawSyntaxSigma hiding (Sigma)
 
 ------------------------------------------------------------------------
 -- Part 1: Finite environments

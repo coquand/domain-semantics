@@ -7,15 +7,15 @@
 -- Takes IH and sigEdgeEq as explicit arguments to avoid opacity.
 ------------------------------------------------------------------------
 
-module Adequacy5Cases where
-open import Adequacy5HeadRed public
+module SigmaProp.Adequacy5Cases where
+open import SigmaProp.Adequacy5HeadRed public
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ;
               fst ; snd ; Pair ; Eq ;
               FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; SigmaCode ; PairCode ; FinFun ;
               List ; nil ; cons ; codeFst ; codeSnd)
-open import PaperSemanticsSigma using (LeCode ; LeCode-refl ;
+open import SigmaProp.PaperSemanticsSigma using (LeCode ; LeCode-refl ;
   Coherent ; CoherentFun ; CoherentFunTail ; EvalFun ;
   Comp ; Sup ; LeCode-Sup-left ; LeCode-Sup-right ;
   Coherent-Sup ; EvalFun-in-UCode ; Coherent-EvalFun ; EvalFun-mon-arg ;
@@ -23,35 +23,35 @@ open import PaperSemanticsSigma using (LeCode ; LeCode-refl ;
   FinMem-a-in-U ; finMemUCode-Sup ; finMem-upward ;
   coh-from-aU ; FinMem-coh-u ; cft-from-cf ;
   NotBot ; absurdEl)
-open import ReductionSigma using (Red ; mkRed ; Red-refl ; HeadRed ;
+open import SigmaProp.ReductionSigma using (Red ; mkRed ; Red-refl ; HeadRed ;
   headred-step ; headred-beta ; headred-refl ; subst-subst1-comm ;
   headred-beta-fst ; headred-beta-snd)
-open import RawSemanticsSigma using (EnvApprox ; extendEnv ;
+open import SigmaProp.RawSemanticsSigma using (EnvApprox ; extendEnv ;
   EvalRel ; Sigma-edgewise ; EvalRel-coh ; CoherentEnv ;
   EvalRel-Comp ; EvalRel-down ; EvalRel-mon-env ; EnvLe ; EnvLe-refl)
-open import RawSyntaxSigma using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
+open import SigmaProp.RawSyntaxSigma using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
   MkPair ; Fst ; Snd ;
   Fin ; fzero ; fsuc ; wkExpr ; subst1 ;
   Sub ; liftSub ; substExpr ; subst1Sub)
   renaming (Sigma to SigmaE)
-open import TypingRulesSigma using (Ctx ; extend ;
+open import SigmaProp.TypingRulesSigma using (Ctx ; extend ;
   HasType ; ConvTm ; WfCtx ; wf-extend ;
   ty-var ; ty-conv ; ty-U ; ty-Sigma ; ty-MkPair ; ty-Fst ; ty-Snd ;
   conv-refl ; conv-sym ; conv-conv ; conv-beta-fst ; conv-beta-snd)
-open import ValiditySigma using (Selection ; Coherent-Selection ; Coherent-Selection-val ; FinMem-Coherent)
-open import ValiditySigma using () renaming (Red-unique-Pi to Red-unique-Pi2)
-open import SelectionSigma using (FinMemAllU-Selection ; selectionBelow ;
+open import SigmaProp.ValiditySigma using (Selection ; Coherent-Selection ; Coherent-Selection-val ; FinMem-Coherent)
+open import SigmaProp.ValiditySigma using () renaming (Red-unique-Pi to Red-unique-Pi2)
+open import SigmaProp.SelectionSigma using (FinMemAllU-Selection ; selectionBelow ;
   FinMem-Selection ; FinMem-Selection-codomain)
-open import EvalSubstitutionSigma using (EvalRel-subst1-backward ; EvalRel-body-EvalFun ;
+open import SigmaProp.EvalSubstitutionSigma using (EvalRel-subst1-backward ; EvalRel-body-EvalFun ;
   EvalRel-Pi-app-type ; EvalRel-subst1-forward)
-open import Validity5SymTrans using (EqVal2-trans)
-open import Validity5Fwd using (Val2-EqValTy2-fwd ; EqValTy2-sym)
-open import TypingSemanticsSigma using (convSound' ; theorem1)
-open import SubstitutionLemmaSigma using (typing-ConvTm ; WtSub ;
+open import SigmaProp.Validity5SymTrans using (EqVal2-trans)
+open import SigmaProp.Validity5Fwd using (Val2-EqValTy2-fwd ; EqValTy2-sym)
+open import SigmaProp.TypingSemanticsSigma using (convSound' ; theorem1)
+open import SigmaProp.SubstitutionLemmaSigma using (typing-ConvTm ; WtSub ;
   subst-HasType ; subst-ConvTm ; liftSub-WtSub ;
   typing-WfCtx ; typing-type ;
   subst1-cong-ConvTm ; WtConvSub ; subst-ConvTm-cross)
-open import LemmaForTSSigma using (Fits)
+open import SigmaProp.LemmaForTSSigma using (Fits)
 
 ------------------------------------------------------------------------
 -- Hole 6: ty-MkPair cross-sub at (PairCode u' v', SigmaCode b f)

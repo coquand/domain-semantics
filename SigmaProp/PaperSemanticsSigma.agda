@@ -15,9 +15,9 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module PaperSemanticsSigma where
+module SigmaProp.PaperSemanticsSigma where
 
-open import BasicSigma
+open import SigmaProp.BasicSigma
   using ( Top ; tt ; Empty
         ; Nat ; zero ; suc ; max
         ; Le ; Le-refl ; Le-suc ; Le-trans ; Le-max-l ; Le-max-r

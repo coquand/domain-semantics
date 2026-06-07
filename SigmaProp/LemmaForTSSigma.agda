@@ -21,13 +21,14 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module LemmaForTSSigma where
+module SigmaProp.LemmaForTSSigma where
+import SigmaProp.RawSyntaxSigma as RawSyntaxSigma
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ; fst ; snd ;
               Pair ; List ; nil ; cons ; Eq ; refl ; Eq-transport ; Eq-sym ;
               FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; SigmaCode ; PairCode ; FinFun)
-open import PaperSemanticsSigma using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-Bot ;
+open import SigmaProp.PaperSemanticsSigma using (LeCode ; LeCode-refl ; LeCode-trans ; LeCode-Bot ;
   Coherent ; CoherentFun ; CoherentFunTail ; CFTcons ; mkCFT ; cft-from-cf ;
   CoherentWith ;
   NotBot ; FinMem ; FinMemFun ; FinMemAllU ; FinMem-coh-u ; FinMem-a-in-U ; coh-from-aU ;
@@ -44,17 +45,17 @@ open import PaperSemanticsSigma using (LeCode ; LeCode-refl ; LeCode-trans ; LeC
   FinMemAllProp ; EvalFun-in-PropCode ; finMemPropCode-Sup ; FinMem-Prop-to-U ;
   Or ; inl ; inr)
 open CFTcons
-open import SelectionSigma using (Selection ; Edge ; EdgeIn ; here ; there ;
+open import SigmaProp.SelectionSigma using (Selection ; Edge ; EdgeIn ; here ; there ;
   sel-nil ; sel-take ; sel-skip ;
   Coherent-Selection ; Coherent-Selection-val ;
   CoherentFun-edge-key ;
   singleton-selection ; Selection-le-EvalFun ; selectionBelow ;
   FinMem-Selection ; FinMem-Selection-codomain)
-open import RawSyntaxSigma using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
+open import SigmaProp.RawSyntaxSigma using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
   MkPair ; Fst ; Snd ;
   Fin ; fzero ; fsuc ; Ren ; liftRen ; renExpr ; wkRen ; wkExpr ; subst1)
-open import RawSemanticsSigma
-open import TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
+open import SigmaProp.RawSemanticsSigma
+open import SigmaProp.TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
   HasType ; ty-var ; ty-conv ; ty-U ; ty-Pi ; ty-Lam ; ty-App ;
   ty-Sigma ; ty-MkPair ; ty-Fst ; ty-Snd ;
   WfCtx ; wf-empty ; wf-extend ;
@@ -63,7 +64,7 @@ open import TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
   conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg ;
   conv-Sigma ; conv-beta-fst ; conv-beta-snd ; conv-pair-eta ;
   conv-MkPair-fst ; conv-MkPair-snd ; conv-Fst ; conv-Snd)
-open import EvalSubstitutionSigma using (EvalRel-ren ; EvalRel-wk ; EvalRel-unwk ;
+open import SigmaProp.EvalSubstitutionSigma using (EvalRel-ren ; EvalRel-wk ; EvalRel-unwk ;
   EvalRel-subst1-backward ; EvalRel-subst1-forward-bounded ;
   EvalRel-subst1-forward)
 

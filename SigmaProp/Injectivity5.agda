@@ -20,49 +20,49 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module Injectivity5 where
+module SigmaProp.Injectivity5 where
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ;
               fst ; snd ; Pair ; Eq ;
               FinEl ; Bot ; UCode ; FunEl ; PiCode ; SigmaCode ;
               PairCode ; PropCode ; FinFun ;
               List ; nil ; cons)
-open import PaperSemanticsSigma using (LeCode ; LeCode-Bot ; LeCode-refl ;
+open import SigmaProp.PaperSemanticsSigma using (LeCode ; LeCode-Bot ; LeCode-refl ;
   LeCode-trans ; Coherent ;
   CoherentFun ; EvalFun ;
   FinMem ; FinMemFun ; FinMemAllU ;
   FinMem-coh-u ; coh-from-aU)
-open import RawSemanticsSigma using (EnvApprox ; emptyEnv ; extendEnv ;
+open import SigmaProp.RawSemanticsSigma using (EnvApprox ; emptyEnv ; extendEnv ;
   lookupEnv ; EvalRel ;
   EvalRel-coh ; CoherentEnv ; lookupEnv-coh ;
   EvalRel-Bot ; EvalRel-down ; EvalRel-mon-env ; EnvLe)
-import RawSyntaxSigma as RS
+import SigmaProp.RawSyntaxSigma as RS
 open RS using (Expr ; Var ; U ; Pi ; Lam ; App ; MkPair ; Fst ; Snd ;
   Fin ; fzero ; fsuc ; wkExpr ; subst1 ;
   Sub ; liftSub ; substExpr)
-open import TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
+open import SigmaProp.TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
   HasType ; ConvTm ; WfCtx ;
   ty-var ; ty-conv ; ty-U ; ty-Prop-U ; ty-Pi ; ty-Pi-Prop ; ty-Lam ; ty-App ;
   ty-Sigma ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ;
   conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg ;
   conv-Sigma)
-open import ReductionSigma using (Red ; mkRed ; Red-hr ; HeadRed ;
+open import SigmaProp.ReductionSigma using (Red ; mkRed ; Red-hr ; HeadRed ;
   headred-refl ; headred-beta ; headred-step ;
   idSub ; substExpr-id)
-open import ValiditySigma using (Red-unique-Pi ; Red-unique-Sigma)
-open import Validity5Core using (Val2 ; EqVal2 ; ValTy2 ; EqValTy2 ;
+open import SigmaProp.ValiditySigma using (Red-unique-Pi ; Red-unique-Sigma)
+open import SigmaProp.Validity5Core using (Val2 ; EqVal2 ; ValTy2 ; EqValTy2 ;
   Val2-Bot ; Red3 ; mkRed3 ; Red3-unique-Pi ; Red3-unique-Sigma ;
   REqValTyPi ; REqValTySigma)
-open import Adequacy5Helpers using (EqVal2-transport-A ;
+open import SigmaProp.Adequacy5Helpers using (EqVal2-transport-A ;
   ValidSub2 ; ValidSub2-empty ; idSub-WtSub ;
   WtSub)
-open import LemmaForTSSigma using (Fits)
-open import Adequacy5 using (adequacySub2 ; adequacyEqSub2)
-open import TypingSemanticsSigma using (convSound')
-open import SubstitutionLemmaSigma using (typing-ConvTm ; typing-WfCtx)
-import SelectionSigma
+open import SigmaProp.LemmaForTSSigma using (Fits)
+open import SigmaProp.Adequacy5 using (adequacySub2 ; adequacyEqSub2)
+open import SigmaProp.TypingSemanticsSigma using (convSound')
+open import SigmaProp.SubstitutionLemmaSigma using (typing-ConvTm ; typing-WfCtx)
+import SigmaProp.SelectionSigma as SelectionSigma
 
 ------------------------------------------------------------------------
 -- Structural inversions

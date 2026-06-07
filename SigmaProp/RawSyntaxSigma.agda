@@ -7,9 +7,9 @@
 -- Parallel version of RawSyntax.agda.
 ------------------------------------------------------------------------
 
-module RawSyntaxSigma where
+module SigmaProp.RawSyntaxSigma where
 
-open import BasicSigma using (Nat ; zero ; suc ; Eq ; refl ; Eq-cong ; Eq-transport ; Eq-sym)
+open import SigmaProp.BasicSigma using (Nat ; zero ; suc ; Eq ; refl ; Eq-cong ; Eq-transport ; Eq-sym)
 
 ------------------------------------------------------------------------
 -- Fin — de Bruijn variables

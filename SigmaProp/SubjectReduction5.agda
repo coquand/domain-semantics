@@ -13,17 +13,17 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module SubjectReduction5 where
+module SigmaProp.SubjectReduction5 where
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ;
               fst ; snd ; Pair ; Eq)
-import RawSyntaxSigma as RS
+import SigmaProp.RawSyntaxSigma as RS
 open RS using (Expr ; Var ; U ; Prop ; Pi ; Lam ; App ;
   MkPair ; Fst ; Snd ;
   Fin ; fzero ; fsuc ; subst1)
   renaming (Sigma to SigmaE)
-open import TypingRulesSigma using (Ctx ; empty ; extend ;
+open import SigmaProp.TypingRulesSigma using (Ctx ; empty ; extend ;
   HasType ; ConvTm ; WfCtx ;
   ty-var ; ty-conv ; ty-U ; ty-Prop ; ty-Prop-U ; ty-Pi ; ty-Pi-Prop ;
   ty-Lam ; ty-App ;
@@ -33,17 +33,17 @@ open import TypingRulesSigma using (Ctx ; empty ; extend ;
   conv-beta-fst ; conv-beta-snd ;
   conv-App-fun ; conv-Fst ; conv-Snd ;
   conv-Prop-U)
-open import ReductionSigma using (HeadRed ; HeadRed1 ;
+open import SigmaProp.ReductionSigma using (HeadRed ; HeadRed1 ;
   headred-beta ; headred-app ;
   headred-beta-fst ; headred-beta-snd ;
   headred-fst ; headred-snd ;
   headred-refl ; headred-step)
-open import PaperSemanticsSigma using (absurdEl)
-open import SubstitutionLemmaSigma using (typing-ConvTm ; typing-WfCtx ;
+open import SigmaProp.PaperSemanticsSigma using (absurdEl)
+open import SigmaProp.SubstitutionLemmaSigma using (typing-ConvTm ; typing-WfCtx ;
   typing-type ; subst-HasType ; subst-ConvTm ;
   subst1-WtSub ; ctx-conv-HasType ; ctx-conv-ConvTm ;
   subst1-cong-ConvTm)
-open import Injectivity5 using (piInjectivity ; piConv ;
+open import SigmaProp.Injectivity5 using (piInjectivity ; piConv ;
   sigmaInjectivity ; sigmaConv)
 
 ------------------------------------------------------------------------

@@ -9,11 +9,11 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module SubstitutionLemmaSigma where
+module SigmaProp.SubstitutionLemmaSigma where
 
-open import BasicSigma using (Nat ; zero ; suc ; Eq ; refl ; Eq-cong ;
+open import SigmaProp.BasicSigma using (Nat ; zero ; suc ; Eq ; refl ; Eq-cong ;
   Eq-transport ; Eq-sym ; Pair ; mkSigma ; fst ; snd)
-open import RawSyntaxSigma using (Fin ; fzero ; fsuc ;
+open import SigmaProp.RawSyntaxSigma using (Fin ; fzero ; fsuc ;
   Expr ; Var ; U ; Prop ; Pi ; Lam ; App ; MkPair ; Fst ; Snd ;
   Ren ; liftRen ; renExpr ; wkRen ; wkExpr ;
   Sub ; liftSub ; substExpr ; subst1Sub ; subst1 ;
@@ -22,8 +22,8 @@ open import RawSyntaxSigma using (Fin ; fzero ; fsuc ;
   ren-ren ; ren-subst ; subst-ren ; subst-subst ;
   liftSub-ext ; substExpr-ext ;
   ren-wk-comm ; subst-wk-comm)
-import RawSyntaxSigma as RS
-open import TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
+import SigmaProp.RawSyntaxSigma as RS
+open import SigmaProp.TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
   WfCtx ; wf-empty ; wf-extend ;
   HasType ; ty-var ; ty-conv ; ty-U ; ty-Prop ; ty-Prop-U ;
   ty-Pi ; ty-Pi-Prop ; ty-Lam ; ty-App ;
@@ -33,7 +33,7 @@ open import TypingRulesSigma using (Ctx ; empty ; extend ; lookup ;
   conv-beta ; conv-Prop ; conv-Prop-U ; conv-Pi ; conv-Pi-Prop ; conv-funext ; conv-App-fun ; conv-App-arg ;
   conv-Sigma ; conv-beta-fst ; conv-beta-snd ; conv-pair-eta ;
   conv-MkPair-fst ; conv-MkPair-snd ; conv-Fst ; conv-Snd)
-open import ReductionSigma using (idSub ; substExpr-id ; subst-subst1-comm)
+open import SigmaProp.ReductionSigma using (idSub ; substExpr-id ; subst-subst1-comm)
 
 ------------------------------------------------------------------------
 -- Part 1: Auxiliary equalities

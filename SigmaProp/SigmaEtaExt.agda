@@ -17,18 +17,18 @@
 -- Both directions are derivable. 0 postulates.
 ------------------------------------------------------------------------
 
-module SigmaEtaExt where
+module SigmaProp.SigmaEtaExt where
 
-open import BasicSigma using (Nat ; suc)
-open import RawSyntaxSigma using
+open import SigmaProp.BasicSigma using (Nat ; suc)
+open import SigmaProp.RawSyntaxSigma using
   (Expr ; U ; Sigma ; MkPair ; Fst ; Snd ; subst1)
-open import TypingRulesSigma using
+open import SigmaProp.TypingRulesSigma using
   (Ctx ; extend ;
    HasType ; ty-MkPair ; ty-Fst ; ty-Snd ;
    ConvTm ; conv-sym ; conv-trans ; conv-conv ;
    conv-beta-fst ; conv-beta-snd ; conv-pair-eta ;
    conv-MkPair-fst ; conv-MkPair-snd)
-open import SubstitutionLemmaSigma using
+open import SigmaProp.SubstitutionLemmaSigma using
   (subst-HasType ; subst1-WtSub ; subst1-cong-ConvTm ; typing-WfCtx)
 
 ------------------------------------------------------------------------

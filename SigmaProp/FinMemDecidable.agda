@@ -25,16 +25,16 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module FinMemDecidable where
+module SigmaProp.FinMemDecidable where
 
-open import BasicSigma
+open import SigmaProp.BasicSigma
   using ( Top ; tt ; Empty
         ; Sigma ; mkSigma ; fst ; snd ; Pair
         ; List ; nil ; cons
         ; FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; SigmaCode ; PairCode
         ; FinFun
         )
-open import PaperSemanticsSigma
+open import SigmaProp.PaperSemanticsSigma
   using ( Or ; inl ; inr
         ; Comp ; CompFun ; CompStepFun ; CompStepStep
         ; Coherent ; CoherentFun ; CoherentFunTail ; CoherentWith

@@ -9,32 +9,32 @@
 -- 0 postulates.
 ------------------------------------------------------------------------
 
-module Adequacy5HeadRed where
-open import Adequacy5Helpers public
+module SigmaProp.Adequacy5HeadRed where
+open import SigmaProp.Adequacy5Helpers public
 
-import Validity5Lemmas as V5L
+import SigmaProp.Validity5Lemmas as V5L
 
-import BasicSigma as S
+import SigmaProp.BasicSigma as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ;
               fst ; snd ; Eq ;
               FinEl ; Bot ; UCode ; PropCode ; FunEl ; PiCode ; SigmaCode ; PairCode ; FinFun ;
               codeFst ; codeSnd)
-open import RawSyntaxSigma using (Expr ; U ; Prop ; Pi ; Fst ; Snd ; App ;
+open import SigmaProp.RawSyntaxSigma using (Expr ; U ; Prop ; Pi ; Fst ; Snd ; App ;
   Fin ; fzero ; fsuc ; subst1)
   renaming (Sigma to SigmaE)
-open import TypingRulesSigma using (Ctx ; extend ;
+open import SigmaProp.TypingRulesSigma using (Ctx ; extend ;
   HasType ; ConvTm ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ; conv-Prop-U ;
   conv-App-fun ; conv-Fst ; conv-Snd)
-open import ReductionSigma using (HeadRed ; HeadRed1 ; HeadRed1-det ;
+open import SigmaProp.ReductionSigma using (HeadRed ; HeadRed1 ; HeadRed1-det ;
   headred-refl ; headred-step ; Red ; mkRed ; Red-hr ;
   HeadRed-trans ; HeadRed-App ; HeadRed-Fst ; HeadRed-Snd ;
   HeadRed-strip-Pi ; HeadRed-strip-Sigma)
-open import PaperSemanticsSigma using (EvalFun ; CoherentFun ; CoherentFunTail ;
+open import SigmaProp.PaperSemanticsSigma using (EvalFun ; CoherentFun ; CoherentFunTail ;
   FinMemFun ; FinMemAllU ; Coherent ; FinMem ; coh-from-aU ; cft-from-cf)
-open import SubstitutionLemmaSigma using (typing-ConvTm ; typing-type ;
+open import SigmaProp.SubstitutionLemmaSigma using (typing-ConvTm ; typing-type ;
   subst1-cong-ConvTm)
-open import SelectionSigma using (selectionBelow ; FinMemAllU-Selection ;
+open import SigmaProp.SelectionSigma using (selectionBelow ; FinMemAllU-Selection ;
   Coherent-Selection ; Coherent-Selection-val)
 
 ------------------------------------------------------------------------

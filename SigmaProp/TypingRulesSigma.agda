@@ -16,10 +16,10 @@
 --   conv-Sigma      congruence for Σ
 ------------------------------------------------------------------------
 
-module TypingRulesSigma where
+module SigmaProp.TypingRulesSigma where
 
-open import BasicSigma using (Nat ; zero ; suc)
-open import RawSyntaxSigma using (Fin ; fzero ; fsuc ;
+open import SigmaProp.BasicSigma using (Nat ; zero ; suc)
+open import SigmaProp.RawSyntaxSigma using (Fin ; fzero ; fsuc ;
   Expr ; Var ; U ; Prop ; Pi ; Lam ; App ; Sigma ; MkPair ; Fst ; Snd ;
   wkExpr ; subst1)
 
