@@ -28,3 +28,7 @@
 # Editor/temp files
 *~
 \#*\#
+
+# Working session notes — kept locally, hidden from the repo (README stays)
+/*.md
+!/README.md
