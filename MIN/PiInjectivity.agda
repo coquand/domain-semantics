@@ -22,22 +22,22 @@
 
 module MIN.PiInjectivity where
 
-import MIN.Basic as S
+import MIN.Domain.Basic as S
 open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Sigma ; mkSigma ; fst ; snd ; Pair ; Eq ; FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun ; List ; nil ; cons)
-open import MIN.PaperSemantics using (LeCode ; LeCode-Bot ; LeCode-refl ; LeCode-trans ; Coherent ; CoherentFun ; EvalFun ; FinMem ; FinMemFun ; FinMemAllU ; FinMem-coh-u ; coh-from-aU)
-open import MIN.RawSemantics using (EnvApprox ; emptyEnv ; extendEnv ; lookupEnv ; EvalRel ; EvalRel-coh ; CoherentEnv ; lookupEnv-coh ; EvalRel-Bot ; EvalRel-down ; EvalRel-mon-env ; EnvLe)
-import MIN.RawSyntax as RS
+open import MIN.Domain.Kernel using (LeCode ; LeCode-Bot ; LeCode-refl ; LeCode-trans ; Coherent ; CoherentFun ; EvalFun ; FinMem ; FinMemFun ; FinMemAllU ; FinMem-coh-u ; coh-from-aU)
+open import MIN.Model.Eval using (EnvApprox ; emptyEnv ; extendEnv ; lookupEnv ; EvalRel ; EvalRel-coh ; CoherentEnv ; lookupEnv-coh ; EvalRel-Bot ; EvalRel-down ; EvalRel-mon-env ; EnvLe)
+import MIN.Syntax.Raw as RS
 open RS using (Expr ; Var ; U ; Pi ; Lam ; App ; Fin ; fzero ; fsuc ; wkExpr ; subst1 ; Sub ; liftSub ; substExpr)
-open import MIN.TypingRules using (Ctx ; empty ; extend ; lookup ; HasType ; ConvTm ; WfCtx ; ty-var ; ty-conv ; ty-U ; ty-Pi ; ty-Lam ; ty-App ; conv-refl ; conv-sym ; conv-trans ; conv-conv ; conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg)
-open import MIN.Reduction using (Red ; mkRed ; Red-hr ; HeadRed ; headred-refl ; headred-beta ; headred-step ; idSub ; substExpr-id)
-open import MIN.Validity using (Red-unique-Pi)
-open import MIN.ValidityPublic using (Val2 ; EqVal2 ; ValTy2 ; EqValTy2 ; Val2-Bot ; Red3 ; mkRed3 ; Red3-unique-Pi ; REqValTyPi ; un-REqValTyPi)
-open import MIN.AdequacyHelpers using (EqVal2-transport-A ; ValidSub2 ; ValidSub2-empty ; idSub-WtSub)
-open import MIN.LemmaForTS using (Fits)
-open import MIN.AdequacyValue using (adequacySub2 ; adequacyEqSub2)
-open import MIN.TypingSemantics using (convSound')
-open import MIN.SubstitutionLemma using (typing-ConvTm ; typing-WfCtx)
-import MIN.Selection
+open import MIN.Syntax.Typing using (Ctx ; empty ; extend ; lookup ; HasType ; ConvTm ; WfCtx ; ty-var ; ty-conv ; ty-U ; ty-Pi ; ty-Lam ; ty-App ; conv-refl ; conv-sym ; conv-trans ; conv-conv ; conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg)
+open import MIN.Syntax.Reduction using (Red ; mkRed ; Red-hr ; HeadRed ; headred-refl ; headred-beta ; headred-step ; idSub ; substExpr-id)
+open import MIN.Validity.Core using (Red-unique-Pi)
+open import MIN.Validity.Public using (Val2 ; EqVal2 ; ValTy2 ; EqValTy2 ; Val2-Bot ; Red3 ; mkRed3 ; Red3-unique-Pi ; REqValTyPi ; un-REqValTyPi)
+open import MIN.Adequacy.Helpers using (EqVal2-transport-A ; ValidSub2 ; ValidSub2-empty ; idSub-WtSub)
+open import MIN.Model.SoundnessLemmas using (Fits)
+open import MIN.Adequacy.Value using (adequacySub2 ; adequacyEqSub2)
+open import MIN.Model.Soundness using (convSound')
+open import MIN.Syntax.Substitution using (typing-ConvTm ; typing-WfCtx)
+import MIN.Model.Selection
 
 ------------------------------------------------------------------------
 -- Structural inversions
@@ -106,10 +106,10 @@ evalRel-Pi-trivial A B rho =
         (\ u v sel -> sel-body u v sel))))
   where
     sel-body : (u v : FinEl) ->
-      MIN.Selection.Selection nil u v ->
+      MIN.Model.Selection.Selection nil u v ->
       Sigma FinEl (\ x -> Pair (LeCode x u)
         (Pair (FinMem x Bot) (EvalRel B (extendEnv rho x) v)))
-    sel-body .Bot .Bot MIN.Selection.sel-nil =
+    sel-body .Bot .Bot MIN.Model.Selection.sel-nil =
       mkSigma Bot (mkSigma tt (mkSigma tt (EvalRel-Bot B (extendEnv rho Bot))))
 
 ------------------------------------------------------------------------

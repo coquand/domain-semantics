@@ -17,14 +17,14 @@
 
 module MIN.SubjectReduction where
 
-open import MIN.Basic using ( Nat ; suc ; mkSigma ; fst ; snd ; Pair )
-open import MIN.RawSyntax using ( Expr ; U ; Pi ; Lam ; App ; subst1 )
-open import MIN.TypingRules using
+open import MIN.Domain.Basic using ( Nat ; suc ; mkSigma ; fst ; snd ; Pair )
+open import MIN.Syntax.Raw using ( Expr ; U ; Pi ; Lam ; App ; subst1 )
+open import MIN.Syntax.Typing using
   ( Ctx ; extend ; HasType ; ConvTm
   ; ty-conv ; ty-Pi ; ty-Lam ; ty-App
   ; conv-refl ; conv-trans )
-open import MIN.Reduction using ( HeadRed1 ; headred-beta ; headred-app )
-open import MIN.SubstitutionLemma using
+open import MIN.Syntax.Reduction using ( HeadRed1 ; headred-beta ; headred-app )
+open import MIN.Syntax.Substitution using
   ( typing-WfCtx ; subst-HasType ; subst1-WtSub
   ; ctx-conv-HasType ; ctx-conv-ConvTm )
 open import MIN.PiInjectivity using ( piInjectivity )
