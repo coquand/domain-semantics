@@ -46,11 +46,14 @@ open import NAT.Adequacy.FunCore using (adequacyEqSub2-App-fun)
 open import NAT.Adequacy.ArgCore using (adequacyEqSub2-App-arg)
 open import NAT.Adequacy.YCore using (adequacyV-Y-approx)
 open import NAT.Adequacy.YCross using (adequacyConvV-Y ; adequacyEqV-Y-unfold ; adequacyEqV-Y-cong)
-open import NAT.Syntax.Typing using (ty-NatT ; ty-Zero ; ty-Suc ; ty-Case ;
-  conv-case-zero ; conv-case-suc ; conv-Suc ; conv-Case)
+open import NAT.Syntax.Typing using (ty-NatT ; ty-Zero ; ty-Suc ; ty-Case ; ty-Case-dep ;
+  conv-case-zero ; conv-case-suc ; conv-Suc ; conv-Case ;
+  conv-case-zero-dep ; conv-case-suc-dep ; conv-Case-dep)
 open import NAT.Adequacy.NatCase using (valNatT-U ; valZero-Nat ; adequacyV-ty-Suc ;
   adequacyV-ty-Case ; adequacyVE-ty-Suc ; adequacyVE-ty-Case ;
   adequacyEqSub2-case-zero ; adequacyEqSub2-case-suc ; adequacyEqSub2-Suc ; adequacyEqSub2-Case)
+open import NAT.Adequacy.NatCaseDep using (adequacyV-ty-Case-dep ; adequacyVE-ty-Case-dep ;
+  adequacyEqSub2-Case-dep ; adequacyEqSub2-case-zero-dep ; adequacyEqSub2-case-suc-dep)
 
 mutual
 
@@ -120,6 +123,9 @@ mutual
     adequacyV-ty-Suc dm (adequacySub2 dm) sigma rho crho vs fits wtsub wfH u hu ac evA fm
   adequacySub2 (ty-Case {C = C} {M = M} {a = a} {b = b} dC dM da db) sigma rho crho vs fits wtsub wfH u hu ac evA fm =
     adequacyV-ty-Case dC dM da db (adequacySub2 dC) (adequacySub2 dM) (adequacySub2 da) (adequacySub2 db)
+      sigma rho crho vs fits wtsub wfH u hu ac evA fm
+  adequacySub2 (ty-Case-dep {C = C} {M = M} {a = a} {b = b} dC dM da db) sigma rho crho vs fits wtsub wfH u hu ac evA fm =
+    adequacyV-ty-Case-dep dC dM da db (adequacySub2 dC) (adequacyConvSub2 dC) (adequacySub2 dM) (adequacySub2 da) (adequacySub2 db)
       sigma rho crho vs fits wtsub wfH u hu ac evA fm
 
   adequacyConvSub2 : {h g : Nat} {H : Ctx h} {G : Ctx g} {M A : Expr g} ->
@@ -201,6 +207,9 @@ mutual
     adequacyVE-ty-Suc dm (adequacyConvSub2 dm) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu ac evA fm
   adequacyConvSub2 (ty-Case {C = C} {M = M} {a = a} {b = b} dC dM da db) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu ac evA fm =
     adequacyVE-ty-Case dC dM da db (adequacySub2 dC) (adequacyConvSub2 dM) (adequacyConvSub2 da) (adequacyConvSub2 db)
+      sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu ac evA fm
+  adequacyConvSub2 (ty-Case-dep {C = C} {M = M} {a = a} {b = b} dC dM da db) sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu ac evA fm =
+    adequacyVE-ty-Case-dep dC dM da db (adequacySub2 dC) (adequacyConvSub2 dC) (adequacySub2 dM) (adequacyConvSub2 dM) (adequacyConvSub2 da) (adequacyConvSub2 db)
       sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu ac evA fm
 
   adequacyEqSub2 : {h g : Nat} {H : Ctx h} {G : Ctx g} {M N A : Expr g} ->
@@ -292,4 +301,14 @@ mutual
   adequacyEqSub2 (conv-Case {C = C} {M = M} {M' = M'} {a = a} {a' = a'} {b = b} {b' = b'} dC dMM' daa' dbb')
     sigma rho crho vs fits wtsub wfH u hu ac evA fm =
     adequacyEqSub2-Case dC dMM' daa' dbb' (adequacySub2 dC) (adequacyEqSub2 dMM') (adequacyEqSub2 daa') (adequacyEqSub2 dbb')
+      sigma rho crho vs fits wtsub wfH u hu ac evA fm
+  adequacyEqSub2 (conv-case-zero-dep {C = C} {a = a} {b = b} dC da db) sigma rho crho vs fits wtsub wfH u hu ac evA fm =
+    adequacyEqSub2-case-zero-dep dC da db (adequacySub2 da) sigma rho crho vs fits wtsub wfH u hu ac evA fm
+  adequacyEqSub2 (conv-case-suc-dep {C = C} {m = m} {a = a} {b = b} dC dm da db) sigma rho crho vs fits wtsub wfH u hu ac evA fm =
+    adequacyEqSub2-case-suc-dep dC dm da db (adequacySub2 dC) (adequacySub2 dm) (adequacySub2 db)
+      sigma rho crho vs fits wtsub wfH u hu ac evA fm
+  adequacyEqSub2 (conv-Case-dep {C = C} {M = M} {M' = M'} {a = a} {a' = a'} {b = b} {b' = b'} dC dMM' daa' dbb')
+    sigma rho crho vs fits wtsub wfH u hu ac evA fm =
+    adequacyEqSub2-Case-dep dC dMM' daa' dbb' (adequacySub2 dC) (adequacyConvSub2 dC)
+      (adequacyEqSub2 dMM') (adequacyEqSub2 daa') (adequacyEqSub2 dbb')
       sigma rho crho vs fits wtsub wfH u hu ac evA fm

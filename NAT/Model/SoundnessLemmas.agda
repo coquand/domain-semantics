@@ -46,7 +46,7 @@ open import NAT.Model.Selection using (Selection ; Edge ; EdgeIn ; here ; there 
   FinMem-Selection ; FinMem-Selection-codomain)
 open import NAT.Syntax.Raw using (Expr ; Var ; U ; Pi ; Lam ; App ;
   NatT ; Zero ; Suc ; Case ;
-  Fin ; fzero ; fsuc ; Ren ; liftRen ; renExpr ; wkRen ; wkExpr ; subst1)
+  Fin ; fzero ; fsuc ; Ren ; liftRen ; renExpr ; wkRen ; wkExpr ; subst1 ; subSucC ; sucSub)
 open import NAT.Model.Eval
 open import NAT.Syntax.Typing using (Ctx ; empty ; extend ; lookup ;
   HasType ; ty-var ; ty-conv ; ty-U ; ty-Pi ; ty-Lam ; ty-App ;
@@ -56,8 +56,9 @@ open import NAT.Syntax.Typing using (Ctx ; empty ; extend ; lookup ;
   conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg)
 open import NAT.Model.EvalSubstitution using (EvalRel-ren ; EvalRel-wk ; EvalRel-unwk ;
   EvalRel-subst1-backward ; EvalRel-subst1-forward-bounded ;
-  EvalRel-subst1-forward)
+  EvalRel-subst1-forward ; EvalRel-subst-forward-wit ; envLe-from-pointwise)
 open import NAT.Syntax.Substitution using (subst1-wk)
+open import NAT.Syntax.Raw using (subSucC-subst1)
 
 ------------------------------------------------------------------------
 -- Helper: replace keys in a graph using a witness function
@@ -2200,6 +2201,343 @@ InvConv-Case {G = G} C M M' a a' b b' rho fits invC icM icA icB =
     bwdb   = snd (snd (snd icB))
     invCaseL = InvTyp-Case C M a b rho fits invC invM inva invb
     invCaseR = InvTyp-Case C M' a' b' rho fits invC invM' inva' invb'
+    fwd : (u : FinEl) -> EvalRel (Case M a b) rho u -> EvalRel (Case M' a' b') rho u
+    fwd u ev = mkSigma (fst ev) (mkSigma (fwdM (fst ev) (fst (snd ev)))
+                 (CaseBranch-map a b a' b' rho u (fst ev) fwda fwdb (snd (snd ev))))
+    bwd : (u : FinEl) -> EvalRel (Case M' a' b') rho u -> EvalRel (Case M a b) rho u
+    bwd u ev = mkSigma (fst ev) (mkSigma (bwdM (fst ev) (fst (snd ev)))
+                 (CaseBranch-map a' b' a b rho u (fst ev) bwda bwdb (snd (snd ev))))
+
+------------------------------------------------------------------------
+-- Dependent caseNat: motive-at-scrutinee-value bridging lemmas
+------------------------------------------------------------------------
+
+-- subSucC C at z evaluates as C at (S z):  forward substitution.
+EvalRel-subSucC-fwd : {n : Nat} (C : Expr (suc n)) (rho : EnvApprox n)
+  (z u : FinEl) -> CoherentEnv rho -> Coherent z ->
+  EvalRel (subSucC C) (extendEnv rho z) u ->
+  EvalRel C (extendEnv rho (SucEl z)) u
+EvalRel-subSucC-fwd {n} C rho z u crho cz ev =
+  EvalRel-mon-env C rho' (extendEnv rho (SucEl z)) u evC
+    (envLe-from-pointwise rho' (extendEnv rho (SucEl z)) pt)
+  where
+    r    = EvalRel-subst-forward-wit sucSub C (extendEnv rho z) u (mkSigma crho cz) ev
+    rho' = fst r
+    sr   = fst (snd (snd r))
+    evC  = snd (snd (snd r))
+    pt : (i : Fin (suc n)) ->
+      Pair (Coherent (lookupEnv i rho'))
+        (Pair (Coherent (lookupEnv i (extendEnv rho (SucEl z))))
+              (LeCode (lookupEnv i rho') (lookupEnv i (extendEnv rho (SucEl z)))))
+    pt fzero =
+      let e   = sr fzero
+          cu0 = fst e
+          v   = fst (snd e)
+          evv = fst (snd (snd e))
+          le0 = snd (snd (snd e))
+          cv  = fst evv
+          lev = snd evv
+      in mkSigma cu0 (mkSigma cz
+           (LeCode-trans (lookupEnv fzero rho') (SucEl v) (SucEl z) cu0 cv cz le0 lev))
+    pt (fsuc i) =
+      let e = sr (fsuc i)
+      in mkSigma (fst e) (mkSigma (lookupEnv-coh i rho crho) (snd e))
+
+-- Zero branch bridge: when M ↠ Zero, the branch type C[0] agrees with C[M].
+motive-Zero-bridge : {n : Nat} (C : Expr (suc n)) (M : Expr n)
+  (rho : EnvApprox n) (c : FinEl) -> CoherentEnv rho ->
+  EvalRel M rho ZeroEl ->
+  EvalRel (subst1 C Zero) rho c -> EvalRel (subst1 C M) rho c
+motive-Zero-bridge C M rho c crho evM ev =
+  let fwd  = EvalRel-subst1-forward C Zero rho c crho ev
+      v0   = fst fwd
+      evZ  = fst (snd fwd)
+      evC  = snd (snd fwd)
+      envle = mkSigma (EnvLe-refl rho crho) (mkSigma (fst evZ) (mkSigma tt (snd evZ)))
+      evC' = EvalRel-mon-env C (extendEnv rho v0) (extendEnv rho ZeroEl) c evC envle
+  in EvalRel-subst1-backward C M rho ZeroEl c crho evM evC'
+
+-- Suc branch bridge: when M ↠ S p and z ≤ p, the codomain (subSucC C)[z] of the
+-- succ branch agrees with C[M].
+motive-Suc-bridge : {n : Nat} (C : Expr (suc n)) (M : Expr n)
+  (rho : EnvApprox n) (z p u : FinEl) -> CoherentEnv rho ->
+  Coherent z -> Coherent p -> LeCode z p -> EvalRel M rho (SucEl p) ->
+  EvalRel (subSucC C) (extendEnv rho z) u -> EvalRel (subst1 C M) rho u
+motive-Suc-bridge C M rho z p u crho cz cp lezp evM ev =
+  let evCsz = EvalRel-subSucC-fwd C rho z u crho cz ev
+      envle = mkSigma (EnvLe-refl rho crho) (mkSigma cz (mkSigma cp lezp))
+      evCsp = EvalRel-mon-env C (extendEnv rho (SucEl z)) (extendEnv rho (SucEl p)) u evCsz envle
+  in EvalRel-subst1-backward C M rho (SucEl p) u crho evM evCsp
+
+------------------------------------------------------------------------
+-- InvTyp-Case-dep : model soundness of the dependent caseNat eliminator.
+-- Identical TERM structure to InvTyp-Case; the type witness is bridged
+-- through the motive (motive-Zero-bridge / motive-Suc-bridge).  The motive
+-- C lives in (extend G NatT); no InvTyp for it is needed (the branch IHs
+-- carry the type witnesses).
+------------------------------------------------------------------------
+
+InvTyp-Case-dep : {n : Nat} {G : Ctx n} (C : Expr (suc n)) (M a b : Expr n)
+  (rho : EnvApprox n) ->
+  Fits G rho ->
+  InvTyp G M NatT rho ->
+  InvTyp G a (subst1 C Zero) rho ->
+  InvTyp G b (Pi NatT (subSucC C)) rho ->
+  InvTyp G (Case M a b) (subst1 C M) rho
+InvTyp-Case-dep {G = G} C M a b rho fits invM inva invb = case-aux
+  where
+    crho = Fits-CoherentEnv rho fits
+
+    suc-h-case :
+      (p u : FinEl) -> NotBot u -> Coherent u -> Coherent p ->
+      EvalRel M rho (SucEl p) ->
+      EvalRel b rho (FunEl (cons (mkSigma p u) nil)) ->
+      (h piaf : FinEl) ->
+      LeCode (FunEl (cons (mkSigma p u) nil)) h ->
+      EvalRel b rho h ->
+      FinMem h piaf ->
+      EvalRel (Pi NatT (subSucC C)) rho piaf ->
+      Typed (Case M a b) (subst1 C M) rho u
+    suc-h-case p u nbu cu cp evM evb-sing Bot          piaf ()
+    suc-h-case p u nbu cu cp evM evb-sing UCode        piaf ()
+    suc-h-case p u nbu cu cp evM evb-sing (PiCode _ _) piaf ()
+    suc-h-case p u nbu cu cp evM evb-sing (FunEl g') Bot         le-g' evb-g' ()
+    suc-h-case p u nbu cu cp evM evb-sing (FunEl g') UCode       le-g' evb-g' ()
+    suc-h-case p u nbu cu cp evM evb-sing (FunEl g') (FunEl _)   le-g' evb-g' ()
+    suc-h-case p u nbu cu cp evM evb-sing (FunEl g') (PiCode a0 f0) le-g' evb-g' fm-g' evPi =
+      let fmFun-g' = finMem-funel-fun g' a0 f0 fm-g'
+          cf-g'    = finMem-funel-coh g' a0 f0 fm-g'
+          piU      = finMem-funel-wf g' a0 f0 fm-g'
+          aU       = finMem-piU-dom a0 f0 piU
+          fmAllU-f = finMem-piU-allU a0 f0 piU
+          cf-f     = finMem-piU-cft a0 f0 piU
+          ca       = coh-from-aU a0 aU
+          le-v-ef  = fst le-g'
+          ctg'     = cft-from-cf g' cf-g'
+          sb       = selectionBelow g' p ctg' cp
+          u0       = fst sb
+          v0       = fst (snd sb)
+          sel-g'   = fst (snd (snd sb))
+          le-u0-w  = fst (snd (snd (snd sb)))
+          eq-v0    = snd (snd (snd (snd sb)))
+          le-v-v0  : LeCode u v0
+          le-v-v0  = Eq-transport (LeCode u) eq-v0 le-v-ef
+          cu0      = Coherent-Selection sel-g' ctg'
+          cv0      = Coherent-Selection-val sel-g' ctg'
+          fm-v0-fu0 = FinMem-Selection-codomain a0 f0 sel-g' fmFun-g' ctg' cf-f fmAllU-f
+          fu0      = EvalFun f0 u0
+          selbody-f = snd (snd (snd (snd evPi)))
+          sb-f     = selectionBelow f0 u0 cf-f cu0
+          x-f      = fst sb-f
+          w-f      = fst (snd sb-f)
+          sel-f    = fst (snd (snd sb-f))
+          le-xf    = fst (snd (snd (snd sb-f)))
+          eq-wf    = snd (snd (snd (snd sb-f)))
+          sb-result = selbody-f x-f w-f sel-f
+          z        = fst sb-result
+          le-z-xf  = fst (snd sb-result)
+          fm-z-a'  = fst (snd (snd sb-result))
+          evB-z-wf = snd (snd (snd sb-result))
+          cx-f     = Coherent-Selection sel-f cf-f
+          cz       = FinMem-coh-u z _ fm-z-a'
+          lezp     = LeCode-trans z u0 p cz cu0 cp
+                       (LeCode-trans z x-f u0 cz cx-f cu0 le-z-xf le-xf) le-u0-w
+          evB-z-fu0 : EvalRel (subSucC C) (extendEnv rho z) fu0
+          evB-z-fu0 = Eq-transport (\ x -> EvalRel (subSucC C) (extendEnv rho z) x)
+                        (Eq-sym eq-wf) evB-z-wf
+          evC-fu0  = motive-Suc-bridge C M rho z p fu0 crho cz cp lezp evM evB-z-fu0
+          lf-v0    : LeFunCode (cons (mkSigma p v0) nil) g'
+          lf-v0    = mkSigma (Eq-transport (\ x -> LeCode x (EvalFun g' p)) eq-v0
+                       (LeCode-refl (EvalFun g' p)
+                         (Coherent-EvalFun g' p (cft-from-cf g' cf-g') cp))) tt
+          nbv0     = NotBot-from-Le u v0 cu nbu le-v-v0
+          cf-v0-sing : Coherent (FunEl (cons (mkSigma p v0) nil))
+          cf-v0-sing = mkCFT cp cv0 nbv0 tt tt
+          evb-v0-sing = EvalRel-down b rho (FunEl g')
+                          (FunEl (cons (mkSigma p v0) nil))
+                          crho cf-v0-sing evb-g' lf-v0
+          evCase-v0 : EvalRel (Case M a b) rho v0
+          evCase-v0 = mkSigma (SucEl p) (mkSigma evM evb-v0-sing)
+      in mkSigma v0 (mkSigma fu0
+           (mkSigma le-v-v0 (mkSigma evCase-v0 (mkSigma fm-v0-fu0 evC-fu0))))
+
+    suc-main : (p u : FinEl) -> NotBot u -> Coherent u -> Coherent p ->
+      EvalRel M rho (SucEl p) ->
+      EvalRel b rho (FunEl (cons (mkSigma p u) nil)) ->
+      Typed (Case M a b) (subst1 C M) rho u
+    suc-main p u nbu cu cp evM evb-sing =
+      let invb-sing = invb (FunEl (cons (mkSigma p u) nil)) evb-sing
+          h     = fst invb-sing
+          piaf  = fst (snd invb-sing)
+          le    = fst (snd (snd invb-sing))
+          evb-h = fst (snd (snd (snd invb-sing)))
+          fm-h  = fst (snd (snd (snd (snd invb-sing))))
+          evPi  = snd (snd (snd (snd (snd invb-sing))))
+      in suc-h-case p u nbu cu cp evM evb-sing h piaf le evb-h fm-h evPi
+
+    branch : (u w : FinEl) -> EvalRel M rho w -> CaseBranch a b rho u w ->
+      Typed (Case M a b) (subst1 C M) rho u
+    branch u Bot          evM cb =
+      mkSigma Bot (mkSigma Bot
+        (mkSigma (snd cb)
+          (mkSigma (mkSigma Bot (mkSigma (EvalRel-Bot M rho) (mkSigma tt tt)))
+            (mkSigma tt (EvalRel-Bot (subst1 C M) rho)))))
+    branch u UCode        evM ()
+    branch u (FunEl g)    evM ()
+    branch u (PiCode d f) evM ()
+    branch u NatCode      evM ()
+    branch u ZeroEl       evM cb =
+      let mkSigma u' (mkSigma c' (mkSigma le-uu' (mkSigma eva-u' (mkSigma fm-u'c' evCZero)))) =
+            inva u cb
+          evCM = motive-Zero-bridge C M rho c' crho evM evCZero
+      in mkSigma u' (mkSigma c'
+           (mkSigma le-uu'
+             (mkSigma (mkSigma ZeroEl (mkSigma evM eva-u'))
+               (mkSigma fm-u'c' evCM))))
+    branch u (SucEl p)    evM cb =
+      let coh-sing = EvalRel-coh b rho (FunEl (cons (mkSigma p u) nil)) cb
+          cp  = key-coh coh-sing
+          cu  = val-coh coh-sing
+          nbu = val-nbot coh-sing
+      in suc-main p u nbu cu cp evM cb
+
+    case-aux : (u : FinEl) -> EvalRel (Case M a b) rho u ->
+      Typed (Case M a b) (subst1 C M) rho u
+    case-aux u ev = branch u (fst ev) (fst (snd ev)) (snd (snd ev))
+
+-- Congruence bridge: when M ≡ M' (backward EvalRel map), C[M'] agrees with C[M].
+motive-cong-bridge : {n : Nat} (C : Expr (suc n)) (M M' : Expr n)
+  (rho : EnvApprox n) (c : FinEl) -> CoherentEnv rho ->
+  ((v : FinEl) -> EvalRel M' rho v -> EvalRel M rho v) ->
+  EvalRel (subst1 C M') rho c -> EvalRel (subst1 C M) rho c
+motive-cong-bridge C M M' rho c crho bwdM ev =
+  let fwd  = EvalRel-subst1-forward C M' rho c crho ev
+      v    = fst fwd
+      evM' = fst (snd fwd)
+      evC  = snd (snd fwd)
+  in EvalRel-subst1-backward C M rho v c crho (bwdM v evM') evC
+
+------------------------------------------------------------------------
+-- InvConv-case-zero-dep / InvConv-case-suc-dep / InvConv-Case-dep
+------------------------------------------------------------------------
+
+InvConv-case-zero-dep : {n : Nat} {G : Ctx n} (C : Expr (suc n)) (a b : Expr n)
+  (rho : EnvApprox n) ->
+  Fits G rho ->
+  InvTyp G a (subst1 C Zero) rho ->
+  InvTyp G b (Pi NatT (subSucC C)) rho ->
+  InvConv G (Case Zero a b) a (subst1 C Zero) rho
+InvConv-case-zero-dep {G = G} C a b rho fits inva invb =
+  mkSigma (InvTyp-Case-dep C Zero a b rho fits (InvTyp-Zero {G = G} rho) inva invb)
+    (mkSigma inva (mkSigma fwd bwd))
+  where
+    crho = Fits-CoherentEnv rho fits
+    caseZero-to-a : (u w : FinEl) -> LeCode w ZeroEl ->
+      CaseBranch a b rho u w -> EvalRel a rho u
+    caseZero-to-a u Bot          lew cb =
+      EvalRel-down a rho Bot u crho (fst cb) (EvalRel-Bot a rho) (snd cb)
+    caseZero-to-a u UCode        () cb
+    caseZero-to-a u (FunEl g)    () cb
+    caseZero-to-a u (PiCode d f) () cb
+    caseZero-to-a u NatCode      () cb
+    caseZero-to-a u ZeroEl       lew cb = cb
+    caseZero-to-a u (SucEl v)    () cb
+    fwd : (u : FinEl) -> EvalRel (Case Zero a b) rho u -> EvalRel a rho u
+    fwd u ev = caseZero-to-a u (fst ev) (snd (fst (snd ev))) (snd (snd ev))
+    bwd : (u : FinEl) -> EvalRel a rho u -> EvalRel (Case Zero a b) rho u
+    bwd u ev = mkSigma ZeroEl (mkSigma (mkSigma tt tt) ev)
+
+InvConv-case-suc-dep : {n : Nat} {G : Ctx n} (C : Expr (suc n)) (m a b : Expr n)
+  (rho : EnvApprox n) ->
+  Fits G rho ->
+  InvTyp G m NatT rho ->
+  InvTyp G a (subst1 C Zero) rho ->
+  InvTyp G b (Pi NatT (subSucC C)) rho ->
+  InvConv G (Case (Suc m) a b) (App b m) (subst1 C (Suc m)) rho
+InvConv-case-suc-dep {G = G} C m a b rho fits invm inva invb =
+  mkSigma (InvTyp-Case-dep C (Suc m) a b rho fits (InvTyp-Suc {G = G} m rho invm) inva invb)
+    (mkSigma invApp (mkSigma fwd bwd))
+  where
+    crho = Fits-CoherentEnv rho fits
+    invApp : InvTyp G (App b m) (subst1 C (Suc m)) rho
+    invApp = Eq-transport (\ T -> InvTyp G (App b m) T rho) (subSucC-subst1 C m)
+               (InvTyp-App NatT (subSucC C) b m rho fits invb)
+
+    caseSuc-to-app : (u w : FinEl) ->
+      Sigma FinEl (\ p -> Pair (EvalRel m rho p) (LeCode w (SucEl p))) ->
+      CaseBranch a b rho u w -> EvalRel (App b m) rho u
+    caseSuc-to-app u Bot          sg cb =
+      EvalRel-down (App b m) rho Bot u crho (fst cb) (EvalRel-Bot (App b m) rho) (snd cb)
+    caseSuc-to-app u UCode        sg ()
+    caseSuc-to-app u (FunEl g)    sg ()
+    caseSuc-to-app u (PiCode d f) sg ()
+    caseSuc-to-app u NatCode      sg ()
+    caseSuc-to-app u ZeroEl       (mkSigma p (mkSigma evm-p ())) cb
+    caseSuc-to-app u (SucEl p')   (mkSigma p (mkSigma evm-p le-w)) cb =
+      let coh-sing = EvalRel-coh b rho (FunEl (cons (mkSigma p' u) nil)) cb
+          cp'  = key-coh coh-sing
+          nbu  = val-nbot coh-sing
+          evm-p' = EvalRel-down m rho p p' crho cp' evm-p le-w
+      in mkEvalApp b m rho u nbu p' evm-p' cb
+
+    fwd : (u : FinEl) -> EvalRel (Case (Suc m) a b) rho u -> EvalRel (App b m) rho u
+    fwd u ev = caseSuc-to-app u (fst ev) (snd (fst (snd ev))) (snd (snd ev))
+
+    bwd-nonbot : (u : FinEl) ->
+      Sigma FinEl (\ p -> Pair (EvalRel m rho p)
+                               (EvalRel b rho (FunEl (cons (mkSigma p u) nil)))) ->
+      EvalRel (Case (Suc m) a b) rho u
+    bwd-nonbot u ev =
+      let p = fst ev
+          evm-p = fst (snd ev)
+          evb-sing = snd (snd ev)
+          cp = EvalRel-coh m rho p evm-p
+      in mkSigma (SucEl p)
+           (mkSigma (mkSigma cp (mkSigma p (mkSigma evm-p (LeCode-refl p cp)))) evb-sing)
+
+    bwd : (u : FinEl) -> EvalRel (App b m) rho u -> EvalRel (Case (Suc m) a b) rho u
+    bwd Bot          ev =
+      mkSigma Bot (mkSigma (mkSigma tt (mkSigma Bot (mkSigma (EvalRel-Bot m rho) tt)))
+        (mkSigma tt tt))
+    bwd UCode        ev = bwd-nonbot UCode ev
+    bwd (FunEl g)    ev = bwd-nonbot (FunEl g) ev
+    bwd (PiCode d f) ev = bwd-nonbot (PiCode d f) ev
+    bwd NatCode      ev = bwd-nonbot NatCode ev
+    bwd ZeroEl       ev = bwd-nonbot ZeroEl ev
+    bwd (SucEl v)    ev = bwd-nonbot (SucEl v) ev
+
+InvConv-Case-dep : {n : Nat} {G : Ctx n} (C : Expr (suc n)) (M M' a a' b b' : Expr n)
+  (rho : EnvApprox n) ->
+  Fits G rho ->
+  InvConv G M M' NatT rho ->
+  InvConv G a a' (subst1 C Zero) rho ->
+  InvConv G b b' (Pi NatT (subSucC C)) rho ->
+  InvConv G (Case M a b) (Case M' a' b') (subst1 C M) rho
+InvConv-Case-dep {G = G} C M M' a a' b b' rho fits icM icA icB =
+  mkSigma invCaseL (mkSigma invCaseR (mkSigma fwd bwd))
+  where
+    crho = Fits-CoherentEnv rho fits
+    invM   = fst icM
+    invM'  = fst (snd icM)
+    fwdM   = fst (snd (snd icM))
+    bwdM   = snd (snd (snd icM))
+    inva   = fst icA
+    inva'  = fst (snd icA)
+    fwda   = fst (snd (snd icA))
+    bwda   = snd (snd (snd icA))
+    invb   = fst icB
+    invb'  = fst (snd icB)
+    fwdb   = fst (snd (snd icB))
+    bwdb   = snd (snd (snd icB))
+    invCaseL = InvTyp-Case-dep C M a b rho fits invM inva invb
+    invCaseR-raw = InvTyp-Case-dep C M' a' b' rho fits invM' inva' invb'
+    invCaseR : InvTyp G (Case M' a' b') (subst1 C M) rho
+    invCaseR u ev =
+      let mkSigma u'' (mkSigma a'' (mkSigma le (mkSigma evCase (mkSigma fm evCM')))) =
+            invCaseR-raw u ev
+      in mkSigma u'' (mkSigma a''
+           (mkSigma le (mkSigma evCase
+             (mkSigma fm (motive-cong-bridge C M M' rho a'' crho bwdM evCM')))))
     fwd : (u : FinEl) -> EvalRel (Case M a b) rho u -> EvalRel (Case M' a' b') rho u
     fwd u ev = mkSigma (fst ev) (mkSigma (fwdM (fst ev) (fst (snd ev)))
                  (CaseBranch-map a b a' b' rho u (fst ev) fwda fwdb (snd (snd ev))))

@@ -103,6 +103,20 @@ subst1 : {n : Nat} -> Expr (suc n) -> Expr n -> Expr n
 subst1 M s = substExpr (subst1Sub s) M
 
 ------------------------------------------------------------------------
+-- Successor substitution (for the dependent caseNat motive):
+--   subSucC C = C[x := S x]   over the same extended context.
+-- If C : Nat ⊢ U is the motive, then subSucC C is the codomain of the
+-- succ branch's type Π(n:Nat) C[S n], and subst1 (subSucC C) m = C[S m].
+------------------------------------------------------------------------
+
+sucSub : {n : Nat} -> Sub (suc n) (suc n)
+sucSub fzero    = Suc (Var fzero)
+sucSub (fsuc i) = Var (fsuc i)
+
+subSucC : {n : Nat} -> Expr (suc n) -> Expr (suc n)
+subSucC C = substExpr sucSub C
+
+------------------------------------------------------------------------
 -- Equality helpers
 ------------------------------------------------------------------------
 
@@ -352,3 +366,64 @@ subst-subst tau sigma Zero         = refl
 subst-subst tau sigma (Suc m)      = Eq-cong Suc (subst-subst tau sigma m)
 subst-subst tau sigma (Case M a b) =
   Eq-cong3 Case (subst-subst tau sigma M) (subst-subst tau sigma a) (subst-subst tau sigma b)
+
+------------------------------------------------------------------------
+-- Renaming as substitution by variables, and lemmas about subSucC
+------------------------------------------------------------------------
+
+-- A renaming acts as the substitution by the corresponding variables.
+ren-as-subst : {n m : Nat} (r : Ren n m) (e : Expr n) ->
+  Eq (renExpr r e) (substExpr (\ i -> Var (r i)) e)
+ren-as-subst r (Var i)      = refl
+ren-as-subst r U            = refl
+ren-as-subst r (Pi A B)     =
+  Eq-cong2-Expr Pi (ren-as-subst r A)
+    (Eq-trans (ren-as-subst (liftRen r) B)
+      (substExpr-ext _ _ (\ { fzero -> refl ; (fsuc i) -> refl }) B))
+ren-as-subst r (Lam A M)    =
+  Eq-cong2-Expr Lam (ren-as-subst r A)
+    (Eq-trans (ren-as-subst (liftRen r) M)
+      (substExpr-ext _ _ (\ { fzero -> refl ; (fsuc i) -> refl }) M))
+ren-as-subst r (App f a)    =
+  Eq-cong2-Expr App (ren-as-subst r f) (ren-as-subst r a)
+ren-as-subst r (Y g)        = Eq-cong Y (ren-as-subst r g)
+ren-as-subst r NatT          = refl
+ren-as-subst r Zero         = refl
+ren-as-subst r (Suc m)      = Eq-cong Suc (ren-as-subst r m)
+ren-as-subst r (Case M a b) =
+  Eq-cong3 Case (ren-as-subst r M) (ren-as-subst r a) (ren-as-subst r b)
+
+-- sucSub absorbs a weakening: substExpr sucSub (wkExpr e) = wkExpr e.
+sucSub-wk : {n : Nat} (e : Expr n) -> Eq (substExpr sucSub (wkExpr e)) (wkExpr e)
+sucSub-wk e =
+  Eq-trans (subst-ren sucSub wkRen e)
+    (Eq-trans (substExpr-ext (\ i -> sucSub (wkRen i)) (\ i -> Var (fsuc i)) (\ i -> refl) e)
+      (Eq-sym (ren-as-subst wkRen e)))
+
+-- subst1 (subSucC C) m = subst1 C (Suc m)  (the succ-branch type identity).
+subSucC-subst1 : {n : Nat} (C : Expr (suc n)) (m : Expr n) ->
+  Eq (subst1 (subSucC C) m) (subst1 C (Suc m))
+subSucC-subst1 C m =
+  Eq-trans (subst-subst (subst1Sub m) sucSub C)
+    (substExpr-ext _ (subst1Sub (Suc m)) (\ { fzero -> refl ; (fsuc i) -> refl }) C)
+
+-- subSucC commutes with a lifted renaming.
+subSucC-ren : {h g : Nat} (r : Ren h g) (C : Expr (suc h)) ->
+  Eq (renExpr (liftRen r) (subSucC C)) (subSucC (renExpr (liftRen r) C))
+subSucC-ren r C =
+  Eq-trans (ren-subst (liftRen r) sucSub C)
+    (Eq-trans (substExpr-ext _ _ (\ { fzero -> refl ; (fsuc i) -> refl }) C)
+      (Eq-sym (subst-ren sucSub (liftRen r) C)))
+
+-- subSucC commutes with a lifted substitution.
+subSucC-subst : {h g : Nat} (sigma : Sub h g) (C : Expr (suc g)) ->
+  Eq (substExpr (liftSub sigma) (subSucC C)) (subSucC (substExpr (liftSub sigma) C))
+subSucC-subst sigma C =
+  Eq-trans (subst-subst (liftSub sigma) sucSub C)
+    (Eq-trans (substExpr-ext _ _ ext C)
+      (Eq-sym (subst-subst sucSub (liftSub sigma) C)))
+  where
+    ext : (i : Fin _) ->
+      Eq (substExpr (liftSub sigma) (sucSub i)) (substExpr sucSub (liftSub sigma i))
+    ext fzero    = refl
+    ext (fsuc j) = Eq-sym (sucSub-wk (sigma j))
