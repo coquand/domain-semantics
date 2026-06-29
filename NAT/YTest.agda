@@ -8,7 +8,7 @@
 module NAT.YTest where
 
 open import NAT.Domain.Basic using
-  ( Nat ; zero ; suc ; FinEl ; Bot ; UCode ; FunEl ; cons ; nil
+  ( Nat ; zero ; suc ; FinEl ; Bot ; UCode ; FunEl ; ZeroEl ; cons ; nil
   ; mkSigma ; fst ; snd ; Pair ; Sigma ; Top ; tt ; Empty )
 open import NAT.Domain.Kernel using
   ( FinMem ; Coherent ; LeCode ; LeCode-trans ; Coherent-singleton-key
@@ -137,3 +137,40 @@ test-adq =
 --   Y (λx.U)  →  (λx.U) (Y (λx.U))  →  U
 -- and the matching conv-Y / conv-beta chain proving  Y (λx.U) ≈ U : U.
 ------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+-- Dependent caseNat adequacy demonstration.
+--   caseNat[C] Zero U (λn.U) : C[Zero]   with motive C := U (constant), so
+--   the result type subst1 U Zero = U is checked at the U-information UCode.
+-- Exercises the dependent driver clause adequacySub2 (ty-Case-dep ...) and its
+-- ZeroEl branch (motive type-transport + head-expansion to the zero branch).
+------------------------------------------------------------------------
+
+open import NAT.Domain.Kernel using ( LeCode-refl )
+open import NAT.Syntax.Raw using ( NatT ; Zero ; Case ; subst1 )
+open import NAT.Syntax.Typing using ( ty-NatT ; ty-Zero ; ty-Case-dep )
+
+wfNatT1 : WfCtx (extend empty NatT)
+wfNatT1 = wf-extend (ty-NatT wf-empty)
+
+-- caseNat with motive C = U, scrutinee Zero, zero-branch U, succ-branch λn.U.
+tyCaseDep : HasType empty (Case Zero U (Lam NatT U)) (subst1 U Zero)
+tyCaseDep =
+  ty-Case-dep (ty-U wfNatT1) (ty-Zero wf-empty) (ty-U wf-empty)
+    (ty-Lam (ty-NatT wf-empty) (ty-U wfNatT1) (ty-U wfNatT1))
+
+-- EvalRel of the closed dependent case: scrutinee Zero ↦ ZeroEl, zero branch
+-- U ↦ UCode.
+evCaseDep : EvalRel (Case Zero U (Lam NatT U)) emptyEnv UCode
+evCaseDep =
+  mkSigma ZeroEl
+    (mkSigma (mkSigma tt (LeCode-refl ZeroEl tt))
+             (mkSigma tt (LeCode-refl UCode tt)))
+
+test-adq-dep : Val2 empty (Case Zero U (Lam NatT U)) (subst1 U Zero) UCode UCode
+test-adq-dep =
+  adequacySub2 tyCaseDep idSub emptyEnv tt
+    (ValidSub2-empty idSub emptyEnv) tt
+    (idSub-WtSub wf-empty) wf-empty
+    UCode evCaseDep
+    UCode (mkSigma tt (LeCode-refl UCode tt)) tt

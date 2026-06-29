@@ -12,7 +12,7 @@ module NAT.Syntax.Typing where
 open import NAT.Domain.Basic using (Nat ; zero ; suc)
 open import NAT.Syntax.Raw using (Fin ; fzero ; fsuc ;
   Expr ; Var ; U ; Pi ; Lam ; App ; Y ; NatT ; Zero ; Suc ; Case ;
-  wkExpr ; subst1)
+  wkExpr ; subst1 ; subSucC)
 
 ------------------------------------------------------------------------
 -- Ctx — typing contexts as snoc-lists
@@ -130,6 +130,17 @@ data HasType where
     -> HasType G b (Pi NatT (wkExpr C))
     -> HasType G (Case M a b) C
 
+  -- Dependent caseNat (large eliminator).  Motive C : Nat ⊢ U.
+  -- Γ,n:Nat ⊢ C : U   Γ ⊢ M : Nat   Γ ⊢ a : C[0]   Γ ⊢ b : Π(n:Nat) C[S n]
+  -- ────────────────────────────────────────────────────────────────────────
+  -- Γ ⊢ case M a b : C[M]
+  ty-Case-dep : {n : Nat} {G : Ctx n} {C : Expr (suc n)} {M a b : Expr n}
+    -> HasType (extend G NatT) C U
+    -> HasType G M NatT
+    -> HasType G a (subst1 C Zero)
+    -> HasType G b (Pi NatT (subSucC C))
+    -> HasType G (Case M a b) (subst1 C M)
+
 ------------------------------------------------------------------------
 -- ConvTm
 ------------------------------------------------------------------------
@@ -233,6 +244,21 @@ data ConvTm where
     -> HasType G b (Pi NatT (wkExpr C))
     -> ConvTm G (Case (Suc m) a b) (App b m) C
 
+  -- Dependent caseNat computation rules (intrinsic, like conv-beta).
+  conv-case-zero-dep : {n : Nat} {G : Ctx n} {C : Expr (suc n)} {a b : Expr n}
+    -> HasType (extend G NatT) C U
+    -> HasType G a (subst1 C Zero)
+    -> HasType G b (Pi NatT (subSucC C))
+    -> ConvTm G (Case Zero a b) a (subst1 C Zero)
+
+  -- App b m : subst1 (subSucC C) m = subst1 C (Suc m)  (the types line up).
+  conv-case-suc-dep : {n : Nat} {G : Ctx n} {C : Expr (suc n)} {m a b : Expr n}
+    -> HasType (extend G NatT) C U
+    -> HasType G m NatT
+    -> HasType G a (subst1 C Zero)
+    -> HasType G b (Pi NatT (subSucC C))
+    -> ConvTm G (Case (Suc m) a b) (App b m) (subst1 C (Suc m))
+
   -- Congruence: Suc
   conv-Suc : {n : Nat} {G : Ctx n} {m m' : Expr n}
     -> ConvTm G m m' NatT
@@ -245,3 +271,12 @@ data ConvTm where
     -> ConvTm G a a' C
     -> ConvTm G b b' (Pi NatT (wkExpr C))
     -> ConvTm G (Case M a b) (Case M' a' b') C
+
+  -- Congruence: dependent Case.  Result type uses the LEFT scrutinee M
+  -- (the right side Case M' a' b' is naturally at C[M'] ≡ C[M] since M≡M').
+  conv-Case-dep : {n : Nat} {G : Ctx n} {C : Expr (suc n)} {M M' a a' b b' : Expr n}
+    -> HasType (extend G NatT) C U
+    -> ConvTm G M M' NatT
+    -> ConvTm G a a' (subst1 C Zero)
+    -> ConvTm G b b' (Pi NatT (subSucC C))
+    -> ConvTm G (Case M a b) (Case M' a' b') (subst1 C M)

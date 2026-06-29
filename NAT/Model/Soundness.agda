@@ -45,13 +45,14 @@ open import NAT.Syntax.Raw using (Expr ; Var ; U ; Pi ; Lam ; App ; Y ;
 open import NAT.Syntax.Reduction using (substExpr-id)
 open import NAT.Syntax.Typing using (Ctx ; empty ; extend ; lookup ;
   HasType ; ty-var ; ty-conv ; ty-U ; ty-Pi ; ty-Lam ; ty-App ;
-  ty-NatT ; ty-Zero ; ty-Suc ; ty-Case ; ty-Y ;
+  ty-NatT ; ty-Zero ; ty-Suc ; ty-Case ; ty-Case-dep ; ty-Y ;
   WfCtx ; wf-empty ; wf-extend ;
   ConvTm ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ;
   conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg ;
   conv-Y ; conv-Y-cong ;
-  conv-case-zero ; conv-case-suc ; conv-Suc ; conv-Case)
+  conv-case-zero ; conv-case-suc ; conv-Suc ; conv-Case ;
+  conv-case-zero-dep ; conv-case-suc-dep ; conv-Case-dep)
 
 -- All hard lemmas come from LemmaForTSSigma (0 postulates).
 import NAT.Model.SoundnessLemmas as LTS
@@ -415,6 +416,22 @@ mutual
       (theorem1 dC rho fits)
       (convSound' dMM' rho fits) (convSound' daa' rho fits) (convSound' dbb' rho fits)
 
+  -- conv-case-zero-dep: from LTS.InvConv-case-zero-dep
+  convSound' (conv-case-zero-dep {C = C} {a = a} {b = b} dC da db) rho fits =
+    LTS.InvConv-case-zero-dep C a b rho fits
+      (theorem1 da rho fits) (theorem1 db rho fits)
+
+  -- conv-case-suc-dep: from LTS.InvConv-case-suc-dep
+  convSound' (conv-case-suc-dep {C = C} {m = m} {a = a} {b = b} dC dm da db) rho fits =
+    LTS.InvConv-case-suc-dep C m a b rho fits
+      (theorem1 dm rho fits) (theorem1 da rho fits) (theorem1 db rho fits)
+
+  -- conv-Case-dep: congruence via LTS.InvConv-Case-dep
+  convSound' (conv-Case-dep {C = C} {M = M} {M' = M'} {a = a} {a' = a'}
+    {b = b} {b' = b'} dC dMM' daa' dbb') rho fits =
+    LTS.InvConv-Case-dep C M M' a a' b b' rho fits
+      (convSound' dMM' rho fits) (convSound' daa' rho fits) (convSound' dbb' rho fits)
+
   --------------------------------------------------------------------
   -- theorem1 — case analysis
   --------------------------------------------------------------------
@@ -500,4 +517,10 @@ mutual
     LTS.InvTyp-Case C M a b rho fits
       (theorem1 dC rho fits) (theorem1 dM rho fits)
       (theorem1 da rho fits) (theorem1 db rho fits)
+      u ev
+
+  -- ty-Case-dep
+  theorem1 (ty-Case-dep {C = C} {M = M} {a = a} {b = b} dC dM da db) rho fits u ev =
+    LTS.InvTyp-Case-dep C M a b rho fits
+      (theorem1 dM rho fits) (theorem1 da rho fits) (theorem1 db rho fits)
       u ev

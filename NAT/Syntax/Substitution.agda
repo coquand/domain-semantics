@@ -16,6 +16,7 @@ open import NAT.Syntax.Raw using (Fin ; fzero ; fsuc ;
   Expr ; Var ; U ; Pi ; Lam ; App ; Y ; NatT ; Zero ; Suc ; Case ;
   Ren ; liftRen ; renExpr ; wkRen ; wkExpr ;
   Sub ; liftSub ; substExpr ; subst1Sub ; subst1 ;
+  sucSub ; subSucC ; subSucC-ren ; subSucC-subst ; subSucC-subst1 ; sucSub-wk ;
   Eq-trans ; Eq-cong2-Expr ;
   liftRen-ext ; renExpr-ext ;
   ren-ren ; ren-subst ; subst-ren ; subst-subst ;
@@ -28,9 +29,11 @@ open import NAT.Syntax.Typing using (Ctx ; empty ; extend ; lookup ;
   ty-Pi ; ty-Lam ; ty-App ; ty-Y ; ty-NatT ; ty-Zero ; ty-Suc ; ty-Case ;
   ConvTm ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ;
+  ty-Case-dep ;
   conv-beta ; conv-Pi ; conv-funext ; conv-App-fun ; conv-App-arg ;
   conv-Y ; conv-Y-cong ;
-  conv-case-zero ; conv-case-suc ; conv-Case ; conv-Suc)
+  conv-case-zero ; conv-case-suc ; conv-Case ; conv-Suc ;
+  conv-case-zero-dep ; conv-case-suc-dep ; conv-Case-dep)
 open import NAT.Syntax.Reduction using (idSub ; substExpr-id ; subst-subst1-comm)
 
 ------------------------------------------------------------------------
@@ -100,6 +103,15 @@ WtConvSub : {h g : Nat} -> Ctx h -> Ctx g -> Sub h g -> Sub h g -> Set
 WtConvSub H G sigma sigma' =
   (i : Fin _) -> ConvTm H (sigma i) (sigma' i) (substExpr sigma (lookup G i))
 
+-- Well-typed successor substitution (for the dependent caseNat motive):
+-- sucSub : (extend G NatT) -> (extend G NatT) sending x ↦ S x.
+sucSub-WtSub : {n : Nat} {G : Ctx n} ->
+  WfCtx (extend G NatT) -> WtSub (extend G NatT) (extend G NatT) sucSub
+sucSub-WtSub wf' fzero = ty-Suc (ty-var wf')
+sucSub-WtSub {G = G} wf' (fsuc j) =
+  Eq-transport (\ T -> HasType (extend G NatT) (Var (fsuc j)) T)
+    (Eq-sym (sucSub-wk (lookup G j))) (ty-var wf')
+
 ------------------------------------------------------------------------
 -- Part 4: The big mutual block
 ------------------------------------------------------------------------
@@ -159,6 +171,22 @@ mutual
     Eq-transport (\ T -> HasType (extend H (substExpr sigma A)) (wkExpr (sigma i)) T)
       (Eq-sym (subst-wk-comm sigma (lookup G i)))
       (wk-HasType (subst-HasType ws wfH dA) (ws i))
+
+  -- Lifting a well-typed substitution over the literal domain NatT.
+  -- Specialised (no recursion through subst-HasType) so the dependent-case
+  -- coverage can extend the substitution without a non-structural argument.
+  liftSub-WtSub-NatT : {h g : Nat} {H : Ctx h} {G : Ctx g}
+    {sigma : Sub h g} ->
+    WtSub H G sigma -> WfCtx H ->
+    WtSub (extend H NatT) (extend G NatT) (liftSub sigma)
+  liftSub-WtSub-NatT {H = H} {sigma = sigma} ws wfH fzero =
+    Eq-transport (\ T -> HasType (extend H NatT) (Var fzero) T)
+      (Eq-sym (subst-wk-comm sigma NatT))
+      (ty-var (wf-extend (ty-NatT wfH)))
+  liftSub-WtSub-NatT {H = H} {G = G} {sigma = sigma} ws wfH (fsuc i) =
+    Eq-transport (\ T -> HasType (extend H NatT) (wkExpr (sigma i)) T)
+      (Eq-sym (subst-wk-comm sigma (lookup G i)))
+      (wk-HasType (ty-NatT wfH) (ws i))
 
   -- Well-typed identity substitution for context conversion
   ctx-conv-WtSub : {n : Nat} {G : Ctx n} {A A' : Expr n} ->
@@ -256,6 +284,15 @@ mutual
     ty-Case (ren-HasType rt wfH dC) (ren-HasType rt wfH dM) (ren-HasType rt wfH da)
             (Eq-transport (\ X -> HasType _ _ (Pi NatT X)) (ren-wk-comm r C)
               (ren-HasType rt wfH db))
+  ren-HasType {r = r} rt wfH (ty-Case-dep {C = C} {M = M} {a = a} {b = b} dC dM da db) =
+    let dCr = ren-HasType (liftRen-RenTypes rt) (wf-extend (ty-NatT wfH)) dC
+        dar = Eq-transport (\ T -> HasType _ (renExpr r a) T) (ren-subst1 r C Zero)
+                (ren-HasType rt wfH da)
+        dbr = Eq-transport (\ X -> HasType _ (renExpr r b) (Pi NatT X)) (subSucC-ren r C)
+                (ren-HasType rt wfH db)
+    in Eq-transport (\ T -> HasType _ (Case (renExpr r M) (renExpr r a) (renExpr r b)) T)
+         (Eq-sym (ren-subst1 r C M))
+         (ty-Case-dep dCr (ren-HasType rt wfH dM) dar dbr)
 
   --------------------------------------------------------------------
   -- ren-ConvTm cases
@@ -385,6 +422,33 @@ mutual
               (Eq-transport (\ X -> ConvTm _ _ _ (Pi NatT X)) (ren-wk-comm r C)
                 (ren-ConvTm rt wfH db))
   ren-ConvTm rt wfH (conv-Suc d) = conv-Suc (ren-ConvTm rt wfH d)
+  ren-ConvTm {r = r} rt wfH (conv-case-zero-dep {C = C} {a = a} dC da db) =
+    let dCr = ren-HasType (liftRen-RenTypes rt) (wf-extend (ty-NatT wfH)) dC
+        dar = Eq-transport (\ T -> HasType _ (renExpr r a) T) (ren-subst1 r C Zero)
+                (ren-HasType rt wfH da)
+        dbr = Eq-transport (\ X -> HasType _ _ (Pi NatT X)) (subSucC-ren r C)
+                (ren-HasType rt wfH db)
+    in Eq-transport (\ T -> ConvTm _ (Case Zero (renExpr r a) _) (renExpr r a) T)
+         (Eq-sym (ren-subst1 r C Zero))
+         (conv-case-zero-dep dCr dar dbr)
+  ren-ConvTm {r = r} rt wfH (conv-case-suc-dep {C = C} {m = m} {a = a} dC dm da db) =
+    let dCr = ren-HasType (liftRen-RenTypes rt) (wf-extend (ty-NatT wfH)) dC
+        dar = Eq-transport (\ T -> HasType _ (renExpr r a) T) (ren-subst1 r C Zero)
+                (ren-HasType rt wfH da)
+        dbr = Eq-transport (\ X -> HasType _ _ (Pi NatT X)) (subSucC-ren r C)
+                (ren-HasType rt wfH db)
+    in Eq-transport (\ T -> ConvTm _ (Case (Suc (renExpr r m)) _ _) (App _ (renExpr r m)) T)
+         (Eq-sym (ren-subst1 r C (Suc m)))
+         (conv-case-suc-dep dCr (ren-HasType rt wfH dm) dar dbr)
+  ren-ConvTm {r = r} rt wfH (conv-Case-dep {C = C} {M = M} {a = a} dC dM da db) =
+    let dCr = ren-HasType (liftRen-RenTypes rt) (wf-extend (ty-NatT wfH)) dC
+        dar = Eq-transport (\ T -> ConvTm _ (renExpr r a) _ T) (ren-subst1 r C Zero)
+                (ren-ConvTm rt wfH da)
+        dbr = Eq-transport (\ X -> ConvTm _ _ _ (Pi NatT X)) (subSucC-ren r C)
+                (ren-ConvTm rt wfH db)
+    in Eq-transport (\ T -> ConvTm _ (Case (renExpr r M) _ _) _ T)
+         (Eq-sym (ren-subst1 r C M))
+         (conv-Case-dep dCr (ren-ConvTm rt wfH dM) dar dbr)
 
   --------------------------------------------------------------------
   -- subst-HasType cases
@@ -437,6 +501,19 @@ mutual
     ty-Case (subst-HasType ws wfH dC) (subst-HasType ws wfH dM) (subst-HasType ws wfH da)
             (Eq-transport (\ X -> HasType _ _ (Pi NatT X)) (subst-wk-comm sigma C)
               (subst-HasType ws wfH db))
+  subst-HasType {sigma = sigma} ws wfH (ty-Case-dep {C = C} {M = M} {a = a} {b = b} dC dM da db) =
+    let wfG  = typing-WfCtx dM
+        ws2  = liftSub-WtSub-NatT ws wfH
+        wfH' = wf-extend (ty-NatT wfH)
+        dCs  = subst-HasType ws2 wfH' dC
+        das  = Eq-transport (\ T -> HasType _ (substExpr sigma a) T)
+                 (Eq-sym (subst-subst1-comm sigma C Zero)) (subst-HasType ws wfH da)
+        dbs  = Eq-transport (\ X -> HasType _ (substExpr sigma b) (Pi NatT X))
+                 (subSucC-subst sigma C) (subst-HasType ws wfH db)
+    in Eq-transport
+         (\ T -> HasType _ (Case (substExpr sigma M) (substExpr sigma a) (substExpr sigma b)) T)
+         (subst-subst1-comm sigma C M)
+         (ty-Case-dep dCs (subst-HasType ws wfH dM) das dbs)
 
   --------------------------------------------------------------------
   -- subst-ConvTm cases
@@ -567,6 +644,43 @@ mutual
               (Eq-transport (\ X -> ConvTm _ _ _ (Pi NatT X)) (subst-wk-comm sigma C)
                 (subst-ConvTm ws wfH db))
   subst-ConvTm ws wfH (conv-Suc d) = conv-Suc (subst-ConvTm ws wfH d)
+  subst-ConvTm {sigma = sigma} ws wfH (conv-case-zero-dep {C = C} {a = a} dC da db) =
+    let wfG  = typing-WfCtx da
+        ws2  = liftSub-WtSub-NatT ws wfH
+        wfH' = wf-extend (ty-NatT wfH)
+        dCs  = subst-HasType ws2 wfH' dC
+        das  = Eq-transport (\ T -> HasType _ (substExpr sigma a) T)
+                 (Eq-sym (subst-subst1-comm sigma C Zero)) (subst-HasType ws wfH da)
+        dbs  = Eq-transport (\ X -> HasType _ _ (Pi NatT X))
+                 (subSucC-subst sigma C) (subst-HasType ws wfH db)
+    in Eq-transport (\ T -> ConvTm _ (Case Zero (substExpr sigma a) _) (substExpr sigma a) T)
+         (subst-subst1-comm sigma C Zero)
+         (conv-case-zero-dep dCs das dbs)
+  subst-ConvTm {sigma = sigma} ws wfH (conv-case-suc-dep {C = C} {m = m} {a = a} dC dm da db) =
+    let wfG  = typing-WfCtx dm
+        ws2  = liftSub-WtSub-NatT ws wfH
+        wfH' = wf-extend (ty-NatT wfH)
+        dCs  = subst-HasType ws2 wfH' dC
+        das  = Eq-transport (\ T -> HasType _ (substExpr sigma a) T)
+                 (Eq-sym (subst-subst1-comm sigma C Zero)) (subst-HasType ws wfH da)
+        dbs  = Eq-transport (\ X -> HasType _ _ (Pi NatT X))
+                 (subSucC-subst sigma C) (subst-HasType ws wfH db)
+    in Eq-transport
+         (\ T -> ConvTm _ (Case (Suc (substExpr sigma m)) _ _) (App _ (substExpr sigma m)) T)
+         (subst-subst1-comm sigma C (Suc m))
+         (conv-case-suc-dep dCs (subst-HasType ws wfH dm) das dbs)
+  subst-ConvTm {sigma = sigma} ws wfH (conv-Case-dep {C = C} {M = M} {a = a} dC dM da db) =
+    let wfG  = typing-WfCtx (fst (typing-ConvTm dM))
+        ws2  = liftSub-WtSub-NatT ws wfH
+        wfH' = wf-extend (ty-NatT wfH)
+        dCs  = subst-HasType ws2 wfH' dC
+        das  = Eq-transport (\ T -> ConvTm _ (substExpr sigma a) _ T)
+                 (Eq-sym (subst-subst1-comm sigma C Zero)) (subst-ConvTm ws wfH da)
+        dbs  = Eq-transport (\ X -> ConvTm _ _ _ (Pi NatT X))
+                 (subSucC-subst sigma C) (subst-ConvTm ws wfH db)
+    in Eq-transport (\ T -> ConvTm _ (Case (substExpr sigma M) _ _) _ T)
+         (subst-subst1-comm sigma C M)
+         (conv-Case-dep dCs (subst-ConvTm ws wfH dM) das dbs)
 
   --------------------------------------------------------------------
   -- typing-ConvTm: extract HasType from ConvTm
@@ -655,6 +769,23 @@ mutual
                (ty-Case dC (snd ihM) (snd iha) (snd ihb))
   typing-ConvTm (conv-Suc d) =
     let ih = typing-ConvTm d in mkSigma (ty-Suc (fst ih)) (ty-Suc (snd ih))
+  typing-ConvTm (conv-case-zero-dep dC da db) =
+    mkSigma (ty-Case-dep dC (ty-Zero (typing-WfCtx da)) da db) da
+  typing-ConvTm (conv-case-suc-dep {C = C} {m = m} dC dm da db) =
+    let wf    = typing-WfCtx dm
+        appbm = Eq-transport (\ T -> HasType _ (App _ m) T) (subSucC-subst1 C m)
+                  (ty-App (ty-NatT wf) (codSubSucC dC) db dm)
+    in mkSigma (ty-Case-dep dC (ty-Suc dm) da db) appbm
+  typing-ConvTm (conv-Case-dep {C = C} {M = M} dC dM da db) =
+    let ihM = typing-ConvTm dM
+        iha = typing-ConvTm da
+        ihb = typing-ConvTm db
+        wfG = typing-WfCtx (fst ihM)
+        cvM'M : ConvTm _ (subst1 C _) (subst1 C M) U
+        cvM'M = subst1-cong-ConvTm (ty-NatT wfG) dC (snd ihM) (fst ihM) (conv-sym dM)
+        dTgt  = ty-subst1-motive dC (fst ihM)
+    in mkSigma (ty-Case-dep dC (fst ihM) (fst iha) (fst ihb))
+               (ty-conv (ty-Case-dep dC (snd ihM) (snd iha) (snd ihb)) cvM'M dTgt)
 
   -- Helper: build WtSub for subst1Sub a
   subst1-WtSub : {n : Nat} {G : Ctx n} {A a : Expr n} ->
@@ -666,6 +797,17 @@ mutual
     Eq-transport (\ T -> HasType G (Var i) T)
       (Eq-sym (subst1-wk (lookup G i) a))
       (ty-var (typing-WfCtx dA))
+
+  -- subSucC C : U  (codomain of the dependent succ-branch type)
+  codSubSucC : {n : Nat} {G : Ctx n} {C : Expr (suc n)} ->
+    HasType (extend G NatT) C U -> HasType (extend G NatT) (subSucC C) U
+  codSubSucC dC = subst-HasType (sucSub-WtSub (typing-WfCtx dC)) (typing-WfCtx dC) dC
+
+  -- subst1 C M : U  (result type of the dependent eliminator)
+  ty-subst1-motive : {n : Nat} {G : Ctx n} {C : Expr (suc n)} {M : Expr n} ->
+    HasType (extend G NatT) C U -> HasType G M NatT -> HasType G (subst1 C M) U
+  ty-subst1-motive dC dM =
+    subst-HasType (subst1-WtSub (ty-NatT (typing-WfCtx dM)) dM) (typing-WfCtx dM) dC
 
   -- Substitution congruence
   subst1-cong-ConvTm : {n : Nat} {G : Ctx n} {A : Expr n}
@@ -696,6 +838,7 @@ mutual
   typing-WfCtx (ty-Zero wf)        = wf
   typing-WfCtx (ty-Suc d)          = typing-WfCtx d
   typing-WfCtx (ty-Case dC _ _ _)  = typing-WfCtx dC
+  typing-WfCtx (ty-Case-dep _ dM _ _) = typing-WfCtx dM
 
   -- Type presupposition: HasType G M A implies HasType G A U
   typing-type : {n : Nat} {G : Ctx n} {M A : Expr n} ->
@@ -712,6 +855,7 @@ mutual
   typing-type (ty-Zero wf)           = ty-NatT wf
   typing-type (ty-Suc d)             = ty-NatT (typing-WfCtx d)
   typing-type (ty-Case dC _ _ _)     = dC
+  typing-type (ty-Case-dep dC dM _ _) = ty-subst1-motive dC dM
 
   -- Lookup in well-formed context gives a type in U
   wfCtx-lookup : {n : Nat} {G : Ctx n} ->
@@ -885,6 +1029,18 @@ mutual
               (subst-ConvTm-cross da ws ws' wcs wfH)
               (Eq-transport (\ X -> ConvTm _ _ _ (Pi NatT X)) (subst-wk-comm sigma C)
                 (subst-ConvTm-cross db ws ws' wcs wfH))
+  subst-ConvTm-cross {sigma = sigma} (ty-Case-dep {C = C} {M = M} {a = a} dC dM da db) ws ws' wcs wfH =
+    let wfG  = typing-WfCtx dM
+        ws2  = liftSub-WtSub-NatT ws wfH
+        wfH' = wf-extend (ty-NatT wfH)
+        dCs  = subst-HasType ws2 wfH' dC
+        das  = Eq-transport (\ T -> ConvTm _ (substExpr sigma a) _ T)
+                 (Eq-sym (subst-subst1-comm sigma C Zero)) (subst-ConvTm-cross da ws ws' wcs wfH)
+        dbs  = Eq-transport (\ X -> ConvTm _ _ _ (Pi NatT X))
+                 (subSucC-subst sigma C) (subst-ConvTm-cross db ws ws' wcs wfH)
+    in Eq-transport (\ T -> ConvTm _ (Case (substExpr sigma M) _ _) _ T)
+         (subst-subst1-comm sigma C M)
+         (conv-Case-dep dCs (subst-ConvTm-cross dM ws ws' wcs wfH) das dbs)
 
 -- Well-typed identity substitution
 idSub-WtSub : {n : Nat} {G : Ctx n} -> WfCtx G -> WtSub G G idSub
