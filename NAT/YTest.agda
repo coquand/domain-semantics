@@ -110,3 +110,30 @@ test-adq =
     (idSub-WtSub wf-empty) wf-empty
     UCode test1
     UCode (mkSigma tt (LeCode-refl UCode tt)) tt
+
+------------------------------------------------------------------------
+-- Normalising  test-adq  (Agda C-c C-n) yields a FINITE term — it does
+-- NOT chase Y's infinite unfolding, because the adequacy witness is
+-- pinned to the finite Kleene index n = 1 coming from test1's EvalRel
+-- evidence.  Val2 at (UCode, UCode) is a pair of Red3 = (HeadRed × ConvTm)
+-- bundles, and the term-side bundle is exactly the operational story
+-- "Y (λx.U) is the type U":
+--
+--   mkSigma
+--     -- type side (T = U): U is already canonical
+--     (mkRed3 headred-refl (conv-refl (ty-U wf-empty)))
+--     -- term side (M = Y (Lam U U)): the head-reduction to U
+--     (mkRed3
+--        (headred-step headred-Y                 -- Y g  →  (λx.U) (Y g)
+--          (headred-step headred-beta            -- (λx.U)(Y g)  →  U
+--            headred-refl))                       -- stop: U is normal
+--        (conv-trans
+--           (conv-conv (conv-Y  (ty-U wf-empty) (ty-Lam …)) …)   -- Y g ≈ (λx.U)(Y g)
+--           (conv-trans
+--              (conv-conv (conv-beta … (ty-Y …)) …)              -- (λx.U)(Y g) ≈ U
+--              (conv-refl (ty-U wf-empty)))))                    -- ≈ U
+--
+-- i.e. the proof's normal form literally contains the head-reduction
+--   Y (λx.U)  →  (λx.U) (Y (λx.U))  →  U
+-- and the matching conv-Y / conv-beta chain proving  Y (λx.U) ≈ U : U.
+------------------------------------------------------------------------
