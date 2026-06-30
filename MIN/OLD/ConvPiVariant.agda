@@ -20,7 +20,7 @@
 -- No postulates, no holes.
 ------------------------------------------------------------------------
 
-module MIN.Validity.ConvPiVariant where
+module MIN.OLD.ConvPiVariant where
 
 open import MIN.Domain.Basic using (Nat ; suc ; fst ; snd)
 open import MIN.Syntax.Raw using (Expr ; U ; Pi)
