@@ -121,3 +121,33 @@ e.g.,
 ```sh
 agda --without-K SigmaProp/Injectivity5.agda
 ```
+
+## Also in this repository: the element-level identity type (`ID/`)
+
+The same method is extended with Martin-Löf's element-level identity type
+`Id A a b`, its constructor `Ref`, and the fully-dependent eliminator `J`
+(with motive `C : (x y : A) → Id A x y → U` and base
+`d : (x : A) → C x x (Ref x)`). It lives in the [`ID/`](ID/) subdirectory
+and is machine-checked with no postulates, no holes, and no
+termination/positivity pragmas.
+
+| Result | Entry point | Name |
+|---|---|---|
+| Adequacy | [`ID/Adequacy/Value.agda`](ID/Adequacy/Value.agda) | `adequacySub2`, `adequacyEqSub2` |
+| Π-injectivity | [`ID/PiInjectivity.agda`](ID/PiInjectivity.agda) | `piInjectivity` |
+| **Id-injectivity** | [`ID/IdInjectivity.agda`](ID/IdInjectivity.agda) | `idInjectivity` |
+| **Subject reduction** | [`ID/SubjectReduction.agda`](ID/SubjectReduction.agda) | `subject-red1` |
+
+The `J` case of adequacy is the based-J driver
+([`ID/Adequacy/JApp.agda`](ID/Adequacy/JApp.agda),
+[`JAppCross.agda`](ID/Adequacy/JAppCross.agda),
+[`JAppCongr.agda`](ID/Adequacy/JAppCongr.agda)). A short write-up of the
+identity-type rules together with the injectivity and subject-reduction
+statements is [`ID/id-rules.tex`](ID/id-rules.tex) (built:
+[`ID/id-rules.pdf`](ID/id-rules.pdf)). Type-check the two metatheorem entry
+points with, e.g.,
+
+```sh
+agda --without-K ID/IdInjectivity.agda
+agda --without-K ID/SubjectReduction.agda
+```

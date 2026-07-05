@@ -1,0 +1,154 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathpartir}
+\usepackage{hyperref}
+
+\newtheorem{theorem}{Theorem}
+
+\newcommand{\ty}[3]{#1 \vdash #2 : #3}
+\newcommand{\cv}[4]{#1 \vdash #2 = #3 : #4}
+\newcommand{\U}{\mathsf{U}}
+\newcommand{\Id}{\mathsf{Id}}
+\newcommand{\Rf}{\mathsf{Ref}}
+\newcommand{\Jelim}{\mathsf{J}}
+\newcommand{\redone}{\rightsquigarrow_1}
+\newcommand{\Ga}{\Gamma}
+
+\title{The identity type $\Id\,A\,a\,b$ with $\Rf$ and $\Jelim$\\[2pt]
+  \large typing, reduction, injectivity, and subject reduction}
+\author{Agda development \texttt{ID/} (domain-semantics)}
+\date{}
+
+\begin{document}
+\maketitle
+
+\noindent
+This note records the rules for the element-level Martin-L\"of identity type
+added to the type-in-type theory ($\U:\U$) of the \texttt{ID/} development, and
+states the two metatheorems proved for it. Everything below is machine-checked
+in Agda (\texttt{-{}-without-K -{}-exact-split}) with no postulates, no holes,
+and no termination/positivity pragmas.
+
+\medskip
+\noindent
+The eliminator is Martin-L\"of's \emph{original} $\Jelim$ with a
+fully dependent motive. Writing the motive and base types out,
+\[
+  C : (x\,y:A)\to \Id\,A\,x\,y \to \U,
+  \qquad
+  d : (x:A)\to C\,x\,x\,(\Rf\,x),
+\]
+so that $\Jelim\,C\,d\,p$ at $p:\Id\,A\,a\,b$ has type $C\,a\,b\,p$ (the
+application spine $((C\,a)\,b)\,p$).
+
+\section*{Typing rules}
+
+\begin{mathpar}
+\inferrule[Id]{\ty{\Ga}{A}{\U} \\ \ty{\Ga}{a}{A} \\ \ty{\Ga}{b}{A}}
+  {\ty{\Ga}{\Id\,A\,a\,b}{\U}}
+\and
+\inferrule[Ref]{\ty{\Ga}{A}{\U} \\ \ty{\Ga}{a}{A}}
+  {\ty{\Ga}{\Rf\,a}{\Id\,A\,a\,a}}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule[J]{
+  \ty{\Ga}{A}{\U} \\ \ty{\Ga}{a}{A} \\ \ty{\Ga}{b}{A} \\\\
+  \ty{\Ga}{C}{(x\,y:A)\to \Id\,A\,x\,y\to\U} \\
+  \ty{\Ga}{d}{(x:A)\to C\,x\,x\,(\Rf\,x)} \\
+  \ty{\Ga}{p}{\Id\,A\,a\,b}}
+  {\ty{\Ga}{\Jelim\,C\,d\,p}{C\,a\,b\,p}}
+\end{mathpar}
+
+\section*{Conversion rules}
+
+\begin{mathpar}
+\inferrule[J-$\beta$]{
+  \ty{\Ga}{A}{\U} \\ \ty{\Ga}{a_0}{A} \\
+  \ty{\Ga}{C}{\dots} \\ \ty{\Ga}{d}{\dots}}
+  {\cv{\Ga}{\Jelim\,C\,d\,(\Rf\,a_0)}{d\,a_0}{C\,a_0\,a_0\,(\Rf\,a_0)}}
+\end{mathpar}
+
+\noindent
+$\Jelim$ fires only on a \emph{literal} $\Rf\,a_0$, whose type is the diagonal
+$\Id\,A\,a_0\,a_0$; both sides of J-$\beta$ therefore have the \emph{same} type
+$C\,a_0\,a_0\,(\Rf\,a_0)$, so the rule carries no endpoint or motive equalities
+and needs no injectivity. The congruences are
+
+\begin{mathpar}
+\inferrule[Id-cong]{
+  \cv{\Ga}{A}{A'}{\U} \\ \cv{\Ga}{a}{a'}{A} \\ \cv{\Ga}{b}{b'}{A}}
+  {\cv{\Ga}{\Id\,A\,a\,b}{\Id\,A'\,a'\,b'}{\U}}
+\and
+\inferrule[Ref-cong]{\cv{\Ga}{a}{a'}{A}}
+  {\cv{\Ga}{\Rf\,a}{\Rf\,a'}{\Id\,A\,a\,a}}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule[J-cong]{
+  \cv{\Ga}{C}{C'}{\dots} \\ \cv{\Ga}{d}{d'}{\dots} \\ \cv{\Ga}{p}{p'}{\Id\,A\,a\,b}}
+  {\cv{\Ga}{\Jelim\,C\,d\,p}{\Jelim\,C'\,d'\,p'}{C\,a\,b\,p}}
+\end{mathpar}
+
+\noindent
+(Grey premises re-typing the components are elided; see
+\texttt{ID/Syntax/Typing.agda}.)
+
+\section*{Head reduction}
+
+Reduction is untyped weak head reduction. The single-step relation
+$M \redone N$ has the following $\Id$-clauses (alongside the usual
+$\beta$ and application-congruence for functions):
+
+\begin{mathpar}
+\inferrule[J-red]{ }{\Jelim\,C\,d\,(\Rf\,a) \;\redone\; d\,a}
+\and
+\inferrule[J-scrut]{p \redone p'}{\Jelim\,C\,d\,p \;\redone\; \Jelim\,C\,d\,p'}
+\end{mathpar}
+
+\noindent
+\textsc{J-red} is the $\iota$-step; \textsc{J-scrut} lets reduction proceed into
+the proof position so a non-canonical proof can reduce toward a $\Rf$. Each step
+is a typed conversion (\textsc{J-red} $\mapsto$ J-$\beta$, \textsc{J-scrut}
+$\mapsto$ J-cong), and $\redone$ is deterministic.
+
+\section*{Metatheorems}
+
+\begin{theorem}[Id-injectivity, \texttt{ID/IdInjectivity.agda}]
+If $\;\cv{\Ga}{\Id\,A_0\,a_0\,b_0}{\Id\,A_1\,a_1\,b_1}{\U}\;$ then
+\[
+  \cv{\Ga}{A_0}{A_1}{\U},\qquad
+  \cv{\Ga}{a_0}{a_1}{A_0},\qquad
+  \cv{\Ga}{b_0}{b_1}{A_0}.
+\]
+\end{theorem}
+
+\noindent
+As with $\Pi$-injectivity, this is read off adequacy: evaluate the given
+conversion at the bottom environment, obtaining an equality in the model at the
+type-code $\mathsf{IdCode}\,\bot\,\bot\,\bot$, and project out the component
+conversions (lemma \texttt{idConv} $+$ \texttt{HeadRed-unique-Id}).
+
+\begin{theorem}[Subject reduction, \texttt{ID/SubjectReduction.agda}]
+If $\;\ty{\Ga}{M}{A}\;$ and $\;M \redone N\;$ then $\;\ty{\Ga}{N}{A}$.
+\end{theorem}
+
+\noindent
+For the \textsc{J-red} step the contractum $d\,a_0$ already has type
+$C\,a_0\,a_0\,(\Rf\,a_0)$, which is retyped to the goal $C\,a\,b\,(\Rf\,a_0)$
+using $a_0=a$ and $a_0=b$ extracted from $\Rf\,a_0:\Id\,A\,a\,b$
+(\texttt{ty-Ref-endpoints}). For the \textsc{J-scrut} step the result type
+$C\,a\,b\,p$ is transported along $p=p'$, obtained from
+\emph{reduction-is-conversion} (\texttt{headred1-conv}); the $\Id$-typed proof
+never needs $\Id$-injectivity, only the diagonal J-$\beta$.
+
+\medskip
+\noindent
+Both theorems sit on top of adequacy
+(\texttt{ID/Adequacy/Value.agda}: \texttt{adequacySub2} / \texttt{adequacyEqSub2}),
+whose $\Jelim$ case is the based-J driver
+(\texttt{ID/Adequacy/JApp.agda}, \texttt{JAppCross.agda}, \texttt{JAppCongr.agda}).
+
+\end{document}
