@@ -14,7 +14,16 @@
 \newcommand{\Rf}{\mathsf{Ref}}
 \newcommand{\Jelim}{\mathsf{J}}
 \newcommand{\redone}{\rightsquigarrow_1}
+\newcommand{\red}{\rightsquigarrow^{*}}
 \newcommand{\Ga}{\Gamma}
+% domain (finite-element) codes, in bold roman, distinct from the syntax
+\newcommand{\bU}{\mathbb{U}}
+\newcommand{\cId}{\mathbf{Id}}
+\newcommand{\rEl}{\mathbf{r}}
+\newcommand{\sem}[1]{[\![#1]\!]}
+\newcommand{\ev}[2]{#1 \lhd \sem{#2}_{\rho}}   % u below value of M in rho
+\newcommand{\mem}[2]{#1 \in #2}                 % finite-element membership
+\newcommand{\valid}[4]{#1 \Vdash #2 : #3 \;[\,#4\,]}
 
 \title{The identity type $\Id\,A\,a\,b$ with $\Rf$ and $\Jelim$\\[2pt]
   \large typing, reduction, injectivity, and subject reduction}
@@ -114,7 +123,118 @@ the proof position so a non-canonical proof can reduce toward a $\Rf$. Each step
 is a typed conversion (\textsc{J-red} $\mapsto$ J-$\beta$, \textsc{J-scrut}
 $\mapsto$ J-cong), and $\redone$ is deterministic.
 
-\section*{Metatheorems}
+\section*{Domain semantics of $\Id$ and $\Jelim$}
+
+The model is the poset of \emph{finite elements} $u,v,w,\dots$ of a Scott
+domain, with an information order $u\le v$, a bottom $\bot$, a universe code
+$\bU$, function elements, and $\Pi$-codes. The identity type adds two shapes:
+\[
+  \cId(t,u,v) \quad\text{(the \emph{code} of a type $\Id\,A\,a\,b$: $t$ codes
+  $A$, $u$ the value of $a$, $v$ the value of $b$),}
+\]
+\[
+  \rEl(w) \quad\text{(a \emph{proof value}: a witness $w$, the model's analogue
+  of $\lambda$ for functions).}
+\]
+Semantic membership is written $\mem{u}{a}$ (``the finite element $u$ is a
+member of the type-code $a$''). The characteristic clause for the identity type
+is
+\[
+  \mem{\rEl(w)}{\cId(t,u,v)}
+  \iff
+  \mem{w}{t}\ \wedge\ w\le u\ \wedge\ w\le v ,
+\]
+i.e.\ a proof of $\cId(t,u,v)$ is exactly a witness of the underlying type that
+lies \emph{below both endpoints} — the domain-theoretic reading of ``$u$ and
+$v$ agree down to $w$''. All mismatched shapes (e.g.\ $\mem{\rEl(w)}{\Pi(\dots)}$
+or $\mem{\cId(\dots)}{\Pi(\dots)}$) are empty, so identity codes and proof
+values interact only with one another.
+
+\medskip
+\noindent
+Evaluation relates a term $M$, an environment $\rho$, and a finite element
+below its value; write $\ev{u}{M}$ for ``$u$ approximates $\sem{M}_\rho$''. The
+new clauses (for $u\neq\bot$, where $\ev{\bot}{M}$ always holds) are
+\begin{align*}
+  \ev{\cId(t,u,v)}{\Id\,A\,a\,b}
+    &\iff \ev{t}{A}\ \wedge\ \ev{u}{a}\ \wedge\ \ev{v}{b}, \\[2pt]
+  \ev{\rEl(w)}{\Rf\,a}
+    &\iff \ev{w}{a}, \\[2pt]
+  \ev{c}{\Jelim\,C\,d\,p}
+    &\iff \exists\,w.\ \ev{w}{p}\ \wedge\ \mathsf{br}(c,w),
+    \quad\text{with}\quad
+    \mathsf{br}(c,\rEl(w')) \iff \ev{\,\mathsf{fun}(w'\mapsto c)\,}{d}.
+\end{align*}
+So $\Id$ evaluates componentwise to an $\cId$-code, $\Rf$ to a proof value, and
+$\Jelim\,C\,d\,p$ dispatches on the proof: once $p$ evaluates to a proof
+$\rEl(w')$, the value of $\Jelim\,C\,d\,p$ is $\sem{d}$ applied to the witness
+$w'$ (the single-edge condition ``$d$ maps $w'$ to $c$''). \textbf{The motive
+$C$ does not occur in the value} — it constrains only the \emph{type}. This is
+the based-J computation rule read in the model.
+
+\section*{The logical relation and adequacy}
+
+Adequacy is proved through a Kripke logical relation between the syntax and the
+model. For each type it defines, at every finite element, when a term is
+\emph{valid}; write $\valid{\Ga}{M}{A}{\mem{u}{a}}$ for ``$M$ is valid at type
+$A$ and code $a$, with value $u$''. At an identity type the relation unfolds to:
+\[
+  \valid{\Ga}{M}{\Id\,A\,a\,b}{\mem{\rEl(w)}{\cId(t,u,v)}}
+  \iff
+  M \red \Rf\,w_0
+  \ \text{for some } w_0 \text{ with }
+  \cv{\Ga}{w_0}{a}{A}\ \text{and}\ \cv{\Ga}{w_0}{b}{A}\ \text{(both valid).}
+\]
+That is: a valid proof \emph{head-reduces to a canonical $\Rf\,w_0$} whose
+witness $w_0$ is validly equal to both endpoints. (Because proofs are
+proof-irrelevant, the underlying $\cId$-code carries no selection edge; the two
+endpoint equalities are the whole content.)
+
+\medskip
+\noindent
+\textbf{Adequacy.} By induction on derivations:
+\[
+  \ty{\Ga}{M}{A} \ \Longrightarrow\ M \text{ valid}, \qquad
+  \cv{\Ga}{M}{N}{A} \ \Longrightarrow\ M,N \text{ validly equal.}
+\]
+
+\noindent
+\emph{The $\Jelim$ case} (the based-J driver). Suppose $\ty{\Ga}{\Jelim\,C\,d\,p}
+{C\,a\,b\,p}$ and let $c$ be a finite element below $\sem{\Jelim\,C\,d\,p}_\rho$.
+
+\begin{enumerate}\itemsep2pt
+\item By the evaluation clause, $c$ comes with a proof value: $p$ evaluates to
+  some $\rEl(w')$ and $\mem{\rEl(w')}{\cId(t,u,v)}$, so $w'\le u$ and $w'\le v$.
+\item The induction hypothesis for $p$ at $\Id\,A\,a\,b$ gives, via the relation
+  above, a head reduction $p \red \Rf\,w_0$ with $w_0$ validly equal to $a$ and
+  to $b$. Hence
+  \[
+    \Jelim\,C\,d\,p \ \red\ \Jelim\,C\,d\,(\Rf\,w_0) \ \redone\ d\,w_0
+    \qquad\text{(J-scrut${}^*$ then J-$\beta$).}
+  \]
+\item \emph{$d$-edge.} The induction hypothesis for $d$ (a valid function),
+  applied to the witness $w_0$, makes $d\,w_0$ valid at the diagonal type
+  $C\,w_0\,w_0\,(\Rf\,w_0)$.
+\item \emph{Type transport.} Using $\cv{\Ga}{w_0}{a}{A}$, $\cv{\Ga}{w_0}{b}{A}$
+  and $\Rf\,w_0 = p$, the syntactic types are convertible,
+  $\cv{\Ga}{C\,w_0\,w_0\,(\Rf\,w_0)}{C\,a\,b\,p}{\U}$; combined with
+  monotonicity of the type-value along the information order, this carries the
+  validity of $d\,w_0$ to the goal type $C\,a\,b\,p$.
+\item \emph{Head expansion.} Finally, validity is stable under the head
+  reduction $\Jelim\,C\,d\,p \red d\,w_0$ from step~2 (the contractum is valid,
+  and the redex converts to it by J-$\beta$), so $\Jelim\,C\,d\,p$ is valid at
+  $C\,a\,b\,p$. \hfill$\square$
+\end{enumerate}
+
+\noindent
+The two-substitution (equality) version of this argument handles J-cong; it
+splits the two witnesses coming from the two sides and bridges them with the
+endpoint equalities.
+
+\section*{Metatheorems (corollaries of adequacy)}
+
+Both results are obtained by running adequacy at the \emph{bottom environment}
+and reading the logical relation off the model.
 
 \begin{theorem}[Id-injectivity, \texttt{ID/IdInjectivity.agda}]
 If $\;\cv{\Ga}{\Id\,A_0\,a_0\,b_0}{\Id\,A_1\,a_1\,b_1}{\U}\;$ then
@@ -126,10 +246,10 @@ If $\;\cv{\Ga}{\Id\,A_0\,a_0\,b_0}{\Id\,A_1\,a_1\,b_1}{\U}\;$ then
 \end{theorem}
 
 \noindent
-As with $\Pi$-injectivity, this is read off adequacy: evaluate the given
-conversion at the bottom environment, obtaining an equality in the model at the
-type-code $\mathsf{IdCode}\,\bot\,\bot\,\bot$, and project out the component
-conversions (lemma \texttt{idConv} $+$ \texttt{HeadRed-unique-Id}).
+Evaluate the given conversion at the bottom environment: it yields a validated
+equality at the type-code $\cId(\bot,\bot,\bot)$, whose stored data are exactly
+the component conversions between domain, left and right endpoints; a
+head-reduction uniqueness lemma pins the codes, giving the three conversions.
 
 \begin{theorem}[Subject reduction, \texttt{ID/SubjectReduction.agda}]
 If $\;\ty{\Ga}{M}{A}\;$ and $\;M \redone N\;$ then $\;\ty{\Ga}{N}{A}$.
@@ -137,18 +257,18 @@ If $\;\ty{\Ga}{M}{A}\;$ and $\;M \redone N\;$ then $\;\ty{\Ga}{N}{A}$.
 
 \noindent
 For the \textsc{J-red} step the contractum $d\,a_0$ already has type
-$C\,a_0\,a_0\,(\Rf\,a_0)$, which is retyped to the goal $C\,a\,b\,(\Rf\,a_0)$
-using $a_0=a$ and $a_0=b$ extracted from $\Rf\,a_0:\Id\,A\,a\,b$
-(\texttt{ty-Ref-endpoints}). For the \textsc{J-scrut} step the result type
-$C\,a\,b\,p$ is transported along $p=p'$, obtained from
-\emph{reduction-is-conversion} (\texttt{headred1-conv}); the $\Id$-typed proof
-never needs $\Id$-injectivity, only the diagonal J-$\beta$.
+$C\,a_0\,a_0\,(\Rf\,a_0)$, retyped to the goal $C\,a\,b\,(\Rf\,a_0)$ using
+$a_0=a$ and $a_0=b$ extracted from $\Rf\,a_0:\Id\,A\,a\,b$. For \textsc{J-scrut}
+the result type $C\,a\,b\,p$ is transported along $p=p'$, obtained from
+reduction-is-conversion; the $\Id$-typed proof needs only the diagonal
+J-$\beta$, never $\Id$-injectivity. The $\beta$-step for functions inverts
+$\lambda$-typing through $\Pi$-injectivity, as in the base theory.
 
 \medskip
 \noindent
-Both theorems sit on top of adequacy
-(\texttt{ID/Adequacy/Value.agda}: \texttt{adequacySub2} / \texttt{adequacyEqSub2}),
-whose $\Jelim$ case is the based-J driver
-(\texttt{ID/Adequacy/JApp.agda}, \texttt{JAppCross.agda}, \texttt{JAppCongr.agda}).
+The adequacy theorems are in \texttt{ID/Adequacy/Value.agda}
+(\texttt{adequacySub2} / \texttt{adequacyEqSub2}); the $\Jelim$ driver of steps
+1--5 above is \texttt{ID/Adequacy/JApp.agda} (value), \texttt{JAppCross.agda}
+and \texttt{JAppCongr.agda} (equality).
 
 \end{document}
