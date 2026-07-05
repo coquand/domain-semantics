@@ -1,22 +1,30 @@
 {-# OPTIONS --without-K --exact-split #-}
 
 ------------------------------------------------------------------------
--- ID.Adequacy.JAppCross.agda
+-- ID.Adequacy.JAppE.agda
 --
--- The based-J CROSS driver (adequacyVE-ty-J), the ty-J case of Theorem 2's
--- adequacyConvSub2 (two substitutions sigma, sigma').  EqVal2 mirror of
--- Adequacy.JApp.adequacyV-ty-J: the proof record now yields TWO witnesses
--- wit0M (from sigma p) and wit0N (from sigma' p); each side head-reduces
--- (J .. sp ->* App sd wit0M ; J .. sp' ->* App sd' wit0N) and the contracta
--- EqVal2 is closed by EqVal2-headred-expand.
+-- The based-J EQUALITY driver, shared between the two ty-J equality cases:
+--   * adequacyVE-ty-J    : the two-substitution cross (adequacyConvSub2);
+--   * adequacyEqSub2-J   : the conv-J congruence (adequacyEqSub2).
+--
+-- Both are the SAME EqVal2 argument (proof record -> two head reductions ->
+-- d-edge two-variation -> jTypeEqSp type transport -> app-transport ->
+-- head expansion); they differ only in (a) which equality of the proof and
+-- of the base d they consume, and (b) how the RIGHT J-elim retypes to the
+-- goal.  Those three pieces are passed as callbacks to the core
+-- `adequacyE-ty-J-core`; the two entry points are thin wrappers.
+--
+-- (The value driver adequacyV-ty-J lives in JApp: it produces Val2, not
+-- EqVal2, so it cannot share this function's return type.)
 --
 -- No postulates.
 ------------------------------------------------------------------------
 
-module ID.Adequacy.JAppCross where
+module ID.Adequacy.JAppE where
 
 open import ID.Adequacy.HeadRed
 open import ID.Adequacy.Pi using (Adq ; AdqConv ; Val2-U-to-ValTy2 ; EqVal2-U-to-EqValTy2)
+open import ID.Adequacy.VE using (AdqE1)
 open import ID.Adequacy.App using (app-transport-Val2 ; app-transport-EqVal2)
 open import ID.Adequacy.JMotive using (adq-motiveApp3)
 open import ID.Adequacy.JTypeEq using (jTypeEqSp)
@@ -44,7 +52,7 @@ open import ID.Model.Selection using (selectionBelow ; FinMem-Selection ; FinMem
 open import ID.Syntax.Raw using (Expr ; U ; Pi ; App ; Id ; Ref ; J ; Var ; fzero ; fsuc ;
   Sub ; liftSub ; substExpr ; subst1 ; subst1Sub ; wkExpr ; wkRen ;
   motiveTy ; baseTy ; subst-motiveTy ; subst-baseTy ; subst-wk-comm ;
-  Eq-cong ; Eq-cong2-Expr ; Eq-cong3-Expr)
+  ren-motiveTy ; Eq-cong ; Eq-cong2-Expr ; Eq-cong3-Expr)
 open import ID.Syntax.Typing using (Ctx ; extend ; lookup ; HasType ; ConvTm ; WfCtx ; wf-extend ;
   ty-U ; ty-var ; ty-Ref ; ty-App ; ty-Id ; ty-Pi ; ty-J ; ty-conv ;
   conv-refl ; conv-sym ; conv-trans ; conv-conv ; conv-Id ; conv-Pi ; conv-App-fun ; conv-App-arg ;
@@ -54,18 +62,17 @@ open import ID.Syntax.Reduction using (HeadRed ; headred-refl ; headred-step ; h
 open import ID.Model.Soundness using (theorem1)
 open import ID.Syntax.Substitution using (WtSub ; WtConvSub ; subst-HasType ; subst-ConvTm ;
   typing-ConvTm ; typing-WfCtx ; typing-type ; wk-HasType ; wk-ConvTm ; subst1-wk ;
-  motiveTail-formation ; conv-motiveApp3 ; subst-ConvTm-cross)
+  motiveTail-formation ; conv-motiveApp3 ; subst-ConvTm-cross ; ty-baseBody ; ty-motiveApp3)
 open import ID.Model.SoundnessLemmas using (Fits)
 open import ID.Validity.Stratified using (Red3 ; mkRed3)
 open import ID.Validity.Public using (EqVal2-trans)
 
 ------------------------------------------------------------------------
 -- jHeadConv : the per-substitution head-expansion conversion for based J.
--- H-level (substitution-agnostic) copy of Adequacy.JApp.adequacyV-ty-J's
--- `ctJ`: given the substituted typings of A/a/b/C/d/p at H, a witness wit0
--- with wit0 ~ sa ~ sb : sA and the proof reduction sp ~ Ref wit0, produces
+-- H-level (substitution-agnostic): given the substituted typings of
+-- A/a/b/C/d/p at H, a witness wit0 with wit0 ~ sa ~ sb : sA and the proof
+-- reduction sp ~ Ref wit0, produces
 --   ConvTm (J sC sd sp) (App sd wit0) (App (App (App sC sa) sb) sp).
--- Used TWICE below (LEFT with sigma, RIGHT with sigma').
 ------------------------------------------------------------------------
 
 jHeadConv : {h : Nat} {H : Ctx h} {sA sa sb sC sd sp : Expr h} ->
@@ -105,82 +112,54 @@ jHeadConv {H = H} {sA = sA} {sa = sa} {sb = sb} {sC = sC} {sd = sd} {sp = sp}
         partAB = conv-App3-endpoints htsA htsC htWit0 htSa htWit0 htSb dpSp refConvL refConvR
 
 ------------------------------------------------------------------------
--- adequacyVE-ty-J
+-- adequacyE-ty-J-core : the shared EqVal2 argument.  The RIGHT motive/base/
+-- proof (sC', sd', sp') and the way the proof- and d-equalities are obtained,
+-- together with the RIGHT J-elim retyping, are supplied as parameters.
 ------------------------------------------------------------------------
 
-adequacyVE-ty-J : {h g : Nat} {H : Ctx h} {G : Ctx g} {A a b C d p : Expr g} ->
+adequacyE-ty-J-core : {h g : Nat} {H : Ctx h} {G : Ctx g} {A a b C d p : Expr g}
+  {sC' sd' sp' : Expr h} ->
   HasType G A U -> HasType G a A -> HasType G b A -> HasType G C (motiveTy A) ->
   HasType G d (baseTy A C) -> HasType G p (Id A a b) ->
   Adq G A U -> AdqConv G A U -> Adq G a A -> Adq G b A ->
-  Adq G C (motiveTy A) -> AdqConv G C (motiveTy A) ->
-  Adq G d (baseTy A C) -> AdqConv G d (baseTy A C) ->
-  Adq G p (Id A a b) -> AdqConv G p (Id A a b) ->
-  (sigma sigma' : Sub h g) (rho : EnvApprox g) ->
-  CoherentEnv rho -> ValidSub2 H G sigma rho -> ValidSub2 H G sigma' rho ->
-  ValidConvSub2 H G sigma sigma' rho -> Fits G rho ->
-  WtSub H G sigma -> WtSub H G sigma' -> WtConvSub H G sigma sigma' -> WfCtx H ->
+  Adq G C (motiveTy A) -> AdqConv G C (motiveTy A) -> Adq G p (Id A a b) ->
+  (sigma : Sub h g) (rho : EnvApprox g) ->
+  CoherentEnv rho -> ValidSub2 H G sigma rho -> Fits G rho -> WtSub H G sigma -> WfCtx H ->
+  -- proof equality at the enlarged point (RefEl w'', IdCode t' l' r')
+  ((w'' t' l' r' : FinEl) -> EvalRel p rho (RefEl w'') ->
+     FinMem (RefEl w'') (IdCode t' l' r') -> EvalRel (Id A a b) rho (IdCode t' l' r') ->
+     EqVal2 H (substExpr sigma p) sp' (substExpr sigma (Id A a b)) (RefEl w'') (IdCode t' l' r')) ->
+  -- base d equality (natural type substExpr sigma (baseTy A C))
+  ((ub ap : FinEl) -> EvalRel d rho ub -> EvalRel (baseTy A C) rho ap -> FinMem ub ap ->
+     EqVal2 H (substExpr sigma d) sd' (substExpr sigma (baseTy A C)) ub ap) ->
+  -- RIGHT J-elim -> goal-type conversion (witness data at the LEFT base type sA)
+  ((wit0R : Expr h) -> HasType H wit0R (substExpr sigma A) ->
+     Red3 H sp' (Ref wit0R) (substExpr sigma (Id A a b)) ->
+     ConvTm H wit0R (substExpr sigma a) (substExpr sigma A) ->
+     ConvTm H wit0R (substExpr sigma b) (substExpr sigma A) ->
+     ConvTm H (J sC' sd' sp') (App sd' wit0R) (substExpr sigma (App (App (App C a) b) p))) ->
   (u : FinEl) -> EvalRel (J C d p) rho u ->
   (at : FinEl) -> EvalRel (App (App (App C a) b) p) rho at -> FinMem u at ->
-  EqVal2 H (substExpr sigma (J C d p))
-           (substExpr sigma' (J C d p))
+  EqVal2 H (substExpr sigma (J C d p)) (J sC' sd' sp')
            (substExpr sigma (App (App (App C a) b) p)) u at
--- IMPLEMENTATION PLAN (interface above is VALIDATED — compiles as a stub).
--- Mirror Adequacy.JApp.adequacyV-ty-J shell (branch / dispatchId / branchBot),
--- upgraded Val2 -> EqVal2:
---   * proof record: valP0 = IHp .. -> un-ValId gives ONE witness; but for the
---     cross use the PROOF CROSS `IHcp sigma sigma' .. (RefEl w'') evP' (IdCode
---     t' l' r') evId fm_w'` -> `un-EqValId` -> REqValIdP with TWO witnesses
---     wit0M (sigma p side), wit0N (sigma' p side), redTmM/redTmN, and the four
---     endEqs endEqLM/RM/LN/RN.  HeadRed-Id-refl on `red` strips (sA,sa,sb).
---   * two head reductions hrJ-L : HeadRed (sigma J..) (App sd wit0M),
---     hrJ-R : HeadRed (sigma' J..) (App sd' wit0N)  (redTmM / redTmN).
---   * two conversions ctJ-L / ctJ-R : each a copy of JApp's ctJ (conv-J +
---     conv-conv jbeta typeConv typedGoal) on its own witness; the RIGHT one
---     also needs the CROSS type conversion sigma'(App3) ~ sigma(App3) via
---     `subst-ConvTm-cross` on ty-J's result type (mirror NAT cvTypeRL).
---   * cross d-edge (THE CRUX ~100 lines, port NAT adequacyVE-app-Nat-dep
---     appEqVal-dispatch): NL:=wit0M, NR:=wit0N, sf:=sd, FR:=sd'.
---       - fun-variation  EqVal2 (App sd wit0M)(App sd' wit0M) via un-REqValPi
---         (IHcd d-edge) . appEV @ P=wit0M ;
---       - arg-variation  EqVal2 (App sd' wit0M)(App sd' wit0N) via
---         eqvalPi-snd (N-side RValPiP) . appE @ (wit0M,wit0N) ;
---       - combine with EqVal2-trans ; then jTypeEqSp type-transport
---         (reuse the workerA/workerC reshape from JApp — factor them out or
---         re-derive) + app-transport-EqVal2 (v_sel,ef_usel -> u,at).
---         argEq (EqVal2 wit0M wit0N sA) = EqVal2-trans endEqLM (sym endEqLN);
---         cvNLNR (ConvTm wit0M wit0N sA) from the endEqs' conversions.
---   * close with EqVal2-headred-expand u at hrJ-L hrJ-R ctJ-L ctJ-R (d-edge).
---   * Bot branch: restrictEqVal2 + EqVal2-Bot (mirror branchBot).
-adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
-  dA da db dC dd dp IHA IHcA IHa IHb IHC IHcC IHd IHcd IHp IHcp
-  sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu at evA fm =
+adequacyE-ty-J-core {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
+  {sC' = sC'} {sd' = sd'} {sp' = sp'}
+  dA da db dC dd dp IHA IHcA IHa IHb IHC IHcC IHp
+  sigma rho crho vs fits wtsub wfH proofCross dCross ctJRcb u hu at evA fm =
   branch (fst hu) (fst (snd hu)) (snd (snd hu))
   where
     sC = substExpr sigma C ; sd = substExpr sigma d ; sp = substExpr sigma p
-    sC' = substExpr sigma' C ; sd' = substExpr sigma' d ; sp' = substExpr sigma' p
     sA = substExpr sigma A ; sa = substExpr sigma a ; sb = substExpr sigma b
-    sA' = substExpr sigma' A ; sa' = substExpr sigma' a ; sb' = substExpr sigma' b
     at_U = FinMem-a-in-U u at fm
-    wfG  = typing-WfCtx dp
     htsA = subst-HasType wtsub wfH dA
     htSa = subst-HasType wtsub wfH da
     htSb = subst-HasType wtsub wfH db
     htsC = Eq-transport (\ T -> HasType H sC T) (subst-motiveTy sigma A) (subst-HasType wtsub wfH dC)
     htsd = Eq-transport (\ T -> HasType H sd T) (subst-baseTy sigma A C) (subst-HasType wtsub wfH dd)
     htSp = subst-HasType wtsub wfH dp
-    -- RIGHT (sigma') typings
-    htsA' = subst-HasType wtsub' wfH dA
-    htSa' = subst-HasType wtsub' wfH da
-    htSb' = subst-HasType wtsub' wfH db
-    htsC' = Eq-transport (\ T -> HasType H sC' T) (subst-motiveTy sigma' A) (subst-HasType wtsub' wfH dC)
-    htsd' = Eq-transport (\ T -> HasType H sd' T) (subst-baseTy sigma' A C) (subst-HasType wtsub' wfH dd)
-    htSp' = subst-HasType wtsub' wfH dp
     evU  = mkSigma tt (LeCode-refl UCode tt)
     typedGoalσ : HasType H (App (App (App sC sa) sb) sp) U
     typedGoalσ = subst-HasType wtsub wfH (typing-type (ty-J dA da db dC dd dp))
-    -- cross type conversion  App³ sC' sa' sb' sp' ~ App³ sC sa sb sp : U
-    cvTypeRL : ConvTm H (App (App (App sC' sa') sb') sp') (App (App (App sC sa) sb) sp) U
-    cvTypeRL = conv-sym (subst-ConvTm-cross (typing-type (ty-J dA da db dC dd dp)) wtsub wtsub' wcs wfH)
 
     branchBot : Pair (Coherent u) (LeCode u Bot) ->
       EqVal2 H (J sC sd sp) (J sC' sd' sp') (App (App (App sC sa) sb) sp) u at
@@ -197,7 +176,7 @@ adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
                  (snd (snd (snd (snd (snd typed_p)))))
       where
         typed_p = theorem1 dp rho fits (RefEl wit) evP
-        cohWit = EvalRel-coh p rho (RefEl wit) evP   -- Coherent (RefEl wit) = Coherent wit
+        cohWit = EvalRel-coh p rho (RefEl wit) evP
 
         dispatchId : (w' a_id : FinEl) -> LeCode (RefEl wit) w' -> EvalRel p rho w' ->
           FinMem w' a_id -> EvalRel (Id A a b) rho a_id ->
@@ -211,23 +190,22 @@ adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
             cW''      = cohW''
             fm_t'_U   = FinMem-a-in-U w'' t' fm_w''_t'
             cohT'     = coh-from-aU t' fm_t'_U
-            evT'      = fst (snd evId)              -- EvalRel A rho t'
-            ev_a_l'   = fst (snd (snd evId))        -- EvalRel a rho l'
-            ev_b_r'   = snd (snd (snd evId))        -- EvalRel b rho r'
+            evT'      = fst (snd evId)
+            ev_a_l'   = fst (snd (snd evId))
+            ev_b_r'   = snd (snd (snd evId))
             cohl'     = EvalRel-coh a rho l' ev_a_l'
             cohr'     = EvalRel-coh b rho r' ev_b_r'
             le_w''_l' = finMem-ref-le1 w'' t' l' r' fm_w'
             le_w''_r' = finMem-ref-le2 w'' t' l' r' fm_w'
 
-            -- proof CROSS at (w'', t'); LEFT/RIGHT value records.
-            eqvalP0 = IHcp sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH
-                        (RefEl w'') evP' (IdCode t' l' r') evId fm_w'
+            -- proof equality at (w'', t'); LEFT/RIGHT value records.
+            eqvalP0 = proofCross w'' t' l' r' evP' fm_w' evId
             valP0L = Val2-from-EqVal2-first  (RefEl w'') (IdCode t' l' r') eqvalP0
             valP0R = Val2-from-EqVal2-second (RefEl w'') (IdCode t' l' r') eqvalP0
             ridL = un-ValId {w = w''} {t = t'} {u = l'} {v = r'} valP0L
             ridR = un-ValId {w = w''} {t = t'} {u = l'} {v = r'} valP0R
 
-            -- LEFT witness data (as JApp.adequacyV-ty-J)
+            -- LEFT witness data
             wit0L = RValIdP.wit0 ridL
             redTmL = RValIdP.redTm ridL
             sIdL  = HeadRed-Id-refl (Red3.hr (RValIdP.red ridL))
@@ -263,6 +241,10 @@ adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
             refConvL-R = Eq-transport (\ X -> ConvTm H wit0R sa X) (Eq-sym eqA0R)
                            (Eq-transport (\ Y -> ConvTm H wit0R Y (RValIdP.domA0 ridR)) (Eq-sym eqL0R)
                              (RValIdP.refConvL ridR))
+            refConvR-R : ConvTm H wit0R sb sA
+            refConvR-R = Eq-transport (\ X -> ConvTm H wit0R sb X) (Eq-sym eqA0R)
+                           (Eq-transport (\ Y -> ConvTm H wit0R Y (RValIdP.domA0 ridR)) (Eq-sym (snd (snd sIdR)))
+                             (RValIdP.refConvR ridR))
             htWit0R = fst (typing-ConvTm refConvL-R)
 
             -- bridge LEFT witness -> RIGHT witness
@@ -271,9 +253,8 @@ adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
             eqWit0LR : EqVal2 H wit0L wit0R sA w'' t'
             eqWit0LR = EqVal2-trans w'' t' cW'' cohT' endEqL-L (EqVal2-sym w'' t' cW'' cohT' endEqL-R)
 
-            valWit0L = Val2-from-EqVal2-first w'' t' endEqL-L   -- Val2 wit0L sA w'' t'
+            valWit0L = Val2-from-EqVal2-first w'' t' endEqL-L
 
-            -- witness argument Val2 (fun-variation P)
             argVal : (u' a' : FinEl) -> EvalRel A rho a' -> LeCode u' wit -> Coherent u' -> FinMem u' a' ->
               Val2 H wit0L sA u' a'
             argVal u' a' evA' le cu' fm' =
@@ -286,7 +267,6 @@ adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
                   (IHA sigma rho crho vs fits wtsub wfH t' evT' UCode evU fm_t'_U))
                 valWit0L
 
-            -- witness argument EqVal2 (arg-variation wit0L -> wit0R)
             argEq : (u' a' : FinEl) -> EvalRel A rho a' -> LeCode u' wit -> Coherent u' -> FinMem u' a' ->
               EqVal2 H wit0L wit0R sA u' a'
             argEq u' a' evA' le cu' fm' =
@@ -299,40 +279,15 @@ adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
                   (IHA sigma rho crho vs fits wtsub wfH t' evT' UCode evU fm_t'_U))
                 eqWit0LR
 
-            -- head reductions and conversions
             hrJ-L : HeadRed (J sC sd sp) (App sd wit0L)
             hrJ-L = HeadRed-trans (HeadRed-J (Red3.hr redTmL)) (headred-step headred-J headred-refl)
             hrJ-R : HeadRed (J sC' sd' sp') (App sd' wit0R)
             hrJ-R = HeadRed-trans (HeadRed-J (Red3.hr redTmR)) (headred-step headred-J headred-refl)
             ctJ-L : ConvTm H (J sC sd sp) (App sd wit0L) (App (App (App sC sa) sb) sp)
             ctJ-L = jHeadConv htsA htSa htSb htsC htsd htSp wit0L htWit0L (Red3.ct redTmL) refConvL-L refConvR-L
-            refConvR-R : ConvTm H wit0R sb sA
-            refConvR-R = Eq-transport (\ X -> ConvTm H wit0R sb X) (Eq-sym eqA0R)
-                           (Eq-transport (\ Y -> ConvTm H wit0R Y (RValIdP.domA0 ridR)) (Eq-sym (snd (snd sIdR)))
-                             (RValIdP.refConvR ridR))
-            -- ctJ-R : reduce the witness-at-LEFT-type wit0R data to the RIGHT
-            -- base type sA' (cross conversions), build the RIGHT-natural head
-            -- conversion via jHeadConv, then bridge to the goal type via cvTypeRL.
             ctJ-R : ConvTm H (J sC' sd' sp') (App sd' wit0R) (App (App (App sC sa) sb) sp)
-            ctJ-R = conv-conv rightNat cvTypeRL typedGoalσ
-              where
-                cAA' = subst-ConvTm-cross dA wtsub wtsub' wcs wfH        -- ConvTm sA sA' U
-                caa' = subst-ConvTm-cross da wtsub wtsub' wcs wfH        -- ConvTm sa sa' sA
-                cbb' = subst-ConvTm-cross db wtsub wtsub' wcs wfH        -- ConvTm sb sb' sA
-                cIdCross = subst-ConvTm-cross (ty-Id dA da db) wtsub wtsub' wcs wfH  -- Id sA sa sb ~ Id sA' sa' sb' : U
-                htId' = ty-Id htsA' htSa' htSb'
-                htWit0R' : HasType H wit0R sA'
-                htWit0R' = ty-conv htWit0R cAA' htsA'
-                rcL' : ConvTm H wit0R sa' sA'
-                rcL' = conv-conv (conv-trans refConvL-R caa') cAA' htsA'
-                rcR' : ConvTm H wit0R sb' sA'
-                rcR' = conv-conv (conv-trans refConvR-R cbb') cAA' htsA'
-                ctSp'R : ConvTm H sp' (Ref wit0R) (Id sA' sa' sb')
-                ctSp'R = conv-conv (Red3.ct redTmR) cIdCross htId'
-                rightNat : ConvTm H (J sC' sd' sp') (App sd' wit0R) (App (App (App sC' sa') sb') sp')
-                rightNat = jHeadConv htsA' htSa' htSb' htsC' htsd' htSp' wit0R htWit0R' ctSp'R rcL' rcR'
+            ctJ-R = ctJRcb wit0R htWit0R redTmR refConvL-R refConvR-R
 
-            -- the cross d-edge, at (u, at).
             dEdge : EqVal2 H (App sd wit0L) (App sd' wit0R) (App (App (App sC sa) sb) sp) u at
             dEdge =
               let typed_d = theorem1 dd rho fits (FunEl sing) jb
@@ -343,8 +298,7 @@ adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
                   fm_big  = fst (snd (snd (snd (snd typed_d))))
                   evPi    = snd (snd (snd (snd (snd typed_d))))
                   eqval_d = Eq-transport (\ T -> EqVal2 H sd sd' T u_big a_pi) (subst-baseTy sigma A C)
-                              (IHcd sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH
-                                 u_big evF_big a_pi evPi fm_big)
+                              (dCross u_big a_pi evF_big evPi fm_big)
               in dispatch u_big a_pi le_sing evF_big evPi fm_big eqval_d
               where
                 sing = cons (mkSigma wit u) nil
@@ -542,7 +496,6 @@ adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
                     mkEvC uS cuS leSW (IdCode t2 u2 v2) eb = workerC uS cuS leSW (IdCode t2 u2 v2) eb
                     mkEvC uS cuS leSW (RefEl w2)       eb = workerC uS cuS leSW (RefEl w2) eb
 
-        -- absurd shapes for the proof value / Id type-value
         dispatchId Bot           a_id le evP' fm' evId = absurdBot le
           where absurdBot : LeCode (RefEl wit) Bot -> _
                 absurdBot ()
@@ -566,3 +519,143 @@ adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
     branch (PiCode _ _)   evP ()
     branch (IdCode _ _ _) evP ()
     branch (RefEl wit)    evP jb = refCore wit evP jb
+
+------------------------------------------------------------------------
+-- adequacyVE-ty-J : the two-substitution cross (adequacyConvSub2 case).
+------------------------------------------------------------------------
+
+adequacyVE-ty-J : {h g : Nat} {H : Ctx h} {G : Ctx g} {A a b C d p : Expr g} ->
+  HasType G A U -> HasType G a A -> HasType G b A -> HasType G C (motiveTy A) ->
+  HasType G d (baseTy A C) -> HasType G p (Id A a b) ->
+  Adq G A U -> AdqConv G A U -> Adq G a A -> Adq G b A ->
+  Adq G C (motiveTy A) -> AdqConv G C (motiveTy A) ->
+  Adq G d (baseTy A C) -> AdqConv G d (baseTy A C) ->
+  Adq G p (Id A a b) -> AdqConv G p (Id A a b) ->
+  (sigma sigma' : Sub h g) (rho : EnvApprox g) ->
+  CoherentEnv rho -> ValidSub2 H G sigma rho -> ValidSub2 H G sigma' rho ->
+  ValidConvSub2 H G sigma sigma' rho -> Fits G rho ->
+  WtSub H G sigma -> WtSub H G sigma' -> WtConvSub H G sigma sigma' -> WfCtx H ->
+  (u : FinEl) -> EvalRel (J C d p) rho u ->
+  (at : FinEl) -> EvalRel (App (App (App C a) b) p) rho at -> FinMem u at ->
+  EqVal2 H (substExpr sigma (J C d p)) (substExpr sigma' (J C d p))
+           (substExpr sigma (App (App (App C a) b) p)) u at
+adequacyVE-ty-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {d = d} {p = p}
+  dA da db dC dd dp IHA IHcA IHa IHb IHC IHcC IHd IHcd IHp IHcp
+  sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH u hu at evA fm =
+  adequacyE-ty-J-core {sC' = substExpr sigma' C} {sd' = substExpr sigma' d} {sp' = substExpr sigma' p}
+    dA da db dC dd dp IHA IHcA IHa IHb IHC IHcC IHp
+    sigma rho crho vs fits wtsub wfH
+    (\ w'' t' l' r' evP' fm_w' evId ->
+       IHcp sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH
+         (RefEl w'') evP' (IdCode t' l' r') evId fm_w')
+    (\ ub ap evFb evPab fmba ->
+       IHcd sigma sigma' rho crho vs vs' vcs fits wtsub wtsub' wcs wfH ub evFb ap evPab fmba)
+    ctJRcb u hu at evA fm
+  where
+    sC = substExpr sigma C ; sd = substExpr sigma d ; sp = substExpr sigma p
+    sC' = substExpr sigma' C ; sd' = substExpr sigma' d ; sp' = substExpr sigma' p
+    sA = substExpr sigma A ; sa = substExpr sigma a ; sb = substExpr sigma b
+    sA' = substExpr sigma' A ; sa' = substExpr sigma' a ; sb' = substExpr sigma' b
+    htsA' = subst-HasType wtsub' wfH dA
+    htSa' = subst-HasType wtsub' wfH da
+    htSb' = subst-HasType wtsub' wfH db
+    htsC' = Eq-transport (\ T -> HasType H sC' T) (subst-motiveTy sigma' A) (subst-HasType wtsub' wfH dC)
+    htsd' = Eq-transport (\ T -> HasType H sd' T) (subst-baseTy sigma' A C) (subst-HasType wtsub' wfH dd)
+    htSp' = subst-HasType wtsub' wfH dp
+    typedGoalσ : HasType H (App (App (App sC sa) sb) sp) U
+    typedGoalσ = subst-HasType wtsub wfH (typing-type (ty-J dA da db dC dd dp))
+    cvTypeRL : ConvTm H (App (App (App sC' sa') sb') sp') (App (App (App sC sa) sb) sp) U
+    cvTypeRL = conv-sym (subst-ConvTm-cross (typing-type (ty-J dA da db dC dd dp)) wtsub wtsub' wcs wfH)
+    -- RIGHT J-elim retyping: convert wit0R's LEFT-typed data to sA', run jHeadConv, bridge via cvTypeRL.
+    ctJRcb : (wit0R : Expr _) -> HasType H wit0R sA -> Red3 H sp' (Ref wit0R) (Id sA sa sb) ->
+      ConvTm H wit0R sa sA -> ConvTm H wit0R sb sA ->
+      ConvTm H (J sC' sd' sp') (App sd' wit0R) (App (App (App sC sa) sb) sp)
+    ctJRcb wit0R htWit0R redTmR refConvL-R refConvR-R = conv-conv rightNat cvTypeRL typedGoalσ
+      where
+        cAA' = subst-ConvTm-cross dA wtsub wtsub' wcs wfH
+        caa' = subst-ConvTm-cross da wtsub wtsub' wcs wfH
+        cbb' = subst-ConvTm-cross db wtsub wtsub' wcs wfH
+        cIdCross = subst-ConvTm-cross (ty-Id dA da db) wtsub wtsub' wcs wfH
+        htId' = ty-Id htsA' htSa' htSb'
+        htWit0R' : HasType H wit0R sA'
+        htWit0R' = ty-conv htWit0R cAA' htsA'
+        rcL' : ConvTm H wit0R sa' sA'
+        rcL' = conv-conv (conv-trans refConvL-R caa') cAA' htsA'
+        rcR' : ConvTm H wit0R sb' sA'
+        rcR' = conv-conv (conv-trans refConvR-R cbb') cAA' htsA'
+        ctSp'R : ConvTm H sp' (Ref wit0R) (Id sA' sa' sb')
+        ctSp'R = conv-conv (Red3.ct redTmR) cIdCross htId'
+        rightNat : ConvTm H (J sC' sd' sp') (App sd' wit0R) (App (App (App sC' sa') sb') sp')
+        rightNat = jHeadConv htsA' htSa' htSb' htsC' htsd' htSp' wit0R htWit0R' ctSp'R rcL' rcR'
+
+------------------------------------------------------------------------
+-- adequacyEqSub2-J : the conv-J congruence (adequacyEqSub2 case).  A,a,b are
+-- shared, so the RIGHT J-elim retyping needs no cross-type juggling.
+------------------------------------------------------------------------
+
+adequacyEqSub2-J : {h g : Nat} {H : Ctx h} {G : Ctx g} {A a b C C' d d' p p' : Expr g} ->
+  HasType G A U -> HasType G a A -> HasType G b A -> HasType G C (motiveTy A) ->
+  HasType G d (baseTy A C) -> HasType G p (Id A a b) ->
+  ConvTm G C C' (motiveTy A) -> ConvTm G d d' (baseTy A C) -> ConvTm G p p' (Id A a b) ->
+  Adq G A U -> AdqConv G A U -> Adq G a A -> Adq G b A ->
+  Adq G C (motiveTy A) -> AdqConv G C (motiveTy A) ->
+  Adq G d (baseTy A C) -> AdqE1 G d d' (baseTy A C) ->
+  Adq G p (Id A a b) -> AdqE1 G p p' (Id A a b) ->
+  (sigma : Sub h g) (rho : EnvApprox g) ->
+  CoherentEnv rho -> ValidSub2 H G sigma rho -> Fits G rho ->
+  WtSub H G sigma -> WfCtx H ->
+  (u : FinEl) -> EvalRel (J C d p) rho u ->
+  (at : FinEl) -> EvalRel (App (App (App C a) b) p) rho at -> FinMem u at ->
+  EqVal2 H (substExpr sigma (J C d p)) (substExpr sigma (J C' d' p'))
+           (substExpr sigma (App (App (App C a) b) p)) u at
+adequacyEqSub2-J {H = H} {G = G} {A = A} {a = a} {b = b} {C = C} {C' = C'} {d = d} {d' = d'} {p = p} {p' = p'}
+  dA da db dC dd dp cC cd cp IHA IHcA IHa IHb IHC IHcC IHd IHcd IHp IHcp
+  sigma rho crho vs fits wtsub wfH u hu at evA fm =
+  adequacyE-ty-J-core {sC' = substExpr sigma C'} {sd' = substExpr sigma d'} {sp' = substExpr sigma p'}
+    dA da db dC dd dp IHA IHcA IHa IHb IHC IHcC IHp
+    sigma rho crho vs fits wtsub wfH
+    (\ w'' t' l' r' evP' fm_w' evId ->
+       IHcp sigma rho crho vs fits wtsub wfH (RefEl w'') evP' (IdCode t' l' r') evId fm_w')
+    (\ ub ap evFb evPab fmba ->
+       IHcd sigma rho crho vs fits wtsub wfH ub evFb ap evPab fmba)
+    ctJRcb u hu at evA fm
+  where
+    sC = substExpr sigma C ; sd = substExpr sigma d ; sp = substExpr sigma p
+    sC' = substExpr sigma C' ; sd' = substExpr sigma d' ; sp' = substExpr sigma p'
+    sA = substExpr sigma A ; sa = substExpr sigma a ; sb = substExpr sigma b
+    htsA = subst-HasType wtsub wfH dA
+    htSa = subst-HasType wtsub wfH da
+    htSb = subst-HasType wtsub wfH db
+    htsC = Eq-transport (\ T -> HasType H sC T) (subst-motiveTy sigma A) (subst-HasType wtsub wfH dC)
+    -- RIGHT (primed) typings at the SHARED base type sA.
+    dC'G  = snd (typing-ConvTm cC)
+    dp'G  = snd (typing-ConvTm cp)
+    dd'G : HasType G d' (baseTy A C')
+    dd'G  = ty-conv (snd (typing-ConvTm cd)) convBaseTy (ty-Pi dA (ty-baseBody dA dC'G))
+      where
+        wkConvC = Eq-transport (\ T -> ConvTm (extend G A) (wkExpr C) (wkExpr C') T)
+                    (ren-motiveTy wkRen A) (wk-ConvTm dA cC)
+        dA1  = wk-HasType dA dA
+        htx  = ty-var {i = fzero} (wf-extend dA)
+        wkC1  = Eq-transport (\ T -> HasType (extend G A) (wkExpr C) T) (ren-motiveTy wkRen A) (wk-HasType dA dC)
+        wkC1' = Eq-transport (\ T -> HasType (extend G A) (wkExpr C') T) (ren-motiveTy wkRen A) (wk-HasType dA dC'G)
+        convBaseBody = conv-motiveApp3 dA1 wkC1 wkC1' wkConvC htx htx (ty-Ref dA1 htx) (conv-refl (ty-Ref dA1 htx))
+        convBaseTy = conv-Pi dA (ty-baseBody dA dC) (ty-baseBody dA dC'G) (conv-refl dA) convBaseBody
+    htsC' = Eq-transport (\ T -> HasType H sC' T) (subst-motiveTy sigma A) (subst-HasType wtsub wfH dC'G)
+    htsd' = Eq-transport (\ T -> HasType H sd' T) (subst-baseTy sigma A C') (subst-HasType wtsub wfH dd'G)
+    typedGoalσ : HasType H (App (App (App sC sa) sb) sp) U
+    typedGoalσ = subst-HasType wtsub wfH (typing-type (ty-J dA da db dC dd dp))
+    convResG : ConvTm G (App (App (App C a) b) p) (App (App (App C' a) b) p') U
+    convResG = conv-motiveApp3 dA dC dC'G cC da db dp cp
+    cvTypeRL : ConvTm H (App (App (App sC' sa) sb) sp') (App (App (App sC sa) sb) sp) U
+    cvTypeRL = conv-sym (subst-ConvTm wtsub wfH convResG)
+    ctJRcb : (wit0R : Expr _) -> HasType H wit0R sA -> Red3 H sp' (Ref wit0R) (Id sA sa sb) ->
+      ConvTm H wit0R sa sA -> ConvTm H wit0R sb sA ->
+      ConvTm H (J sC' sd' sp') (App sd' wit0R) (App (App (App sC sa) sb) sp)
+    ctJRcb wit0R htWit0R redTmR refConvL-R refConvR-R = conv-conv rightNat cvTypeRL typedGoalσ
+      where
+        htSp'R : HasType H sp' (Id sA sa sb)
+        htSp'R = fst (typing-ConvTm (Red3.ct redTmR))
+        rightNat : ConvTm H (J sC' sd' sp') (App sd' wit0R) (App (App (App sC' sa) sb) sp')
+        rightNat = jHeadConv htsA htSa htSb htsC' htsd' htSp'R wit0R htWit0R
+                     (Red3.ct redTmR) refConvL-R refConvR-R
