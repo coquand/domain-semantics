@@ -21,11 +21,11 @@
 \newcommand{\cId}{\mathbf{Id}}
 \newcommand{\rEl}{\mathbf{r}}
 \newcommand{\sem}[1]{[\![#1]\!]}
-\newcommand{\ev}[2]{#1 \lhd \sem{#2}_{\rho}}   % u below value of M in rho
+\newcommand{\ev}[2]{#1 \lhd \sem{#2}_{\rho}}   % finite element approximates value of a term
 \newcommand{\mem}[2]{#1 \in #2}                 % finite-element membership
 \newcommand{\valid}[4]{#1 \Vdash #2 : #3 \;[\,#4\,]}
 
-\title{The identity type $\Id\,A\,a\,b$ with $\Rf$ and $\Jelim$\\[2pt]
+\title{The identity type $\Id\,A\,M\,N$ with $\Rf$ and $\Jelim$\\[2pt]
   \large typing, reduction, injectivity, and subject reduction}
 \author{Agda development \texttt{ID/} (domain-semantics)}
 \date{}
@@ -45,60 +45,69 @@ and no termination/positivity pragmas.
 The eliminator is Martin-L\"of's \emph{original} $\Jelim$ with a
 fully dependent motive. Writing the motive and base types out,
 \[
-  C : (x\,y:A)\to \Id\,A\,x\,y \to \U,
+  C : (X\,Y:A)\to \Id\,A\,X\,Y \to \U,
   \qquad
-  d : (x:A)\to C\,x\,x\,(\Rf\,x),
+  D : (X:A)\to C\,X\,X\,(\Rf\,X),
 \]
-so that $\Jelim\,C\,d\,p$ at $p:\Id\,A\,a\,b$ has type $C\,a\,b\,p$ (the
-application spine $((C\,a)\,b)\,p$).
+so that $\Jelim\,C\,D\,P$ at $P:\Id\,A\,M\,N$ has type $C\,M\,N\,P$ (the
+application spine $((C\,M)\,N)\,P$).
+
+\paragraph{Notation.}
+Syntactic terms and types are written with the capital and standard names of the
+rules below — a base type $A$, endpoint terms $M,N$, a motive $C$, a base term
+$D$, a proof term $P$, bound variables $X,Y$. Finite elements of the semantic
+domain are written with the \emph{reserved lowercase letters} $t,u,v,w,c$
+(together with $\bot$, the universe code $\bU$, and the codes $\cId(t,u,v)$ and
+$\rEl(w)$). We write $\sem{L}_\rho$ for the value of a term $L$ in an environment
+$\rho$, and $\ev{u}{L}$ for ``$u$ is a finite approximant of that value''.
 
 \section*{Typing rules}
 
 \begin{mathpar}
-\inferrule[Id]{\ty{\Ga}{A}{\U} \\ \ty{\Ga}{a}{A} \\ \ty{\Ga}{b}{A}}
-  {\ty{\Ga}{\Id\,A\,a\,b}{\U}}
+\inferrule[Id]{\ty{\Ga}{A}{\U} \\ \ty{\Ga}{M}{A} \\ \ty{\Ga}{N}{A}}
+  {\ty{\Ga}{\Id\,A\,M\,N}{\U}}
 \and
-\inferrule[Ref]{\ty{\Ga}{A}{\U} \\ \ty{\Ga}{a}{A}}
-  {\ty{\Ga}{\Rf\,a}{\Id\,A\,a\,a}}
+\inferrule[Ref]{\ty{\Ga}{A}{\U} \\ \ty{\Ga}{M}{A}}
+  {\ty{\Ga}{\Rf\,M}{\Id\,A\,M\,M}}
 \end{mathpar}
 
 \begin{mathpar}
 \inferrule[J]{
-  \ty{\Ga}{A}{\U} \\ \ty{\Ga}{a}{A} \\ \ty{\Ga}{b}{A} \\\\
-  \ty{\Ga}{C}{(x\,y:A)\to \Id\,A\,x\,y\to\U} \\
-  \ty{\Ga}{d}{(x:A)\to C\,x\,x\,(\Rf\,x)} \\
-  \ty{\Ga}{p}{\Id\,A\,a\,b}}
-  {\ty{\Ga}{\Jelim\,C\,d\,p}{C\,a\,b\,p}}
+  \ty{\Ga}{A}{\U} \\ \ty{\Ga}{M}{A} \\ \ty{\Ga}{N}{A} \\\\
+  \ty{\Ga}{C}{(X\,Y:A)\to \Id\,A\,X\,Y\to\U} \\
+  \ty{\Ga}{D}{(X:A)\to C\,X\,X\,(\Rf\,X)} \\
+  \ty{\Ga}{P}{\Id\,A\,M\,N}}
+  {\ty{\Ga}{\Jelim\,C\,D\,P}{C\,M\,N\,P}}
 \end{mathpar}
 
 \section*{Conversion rules}
 
 \begin{mathpar}
 \inferrule[J-$\beta$]{
-  \ty{\Ga}{A}{\U} \\ \ty{\Ga}{a_0}{A} \\
-  \ty{\Ga}{C}{\dots} \\ \ty{\Ga}{d}{\dots}}
-  {\cv{\Ga}{\Jelim\,C\,d\,(\Rf\,a_0)}{d\,a_0}{C\,a_0\,a_0\,(\Rf\,a_0)}}
+  \ty{\Ga}{A}{\U} \\ \ty{\Ga}{M}{A} \\
+  \ty{\Ga}{C}{\dots} \\ \ty{\Ga}{D}{\dots}}
+  {\cv{\Ga}{\Jelim\,C\,D\,(\Rf\,M)}{D\,M}{C\,M\,M\,(\Rf\,M)}}
 \end{mathpar}
 
 \noindent
-$\Jelim$ fires only on a \emph{literal} $\Rf\,a_0$, whose type is the diagonal
-$\Id\,A\,a_0\,a_0$; both sides of J-$\beta$ therefore have the \emph{same} type
-$C\,a_0\,a_0\,(\Rf\,a_0)$, so the rule carries no endpoint or motive equalities
+$\Jelim$ fires only on a \emph{literal} $\Rf\,M$, whose type is the diagonal
+$\Id\,A\,M\,M$; both sides of J-$\beta$ therefore have the \emph{same} type
+$C\,M\,M\,(\Rf\,M)$, so the rule carries no endpoint or motive equalities
 and needs no injectivity. The congruences are
 
 \begin{mathpar}
 \inferrule[Id-cong]{
-  \cv{\Ga}{A}{A'}{\U} \\ \cv{\Ga}{a}{a'}{A} \\ \cv{\Ga}{b}{b'}{A}}
-  {\cv{\Ga}{\Id\,A\,a\,b}{\Id\,A'\,a'\,b'}{\U}}
+  \cv{\Ga}{A}{A'}{\U} \\ \cv{\Ga}{M}{M'}{A} \\ \cv{\Ga}{N}{N'}{A}}
+  {\cv{\Ga}{\Id\,A\,M\,N}{\Id\,A'\,M'\,N'}{\U}}
 \and
-\inferrule[Ref-cong]{\cv{\Ga}{a}{a'}{A}}
-  {\cv{\Ga}{\Rf\,a}{\Rf\,a'}{\Id\,A\,a\,a}}
+\inferrule[Ref-cong]{\cv{\Ga}{M}{M'}{A}}
+  {\cv{\Ga}{\Rf\,M}{\Rf\,M'}{\Id\,A\,M\,M}}
 \end{mathpar}
 
 \begin{mathpar}
 \inferrule[J-cong]{
-  \cv{\Ga}{C}{C'}{\dots} \\ \cv{\Ga}{d}{d'}{\dots} \\ \cv{\Ga}{p}{p'}{\Id\,A\,a\,b}}
-  {\cv{\Ga}{\Jelim\,C\,d\,p}{\Jelim\,C'\,d'\,p'}{C\,a\,b\,p}}
+  \cv{\Ga}{C}{C'}{\dots} \\ \cv{\Ga}{D}{D'}{\dots} \\ \cv{\Ga}{P}{P'}{\Id\,A\,M\,N}}
+  {\cv{\Ga}{\Jelim\,C\,D\,P}{\Jelim\,C'\,D'\,P'}{C\,M\,N\,P}}
 \end{mathpar}
 
 \noindent
@@ -108,13 +117,13 @@ and needs no injectivity. The congruences are
 \section*{Head reduction}
 
 Reduction is untyped weak head reduction. The single-step relation
-$M \redone N$ has the following $\Id$-clauses (alongside the usual
+$L \redone L'$ has the following $\Id$-clauses (alongside the usual
 $\beta$ and application-congruence for functions):
 
 \begin{mathpar}
-\inferrule[J-red]{ }{\Jelim\,C\,d\,(\Rf\,a) \;\redone\; d\,a}
+\inferrule[J-red]{ }{\Jelim\,C\,D\,(\Rf\,M) \;\redone\; D\,M}
 \and
-\inferrule[J-scrut]{p \redone p'}{\Jelim\,C\,d\,p \;\redone\; \Jelim\,C\,d\,p'}
+\inferrule[J-scrut]{P \redone P'}{\Jelim\,C\,D\,P \;\redone\; \Jelim\,C\,D\,P'}
 \end{mathpar}
 
 \noindent
@@ -125,12 +134,12 @@ $\mapsto$ J-cong), and $\redone$ is deterministic.
 
 \section*{Domain semantics of $\Id$ and $\Jelim$}
 
-The model is the poset of \emph{finite elements} $u,v,w,\dots$ of a Scott
+The model is the poset of \emph{finite elements} $t,u,v,w,c,\dots$ of a Scott
 domain, with an information order $u\le v$, a bottom $\bot$, a universe code
 $\bU$, function elements, and $\Pi$-codes. The identity type adds two shapes:
 \[
-  \cId(t,u,v) \quad\text{(the \emph{code} of a type $\Id\,A\,a\,b$: $t$ codes
-  $A$, $u$ the value of $a$, $v$ the value of $b$),}
+  \cId(t,u,v) \quad\text{(the \emph{code} of a type $\Id\,A\,M\,N$: $t$ codes
+  $A$, $u$ codes $M$, $v$ codes $N$),}
 \]
 \[
   \rEl(w) \quad\text{(a \emph{proof value}: a witness $w$, the model's analogue
@@ -152,41 +161,43 @@ values interact only with one another.
 
 \medskip
 \noindent
-Evaluation relates a term $M$, an environment $\rho$, and a finite element
-below its value; write $\ev{u}{M}$ for ``$u$ approximates $\sem{M}_\rho$''. The
-new clauses (for $u\neq\bot$, where $\ev{\bot}{M}$ always holds) are
+The approximation relation $\ev{u}{L}$ (``the finite element $u$ approximates
+$\sem{L}_\rho$'') has these clauses for the new formers (for $u\neq\bot$; every
+term is approximated by $\bot$):
 \begin{align*}
-  \ev{\cId(t,u,v)}{\Id\,A\,a\,b}
-    &\iff \ev{t}{A}\ \wedge\ \ev{u}{a}\ \wedge\ \ev{v}{b}, \\[2pt]
-  \ev{\rEl(w)}{\Rf\,a}
-    &\iff \ev{w}{a}, \\[2pt]
-  \ev{c}{\Jelim\,C\,d\,p}
-    &\iff \exists\,w.\ \ev{w}{p}\ \wedge\ \mathsf{br}(c,w),
-    \quad\text{with}\quad
-    \mathsf{br}(c,\rEl(w')) \iff \ev{\,\mathsf{fun}(w'\mapsto c)\,}{d}.
+  \ev{\cId(t,u,v)}{\Id\,A\,M\,N}
+    &\iff \ev{t}{A}\ \wedge\ \ev{u}{M}\ \wedge\ \ev{v}{N}, \\[2pt]
+  \ev{\rEl(w)}{\Rf\,M}
+    &\iff \ev{w}{M}, \\[2pt]
+  \ev{c}{\Jelim\,C\,D\,P}
+    &\iff \exists\,w.\ \ev{w}{P}\ \wedge\ \mathsf{br}(c,w),
 \end{align*}
-So $\Id$ evaluates componentwise to an $\cId$-code, $\Rf$ to a proof value, and
-$\Jelim\,C\,d\,p$ dispatches on the proof: once $p$ evaluates to a proof
-$\rEl(w')$, the value of $\Jelim\,C\,d\,p$ is $\sem{d}$ applied to the witness
-$w'$ (the single-edge condition ``$d$ maps $w'$ to $c$''). \textbf{The motive
-$C$ does not occur in the value} — it constrains only the \emph{type}. This is
-the based-J computation rule read in the model.
+where the branch condition on a proof value is
+$\;\mathsf{br}(c,\rEl(w')) \iff \ev{\,\mathsf{fun}(w'\mapsto c)\,}{D}\;$ (and is
+empty when the proof value is not a $\Rf$).
+So the value of $\Id\,A\,M\,N$ is assembled componentwise into an $\cId$-code,
+that of $\Rf\,M$ into a proof value, and the value of $\Jelim\,C\,D\,P$
+dispatches on the proof: whenever a proof value $\rEl(w')$ approximates
+$\sem{P}_\rho$, the value $\sem{D}_\rho$ applied to the witness $w'$ approximates
+$\sem{\Jelim\,C\,D\,P}_\rho$ (the single-edge condition ``$D$ sends $w'$ to
+$c$''). \textbf{The motive $C$ does not occur in the value} — it constrains only
+the \emph{type}. This is the based-J computation rule read in the model.
 
 \section*{The logical relation and adequacy}
 
 Adequacy is proved through a Kripke logical relation between the syntax and the
 model. For each type it defines, at every finite element, when a term is
-\emph{valid}; write $\valid{\Ga}{M}{A}{\mem{u}{a}}$ for ``$M$ is valid at type
+\emph{valid}; write $\valid{\Ga}{L}{A}{\mem{u}{a}}$ for ``$L$ is valid at type
 $A$ and code $a$, with value $u$''. At an identity type the relation unfolds to:
 \[
-  \valid{\Ga}{M}{\Id\,A\,a\,b}{\mem{\rEl(w)}{\cId(t,u,v)}}
-  \iff
-  M \red \Rf\,w_0
-  \ \text{for some } w_0 \text{ with }
-  \cv{\Ga}{w_0}{a}{A}\ \text{and}\ \cv{\Ga}{w_0}{b}{A}\ \text{(both valid).}
+\begin{aligned}
+  &\valid{\Ga}{P}{\Id\,A\,M\,N}{\mem{\rEl(w)}{\cId(t,u,v)}} \iff{} \\
+  &\qquad P \red \Rf\,P_0 \ \text{for some term $P_0$ with }
+  \cv{\Ga}{P_0}{M}{A}\ \text{and}\ \cv{\Ga}{P_0}{N}{A}\ \text{(both valid).}
+\end{aligned}
 \]
-That is: a valid proof \emph{head-reduces to a canonical $\Rf\,w_0$} whose
-witness $w_0$ is validly equal to both endpoints. (Because proofs are
+That is: a valid proof \emph{head-reduces to a canonical $\Rf\,P_0$} whose
+witness term $P_0$ is validly equal to both endpoints. (Because proofs are
 proof-irrelevant, the underlying $\cId$-code carries no selection edge; the two
 endpoint equalities are the whole content.)
 
@@ -194,36 +205,38 @@ endpoint equalities are the whole content.)
 \noindent
 \textbf{Adequacy.} By induction on derivations:
 \[
-  \ty{\Ga}{M}{A} \ \Longrightarrow\ M \text{ valid}, \qquad
-  \cv{\Ga}{M}{N}{A} \ \Longrightarrow\ M,N \text{ validly equal.}
+  \ty{\Ga}{L}{A} \ \Longrightarrow\ L \text{ valid}, \qquad
+  \cv{\Ga}{L}{L'}{A} \ \Longrightarrow\ L,L' \text{ validly equal.}
 \]
 
 \noindent
-\emph{The $\Jelim$ case} (the based-J driver). Suppose $\ty{\Ga}{\Jelim\,C\,d\,p}
-{C\,a\,b\,p}$ and let $c$ be a finite element below $\sem{\Jelim\,C\,d\,p}_\rho$.
+\emph{The $\Jelim$ case} (the based-J driver). Suppose
+$\ty{\Ga}{\Jelim\,C\,D\,P}{C\,M\,N\,P}$ and let $c$ be a finite element
+approximating $\sem{\Jelim\,C\,D\,P}_\rho$.
 
 \begin{enumerate}\itemsep2pt
-\item By the evaluation clause, $c$ comes with a proof value: $p$ evaluates to
-  some $\rEl(w')$ and $\mem{\rEl(w')}{\cId(t,u,v)}$, so $w'\le u$ and $w'\le v$.
-\item The induction hypothesis for $p$ at $\Id\,A\,a\,b$ gives, via the relation
-  above, a head reduction $p \red \Rf\,w_0$ with $w_0$ validly equal to $a$ and
-  to $b$. Hence
+\item By the approximation clause, $c$ is accompanied by a semantic proof value:
+  a $\rEl(w)$ approximates $\sem{P}_\rho$, and $\mem{\rEl(w)}{\cId(t,u,v)}$, so
+  $w\le u$ and $w\le v$.
+\item The induction hypothesis for the proof $P$ at $\Id\,A\,M\,N$ gives, via the
+  relation above, a head reduction $P \red \Rf\,P_0$ whose witness term $P_0$ is
+  validly equal to $M$ and to $N$. Hence
   \[
-    \Jelim\,C\,d\,p \ \red\ \Jelim\,C\,d\,(\Rf\,w_0) \ \redone\ d\,w_0
+    \Jelim\,C\,D\,P \ \red\ \Jelim\,C\,D\,(\Rf\,P_0) \ \redone\ D\,P_0
     \qquad\text{(J-scrut${}^*$ then J-$\beta$).}
   \]
-\item \emph{$d$-edge.} The induction hypothesis for $d$ (a valid function),
-  applied to the witness $w_0$, makes $d\,w_0$ valid at the diagonal type
-  $C\,w_0\,w_0\,(\Rf\,w_0)$.
-\item \emph{Type transport.} Using $\cv{\Ga}{w_0}{a}{A}$, $\cv{\Ga}{w_0}{b}{A}$
-  and $\Rf\,w_0 = p$, the syntactic types are convertible,
-  $\cv{\Ga}{C\,w_0\,w_0\,(\Rf\,w_0)}{C\,a\,b\,p}{\U}$; combined with
-  monotonicity of the type-value along the information order, this carries the
-  validity of $d\,w_0$ to the goal type $C\,a\,b\,p$.
-\item \emph{Head expansion.} Finally, validity is stable under the head
-  reduction $\Jelim\,C\,d\,p \red d\,w_0$ from step~2 (the contractum is valid,
-  and the redex converts to it by J-$\beta$), so $\Jelim\,C\,d\,p$ is valid at
-  $C\,a\,b\,p$. \hfill$\square$
+\item \emph{$D$-edge.} The induction hypothesis for the base $D$ (a valid
+  function), applied to the witness, makes $D\,P_0$ valid at the diagonal type
+  $C\,P_0\,P_0\,(\Rf\,P_0)$.
+\item \emph{Type transport.} From $\cv{\Ga}{P_0}{M}{A}$, $\cv{\Ga}{P_0}{N}{A}$
+  and $\Rf\,P_0 = P$ the syntactic types are convertible,
+  $\cv{\Ga}{C\,P_0\,P_0\,(\Rf\,P_0)}{C\,M\,N\,P}{\U}$; together with monotonicity
+  of the type-value along the information order this carries the validity of
+  $D\,P_0$ to the goal type $C\,M\,N\,P$.
+\item \emph{Head expansion.} Finally, validity is stable under the head reduction
+  $\Jelim\,C\,D\,P \red D\,P_0$ of step~2 (the contractum is valid, and the redex
+  converts to it by J-$\beta$), so $\Jelim\,C\,D\,P$ is valid at $C\,M\,N\,P$.
+  \hfill$\square$
 \end{enumerate}
 
 \noindent
@@ -237,11 +250,11 @@ Both results are obtained by running adequacy at the \emph{bottom environment}
 and reading the logical relation off the model.
 
 \begin{theorem}[Id-injectivity, \texttt{ID/IdInjectivity.agda}]
-If $\;\cv{\Ga}{\Id\,A_0\,a_0\,b_0}{\Id\,A_1\,a_1\,b_1}{\U}\;$ then
+If $\;\cv{\Ga}{\Id\,A_0\,M_0\,N_0}{\Id\,A_1\,M_1\,N_1}{\U}\;$ then
 \[
   \cv{\Ga}{A_0}{A_1}{\U},\qquad
-  \cv{\Ga}{a_0}{a_1}{A_0},\qquad
-  \cv{\Ga}{b_0}{b_1}{A_0}.
+  \cv{\Ga}{M_0}{M_1}{A_0},\qquad
+  \cv{\Ga}{N_0}{N_1}{A_0}.
 \]
 \end{theorem}
 
@@ -252,17 +265,18 @@ the component conversions between domain, left and right endpoints; a
 head-reduction uniqueness lemma pins the codes, giving the three conversions.
 
 \begin{theorem}[Subject reduction, \texttt{ID/SubjectReduction.agda}]
-If $\;\ty{\Ga}{M}{A}\;$ and $\;M \redone N\;$ then $\;\ty{\Ga}{N}{A}$.
+If $\;\ty{\Ga}{L}{A}\;$ and $\;L \redone L'\;$ then $\;\ty{\Ga}{L'}{A}$.
 \end{theorem}
 
 \noindent
-For the \textsc{J-red} step the contractum $d\,a_0$ already has type
-$C\,a_0\,a_0\,(\Rf\,a_0)$, retyped to the goal $C\,a\,b\,(\Rf\,a_0)$ using
-$a_0=a$ and $a_0=b$ extracted from $\Rf\,a_0:\Id\,A\,a\,b$. For \textsc{J-scrut}
-the result type $C\,a\,b\,p$ is transported along $p=p'$, obtained from
-reduction-is-conversion; the $\Id$-typed proof needs only the diagonal
-J-$\beta$, never $\Id$-injectivity. The $\beta$-step for functions inverts
-$\lambda$-typing through $\Pi$-injectivity, as in the base theory.
+For the \textsc{J-red} step the redex is $\Jelim\,C\,D\,(\Rf\,K)$ with
+$\Rf\,K:\Id\,A\,M\,N$; the contractum $D\,K$ already has type
+$C\,K\,K\,(\Rf\,K)$, retyped to the goal $C\,M\,N\,(\Rf\,K)$ using $K=M$ and
+$K=N$ extracted from $\Rf\,K:\Id\,A\,M\,N$. For \textsc{J-scrut} the result type
+$C\,M\,N\,P$ is transported along $P=P'$, obtained from reduction-is-conversion;
+the $\Id$-typed proof needs only the diagonal J-$\beta$, never
+$\Id$-injectivity. The $\beta$-step for functions inverts $\lambda$-typing
+through $\Pi$-injectivity, as in the base theory.
 
 \medskip
 \noindent
