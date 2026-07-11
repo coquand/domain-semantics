@@ -29,7 +29,8 @@ write-up is in [`pi-u-rules.tex`](pi-u-rules.tex) (built:
 [`pi-u-rules.pdf`](pi-u-rules.pdf)).
 
 This `MIN/` development is the current, complete one. (The repository also
-contains an extension to Σ-types and a `Prop` universe; see the end.)
+contains an element-level identity type, and a self-contained formalisation of
+Colson's ultimate-obstination theorem; see the end.)
 
 ## Main results — where they are proved
 
@@ -99,29 +100,6 @@ subject-reduction entry point covers 54 source files and finishes with no
 errors, no warnings, and no termination/positivity pragmas anywhere in the
 cone.
 
-## Also in this repository: the Π + Σ + `Prop` extension (`SigmaProp/`)
-
-The same domain-theoretic method is carried out for an extended theory with
-dependent pairs (Σ) and a `Prop` universe. It is kept entirely separate, in the
-[`SigmaProp/`](SigmaProp/) subdirectory (modules `SigmaProp.*`), so it does not
-interfere with the core `MIN/` development above.
-
-| Result | Entry point |
-|---|---|
-| Adequacy | [`SigmaProp/Adequacy5.agda`](SigmaProp/Adequacy5.agda) |
-| Π- and Σ-injectivity | [`SigmaProp/Injectivity5.agda`](SigmaProp/Injectivity5.agda) |
-| Subject reduction | [`SigmaProp/SubjectReduction5.agda`](SigmaProp/SubjectReduction5.agda) |
-
-The logical relation lives in the `SigmaProp/Validity5*` stack and the
-`SigmaProp/*Sigma` files; the write-up is
-[`SigmaProp/sigma-rules.tex`](SigmaProp/sigma-rules.tex) (built:
-[`SigmaProp/sigma-rules.pdf`](SigmaProp/sigma-rules.pdf)). Type-check it with,
-e.g.,
-
-```sh
-agda --without-K SigmaProp/Injectivity5.agda
-```
-
 ## Also in this repository: the element-level identity type (`ID/`)
 
 The same method is extended with Martin-Löf's element-level identity type
@@ -150,4 +128,37 @@ points with, e.g.,
 ```sh
 agda --without-K ID/IdInjectivity.agda
 agda --without-K ID/SubjectReduction.agda
+```
+
+## Also in this repository: Colson's ultimate obstination (`OBSTINATION/`)
+
+A self-contained Agda formalisation of Thierry Coquand's note *Une preuve
+directe du Théorème d'Ultime Obstination* ([`min1.pdf`](min1.pdf)) — a direct
+constructive proof of Colson's 1989 ultimate-obstination theorem, with the
+corollary that **denotations of primitive-recursive terms are computable**. It
+is independent of the `MIN/` machinery: the domain is just the lazy naturals
+(`Sᵏ(0)`, `Sᵏ(⊥)`, `S^ω(⊥)`), with no universe, codes, or logical relation.
+Every module is `--safe --without-K --exact-split` with no postulates, holes,
+or pragmas. Full details in [`OBSTINATION/README.md`](OBSTINATION/README.md).
+
+| Result | Entry point | Name |
+|---|---|---|
+| **Ultimate obstination (Proposition 1)** | [`OBSTINATION/Prop1.agda`](OBSTINATION/Prop1.agda) | `prop1` |
+| Computability of the extension | [`OBSTINATION/Computable.agda`](OBSTINATION/Computable.agda) | `fhat`, `fhat-diag` |
+| **`min` at `S^ω(⊥)`** | [`OBSTINATION/PredMin.agda`](OBSTINATION/PredMin.agda) | `min-inf` |
+
+`prop1 : (p : PR)(A : Tup) → Wf p (length A) → UO (evalF p) A` proves ultimate
+obstination by induction on the primitive-recursive term `p`; from the witness
+one reads off the value of the Scott-continuous extension `f̂` at any point
+(`uoValue`), so `f̂` is computable — including at the infinite diagonal
+`(S^ω⊥, …, S^ω⊥)`. Strikingly, a primitive-recursive `min` returns `⊥` (not
+`S^ω⊥`) on `(S^ω⊥, S^ω⊥)` — the obstination made concrete and machine-checked.
+A high-level write-up is
+[`OBSTINATION/obstination.tex`](OBSTINATION/obstination.tex) (built:
+[`OBSTINATION/obstination.pdf`](OBSTINATION/obstination.pdf)). Type-check the
+headline results with:
+
+```sh
+agda --safe --without-K --exact-split OBSTINATION/Prop1.agda
+agda --safe --without-K --exact-split OBSTINATION/PredMin.agda
 ```

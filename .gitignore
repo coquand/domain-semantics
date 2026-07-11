@@ -36,3 +36,8 @@
 # Local-only archives of superseded/WIP code — hidden from the repo
 /OLD/
 /MIN/OLD/
+
+# Sub-projects kept local, hidden from the repo front page
+/CAST/
+/SigmaProp/
+/Sterbac/
