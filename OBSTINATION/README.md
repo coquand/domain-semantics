@@ -87,11 +87,14 @@ minPR  = comp subPR [ comp subPR [ proj 1 , proj 0 ] , proj 0 ]   -- min x y = x
 | `pred̂(x)` | `S^ω(⊥)` | `pred` is lazy in its argument |
 | `sub'̂(x, x)` | `⊥` | recursion on the first argument never terminates — `S^ω(⊥)` has no outermost successor to peel |
 | **`min̂(x, x)`** | **`⊥`** (not `x`!) | `min = x ∸ (x ∸ y)` inherits subtraction's obstination |
+| `add̂(x, x)` | `S^ω(⊥)` | positive contrast: the step is `succ`, so `uₖ = Sᵏ(⊥)` rises to infinity (case 3, `φ` strict) |
 
 That a primitive-recursive `min` yields `⊥` on `(S^ω⊥, S^ω⊥)` — rather than the
 `S^ω⊥` the *ideal* min would give — is Colson's ultimate obstination in one
-line: **no** PR algorithm can be lazy enough to answer here. A high-level
-write-up is [`obstination.tex`](obstination.tex).
+line: **no** PR algorithm can be lazy enough to answer here. Addition, whose
+step function is strictly increasing, instead climbs to `S^ω(⊥)` (`∞+∞=∞`) — the
+denotation faithfully tracks the algorithm. A high-level write-up is
+[`obstination.tex`](obstination.tex).
 
 ## How the proof works (high level)
 

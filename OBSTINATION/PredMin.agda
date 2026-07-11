@@ -65,7 +65,22 @@ wf-min =
       (mkSigma tt tt))
 
 ------------------------------------------------------------------------
--- Sanity: on TOTAL inputs these terms really are pred / monus / min.
+-- addition, recursion on the FIRST argument:
+--   add (0   , y) = y
+--   add (S x , y) = S (add (x , y))          -- step function = succ
+-- Arity 2.  (Positive contrast to min: the step is strictly increasing.)
+------------------------------------------------------------------------
+
+addPR : PR
+addPR = prec (proj zero) (comp succ (cons (proj (suc zero)) nil))
+
+wf-add : Wf addPR (suc (suc zero))
+wf-add =
+  mkSigma (suc zero)
+    (mkSigma refl (mkSigma tt (mkSigma tt (mkSigma tt tt))))
+
+------------------------------------------------------------------------
+-- Sanity: on TOTAL inputs these terms really are pred / monus / min / add.
 ------------------------------------------------------------------------
 
 -- pred (S^3 0) = S^2 0
@@ -85,6 +100,11 @@ _ : Eq (evalF minPR (cons (fcpl (suc (suc (suc zero)))) (cons (fcpl (suc zero)) 
        (fcpl (suc zero))
 _ = refl
 
+-- add(2,3) = 5
+_ : Eq (evalF addPR (cons (fcpl (suc (suc zero))) (cons (fcpl (suc (suc (suc zero)))) nil)))
+       (fcpl (suc (suc (suc (suc (suc zero))))))
+_ = refl
+
 ------------------------------------------------------------------------
 -- Denotations at the infinite diagonal  x = S^omega(bot).
 --
@@ -97,9 +117,14 @@ _ = refl
 --                                            outermost successor to peel)
 --   min-hat(x , x)   = bot   (NOT x!)       (min = x - (x - x) inherits the
 --                                            obstination of subtraction)
+--   add-hat(x , x)   = x = S^omega(bot)     (POSITIVE contrast: the step is
+--                                            succ, strictly increasing, so the
+--                                            Kleene sequence S^k(bot) rises to
+--                                            infinity -- Case 3, phi strict)
 --
--- So the primitive-recursive min, run on two copies of the infinite
--- element, yields bottom -- it is "ultimately obstinate", exactly Colson.
+-- So the primitive-recursive min, run on two copies of the infinite element,
+-- yields bottom -- it is "ultimately obstinate", exactly Colson -- whereas
+-- add yields the infinite element (infinity + infinity = infinity).
 ------------------------------------------------------------------------
 
 pred-inf : Eq (fhat-diag predPR (suc zero) wf-pred) inf
@@ -110,3 +135,6 @@ sub-inf = refl
 
 min-inf : Eq (fhat-diag minPR (suc (suc zero)) wf-min) (bot zero)
 min-inf = refl
+
+add-inf : Eq (fhat-diag addPR (suc (suc zero)) wf-add) inf
+add-inf = refl

@@ -170,16 +170,19 @@ Take the standard primitive-recursive terms (file \texttt{PredMin.agda}):
   \mathrm{sub} &= \mathrm{prec}\ \pi_0\ (\mathrm{pred}\circ\pi_1)
      &&\quad \mathrm{sub}(y,x)=x\dotminus y,\\
   \min &= \mathrm{sub}\circ\langle\, \mathrm{sub}\circ\langle\pi_1,\pi_0\rangle,\ \pi_0\,\rangle
-     &&\quad \min(x,y)=x\dotminus(x\dotminus y).
+     &&\quad \min(x,y)=x\dotminus(x\dotminus y),\\
+  \mathrm{add} &= \mathrm{prec}\ \pi_0\ (S\circ\pi_1)
+     &&\quad \mathrm{add}(0,y)=y,\ \mathrm{add}(S\,x,y)=S(\mathrm{add}(x,y)).
 \end{aligned}
 \]
-On total inputs these are genuinely $\mathrm{pred}$, truncated subtraction, and
-$\min$ (checked by reduction: $\min(2,3)=2$, $\min(3,1)=1$, etc.). Evaluating
-their extensions at $x=\Sw$ gives:
+On total inputs these are genuinely $\mathrm{pred}$, truncated subtraction,
+$\min$, and $\mathrm{add}$ (checked by reduction: $\min(2,3)=2$, $\min(3,1)=1$,
+$\mathrm{add}(2,3)=5$, etc.). Evaluating their extensions at $x=\Sw$ gives:
 \[
   \widehat{\mathrm{pred}}(x)=\Sw,\qquad
   \widehat{\mathrm{sub}}(x,x)=\bot,\qquad
-  \boxed{\ \widehat{\min}(x,x)=\bot\ }\ \ (\text{not }x!).
+  \boxed{\ \widehat{\min}(x,x)=\bot\ }\ \ (\text{not }x!),\qquad
+  \widehat{\mathrm{add}}(x,x)=\Sw.
 \]
 Each equality holds \emph{definitionally} in Agda ($\mathtt{refl}$).
 
@@ -191,6 +194,14 @@ this obstination and collapses to $\bot$ on $(\Sw,\Sw)$. No primitive-recursive
 algorithm for $\min$ can avoid this: it must fully consume an argument, and on
 $\Sw$ that computation diverges. This is Colson's theorem, made concrete and
 machine-checked.
+
+Addition is the instructive positive contrast. It, too, recurs on its first
+argument, but its step function is the \emph{successor}, so the Kleene sequence
+$u_0=\bot,\ u_{k+1}=S(u_k)$ is $u_k=S^k(\bot)$, strictly increasing with
+supremum $\Sw$. This is case~3 with $\varphi$ strictly increasing, so
+$\widehat{\mathrm{add}}(\Sw,\Sw)=\Sw$: infinity plus infinity is infinity. The
+denotation faithfully tracks the algorithm --- $\min$ obstinately diverges to
+$\bot$, while $\mathrm{add}$ climbs to the infinite element.
 
 \bigskip
 \noindent\textbf{Files.}
