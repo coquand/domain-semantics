@@ -130,18 +130,28 @@ the concrete interpreter. $\qed$
 \section{Computational content: evaluating $\hatf$}
 
 The point of phrasing obstination intuitionistically is that a witness
-\emph{carries the value} of the Scott-continuous extension. Reading off case
-1/2/3 gives
+\emph{carries the value} of the Scott-continuous extension. Here $m$, $i$,
+$\varphi$ and $k$ are the data recorded by the witness of Definition~1: $m$ is
+the constant of case~1/2, and in case~3 (the infinite coordinate $i$) $k$ is
+the threshold with $A_0(i)=S^k(\bot)$ and $\varphi$ is the accompanying numeric
+function, which is \emph{either} constant \emph{or} strictly increasing from
+$k$ --- case~3 does not fix which; the two sub-cases are read off separately.
+Since $A(i)=\Sw=\sup_{m\ge k}S^m(\bot)$ and $f(X)=S^{\varphi(m)}(\bot)$ on the
+witnessed region, continuity gives
+$\hatf(A)=\sup_{m\ge k}S^{\varphi(m)}(\bot)$, which is $S^{\varphi(k)}(\bot)$
+when $\varphi$ is constant (then $\varphi(m)=\varphi(k)$ for all $m\ge k$) and
+$\Sw$ when $\varphi$ is strictly increasing. Thus
 \[
   \uoValue(\UO\,f\,A)=
   \begin{cases}
     S^m(0) & \text{case 1},\\
     S^m(\bot) & \text{case 2},\\
-    S^{\varphi(k)}(\bot) & \text{case 3, }\varphi\text{ constant},\\
+    S^{\varphi(k)}(\bot) & \text{case 3, }\varphi\text{ constant}
+      \ (\text{a fixed finite value}),\\
     \Sw & \text{case 3, }\varphi\text{ strictly increasing},
   \end{cases}
 \]
-and this is the value $\hatf(A)$ of the extension (file \texttt{Property.agda},
+which is the value $\hatf(A)$ of the extension (file \texttt{Property.agda},
 $\mathtt{uoValue}$).
 
 \begin{corollary}[Computability]
