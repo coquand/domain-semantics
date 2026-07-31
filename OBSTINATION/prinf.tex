@@ -1,0 +1,355 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[T1]{fontenc}
+
+\newcommand{\PR}{\mathrm{PR}}
+\newcommand{\UO}{\mathrm{UO}}
+\newcommand{\ev}{\mathrm{ev}}
+\newcommand{\val}{\mathsf{val}}
+\newcommand{\bo}{\bot}
+\newcommand{\Sw}{S^{\omega}(\bot)}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\D}{D}
+\newcommand{\Fin}{F}
+\newcommand{\LPO}{\mathrm{LPO}}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+
+\title{The value of a primitive recursive term at the infinite point\\
+{\large a machine-checked computability theorem, and what happens
+under mutual recursion}}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Let $f$ be a primitive recursive term, read as a monotone map on lazy
+naturals. We prove, constructively and by a machine-checked argument, that
+$f(\Sw,\dots,\Sw)$ is \emph{computable}: a total function produces an
+explicit element of the domain, and that element is the least upper bound
+of the diagonal chain $f(S^m(\bot),\dots,S^m(\bot))$. This is the
+computational reading of page 2 of \emph{Une preuve directe du
+Th\'eor\`eme d'Ultime Obstination}. We then ask whether the argument
+survives mutual recursion, and locate precisely the one step that does
+not: producing the value \emph{as an element of the three-constructor
+datatype} requires a global bounded-or-unbounded verdict, and for mutually
+recursive blocks that verdict is equivalent to $\LPO$. What does survive
+is the level-by-level verdict, which is the constructively correct reading
+of a lazy natural anyway.
+\end{abstract}
+
+\section{The domain, and primitive recursive terms}
+
+Let $\D$ be the domain of lazy naturals: its elements are
+$S^k(\bot)$ for $k \in \N$, $S^k(0)$ for $k \in \N$, and $\Sw$. The order
+is
+\[
+S^j(\bot) \le S^k(\bot) \iff j \le k, \qquad
+S^j(\bot) \le S^k(0) \iff j \le k, \qquad
+S^j(\bot) \le \Sw ,
+\]
+and $S^k(0)$, $\Sw$ are maximal. In particular
+\begin{equation}
+\label{eq:incomp}
+S^k(0) \not\le \Sw ,
+\end{equation}
+the two maximal shapes being incomparable: a computation that has already
+produced a $0$ is not an approximation of $\Sw$. Write $\Fin \subset \D$
+for the \emph{finite} elements, i.e.\ everything but $\Sw$. Say $x \in \D$
+is \emph{incomplete} if it has the form $S^k(\bot)$ (so $\Sw$ is
+incomplete but not finite), and write $\mathrm{ht}(x) = k$ for the number
+of successors of a finite $x$.
+
+A primitive recursive term $q$ of arity $n$ is interpreted on finite
+tuples,
+\[
+\ev(q) : \Fin^{\,n} \longrightarrow \Fin,
+\]
+by the evident clauses; $\ev(q)$ is monotone. The extension to all of
+$\D^n$ is by continuity, and it is that extension we wish to
+\emph{evaluate}.
+
+\section{Ultimate obstination}
+
+\begin{definition}[the property]
+Let $f : \Fin^{\,n} \to \Fin$ be monotone and $A \in \D^n$. Then
+$\UO(f,A)$ holds when there is a finite $A_0 \le A$ such that one of:
+\begin{enumerate}
+\item[(1)] there is $m$ with $f(X) = S^m(0)$ for every finite $X \ge A_0$;
+\item[(2)] there are $m$ and a coordinate $i$ with $A(i)$ incomplete and
+  \emph{finite}, $A_0(i) = A(i)$, and $f(X) = S^m(\bot)$ for every finite
+  $X$ with $X(i) = A_0(i)$ and $X[i] \ge A_0[i]$;
+\item[(3)] there is a coordinate $i$ with $A(i) = \Sw$; with $k$ such that
+  $A_0(i) = S^k(\bot)$, there is $\varphi$, defined for $m \ge k$ and
+  either constant or strictly increasing there, with
+  $f(X) = S^{\varphi(m)}(\bot)$ for every finite $X$ with
+  $X(i) = S^m(\bot)$, $m \ge k$, and $X[i] \ge A_0[i]$.
+\end{enumerate}
+Here $X[i]$ is $X$ with the $i$-th coordinate deleted. The disjunction and
+the existentials are read intuitionistically.
+\end{definition}
+
+\begin{proposition}[Proposition 1]
+\label{prop:one}
+$\UO(\ev(q), A)$ holds for every primitive recursive $q$ and every point
+$A$ of matching arity.
+\end{proposition}
+
+The proof is by induction on $q$; it is the content of the note, and it is
+formalised. Because the disjunction is intuitionistic, the proof
+\emph{is} a program: from $q$ and $A$ it returns which of the three cases
+holds, together with its witnesses. One therefore reads a value off it:
+\[
+\val(u) \;=\;
+\begin{cases}
+S^{m}(0) & \text{$u$ is case (1) with witness $m$,}\\
+S^{m}(\bot) & \text{$u$ is case (2) with witness $m$,}\\
+S^{\varphi(k)}(\bot) & \text{$u$ is case (3) with $\varphi$ constant,}\\
+\Sw & \text{$u$ is case (3) with $\varphi$ strictly increasing.}
+\end{cases}
+\]
+The note says that this \emph{is} the value of the continuous extension at
+$A$. The point of what follows is to prove it, at the point where the
+statement is sharpest.
+
+\section{The theorem}
+
+Fix an arity $n$ and write
+\[
+\Delta_m \;=\; (S^m(\bot),\dots,S^m(\bot)) \in \Fin^{\,n},
+\qquad
+\Delta_\infty \;=\; (\Sw,\dots,\Sw) \in \D^n .
+\]
+The chain $c_m := \ev(q)(\Delta_m)$ is monotone in $m$ by monotonicity of
+$\ev(q)$.
+
+\begin{theorem}
+\label{thm:main}
+Let $q$ be primitive recursive of arity $n$ and let $u$ be the proof of
+$\UO(\ev(q),\Delta_\infty)$ given by Proposition~\ref{prop:one}. Then
+$\val(u)$ is the least upper bound in $\D$ of the chain
+$(c_m)_{m \in \N}$.
+\end{theorem}
+
+\begin{corollary}
+$q \mapsto \val(u)$ is a total function producing an explicit element of
+$\D$; that is, $f(\Sw,\dots,\Sw)$ is computable, uniformly in $q$.
+\end{corollary}
+
+Three small facts do the work.
+
+\begin{lemma}[the point is reached by the chain]
+\label{lem:reach}
+If $A_0$ is finite and $A_0 \le \Delta_\infty$, then there is $M$ with
+$A_0 \le \Delta_m$ for every $m \ge M$.
+\end{lemma}
+
+\begin{proof}
+Each coordinate of $A_0$ is a finite element below $\Sw$, hence incomplete
+by~\eqref{eq:incomp}: it is some $S^{k_i}(\bot)$. Take $M = \max_i k_i$.
+\end{proof}
+
+\begin{lemma}[case (2) cannot occur at $\Delta_\infty$]
+\label{lem:case2}
+$\UO(f,\Delta_\infty)$ is never witnessed by case (2).
+\end{lemma}
+
+\begin{proof}
+Case (2) pins a coordinate $i$ with $A(i)$ incomplete \emph{and finite},
+and $i$ is in range because $A_0$ has length $n$. But every coordinate of
+$\Delta_\infty$ is $\Sw$, which is not finite.
+\end{proof}
+
+\begin{lemma}[a strictly increasing $\varphi$ is unbounded]
+\label{lem:unb}
+If $\varphi(m+1) > \varphi(m)$ for all $m \ge k$, then
+$\varphi(k+t) \ge \varphi(k) + t$ for all $t$; in particular $\varphi$ is
+unbounded.
+\end{lemma}
+
+\begin{proof}[Proof of Theorem~\ref{thm:main}]
+By Lemma~\ref{lem:case2} the witness is case (1) or case (3), and
+Lemma~\ref{lem:reach} gives an $M$ with $A_0 \le \Delta_m$ for $m \ge M$.
+
+\smallskip
+\noindent\textbf{Case (1).} For $m \ge M$ we have $c_m = S^{m_0}(0)$. For
+arbitrary $m$, monotonicity gives
+$c_m \le c_{\max(M,m)} = S^{m_0}(0)$, so $S^{m_0}(0) = \val(u)$ is an
+upper bound; and it is attained at $m = M$, so it is the least one.
+
+\smallskip
+\noindent\textbf{Case (3).} The pinned coordinate $i$ has
+$\Delta_\infty(i) = \Sw$, so $i$ is in range and
+$\Delta_m(i) = S^m(\bot)$. Put $K = \max(k,M)$. For $m \ge K$ the tuple
+$\Delta_m$ satisfies all three side conditions of case (3), whence
+\begin{equation}
+\label{eq:hit}
+c_m \;=\; S^{\varphi(m)}(\bot) \qquad (m \ge K).
+\end{equation}
+
+If $\varphi$ is constant from $k$ on, then $c_m = S^{\varphi(k)}(\bot)$
+for $m \ge K$; as in case (1), monotonicity makes $S^{\varphi(k)}(\bot)$
+an upper bound and \eqref{eq:hit} at $m = K$ makes it the least. This is
+$\val(u)$.
+
+If $\varphi$ is strictly increasing from $k$ on, then $\val(u) = \Sw$.
+That it is an \emph{upper} bound says exactly that no $c_m$ is complete,
+which is not an assumption but a consequence: if $c_m = S^j(0)$ then
+$c_m \le c_{\max(K,m)} = S^{\varphi(\max(K,m))}(\bot)$ by monotonicity
+and~\eqref{eq:hit}, contradicting~\eqref{eq:incomp}. That it is the
+\emph{least} upper bound: let $d$ dominate every $c_m$. If $d$ were finite,
+say of height $j$, then \eqref{eq:hit} would give $\varphi(m) \le j$ for
+all $m \ge K$, contradicting Lemma~\ref{lem:unb}. So $d = \Sw$.
+\end{proof}
+
+\begin{remark}
+Only Lemma~\ref{lem:case2} uses that \emph{every} coordinate of the point
+is infinite. The rest of the argument is about one pinned coordinate and
+would go through verbatim at any point whose pinned coordinate is $\Sw$.
+\end{remark}
+
+\section{The formalisation}
+
+The above is \texttt{OBSTINATION/PRInf.agda}, checked with
+\verb|agda --safe --without-K --exact-split|, with no postulate, no hole
+and no termination pragma. It depends only on the Proposition-1
+development. The two halves of Theorem~\ref{thm:main} are
+\begin{verbatim}
+prVal   : (q : PR) (n : Nat) -> Wf q n -> D
+prVal-ub    : LeD (embed (evalF q (botF n m))) (prVal q n wf)
+prVal-least : ((m : Nat) -> LeD (embed (evalF q (botF n m))) e)
+            -> LeD (prVal q n wf) e
+\end{verbatim}
+The proof \emph{runs}: the companion file \texttt{PRInfTest.agda} checks by
+\verb|refl| that
+\[
+\begin{array}{lcl}
+\mathrm{zerf}(\Sw) &=& 0,\\
+\mathrm{proj}_0(\Sw) \;=\; \mathrm{succ}(\Sw) &=& \Sw,\\
+E(\Sw) &=& 0 \quad\text{where } E = \mathrm{prec}(\mathrm{zerf},\mathrm{zerf}),\\
+\mathrm{plus}(\Sw,\Sw) &=& \Sw .
+\end{array}
+\]
+$E$ is the informative one: $E(\bot) = \bot$ but $E(S^{m+1}(\bot)) = 0$,
+so the chain is $\bot, 0, 0, \dots$ and the least upper bound is the
+numeral --- case (1) firing at a point that is infinite.
+
+\section{Does this generalise to mutual recursion?}
+
+Consider now a block of $r$ functions defined by simultaneous primitive
+recursion,
+\begin{equation}
+\label{eq:block}
+f_j(S(x),\vec y) \;=\; h_j\bigl(x,\; f_1(x,\vec y),\dots,f_r(x,\vec y),\;
+\vec y\bigr), \qquad 1 \le j \le r,
+\end{equation}
+with the $h_j$ already given. Which parts of the argument survive?
+
+\paragraph{What survives.} Monotonicity of the interpretation is
+immediate for~\eqref{eq:block}, so the chain $c_m$ is still monotone, and
+Lemmas~\ref{lem:reach}, \ref{lem:case2} and~\ref{lem:unb} are untouched:
+they are facts about the \emph{point} $\Delta_\infty$ and about the order
+on $\D$, not about how $f$ was defined. Case (1) and the constant
+sub-case of case (3) also go through word for word.
+
+\paragraph{What fails, and it is not a gap in the write-up.}
+Proposition~\ref{prop:one} itself is \emph{false} for blocks: the
+formalisation contains a two-function block whose value along the diagonal
+has height $\lfloor m/2 \rfloor$, and $\lfloor m/2 \rfloor$ is neither
+constant nor strictly increasing, so the shape demanded by case~(3) cannot
+be met (\texttt{MutUOFail.uo-fails}). The corrected statement for blocks
+drops that shape requirement (\texttt{MutUOWeak}), and it still suffices
+for the intended applications, e.g.\ that $\min$ is not definable.
+
+Note, however, that this counterexample is \emph{not} a counterexample to
+computability: $\lfloor m/2 \rfloor$ is unbounded, so the value at
+$\Delta_\infty$ is $\Sw$, and it is computed correctly. The strict
+increase in case (3) is a convenient sufficient condition, not what the
+theorem needs. Inspecting the proof of Theorem~\ref{thm:main}, the only
+use of it is Lemma~\ref{lem:unb}, and all that is really required is the
+much weaker dichotomy
+\begin{equation}
+\label{eq:G}
+\tag{G}
+\text{$\varphi$ is bounded (hence, being monotone, eventually constant),
+or $\varphi$ is unbounded.}
+\end{equation}
+
+\paragraph{And \eqref{eq:G} is exactly the obstruction.} For a block,
+\eqref{eq:G} is not available: the development contains a block whose step
+terms satisfy the corresponding hypotheses and for which \eqref{eq:G}
+implies the limited principle of omniscience
+(\texttt{BlkGrowFail.blk-grow-lpo}). Classically the same point reads:
+``is the height of $f(S^m(\bot))$ bounded in $m$?'' is $\Pi^0_1$-hard, so
+no total procedure returns that verdict. So the generalisation of
+Theorem~\ref{thm:main} to blocks, \emph{as stated}, is not merely unproved
+but not constructively provable.
+
+\paragraph{What to do instead --- and it is the right thing anyway.}
+The failure is a failure of the \emph{codomain}, not of the mathematics.
+Asking for the value as an element of the three-constructor datatype $\D$
+builds in the decision \eqref{eq:G}, because $S^k(\bot)$ and $\Sw$ are
+different constructors. That decision is legitimate for primitive
+recursive terms --- Proposition~\ref{prop:one} supplies it --- and it is
+what makes Theorem~\ref{thm:main} true. It is illegitimate for blocks.
+
+But the constructively correct reading of a lazy natural is not a
+three-constructor datatype: it is the coinductive object ``keep producing
+successors, possibly ending in $0$'', and to know such an object is to be
+able to answer, for each $K$, whether it passes level $K$. That
+level-by-level verdict does hold for blocks, unconditionally:
+\[
+\mathtt{HPass}(k) \;=\; \forall K.\;
+\bigl(\exists s.\; k(s) > K\bigr) \;\vee\; \bigl(\forall s.\; k(s) \le K\bigr),
+\]
+and a block component's height past its threshold is a deterministic
+monotone iteration, which is decided by $K+1$ steps
+(\texttt{MPPass.IterF.it-pass}). So:
+
+\begin{quote}
+For blocks, $f(\Sw,\dots,\Sw)$ is computable \emph{as a lazy natural} ---
+one can decide, for every $K$, whether it reaches $S^K$ --- but not
+computable \emph{as an element of $\D$}, since that would decide
+\eqref{eq:G} and hence $\LPO$.
+\end{quote}
+
+This is the shape the mutual development has independently converged on:
+its invariant is
+\[
+\mathtt{MP}(iv,kv) \;=\; \mathtt{EvConstN}(iv) \;\wedge\; \mathtt{HPass}(kv),
+\]
+an eventually constant demand together with the level-by-level height
+verdict, and it is precisely the global verdict \texttt{GV} that had to be
+abandoned. Read against the present note, that design decision is not a
+technical retreat: it says that for mutual recursion the value at the
+infinite point is a lazy natural one can compute with, and nothing more
+can be asked for.
+
+\paragraph{Where a generalisation could still be proved.} Two concrete
+targets, both consistent with the above:
+\begin{enumerate}
+\item the statement with $\D$ replaced by its coinductive form, for
+  arbitrary $r$ --- this needs, along the diagonal, the eventual
+  constancy of the demand plus \texttt{HPass}, which the development has
+  for the base functions, for composition, and for $r = 2$;
+\item the statement with $\D$ as it stands, but for those blocks that come
+  with a boundedness verdict --- for instance blocks whose step terms are
+  primitive recursive terms in the ordinary sense, where
+  Proposition~\ref{prop:one} supplies \eqref{eq:G} for each step and the
+  question is whether \eqref{eq:G} is inherited by the fixed point. It is
+  not, in general, and \texttt{BlkGrowFail} is exactly the obstruction; so
+  this second target should be read as asking which additional structural
+  hypothesis on the block restores it.
+\end{enumerate}
+
+\end{document}
