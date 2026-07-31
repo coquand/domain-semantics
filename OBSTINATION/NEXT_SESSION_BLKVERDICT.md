@@ -1,8 +1,7 @@
 # FRESH SESSION — computability at the infinite point, and mutual recursion
 
 Rules: `~/.cabal/bin/agda-2.9.0 --safe --without-K --exact-split` from `/Users/coquand/DOMAIN`;
-no hole/postulate/pragma; **< 20 s per file**; **grep before writing any lemma** (§7 lists what
-exists and the traps); proceed autonomously; stop only for a genuine MATH issue, and when a
+no hole/postulate/pragma; **< 20 s per file**; **grep before writing any lemma** (§5 lists what exists, §6 the traps); proceed autonomously; stop only for a genuine MATH issue, and when a
 clause resists **state the SIMPLEST CONCRETE INSTANCE where it fails** rather than grinding.
 
 Everything below is committed on branch `hide-old-archives`, all EXIT 0, no
