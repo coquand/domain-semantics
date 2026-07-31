@@ -151,13 +151,13 @@ counterexample would have to live.
 
 | file | lines | what |
 |---|---|---|
-| `PRInf` / `PRInfTest` | 408 / 84 | **`prVal`, `prVal-lub`** — computability for single PR terms, with `refl` tests |
+| `PRInf` / `PRInfTest` | 408 / 79 | **`prVal`, `prVal-lub`** — computability for single PR terms, with `refl` tests |
 | `prinf.tex` | 355 | the write-up, incl. the mutual-recursion analysis |
 | `PhiIter` | 333 | **`iter-gv`** (the self-iteration), **`phiok-comp`** (composition) |
 | `BlkVerdict2` | 530 | **`BLK.vd2-blk`** + the `Vd2` toolkit (`vd2-sub`, `vd2-tail`, `vd2-comp`, `phiok-shift`, `phiok-gv`) |
-| `BlkBridge` | 43 | **`verdict-phiok`** — the first step of §3, free |
+| `BlkBridge` | 44 | **`verdict-phiok`** — the first step of §3, free |
 | `BlkGrowPR` | 219 | **`phiok-lpo`** — `BlkGrowFail`'s block is not realised by PR step terms |
-| `MPGrowFail2` | 92 | **`mpg-not-closed`** — the lag widening is refuted at r = 2 |
+| `MPGrowFail2` | 94 | **`mpg-not-closed`** — the lag widening is refuted at r = 2 |
 | `BlkFunPar` | 630 | the r = 2 WITH parameters port, reduced to `bsplit` |
 
 Pre-existing and load-bearing: `Prop1` (Proposition 1), `Property` (`UO`, `PhiOK`, `uoValue`),
