@@ -40,7 +40,8 @@ open import OBSTINATION.Tuples using (FTup)
 open import OBSTINATION.TraceDef
 open import OBSTINATION.TrSat using (MonoTr ; MonoF)
 open import OBSTINATION.TrDen using (Den)
-open import OBSTINATION.TrMP1 using (MP1T)
+open import OBSTINATION.TrMP1 using (MP1T ; verdict-TN)
+open import OBSTINATION.TrMPT using (MPT ; mpT-TN)
 open import OBSTINATION.MutIdxWalk using (EvConstN)
 open import OBSTINATION.TrPrec using (module R ; module P)
 open import OBSTINATION.TrPrecDec using (Vd-mono ; Vd-mono-L)
@@ -49,7 +50,7 @@ open import OBSTINATION.TrPrecIvP using (Qd-stop)
 open import OBSTINATION.TrPrecDecMP using (module DEC)
 
 precTr-ivP-mp : (p : Nat) (Th : Tr (suc (suc p))) (g h : FTup -> FEl)
-              -> MonoTr (suc (suc p)) Th -> MP1T (suc (suc p)) Th
+              -> MonoTr (suc (suc p)) Th -> MPT (suc (suc p)) Th
               -> Den (suc (suc p)) Th h
               -> MonoF p g -> MonoF (suc (suc p)) h
               -> EvConstN (P.ivP p Th)
@@ -68,7 +69,7 @@ precTr-ivP-mp p (node ivh ivhr ovh conth) g h mth m1th dh mg mh =
     (\ L -> Vd-mono p Th g h dh mg mh L)
     (\ L L' lp -> Vd-mono-L p Th g h dh mg mh L L' lp)
     (\ L -> DEC.decide p ivh ivhr ovh conth L (fst mth)
-              (Vd-mono p Th g h dh mg mh L) (fst (snd m1th)))
+              (Vd-mono p Th g h dh mg mh L) (mpT-TN (suc (suc p)) Th mth m1th))
   where
     Th : Tr (suc (suc p))
     Th = node ivh ivhr ovh conth

@@ -52,7 +52,7 @@ open import OBSTINATION.ReplayLv using (bump ; bump-eq ; bump-ne)
 open import OBSTINATION.TraceDef
 open import OBSTINATION.TrSat using (IsCpl ; cpl-max ; MonoF ; MonoTr)
 open import OBSTINATION.TrDen using (Den)
-open import OBSTINATION.TrMP1 using (EvTot ; Never ; Verdict ; MP1T)
+open import OBSTINATION.TrMP1 using (EvTot ; Never ; Verdict ; MP1T ; verdict-TN)
 open import OBSTINATION.TrMono using (lev-mono)
 open import OBSTINATION.TrPrec using (module R ; module P)
 open import OBSTINATION.TrPrecDec using (Vd-mono ; Vd-mono-L)
@@ -233,7 +233,7 @@ chainV p (stop v) mth m1th g h dh mg mh L = route (IsCpl-dec v)
 -- a `node` step term: `decide` then `chain-phiok`
 ------------------------------------------------------------------------
 chainV p (node ivh ivhr ovh conth) mth m1th g h dh mg mh L =
-  route (DEC.decide p ivh ivhr ovh conth L (fst mth) Vmono (fst (snd m1th)))
+  route (DEC.decide p ivh ivhr ovh conth L (fst mth) Vmono (verdict-TN ovh (fst (snd m1th))))
   where
     Th : Tr (suc (suc p))
     Th = node ivh ivhr ovh conth

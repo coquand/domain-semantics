@@ -57,6 +57,9 @@ open import OBSTINATION.TrPrecFrz using (tup-le)
 open import OBSTINATION.TrMono using (ovOf-mono)
 open import OBSTINATION.TrMP1 using
   (EvTot ; Never ; Verdict ; MP1T ; IvAll ; mp1T-ivAll)
+open import OBSTINATION.TrMPT using
+  (MPT ; OvUnbT ; UnbN ; mpT-cont ; mpT-split ; mpT-ivAll ; mpT-TN ;
+   mpT-tot-or-never)
 open import OBSTINATION.TrCompIv using (module CI ; SelStab ; compTr-ivAll)
 open import OBSTINATION.TrCompSel using
   (module CS ; OvSettles ; OvGrows ; stop-settles ; ovTot-or-never)
@@ -71,10 +74,10 @@ IsCpl-dec (fcpl j) = yes tt
 -- THE COMPOSITE
 ------------------------------------------------------------------------
 
-module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
+module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MPT p Tg)
           (a : Nat) (Ths : Nat -> Tr (suc a))
           (mTh : (i : Nat) -> MonoTr (suc a) (Ths i))
-          (mp1h : (i : Nat) -> MP1T (suc a) (Ths i))
+          (mp1h : (i : Nat) -> MPT (suc a) (Ths i))
           where
 
   module WW = W p Tg a Ths
@@ -121,7 +124,7 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
               (ovg : Nat -> FEl)
               (contg : (c : Nat) -> LeN (suc c) (suc q) -> (v : Nat) -> Tr q)
               (mt : MonoTr (suc q) (node ivg ivgr ovg contg))
-              (m1 : MP1T (suc q) (node ivg ivgr ovg contg))
+              (m1 : MPT (suc q) (node ivg ivgr ovg contg))
               (sh : Nat -> Nat)
               (shR : (c : Nat) -> LeN (suc c) (suc q) -> LeN (suc (sh c)) p)
               (K0 : Nat)
@@ -247,10 +250,8 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
             eK : Eq (WW.sel k) (inr j)
             eK = selEq-inr k lk nc na
 
-            verd : Or (OvSettles (ovOf (Ths j))) (OvGrows (ovOf (Ths j)))
-            verd =
-              stop-settles (suc a) (Ths j) (mTh j) (mp1h j)
-                (ovOf-mono (suc a) (Ths j) (mTh j))
+            verd : Or (OvSettles (ovOf (Ths j))) (OvUnbT (ovOf (Ths j)))
+            verd = mpT-split (suc a) (Ths j) (mp1h j)
 
             P : Nat -> Set
             P t = Eq (WW.sel (plus t k)) (inr j)
@@ -274,7 +275,7 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
               Or ((t : Nat) -> LeN (suc t) s -> P t)
                  (Sigma Nat (\ t -> Pair (LeN (suc t) s) (Not (P t))))
 
-            route2 : Or (OvSettles (ovOf (Ths j))) (OvGrows (ovOf (Ths j)))
+            route2 : Or (OvSettles (ovOf (Ths j))) (OvUnbT (ovOf (Ths j)))
                    -> Round M k
             ----------------------------------------------------------
             -- THE ARGUMENT SETTLES: freeze the selection
@@ -315,10 +316,15 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
             ----------------------------------------------------------
             -- THE ARGUMENT GROWS: drag `NG` up to the target
             ----------------------------------------------------------
-            route2 (inr (mkSigma nev (mkSigma n1 si))) = sc (scan P Pdec (suc s))
+            route2 (inr (mkSigma nev unb)) = sc (scan P Pdec (suc s))
               where
+                -- NOT a rate: `UnbN` is called at exactly the level the
+                -- round needs, and returns the stage that reaches it
                 s : Nat
-                s = plus M n1
+                s = fst (unb M)
+
+                tallS : LeN (suc M) (hgt (ovOf (Ths j) s))
+                tallS = snd (unb M)
 
                 K1 : Nat
                 K1 = plus s k
@@ -355,10 +361,8 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
                         tall =
                           LeN-trans {M} {hgt (ovOf (Ths j) s)}
                             {hgt (ovOf (Ths j) (WW.dep K1 j))}
-                            (LeN-trans {M} {plus M (hgt (ovOf (Ths j) n1))}
-                              {hgt (ovOf (Ths j) s)}
-                              (plus-ge-l M (hgt (ovOf (Ths j) n1)))
-                              (sinc-grow (\ n -> hgt (ovOf (Ths j) n)) n1 si M))
+                            (LeN-trans {M} {suc M} {hgt (ovOf (Ths j) s)}
+                              (LeN-suc M) tallS)
                             (leF-hgt (ovOf (Ths j) s)
                               (ovOf (Ths j) (WW.dep K1 j))
                               (ovOf-mono (suc a) (Ths j) (mTh j)
@@ -429,7 +433,8 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
     ------------------------------------------------------------------
 
     phase2 : (k1 : Nat) -> LeN K0 k1 -> LeN Ng (N.NG k1) -> Or Stable DescW
-    phase2 k1 lk1 lNg = route (fst (snd m1))
+    phase2 k1 lk1 lNg =
+      route (mpT-TN (suc q) (node ivg ivgr ovg contg) mt m1)
       where
         cgConst : (k : Nat) -> LeN k1 k -> Eq (N.cg k) (N.cg k1)
         cgConst k lk =
@@ -450,7 +455,8 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
             route2 (inl ic) = Empty-elim (nevg (N.NG k1) ic)
             route2 (inr (mkSigma nc (inl ia))) =
               inr (mkSigma k1 (mkSigma lk1 (mkSigma nc ia)))
-            route2 (inr (mkSigma nc (inr na))) = route3 (ovTot-or-never (suc a) (Ths j) (mp1h j))
+            route2 (inr (mkSigma nc (inr na))) =
+              route3 (mpT-tot-or-never (suc a) (Ths j) (mTh j) (mp1h j))
               where
                 j : Nat
                 j = jAt k1
@@ -583,7 +589,7 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
         ----------------------------------------------------------------
         -- the outer value does go total: drive `NG` up to the witness
         ----------------------------------------------------------------
-        route : Verdict ovg -> Or Stable DescW
+        route : Or (EvTot ovg) (Never ovg) -> Or Stable DescW
         route (inl (mkSigma n0g icg)) =
           fin (reach n0g n0g k1 lk1 (plus-ge-l n0g (N.NG k1)))
           where
@@ -599,7 +605,7 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
                     (cpl-max (ovg n0g) (ovg (N.NG k2)) (fst mt n0g (N.NG k2) big)
                       icg)
                     icg
-        route (inr (mkSigma nevg pk)) =
+        route (inr nevg) =
           never (\ m ic -> Eq-transport (\ z -> IsCpl z) (nevg m) ic)
 
     ------------------------------------------------------------------
@@ -618,7 +624,7 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
   -- DESCENDING THROUGH THE OUTER TRACE
   --------------------------------------------------------------------
 
-  go : (q : Nat) (T : Tr q) -> MonoTr q T -> MP1T q T
+  go : (q : Nat) (T : Tr q) -> MonoTr q T -> MPT q T
      -> (sh : Nat -> Nat)
      -> ((c : Nat) -> LeN (suc c) q -> LeN (suc (sh c)) p)
      -> (K0 : Nat)
@@ -729,9 +735,9 @@ module SS (p : Nat) (Tg : Tr p) (mtg : MonoTr p Tg) (m1g : MP1T p Tg)
 -- ... AT EVERY ARITY OF THE TOWER
 ------------------------------------------------------------------------
 
-selStabAll : (p : Nat) (Tg : Tr p) -> MonoTr p Tg -> MP1T p Tg
+selStabAll : (p : Nat) (Tg : Tr p) -> MonoTr p Tg -> MPT p Tg
            -> (a : Nat) (Ths : Nat -> Tr a)
-           -> ((i : Nat) -> MonoTr a (Ths i)) -> ((i : Nat) -> MP1T a (Ths i))
+           -> ((i : Nat) -> MonoTr a (Ths i)) -> ((i : Nat) -> MPT a (Ths i))
            -> SelStab p Tg a Ths
 selStabAll p Tg mtg m1g zero    Ths mTh m1h = tt
 selStabAll p Tg mtg m1g (suc a) Ths mTh m1h =
@@ -741,7 +747,7 @@ selStabAll p Tg mtg m1g (suc a) Ths mTh m1h =
     (\ c lc v ->
        selStabAll p Tg mtg m1g a (\ i -> contOf (Ths i) c lc v)
          (\ i -> monoTr-cont a (Ths i) (mTh i) c lc v)
-         (\ i -> mp1T-cont a (Ths i) (m1h i) c lc v))
+         (\ i -> mpT-cont a (Ths i) (m1h i) c lc v))
   where
     st : SS.Stable p Tg mtg m1g a Ths mTh m1h
     st = SS.selStab p Tg mtg m1g a Ths mTh m1h
@@ -759,12 +765,6 @@ selStabAll p Tg mtg m1g (suc a) Ths mTh m1h =
     monoTr-cont a' (stop w)              mt c lc v = tt
     monoTr-cont a' (node iv ivr ov cont) mt c lc v = snd mt c lc v
 
-    mp1T-cont : (a' : Nat) (T : Tr (suc a')) -> MP1T (suc a') T
-              -> (c : Nat) (lc : LeN (suc c) (suc a')) (v : Nat)
-              -> MP1T a' (contOf T c lc v)
-    mp1T-cont a' (stop w)              m1 c lc v = tt
-    mp1T-cont a' (node iv ivr ov cont) m1 c lc v = snd (snd m1) c lc v
-
 ------------------------------------------------------------------------
 -- MP1'S INDEX CLAUSE IS PRESERVED BY COMPOSITION
 --
@@ -774,12 +774,12 @@ selStabAll p Tg mtg m1g (suc a) Ths mTh m1h =
 -- MP1 for a composition.
 ------------------------------------------------------------------------
 
-compTr-ivAll-full : (p : Nat) (Tg : Tr p) -> MonoTr p Tg -> MP1T p Tg
+compTr-ivAll-full : (p : Nat) (Tg : Tr p) -> MonoTr p Tg -> MPT p Tg
                   -> (a : Nat) (Ths : Nat -> Tr a)
                   -> ((i : Nat) -> MonoTr a (Ths i))
-                  -> ((i : Nat) -> MP1T a (Ths i))
+                  -> ((i : Nat) -> MPT a (Ths i))
                   -> IvAll a (compTr p Tg a Ths)
 compTr-ivAll-full p Tg mtg m1g a Ths mTh m1h =
   compTr-ivAll p Tg a Ths
-    (\ i -> mp1T-ivAll a (Ths i) (m1h i))
+    (\ i -> mpT-ivAll a (Ths i) (m1h i))
     (selStabAll p Tg mtg m1g a Ths mTh m1h)

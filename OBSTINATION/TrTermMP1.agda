@@ -44,6 +44,7 @@ open import OBSTINATION.TrCompDen using (monoTr-cont ; LeX-ins)
 open import OBSTINATION.TrMP1 using
   (MP1T ; zerfTr-mp1 ; succTr-mp1 ; projTr-mp1)
 open import OBSTINATION.TrComp using (module W ; compTr)
+open import OBSTINATION.TrMPT using (mp1-mpT)
 open import OBSTINATION.TrSelStab using (compTr-ivAll-full)
 open import OBSTINATION.TrCompMP1 using (compTr-verdict)
 open import OBSTINATION.TrPrec using
@@ -88,7 +89,8 @@ compTr-MP1T : (p : Nat) (Tg : Tr p) (g : FTup -> FEl)
             -> MP1T a (compTr p Tg a Ths)
 compTr-MP1T p Tg g dg mg mtg m1g zero    Ths mTh m1h = tt
 compTr-MP1T p Tg g dg mg mtg m1g (suc a) Ths mTh m1h =
-  mkSigma (fst (compTr-ivAll-full p Tg mtg m1g (suc a) Ths mTh m1h))
+  mkSigma (fst (compTr-ivAll-full p Tg mtg (mp1-mpT p Tg mtg m1g) (suc a) Ths
+                  mTh (\ i -> mp1-mpT (suc a) (Ths i) (mTh i) (m1h i))))
     (mkSigma (compTr-verdict p Tg mtg m1g a Ths mTh m1h ovm) cns)
   where
     ovm : (m n : Nat) -> LeN m n
@@ -148,7 +150,9 @@ mutual
     mkSigma ivc (mkSigma (ovP-verdict zero Th mth m1th g h dh mg mh ivc) cns)
     where
       ivc : EvConstN (P.ivP zero Th)
-      ivc = precTr-ivP-mp zero Th g h mth m1th dh mg mh
+      ivc =
+        precTr-ivP-mp zero Th g h mth
+          (mp1-mpT (suc (suc zero)) Th mth m1th) dh mg mh
 
       cns : (c : Nat) (lc : LeN (suc c) (suc zero)) (v : Nat)
           -> MP1T zero (precCont zero Tg Th c lc v)
@@ -160,7 +164,9 @@ mutual
       (mkSigma (ovP-verdict (suc p) Th mth m1th g h dh mg mh ivc) cns)
     where
       ivc : EvConstN (P.ivP (suc p) Th)
-      ivc = precTr-ivP-mp (suc p) Th g h mth m1th dh mg mh
+      ivc =
+        precTr-ivP-mp (suc p) Th g h mth
+          (mp1-mpT (suc (suc (suc p))) Th mth m1th) dh mg mh
 
       cns : (c : Nat) (lc : LeN (suc c) (suc (suc p))) (v : Nat)
           -> MP1T (suc p) (precCont (suc p) Tg Th c lc v)

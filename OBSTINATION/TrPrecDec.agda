@@ -49,6 +49,7 @@ open import OBSTINATION.TrPrecIv using (Qd-stab-full ; PZ-avT-mono-L)
 open import OBSTINATION.TrPrecDen using (avP ; avP-len ; parTup ; Vd-den)
 open import OBSTINATION.TrPrec using (module R)
 open import OBSTINATION.TrMP1 using (MP1T)
+open import OBSTINATION.TrMPT using (MPT ; mp1-mpT)
 open import OBSTINATION.TrVerdict using
   (dtup ; dtup-len ; dtup-nth ; dtup-out ; get-embedTup ; embedTup-len ;
    LeTup-len ; bot-not-inf ; embed-bot ; below-bot ; below-bot-le ; below-inf ;
@@ -380,7 +381,8 @@ Qd-stab-of : (p : Nat) (Th : Tr (suc (suc p))) (g h : FTup -> FEl)
            -> Sigma Nat (\ J -> (j : Nat) -> LeN (suc J) j
                 -> Eq (R.Qd p Th L j) (R.Qd p Th L (suc J)))
 Qd-stab-of p Th g h mth m1th dh mg mh uo L =
-  Qd-stab-full p Th mth m1th L (Vd-mono p Th g h dh mg mh L)
+  Qd-stab-full p Th mth (mp1-mpT (suc (suc p)) Th mth m1th) L
+    (Vd-mono p Th g h dh mg mh L)
     (Vd-tot-or-never p Th g h dh mg mh uo L)
 
 ------------------------------------------------------------------------

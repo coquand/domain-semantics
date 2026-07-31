@@ -59,6 +59,7 @@ open import OBSTINATION.TrComp using (module W ; compTr ; orC)
 open import OBSTINATION.TrCompIv using (module CI)
 open import OBSTINATION.TrCompSel using
   (OvSettles ; OvGrows ; stop-settles ; module CS)
+open import OBSTINATION.TrMPT using (MPT ; mp1-mpT)
 open import OBSTINATION.TrSelStab using (module SS ; compTr-ivAll-full)
 open import OBSTINATION.TrCompVerdict using
   (VerdictFrom ; fedV ; fedV-inl ; verdictFrom-verdict)
@@ -83,7 +84,8 @@ compTr-verdict p Tg mtg m1g a Ths mTh m1h ovm =
     open CI p Tg a Ths using (dep-mono ; module Sel)
 
     ss : Sigma Nat (\ K -> (k : Nat) -> LeN K k -> Eq (WW.sel k) (WW.sel K))
-    ss = SS.selStab p Tg mtg m1g a Ths mTh m1h
+    ss = SS.selStab p Tg mtg (mp1-mpT p Tg mtg m1g) a Ths mTh
+           (\ i -> mp1-mpT (suc a) (Ths i) (mTh i) (m1h i))
 
     K : Nat
     K = fst ss
@@ -219,4 +221,5 @@ compTr-MP1 : (p : Nat) (Tg : Tr p) -> MonoTr p Tg -> MP1T p Tg
            -> Pair (Verdict (W.ovf p Tg a Ths)) (IvAll (suc a) (compTr p Tg (suc a) Ths))
 compTr-MP1 p Tg mtg m1g a Ths mTh m1h ovm =
   mkSigma (compTr-verdict p Tg mtg m1g a Ths mTh m1h ovm)
-    (compTr-ivAll-full p Tg mtg m1g (suc a) Ths mTh m1h)
+    (compTr-ivAll-full p Tg mtg (mp1-mpT p Tg mtg m1g) (suc a) Ths mTh
+       (\ i -> mp1-mpT (suc a) (Ths i) (mTh i) (m1h i)))

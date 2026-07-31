@@ -50,6 +50,7 @@ open import OBSTINATION.TrCompDen using (monoTr-cont ; LeX-ins)
 open import OBSTINATION.TrMP1 using
   (MP1T ; IvAll ; mp1T-ivAll ; projTr-mp1)
 open import OBSTINATION.TrMP1Red using (mp1T-from-iv)
+open import OBSTINATION.TrMPT using (mp1-mpT)
 open import OBSTINATION.TrSelStab using (compTr-ivAll-full)
 open import OBSTINATION.TrUOfrz using (UOfrz ; UOfrz-ext)
 open import OBSTINATION.TrPrecFun using (precFun ; precA ; precFun-ins)
@@ -97,7 +98,9 @@ atNum-ivAll : (p : Nat) (Tg : Tr p) (Th : Tr (suc (suc p)))
 atNum-ivAll p Tg Th g h mtg mth m1g m1th dg dh mg mh ufA zero =
   mp1T-ivAll p Tg m1g
 atNum-ivAll p Tg Th g h mtg mth m1g m1th dg dh mg mh ufA (suc v) =
-  compTr-ivAll-full (suc (suc p)) Th mth m1th p (N.argsA p Tg Th v) am m1a
+  compTr-ivAll-full (suc (suc p)) Th mth (mp1-mpT (suc (suc p)) Th mth m1th)
+    p (N.argsA p Tg Th v) am
+    (\ i -> mp1-mpT p (N.argsA p Tg Th v i) (am i) (m1a i))
   where
     am : (i : Nat) -> MonoTr p (N.argsA p Tg Th v i)
     am zero          = tt

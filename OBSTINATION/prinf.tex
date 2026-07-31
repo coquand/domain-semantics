@@ -196,6 +196,48 @@ for every $X$ of the right length. So the trace is not a separate model to
 be related to $\ev(q)$ afterwards; it computes $\ev(q)$, and $\ivv,\ovv$
 are a decomposition of that computation.
 
+\begin{remark}[provenance, and what this trace is \emph{not}]
+\label{rem:prov}
+The sequence $(n_p,i_p)$ of \S2.1, together with the observation that it
+determines the value of the term at every finite point at once, is the
+notion of trace of an email from Coquand to Colson of 1991; the direct
+constructive proof of Colson's ultimate obstination theorem that came out
+of it is \emph{Une preuve directe du th\'eor\`eme d'ultime obstination},
+C.~R. Acad. Sci. S\'er.~I \textbf{314} (1992). The trace of \S2.2 is that
+notion, with the whole value $\ovv(k)$ recorded in place of its height
+alone, and with continuations added for the coordinates that go complete.
+
+It is \emph{not} the notion of trace of R.~David (\emph{On the asymptotic
+behaviour of primitive recursive algorithms}, Theoret. Comput. Sci.
+\textbf{266} (2001) 159--193, and \emph{Decidability results for primitive
+recursive algorithms}, Theoret. Comput. Sci. \textbf{300} (2003) 477--504, the paper that extends the constructive
+result to mutual recursion), although the two are aimed at the same
+theorem. There a trace is
+a pair $(e,\lambda)$: an element $e$ of the domain \emph{together with a
+labelling} assigning to each accessible cell of $e$ a word of tokens $x_n$,
+recording which cell of which argument was used to produce that cell. A
+term denotes a continuous map from traces to traces, the arguments being
+themselves traces. So David's trace is a computation \emph{at a given
+tuple of arguments}, decorated with provenance --- in his own reading, a
+branch of a Berry--Curien sequential algorithm.
+
+The trace used here carries no provenance and is attached to the term
+alone. It is the record of the canonical increasing walk that starts at
+$(\bot,\dots,\bot)$ and raises, at each step, exactly the coordinate the
+computation is stuck on, together with the value produced at each step; the
+value at an arbitrary tuple is recovered by \emph{replay} (\S2.2), not by
+reading a label. The two therefore record different things, and neither is
+here defined from the other: David's is the finer datum at a fixed point,
+since it says which cells were used, while the present one is the finer
+datum along the increasing family, since it keeps the whole sequence of
+values --- distinguishing $S^k(0)$ from $S^k(\bot)$ --- and descends into a
+continuation when a coordinate becomes a numeral. The distinction matters
+for \S\ref{sec:mutual}: mutual recursion is exactly what David's traces
+were built to handle, and the question asked there is whether \emph{this}
+trace, with its value sequences and descents, ports to a block --- not
+whether his does.
+\end{remark}
+
 \subsection{The invariant}
 
 \begin{definition}[$\MP$]

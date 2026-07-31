@@ -65,7 +65,7 @@ open import OBSTINATION.MP1 using (ConstFrom ; StrictIncFrom ; PhiOK)
 open import OBSTINATION.PhiComp using (sinc-mono-lt)
 open import OBSTINATION.TraceDef
 open import OBSTINATION.TrSat using (IsCpl ; cpl-max ; MonoTr)
-open import OBSTINATION.TrMP1 using (EvTot ; Never ; Verdict)
+open import OBSTINATION.TrMP1 using (EvTot ; Never ; Verdict ; verdict-TN)
 open import OBSTINATION.TrPrec using (module R)
 open import OBSTINATION.TrPrecChain using (Bt ; bt-notCpl ; module CH)
 open import OBSTINATION.TrPrecStall using (module ST)
@@ -114,7 +114,8 @@ module PHI (p : Nat)
 
   open CH p ivh ivhr ovh conth L
   open ST p ivh ivhr ovh conth L
-  open DEC p ivh ivhr ovh conth L ov-mono V-mono vrd using (NJ-mono)
+  open DEC p ivh ivhr ovh conth L ov-mono V-mono (verdict-TN ovh vrd)
+    using (NJ-mono)
 
   W : Nat -> Nat
   W j = hgt (V j)

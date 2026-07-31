@@ -146,6 +146,8 @@ or pragmas. Full details in [`OBSTINATION/README.md`](OBSTINATION/README.md).
 | **Ultimate obstination (Proposition 1)** | [`OBSTINATION/Prop1.agda`](OBSTINATION/Prop1.agda) | `prop1` |
 | Computability of the extension | [`OBSTINATION/Computable.agda`](OBSTINATION/Computable.agda) | `fhat`, `fhat-diag` |
 | **`min` at `S^ω(⊥)`** | [`OBSTINATION/PredMin.agda`](OBSTINATION/PredMin.agda) | `min-inf` |
+| **`MP1` for every primitive recursive term** | [`OBSTINATION/TrTermMP1.agda`](OBSTINATION/TrTermMP1.agda) | `traceOf-MP1np` |
+| **The value at `(S^ω⊥, …, S^ω⊥)`** | [`OBSTINATION/PRInfMP1.agda`](OBSTINATION/PRInfMP1.agda) | `prValMP`, `prValMP-lub` |
 
 `prop1 : (p : PR)(A : Tup) → Wf p (length A) → UO (evalF p) A` proves ultimate
 obstination by induction on the primitive-recursive term `p`; from the witness
@@ -161,4 +163,32 @@ headline results with:
 ```sh
 agda --safe --without-K --exact-split OBSTINATION/Prop1.agda
 agda --safe --without-K --exact-split OBSTINATION/PredMin.agda
+```
+
+### The trace, and the value at the infinite point
+
+A second, independent route to the same computability result goes through the
+**trace** of a term — the record of which variable the computation demands at
+each step and of what it has produced. This is the notion of trace of an email
+from Coquand to Colson of 1991 (it is *not* R. David's notion of trace, which
+labels each cell of the value with the argument cells used to produce it); the
+difference is spelled out in §2.2 of the write-up.
+
+- [`OBSTINATION/TrTermMP1.agda`](OBSTINATION/TrTermMP1.agda) —
+  `traceOf-MP1np : (q : PR)(n : Nat) → Wf q n → MP1T n (traceOf q n wf)`: the
+  trace of **every** primitive recursive term satisfies the invariant `MP1`
+  (the demand is eventually constant, and the value sequence has a verdict).
+  Proposition 1 is *not* used.
+- [`OBSTINATION/PRInfMP1.agda`](OBSTINATION/PRInfMP1.agda) — `prValMP` computes
+  `f(S^ω⊥, …, S^ω⊥)` from `MP1` alone, and `prValMP-lub` proves it is the least
+  upper bound of the diagonal chain `f(S^m⊥, …, S^m⊥)`.
+
+The write-up is
+[`OBSTINATION/prinf.tex`](OBSTINATION/prinf.tex) (built:
+**[`OBSTINATION/prinf.pdf`](OBSTINATION/prinf.pdf)**); its last section asks
+what survives under mutual recursion. Type-check with:
+
+```sh
+agda --safe --without-K --exact-split OBSTINATION/TrTermMP1.agda
+agda --safe --without-K --exact-split OBSTINATION/PRInfMP1.agda
 ```

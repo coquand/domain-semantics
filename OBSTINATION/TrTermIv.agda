@@ -37,6 +37,7 @@ open import OBSTINATION.TrMono using
 open import OBSTINATION.TrMP1 using
   (MP1T ; IvAll ; mp1T-ivAll ; zerfTr-mp1 ; succTr-mp1 ; projTr-mp1)
 open import OBSTINATION.TrMP1Red using (traceOf-mp1)
+open import OBSTINATION.TrMPT using (mp1-mpT)
 open import OBSTINATION.TrSelStab using (compTr-ivAll-full)
 open import OBSTINATION.TrUOfrz using (UOfrz ; UOfrz-ext ; uofrz-PR)
 open import OBSTINATION.TrPrecFun using (precFun ; precFun-eval)
@@ -68,7 +69,9 @@ mutual
   -- succ = succ o proj 0
   ----------------------------------------------------------------------
   traceOf-ivAll succ n wf =
-    compTr-ivAll-full (suc zero) succTr succTr-mono succTr-mp1 n Ths mTh m1Th
+    compTr-ivAll-full (suc zero) succTr succTr-mono
+      (mp1-mpT (suc zero) succTr succTr-mono succTr-mp1) n Ths mTh
+      (\ i -> mp1-mpT n (Ths i) (mTh i) (m1Th i))
     where
       Ths : Nat -> Tr n
       Ths _ = projTr n zero wf
@@ -84,11 +87,14 @@ mutual
   traceOf-ivAll (comp g hs) n wf =
     compTr-ivAll-full (length hs) Tg
       (fst (traceOf-ok g (length hs) (fst wf)))
-      (traceOf-mp1 g (length hs) (fst wf)
-        (traceOf-ivAll g (length hs) (fst wf)))
+      (mp1-mpT (length hs) Tg (fst (traceOf-ok g (length hs) (fst wf)))
+        (traceOf-mp1 g (length hs) (fst wf)
+          (traceOf-ivAll g (length hs) (fst wf))))
       n (traceList hs n (snd wf))
       (\ i -> fst (traceList-ok hs n (snd wf) i))
-      (\ i -> traceList-mp1 hs n (snd wf) i)
+      (\ i -> mp1-mpT n (traceList hs n (snd wf) i)
+                 (fst (traceList-ok hs n (snd wf) i))
+                 (traceList-mp1 hs n (snd wf) i))
     where
       Tg : Tr (length hs)
       Tg = traceOf g (length hs) (fst wf)

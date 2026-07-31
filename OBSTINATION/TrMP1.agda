@@ -93,6 +93,12 @@ OvOK : (a : Nat) -> Tr a -> Set
 OvOK a       (stop v)              = Top
 OvOK (suc a) (node iv ivr ov cont) = Verdict ov
 
+-- the decision half of a verdict: does the value ever become a numeral?
+-- (`PhiOK` is irrelevant to it, and MP2 supplies the same thing)
+verdict-TN : (ov : Nat -> FEl) -> Verdict ov -> Or (EvTot ov) (Never ov)
+verdict-TN ov (inl et)               = inl et
+verdict-TN ov (inr (mkSigma nev pk)) = inr nev
+
 mp1T-ivAll : (a : Nat) (T : Tr a) -> MP1T a T -> IvAll a T
 mp1T-ivAll a       (stop v)              m = tt
 mp1T-ivAll (suc a) (node iv ivr ov cont) m =

@@ -34,6 +34,7 @@ open import OBSTINATION.TrPrecFun using (precFun)
 open import OBSTINATION.TrPrec using (module R ; module P)
 open import OBSTINATION.TrPrecDec using
   (Vd-mono ; Vd-mono-L ; Vd-tot-or-never)
+open import OBSTINATION.TrMPT using (mp1-mpT)
 open import OBSTINATION.TrPrecPar using (module PAR)
 
 ------------------------------------------------------------------------
@@ -66,7 +67,8 @@ precTr-ivP p (stop v) g h mth m1th dh mg mh uo =
         (Eq-sym
           (Qd-stop p v (P.Lv p (stop v) zero) (P.Lv p (stop v) zero zero)))
 precTr-ivP p (node ivh ivhr ovh conth) g h mth m1th dh mg mh uo =
-  PAR.ivP-EvConstN p ivh ivhr ovh conth mth m1th
+  PAR.ivP-EvConstN p ivh ivhr ovh conth mth
+    (mp1-mpT (suc (suc p)) Th mth m1th)
     (\ L -> Vd-mono p Th g h dh mg mh L)
     (\ L L' lp -> Vd-mono-L p Th g h dh mg mh L L' lp)
     (\ L -> Vd-tot-or-never p Th g h dh mg mh uo L)

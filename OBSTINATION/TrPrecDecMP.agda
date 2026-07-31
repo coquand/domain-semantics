@@ -116,7 +116,7 @@ module DEC (p : Nat)
                    -> LeF (R.Vd p (node ivh ivhr ovh conth) L j)
                           (R.Vd p (node ivh ivhr ovh conth) L j'))
            -- THE INDUCTION HYPOTHESIS: MP1's value clause for the step term
-           (vrd : Verdict ovh)
+           (vrd : Or (EvTot ovh) (Never ovh))
            where
 
   open CH p ivh ivhr ovh conth L
@@ -412,9 +412,9 @@ module DEC (p : Nat)
               ((j : Nat) -> Not (IsCpl (V j)))
   decide = route vrd
     where
-      route : Verdict ovh
+      route : Or (EvTot ovh) (Never ovh)
             -> Or (Sigma Nat (\ j0 -> IsCpl (V j0)))
                   ((j : Nat) -> Not (IsCpl (V j)))
       route (inl (mkSigma n0 cn0))  = TOT.decide-tot n0 cn0
-      route (inr (mkSigma nv pk))   =
+      route (inr nv)                =
         inr (\ j -> bt-notCpl (V j) (never-chain nv j))

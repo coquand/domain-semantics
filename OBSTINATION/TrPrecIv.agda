@@ -91,6 +91,7 @@ open import OBSTINATION.TrPrecFrz using (module F)
 open import OBSTINATION.TrSat using (cpl-max)
 open import OBSTINATION.TrCompSel using (ovTot-or-never)
 open import OBSTINATION.TrMP1 using (MP1T)
+open import OBSTINATION.TrMPT using (MPT ; mpT-tot-or-never)
 open import OBSTINATION.MutIdxWalk using (EvConstN)
 open import OBSTINATION.TrScan using (del-tup ; inr-inj)
 open import OBSTINATION.TrCompDen using (tup-cong)
@@ -601,7 +602,7 @@ parV-grow p L j =
 ------------------------------------------------------------------------
 
 post-stab : (p : Nat) (L : Nat -> Nat) (T : Tr (suc p))
-          -> MonoTr (suc p) T -> MP1T (suc p) T
+          -> MonoTr (suc p) T -> MPT (suc p) T
           -> Sigma Nat (\ J -> (j : Nat) -> LeN J j
                -> Eq (blockOn (suc p) T (parV p L j))
                      (blockOn (suc p) T (parV p L J)))
@@ -609,7 +610,7 @@ post-stab p L (stop w)              mt m1 = mkSigma zero (\ j lj -> refl)
 post-stab p L (node iv ivr ov cont) mt m1 =
   NGf.scan-const p iv ivr ov cont (parV p L) (parV-mono p L) mt
     (fst (fst m1)) (snd (fst m1))
-    (ovTot-or-never (suc p) (node iv ivr ov cont) m1)
+    (mpT-tot-or-never (suc p) (node iv ivr ov cont) mt m1)
     (\ k c -> parV-incpl p L k c)
     zero (parV-grow p L)
     (\ c ne k k' lk -> parV-fix p L c ne k k' lk)
@@ -771,7 +772,7 @@ EqFEl-dec (fcpl a) (fcpl b) = route (EqNat-dec a b)
     route (no ne) = no (\ e -> ne (fcpl-inj a b e))
 
 pre-stab : (p : Nat) (Th : Tr (suc (suc p)))
-         -> MonoTr (suc (suc p)) Th -> MP1T (suc (suc p)) Th
+         -> MonoTr (suc (suc p)) Th -> MPT (suc (suc p)) Th
          -> (L : Nat -> Nat)
          -> ((j j' : Nat) -> LeN j j' -> LeF (R.Vd p Th L j) (R.Vd p Th L j'))
          -> ((j : Nat) -> Not (IsCpl (R.Vd p Th L j)))
@@ -937,7 +938,7 @@ pre-stab p (node ivh ivhr ovh conth) mth m1th L vm nevV = result
     ------------------------------------------------------------------
 
     result : Res
-    result = top (ovTot-or-never (suc (suc p)) Th m1th)
+    result = top (mpT-tot-or-never (suc (suc p)) Th mth m1th)
       where
         top : Or (Sigma Nat (\ n0 -> IsCpl (ovOf Th n0)))
                  ((m : Nat) -> Not (IsCpl (ovOf Th m)))
@@ -993,7 +994,7 @@ delEq p Th L j =
     pt (suc i) = refl
 
 post-desc : (p : Nat) (Th : Tr (suc (suc p)))
-          -> MonoTr (suc (suc p)) Th -> MP1T (suc (suc p)) Th
+          -> MonoTr (suc (suc p)) Th -> MPT (suc (suc p)) Th
           -> (L : Nat -> Nat)
           -> ((j j' : Nat) -> LeN j j' -> LeF (R.Vd p Th L j) (R.Vd p Th L j'))
           -> (j0 : Nat) -> IsCpl (R.Vd p Th L j0)
@@ -1063,7 +1064,7 @@ post-desc p (node ivh ivhr ovh conth) mth m1th L vm j0 ic0 = result
         mt' : MonoTr (suc p) T'
         mt' = snd mth (N.cg J) (ivhr (N.NG J)) (hts (R.avT p Th L J) (N.cg J))
 
-        m1' : MP1T (suc p) T'
+        m1' : MPT (suc p) T'
         m1' = snd (snd m1th) (N.cg J) (ivhr (N.NG J))
                 (hts (R.avT p Th L J) (N.cg J))
 
@@ -1197,7 +1198,7 @@ post-desc p (node ivh ivhr ovh conth) mth m1th L vm j0 ic0 = result
                             (Eq-sym (htsAt0 (suc j))) (LeN-refl (suc j))))
 
     result : Res
-    result = top (ovTot-or-never (suc (suc p)) Th m1th)
+    result = top (mpT-tot-or-never (suc (suc p)) Th mth m1th)
       where
         top : Or (Sigma Nat (\ n0 -> IsCpl (ovOf Th n0)))
                  ((m : Nat) -> Not (IsCpl (ovOf Th m)))
@@ -1261,7 +1262,7 @@ post-desc p (node ivh ivhr ovh conth) mth m1th L vm j0 ic0 = result
 ------------------------------------------------------------------------
 
 Dm-stab : (p : Nat) (Th : Tr (suc (suc p)))
-        -> MonoTr (suc (suc p)) Th -> MP1T (suc (suc p)) Th
+        -> MonoTr (suc (suc p)) Th -> MPT (suc (suc p)) Th
         -> (L : Nat -> Nat)
         -> ((j j' : Nat) -> LeN j j' -> LeF (R.Vd p Th L j) (R.Vd p Th L j'))
         -> Or (Sigma Nat (\ j0 -> IsCpl (R.Vd p Th L j0)))
@@ -1276,7 +1277,7 @@ Dm-stab p Th mth m1th L vm (inr nev) =
 
 -- ... and then the fold settles one step later
 Qd-stab-full : (p : Nat) (Th : Tr (suc (suc p)))
-             -> MonoTr (suc (suc p)) Th -> MP1T (suc (suc p)) Th
+             -> MonoTr (suc (suc p)) Th -> MPT (suc (suc p)) Th
              -> (L : Nat -> Nat)
              -> ((j j' : Nat) -> LeN j j'
                  -> LeF (R.Vd p Th L j) (R.Vd p Th L j'))
@@ -1496,7 +1497,7 @@ module LOOP (p : Nat)
             (conth : (c : Nat) -> LeN (suc c) (suc (suc p)) -> (v : Nat)
                    -> Tr (suc p))
             (mth : MonoTr (suc (suc p)) (node ivh ivhr ovh conth))
-            (m1th : MP1T (suc (suc p)) (node ivh ivhr ovh conth))
+            (m1th : MPT (suc (suc p)) (node ivh ivhr ovh conth))
             (vmj : (L : Nat -> Nat) (j j' : Nat) -> LeN j j'
                  -> LeF (R.Vd p (node ivh ivhr ovh conth) L j)
                         (R.Vd p (node ivh ivhr ovh conth) L j'))

@@ -79,6 +79,7 @@ open import OBSTINATION.TrSat using
 open import OBSTINATION.TrCompNG using (module NGf ; IsCpl-dec)
 open import OBSTINATION.TrCompSel using (ovTot-or-never)
 open import OBSTINATION.TrMP1 using (MP1T)
+open import OBSTINATION.TrMPT using (MPT ; mpT-tot-or-never)
 open import OBSTINATION.MutIdxWalk using (EvConstN)
 open import OBSTINATION.TrScan using (inr-inj ; LeN-uniq)
 open import OBSTINATION.TrMono using (lev-mono)
@@ -113,13 +114,13 @@ node-split : (a : Nat) (iv : Nat -> Nat)
              (ov : Nat -> FEl)
              (cont : (c : Nat) -> LeN (suc c) (suc a) -> (v : Nat) -> Tr a)
            -> MonoTr (suc a) (node iv ivr ov cont)
-           -> MP1T (suc a) (node iv ivr ov cont)
+           -> MPT (suc a) (node iv ivr ov cont)
            -> Sigma Nat (\ Q ->
                 Pair ((n : Nat) -> LeN Q n -> Eq (iv n) (iv Q))
                      (Or ((n : Nat) -> Not (IsCpl (ov n)))
                          ((n : Nat) -> LeN Q n -> IsCpl (ov n))))
 node-split a iv ivr ov cont mt m1 =
-  route (ovTot-or-never (suc a) (node iv ivr ov cont) m1)
+  route (mpT-tot-or-never (suc a) (node iv ivr ov cont) mt m1)
   where
     Nh : Nat
     Nh = fst (fst m1)
@@ -218,7 +219,7 @@ module PAR (p : Nat)
            (conth : (c : Nat) -> LeN (suc c) (suc (suc p)) -> (v : Nat)
                   -> Tr (suc p))
            (mth : MonoTr (suc (suc p)) (node ivh ivhr ovh conth))
-           (m1th : MP1T (suc (suc p)) (node ivh ivhr ovh conth))
+           (m1th : MPT (suc (suc p)) (node ivh ivhr ovh conth))
            (vmj : (L : Nat -> Nat) (j j' : Nat) -> LeN j j'
                 -> LeF (R.Vd p (node ivh ivhr ovh conth) L j)
                        (R.Vd p (node ivh ivhr ovh conth) L j'))
@@ -602,7 +603,7 @@ module PAR (p : Nat)
              (cont1 : (c : Nat) -> LeN (suc c) (suc p) -> (v : Nat) -> Tr p)
              (eTw : Eq (Tw w) (node iv1 ivr1 ov1 cont1))
              (mt1 : MonoTr (suc p) (node iv1 ivr1 ov1 cont1))
-             (m11 : MP1T (suc p) (node iv1 ivr1 ov1 cont1))
+             (m11 : MPT (suc p) (node iv1 ivr1 ov1 cont1))
              where
 
     T1 : Tr (suc p)
@@ -1057,9 +1058,9 @@ module PAR (p : Nat)
             Eq-transport (\ T -> MonoTr (suc p) T) e
               (snd mth (suc zero) lc1 w)
 
-          m11 : MP1T (suc p) (node iv1 ivr1 ov1 cont1)
+          m11 : MPT (suc p) (node iv1 ivr1 ov1 cont1)
           m11 =
-            Eq-transport (\ T -> MP1T (suc p) T) e
+            Eq-transport (\ T -> MPT (suc p) T) e
               (snd (snd m1th) (suc zero) lc1 w)
 
           module S = SUB w iv1 ivr1 ov1 cont1 e mt1 m11
