@@ -42,10 +42,13 @@ computational reading of page 2 of \emph{Une preuve directe du
 Th\'eor\`eme d'Ultime Obstination}. We then ask whether the argument
 survives mutual recursion, and locate precisely the one step that does
 not: producing the value \emph{as an element of the three-constructor
-datatype} requires a global bounded-or-unbounded verdict, and for mutually
-recursive blocks that verdict is equivalent to $\LPO$. What does survive
-is the level-by-level verdict, which is the constructively correct reading
-of a lazy natural anyway.
+datatype} requires a global bounded-or-unbounded verdict. For arbitrary
+traces that verdict is equivalent to $\LPO$; we show that the known
+refutation does \emph{not} apply to actual primitive recursive step terms,
+so the question is open for real blocks, and we say where a counterexample
+would have to live. What survives unconditionally is the level-by-level
+verdict, which is the constructively correct reading of a lazy natural
+anyway.
 \end{abstract}
 
 \section{The domain, and primitive recursive terms}
@@ -285,55 +288,69 @@ much weaker dichotomy
 or $\varphi$ is unbounded.}
 \end{equation}
 
-\paragraph{And \eqref{eq:G} is exactly the obstruction.} For a block,
-\eqref{eq:G} is not available: the development contains a block whose step
-terms satisfy the corresponding hypotheses and for which \eqref{eq:G}
-implies the limited principle of omniscience
-(\texttt{BlkGrowFail.blk-grow-lpo}). Classically the same point reads:
-``is the height of $f(S^m(\bot))$ bounded in $m$?'' is $\Pi^0_1$-hard, so
-no total procedure returns that verdict. So the generalisation of
-Theorem~\ref{thm:main} to blocks, \emph{as stated}, is not merely unproved
-but not constructively provable.
+\paragraph{And \eqref{eq:G} is where it gets interesting.} For an
+\emph{arbitrary} trace $(iv,kv)$ --- an eventually constant demand and an
+arbitrary monotone height --- \eqref{eq:G} is not available: the development
+contains a block whose two step \emph{traces} satisfy the corresponding
+hypotheses and for which \eqref{eq:G} implies the limited principle of
+omniscience (\texttt{BlkGrowFail.blk-grow-lpo}). Classically the same point
+reads: ``is the height of $f(S^m(\bot))$ bounded in $m$?'' is
+$\Pi^0_1$-hard.
 
-\paragraph{What to do instead --- and it is the right thing anyway.}
-The failure is a failure of the \emph{codomain}, not of the mathematics.
-Asking for the value as an element of the three-constructor datatype $\D$
-builds in the decision \eqref{eq:G}, because $S^k(\bot)$ and $\Sw$ are
-different constructors. That decision is legitimate for primitive
-recursive terms --- Proposition~\ref{prop:one} supplies it --- and it is
-what makes Theorem~\ref{thm:main} true. It is illegitimate for blocks.
+\textbf{That refutation does not transfer to real step terms}, and it is worth
+being precise about why, because it is easy to over-read. The counterexample's
+step height is $kv_0(n) = b(n) + n$ for an arbitrary binary $b$, and what makes
+its orbit $\LPO$-hard is exactly that $b$ may \emph{drop} from $1$ to $0$. But
+Proposition~\ref{prop:one} hands every primitive recursive term a witness
+$\varphi$ that is constant or strictly increasing past a threshold the proof
+\emph{produces}, and $b(n)+n$ admits one only when $b$ never drops after that
+threshold --- which already decides $\LPO$:
+\[
+\texttt{BlkGrowPR.phiok-lpo} \;:\; \mathrm{PhiOK}\;k\;kv_0 \;\longrightarrow\;
+\LPO_b .
+\]
+So \texttt{BlkGrowFail} refutes the closure of the \emph{invariant} over
+arbitrary traces; it does \emph{not} exhibit a primitive recursive block whose
+value at $\Delta_\infty$ is uncomputable, because its $kv$ is not the $kv$ of
+any primitive recursive term. Whether such a block exists is open, and the
+evidence points the other way: with $\mathrm{PhiOK}$ available for each $g_i$
+at a computable threshold, apply Proposition~\ref{prop:one} to $g_i$ at
+$\Delta_\infty$; case (2) is impossible by Lemma~\ref{lem:case2}, case (1)
+makes $f_i$ a numeral, and in case (3) $g_i$ is pinned at one coordinate, so
+the iteration is
+\begin{itemize}
+\item pinned at a \emph{parameter}: $f_i$ eventually constant;
+\item pinned at \emph{itself}: a one-coordinate iteration
+  $h(m{+}1) = \varphi_i(h(m))$ with $\varphi_i$ constant or strictly
+  increasing, and one test at the first orbit point above $k_i$ decides
+  bounded versus unbounded, since $\varphi_i(x) \ge x$ along the orbit and
+  strict increase propagates $\varphi_i(x) > x$ upward;
+\item pinned at the \emph{other} component: compose around the cycle, and
+  $\mathrm{PhiOK}$ is closed under composition.
+\end{itemize}
+The gap is case (3)'s side condition $X[c] \ge A_0[c]$, which needs the
+coordinates other than the pinned one to have passed the approximant; if the
+other component stalls below it the clause never applies. That is where a
+counterexample would have to live.
 
-But the constructively correct reading of a lazy natural is not a
-three-constructor datatype: it is the coinductive object ``keep producing
-successors, possibly ending in $0$'', and to know such an object is to be
-able to answer, for each $K$, whether it passes level $K$. That
-level-by-level verdict does hold for blocks, unconditionally:
+\paragraph{What is certain either way.} The level-by-level verdict holds for
+blocks unconditionally,
 \[
 \mathtt{HPass}(k) \;=\; \forall K.\;
 \bigl(\exists s.\; k(s) > K\bigr) \;\vee\; \bigl(\forall s.\; k(s) \le K\bigr),
 \]
-and a block component's height past its threshold is a deterministic
-monotone iteration, which is decided by $K+1$ steps
-(\texttt{MPPass.IterF.it-pass}). So:
-
-\begin{quote}
-For blocks, $f(\Sw,\dots,\Sw)$ is computable \emph{as a lazy natural} ---
-one can decide, for every $K$, whether it reaches $S^K$ --- but not
-computable \emph{as an element of $\D$}, since that would decide
-\eqref{eq:G} and hence $\LPO$.
-\end{quote}
-
-This is the shape the mutual development has independently converged on:
-its invariant is
+because a block component's height past its threshold is a deterministic
+monotone iteration, decided by $K+1$ steps
+(\texttt{MPPass.IterF.it-pass}). So for blocks the value at the infinite point
+is in any case computable \emph{as a lazy natural} --- one can decide, for
+every $K$, whether it reaches $S^K$ --- which is the constructively correct
+reading of such an object, and it is what the mutual development's invariant
 \[
-\mathtt{MP}(iv,kv) \;=\; \mathtt{EvConstN}(iv) \;\wedge\; \mathtt{HPass}(kv),
+\mathtt{MP}(iv,kv) \;=\; \mathtt{EvConstN}(iv) \;\wedge\; \mathtt{HPass}(kv)
 \]
-an eventually constant demand together with the level-by-level height
-verdict, and it is precisely the global verdict \texttt{GV} that had to be
-abandoned. Read against the present note, that design decision is not a
-technical retreat: it says that for mutual recursion the value at the
-infinite point is a lazy natural one can compute with, and nothing more
-can be asked for.
+records. Whether one can moreover produce it as an element of the
+three-constructor datatype $\D$ --- which builds \eqref{eq:G} in, $S^k(\bot)$
+and $\Sw$ being different constructors --- is the open question above.
 
 \paragraph{Where a generalisation could still be proved.} Two concrete
 targets, both consistent with the above:
@@ -342,14 +359,13 @@ targets, both consistent with the above:
   arbitrary $r$ --- this needs, along the diagonal, the eventual
   constancy of the demand plus \texttt{HPass}, which the development has
   for the base functions, for composition, and for $r = 2$;
-\item the statement with $\D$ as it stands, but for those blocks that come
-  with a boundedness verdict --- for instance blocks whose step terms are
-  primitive recursive terms in the ordinary sense, where
-  Proposition~\ref{prop:one} supplies \eqref{eq:G} for each step and the
-  question is whether \eqref{eq:G} is inherited by the fixed point. It is
-  not, in general, and \texttt{BlkGrowFail} is exactly the obstruction; so
-  this second target should be read as asking which additional structural
-  hypothesis on the block restores it.
+\item the statement with $\D$ as it stands, for blocks whose step terms are
+  primitive recursive terms in the ordinary sense --- where
+  Proposition~\ref{prop:one} supplies \eqref{eq:G} for each step at a
+  computable threshold, and the question is whether it is inherited by the
+  fixed point. \texttt{BlkGrowFail} does \emph{not} settle this negatively,
+  by \texttt{BlkGrowPR}; the case analysis above closes every configuration
+  except the one where a component stalls below the other's approximant.
 \end{enumerate}
 
 \end{document}
