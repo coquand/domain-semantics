@@ -255,6 +255,23 @@ recovered, and the identification holds only past the threshold and while
 nothing has completed, which is Colson's obstinate regime. It is enough to
 carry his unrolling, and \S\ref{sec:mutual} records that it is also
 avoidable.
+
+The theorem has also been proved on the concrete-data-structure side
+itself, by P.-L. Curien (\emph{Sequential interactive behaviour of
+recursive program schemes}, talk, Tallinn, December 2017): a scheme is
+interpreted as a sequential algorithm, and ultimate obstination says that
+an infinite branch of it calls infinitely often on exactly one argument.
+The proof runs an abstract machine for $\mathrm{rec}(g,h)$ whose states
+carry a stack of pending recursive calls, and turns on a \emph{race}
+between the outputs a branch of the step term issues and the point at
+which it asks for its recursive argument: unless enough outputs have been
+issued first, the machine revisits a prefix it has already run, contributes
+no new call to any argument, and pushes stacks of unbounded depth --- so
+the branch is obstinate with the recursion argument as its index. That
+race is the operational form of the verdict clause of
+Definition~\ref{def:mp1}: enough successors must be produced, and soon
+enough, relative to the demands. The reading is close to David's, as one
+would expect of two accounts written in the same model.
 \end{remark}
 
 \subsection{The invariant}
