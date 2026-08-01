@@ -1,17 +1,28 @@
-# OBSTINATION/ — Colson's ultimate obstination theorem
+# OBSTINATION/ — Colson's ultimate obstination, and the value at the infinite point
 
-A self-contained Agda formalisation of Thierry Coquand's note
+A self-contained Agda formalisation of two results about primitive-recursive
+terms read as monotone maps on the lazy naturals.
 
 > **Une preuve directe du Théorème d'Ultime Obstination** — [`min1.pdf`](../min1.pdf)
+>
+> **The value of a primitive recursive term at the infinite point** —
+> [`prinf.pdf`](prinf.pdf) ([source](prinf.tex))
 
-a *direct constructive* proof of Colson's 1989 ultimate-obstination theorem,
-together with its corollary: **the denotations of primitive-recursive terms are
-computable objects**. As a concrete instance we run a primitive-recursive `min`
-on two copies of the infinite element `S^ω(⊥)` and watch it return `⊥`.
+The first is a *direct constructive* proof of Colson's 1989
+ultimate-obstination theorem, together with its corollary: **the denotations of
+primitive-recursive terms are computable objects**. As a concrete instance we
+run a primitive-recursive `min` on two copies of the infinite element `S^ω(⊥)`
+and watch it return `⊥`.
+
+The second proves that computability statement again, from a weaker starting
+point: **from the term's trace alone**, with the ultimate-obstination property
+used nowhere. That matters because the property is outright *false* for
+mutually recursive blocks, while the trace-level invariant is not.
 
 Everything is machine-checked with Agda `2.9.0`, `--safe --without-K
 --exact-split`, **no standard library, no postulates, no holes, no pragmas**
-(not even `BUILTIN NATURAL`). 66 modules, all green.
+(not even `BUILTIN NATURAL`). The obstination cone is 64 modules, the trace
+cone 127; all green.
 
 **Spartan by design:** the only indexed inductive type used anywhere is `Eq`
 (propositional equality). The `n`-tuples `Dⁿ` are plain `List`s indexed by
@@ -41,6 +52,8 @@ finite interpretation is `evalF : PR → FTup → FEl`.
 | **Ultimate obstination (Proposition 1)** | [`Prop1.agda`](Prop1.agda) | `prop1` |
 | **Computability of the extension** | [`Computable.agda`](Computable.agda) | `fhat`, `fhat-diag` |
 | **`min` at the infinite diagonal** | [`PredMin.agda`](PredMin.agda) | `min-inf` |
+| **`MP1` for every PR term's trace** | [`TrTermMP1.agda`](TrTermMP1.agda) | `traceOf-MP1np` |
+| **The value at `S^ω(⊥)`, from the trace alone** | [`PRInfMP1.agda`](PRInfMP1.agda) | `prValMP`, `prValMP-lub` |
 
 ```agda
 prop1 : (p : PR) (A : Tup) -> Wf p (length A) -> UO (evalF p) A
@@ -96,7 +109,47 @@ step function is strictly increasing, instead climbs to `S^ω(⊥)` (`∞+∞=�
 denotation faithfully tracks the algorithm. A high-level write-up is
 [`obstination.tex`](obstination.tex).
 
-## How the proof works (high level)
+## The trace, and the value at the infinite point
+
+[`prinf.pdf`](prinf.pdf) proves the computability statement a second time, from
+a different and weaker starting point. A **trace** records what the computation
+looks like from outside: substitute `⊥` for every variable, ask for the normal
+form, replace by `S(xᵢ)` the variable it is stuck on, and repeat. What comes out
+is a walk `iv(0), iv(1), …` — the variable demanded at each step — a value
+sequence `ov(0), ov(1), …` — what the term has produced when it sticks — and a
+continuation for each coordinate that turns out to be a numeral rather than an
+`Sᵏ(⊥)`. The trace is built by induction on the term and *proved to denote* it,
+so it is not a separate model to be related to `evalF` afterwards
+([`TraceDef.agda`](TraceDef.agda), [`TrTerm.agda`](TrTerm.agda)).
+
+The invariant `MP1` [`TrMP1.agda`](TrMP1.agda) asks, at every node of a trace:
+the walk is eventually constant, and the value sequence has a *verdict* —
+either some `ov(k)` is complete, or the height of `ov` is eventually constant or
+eventually strictly increasing.
+
+| Result | File | Name |
+|---|---|---|
+| `MP1` holds for the trace of every PR term | [`TrTermMP1.agda`](TrTermMP1.agda) | `traceOf-MP1np` |
+| `f(S^ω⊥, …, S^ω⊥)` is computable, and is the lub of the diagonal chain | [`PRInfMP1.agda`](PRInfMP1.agda) | `prValMP`, `prValMP-lub` |
+| `MP1` alone does **not** imply ultimate obstination | [`TrUOFail.agda`](TrUOFail.agda) | `uo-fails` |
+| the ingredient it is missing, totality | [`PRTot.agda`](PRTot.agda) | `evalF-tot` |
+
+Neither result uses the ultimate-obstination property; the only thing either
+takes from that development is its well-formedness *predicate*. The two closure
+arguments are composition ([`TrCompMP1.agda`](TrCompMP1.agda)) and primitive
+recursion ([`TrPrecOvP.agda`](TrPrecOvP.agda), on the general lemma
+[`TrFeedR.agda`](TrFeedR.agda): a trace fed a monotone family, with descents).
+
+**Mutual recursion.** Section 7 of [`prinf.pdf`](prinf.pdf) asks what survives
+for a block of simultaneously defined functions, where ultimate obstination is
+false but the trace-level statement need not be. Work in progress, and not yet
+in this repository: the block's trace has been rebuilt on value sequences and
+continuations and proved to denote the block, `r = 2` is closed at the value
+level with no obstinacy hypothesis, and David's static "recursively calls"
+graph is shown to be readable off the walk's own eventually-constant label —
+and also avoidable, at the price of an `r`-ary rather than a unary iteration.
+
+## How the obstination proof works (high level)
 
 Induction on the PR term:
 
@@ -135,6 +188,8 @@ Requires Agda `2.9.0`, no external library. Type-check the headline results:
 ```sh
 agda --safe --without-K --exact-split OBSTINATION/Prop1.agda      # Proposition 1
 agda --safe --without-K --exact-split OBSTINATION/PredMin.agda    # pred / min at S^ω(⊥)
+agda --safe --without-K --exact-split OBSTINATION/TrTermMP1.agda  # MP1 for every PR term
+agda --safe --without-K --exact-split OBSTINATION/PRInfMP1.agda   # the value at S^ω(⊥)
 ```
 
 Green-check the whole cone:
