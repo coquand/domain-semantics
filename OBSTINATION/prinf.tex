@@ -50,10 +50,11 @@ out from a single invariant on the term's \emph{trace} --- the record of
 which variable the computation demands at each step and what it has
 produced --- rather than from the ultimate-obstination property, which is
 not used anywhere and which we note does not follow from the trace
-invariant either. We then ask what survives under mutual recursion,
+invariant either. We then carry the same analysis to mutual recursion,
 where the ultimate-obstination property is outright false but the
-trace-level statement is not, and locate the one step that is still
-missing.
+trace-level statement is not: a block of simultaneously defined functions
+has a trace of the same kind, that trace denotes the block, and for two
+functions the verdict follows from the step terms alone.
 \end{abstract}
 
 \section{The domain, and primitive recursive terms}
@@ -543,6 +544,12 @@ termination pragma.
   development of that property is its well-formedness \emph{predicate}.
 \item Remark~\ref{rem:notuo} is \texttt{TrUOFail}, and the totality it
   refers to is \texttt{PRTot}.
+\item For \S\ref{sec:mutual}: the trace of a block and the proof that it
+  denotes the block are \texttt{TrMrec} and \texttt{TrMrecEval}; the
+  verdict for two functions is \texttt{BlkR2Value}. The calls graph read
+  off the walk is \texttt{TrMrecCalls}, the unary unrolling and its
+  iteration law \texttt{TrMrecFix}, and the unconditional $r$-ary one
+  \texttt{TrMrecPsi}.
 \end{itemize}
 
 The proof \emph{runs}: a companion file checks by evaluation that
@@ -557,7 +564,7 @@ $E$ is the informative one: $E(\bot) = \bot$ but $E(S^{m+1}(\bot)) = 0$,
 so the chain is $\bot, 0, 0, \dots$ and the least upper bound is a
 numeral, at a point that is infinite.
 
-\section{Does this generalise to mutual recursion?}
+\section{Mutual recursion}
 \label{sec:mutual}
 
 Consider now a block of $r$ functions defined by simultaneous primitive
@@ -567,104 +574,101 @@ recursion,
 f_j(S(x),\vec y) \;=\; h_j\bigl(x,\; f_1(x,\vec y),\dots,f_r(x,\vec y),\;
 \vec y\bigr), \qquad 1 \le j \le r,
 \end{equation}
-with the $h_j$ already given. Which parts of the argument survive?
+with the $h_j$ already given.
 
-\paragraph{Why the question is now better posed.} The
-ultimate-obstination property is \emph{false} for blocks: the
-formalisation contains a two-function block whose value along the diagonal
-has height $\lfloor m/2 \rfloor$, which is neither constant nor strictly
-increasing, so the shape its third case demands cannot be met. That used
-to be an obstacle to porting Theorem~\ref{thm:main}, because the theorem
-was proved through that property. It no longer is: \S3 uses only the
-trace and $\MP$, and $\lfloor m/2 \rfloor$ is unbounded, so the value at
-$\Delta_\infty$ is $\Sw$ and is computed correctly. What has to be ported
-is $\MP$, not the ultimate-obstination property.
+For such a block the ultimate-obstination property is \emph{false}: there
+is a two-function block whose value along the diagonal has height
+$\lfloor m/2 \rfloor$, which is neither constant nor strictly increasing,
+so the shape the property's third case demands cannot be met. This does
+not touch Theorem~\ref{thm:main}, which is proved from the trace and $\MP$
+alone and nowhere from that property; and $\lfloor m/2 \rfloor$ is
+unbounded, so the value of that very block at $\Delta_\infty$ is $\Sw$,
+and is computed. What a block needs is $\MP$, not ultimate obstination.
 
-\paragraph{What survives verbatim.} Sections \ref{sec:trace}.4--2.6 are
-about a trace fed a monotone family; nothing in them mentions how the
-function was defined. In particular the stuck-coordinate dichotomy, the
-bounded search that decides it, and the descent at a coordinate that goes
-complete all apply to a block's step terms as they stand. Lemmas
-\ref{lem:lookup} and \ref{lem:cofinal} are facts about the point
-$\Delta_\infty$ and the order on $\D$, and are untouched.
+Sections \ref{sec:trace}.4--2.6 transfer unchanged: they are about a trace
+fed a monotone family, and nothing in them mentions how the function was
+defined. The stuck-coordinate dichotomy, the bounded search that decides
+it, and the descent at a coordinate that goes complete therefore apply to
+a block's step terms as they stand, and Lemmas~\ref{lem:lookup} and
+\ref{lem:cofinal} are facts about $\Delta_\infty$ and the order on $\D$.
 
-\paragraph{What is missing, and where.} For a block one wants the
-analogue of $\MP$ for the tuple $(f_1,\dots,f_r)$, from $\MP$ for the
-$h_j$. Two things are known.
+\paragraph{The trace of a block.} A block has a trace of exactly the kind
+of \S2.2: it is the trace of primitive recursion with its layer a vector,
+the block unfolding on the numeral depth rather than on a subterm. It
+carries value sequences and continuations as a single term's trace does,
+and, like it, is proved to denote what it is the trace of --- its
+semantics is the block's evaluation, component by component. So nothing in
+\S\ref{sec:trace} has to be restated for blocks; only the object it is
+applied to changes.
 
-First, the \emph{invariant} does not transfer for arbitrary traces: there
-is a block whose two step traces satisfy the corresponding hypotheses and
-for which the bare bounded-or-unbounded dichotomy implies the limited
-principle of omniscience. Classically the same point reads: ``is the
-height of $f(S^m(\bot))$ bounded in $m$?'' is $\Pi^0_1$-hard. But that
-refutation does \emph{not} transfer to real step terms. Its step height is
-$b(n)+n$ for an arbitrary binary $b$, and what makes the orbit hard is
-exactly that $b$ may drop from $1$ to $0$; a step term's height is
-constant or strictly increasing past a threshold the proof produces, and
-$b(n)+n$ admits such a threshold only when $b$ never drops after it ---
-which already decides the principle. So the refutation kills the closure
-of the invariant over \emph{arbitrary} traces; it exhibits no primitive
-recursive block whose value at $\Delta_\infty$ is uncomputable.
+Recording values rather than heights is what makes that true. An account
+of the same dynamics that keeps only how tall each component is at each
+unfolding stays correct as long as no component has answered, and fails as
+soon as one does: for $f_1 = 0$ and $f_2 = f_1 + S(f_2)$ the real $f_2$
+climbs by one per unfolding, so its value is $\Sw$, while the height-only
+dynamics freezes it at $\bot$. The reason is the third clause of the
+semantics of \S2.2 --- a coordinate that has gone complete makes the
+computation descend into a continuation --- and a height cannot see a
+descent.
 
-Second, the block's own trace had to be rebuilt. In an earlier state of
-the development it was \emph{height-only}: it recorded how tall each
-component is at each unfolding, not what it is. That is enough while no
-component answers, and on that cone the block's height dynamics was proved
-to be the real block's. It is wrong as soon as one component becomes a
-numeral, and the formalisation contains a two-line instance: with
-$f_1 = 0$ and $f_2 = f_1 + S(f_2)$, the real $f_2$ climbs by one per
-unfolding --- so its value is $\Sw$ --- while the height-only dynamics
-freezes it at $\bot$. The reason is exactly the third clause of the
-semantics of \S2.2: a coordinate that has gone complete makes the
-computation \emph{descend into a continuation}, and a height cannot see
-that.
+\paragraph{Step terms, not arbitrary traces.} The invariant does not
+transfer for arbitrary traces. There is a pair of traces satisfying the
+corresponding hypotheses for which the bare bounded-or-unbounded
+dichotomy for the block implies the limited principle of omniscience;
+classically the same point reads that ``is the height of $f(S^m(\bot))$
+bounded in $m$?'' is $\Pi^0_1$-hard. That example does not come from a
+block of terms. Its step height is $b(n)+n$ for an arbitrary binary $b$,
+and what makes the orbit hard is exactly that $b$ may drop from $1$ to
+$0$; a step term's height is constant or strictly increasing past a
+threshold that the proof of $\MP$ produces, and $b(n)+n$ admits such a
+threshold only when $b$ never drops after it --- which already decides the
+principle. So closure fails over arbitrary traces, and an argument for a
+block must use the step terms; no primitive recursive block is exhibited
+whose value at $\Delta_\infty$ is uncomputable.
 
-\paragraph{The rebuilt trace.} That rebuild has since been carried out,
-and it was a transcription rather than a new idea: the composite and the
-recursion are exactly ``a trace fed a monotone family, with descents'',
-and \S\ref{sec:trace}.4--2.6 --- \texttt{TrCompVal},
-\texttt{TrCompVerdict}, \texttt{TrFeedR} --- carry that argument for
-single terms in the form a block needs. The walk did not have to change,
-only the value law: the replay depth is computed from heights alone in the
-single-term case too. \texttt{TrMrec} accordingly defines a block's trace
-with value sequences and continuations, as the traces of \S2.2 already
-have them --- it is the trace of $\mathrm{prec}$ with the layer a vector,
-the block unfolding on the numeral depth --- and it is proved to denote
-the block, \texttt{TrMrecEval.mrecTr-eval} identifying its semantics with
-the evaluation of $\mathrm{mrec}$. At $r=2$ the value-level verdict for
-the block then follows from the step terms' own invariants, with no
-obstinacy hypothesis (\texttt{BlkR2Value}). General $r$ is open.
+\paragraph{Two functions.} For $r = 2$ the verdict for the block follows
+from the invariants its step terms already carry, with no obstinacy
+assumed anywhere. Each component is decided separately to be obstinate or
+to answer, and decided from a supremum that is \emph{attained} rather than
+merely bounded --- a bound on the replay depth does not say whether a
+component ever answers. A component that has answered is fixed for ever,
+so the block descends to a system of the same shape at one lower arity,
+and the same argument applies to it.
 
 \paragraph{The unrolling, and David's calls graph.} A block's depth
 sequence is the orbit of a single map, and there are two ways to say so,
 differing exactly in whether the calls graph of Remark~\ref{rem:prov} is
-used. Substituting into the one coordinate that graph names gives David's
-unary $\Phi_i$ and with it his iteration law, that the value after $n+p$
-unfoldings is $\Phi_i$ applied to the value after $n$
-(\texttt{TrMrecFix}); the cost is a hypothesis, namely that the step term
-really is blocked at that coordinate, which \texttt{TrMrecCalls}
-decomposes into the two obstinacy conditions of the remark and one
-threshold condition that is \emph{not} free --- a step term stuck on a
-parameter never reaches its threshold. Filling \emph{every} recursive
-coordinate at once, and advancing the depth coordinate by $t$ successors
---- David's shift $x \mapsto x+p$, here literally $\mathrm{succ}$ composed
-$t$ times --- removes the need for it: the tuple the step term then
-receives is exactly the block's own $t$-th unfolding, coordinate by
-coordinate, so the fixpoint law \texttt{TrMrecPsi.psi-fix} holds with
-nothing assumed at all. What is traded away is that the resulting
-iteration is a map on vectors of length $r$ rather than a unary one. Free
-and $r$-ary, or unary and conditional: that is the choice, and it is the
-only place in the block argument where the calls graph does any work.
+used.
 
-\paragraph{What is certain either way.} The level-by-level verdict holds
-for blocks unconditionally: for every $K$ one can decide whether the value
-reaches $S^K$, because a block component's height past its threshold is a
-deterministic monotone iteration, decided by $K+1$ steps. So for blocks
-the value at the infinite point is in any case computable \emph{as a lazy
-natural}, which is the constructively correct reading of such an object.
-Whether one can moreover produce it as an element of the
-three-constructor datatype $\D$ --- which builds the bounded-or-unbounded
-dichotomy in, $S^k(\bot)$ and $\Sw$ being different constructors --- is
-what the rebuilt trace would settle.
+Substituting into the one coordinate that graph names gives David's unary
+$\Phi_i$, and with it his iteration law: the value after $n+p$ unfoldings
+is $\Phi_i$ applied to the value after $n$. What that costs is the
+hypothesis that the step term really is blocked at the named coordinate,
+which is the conjunction of the two obstinacy conditions of
+Remark~\ref{rem:prov} with the requirement that the walk has passed its
+threshold. The last is not free: a step term stuck on a parameter does not
+advance, and so does not reach it.
+
+Filling \emph{every} recursive coordinate at once removes the need for it.
+Advancing the depth coordinate by $t$ successors --- David's shift
+$x \mapsto x+p$, here literally $S$ composed $t$ times --- the tuple the
+step term receives is the block's own $t$-th unfolding, coordinate by
+coordinate; so there is no saturation step and no demand to control, and
+the fixpoint law holds with nothing assumed at all. What is traded away is
+that the iteration is then a map on vectors of length $r$ and not a unary
+one. Free and $r$-ary, or unary and conditional: that is the choice, and
+it is the only place in the block argument where the calls graph does any
+work.
+
+\paragraph{The value of a block at the infinite point.} The level-by-level
+verdict holds for blocks unconditionally: for every $K$ one can decide
+whether the value reaches $S^K$, because a component's height past its
+threshold is a deterministic monotone iteration, decided by $K+1$ steps.
+So the value of a block at the infinite point is computable \emph{as a
+lazy natural}, which is the constructively correct reading of such an
+object. Producing it instead as an element of the three-constructor
+datatype $\D$ --- which builds the bounded-or-unbounded dichotomy in,
+$S^k(\bot)$ and $\Sw$ being different constructors --- is what the trace
+of a block gives, for two functions.
 
 \end{document}

@@ -140,14 +140,16 @@ arguments are composition ([`TrCompMP1.agda`](TrCompMP1.agda)) and primitive
 recursion ([`TrPrecOvP.agda`](TrPrecOvP.agda), on the general lemma
 [`TrFeedR.agda`](TrFeedR.agda): a trace fed a monotone family, with descents).
 
-**Mutual recursion.** Section 7 of [`prinf.pdf`](prinf.pdf) asks what survives
-for a block of simultaneously defined functions, where ultimate obstination is
-false but the trace-level statement need not be. Work in progress, and not yet
-in this repository: the block's trace has been rebuilt on value sequences and
-continuations and proved to denote the block, `r = 2` is closed at the value
-level with no obstinacy hypothesis, and David's static "recursively calls"
-graph is shown to be readable off the walk's own eventually-constant label —
-and also avoidable, at the price of an `r`-ary rather than a unary iteration.
+**Mutual recursion.** Section 7 of [`prinf.pdf`](prinf.pdf) treats a block of
+simultaneously defined functions, where ultimate obstination is outright false
+but the trace-level statement is not. A block has a trace of exactly the same
+kind — primitive recursion with its layer a vector, unfolding on the numeral
+depth — carrying value sequences and continuations, and it is proved to denote
+the block; for two functions the verdict then follows from the step terms alone,
+with no obstinacy hypothesis. David's static "recursively calls" graph is
+readable off the walk's own eventually-constant label, and is also avoidable, at
+the price of an `r`-ary rather than a unary iteration. (Those modules are not in
+this repository yet.)
 
 ## How the obstination proof works (high level)
 

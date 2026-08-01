@@ -186,13 +186,13 @@ difference is spelled out in §2.2 of the write-up.
 The write-up is
 [`OBSTINATION/prinf.tex`](OBSTINATION/prinf.tex) (built:
 **[`OBSTINATION/prinf.pdf`](OBSTINATION/prinf.pdf)**); its last section asks
-what survives under mutual recursion, where ultimate obstination is outright
-false but the trace-level statement is not. Work in progress, and not yet in
-this repository: the block's trace rebuilt on value sequences and proved to
-denote the block, `r = 2` closed at the value level with no obstinacy
-hypothesis, and David's static "recursively calls" graph shown to be readable
-off the walk's own eventually-constant label — and also avoidable, at the price
-of an `r`-ary rather than a unary iteration. Type-check with:
+mutual recursion, where ultimate obstination is outright false but the
+trace-level statement is not: a block has a trace of the same kind, that trace
+is proved to denote the block, and for two functions the verdict follows from
+the step terms alone with no obstinacy hypothesis. David's static "recursively
+calls" graph is readable off the walk's own eventually-constant label — and is
+also avoidable, at the price of an `r`-ary rather than a unary iteration.
+(Those modules are not in this repository yet.) Type-check with:
 
 ```sh
 agda --safe --without-K --exact-split OBSTINATION/TrTermMP1.agda
