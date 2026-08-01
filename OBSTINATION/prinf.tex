@@ -231,11 +231,29 @@ here defined from the other: David's is the finer datum at a fixed point,
 since it says which cells were used, while the present one is the finer
 datum along the increasing family, since it keeps the whole sequence of
 values --- distinguishing $S^k(0)$ from $S^k(\bot)$ --- and descends into a
-continuation when a coordinate becomes a numeral. The distinction matters
-for \S\ref{sec:mutual}: mutual recursion is exactly what David's traces
-were built to handle, and the question asked there is whether \emph{this}
-trace, with its value sequences and descents, ports to a block --- not
-whether his does.
+continuation when a coordinate becomes a numeral.
+
+One derived datum does cross, and it is the one his treatment of mutual
+recursion runs on. What that treatment uses of a trace is the static
+\emph{calls graph} --- which argument occurrence a recursive call reads
+--- which is available to him from the syntax, the call sitting in the
+term. Here the demand is not a label but a computation, a function of the
+incoming tuple; unwinding it, however, gives
+\[
+\text{the coordinate demanded at } X \;=\; \ivv\bigl(\stick(X)\bigr),
+\]
+provided $\ovv(\stick(X))$ and the demanded coordinate of $X$ are both
+still incomplete --- the tuple entering only through $\stick(X)$ and
+through those two completeness questions. So the demanded coordinate is
+the walk's own label; and by clause~(i) of Definition~\ref{def:mp1} that
+label is eventually constant, so with $N_i$ its threshold,
+$\mathrm{nx}(i) = \ivv_i(N_i)$ is David's $\mathrm{nx}$ --- read off the
+invariant rather than off the syntax. This is not a translation of his
+traces into these: the labelling of every accessible cell is not
+recovered, and the identification holds only past the threshold and while
+nothing has completed, which is Colson's obstinate regime. It is enough to
+carry his unrolling, and \S\ref{sec:mutual} records that it is also
+avoidable.
 \end{remark}
 
 \subsection{The invariant}
@@ -588,10 +606,10 @@ which already decides the principle. So the refutation kills the closure
 of the invariant over \emph{arbitrary} traces; it exhibits no primitive
 recursive block whose value at $\Delta_\infty$ is uncomputable.
 
-Second, and this is the actual obstacle, the block's own trace in the
-present development is \emph{height-only}: it records how tall each
+Second, the block's own trace had to be rebuilt. In an earlier state of
+the development it was \emph{height-only}: it recorded how tall each
 component is at each unfolding, not what it is. That is enough while no
-component answers, and on that cone the block's height dynamics is proved
+component answers, and on that cone the block's height dynamics was proved
 to be the real block's. It is wrong as soon as one component becomes a
 numeral, and the formalisation contains a two-line instance: with
 $f_1 = 0$ and $f_2 = f_1 + S(f_2)$, the real $f_2$ climbs by one per
@@ -601,15 +619,42 @@ semantics of \S2.2: a coordinate that has gone complete makes the
 computation \emph{descend into a continuation}, and a height cannot see
 that.
 
-\paragraph{What to do.} Rebuild the block trace on value sequences and
-continuations, as the traces of \S2.2 already are, rather than on heights.
-This is not a new idea but a transcription: the composite and the
+\paragraph{The rebuilt trace.} That rebuild has since been carried out,
+and it was a transcription rather than a new idea: the composite and the
 recursion are exactly ``a trace fed a monotone family, with descents'',
-and \S\ref{sec:trace}.4--2.6 --- in the formalisation,
-\texttt{TrCompVal}, \texttt{TrCompVerdict} and \texttt{TrFeedR} --- carry
-that argument for single terms in the form a block needs. The walk itself
-does not have to change: the replay depth is computed from heights alone
-in the single-term case too. Only the value law does.
+and \S\ref{sec:trace}.4--2.6 --- \texttt{TrCompVal},
+\texttt{TrCompVerdict}, \texttt{TrFeedR} --- carry that argument for
+single terms in the form a block needs. The walk did not have to change,
+only the value law: the replay depth is computed from heights alone in the
+single-term case too. \texttt{TrMrec} accordingly defines a block's trace
+with value sequences and continuations, as the traces of \S2.2 already
+have them --- it is the trace of $\mathrm{prec}$ with the layer a vector,
+the block unfolding on the numeral depth --- and it is proved to denote
+the block, \texttt{TrMrecEval.mrecTr-eval} identifying its semantics with
+the evaluation of $\mathrm{mrec}$. At $r=2$ the value-level verdict for
+the block then follows from the step terms' own invariants, with no
+obstinacy hypothesis (\texttt{BlkR2Value}). General $r$ is open.
+
+\paragraph{The unrolling, and David's calls graph.} A block's depth
+sequence is the orbit of a single map, and there are two ways to say so,
+differing exactly in whether the calls graph of Remark~\ref{rem:prov} is
+used. Substituting into the one coordinate that graph names gives David's
+unary $\Phi_i$ and with it his iteration law, that the value after $n+p$
+unfoldings is $\Phi_i$ applied to the value after $n$
+(\texttt{TrMrecFix}); the cost is a hypothesis, namely that the step term
+really is blocked at that coordinate, which \texttt{TrMrecCalls}
+decomposes into the two obstinacy conditions of the remark and one
+threshold condition that is \emph{not} free --- a step term stuck on a
+parameter never reaches its threshold. Filling \emph{every} recursive
+coordinate at once, and advancing the depth coordinate by $t$ successors
+--- David's shift $x \mapsto x+p$, here literally $\mathrm{succ}$ composed
+$t$ times --- removes the need for it: the tuple the step term then
+receives is exactly the block's own $t$-th unfolding, coordinate by
+coordinate, so the fixpoint law \texttt{TrMrecPsi.psi-fix} holds with
+nothing assumed at all. What is traded away is that the resulting
+iteration is a map on vectors of length $r$ rather than a unary one. Free
+and $r$-ary, or unary and conditional: that is the choice, and it is the
+only place in the block argument where the calls graph does any work.
 
 \paragraph{What is certain either way.} The level-by-level verdict holds
 for blocks unconditionally: for every $K$ one can decide whether the value
