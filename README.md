@@ -130,6 +130,28 @@ agda --without-K ID/IdInjectivity.agda
 agda --without-K ID/SubjectReduction.agda
 ```
 
+## Also in this repository: Russell and Tarski universes (`ERT/`, `ERTUU/`, `BCDE4/`)
+
+The domain model also gives the injectivity properties needed to relate
+different presentations of universes. There are three developments, all
+checked with `--safe --without-K --exact-split`, with no postulates and no
+pragmas.
+
+| Directory | System | Results |
+|---|---|---|
+| [`ERT/`](ERT/) | cumulative universes `U_0 : U_1 : …` (paper `sterbac1.pdf`, §4.2–4.3) | Russell ⇔ Tarski (Lemma 4.6, 4.10, Thm 4.13); annotated ⇔ unannotated Russell (Thm 4.15, 4.19) with **Lemma 4.18 proved without normalisation**; a gap in the paper's proof of Lemma 4.17 |
+| [`ERTUU/`](ERTUU/) | `U : U` | the same equivalences; here `T_P` does not normalise, so the model is essential |
+| [`BCDE4/`](BCDE4/) | explicit universe polymorphism (`bcde.pdf`): internal levels, level products `[α]A`, constraint products `[ψ]A`, cumulative `U_l`, collapse in loopy contexts | adequacy, Π-/[α]-/U-injectivity, Russell ⇔ Tarski, and the annotated ⇔ unannotated equivalence; the last one needs η for constraint products, a rule not in `bcde.pdf` |
+
+Notes: [`ERT/sec43.pdf`](ERT/sec43.pdf) and
+[`BCDE4/secTP.pdf`](BCDE4/secTP.pdf). Type-check with
+
+```sh
+agda --safe --without-K --exact-split ERT/All.agda
+agda --safe --without-K --exact-split ERTUU/All.agda
+agda --safe --without-K --exact-split BCDE4/All.agda
+```
+
 ## Also in this repository: Colson's ultimate obstination (`OBSTINATION/`)
 
 A self-contained Agda formalisation of Thierry Coquand's note *Une preuve
