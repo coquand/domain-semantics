@@ -1,0 +1,477 @@
+\documentclass[10pt]{article}
+\usepackage[a4paper,margin=2cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathpartir}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\newcommand{\pre}[1]{{\color{gray}#1}}  % presupposition premises (not in the paper)
+\newcommand{\new}[1]{{\color{blue!70!black}#1}}  % rules beyond bcde.pdf
+\newcommand{\U}{\mathsf{U}}
+\newcommand{\lam}{\lambda}
+\newcommand{\app}{\mathsf{app}}
+\newcommand{\strip}{\mathsf{strip}}
+\newcommand{\coe}{\mathsf{coe}}
+\newcommand{\Jn}{\mathsf{Join}}
+\newcommand{\ty}{\ \mathsf{type}}
+\newcommand{\valid}{\ \mathsf{valid}}
+\newcommand{\TR}{T_R}
+\newcommand{\TP}{T_P}
+\newcommand{\TT}{T_T}
+\newcommand{\Emp}{\emptyset}
+\newcommand{\grd}[2]{[#1]#2}
+\newcommand{\glam}[2]{\langle #1\rangle #2}
+\newcommand{\lpi}[1]{[\alpha]#1}
+\newcommand{\llam}[1]{\langle\alpha\rangle #1}
+\newcommand{\up}{{\uparrow}}
+\newcommand{\agda}[1]{\texttt{#1}}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\title{Annotated versus unannotated Russell universes\\
+for type theory with explicit universe polymorphism (BCDE)}
+\author{Formalisation notes (\texttt{\textasciitilde/DOMAIN/BCDE4})}
+\date{28 September 2026}
+
+\begin{document}
+\sloppy
+\maketitle
+
+\noindent
+This note is the analogue, for the system of \texttt{bcde.pdf}
+(internal universe levels, level products $\lpi A$, constraint products
+$\grd\psi A$, cumulative universes $\U_l$ à la Russell, App.~B, and
+Gonthier's collapse, App.~C), of the notes \texttt{ERT/sec43.tex} on §4.3
+of Sterbac's paper.  It records the annotated Russell system $\TR$, the
+unannotated system $\TP$ (the paper's own presentation), and the proofs of
+the analogues of Sterbac's Theorem~4.15 (stripping), Lemma~4.18
+(redundancy of annotations) and Theorem~4.19 (section of $\strip$).
+Everything is in Agda with \verb|--safe --without-K --exact-split|: no
+postulates, no termination pragmas.  \agda{BCDE4/All.agda} checks from scratch
+in about 35\,s; no module takes more than 3.1\,s.
+
+Lemma~4.18 is proved \emph{without normalisation}, by the $\eta$-coercion and join
+argument of \texttt{ERT/sec43.tex}~§\,5, extended to level and constraint
+products.  Its non-syntactic inputs are all proved from the finite-element
+domain model:
+\begin{itemize}
+\item $\Pi$-, $[\alpha]$- and $\U$-injectivity (adequacy);
+\item the no-confusion of $\U$, $\Pi$ and $[\alpha]$ (soundness);
+\item a guard-aware no-confusion for $\grd\psi A$ (soundness).
+\end{itemize}
+One rule had to be added to the paper's system: \new{guard $\eta$}
+(\S\ref{sec:guard}).
+
+As in the ERT notes, premises in \pre{grey} are presuppositions:
+admissible, not in the paper, present only to keep the metatheory, the
+adequacy proof and the section of $\strip$ structurally recursive.
+Rules in \new{blue} go beyond \texttt{bcde.pdf}.
+
+%======================================================================
+\section{Syntax}
+
+Levels $l ::= \alpha_i \mid l\vee m \mid l^+$ (de Bruijn level variables),
+constraints $\psi ::= l=m$.  A context carries a finite level theory at its
+bottom; $\Gamma,\psi$ adds a constraint, $\Gamma,\alpha$ a fresh level
+variable (shifting the others).  $l\le m$ means $l\vee m=m$ and $l<m$ means
+$l^+\le m$.  $\Gamma$ \emph{has a loop} if $l<l$ is valid in $\Gamma$ for some
+$l$.  Loops are decidable (Bezem--Coquand, \agda{LC/Loop.decLoop}).
+\[
+\begin{array}{lrcl}
+\TR: & A,a,\dots & ::= & v_i \mid \U_l \mid \Pi(A,B) \mid \lam(A,B,b) \mid \app(A,B,c,a)
+  \mid \grd\psi A \mid \glam\psi_A t \mid \Emp \mid \lpi A \mid \llam_A u \mid t\,{}_A\,l\\[2pt]
+\TP: & A,a,\dots & ::= & v_i \mid \U_l \mid \Pi\,A\,B \mid \lam A\, b \mid c\,a
+  \mid \grd\psi A \mid \glam\psi t \mid \Emp \mid \lpi A \mid \llam u \mid t\,l
+\end{array}
+\]
+In $\TR$ the binders of level and constraint products are annotated by their
+type (bcde.pdf, Remark~2):
+\begin{itemize}
+\item $\glam\psi_A t:\grd\psi A$;
+\item $\llam_A u:\lpi A$;
+\item $t\,{}_A\,l:A[l/\alpha]$ for $t:\lpi A$.
+\end{itemize}
+Without these annotations the Russell--Tarski uniqueness lemma is false:
+$\glam\psi(\up^{n_0}v)$ and $\glam\psi(\up^{n_1}v)$ erase alike but have
+types $\grd\psi\U_{n_0}\ne\grd\psi\U_{n_1}$.  $\TP$ is the core syntax of the
+domain model (\agda{Model/Core.agda}), and
+\[
+\strip(\lam(A,B,b))=\lam\,\strip A\,\strip b,\quad
+\strip(\app(A,B,c,a))=\strip c\,\strip a,
+\]
+\[
+\strip(\glam\psi_A t)=\glam\psi\,\strip t,\quad
+\strip(\llam_A u)=\llam\,\strip u,\quad
+\strip(t\,{}_A\,l)=\strip t\ l ,
+\]
+and homomorphically elsewhere.  $\strip$ commutes with renaming, term
+substitution, level substitution and context lookup.
+
+%======================================================================
+\section{The system $\TR$ (\agda{RussellTyping.agda})}
+
+Judgements $\vdash\Gamma$, $\Gamma\vdash A\ty$, $\Gamma\vdash a:A$,
+$\Gamma\vdash A=B$, $\Gamma\vdash a=b:A$.  The $\Pi$ fragment ($\lam$, $\app$,
+their congruences, $\beta$, $\eta$) is as in \texttt{ERT/sec43.tex}.  The
+universes follow App.~B with cumulativity:
+\begin{mathpar}
+\inferrule{\vdash\Gamma \\ l<m}{\Gamma\vdash\U_l:\U_m} \and
+\inferrule{\Gamma\vdash A:\U_l \\ l\le m}{\Gamma\vdash A:\U_m} \and
+\inferrule{\Gamma\vdash A:\U_l \\ \Gamma.A\vdash B:\U_l}{\Gamma\vdash\Pi(A,B):\U_l} \and
+\inferrule{\vdash\Gamma}{\Gamma\vdash\Emp:\U_l} \and
+\inferrule{\vdash\Gamma \\ l=l' \\ l<m}{\Gamma\vdash\U_l=\U_{l'}:\U_m}
+\end{mathpar}
+Types form a separate judgement.  The products $\lpi A$ and $\grd\psi A$ are
+\emph{large}: they are types but live in no universe.
+\begin{mathpar}
+\inferrule{\Gamma\vdash A:\U_l}{\Gamma\vdash A\ty} \and
+\inferrule{\Gamma\vdash A\ty \\ \Gamma.A\vdash B\ty}{\Gamma\vdash\Pi(A,B)\ty} \and
+\inferrule{\vdash\Gamma \\ \Gamma,\alpha\vdash A\ty}{\Gamma\vdash\lpi A\ty} \and
+\inferrule{\vdash\Gamma \\ \Gamma,\psi\vdash A\ty}{\Gamma\vdash\grd\psi A\ty}
+\end{mathpar}
+
+\paragraph{Level products (Fig.~12).}
+\begin{mathpar}
+\inferrule{\pre{\vdash\Gamma} \\ \pre{\Gamma,\alpha\vdash A\ty} \\ \Gamma,\alpha\vdash u:A}{\Gamma\vdash\llam_A u:\lpi A} \and
+\inferrule{\pre{\Gamma,\alpha\vdash A\ty} \\ \Gamma\vdash t:\lpi A}{\Gamma\vdash t\,{}_A\,l:A[l/\alpha]} \\
+\inferrule{\pre{\Gamma,\alpha\vdash A\ty} \\ \Gamma,\alpha\vdash u:A}{\Gamma\vdash(\llam_A u)\,{}_A\,l=u[l/\alpha]:A[l/\alpha]}\ (\beta) \and
+\inferrule{\pre{\Gamma,\alpha\vdash A\ty} \\ \Gamma\vdash t:\lpi A}{\Gamma\vdash t=\llam_A(t^{\up}\,{}_{A^{\up}}\,\alpha):\lpi A}\ (\eta) \\
+\inferrule{\pre{\Gamma,\alpha\vdash A\ty} \\ \Gamma\vdash t:\lpi A \\ l=l' \\ \pre{\Gamma\vdash A[l/\alpha]=A[l'/\alpha]}}
+          {\Gamma\vdash t\,{}_A\,l=t\,{}_A\,l':A[l/\alpha]}
+\end{mathpar}
+with congruences for $\llam$ (body and annotation) and for level application
+(function and annotation).  Here $t^\up$ shifts the level variables and
+$A^\up$ does so under the binder.
+
+\paragraph{Constraint products (Fig.~13).}
+\begin{mathpar}
+\inferrule{\pre{\vdash\Gamma} \\ \pre{\Gamma,\psi\vdash A\ty} \\ \Gamma,\psi\vdash t:A}{\Gamma\vdash\glam\psi_A t:\grd\psi A} \and
+\inferrule{\psi\valid \\ \Gamma\vdash A\ty}{\Gamma\vdash\grd\psi A=A} \and
+\inferrule{\psi\valid \\ \pre{\Gamma\vdash A\ty} \\ \Gamma\vdash t:A}{\Gamma\vdash\glam\psi_A t=t:A} \\
+\inferrule{\psi\Leftrightarrow\psi'\valid \\ \Gamma,\psi\vdash A\ty}{\Gamma\vdash\grd\psi A=\grd{\psi'}A} \and
+\inferrule{\psi\Leftrightarrow\psi'\valid \\ \Gamma,\psi\vdash t:A}{\Gamma\vdash\glam\psi_A t=\glam{\psi'}_A t:\grd\psi A} \and
+\new{\inferrule{\pre{\vdash\Gamma} \\ \pre{\Gamma,\psi\vdash A\ty} \\ \Gamma\vdash t:\grd\psi A \\ \pre{\Gamma,\psi\vdash t:A}}
+          {\Gamma\vdash t=\glam\psi_A t:\grd\psi A}\ (\eta)}
+\end{mathpar}
+with congruences for $\grd\psi$ and $\glam\psi$ (body and annotation).
+There is no eliminator for $\grd\psi A$.  A term of type $\grd\psi A$ is used
+at type $A$ only where $\psi$ is valid, through $\grd\psi A=A$.
+
+\paragraph{Collapse (Fig.~14).}  If $\Gamma$ has a loop:
+$\Gamma\vdash A=\Emp$ for every type $A$, $\Gamma\vdash\Emp:A$, and
+$\Gamma\vdash t=\Emp:A$ for every $t:A$.
+
+%======================================================================
+\section{The system $\TP$ (\agda{PTyping.agda})}
+
+The rules of $\TP$ are those of $\TR$ with the annotations removed, on $\TP$
+syntax: for instance $\Gamma\vdash\glam\psi t:\grd\psi A$,
+$\Gamma\vdash t\,l:A[l/\alpha]$ for $t:\lpi A$, $(\llam u)\,l=u[l/\alpha]$,
+$t=\llam(t^\up\alpha)$ and \new{$t=\glam\psi t:\grd\psi A$}.  In $\TR$ the
+annotation congruences of $\app$, $\glam\psi$, $\llam$ and level application
+have two sides with the same stripping, so they have no counterpart in $\TP$.
+The congruence for $\lam$'s annotation keeps its domain part.  Up to the
+presupposition premises and guard~$\eta$, $\TP$ is the Russell system of
+\texttt{bcde.pdf} (App.~B, App.~C).
+
+%======================================================================
+\section{Differences with the paper}\label{sec:diff}
+
+\begin{enumerate}
+\item \textbf{Annotations} of $\glam\psi$, $\llam$ and level application in
+  $\TR$ (Remark~2), besides those of $\lam$ and $\app$.
+\item \textbf{Presupposition premises} (grey).  They are admissible: see the
+  \agda{mk-*} lemmas of \agda{RussellMeta} and \agda{RussellLeq}.
+\item \new{\textbf{Guard $\eta$}}, in $\TR$, in $\TT$ and in $\TP$.  It is
+  not in Fig.~13, and \S\ref{sec:guard} explains why it is needed.
+\item \textbf{Variables} are typed by lookup, and the congruences are split
+  into one rule per argument, as in \texttt{ERT/sec43.tex}.
+\end{enumerate}
+
+%======================================================================
+\section{Guards: injectivity, no-confusion, and \texorpdfstring{$\eta$}{eta}}\label{sec:guard}
+
+\paragraph{The naive statements are false.}  Guard $\beta$
+($\grd\psi A=A$ when $\psi$ is valid) breaks both statements that one would
+transcribe from $\Pi$:
+\begin{itemize}
+\item $\grd\psi A=\grd{\psi'}A'$ does \emph{not} imply $\psi\Leftrightarrow\psi'$.
+  With $\psi$ valid (e.g.\ $\alpha=\alpha$), $\grd\psi\grd{\psi'}B=\grd{\psi'}B$
+  for every $\psi'$.
+\item $\grd\psi A$ is not distinct from $\U$, $\Pi$, $[\alpha]$:
+  $\grd\psi\U_l=\U_l$ when $\psi$ is valid.
+\end{itemize}
+
+\paragraph{What holds} (\agda{GrdNoConf.agda}).
+\begin{lemma}\label{lem:grd}
+\begin{enumerate}
+\item $\Gamma\vdash\grd\psi A=\grd{\psi'}A'$ implies
+  $\Gamma,\psi,\psi'\vdash A=A'$.  Hence $\Gamma\vdash\grd\psi A=\grd\psi A'$
+  implies $\Gamma,\psi\vdash A=A'$ (\agda{grd-inj}, \agda{grd-inj1}).
+\item Let $\Gamma$ be loop-free and let $X$ be a universe, a $\Pi$ or a
+  $\lpi{}$.  Then $\Gamma\vdash X=\grd\psi A$ implies that $\psi$ is valid in
+  $\Gamma$ (\agda{grd-valid-U}, \agda{grd-valid-Pi}, \agda{grd-valid-LPi}).
+\item In a loop-free context, universes, $\Pi$'s and $\lpi{}$'s are pairwise
+  not convertible (\agda{noconf-*}).
+\end{enumerate}
+\end{lemma}
+\begin{proof}
+(1) is purely syntactic.  Weaken the conversion to $\Gamma,\psi,\psi'$, where
+both guards are valid, and apply guard $\beta$ on both sides.
+
+(2) and (3) come from soundness of the model at the bottom environment
+of $\Gamma$, whose ambient level theory is that of $\Gamma$.  There
+$\grd\psi A$ denotes $\{\bot\}$ when $\psi$ is not valid.  Meanwhile $\U_l$,
+$\Pi$ and $\lpi{}$ contain the non-$\bot$ elements $\U$-code, $\Pi(\bot,\emptyset)$
+and $[\alpha]\emptyset$ respectively, and these three are pairwise distinct.
+\end{proof}
+\noindent
+The consumers of Lemma~\ref{lem:grd} never compare a guard with a guard.
+They compare a guard with $\U$, $\Pi$ or $[\alpha]$, where (2) forces the
+guard to be valid, so that it can be dropped.
+
+\paragraph{Why $\eta$ is needed.}  Under a guard, cumulativity is not
+subsumption: $\glam\psi_{\U_{k}}t:\grd\psi\U_k$ is not of type
+$\grd\psi\U_m$ for $k<m$.  So the coercions of \S\ref{sec:nf} must go through
+guards:
+\[
+\coe_{\grd\psi A\le\grd\psi L}(t)=\glam\psi_L\,\coe_{A\le L}(t)
+\qquad (t\text{ has type }A\text{ in }\Gamma,\psi\text{ by guard }\beta).
+\]
+The diagonal lemma then has to go from $\Gamma,\psi\vdash u_0=u_1:A$ to
+$\Gamma\vdash u_0=u_1:\grd\psi A$, and $u_0,u_1$ need not be
+$\glam\psi$-abstractions: they can be $\beta$-redexes or neutral terms.
+Without guard $\eta$ this step is not derivable in general.  For example, take
+variables $x,y:\grd\psi A$ with $\Gamma,\psi$ loopy.  Then
+$\Gamma,\psi\vdash x=y$ holds by collapse, but no rule gives $\Gamma\vdash
+x=y:\grd\psi A$ (this was checked by hand, not formalised).
+
+\paragraph{Guard $\eta$ is harmless.}
+\begin{itemize}
+\item \textbf{Sound:} a term of type $\grd\psi A$ denotes $\bot$ wherever
+  $\psi$ fails.  Model case: \agda{Model/RussellSound.InvConv-GLamEta};
+  adequacy case: \agda{Adeq/Guard.AdqE1-GLam-eta}.
+\item \textbf{Cheap:} the metatheory, erasure and Russell--Tarski
+  (Theorem~4.13) only needed mechanical new cases.
+\item \textbf{Natural:} $\grd\psi A$ is a product over the proposition
+  $\psi$, and $\Pi$ and $[\alpha]$ already have $\eta$.  Moreover, when
+  $\Gamma,\psi$ loops, $\eta$ makes $\grd\psi A$ a definitional unit type:
+  $x=\glam\psi x=\glam\psi y=y$.  This is the ``unit type'' solution
+  discussed in App.~C, obtained here without extra syntax.
+\end{itemize}
+
+%======================================================================
+\section{What is proved from the model}
+
+\begin{theorem}[\agda{Adeq/Driver}, \agda{Main}]
+The finite-element model with levelled universe codes (level codes by the
+Bezem--Coquand decision procedure) is adequate for $\TR$.  Hence, in
+loop-free contexts:
+\begin{itemize}
+\item $\Pi$-injectivity: $\Pi(C_0,B_0)=\Pi(C_1,B_1)\Rightarrow C_0=C_1$ and
+  $B_0=B_1$;
+\item $[\alpha]$-injectivity: $\lpi{A_0}=\lpi{A_1}\Rightarrow\Gamma,\alpha\vdash A_0=A_1$;
+\item $\U$-injectivity: $\U_l=\U_m\Rightarrow l=m$.
+\end{itemize}
+\end{theorem}
+\noindent
+With Lemma~\ref{lem:grd}, these are all the non-syntactic inputs of what follows.
+
+%======================================================================
+\section{Theorem 4.15 (\agda{StripDeriv.agda})}
+
+\begin{theorem}
+If $\Gamma\vdash J$ in $\TR$ then $\strip(\Gamma)\vdash\strip(J)$ in $\TP$.
+\end{theorem}
+\noindent
+The proof is by structural induction.  The annotation congruences strip to
+reflexivity.  $\strip$ commutes with $\Gamma,\psi$ and $\Gamma,\alpha$
+(\agda{strip-addC}, \agda{strip-addL}).
+
+%======================================================================
+\section{Lemma 4.18 without normalisation}\label{sec:nf}
+
+\paragraph{Inversion} (\agda{RussellInversion.agda}).  In a loop-free
+context, each typable term former has a principal type $P$ with $P\le T$ for
+every type $T$ of the term, where $P\le T$ means one of:
+\begin{itemize}
+\item $\Gamma\vdash P=T$;
+\item $\Gamma\vdash P=\U_k$ and $\Gamma\vdash T=\U_m$ with $k\le m$ valid.
+\end{itemize}
+Transitivity of $\le$ uses $\U$-injectivity.  The principal types are:
+\begin{itemize}
+\item $\Gamma(i)$ for $v_i$;
+\item $\U_{l^+}$ for $\U_l$;
+\item $\Pi(A,B)$ for $\lam(A,B,b)$ and $\U_l$ for $\Pi(A,B)$, where $l$ is
+  the level of the components;
+\item $B[a]$ for $\app(A,B,c,a)$;
+\item $\grd\psi A$ for $\glam\psi_A t$;
+\item $\lpi A$ for $\llam_A u$;
+\item $A[l/\alpha]$ for $t\,{}_A\,l$.
+\end{itemize}
+$\Emp$ has no least universe: there is no level $0$, and
+$\Emp:\U_{\alpha}$, $\Emp:\U_\beta$ for incomparable $\alpha,\beta$.  So
+inversion gives $\Emp:\U_l$ for \emph{some} $l$.  The large types
+$\grd\psi A$ and $\lpi A$ have no typing at all.
+
+\paragraph{Coercions} (\agda{Coerce.agda}).  Coercions are defined by
+$\eta$-expansion, with cumulativity at the leaves:
+\[
+\begin{array}{rcl}
+\coe_{\Pi(A,B)\le\Pi(A,L)}(t)&=&\lam\bigl(A,L,\coe_{B\le L}(\app(A\up,B\up^+,t\up,v_0))\bigr)\\
+\coe_{\lpi A\le\lpi L}(t)&=&\llam_L\,\coe_{A\le L}(t^\up\,{}_{A^\up}\,\alpha)\\
+\coe_{\grd\psi A\le\grd\psi L}(t)&=&\glam\psi_L\,\coe_{A\le L}(t)\\
+\coe_{\U_k\le\U_m}(t)&=&t .
+\end{array}
+\]
+\paragraph{Joins.}  $\Jn_\Gamma(T_0,T_1,L)$ is generated by the following
+cases:
+\begin{itemize}
+\item $T_i=L$;
+\item $T_0=\U_k$, $T_1=\U_m$ and $L=\U_p$ with $p=k\vee m$ valid;
+\item $T_i=\Pi(A,B_i)$, $L=\Pi(A,L')$ and $\Jn_{\Gamma.A}(B_0,B_1,L')$;
+\item $T_i=\lpi{B_i}$, $L=\lpi{L'}$ and $\Jn_{\Gamma,\alpha}(B_0,B_1,L')$;
+\item $T_i=\grd\psi B_i$, $L=\grd\psi L'$ and $\Jn_{\Gamma,\psi}(B_0,B_1,L')$.
+\end{itemize}
+In each case the equations $T_i=\ldots$ are conversions.  The universe join
+is the \emph{exact} sup, so no conversion ever has to be lowered from a
+larger universe.  Coercions are well typed and congruent.  Joins are stable
+under term substitution, level substitution and strengthening of the
+constraints.  Coercions compute under the eliminations:
+\[
+\app(A,L,\coe_{\Pi}(t),a)=\coe_{B[a]\le L[a]}(\app(A,B,t,a)),\qquad
+\coe_{[\alpha]}(t)\,{}_L\,l=\coe_{A[l]\le L[l]}(t\,{}_A\,l).
+\]
+
+\begin{lemma}[diagonal, \agda{JoinProps.Join-diag}]
+Assume $\Jn_\Gamma(T_0,T_1,L)$, $\Gamma\vdash T_0=T_1$, $t_i:T_i$ and
+$\coe_0(t_0)=\coe_1(t_1):L$.  Then $\Gamma\vdash t_0=t_1:T_0$.
+\end{lemma}
+\noindent
+The proof is by induction on the join, deciding loops first; in a loopy
+context both terms equal $\Emp$.
+\begin{itemize}
+\item \textbf{Universe case:} $k=m$ by $\U$-injectivity, so $L=\U_{k\vee k}=\U_k$.
+\item \textbf{$\Pi$ and $[\alpha]$ cases:} injectivity, then apply both sides
+  to $v_0$ (respectively to $\alpha$) and use $\beta$.  The induction
+  hypothesis applies, and $\eta$ concludes.
+\item \textbf{Guard case:} Lemma~\ref{lem:grd}(1) gives $B_0=B_1$ in
+  $\Gamma,\psi$.  In $\Gamma,\psi$, guard $\beta$ removes the outer
+  $\glam\psi$, and the induction hypothesis gives $t_0=t_1:B_0$.  Guard
+  $\eta$ concludes: $t_0=\glam\psi t_0=\glam\psi t_1=t_1$.
+\end{itemize}
+
+\paragraph{Removing a valid guard on top} (\agda{JoinProps.normTop}).
+Suppose a join of $T_0,T_1$ is to be inverted against a universe, a $\Pi$
+or a $[\alpha]$.  If it is a guard join $\Jn(\grd\psi B_0,\grd\psi B_1,\grd\psi L)$,
+then $\psi$ is valid by Lemma~\ref{lem:grd}(2).  The inner join is then moved
+from $\Gamma,\psi$ to $\Gamma$, and guard $\beta$ removes $\glam\psi$ from the
+coercion equation.  This is repeated while guard joins remain on top
+(recursion on their number).
+
+\begin{lemma}[main, \agda{StripUniqNF.main}]
+If $\Gamma\vdash u_0:T_0$, $\Gamma\vdash u_1:T_1$ and
+$\strip(u_0)=\strip(u_1)$, then there is a join $\Jn_\Gamma(T_0,T_1,L)$
+with $\Gamma\vdash\coe_0(u_0)=\coe_1(u_1):L$.
+\end{lemma}
+\noindent
+The proof is by structural induction on $u_0$.  At each call the context is
+first checked for loops; if it has one, the join is $\Emp$ by collapse.
+Otherwise, inversion gives principal types, and a join of the principal
+types is moved to $T_0,T_1$ along $\le$ (\agda{Join-sub}).  The cases for
+$v_i$, $\U_l$, $\Pi$, $\lam$ and $\app$ are as in \texttt{ERT/sec43.tex}.
+The new ones:
+\begin{itemize}
+\item $\Emp$: the universe join $\U_{l_0\vee l_1}$ of the two universes
+  given by inversion.
+\item $\glam\psi_{A_i}t_i$: apply the induction hypothesis in $\Gamma,\psi$
+  to get $\Jn_{\Gamma,\psi}(A_0,A_1,L')$, which gives the guard join.  The
+  coercion equation holds because $\glam\psi_{A}t=t$ in $\Gamma,\psi$.
+\item $\llam_{A_i}u_i$: apply the induction hypothesis in $\Gamma,\alpha$,
+  which gives the $[\alpha]$-join, using level $\beta$ at $\alpha$.
+\item $t_i\,{}_{A_i}\,l$: apply the induction hypothesis to $t_0,t_1$, then
+  \agda{normTop}.
+  \begin{itemize}
+  \item A conversion gives $A_0=A_1$ by $[\alpha]$-injectivity.
+  \item An $[\alpha]$-join $\lpi{L'}$ is instantiated at $l$ (the join is
+    moved along $l/\alpha$), with the coercions computing under level
+    application.
+  \item Universe and $\Pi$ joins are excluded by no-confusion.
+  \end{itemize}
+\item $\app$: after \agda{normTop}, the join of the function types is a
+  conversion or a $\Pi$-join, handled as in the ERT notes.
+\item $\grd\psi A$ and $\lpi A$ have no typing.
+\end{itemize}
+Types are compared by a companion function \agda{tyMain}, by induction on
+the type.  $\Pi$ of types (possibly large), $\grd\psi$ and $[\alpha]$ are
+handled by their components.  A type that lives in a universe is compared by
+\agda{main} and a universe join.
+
+\begin{theorem}[4.18, no normalisation]
+If $\Gamma\vdash u_0:A_0$, $\Gamma\vdash u_1:A_1$, $\strip(u_0)=\strip(u_1)$
+and $\Gamma\vdash A_0=A_1$, then $\Gamma\vdash u_0=u_1:A_0$
+(\agda{term-uniq-conv-NF}).  If $\Gamma\vdash A_0\ty$, $\Gamma\vdash A_1\ty$
+and $\strip A_0=\strip A_1$, then $\Gamma\vdash A_0=A_1$ (\agda{type-uniq-NF}).
+Together these give Lemma~4.18 (\agda{term-uniq-NF}).
+\end{theorem}
+\noindent
+\agda{StripUniqNFTest.agda} checks Sterbac's counterexample to the paper's
+proof of Lemma~4.17, with levels:
+\[
+u_0=\app(\U_{\alpha^+},\U_{\alpha^+},\lam(\U_{\alpha^+},\U_{\alpha^+},v_0),\U_\alpha),\qquad
+u_1=\app(\U_{\alpha^+},\U_{\alpha^{++}},\lam(\U_{\alpha^+},\U_{\alpha^{++}},v_0),\U_\alpha).
+\]
+It checks $\vdash u_0=u_1:\U_{\alpha^{++}}$, and also
+$\glam\psi u_0=\glam\psi u_1:\grd\psi\U_{\alpha^{++}}$ for an arbitrary
+(possibly invalid) $\psi$ and $\llam u_0=\llam u_1:\lpi{\U_{\alpha^{++}}}$.
+
+%======================================================================
+\section{Theorem 4.19 (\agda{SectionR.agda})}
+
+\begin{theorem}
+If $\Gamma\vdash J$ in $\TP$, then $J$ lifts into \emph{every} well-formed
+$\TR$ context $\Gamma'$ with $\strip(\Gamma')=\Gamma$: there is $J'$ in
+$\Gamma'$ with $\strip(J')=J$ (\agda{lift-*}).  Every well-formed $\TP$
+context has such a $\Gamma'$ (\agda{lift-WfCtx}), and the lift is unique up
+to conversion (Lemma~4.18).
+\end{theorem}
+\noindent
+The proof is by structural induction on the $\TP$ derivation.  The
+annotations are read off the lifted premises:
+\begin{itemize}
+\item $\glam\psi$ and $\llam$ lift into $\Gamma',\psi$ and $\Gamma',\alpha$;
+\item level application uses the lift of $\Gamma,\alpha\vdash A\ty$;
+\item the premise $A[l/\alpha]=A[l'/\alpha]$ of level-equality invariance is
+  realigned by Lemma~4.18.
+\end{itemize}
+Whenever two premises share a stripped term or type, their lifts are
+reconciled by Lemma~4.18.  Levels, validity, loops and the constraint
+equivalence $\psi\Leftrightarrow\psi'$ are unchanged by $\strip$.
+
+%======================================================================
+\section{Files}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\agda{PTyping} & $\TP$ \\
+\agda{GrdNoConf} & Lemma~\ref{lem:grd} (guard injectivity / no-confusion) \\
+\agda{StripDeriv} & Theorem 4.15 \\
+\agda{RussellInversion} & principal types, $\le$ \\
+\agda{Coerce} & coercions, joins, stability \\
+\agda{JoinProps} & diagonal lemma, \agda{normTop}, \agda{Join-sub} \\
+\agda{StripUniqNF} & Lemma 4.18 \\
+\agda{SectionR} & Theorem 4.19 \\
+\agda{StripUniqNFTest} & Gap417 with levels, under $\glam\psi$ and $\llam$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Guard $\eta$ is \agda{conv-GLam-eta} in \agda{RussellTyping},
+\agda{TarskiTyping} and \agda{PTyping}; its paper-premise forms are
+\agda{mk-conv-GLam-eta}.
+
+\end{document}

@@ -1,0 +1,180 @@
+{-# OPTIONS --without-K --exact-split #-}
+
+------------------------------------------------------------------------
+-- PaperTyping.agda  (MIN/ — Pi + U fragment)
+--
+-- RE-FOUNDED.  Formerly an ~550-line block with 3
+-- non-structural recursions (the FinMem swap/promote that Agda's foetus checker
+-- cannot certify).  The membership ":" (FinMem) is now built by structural
+-- recursion on a stage index in the MIN/FinMemStage* family and collapsed
+-- by stability; PaperTyping PRESENTS its properties.
+--
+-- FinMem (the element membership) is the stage-collapse `finMemC` and has
+-- NO definitional computation rule; its "expected unfoldings" are the
+-- propositional iso pairs below (the swap, the Pi-type-wf triple, and the
+-- FunEl characterisation  "Fun f : Pi a g").  FinMemFun / FinMemAllU, by
+-- contrast, are STRUCTURAL over FinMem (they only recurse down the FinFun
+-- list -- no swap/promote), so they keep their definitional unfolding and
+-- the cone destructures them with fst/snd directly.
+--
+-- Closure / monotonicity (compatible sup  u1:a, u2:a, u1<>u2 -> u1\/u2:a ;
+-- monotonicity  u:a, a<=b, b:U -> u:b) come from ERTUU.Dom.MemProps,
+-- bridged where they mention FinMemFun / FinMemAllU.
+--
+-- 0 postulates, 0 holes -- across the whole family.
+------------------------------------------------------------------------
+
+module ERTUU.Dom.Membership where
+
+open import ERTUU.Dom.Basic using (U0 ; EqL ; eqL ; EqL-refl ; EqL-sym ; EqL-trans ; EqL-Eq ; eqL-EqL ; EqL-eqL ; eqL-refl)
+
+open import ERTUU.Dom.Basic
+  using ( Top ; tt ; Pair ; mkSigma ; fst ; snd
+        ; FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun ; nil ; cons ; Nat )
+open import ERTUU.Dom.Order public
+open import ERTUU.Dom.MemStage using ( finMemC ; finMemAllUC ; finMemFunC )
+open import ERTUU.Dom.MemUnfold
+  using ( finMemC-piU-dom ; finMemC-piU-allU ; finMemC-piU-cft ; finMemC-piU-mk
+        ; finMemC-funel-fun ; finMemC-funel-coh ; finMemC-funel-wf ; finMemC-funel-mk
+        ; finMemFunC-nil ; finMemFunC-hd-key ; finMemFunC-hd-val ; finMemFunC-tl ; finMemFunC-mk
+        ; finMemAllUC-nil ; finMemAllUC-hd-key ; finMemAllUC-hd-val ; finMemAllUC-tl ; finMemAllUC-mk )
+import ERTUU.Dom.MemProps as P
+
+------------------------------------------------------------------------
+-- Public membership ":" (the stage-collapse) + structural FinMemFun/AllU.
+------------------------------------------------------------------------
+
+FinMem : FinEl -> FinEl -> Set
+FinMem = finMemC
+
+FinMemFun : FinFun -> FinEl -> FinFun -> Set
+FinMemFun nil         a f = Top
+FinMemFun (cons p ps) a f =
+  Pair (Pair (FinMem (fst p) a) (FinMem (snd p) (EvalFun f (fst p)))) (FinMemFun ps a f)
+
+FinMemAllU : FinFun -> FinEl -> Set
+FinMemAllU nil         a = Top
+FinMemAllU (cons p ps) a =
+  Pair (Pair (FinMem (fst p) a) (FinMem (snd p) U0)) (FinMemAllU ps a)
+
+------------------------------------------------------------------------
+-- Bridges  FinMemAllU <-> finMemAllUC  and  FinMemFun <-> finMemFunC.
+------------------------------------------------------------------------
+
+allU-to : (f : FinFun) (a : FinEl) -> FinMemAllU f a -> finMemAllUC f a
+allU-to nil         a m = finMemAllUC-nil a
+allU-to (cons p ps) a m =
+  finMemAllUC-mk p ps a (fst (fst m)) (snd (fst m)) (allU-to ps a (snd m))
+
+allU-from : (f : FinFun) (a : FinEl) -> finMemAllUC f a -> FinMemAllU f a
+allU-from nil         a m = tt
+allU-from (cons p ps) a m =
+  mkSigma (mkSigma (finMemAllUC-hd-key p ps a m) (finMemAllUC-hd-val p ps a m))
+          (allU-from ps a (finMemAllUC-tl p ps a m))
+
+fun-to : (g : FinFun) (a : FinEl) (f : FinFun) -> FinMemFun g a f -> finMemFunC g a f
+fun-to nil         a f m = finMemFunC-nil a f
+fun-to (cons p ps) a f m =
+  finMemFunC-mk p ps a f (fst (fst m)) (snd (fst m)) (fun-to ps a f (snd m))
+
+fun-from : (g : FinFun) (a : FinEl) (f : FinFun) -> finMemFunC g a f -> FinMemFun g a f
+fun-from nil         a f m = tt
+fun-from (cons p ps) a f m =
+  mkSigma (mkSigma (finMemFunC-hd-key p ps a f m) (finMemFunC-hd-val p ps a f m))
+          (fun-from ps a f (finMemFunC-tl p ps a f m))
+
+------------------------------------------------------------------------
+-- The expected computation rules of FinMem as iso accessors:
+--   swap        FinMem Bot a  <->  FinMem a UCode
+--   Pi-type-wf  FinMem (PiCode a f) UCode  <->  (FinMem a UCode, FinMemAllU f a, CoherentFunTail f)
+--   FunEl       "Fun g : Pi a f"  FinMem (FunEl g) (PiCode a f)
+--               <->  (FinMemFun g a f, CoherentFun g, FinMem (PiCode a f) UCode)
+------------------------------------------------------------------------
+
+open ERTUU.Dom.MemUnfold using ( finMemC-bot-to ; finMemC-bot-from )
+
+finMem-bot-to : (a : FinEl) -> FinMem Bot a -> FinMem a U0
+finMem-bot-to = finMemC-bot-to
+finMem-bot-from : (a : FinEl) -> FinMem a U0 -> FinMem Bot a
+finMem-bot-from = finMemC-bot-from
+
+finMem-piU-dom : (a : FinEl) (f : FinFun) -> FinMem (PiCode a f) U0 -> FinMem a U0
+finMem-piU-dom = finMemC-piU-dom
+
+finMem-piU-allU : (a : FinEl) (f : FinFun) -> FinMem (PiCode a f) U0 -> FinMemAllU f a
+finMem-piU-allU a f mem = allU-from f a (finMemC-piU-allU a f mem)
+
+finMem-piU-cft : (a : FinEl) (f : FinFun) -> FinMem (PiCode a f) U0 -> CoherentFunTail f
+finMem-piU-cft = finMemC-piU-cft
+
+finMem-piU-mk : (a : FinEl) (f : FinFun) ->
+  FinMem a U0 -> FinMemAllU f a -> CoherentFunTail f -> FinMem (PiCode a f) U0
+finMem-piU-mk a f dom allU cft = finMemC-piU-mk a f dom (allU-to f a allU) cft
+
+finMem-funel-fun : (g : FinFun) (a : FinEl) (f : FinFun) ->
+  FinMem (FunEl g) (PiCode a f) -> FinMemFun g a f
+finMem-funel-fun g a f mem = fun-from g a f (finMemC-funel-fun g a f mem)
+
+finMem-funel-coh : (g : FinFun) (a : FinEl) (f : FinFun) ->
+  FinMem (FunEl g) (PiCode a f) -> CoherentFun g
+finMem-funel-coh = finMemC-funel-coh
+
+finMem-funel-wf : (g : FinFun) (a : FinEl) (f : FinFun) ->
+  FinMem (FunEl g) (PiCode a f) -> FinMem (PiCode a f) U0
+finMem-funel-wf = finMemC-funel-wf
+
+finMem-funel-mk : (g : FinFun) (a : FinEl) (f : FinFun) ->
+  FinMemFun g a f -> CoherentFun g -> FinMem (PiCode a f) U0 -> FinMem (FunEl g) (PiCode a f)
+finMem-funel-mk g a f fun coh wf = finMemC-funel-mk g a f (fun-to g a f fun) coh wf
+
+------------------------------------------------------------------------
+-- Projections (re-exported; FinMem-only signatures).
+------------------------------------------------------------------------
+
+open ERTUU.Dom.MemUnfold public using ( FinMem-coh-u ; FinMem-a-in-U ; FinMem-coh-a ; coh-from-aU )
+
+------------------------------------------------------------------------
+-- Closure / monotonicity.  FinMem-only signatures re-exported directly;
+-- the FinMemFun/FinMemAllU ones are bridged.
+------------------------------------------------------------------------
+
+open P public
+  using ( finMemUCode-Sup ; finMem-Sup-right ; finMem-Sup-left
+        ; FinMem-Sup-element ; finMem-Sup-both ; finMem-upward )
+
+-- compatible sup at U:  d:U, c:U (+ allU evidence), d<>c  ->  append/Sup : U
+FinMemAllU-append-Sup : (d c : FinEl) (f h : FinFun) ->
+  Comp d c -> Coherent d -> Coherent c -> FinMem d U0 -> FinMem c U0 ->
+  CoherentFunTail f -> CoherentFunTail h -> FinMemAllU f d -> FinMemAllU h c ->
+  FinMemAllU (append f h) (Sup d c)
+FinMemAllU-append-Sup d c f h comp cohd cohc dU cU cohf cohh memf memh =
+  allU-from (append f h) (Sup d c)
+    (P.FinMemAllU-append-Sup d c f h comp cohd cohc dU cU cohf cohh (allU-to f d memf) (allU-to h c memh))
+
+EvalFun-in-UCode : (f : FinFun) (x d : FinEl) ->
+  CoherentFunTail f -> Coherent x -> FinMemAllU f d -> FinMem (EvalFun f x) U0
+EvalFun-in-UCode f x d cohf cx allU = P.EvalFun-in-UCode f x d cohf cx (allU-to f d allU)
+
+finMemFun-upward : (g : FinFun) (a b : FinEl) (f h : FinFun) ->
+  LeCode a b -> Coherent a -> Coherent b ->
+  CoherentFunTail f -> CoherentFunTail h -> LeFunCode f h ->
+  FinMemFun g a f -> FinMem b U0 -> FinMemAllU h b -> FinMemFun g b h
+finMemFun-upward g a b f h le ca cb cf ch lfh mem bU allUh =
+  fun-from g b h
+    (P.finMemFun-upward g a b f h le ca cb cf ch lfh (fun-to g a f mem) bU (allU-to h b allUh))
+
+-- FinMemFun-append: structural on g (definitional unfolding of FinMemFun).
+FinMemFun-append : (g h : FinFun) (b : FinEl) (f : FinFun) ->
+  FinMemFun g b f -> FinMemFun h b f -> FinMemFun (append g h) b f
+FinMemFun-append nil         h b f mg mh = mh
+FinMemFun-append (cons p ps) h b f mg mh = mkSigma (fst mg) (FinMemFun-append ps h b f (snd mg) mh)
+
+------------------------------------------------------------------------
+-- Membership in a universe does not depend on its level.
+------------------------------------------------------------------------
+
+finMem-U-lvl : (y : FinEl) (k m : Nat) -> FinMem y (UCode k) -> FinMem y (UCode m)
+finMem-U-lvl Bot          k m x = x
+finMem-U-lvl (UCode _)    k m x = x
+finMem-U-lvl (FunEl _)    k m x = x
+finMem-U-lvl (PiCode _ _) k m x = x

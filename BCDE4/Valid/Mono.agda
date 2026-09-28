@@ -1,0 +1,1742 @@
+{-# OPTIONS --without-K #-}
+------------------------------------------------------------------------
+-- ValidityMono.agda  (MIN/ — Pi + U fragment)
+--
+-- Phase 1 of the goodStage plan (NEXT_SESSION_GOODSTAGE.md): the
+-- *monotonicity* property package, re-indexed by the stage n.
+--
+-- Structure (cleaner than "bundle everything and re-derive per stage"):
+--   * MonoPack k : the 8 top-level monotonicity functions at Stage k.
+--   * The Pi helper functions (downPiApp*, upPiApp*, transportPiEdge*,
+--     restrictPiApp*, restrict*-PiCode) are NON-recursive combinators over
+--     a MonoPack k, defined once.
+--   * goodStage : (k) -> MonoPack k by induction on k.  goodStage (suc n)
+--     builds the Stage-(suc n) functions: every recursion-into-a-smaller-
+--     code becomes a projection of the IH (goodStage n), because at
+--     Stage (suc n) the records (SR n) expose Stage-n relations.
+--
+-- No postulates.
+------------------------------------------------------------------------
+
+open import BCDE4.Levels using (LDecAll)
+module BCDE4.Valid.Mono (D : LDecAll) where
+
+open import BCDE4.Levels using (LExpr ; Valid ; LDec)
+
+open import BCDE4.Dom.Basic using (U0 ; EqL ; eqL ; EqL-refl ; EqL-sym ; EqL-trans ; EqL-Eq ; eqL-EqL ; EqL-eqL ; eqL-refl)
+open import BCDE4.Valid.Core using (U-tr)
+open import BCDE4.Valid.Stratified D using (Ann ; mkAnn ; Ann-back)
+
+open import BCDE4.Valid.Stratified D
+
+import BCDE4.Dom.Basic as S
+open S using (Nat ; zero ; suc ; Top ; tt ; Empty ; Pair ; mkSigma ;
+              fst ; snd ; Sigma ; Eq ; refl ; Eq-transport ; Eq-sym ;
+              Eq-cong ;
+              FinEl ; Bot ; UCode ; FunEl ; PiCode ; FinFun ;
+              LevTy ; LevEl ; LPiCode ;
+              List ; nil ; cons )
+import BCDE4.RussellSyntax as RS
+open RS using (Expr ; Var ; U ; Pi ; Lam ; App ;
+  wkExpr ; subst1 ; Fin ; fzero ; fsuc ; LPi ; LApp ; lsub1)
+open import BCDE4.RussellTyping
+open import BCDE4.RussellReduction
+open import BCDE4.Dom.Kernel using (EvalFun ;
+  CoherentFun ; FinMemFun ; FinMemAllU ;
+  Coherent ; Comp ; Sup ;
+  LeCode-Sup-left ; LeCode-Sup-right ;
+  Coherent-Sup ; Coherent-EvalFun ;
+  FinMem ; FinMem-coh-u ; coh-from-aU ;
+  FinMem-a-in-U ; cft-from-cf ; finMem-piU-dom ; finMem-piU-allU ; finMem-piU-cft ;
+  finMem-funel-fun ; finMem-funel-wf ; finMem-funel-coh ;
+  finMem-LpiU-allU ; finMem-LpiU-cft ; finMem-Lfunel-fun ; finMem-Lfunel-wf ; finMem-Lfunel-coh ;
+  LeCode ; LeCode-trans ; LeCode-Bot ;
+  Comp-down ; finMem-upward ;
+  finMem-Sup-left ; finMem-Sup-right ;
+  finMemUCode-Sup ; FinMem-Sup-element ;
+  EvalFun-in-UCode ; EvalFun-mon ; EvalFun-mon-arg ;
+  comp-EvalFun ; EvalFun-append-eq ;
+  CoherentFun-append ; CoherentFunTail-append ; FinMemAllU-append-Sup ;
+  LeFunCode-refl ; LeFunCode ; append ;
+  Comp-refl ; comp-Sup ; comp-Bot-r ;
+  Comp-value-EvalFun ; coherentWith-to-compStepFun ;
+  CFTcons ; CoherentFunTail ; CoherentWith )
+open import BCDE4.Model.Selection using (Selection ;
+  FinMemAllU-Selection ; FinMem-Selection-UCode ;
+  FinMem-Selection ; FinMem-Selection-codomain ;
+  selectionBelow ; Selection-le-EvalFun ; sel-nil ;
+  Coherent-Selection ; Coherent-Selection-val)
+open import BCDE4.Valid.Core using (bU-from-cf-fmFun ;
+  FinMem-Coherent)
+open import BCDE4.RussellMeta
+
+------------------------------------------------------------------------
+-- Records at "Stage k level": OpenRecords instantiated at the Stage-k
+-- relations.  These are exactly the records appearing inside Stage (suc k).
+------------------------------------------------------------------------
+
+module SR (k : Nat) = OpenRecords
+  (Bundle.val (Stage k)) (Bundle.eqval (Stage k))
+  (Bundle.valty (Stage k)) (Bundle.eqvalty (Stage k))
+
+------------------------------------------------------------------------
+-- Stage-level relation abbreviations
+------------------------------------------------------------------------
+
+Vl : (k : Nat) {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> FinEl -> Set
+Vl k = Bundle.val (Stage k)
+
+EVl : (k : Nat) {n : Nat} -> Ctx n -> Expr n -> Expr n -> Expr n -> FinEl -> FinEl -> Set
+EVl k = Bundle.eqval (Stage k)
+
+VTy : (k : Nat) {n : Nat} -> Ctx n -> Expr n -> FinEl -> Set
+VTy k = Bundle.valty (Stage k)
+
+EVTy : (k : Nat) {n : Nat} -> Ctx n -> Expr n -> Expr n -> FinEl -> Set
+EVTy k = Bundle.eqvalty (Stage k)
+
+------------------------------------------------------------------------
+-- Red3-unique-Pi (for ValidityStratified.Red3)
+------------------------------------------------------------------------
+
+Red3-unique-Pi : {n : Nat} {G : Ctx n} {A B B' : Expr n}
+  {F : Expr (suc n)} {F' : Expr (suc n)} ->
+  Red3 G A (Pi B F) -> Red3 G A (Pi B' F') ->
+  Pair (Eq B B') (Eq F F')
+Red3-unique-Pi {G = G} {A} r1 r2 =
+  Red-unique-Pi {G = G} {A} (mkRed (Red3.hr r1)) (mkRed (Red3.hr r2))
+
+Red3-unique-LPi : {n : Nat} {G : Ctx n} {A B B' : Expr n} ->
+  Red3 G A (LPi B) -> Red3 G A (LPi B') -> Eq B B'
+Red3-unique-LPi r1 r2 = HeadRed-unique-LPi (Red3.hr r1) (Red3.hr r2)
+
+------------------------------------------------------------------------
+-- MonoPack k: the 8 top-level monotonicity functions at Stage k
+------------------------------------------------------------------------
+
+record MonoPack (k : Nat) : Set1 where
+  field
+    downVal2 : {n : Nat} (G : Ctx n) (M T : Expr n) (u a0 a1 : FinEl) ->
+      LeCode a0 a1 -> FinMem u a0 -> Coherent a0 -> FinMem a1 U0 ->
+      Vl k G M T u a1 -> Vl k G M T u a0
+    downEqVal2 : {n : Nat} (G : Ctx n) (M N T : Expr n) (u a0 a1 : FinEl) ->
+      LeCode a0 a1 -> FinMem u a0 -> Coherent a0 -> FinMem a1 U0 ->
+      EVl k G M N T u a1 -> EVl k G M N T u a0
+    downValTy2 : {n : Nat} (G : Ctx n) (M : Expr n) (u0 u1 : FinEl) ->
+      LeCode u0 u1 -> FinMem u0 U0 -> FinMem u1 U0 ->
+      VTy k G M u1 -> VTy k G M u0
+    downEqValTy2 : {n : Nat} (G : Ctx n) (M N : Expr n) (u0 u1 : FinEl) ->
+      LeCode u0 u1 -> FinMem u0 U0 -> FinMem u1 U0 ->
+      EVTy k G M N u1 -> EVTy k G M N u0
+    upVal2 : {n : Nat} (G : Ctx n) (M T : Expr n) (u a0 a1 : FinEl) ->
+      LeCode a0 a1 -> FinMem u a0 -> FinMem u a1 -> Coherent a0 -> Coherent a1 ->
+      Vl k G M T u a0 -> VTy k G T a1 -> Vl k G M T u a1
+    upEqVal2 : {n : Nat} (G : Ctx n) (M N T : Expr n) (u a0 a1 : FinEl) ->
+      LeCode a0 a1 -> FinMem u a0 -> FinMem u a1 -> Coherent a0 -> Coherent a1 ->
+      EVl k G M N T u a0 -> VTy k G T a1 -> EVl k G M N T u a1
+    restrictVal2 : {n : Nat} (G : Ctx n) (M T : Expr n) (u u' a : FinEl) ->
+      LeCode u' u -> FinMem u' a -> FinMem u a ->
+      Vl k G M T u a -> Vl k G M T u' a
+    restrictEqVal2 : {n : Nat} (G : Ctx n) (M N T : Expr n) (u u' a : FinEl) ->
+      LeCode u' u -> FinMem u' a -> FinMem u a ->
+      EVl k G M N T u a -> EVl k G M N T u' a
+    -- Non-recursive projection (cannot be defined uniformly in k because
+    -- Stage k does not reduce for a variable k); supplied here so the Pi
+    -- helpers can use it via `open MonoPack`.
+    Val2-from-EqVal2-first : {n : Nat} {G : Ctx n} {M N A : Expr n}
+      (u a : FinEl) -> EVl k G M N A u a -> Vl k G M A u a
+    Val2-from-EqVal2-second : {n : Nat} {G : Ctx n} {M N A : Expr n}
+      (u a : FinEl) -> EVl k G M N A u a -> Vl k G N A u a
+
+------------------------------------------------------------------------
+-- Pi helper combinators over a MonoPack k (all NON-recursive).
+------------------------------------------------------------------------
+
+downPiAppVal2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n) (B0 : Expr (suc n))
+  (b0 : FinEl) (f0 : FinFun) (b1 : FinEl) (f1 : FinFun) (g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g -> FinMemFun g b0 f0 ->
+  Coherent b0 -> Coherent b1 -> FinMem b1 U0 -> FinMem b0 U0 ->
+  FinMemAllU f0 b0 -> FinMemAllU f1 b1 ->
+  Pair (LeCode b0 b1) (LeFunCode f0 f1) ->
+  FinMemFun g b1 f1 ->
+  VTy k G A0 b1 ->
+  SR.PiAppVal2 k G M A0 B0 b1 f1 g ->
+  SR.PiAppVal2 k G M A0 B0 b0 f0 g
+downPiAppVal2 k mp G M A0 B0 b0 f0 b1 f1 g cf0 cf1 cg fmg0 cb0 cb1 b1U b0U allU0 allU1 le fmg1 vtAb1 pav
+  = \ u v sel an N htN valN ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          lef0  = fst le
+          lef1  = snd le
+          fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
+          fmu1  = finMem-upward u b0 b1 lef0 cb0 cb1 fmu0 b1U
+          val-b1 = upVal2 _ _ A0 u b0 b1 lef0 fmu0 fmu1 cb0 cb1 valN vtAb1
+          body  = pav u v sel an N htN val-b1
+          le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu lef1
+          c-ef0 = Coherent-EvalFun f0 u cf0 cu
+          ef1U  = EvalFun-in-UCode f1 u b1 cf1 cu allU1
+          fmem-v = FinMem-Selection-codomain b0 f0 sel fmg0 ctg cf0 allU0
+      in downVal2 _ _ (subst1 B0 N) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v c-ef0 ef1U body
+  where open MonoPack mp
+
+downPiAppEq2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n) (B0 : Expr (suc n))
+  (b0 : FinEl) (f0 : FinFun) (b1 : FinEl) (f1 : FinFun) (g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g -> FinMemFun g b0 f0 ->
+  Coherent b0 -> Coherent b1 -> FinMem b1 U0 -> FinMem b0 U0 ->
+  FinMemAllU f0 b0 -> FinMemAllU f1 b1 ->
+  Pair (LeCode b0 b1) (LeFunCode f0 f1) ->
+  FinMemFun g b1 f1 ->
+  VTy k G A0 b1 ->
+  SR.PiAppEq2 k G M A0 B0 b1 f1 g ->
+  SR.PiAppEq2 k G M A0 B0 b0 f0 g
+downPiAppEq2 k mp G M A0 B0 b0 f0 b1 f1 g cf0 cf1 cg fmg0 cb0 cb1 b1U b0U allU0 allU1 le fmg1 vtAb1 pae
+  = \ u v sel an1 an2 N1 N2 htN1 htN2 cvN eqN ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          lef0  = fst le
+          lef1  = snd le
+          fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
+          fmu1  = finMem-upward u b0 b1 lef0 cb0 cb1 fmu0 b1U
+          eqN-b1 = upEqVal2 _ _ _ A0 u b0 b1 lef0 fmu0 fmu1 cb0 cb1 eqN vtAb1
+          body  = pae u v sel an1 an2 N1 N2 htN1 htN2 cvN eqN-b1
+          le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu lef1
+          c-ef0 = Coherent-EvalFun f0 u cf0 cu
+          ef1U  = EvalFun-in-UCode f1 u b1 cf1 cu allU1
+          fmem-v = FinMem-Selection-codomain b0 f0 sel fmg0 ctg cf0 allU0
+      in downEqVal2 _ _ _ (subst1 B0 N1) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v c-ef0 ef1U body
+  where open MonoPack mp
+
+downPiAppEqVal2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M N A0 : Expr n) (B0 : Expr (suc n))
+  (b0 : FinEl) (f0 : FinFun) (b1 : FinEl) (f1 : FinFun) (g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g -> FinMemFun g b0 f0 ->
+  Coherent b0 -> Coherent b1 -> FinMem b1 U0 -> FinMem b0 U0 ->
+  FinMemAllU f0 b0 -> FinMemAllU f1 b1 ->
+  Pair (LeCode b0 b1) (LeFunCode f0 f1) ->
+  FinMemFun g b1 f1 ->
+  VTy k G A0 b1 ->
+  SR.PiAppEqVal2 k G M N A0 B0 b1 f1 g ->
+  SR.PiAppEqVal2 k G M N A0 B0 b0 f0 g
+downPiAppEqVal2 k mp G M N A0 B0 b0 f0 b1 f1 g cf0 cf1 cg fmg0 cb0 cb1 b1U b0U allU0 allU1 le fmg1 vtAb1 paev
+  = \ u v sel an1 an2 P htP valP ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          lef0  = fst le
+          lef1  = snd le
+          fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
+          fmu1  = finMem-upward u b0 b1 lef0 cb0 cb1 fmu0 b1U
+          valP-b1 = upVal2 _ _ A0 u b0 b1 lef0 fmu0 fmu1 cb0 cb1 valP vtAb1
+          body  = paev u v sel an1 an2 P htP valP-b1
+          le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu lef1
+          c-ef0 = Coherent-EvalFun f0 u cf0 cu
+          ef1U  = EvalFun-in-UCode f1 u b1 cf1 cu allU1
+          fmem-v = FinMem-Selection-codomain b0 f0 sel fmg0 ctg cf0 allU0
+      in downEqVal2 _ _ _ (subst1 B0 P) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v c-ef0 ef1U body
+  where open MonoPack mp
+
+upPiAppVal2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n) (B0 : Expr (suc n))
+  (b0 : FinEl) (f0 : FinFun) (b1 : FinEl) (f1 : FinFun) (g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g ->
+  Coherent b0 -> Coherent b1 -> FinMem b1 U0 -> FinMemAllU f1 b1 ->
+  FinMem b0 U0 -> FinMemAllU f0 b0 ->
+  Pair (LeCode b0 b1) (LeFunCode f0 f1) ->
+  FinMemFun g b0 f0 ->
+  SR.PiEdgeVal2 k G A0 B0 b1 f1 ->
+  SR.PiAppVal2 k G M A0 B0 b0 f0 g ->
+  SR.PiAppVal2 k G M A0 B0 b1 f1 g
+upPiAppVal2 k mp G M A0 B0 b0 f0 b1 f1 g cf0 cf1 cg cb0 cb1 b1U allU1 b0U allU0 le fmg0 piEV1 pav
+  = \ u v sel an N htN valN ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
+          valN-b0 = downVal2 _ _ A0 u b0 b1 (fst le) fmu0 cb0 b1U valN
+          body  = pav u v sel an N htN valN-b0
+          le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu (snd le)
+          c-ef0 = Coherent-EvalFun f0 u cf0 cu
+          c-ef1 = Coherent-EvalFun f1 u cf1 cu
+          fmem-v-f0 = FinMem-Selection-codomain b0 f0 sel fmg0 ctg cf0 allU0
+          ef1U  = EvalFun-in-UCode f1 u b1 cf1 cu allU1
+          sb1   = selectionBelow f1 u cf1 cu
+          u1    = fst sb1
+          v1    = fst (snd sb1)
+          sel1  = fst (snd (snd sb1))
+          le-u1 = fst (snd (snd (snd sb1)))
+          eq-v1 = snd (snd (snd (snd sb1)))
+          fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
+          fmu-b1  = finMem-upward u b0 b1 (fst le) cb0 cb1 fmu0 b1U
+          valN-u1 = restrictVal2 _ _ A0 u u1 b1 le-u1 fmu1-b1 fmu-b1 valN
+          vty-v1  = piEV1 u1 v1 sel1 N htN valN-u1
+          vty-ef1 = Eq-transport (\ x -> VTy k G (subst1 B0 N) x) (Eq-sym eq-v1) vty-v1
+      in upVal2 _ _ (subst1 B0 N) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
+           (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
+           c-ef0 c-ef1 body vty-ef1
+  where open MonoPack mp
+
+upPiAppEq2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n) (B0 : Expr (suc n))
+  (b0 : FinEl) (f0 : FinFun) (b1 : FinEl) (f1 : FinFun) (g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g ->
+  Coherent b0 -> Coherent b1 -> FinMem b1 U0 -> FinMemAllU f1 b1 ->
+  FinMem b0 U0 -> FinMemAllU f0 b0 ->
+  Pair (LeCode b0 b1) (LeFunCode f0 f1) ->
+  FinMemFun g b0 f0 ->
+  SR.PiEdgeVal2 k G A0 B0 b1 f1 ->
+  SR.PiAppEq2 k G M A0 B0 b0 f0 g ->
+  SR.PiAppEq2 k G M A0 B0 b1 f1 g
+upPiAppEq2 k mp G M A0 B0 b0 f0 b1 f1 g cf0 cf1 cg cb0 cb1 b1U allU1 b0U allU0 le fmg0 piEV1 pae
+  = \ u v sel an1 an2 N1 N2 htN1 htN2 cvN eqN ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
+          eqN-b0  = downEqVal2 _ _ _ A0 u b0 b1 (fst le) fmu0 cb0 b1U eqN
+          body    = pae u v sel an1 an2 N1 N2 htN1 htN2 cvN eqN-b0
+          le-f    = EvalFun-mon f0 f1 u cf0 cf1 cu (snd le)
+          c-ef0   = Coherent-EvalFun f0 u cf0 cu
+          c-ef1   = Coherent-EvalFun f1 u cf1 cu
+          fmem-v-f0 = FinMem-Selection-codomain b0 f0 sel fmg0 ctg cf0 allU0
+          ef1U    = EvalFun-in-UCode f1 u b1 cf1 cu allU1
+          valN1-b1 = Val2-from-EqVal2-first u b1 eqN
+          sb1   = selectionBelow f1 u cf1 cu
+          u1    = fst sb1
+          v1    = fst (snd sb1)
+          sel1  = fst (snd (snd sb1))
+          le-u1 = fst (snd (snd (snd sb1)))
+          eq-v1 = snd (snd (snd (snd sb1)))
+          fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
+          fmu-b1  = finMem-upward u b0 b1 (fst le) cb0 cb1 fmu0 b1U
+          valN1-u1 = restrictVal2 _ _ A0 u u1 b1 le-u1 fmu1-b1 fmu-b1 valN1-b1
+          vty-v1  = piEV1 u1 v1 sel1 N1 htN1 valN1-u1
+          vty-ef1 = Eq-transport (\ x -> VTy k G (subst1 B0 N1) x) (Eq-sym eq-v1) vty-v1
+      in upEqVal2 _ _ _ (subst1 B0 N1) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
+           (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
+           c-ef0 c-ef1 body vty-ef1
+  where open MonoPack mp
+
+upPiAppEqVal2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M N A0 : Expr n) (B0 : Expr (suc n))
+  (b0 : FinEl) (f0 : FinFun) (b1 : FinEl) (f1 : FinFun) (g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g ->
+  Coherent b0 -> Coherent b1 -> FinMem b1 U0 -> FinMemAllU f1 b1 ->
+  FinMem b0 U0 -> FinMemAllU f0 b0 ->
+  Pair (LeCode b0 b1) (LeFunCode f0 f1) ->
+  FinMemFun g b0 f0 ->
+  SR.PiEdgeVal2 k G A0 B0 b1 f1 ->
+  SR.PiAppEqVal2 k G M N A0 B0 b0 f0 g ->
+  SR.PiAppEqVal2 k G M N A0 B0 b1 f1 g
+upPiAppEqVal2 k mp G M N A0 B0 b0 f0 b1 f1 g cf0 cf1 cg cb0 cb1 b1U allU1 b0U allU0 le fmg0 piEV1 paev
+  = \ u v sel an1 an2 P htP valP ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          fmu0  = FinMem-Selection b0 f0 sel fmg0 ctg cb0 b0U
+          valP-b0 = downVal2 _ _ A0 u b0 b1 (fst le) fmu0 cb0 b1U valP
+          body    = paev u v sel an1 an2 P htP valP-b0
+          le-f    = EvalFun-mon f0 f1 u cf0 cf1 cu (snd le)
+          c-ef0   = Coherent-EvalFun f0 u cf0 cu
+          c-ef1   = Coherent-EvalFun f1 u cf1 cu
+          fmem-v-f0 = FinMem-Selection-codomain b0 f0 sel fmg0 ctg cf0 allU0
+          ef1U    = EvalFun-in-UCode f1 u b1 cf1 cu allU1
+          sb1   = selectionBelow f1 u cf1 cu
+          u1    = fst sb1
+          v1    = fst (snd sb1)
+          sel1  = fst (snd (snd sb1))
+          le-u1 = fst (snd (snd (snd sb1)))
+          eq-v1 = snd (snd (snd (snd sb1)))
+          fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
+          fmu-b1  = finMem-upward u b0 b1 (fst le) cb0 cb1 fmu0 b1U
+          valP-u1 = restrictVal2 _ _ A0 u u1 b1 le-u1 fmu1-b1 fmu-b1 valP
+          vty-v1  = piEV1 u1 v1 sel1 P htP valP-u1
+          vty-ef1 = Eq-transport (\ x -> VTy k G (subst1 B0 P) x) (Eq-sym eq-v1) vty-v1
+      in upEqVal2 _ _ _ (subst1 B0 P) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
+           (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
+           c-ef0 c-ef1 body vty-ef1
+  where open MonoPack mp
+
+transportPiEdgeVal2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (A : Expr n) (B : Expr (suc n))
+  (b0 : FinEl) (f0 : FinFun) (b1 : FinEl) (f1 : FinFun) ->
+  Coherent b0 -> Coherent b1 -> FinMem b1 U0 ->
+  FinMem b0 U0 ->
+  LeCode b0 b1 -> LeFunCode f0 f1 ->
+  FinMemAllU f0 b0 -> CoherentFunTail f0 -> CoherentFunTail f1 ->
+  FinMemAllU f1 b1 ->
+  VTy k G A b1 ->
+  SR.PiEdgeVal2 k G A B b1 f1 ->
+  SR.PiEdgeVal2 k G A B b0 f0
+transportPiEdgeVal2-sel k mp G A B b0 f0 b1 f1 cb0 cb1 b1U b0U leb lef allU0 cf0 cf1 allU1 vtAb1 pev1
+  = \ u v sel N htN valN ->
+      let cu    = Coherent-Selection sel cf0
+          fmu0-b0 = FinMemAllU-Selection b0 sel allU0 cf0 cb0 b0U
+          fmu0-b1 = finMem-upward u b0 b1 leb cb0 cb1 fmu0-b0 b1U
+          valN-b1 = upVal2 _ _ A u b0 b1 leb fmu0-b0 fmu0-b1 cb0 cb1 valN vtAb1
+          sb1   = selectionBelow f1 u cf1 cu
+          u1    = fst sb1
+          v1    = fst (snd sb1)
+          sel1  = fst (snd (snd sb1))
+          le-u1 = fst (snd (snd (snd sb1)))
+          eq-v1 = snd (snd (snd (snd sb1)))
+          fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
+          valN-u1 = restrictVal2 _ _ A u u1 b1 le-u1 fmu1-b1 fmu0-b1 valN-b1
+          vt-v1   = pev1 u1 v1 sel1 N htN valN-u1
+          vt-ef   = Eq-transport (\ x -> VTy k G (subst1 B N) x) (Eq-sym eq-v1) vt-v1
+          le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
+          le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
+          fmem-v-U = FinMem-Selection-UCode b0 sel allU0 cf0
+          v1U = Eq-transport (\ x -> FinMem x U0) eq-v1
+                  (EvalFun-in-UCode f1 u b1 cf1 cu allU1)
+      in downValTy2 G (subst1 B N) v v1 le-v-v1 fmem-v-U v1U vt-v1
+  where open MonoPack mp
+
+transportPiEdgeEq2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (A : Expr n) (B : Expr (suc n))
+  (b0 : FinEl) (f0 : FinFun) (b1 : FinEl) (f1 : FinFun) ->
+  Coherent b0 -> Coherent b1 -> FinMem b1 U0 ->
+  FinMem b0 U0 ->
+  LeCode b0 b1 -> LeFunCode f0 f1 ->
+  FinMemAllU f0 b0 -> CoherentFunTail f0 -> CoherentFunTail f1 ->
+  FinMemAllU f1 b1 ->
+  VTy k G A b1 ->
+  SR.PiEdgeEq2 k G A B b1 f1 ->
+  SR.PiEdgeEq2 k G A B b0 f0
+transportPiEdgeEq2-sel k mp G A B b0 f0 b1 f1 cb0 cb1 b1U b0U leb lef allU0 cf0 cf1 allU1 vtAb1 pee1
+  = \ u v sel N1 N2 htN1 htN2 cvN eqN ->
+      let cu    = Coherent-Selection sel cf0
+          fmu0-b0 = FinMemAllU-Selection b0 sel allU0 cf0 cb0 b0U
+          fmu0-b1 = finMem-upward u b0 b1 leb cb0 cb1 fmu0-b0 b1U
+          eqN-b1  = upEqVal2 _ _ _ A u b0 b1 leb fmu0-b0 fmu0-b1 cb0 cb1 eqN vtAb1
+          sb1   = selectionBelow f1 u cf1 cu
+          u1    = fst sb1
+          v1    = fst (snd sb1)
+          sel1  = fst (snd (snd sb1))
+          le-u1 = fst (snd (snd (snd sb1)))
+          eq-v1 = snd (snd (snd (snd sb1)))
+          fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
+          eqN-u1  = restrictEqVal2 _ _ _ A u u1 b1 le-u1 fmu1-b1 fmu0-b1 eqN-b1
+          eqt-v1  = pee1 u1 v1 sel1 N1 N2 htN1 htN2 cvN eqN-u1
+          le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
+          le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
+          fmem-v-U = FinMem-Selection-UCode b0 sel allU0 cf0
+          v1U = Eq-transport (\ x -> FinMem x U0) eq-v1
+                  (EvalFun-in-UCode f1 u b1 cf1 cu allU1)
+      in downEqValTy2 G (subst1 B N1) (subst1 B N2) v v1 le-v-v1 fmem-v-U v1U eqt-v1
+  where open MonoPack mp
+
+transportPiEdgeEqTy2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (A : Expr n) (B B' : Expr (suc n))
+  (b0 : FinEl) (f0 : FinFun) (b1 : FinEl) (f1 : FinFun) ->
+  Coherent b0 -> Coherent b1 -> FinMem b1 U0 ->
+  FinMem b0 U0 ->
+  LeCode b0 b1 -> LeFunCode f0 f1 ->
+  FinMemAllU f0 b0 -> CoherentFunTail f0 -> CoherentFunTail f1 ->
+  FinMemAllU f1 b1 ->
+  VTy k G A b1 ->
+  SR.PiEdgeEqTy2 k G A B B' b1 f1 ->
+  SR.PiEdgeEqTy2 k G A B B' b0 f0
+transportPiEdgeEqTy2-sel k mp G A B B' b0 f0 b1 f1 cb0 cb1 b1U b0U leb lef allU0 cf0 cf1 allU1 vtAb1 pet1
+  = \ u v sel P htP valP ->
+      let cu    = Coherent-Selection sel cf0
+          fmu0-b0 = FinMemAllU-Selection b0 sel allU0 cf0 cb0 b0U
+          fmu0-b1 = finMem-upward u b0 b1 leb cb0 cb1 fmu0-b0 b1U
+          valP-b1 = upVal2 _ _ A u b0 b1 leb fmu0-b0 fmu0-b1 cb0 cb1 valP vtAb1
+          sb1   = selectionBelow f1 u cf1 cu
+          u1    = fst sb1
+          v1    = fst (snd sb1)
+          sel1  = fst (snd (snd sb1))
+          le-u1 = fst (snd (snd (snd sb1)))
+          eq-v1 = snd (snd (snd (snd sb1)))
+          fmu1-b1 = FinMemAllU-Selection b1 sel1 allU1 cf1 cb1 b1U
+          valP-u1 = restrictVal2 _ _ A u u1 b1 le-u1 fmu1-b1 fmu0-b1 valP-b1
+          eqt-v1  = pet1 u1 v1 sel1 P htP valP-u1
+          le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
+          le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
+          fmem-v-U = FinMem-Selection-UCode b0 sel allU0 cf0
+          v1U = Eq-transport (\ x -> FinMem x U0) eq-v1
+                  (EvalFun-in-UCode f1 u b1 cf1 cu allU1)
+      in downEqValTy2 G (subst1 B P) (subst1 B' P) v v1 le-v-v1 fmem-v-U v1U eqt-v1
+  where open MonoPack mp
+
+restrictPiAppVal2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n) (B0 : Expr (suc n))
+  (b : FinEl) (f g g' : FinFun) ->
+  CoherentFunTail f -> CoherentFun g -> CoherentFun g' -> Coherent b ->
+  FinMemAllU f b -> FinMem b U0 ->
+  LeFunCode g' g -> FinMemFun g' b f -> FinMemFun g b f ->
+  SR.PiEdgeVal2 k G A0 B0 b f ->
+  SR.PiAppVal2 k G M A0 B0 b f g -> SR.PiAppVal2 k G M A0 B0 b f g'
+restrictPiAppVal2-sel k mp G M A0 B0 b f g g' cf cg cg' cb allU bU le fmg' fmg piEV pav
+  u' v' sel' an N htN valN =
+  let ctg      = cft-from-cf g cg
+      ctg'     = cft-from-cf g' cg'
+      cu'      = Coherent-Selection sel' ctg'
+      fmu'-b   = FinMem-Selection b f sel' fmg' ctg' cb bU
+      sb       = selectionBelow g u' ctg cu'
+      u_g      = fst sb
+      v_g      = fst (snd sb)
+      sel_g    = fst (snd (snd sb))
+      le-ug    = fst (snd (snd (snd sb)))
+      eq-vg    = snd (snd (snd (snd sb)))
+      cu_g     = Coherent-Selection sel_g ctg
+      fmu_g    = FinMem-Selection b f sel_g fmg ctg cb bU
+      valN-ug  = restrictVal2 _ _ A0 u' u_g b le-ug fmu_g fmu'-b valN
+      body     = pav u_g v_g sel_g an N htN valN-ug
+      le-ef    = EvalFun-mon-arg f u_g u' le-ug cf cu_g cu'
+      c-efug   = Coherent-EvalFun f u_g cf cu_g
+      c-efu'   = Coherent-EvalFun f u' cf cu'
+      fmem-vg-efug = FinMem-Selection-codomain b f sel_g fmg ctg cf allU
+      efuU'    = EvalFun-in-UCode f u' b cf cu' allU
+      fmem-vg-efu' = finMem-upward v_g (EvalFun f u_g) (EvalFun f u')
+                        le-ef c-efug c-efu' fmem-vg-efug efuU'
+      sb-f     = selectionBelow f u' cf cu'
+      u_f      = fst sb-f
+      v_f      = fst (snd sb-f)
+      sel_f    = fst (snd (snd sb-f))
+      le-uf    = fst (snd (snd (snd sb-f)))
+      eq-ef    = snd (snd (snd (snd sb-f)))
+      fmu_f-b  = FinMemAllU-Selection b sel_f allU cf cb bU
+      valN-uf  = restrictVal2 _ _ A0 u' u_f b le-uf fmu_f-b fmu'-b valN
+      vty-vf   = piEV u_f v_f sel_f N htN valN-uf
+      vty-efu' = Eq-transport (\ x -> VTy k G (subst1 B0 N) x) (Eq-sym eq-ef) vty-vf
+      body2    = upVal2 _ _ (subst1 B0 N) v_g (EvalFun f u_g) (EvalFun f u') le-ef
+                   fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
+      le-v'-efgu' = Selection-le-EvalFun g sel' le ctg' ctg cu'
+      le-v'-vg = Eq-transport (LeCode v') eq-vg le-v'-efgu'
+      fmem-v'-efu' = FinMem-Selection-codomain b f sel' fmg' ctg' cf allU
+  in restrictVal2 _ _ (subst1 B0 N) v_g v' (EvalFun f u')
+       le-v'-vg fmem-v'-efu' fmem-vg-efu' body2
+  where open MonoPack mp
+
+restrictPiAppEq2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n) (B0 : Expr (suc n))
+  (b : FinEl) (f g g' : FinFun) ->
+  CoherentFunTail f -> CoherentFun g -> CoherentFun g' -> Coherent b ->
+  FinMemAllU f b -> FinMem b U0 ->
+  LeFunCode g' g -> FinMemFun g' b f -> FinMemFun g b f ->
+  SR.PiEdgeVal2 k G A0 B0 b f ->
+  SR.PiAppEq2 k G M A0 B0 b f g -> SR.PiAppEq2 k G M A0 B0 b f g'
+restrictPiAppEq2-sel k mp G M A0 B0 b f g g' cf cg cg' cb allU bU le fmg' fmg piEV pae
+  u' v' sel' an1 an2 N1 N2 htN1 htN2 cvN eqN =
+  let ctg      = cft-from-cf g cg
+      ctg'     = cft-from-cf g' cg'
+      cu'      = Coherent-Selection sel' ctg'
+      fmu'-b   = FinMem-Selection b f sel' fmg' ctg' cb bU
+      sb       = selectionBelow g u' ctg cu'
+      u_g      = fst sb
+      v_g      = fst (snd sb)
+      sel_g    = fst (snd (snd sb))
+      le-ug    = fst (snd (snd (snd sb)))
+      eq-vg    = snd (snd (snd (snd sb)))
+      cu_g     = Coherent-Selection sel_g ctg
+      fmu_g    = FinMem-Selection b f sel_g fmg ctg cb bU
+      eqN-ug   = restrictEqVal2 _ _ _ A0 u' u_g b le-ug fmu_g fmu'-b eqN
+      body     = pae u_g v_g sel_g an1 an2 N1 N2 htN1 htN2 cvN eqN-ug
+      le-ef    = EvalFun-mon-arg f u_g u' le-ug cf cu_g cu'
+      c-efug   = Coherent-EvalFun f u_g cf cu_g
+      c-efu'   = Coherent-EvalFun f u' cf cu'
+      fmem-vg-efug = FinMem-Selection-codomain b f sel_g fmg ctg cf allU
+      efuU'    = EvalFun-in-UCode f u' b cf cu' allU
+      fmem-vg-efu' = finMem-upward v_g (EvalFun f u_g) (EvalFun f u')
+                        le-ef c-efug c-efu' fmem-vg-efug efuU'
+      valN1-b  = Val2-from-EqVal2-first u' b eqN
+      sb-f     = selectionBelow f u' cf cu'
+      u_f      = fst sb-f
+      v_f      = fst (snd sb-f)
+      sel_f    = fst (snd (snd sb-f))
+      le-uf    = fst (snd (snd (snd sb-f)))
+      eq-ef    = snd (snd (snd (snd sb-f)))
+      fmu_f-b  = FinMemAllU-Selection b sel_f allU cf cb bU
+      valN1-uf = restrictVal2 _ _ A0 u' u_f b le-uf fmu_f-b fmu'-b valN1-b
+      vty-vf   = piEV u_f v_f sel_f N1 htN1 valN1-uf
+      vty-efu' = Eq-transport (\ x -> VTy k G (subst1 B0 N1) x) (Eq-sym eq-ef) vty-vf
+      body2    = upEqVal2 _ _ _ (subst1 B0 N1) v_g (EvalFun f u_g) (EvalFun f u') le-ef
+                   fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
+      le-v'-efgu' = Selection-le-EvalFun g sel' le ctg' ctg cu'
+      le-v'-vg = Eq-transport (LeCode v') eq-vg le-v'-efgu'
+      fmem-v'-efu' = FinMem-Selection-codomain b f sel' fmg' ctg' cf allU
+  in restrictEqVal2 _ _ _ (subst1 B0 N1) v_g v' (EvalFun f u')
+       le-v'-vg fmem-v'-efu' fmem-vg-efu' body2
+  where open MonoPack mp
+
+restrictPiAppEqVal2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M N A0 : Expr n) (B0 : Expr (suc n))
+  (b : FinEl) (f g g' : FinFun) ->
+  CoherentFunTail f -> CoherentFun g -> CoherentFun g' -> Coherent b ->
+  FinMemAllU f b -> FinMem b U0 ->
+  LeFunCode g' g -> FinMemFun g' b f -> FinMemFun g b f ->
+  SR.PiEdgeVal2 k G A0 B0 b f ->
+  SR.PiAppEqVal2 k G M N A0 B0 b f g -> SR.PiAppEqVal2 k G M N A0 B0 b f g'
+restrictPiAppEqVal2-sel k mp G M N A0 B0 b f g g' cf cg cg' cb allU bU le fmg' fmg piEV paev
+  u' v' sel' an1 an2 P htP valP =
+  let ctg      = cft-from-cf g cg
+      ctg'     = cft-from-cf g' cg'
+      cu'      = Coherent-Selection sel' ctg'
+      fmu'-b   = FinMem-Selection b f sel' fmg' ctg' cb bU
+      sb       = selectionBelow g u' ctg cu'
+      u_g      = fst sb
+      v_g      = fst (snd sb)
+      sel_g    = fst (snd (snd sb))
+      le-ug    = fst (snd (snd (snd sb)))
+      eq-vg    = snd (snd (snd (snd sb)))
+      cu_g     = Coherent-Selection sel_g ctg
+      fmu_g    = FinMem-Selection b f sel_g fmg ctg cb bU
+      valP-ug  = restrictVal2 _ _ A0 u' u_g b le-ug fmu_g fmu'-b valP
+      body     = paev u_g v_g sel_g an1 an2 P htP valP-ug
+      le-ef    = EvalFun-mon-arg f u_g u' le-ug cf cu_g cu'
+      c-efug   = Coherent-EvalFun f u_g cf cu_g
+      c-efu'   = Coherent-EvalFun f u' cf cu'
+      fmem-vg-efug = FinMem-Selection-codomain b f sel_g fmg ctg cf allU
+      efuU'    = EvalFun-in-UCode f u' b cf cu' allU
+      fmem-vg-efu' = finMem-upward v_g (EvalFun f u_g) (EvalFun f u')
+                        le-ef c-efug c-efu' fmem-vg-efug efuU'
+      sb-f     = selectionBelow f u' cf cu'
+      u_f      = fst sb-f
+      v_f      = fst (snd sb-f)
+      sel_f    = fst (snd (snd sb-f))
+      le-uf    = fst (snd (snd (snd sb-f)))
+      eq-ef    = snd (snd (snd (snd sb-f)))
+      fmu_f-b  = FinMemAllU-Selection b sel_f allU cf cb bU
+      valP-uf  = restrictVal2 _ _ A0 u' u_f b le-uf fmu_f-b fmu'-b valP
+      vty-vf   = piEV u_f v_f sel_f P htP valP-uf
+      vty-efu' = Eq-transport (\ x -> VTy k G (subst1 B0 P) x) (Eq-sym eq-ef) vty-vf
+      body2    = upEqVal2 _ _ _ (subst1 B0 P) v_g (EvalFun f u_g) (EvalFun f u') le-ef
+                   fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
+      le-v'-efgu' = Selection-le-EvalFun g sel' le ctg' ctg cu'
+      le-v'-vg = Eq-transport (LeCode v') eq-vg le-v'-efgu'
+      fmem-v'-efu' = FinMem-Selection-codomain b f sel' fmg' ctg' cf allU
+  in restrictEqVal2 _ _ _ (subst1 B0 P) v_g v' (EvalFun f u')
+       le-v'-vg fmem-v'-efu' fmem-vg-efu' body2
+  where open MonoPack mp
+
+restrictVal2-PiCode : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M T : Expr n) (g g' : FinFun)
+  (b : FinEl) (f : FinFun) ->
+  CoherentFunTail f -> Coherent b -> FinMemAllU f b -> FinMem b U0 ->
+  LeFunCode g' g ->
+  Pair (FinMemFun g' b f) (CoherentFun g') ->
+  SR.RValTyPi k G T b f ->
+  SR.RValPi k G M T g b f ->
+  SR.RValPi k G M T g' b f
+restrictVal2-PiCode k mp G M T g g' b f cf cb allU bU le mem' vtyT vpiM =
+  let cg'  = snd mem'
+      fmg' = fst mem'
+      uniq = Red3-unique-Pi (RValPi.red vpiM) (RValTyPi.red vtyT)
+      piEV : SR.PiEdgeVal2 k G (RValPi.domA0 vpiM) (RValPi.codB0 vpiM) b f
+      piEV = Eq-transport (\ Y -> SR.PiEdgeVal2 k G (RValPi.domA0 vpiM) Y b f) (Eq-sym (snd uniq))
+               (Eq-transport (\ X -> SR.PiEdgeVal2 k G X (RValTyPi.codB vtyT) b f) (Eq-sym (fst uniq)) (RValTyPi.edgeV vtyT))
+  in record
+    { domA0 = RValPi.domA0 vpiM
+    ; codB0 = RValPi.codB0 vpiM
+    ; red   = RValPi.red vpiM
+    ; cohG  = cg'
+    ; fmG   = fmg'
+    ; appV  = restrictPiAppVal2-sel k mp G M (RValPi.domA0 vpiM) (RValPi.codB0 vpiM) b f g g' cf (RValPi.cohG vpiM) cg' cb allU
+                bU le fmg' (RValPi.fmG vpiM) piEV (RValPi.appV vpiM)
+    ; appE  = restrictPiAppEq2-sel k mp G M (RValPi.domA0 vpiM) (RValPi.codB0 vpiM) b f g g' cf (RValPi.cohG vpiM) cg' cb allU
+                bU le fmg' (RValPi.fmG vpiM) piEV (RValPi.appE vpiM)
+    }
+  where open SR k
+
+restrictEqVal2-PiCode : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M N T : Expr n) (g g' : FinFun)
+  (b : FinEl) (f : FinFun) ->
+  CoherentFunTail f -> Coherent b -> FinMemAllU f b -> FinMem b U0 ->
+  LeFunCode g' g ->
+  Pair (FinMemFun g' b f) (CoherentFun g') ->
+  SR.RValTyPi k G T b f ->
+  SR.REqValPi k G M N T g b f ->
+  SR.REqValPi k G M N T g' b f
+restrictEqVal2-PiCode k mp G M N T g g' b f cf cb allU bU le mem' vtyT epi =
+  let cg'  = snd mem'
+      fmg' = fst mem'
+      uniq = Red3-unique-Pi (REqValPi.red epi) (RValTyPi.red vtyT)
+      piEV : SR.PiEdgeVal2 k G (REqValPi.domA0 epi) (REqValPi.codB0 epi) b f
+      piEV = Eq-transport (\ Y -> SR.PiEdgeVal2 k G (REqValPi.domA0 epi) Y b f) (Eq-sym (snd uniq))
+               (Eq-transport (\ X -> SR.PiEdgeVal2 k G X (RValTyPi.codB vtyT) b f) (Eq-sym (fst uniq)) (RValTyPi.edgeV vtyT))
+  in record
+    { domA0 = REqValPi.domA0 epi
+    ; codB0 = REqValPi.codB0 epi
+    ; red   = REqValPi.red epi
+    ; cohG  = cg'
+    ; fmG   = fmg'
+    ; appEV = restrictPiAppEqVal2-sel k mp G M N (REqValPi.domA0 epi) (REqValPi.codB0 epi) b f g g' cf (REqValPi.cohG epi) cg' cb allU
+                bU le fmg' (REqValPi.fmG epi) piEV (REqValPi.appEV epi)
+    }
+  where open SR k
+
+------------------------------------------------------------------------
+-- Level-product (LPiCode) helper combinators over a MonoPack k.
+-- The domain is the flat set of level tokens: the admissibility of a
+-- level for a selected key is a LeCode fact, moved between keys by
+-- LeCode-trans (no stage transport of a domain relation is needed).
+------------------------------------------------------------------------
+
+downLAppVal2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n)
+  (f0 f1 g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g -> FinMemFun g LevTy f0 ->
+  FinMemAllU f0 LevTy -> FinMemAllU f1 LevTy -> LeFunCode f0 f1 ->
+  SR.LAppVal2 k G M A0 f1 g -> SR.LAppVal2 k G M A0 f0 g
+downLAppVal2 k mp G M A0 f0 f1 g cf0 cf1 cg fmg0 allU0 allU1 le lav
+  = \ u v sel an l lel ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          body  = lav u v sel an l lel
+          le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu le
+          c-ef0 = Coherent-EvalFun f0 u cf0 cu
+          ef1U  = EvalFun-in-UCode f1 u LevTy cf1 cu allU1
+          fmem-v = FinMem-Selection-codomain LevTy f0 sel fmg0 ctg cf0 allU0
+      in downVal2 _ _ (lsub1 A0 l) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v c-ef0 ef1U body
+  where open MonoPack mp
+
+downLAppEqVal2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M N A0 : Expr n)
+  (f0 f1 g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g -> FinMemFun g LevTy f0 ->
+  FinMemAllU f0 LevTy -> FinMemAllU f1 LevTy -> LeFunCode f0 f1 ->
+  SR.LAppEqVal2 k G M N A0 f1 g -> SR.LAppEqVal2 k G M N A0 f0 g
+downLAppEqVal2 k mp G M N A0 f0 f1 g cf0 cf1 cg fmg0 allU0 allU1 le laev
+  = \ u v sel an1 an2 l lel ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          body  = laev u v sel an1 an2 l lel
+          le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu le
+          c-ef0 = Coherent-EvalFun f0 u cf0 cu
+          ef1U  = EvalFun-in-UCode f1 u LevTy cf1 cu allU1
+          fmem-v = FinMem-Selection-codomain LevTy f0 sel fmg0 ctg cf0 allU0
+      in downEqVal2 _ _ _ (lsub1 A0 l) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v c-ef0 ef1U body
+  where open MonoPack mp
+
+-- Moving a family indexed by the selections of f (at an admissible
+-- level l) to the value EvalFun f u, for an admissible key u.
+LSel-at : {n : Nat} (G : Ctx n) (f : FinFun) (P : FinEl -> Set) (u : FinEl) (l : LExpr) ->
+  CoherentFunTail f -> Coherent u -> LeCode u (LevEl (codeL G l)) ->
+  ((u' v' : FinEl) -> Selection f u' v' -> LeCode u' (LevEl (codeL G l)) -> P v') ->
+  P (EvalFun f u)
+LSel-at G f P u l cf cu lel fam =
+  let sb1   = selectionBelow f u cf cu
+      u1    = fst sb1
+      v1    = fst (snd sb1)
+      sel1  = fst (snd (snd sb1))
+      le-u1 = fst (snd (snd (snd sb1)))
+      eq-v1 = snd (snd (snd (snd sb1)))
+      lel1  = LeCode-trans u1 u (LevEl (codeL G l)) (Coherent-Selection sel1 cf) cu tt le-u1 lel
+  in Eq-transport P (Eq-sym eq-v1) (fam u1 v1 sel1 lel1)
+
+-- Admissibility of a level is invariant under level equality.
+LeL-transport : {n : Nat} (G : Ctx n) {u : FinEl} {l l' : LExpr} ->
+  Valid (lctx G) l l' -> LeCode u (LevEl (codeL G l)) -> LeCode u (LevEl (codeL G l'))
+LeL-transport G {u} vl lel =
+  Eq-transport (\ k -> LeCode u (LevEl k)) (LDec.lcode-sound (D (lctx G)) vl) lel
+
+-- the codomain type at EvalFun f1 u, from the edge family of f1
+LEdge-at-EvalFun : (k : Nat) {n : Nat} (G : Ctx n) (A0 : Expr n) (f1 : FinFun) (u : FinEl) (l : LExpr) ->
+  CoherentFunTail f1 -> Coherent u -> LeCode u (LevEl (codeL G l)) ->
+  SR.LEdgeVal2 k G A0 f1 -> VTy k G (lsub1 A0 l) (EvalFun f1 u)
+LEdge-at-EvalFun k G A0 f1 u l cf1 cu lel lEV1 =
+  let sb1   = selectionBelow f1 u cf1 cu
+      u1    = fst sb1
+      v1    = fst (snd sb1)
+      sel1  = fst (snd (snd sb1))
+      le-u1 = fst (snd (snd (snd sb1)))
+      eq-v1 = snd (snd (snd (snd sb1)))
+      cu1   = Coherent-Selection sel1 cf1
+      lel1  = LeCode-trans u1 u (LevEl (codeL G l)) cu1 cu tt le-u1 lel
+      vty-v1 = lEV1 u1 v1 sel1 l lel1
+  in Eq-transport (\ x -> VTy k G (lsub1 A0 l) x) (Eq-sym eq-v1) vty-v1
+
+upLAppVal2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n)
+  (f0 f1 g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g ->
+  FinMemAllU f0 LevTy -> FinMemAllU f1 LevTy -> LeFunCode f0 f1 ->
+  FinMemFun g LevTy f0 ->
+  SR.LEdgeVal2 k G A0 f1 ->
+  SR.LAppVal2 k G M A0 f0 g -> SR.LAppVal2 k G M A0 f1 g
+upLAppVal2 k mp G M A0 f0 f1 g cf0 cf1 cg allU0 allU1 le fmg0 lEV1 lav
+  = \ u v sel an l lel ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          body  = lav u v sel an l lel
+          le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu le
+          c-ef0 = Coherent-EvalFun f0 u cf0 cu
+          c-ef1 = Coherent-EvalFun f1 u cf1 cu
+          fmem-v-f0 = FinMem-Selection-codomain LevTy f0 sel fmg0 ctg cf0 allU0
+          ef1U  = EvalFun-in-UCode f1 u LevTy cf1 cu allU1
+          vty-ef1 = LEdge-at-EvalFun k G A0 f1 u l cf1 cu lel lEV1
+      in upVal2 _ _ (lsub1 A0 l) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
+           (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
+           c-ef0 c-ef1 body vty-ef1
+  where open MonoPack mp
+
+upLAppEqVal2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M N A0 : Expr n)
+  (f0 f1 g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g ->
+  FinMemAllU f0 LevTy -> FinMemAllU f1 LevTy -> LeFunCode f0 f1 ->
+  FinMemFun g LevTy f0 ->
+  SR.LEdgeVal2 k G A0 f1 ->
+  SR.LAppEqVal2 k G M N A0 f0 g -> SR.LAppEqVal2 k G M N A0 f1 g
+upLAppEqVal2 k mp G M N A0 f0 f1 g cf0 cf1 cg allU0 allU1 le fmg0 lEV1 laev
+  = \ u v sel an1 an2 l lel ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          body  = laev u v sel an1 an2 l lel
+          le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu le
+          c-ef0 = Coherent-EvalFun f0 u cf0 cu
+          c-ef1 = Coherent-EvalFun f1 u cf1 cu
+          fmem-v-f0 = FinMem-Selection-codomain LevTy f0 sel fmg0 ctg cf0 allU0
+          ef1U  = EvalFun-in-UCode f1 u LevTy cf1 cu allU1
+          vty-ef1 = LEdge-at-EvalFun k G A0 f1 u l cf1 cu lel lEV1
+      in upEqVal2 _ _ _ (lsub1 A0 l) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
+           (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
+           c-ef0 c-ef1 body vty-ef1
+  where open MonoPack mp
+
+transportLEdgeVal2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (A : Expr n)
+  (f0 f1 : FinFun) -> LeFunCode f0 f1 ->
+  FinMemAllU f0 LevTy -> CoherentFunTail f0 -> CoherentFunTail f1 -> FinMemAllU f1 LevTy ->
+  SR.LEdgeVal2 k G A f1 -> SR.LEdgeVal2 k G A f0
+transportLEdgeVal2-sel k mp G A f0 f1 lef allU0 cf0 cf1 allU1 lev1
+  = \ u v sel l lel ->
+      let cu    = Coherent-Selection sel cf0
+          sb1   = selectionBelow f1 u cf1 cu
+          u1    = fst sb1
+          v1    = fst (snd sb1)
+          sel1  = fst (snd (snd sb1))
+          le-u1 = fst (snd (snd (snd sb1)))
+          eq-v1 = snd (snd (snd (snd sb1)))
+          lel1  = LeCode-trans u1 u (LevEl (codeL G l)) (Coherent-Selection sel1 cf1) cu tt le-u1 lel
+          vt-v1   = lev1 u1 v1 sel1 l lel1
+          le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
+          le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
+          fmem-v-U = FinMem-Selection-UCode LevTy sel allU0 cf0
+          v1U = Eq-transport (\ x -> FinMem x U0) eq-v1
+                  (EvalFun-in-UCode f1 u LevTy cf1 cu allU1)
+      in downValTy2 G (lsub1 A l) v v1 le-v-v1 fmem-v-U v1U vt-v1
+  where open MonoPack mp
+
+transportLEdgeEqTy2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (A A' : Expr n)
+  (f0 f1 : FinFun) -> LeFunCode f0 f1 ->
+  FinMemAllU f0 LevTy -> CoherentFunTail f0 -> CoherentFunTail f1 -> FinMemAllU f1 LevTy ->
+  SR.LEdgeEqTy2 k G A A' f1 -> SR.LEdgeEqTy2 k G A A' f0
+transportLEdgeEqTy2-sel k mp G A A' f0 f1 lef allU0 cf0 cf1 allU1 let1
+  = \ u v sel l lel ->
+      let cu    = Coherent-Selection sel cf0
+          sb1   = selectionBelow f1 u cf1 cu
+          u1    = fst sb1
+          v1    = fst (snd sb1)
+          sel1  = fst (snd (snd sb1))
+          le-u1 = fst (snd (snd (snd sb1)))
+          eq-v1 = snd (snd (snd (snd sb1)))
+          lel1  = LeCode-trans u1 u (LevEl (codeL G l)) (Coherent-Selection sel1 cf1) cu tt le-u1 lel
+          eqt-v1  = let1 u1 v1 sel1 l lel1
+          le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
+          le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
+          fmem-v-U = FinMem-Selection-UCode LevTy sel allU0 cf0
+          v1U = Eq-transport (\ x -> FinMem x U0) eq-v1
+                  (EvalFun-in-UCode f1 u LevTy cf1 cu allU1)
+      in downEqValTy2 G (lsub1 A l) (lsub1 A' l) v v1 le-v-v1 fmem-v-U v1U eqt-v1
+  where open MonoPack mp
+
+restrictLAppVal2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n)
+  (f g g' : FinFun) ->
+  CoherentFunTail f -> CoherentFun g -> CoherentFun g' ->
+  FinMemAllU f LevTy ->
+  LeFunCode g' g -> FinMemFun g' LevTy f -> FinMemFun g LevTy f ->
+  SR.LEdgeVal2 k G A0 f ->
+  SR.LAppVal2 k G M A0 f g -> SR.LAppVal2 k G M A0 f g'
+restrictLAppVal2-sel k mp G M A0 f g g' cf cg cg' allU le fmg' fmg lEV lav
+  u' v' sel' an l lel' =
+  let ctg      = cft-from-cf g cg
+      ctg'     = cft-from-cf g' cg'
+      cu'      = Coherent-Selection sel' ctg'
+      sb       = selectionBelow g u' ctg cu'
+      u_g      = fst sb
+      v_g      = fst (snd sb)
+      sel_g    = fst (snd (snd sb))
+      le-ug    = fst (snd (snd (snd sb)))
+      eq-vg    = snd (snd (snd (snd sb)))
+      cu_g     = Coherent-Selection sel_g ctg
+      lel-g    = LeCode-trans u_g u' (LevEl (codeL G l)) cu_g cu' tt le-ug lel'
+      body     = lav u_g v_g sel_g an l lel-g
+      le-ef    = EvalFun-mon-arg f u_g u' le-ug cf cu_g cu'
+      c-efug   = Coherent-EvalFun f u_g cf cu_g
+      c-efu'   = Coherent-EvalFun f u' cf cu'
+      fmem-vg-efug = FinMem-Selection-codomain LevTy f sel_g fmg ctg cf allU
+      efuU'    = EvalFun-in-UCode f u' LevTy cf cu' allU
+      fmem-vg-efu' = finMem-upward v_g (EvalFun f u_g) (EvalFun f u')
+                        le-ef c-efug c-efu' fmem-vg-efug efuU'
+      vty-efu' = LEdge-at-EvalFun k G A0 f u' l cf cu' lel' lEV
+      body2    = upVal2 _ _ (lsub1 A0 l) v_g (EvalFun f u_g) (EvalFun f u') le-ef
+                   fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
+      le-v'-efgu' = Selection-le-EvalFun g sel' le ctg' ctg cu'
+      le-v'-vg = Eq-transport (LeCode v') eq-vg le-v'-efgu'
+      fmem-v'-efu' = FinMem-Selection-codomain LevTy f sel' fmg' ctg' cf allU
+  in restrictVal2 _ _ (lsub1 A0 l) v_g v' (EvalFun f u')
+       le-v'-vg fmem-v'-efu' fmem-vg-efu' body2
+  where open MonoPack mp
+
+restrictLAppEqVal2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M N A0 : Expr n)
+  (f g g' : FinFun) ->
+  CoherentFunTail f -> CoherentFun g -> CoherentFun g' ->
+  FinMemAllU f LevTy ->
+  LeFunCode g' g -> FinMemFun g' LevTy f -> FinMemFun g LevTy f ->
+  SR.LEdgeVal2 k G A0 f ->
+  SR.LAppEqVal2 k G M N A0 f g -> SR.LAppEqVal2 k G M N A0 f g'
+restrictLAppEqVal2-sel k mp G M N A0 f g g' cf cg cg' allU le fmg' fmg lEV laev
+  u' v' sel' an1 an2 l lel' =
+  let ctg      = cft-from-cf g cg
+      ctg'     = cft-from-cf g' cg'
+      cu'      = Coherent-Selection sel' ctg'
+      sb       = selectionBelow g u' ctg cu'
+      u_g      = fst sb
+      v_g      = fst (snd sb)
+      sel_g    = fst (snd (snd sb))
+      le-ug    = fst (snd (snd (snd sb)))
+      eq-vg    = snd (snd (snd (snd sb)))
+      cu_g     = Coherent-Selection sel_g ctg
+      lel-g    = LeCode-trans u_g u' (LevEl (codeL G l)) cu_g cu' tt le-ug lel'
+      body     = laev u_g v_g sel_g an1 an2 l lel-g
+      le-ef    = EvalFun-mon-arg f u_g u' le-ug cf cu_g cu'
+      c-efug   = Coherent-EvalFun f u_g cf cu_g
+      c-efu'   = Coherent-EvalFun f u' cf cu'
+      fmem-vg-efug = FinMem-Selection-codomain LevTy f sel_g fmg ctg cf allU
+      efuU'    = EvalFun-in-UCode f u' LevTy cf cu' allU
+      fmem-vg-efu' = finMem-upward v_g (EvalFun f u_g) (EvalFun f u')
+                        le-ef c-efug c-efu' fmem-vg-efug efuU'
+      vty-efu' = LEdge-at-EvalFun k G A0 f u' l cf cu' lel' lEV
+      body2    = upEqVal2 _ _ _ (lsub1 A0 l) v_g (EvalFun f u_g) (EvalFun f u') le-ef
+                   fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
+      le-v'-efgu' = Selection-le-EvalFun g sel' le ctg' ctg cu'
+      le-v'-vg = Eq-transport (LeCode v') eq-vg le-v'-efgu'
+      fmem-v'-efu' = FinMem-Selection-codomain LevTy f sel' fmg' ctg' cf allU
+  in restrictEqVal2 _ _ _ (lsub1 A0 l) v_g v' (EvalFun f u')
+       le-v'-vg fmem-v'-efu' fmem-vg-efu' body2
+  where open MonoPack mp
+
+-- the level-variation analogues
+
+downLAppLvl2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n)
+  (f0 f1 g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g -> FinMemFun g LevTy f0 ->
+  FinMemAllU f0 LevTy -> FinMemAllU f1 LevTy -> LeFunCode f0 f1 ->
+  SR.LAppLvl2 k G M A0 f1 g -> SR.LAppLvl2 k G M A0 f0 g
+downLAppLvl2 k mp G M A0 f0 f1 g cf0 cf1 cg fmg0 allU0 allU1 le laev
+  = \ u v sel an1 an2 l l' e lel ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          body  = laev u v sel an1 an2 l l' e lel
+          le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu le
+          c-ef0 = Coherent-EvalFun f0 u cf0 cu
+          ef1U  = EvalFun-in-UCode f1 u LevTy cf1 cu allU1
+          fmem-v = FinMem-Selection-codomain LevTy f0 sel fmg0 ctg cf0 allU0
+      in downEqVal2 _ _ _ (lsub1 A0 l) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v c-ef0 ef1U body
+  where open MonoPack mp
+
+upLAppLvl2 : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n)
+  (f0 f1 g : FinFun) ->
+  CoherentFunTail f0 -> CoherentFunTail f1 -> CoherentFun g ->
+  FinMemAllU f0 LevTy -> FinMemAllU f1 LevTy -> LeFunCode f0 f1 ->
+  FinMemFun g LevTy f0 ->
+  SR.LEdgeVal2 k G A0 f1 ->
+  SR.LAppLvl2 k G M A0 f0 g -> SR.LAppLvl2 k G M A0 f1 g
+upLAppLvl2 k mp G M A0 f0 f1 g cf0 cf1 cg allU0 allU1 le fmg0 lEV1 laev
+  = \ u v sel an1 an2 l l' e lel ->
+      let ctg   = cft-from-cf g cg
+          cu    = Coherent-Selection sel ctg
+          body  = laev u v sel an1 an2 l l' e lel
+          le-f  = EvalFun-mon f0 f1 u cf0 cf1 cu le
+          c-ef0 = Coherent-EvalFun f0 u cf0 cu
+          c-ef1 = Coherent-EvalFun f1 u cf1 cu
+          fmem-v-f0 = FinMem-Selection-codomain LevTy f0 sel fmg0 ctg cf0 allU0
+          ef1U  = EvalFun-in-UCode f1 u LevTy cf1 cu allU1
+          vty-ef1 = LEdge-at-EvalFun k G A0 f1 u l cf1 cu lel lEV1
+      in upEqVal2 _ _ _ (lsub1 A0 l) v (EvalFun f0 u) (EvalFun f1 u) le-f fmem-v-f0
+           (finMem-upward v (EvalFun f0 u) (EvalFun f1 u) le-f c-ef0 c-ef1 fmem-v-f0 ef1U)
+           c-ef0 c-ef1 body vty-ef1
+  where open MonoPack mp
+
+transportLEdgeLvl2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (A : Expr n)
+  (f0 f1 : FinFun) -> LeFunCode f0 f1 ->
+  FinMemAllU f0 LevTy -> CoherentFunTail f0 -> CoherentFunTail f1 -> FinMemAllU f1 LevTy ->
+  SR.LEdgeLvl2 k G A f1 -> SR.LEdgeLvl2 k G A f0
+transportLEdgeLvl2-sel k mp G A f0 f1 lef allU0 cf0 cf1 allU1 let1
+  = \ u v sel l l' e lel ->
+      let cu    = Coherent-Selection sel cf0
+          sb1   = selectionBelow f1 u cf1 cu
+          u1    = fst sb1
+          v1    = fst (snd sb1)
+          sel1  = fst (snd (snd sb1))
+          le-u1 = fst (snd (snd (snd sb1)))
+          eq-v1 = snd (snd (snd (snd sb1)))
+          lel1  = LeCode-trans u1 u (LevEl (codeL G l)) (Coherent-Selection sel1 cf1) cu tt le-u1 lel
+          eqt-v1  = let1 u1 v1 sel1 l l' e lel1
+          le-v-ef = Selection-le-EvalFun f1 sel lef cf0 cf1 cu
+          le-v-v1 = Eq-transport (LeCode v) eq-v1 le-v-ef
+          fmem-v-U = FinMem-Selection-UCode LevTy sel allU0 cf0
+          v1U = Eq-transport (\ x -> FinMem x U0) eq-v1
+                  (EvalFun-in-UCode f1 u LevTy cf1 cu allU1)
+      in downEqValTy2 G (lsub1 A l) (lsub1 A l') v v1 le-v-v1 fmem-v-U v1U eqt-v1
+  where open MonoPack mp
+
+restrictLAppLvl2-sel : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M A0 : Expr n)
+  (f g g' : FinFun) ->
+  CoherentFunTail f -> CoherentFun g -> CoherentFun g' ->
+  FinMemAllU f LevTy ->
+  LeFunCode g' g -> FinMemFun g' LevTy f -> FinMemFun g LevTy f ->
+  SR.LEdgeVal2 k G A0 f ->
+  SR.LAppLvl2 k G M A0 f g -> SR.LAppLvl2 k G M A0 f g'
+restrictLAppLvl2-sel k mp G M A0 f g g' cf cg cg' allU le fmg' fmg lEV laev
+  u' v' sel' an1 an2 l l' e lel' =
+  let ctg      = cft-from-cf g cg
+      ctg'     = cft-from-cf g' cg'
+      cu'      = Coherent-Selection sel' ctg'
+      sb       = selectionBelow g u' ctg cu'
+      u_g      = fst sb
+      v_g      = fst (snd sb)
+      sel_g    = fst (snd (snd sb))
+      le-ug    = fst (snd (snd (snd sb)))
+      eq-vg    = snd (snd (snd (snd sb)))
+      cu_g     = Coherent-Selection sel_g ctg
+      lel-g    = LeCode-trans u_g u' (LevEl (codeL G l)) cu_g cu' tt le-ug lel'
+      body     = laev u_g v_g sel_g an1 an2 l l' e lel-g
+      le-ef    = EvalFun-mon-arg f u_g u' le-ug cf cu_g cu'
+      c-efug   = Coherent-EvalFun f u_g cf cu_g
+      c-efu'   = Coherent-EvalFun f u' cf cu'
+      fmem-vg-efug = FinMem-Selection-codomain LevTy f sel_g fmg ctg cf allU
+      efuU'    = EvalFun-in-UCode f u' LevTy cf cu' allU
+      fmem-vg-efu' = finMem-upward v_g (EvalFun f u_g) (EvalFun f u')
+                        le-ef c-efug c-efu' fmem-vg-efug efuU'
+      vty-efu' = LEdge-at-EvalFun k G A0 f u' l cf cu' lel' lEV
+      body2    = upEqVal2 _ _ _ (lsub1 A0 l) v_g (EvalFun f u_g) (EvalFun f u') le-ef
+                   fmem-vg-efug fmem-vg-efu' c-efug c-efu' body vty-efu'
+      le-v'-efgu' = Selection-le-EvalFun g sel' le ctg' ctg cu'
+      le-v'-vg = Eq-transport (LeCode v') eq-vg le-v'-efgu'
+      fmem-v'-efu' = FinMem-Selection-codomain LevTy f sel' fmg' ctg' cf allU
+  in restrictEqVal2 _ _ _ (lsub1 A0 l) v_g v' (EvalFun f u')
+       le-v'-vg fmem-v'-efu' fmem-vg-efu' body2
+  where open MonoPack mp
+
+restrictVal2-LPiCode : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M T : Expr n) (g g' : FinFun)
+  (f : FinFun) ->
+  CoherentFunTail f -> FinMemAllU f LevTy ->
+  LeFunCode g' g ->
+  Pair (FinMemFun g' LevTy f) (CoherentFun g') ->
+  SR.RValTyLPi k G T f ->
+  SR.RValLPi k G M T g f ->
+  SR.RValLPi k G M T g' f
+restrictVal2-LPiCode k mp G M T g g' f cf allU le mem' vtyT vpiM =
+  let cg'  = snd mem'
+      fmg' = fst mem'
+      uniq = Red3-unique-LPi (RValLPi.red vpiM) (RValTyLPi.red vtyT)
+      lEV : SR.LEdgeVal2 k G (RValLPi.domA0 vpiM) f
+      lEV = Eq-transport (\ X -> SR.LEdgeVal2 k G X f) (Eq-sym uniq) (RValTyLPi.edgeV vtyT)
+  in record
+    { domA0 = RValLPi.domA0 vpiM
+    ; red   = RValLPi.red vpiM
+    ; cohG  = cg'
+    ; fmG   = fmg'
+    ; appV  = restrictLAppVal2-sel k mp G M (RValLPi.domA0 vpiM) f g g' cf (RValLPi.cohG vpiM) cg' allU
+                le fmg' (RValLPi.fmG vpiM) lEV (RValLPi.appV vpiM)
+    ; appLE = restrictLAppLvl2-sel k mp G M (RValLPi.domA0 vpiM) f g g' cf (RValLPi.cohG vpiM) cg' allU
+                le fmg' (RValLPi.fmG vpiM) lEV (RValLPi.appLE vpiM)
+    }
+  where open SR k
+
+restrictEqVal2-LPiCode : (k : Nat) (mp : MonoPack k) {n : Nat} (G : Ctx n) (M N T : Expr n) (g g' : FinFun)
+  (f : FinFun) ->
+  CoherentFunTail f -> FinMemAllU f LevTy ->
+  LeFunCode g' g ->
+  Pair (FinMemFun g' LevTy f) (CoherentFun g') ->
+  SR.RValTyLPi k G T f ->
+  SR.REqValLPi k G M N T g f ->
+  SR.REqValLPi k G M N T g' f
+restrictEqVal2-LPiCode k mp G M N T g g' f cf allU le mem' vtyT epi =
+  let cg'  = snd mem'
+      fmg' = fst mem'
+      uniq = Red3-unique-LPi (REqValLPi.red epi) (RValTyLPi.red vtyT)
+      lEV : SR.LEdgeVal2 k G (REqValLPi.domA0 epi) f
+      lEV = Eq-transport (\ X -> SR.LEdgeVal2 k G X f) (Eq-sym uniq) (RValTyLPi.edgeV vtyT)
+  in record
+    { domA0 = REqValLPi.domA0 epi
+    ; red   = REqValLPi.red epi
+    ; cohG  = cg'
+    ; fmG   = fmg'
+    ; appEV = restrictLAppEqVal2-sel k mp G M N (REqValLPi.domA0 epi) f g g' cf (REqValLPi.cohG epi) cg' allU
+                le fmg' (REqValLPi.fmG epi) lEV (REqValLPi.appEV epi)
+    }
+  where open SR k
+
+------------------------------------------------------------------------
+-- goodStage : the property package at every stage, by induction on k.
+------------------------------------------------------------------------
+
+goodStage : (k : Nat) -> MonoPack k
+goodStage zero = record
+  { downVal2       = \ G M T u a0 a1 le mem ca0 ca1 src -> tt
+  ; downEqVal2     = \ G M N T u a0 a1 le mem ca0 ca1 src -> tt
+  ; downValTy2     = \ G M u0 u1 le fm0 fm1 src -> tt
+  ; downEqValTy2   = \ G M N u0 u1 le fm0 fm1 src -> tt
+  ; upVal2         = \ G M T u a0 a1 le m0 m1 c0 c1 src vt -> tt
+  ; upEqVal2       = \ G M N T u a0 a1 le m0 m1 c0 c1 src vt -> tt
+  ; restrictVal2   = \ G M T u u' a le m fm src -> tt
+  ; restrictEqVal2 = \ G M N T u u' a le m fm src -> tt
+  ; Val2-from-EqVal2-first = \ u a ev -> tt
+  ; Val2-from-EqVal2-second = \ u a ev -> tt
+  }
+goodStage (suc n) = record
+  { downVal2 = dV ; downEqVal2 = dEV ; downValTy2 = dVT ; downEqValTy2 = dEVT
+  ; upVal2 = uV ; upEqVal2 = uEV ; restrictVal2 = rV ; restrictEqVal2 = rEV
+  ; Val2-from-EqVal2-first = vfe1 ; Val2-from-EqVal2-second = vfe2
+  }
+  where
+    ih : MonoPack n
+    ih = goodStage n
+    open SR n
+    ihdVT  = MonoPack.downValTy2 ih
+    ihdEVT = MonoPack.downEqValTy2 ih
+
+    dV : {m : Nat} (G : Ctx m) (M T : Expr m) (u a0 a1 : FinEl) ->
+      LeCode a0 a1 -> FinMem u a0 -> Coherent a0 -> FinMem a1 U0 ->
+      Vl (suc n) G M T u a1 -> Vl (suc n) G M T u a0
+    dEV : {m : Nat} (G : Ctx m) (M N T : Expr m) (u a0 a1 : FinEl) ->
+      LeCode a0 a1 -> FinMem u a0 -> Coherent a0 -> FinMem a1 U0 ->
+      EVl (suc n) G M N T u a1 -> EVl (suc n) G M N T u a0
+    dVT : {m : Nat} (G : Ctx m) (M : Expr m) (u0 u1 : FinEl) ->
+      LeCode u0 u1 -> FinMem u0 U0 -> FinMem u1 U0 ->
+      VTy (suc n) G M u1 -> VTy (suc n) G M u0
+    dEVT : {m : Nat} (G : Ctx m) (M N : Expr m) (u0 u1 : FinEl) ->
+      LeCode u0 u1 -> FinMem u0 U0 -> FinMem u1 U0 ->
+      EVTy (suc n) G M N u1 -> EVTy (suc n) G M N u0
+    uV : {m : Nat} (G : Ctx m) (M T : Expr m) (u a0 a1 : FinEl) ->
+      LeCode a0 a1 -> FinMem u a0 -> FinMem u a1 -> Coherent a0 -> Coherent a1 ->
+      Vl (suc n) G M T u a0 -> VTy (suc n) G T a1 -> Vl (suc n) G M T u a1
+    uEV : {m : Nat} (G : Ctx m) (M N T : Expr m) (u a0 a1 : FinEl) ->
+      LeCode a0 a1 -> FinMem u a0 -> FinMem u a1 -> Coherent a0 -> Coherent a1 ->
+      EVl (suc n) G M N T u a0 -> VTy (suc n) G T a1 -> EVl (suc n) G M N T u a1
+    rV : {m : Nat} (G : Ctx m) (M T : Expr m) (u u' a : FinEl) ->
+      LeCode u' u -> FinMem u' a -> FinMem u a ->
+      Vl (suc n) G M T u a -> Vl (suc n) G M T u' a
+    rEV : {m : Nat} (G : Ctx m) (M N T : Expr m) (u u' a : FinEl) ->
+      LeCode u' u -> FinMem u' a -> FinMem u a ->
+      EVl (suc n) G M N T u a -> EVl (suc n) G M N T u' a
+    vfe1 : {m : Nat} {G : Ctx m} {M N A : Expr m}
+      (u a : FinEl) -> EVl (suc n) G M N A u a -> Vl (suc n) G M A u a
+    vfe2 : {m : Nat} {G : Ctx m} {M N A : Expr m}
+      (u a : FinEl) -> EVl (suc n) G M N A u a -> Vl (suc n) G N A u a
+
+    -- downVal2
+    dV G M T u Bot          a1             le mem ca0 ca1 src = tt
+    dV G M T u (UCode lu)        Bot            ()
+    dV G M T u (UCode lu)        (UCode lv)          le mem ca0 ca1 src =
+      U-tr (\ k -> Vl (suc n) G M T u (UCode k)) lv lu (EqL-sym lu lv le) src
+    dV G M T u (UCode lu)        (FunEl h)      ()
+    dV G M T u (UCode lu)        (PiCode b f)   ()
+    dV G M T u (FunEl g)    Bot            le mem ca0 ca1 src = tt
+    dV G M T u (FunEl g)    (UCode lu)          le mem ca0 ca1 src = tt
+    dV G M T u (FunEl g)    (FunEl h)      le mem ca0 ca1 src = tt
+    dV G M T u (FunEl g)    (PiCode b f)   le mem ca0 ca1 src = tt
+    dV G M T u (PiCode b0 f0) Bot          ()
+    dV G M T u (PiCode b0 f0) (UCode lu)        ()
+    dV G M T u (PiCode b0 f0) (FunEl h)    ()
+    dV G M T Bot            (PiCode b0 f0) (PiCode b1 f1) le mem ca0 ca1 src = tt
+    dV G M T (UCode lu)          (PiCode b0 f0) (PiCode b1 f1) le ()
+    dV G M T (FunEl g)      (PiCode b0 f0) (PiCode b1 f1) le mem ca0 ca1 src =
+      let vty  = fst src
+          vpiM = snd src
+          fmem-pf = FinMem-a-in-U (FunEl g) (PiCode b0 f0) mem
+          cf0   = snd ca0
+          cb0   = fst ca0
+          b1U   = finMem-piU-dom b1 f1 ca1
+          cb1   = coh-from-aU b1 b1U
+          allU1 = finMem-piU-allU b1 f1 ca1
+          b0U   = finMem-piU-dom b0 f0 fmem-pf
+          allU0 = finMem-piU-allU b0 f0 fmem-pf
+          vty'  = dVT G T (PiCode b0 f0) (PiCode b1 f1) le fmem-pf ca1 vty
+          vtAb1 : VTy n G (RValPi.domA0 vpiM) b1
+          vtAb1 = Eq-transport (\ X -> VTy n G X b1) (Eq-sym (fst (Red3-unique-Pi (RValPi.red vpiM) (RValTyPi.red vty))))
+                     (RValTyPi.valA vty)
+          vpi' = record
+            { domA0 = RValPi.domA0 vpiM
+            ; codB0 = RValPi.codB0 vpiM
+            ; red   = RValPi.red vpiM
+            ; cohG  = RValPi.cohG vpiM
+            ; fmG   = finMem-funel-fun g b0 f0 mem
+            ; appV  = downPiAppVal2 n ih G M (RValPi.domA0 vpiM) (RValPi.codB0 vpiM) b0 f0 b1 f1 g cf0 (snd (snd ca1)) (RValPi.cohG vpiM) (finMem-funel-fun g b0 f0 mem)
+                        cb0 cb1 b1U b0U allU0 allU1 le (RValPi.fmG vpiM) vtAb1 (RValPi.appV vpiM)
+            ; appE  = downPiAppEq2 n ih G M (RValPi.domA0 vpiM) (RValPi.codB0 vpiM) b0 f0 b1 f1 g cf0 (snd (snd ca1)) (RValPi.cohG vpiM) (finMem-funel-fun g b0 f0 mem)
+                        cb0 cb1 b1U b0U allU0 allU1 le (RValPi.fmG vpiM) vtAb1 (RValPi.appE vpiM)
+            }
+      in mkSigma vty' vpi'
+    dV G M T (PiCode a' ff) (PiCode b0 f0) (PiCode b1 f1) le ()
+    dV G M T u LevTy     a1 le mem ca0 ca1 src = tt
+    dV G M T u (LevEl k) a1 le mem ca0 ca1 src = tt
+    dV G M T Bot (LPiCode f0) (LPiCode f1) le mem ca0 ca1 src = tt
+    dV G M T (FunEl g) (LPiCode f0) (LPiCode f1) le mem ca0 ca1 src =
+      let vty  = fst src
+          vpiM = snd src
+          fmem-pf = FinMem-a-in-U (FunEl g) (LPiCode f0) mem
+          cf0   = ca0
+          cf1   = finMem-LpiU-cft f1 ca1
+          allU1 = finMem-LpiU-allU f1 ca1
+          allU0 = finMem-LpiU-allU f0 fmem-pf
+          vty'  = dVT G T (LPiCode f0) (LPiCode f1) le fmem-pf ca1 vty
+          vpi' = record
+            { domA0 = RValLPi.domA0 vpiM
+            ; red   = RValLPi.red vpiM
+            ; cohG  = RValLPi.cohG vpiM
+            ; fmG   = finMem-Lfunel-fun g f0 mem
+            ; appV  = downLAppVal2 n ih G M (RValLPi.domA0 vpiM) f0 f1 g cf0 cf1 (RValLPi.cohG vpiM)
+                        (finMem-Lfunel-fun g f0 mem) allU0 allU1 le (RValLPi.appV vpiM)
+            ; appLE = downLAppLvl2 n ih G M (RValLPi.domA0 vpiM) f0 f1 g cf0 cf1 (RValLPi.cohG vpiM)
+                        (finMem-Lfunel-fun g f0 mem) allU0 allU1 le (RValLPi.appLE vpiM)
+            }
+      in mkSigma vty' vpi'
+
+    -- downEqVal2
+    dEV G M N T u Bot          a1             le mem ca0 ca1 src = tt
+    dEV G M N T u (UCode lu)        Bot            ()
+    dEV G M N T u (UCode lu)        (UCode lv)          le mem ca0 ca1 src =
+      U-tr (\ k -> EVl (suc n) G M N T u (UCode k)) lv lu (EqL-sym lu lv le) src
+    dEV G M N T u (UCode lu)        (FunEl h)      ()
+    dEV G M N T u (UCode lu)        (PiCode b f)   ()
+    dEV G M N T u (FunEl g)    Bot            le mem ca0 ca1 src = tt
+    dEV G M N T u (FunEl g)    (UCode lu)          le mem ca0 ca1 src = tt
+    dEV G M N T u (FunEl g)    (FunEl h)      le mem ca0 ca1 src = tt
+    dEV G M N T u (FunEl g)    (PiCode b f)   le mem ca0 ca1 src = tt
+    dEV G M N T u (PiCode b0 f0) Bot          ()
+    dEV G M N T u (PiCode b0 f0) (UCode lu)        ()
+    dEV G M N T u (PiCode b0 f0) (FunEl h)    ()
+    dEV G M N T Bot            (PiCode b0 f0) (PiCode b1 f1) le mem ca0 ca1 src = tt
+    dEV G M N T (UCode lu)          (PiCode b0 f0) (PiCode b1 f1) le ()
+    dEV G M N T (FunEl g)      (PiCode b0 f0) (PiCode b1 f1) le mem ca0 ca1 src =
+      let vty   = fst src
+          vpiM  = fst (snd src)
+          vpiN  = fst (snd (snd src))
+          epi   = snd (snd (snd src))
+          fmem-pf = FinMem-a-in-U (FunEl g) (PiCode b0 f0) mem
+          cf0   = snd ca0
+          cb0   = fst ca0
+          b1U   = finMem-piU-dom b1 f1 ca1
+          cb1   = coh-from-aU b1 b1U
+          allU1 = finMem-piU-allU b1 f1 ca1
+          b0U   = finMem-piU-dom b0 f0 fmem-pf
+          allU0 = finMem-piU-allU b0 f0 fmem-pf
+          vtAb1 : VTy n G (REqValPi.domA0 epi) b1
+          vtAb1 = Eq-transport (\ X -> VTy n G X b1) (Eq-sym (fst (Red3-unique-Pi (REqValPi.red epi) (RValTyPi.red vty))))
+                     (RValTyPi.valA vty)
+          valM  = mkSigma vty vpiM
+          valN  = mkSigma vty vpiN
+          valM' = dV G M T (FunEl g) (PiCode b0 f0) (PiCode b1 f1) le mem ca0 ca1 valM
+          valN' = dV G N T (FunEl g) (PiCode b0 f0) (PiCode b1 f1) le mem ca0 ca1 valN
+          epi'  = record
+            { domA0 = REqValPi.domA0 epi
+            ; codB0 = REqValPi.codB0 epi
+            ; red   = REqValPi.red epi
+            ; cohG  = REqValPi.cohG epi
+            ; fmG   = finMem-funel-fun g b0 f0 mem
+            ; appEV = downPiAppEqVal2 n ih G M N (REqValPi.domA0 epi) (REqValPi.codB0 epi) b0 f0 b1 f1 g cf0 (snd (snd ca1)) (REqValPi.cohG epi) (finMem-funel-fun g b0 f0 mem)
+                        cb0 cb1 b1U b0U allU0 allU1 le (REqValPi.fmG epi) vtAb1 (REqValPi.appEV epi)
+            }
+      in mkSigma (fst valM') (mkSigma (snd valM') (mkSigma (snd valN') epi'))
+    dEV G M N T (PiCode a' ff) (PiCode b0 f0) (PiCode b1 f1) le ()
+    dEV G M N T u LevTy     a1 le mem ca0 ca1 src = tt
+    dEV G M N T u (LevEl k) a1 le mem ca0 ca1 src = tt
+    dEV G M N T Bot (LPiCode f0) (LPiCode f1) le mem ca0 ca1 src = tt
+    dEV G M N T (FunEl g) (LPiCode f0) (LPiCode f1) le mem ca0 ca1 src =
+      let vty   = fst src
+          vpiM  = fst (snd src)
+          vpiN  = fst (snd (snd src))
+          epi   = snd (snd (snd src))
+          fmem-pf = FinMem-a-in-U (FunEl g) (LPiCode f0) mem
+          cf0   = ca0
+          cf1   = finMem-LpiU-cft f1 ca1
+          allU1 = finMem-LpiU-allU f1 ca1
+          allU0 = finMem-LpiU-allU f0 fmem-pf
+          valM  = mkSigma vty vpiM
+          valN  = mkSigma vty vpiN
+          valM' = dV G M T (FunEl g) (LPiCode f0) (LPiCode f1) le mem ca0 ca1 valM
+          valN' = dV G N T (FunEl g) (LPiCode f0) (LPiCode f1) le mem ca0 ca1 valN
+          epi'  = record
+            { domA0 = REqValLPi.domA0 epi
+            ; red   = REqValLPi.red epi
+            ; cohG  = REqValLPi.cohG epi
+            ; fmG   = finMem-Lfunel-fun g f0 mem
+            ; appEV = downLAppEqVal2 n ih G M N (REqValLPi.domA0 epi) f0 f1 g cf0 cf1 (REqValLPi.cohG epi)
+                        (finMem-Lfunel-fun g f0 mem) allU0 allU1 le (REqValLPi.appEV epi)
+            }
+      in mkSigma (fst valM') (mkSigma (snd valM') (mkSigma (snd valN') epi'))
+
+    -- downValTy2
+    dVT G M Bot          u1             le fmem cu1 src = tt
+    dVT G M (UCode lu)        Bot            ()
+    dVT G M (UCode lu)        (UCode lv)          le fmem cu1 src =
+      U-tr (\ k -> VTy (suc n) G M (UCode k)) lv lu (EqL-sym lu lv le) src
+    dVT G M (UCode lu)        (FunEl h)      ()
+    dVT G M (UCode lu)        (PiCode b f)   ()
+    dVT G M (FunEl g)    u1             le ()
+    dVT G M (PiCode b0 f0) Bot          ()
+    dVT G M (PiCode b0 f0) (UCode lu)        ()
+    dVT G M (PiCode b0 f0) (FunEl h)    ()
+    dVT G M (PiCode b0 f0) (PiCode b1 f1) le fmem cu1 src =
+      let fmem-b0  = finMem-piU-dom b0 f0 fmem
+          fmemAll0 = finMem-piU-allU b0 f0 fmem
+          sat0     = finMem-piU-cft b0 f0 fmem
+          cu1-b1   = finMem-piU-dom b1 f1 cu1
+          cb1   = coh-from-aU b1 cu1-b1
+          cb0   = coh-from-aU b0 fmem-b0
+          vtA-b1 = RValTyPi.valA src
+          vtA-b0 = ihdVT G (RValTyPi.domA src) b0 b1 (fst le) fmem-b0 cu1-b1 vtA-b1
+          piEV0  = transportPiEdgeVal2-sel n ih G (RValTyPi.domA src) (RValTyPi.codB src) b0 f0 b1 f1
+                     cb0 cb1 cu1-b1 fmem-b0 (fst le) (snd le) fmemAll0 sat0 (RValTyPi.cohF src) (RValTyPi.fmAllU src) vtA-b1 (RValTyPi.edgeV src)
+          piEE0  = transportPiEdgeEq2-sel n ih G (RValTyPi.domA src) (RValTyPi.codB src) b0 f0 b1 f1
+                     cb0 cb1 cu1-b1 fmem-b0 (fst le) (snd le) fmemAll0 sat0 (RValTyPi.cohF src) (RValTyPi.fmAllU src) vtA-b1 (RValTyPi.edgeE src)
+      in record
+        { domA   = RValTyPi.domA src
+        ; codB   = RValTyPi.codB src
+        ; red    = RValTyPi.red src
+        ; cohF   = sat0
+        ; fmAllU = fmemAll0
+        ; htA    = RValTyPi.htA src
+        ; htB    = RValTyPi.htB src
+        ; valA   = vtA-b0
+        ; edgeV  = piEV0
+        ; edgeE  = piEE0
+        }
+
+    dVT G M LevTy u1 le fmem cu1 src = tt
+    dVT G M (LPiCode f0) (LPiCode f1) le fmem cu1 src =
+      let fmemAll0 = finMem-LpiU-allU f0 fmem
+          sat0     = finMem-LpiU-cft f0 fmem
+      in record
+        { domA   = RValTyLPi.domA src
+        ; red    = RValTyLPi.red src
+        ; cohF   = sat0
+        ; fmAllU = fmemAll0
+        ; htA    = RValTyLPi.htA src
+        ; edgeV  = transportLEdgeVal2-sel n ih G (RValTyLPi.domA src) f0 f1 le fmemAll0 sat0
+                     (RValTyLPi.cohF src) (RValTyLPi.fmAllU src) (RValTyLPi.edgeV src)
+        ; edgeLE = transportLEdgeLvl2-sel n ih G (RValTyLPi.domA src) f0 f1 le fmemAll0 sat0
+                     (RValTyLPi.cohF src) (RValTyLPi.fmAllU src) (RValTyLPi.edgeLE src)
+        }
+
+    -- downEqValTy2
+    dEVT G M N Bot          u1             le fmem cu1 src = tt
+    dEVT G M N (UCode lu)        Bot            ()
+    dEVT G M N (UCode lu)        (UCode lv)          le fmem cu1 src =
+      U-tr (\ k -> EVTy (suc n) G M N (UCode k)) lv lu (EqL-sym lu lv le) src
+    dEVT G M N (UCode lu)        (FunEl h)      ()
+    dEVT G M N (UCode lu)        (PiCode b f)   ()
+    dEVT G M N (FunEl g)    u1             le ()
+    dEVT G M N (PiCode b0 f0) Bot          ()
+    dEVT G M N (PiCode b0 f0) (UCode lu)        ()
+    dEVT G M N (PiCode b0 f0) (FunEl h)    ()
+    dEVT G M N (PiCode b0 f0) (PiCode b1 f1) le fmem cu1 src =
+      let vtyM1  = fst src
+          vtyN1  = fst (snd src)
+          core   = snd (snd src)
+          fmem-b0  = finMem-piU-dom b0 f0 fmem
+          fmemAll0 = finMem-piU-allU b0 f0 fmem
+          sat0     = finMem-piU-cft b0 f0 fmem
+          cu1-b1   = finMem-piU-dom b1 f1 cu1
+          cb1   = coh-from-aU b1 cu1-b1
+          cb0   = coh-from-aU b0 fmem-b0
+          uniqM  = Red3-unique-Pi (RValTyPi.red vtyM1) (REqValTyPi.redM core)
+          eqAMA  = fst uniqM
+          vtA-b1 = Eq-transport (\ X -> VTy n G X b1) eqAMA (RValTyPi.valA vtyM1)
+          eqvty0  = ihdEVT G (REqValTyPi.domA core) (REqValTyPi.domA' core) b0 b1 (fst le) fmem-b0 cu1-b1 (REqValTyPi.eqA core)
+          piEEqT0 = transportPiEdgeEqTy2-sel n ih G (REqValTyPi.domA core) (REqValTyPi.codB core) (REqValTyPi.codB' core) b0 f0 b1 f1
+                      cb0 cb1 cu1-b1 fmem-b0 (fst le) (snd le) fmemAll0 sat0 (REqValTyPi.cohF core) (REqValTyPi.fmAllU core) vtA-b1 (REqValTyPi.edgeET core)
+          vtyM0  = dVT G M (PiCode b0 f0) (PiCode b1 f1) le fmem cu1 vtyM1
+          vtyN0  = dVT G N (PiCode b0 f0) (PiCode b1 f1) le fmem cu1 vtyN1
+          core0  = record
+            { domA = REqValTyPi.domA core ; codB = REqValTyPi.codB core
+            ; domA' = REqValTyPi.domA' core ; codB' = REqValTyPi.codB' core
+            ; redM = REqValTyPi.redM core ; redN = REqValTyPi.redN core
+            ; cohF = sat0 ; fmAllU = fmemAll0
+            ; convA = REqValTyPi.convA core ; convB = REqValTyPi.convB core
+            ; eqA = eqvty0 ; edgeET = piEEqT0
+            }
+      in mkSigma vtyM0 (mkSigma vtyN0 core0)
+
+    dEVT G M N LevTy u1 le fmem cu1 src = tt
+    dEVT G M N (LPiCode f0) (LPiCode f1) le fmem cu1 src =
+      let vtyM1  = fst src
+          vtyN1  = fst (snd src)
+          core   = snd (snd src)
+          fmemAll0 = finMem-LpiU-allU f0 fmem
+          sat0     = finMem-LpiU-cft f0 fmem
+          vtyM0  = dVT G M (LPiCode f0) (LPiCode f1) le fmem cu1 vtyM1
+          vtyN0  = dVT G N (LPiCode f0) (LPiCode f1) le fmem cu1 vtyN1
+          core0  = record
+            { domA = REqValTyLPi.domA core ; domA' = REqValTyLPi.domA' core
+            ; redM = REqValTyLPi.redM core ; redN = REqValTyLPi.redN core
+            ; cohF = sat0 ; fmAllU = fmemAll0
+            ; convA = REqValTyLPi.convA core
+            ; edgeET = transportLEdgeEqTy2-sel n ih G (REqValTyLPi.domA core) (REqValTyLPi.domA' core) f0 f1 le
+                         fmemAll0 sat0 (REqValTyLPi.cohF core) (REqValTyLPi.fmAllU core) (REqValTyLPi.edgeET core)
+            }
+      in mkSigma vtyM0 (mkSigma vtyN0 core0)
+
+    -- upVal2
+    uV G M T Bot Bot          Bot             le mem0 mem1 ca0 ca1 src vta1 = src
+    uV G M T Bot Bot          (UCode lu)           le mem0 mem1 ca0 ca1 src vta1 = src
+    uV G M T Bot Bot          (FunEl h)       le mem0 mem1 ca0 ca1 src vta1 = src
+    uV G M T Bot Bot          (PiCode b1 f1)  le mem0 mem1 ca0 ca1 src vta1 = src
+    uV G M T (UCode lu)        Bot a1 le ()
+    uV G M T (FunEl g)    Bot a1 le ()
+    uV G M T (PiCode a f) Bot a1 le ()
+    uV G M T Bot            (UCode lu) (UCode lv) le mem0 mem1 ca0 ca1 src vta1 =
+      U-tr (\ k -> Vl (suc n) G M T Bot (UCode k)) lu lv le src
+    uV G M T (UCode lu)          (UCode lv) (UCode lw) le mem0 mem1 ca0 ca1 src vta1 =
+      U-tr (\ k -> Vl (suc n) G M T (UCode lu) (UCode k)) lv lw le src
+    uV G M T (FunEl g')     (UCode lu) (UCode lv) le ()
+    uV G M T (PiCode a' f') (UCode lu) (UCode lv) le mem0 mem1 ca0 ca1 src vta1 =
+      U-tr (\ k -> Vl (suc n) G M T (PiCode a' f') (UCode k)) lu lv le src
+    uV G M T u (UCode lu) Bot          ()
+    uV G M T u (UCode lu) (FunEl h)    ()
+    uV G M T u (UCode lu) (PiCode b h) ()
+    uV G M T Bot            (FunEl g) Bot            le mem0 mem1 ca0 ca1 src vta1 = src
+    uV G M T Bot            (FunEl g) (UCode lu)          le mem0 mem1 ca0 ca1 src vta1 = src
+    uV G M T Bot            (FunEl g) (FunEl h)      le mem0 mem1 ca0 ca1 src vta1 = src
+    uV G M T Bot            (FunEl g) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 = src
+    uV G M T (UCode lu)          (FunEl g) a1             le ()
+    uV G M T (FunEl g')     (FunEl g) a1             le ()
+    uV G M T (PiCode a' f') (FunEl g) a1             le ()
+    uV G M T u (PiCode b0 f0) Bot       ()
+    uV G M T u (PiCode b0 f0) (UCode lu)     ()
+    uV G M T u (PiCode b0 f0) (FunEl h) ()
+    uV G M T Bot            (PiCode b0 f0) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 = src
+    uV G M T (UCode lu)          (PiCode b0 f0) (PiCode b1 f1) le ()
+    uV G M T (FunEl g)      (PiCode b0 f0) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 =
+      let vty  = fst src
+          vpiM = snd src
+          cf0  = snd ca0
+          cf1  = snd ca1
+          pf0  = finMem-funel-wf g b0 f0 mem0
+          pf1  = finMem-funel-wf g b1 f1 mem1
+          b0U  = finMem-piU-dom b0 f0 pf0
+          b1U  = finMem-piU-dom b1 f1 pf1
+          allU0 = finMem-piU-allU b0 f0 pf0
+          allU1 = finMem-piU-allU b1 f1 pf1
+          cb0  = coh-from-aU b0 b0U
+          cb1  = coh-from-aU b1 b1U
+          uniq = Red3-unique-Pi (RValPi.red vpiM) (RValTyPi.red vta1)
+          piEV1 : PiEdgeVal2 G (RValPi.domA0 vpiM) (RValPi.codB0 vpiM) b1 f1
+          piEV1 = Eq-transport (\ Y -> PiEdgeVal2 G (RValPi.domA0 vpiM) Y b1 f1) (Eq-sym (snd uniq))
+                    (Eq-transport (\ X -> PiEdgeVal2 G X (RValTyPi.codB vta1) b1 f1) (Eq-sym (fst uniq)) (RValTyPi.edgeV vta1))
+          vpi' = record
+            { domA0 = RValPi.domA0 vpiM
+            ; codB0 = RValPi.codB0 vpiM
+            ; red   = RValPi.red vpiM
+            ; cohG  = RValPi.cohG vpiM
+            ; fmG   = finMem-funel-fun g b1 f1 mem1
+            ; appV  = upPiAppVal2 n ih G M (RValPi.domA0 vpiM) (RValPi.codB0 vpiM) b0 f0 b1 f1 g cf0 cf1 (RValPi.cohG vpiM) cb0 cb1 b1U allU1 b0U allU0 le
+                        (finMem-funel-fun g b0 f0 mem0) piEV1 (RValPi.appV vpiM)
+            ; appE  = upPiAppEq2 n ih G M (RValPi.domA0 vpiM) (RValPi.codB0 vpiM) b0 f0 b1 f1 g cf0 cf1 (RValPi.cohG vpiM) cb0 cb1 b1U allU1 b0U allU0 le
+                        (finMem-funel-fun g b0 f0 mem0) piEV1 (RValPi.appE vpiM)
+            }
+      in mkSigma vta1 vpi'
+    uV G M T (PiCode a f)   (PiCode b0 f0) (PiCode b1 f1) le ()
+    uV G M T Bot a0 LevTy        le mem0 mem1 ca0 ca1 src vta1 = tt
+    uV G M T Bot a0 (LPiCode f1) le mem0 mem1 ca0 ca1 src vta1 = tt
+    uV G M T LevTy (UCode lu) (UCode lv) le mem0 mem1 ca0 ca1 src vta1 = tt
+    uV G M T (LevEl k) a0 LevTy  le mem0 mem1 ca0 ca1 src vta1 = tt
+    uV G M T (LPiCode f') (UCode lu) (UCode lv) le mem0 mem1 ca0 ca1 src vta1 =
+      U-tr (\ k -> Vl (suc n) G M T (LPiCode f') (UCode k)) lu lv le src
+    uV G M T (FunEl g) (LPiCode f0) (LPiCode f1) le mem0 mem1 ca0 ca1 src vta1 =
+      let vty  = fst src
+          vpiM = snd src
+          cf0  = ca0
+          cf1  = ca1
+          pf0  = finMem-Lfunel-wf g f0 mem0
+          pf1  = finMem-Lfunel-wf g f1 mem1
+          allU0 = finMem-LpiU-allU f0 pf0
+          allU1 = finMem-LpiU-allU f1 pf1
+          uniq = Red3-unique-LPi (RValLPi.red vpiM) (RValTyLPi.red vta1)
+          lEV1 : LEdgeVal2 G (RValLPi.domA0 vpiM) f1
+          lEV1 = Eq-transport (\ X -> LEdgeVal2 G X f1) (Eq-sym uniq) (RValTyLPi.edgeV vta1)
+          vpi' = record
+            { domA0 = RValLPi.domA0 vpiM
+            ; red   = RValLPi.red vpiM
+            ; cohG  = RValLPi.cohG vpiM
+            ; fmG   = finMem-Lfunel-fun g f1 mem1
+            ; appV  = upLAppVal2 n ih G M (RValLPi.domA0 vpiM) f0 f1 g cf0 cf1 (RValLPi.cohG vpiM) allU0 allU1 le
+                        (finMem-Lfunel-fun g f0 mem0) lEV1 (RValLPi.appV vpiM)
+            ; appLE = upLAppLvl2 n ih G M (RValLPi.domA0 vpiM) f0 f1 g cf0 cf1 (RValLPi.cohG vpiM) allU0 allU1 le
+                        (finMem-Lfunel-fun g f0 mem0) lEV1 (RValLPi.appLE vpiM)
+            }
+      in mkSigma vta1 vpi'
+
+    -- upEqVal2
+    uEV G M N T Bot Bot          Bot             le mem0 mem1 ca0 ca1 src vta1 = src
+    uEV G M N T Bot Bot          (UCode lu)           le mem0 mem1 ca0 ca1 src vta1 = src
+    uEV G M N T Bot Bot          (FunEl h)       le mem0 mem1 ca0 ca1 src vta1 = src
+    uEV G M N T Bot Bot          (PiCode b1 f1)  le mem0 mem1 ca0 ca1 src vta1 = src
+    uEV G M N T (UCode lu)        Bot a1 le ()
+    uEV G M N T (FunEl g)    Bot a1 le ()
+    uEV G M N T (PiCode a f) Bot a1 le ()
+    uEV G M N T Bot            (UCode lu) (UCode lv) le mem0 mem1 ca0 ca1 src vta1 =
+      U-tr (\ k -> EVl (suc n) G M N T Bot (UCode k)) lu lv le src
+    uEV G M N T (UCode lu)          (UCode lv) (UCode lw) le mem0 mem1 ca0 ca1 src vta1 =
+      U-tr (\ k -> EVl (suc n) G M N T (UCode lu) (UCode k)) lv lw le src
+    uEV G M N T (FunEl g')     (UCode lu) (UCode lv) le ()
+    uEV G M N T (PiCode a' f') (UCode lu) (UCode lv) le mem0 mem1 ca0 ca1 src vta1 =
+      U-tr (\ k -> EVl (suc n) G M N T (PiCode a' f') (UCode k)) lu lv le src
+    uEV G M N T u (UCode lu) Bot          ()
+    uEV G M N T u (UCode lu) (FunEl h)    ()
+    uEV G M N T u (UCode lu) (PiCode b h) ()
+    uEV G M N T Bot            (FunEl g) Bot            le mem0 mem1 ca0 ca1 src vta1 = src
+    uEV G M N T Bot            (FunEl g) (UCode lu)          le mem0 mem1 ca0 ca1 src vta1 = src
+    uEV G M N T Bot            (FunEl g) (FunEl h)      le mem0 mem1 ca0 ca1 src vta1 = src
+    uEV G M N T Bot            (FunEl g) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 = src
+    uEV G M N T (UCode lu)          (FunEl g) a1             le ()
+    uEV G M N T (FunEl g')     (FunEl g) a1             le ()
+    uEV G M N T (PiCode a' f') (FunEl g) a1             le ()
+    uEV G M N T u (PiCode b0 f0) Bot       ()
+    uEV G M N T u (PiCode b0 f0) (UCode lu)     ()
+    uEV G M N T u (PiCode b0 f0) (FunEl h) ()
+    uEV G M N T Bot            (PiCode b0 f0) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 = src
+    uEV G M N T (UCode lu)          (PiCode b0 f0) (PiCode b1 f1) le ()
+    uEV G M N T (FunEl g)      (PiCode b0 f0) (PiCode b1 f1) le mem0 mem1 ca0 ca1 src vta1 =
+      let vty  = fst src
+          vpiM = fst (snd src)
+          vpiN = fst (snd (snd src))
+          epi  = snd (snd (snd src))
+          cf0   = snd ca0
+          cf1   = snd ca1
+          pf0   = finMem-funel-wf g b0 f0 mem0
+          pf1   = finMem-funel-wf g b1 f1 mem1
+          b0U   = finMem-piU-dom b0 f0 pf0
+          b1U   = finMem-piU-dom b1 f1 pf1
+          allU0 = finMem-piU-allU b0 f0 pf0
+          allU1 = finMem-piU-allU b1 f1 pf1
+          cb0   = coh-from-aU b0 b0U
+          cb1   = coh-from-aU b1 b1U
+          uniq  = Red3-unique-Pi (REqValPi.red epi) (RValTyPi.red vta1)
+          piEV1 : PiEdgeVal2 G (REqValPi.domA0 epi) (REqValPi.codB0 epi) b1 f1
+          piEV1 = Eq-transport (\ Y -> PiEdgeVal2 G (REqValPi.domA0 epi) Y b1 f1) (Eq-sym (snd uniq))
+                    (Eq-transport (\ X -> PiEdgeVal2 G X (RValTyPi.codB vta1) b1 f1) (Eq-sym (fst uniq)) (RValTyPi.edgeV vta1))
+          valM   = mkSigma vty vpiM
+          valN   = mkSigma vty vpiN
+          valM'  = uV G M T (FunEl g) (PiCode b0 f0) (PiCode b1 f1) le mem0 mem1 ca0 ca1 valM vta1
+          valN'  = uV G N T (FunEl g) (PiCode b0 f0) (PiCode b1 f1) le mem0 mem1 ca0 ca1 valN vta1
+          epi'   = record
+            { domA0 = REqValPi.domA0 epi
+            ; codB0 = REqValPi.codB0 epi
+            ; red   = REqValPi.red epi
+            ; cohG  = REqValPi.cohG epi
+            ; fmG   = finMem-funel-fun g b1 f1 mem1
+            ; appEV = upPiAppEqVal2 n ih G M N (REqValPi.domA0 epi) (REqValPi.codB0 epi) b0 f0 b1 f1 g cf0 cf1 (REqValPi.cohG epi) cb0 cb1 b1U allU1 b0U allU0 le
+                        (finMem-funel-fun g b0 f0 mem0) piEV1 (REqValPi.appEV epi)
+            }
+      in mkSigma (fst valM') (mkSigma (snd valM') (mkSigma (snd valN') epi'))
+    uEV G M N T (PiCode a f)   (PiCode b0 f0) (PiCode b1 f1) le ()
+    uEV G M N T Bot a0 LevTy        le mem0 mem1 ca0 ca1 src vta1 = tt
+    uEV G M N T Bot a0 (LPiCode f1) le mem0 mem1 ca0 ca1 src vta1 = tt
+    uEV G M N T LevTy (UCode lu) (UCode lv) le mem0 mem1 ca0 ca1 src vta1 = tt
+    uEV G M N T (LevEl k) a0 LevTy  le mem0 mem1 ca0 ca1 src vta1 = tt
+    uEV G M N T (LPiCode f') (UCode lu) (UCode lv) le mem0 mem1 ca0 ca1 src vta1 =
+      U-tr (\ k -> EVl (suc n) G M N T (LPiCode f') (UCode k)) lu lv le src
+    uEV G M N T (FunEl g) (LPiCode f0) (LPiCode f1) le mem0 mem1 ca0 ca1 src vta1 =
+      let vty  = fst src
+          vpiM = fst (snd src)
+          vpiN = fst (snd (snd src))
+          epi  = snd (snd (snd src))
+          cf0  = ca0
+          cf1  = ca1
+          pf0  = finMem-Lfunel-wf g f0 mem0
+          pf1  = finMem-Lfunel-wf g f1 mem1
+          allU0 = finMem-LpiU-allU f0 pf0
+          allU1 = finMem-LpiU-allU f1 pf1
+          uniq = Red3-unique-LPi (REqValLPi.red epi) (RValTyLPi.red vta1)
+          lEV1 : LEdgeVal2 G (REqValLPi.domA0 epi) f1
+          lEV1 = Eq-transport (\ X -> LEdgeVal2 G X f1) (Eq-sym uniq) (RValTyLPi.edgeV vta1)
+          valM   = mkSigma vty vpiM
+          valN   = mkSigma vty vpiN
+          valM'  = uV G M T (FunEl g) (LPiCode f0) (LPiCode f1) le mem0 mem1 ca0 ca1 valM vta1
+          valN'  = uV G N T (FunEl g) (LPiCode f0) (LPiCode f1) le mem0 mem1 ca0 ca1 valN vta1
+          epi'   = record
+            { domA0 = REqValLPi.domA0 epi
+            ; red   = REqValLPi.red epi
+            ; cohG  = REqValLPi.cohG epi
+            ; fmG   = finMem-Lfunel-fun g f1 mem1
+            ; appEV = upLAppEqVal2 n ih G M N (REqValLPi.domA0 epi) f0 f1 g cf0 cf1 (REqValLPi.cohG epi) allU0 allU1 le
+                        (finMem-Lfunel-fun g f0 mem0) lEV1 (REqValLPi.appEV epi)
+            }
+      in mkSigma (fst valM') (mkSigma (snd valM') (mkSigma (snd valN') epi'))
+
+    -- restrictVal2
+    rV G M T u u' Bot          le mem fmu src = src
+    rV G M T Bot Bot (UCode lu)        le mem fmu src = src
+    rV G M T Bot (UCode lu) (UCode lv)      ()
+    rV G M T Bot (FunEl _) (UCode lu)  ()
+    rV G M T Bot (PiCode _ _) (UCode lu) ()
+    rV G M T (UCode lu) Bot (UCode lv)        le mem fmu src = tt
+    rV G M T (UCode lu) (UCode lv) (UCode lw)      le mem fmu src =
+      U-tr (\ k -> Vl (suc n) G M T (UCode k) (UCode lw)) lu lv (EqL-sym lv lu le) src
+    rV G M T (UCode lu) (FunEl _) (UCode lv)  ()
+    rV G M T (UCode lu) (PiCode _ _) (UCode lv) ()
+    rV G M T (FunEl g) Bot (UCode lu)    le mem fmu src = tt
+    rV G M T (FunEl g) (UCode lu) (UCode lv)  ()
+    rV G M T (FunEl g) (FunEl g') (UCode lu) le mem fmu src =
+      dVT G M (FunEl g') (FunEl g) le mem fmu src
+    rV G M T (FunEl g) (PiCode _ _) (UCode lu) ()
+    rV G M T (PiCode a' f') Bot (UCode lu) le mem fmu src = tt
+    rV G M T (PiCode a' f') (UCode lu) (UCode lv) ()
+    rV G M T (PiCode a' f') (FunEl _) (UCode lu) ()
+    rV G M T (PiCode a' f') (PiCode a2 f2) (UCode lu) le mem fmu src =
+      mkSigma (fst src) (dVT G M (PiCode a2 f2) (PiCode a' f') le mem fmu (snd src))
+    rV G M T u u' (FunEl h)    le mem fmu src = src
+    rV G M T Bot Bot            (PiCode b f) le mem fmu src = src
+    rV G M T Bot (UCode lu)          (PiCode b f) le ()
+    rV G M T Bot (FunEl g')     (PiCode b f) ()
+    rV G M T Bot (PiCode a2 f2) (PiCode b f) le ()
+    rV G M T (UCode lu) Bot            (PiCode b f) le mem fmu src = src
+    rV G M T (UCode lu) (UCode lv)          (PiCode b f) le mem fmu src = src
+    rV G M T (UCode lu) (FunEl g')     (PiCode b f) le mem ()
+    rV G M T (UCode lu) (PiCode a2 f2) (PiCode b f) le ()
+    rV G M T (FunEl g) Bot            (PiCode b f) le mem fmu src = tt
+    rV G M T (FunEl g) (UCode lu)          (PiCode b f) le ()
+    rV G M T (FunEl g) (FunEl g')     (PiCode b f) le mem fmu src =
+      let aU = FinMem-a-in-U (FunEl g) (PiCode b f) fmu
+      in mkSigma (fst src)
+           (restrictVal2-PiCode n ih G M T g g' b f (finMem-piU-cft b f aU) (coh-from-aU b (finMem-piU-dom b f aU))
+             (finMem-piU-allU b f aU) (finMem-piU-dom b f aU) le (mkSigma (finMem-funel-fun g' b f mem) (finMem-funel-coh g' b f mem)) (fst src) (snd src))
+    rV G M T (FunEl g) (PiCode a2 f2) (PiCode b f) le ()
+    rV G M T (PiCode a1 f1) Bot            (PiCode b f) le mem fmu src = src
+    rV G M T (PiCode a1 f1) (UCode lu)          (PiCode b f) le ()
+    rV G M T (PiCode a1 f1) (FunEl g')     (PiCode b f) le mem ()
+    rV G M T (PiCode a1 f1) (PiCode a2 f2) (PiCode b f) le mem fmu src = src
+    rV G M T LevTy Bot (UCode lu)         le mem fmu src = tt
+    rV G M T (LPiCode f') Bot (UCode lu)  le mem fmu src = tt
+    rV G M T u LevTy (UCode lu)           le mem fmu src = tt
+    rV G M T (LPiCode f') (LPiCode f2) (UCode lu) le mem fmu src =
+      mkSigma (fst src) (dVT G M (LPiCode f2) (LPiCode f') le mem fmu (snd src))
+    rV G M T u u' LevTy     le mem fmu src = src
+    rV G M T u u' (LevEl k) le mem fmu src = src
+    rV G M T u Bot (LPiCode f) le mem fmu src = tt
+    rV G M T (FunEl g) (FunEl g') (LPiCode f) le mem fmu src =
+      let aU = FinMem-a-in-U (FunEl g) (LPiCode f) fmu
+      in mkSigma (fst src)
+           (restrictVal2-LPiCode n ih G M T g g' f (finMem-LpiU-cft f aU) (finMem-LpiU-allU f aU) le
+             (mkSigma (finMem-Lfunel-fun g' f mem) (finMem-Lfunel-coh g' f mem)) (fst src) (snd src))
+
+    -- restrictEqVal2
+    rEV G M N T u u' Bot          le mem fmu src = src
+    rEV G M N T Bot Bot (UCode lu)        le mem fmu src = src
+    rEV G M N T Bot (UCode lu) (UCode lv)     ()
+    rEV G M N T Bot (FunEl _) (UCode lu) ()
+    rEV G M N T Bot (PiCode _ _) (UCode lu) ()
+    rEV G M N T (UCode lu) Bot (UCode lv) le mem fmu src = tt
+    rEV G M N T (UCode lu) (UCode lv) (UCode lw) le mem fmu src =
+      U-tr (\ k -> EVl (suc n) G M N T (UCode k) (UCode lw)) lu lv (EqL-sym lv lu le) src
+    rEV G M N T (UCode lu) (FunEl _) (UCode lv) ()
+    rEV G M N T (UCode lu) (PiCode _ _) (UCode lv) ()
+    rEV G M N T (FunEl g) Bot (UCode lu) le mem fmu src = tt
+    rEV G M N T (FunEl g) (UCode lu) (UCode lv) ()
+    rEV G M N T (FunEl g) (FunEl g') (UCode lu) le mem fmu src = tt
+    rEV G M N T (FunEl g) (PiCode _ _) (UCode lu) ()
+    rEV G M N T (PiCode a' f') Bot (UCode lu) le mem fmu src = tt
+    rEV G M N T (PiCode a' f') (UCode lu) (UCode lv) ()
+    rEV G M N T (PiCode a' f') (FunEl _) (UCode lu) ()
+    rEV G M N T (PiCode a' f') (PiCode a2 f2) (UCode lu) le mem fmu (mkSigma vtA (mkSigma vtM (mkSigma vtN eqvt))) =
+      mkSigma vtA
+        (mkSigma (dVT G M (PiCode a2 f2) (PiCode a' f') le mem fmu vtM)
+          (mkSigma (dVT G N (PiCode a2 f2) (PiCode a' f') le mem fmu vtN)
+            (dEVT G M N (PiCode a2 f2) (PiCode a' f') le mem fmu eqvt)))
+    rEV G M N T u u' (FunEl h)    le mem fmu src = src
+    rEV G M N T Bot Bot            (PiCode b f) le mem fmu src = src
+    rEV G M N T Bot (UCode lu)          (PiCode b f) le ()
+    rEV G M N T Bot (FunEl g')     (PiCode b f) ()
+    rEV G M N T Bot (PiCode a2 f2) (PiCode b f) le ()
+    rEV G M N T (UCode lu) Bot            (PiCode b f) le mem fmu src = src
+    rEV G M N T (UCode lu) (UCode lv)          (PiCode b f) le mem fmu src = src
+    rEV G M N T (UCode lu) (FunEl g')     (PiCode b f) le mem ()
+    rEV G M N T (UCode lu) (PiCode a2 f2) (PiCode b f) le ()
+    rEV G M N T (FunEl g) Bot            (PiCode b f) le mem fmu src = tt
+    rEV G M N T (FunEl g) (UCode lu)          (PiCode b f) le ()
+    rEV G M N T (FunEl g) (FunEl g')     (PiCode b f) le mem fmu src =
+      let aU    = FinMem-a-in-U (FunEl g) (PiCode b f) fmu
+          valM  = mkSigma (fst src) (fst (snd src))
+          valN  = mkSigma (fst src) (fst (snd (snd src)))
+          epi   = snd (snd (snd src))
+          valM' = rV G M T (FunEl g) (FunEl g') (PiCode b f) le mem fmu valM
+          valN' = rV G N T (FunEl g) (FunEl g') (PiCode b f) le mem fmu valN
+          epi'  = restrictEqVal2-PiCode n ih G M N T g g' b f (finMem-piU-cft b f aU) (coh-from-aU b (finMem-piU-dom b f aU))
+                    (finMem-piU-allU b f aU) (finMem-piU-dom b f aU) le (mkSigma (finMem-funel-fun g' b f mem) (finMem-funel-coh g' b f mem)) (fst src) epi
+      in mkSigma (fst valM') (mkSigma (snd valM') (mkSigma (snd valN') epi'))
+    rEV G M N T (FunEl g) (PiCode a2 f2) (PiCode b f) le ()
+    rEV G M N T (PiCode a1 f1) Bot            (PiCode b f) le mem fmu src = src
+    rEV G M N T (PiCode a1 f1) (UCode lu)          (PiCode b f) le ()
+    rEV G M N T (PiCode a1 f1) (FunEl g')     (PiCode b f) le mem ()
+    rEV G M N T (PiCode a1 f1) (PiCode a2 f2) (PiCode b f) le mem fmu src = src
+    rEV G M N T LevTy Bot (UCode lu)         le mem fmu src = tt
+    rEV G M N T (LPiCode f') Bot (UCode lu)  le mem fmu src = tt
+    rEV G M N T u LevTy (UCode lu)           le mem fmu src = tt
+    rEV G M N T (LPiCode f') (LPiCode f2) (UCode lu) le mem fmu (mkSigma vtA (mkSigma vtM (mkSigma vtN eqvt))) =
+      mkSigma vtA
+        (mkSigma (dVT G M (LPiCode f2) (LPiCode f') le mem fmu vtM)
+          (mkSigma (dVT G N (LPiCode f2) (LPiCode f') le mem fmu vtN)
+            (dEVT G M N (LPiCode f2) (LPiCode f') le mem fmu eqvt)))
+    rEV G M N T u u' LevTy     le mem fmu src = src
+    rEV G M N T u u' (LevEl k) le mem fmu src = src
+    rEV G M N T u Bot (LPiCode f) le mem fmu src = tt
+    rEV G M N T (FunEl g) (FunEl g') (LPiCode f) le mem fmu src =
+      let aU    = FinMem-a-in-U (FunEl g) (LPiCode f) fmu
+          valM  = mkSigma (fst src) (fst (snd src))
+          valN  = mkSigma (fst src) (fst (snd (snd src)))
+          epi   = snd (snd (snd src))
+          valM' = rV G M T (FunEl g) (FunEl g') (LPiCode f) le mem fmu valM
+          valN' = rV G N T (FunEl g) (FunEl g') (LPiCode f) le mem fmu valN
+          epi'  = restrictEqVal2-LPiCode n ih G M N T g g' f (finMem-LpiU-cft f aU) (finMem-LpiU-allU f aU) le
+                    (mkSigma (finMem-Lfunel-fun g' f mem) (finMem-Lfunel-coh g' f mem)) (fst src) epi
+      in mkSigma (fst valM') (mkSigma (snd valM') (mkSigma (snd valN') epi'))
+
+    -- Val2-from-EqVal2-first
+    vfe1 u Bot ev = tt
+    vfe1 Bot (UCode lu) ev = tt
+    vfe1 Bot (FunEl h) ev = tt
+    vfe1 Bot (PiCode b f) ev = tt
+    vfe1 (UCode lu) (UCode lv) ev = mkSigma (fst ev) (fst (snd ev))
+    vfe1 (FunEl g) (UCode lu) ev = tt
+    vfe1 (PiCode a f) (UCode lu) ev = mkSigma (fst ev) (fst (snd ev))
+    vfe1 (UCode lu) (FunEl h) ev = tt
+    vfe1 (FunEl g) (FunEl h) ev = tt
+    vfe1 (PiCode a f) (FunEl h) ev = tt
+    vfe1 (UCode lu) (PiCode b f) ev = tt
+    vfe1 (PiCode a' f') (PiCode b f) ev = tt
+    vfe1 (FunEl g) (PiCode b f) ev = mkSigma (fst ev) (fst (snd ev))
+    vfe1 LevTy (UCode lu) ev = tt
+    vfe1 (LevEl k) (UCode lu) ev = tt
+    vfe1 (LPiCode f') (UCode lu) ev = mkSigma (fst ev) (fst (snd ev))
+    vfe1 u LevTy ev = tt
+    vfe1 u (LevEl k) ev = tt
+    vfe1 LevTy (FunEl h) ev = tt
+    vfe1 (LevEl k) (FunEl h) ev = tt
+    vfe1 (LPiCode f') (FunEl h) ev = tt
+    vfe1 LevTy (PiCode b f) ev = tt
+    vfe1 (LevEl k) (PiCode b f) ev = tt
+    vfe1 (LPiCode f') (PiCode b f) ev = tt
+    vfe1 Bot (LPiCode f) ev = tt
+    vfe1 (UCode lu) (LPiCode f) ev = tt
+    vfe1 LevTy (LPiCode f) ev = tt
+    vfe1 (LevEl k) (LPiCode f) ev = tt
+    vfe1 (PiCode a f') (LPiCode f) ev = tt
+    vfe1 (LPiCode f') (LPiCode f) ev = tt
+    vfe1 (FunEl g) (LPiCode f) ev = mkSigma (fst ev) (fst (snd ev))
+
+    vfe2 u Bot ev = tt
+    vfe2 Bot (UCode lu) ev = tt
+    vfe2 Bot (FunEl h) ev = tt
+    vfe2 Bot (PiCode b f) ev = tt
+    vfe2 (UCode lu) (UCode lv) ev = mkSigma (fst ev) (fst (snd (snd ev)))
+    vfe2 (FunEl g) (UCode lu) ev = tt
+    vfe2 (PiCode a f) (UCode lu) ev = mkSigma (fst ev) (fst (snd (snd ev)))
+    vfe2 (UCode lu) (FunEl h) ev = tt
+    vfe2 (FunEl g) (FunEl h) ev = tt
+    vfe2 (PiCode a f) (FunEl h) ev = tt
+    vfe2 (UCode lu) (PiCode b f) ev = tt
+    vfe2 (PiCode a' f') (PiCode b f) ev = tt
+    vfe2 (FunEl g) (PiCode b f) ev = mkSigma (fst ev) (fst (snd (snd ev)))
+    vfe2 LevTy (UCode lu) ev = tt
+    vfe2 (LevEl k) (UCode lu) ev = tt
+    vfe2 (LPiCode f') (UCode lu) ev = mkSigma (fst ev) (fst (snd (snd ev)))
+    vfe2 u LevTy ev = tt
+    vfe2 u (LevEl k) ev = tt
+    vfe2 LevTy (FunEl h) ev = tt
+    vfe2 (LevEl k) (FunEl h) ev = tt
+    vfe2 (LPiCode f') (FunEl h) ev = tt
+    vfe2 LevTy (PiCode b f) ev = tt
+    vfe2 (LevEl k) (PiCode b f) ev = tt
+    vfe2 (LPiCode f') (PiCode b f) ev = tt
+    vfe2 Bot (LPiCode f) ev = tt
+    vfe2 (UCode lu) (LPiCode f) ev = tt
+    vfe2 LevTy (LPiCode f) ev = tt
+    vfe2 (LevEl k) (LPiCode f) ev = tt
+    vfe2 (PiCode a f') (LPiCode f) ev = tt
+    vfe2 (LPiCode f') (LPiCode f) ev = tt
+    vfe2 (FunEl g) (LPiCode f) ev = mkSigma (fst ev) (fst (snd (snd ev)))

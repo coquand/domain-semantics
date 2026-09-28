@@ -1,0 +1,535 @@
+\documentclass[10pt]{article}
+\usepackage[a4paper,margin=2cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathpartir}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\newcommand{\pre}[1]{{\color{gray}#1}}  % presupposition premises (not in the paper)
+\newcommand{\U}{\mathsf{U}}
+\newcommand{\lam}{\lambda}
+\newcommand{\app}{\mathsf{app}}
+\newcommand{\strip}{\mathsf{strip}}
+\newcommand{\ty}{\ \mathsf{type}}
+\newcommand{\TR}{T_R}
+\newcommand{\TP}{T_P}
+\newcommand{\WN}{\mathsf{WN}_P}
+\newcommand{\agda}[1]{\texttt{#1}}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\title{Section 4.3 of Sterbac's paper in Agda:\\
+annotated versus unannotated Russell universes}
+\author{Formalisation notes (\texttt{\textasciitilde/DOMAIN/ERT})}
+\date{24--25 September 2026}
+
+\begin{document}
+\sloppy
+\maketitle
+
+\noindent
+This note records the systems $\TR$ (Russell universes, annotated $\lam$ and
+$\app$) and $\TP$ (unannotated, ``pure type system'') as formalised in Agda,
+how they differ from \texttt{sterbac1.pdf} (§4.3, appendices A.3/A.4; the same
+material is §6 of \texttt{sterbac3.pdf}), what is proved, and a gap in the
+paper's proof of Lemma~4.17.  Everything is in Agda with
+\verb|--without-K --exact-split|, without postulates and without
+termination pragmas.  Lemma~4.18 and Theorem~4.19 are proved
+\emph{without normalisation} (\S\ref{sec:nf}), from $\Pi$-injectivity,
+injectivity of universes and $\Pi/\U$ no-confusion only---the three
+properties the paper itself assumes (Theorems 7--9 of \texttt{sterbac3.pdf}).
+An earlier proof under weak $\beta$-normalisation of $\TP$ (\S\ref{sec:wn}) is
+kept for comparison.  The type-in-type version, where normalisation fails,
+is treated in \S\ref{sec:uu}.
+
+Premises printed in \pre{grey} are \emph{presuppositions}: they are not in the
+paper's rules, they are admissible (derivable from the other premises), and
+they are there only to make the metatheory, the adequacy proof and the
+section of $\strip$ structurally recursive (see \S\ref{sec:diff}).
+
+%======================================================================
+\section{Syntax}
+
+\[
+\begin{array}{lrcl}
+\TR: & A,B,a,b,c & ::= & v_i \mid \U_l \mid \Pi(A,B) \mid \lam(A,B,b) \mid \app(A,B,c,a)\\[2pt]
+\TP: & A,B,a,b,c & ::= & v_i \mid \U_l \mid \Pi\,A\,B \mid \lam A\, b \mid c\,a
+\end{array}
+\]
+de Bruijn indices, contexts $\Gamma ::= () \mid \Gamma.A$.  The syntax of
+$\TP$ is the core syntax of the finite-element model
+(\agda{Model/Core.agda}).  The forgetful map is
+\[
+\strip(v_i)=v_i,\quad \strip(\U_l)=\U_l,\quad
+\strip(\Pi(A,B))=\Pi\,\strip(A)\,\strip(B),
+\]
+\[
+\strip(\lam(A,B,b))=\lam\,\strip(A)\,\strip(b),\qquad
+\strip(\app(A,B,c,a))=\strip(c)\,\strip(a).
+\]
+It forgets the codomain annotation of $\lam$ and both annotations of $\app$
+(this is Sterbac's $\strip$; it keeps less than Streicher's $\mathsf{strip}_1$,
+which keeps $\lam$'s annotation, and than the erasure $|\cdot|$ of §4.2, which
+keeps all annotations of $\app$).  $\strip$ commutes with renaming,
+substitution and context lookup.
+
+%======================================================================
+\section{The system $\TR$ (\agda{RussellTyping.agda})}
+
+Judgements: $\vdash\Gamma$, \ $\Gamma\vdash A\ty$, \ $\Gamma\vdash a:A$, \
+$\Gamma\vdash A=B$, \ $\Gamma\vdash a=b:A$.
+
+\paragraph{Contexts and types.}
+\begin{mathpar}
+\inferrule{ }{\vdash ()} \and
+\inferrule{\Gamma\vdash A\ty}{\vdash \Gamma.A} \and
+\inferrule{\Gamma\vdash A:\U_l}{\Gamma\vdash A\ty}
+\end{mathpar}
+
+\paragraph{Typing.}
+\begin{mathpar}
+\inferrule{\vdash\Gamma}{\Gamma\vdash v_i:\Gamma(i)} \and
+\inferrule{\Gamma\vdash a:A \\ \Gamma\vdash A=B}{\Gamma\vdash a:B} \and
+\inferrule{\vdash\Gamma}{\Gamma\vdash \U_l:\U_{l+1}} \and
+\inferrule{\Gamma\vdash A:\U_l}{\Gamma\vdash A:\U_{l+1}} \\
+\inferrule{\Gamma\vdash A:\U_l \\ \Gamma.A\vdash B:\U_l}{\Gamma\vdash\Pi(A,B):\U_l} \and
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma.A\vdash b:B}
+          {\Gamma\vdash\lam(A,B,b):\Pi(A,B)} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash c:\Pi(A,B) \\ \Gamma\vdash a:A}
+          {\Gamma\vdash\app(A,B,c,a):B[a]}
+\end{mathpar}
+
+\paragraph{Type equality.}
+\begin{mathpar}
+\inferrule{\Gamma\vdash A\ty}{\Gamma\vdash A=A} \and
+\inferrule{\Gamma\vdash A=B}{\Gamma\vdash B=A} \and
+\inferrule{\Gamma\vdash A=B \\ \Gamma\vdash B=C}{\Gamma\vdash A=C} \and
+\inferrule{\Gamma\vdash A=B:\U_l}{\Gamma\vdash A=B} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash A=A' \\ \Gamma.A\vdash B=B'}
+          {\Gamma\vdash\Pi(A,B)=\Pi(A',B')}
+\end{mathpar}
+
+\paragraph{Term equality.}
+\begin{mathpar}
+\inferrule{\Gamma\vdash a:A}{\Gamma\vdash a=a:A} \and
+\inferrule{\Gamma\vdash a=b:A}{\Gamma\vdash b=a:A} \and
+\inferrule{\Gamma\vdash a=b:A \\ \Gamma\vdash b=c:A}{\Gamma\vdash a=c:A} \and
+\inferrule{\Gamma\vdash a=b:A \\ \Gamma\vdash A=B}{\Gamma\vdash a=b:B} \and
+\inferrule{\Gamma\vdash A=B:\U_l}{\Gamma\vdash A=B:\U_{l+1}} \\
+\inferrule{\pre{\Gamma\vdash A:\U_l} \\ \pre{\Gamma.A\vdash B:\U_l} \\ \Gamma\vdash A=A':\U_l \\ \Gamma.A\vdash B=B':\U_l}
+          {\Gamma\vdash\Pi(A,B)=\Pi(A',B'):\U_l} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \pre{\Gamma.A\vdash b:B} \\ \Gamma.A\vdash b=b':B}
+          {\Gamma\vdash\lam(A,B,b)=\lam(A,B,b'):\Pi(A,B)} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash A=A' \\ \Gamma.A\vdash B=B' \\ \Gamma.A\vdash b:B}
+          {\Gamma\vdash\lam(A,B,b)=\lam(A',B',b):\Pi(A,B)} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash c=c':\Pi(A,B) \\ \Gamma\vdash a:A}
+          {\Gamma\vdash\app(A,B,c,a)=\app(A,B,c',a):B[a]} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash c:\Pi(A,B) \\ \Gamma\vdash a=a':A \\ \pre{\Gamma\vdash B[a]=B[a']}}
+          {\Gamma\vdash\app(A,B,c,a)=\app(A,B,c,a'):B[a]} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash A=A' \\ \Gamma.A\vdash B=B' \\ \Gamma\vdash c:\Pi(A,B) \\ \Gamma\vdash a:A}
+          {\Gamma\vdash\app(A,B,c,a)=\app(A',B',c,a):B[a]} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma.A\vdash b:B \\ \Gamma\vdash a:A}
+          {\Gamma\vdash\app(A,B,\lam(A,B,b),a)=b[a]:B[a]}\ (\beta) \and
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash c:\Pi(A,B)}
+          {\Gamma\vdash c=\lam(A,B,\app(A\!\uparrow,B\!\uparrow^{+},c\!\uparrow,v_0)):\Pi(A,B)}\ (\eta)
+\end{mathpar}
+
+%======================================================================
+\section{The system $\TP$ (\agda{PTyping.agda})}
+
+The rules of $\TP$ are those of $\TR$ with the annotations removed:
+contexts, types, type equality and the structural rules are as above
+(on $\TP$ syntax), and
+\begin{mathpar}
+\inferrule{\Gamma\vdash A:\U_l \\ \Gamma.A\vdash B:\U_l}{\Gamma\vdash\Pi\,A\,B:\U_l} \and
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma.A\vdash b:B}{\Gamma\vdash\lam A\,b:\Pi\,A\,B} \and
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash c:\Pi\,A\,B \\ \Gamma\vdash a:A}{\Gamma\vdash c\,a:B[a]} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash A=A' \\ \Gamma.A\vdash B=B'}{\Gamma\vdash\Pi\,A\,B=\Pi\,A'\,B'} \and
+\inferrule{\pre{\Gamma\vdash A:\U_l} \\ \pre{\Gamma.A\vdash B:\U_l} \\ \Gamma\vdash A=A':\U_l \\ \Gamma.A\vdash B=B':\U_l}{\Gamma\vdash\Pi\,A\,B=\Pi\,A'\,B':\U_l} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \pre{\Gamma.A\vdash b:B} \\ \Gamma.A\vdash b=b':B}{\Gamma\vdash\lam A\,b=\lam A\,b':\Pi\,A\,B} \and
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash A=A' \\ \Gamma.A\vdash b:B}{\Gamma\vdash\lam A\,b=\lam A'\,b:\Pi\,A\,B} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash c=c':\Pi\,A\,B \\ \Gamma\vdash a:A}{\Gamma\vdash c\,a=c'\,a:B[a]} \and
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash c:\Pi\,A\,B \\ \Gamma\vdash a=a':A}{\Gamma\vdash c\,a=c\,a':B[a]} \\
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma.A\vdash b:B \\ \Gamma\vdash a:A}{\Gamma\vdash (\lam A\,b)\,a=b[a]:B[a]}\ (\beta) \and
+\inferrule{\pre{\Gamma\vdash A\ty} \\ \pre{\Gamma.A\vdash B\ty} \\ \Gamma\vdash c:\Pi\,A\,B}{\Gamma\vdash c=\lam A\,(c\!\uparrow v_0):\Pi\,A\,B}\ (\eta)
+\end{mathpar}
+There is no counterpart of the $\TR$ rule changing the annotations of an
+application: its two sides have the same stripping.
+
+%======================================================================
+\section{Differences with the paper}\label{sec:diff}
+
+\begin{enumerate}
+\item \textbf{Presupposition premises} (grey).  The paper's rules have
+  none.  In $\TR$ they are needed at two places:
+  \begin{itemize}
+  \item the adequacy proof of the domain model (for $\Pi$-injectivity) is a
+    structural induction whose congruence cases need the
+    \emph{two-substitution} validity of the codomain / body, which must come
+    from a subderivation (this is the same obstruction as MIN's
+    \texttt{conv-Pi});
+  \item Theorem~4.15 and Theorem~4.19 are structural inductions which need
+    the typings of the components of binders (to lift the extended context).
+  \end{itemize}
+  The paper's rules are admissible in $\TR$: they are the lemmas
+  \agda{mk-conv-Ty-Pi}, \agda{mk-conv-cong-Pi}, \agda{mk-conv-cong-Lam-Ty},
+  \agda{mk-conv-cong-App-Ty} (\agda{RussellMeta.agda}), using the
+  presupposition lemmas.  For $\TP$ the corresponding admissibility is not
+  formalised (it needs presupposition lemmas for $\TP$).
+\item \textbf{Universes and cumulativity} are one step at a time
+  ($\U_l:\U_{l+1}$, $A:\U_l\Rightarrow A:\U_{l+1}$); the paper's
+  $\U_m:\U_n$ ($m<n$) and $A:\U_n\Rightarrow A:\U_p$ ($n<p$) are derivable
+  (\agda{cum-le}).  $\Gamma\vdash\U_n\ty$ is derived.
+\item \textbf{Variables} are typed by lookup ($\Gamma\vdash v_i:\Gamma(i)$
+  with the weakened type) instead of the paper's two weakening rules.
+\item The congruences of $\lam$ and $\app$ are split into one rule per
+  argument (body / annotation, function / argument / annotations).
+\end{enumerate}
+
+%======================================================================
+\section{What is proved without any hypothesis}
+
+\begin{theorem}[Adequacy of the domain model, \agda{Adeq/Driver.agda}]
+The finite-element (Coquand--Huber) model with levelled universe codes is
+adequate for $\TR$: every derivation is valid for the rank-stratified
+logical relation, by structural induction.
+\end{theorem}
+
+\begin{theorem}[\agda{PiInjectivityR.agda}, \agda{RussellInversion.agda}]
+In $\TR$: if $\Gamma\vdash\Pi(C_0,B_0)=\Pi(C_1,B_1)$ then
+$\Gamma\vdash C_0=C_1$ and $\Gamma.C_0\vdash B_0=B_1$ ($\Pi$-injectivity,
+from adequacy); if $\Gamma\vdash\U_m=\U_k$ then $m=k$; and
+$\Gamma\vdash\Pi(A,B)=\U_m$ never holds (from soundness of the model).
+\end{theorem}
+
+\begin{theorem}[4.15, \agda{StripDeriv.agda}]
+If $\Gamma\vdash J$ in $\TR$ then $\strip(\Gamma)\vdash\strip(J)$ in $\TP$.
+\end{theorem}
+
+\begin{theorem}[Subject reduction, \agda{SubjectReductionR.agda}]
+Let $u\to u'$ be a $\beta$-step of $\TR$ at a position kept by $\strip$
+($\app(A,B,\lam(A',B',b),a)\to b[a]$, annotations arbitrary).  If
+$\Gamma\vdash u:T$ then $\Gamma\vdash u=u':T$.  (The $\beta$ case uses
+$\Pi$-injectivity.)
+\end{theorem}
+
+\begin{lemma}[Lifting of reductions, \agda{RussellStep.agda}]
+If $\strip(u)\to M'$ is a $\beta$-step of $\TP$, then $u\to u'$ in $\TR$ with
+$\strip(u')=M'$, for \emph{every} $u$.
+\end{lemma}
+
+\begin{lemma}[Normal forms, \agda{StripUniq.agda}: \agda{nf-conv}]
+Let $\Gamma\vdash u_0:A_0$, $\Gamma\vdash u_1:A_1$ in $\TR$ with
+$\strip(u_0)=\strip(u_1)$ a $\beta$-normal form, and $\Gamma\vdash A_0=A_1$.
+Then $\Gamma\vdash u_0=u_1:A_0$.  Similarly two types with the same
+$\beta$-normal stripping are equal.
+\end{lemma}
+\noindent
+The proof is by induction on the normal form, together with: for
+\emph{neutral} strippings, $u_0,u_1$ are equal at a common type $P$ lying below
+both $A_0$ and $A_1$, where ``$P$ below $T$'' means $\Gamma\vdash P=T$, or
+$\Gamma\vdash P=\U_k$ and $\Gamma\vdash T=\U_m$ with $k\le m$
+(\agda{SubTy}).  In a neutral application the annotations are forced by the
+type of the head; in a $\lam$ by its type (via $\Pi$-injectivity);
+cumulativity only acts at the root, where it changes no syntax.
+
+
+%======================================================================
+\section{Lemma 4.18 without normalisation}\label{sec:nf}
+
+\agda{StripUniqNF.agda}; the only non-syntactic ingredients are
+$\Pi$-injectivity, injectivity of universes and $\Pi/\U$ no-confusion.
+The rest is a structural induction on the term, i.e.\ a primitive recursive
+transformation of derivations.
+
+\paragraph{What the induction hypothesis must say.}  In the counterexample
+of \S\ref{sec:gap}, $f_0=\lam(\U_1,\U_1,v_0)$ and $f_1=\lam(\U_1,\U_2,v_0)$
+have the same stripping but are \emph{not} convertible: their types
+$\Pi(\U_1,\U_1)$, $\Pi(\U_1,\U_2)$ differ.  So the hypothesis has to relate
+terms whose types differ by cumulativity \emph{under} $\Pi$.  $\TR$ has no
+such subtyping, but it is definable by $\eta$-expansion:
+\[
+\mathsf{coe}_{\Pi(A,B)\le\Pi(A,L)}(t) \;=\;
+\lam\bigl(A,\,L,\,\mathsf{coe}_{B\le L}(\app(A{\uparrow},B{\uparrow^+},t{\uparrow},v_0))\bigr),
+\qquad \mathsf{coe}_{\U_k\le\U_m}(t)=t .
+\]
+\paragraph{Joins.}  $\mathsf{Join}_\Gamma(T_0,T_1,L)$ is generated by
+\begin{itemize}
+\item $\Gamma\vdash T_0=L$ and $\Gamma\vdash T_1=L$ (coercions: identity);
+\item $\Gamma\vdash T_0=\U_k$, $\Gamma\vdash T_1=\U_m$, $L=\U_{\max(k,m)}$
+  (identity; this is where cumulativity enters);
+\item $\Gamma\vdash T_i=\Pi(A,B_i)$ and $\mathsf{Join}_{\Gamma.A}(B_0,B_1,L')$,
+  $L=\Pi(A,L')$ (coercions as above).
+\end{itemize}
+A join carries its coercions $\mathsf{coe}_0$, $\mathsf{coe}_1$.  They are
+well typed ($t:T_i\Rightarrow\mathsf{coe}_i(t):L$), congruent, stable
+under substitution (syntactically: $\mathsf{coe}_k(t)[\sigma]=
+\mathsf{coe}_{k[\sigma]}(t[\sigma])$), and compute under application:
+$\app(A,L,\mathsf{coe}_{\Pi(A,B)\le\Pi(A,L)}(t),a)=\mathsf{coe}_{B[a]\le L[a]}(\app(A,B,t,a))$ by $\beta$.
+
+\begin{lemma}[main]
+If $\Gamma\vdash u_0:T_0$, $\Gamma\vdash u_1:T_1$ and
+$\strip(u_0)=\strip(u_1)$, then there is a join
+$\mathsf{Join}_\Gamma(T_0,T_1,L)$ with
+$\Gamma\vdash\mathsf{coe}_0(u_0)=\mathsf{coe}_1(u_1):L$.
+\end{lemma}
+\noindent
+The proof is by induction on $u_0$, with $T_0,T_1$ \emph{arbitrary} derivable
+types.  Inversion gives the principal type $P_i$ of $u_i$ with
+$P_i\le T_i$ (conversion, or universes $\U_k\le\U_m$).  A join of $P_0,P_1$
+is then moved to one of $T_0,T_1$: by transport along conversions, or,
+if a universe is involved, by a universe join of larger level.
+\begin{itemize}
+\item $v_i$, $\U_l$: trivial.  $\Pi(A_i,B_i)$: the induction hypothesis on
+  the components gives joins of universes, hence $A_0=A_1:\U_m$ and
+  $B_0=B_1:\U_m$.
+\item $\lam(A_i,B_i,b_i)$: $A_0=A_1$ as above; the induction hypothesis on
+  the bodies, at their annotated types $B_0,B_1$, gives
+  $\mathsf{Join}_{\Gamma.A_0}(B_0,B_1,L')$.  The $\Pi$-join
+  $\mathsf{Join}(\Pi(A_0,B_0),\Pi(A_1,B_1),\Pi(A_0,L'))$ works because
+  $\mathsf{coe}(\lam(A,B_0,b_0))=\lam(A,L',\mathsf{coe}(b_0))$ by $\beta$
+  under the binder.
+\item $\app(C_i,D_i,c_i,a_i)$: the induction hypothesis on $c_0,c_1$ at
+  $\Pi(C_i,D_i)$ gives a join which, by no-confusion and $\Pi$-injectivity,
+  is either a conversion or a $\Pi$-join $\Pi(A,L')$ with $C_i=A$, $D_i=B_i$.
+  The induction hypothesis on $a_0,a_1$ together with the diagonal lemma
+  below gives $a_0=a_1:C_0$.  Applying the coercion equation to $a_0$ and
+  using the $\beta$-law of coercions gives
+  $\mathsf{coe}_{B_0[a_0]\le L'[a_0]}(u_0)=\mathsf{coe}_{B_1[a_0]\le L'[a_0]}(u_1):L'[a_0]$,
+  with the substituted join $\mathsf{Join}(B_0[a_0],B_1[a_0],L'[a_0])$.
+  \emph{This is the step the paper's proof misses}: the functions are
+  compared at the join of their types, not at a common type.
+\end{itemize}
+
+\begin{lemma}[diagonal]
+If $\mathsf{Join}_\Gamma(T_0,T_1,L)$, $\Gamma\vdash T_0=T_1$, $t_i:T_i$ and
+$\mathsf{coe}_0(t_0)=\mathsf{coe}_1(t_1):L$, then $\Gamma\vdash t_0=t_1:T_0$.
+\end{lemma}
+\noindent
+By induction on the join.  In the universe case $k=m$ by injectivity of
+universes, so $L=\U_{\max(k,k)}=\U_k$.  No lowering of a conversion from a
+larger universe is ever needed: this is why the level of a universe join is
+exactly $\max(k,m)$.  In the $\Pi$ case, $B_0=B_1$ by $\Pi$-injectivity.
+Applying both $\lam$'s to $v_0$ (after weakening) and using $\beta$, the
+coerced bodies are equal; then the induction hypothesis applies, and $\eta$
+concludes.
+
+\begin{theorem}[4.18, no normalisation]
+If $\Gamma\vdash u_0:A_0$, $\Gamma\vdash u_1:A_1$, $\strip(u_0)=\strip(u_1)$ and
+$\Gamma\vdash A_0=A_1$, then $\Gamma\vdash u_0=u_1:A_0$
+(\agda{term-uniq-conv-NF}); similarly for types (\agda{type-uniq-NF}), and
+Lemma~4.18 (\agda{term-uniq-NF}).  Consequently Theorem~4.19
+(\agda{SectionR.agda}) holds without normalisation as well.
+\end{theorem}
+\noindent
+\agda{StripUniqNFTest.agda} checks the counterexample of \S\ref{sec:gap}:
+$\vdash u_0=u_1:\U_2$ follows from the theorem.
+
+\begin{remark}
+$\eta$ is used essentially: it is what makes coercions injective.
+The argument is a structural induction producing derivations from
+derivations; it uses no logical relation and no normalisation.  The three
+properties it takes as input are proved here from the domain model; the
+paper assumes them (from normalisation of the GAT, or from the finite-domain
+model).
+\end{remark}
+
+
+%======================================================================
+\section{The case $\U:\U$ (\texttt{ERTUU/})}\label{sec:uu}
+
+\texttt{ERTUU/} is the type-in-type version: one universe, $\U:\U$,
+no levels and no cumulativity.  It contains §4.2 (Tarski
+$\Leftrightarrow\TR$) and now also §4.3 ($\TR\Leftrightarrow\TP$).
+Everything is checked with \verb|--safe| (\agda{ERTUU/All.agda},
+72 modules, about 13\,s from scratch).
+
+\paragraph{Why this case is interesting.}  $\TP$ with $\U:\U$ does
+\emph{not} normalise (Girard's paradox), so the route through
+$\beta$-normal forms (\S\ref{sec:wn}) is impossible.  The only
+non-syntactic ingredient, $\Pi$-injectivity of $\TR$, comes from the
+domain model, and its adequacy proof does not need normalisation.
+
+\begin{theorem}[\agda{ERTUU/PiInjectivityR.agda}]
+In $\TR$ with $\U:\U$: if $\Gamma\vdash\Pi(C_0,B_0)=\Pi(C_1,B_1)$ then
+$\Gamma\vdash C_0=C_1$ and $\Gamma.C_0\vdash B_0=B_1$.
+\end{theorem}
+\noindent
+The model (\texttt{Dom/}, \texttt{Model/}) is the finite-element model
+of \texttt{ERT/}, with levelled universe codes.  $\U$ is interpreted
+as the level-0 universe code.  This is sound because the model's
+membership relation ignores levels: soundness
+(\agda{Model/RussellSound}) goes through with $\U:\U$ interpreted as
+``$\U_0:\U_0$''.  The validity relation and the adequacy driver
+(\texttt{Valid/}, \texttt{Adeq/}) are those of \texttt{ERT/} with
+the universe levels removed from the syntax.  The only change needed by
+hand is that $\U$ now evaluates to the level-0 code only
+(\agda{Adeq/Stmt.evU}).
+
+\begin{theorem}[4.15, 4.17/4.18, 4.19 for $\U:\U$]
+\agda{StripDeriv}: $\TR$ derivations strip to $\TP$ derivations.
+\agda{StripUniq}: if $\Gamma\vdash u_0:T_0$, $\Gamma\vdash u_1:T_1$ and
+$\strip(u_0)=\strip(u_1)$, then $\Gamma\vdash T_0=T_1$ and
+$\Gamma\vdash u_0=u_1:T_0$; no hypothesis on the types is needed.
+\agda{SectionR}: every $\TP$ judgement lifts into every $\TR$ context
+over its context, uniquely up to conversion.
+\end{theorem}
+\noindent
+Without cumulativity, types are unique up to conversion, and the paper's
+proof of Lemma 4.17 (induction on the term, with $\Pi$-injectivity in the
+application case) works as written.  The joins and coercions of
+\S\ref{sec:nf} are not needed: the counterexample of \S\ref{sec:gap}
+relies on cumulativity.  Neither injectivity of universes nor
+no-confusion is used.
+
+The $\TR$ rules of \texttt{ERTUU/} now carry the same presupposition
+premises as those of \texttt{ERT/} (\S\ref{sec:diff}); the §4.2 files
+(\agda{EraseDeriv}, \agda{Equivalence}) use the paper-form lemmas
+\agda{mk-*}.  The \texttt{CoverageNoExactSplit} warning in
+\agda{ERTUU/Uniqueness.term-uniq} (§4.2) was harmless: a catch-all
+clause for a conversion on the right overlapped the left-hand conversion
+clause, so it failed to hold definitionally only when both sides were
+conversions.  It is now split into one clause per left-hand head, and
+the whole of \texttt{ERTUU/} checks with no warnings.  (The analogous
+warning in \agda{ERT/UniquenessTermPartial} is of the same benign
+kind and is still present.)
+
+%======================================================================
+\section{What is proved assuming weak $\beta$-normalisation (superseded)}\label{sec:wn}
+
+\[
+\WN:\quad \text{if } \Gamma\vdash M:A \text{ in } \TP \text{ then }
+M\to^*_\beta N \text{ for some } \beta\text{-normal } N
+\]
+($\beta$ at all positions of $\TP$ terms; \agda{PReduction.agda}).  It is a
+module parameter, not a postulate.
+
+\begin{theorem}[4.18, \agda{StripUniq.agda}]
+Assume $\WN$.
+\begin{enumerate}
+\item If $\Gamma\vdash A_0\ty$, $\Gamma\vdash A_1\ty$ in $\TR$ and
+  $\strip(A_0)=\strip(A_1)$, then $\Gamma\vdash A_0=A_1$
+  (\agda{type-uniq-R}).
+\item If $\Gamma\vdash u_0:A_0$, $\Gamma\vdash u_1:A_1$ and
+  $\strip(u_0)=\strip(u_1)$ and $\Gamma\vdash A_0=A_1$, then
+  $\Gamma\vdash u_0=u_1:A_0$ (\agda{term-uniq-conv-R}).  In particular
+  (Lemma~4.18) this holds if $\strip(A_0)=\strip(A_1)$ (\agda{term-uniq-R}).
+\end{enumerate}
+\end{theorem}
+\noindent
+Proof (Streicher's method, \emph{Semantics of Type Theory}, Thm~4.12):
+normalise $\strip(u_0)$, perform the same reduction sequence on $u_0$ and on
+$u_1$ (lifting lemma), use subject reduction, and conclude by the normal-form
+lemma.  Lemma~4.17 and $\strip'$ are not needed.
+
+\begin{theorem}[4.19, \agda{SectionR.agda}]
+Assume $\WN$.  Let $\Gamma\vdash J$ in $\TP$.
+\begin{enumerate}
+\item For every $\Gamma'$ with $\vdash\Gamma'$ in $\TR$ and
+  $\strip(\Gamma')=\Gamma$ there is a derivation $\Gamma'\vdash J'$ in $\TR$
+  with $\strip(J')=J$ (\agda{lift-IsType}, \agda{lift-HasType},
+  \agda{lift-ConvTy}, \agda{lift-ConvTm}); and such a $\Gamma'$ exists
+  (\agda{lift-WfCtx}).
+\item Two such $J'$ in the same $\Gamma'$ are equal up to conversion
+  (\agda{section-uniq-Tm}, \agda{section-uniq-Ty}, i.e.\ Theorem~4.18).
+\end{enumerate}
+\end{theorem}
+\noindent
+The lift is by structural induction on the $\TP$ derivation; annotations
+are read off the premises, and premises that share a term or a type are
+reconciled by Theorem~4.18.
+
+%======================================================================
+\section{The gap in the paper's proof of Lemma 4.17}\label{sec:gap}
+
+\paragraph{The statement} (Lemma 4.17 of \texttt{sterbac1.pdf}, Lemma 30 of
+\texttt{sterbac3.pdf}).  With $\strip'(\Pi(A,B))=\strip'(B)$ and $\strip'=\strip$
+otherwise: (i) if $\Gamma\vdash A\ty$, $\Gamma\vdash B\ty$ and
+$\strip(A)=\strip(B)$ then $\Gamma\vdash A=B$; (ii) if
+$\Gamma\vdash u_0:A_0$, $\Gamma\vdash u_1:A_1$, $\strip(u_0)=\strip(u_1)$ and
+$\strip'(A_0)=\strip'(A_1)$ then $\Gamma\vdash u_0=u_1:A_0$ and
+$\Gamma\vdash A_0=A_1$.  The proof is ``by mutual induction on $A$ and $u_0$''.
+
+\paragraph{The application case} assumes that the last rule of the derivation
+of $\Gamma\vdash u_0:A_0$ is the application rule, so that $A_0$ is
+$B_0[a_0]$, and derives $\strip'(B_0)=\strip'(B_1)$ from
+$\strip'(B_0[a_0])=\strip'(B_1[a_1])$, then applies the induction hypothesis
+to the functions to get $\Gamma\vdash\Pi(C_0,B_0)=\Pi(C_1,B_1)$.  In $\TR$
+the last rule may be \emph{cumulativity}.  Counterexample
+(\agda{Gap417.agda}, checked in Agda), in the empty context:
+\[
+\begin{array}{ll}
+f_0=\lam(\U_1,\U_1,v_0):\Pi(\U_1,\U_1), &
+f_1=\lam(\U_1,\U_2,v_0):\Pi(\U_1,\U_2)\quad(v_0:\U_1\le\U_2),\\[2pt]
+u_0=\app(\U_1,\U_1,f_0,\U_0):\U_1\le\U_2, &
+u_1=\app(\U_1,\U_2,f_1,\U_0):\U_2 .
+\end{array}
+\]
+Here $\strip(u_0)=\strip(u_1)=(\lam\,\U_1\,v_0)\,\U_0$ and
+$A_0=A_1=\U_2$, so the hypotheses of (ii) hold.  But
+$\strip'(\Pi(\U_1,\U_1))=\U_1\ne\U_2=\strip'(\Pi(\U_1,\U_2))$, so the
+induction hypothesis does not apply to $f_0,f_1$, and the conclusion the
+proof needs, $\vdash\Pi(\U_1,\U_1)=\Pi(\U_1,\U_2)$, is \emph{false}
+($\Pi$-injectivity and injectivity of universes; \agda{no-Pi-conv}).
+The statement itself is not refuted: $\vdash u_0=u_1:\U_2$ holds, both sides
+$\beta$-reducing to $\U_0$ (\agda{u0=u1}).
+
+\paragraph{Further weak steps} (not formalised as counterexamples).
+\begin{itemize}
+\item ``$\strip'(B_0[a_0])=\strip'(B_1[a_1])$ implies $\strip'(B_0)=\strip'(B_1)$''
+  fails for open codomains, since substitution may identify different
+  codomains ($B_0=v_0$, $B_1=\U_1$, $a_0=a_1=\U_1$).
+\item In the $\lam$ case the proof uses
+  $\strip'(\Pi(C_0,B_0))=\strip(B_0)$, i.e.\ it assumes $A_0$ is literally
+  $\Pi(C_0,B_0)$; in $\TR$, $A_0$ is only convertible to it.
+\item The induction measure (``on $A$ and $u_0$'') is not made precise, and
+  the type part (i) inherits the problem: types may be $\beta$-redexes whose
+  $\lam$'s codomain annotations differ by cumulativity.
+\end{itemize}
+
+\paragraph{Why Streicher's argument does not transfer.}  In
+\emph{Semantics of Type Theory}, Thm~4.11 ($\mathsf{strip}_1$, dropping the
+annotations of applications) is proved by induction on the number of
+applications, and its application case uses Thm~4.10, i.e.\
+\emph{uniqueness of types} (and injectivity of $\Pi$).  $\TR$ has no
+uniqueness of types because of cumulativity, and $\strip'$ does not repair
+this.  Streicher's Thm~4.12 (dropping also $\lam$'s annotation) proceeds
+instead through $\beta$-normal forms; this is the method used above, under
+$\WN$.  The paper notices the cumulativity phenomenon only for the further
+step of erasing $\lam$'s domain (Example 4.20 / 33), where it states that
+normalisation is needed.  Note also that §4.2 (Tarski $\Leftrightarrow$
+$\TR$) is not affected: there the erasure keeps the annotations of $\app$,
+and the formalised proof (\agda{Uniqueness.agda},
+\agda{UniquenessTermPartial.agda}, \agda{Equivalence.agda}) uses no
+normalisation.
+
+\paragraph{Consequence.}  The gap is in the proof, not in the method:
+Lemma~4.18 and Theorem~4.19 hold with a purely syntactic proof
+(\S\ref{sec:nf}), provided the induction hypothesis compares terms at the
+\emph{join} of their types.  So the claim of \texttt{sterbac3.pdf} that the
+proof is syntactic, relative to injectivity and no-confusion, survives for
+§6 too.
+
+%======================================================================
+\section*{Agda files}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\agda{RussellTyping}, \agda{RussellMeta}, \agda{RussellMetaCong} & $\TR$ and its metatheory \\
+\agda{PTyping}, \agda{PReduction} & $\TP$, $\beta$-reduction, normal forms, $\WN$ \\
+\agda{Model/*}, \agda{Dom/*}, \agda{Valid/*}, \agda{Adeq/*} & domain model, soundness, validity, adequacy \\
+\agda{PiInjectivityR}, \agda{RussellInversion} & $\Pi$-injectivity, universe injectivity, inversion \\
+\agda{StripDeriv} & Theorem 4.15 \\
+\agda{RussellStep}, \agda{SubjectReductionR} & lifting of reductions, subject reduction \\
+\agda{StripUniqNF} & coercions, joins, Theorem 4.18 (no normalisation) \\
+\agda{SectionR} & Theorem 4.19 (no normalisation) \\
+\agda{StripUniq} & superseded: Theorem 4.18 under $\WN$ \\
+\agda{Gap417} & the counterexample to the proof of Lemma 4.17 \\
+\texttt{ERTUU/} & $\U:\U$: §4.2 and §4.3 (\agda{All.agda}, \verb|--safe|) \\
+\bottomrule
+\end{tabular}
+
+\end{document}
