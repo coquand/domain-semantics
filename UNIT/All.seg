@@ -18,7 +18,7 @@ module Theory
  propUA : [l] Axioms[l].PropUnivalence = <l> Axioms[l].UnivalenceLemmas[ua @l].prop-univ ;
  import Truncation ; import TruncationCombinators ;
  import ScottOrder ; import ScottDomain ; import ScottDomainObjects ; import ScottDomainMaps ; import ScottMaps ; import ScottFinite ;
- import EquivalenceLemmas ; import Category ; import CategoryArrows ; import CategoryEquivalence ; import CategoryEquivalenceTransport ; import ScottDomainCategories ;
+ import EquivalenceLemmas ; import Category ; import CategoryArrows ; import CategoryEquivalence ; import CategoryEquivalenceTransport ; import CategoryPreEquivalenceTransport ; import ScottDomainCategories ;
  import ScottSmallness ; import ScottCUSL ; import ScottCUSLIdeals ; import ScottCUSLCompacts ; import ScottCUSLIdealMaps ; import ScottCUSLEquivalence ;
  import CategorySIP ;
  import CategorySIPReindex ;
@@ -26,9 +26,14 @@ module Theory
  import CategorySIPFixed ;
  import CategorySIPTheorem ;
  import CategoryInitialChain ;
- import CategoryInitialSolution ;
+ import CategoryPreEquivalenceColimits ;
+ import CategoryPreEquivalencePreserves ;
+ import CategoryColimitIso ;
+ import CategoryColimitComparison ;
+ import CategoryEndofunctorIso ;
  import CategoryEquivalenceColimits ;
  import CategoryAlgebras ;
+ import CategoryInitialSolution ;
  import ScottPredicates ;
  import ScottStepApprox ;
  import ScottExponential ;
@@ -93,6 +98,11 @@ module Theory
  import ScottEPLimitShift ;
  import ScottEPOrderIso ;
  import ScottReflexiveFunctor ;
+ import ScottCUSLReflexiveFunctor ;
+ import ScottReflexiveChainComparison ;
+ import ScottPresentedEP ;
+ import ScottCUSLPresentedEquivalence ;
+ import ScottCUSLReflexivePreservation ;
  import ScottReflexiveAlgebra ;
  import ScottReflexiveSolution ;
  import ScottReflexiveContinuity ;
@@ -101,6 +111,7 @@ module Theory
  import ScottEPInitialChain ;
  import ScottEPTransport ;
  import ScottCUSLSolutionTransport ;
+ import ScottCUSLReflexiveSolution ;
  import RigidLimitDomain ;
  import RigidLimitRigid ;
  import RigidLimitDI ;

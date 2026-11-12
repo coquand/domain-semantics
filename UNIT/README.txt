@@ -2,7 +2,7 @@ Section 2 in Unit, using intersection types and filters
 =====================================================
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 11,769
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 12,159
 declarations, with 0 failures, using the recorded checker (2026-11-12).
 
 Run from DOMAIN:
@@ -65,6 +65,20 @@ The concrete F_A solution uses the presented EP chain directly. The CUSL
 solution-transport theorem below is separate: the checked development has
 not identified a transported CUSL endofunctor with F_A or compared their
 initial algebras.
+The presented EP objects and EP pairs now form a checked precategory with
+countable-chain colimits. The presented F_A functor preserves every such
+colimit: the exponential and product comparison isomorphisms respect the
+canonical cocone, and colimit universality extends from canonical to
+arbitrary colimits. A CUSL functor K(F_A(Idl(-))) is checked, using canonical
+ideal presentations. Its ideal completion is naturally isomorphic to
+F_A(Idl(-)). The CUSL-to-presented-EP precategory equivalence is checked.
+Both functors of a precategory equivalence preserve countable-chain
+colimits; composing this fact with the presented F_A result proves that
+the CUSL constructor preserves them. It therefore has an initial algebra
+and an object equation in CUSL; the entire solution package is transported
+to unpresented EP. The remaining formal comparison is to identify this
+transported algebra with the directly constructed presented F_A algebra.
+No choice of presentations is required for these constructions.
 Here omega-continuity means preservation of existing countable-chain
 colimits; the implication from continuity on ordered homs to that
 preservation is not yet proved.
@@ -206,6 +220,27 @@ New names except Proper and Regular are under All.Theory, at universe l.
   CategoryInitialChain.ColimitProof.proposition / OmegaContinuousProof.proposition
     A fixed cocone's universal property and preservation of countable-chain
     colimits are propositions.
+  ScottPresentedEP.cocomplete / Reflexive.omega
+    Presented EP domains form a precategory with countable-chain colimits;
+    the concrete F_A functor preserves all of them. The proof uses
+    ScottReflexiveChainComparison and generic colimit comparison lemmas.
+  ScottCUSLReflexiveFunctor.On.functor / comparison-natural
+    The CUSL functor K(F_A(Idl(-))) is defined without presentation choice;
+    its natural comparison with F_A on ideal domains is checked.
+  ScottCUSLPresentedEquivalence.equivalence
+    Choice-free equivalence between CUSLs and presented ideal domains as
+    precategories. CategoryPreEquivalenceColimits transfers colimits at
+    this level without assuming univalence of selected presentations.
+  CategoryPreEquivalencePreserves.On.For.preserved
+    Either functor of a precategory equivalence preserves countable-chain
+    colimits, by full faithfulness and the two reconstruction isomorphisms.
+  ScottCUSLReflexivePreservation.On.omega / ScottCUSLReflexiveSolution.On.ep-equation
+    The specific CUSL constructor K(F_A(Idl(-))) preserves chain colimits,
+    so it has an initial algebra and its solution transports to unpresented
+    EP with an object equation.
+  CategoryInitialSolution.Unique.algebra-equality
+    Two initial solutions of the same functor are equal as algebras in a
+    univalent category.
   CategoryEquivalenceTransport.On.object-equality / hom-equivalence
     Equivalence of univalent categories gives equality of object types
     and equivalence on each hom type.
@@ -483,7 +518,7 @@ ideal below identity. StableFamilies proves both joint stability of
 (B,f) |-> R_B(f) and stability of B |-> R_B into rigid projections of the
 stable function domain, for stable families over the fixed input domain.
 
-The combined check reports 11,769 declarations and zero failures.
+The combined check reports 12,159 declarations and zero failures.
 StableInputRestriction, StableImageMaps and StableVaryingFamilies now
 handle varying rigid input domains: input restriction is rigid, stable
 maps on its image extend/restrict with beta/eta, and Q_(p,B) is the

@@ -1,0 +1,55 @@
+-- Canonical isomorphism between two colimits of one chain.
+level k l ;
+open Base ;
+module C = Category[k,l] ;
+module K = CategoryInitialChain[k,l] ;
+module H = Paths[l] ;
+
+module On (D : C.Precategory) (S : K.Chain[D])
+  (X Y : D.ob)
+  (q : (n : Nat) -> D.hom (S.stage n) X)
+  (q-law : (n : Nat) -> Id (D.hom (S.stage n) X)
+    (D.comp (S.stage n) (S.stage (suc n)) X
+      (q (suc n)) (S.link n)) (q n))
+  (cx : K.Colimit[D,S,X,q])
+  (r : (n : Nat) -> D.hom (S.stage n) Y)
+  (r-law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+    (D.comp (S.stage n) (S.stage (suc n)) Y
+      (r (suc n)) (S.link n)) (r n))
+  (cy : K.Colimit[D,S,Y,r]) {
+  module A = CategoryArrows[k,l].Arrows[D] ;
+  forward : D.hom X Y = cx.mediator Y r r-law ;
+  backward : D.hom Y X = cy.mediator X q q-law ;
+  forward-leg (n : Nat) : Id (D.hom (S.stage n) Y)
+    (A.cmp forward (q n)) (r n) = cx.factor Y r r-law n ;
+  backward-leg (n : Nat) : Id (D.hom (S.stage n) X)
+    (A.cmp backward (r n)) (q n) = cy.factor X q q-law n ;
+  backward-forward-leg (n : Nat) :
+    Id (D.hom (S.stage n) X)
+      (A.cmp (A.cmp backward forward) (q n)) (q n) =
+    H.transH (H.symH (A.assoc backward forward (q n)))
+      (H.transH (A.left backward (forward-leg n))
+        (backward-leg n)) ;
+  forward-backward-leg (n : Nat) :
+    Id (D.hom (S.stage n) Y)
+      (A.cmp (A.cmp forward backward) (r n)) (r n) =
+    H.transH (H.symH (A.assoc forward backward (r n)))
+      (H.transH (A.left forward (backward-leg n))
+        (forward-leg n)) ;
+  backward-forward : Id (D.hom X X)
+    (A.cmp backward forward) (D.idn X) =
+    H.transH
+      (cx.unique X q q-law (A.cmp backward forward)
+        backward-forward-leg)
+      (H.symH (cx.unique X q q-law (D.idn X)
+        (\ n -> A.unit-l (q n)))) ;
+  forward-backward : Id (D.hom Y Y)
+    (A.cmp forward backward) (D.idn Y) =
+    H.transH
+      (cy.unique Y r r-law (A.cmp forward backward)
+        forward-backward-leg)
+      (H.symH (cy.unique Y r r-law (D.idn Y)
+        (\ n -> A.unit-l (r n)))) ;
+  iso : D.Iso X Y =
+    (forward,(backward,(backward-forward,forward-backward))) ;
+} ;

@@ -1,0 +1,51 @@
+-- CUSLs are equivalent to presented ideal domains as precategories.
+-- The presentation of each ideal domain is canonical and choice-free.
+level l ;
+open Base ;
+module SD = ScottDomain[l] ;
+module SO = ScottDomainObjects[l] ;
+module CU = ScottCUSL[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module Pres = ScottPresentedEP[l] ;
+module ID = ScottCUSLIdeals[l] ;
+module IM = ScottCUSLIdealMaps[l].Functor ;
+module KM = ScottCUSLCompacts[l].Functor ;
+module EQ = ScottCUSLEquivalence[l] ;
+module CAT = CategoryEquivalence[l++,l+] ;
+
+ideal : CAT.Functor[CU.pre,Pres.pre] = new CAT.Functor[
+  CU.pre,Pres.pre,
+  object := \ C -> ID.Canonical[C].O.scott,
+  arrow := IM.arrow,
+  identity := IM.identity,
+  composition := IM.composition] ;
+
+compact : CAT.Functor[Pres.pre,CU.pre] = new CAT.Functor[
+  Pres.pre,CU.pre,
+  object := \ D -> KM.object (SO.from-presented D),
+  arrow := \ D E q -> KM.arrow
+    (SO.from-presented D) (SO.from-presented E) q,
+  identity := \ D -> KM.identity (SO.from-presented D),
+  composition := \ D E F q r -> KM.composition
+    (SO.from-presented D) (SO.from-presented E)
+    (SO.from-presented F) q r] ;
+
+equivalence : CAT.PreEquivalence[CU.pre,Pres.pre] =
+  new CAT.PreEquivalence[CU.pre,Pres.pre,
+    forward := ideal,
+    backward := compact,
+    unit-source := \ C -> EQ.equivalence.unit-source C,
+    source-natural := \ C D e ->
+      EQ.equivalence.source-natural C D e,
+    unit-target := \ D ->
+      EQ.equivalence.unit-target (SO.from-presented D),
+    target-natural := \ D E q ->
+      EQ.equivalence.target-natural
+        (SO.from-presented D) (SO.from-presented E) q] ;
+
+reverse : CAT.PreEquivalence[Pres.pre,CU.pre] =
+  CAT.reverse CU.pre Pres.pre equivalence ;
+
+colimits : CategoryInitialChain[l++,l+].OmegaCocomplete[CU.pre] =
+  CategoryPreEquivalenceColimits[l++,l+].On[
+    Pres.pre,CU.pre,reverse,Pres.cocomplete].transported ;

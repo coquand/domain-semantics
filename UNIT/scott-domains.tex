@@ -60,7 +60,9 @@ solution to Scott EP. It also transfers countable-chain colimit structure,
 giving initial algebras for all unpresented Scott-domain
 embedding--projection endofunctors preserving these colimits.
 The displayed equation with parameter $A$ is solved directly in the
-presented EP category; the CUSL transport result is a separate theorem.
+presented EP category. It is also solved through the CUSL initial-chain
+theorem and transported to EP; comparison of the two initial algebras
+remains to be checked.
 A direct
 construction shows that the category of algebras for any endofunctor
 of a univalent category is itself univalent. A finite-stabilisation
@@ -276,6 +278,27 @@ constant, so the comparison is coordinatewise. Dropping or prepending the
 first coordinate gives the shift isomorphism.
 \end{proof}
 
+\begin{proposition}[Preservation of presented EP chain colimits]
+\label{prop:presented-reflexive-preservation}
+The presented constructor $F_A(X)=A\times\Cont{X}{X}$ is an endofunctor
+of the precategory of presented Scott domains and EP pairs. It preserves
+all countable-chain colimits in that precategory.
+\end{proposition}
+\begin{proof}
+The coherent-sequence limit is a colimit for every presented EP chain.
+The exponential and fixed-product comparisons give an isomorphism from
+$F_A$ of this colimit to the colimit of the image chain. The comparison
+respects every cocone leg: on the projection component, its first
+coordinate is constant along the product chain and its second coordinate
+is the restriction of an endomap to that stage. The checked
+\texttt{ScottReflexiveChainComparison.On.At.equation} proves equality of
+the EP pairs, using their projections. Transport of a colimit along the
+comparison isomorphism shows preservation of the canonical colimit.
+The canonical isomorphism between any two colimits of the same chain,
+followed by functoriality, extends the result to an arbitrary colimit.
+This is \texttt{ScottPresentedEP.Reflexive.omega}.
+\end{proof}
+
 \begin{theorem}[A reflexive Scott-domain equation]\label{thm:reflexive}
 For every presented Scott domain $A$, there is a presented Scott domain
 $\mu_A$ and mutually inverse continuous maps
@@ -325,10 +348,9 @@ upgrades uniqueness to contractibility of the morphism type.
 \begin{remark}
 This proof of $\mu_A\cong A\times\Cont{\mu_A}{\mu_A}$ uses the presented
 EP chain and its explicit comparison isomorphisms. It does not invoke the
-CUSL colimit theorem or transport. The later transport corollary applies
-to a CUSL endofunctor equipped with preservation of countable-chain
-colimits. The checked development has not identified its transported
-functor with this particular $F_A$, nor identified their initial algebras.
+CUSL colimit theorem or transport. The CUSL route to the same equation is
+given below. A checked equality between its transported initial algebra
+and the direct algebra here is not yet available.
 \end{remark}
 
 \begin{theorem}[Abstract initial-chain theorem]\label{thm:initial-chain}
@@ -458,6 +480,36 @@ the stated fields for an EP endofunctor. The checked construction is
 \texttt{ScottCUSLSolutionTransport.On}; its algebra-morphism center and
 uniqueness fields establish initiality after transport.
 \end{proof}
+
+For the particular constructor in Theorem~\ref{thm:reflexive}, a
+choice-free CUSL endofunctor has now been constructed:
+\[
+  F_A^{\mathbf{CUSL}}(C)
+   =\K\bigl(A\times\Cont{\operatorname{Idl}(C)}
+                         {\operatorname{Idl}(C)}\bigr).
+\]
+Here $\operatorname{Idl}(C)$ carries its canonical presented compact
+basis. The functor laws and the natural EP isomorphism
+$F_A(\operatorname{Idl}(C))\cong
+ \operatorname{Idl}(F_A^{\mathbf{CUSL}}(C))$
+are checked in \texttt{ScottCUSLReflexiveFunctor}. CUSLs and presented
+ideal domains are also checked equivalent as precategories. Proposition
+\ref{prop:presented-reflexive-preservation} proves preservation on the
+presented side. Both functors of a precategory equivalence preserve
+countable-chain colimits; composing the three preservation proofs gives
+the checked \texttt{ScottCUSLReflexivePreservation.On.omega}. Thus
+$F_A^{\mathbf{CUSL}}$ has an initial algebra, and its complete solution
+package transports to unpresented EP. The resulting object equation is
+\texttt{ScottCUSLReflexiveSolution.On.ep-equation}. No choice of
+presentations is involved.
+
+The direct presented algebra of Theorem~\ref{thm:reflexive} and the
+transported EP algebra are expected to be uniquely isomorphic once their
+functors and ambient algebra categories are identified. That last
+identification is not checked here; uniqueness of initial algebras alone
+does not compare algebras for different functors. The generic uniqueness
+result for a fixed functor in a univalent category is checked as
+\texttt{CategoryInitialSolution.Unique.algebra-equality}.
 
 \begin{theorem}[Univalence of the algebra category]
 For any univalent category $\mathcal C$ and endofunctor
@@ -1723,6 +1775,9 @@ uses the checked countable-chain colimit construction; the categorical
 structure identity principle, Theorem~\ref{thm:category-sip}, transfers it to
 the unpresented EP corollary, Corollary~\ref{cor:ep-initial}, and directly
 transports each CUSL solution by Corollary~\ref{cor:cusl-solution-transport}.
+The reflexive constructor has a checked CUSL incarnation that preserves
+these colimits and yields a transported EP solution; its formal comparison
+with the direct presented algebra remains open.
 \item The Scott filter domain and recursive projector; corrected rank
 stages, finite stabilisation, and comparison with bounded compact typing.
 \item The independent strict lower admissible invariant, its equations
@@ -1747,12 +1802,12 @@ complete command.
 \hline
 Check & Declarations & Checker CPU time\\
 \hline
-Complete development & 11,769 & 4.60 s\\
-Independent relation and consequences & 4,909 & 1.15 s\\
+Complete development & 12,159 & 8.71 s\\
+Independent relation and consequences & 4,909 & 1.24 s\\
 \hline
 \end{tabular}
 \end{center}
-The \textbf{total wall-clock time was 5.85 seconds}, including dependency
+The \textbf{total wall-clock time was 10.08 seconds}, including dependency
 verification and both checker processes. The independent run has a
 104-module dependency closure with the old logical relation and the earlier
 proofs of adequacy, syntactic Pi injectivity and subject reduction out of scope. All 40 frozen

@@ -1,0 +1,25 @@
+-- An endofunctor maps categorical isomorphisms to isomorphisms.
+level k l ;
+open Base ;
+module C = Category[k,l] ;
+module K = CategoryInitialChain[k,l] ;
+module H = Paths[l] ;
+
+module On (D : C.Precategory) (F : K.Endofunctor[D]) {
+  module A = CategoryArrows[k,l].Arrows[D] ;
+  map-inverse (X Y : D.ob)
+    (f : D.hom X Y) (g : D.hom Y X)
+    (p : Id (D.hom X X) (A.cmp g f) (D.idn X)) :
+    Id (D.hom (F.object X) (F.object X))
+      (A.cmp (F.arrow Y X g) (F.arrow X Y f))
+      (D.idn (F.object X)) =
+    H.transH (H.symH (F.composition X Y X f g))
+      (H.transH (H.apH (F.arrow X X) p)
+        (F.identity X)) ;
+  map (X Y : D.ob) (e : D.Iso X Y) :
+    D.Iso (F.object X) (F.object Y) =
+    (F.arrow X Y e.1,
+      (F.arrow Y X e.2.1,
+        (map-inverse X Y e.1 e.2.1 e.2.2.1,
+         map-inverse Y X e.2.1 e.1 e.2.2.2))) ;
+} ;

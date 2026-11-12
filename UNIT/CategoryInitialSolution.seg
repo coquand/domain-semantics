@@ -32,3 +32,42 @@ record InitialSolution (E : CAT.Category)
 Total (E : CAT.Category) : U l+++ =
   (F : K.Endofunctor[E.pre]) *
     (K.OmegaContinuous[E.pre,F] * InitialSolution[E,F]) ;
+
+-- Initial algebras for a fixed endofunctor are equal in the univalent
+-- algebra category; in particular their underlying objects are equal.
+module Unique (E : CAT.Category) (F : K.Endofunctor[E.pre])
+  (S T : InitialSolution[E,F]) {
+  module A = CategoryAlgebras[l++,l+].On[E.pre,F] ;
+  module AC = CategoryAlgebras[l++,l+].Univalent[E,F] ;
+  X : A.Algebra = (S.object,S.fold) ;
+  Y : A.Algebra = (T.object,T.fold) ;
+  forward : A.Between[X,Y].Hom = S.center T.object T.fold ;
+  backward : A.Between[Y,X].Hom = T.center S.object S.fold ;
+  backward-forward : Id (A.Between[X,X].Hom)
+    (A.compose X Y X backward forward) (A.identity X) =
+    Prelude[l+].trans (A.Between[X,X].Hom)
+      (A.compose X Y X backward forward)
+      (S.center S.object S.fold) (A.identity X)
+      (S.initial S.object S.fold
+        (A.compose X Y X backward forward))
+      (Prelude[l+].sym (A.Between[X,X].Hom)
+        (A.identity X) (S.center S.object S.fold)
+        (S.initial S.object S.fold (A.identity X))) ;
+  forward-backward : Id (A.Between[Y,Y].Hom)
+    (A.compose Y X Y forward backward) (A.identity Y) =
+    Prelude[l+].trans (A.Between[Y,Y].Hom)
+      (A.compose Y X Y forward backward)
+      (T.center T.object T.fold) (A.identity Y)
+      (T.initial T.object T.fold
+        (A.compose Y X Y forward backward))
+      (Prelude[l+].sym (A.Between[Y,Y].Hom)
+        (A.identity Y) (T.center T.object T.fold)
+        (T.initial T.object T.fold (A.identity Y))) ;
+  iso : A.pre.Iso X Y =
+    (forward,(backward,(backward-forward,forward-backward))) ;
+  algebra-equality : Id A.Algebra X Y =
+    AC.category.isotoid X Y iso ;
+  object-equality : Id E.pre.ob S.object T.object =
+    Prelude[l+++].ap A.Algebra E.pre.ob
+      (\ z -> z.1) X Y algebra-equality ;
+} ;

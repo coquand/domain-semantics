@@ -1,0 +1,41 @@
+-- The CUSL reflexive constructor preserves countable-chain colimits.
+-- This follows by composing ideal completion, presented F_A, and compacts.
+level l ;
+open Base ;
+module SD = ScottDomain[l] ;
+module CU = ScottCUSL[l] ;
+module Pres = ScottPresentedEP[l] ;
+module Eq = ScottCUSLPresentedEquivalence[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module A = CategoryPreEquivalencePreserves[l++,l+].On[
+  CU.pre,Pres.pre,Eq.equivalence] ;
+module B = CategoryPreEquivalencePreserves[l++,l+].On[
+  Pres.pre,CU.pre,Eq.reverse] ;
+
+module On (Z : SD.Scott) {
+  module R = Pres.Reflexive[Z] ;
+  module G = ScottCUSLReflexiveFunctor[l].On[Z] ;
+  module Preserve (S : K.Chain[CU.pre]) (L : CU.CUSL)
+    (leg : (n : Nat) -> CU.pre.hom (S.stage n) L)
+    (leg-law : (n : Nat) -> Id (CU.pre.hom (S.stage n) L)
+      (CU.pre.comp (S.stage n) (S.stage (suc n)) L
+        (leg (suc n)) (S.link n)) (leg n))
+    (c : K.Colimit[CU.pre,S,L,leg]) {
+    module I = A.For[S,L,leg,leg-law,c] ;
+    module M = K.Mapped[Pres.pre,R.functor,I.chain,
+      I.vertex,I.image-leg,I.image-law] ;
+    middle : K.Colimit[Pres.pre,M.chain,
+      R.functor.object I.vertex,M.leg] =
+      R.omega.preserve I.chain I.vertex
+        I.image-leg I.image-law I.preserved ;
+    module J = B.For[M.chain,R.functor.object I.vertex,
+      M.leg,M.law,middle] ;
+    module N = K.Mapped[CU.pre,G.functor,S,L,leg,leg-law] ;
+    preserved : K.Colimit[CU.pre,N.chain,
+      G.functor.object L,N.leg] = J.preserved ;
+  } ;
+  omega : K.OmegaContinuous[CU.pre,G.functor] =
+    new K.OmegaContinuous[CU.pre,G.functor,
+      preserve := \ S L leg law c ->
+        Preserve[S,L,leg,law,c].preserved] ;
+} ;

@@ -1,0 +1,58 @@
+-- A colimit cocone remains universal after changing its vertex by an iso.
+level k l ;
+open Base ;
+module C = Category[k,l] ;
+module K = CategoryInitialChain[k,l] ;
+module H = Paths[l] ;
+
+module On (D : C.Precategory) (S : K.Chain[D])
+  (X L : D.ob)
+  (q : (n : Nat) -> D.hom (S.stage n) X)
+  (q-law : (n : Nat) -> Id (D.hom (S.stage n) X)
+    (D.comp (S.stage n) (S.stage (suc n)) X
+      (q (suc n)) (S.link n)) (q n))
+  (r : (n : Nat) -> D.hom (S.stage n) L)
+  (c : K.Colimit[D,S,L,r])
+  (e : D.Iso X L)
+  (compat : (n : Nat) -> Id (D.hom (S.stage n) L)
+    (D.comp (S.stage n) X L e.1 (q n)) (r n)) {
+  module A = CategoryArrows[k,l].Arrows[D] ;
+  module Target (Y : D.ob)
+    (h : (n : Nat) -> D.hom (S.stage n) Y)
+    (h-law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+      (A.cmp (h (suc n)) (S.link n)) (h n)) {
+    m : D.hom L Y = c.mediator Y h h-law ;
+    mediator : D.hom X Y = A.cmp m e.1 ;
+    factor (n : Nat) : Id (D.hom (S.stage n) Y)
+      (A.cmp mediator (q n)) (h n) =
+      H.transH (H.symH (A.assoc m e.1 (q n)))
+        (H.transH (A.left m (compat n))
+          (c.factor Y h h-law n)) ;
+    module Unique (f : D.hom X Y)
+      (f-law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+        (A.cmp f (q n)) (h n)) {
+      inverse-leg (n : Nat) : Id (D.hom (S.stage n) X)
+        (A.cmp e.2.1 (r n)) (q n) =
+        H.transH
+          (A.left e.2.1 (H.symH (compat n)))
+          (A.undo-l e (q n)) ;
+      g : D.hom L Y = A.cmp f e.2.1 ;
+      g-law (n : Nat) : Id (D.hom (S.stage n) Y)
+        (A.cmp g (r n)) (h n) =
+        H.transH (H.symH (A.assoc f e.2.1 (r n)))
+          (H.transH (A.left f (inverse-leg n)) (f-law n)) ;
+      g-equal : Id (D.hom L Y) g m =
+        c.unique Y h h-law g g-law ;
+      equation : Id (D.hom X Y) f mediator =
+        A.cancel-r (A.iso-inv e)
+          (H.transH g-equal
+            (H.symH (A.undo-r m e))) ;
+    } ;
+  } ;
+  colimit : K.Colimit[D,S,X,q] =
+    new K.Colimit[D,S,X,q,
+      mediator := \ Y h h-law -> Target[Y,h,h-law].mediator,
+      factor := \ Y h h-law n -> Target[Y,h,h-law].factor n,
+      unique := \ Y h h-law f f-law ->
+        Target[Y,h,h-law].Unique[f,f-law].equation] ;
+} ;

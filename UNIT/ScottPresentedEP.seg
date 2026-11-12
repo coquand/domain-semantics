@@ -1,0 +1,142 @@
+-- The precategory of Scott domains with selected compact bases and EP maps.
+-- Colimits of countable chains are the presented coherent-sequence limits.
+level l ;
+open Base ;
+module SD = ScottDomain[l] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module CAT = Category[l++,l+] ;
+module K = CategoryInitialChain[l++,l+] ;
+module Limit = ScottEPLimit[l] ;
+
+pre : CAT.Precategory = new CAT.Precategory[
+  ob := SD.Scott,
+  hom := \ X Y -> EP.pre.hom (SO.from-presented X)
+    (SO.from-presented Y),
+  hom-set := \ X Y -> EP.pre.hom-set
+    (SO.from-presented X) (SO.from-presented Y),
+  idn := \ X -> EP.pre.idn (SO.from-presented X),
+  comp := \ X Y Z f e -> EP.pre.comp
+    (SO.from-presented X) (SO.from-presented Y)
+    (SO.from-presented Z) f e,
+  unit-l := \ X Y f -> EP.pre.unit-l
+    (SO.from-presented X) (SO.from-presented Y) f,
+  unit-r := \ X Y f -> EP.pre.unit-r
+    (SO.from-presented X) (SO.from-presented Y) f,
+  assoc := \ W X Y Z f g h -> EP.pre.assoc
+    (SO.from-presented W) (SO.from-presented X)
+    (SO.from-presented Y) (SO.from-presented Z) f g h] ;
+
+module Chain (S : K.Chain[pre]) {
+  presented : Limit.Chain = new Limit.Chain[
+    stage := S.stage,link := S.link] ;
+  module C = ScottEPLimitCone[l].On[presented] ;
+  vertex : SD.Scott = C.D ;
+  leg (n : Nat) : pre.hom (S.stage n) vertex = C.At[n].pair ;
+  law (n : Nat) : Id (pre.hom (S.stage n) vertex)
+    (pre.comp (S.stage n) (S.stage (suc n)) vertex
+      (leg (suc n)) (S.link n)) (leg n) = C.cone-law n ;
+  module Target (Y : SD.Scott)
+    (q : (n : Nat) -> pre.hom (S.stage n) Y)
+    (coherent : (n : Nat) -> Id (pre.hom (S.stage n) Y)
+      (pre.comp (S.stage n) (S.stage (suc n)) Y
+        (q (suc n)) (S.link n)) (q n)) {
+    module R = ScottEPLimitColimit[l].On[presented,Y,q,coherent] ;
+    mediator : pre.hom vertex Y = R.mediator ;
+    factor (n : Nat) : Id (pre.hom (S.stage n) Y)
+      (pre.comp (S.stage n) vertex Y mediator (leg n)) (q n) =
+      R.ConeLaw[n].law ;
+    unique (f : pre.hom vertex Y)
+      (h : (n : Nat) -> Id (pre.hom (S.stage n) Y)
+        (pre.comp (S.stage n) vertex Y f (leg n)) (q n)) :
+      Id (pre.hom vertex Y) f mediator =
+      R.Unique[f,h].equation ;
+  } ;
+  universal : K.Colimit[pre,S,vertex,leg] =
+    new K.Colimit[pre,S,vertex,leg,
+      mediator := \ Y q h -> Target[Y,q,h].mediator,
+      factor := \ Y q h n -> Target[Y,q,h].factor n,
+      unique := \ Y q h f w -> Target[Y,q,h].unique f w] ;
+  colimit : K.ChainColimit[pre,S] =
+    new K.ChainColimit[pre,S,
+      vertex := vertex,leg := leg,law := law,
+      universal := universal] ;
+} ;
+
+cocomplete : K.OmegaCocomplete[pre] =
+  new K.OmegaCocomplete[pre,colimit := \ S -> Chain[S].colimit] ;
+
+module Reflexive (A : SD.Scott) {
+  module F = ScottReflexiveFunctor[l].Constructor[A] ;
+  functor : K.Endofunctor[pre] =
+    new K.Endofunctor[pre,
+      object := F.object,
+      arrow := F.action,
+      identity := F.action-identity,
+      composition := F.action-composition] ;
+  module Canonical (S : K.Chain[pre]) {
+    module C = Chain[S] ;
+    module M = K.Mapped[pre,functor,S,
+      C.vertex,C.leg,C.law] ;
+    module T = Chain[M.chain] ;
+    module Q = ScottReflexiveChainComparison[l].On[A,C.presented] ;
+    module Transfer = CategoryColimitIso[l++,l+].On[
+      pre,M.chain,F.object C.vertex,T.vertex,
+      M.leg,M.law,T.leg,T.universal,
+      Q.categorical,\ n -> Q.At[n].equation] ;
+    preserved : K.Colimit[pre,M.chain,F.object C.vertex,M.leg] =
+      Transfer.colimit ;
+  } ;
+  module Preserve (S : K.Chain[pre]) (L : SD.Scott)
+    (leg : (n : Nat) -> pre.hom (S.stage n) L)
+    (leg-law : (n : Nat) -> Id (pre.hom (S.stage n) L)
+      (pre.comp (S.stage n) (S.stage (suc n)) L
+        (leg (suc n)) (S.link n)) (leg n))
+    (c : K.Colimit[pre,S,L,leg]) {
+    module C = Chain[S] ;
+    module J = CategoryColimitComparison[l++,l+].On[
+      pre,S,L,C.vertex,leg,leg-law,c,
+      C.leg,C.law,C.universal] ;
+    module M = K.Mapped[pre,functor,S,L,leg,leg-law] ;
+    module N = K.Mapped[pre,functor,S,
+      C.vertex,C.leg,C.law] ;
+    module MapIso = CategoryEndofunctorIso[l++,l+].On[pre,functor] ;
+    mapped-iso : pre.Iso (F.object L) (F.object C.vertex) =
+      MapIso.map L C.vertex J.iso ;
+    compat (n : Nat) : Id (pre.hom
+        (F.object (S.stage n)) (F.object C.vertex))
+      (pre.comp (F.object (S.stage n)) (F.object L)
+        (F.object C.vertex) mapped-iso.1 (M.leg n))
+      (N.leg n) =
+      Prelude[l+].trans (pre.hom
+        (F.object (S.stage n)) (F.object C.vertex))
+        (pre.comp (F.object (S.stage n)) (F.object L)
+          (F.object C.vertex) mapped-iso.1 (M.leg n))
+        (F.action (S.stage n) C.vertex
+          (pre.comp (S.stage n) L C.vertex J.forward (leg n)))
+        (N.leg n)
+        (Prelude[l+].sym (pre.hom
+          (F.object (S.stage n)) (F.object C.vertex))
+          (F.action (S.stage n) C.vertex
+            (pre.comp (S.stage n) L C.vertex J.forward (leg n)))
+          (pre.comp (F.object (S.stage n)) (F.object L)
+            (F.object C.vertex) mapped-iso.1 (M.leg n))
+          (F.action-composition (S.stage n) L C.vertex
+            (leg n) J.forward))
+        (Prelude[l+].ap (pre.hom (S.stage n) C.vertex)
+          (pre.hom (F.object (S.stage n)) (F.object C.vertex))
+          (F.action (S.stage n) C.vertex)
+          (pre.comp (S.stage n) L C.vertex J.forward (leg n))
+          (C.leg n) (J.forward-leg n)) ;
+    module Transfer = CategoryColimitIso[l++,l+].On[
+      pre,M.chain,F.object L,F.object C.vertex,
+      M.leg,M.law,N.leg,Canonical[S].preserved,
+      mapped-iso,compat] ;
+    preserved : K.Colimit[pre,M.chain,F.object L,M.leg] =
+      Transfer.colimit ;
+  } ;
+  omega : K.OmegaContinuous[pre,functor] =
+    new K.OmegaContinuous[pre,functor,
+      preserve := \ S L leg law c ->
+        Preserve[S,L,leg,law,c].preserved] ;
+} ;

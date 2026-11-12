@@ -1,0 +1,165 @@
+-- Each functor of a precategory equivalence preserves chain colimits.
+level k l ;
+open Base ;
+module CAT = Category[k,l] ;
+module CE = CategoryEquivalence[k,l] ;
+module K = CategoryInitialChain[k,l] ;
+module H = Paths[l] ;
+
+module On (C D : CAT.Precategory)
+  (e : CE.PreEquivalence[C,D]) {
+  module AC = CategoryArrows[k,l].Arrows[C] ;
+  module AD = CategoryArrows[k,l].Arrows[D] ;
+  module HC = CategoryPreEquivalenceTransport[k,l].On[C,D,e] ;
+  module For (S : K.Chain[C]) (L : C.ob)
+    (leg : (n : Nat) -> C.hom (S.stage n) L)
+    (leg-law : (n : Nat) -> Id (C.hom (S.stage n) L)
+      (AC.cmp (leg (suc n)) (S.link n)) (leg n))
+    (c : K.Colimit[C,S,L,leg]) {
+    chain : K.Chain[D] = new K.Chain[D,
+      stage := \ n -> e.forward.object (S.stage n),
+      link := \ n -> e.forward.arrow (S.stage n)
+        (S.stage (suc n)) (S.link n)] ;
+    vertex : D.ob = e.forward.object L ;
+    image-leg (n : Nat) : D.hom (chain.stage n) vertex =
+      e.forward.arrow (S.stage n) L (leg n) ;
+    image-law (n : Nat) : Id (D.hom (chain.stage n) vertex)
+      (AD.cmp (image-leg (suc n)) (chain.link n))
+      (image-leg n) =
+      H.transH
+        (H.symH (e.forward.composition
+          (S.stage n) (S.stage (suc n)) L
+          (S.link n) (leg (suc n))))
+        (H.apH (e.forward.arrow (S.stage n) L)
+          (leg-law n)) ;
+    module Target (Y : D.ob)
+      (q : (n : Nat) -> D.hom (chain.stage n) Y)
+      (q-law : (n : Nat) -> Id (D.hom (chain.stage n) Y)
+        (AD.cmp (q (suc n)) (chain.link n)) (q n)) {
+      u : D.Iso Y (e.forward.object (e.backward.object Y)) =
+        e.unit-target Y ;
+      Q (n : Nat) : D.hom (chain.stage n)
+        (e.forward.object (e.backward.object Y)) =
+        AD.cmp u.1 (q n) ;
+      r (n : Nat) : C.hom (S.stage n) (e.backward.object Y) =
+        HC.hom-inverse (S.stage n) (e.backward.object Y) (Q n) ;
+      r-image (n : Nat) : Id (D.hom (chain.stage n)
+          (e.forward.object (e.backward.object Y)))
+        (e.forward.arrow (S.stage n) (e.backward.object Y)
+          (r n)) (Q n) =
+        HC.forward-inverse (S.stage n) (e.backward.object Y)
+          (Q n) ;
+      r-law (n : Nat) : Id (C.hom (S.stage n)
+          (e.backward.object Y))
+        (AC.cmp (r (suc n)) (S.link n)) (r n) =
+        HC.forward-faithful (S.stage n) (e.backward.object Y)
+          (AC.cmp (r (suc n)) (S.link n)) (r n)
+          (H.transH
+            (e.forward.composition (S.stage n)
+              (S.stage (suc n)) (e.backward.object Y)
+              (S.link n) (r (suc n)))
+            (H.transH (AD.right (r-image (suc n))
+              (chain.link n))
+              (H.transH (H.symH (AD.assoc u.1
+                (q (suc n)) (chain.link n)))
+                (H.transH (AD.left u.1 (q-law n))
+                  (H.symH (r-image n)))))) ;
+      m : C.hom L (e.backward.object Y) =
+        c.mediator (e.backward.object Y) r r-law ;
+      mediator : D.hom vertex Y =
+        AD.cmp u.2.1
+          (e.forward.arrow L (e.backward.object Y) m) ;
+      module Factor (n : Nat) {
+        a : D.hom vertex
+          (e.forward.object (e.backward.object Y)) =
+          e.forward.arrow L (e.backward.object Y) m ;
+        b : D.hom (chain.stage n) vertex = image-leg n ;
+        s1 : Id (D.hom (chain.stage n) Y)
+          (AD.cmp (AD.cmp u.2.1 a) b)
+          (AD.cmp u.2.1 (AD.cmp a b)) =
+          H.symH (AD.assoc u.2.1 a b) ;
+        s2 : Id (D.hom (chain.stage n) Y)
+          (AD.cmp u.2.1 (AD.cmp a b))
+          (AD.cmp u.2.1 (e.forward.arrow
+            (S.stage n) (e.backward.object Y)
+            (AC.cmp m (leg n)))) =
+          AD.left u.2.1
+            (H.symH (e.forward.composition
+              (S.stage n) L (e.backward.object Y)
+              (leg n) m)) ;
+        s3 : Id (D.hom (chain.stage n) Y)
+          (AD.cmp u.2.1 (e.forward.arrow
+            (S.stage n) (e.backward.object Y)
+            (AC.cmp m (leg n))))
+          (AD.cmp u.2.1
+            (e.forward.arrow (S.stage n)
+              (e.backward.object Y) (r n))) =
+          AD.left u.2.1
+            (H.apH (e.forward.arrow (S.stage n)
+              (e.backward.object Y))
+              (c.factor (e.backward.object Y) r r-law n)) ;
+        s4 : Id (D.hom (chain.stage n) Y)
+          (AD.cmp u.2.1 (e.forward.arrow (S.stage n)
+            (e.backward.object Y) (r n)))
+          (AD.cmp u.2.1 (AD.cmp u.1 (q n))) =
+          AD.left u.2.1 (r-image n) ;
+        s5 : Id (D.hom (chain.stage n) Y)
+          (AD.cmp u.2.1 (AD.cmp u.1 (q n))) (q n) =
+          AD.undo-l u (q n) ;
+        result : Id (D.hom (chain.stage n) Y)
+          (AD.cmp mediator (image-leg n)) (q n) =
+          H.transH s1 (H.transH s2
+            (H.transH s3 (H.transH s4 s5))) ;
+      } ;
+      factor (n : Nat) : Id (D.hom (chain.stage n) Y)
+        (AD.cmp mediator (image-leg n)) (q n) =
+        Factor[n].result ;
+
+      module Unique (f : D.hom vertex Y)
+        (f-law : (n : Nat) -> Id (D.hom (chain.stage n) Y)
+          (AD.cmp f (image-leg n)) (q n)) {
+        uf : D.hom vertex (e.forward.object
+          (e.backward.object Y)) = AD.cmp u.1 f ;
+        m' : C.hom L (e.backward.object Y) =
+          HC.hom-inverse L (e.backward.object Y) uf ;
+        m'-image : Id (D.hom vertex
+            (e.forward.object (e.backward.object Y)))
+          (e.forward.arrow L (e.backward.object Y) m') uf =
+          HC.forward-inverse L (e.backward.object Y) uf ;
+        m'-law (n : Nat) : Id (C.hom (S.stage n)
+            (e.backward.object Y))
+          (AC.cmp m' (leg n)) (r n) =
+          HC.forward-faithful (S.stage n)
+            (e.backward.object Y)
+            (AC.cmp m' (leg n)) (r n)
+            (H.transH
+              (e.forward.composition (S.stage n) L
+                (e.backward.object Y) (leg n) m')
+              (H.transH (AD.right m'-image (image-leg n))
+                (H.transH (H.symH (AD.assoc u.1 f
+                  (image-leg n)))
+                  (H.transH (AD.left u.1 (f-law n))
+                    (H.symH (r-image n)))))) ;
+        m'-equal : Id (C.hom L (e.backward.object Y)) m' m =
+          c.unique (e.backward.object Y) r r-law m' m'-law ;
+        uf-equal : Id (D.hom vertex
+            (e.forward.object (e.backward.object Y)))
+          uf (e.forward.arrow L (e.backward.object Y) m) =
+          H.transH (H.symH m'-image)
+            (H.apH (e.forward.arrow L (e.backward.object Y))
+              m'-equal) ;
+        result : Id (D.hom vertex Y) f mediator =
+          AD.cancel-l u
+            (H.transH uf-equal
+              (H.symH (AD.undo-l (AD.iso-inv u)
+                (e.forward.arrow L (e.backward.object Y) m)))) ;
+      } ;
+    } ;
+    preserved : K.Colimit[D,chain,vertex,image-leg] =
+      new K.Colimit[D,chain,vertex,image-leg,
+        mediator := \ Y q q-law -> Target[Y,q,q-law].mediator,
+        factor := \ Y q q-law n -> Target[Y,q,q-law].factor n,
+        unique := \ Y q q-law f f-law ->
+          Target[Y,q,q-law].Unique[f,f-law].result] ;
+  } ;
+} ;

@@ -45,3 +45,40 @@ record Equivalence (C D : K.Category) {
       (D.pre.comp x y (forward.object (backward.object y))
         (unit-target y).1 f) ;
 } ;
+
+-- The same data for precategories; no univalence is required for
+-- transporting universal properties.
+record PreEquivalence (C D : K.Precategory) {
+  forward : Functor[C,D] ;
+  backward : Functor[D,C] ;
+  unit-source (x : C.ob) :
+    C.Iso x (backward.object (forward.object x)) ;
+  source-natural (x y : C.ob) (f : C.hom x y) :
+    Id (C.hom x (backward.object (forward.object y)))
+      (C.comp x (backward.object (forward.object x))
+        (backward.object (forward.object y))
+        (backward.arrow (forward.object x) (forward.object y)
+          (forward.arrow x y f)) (unit-source x).1)
+      (C.comp x y (backward.object (forward.object y))
+        (unit-source y).1 f) ;
+  unit-target (x : D.ob) :
+    D.Iso x (forward.object (backward.object x)) ;
+  target-natural (x y : D.ob) (f : D.hom x y) :
+    Id (D.hom x (forward.object (backward.object y)))
+      (D.comp x (forward.object (backward.object x))
+        (forward.object (backward.object y))
+        (forward.arrow (backward.object x) (backward.object y)
+          (backward.arrow x y f)) (unit-target x).1)
+      (D.comp x y (forward.object (backward.object y))
+        (unit-target y).1 f) ;
+} ;
+
+reverse (C D : K.Precategory)
+  (e : PreEquivalence[C,D]) : PreEquivalence[D,C] =
+  new PreEquivalence[D,C,
+    forward := e.backward,
+    backward := e.forward,
+    unit-source := e.unit-target,
+    source-natural := e.target-natural,
+    unit-target := e.unit-source,
+    target-natural := e.source-natural] ;
