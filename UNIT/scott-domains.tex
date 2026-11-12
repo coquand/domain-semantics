@@ -389,6 +389,9 @@ $\mathcal C=\mathcal D$ of category records. In particular,
 $\mathbf{CUSL}=\mathbf{Dom}_{\triangleleft}$.
 \end{theorem}
 \begin{proof}
+This is the equivalence-to-identity direction of the categorical
+structure identity principle of
+\href{https://arxiv.org/abs/1303.0584}{Ahrens--Kapulkin--Shulman}.
 The two natural reconstruction isomorphisms give mutually inverse
 functions on object types after category univalence converts their
 components to object equalities. Univalence of the object universe then
@@ -396,10 +399,12 @@ identifies the object types. The functor induces an equivalence on each
 hom type: its inverse is obtained by applying the quasi-inverse functor
 and conjugating by the reconstruction isomorphisms. Fiberwise univalence
 identifies the hom families. The functor laws identify identities and
-composition after transport. The fact that hom types are sets makes the remaining
-category laws propositions, and univalence of a fixed precategory is
-itself a proposition. The resulting equality of precategories therefore
-extends to equality of category records.
+composition after transport. Because hom types are sets, the remaining
+category laws are propositions; univalence of a fixed precategory is
+also a proposition. The resulting equality of precategories extends to
+equality of category records. The checked construction is
+\texttt{CategorySIPTheorem.On.equality}; it uses only the previously
+stated universe univalence and function extensionality.
 \end{proof}
 
 \begin{corollary}[Unpresented Scott EP initial algebras]
@@ -412,7 +417,10 @@ structure map and an object equality $X=F(X)$.
 \begin{proof}
 By Theorem~\ref{thm:category-sip}, the CUSL--EP equivalence gives an
 equality of categories. Transport the CUSL countable-chain colimit
-structure along this equality. The one-point EP domain is initial, so
+structure along this equality; this is the definition
+\texttt{ScottEPTransport.cocomplete}. The endofunctor $F$ remains an
+endofunctor of EP throughout: only the colimit structure is transported.
+The one-point EP domain is initial, so
 Theorem~\ref{thm:initial-chain} applies. Univalence turns its solution
 isomorphism into equality of objects.
 \end{proof}
