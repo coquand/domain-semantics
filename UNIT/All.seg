@@ -20,6 +20,7 @@ module Theory
  import ScottOrder ; import ScottDomain ; import ScottDomainObjects ; import ScottDomainMaps ; import ScottMaps ; import ScottFinite ;
  import EquivalenceLemmas ; import Category ; import CategoryArrows ; import ScottDomainCategories ;
  import CategoryInitialChain ;
+ import CategoryAlgebras ;
  import ScottPredicates ;
  import ScottStepApprox ;
  import ScottExponential ;

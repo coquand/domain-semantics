@@ -2,7 +2,7 @@ Section 2 in Unit, using intersection types and filters
 =====================================================
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 10,573
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 10,620
 declarations, with 0 failures, using the recorded checker (2026-11-12).
 
 Run from DOMAIN:
@@ -44,7 +44,10 @@ conventions, and why graph compatibility must test finite selections.
 The embedding-projection category now supports a concrete recursive
 domain equation. For any presented Scott domain A, the checked constructor
 F_A(X) = A x [X -> X] acts functorially on embedding-projection pairs.
-Its chain from the one-point domain has a presented Scott-domain limit
+For any precategory C and endofunctor F, CategoryAlgebras constructs the
+precategory of F-algebras and commuting morphisms. If C is univalent, so
+is this algebra category; no continuity or colimit assumption on F is needed.
+The chain of F_A from the one-point domain has a presented Scott-domain limit
 mu_A, with mutually inverse continuous fold/unfold maps between
 F_A(mu_A) and mu_A. The algebra (mu_A, fold) is initial: for every
 presented EP algebra a : F_A(Y) -> Y, the type of EP algebra morphisms
@@ -148,6 +151,10 @@ New names except Proper and Regular are under All.Theory, at universe l.
     General.isomorphism proves fold/unfold inverse; Algebra.initial proves
     contractibility of the algebra-morphism type. UnivalentGeneral turns
     the solution isomorphism into object equality.
+  CategoryAlgebras.On.pre / Univalent.category
+    The algebra category for any endofunctor on a precategory, and its
+    univalence when the base category is univalent. An algebra isomorphism
+    gives equality of both the underlying object and its structure map.
   ScottEPInitial.initial / ScottEPInitialChain.On.equation
     The one-point domain is initial in the unpresented EP category. Given
     a colimit of an endofunctor's initial chain and omega-continuity,
@@ -396,7 +403,7 @@ ideal below identity. StableFamilies proves both joint stability of
 (B,f) |-> R_B(f) and stability of B |-> R_B into rigid projections of the
 stable function domain, for stable families over the fixed input domain.
 
-The combined check reports 10,573 declarations and zero failures.
+The combined check reports 10,620 declarations and zero failures.
 StableInputRestriction, StableImageMaps and StableVaryingFamilies now
 handle varying rigid input domains: input restriction is rigid, stable
 maps on its image extend/restrict with beta/eta, and Q_(p,B) is the

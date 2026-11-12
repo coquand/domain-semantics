@@ -1,0 +1,262 @@
+-- The category of algebras for an endofunctor.
+level k l ; open Base ;
+module C = Category[k,l] ;
+module K = Category[k \/ l,l] ;
+module P = Prelude[k \/ l] ;
+module Pl = Prelude[l] ;
+module H = Paths[l] ;
+
+module On (D : C.Precategory)
+  (F : CategoryInitialChain[k,l].Endofunctor[D]) {
+  module A = CategoryArrows[k,l].Arrows[D] ;
+  Algebra : U (k \/ l) =
+    (X : D.ob) * D.hom (F.object X) X ;
+  module Between (X Y : Algebra) {
+    Law (f : D.hom X.1 Y.1) : U l =
+      Id (D.hom (F.object X.1) Y.1)
+        (D.comp (F.object X.1) X.1 Y.1 f X.2)
+        (D.comp (F.object X.1) (F.object Y.1) Y.1
+          Y.2 (F.arrow X.1 Y.1 f)) ;
+    Hom : U l = (f : D.hom X.1 Y.1) * Law f ;
+    law-prop (f : D.hom X.1 Y.1) : Pl.isProp (Law f) =
+      D.hom-set (F.object X.1) Y.1
+        (D.comp (F.object X.1) X.1 Y.1 f X.2)
+        (D.comp (F.object X.1) (F.object Y.1) Y.1
+          Y.2 (F.arrow X.1 Y.1 f)) ;
+    set : Pl.isSet Hom =
+      Pl.isSet-Sigma (D.hom X.1 Y.1) Law
+        (D.hom-set X.1 Y.1)
+        (\ f -> Pl.prop-to-set (Law f) (law-prop f)) ;
+    equal (f g : Hom) (p : Id (D.hom X.1 Y.1) f.1 g.1) :
+      Id Hom f g =
+      Pl.Sigma-eq (D.hom X.1 Y.1) Law f.1 g.1 f.2 g.2 p
+        (law-prop g.1) ;
+  } ;
+  identity (X : Algebra) : Between[X,X].Hom =
+    (D.idn X.1,
+      H.transH (D.unit-l (F.object X.1) X.1 X.2)
+        (H.transH
+          (H.symH (D.unit-r (F.object X.1) X.1 X.2))
+          (H.symH (A.left X.2 (F.identity X.1))))) ;
+  compose (X Y Z : Algebra)
+    (g : Between[Y,Z].Hom) (f : Between[X,Y].Hom) :
+    Between[X,Z].Hom =
+    (D.comp X.1 Y.1 Z.1 g.1 f.1,
+      H.transH
+        (H.symH (D.assoc (F.object X.1) X.1 Y.1 Z.1 X.2 f.1 g.1))
+        (H.transH
+          (A.left g.1 f.2)
+          (H.transH
+            (D.assoc (F.object X.1) (F.object Y.1) Y.1 Z.1
+              (F.arrow X.1 Y.1 f.1) Y.2 g.1)
+            (H.transH
+              (A.right g.2 (F.arrow X.1 Y.1 f.1))
+              (H.transH
+                (H.symH (D.assoc (F.object X.1) (F.object Y.1)
+                  (F.object Z.1) Z.1
+                  (F.arrow X.1 Y.1 f.1)
+                  (F.arrow Y.1 Z.1 g.1) Z.2))
+                (A.left Z.2
+                  (H.symH (F.composition X.1 Y.1 Z.1 f.1 g.1)))))))) ;
+  pre : K.Precategory = new K.Precategory[
+    ob := Algebra,
+    hom := \ X Y -> Between[X,Y].Hom,
+    hom-set := \ X Y -> Between[X,Y].set,
+    idn := identity,
+    comp := compose,
+    unit-l := \ X Y f -> Between[X,Y].equal
+      (compose X Y Y (identity Y) f) f
+      (D.unit-l X.1 Y.1 f.1),
+    unit-r := \ X Y f -> Between[X,Y].equal
+      (compose X X Y f (identity X)) f
+      (D.unit-r X.1 Y.1 f.1),
+    assoc := \ W X Y Z f g h -> Between[W,Z].equal
+      (compose W Y Z h (compose W X Y g f))
+      (compose W X Z (compose X Y Z h g) f)
+      (D.assoc W.1 X.1 Y.1 Z.1 f.1 g.1 h.1)] ;
+} ;
+
+module Univalent (E : C.Category)
+  (F : CategoryInitialChain[k,l].Endofunctor[E.pre]) {
+  D : C.Precategory = E.pre ;
+  module B = On[D,F] ;
+  module A = CategoryArrows[k,l].Arrows[D] ;
+  module BA = CategoryArrows[k \/ l,l].Arrows[B.pre] ;
+  Structure (X : D.ob) : U (k \/ l) = D.hom (F.object X) X ;
+
+  underlying-iso (X Y : B.Algebra) (i : B.pre.Iso X Y) :
+    D.Iso X.1 Y.1 =
+    (i.1.1,i.2.1.1,
+      Pl.ap B.Between[X,X].Hom (D.hom X.1 X.1)
+        (\ h -> h.1)
+        (B.compose X Y X i.2.1 i.1) (B.identity X) i.2.2.1,
+      Pl.ap B.Between[Y,Y].Hom (D.hom Y.1 Y.1)
+        (\ h -> h.1)
+        (B.compose Y X Y i.1 i.2.1) (B.identity Y) i.2.2.2) ;
+
+  structure-path (X : D.ob) (a : Structure X)
+    (Y : D.ob) (p : Id D.ob X Y) (b : Structure Y)
+    (h : Id (D.hom (F.object X) Y)
+      (D.comp (F.object X) X Y (D.idtoiso X Y p).1 a)
+      (D.comp (F.object X) (F.object Y) Y b
+        (F.arrow X Y (D.idtoiso X Y p).1))) :
+    Id (Structure Y)
+      (P.subst D.ob Structure X Y p a) b =
+    idJ D.ob X
+      (\ Y1 p1 -> (b1 : Structure Y1) ->
+        Id (D.hom (F.object X) Y1)
+          (D.comp (F.object X) X Y1 (D.idtoiso X Y1 p1).1 a)
+          (D.comp (F.object X) (F.object Y1) Y1 b1
+            (F.arrow X Y1 (D.idtoiso X Y1 p1).1)) ->
+        Id (Structure Y1) (P.subst D.ob Structure X Y1 p1 a) b1)
+      (\ b1 h1 ->
+        H.transH (H.symH (D.unit-l (F.object X) X a))
+          (H.transH h1
+            (H.transH (A.left b1 (F.identity X))
+              (D.unit-r (F.object X) X b1))))
+      Y p b h ;
+
+  module Path (X Y : B.Algebra) (i : B.pre.Iso X Y) {
+    base : D.Iso X.1 Y.1 = underlying-iso X Y i ;
+    p : Id D.ob X.1 Y.1 = E.isotoid X.1 Y.1 base ;
+    iso-eq : Id (D.Iso X.1 Y.1) (D.idtoiso X.1 Y.1 p) base =
+      (E.univalent X.1 Y.1).sec-eq base ;
+    arrow-eq : Id (D.hom X.1 Y.1)
+      (D.idtoiso X.1 Y.1 p).1 i.1.1 =
+      Pl.ap (D.Iso X.1 Y.1) (D.hom X.1 Y.1)
+        (\ j -> j.1) (D.idtoiso X.1 Y.1 p) base iso-eq ;
+    square : Id (D.hom (F.object X.1) Y.1)
+      (D.comp (F.object X.1) X.1 Y.1
+        (D.idtoiso X.1 Y.1 p).1 X.2)
+      (D.comp (F.object X.1) (F.object Y.1) Y.1 Y.2
+        (F.arrow X.1 Y.1 (D.idtoiso X.1 Y.1 p).1)) =
+      H.transH (A.right arrow-eq X.2)
+        (H.transH i.1.2
+          (A.left Y.2
+            (H.apH (F.arrow X.1 Y.1) (H.symH arrow-eq)))) ;
+    fiber : Id (Structure Y.1)
+      (P.subst D.ob Structure X.1 Y.1 p X.2) Y.2 =
+      structure-path X.1 X.2 Y.1 p Y.2 square ;
+    path : Id B.Algebra X Y =
+      P.Sigma-path D.ob Structure X.1 Y.1 X.2 Y.2 p fiber ;
+  } ;
+  isotoid (X Y : B.Algebra) (i : B.pre.Iso X Y) :
+    Id B.Algebra X Y = Path[X,Y,i].path ;
+
+  sigma-fst (X : D.ob) (a : Structure X)
+    (Y : D.ob) (p : Id D.ob X Y)
+    (b : Structure Y)
+    (q : Id (Structure Y) (P.subst D.ob Structure X Y p a) b) :
+    Id (Id D.ob X Y)
+      (P.ap B.Algebra D.ob (\ z -> z.1) (X,a) (Y,b)
+        (P.Sigma-path D.ob Structure X Y a b p q)) p =
+    idJ D.ob X
+      (\ Y1 p1 -> (b1 : Structure Y1) ->
+        (q1 : Id (Structure Y1)
+          (P.subst D.ob Structure X Y1 p1 a) b1) ->
+        Id (Id D.ob X Y1)
+          (P.ap B.Algebra D.ob (\ z -> z.1) (X,a) (Y1,b1)
+            (P.Sigma-path D.ob Structure X Y1 a b1 p1 q1)) p1)
+      (\ b1 q1 ->
+        idJ (Structure X) a
+          (\ b2 q2 -> Id (Id D.ob X X)
+            (P.ap B.Algebra D.ob (\ z -> z.1) (X,a) (X,b2)
+              (P.Sigma-path D.ob Structure X X a b2 (refl X) q2))
+            (refl X))
+          (refl (refl X)) b1 q1)
+      Y p b q ;
+
+  underlying-idtoiso (X Y : B.Algebra)
+    (p : Id B.Algebra X Y) :
+    Id (D.Iso X.1 Y.1)
+      (underlying-iso X Y (B.pre.idtoiso X Y p))
+      (D.idtoiso X.1 Y.1
+        (P.ap B.Algebra D.ob (\ z -> z.1) X Y p)) =
+    idJ B.Algebra X
+      (\ Y1 p1 -> Id (D.Iso X.1 Y1.1)
+        (underlying-iso X Y1 (B.pre.idtoiso X Y1 p1))
+        (D.idtoiso X.1 Y1.1
+          (P.ap B.Algebra D.ob (\ z -> z.1) X Y1 p1)))
+      (A.iso-eq
+        (underlying-iso X X (B.pre.iso-id X))
+        (D.iso-id X.1) (refl (D.idn X.1)))
+      Y p ;
+
+  idtoiso-isotoid (X Y : B.Algebra) (i : B.pre.Iso X Y) :
+    Id (B.pre.Iso X Y) (B.pre.idtoiso X Y (isotoid X Y i)) i =
+    BA.iso-eq (B.pre.idtoiso X Y (isotoid X Y i)) i
+      (B.Between[X,Y].equal
+        (B.pre.idtoiso X Y (isotoid X Y i)).1 i.1
+        (Pl.ap (D.Iso X.1 Y.1) (D.hom X.1 Y.1)
+          (\ z -> z.1)
+          (underlying-iso X Y
+            (B.pre.idtoiso X Y (isotoid X Y i)))
+          (underlying-iso X Y i)
+          (H.transH
+            (underlying-idtoiso X Y (isotoid X Y i))
+            (H.transH
+              (P.ap (Id D.ob X.1 Y.1) (D.Iso X.1 Y.1)
+                (D.idtoiso X.1 Y.1)
+                (P.ap B.Algebra D.ob (\ z -> z.1) X Y
+                  (isotoid X Y i)) Path[X,Y,i].p
+                (sigma-fst X.1 X.2 Y.1 Path[X,Y,i].p Y.2
+                  Path[X,Y,i].fiber))
+              Path[X,Y,i].iso-eq)))) ;
+
+  sigma-loop (X : B.Algebra)
+    (p : Id D.ob X.1 X.1)
+    (q : Id (Structure X.1)
+      (P.subst D.ob Structure X.1 X.1 p X.2) X.2)
+    (r : Id (Id D.ob X.1 X.1) p (refl X.1)) :
+    Id (Id B.Algebra X X)
+      (P.Sigma-path D.ob Structure X.1 X.1 X.2 X.2 p q)
+      (refl X) =
+    idJ (Id D.ob X.1 X.1) (refl X.1)
+      (\ p1 r1 ->
+        (q1 : Id (Structure X.1)
+          (P.subst D.ob Structure X.1 X.1 p1 X.2) X.2) ->
+        Id (Id B.Algebra X X)
+          (P.Sigma-path D.ob Structure X.1 X.1 X.2 X.2 p1 q1)
+          (refl X))
+      (\ q1 ->
+        P.ap (Id (Structure X.1) X.2 X.2)
+          (Id B.Algebra X X)
+          (\ z -> P.Sigma-path D.ob Structure
+            X.1 X.1 X.2 X.2 (refl X.1) z)
+          q1 (refl X.2)
+          (D.hom-set (F.object X.1) X.1 X.2 X.2
+            q1 (refl X.2)))
+      p (P.sym (Id D.ob X.1 X.1) p (refl X.1) r) q ;
+
+  base-loop (X : B.Algebra) :
+    Id (Id D.ob X.1 X.1)
+      Path[X,X,B.pre.iso-id X].p (refl X.1) =
+    P.trans (Id D.ob X.1 X.1)
+      Path[X,X,B.pre.iso-id X].p
+      (E.isotoid X.1 X.1 (D.iso-id X.1))
+      (refl X.1)
+      (P.ap (D.Iso X.1 X.1) (Id D.ob X.1 X.1)
+        (E.isotoid X.1 X.1)
+        (underlying-iso X X (B.pre.iso-id X))
+        (D.iso-id X.1)
+        (underlying-idtoiso X X (refl X)))
+      (P.sec-ret (Id D.ob X.1 X.1) (D.Iso X.1 X.1)
+        (D.idtoiso X.1 X.1) (E.univalent X.1 X.1)
+        (refl X.1)) ;
+
+  isotoid-idtoiso (X Y : B.Algebra)
+    (p : Id B.Algebra X Y) :
+    Id (Id B.Algebra X Y)
+      (isotoid X Y (B.pre.idtoiso X Y p)) p =
+    idJ B.Algebra X
+      (\ Y1 p1 -> Id (Id B.Algebra X Y1)
+        (isotoid X Y1 (B.pre.idtoiso X Y1 p1)) p1)
+      (sigma-loop X Path[X,X,B.pre.iso-id X].p
+        Path[X,X,B.pre.iso-id X].fiber (base-loop X))
+      Y p ;
+  univalent : K.Univalent B.pre = \ X Y ->
+    P.qinv (Id B.Algebra X Y) (B.pre.Iso X Y)
+      (B.pre.idtoiso X Y) (isotoid X Y)
+      (idtoiso-isotoid X Y) (isotoid-idtoiso X Y) ;
+  category : K.Category = new K.Category[B.pre,univalent] ;
+} ;

@@ -50,7 +50,9 @@ least-fixed-point theorem. The embedding--projection category also supports
 a checked initial solution of $X\cong A\times\Cont{X}{X}$ for each presented
 Scott domain $A$, and we formalize the abstract initial-chain theorem for
 endofunctors preserving countable chain colimits. A direct
-finite-stabilisation argument relates
+construction shows that the category of algebras for any endofunctor
+of a univalent category is itself univalent. A finite-stabilisation
+argument relates
 the projector's Kleene fixed point to its rank stages. On the Scott filter
 domain, a compatible finite-depth construction then gives an independent
 logical relation. We prove its typed laws and fundamental lemma, including
@@ -295,8 +297,25 @@ proposition, so the type of algebra morphisms is contractible.
 
 The theorem is formalized for precategories, with a separate generic
 univalent-category corollary for the object equality.
-The one-point domain is initial there. Thus any $\omega$-continuous
-endofunctor of that category has an initial algebra whenever its initial
+
+\begin{theorem}[Univalence of the algebra category]
+For any univalent category $\mathcal C$ and endofunctor
+$F:\mathcal C\to\mathcal C$, the category $\operatorname{Alg}(F)$ is
+univalent. Its objects are pairs $(X,a:F(X)\to X)$, and its arrows
+$h:(X,a)\to(Y,b)$ satisfy $h\circ a=b\circ F(h)$.
+\end{theorem}
+\begin{proof}
+An algebra isomorphism gives an isomorphism of underlying objects, hence
+an equality $X=Y$ by univalence of $\mathcal C$. The commuting square
+identifies the transported algebra map with $b$, giving equality of the
+algebras. Path induction and the sethood of hom types show that this
+construction and the canonical map from equalities to isomorphisms are
+inverse. The functor laws give identities and composition of algebra
+arrows. No colimit preservation assumption on $F$ is used.
+\end{proof}
+
+The one-point domain is initial in the unpresented EP category. Thus any
+$\omega$-continuous endofunctor of that category has an initial algebra whenever its initial
 chain has a supplied colimit; in particular this follows from an
 $\omega$-cocompleteness structure on the category. The present formalization
 constructs colimits for chains of \emph{presented} Scott domains, but does
@@ -1535,7 +1554,8 @@ type with merely existing basis and univalent categories of continuous
 maps and embedding--projection pairs; continuous function spaces,
 compact step approximations, least fixed points, and the reflexive
 equation of Theorem~\ref{thm:reflexive}; the conditional abstract
-initial-chain theorem, Theorem~\ref{thm:initial-chain}.
+initial-chain theorem, Theorem~\ref{thm:initial-chain}, and the generic
+univalent category of endofunctor algebras.
 \item The Scott filter domain and recursive projector; corrected rank
 stages, finite stabilisation, and comparison with bounded compact typing.
 \item The independent strict lower admissible invariant, its equations
@@ -1560,12 +1580,12 @@ complete command.
 \hline
 Check & Declarations & Checker CPU time\\
 \hline
-Complete development & 10,573 & 2.93 s\\
-Independent relation and consequences & 4,909 & 1.09 s\\
+Complete development & 10,620 & 3.16 s\\
+Independent relation and consequences & 4,909 & 1.22 s\\
 \hline
 \end{tabular}
 \end{center}
-The \textbf{total wall-clock time was 4.11 seconds}, including dependency
+The \textbf{total wall-clock time was 4.49 seconds}, including dependency
 verification and both checker processes. The independent run has a
 104-module dependency closure with the old logical relation and the earlier
 proofs of adequacy, syntactic Pi injectivity and subject reduction out of scope. All 40 frozen
