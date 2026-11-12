@@ -1,0 +1,249 @@
+-- The canonical compact CUSL and cocone of a CUSL embedding chain.
+level l ;
+open Base ; open Prelude[l+] ;
+module K = CategoryInitialChain[l++,l+] ;
+module CU = ScottCUSL[l] ;
+module ID = ScottCUSLIdeals[l] ;
+module IM = ScottCUSLIdealMaps[l] ;
+module KM = ScottCUSLCompacts[l] ;
+module EQ = ScottCUSLEquivalence[l] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module Limit = ScottEPLimit[l] ;
+module Cone = ScottEPLimitCone[l] ;
+module Colimit = ScottEPLimitColimit[l] ;
+module Basis = ScottEPLimitBasis[l] ;
+module SD = ScottDomain[l] ;
+module TC = TruncationCombinators[l] ;
+module A = CategoryArrows[l++,l+].Arrows[CU.pre] ;
+module H = Paths[l+] ;
+
+module On (S : K.Chain[CU.pre]) {
+  presented : Limit.Chain = new Limit.Chain[
+    stage := \ n -> ID.Canonical[S.stage n].O.scott,
+    link := \ n -> IM.Functor.arrow (S.stage n)
+      (S.stage (suc n)) (S.link n)] ;
+  module LC = Cone.On[presented] ;
+  vertex : CU.CUSL = KM.Functor.object (SO.from-presented LC.D) ;
+  module At (n : Nat) {
+    X : CU.CUSL = S.stage n ;
+    FX : SO.Domain = IM.Functor.object X ;
+    eta : CU.pre.Iso X (KM.Functor.object FX) =
+      EQ.equivalence.unit-source X ;
+    ideal-leg : EP.pre.hom FX (SO.from-presented LC.D) =
+      LC.At[n].pair ;
+    compact-leg : CU.pre.hom (KM.Functor.object FX) vertex =
+      KM.Functor.arrow FX (SO.from-presented LC.D) ideal-leg ;
+    leg : CU.pre.hom X vertex = A.cmp compact-leg eta.1 ;
+  } ;
+  leg (n : Nat) : CU.pre.hom (S.stage n) vertex = At[n].leg ;
+  module Step (n : Nat) {
+    X : CU.CUSL = S.stage n ;
+    Y : CU.CUSL = S.stage (suc n) ;
+    fx : SO.Domain = At[n].FX ;
+    fy : SO.Domain = At[suc n].FX ;
+    d : SO.Domain = SO.from-presented LC.D ;
+    u : CU.pre.hom X Y = S.link n ;
+    fu : EP.pre.hom fx fy = IM.Functor.arrow X Y u ;
+    gu : CU.pre.hom (KM.Functor.object fx)
+      (KM.Functor.object fy) = KM.Functor.arrow fx fy fu ;
+    b : CU.pre.hom (KM.Functor.object fy) vertex =
+      At[suc n].compact-leg ;
+    a : CU.pre.hom X (KM.Functor.object fx) = At[n].eta.1 ;
+    c : CU.pre.hom Y (KM.Functor.object fy) =
+      At[suc n].eta.1 ;
+    p : EP.pre.hom fy d = At[suc n].ideal-leg ;
+    first : Id (CU.pre.hom X vertex)
+      (A.cmp (A.cmp b c) u) (A.cmp b (A.cmp c u)) =
+      H.symH (A.assoc b c u) ;
+    second : Id (CU.pre.hom X vertex)
+      (A.cmp b (A.cmp c u))
+      (A.cmp b (A.cmp gu a)) =
+      A.left b (H.symH (EQ.equivalence.source-natural X Y u)) ;
+    third : Id (CU.pre.hom X vertex)
+      (A.cmp b (A.cmp gu a))
+      (A.cmp (A.cmp b gu) a) = A.assoc b gu a ;
+    fourth : Id (CU.pre.hom X vertex)
+      (A.cmp (A.cmp b gu) a)
+      (A.cmp (KM.Functor.arrow fx d (EP.pre.comp fx fy d p fu)) a) =
+      A.right (H.symH (KM.Functor.composition fx fy d fu p)) a ;
+    fifth : Id (CU.pre.hom X vertex)
+      (A.cmp (KM.Functor.arrow fx d (EP.pre.comp fx fy d p fu)) a)
+      (A.cmp At[n].compact-leg a) =
+      A.right (H.apH (KM.Functor.arrow fx d) (LC.cone-law n)) a ;
+    result : Id (CU.pre.hom X vertex)
+      (A.cmp (leg (suc n)) u) (leg n) =
+      H.transH first (H.transH second
+        (H.transH third (H.transH fourth fifth))) ;
+  } ;
+  law (n : Nat) : Id (CU.pre.hom (S.stage n) vertex)
+    (A.cmp (leg (suc n)) (S.link n)) (leg n) = Step[n].result ;
+
+  module Universal (Y : CU.CUSL)
+    (q : (n : Nat) -> CU.pre.hom (S.stage n) Y)
+    (coherent : (n : Nat) -> Id (CU.pre.hom (S.stage n) Y)
+      (CU.pre.comp (S.stage n) (S.stage (suc n)) Y
+        (q (suc n)) (S.link n)) (q n)) {
+    FY : SO.Domain = IM.Functor.object Y ;
+    q-ideal (n : Nat) : EP.pre.hom
+      (IM.Functor.object (S.stage n)) FY =
+      IM.Functor.arrow (S.stage n) Y (q n) ;
+    q-ideal-law (n : Nat) :
+      Id (EP.pre.hom (IM.Functor.object (S.stage n)) FY)
+        (EP.pre.comp (IM.Functor.object (S.stage n))
+          (IM.Functor.object (S.stage (suc n))) FY
+          (q-ideal (suc n)) (presented.link n))
+        (q-ideal n) =
+      H.transH
+        (H.symH (IM.Functor.composition
+          (S.stage n) (S.stage (suc n)) Y
+          (S.link n) (q (suc n))))
+        (H.apH (IM.Functor.arrow (S.stage n) Y)
+          (coherent n)) ;
+    module UC = Colimit.On[presented,ID.Canonical[Y].O.scott,
+      q-ideal,q-ideal-law] ;
+    eta : CU.pre.Iso Y (KM.Functor.object FY) =
+      EQ.equivalence.unit-source Y ;
+    gm : CU.pre.hom vertex (KM.Functor.object FY) =
+      KM.Functor.arrow (SO.from-presented LC.D) FY UC.mediator ;
+    mediator : CU.pre.hom vertex Y = A.cmp eta.2.1 gm ;
+    module Factor (n : Nat) {
+      X : CU.CUSL = S.stage n ;
+      FX : SO.Domain = IM.Functor.object X ;
+      d : SO.Domain = SO.from-presented LC.D ;
+      ga : CU.pre.hom (KM.Functor.object FX) vertex =
+        At[n].compact-leg ;
+      ax : CU.pre.hom X (KM.Functor.object FX) = At[n].eta.1 ;
+      fq : EP.pre.hom FX FY = q-ideal n ;
+      gq : CU.pre.hom (KM.Functor.object FX)
+        (KM.Functor.object FY) = KM.Functor.arrow FX FY fq ;
+      f1 : Id (CU.pre.hom X Y)
+        (A.cmp (A.cmp eta.2.1 gm) (A.cmp ga ax))
+        (A.cmp (A.cmp (A.cmp eta.2.1 gm) ga) ax) =
+        A.assoc (A.cmp eta.2.1 gm) ga ax ;
+      f2 : Id (CU.pre.hom X Y)
+        (A.cmp (A.cmp (A.cmp eta.2.1 gm) ga) ax)
+        (A.cmp (A.cmp eta.2.1 (A.cmp gm ga)) ax) =
+        A.right (H.symH (A.assoc eta.2.1 gm ga)) ax ;
+      f3 : Id (CU.pre.hom X Y)
+        (A.cmp (A.cmp eta.2.1 (A.cmp gm ga)) ax)
+        (A.cmp
+          (A.cmp eta.2.1
+            (KM.Functor.arrow FX FY
+              (EP.pre.comp FX d FY UC.mediator At[n].ideal-leg)))
+          ax) =
+        A.right (A.left eta.2.1
+          (H.symH (KM.Functor.composition FX d FY
+            At[n].ideal-leg UC.mediator))) ax ;
+      f4 : Id (CU.pre.hom X Y)
+        (A.cmp
+          (A.cmp eta.2.1
+            (KM.Functor.arrow FX FY
+              (EP.pre.comp FX d FY UC.mediator At[n].ideal-leg)))
+          ax)
+        (A.cmp (A.cmp eta.2.1 gq) ax) =
+        A.right (A.left eta.2.1
+          (H.apH (KM.Functor.arrow FX FY)
+            (UC.ConeLaw[n].law))) ax ;
+      f5 : Id (CU.pre.hom X Y)
+        (A.cmp (A.cmp eta.2.1 gq) ax)
+        (A.cmp eta.2.1 (A.cmp gq ax)) =
+        H.symH (A.assoc eta.2.1 gq ax) ;
+      f6 : Id (CU.pre.hom X Y)
+        (A.cmp eta.2.1 (A.cmp gq ax))
+        (A.cmp eta.2.1 (A.cmp eta.1 (q n))) =
+        A.left eta.2.1
+          (EQ.equivalence.source-natural X Y (q n)) ;
+      f7 : Id (CU.pre.hom X Y)
+        (A.cmp eta.2.1 (A.cmp eta.1 (q n)))
+        (A.cmp (A.cmp eta.2.1 eta.1) (q n)) =
+        A.assoc eta.2.1 eta.1 (q n) ;
+      f8 : Id (CU.pre.hom X Y)
+        (A.cmp (A.cmp eta.2.1 eta.1) (q n)) (q n) =
+        H.transH (A.right eta.2.2.1 (q n))
+          (A.unit-l (q n)) ;
+      result : Id (CU.pre.hom X Y)
+        (A.cmp mediator (leg n)) (q n) =
+        H.transH f1 (H.transH f2 (H.transH f3
+          (H.transH f4 (H.transH f5 (H.transH f6
+            (H.transH f7 f8)))))) ;
+    } ;
+    factor (n : Nat) : Id (CU.pre.hom (S.stage n) Y)
+      (A.cmp mediator (leg n)) (q n) = Factor[n].result ;
+
+    module Unique (t : CU.pre.hom vertex Y)
+      (t-law : (n : Nat) -> Id (CU.pre.hom (S.stage n) Y)
+        (A.cmp t (leg n)) (q n)) {
+      module V = KM.On[SO.from-presented LC.D] ;
+      module B = Basis.On[presented] ;
+      module DOn = SD.On[LC.D] ;
+      W (c : V.Carrier) : U l =
+        (a : B.Basis) *
+          (LC.D.order.le c.1 (B.basic a) *
+           LC.D.order.le (B.basic a) c.1) ;
+      module AtRep (c : V.Carrier) (w : W c) {
+        n : Nat = w.1.1 ;
+        stage : KM.On[At[n].FX].Carrier =
+          (B.basic-at n w.1.2,
+            (presented.stage n).basis.compact w.1.2) ;
+        image : V.Carrier = At[n].compact-leg.1 stage ;
+        image-path : Id V.Carrier image c =
+          V.carrier-path image c
+            (LC.D.order.antisymmetric image.1 c.1 w.2.2 w.2.1) ;
+        back : (S.stage n).order.carrier = At[n].eta.2.1.1 stage ;
+        stage-path : Id V.Carrier ((leg n).1 back) image =
+          ap (CU.pre.hom (KM.Functor.object At[n].FX) vertex)
+            V.Carrier (\ f -> f.1 stage)
+            (A.cmp (leg n) At[n].eta.2.1)
+            At[n].compact-leg
+            (A.undo-r At[n].compact-leg At[n].eta) ;
+        t-stage : Id Y.order.carrier (t.1 image) ((q n).1 back) =
+          H.transH
+            (H.apH t.1 (H.symH stage-path))
+            (ap (CU.pre.hom (S.stage n) Y)
+              Y.order.carrier (\ f -> f.1 back)
+              (A.cmp t (leg n)) (q n) (t-law n)) ;
+        m-stage : Id Y.order.carrier (mediator.1 image)
+          ((q n).1 back) =
+          H.transH
+            (H.apH mediator.1 (H.symH stage-path))
+            (ap (CU.pre.hom (S.stage n) Y)
+              Y.order.carrier (\ f -> f.1 back)
+              (A.cmp mediator (leg n)) (q n) (factor n)) ;
+        point : Id Y.order.carrier (t.1 c) (mediator.1 c) =
+          H.transH
+            (H.apH t.1 (H.symH image-path))
+            (H.transH t-stage
+              (H.transH (H.symH m-stage)
+                (H.apH mediator.1 image-path))) ;
+      } ;
+      point (c : V.Carrier) :
+        Id Y.order.carrier (t.1 c) (mediator.1 c) =
+        TC.rec (W c) @l+
+          (Id Y.order.carrier (t.1 c) (mediator.1 c))
+          (ScottOrder[l].On[Y.order].order-set
+            (t.1 c) (mediator.1 c))
+          (\ w -> AtRep[c,w].point)
+          (DOn.compact-basis c.1 c.2) ;
+      equation : Id (CU.pre.hom vertex Y) t mediator =
+        CU.Between[vertex,Y].equal t mediator point ;
+    } ;
+  } ;
+
+  universal : K.Colimit[CU.pre,S,vertex,leg] =
+    new K.Colimit[CU.pre,S,vertex,leg,
+      mediator := \ Y q coherent ->
+        Universal[Y,q,coherent].mediator,
+      factor := \ Y q coherent n ->
+        Universal[Y,q,coherent].factor n,
+      unique := \ Y q coherent t t-law ->
+        Universal[Y,q,coherent].Unique[t,t-law].equation] ;
+  colimit : K.ChainColimit[CU.pre,S] =
+    new K.ChainColimit[CU.pre,S,
+      vertex := vertex,leg := leg,law := law,
+      universal := universal] ;
+} ;
+
+cocomplete : K.OmegaCocomplete[CU.pre] =
+  new K.OmegaCocomplete[CU.pre,
+    colimit := \ S -> On[S].colimit] ;

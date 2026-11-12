@@ -1,0 +1,49 @@
+-- The one-point conditional upper semilattice is initial for embeddings.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module T = ScottTerminal[l] ;
+module R = Replacement[l,l+] ;
+
+one : CU.CUSL = new CU.CUSL[
+  order := T.order,
+  bottom := tt,
+  bottom-least := \ x -> tt,
+  join := \ x y h -> T.supremum Bool (CU.pair T.order x y),
+  small := Truncation[l+].Trunc[R.Small Top].inc
+    (Top,idEquiv Top)] ;
+
+arrow (D : CU.CUSL) : CU.Between[one,D].Embedding =
+  (\ _ -> D.bottom,
+    (\ x y h -> D.order.reflexive D.bottom,
+      (\ x y h -> tt,
+        (\ x y h -> CU.by-bound T.order x y tt tt tt,
+          (refl D.bottom,
+            \ x y h -> D.order.antisymmetric
+              D.bottom
+              (CU.On[D].join D.bottom D.bottom
+                (CU.Between[one,D].image-compatible
+                  (\ _ -> D.bottom)
+                  (\ a b p -> D.order.reflexive D.bottom) x y h))
+              (D.bottom-least
+                (CU.On[D].join D.bottom D.bottom
+                  (CU.Between[one,D].image-compatible
+                    (\ _ -> D.bottom)
+                    (\ a b p -> D.order.reflexive D.bottom) x y h)))
+              (CU.On[D].least D.bottom D.bottom
+                (CU.Between[one,D].image-compatible
+                  (\ _ -> D.bottom)
+                  (\ a b p -> D.order.reflexive D.bottom) x y h)
+                D.bottom (D.order.reflexive D.bottom)
+                (D.order.reflexive D.bottom))))))) ;
+
+unique (D : CU.CUSL) (f : CU.Between[one,D].Embedding) :
+  Id CU.Between[one,D].Embedding f (arrow D) =
+  CU.Between[one,D].equal f (arrow D)
+    (\ x -> trans D.order.carrier (f.1 x) (f.1 tt) D.bottom
+      (ap Top D.order.carrier f.1 x tt (isTop x tt))
+      (CU.Between[one,D].bottom-law f)) ;
+
+initial : K.Initial[CU.pre] = new K.Initial[CU.pre,
+  object := one,arrow := arrow,unique := unique] ;

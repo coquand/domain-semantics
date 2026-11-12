@@ -1,0 +1,43 @@
+-- Initial algebras for colimit-preserving CUSL endofunctors.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+
+omega-proposition (F : K.Endofunctor[CU.pre]) :
+  Prelude[l++].isProp (K.OmegaContinuous[CU.pre,F]) =
+  K.OmegaContinuousProof[CU.pre,F].proposition ;
+
+initial-chain (F : K.Endofunctor[CU.pre]) : K.Chain[CU.pre] =
+  K.InitialChain[CU.pre,F,ScottCUSLInitial[l].initial].chain ;
+
+module On (F : K.Endofunctor[CU.pre])
+  (omega : K.OmegaContinuous[CU.pre,F])
+  (c : K.ChainColimit[CU.pre,initial-chain F]) {
+  module S = K.Setup[CU.pre,F,ScottCUSLInitial[l].initial,
+    c.vertex,c.leg,c.law,c.universal] ;
+  module R = S.FromContinuous[omega].Result ;
+  fold : CU.pre.hom (F.object c.vertex) c.vertex = R.fold ;
+  unfold : CU.pre.hom c.vertex (F.object c.vertex) = R.unfold ;
+  isomorphism : CU.pre.Iso (F.object c.vertex) c.vertex = R.iso ;
+  equation : Id CU.CUSL c.vertex (F.object c.vertex) =
+    Prelude[l++].sym CU.CUSL (F.object c.vertex) c.vertex
+      (CU.CategoryUnivalence.category.isotoid
+        (F.object c.vertex) c.vertex isomorphism) ;
+  module Algebra (Y : CU.CUSL)
+    (a : CU.pre.hom (F.object Y) Y) {
+    module A = R.Algebra[Y,a] ;
+    Morphism : U l+ = A.AlgebraMorphism ;
+    canonical : Morphism = A.center ;
+    initial : (w : Morphism) -> Id Morphism w canonical =
+      A.initial ;
+  } ;
+} ;
+
+module WithAllColimits (F : K.Endofunctor[CU.pre])
+  (omega : K.OmegaContinuous[CU.pre,F])
+  (cocomplete : K.OmegaCocomplete[CU.pre]) {
+  colimit : K.ChainColimit[CU.pre,initial-chain F] =
+    cocomplete.colimit (initial-chain F) ;
+  module Result = On[F,omega,colimit] ;
+} ;

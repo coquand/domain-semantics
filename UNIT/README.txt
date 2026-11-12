@@ -2,7 +2,7 @@ Section 2 in Unit, using intersection types and filters
 =====================================================
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 11,242
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 11,424
 declarations, with 0 failures, using the recorded checker (2026-11-12).
 
 Run from DOMAIN:
@@ -66,6 +66,20 @@ colimit remains an explicit premise.
 Here omega-continuity means preservation of existing countable-chain
 colimits; the implication from continuity on ordered homs to that
 preservation is not yet proved.
+
+For the CUSL category, the missing colimits are now constructed. A chain
+of CUSL embeddings is sent to a chain of presented ideal domains; the
+compact elements of its EP limit form the colimit CUSL. The mediator is
+obtained by ideal extension, and uniqueness follows because every compact
+element of the limit is represented by a compact basis element at some
+stage. The one-point CUSL is initial. Therefore every CUSL endofunctor
+preserving countable-chain colimits has an initial algebra, inverse
+fold/unfold maps, and an equality X = F(X). Preservation is a proposition:
+the universal property of a fixed cocone is a proposition. No countable
+choice is used in selecting small presentations for the ideal domains.
+The analogous unconditional statement for arbitrary EP endofunctors still
+requires formal transport of functors and colimit preservation across the
+CUSL--EP equivalence.
 
 The univalent category of Scott domains and embedding-projection pairs is
 now equivalent to the univalent category of conditional upper semilattices
@@ -172,6 +186,15 @@ New names except Proper and Regular are under All.Theory, at universe l.
     General.isomorphism proves fold/unfold inverse; Algebra.initial proves
     contractibility of the algebra-morphism type. UnivalentGeneral turns
     the solution isomorphism into object equality.
+  CategoryInitialChain.ColimitProof.proposition / OmegaContinuousProof.proposition
+    A fixed cocone's universal property and preservation of countable-chain
+    colimits are propositions.
+  ScottCUSLInitial.initial / ScottCUSLColimit.cocomplete
+    The one-point CUSL is initial; every countable chain of CUSL embeddings
+    has a colimit, built from compact elements of a presented EP limit.
+  ScottCUSLFixedPoint.On.equation / Algebra.initial
+    A colimit-preserving CUSL endofunctor has a solution X = F(X), whose
+    fold map is an initial algebra.
   CategoryAlgebras.On.pre / Univalent.category
     The algebra category for any endofunctor on a precategory, and its
     univalence when the base category is univalent. An algebra isomorphism
@@ -424,7 +447,7 @@ ideal below identity. StableFamilies proves both joint stability of
 (B,f) |-> R_B(f) and stability of B |-> R_B into rigid projections of the
 stable function domain, for stable families over the fixed input domain.
 
-The combined check reports 11,242 declarations and zero failures.
+The combined check reports 11,424 declarations and zero failures.
 StableInputRestriction, StableImageMaps and StableVaryingFamilies now
 handle varying rigid input domains: input restriction is rigid, stable
 maps on its image extend/restrict with beta/eta, and Q_(p,B) is the

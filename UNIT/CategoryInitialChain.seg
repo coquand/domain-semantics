@@ -94,6 +94,171 @@ record OmegaContinuous (D : C.Precategory)
       F.object L,Mapped[D,F,S,L,leg,leg-law].leg] ;
 } ;
 
+-- The universal property of a fixed cocone is a proposition.  Consequently
+-- preservation of existing chain colimits carries no choice of structure.
+module ColimitProof (D : C.Precategory) (S : Chain[D])
+  (L : D.ob) (leg : (n : Nat) -> D.hom (S.stage n) L) {
+  module H = Axioms[k \/ l].FunExtLemmas[fe @(k \/ l)] ;
+  module Q = Prelude[k \/ l] ;
+  Coherent (Y : D.ob) (q : (n : Nat) -> D.hom (S.stage n) Y) :
+    U l = (n : Nat) -> Id (D.hom (S.stage n) Y)
+      (D.comp (S.stage n) (S.stage (suc n)) Y
+        (q (suc n)) (S.link n)) (q n) ;
+  Med : U (k \/ l) =
+    (Y : D.ob) (q : (n : Nat) -> D.hom (S.stage n) Y)
+      (h : Coherent Y q) -> D.hom L Y ;
+  Factor (m : Med) : U (k \/ l) =
+    (Y : D.ob) (q : (n : Nat) -> D.hom (S.stage n) Y)
+      (h : Coherent Y q) (n : Nat) ->
+      Id (D.hom (S.stage n) Y)
+        (D.comp (S.stage n) L Y (m Y q h) (leg n)) (q n) ;
+  Unique (m : Med) : U (k \/ l) =
+    (Y : D.ob) (q : (n : Nat) -> D.hom (S.stage n) Y)
+      (h : Coherent Y q) (f : D.hom L Y)
+      (law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+        (D.comp (S.stage n) L Y f (leg n)) (q n)) ->
+      Id (D.hom L Y) f (m Y q h) ;
+  Raw : U (k \/ l) =
+    (m : Med) * (Factor m * Unique m) ;
+  raw (u : Colimit[D,S,L,leg]) : Raw =
+    (u.mediator,(u.factor,u.unique)) ;
+  from (r : Raw) : Colimit[D,S,L,leg] =
+    new Colimit[D,S,L,leg,
+      mediator := r.1,factor := r.2.1,unique := r.2.2] ;
+  eta : (u : Colimit[D,S,L,leg]) ->
+    Id (Colimit[D,S,L,leg]) (from (raw u)) u =
+    split { Colimit m f v ->
+      refl (new Colimit[D,S,L,leg,m,f,v]) } ;
+  med-equal (u v : Raw) : Id Med u.1 v.1 =
+    H.funext D.ob
+      (\ Y -> (q : (n : Nat) -> D.hom (S.stage n) Y)
+        (h : Coherent Y q) -> D.hom L Y)
+      u.1 v.1 (\ Y ->
+      H.funext ((n : Nat) -> D.hom (S.stage n) Y)
+        (\ q -> (h : Coherent Y q) -> D.hom L Y)
+        (u.1 Y) (v.1 Y) (\ q ->
+        H.funext (Coherent Y q) (\ _ -> D.hom L Y)
+          (u.1 Y q) (v.1 Y q)
+          (\ h -> (from v).unique Y q h (u.1 Y q h)
+            (u.2.1 Y q h)))) ;
+  factor-prop (m : Med) : Q.isProp (Factor m) =
+    H.isProp-Pi D.ob
+      (\ Y -> (q : (n : Nat) -> D.hom (S.stage n) Y)
+        (h : Coherent Y q) (n : Nat) ->
+        Id (D.hom (S.stage n) Y)
+          (D.comp (S.stage n) L Y (m Y q h) (leg n)) (q n))
+      (\ Y -> H.isProp-Pi
+        ((n : Nat) -> D.hom (S.stage n) Y)
+        (\ q -> (h : Coherent Y q) (n : Nat) ->
+          Id (D.hom (S.stage n) Y)
+            (D.comp (S.stage n) L Y (m Y q h) (leg n)) (q n))
+        (\ q -> H.isProp-Pi (Coherent Y q)
+          (\ h -> (n : Nat) -> Id (D.hom (S.stage n) Y)
+            (D.comp (S.stage n) L Y (m Y q h) (leg n)) (q n))
+          (\ h -> H.isProp-Pi Nat
+            (\ n -> Id (D.hom (S.stage n) Y)
+              (D.comp (S.stage n) L Y (m Y q h) (leg n)) (q n))
+            (\ n -> D.hom-set (S.stage n) Y
+              (D.comp (S.stage n) L Y (m Y q h) (leg n)) (q n))))) ;
+  unique-prop (m : Med) : Q.isProp (Unique m) =
+    H.isProp-Pi D.ob
+      (\ Y -> (q : (n : Nat) -> D.hom (S.stage n) Y)
+        (h : Coherent Y q) (f : D.hom L Y)
+        (law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+          (D.comp (S.stage n) L Y f (leg n)) (q n)) ->
+        Id (D.hom L Y) f (m Y q h)) (\ Y ->
+      H.isProp-Pi ((n : Nat) -> D.hom (S.stage n) Y)
+        (\ q -> (h : Coherent Y q) (f : D.hom L Y)
+          (law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+            (D.comp (S.stage n) L Y f (leg n)) (q n)) ->
+          Id (D.hom L Y) f (m Y q h)) (\ q ->
+        H.isProp-Pi (Coherent Y q)
+          (\ h -> (f : D.hom L Y)
+            (law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+              (D.comp (S.stage n) L Y f (leg n)) (q n)) ->
+            Id (D.hom L Y) f (m Y q h)) (\ h ->
+          H.isProp-Pi (D.hom L Y)
+            (\ f -> (law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+              (D.comp (S.stage n) L Y f (leg n)) (q n)) ->
+              Id (D.hom L Y) f (m Y q h)) (\ f ->
+            H.isProp-Pi
+              ((n : Nat) -> Id (D.hom (S.stage n) Y)
+                (D.comp (S.stage n) L Y f (leg n)) (q n))
+              (\ _ -> Id (D.hom L Y) f (m Y q h))
+              (\ law -> D.hom-set L Y f (m Y q h)))))) ;
+  raw-prop : Q.isProp Raw = \ u v ->
+    Q.Sigma-eq Med (\ m -> Factor m * Unique m)
+      u.1 v.1 u.2 v.2 (med-equal u v)
+      (Q.isProp-Sigma (Factor v.1) (\ _ -> Unique v.1)
+        (factor-prop v.1) (\ _ -> unique-prop v.1)) ;
+  proposition : Q.isProp (Colimit[D,S,L,leg]) =
+    Q.retract-prop (Colimit[D,S,L,leg]) Raw
+      raw from eta raw-prop ;
+} ;
+
+module OmegaContinuousProof (D : C.Precategory)
+  (F : Endofunctor[D]) {
+  module H = Axioms[k \/ l].FunExtLemmas[fe @(k \/ l)] ;
+  module Q = Prelude[k \/ l] ;
+  Preserve : U (k \/ l) =
+    (S : Chain[D]) (L : D.ob)
+    (leg : (n : Nat) -> D.hom (S.stage n) L)
+    (leg-law : (n : Nat) -> Id (D.hom (S.stage n) L)
+      (D.comp (S.stage n) (S.stage (suc n)) L
+        (leg (suc n)) (S.link n)) (leg n))
+    (c : Colimit[D,S,L,leg]) ->
+    Colimit[D,Mapped[D,F,S,L,leg,leg-law].chain,
+      F.object L,Mapped[D,F,S,L,leg,leg-law].leg] ;
+  raw (u : OmegaContinuous[D,F]) : Preserve = u.preserve ;
+  from (p : Preserve) : OmegaContinuous[D,F] =
+    new OmegaContinuous[D,F,preserve := p] ;
+  eta : (u : OmegaContinuous[D,F]) ->
+    Id (OmegaContinuous[D,F]) (from (raw u)) u =
+    split { OmegaContinuous p ->
+      refl (new OmegaContinuous[D,F,p]) } ;
+  raw-prop : Q.isProp Preserve =
+    H.isProp-Pi (Chain[D])
+      (\ S -> (L : D.ob)
+        (leg : (n : Nat) -> D.hom (S.stage n) L)
+        (law : (n : Nat) -> Id (D.hom (S.stage n) L)
+          (D.comp (S.stage n) (S.stage (suc n)) L
+            (leg (suc n)) (S.link n)) (leg n))
+        (c : Colimit[D,S,L,leg]) ->
+        Colimit[D,Mapped[D,F,S,L,leg,law].chain,
+          F.object L,Mapped[D,F,S,L,leg,law].leg]) (\ S ->
+      H.isProp-Pi D.ob
+        (\ L -> (leg : (n : Nat) -> D.hom (S.stage n) L)
+          (law : (n : Nat) -> Id (D.hom (S.stage n) L)
+            (D.comp (S.stage n) (S.stage (suc n)) L
+              (leg (suc n)) (S.link n)) (leg n))
+          (c : Colimit[D,S,L,leg]) ->
+          Colimit[D,Mapped[D,F,S,L,leg,law].chain,
+            F.object L,Mapped[D,F,S,L,leg,law].leg]) (\ L ->
+        H.isProp-Pi ((n : Nat) -> D.hom (S.stage n) L)
+          (\ leg -> (law : (n : Nat) -> Id (D.hom (S.stage n) L)
+            (D.comp (S.stage n) (S.stage (suc n)) L
+              (leg (suc n)) (S.link n)) (leg n))
+            (c : Colimit[D,S,L,leg]) ->
+            Colimit[D,Mapped[D,F,S,L,leg,law].chain,
+              F.object L,Mapped[D,F,S,L,leg,law].leg])
+          (\ leg -> H.isProp-Pi
+            ((n : Nat) -> Id (D.hom (S.stage n) L)
+              (D.comp (S.stage n) (S.stage (suc n)) L
+                (leg (suc n)) (S.link n)) (leg n))
+            (\ law -> (c : Colimit[D,S,L,leg]) ->
+              Colimit[D,Mapped[D,F,S,L,leg,law].chain,
+                F.object L,Mapped[D,F,S,L,leg,law].leg])
+            (\ law -> H.isProp-Pi (Colimit[D,S,L,leg])
+              (\ _ -> Colimit[D,Mapped[D,F,S,L,leg,law].chain,
+                F.object L,Mapped[D,F,S,L,leg,law].leg])
+              (\ _ -> ColimitProof[D,
+                Mapped[D,F,S,L,leg,law].chain,F.object L,
+                Mapped[D,F,S,L,leg,law].leg].proposition))))) ;
+  proposition : Q.isProp (OmegaContinuous[D,F]) =
+    Q.retract-prop (OmegaContinuous[D,F]) Preserve
+      raw from eta raw-prop ;
+} ;
+
 record ChainColimit (D : C.Precategory) (S : Chain[D]) {
   vertex : D.ob ;
   leg (n : Nat) : D.hom (S.stage n) vertex ;

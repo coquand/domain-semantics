@@ -42,6 +42,8 @@ module Theory
  import ScottProduct ;
  import ScottEPProduct ;
  import ScottTerminal ;
+ import ScottCUSLInitial ;
+ import ScottCUSLInitialChain ;
  import CompactIdeals ;
  import BooleanDI ;
  import StableComposition ; import PrincipalProjection ;
@@ -77,6 +79,8 @@ module Theory
  import ScottEPLimitCone ;
  import ScottEPLimitMaps ;
  import ScottEPLimitColimit ;
+ import ScottCUSLColimit ;
+ import ScottCUSLFixedPoint ;
  import ScottEPLimitExponential ;
  import ScottEPLimitProduct ;
  import ScottEPLimitShift ;

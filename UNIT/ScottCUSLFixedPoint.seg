@@ -1,0 +1,29 @@
+-- A colimit-preserving endofunctor of CUSL has an initial algebra.
+-- Preservation is a proposition; the CUSL chain colimits are constructed.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module IC = ScottCUSLInitialChain[l] ;
+module Colimit = ScottCUSLColimit[l] ;
+
+module On (F : K.Endofunctor[CU.pre])
+  (omega : K.OmegaContinuous[CU.pre,F]) {
+  module C = IC.WithAllColimits[F,omega,Colimit.cocomplete] ;
+  module R = C.Result ;
+  solution : CU.CUSL = C.colimit.vertex ;
+  fold : CU.pre.hom (F.object solution) solution = R.fold ;
+  unfold : CU.pre.hom solution (F.object solution) = R.unfold ;
+  isomorphism : CU.pre.Iso (F.object solution) solution =
+    R.isomorphism ;
+  equation : Id CU.CUSL solution (F.object solution) =
+    R.equation ;
+  module Algebra (Y : CU.CUSL)
+    (a : CU.pre.hom (F.object Y) Y) {
+    module A = R.Algebra[Y,a] ;
+    Morphism : U l+ = A.Morphism ;
+    canonical : Morphism = A.canonical ;
+    initial : (w : Morphism) -> Id Morphism w canonical =
+      A.initial ;
+  } ;
+} ;
