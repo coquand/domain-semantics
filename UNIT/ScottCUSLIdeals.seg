@@ -1,0 +1,351 @@
+-- Ideals of a CUSL with a chosen small presentation of its carrier.
+-- The presentation is used only to keep ideal inclusion in U l.
+level l ;
+open Base ; open Prelude[l+] ;
+module CUSL = ScottCUSL[l] ;
+module R = Replacement[l,l+] ;
+module S = ScottOrder[l] ;
+module SD = ScottDomain[l] ;
+module SO = ScottDomainObjects[l] ;
+module T = Truncation[l] ;
+module TC = TruncationCombinators[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+
+module On (C : CUSL.CUSL) (small : R.Small C.order.carrier) {
+  X : U l = small.1 ;
+  val : X -> C.order.carrier = small.2.1 ;
+  at : C.order.carrier -> X = small.2.2.sec ;
+  at-val (x : C.order.carrier) : Id C.order.carrier (val (at x)) x =
+    small.2.2.sec-eq x ;
+  LE (a b : X) : U l = C.order.le (val a) (val b) ;
+  bot : X = at C.bottom ;
+  bot-least (a : X) : LE bot a =
+    subst C.order.carrier (\ x -> C.order.le x (val a))
+      C.bottom (val bot)
+      (sym C.order.carrier (val bot) C.bottom (at-val C.bottom))
+      (C.bottom-least (val a)) ;
+
+  Pred : U l+ = X -> U l ;
+  PropLaw (m : Pred) : U l+ = (a : X) -> Prelude[l].isProp (m a) ;
+  Lower (m : Pred) : U l =
+    (a b : X) -> LE a b -> m b -> m a ;
+  Upper (m : Pred) : U l =
+    (a b : X) -> m a -> m b ->
+      S.Ex ((c : X) * (m c * (LE a c * LE b c))) ;
+  Laws (m : Pred) : U l+ =
+    (p : PropLaw m) * m bot * Lower m * Upper m ;
+  Ideal : U l+ = (m : Pred) * Laws m ;
+  mem (I : Ideal) (a : X) : U l = I.1 a ;
+  mem-prop (I : Ideal) (a : X) : Prelude[l].isProp (mem I a) = I.2.1 a ;
+  contains-bot (I : Ideal) : mem I bot = I.2.2.1 ;
+  lower (I : Ideal) : Lower I.1 = I.2.2.2.1 ;
+  upper (I : Ideal) : Upper I.1 = I.2.2.2.2 ;
+
+  Incl (I J : Ideal) : U l = (a : X) -> mem I a -> mem J a ;
+  incl-prop (I J : Ideal) : Prelude[l].isProp (Incl I J) =
+    F.isProp-Pi X (\ a -> mem I a -> mem J a)
+      (\ a -> F.isProp-Pi (mem I a) (\ _ -> mem J a)
+        (\ _ -> mem-prop J a)) ;
+  incl-refl (I : Ideal) : Incl I I = \ a h -> h ;
+  incl-trans (I J K : Ideal) (p : Incl I J) (q : Incl J K) :
+    Incl I K = \ a h -> q a (p a h) ;
+
+  prop-law-prop (m : Pred) : isProp (PropLaw m) =
+    H.isProp-Pi X (\ a -> Prelude[l].isProp (m a))
+      (\ a -> Axioms[l].FunExtLemmas[fe @l].isProp-isProp (m a)) ;
+  lower-prop (m : Pred) (p : PropLaw m) :
+    Prelude[l].isProp (Lower m) =
+    F.isProp-Pi X (\ a -> (b : X) -> LE a b -> m b -> m a)
+      (\ a -> F.isProp-Pi X (\ b -> LE a b -> m b -> m a)
+        (\ b -> F.isProp-Pi (LE a b) (\ _ -> m b -> m a)
+          (\ _ -> F.isProp-Pi (m b) (\ _ -> m a) (\ _ -> p a)))) ;
+  upper-prop (m : Pred) : Prelude[l].isProp (Upper m) =
+    F.isProp-Pi X
+      (\ a -> (b : X) -> m a -> m b ->
+        S.Ex ((c : X) * (m c * (LE a c * LE b c))))
+      (\ a -> F.isProp-Pi X
+        (\ b -> m a -> m b ->
+          S.Ex ((c : X) * (m c * (LE a c * LE b c))))
+        (\ b -> F.isProp-Pi (m a)
+          (\ _ -> m b -> S.Ex ((c : X) * (m c * (LE a c * LE b c))))
+          (\ _ -> F.isProp-Pi (m b)
+            (\ _ -> S.Ex ((c : X) * (m c * (LE a c * LE b c))))
+            (\ _ -> S.prop ((c : X) * (m c * (LE a c * LE b c))))))) ;
+  laws-prop (m : Pred) : isProp (Laws m) =
+    isProp-Sigma (PropLaw m) (\ p -> m bot * Lower m * Upper m)
+      (prop-law-prop m)
+      (\ p -> isProp-Sigma (m bot) (\ _ -> Lower m * Upper m)
+        (p bot) (\ _ -> isProp-Sigma (Lower m) (\ _ -> Upper m)
+          (lower-prop m p) (\ _ -> upper-prop m))) ;
+
+  ext (I J : Ideal) (p : Incl I J) (q : Incl J I) : Id Ideal I J =
+    Sigma-eq Pred Laws I.1 J.1 I.2 J.2
+      (H.funext X (\ _ -> U l) I.1 J.1 (\ a ->
+        (propUA @l (mem I a) (mem J a)
+          (mem-prop I a) (mem-prop J a)).sec
+          (p a, Prelude[l].qinv (mem I a) (mem J a) (p a) (q a)
+            (\ h -> mem-prop J a (p a (q a h)) h)
+            (\ h -> mem-prop I a (q a (p a h)) h))))
+      (laws-prop J.1) ;
+
+  order : S.Order = new S.Order[
+    carrier := Ideal, le := Incl, proposition := incl-prop,
+    reflexive := incl-refl, transitive := incl-trans,
+    antisymmetric := ext] ;
+
+  principal (a : X) : Ideal =
+    (\ b -> LE b a,
+      (\ b -> C.order.proposition (val b) (val a),
+       (bot-least a,
+        (\ b c bc ca -> C.order.transitive (val b) (val c) (val a) bc ca,
+         \ b c ba ca -> S.inc ((d : X) * (LE d a * (LE b d * LE c d)))
+           (a,(C.order.reflexive (val a),(ba,ca))))))) ;
+  principal-in (a : X) : mem (principal a) a =
+    C.order.reflexive (val a) ;
+  principal-least (a : X) (I : Ideal) (h : mem I a) :
+    Incl (principal a) I = \ b ba -> lower I b a ba h ;
+  least : Ideal = principal bot ;
+  least-law (I : Ideal) : Incl least I =
+    principal-least bot I (contains-bot I) ;
+
+  module DirectedSup (J : U l) (family : J -> Ideal)
+    (d : S.On[order].Dir J family) {
+    Member (a : X) : U l = (j : J) * mem (family j) a ;
+    predicate (a : X) : U l = S.Ex (Member a) ;
+    predicate-prop (a : X) : Prelude[l].isProp (predicate a) =
+      S.prop (Member a) ;
+    bottom : predicate bot =
+      TC.map J (Member bot) (\ j -> (j,contains-bot (family j))) d.1 ;
+    downward (a b : X) (ab : LE a b) : predicate b -> predicate a =
+      TC.map (Member b) (Member a)
+        (\ w -> (w.1,lower (family w.1) a b ab w.2)) ;
+    upward (a b : X) (ha : predicate a) (hb : predicate b) :
+      S.Ex ((c : X) *
+        (predicate c * (LE a c * LE b c))) =
+      TC.bind2 (Member a) (Member b)
+        ((c : X) * (predicate c * (LE a c * LE b c)))
+        (\ wa wb -> TC.bind
+          ((k : J) * (Incl (family wa.1) (family k) *
+            Incl (family wb.1) (family k)))
+          ((c : X) * (predicate c * (LE a c * LE b c)))
+          (\ w -> TC.map
+            ((c : X) * (mem (family w.1) c * (LE a c * LE b c)))
+            ((c : X) * (predicate c * (LE a c * LE b c)))
+            (\ v -> (v.1,(S.inc (Member v.1) (w.1,v.2.1),v.2.2)))
+            (upper (family w.1) a b
+              (w.2.1 a wa.2) (w.2.2 b wb.2)))
+          (d.2 wa.1 wb.1)) ha hb ;
+    value : Ideal =
+      (predicate,(predicate-prop,(bottom,(downward,upward)))) ;
+    into (j : J) : Incl (family j) value =
+      \ a h -> S.inc (Member a) (j,h) ;
+    least-upper (I : Ideal) (h : (j : J) -> Incl (family j) I) :
+      Incl value I = \ a ->
+      TC.rec (Member a) @l (mem I a) (mem-prop I a)
+        (\ w -> h w.1 a w.2) ;
+    supremum : S.On[order].Supremum J family =
+      (value,(into,least-upper)) ;
+  } ;
+
+  principal-compact (a : X) (J : U l) (family : J -> Ideal)
+    (d : S.On[order].Dir J family)
+    (h : Incl (principal a) DirectedSup[J,family,d].value) :
+    S.Ex ((j : J) * Incl (principal a) (family j)) =
+    TC.map (DirectedSup[J,family,d].Member a)
+      ((j : J) * Incl (principal a) (family j))
+      (\ w -> (w.1,principal-least a (family w.1) w.2))
+      (h a (principal-in a)) ;
+
+  module BasisAt (I : Ideal) {
+    index : U l = (a : X) * mem I a ;
+    part (w : index) : Ideal = principal w.1 ;
+    below (w : index) : Incl (part w) I =
+      principal-least w.1 I w.2 ;
+    index-upper (u v : index) :
+      S.Ex (S.On[order].Upper index part u v) =
+      TC.map
+        ((c : X) * (mem I c * (LE u.1 c * LE v.1 c)))
+        (S.On[order].Upper index part u v)
+        (\ w -> ((w.1,w.2.1),
+          (\ a h -> C.order.transitive (val a) (val u.1) (val w.1)
+              h w.2.2.1,
+           \ a h -> C.order.transitive (val a) (val v.1) (val w.1)
+              h w.2.2.2)))
+        (upper I u.1 v.1 u.2 v.2) ;
+    directed : S.On[order].Dir index part =
+      (S.inc index (bot,contains-bot I),index-upper) ;
+    module D = DirectedSup[index,part,directed] ;
+    reverse : Incl I D.value = \ a h ->
+      S.inc (D.Member a) ((a,h),principal-in a) ;
+    equation : Id Ideal D.value I =
+      ext D.value I (D.least-upper I below) reverse ;
+  } ;
+
+  compatible-in (I : Ideal) (a b : X)
+    (ha : mem I a) (hb : mem I b) :
+    CUSL.Compatible C.order (val a) (val b) =
+    TC.rec ((c : X) * (mem I c * (LE a c * LE b c))) @l+
+      (CUSL.Compatible C.order (val a) (val b))
+      (Truncation[l+].Trunc[CUSL.CompatibleWitness C.order
+        (val a) (val b)].proposition)
+      (\ w -> CUSL.by-bound C.order (val a) (val b) (val w.1)
+        w.2.2.1 w.2.2.2)
+      (upper I a b ha hb) ;
+  join-index (a b : X)
+    (h : CUSL.Compatible C.order (val a) (val b)) : X =
+    at (CUSL.On[C].join (val a) (val b) h) ;
+  join-left (a b : X)
+    (h : CUSL.Compatible C.order (val a) (val b)) :
+    LE a (join-index a b h) =
+    subst C.order.carrier (\ z -> C.order.le (val a) z)
+      (CUSL.On[C].join (val a) (val b) h)
+      (val (join-index a b h))
+      (sym C.order.carrier (val (join-index a b h))
+        (CUSL.On[C].join (val a) (val b) h)
+        (at-val (CUSL.On[C].join (val a) (val b) h)))
+      (CUSL.On[C].left (val a) (val b) h) ;
+  join-right (a b : X)
+    (h : CUSL.Compatible C.order (val a) (val b)) :
+    LE b (join-index a b h) =
+    subst C.order.carrier (\ z -> C.order.le (val b) z)
+      (CUSL.On[C].join (val a) (val b) h)
+      (val (join-index a b h))
+      (sym C.order.carrier (val (join-index a b h))
+        (CUSL.On[C].join (val a) (val b) h)
+        (at-val (CUSL.On[C].join (val a) (val b) h)))
+      (CUSL.On[C].right (val a) (val b) h) ;
+  join-member (I : Ideal) (a b : X)
+    (ha : mem I a) (hb : mem I b)
+    (h : CUSL.Compatible C.order (val a) (val b)) :
+    mem I (join-index a b h) =
+    TC.rec ((c : X) * (mem I c * (LE a c * LE b c))) @l
+      (mem I (join-index a b h)) (mem-prop I (join-index a b h))
+      (\ w -> lower I (join-index a b h) w.1
+        (subst C.order.carrier
+          (\ z -> C.order.le z (val w.1))
+          (CUSL.On[C].join (val a) (val b) h)
+          (val (join-index a b h))
+          (sym C.order.carrier (val (join-index a b h))
+            (CUSL.On[C].join (val a) (val b) h)
+            (at-val (CUSL.On[C].join (val a) (val b) h)))
+          (CUSL.On[C].least (val a) (val b) h (val w.1)
+            w.2.2.1 w.2.2.2)) w.2.1)
+      (upper I a b ha hb) ;
+
+  module BoundedSup (J : U l) (family : J -> Ideal)
+    (bound : Ideal) (bounded : (j : J) -> Incl (family j) bound) {
+    data Finite : U l =
+        empty
+      | atom (j : J) (a : X) (h : mem (family j) a)
+      | combine (u v : Finite) ;
+    join-in-bound (a b : X) (ha : mem bound a) (hb : mem bound b) :
+      (c : X) * mem bound c =
+      (join-index a b (compatible-in bound a b ha hb),
+       join-member bound a b ha hb (compatible-in bound a b ha hb)) ;
+    interpret : Finite -> (a : X) * mem bound a = split {
+      empty -> (bot,contains-bot bound) ;
+      atom j a h -> (a,bounded j a h) ;
+      combine u v | pu pv -> join-in-bound pu.1 pv.1 pu.2 pv.2 } ;
+    Generated (a : X) : U l =
+      S.Ex ((t : Finite) * LE a (interpret t).1) ;
+    generated-prop (a : X) : Prelude[l].isProp (Generated a) =
+      S.prop ((t : Finite) * LE a (interpret t).1) ;
+    generated-bot : Generated bot =
+      S.inc ((t : Finite) * LE bot (interpret t).1)
+        (empty,C.order.reflexive (val bot)) ;
+    generated-lower (a b : X) (ab : LE a b) :
+      Generated b -> Generated a =
+      TC.map ((t : Finite) * LE b (interpret t).1)
+        ((t : Finite) * LE a (interpret t).1)
+        (\ w -> (w.1,C.order.transitive
+          (val a) (val b) (val (interpret w.1).1) ab w.2)) ;
+    generated-upper (a b : X) (ha : Generated a) (hb : Generated b) :
+      S.Ex ((c : X) * (Generated c * (LE a c * LE b c))) =
+      TC.map2 ((t : Finite) * LE a (interpret t).1)
+        ((t : Finite) * LE b (interpret t).1)
+        ((c : X) * (Generated c * (LE a c * LE b c)))
+        (\ u v ->
+          ((interpret (combine u.1 v.1)).1,
+           (S.inc ((t : Finite) * LE (interpret (combine u.1 v.1)).1
+              (interpret t).1)
+              (combine u.1 v.1,
+                C.order.reflexive (val (interpret (combine u.1 v.1)).1)),
+            (C.order.transitive (val a)
+               (val (interpret u.1).1)
+               (val (interpret (combine u.1 v.1)).1)
+               u.2
+               (join-left (interpret u.1).1 (interpret v.1).1
+                 (compatible-in bound (interpret u.1).1
+                   (interpret v.1).1 (interpret u.1).2
+                   (interpret v.1).2)),
+             C.order.transitive (val b)
+               (val (interpret v.1).1)
+               (val (interpret (combine u.1 v.1)).1)
+               v.2
+               (join-right (interpret u.1).1 (interpret v.1).1
+                 (compatible-in bound (interpret u.1).1
+                   (interpret v.1).1 (interpret u.1).2
+                   (interpret v.1).2)))))) ha hb ;
+    value : Ideal =
+      (Generated,(generated-prop,(generated-bot,
+        (generated-lower,generated-upper)))) ;
+    into (j : J) : Incl (family j) value = \ a h ->
+      S.inc ((t : Finite) * LE a (interpret t).1)
+        (atom j a h,C.order.reflexive (val a)) ;
+    finite-in (I : Ideal) (h : (j : J) -> Incl (family j) I) :
+      (t : Finite) -> mem I (interpret t).1 = split {
+      empty -> contains-bot I ;
+      atom j a v -> h j a v ;
+      combine u v | hu hv ->
+        join-member I (interpret u).1 (interpret v).1 hu hv
+          (compatible-in bound (interpret u).1 (interpret v).1
+            (interpret u).2 (interpret v).2) } ;
+    least-upper (I : Ideal) (h : (j : J) -> Incl (family j) I) :
+      Incl value I = \ a ->
+      TC.rec ((t : Finite) * LE a (interpret t).1) @l
+        (mem I a) (mem-prop I a)
+        (\ w -> lower I a (interpret w.1).1 w.2 (finite-in I h w.1)) ;
+    supremum : S.On[order].Supremum J family =
+      (value,(into,least-upper)) ;
+  } ;
+
+  complete : S.Complete[order] = new S.Complete[order,
+    directed := \ J family d -> DirectedSup[J,family,d].supremum,
+    bounded := \ J family b h -> BoundedSup[J,family,b,h].supremum] ;
+  BasisIndex (I : Ideal) : U l =
+    (a : X) * Incl (principal a) I ;
+  basis-directed (I : Ideal) :
+    S.On[order].Dir (BasisIndex I) (\ w -> principal w.1) =
+    (S.inc (BasisIndex I) (bot,least-law I),
+     \ u v -> TC.map
+       ((c : X) * (mem I c * (LE u.1 c * LE v.1 c)))
+       (S.On[order].Upper (BasisIndex I)
+         (\ w -> principal w.1) u v)
+       (\ w -> ((w.1,principal-least w.1 I w.2.1),
+         (\ a h -> C.order.transitive (val a) (val u.1) (val w.1)
+             h w.2.2.1,
+          \ a h -> C.order.transitive (val a) (val v.1) (val w.1)
+             h w.2.2.2)))
+       (upper I u.1 v.1
+         (u.2 u.1 (principal-in u.1))
+         (v.2 v.1 (principal-in v.1)))) ;
+  basis : SD.Basis[order,complete] = new SD.Basis[
+    order := order,complete := complete,index := X,basic := principal,
+    compact := \ a -> principal-compact a,
+    directed := basis-directed,
+    density := \ I J h a ha -> h a (principal-least a I ha) a
+      (principal-in a)] ;
+  scott : SD.Scott = new SD.Scott[
+    order := order,complete := complete,basis := basis,
+    bottom := least,bottom-least := least-law] ;
+  domain : SO.Domain = SO.from-presented scott ;
+} ;
+
+module Canonical (C : CUSL.CUSL) {
+  small : R.Small C.order.carrier =
+    ScottSmallness[l].SmallSet[C.order.carrier,
+      S.On[C.order].order-set].choose C.small ;
+  module O = On[C,small] ;
+  domain : SO.Domain = O.domain ;
+} ;

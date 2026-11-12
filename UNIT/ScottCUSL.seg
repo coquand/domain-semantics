@@ -1,0 +1,444 @@
+-- Conditional upper semilattices with a merely small carrier.
+-- The carrier is kept at the Scott-domain universe so that compact
+-- elements of an unpresented Scott domain form a canonical object.
+level l ;
+open Base ; open Prelude[l+] ;
+module S = ScottOrder[l] ;
+module R = Replacement[l,l+] ;
+module Tr = Truncation[l+] ;
+module TC = TruncationCombinators[l+] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module K = Category[l++,l+] ;
+module SO = ScottDomainObjects[l] ;
+
+pair (P : S.Order) (x y : P.carrier) : Bool -> P.carrier =
+  split { true -> x ; false -> y } ;
+CompatibleWitness (P : S.Order) (x y : P.carrier) : U l+ =
+  (z : P.carrier) * (P.le x z * P.le y z) ;
+Compatible (P : S.Order) (x y : P.carrier) : U l+ =
+  Tr.Trunc[CompatibleWitness P x y].carrier ;
+by-bound (P : S.Order) (x y z : P.carrier)
+  (xz : P.le x z) (yz : P.le y z) : Compatible P x y =
+  Tr.Trunc[CompatibleWitness P x y].inc (z,(xz,yz)) ;
+JoinLaw (P : S.Order) : U l+ =
+  (x y : P.carrier) -> Compatible P x y ->
+    S.On[P].Supremum Bool (pair P x y) ;
+SmallCarrier (P : S.Order) : U l+ =
+  Tr.Trunc[R.Small P.carrier].carrier ;
+
+record CUSL {
+  order : S.Order ;
+  bottom : order.carrier ;
+  bottom-least : (x : order.carrier) -> order.le bottom x ;
+  join : JoinLaw order ;
+  small : SmallCarrier order ;
+} ;
+
+join-law-prop (P : S.Order) : isProp (JoinLaw P) =
+  H.isProp-Pi P.carrier
+    (\ x -> (y : P.carrier) -> Compatible P x y ->
+      S.On[P].Supremum Bool (pair P x y))
+    (\ x -> H.isProp-Pi P.carrier
+      (\ y -> Compatible P x y ->
+        S.On[P].Supremum Bool (pair P x y))
+      (\ y -> H.isProp-Pi (Compatible P x y)
+        (\ _ -> S.On[P].Supremum Bool (pair P x y))
+        (\ _ -> S.On[P].sup-prop Bool (pair P x y)))) ;
+small-carrier-prop (P : S.Order) : isProp (SmallCarrier P) =
+  Tr.Trunc[R.Small P.carrier].proposition ;
+Fiber (P : S.Order) : U l+ =
+  SO.Bottom P * JoinLaw P * SmallCarrier P ;
+FiberHigh (P : S.Order) : U l++ = Fiber P ;
+fiber-prop (P : S.Order) : isProp (Fiber P) =
+  isProp-Sigma (SO.Bottom P) (\ _ -> JoinLaw P * SmallCarrier P)
+    (SO.bottom-prop P)
+    (\ _ -> isProp-Sigma (JoinLaw P) (\ _ -> SmallCarrier P)
+      (join-law-prop P) (\ _ -> small-carrier-prop P)) ;
+Raw : U l++ = (P : S.Order) * FiberHigh P ;
+raw (C : CUSL) : Raw =
+  (C.order,((C.bottom,C.bottom-least),(C.join,C.small))) ;
+from-raw (w : Raw) : CUSL = new CUSL[
+  order := w.1,bottom := w.2.1.1,bottom-least := w.2.1.2,
+  join := w.2.2.1,small := w.2.2.2] ;
+cusl-eta : (C : CUSL) -> Id CUSL (from-raw (raw C)) C =
+  split { CUSL P b least join small ->
+    refl (new CUSL[P,b,least,join,small]) } ;
+from-order-path (C D : CUSL) (p : Id S.Order C.order D.order) :
+  Id CUSL C D =
+  Prelude[l++].trans CUSL C (from-raw (raw C)) D
+    (Prelude[l++].sym CUSL (from-raw (raw C)) C (cusl-eta C))
+    (Prelude[l++].trans CUSL (from-raw (raw C))
+      (from-raw (raw D)) D
+      (Prelude[l++].ap Raw CUSL from-raw (raw C) (raw D)
+        (Prelude[l++].Sigma-eq S.Order FiberHigh
+          C.order D.order (raw C).2 (raw D).2 p
+          (fiber-prop D.order)))
+      (cusl-eta D)) ;
+
+OrderIso (C D : CUSL) : U l+ = SO.OrderIso C.order D.order ;
+idto-order (C D : CUSL) (p : Id CUSL C D) : OrderIso C D =
+  SO.idto-order-iso C.order D.order
+    (Prelude[l++].ap CUSL S.Order (\ X -> X.order) C D p) ;
+
+module Singleton (C : CUSL) {
+  module O = SO.OrderSingleton[C.order] ;
+  Total : U l++ = (D : CUSL) * OrderIso C D ;
+  Expanded : U l++ = (w : O.Total) * FiberHigh w.1 ;
+  expand (v : Total) : Expanded =
+    ((v.1.order,v.2),
+      ((v.1.bottom,v.1.bottom-least),(v.1.join,v.1.small))) ;
+  collapse (v : Expanded) : Total =
+    (from-raw (v.1.1,v.2),v.1.2) ;
+  collapse-expand : (D : CUSL) -> (i : OrderIso C D) ->
+    Id Total (collapse (expand (D,i))) (D,i) =
+    split { CUSL P b least join small -> \ i ->
+      refl (new CUSL[P,b,least,join,small],i) } ;
+  expanded-prop : Prelude[l++].isProp Expanded =
+    Prelude[l++].isProp-Sigma O.Total (\ w -> FiberHigh w.1)
+      O.total-prop (\ w -> fiber-prop w.1) ;
+  total-prop : Prelude[l++].isProp Total =
+    Prelude[l++].retract-prop Total Expanded expand collapse
+      (\ v -> collapse-expand v.1 v.2) expanded-prop ;
+} ;
+
+module ObjectUnivalence (C : CUSL) {
+  module Z = Singleton[C] ;
+  isotoid (D : CUSL) (i : OrderIso C D) : Id CUSL C D =
+    Prelude[l++].ap Z.Total CUSL (\ v -> v.1)
+      (C,SO.order-iso-id C.order) (D,i)
+      (Z.total-prop (C,SO.order-iso-id C.order) (D,i)) ;
+  idtoiso-fst (v : Z.Total)
+    (p : Id Z.Total (C,SO.order-iso-id C.order) v) :
+    Id (OrderIso C v.1)
+      (idto-order C v.1
+        (Prelude[l++].ap Z.Total CUSL (\ w -> w.1)
+          (C,SO.order-iso-id C.order) v p)) v.2 =
+    idJ Z.Total (C,SO.order-iso-id C.order)
+      (\ w q -> Id (OrderIso C w.1)
+        (idto-order C w.1
+          (Prelude[l++].ap Z.Total CUSL (\ z -> z.1)
+            (C,SO.order-iso-id C.order) w q)) w.2)
+      (refl (SO.order-iso-id C.order)) v p ;
+  idtoiso-isotoid (D : CUSL) (i : OrderIso C D) :
+    Id (OrderIso C D) (idto-order C D (isotoid D i)) i =
+    idtoiso-fst (D,i)
+      (Z.total-prop (C,SO.order-iso-id C.order) (D,i)) ;
+  loop : Id (Id Z.Total
+      (C,SO.order-iso-id C.order) (C,SO.order-iso-id C.order))
+      (Z.total-prop (C,SO.order-iso-id C.order)
+        (C,SO.order-iso-id C.order))
+      (refl (C,SO.order-iso-id C.order)) =
+    Prelude[l++].prop-to-set Z.Total Z.total-prop
+      (C,SO.order-iso-id C.order) (C,SO.order-iso-id C.order)
+      (Z.total-prop (C,SO.order-iso-id C.order)
+        (C,SO.order-iso-id C.order))
+      (refl (C,SO.order-iso-id C.order)) ;
+  isotoid-idtoiso (D : CUSL) (p : Id CUSL C D) :
+    Id (Id CUSL C D) (isotoid D (idto-order C D p)) p =
+    idJ CUSL C
+      (\ E q -> Id (Id CUSL C E)
+        (isotoid E (idto-order C E q)) q)
+      (Prelude[l++].ap
+        (Id Z.Total (C,SO.order-iso-id C.order)
+          (C,SO.order-iso-id C.order))
+        (Id CUSL C C)
+        (Prelude[l++].ap Z.Total CUSL (\ v -> v.1)
+          (C,SO.order-iso-id C.order)
+          (C,SO.order-iso-id C.order))
+        (Z.total-prop (C,SO.order-iso-id C.order)
+          (C,SO.order-iso-id C.order))
+        (refl (C,SO.order-iso-id C.order)) loop)
+      D p ;
+  univalent (D : CUSL) :
+    Prelude[l++].isEquiv (Id CUSL C D) (OrderIso C D)
+      (idto-order C D) =
+    Prelude[l++].qinv (Id CUSL C D) (OrderIso C D)
+      (idto-order C D) (isotoid D)
+      (idtoiso-isotoid D) (isotoid-idtoiso D) ;
+} ;
+
+module On (C : CUSL) {
+  Carrier : U l+ = C.order.carrier ;
+  le : Carrier -> Carrier -> U l = C.order.le ;
+  compatible (x y : Carrier) : U l+ = Compatible C.order x y ;
+  join (x y : Carrier) (h : compatible x y) : Carrier =
+    (C.join x y h).1 ;
+  left (x y : Carrier) (h : compatible x y) : le x (join x y h) =
+    (C.join x y h).2.1 true ;
+  right (x y : Carrier) (h : compatible x y) : le y (join x y h) =
+    (C.join x y h).2.1 false ;
+  bounds (x y z : Carrier) (xz : le x z) (yz : le y z) :
+    (i : Bool) -> le (pair C.order x y i) z =
+    split { true -> xz ; false -> yz } ;
+  least (x y : Carrier) (h : compatible x y) (z : Carrier)
+    (xz : le x z) (yz : le y z) : le (join x y h) z =
+    (C.join x y h).2.2 z (bounds x y z xz yz) ;
+  join-independent (x y : Carrier) (h h' : compatible x y) :
+    Id Carrier (join x y h) (join x y h') =
+    C.order.antisymmetric (join x y h) (join x y h')
+      (least x y h (join x y h') (left x y h') (right x y h'))
+      (least x y h' (join x y h) (left x y h) (right x y h)) ;
+} ;
+
+module Between (C D : CUSL) {
+  module A = On[C] ; module B = On[D] ;
+  Function : U l+ = A.Carrier -> B.Carrier ;
+  Monotone (f : Function) : U l+ =
+    (x y : A.Carrier) -> A.le x y -> B.le (f x) (f y) ;
+  Reflect (f : Function) : U l+ =
+    (x y : A.Carrier) -> B.le (f x) (f y) -> A.le x y ;
+  CompatReflect (f : Function) : U l+ =
+    (x y : A.Carrier) -> Compatible D.order (f x) (f y) ->
+      Compatible C.order x y ;
+  image-compatible (f : Function) (m : Monotone f)
+    (x y : A.Carrier) (h : Compatible C.order x y) :
+    Compatible D.order (f x) (f y) =
+    TC.map (CompatibleWitness C.order x y)
+      (CompatibleWitness D.order (f x) (f y))
+      (\ w -> (f w.1,(m x w.1 w.2.1,m y w.1 w.2.2))) h ;
+  BottomLaw (f : Function) : U l+ =
+    Id B.Carrier (f C.bottom) D.bottom ;
+  PreservesJoin (f : Function) (m : Monotone f) : U l+ =
+    (x y : A.Carrier) (h : Compatible C.order x y) ->
+      Id B.Carrier (f (A.join x y h))
+        (B.join (f x) (f y) (image-compatible f m x y h)) ;
+  Laws (f : Function) : U l+ =
+    (m : Monotone f) *
+      Reflect f * CompatReflect f * BottomLaw f * PreservesJoin f m ;
+  Embedding : U l+ = (f : Function) * Laws f ;
+  run (e : Embedding) : Function = e.1 ;
+  mono (e : Embedding) : Monotone e.1 = e.2.1 ;
+  reflect (e : Embedding) : Reflect e.1 = e.2.2.1 ;
+  compat-reflect (e : Embedding) : CompatReflect e.1 = e.2.2.2.1 ;
+  bottom-law (e : Embedding) : BottomLaw e.1 = e.2.2.2.2.1 ;
+  join-law (e : Embedding) : PreservesJoin e.1 e.2.1 = e.2.2.2.2.2 ;
+  monotone-prop (f : Function) : isProp (Monotone f) =
+    H.isProp-Pi A.Carrier
+      (\ x -> (y : A.Carrier) -> A.le x y -> B.le (f x) (f y))
+      (\ x -> H.isProp-Pi A.Carrier
+        (\ y -> A.le x y -> B.le (f x) (f y))
+        (\ y -> H.isProp-Pi (A.le x y)
+          (\ _ -> B.le (f x) (f y))
+          (\ _ -> D.order.proposition (f x) (f y)))) ;
+  reflect-prop (f : Function) : isProp (Reflect f) =
+    H.isProp-Pi A.Carrier
+      (\ x -> (y : A.Carrier) -> B.le (f x) (f y) -> A.le x y)
+      (\ x -> H.isProp-Pi A.Carrier
+        (\ y -> B.le (f x) (f y) -> A.le x y)
+        (\ y -> H.isProp-Pi (B.le (f x) (f y))
+          (\ _ -> A.le x y)
+          (\ _ -> C.order.proposition x y))) ;
+  compat-reflect-prop (f : Function) : isProp (CompatReflect f) =
+    H.isProp-Pi A.Carrier
+      (\ x -> (y : A.Carrier) ->
+        Compatible D.order (f x) (f y) -> Compatible C.order x y)
+      (\ x -> H.isProp-Pi A.Carrier
+        (\ y -> Compatible D.order (f x) (f y) ->
+          Compatible C.order x y)
+        (\ y -> H.isProp-Pi (Compatible D.order (f x) (f y))
+          (\ _ -> Compatible C.order x y)
+          (\ _ -> Tr.Trunc[CompatibleWitness C.order x y].proposition))) ;
+  bottom-prop (f : Function) : isProp (BottomLaw f) =
+    S.On[D.order].order-set (f C.bottom) D.bottom ;
+  join-prop (f : Function) (m : Monotone f) :
+    isProp (PreservesJoin f m) =
+    H.isProp-Pi A.Carrier
+      (\ x -> (y : A.Carrier) (h : Compatible C.order x y) ->
+        Id B.Carrier (f (A.join x y h))
+          (B.join (f x) (f y) (image-compatible f m x y h)))
+      (\ x -> H.isProp-Pi A.Carrier
+        (\ y -> (h : Compatible C.order x y) ->
+          Id B.Carrier (f (A.join x y h))
+            (B.join (f x) (f y) (image-compatible f m x y h)))
+        (\ y -> H.isProp-Pi (Compatible C.order x y)
+          (\ h -> Id B.Carrier (f (A.join x y h))
+            (B.join (f x) (f y) (image-compatible f m x y h)))
+          (\ h -> S.On[D.order].order-set
+            (f (A.join x y h))
+            (B.join (f x) (f y) (image-compatible f m x y h))))) ;
+  laws-prop (f : Function) : isProp (Laws f) =
+    isProp-Sigma (Monotone f)
+      (\ m -> Reflect f * CompatReflect f * BottomLaw f * PreservesJoin f m)
+      (monotone-prop f)
+      (\ m -> isProp-Sigma (Reflect f)
+        (\ _ -> CompatReflect f * BottomLaw f * PreservesJoin f m)
+        (reflect-prop f)
+        (\ _ -> isProp-Sigma (CompatReflect f)
+          (\ _ -> BottomLaw f * PreservesJoin f m)
+          (compat-reflect-prop f)
+          (\ _ -> isProp-Sigma (BottomLaw f)
+            (\ _ -> PreservesJoin f m)
+            (bottom-prop f) (\ _ -> join-prop f m)))) ;
+  set : isSet Embedding =
+    isSet-Sigma Function Laws
+      (H.isSet-Pi A.Carrier (\ _ -> B.Carrier)
+        (\ _ -> S.On[D.order].order-set))
+      (\ f -> prop-to-set (Laws f) (laws-prop f)) ;
+  equal (e e' : Embedding)
+    (p : (x : A.Carrier) -> Id B.Carrier (run e x) (run e' x)) :
+    Id Embedding e e' =
+    Sigma-eq Function Laws e.1 e'.1 e.2 e'.2
+      (H.funext A.Carrier (\ _ -> B.Carrier) e.1 e'.1 p)
+      (laws-prop e'.1) ;
+} ;
+
+identity (C : CUSL) : Between[C,C].Embedding =
+  (\ x -> x,
+    (\ x y h -> h,
+      (\ x y h -> h,
+        (\ x y h -> h,
+          (refl C.bottom,
+            \ x y h -> On[C].join-independent x y h
+              (Between[C,C].image-compatible (\ z -> z)
+                (\ a b p -> p) x y h)))))) ;
+
+module Triple (C D E : CUSL) {
+  module CD = Between[C,D] ;
+  module DE = Between[D,E] ;
+  module CE = Between[C,E] ;
+  compose (g : DE.Embedding) (f : CD.Embedding) : CE.Embedding =
+    (\ x -> DE.run g (CD.run f x),
+      (\ x y h -> DE.mono g (CD.run f x) (CD.run f y)
+          (CD.mono f x y h),
+        (\ x y h -> CD.reflect f x y
+          (DE.reflect g (CD.run f x) (CD.run f y) h),
+          (\ x y h -> CD.compat-reflect f x y
+            (DE.compat-reflect g (CD.run f x) (CD.run f y) h),
+            (trans E.order.carrier
+              (DE.run g (CD.run f C.bottom))
+              (DE.run g D.bottom) E.bottom
+              (ap D.order.carrier E.order.carrier (DE.run g)
+                (CD.run f C.bottom) D.bottom (CD.bottom-law f))
+              (DE.bottom-law g),
+              \ x y h -> trans E.order.carrier
+                (DE.run g (CD.run f (On[C].join x y h)))
+                (DE.run g (On[D].join (CD.run f x) (CD.run f y)
+                  (CD.image-compatible (CD.run f) (CD.mono f) x y h)))
+                (On[E].join (DE.run g (CD.run f x))
+                  (DE.run g (CD.run f y))
+                  (CE.image-compatible
+                    (\ z -> DE.run g (CD.run f z))
+                    (\ a b p -> DE.mono g (CD.run f a) (CD.run f b)
+                      (CD.mono f a b p)) x y h))
+                (ap D.order.carrier E.order.carrier (DE.run g)
+                  (CD.run f (On[C].join x y h))
+                  (On[D].join (CD.run f x) (CD.run f y)
+                    (CD.image-compatible (CD.run f) (CD.mono f) x y h))
+                  (CD.join-law f x y h))
+                (trans E.order.carrier
+                  (DE.run g (On[D].join (CD.run f x) (CD.run f y)
+                    (CD.image-compatible (CD.run f) (CD.mono f) x y h)))
+                  (On[E].join (DE.run g (CD.run f x))
+                    (DE.run g (CD.run f y))
+                    (DE.image-compatible (DE.run g) (DE.mono g)
+                      (CD.run f x) (CD.run f y)
+                      (CD.image-compatible (CD.run f) (CD.mono f) x y h)))
+                  (On[E].join (DE.run g (CD.run f x))
+                    (DE.run g (CD.run f y))
+                    (CE.image-compatible
+                      (\ z -> DE.run g (CD.run f z))
+                      (\ a b p -> DE.mono g (CD.run f a) (CD.run f b)
+                        (CD.mono f a b p)) x y h))
+                  (DE.join-law g (CD.run f x) (CD.run f y)
+                    (CD.image-compatible (CD.run f) (CD.mono f) x y h))
+                  (On[E].join-independent
+                    (DE.run g (CD.run f x)) (DE.run g (CD.run f y))
+                    (DE.image-compatible (DE.run g) (DE.mono g)
+                      (CD.run f x) (CD.run f y)
+                      (CD.image-compatible (CD.run f) (CD.mono f) x y h))
+                    (CE.image-compatible
+                      (\ z -> DE.run g (CD.run f z))
+                      (\ a b p -> DE.mono g (CD.run f a) (CD.run f b)
+                        (CD.mono f a b p)) x y h)))))))) ;
+} ;
+
+pre : K.Precategory = new K.Precategory[
+  ob := CUSL,
+  hom := \ C D -> Between[C,D].Embedding,
+  hom-set := \ C D -> Between[C,D].set,
+  idn := identity,
+  comp := \ C D E g f -> Triple[C,D,E].compose g f,
+  unit-l := \ C D f -> Between[C,D].equal
+    (Triple[C,D,D].compose (identity D) f) f (\ x -> refl (f.1 x)),
+  unit-r := \ C D f -> Between[C,D].equal
+    (Triple[C,C,D].compose f (identity C)) f (\ x -> refl (f.1 x)),
+  assoc := \ A B C D f g h -> Between[A,D].equal
+    (Triple[A,C,D].compose h (Triple[A,B,C].compose g f))
+    (Triple[A,B,D].compose (Triple[B,C,D].compose h g) f)
+    (\ x -> refl (h.1 (g.1 (f.1 x))))] ;
+
+module CategoryUnivalence {
+  module A = CategoryArrows[l++,l+].Arrows[pre] ;
+  to-order (C D : CUSL) (i : pre.Iso C D) : OrderIso C D =
+    ((i.1.1,
+      qinv C.order.carrier D.order.carrier i.1.1 i.2.1.1
+        (\ y -> ap Between[D,D].Embedding D.order.carrier
+          (\ f -> f.1 y)
+          (pre.comp D C D i.1 i.2.1) (pre.idn D) i.2.2.2)
+        (\ x -> ap Between[C,C].Embedding C.order.carrier
+          (\ f -> f.1 x)
+          (pre.comp C D C i.2.1 i.1) (pre.idn C) i.2.2.1)),
+      (Between[C,D].mono i.1,Between[C,D].reflect i.1)) ;
+  from-order (C D : CUSL) (i : OrderIso C D) : pre.Iso C D =
+    pre.idtoiso C D (ObjectUnivalence[C].isotoid D i) ;
+  underlying-idtoiso (C D : CUSL) (p : Id CUSL C D) :
+    Id (C.order.carrier -> D.order.carrier)
+      (pre.idtoiso C D p).1.1 (idto-order C D p).1.1 =
+    idJ CUSL C
+      (\ E q -> Id (C.order.carrier -> E.order.carrier)
+        (pre.idtoiso C E q).1.1 (idto-order C E q).1.1)
+      (refl (\ x -> x)) D p ;
+  from-order-run (C D : CUSL) (i : OrderIso C D) :
+    Id (C.order.carrier -> D.order.carrier)
+      (from-order C D i).1.1 i.1.1 =
+    trans (C.order.carrier -> D.order.carrier)
+      (from-order C D i).1.1
+      (idto-order C D (ObjectUnivalence[C].isotoid D i)).1.1
+      i.1.1
+      (underlying-idtoiso C D (ObjectUnivalence[C].isotoid D i))
+      (ap (OrderIso C D) (C.order.carrier -> D.order.carrier)
+        (\ w -> w.1.1)
+        (idto-order C D (ObjectUnivalence[C].isotoid D i)) i
+        (ObjectUnivalence[C].idtoiso-isotoid D i)) ;
+  to-from (C D : CUSL) (i : pre.Iso C D) :
+    Id (pre.Iso C D) (from-order C D (to-order C D i)) i =
+    A.iso-eq (from-order C D (to-order C D i)) i
+      (Between[C,D].equal
+        (from-order C D (to-order C D i)).1 i.1
+        (\ x -> happly C.order.carrier
+          (\ _ -> D.order.carrier)
+          (from-order C D (to-order C D i)).1.1 i.1.1
+          (trans (C.order.carrier -> D.order.carrier)
+            (from-order C D (to-order C D i)).1.1
+            (idto-order C D
+              (ObjectUnivalence[C].isotoid D (to-order C D i))).1.1
+            i.1.1
+            (underlying-idtoiso C D
+              (ObjectUnivalence[C].isotoid D (to-order C D i)))
+            (ap (OrderIso C D)
+              (C.order.carrier -> D.order.carrier)
+              (\ z -> z.1.1)
+              (idto-order C D
+                (ObjectUnivalence[C].isotoid D (to-order C D i)))
+              (to-order C D i)
+              (ObjectUnivalence[C].idtoiso-isotoid D
+                (to-order C D i)))) x)) ;
+  module Single (C : CUSL) {
+    module Sg = K.Singletons[pre] ;
+    module Os = Singleton[C] ;
+    into (v : Sg.Singl C) : Os.Total =
+      (v.1,to-order C v.1 v.2) ;
+    out (v : Os.Total) : Sg.Singl C =
+      (v.1,from-order C v.1 v.2) ;
+    retract (v : Sg.Singl C) : Id (Sg.Singl C) (out (into v)) v =
+      Prelude[l++].Sigma-path CUSL (\ D -> pre.Iso C D)
+        v.1 v.1 (from-order C v.1 (to-order C v.1 v.2)) v.2
+        (refl v.1) (to-from C v.1 v.2) ;
+    prop : Prelude[l++].isProp (Sg.Singl C) =
+      Prelude[l++].retract-prop (Sg.Singl C) Os.Total
+        into out retract Os.total-prop ;
+  } ;
+  univalent : K.Univalent pre =
+    K.FromTotal[pre,\ C -> Single[C].prop].univalent ;
+  category : K.Category = new K.Category[pre,univalent] ;
+} ;

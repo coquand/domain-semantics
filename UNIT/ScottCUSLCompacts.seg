@@ -1,0 +1,333 @@
+-- Compact elements of an unpresented Scott domain form a CUSL.
+level l ;
+open Base ; open Prelude[l+] ;
+module S = ScottOrder[l] ;
+module SO = ScottDomainObjects[l] ;
+module CU = ScottCUSL[l] ;
+module SD = ScottDomain[l] ;
+module R = Replacement[l,l+] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module TC = TruncationCombinators[l] ;
+module TH = TruncationCombinators[l+] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+module On (D : SO.Domain) {
+  C : U l+ = D.order.carrier ;
+  LE : C -> C -> U l = D.order.le ;
+  module DC = S.DC[D.order,D.complete] ;
+  Compact (x : C) : U l+ = DC.Compact x ;
+  compact-prop (x : C) : isProp (Compact x) =
+    H.isProp-Pi (U l)
+      (\ I -> (y : I -> C) (d : S.On[D.order].Dir I y) ->
+        LE x (DC.sup I y d) -> S.Ex ((i : I) * LE x (y i)))
+      (\ I -> H.isProp-Pi (I -> C)
+        (\ y -> (d : S.On[D.order].Dir I y) ->
+          LE x (DC.sup I y d) -> S.Ex ((i : I) * LE x (y i)))
+        (\ y -> H.isProp-Pi (S.On[D.order].Dir I y)
+          (\ d -> LE x (DC.sup I y d) ->
+            S.Ex ((i : I) * LE x (y i)))
+          (\ d -> H.isProp-Pi (LE x (DC.sup I y d))
+            (\ _ -> S.Ex ((i : I) * LE x (y i)))
+            (\ _ -> S.prop ((i : I) * LE x (y i)))))) ;
+  Carrier : U l+ = (x : C) * Compact x ;
+  val (x : Carrier) : C = x.1 ;
+  carrier-path (x y : Carrier) (p : Id C x.1 y.1) :
+    Id Carrier x y =
+    Sigma-eq C Compact x.1 y.1 x.2 y.2 p (compact-prop y.1) ;
+  carrier-set : isSet Carrier =
+    isSet-Sigma C Compact S.On[D.order].order-set
+      (\ x -> prop-to-set (Compact x) (compact-prop x)) ;
+  le (x y : Carrier) : U l = LE (val x) (val y) ;
+  order : S.Order = new S.Order[
+    carrier := Carrier,le := le,
+    proposition := \ x y -> D.order.proposition (val x) (val y),
+    reflexive := \ x -> D.order.reflexive (val x),
+    transitive := \ x y z h k ->
+      D.order.transitive (val x) (val y) (val z) h k,
+    antisymmetric := \ x y h k ->
+      Sigma-eq C Compact x.1 y.1 x.2 y.2
+        (D.order.antisymmetric x.1 y.1 h k)
+        (compact-prop y.1)] ;
+
+  bottom-compact : Compact D.bottom = \ I y d h ->
+    TC.map I ((i : I) * LE D.bottom (y i))
+      (\ i -> (i,D.bottom-least (y i))) d.1 ;
+  bottom : Carrier = (D.bottom,bottom-compact) ;
+  bottom-least (x : Carrier) : le bottom x =
+    D.bottom-least x.1 ;
+
+  pair (x y : Carrier) : Bool -> C =
+    split { true -> x.1 ; false -> y.1 } ;
+  pair-compact (x y : Carrier) : Bool -> Carrier =
+    split { true -> x ; false -> y } ;
+  pair-bound (x y z : Carrier) (xz : le x z) (yz : le y z) :
+    (i : Bool) -> LE (pair x y i) z.1 =
+    split { true -> xz ; false -> yz } ;
+  pair-bound-domain (x y : Carrier) (z : C)
+    (xz : LE x.1 z) (yz : LE y.1 z) :
+    (i : Bool) -> LE (pair x y i) z =
+    split { true -> xz ; false -> yz } ;
+  upper-domain (x y : Carrier) (h : CU.Compatible order x y) :
+    S.On[D.order].Supremum Bool (pair x y) =
+    TH.rec (CU.CompatibleWitness order x y) @l+
+      (S.On[D.order].Supremum Bool (pair x y))
+      (S.On[D.order].sup-prop Bool (pair x y))
+      (\ w -> D.complete.bounded Bool (pair x y) w.1.1
+        (pair-bound x y w.1 w.2.1 w.2.2)) h ;
+  join-value (x y : Carrier) (h : CU.Compatible order x y) : C =
+    (upper-domain x y h).1 ;
+  join-left (x y : Carrier) (h : CU.Compatible order x y) :
+    LE x.1 (join-value x y h) = (upper-domain x y h).2.1 true ;
+  join-right (x y : Carrier) (h : CU.Compatible order x y) :
+    LE y.1 (join-value x y h) = (upper-domain x y h).2.1 false ;
+  join-least (x y : Carrier) (h : CU.Compatible order x y)
+    (z : C) (xz : LE x.1 z) (yz : LE y.1 z) :
+    LE (join-value x y h) z =
+    (upper-domain x y h).2.2 z
+      (pair-bound-domain x y z xz yz) ;
+  pair-sup-compact (x y : Carrier)
+    (w : S.On[D.order].Supremum Bool (pair x y)) :
+    Compact w.1 = \ I family d bound ->
+    TC.bind2 ((i : I) * LE x.1 (family i))
+      ((j : I) * LE y.1 (family j))
+      ((k : I) * LE w.1 (family k))
+      (\ u v -> TC.map
+        (S.On[D.order].Upper I family u.1 v.1)
+        ((k : I) * LE w.1 (family k))
+        (\ q -> (q.1,w.2.2 (family q.1)
+          (pair-bound-domain x y (family q.1)
+            (D.order.transitive x.1 (family u.1) (family q.1)
+              u.2 q.2.1)
+            (D.order.transitive y.1 (family v.1) (family q.1)
+              v.2 q.2.2))))
+        (d.2 u.1 v.1))
+      (x.2 I family d
+        (D.order.transitive x.1 w.1
+          (DC.sup I family d) (w.2.1 true) bound))
+      (y.2 I family d
+        (D.order.transitive y.1 w.1
+          (DC.sup I family d) (w.2.1 false) bound)) ;
+  join-compact (x y : Carrier) (h : CU.Compatible order x y) :
+    Compact (join-value x y h) =
+    pair-sup-compact x y (upper-domain x y h) ;
+  module CompatibleBound (x y : Carrier) (z : C)
+    (xz : LE x.1 z) (yz : LE y.1 z) {
+    w : S.On[D.order].Supremum Bool (pair x y) =
+      D.complete.bounded Bool (pair x y) z
+        (pair-bound-domain x y z xz yz) ;
+    result : CU.Compatible order x y =
+      CU.by-bound order x y (w.1,pair-sup-compact x y w)
+        (w.2.1 true) (w.2.1 false) ;
+  } ;
+  compatible-from-bound (x y : Carrier) (z : C)
+    (xz : LE x.1 z) (yz : LE y.1 z) :
+    CU.Compatible order x y =
+    CompatibleBound[x,y,z,xz,yz].result ;
+  join (x y : Carrier) (h : CU.Compatible order x y) : Carrier =
+    (join-value x y h,join-compact x y h) ;
+  join-bounds (x y : Carrier) (h : CU.Compatible order x y) :
+    (i : Bool) -> le (CU.pair order x y i) (join x y h) =
+    split { true -> join-left x y h ; false -> join-right x y h } ;
+  join-law (x y : Carrier) (h : CU.Compatible order x y) :
+    S.On[order].Supremum Bool (CU.pair order x y) =
+    (join x y h,
+      (join-bounds x y h,
+       \ z bound -> join-least x y h z.1 (bound true) (bound false))) ;
+
+  OrderPair (x y : Carrier) : U l = le x y * le y x ;
+  order-pair-prop (x y : Carrier) : Prelude[l].isProp (OrderPair x y) =
+    Prelude[l].isProp-Sigma (le x y) (\ _ -> le y x)
+      (order.proposition x y) (\ _ -> order.proposition y x) ;
+  pair-to-id (x y : Carrier) : OrderPair x y -> Id Carrier x y =
+    \ w -> order.antisymmetric x y w.1 w.2 ;
+  id-to-pair (x : Carrier) : (y : Carrier) -> Id Carrier x y ->
+    OrderPair x y =
+    \ y p -> idJ Carrier x (\ z _ -> OrderPair x z)
+      (order.reflexive x,order.reflexive x) y p ;
+  carrier-locally-small (x y : Carrier) : R.Small (Id Carrier x y) =
+    (OrderPair x y,
+      (pair-to-id x y,
+       qinv (OrderPair x y) (Id Carrier x y) (pair-to-id x y)
+         (id-to-pair x y)
+         (\ p -> carrier-set x y (pair-to-id x y (id-to-pair x y p)) p)
+         (\ w -> order-pair-prop x y
+           (id-to-pair x y (pair-to-id x y w)) w))) ;
+
+  module SmallFromBasis (B : SD.Basis[D.order,D.complete]) {
+    presented : SD.Scott = new SD.Scott[
+      order := D.order,complete := D.complete,basis := B,
+      bottom := D.bottom,bottom-least := D.bottom-least] ;
+    basic (a : B.index) : Carrier = (B.basic a,B.compact a) ;
+    image : R.Image[B.index,Carrier,basic] =
+      images @l @l+ B.index Carrier carrier-locally-small basic ;
+    ImageCarrier : U l = image.carrier ;
+    inc : ImageCarrier -> Carrier = image.inclusion ;
+    quotient : B.index -> ImageCarrier = image.quotient ;
+    Preimage (z : ImageCarrier) : U l =
+      S.Ex ((a : B.index) * Id ImageCarrier (quotient a) z) ;
+    preimage-prop (z : ImageCarrier) : Prelude[l].isProp (Preimage z) =
+      S.prop ((a : B.index) * Id ImageCarrier (quotient a) z) ;
+    image-covered (z : ImageCarrier) : Preimage z =
+      (surjections @l @l+ @l B.index Carrier carrier-locally-small basic
+        Preimage preimage-prop).sec
+        (\ a -> S.inc ((b : B.index) * Id ImageCarrier
+          (quotient b) (quotient a)) (a,refl (quotient a))) z ;
+    Fiber (k : Carrier) : U l+ =
+      (z : ImageCarrier) * Id Carrier (inc z) k ;
+    fiber-prop (k : Carrier) : isProp (Fiber k) = \ u v ->
+      Sigma-eq ImageCarrier (\ z -> Id Carrier (inc z) k)
+        u.1 v.1 u.2 v.2
+        ((image.embedding u.1 v.1).sec
+          (trans Carrier (inc u.1) k (inc v.1)
+            u.2 (sym Carrier (inc v.1) k v.2)))
+        (carrier-set (inc v.1) k) ;
+    compact-covered (k : Carrier) :
+      Truncation[l+].Trunc[Fiber k].carrier =
+      TC.rec
+        ((a : B.index) * (LE k.1 (B.basic a) * LE (B.basic a) k.1))
+        @l+ (Truncation[l+].Trunc[Fiber k].carrier)
+        (Truncation[l+].Trunc[Fiber k].proposition)
+        (\ w -> Truncation[l+].Trunc[Fiber k].inc (quotient w.1,
+          trans Carrier (inc (quotient w.1)) (basic w.1) k
+            (image.triangle w.1)
+            (sym Carrier k (basic w.1)
+              (order.antisymmetric k (basic w.1) w.2.1 w.2.2))))
+        (SD.On[presented].compact-basis k.1 k.2) ;
+    select (k : Carrier) : Fiber k =
+      TH.rec (Fiber k) @l+ (Fiber k) (fiber-prop k)
+        (\ w -> w) (compact-covered k) ;
+    inverse (k : Carrier) : ImageCarrier = (select k).1 ;
+    sec-eq (k : Carrier) : Id Carrier (inc (inverse k)) k =
+      (select k).2 ;
+    ret-eq (z : ImageCarrier) : Id ImageCarrier (inverse (inc z)) z =
+      (image.embedding (inverse (inc z)) z).sec (sec-eq (inc z)) ;
+    equivalence : Equiv ImageCarrier Carrier =
+      (inc,qinv ImageCarrier Carrier inc inverse sec-eq ret-eq) ;
+    small : R.Small Carrier = (ImageCarrier,equivalence) ;
+  } ;
+  small : CU.SmallCarrier order =
+    TH.map (SD.Basis[D.order,D.complete]) (R.Small Carrier)
+      (\ B -> SmallFromBasis[B].small) D.basis-exists ;
+  cusl : CU.CUSL = new CU.CUSL[
+    order := order,bottom := bottom,bottom-least := bottom-least,
+    join := join-law,small := small] ;
+} ;
+
+module Between (D E : SO.Domain) (q : EP.Between[D,E].Pair) {
+  module A = On[D] ; module B = On[E] ;
+  module DE = DM.Between[D,E] ; module ED = DM.Between[E,D] ;
+  module CB = CU.Between[A.cusl,B.cusl] ;
+  embed : D.order.carrier -> E.order.carrier = DE.run q.1.1 ;
+  project : E.order.carrier -> D.order.carrier = ED.run q.1.2 ;
+  lower (x : D.order.carrier) (y : E.order.carrier)
+    (h : D.order.le x (project y)) : E.order.le (embed x) y =
+    E.order.transitive (embed x) (embed (project y)) y
+      (DE.mono q.1.1 x (project y) h) (q.2.2 y) ;
+  upper (x : D.order.carrier) (y : E.order.carrier)
+    (h : E.order.le (embed x) y) : D.order.le x (project y) =
+    ScottDomainCategories[l].le-replace D.order
+      (project (embed x)) x (project y) (project y)
+      (q.2.1 x) (refl (project y))
+      (ED.mono q.1.2 (embed x) y h) ;
+  compact (x : D.order.carrier) (cx : A.Compact x) :
+    B.Compact (embed x) = \ I family d h ->
+    TC.map ((i : I) * D.order.le x (project (family i)))
+      ((i : I) * E.order.le (embed x) (family i))
+      (\ w -> (w.1,lower x (family w.1) w.2))
+      (cx I (\ i -> project (family i))
+        (ED.image-dir q.1.2 I family d)
+        (D.order.transitive x (project (B.DC.sup I family d))
+          (A.DC.sup I (\ i -> project (family i))
+            (ED.image-dir q.1.2 I family d))
+          (upper x (B.DC.sup I family d) h)
+          (ED.continuous q.1.2 I family d
+            (A.DC.sup I (\ i -> project (family i))
+              (ED.image-dir q.1.2 I family d))
+            (A.DC.upper I (\ i -> project (family i))
+              (ED.image-dir q.1.2 I family d))))) ;
+  map (x : A.Carrier) : B.Carrier =
+    (embed x.1,compact x.1 x.2) ;
+  mono : CB.Monotone map = \ x y h ->
+    DE.mono q.1.1 x.1 y.1 h ;
+  reflect : CB.Reflect map = \ x y h ->
+    ScottDomainCategories[l].le-replace D.order
+      x.1 x.1 (project (embed y.1)) y.1
+      (refl x.1) (q.2.1 y.1)
+      (upper x.1 (embed y.1) h) ;
+  compat-reflect : CB.CompatReflect map = \ x y ->
+    TH.bind (CU.CompatibleWitness B.order (map x) (map y))
+      (CU.CompatibleWitness A.order x y)
+      (\ w -> A.compatible-from-bound x y (project w.1.1)
+        (upper x.1 w.1.1 w.2.1)
+        (upper y.1 w.1.1 w.2.2)) ;
+  embed-bottom : Id E.order.carrier (embed D.bottom) E.bottom =
+    E.order.antisymmetric (embed D.bottom) E.bottom
+      (lower D.bottom E.bottom (D.bottom-least (project E.bottom)))
+      (E.bottom-least (embed D.bottom)) ;
+  bottom-law : CB.BottomLaw map =
+    Sigma-eq E.order.carrier B.Compact
+      (embed D.bottom) E.bottom
+      (compact D.bottom A.bottom-compact) B.bottom-compact
+      embed-bottom (B.compact-prop E.bottom) ;
+  module Join (x y : A.Carrier)
+    (h : CU.Compatible A.order x y) {
+    source : A.Carrier = CU.On[A.cusl].join x y h ;
+    image-h : CU.Compatible B.order (map x) (map y) =
+      CB.image-compatible map mono x y h ;
+    target : B.Carrier =
+      CU.On[B.cusl].join (map x) (map y) image-h ;
+    left : B.order.le (map source) target =
+      lower source.1 target.1
+        ((A.upper-domain x y h).2.2 (project target.1)
+          (A.pair-bound-domain x y (project target.1)
+            (upper x.1 target.1
+              (CU.On[B.cusl].left (map x) (map y) image-h))
+            (upper y.1 target.1
+              (CU.On[B.cusl].right (map x) (map y) image-h)))) ;
+    right : B.order.le target (map source) =
+      CU.On[B.cusl].least (map x) (map y) image-h (map source)
+        (mono x source (CU.On[A.cusl].left x y h))
+        (mono y source (CU.On[A.cusl].right x y h)) ;
+    equation : Id B.Carrier (map source) target =
+      B.order.antisymmetric (map source) target left right ;
+  } ;
+  join-law : CB.PreservesJoin map mono =
+    \ x y h -> Join[x,y,h].equation ;
+  embedding : CB.Embedding =
+    (map,(mono,(reflect,(compat-reflect,(bottom-law,join-law))))) ;
+} ;
+
+module Functor {
+  object (D : SO.Domain) : CU.CUSL = On[D].cusl ;
+  arrow (D E : SO.Domain) (q : EP.Between[D,E].Pair) :
+    CU.Between[object D,object E].Embedding =
+    Between[D,E,q].embedding ;
+  identity (D : SO.Domain) :
+    Id (CU.Between[object D,object D].Embedding)
+      (arrow D D (EP.identity D)) (CU.identity (object D)) =
+    CU.Between[object D,object D].equal
+      (arrow D D (EP.identity D)) (CU.identity (object D))
+      (\ x -> On[D].order.antisymmetric
+        (Between[D,D,EP.identity D].map x) x
+        (D.order.reflexive x.1) (D.order.reflexive x.1)) ;
+  composition (D E F : SO.Domain)
+    (q : EP.Between[D,E].Pair) (r : EP.Between[E,F].Pair) :
+    Id (CU.Between[object D,object F].Embedding)
+      (arrow D F (EP.compose D E F r q))
+      (CU.Triple[object D,object E,object F].compose
+        (arrow E F r) (arrow D E q)) =
+    CU.Between[object D,object F].equal
+      (arrow D F (EP.compose D E F r q))
+      (CU.Triple[object D,object E,object F].compose
+        (arrow E F r) (arrow D E q))
+      (\ x -> On[F].order.antisymmetric
+        (Between[D,F,EP.compose D E F r q].map x)
+        (Between[E,F,r].map (Between[D,E,q].map x))
+        (F.order.reflexive
+          (DM.Between[E,F].run r.1.1
+            (DM.Between[D,E].run q.1.1 x.1)))
+        (F.order.reflexive
+          (DM.Between[E,F].run r.1.1
+            (DM.Between[D,E].run q.1.1 x.1)))) ;
+} ;

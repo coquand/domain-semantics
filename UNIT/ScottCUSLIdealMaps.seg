@@ -1,0 +1,380 @@
+-- The ideal extension of a CUSL embedding.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ;
+module ID = ScottCUSLIdeals[l] ;
+module S = ScottOrder[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module TC = TruncationCombinators[l] ;
+module TH = TruncationCombinators[l+] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+module Between (C D : CU.CUSL) (e : CU.Between[C,D].Embedding) {
+  module A = ID.Canonical[C].O ;
+  module B = ID.Canonical[D].O ;
+  module E = CU.Between[C,D] ;
+  f (a : A.X) : B.X = B.at (E.run e (A.val a)) ;
+  f-val (a : A.X) : Id D.order.carrier
+    (B.val (f a)) (E.run e (A.val a)) =
+    B.at-val (E.run e (A.val a)) ;
+  f-mono (a b : A.X) (ab : A.LE a b) : B.LE (f a) (f b) =
+    ScottDomainCategories[l].le-replace D.order
+      (E.run e (A.val a)) (B.val (f a))
+      (E.run e (A.val b)) (B.val (f b))
+      (sym D.order.carrier (B.val (f a))
+        (E.run e (A.val a)) (f-val a))
+      (sym D.order.carrier (B.val (f b))
+        (E.run e (A.val b)) (f-val b))
+      (E.mono e (A.val a) (A.val b) ab) ;
+  f-reflect (a b : A.X) (ab : B.LE (f a) (f b)) : A.LE a b =
+    E.reflect e (A.val a) (A.val b)
+      (ScottDomainCategories[l].le-replace D.order
+        (B.val (f a)) (E.run e (A.val a))
+        (B.val (f b)) (E.run e (A.val b))
+        (f-val a) (f-val b) ab) ;
+  image-below (a : A.X) (c : B.X) (h : B.LE (f a) c) :
+    D.order.le (E.run e (A.val a)) (B.val c) =
+    ScottDomainCategories[l].le-replace D.order
+      (B.val (f a)) (E.run e (A.val a))
+      (B.val c) (B.val c)
+      (f-val a) (refl (B.val c)) h ;
+
+  module Forward (I : A.Ideal) {
+    Witness (b : B.X) : U l =
+      (a : A.X) * (A.mem I a * B.LE b (f a)) ;
+    predicate (b : B.X) : U l = S.Ex (Witness b) ;
+    predicate-prop (b : B.X) : Prelude[l].isProp (predicate b) =
+      S.prop (Witness b) ;
+    bottom : predicate B.bot =
+      S.inc (Witness B.bot) (A.bot,
+        (A.contains-bot I,B.bot-least (f A.bot))) ;
+    downward (a b : B.X) (ab : B.LE a b) :
+      predicate b -> predicate a =
+      TC.map (Witness b) (Witness a)
+        (\ w -> (w.1,(w.2.1,
+          D.order.transitive (B.val a) (B.val b)
+            (B.val (f w.1)) ab w.2.2))) ;
+    upward (a b : B.X) (ha : predicate a) (hb : predicate b) :
+      S.Ex ((c : B.X) * (predicate c * (B.LE a c * B.LE b c))) =
+      TC.bind2 (Witness a) (Witness b)
+        ((c : B.X) * (predicate c * (B.LE a c * B.LE b c)))
+        (\ u v -> TC.map
+          ((c : A.X) * (A.mem I c *
+            (A.LE u.1 c * A.LE v.1 c)))
+          ((c : B.X) * (predicate c * (B.LE a c * B.LE b c)))
+          (\ w -> (f w.1,
+            (S.inc (Witness (f w.1))
+               (w.1,(w.2.1,D.order.reflexive (B.val (f w.1)))),
+             (D.order.transitive (B.val a) (B.val (f u.1))
+                (B.val (f w.1)) u.2.2 (f-mono u.1 w.1 w.2.2.1),
+              D.order.transitive (B.val b) (B.val (f v.1))
+                (B.val (f w.1)) v.2.2 (f-mono v.1 w.1 w.2.2.2)))))
+          (A.upper I u.1 v.1 u.2.1 v.2.1)) ha hb ;
+    value : B.Ideal =
+      (predicate,(predicate-prop,(bottom,(downward,upward)))) ;
+  } ;
+  principal-action (a : A.X) :
+    Id B.Ideal (Forward[A.principal a].value) (B.principal (f a)) =
+    B.ext (Forward[A.principal a].value) (B.principal (f a))
+      (\ b -> TC.rec (Forward[A.principal a].Witness b) @l (B.LE b (f a))
+        (D.order.proposition (B.val b) (B.val (f a)))
+        (\ w -> D.order.transitive (B.val b) (B.val (f w.1))
+          (B.val (f a)) w.2.2 (f-mono w.1 a w.2.1)))
+      (\ b h -> S.inc (Forward[A.principal a].Witness b)
+        (a,(A.principal-in a,h))) ;
+
+  f-bottom : B.LE (f A.bot) B.bot =
+    ScottDomainCategories[l].le-replace D.order
+      D.bottom (B.val (f A.bot)) D.bottom (B.val B.bot)
+      (sym D.order.carrier (B.val (f A.bot)) D.bottom
+        (trans D.order.carrier (B.val (f A.bot))
+          (E.run e (A.val A.bot)) D.bottom
+          (f-val A.bot)
+          (trans D.order.carrier (E.run e (A.val A.bot))
+            (E.run e C.bottom) D.bottom
+            (ap C.order.carrier D.order.carrier (E.run e)
+              (A.val A.bot) C.bottom (A.at-val C.bottom))
+            (E.bottom-law e))))
+      (sym D.order.carrier (B.val B.bot) D.bottom
+        (B.at-val D.bottom))
+      (D.order.reflexive D.bottom) ;
+  module JoinUpper (a b : A.X) (c : B.X)
+    (h : CU.Compatible C.order (A.val a) (A.val b))
+    (ac : B.LE (f a) c) (bc : B.LE (f b) c) {
+    source : C.order.carrier =
+      CU.On[C].join (A.val a) (A.val b) h ;
+    image-h : CU.Compatible D.order
+      (E.run e (A.val a)) (E.run e (A.val b)) =
+      E.image-compatible e.1 (E.mono e) (A.val a) (A.val b) h ;
+    target : D.order.carrier =
+      CU.On[D].join (E.run e (A.val a))
+        (E.run e (A.val b)) image-h ;
+    image-path : Id D.order.carrier
+      (B.val (f (A.join-index a b h))) target =
+      trans D.order.carrier
+        (B.val (f (A.join-index a b h)))
+        (E.run e (A.val (A.join-index a b h))) target
+        (f-val (A.join-index a b h))
+        (trans D.order.carrier
+          (E.run e (A.val (A.join-index a b h)))
+          (E.run e source) target
+          (ap C.order.carrier D.order.carrier (E.run e)
+            (A.val (A.join-index a b h)) source
+            (A.at-val source))
+          (E.join-law e (A.val a) (A.val b) h)) ;
+    left : D.order.le (E.run e (A.val a)) (B.val c) =
+      image-below a c ac ;
+    right : D.order.le (E.run e (A.val b)) (B.val c) =
+      image-below b c bc ;
+    result : B.LE (f (A.join-index a b h)) c =
+      ScottDomainCategories[l].le-replace D.order
+        target (B.val (f (A.join-index a b h)))
+        (B.val c) (B.val c)
+        (sym D.order.carrier
+          (B.val (f (A.join-index a b h))) target image-path)
+        (refl (B.val c))
+        (CU.On[D].least (E.run e (A.val a)) (E.run e (A.val b))
+          image-h (B.val c) left right) ;
+  } ;
+
+  module Backward (J : B.Ideal) {
+    predicate (a : A.X) : U l = B.mem J (f a) ;
+    predicate-prop (a : A.X) : Prelude[l].isProp (predicate a) =
+      B.mem-prop J (f a) ;
+    bottom : predicate A.bot =
+      B.lower J (f A.bot) B.bot f-bottom (B.contains-bot J) ;
+    downward (a b : A.X) (ab : A.LE a b) :
+      predicate b -> predicate a =
+      B.lower J (f a) (f b) (f-mono a b ab) ;
+    compatible (a b : A.X) (ha : predicate a) (hb : predicate b) :
+      CU.Compatible C.order (A.val a) (A.val b) =
+      E.compat-reflect e (A.val a) (A.val b)
+        (TC.rec
+          ((c : B.X) * (B.mem J c * (B.LE (f a) c * B.LE (f b) c)))
+          @l+ (CU.Compatible D.order
+            (E.run e (A.val a)) (E.run e (A.val b)))
+          (Truncation[l+].Trunc[CU.CompatibleWitness D.order
+            (E.run e (A.val a)) (E.run e (A.val b))].proposition)
+          (\ w -> CU.by-bound D.order
+            (E.run e (A.val a)) (E.run e (A.val b))
+            (B.val w.1)
+            (image-below a w.1 w.2.2.1)
+            (image-below b w.1 w.2.2.2))
+          (B.upper J (f a) (f b) ha hb)) ;
+    upward (a b : A.X) (ha : predicate a) (hb : predicate b) :
+      S.Ex ((c : A.X) * (predicate c * (A.LE a c * A.LE b c))) =
+      S.inc ((c : A.X) * (predicate c * (A.LE a c * A.LE b c)))
+        (A.join-index a b (compatible a b ha hb),
+          (TC.rec
+            ((c : B.X) * (B.mem J c * (B.LE (f a) c * B.LE (f b) c)))
+            @l (predicate (A.join-index a b (compatible a b ha hb)))
+            (predicate-prop (A.join-index a b (compatible a b ha hb)))
+            (\ w -> B.lower J
+              (f (A.join-index a b (compatible a b ha hb))) w.1
+              (JoinUpper[a,b,w.1,compatible a b ha hb,
+                w.2.2.1,w.2.2.2].result) w.2.1)
+            (B.upper J (f a) (f b) ha hb),
+           (A.join-left a b (compatible a b ha hb),
+            A.join-right a b (compatible a b ha hb)))) ;
+    value : A.Ideal =
+      (predicate,(predicate-prop,(bottom,(downward,upward)))) ;
+  } ;
+
+  forward-mono (I J : A.Ideal) (h : A.Incl I J) :
+    B.Incl Forward[I].value Forward[J].value =
+    \ b -> TC.map (Forward[I].Witness b) (Forward[J].Witness b)
+      (\ w -> (w.1,(h w.1 w.2.1,w.2.2))) ;
+  backward-mono (I J : B.Ideal) (h : B.Incl I J) :
+    A.Incl Backward[I].value Backward[J].value =
+    \ a v -> h (f a) v ;
+  forward-cont (J : U l) (family : J -> A.Ideal)
+    (d : S.On[A.order].Dir J family) (z : B.Ideal)
+    (bound : (j : J) -> B.Incl Forward[family j].value z) :
+    B.Incl Forward[A.DirectedSup[J,family,d].value].value z =
+    \ b -> TC.rec
+      (Forward[A.DirectedSup[J,family,d].value].Witness b)
+      @l (B.mem z b) (B.mem-prop z b)
+      (\ w -> TC.rec (A.DirectedSup[J,family,d].Member w.1)
+        @l (B.mem z b) (B.mem-prop z b)
+        (\ v -> bound v.1 b
+          (S.inc (Forward[family v.1].Witness b)
+            (w.1,(v.2,w.2.2)))) w.2.1) ;
+  backward-cont (J : U l) (family : J -> B.Ideal)
+    (d : S.On[B.order].Dir J family) (z : A.Ideal)
+    (bound : (j : J) -> A.Incl Backward[family j].value z) :
+    A.Incl Backward[B.DirectedSup[J,family,d].value].value z =
+    \ a -> TC.rec (B.DirectedSup[J,family,d].Member (f a))
+      @l (A.mem z a) (A.mem-prop z a)
+      (\ w -> bound w.1 a w.2) ;
+  forward : DM.Between[A.domain,B.domain].Map =
+    (\ I -> Forward[I].value,(forward-mono,forward-cont)) ;
+  backward : DM.Between[B.domain,A.domain].Map =
+    (\ J -> Backward[J].value,(backward-mono,backward-cont)) ;
+  retract (I : A.Ideal) :
+    Id A.Ideal Backward[Forward[I].value].value I =
+    A.ext Backward[Forward[I].value].value I
+      (\ a -> TC.rec (Forward[I].Witness (f a))
+        @l (A.mem I a) (A.mem-prop I a)
+        (\ w -> A.lower I a w.1 (f-reflect a w.1 w.2.2) w.2.1))
+      (\ a h -> S.inc (Forward[I].Witness (f a))
+        (a,(h,D.order.reflexive (B.val (f a))))) ;
+  below (J : B.Ideal) : B.Incl Forward[Backward[J].value].value J =
+    \ b -> TC.rec (Forward[Backward[J].value].Witness b)
+      @l (B.mem J b) (B.mem-prop J b)
+      (\ w -> B.lower J b (f w.1) w.2.2 w.2.1) ;
+  pair : EP.Between[A.domain,B.domain].Pair =
+    ((forward,backward),(retract,below)) ;
+} ;
+
+module Functor {
+  object (C : CU.CUSL) : ScottDomainObjects[l].Domain =
+    ID.Canonical[C].domain ;
+  arrow (C D : CU.CUSL) (e : CU.Between[C,D].Embedding) :
+    EP.Between[object C,object D].Pair = Between[C,D,e].pair ;
+  module Identity (C : CU.CUSL) {
+    module A = ID.Canonical[C].O ;
+    module M = Between[C,C,CU.identity C] ;
+    index-eq (a : A.X) : Id A.X (M.f a) a =
+      sec-ret A.X C.order.carrier A.val ID.Canonical[C].small.2.2 a ;
+    forward-point (I : A.Ideal) :
+      Id A.Ideal M.Forward[I].value I =
+      A.ext M.Forward[I].value I
+        (\ b -> TC.rec (M.Forward[I].Witness b)
+          @l (A.mem I b) (A.mem-prop I b)
+          (\ w -> A.lower I b w.1
+            (ScottDomainCategories[l].le-replace C.order
+              (A.val b) (A.val b)
+              (A.val (M.f w.1)) (A.val w.1)
+              (refl (A.val b))
+              (ap A.X C.order.carrier A.val (M.f w.1) w.1
+                (index-eq w.1)) w.2.2) w.2.1))
+        (\ b h -> S.inc (M.Forward[I].Witness b)
+          (b,(h,ScottDomainCategories[l].le-replace C.order
+            (A.val b) (A.val b)
+            (A.val b) (A.val (M.f b))
+            (refl (A.val b))
+            (sym C.order.carrier (A.val (M.f b)) (A.val b)
+              (ap A.X C.order.carrier A.val (M.f b) b (index-eq b)))
+            (C.order.reflexive (A.val b))))) ;
+    backward-point (I : A.Ideal) :
+      Id A.Ideal M.Backward[I].value I =
+      A.ext M.Backward[I].value I
+        (\ a h -> subst A.X (\ z -> A.mem I z)
+          (M.f a) a (index-eq a) h)
+        (\ a h -> subst A.X (\ z -> A.mem I z)
+          a (M.f a) (sym A.X (M.f a) a (index-eq a)) h) ;
+    forward-map : Id (DM.Between[object C,object C].Map)
+      M.forward DM.End[object C].identity =
+      DM.Between[object C,object C].equal
+        M.forward DM.End[object C].identity forward-point ;
+    backward-map : Id (DM.Between[object C,object C].Map)
+      M.backward DM.End[object C].identity =
+      DM.Between[object C,object C].equal
+        M.backward DM.End[object C].identity backward-point ;
+    equation : Id (EP.Between[object C,object C].Pair)
+      (arrow C C (CU.identity C)) (EP.identity (object C)) =
+      EP.Between[object C,object C].equal
+        (arrow C C (CU.identity C)) (EP.identity (object C))
+        forward-map backward-map ;
+  } ;
+  identity (C : CU.CUSL) : Id (EP.Between[object C,object C].Pair)
+    (arrow C C (CU.identity C)) (EP.identity (object C)) =
+    Identity[C].equation ;
+  module Composition (C D E : CU.CUSL)
+    (e : CU.Between[C,D].Embedding)
+    (g : CU.Between[D,E].Embedding) {
+    module A = ID.Canonical[C].O ;
+    module B = ID.Canonical[D].O ;
+    module Z = ID.Canonical[E].O ;
+    module M = Between[C,D,e] ;
+    module N = Between[D,E,g] ;
+    module P = Between[C,E,CU.Triple[C,D,E].compose g e] ;
+    index-eq (a : A.X) : Id Z.X (P.f a) (N.f (M.f a)) =
+      ap E.order.carrier Z.X Z.at
+        (CU.Between[D,E].run g (CU.Between[C,D].run e (A.val a)))
+        (CU.Between[D,E].run g (B.val (M.f a)))
+        (ap D.order.carrier E.order.carrier (CU.Between[D,E].run g)
+          (CU.Between[C,D].run e (A.val a)) (B.val (M.f a))
+          (sym D.order.carrier (B.val (M.f a))
+            (CU.Between[C,D].run e (A.val a)) (M.f-val a))) ;
+    forward-point (I : A.Ideal) :
+      Id Z.Ideal P.Forward[I].value
+        N.Forward[M.Forward[I].value].value =
+      Z.ext P.Forward[I].value N.Forward[M.Forward[I].value].value
+        (\ b -> TC.map (P.Forward[I].Witness b)
+          (N.Forward[M.Forward[I].value].Witness b)
+          (\ w -> (M.f w.1,
+            (S.inc (M.Forward[I].Witness (M.f w.1))
+               (w.1,(w.2.1,D.order.reflexive (B.val (M.f w.1)))),
+             ScottDomainCategories[l].le-replace E.order
+               (Z.val b) (Z.val b)
+               (Z.val (P.f w.1)) (Z.val (N.f (M.f w.1)))
+               (refl (Z.val b))
+               (ap Z.X E.order.carrier Z.val
+                 (P.f w.1) (N.f (M.f w.1)) (index-eq w.1))
+               w.2.2))))
+        (\ b -> TC.bind
+          (N.Forward[M.Forward[I].value].Witness b)
+          (P.Forward[I].Witness b)
+          (\ w -> TC.map (M.Forward[I].Witness w.1)
+            (P.Forward[I].Witness b)
+            (\ v -> (v.1,(v.2.1,
+              ScottDomainCategories[l].le-replace E.order
+                (Z.val b) (Z.val b)
+                (Z.val (N.f (M.f v.1))) (Z.val (P.f v.1))
+                (refl (Z.val b))
+                (sym E.order.carrier
+                  (Z.val (P.f v.1)) (Z.val (N.f (M.f v.1)))
+                  (ap Z.X E.order.carrier Z.val
+                    (P.f v.1) (N.f (M.f v.1)) (index-eq v.1)))
+                (E.order.transitive (Z.val b) (Z.val (N.f w.1))
+                  (Z.val (N.f (M.f v.1))) w.2.2
+                  (N.f-mono w.1 (M.f v.1) v.2.2)))))
+            w.2.1)) ;
+    backward-point (J : Z.Ideal) :
+      Id A.Ideal P.Backward[J].value
+        M.Backward[N.Backward[J].value].value =
+      A.ext P.Backward[J].value M.Backward[N.Backward[J].value].value
+        (\ a h -> subst Z.X (\ z -> Z.mem J z)
+          (P.f a) (N.f (M.f a)) (index-eq a) h)
+        (\ a h -> subst Z.X (\ z -> Z.mem J z)
+          (N.f (M.f a)) (P.f a)
+          (sym Z.X (P.f a) (N.f (M.f a)) (index-eq a)) h) ;
+    forward-map :
+      Id (DM.Between[object C,object E].Map)
+        P.forward
+        (DM.Triple[object C,object D,object E].compose
+          N.forward M.forward) =
+      DM.Between[object C,object E].equal
+        P.forward
+        (DM.Triple[object C,object D,object E].compose
+          N.forward M.forward) forward-point ;
+    backward-map :
+      Id (DM.Between[object E,object C].Map)
+        P.backward
+        (DM.Triple[object E,object D,object C].compose
+          M.backward N.backward) =
+      DM.Between[object E,object C].equal
+        P.backward
+        (DM.Triple[object E,object D,object C].compose
+          M.backward N.backward) backward-point ;
+    equation : Id (EP.Between[object C,object E].Pair)
+      (arrow C E (CU.Triple[C,D,E].compose g e))
+      (EP.compose (object C) (object D) (object E)
+        (arrow D E g) (arrow C D e)) =
+      EP.Between[object C,object E].equal
+        (arrow C E (CU.Triple[C,D,E].compose g e))
+        (EP.compose (object C) (object D) (object E)
+          (arrow D E g) (arrow C D e))
+        forward-map backward-map ;
+  } ;
+  composition (C D E : CU.CUSL)
+    (e : CU.Between[C,D].Embedding)
+    (g : CU.Between[D,E].Embedding) :
+    Id (EP.Between[object C,object E].Pair)
+      (arrow C E (CU.Triple[C,D,E].compose g e))
+      (EP.compose (object C) (object D) (object E)
+        (arrow D E g) (arrow C D e)) =
+    Composition[C,D,E,e,g].equation ;
+} ;

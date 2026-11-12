@@ -1,0 +1,129 @@
+-- Mere smallness of a set can be untruncated under univalence.
+level l ;
+open Base ; open Prelude[l+] ;
+module R = Replacement[l,l+] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module EHigh = EquivalenceLemmas[l+] ;
+module ELow = EquivalenceLemmas[l] ;
+module UA = Axioms[l].UnivalenceLemmas[ua @l] ;
+
+module EquivProofs (A B : U l+) (setA : isSet A) (setB : isSet B)
+  (f : A -> B) {
+  SecEq (s : B -> A) : U l+ =
+    (b : B) -> Id B (f (s b)) b ;
+  RetEq (r : B -> A) : U l+ =
+    (a : A) -> Id A (r (f a)) a ;
+  Data : U l+ =
+    (w : (B -> A) * (B -> A)) * (SecEq w.1 * RetEq w.2) ;
+  from (w : Data) : isEquiv A B f = new IsEquiv[A,B,f,
+    sec := w.1.1,sec-eq := w.2.1,
+    ret := w.1.2,ret-eq := w.2.2] ;
+  raw (e : isEquiv A B f) : Data =
+    ((e.sec,e.ret),(e.sec-eq,e.ret-eq)) ;
+  eta : (e : isEquiv A B f) -> Id (isEquiv A B f)
+    (from (raw e)) e =
+    split { IsEquiv A B f s se r re ->
+      refl (new IsEquiv[A,B,f,s,se,r,re]) } ;
+  ret-sec (e : isEquiv A B f) (b : B) :
+    Id A (e.ret b) (e.sec b) =
+    trans A (e.ret b) (e.ret (f (e.sec b))) (e.sec b)
+      (sym A (e.ret (f (e.sec b))) (e.ret b)
+        (ap B A e.ret (f (e.sec b)) b (e.sec-eq b)))
+      (e.ret-eq (e.sec b)) ;
+  sec-unique (e v : isEquiv A B f) (b : B) :
+    Id A (e.sec b) (v.sec b) =
+    trans A (e.sec b) (v.ret b) (v.sec b)
+      (trans A (e.sec b) (v.ret (f (e.sec b))) (v.ret b)
+        (sym A (v.ret (f (e.sec b))) (e.sec b)
+          (v.ret-eq (e.sec b)))
+        (ap B A v.ret (f (e.sec b)) b (e.sec-eq b)))
+      (ret-sec v b) ;
+  ret-unique (e v : isEquiv A B f) (b : B) :
+    Id A (e.ret b) (v.ret b) =
+    trans A (e.ret b) (e.sec b) (v.ret b)
+      (ret-sec e b)
+      (trans A (e.sec b) (v.sec b) (v.ret b)
+        (sec-unique e v b)
+        (sym A (v.ret b) (v.sec b) (ret-sec v b))) ;
+  sec-law-prop (s : B -> A) : isProp (SecEq s) =
+    H.isProp-Pi B (\ b -> Id B (f (s b)) b)
+      (\ b -> setB (f (s b)) b) ;
+  ret-law-prop (r : B -> A) : isProp (RetEq r) =
+    H.isProp-Pi A (\ a -> Id A (r (f a)) a)
+      (\ a -> setA (r (f a)) a) ;
+  laws-prop (w : (B -> A) * (B -> A)) :
+    isProp (SecEq w.1 * RetEq w.2) =
+    isProp-Sigma (SecEq w.1) (\ _ -> RetEq w.2)
+      (sec-law-prop w.1) (\ _ -> ret-law-prop w.2) ;
+  data-prop : isProp Data = \ u v ->
+    Sigma-eq ((B -> A) * (B -> A))
+      (\ w -> SecEq w.1 * RetEq w.2)
+      u.1 v.1 u.2 v.2
+      (trans ((B -> A) * (B -> A)) u.1 (v.1.1,u.1.2) v.1
+        (ap (B -> A) ((B -> A) * (B -> A))
+          (\ s -> (s,u.1.2)) u.1.1 v.1.1
+          (H.funext B (\ _ -> A) u.1.1 v.1.1
+            (sec-unique (from u) (from v))))
+        (ap (B -> A) ((B -> A) * (B -> A))
+          (\ r -> (v.1.1,r)) u.1.2 v.1.2
+          (H.funext B (\ _ -> A) u.1.2 v.1.2
+            (ret-unique (from u) (from v)))))
+      (laws-prop v.1) ;
+  proof-prop : isProp (isEquiv A B f) =
+    retract-prop (isEquiv A B f) Data raw from eta data-prop ;
+} ;
+
+module EquivExt (A B : U l+) (setA : isSet A) (setB : isSet B) {
+  equal (e v : Equiv A B)
+    (h : (a : A) -> Id B (e.1 a) (v.1 a)) :
+    Id (Equiv A B) e v =
+    Sigma-eq (A -> B) (\ f -> isEquiv A B f)
+      e.1 v.1 e.2 v.2
+      (H.funext A (\ _ -> B) e.1 v.1 h)
+      (EquivProofs[A,B,setA,setB,v.1].proof-prop) ;
+} ;
+
+module SmallSet (B : U l+) (setB : isSet B) {
+  Small : U l+ = R.Small B ;
+  small-set (u : Small) : isSet u.1 =
+    isSet-retract u.1 B u.2.1 u.2.2.sec
+      (\ x -> sec-ret u.1 B u.2.1 u.2.2 x) setB ;
+  transport-equiv (X : U l) (e : Equiv X B) (Y : U l)
+    (v : Equiv Y B) (p : Id (U l) X Y)
+    (h : (x : X) -> Id B (e.1 x)
+      (v.1 (Prelude[l].coe X Y p x))) :
+    Id (Equiv Y B)
+      (subst (U l) (\ Z -> Equiv Z B) X Y p e) v =
+    idJ (U l) X
+      (\ Z q -> (w : Equiv Z B) ->
+        ((x : X) -> Id B (e.1 x) (w.1 (Prelude[l].coe X Z q x))) ->
+        Id (Equiv Z B)
+          (subst (U l) (\ T -> Equiv T B) X Z q e) w)
+      (\ w he -> EquivExt[X,B,
+        isSet-retract X B e.1 e.2.sec
+          (\ x -> sec-ret X B e.1 e.2 x) setB,setB].equal
+        e w he)
+      Y p v h ;
+  module Compare (u v : Small) {
+    X : U l = u.1 ; Y : U l = v.1 ;
+    back : Equiv B Y = EHigh.inverse Y B v.2 ;
+    across : Equiv X Y = EHigh.then X B Y u.2 back ;
+    across-low : Prelude[l].Equiv X Y =
+      (across.1,ELow.lower @l+ X Y across.1 across.2) ;
+    path : Id (U l) X Y = UA.ua X Y across-low ;
+    point (x : X) : Id B (u.2.1 x)
+      (v.2.1 (Prelude[l].coe X Y path x)) =
+      sym B (v.2.1 (Prelude[l].coe X Y path x)) (u.2.1 x)
+        (trans B (v.2.1 (Prelude[l].coe X Y path x))
+          (v.2.1 (across.1 x)) (u.2.1 x)
+          (ap Y B v.2.1 (Prelude[l].coe X Y path x) (across.1 x)
+            (UA.ua-beta X Y across-low x))
+          (v.2.2.sec-eq (u.2.1 x))) ;
+    equation : Id Small u v =
+      Sigma-path (U l) (\ X -> Equiv X B)
+        X Y u.2 v.2 path (transport-equiv X u.2 Y v.2 path point) ;
+  } ;
+  small-prop : isProp Small = \ u v -> Compare[u,v].equation ;
+  choose : Truncation[l+].Trunc[Small].carrier -> Small =
+    TruncationCombinators[l+].rec Small @l+ Small small-prop (\ s -> s) ;
+} ;

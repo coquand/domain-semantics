@@ -1,0 +1,507 @@
+-- Reconstruction isomorphisms for compact elements and ideal completion.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ;
+module ID = ScottCUSLIdeals[l] ;
+module KM = ScottCUSLCompacts[l] ;
+module IM = ScottCUSLIdealMaps[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module CAT = CategoryEquivalence[l++,l+] ;
+module SD = ScottDomain[l] ;
+module S = ScottOrder[l] ;
+module TC = TruncationCombinators[l] ;
+module TH = TruncationCombinators[l+] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+module EPDetermined (D E : ScottDomainObjects[l].Domain)
+  (q r : EP.Between[D,E].Pair)
+  (same-project : Id DM.Between[E,D].Map q.1.2 r.1.2) {
+  module Q = KM.Between[D,E,q] ;
+  module R = KM.Between[D,E,r] ;
+  project-point (y : E.order.carrier) :
+    Id D.order.carrier (Q.project y) (R.project y) =
+    ap DM.Between[E,D].Map D.order.carrier
+      (\ p -> p.1 y) q.1.2 r.1.2 same-project ;
+  left (x : D.order.carrier) : E.order.le (Q.embed x) (R.embed x) =
+    Q.lower x (R.embed x)
+      (ScottDomainCategories[l].le-replace D.order
+        x x x (Q.project (R.embed x))
+        (refl x)
+        (sym D.order.carrier (Q.project (R.embed x)) x
+          (trans D.order.carrier
+            (Q.project (R.embed x)) (R.project (R.embed x)) x
+            (project-point (R.embed x)) (r.2.1 x)))
+        (D.order.reflexive x)) ;
+  right (x : D.order.carrier) : E.order.le (R.embed x) (Q.embed x) =
+    R.lower x (Q.embed x)
+      (ScottDomainCategories[l].le-replace D.order
+        x x x (R.project (Q.embed x))
+        (refl x)
+        (sym D.order.carrier (R.project (Q.embed x)) x
+          (trans D.order.carrier
+            (R.project (Q.embed x)) (Q.project (Q.embed x)) x
+            (sym D.order.carrier
+              (Q.project (Q.embed x)) (R.project (Q.embed x))
+              (project-point (Q.embed x)))
+            (q.2.1 x)))
+        (D.order.reflexive x)) ;
+  embed-point (x : D.order.carrier) :
+    Id E.order.carrier (Q.embed x) (R.embed x) =
+    E.order.antisymmetric (Q.embed x) (R.embed x)
+      (left x) (right x) ;
+  forward-map : Id DM.Between[D,E].Map q.1.1 r.1.1 =
+    DM.Between[D,E].equal q.1.1 r.1.1 embed-point ;
+  equation : Id EP.Between[D,E].Pair q r =
+    EP.Between[D,E].equal q r forward-map same-project ;
+} ;
+
+module Unit (C : CU.CUSL) {
+  module A = ID.Canonical[C].O ;
+  module K = KM.On[A.domain] ;
+  to (x : C.order.carrier) : K.Carrier =
+    (A.principal (A.at x),A.principal-compact (A.at x)) ;
+  at-mono (x y : C.order.carrier) (h : C.order.le x y) :
+    A.LE (A.at x) (A.at y) =
+    ScottDomainCategories[l].le-replace C.order
+      x (A.val (A.at x)) y (A.val (A.at y))
+      (sym C.order.carrier (A.val (A.at x)) x (A.at-val x))
+      (sym C.order.carrier (A.val (A.at y)) y (A.at-val y)) h ;
+  at-reflect (x y : C.order.carrier)
+    (h : A.LE (A.at x) (A.at y)) : C.order.le x y =
+    ScottDomainCategories[l].le-replace C.order
+      (A.val (A.at x)) x (A.val (A.at y)) y
+      (A.at-val x) (A.at-val y) h ;
+  principal-mono (a b : A.X) (h : A.LE a b) :
+    A.Incl (A.principal a) (A.principal b) =
+    \ c ca -> C.order.transitive (A.val c) (A.val a) (A.val b) ca h ;
+  to-mono (x y : C.order.carrier) (h : C.order.le x y) :
+    K.le (to x) (to y) =
+    principal-mono (A.at x) (A.at y) (at-mono x y h) ;
+  to-reflect (x y : C.order.carrier) (h : K.le (to x) (to y)) :
+    C.order.le x y =
+    at-reflect x y
+      (h (A.at x) (A.principal-in (A.at x))) ;
+  id-to-le (u v : K.Carrier) (p : Id K.Carrier u v) : K.le u v =
+    idJ K.Carrier u (\ z _ -> K.le u z) (K.order.reflexive u) v p ;
+  Fiber (k : K.Carrier) : U l+ =
+    (x : C.order.carrier) * Id K.Carrier (to x) k ;
+  fiber-prop (k : K.Carrier) : isProp (Fiber k) = \ u v ->
+    Sigma-eq C.order.carrier (\ x -> Id K.Carrier (to x) k)
+      u.1 v.1 u.2 v.2
+      (C.order.antisymmetric u.1 v.1
+        (to-reflect u.1 v.1
+          (id-to-le (to u.1) (to v.1)
+            (trans K.Carrier (to u.1) k (to v.1)
+              u.2 (sym K.Carrier (to v.1) k v.2))))
+        (to-reflect v.1 u.1
+          (id-to-le (to v.1) (to u.1)
+            (trans K.Carrier (to v.1) k (to u.1)
+              v.2 (sym K.Carrier (to u.1) k u.2)))))
+      (K.carrier-set (to v.1) k) ;
+  at-to-a (a b : A.X) (h : A.LE b (A.at (A.val a))) :
+    A.LE b a =
+    ScottDomainCategories[l].le-replace C.order
+      (A.val b) (A.val b)
+      (A.val (A.at (A.val a))) (A.val a)
+      (refl (A.val b)) (A.at-val (A.val a)) h ;
+  a-to-at (a b : A.X) (h : A.LE b a) :
+    A.LE b (A.at (A.val a)) =
+    ScottDomainCategories[l].le-replace C.order
+      (A.val b) (A.val b)
+      (A.val a) (A.val (A.at (A.val a)))
+      (refl (A.val b))
+      (sym C.order.carrier (A.val (A.at (A.val a)))
+        (A.val a) (A.at-val (A.val a))) h ;
+  covered (k : K.Carrier) : Fiber k =
+    TC.rec
+      ((a : A.X) * (A.Incl k.1 (A.principal a) *
+        A.Incl (A.principal a) k.1))
+      @l+ (Fiber k) (fiber-prop k)
+      (\ w -> (A.val w.1,
+        K.order.antisymmetric (to (A.val w.1)) k
+          (\ b h -> w.2.2 b (at-to-a w.1 b h))
+          (\ b h -> a-to-at w.1 b (w.2.1 b h))))
+      (ScottDomain[l].On[A.scott].compact-basis k.1 k.2) ;
+  inverse (k : K.Carrier) : C.order.carrier = (covered k).1 ;
+  sec-eq (k : K.Carrier) : Id K.Carrier (to (inverse k)) k =
+    (covered k).2 ;
+  ret-eq (x : C.order.carrier) : Id C.order.carrier (inverse (to x)) x =
+    ap (Fiber (to x)) C.order.carrier (\ w -> w.1)
+      (covered (to x)) (x,refl (to x))
+      (fiber-prop (to x) (covered (to x)) (x,refl (to x))) ;
+  iso : CU.OrderIso C K.cusl =
+    ((to,qinv C.order.carrier K.Carrier to inverse sec-eq ret-eq),
+      (to-mono,to-reflect)) ;
+  category-iso : CU.pre.Iso C K.cusl =
+    CU.CategoryUnivalence.from-order C K.cusl iso ;
+} ;
+
+module Counit (D : ScottDomainObjects[l].Domain) {
+  module K = KM.On[D] ;
+  module A = ID.Canonical[K.cusl].O ;
+  module DC = S.DC[D.order,D.complete] ;
+  eval (a : A.X) : D.order.carrier = (A.val a).1 ;
+  module Below (x : D.order.carrier) {
+    predicate (a : A.X) : U l = D.order.le (eval a) x ;
+    predicate-prop (a : A.X) : Prelude[l].isProp (predicate a) =
+      D.order.proposition (eval a) x ;
+    bottom : predicate A.bot =
+      ScottDomainCategories[l].le-replace D.order
+        D.bottom (eval A.bot) x x
+        (sym D.order.carrier (eval A.bot) D.bottom
+          (ap K.Carrier D.order.carrier K.val
+            (A.val A.bot) K.bottom (A.at-val K.bottom)))
+        (refl x) (D.bottom-least x) ;
+    downward (a b : A.X) (ab : A.LE a b)
+      (hb : predicate b) : predicate a =
+      D.order.transitive (eval a) (eval b) x ab hb ;
+    module Join (a b : A.X) (ha : predicate a) (hb : predicate b) {
+      h : CU.Compatible K.order (A.val a) (A.val b) =
+        K.compatible-from-bound (A.val a) (A.val b) x ha hb ;
+      c : A.X = A.join-index a b h ;
+      hc : predicate c =
+        ScottDomainCategories[l].le-replace D.order
+          (K.join-value (A.val a) (A.val b) h) (eval c)
+          x x
+          (sym D.order.carrier (eval c)
+            (K.join-value (A.val a) (A.val b) h)
+            (ap K.Carrier D.order.carrier K.val
+              (A.val c) (K.join (A.val a) (A.val b) h)
+              (A.at-val (K.join (A.val a) (A.val b) h))))
+          (refl x)
+          (K.join-least (A.val a) (A.val b) h x ha hb) ;
+    } ;
+    upward (a b : A.X) (ha : predicate a) (hb : predicate b) :
+      S.Ex ((c : A.X) * (predicate c * (A.LE a c * A.LE b c))) =
+      S.inc ((c : A.X) * (predicate c * (A.LE a c * A.LE b c)))
+        (Join[a,b,ha,hb].c,
+          (Join[a,b,ha,hb].hc,
+           (A.join-left a b Join[a,b,ha,hb].h,
+            A.join-right a b Join[a,b,ha,hb].h))) ;
+    value : A.Ideal =
+      (predicate,(predicate-prop,(bottom,(downward,upward)))) ;
+  } ;
+  to (x : D.order.carrier) : A.Ideal = Below[x].value ;
+  to-mono (x y : D.order.carrier) (h : D.order.le x y) :
+    A.Incl (to x) (to y) = \ a ax ->
+    D.order.transitive (eval a) x y ax h ;
+  module Sup (I : A.Ideal) {
+    Index : U l = (a : A.X) * A.mem I a ;
+    part (w : Index) : D.order.carrier = eval w.1 ;
+    directed : S.On[D.order].Dir Index part =
+      (S.inc Index (A.bot,A.contains-bot I),
+       \ u v -> TC.map
+         ((c : A.X) * (A.mem I c * (A.LE u.1 c * A.LE v.1 c)))
+         (S.On[D.order].Upper Index part u v)
+         (\ w -> ((w.1,w.2.1),(w.2.2.1,w.2.2.2)))
+         (A.upper I u.1 v.1 u.2 v.2)) ;
+    value : D.order.carrier = DC.sup Index part directed ;
+    upper (w : Index) : D.order.le (part w) value =
+      DC.upper Index part directed w ;
+    least (x : D.order.carrier)
+      (h : (w : Index) -> D.order.le (part w) x) :
+      D.order.le value x =
+      DC.least Index part directed x h ;
+  } ;
+  from (I : A.Ideal) : D.order.carrier = Sup[I].value ;
+  from-mono (I J : A.Ideal) (h : A.Incl I J) :
+    D.order.le (from I) (from J) =
+    Sup[I].least (from J)
+      (\ w -> Sup[J].upper (w.1,h w.1 w.2)) ;
+  to-from (I : A.Ideal) : Id A.Ideal (to (from I)) I =
+    A.ext (to (from I)) I
+      (\ a h -> TC.rec
+        ((w : Sup[I].Index) * D.order.le (eval a) (Sup[I].part w))
+        @l (A.mem I a) (A.mem-prop I a)
+        (\ w -> A.lower I a w.1.1 w.2 w.1.2)
+        ((A.val a).2 Sup[I].Index Sup[I].part Sup[I].directed h))
+      (\ a h -> Sup[I].upper (a,h)) ;
+  from-to-below (x : D.order.carrier) :
+    D.order.le (from (to x)) x =
+    Sup[to x].least x (\ w -> w.2) ;
+  from-to-above (x : D.order.carrier) :
+    D.order.le x (from (to x)) =
+    TH.rec (SD.Basis[D.order,D.complete]) @l
+      (D.order.le x (from (to x)))
+      (D.order.proposition x (from (to x)))
+      (\ B -> B.density x (from (to x))
+        (\ a h ->
+          D.order.transitive (B.basic a)
+            (eval (A.at (B.basic a,B.compact a)))
+            (from (to x))
+            (ScottDomainCategories[l].le-replace D.order
+              (B.basic a) (B.basic a)
+              (B.basic a)
+              (eval (A.at (B.basic a,B.compact a)))
+              (refl (B.basic a))
+              (sym D.order.carrier
+                (eval (A.at (B.basic a,B.compact a)))
+                (B.basic a)
+                (ap K.Carrier D.order.carrier K.val
+                  (A.val (A.at (B.basic a,B.compact a)))
+                  (B.basic a,B.compact a)
+                  (A.at-val (B.basic a,B.compact a))))
+              (D.order.reflexive (B.basic a)))
+            (Sup[to x].upper
+              (A.at (B.basic a,B.compact a),
+               ScottDomainCategories[l].le-replace D.order
+                 (B.basic a)
+                 (eval (A.at (B.basic a,B.compact a)))
+                 x x
+                 (sym D.order.carrier
+                   (eval (A.at (B.basic a,B.compact a)))
+                   (B.basic a)
+                   (ap K.Carrier D.order.carrier K.val
+                     (A.val (A.at (B.basic a,B.compact a)))
+                     (B.basic a,B.compact a)
+                     (A.at-val (B.basic a,B.compact a))))
+                 (refl x) h))))
+      D.basis-exists ;
+  from-to (x : D.order.carrier) :
+    Id D.order.carrier (from (to x)) x =
+    D.order.antisymmetric (from (to x)) x
+      (from-to-below x) (from-to-above x) ;
+  to-reflect (x y : D.order.carrier)
+    (h : A.Incl (to x) (to y)) : D.order.le x y =
+    ScottDomainCategories[l].le-replace D.order
+      (from (to x)) x (from (to y)) y
+      (from-to x) (from-to y)
+      (from-mono (to x) (to y) h) ;
+  iso : ScottDomainObjects[l].DomainIso D A.domain =
+    ((to,qinv D.order.carrier A.Ideal to from to-from from-to),
+      (to-mono,to-reflect)) ;
+  category-iso : ScottDomainCategories[l].EmbeddingProjection.pre.Iso
+    D A.domain =
+    ScottDomainCategories[l].EmbeddingProjection.from-order D A.domain iso ;
+} ;
+
+module UnitNatural (C D : CU.CUSL)
+  (e : CU.Between[C,D].Embedding) {
+  module A = ID.Canonical[C].O ;
+  module B = ID.Canonical[D].O ;
+  module M = IM.Between[C,D,e] ;
+  module KC = KM.On[A.domain] ;
+  module KD = KM.On[B.domain] ;
+  module F = KM.Between[A.domain,B.domain,M.pair] ;
+  eta-C (x : C.order.carrier) :
+    Id KC.Carrier (Unit[C].category-iso.1.1 x) (Unit[C].to x) =
+    ap (C.order.carrier -> KC.Carrier) KC.Carrier
+      (\ f -> f x)
+      (Unit[C].category-iso.1.1) Unit[C].to
+      (CU.CategoryUnivalence.from-order-run C KC.cusl Unit[C].iso) ;
+  eta-D (x : D.order.carrier) :
+    Id KD.Carrier (Unit[D].category-iso.1.1 x) (Unit[D].to x) =
+    ap (D.order.carrier -> KD.Carrier) KD.Carrier
+      (\ f -> f x)
+      (Unit[D].category-iso.1.1) Unit[D].to
+      (CU.CategoryUnivalence.from-order-run D KD.cusl Unit[D].iso) ;
+  index-path (x : C.order.carrier) :
+    Id B.X (M.f (A.at x))
+      (B.at (CU.Between[C,D].run e x)) =
+    ap D.order.carrier B.X B.at
+      (CU.Between[C,D].run e (A.val (A.at x)))
+      (CU.Between[C,D].run e x)
+      (ap C.order.carrier D.order.carrier
+        (CU.Between[C,D].run e)
+        (A.val (A.at x)) x (A.at-val x)) ;
+  principal-path (x : C.order.carrier) :
+    Id B.Ideal
+      M.Forward[A.principal (A.at x)].value
+      (B.principal (B.at (CU.Between[C,D].run e x))) =
+    trans B.Ideal
+      M.Forward[A.principal (A.at x)].value
+      (B.principal (M.f (A.at x)))
+      (B.principal (B.at (CU.Between[C,D].run e x)))
+      (M.principal-action (A.at x))
+      (ap B.X B.Ideal B.principal
+        (M.f (A.at x)) (B.at (CU.Between[C,D].run e x))
+        (index-path x)) ;
+  point (x : C.order.carrier) :
+    Id KD.Carrier
+      (F.map (Unit[C].category-iso.1.1 x))
+      (Unit[D].category-iso.1.1 (CU.Between[C,D].run e x)) =
+    trans KD.Carrier
+      (F.map (Unit[C].category-iso.1.1 x))
+      (F.map (Unit[C].to x))
+      (Unit[D].category-iso.1.1 (CU.Between[C,D].run e x))
+      (ap KC.Carrier KD.Carrier
+        F.map
+        (Unit[C].category-iso.1.1 x) (Unit[C].to x)
+        (eta-C x))
+      (trans KD.Carrier
+        (F.map (Unit[C].to x))
+        (Unit[D].to (CU.Between[C,D].run e x))
+        (Unit[D].category-iso.1.1 (CU.Between[C,D].run e x))
+        (KD.carrier-path
+          (F.map (Unit[C].to x))
+          (Unit[D].to (CU.Between[C,D].run e x))
+          (principal-path x))
+        (sym KD.Carrier
+          (Unit[D].category-iso.1.1 (CU.Between[C,D].run e x))
+          (Unit[D].to (CU.Between[C,D].run e x))
+          (eta-D (CU.Between[C,D].run e x)))) ;
+  equation :
+    Id (CU.Between[C,KD.cusl].Embedding)
+      (CU.Triple[C,KC.cusl,KD.cusl].compose
+        (KM.Functor.arrow A.domain B.domain M.pair)
+        Unit[C].category-iso.1)
+      (CU.Triple[C,D,KD.cusl].compose
+        Unit[D].category-iso.1 e) =
+    CU.Between[C,KD.cusl].equal
+      (CU.Triple[C,KC.cusl,KD.cusl].compose
+        (KM.Functor.arrow A.domain B.domain M.pair)
+        Unit[C].category-iso.1)
+      (CU.Triple[C,D,KD.cusl].compose
+        Unit[D].category-iso.1 e) point ;
+} ;
+
+module CounitNatural (D E : ScottDomainObjects[l].Domain)
+  (q : ScottDomainCategories[l].EmbeddingProjection.Between[D,E].Pair)
+  (J : ID.Canonical[KM.On[E].cusl].O.Ideal) {
+  module KD = KM.On[D] ; module KE = KM.On[E] ;
+  module A = ID.Canonical[KD.cusl].O ;
+  module B = ID.Canonical[KE.cusl].O ;
+  module P = KM.Between[D,E,q] ;
+  module M = IM.Between[KD.cusl,KE.cusl,P.embedding] ;
+  module DE = ScottDomainMaps[l].Between[D,E] ;
+  module ED = ScottDomainMaps[l].Between[E,D] ;
+  embed : D.order.carrier -> E.order.carrier = DE.run q.1.1 ;
+  project : E.order.carrier -> D.order.carrier = ED.run q.1.2 ;
+  image-eval (a : A.X) : Id E.order.carrier
+    (Counit[E].eval (M.f a))
+    (embed (Counit[D].eval a)) =
+    ap KE.Carrier E.order.carrier KE.val
+      (B.val (M.f a)) (P.map (A.val a))
+      (B.at-val (P.map (A.val a))) ;
+  image-below (a : A.X) (b : B.X)
+    (h : E.order.le (embed (Counit[D].eval a)) (Counit[E].eval b)) :
+    B.LE (M.f a) b =
+    ScottDomainCategories[l].le-replace E.order
+      (embed (Counit[D].eval a))
+      (Counit[E].eval (M.f a))
+      (Counit[E].eval b) (Counit[E].eval b)
+      (sym E.order.carrier
+        (Counit[E].eval (M.f a))
+        (embed (Counit[D].eval a))
+        (image-eval a))
+      (refl (Counit[E].eval b)) h ;
+  domain-to-projection :
+    D.order.le (Counit[D].from M.Backward[J].value)
+      (project (Counit[E].from J)) =
+    Counit[D].Sup[M.Backward[J].value].least
+      (project (Counit[E].from J))
+      (\ w -> P.upper (Counit[D].eval w.1)
+        (Counit[E].from J)
+        (ScottDomainCategories[l].le-replace E.order
+          (Counit[E].eval (M.f w.1))
+          (embed (Counit[D].eval w.1))
+          (Counit[E].from J) (Counit[E].from J)
+          (image-eval w.1) (refl (Counit[E].from J))
+          (Counit[E].Sup[J].upper (M.f w.1,w.2)))) ;
+  module ApproxBasis (b : B.X) (hb : B.mem J b)
+    (basis : SD.Basis[D.order,D.complete]) {
+    target : D.order.carrier = Counit[D].from M.Backward[J].value ;
+    module At (i : basis.index)
+      (h : D.order.le (basis.basic i) (project (Counit[E].eval b))) {
+      k : KD.Carrier = (basis.basic i,basis.compact i) ;
+      a : A.X = A.at k ;
+      at-eval : Id D.order.carrier (Counit[D].eval a)
+        (basis.basic i) =
+        ap KD.Carrier D.order.carrier KD.val
+          (A.val a) k (A.at-val k) ;
+      image : E.order.le (embed (Counit[D].eval a))
+        (Counit[E].eval b) =
+        ScottDomainCategories[l].le-replace E.order
+          (embed (basis.basic i))
+          (embed (Counit[D].eval a))
+          (Counit[E].eval b) (Counit[E].eval b)
+          (sym E.order.carrier
+            (embed (Counit[D].eval a))
+            (embed (basis.basic i))
+            (ap D.order.carrier E.order.carrier embed
+              (Counit[D].eval a) (basis.basic i) at-eval))
+          (refl (Counit[E].eval b))
+          (P.lower (basis.basic i) (Counit[E].eval b) h) ;
+      member : A.mem M.Backward[J].value a =
+        B.lower J (M.f a) b (image-below a b image) hb ;
+      result : D.order.le (basis.basic i) target =
+        D.order.transitive (basis.basic i)
+          (Counit[D].eval a) target
+          (ScottDomainCategories[l].le-replace D.order
+            (basis.basic i) (basis.basic i)
+            (basis.basic i) (Counit[D].eval a)
+            (refl (basis.basic i))
+            (sym D.order.carrier (Counit[D].eval a)
+              (basis.basic i) at-eval)
+            (D.order.reflexive (basis.basic i)))
+          (Counit[D].Sup[M.Backward[J].value].upper (a,member)) ;
+    } ;
+    result : D.order.le (project (Counit[E].eval b)) target =
+      basis.density (project (Counit[E].eval b)) target
+        (\ i h -> At[i,h].result) ;
+  } ;
+  module Approx (b : B.X) (hb : B.mem J b) {
+    target : D.order.carrier = Counit[D].from M.Backward[J].value ;
+    result : D.order.le (project (Counit[E].eval b)) target =
+      TH.rec (SD.Basis[D.order,D.complete]) @l
+        (D.order.le (project (Counit[E].eval b)) target)
+        (D.order.proposition (project (Counit[E].eval b)) target)
+        (\ basis -> ApproxBasis[b,hb,basis].result)
+        D.basis-exists ;
+  } ;
+  projection-to-domain :
+    D.order.le (project (Counit[E].from J))
+      (Counit[D].from M.Backward[J].value) =
+    ED.continuous q.1.2 Counit[E].Sup[J].Index
+      Counit[E].Sup[J].part Counit[E].Sup[J].directed
+      (Counit[D].from M.Backward[J].value)
+      (\ w -> Approx[w.1,w.2].result) ;
+  equation : Id D.order.carrier
+    (Counit[D].from M.Backward[J].value)
+    (project (Counit[E].from J)) =
+    D.order.antisymmetric
+      (Counit[D].from M.Backward[J].value)
+      (project (Counit[E].from J))
+      domain-to-projection projection-to-domain ;
+} ;
+
+module CounitNaturality (D E : ScottDomainObjects[l].Domain)
+  (q : EP.Between[D,E].Pair) {
+  module KD = KM.On[D] ; module KE = KM.On[E] ;
+  module A = ID.Canonical[KD.cusl].O ;
+  module B = ID.Canonical[KE.cusl].O ;
+  module P = KM.Between[D,E,q] ;
+  module M = IM.Between[KD.cusl,KE.cusl,P.embedding] ;
+  left : EP.Between[D,B.domain].Pair =
+    EP.compose D A.domain B.domain M.pair Counit[D].category-iso.1 ;
+  right : EP.Between[D,B.domain].Pair =
+    EP.compose D E B.domain Counit[E].category-iso.1 q ;
+  projection : Id DM.Between[B.domain,D].Map left.1.2 right.1.2 =
+    DM.Between[B.domain,D].equal left.1.2 right.1.2
+      (\ J -> CounitNatural[D,E,q,J].equation) ;
+  equation : Id EP.Between[D,B.domain].Pair left right =
+    EPDetermined[D,B.domain,left,right,projection].equation ;
+} ;
+
+ideal-functor : CAT.Functor[CU.pre,EP.pre] = new CAT.Functor[
+  CU.pre,EP.pre,
+  object := IM.Functor.object,
+  arrow := IM.Functor.arrow,
+  identity := IM.Functor.identity,
+  composition := IM.Functor.composition] ;
+compact-functor : CAT.Functor[EP.pre,CU.pre] = new CAT.Functor[
+  EP.pre,CU.pre,
+  object := KM.Functor.object,
+  arrow := KM.Functor.arrow,
+  identity := KM.Functor.identity,
+  composition := KM.Functor.composition] ;
+
+equivalence : CAT.Equivalence[CU.CategoryUnivalence.category,EP.category] =
+  new CAT.Equivalence[CU.CategoryUnivalence.category,EP.category,
+    forward := ideal-functor,
+    backward := compact-functor,
+    unit-source := \ C -> Unit[C].category-iso,
+    source-natural := \ C D e -> UnitNatural[C,D,e].equation,
+    unit-target := \ D -> Counit[D].category-iso,
+    target-natural := \ D E q -> CounitNaturality[D,E,q].equation] ;
