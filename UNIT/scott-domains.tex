@@ -52,8 +52,10 @@ Scott domain $A$, and we formalize the abstract initial-chain theorem for
 endofunctors preserving countable chain colimits. A direct
 construction of countable chain colimits in the conditional-upper-semilattice
 category gives an initial algebra and an object equality $X=F(X)$ for
-every colimit-preserving endofunctor of that category. Transport across
-the categorical equivalence gives the same result for all unpresented
+every colimit-preserving endofunctor of that category. A checked
+categorical structure identity principle identifies the equivalent
+univalent CUSL and Scott EP categories. Transport along this equality
+gives the same result for all unpresented
 Scott-domain embedding--projection endofunctors preserving these colimits.
 A direct
 construction shows that the category of algebras for any endofunctor
@@ -379,6 +381,27 @@ proposition. The small presentations used in ideal completion are
 selected by univalence from mere smallness; no countable choice is used.
 \end{proof}
 
+\begin{theorem}[Categorical structure identity principle]
+\label{thm:category-sip}
+At the object and hom universe levels used here, an equivalence between
+univalent categories $\mathcal C$ and $\mathcal D$ induces an equality
+$\mathcal C=\mathcal D$ of category records. In particular,
+$\mathbf{CUSL}=\mathbf{Dom}_{\triangleleft}$.
+\end{theorem}
+\begin{proof}
+The two natural reconstruction isomorphisms give mutually inverse
+functions on object types after category univalence converts their
+components to object equalities. Univalence of the object universe then
+identifies the object types. The functor induces an equivalence on each
+hom type: its inverse is obtained by applying the quasi-inverse functor
+and conjugating by the reconstruction isomorphisms. Fiberwise univalence
+identifies the hom families. The functor laws identify identities and
+composition after transport. The fact that hom types are sets makes the remaining
+category laws propositions, and univalence of a fixed precategory is
+itself a proposition. The resulting equality of precategories therefore
+extends to equality of category records.
+\end{proof}
+
 \begin{corollary}[Unpresented Scott EP initial algebras]
 \label{cor:ep-initial}
 The category of unpresented Scott domains and embedding--projection pairs
@@ -387,12 +410,9 @@ preserves these colimits has an initial algebra with an invertible
 structure map and an object equality $X=F(X)$.
 \end{corollary}
 \begin{proof}
-The established CUSL--EP equivalence transports the CUSL chain colimits.
-For an EP chain, apply the compact-elements functor, take its CUSL
-colimit, and apply ideal completion. The natural reconstruction
-isomorphisms give cocone legs and mediate arbitrary EP cocones.
-The functors induce equivalences on hom types; these establish
-factorization and uniqueness. The one-point EP domain is initial, so
+By Theorem~\ref{thm:category-sip}, the CUSL--EP equivalence gives an
+equality of categories. Transport the CUSL countable-chain colimit
+structure along this equality. The one-point EP domain is initial, so
 Theorem~\ref{thm:initial-chain} applies. Univalence turns its solution
 isomorphism into equality of objects.
 \end{proof}
@@ -414,15 +434,15 @@ arrows. No colimit preservation assumption on $F$ is used.
 \end{proof}
 
 The direct coherent-sequence construction uses \emph{presented} Scott
-domains. The categorical transfer above extends countable-chain colimits
+domains. Transport by category equality extends countable-chain colimits
 to arbitrary unpresented objects with merely existing compact bases.
 Here ``$\omega$-continuous'' means
 preservation of existing countable-chain colimits. An implication from
 continuity on ordered hom types to this preservation is not asserted.
-The preservation property is a proposition. The equivalence also gives
-equality of CUSL and EP object types by univalence. Equality of the full
-category records would follow from a structure identity theorem for
-univalent categories; that stronger theorem is not used here.
+The preservation property is a proposition. A separate generic proof
+transports countable-chain colimits directly along a categorical
+equivalence, without using equality of categories; the corollary above
+uses the stronger structure identity theorem.
 
 \begin{lemma}[Finite common bounds]\label{lem:finite}
 If finitely many compact elements $a_1,\ldots,a_n$ lie below the supremum
@@ -1657,7 +1677,8 @@ initial-chain theorem, Theorem~\ref{thm:initial-chain}, and the generic
 univalent category of endofunctor algebras; the equivalence of univalent
 Scott EP and CUSL categories, Theorem~\ref{thm:cusl-equivalence}.
 The CUSL initial-algebra theorem, Theorem~\ref{thm:cusl-initial},
-uses the checked countable-chain colimit construction; its transfer gives
+uses the checked countable-chain colimit construction; the categorical
+structure identity principle, Theorem~\ref{thm:category-sip}, transfers it to
 the unpresented EP corollary, Corollary~\ref{cor:ep-initial}.
 \item The Scott filter domain and recursive projector; corrected rank
 stages, finite stabilisation, and comparison with bounded compact typing.
@@ -1683,12 +1704,12 @@ complete command.
 \hline
 Check & Declarations & Checker CPU time\\
 \hline
-Complete development & 11,550 & 4.68 s\\
-Independent relation and consequences & 4,909 & 1.23 s\\
+Complete development & 11,736 & 4.31 s\\
+Independent relation and consequences & 4,909 & 1.13 s\\
 \hline
 \end{tabular}
 \end{center}
-The \textbf{total wall-clock time was 6.04 seconds}, including dependency
+The \textbf{total wall-clock time was 5.52 seconds}, including dependency
 verification and both checker processes. The independent run has a
 104-module dependency closure with the old logical relation and the earlier
 proofs of adequacy, syntactic Pi injectivity and subject reduction out of scope. All 40 frozen

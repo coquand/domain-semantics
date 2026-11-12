@@ -2,7 +2,7 @@ Section 2 in Unit, using intersection types and filters
 =====================================================
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 11,550
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 11,736
 declarations, with 0 failures, using the recorded checker (2026-11-12).
 
 Run from DOMAIN:
@@ -75,15 +75,17 @@ preserving countable-chain colimits has an initial algebra, inverse
 fold/unfold maps, and an equality X = F(X). Preservation is a proposition:
 the universal property of a fixed cocone is a proposition. No countable
 choice is used in selecting small presentations for the ideal domains.
-The equivalence transports this omega-cocompleteness to the unpresented
-Scott EP category. The generic proof constructs a colimit cocone using
-the quasi-inverse, proves its factorization and uniqueness from the
-equivalence on homs, and works for chains with merely existing bases.
+The categorical structure identity principle is now checked at these
+universe levels: equivalent univalent categories are equal as Category
+records. The proof uses univalence on the object types and fiberwise on
+the hom types; functor laws identify identity and composition, while
+hom-set and category laws are propositions. The CUSL--EP equivalence
+therefore gives an equality of categories. Transport along this equality
+makes the unpresented Scott EP category omega-cocomplete, including chains
+whose stages have merely existing bases. A direct generic transfer proof
+via the quasi-inverse is also checked independently.
 Consequently every EP endofunctor preserving countable-chain colimits
 has an initial algebra, an isomorphism, and object equality X = F(X).
-The equivalence also gives an equality of the categories' object types
-by univalence. Equality of the entire category records is not yet proved;
-the transfer does not require that stronger structure identity theorem.
 
 The univalent category of Scott domains and embedding-projection pairs is
 now equivalent to the univalent category of conditional upper semilattices
@@ -199,6 +201,11 @@ New names except Proper and Regular are under All.Theory, at universe l.
   CategoryEquivalenceColimits.On.transported
     Generic transfer of countable-chain colimits across a categorical
     equivalence.
+  CategorySIPTheorem.On.equality / ScottEPTransport.category-equality
+    Categorical SIP: an equivalence of univalent categories gives equality
+    of their Category records. The CUSL--EP equivalence is instantiated.
+    CategorySIPFixed proves the hom-family step; CategorySIPReindex handles
+    object reindexing; CategorySIPFamily proves fiberwise univalence.
   ScottCUSLInitial.initial / ScottCUSLColimit.cocomplete
     The one-point CUSL is initial; every countable chain of CUSL embeddings
     has a colimit, built from compact elements of a presented EP limit.
@@ -206,8 +213,9 @@ New names except Proper and Regular are under All.Theory, at universe l.
     A colimit-preserving CUSL endofunctor has a solution X = F(X), whose
     fold map is an initial algebra.
   ScottEPTransport.cocomplete / On.equation / On.Algebra.initial
-    The unpresented Scott EP category is omega-cocomplete; any endofunctor
-    preserving those colimits has an initial algebra and X = F(X).
+    Transport of CUSL omega-cocompleteness along category equality gives
+    unpresented EP omega-cocompleteness. A colimit-preserving endofunctor
+    has an initial algebra and X = F(X).
   CategoryAlgebras.On.pre / Univalent.category
     The algebra category for any endofunctor on a precategory, and its
     univalence when the base category is univalent. An algebra isomorphism
@@ -460,7 +468,7 @@ ideal below identity. StableFamilies proves both joint stability of
 (B,f) |-> R_B(f) and stability of B |-> R_B into rigid projections of the
 stable function domain, for stable families over the fixed input domain.
 
-The combined check reports 11,550 declarations and zero failures.
+The combined check reports 11,736 declarations and zero failures.
 StableInputRestriction, StableImageMaps and StableVaryingFamilies now
 handle varying rigid input domains: input restriction is rigid, stable
 maps on its image extend/restrict with beta/eta, and Q_(p,B) is the

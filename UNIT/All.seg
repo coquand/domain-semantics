@@ -20,6 +20,11 @@ module Theory
  import ScottOrder ; import ScottDomain ; import ScottDomainObjects ; import ScottDomainMaps ; import ScottMaps ; import ScottFinite ;
  import EquivalenceLemmas ; import Category ; import CategoryArrows ; import CategoryEquivalence ; import CategoryEquivalenceTransport ; import ScottDomainCategories ;
  import ScottSmallness ; import ScottCUSL ; import ScottCUSLIdeals ; import ScottCUSLCompacts ; import ScottCUSLIdealMaps ; import ScottCUSLEquivalence ;
+ import CategorySIP ;
+ import CategorySIPReindex ;
+ import CategorySIPFamily ;
+ import CategorySIPFixed ;
+ import CategorySIPTheorem ;
  import CategoryInitialChain ;
  import CategoryEquivalenceColimits ;
  import CategoryAlgebras ;

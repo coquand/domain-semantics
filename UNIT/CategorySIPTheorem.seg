@@ -1,0 +1,53 @@
+-- Categorical structure identity principle at the UNIT domain levels:
+-- equivalent univalent categories are equal.
+level l ;
+open Base ; open Prelude[l+++] ;
+module K = Category[l++,l+] ;
+module CE = CategoryEquivalence[l++,l+] ;
+module S = CategorySIP[l++,l+] ;
+module Fixed = CategorySIPFixed[l] ;
+module Reindex = CategorySIPReindex[l] ;
+module CT = CategoryEquivalenceTransport[l++,l+] ;
+
+module On (C D : K.Category) (e : CE.Equivalence[C,D]) {
+  module E = CT.On[C,D,e] ;
+  O : U l++ = C.pre.ob ;
+  source : S.Structure[O] = S.from-pre C.pre ;
+  target : S.Structure[D.pre.ob] = S.from-pre D.pre ;
+  pulled : S.Structure[O] =
+    Reindex.pullback O D.pre.ob e.forward.object target ;
+  module F = Fixed.On[O,source] ;
+  hom-family : F.F.Family =
+    \ i -> pulled.hom i.1 i.2 ;
+  hom-equivalence : F.F.FiberEquiv hom-family =
+    \ i -> E.hom-equivalence i.1 i.2 ;
+  ops : F.Ops hom-family =
+    (S.structure-raw O pulled).2 ;
+  identity-law : F.IdLaw hom-family hom-equivalence ops =
+    e.forward.identity ;
+  composition-law :
+    F.CompLaw hom-family hom-equivalence ops =
+    e.forward.composition ;
+  structure-equality : Id (S.Structure[O]) source pulled =
+    F.equal hom-family hom-equivalence ops
+      identity-law composition-law ;
+  first : Id K.Precategory C.pre (S.to-pre O pulled) =
+    trans K.Precategory C.pre (S.to-pre O source)
+      (S.to-pre O pulled)
+      (sym K.Precategory (S.to-pre O source) C.pre
+        (S.pre-eta C.pre))
+      (ap (S.Structure[O]) K.Precategory
+        (S.to-pre O) source pulled structure-equality) ;
+  second : Id K.Precategory (S.to-pre O pulled)
+    (S.to-pre D.pre.ob target) =
+    Reindex.Reindex[O].equality D.pre.ob
+      E.object-equivalence target ;
+  precategory-equality : Id K.Precategory C.pre D.pre =
+    trans K.Precategory C.pre (S.to-pre O pulled) D.pre
+      first
+      (trans K.Precategory (S.to-pre O pulled)
+        (S.to-pre D.pre.ob target) D.pre
+        second (S.pre-eta D.pre)) ;
+  equality : Id K.Category C D =
+    S.pre-path-to-category C D precategory-equality ;
+} ;

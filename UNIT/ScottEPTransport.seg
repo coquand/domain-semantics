@@ -6,13 +6,19 @@ open Base ; open Prelude[l+] ;
 module CU = ScottCUSL[l] ;
 module EP = ScottDomainCategories[l].EmbeddingProjection ;
 module K = CategoryInitialChain[l++,l+] ;
-module Transfer = CategoryEquivalenceColimits[l++,l+] ;
+module CAT = Category[l++,l+] ;
+module SIP = CategorySIPTheorem[l] ;
+
+category-equality : Id CAT.Category
+  CU.CategoryUnivalence.category EP.category =
+  SIP.On[CU.CategoryUnivalence.category,EP.category,
+    ScottCUSLEquivalence[l].equivalence].equality ;
 
 cocomplete : K.OmegaCocomplete[EP.pre] =
-  Transfer.On[
-    CU.CategoryUnivalence.category,EP.category,
-    ScottCUSLEquivalence[l].equivalence,
-    ScottCUSLColimit[l].cocomplete].transported ;
+  Prelude[l+++].subst CAT.Category
+    (\ E -> K.OmegaCocomplete[E.pre])
+    CU.CategoryUnivalence.category EP.category
+    category-equality ScottCUSLColimit[l].cocomplete ;
 
 module On (F : K.Endofunctor[EP.pre])
   (omega : K.OmegaContinuous[EP.pre,F]) {
