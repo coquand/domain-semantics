@@ -198,12 +198,202 @@ idto-order-iso (P Q : Order) (p : Id Order P Q) : OrderIso P Q =
 order-isotoid (P : Order) : (Q : Order) -> OrderIso P Q -> Id Order P Q =
   split { Order C r p rf tr an -> \ i ->
     OrderPaths[P].path C i.1 r (p,(rf,(tr,an))) i.2.1 i.2.2 } ;
+
+module OrderSingleton (P : Order) {
+  C : U l+ = P.carrier ;
+  module UA = Axioms[l+].UnivalenceLemmas[ua @l+] ;
+  Iff (T : U l+) (e : Equiv C T) (r : T -> T -> U l) : U l+ =
+    ((x y : C) -> P.le x y -> r (e.1 x) (e.1 y)) *
+    ((x y : C) -> r (e.1 x) (e.1 y) -> P.le x y) ;
+  iff-prop (T : U l+) (e : Equiv C T) (r : T -> T -> U l)
+    (pr : (x y : T) -> isProp (r x y)) : isProp (Iff T e r) =
+    isProp-Sigma
+      ((x y : C) -> P.le x y -> r (e.1 x) (e.1 y))
+      (\ _ -> (x y : C) -> r (e.1 x) (e.1 y) -> P.le x y)
+      (H.isProp-Pi C (\ x -> (y : C) -> P.le x y -> r (e.1 x) (e.1 y))
+        (\ x -> H.isProp-Pi C (\ y -> P.le x y -> r (e.1 x) (e.1 y))
+          (\ y -> H.isProp-Pi (P.le x y) (\ _ -> r (e.1 x) (e.1 y))
+            (\ _ -> pr (e.1 x) (e.1 y)))))
+      (\ _ -> H.isProp-Pi C (\ x -> (y : C) -> r (e.1 x) (e.1 y) -> P.le x y)
+        (\ x -> H.isProp-Pi C (\ y -> r (e.1 x) (e.1 y) -> P.le x y)
+          (\ y -> H.isProp-Pi (r (e.1 x) (e.1 y)) (\ _ -> P.le x y)
+            (\ _ -> P.proposition x y)))) ;
+  Fibre (T : U l+) (e : Equiv C T) : U l+ =
+    (w : OrderAt T) * Iff T e w.1 ;
+  centre-fibre : Fibre C (idEquiv C) =
+    ((P.le,order-laws P),(\ x y h -> h,\ x y h -> h)) ;
+  base-fibre-prop : isProp (Fibre C (idEquiv C)) = \ u v ->
+    Sigma-eq (OrderAt C) (\ w -> Iff C (idEquiv C) w.1) u.1 v.1 u.2 v.2
+      (Sigma-eq (C -> C -> U l) (\ r -> OrderLaws C r)
+        u.1.1 v.1.1 u.1.2 v.1.2
+        (Prelude[l+].trans (C -> C -> U l) u.1.1 P.le v.1.1
+          (Prelude[l+].sym (C -> C -> U l) P.le u.1.1
+            (OrderPaths[P].relation-path u.1.1 u.1.2 u.2.1 u.2.2))
+          (OrderPaths[P].relation-path v.1.1 v.1.2 v.2.1 v.2.2))
+        (FixedOrder[C,v.1.1].laws-prop))
+      (iff-prop C (idEquiv C) v.1.1 v.1.2.1) ;
+  fibre-prop (T : U l+) (e : Equiv C T) : isProp (Fibre T e) =
+    UA.eqind C (\ T' e' -> isProp (Fibre T' e'))
+      base-fibre-prop T e ;
+  Expanded : U l++ = (T : U l+) * (e : Equiv C T) * Fibre T e ;
+  centre : Expanded = (C,(idEquiv C,centre-fibre)) ;
+  base-path (f : Fibre C (idEquiv C)) :
+    Id Expanded centre (C,(idEquiv C,f)) =
+    Prelude[l++].ap (Fibre C (idEquiv C)) Expanded
+      (\ v -> (C,(idEquiv C,v))) centre-fibre f
+      (base-fibre-prop centre-fibre f) ;
+  expand-path (u : Expanded) : Id Expanded centre u =
+    UA.eqind C
+      (\ T e -> (f : Fibre T e) -> Id Expanded centre (T,(e,f)))
+      base-path u.1 u.2.1 u.2.2 ;
+  expanded-prop : Prelude[l++].isProp Expanded = \ u v ->
+    Prelude[l++].trans Expanded u centre v
+      (Prelude[l++].sym Expanded centre u (expand-path u))
+      (expand-path v) ;
+  Total : U l++ = (Q : Order) * OrderIso P Q ;
+  expand (v : Total) : Expanded =
+    (v.1.carrier,(v.2.1,((v.1.le,order-laws v.1),v.2.2))) ;
+  collapse (v : Expanded) : Total =
+    (order-from-laws v.1 v.2.2.1.1 v.2.2.1.2,
+      (v.2.1,v.2.2.2)) ;
+  collapse-expand : (Q : Order) -> (i : OrderIso P Q) ->
+    Id Total (collapse (expand (Q,i))) (Q,i) =
+    split { Order T r p rf tr an -> \ i ->
+      refl (new Order[T,r,p,rf,tr,an],i) } ;
+  total-prop : Prelude[l++].isProp Total =
+    Prelude[l++].retract-prop Total Expanded expand collapse
+      (\ v -> collapse-expand v.1 v.2) expanded-prop ;
+} ;
+
+module OrderUnivalence (P : Order) {
+  module S = OrderSingleton[P] ;
+  isotoid (Q : Order) (i : OrderIso P Q) : Id Order P Q =
+    Prelude[l++].ap S.Total Order (\ v -> v.1)
+      (P,order-iso-id P) (Q,i)
+      (S.total-prop (P,order-iso-id P) (Q,i)) ;
+  idtoiso-fst (v : S.Total)
+    (p : Id S.Total (P,order-iso-id P) v) :
+    Id (OrderIso P v.1)
+      (idto-order-iso P v.1
+        (Prelude[l++].ap S.Total Order (\ w -> w.1)
+          (P,order-iso-id P) v p)) v.2 =
+    idJ S.Total (P,order-iso-id P)
+      (\ w q -> Id (OrderIso P w.1)
+        (idto-order-iso P w.1
+          (Prelude[l++].ap S.Total Order (\ z -> z.1)
+            (P,order-iso-id P) w q)) w.2)
+      (refl (order-iso-id P)) v p ;
+  idtoiso-isotoid (Q : Order) (i : OrderIso P Q) :
+    Id (OrderIso P Q) (idto-order-iso P Q (isotoid Q i)) i =
+    idtoiso-fst (Q,i) (S.total-prop (P,order-iso-id P) (Q,i)) ;
+  loop : Id (Id S.Total (P,order-iso-id P) (P,order-iso-id P))
+      (S.total-prop (P,order-iso-id P) (P,order-iso-id P))
+      (refl (P,order-iso-id P)) =
+    Prelude[l++].prop-to-set S.Total S.total-prop
+      (P,order-iso-id P) (P,order-iso-id P)
+      (S.total-prop (P,order-iso-id P) (P,order-iso-id P))
+      (refl (P,order-iso-id P)) ;
+  isotoid-idtoiso (Q : Order) (p : Id Order P Q) :
+    Id (Id Order P Q) (isotoid Q (idto-order-iso P Q p)) p =
+    idJ Order P
+      (\ R q -> Id (Id Order P R) (isotoid R (idto-order-iso P R q)) q)
+      (Prelude[l++].ap
+        (Id S.Total (P,order-iso-id P) (P,order-iso-id P))
+        (Id Order P P)
+        (Prelude[l++].ap S.Total Order (\ v -> v.1)
+          (P,order-iso-id P) (P,order-iso-id P))
+        (S.total-prop (P,order-iso-id P) (P,order-iso-id P))
+        (refl (P,order-iso-id P)) loop)
+      Q p ;
+  univalent (Q : Order) :
+    Prelude[l++].isEquiv (Id Order P Q) (OrderIso P Q)
+      (idto-order-iso P Q) =
+    Prelude[l++].qinv (Id Order P Q) (OrderIso P Q)
+      (idto-order-iso P Q) (isotoid Q)
+      (idtoiso-isotoid Q) (isotoid-idtoiso Q) ;
+} ;
 DomainIso (D E : Domain) : U l+ = OrderIso D.order E.order ;
 idto-domain-iso (D E : Domain) (p : Id Domain D E) : DomainIso D E =
   idto-order-iso D.order E.order
     (Prelude[l++].ap Domain Order (\ X -> X.order) D E p) ;
 domain-isotoid (D E : Domain) (i : DomainIso D E) : Id Domain D E =
   from-order-path D E (order-isotoid D.order E.order i) ;
+
+module DomainSingleton (D : Domain) {
+  module O = OrderSingleton[D.order] ;
+  Total : U l++ = (E : Domain) * DomainIso D E ;
+  Expanded : U l++ = (w : O.Total) * FiberHigh w.1 ;
+  expand (v : Total) : Expanded =
+    ((v.1.order,v.2),
+      (v.1.complete,((v.1.bottom,v.1.bottom-least),v.1.basis-exists))) ;
+  collapse (v : Expanded) : Total =
+    (from-raw (v.1.1,v.2),v.1.2) ;
+  collapse-expand : (E : Domain) -> (i : DomainIso D E) ->
+    Id Total (collapse (expand (E,i))) (E,i) =
+    split { Domain P c b least basis -> \ i ->
+      refl (new Domain[P,c,b,least,basis],i) } ;
+  expanded-prop : Prelude[l++].isProp Expanded =
+    Prelude[l++].isProp-Sigma O.Total (\ w -> FiberHigh w.1)
+      O.total-prop (\ w -> fiber-prop w.1) ;
+  total-prop : Prelude[l++].isProp Total =
+    Prelude[l++].retract-prop Total Expanded expand collapse
+      (\ v -> collapse-expand v.1 v.2) expanded-prop ;
+} ;
+
+module DomainUnivalence (D : Domain) {
+  module S = DomainSingleton[D] ;
+  isotoid (E : Domain) (i : DomainIso D E) : Id Domain D E =
+    Prelude[l++].ap S.Total Domain (\ v -> v.1)
+      (D,order-iso-id D.order) (E,i)
+      (S.total-prop (D,order-iso-id D.order) (E,i)) ;
+  idtoiso-fst (v : S.Total)
+    (p : Id S.Total (D,order-iso-id D.order) v) :
+    Id (DomainIso D v.1)
+      (idto-domain-iso D v.1
+        (Prelude[l++].ap S.Total Domain (\ w -> w.1)
+          (D,order-iso-id D.order) v p)) v.2 =
+    idJ S.Total (D,order-iso-id D.order)
+      (\ w q -> Id (DomainIso D w.1)
+        (idto-domain-iso D w.1
+          (Prelude[l++].ap S.Total Domain (\ z -> z.1)
+            (D,order-iso-id D.order) w q)) w.2)
+      (refl (order-iso-id D.order)) v p ;
+  idtoiso-isotoid (E : Domain) (i : DomainIso D E) :
+    Id (DomainIso D E) (idto-domain-iso D E (isotoid E i)) i =
+    idtoiso-fst (E,i) (S.total-prop (D,order-iso-id D.order) (E,i)) ;
+  loop : Id (Id S.Total (D,order-iso-id D.order) (D,order-iso-id D.order))
+      (S.total-prop (D,order-iso-id D.order) (D,order-iso-id D.order))
+      (refl (D,order-iso-id D.order)) =
+    Prelude[l++].prop-to-set S.Total S.total-prop
+      (D,order-iso-id D.order) (D,order-iso-id D.order)
+      (S.total-prop (D,order-iso-id D.order) (D,order-iso-id D.order))
+      (refl (D,order-iso-id D.order)) ;
+  isotoid-idtoiso (E : Domain) (p : Id Domain D E) :
+    Id (Id Domain D E) (isotoid E (idto-domain-iso D E p)) p =
+    idJ Domain D
+      (\ R q -> Id (Id Domain D R) (isotoid R (idto-domain-iso D R q)) q)
+      (Prelude[l++].ap
+        (Id S.Total (D,order-iso-id D.order) (D,order-iso-id D.order))
+        (Id Domain D D)
+        (Prelude[l++].ap S.Total Domain (\ v -> v.1)
+          (D,order-iso-id D.order) (D,order-iso-id D.order))
+        (S.total-prop (D,order-iso-id D.order) (D,order-iso-id D.order))
+        (refl (D,order-iso-id D.order)) loop)
+      E p ;
+  univalent (E : Domain) :
+    Prelude[l++].isEquiv (Id Domain D E) (DomainIso D E)
+      (idto-domain-iso D E) =
+    Prelude[l++].qinv (Id Domain D E) (DomainIso D E)
+      (idto-domain-iso D E) (isotoid E)
+      (idtoiso-isotoid E) (isotoid-idtoiso E) ;
+} ;
+
+order-univalent (P Q : Order) :
+  Prelude[l++].isEquiv (Id Order P Q) (OrderIso P Q)
+    (idto-order-iso P Q) = OrderUnivalence[P].univalent Q ;
+domain-univalent (D E : Domain) :
+  Prelude[l++].isEquiv (Id Domain D E) (DomainIso D E)
+    (idto-domain-iso D E) = DomainUnivalence[D].univalent E ;
 
 from-presented (D : SD.Scott) : Domain = new Domain[
   order := D.order,complete := D.complete,bottom := D.bottom,

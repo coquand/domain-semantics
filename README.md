@@ -50,7 +50,7 @@ pair of component equality derivations**.
 It also includes a [Scott domain object with merely existing small basis](UNIT/ScottDomainObjects.seg),
 so different chosen basis presentations of one underlying domain give the
 same object. An order isomorphism induces equality of these objects; the
-inverse equations needed for categorical univalence remain open.
+canonical map from equality to order isomorphism is now a checked equivalence.
 
 - [Complete derivation induction](UNIT/IndependentFundamental.seg)
 - [Whole-denotation adequacy](UNIT/IndependentAdequacy.seg) and
@@ -58,10 +58,10 @@ inverse equations needed for categorical univalence remain open.
 - [Development guide](UNIT/README.txt) and
   [logical-relation proof account](UNIT/LOGICAL_RELATION_PROGRAM.md)
 
-The full check covers **9,414 declarations**; the separate independent check
+The full check covers **9,460 declarations**; the separate independent check
 covers **4,909 declarations**, with the old relation and adequacy proofs out
 of scope. Both pass, and all 40 frozen dependency hashes are verified. The
-recorded complete run took **3.50 seconds wall-clock time**. This development
+recorded complete run took **3.54 seconds wall-clock time**. This development
 uses univalence and replacement as explicit ambient parameters.
 
 With the compiled Haskell Unit checker available, run:

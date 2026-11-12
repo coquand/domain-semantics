@@ -559,7 +559,7 @@ is used in any of these proofs.
 ## Validation and implementation status
 
 Implementation updated on 12 November 2026. The combined check reports
-**9,414 declarations, zero failures, 40 frozen dependency hashes verified**
+**9,460 declarations, zero failures, 40 frozen dependency hashes verified**
 with `python3 UNIT/check.py`. The separate independence check reports
 **4,909 declarations, zero failures**, including all the new typed laws,
 the full fundamental lemma and its inversion corollary with their

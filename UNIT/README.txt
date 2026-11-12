@@ -2,7 +2,7 @@ Section 2 in Unit, using intersection types and filters
 =====================================================
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 9,414
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 9,460
 declarations, with 0 failures, using the recorded checker (2026-11-12).
 
 Run from DOMAIN:
@@ -105,10 +105,11 @@ New names except Proper and Regular are under All.Theory, at universe l.
     A domain object with merely existing small compact basis; two chosen
     bases over the same ordered, complete, pointed domain give equal objects.
     The existing ScottDomain.Scott retains a basis for calculations.
-  ScottDomainObjects.complete-prop / fiber-prop / order-isotoid / domain-isotoid
+  ScottDomainObjects.complete-prop / fiber-prop / order-univalent / domain-univalent
     Completeness and the remaining domain structure add no choices over
-    an order. Every order isomorphism gives an equality of domain objects.
-    The inverse equations for categorical univalence remain to be checked.
+    an order. Equality of domain objects is equivalent to order isomorphism.
+    Both inverse equations are checked via the contractible total space of
+    isomorphisms, independently of the later category structures.
   ScottMaps.Between.Pointwise.lub / complete
     Directed and bounded suprema of continuous maps are pointwise.
   ScottStepApprox.Between.Step.compact / FiniteJoin.compact
@@ -332,7 +333,7 @@ ideal below identity. StableFamilies proves both joint stability of
 (B,f) |-> R_B(f) and stability of B |-> R_B into rigid projections of the
 stable function domain, for stable families over the fixed input domain.
 
-The combined check reports 9,414 declarations and zero failures.
+The combined check reports 9,460 declarations and zero failures.
 StableInputRestriction, StableImageMaps and StableVaryingFamilies now
 handle varying rigid input domains: input restriction is rigid, stable
 maps on its image extend/restrict with beta/eta, and Q_(p,B) is the
