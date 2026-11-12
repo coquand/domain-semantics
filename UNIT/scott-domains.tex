@@ -506,7 +506,11 @@ presentations is involved.
 The direct presented algebra of Theorem~\ref{thm:reflexive} and the
 transported EP algebra are expected to be uniquely isomorphic once their
 functors and ambient algebra categories are identified. That last
-identification is not checked here; uniqueness of initial algebras alone
+identification is not checked here. Canonical algebra morphisms have been
+constructed from the direct solution to the ideal completion of the CUSL
+solution, and from the CUSL solution to the compact elements of the direct
+one (\texttt{ScottReflexiveSolutionComparison}). Their inverse laws remain
+to be proved. Uniqueness of initial algebras alone
 does not compare algebras for different functors. The generic uniqueness
 result for a fixed functor in a univalent category is checked as
 \texttt{CategoryInitialSolution.Unique.algebra-equality}.
@@ -1802,12 +1806,12 @@ complete command.
 \hline
 Check & Declarations & Checker CPU time\\
 \hline
-Complete development & 12,159 & 8.71 s\\
-Independent relation and consequences & 4,909 & 1.24 s\\
+Complete development & 12,187 & 8.56 s\\
+Independent relation and consequences & 4,909 & 1.18 s\\
 \hline
 \end{tabular}
 \end{center}
-The \textbf{total wall-clock time was 10.08 seconds}, including dependency
+The \textbf{total wall-clock time was 10.46 seconds}, including dependency
 verification and both checker processes. The independent run has a
 104-module dependency closure with the old logical relation and the earlier
 proofs of adequacy, syntactic Pi injectivity and subject reduction out of scope. All 40 frozen

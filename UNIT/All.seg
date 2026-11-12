@@ -112,6 +112,7 @@ module Theory
  import ScottEPTransport ;
  import ScottCUSLSolutionTransport ;
  import ScottCUSLReflexiveSolution ;
+ import ScottReflexiveSolutionComparison ;
  import RigidLimitDomain ;
  import RigidLimitRigid ;
  import RigidLimitDI ;

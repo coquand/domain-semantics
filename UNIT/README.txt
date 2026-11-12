@@ -2,7 +2,7 @@ Section 2 in Unit, using intersection types and filters
 =====================================================
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 12,159
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 12,187
 declarations, with 0 failures, using the recorded checker (2026-11-12).
 
 Run from DOMAIN:
@@ -76,7 +76,10 @@ Both functors of a precategory equivalence preserve countable-chain
 colimits; composing this fact with the presented F_A result proves that
 the CUSL constructor preserves them. It therefore has an initial algebra
 and an object equation in CUSL; the entire solution package is transported
-to unpresented EP. The remaining formal comparison is to identify this
+to unpresented EP. Canonical algebra morphisms now go from the direct
+presented solution to the ideal completion of the CUSL solution, and from
+the CUSL solution to the compact elements of the direct one. The remaining
+formal comparison is to prove these maps inverse and identify the
 transported algebra with the directly constructed presented F_A algebra.
 No choice of presentations is required for these constructions.
 Here omega-continuity means preservation of existing countable-chain
@@ -238,6 +241,10 @@ New names except Proper and Regular are under All.Theory, at universe l.
     The specific CUSL constructor K(F_A(Idl(-))) preserves chain colimits,
     so it has an initial algebra and its solution transports to unpresented
     EP with an object equation.
+  ScottReflexiveSolutionComparison.On.comparison / reverse
+    Canonical algebra morphisms compare the direct presented solution
+    with the ideal/compact presentations of the CUSL solution. Their
+    inverse equations remain to be proved.
   CategoryInitialSolution.Unique.algebra-equality
     Two initial solutions of the same functor are equal as algebras in a
     univalent category.
@@ -518,7 +525,7 @@ ideal below identity. StableFamilies proves both joint stability of
 (B,f) |-> R_B(f) and stability of B |-> R_B into rigid projections of the
 stable function domain, for stable families over the fixed input domain.
 
-The combined check reports 12,159 declarations and zero failures.
+The combined check reports 12,187 declarations and zero failures.
 StableInputRestriction, StableImageMaps and StableVaryingFamilies now
 handle varying rigid input domains: input restriction is rigid, stable
 maps on its image extend/restrict with beta/eta, and Q_(p,B) is the

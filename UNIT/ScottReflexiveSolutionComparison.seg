@@ -1,0 +1,73 @@
+-- The direct presented solution maps canonically to the ideal completion
+-- of the CUSL solution as an F_A-algebra.
+level l ;
+open Base ;
+module SD = ScottDomain[l] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module ID = ScottCUSLIdeals[l] ;
+module IM = ScottCUSLIdealMaps[l].Functor ;
+module KM = ScottCUSLCompacts[l].Functor ;
+module EQ = ScottCUSLEquivalence[l] ;
+
+module On (A : SD.Scott) {
+  module Direct = ScottReflexiveSolution[l].On[A] ;
+  module CU = ScottCUSLReflexiveSolution[l].On[A] ;
+  module G = ScottCUSLReflexiveFunctor[l].On[A] ;
+  presented-cusl-solution : SD.Scott =
+    ID.Canonical[CU.cusl].O.scott ;
+  algebra : EP.pre.hom
+    (SO.from-presented (G.F.object presented-cusl-solution))
+    (SO.from-presented presented-cusl-solution) =
+    EP.pre.comp
+      (G.domain CU.cusl)
+      (IM.object (G.object CU.cusl))
+      (IM.object CU.cusl)
+      (IM.arrow (G.object CU.cusl) CU.cusl CU.C.fold)
+      (G.comparison CU.cusl).1 ;
+  module Initial = ScottReflexiveInitial[l].On[
+    A,presented-cusl-solution,algebra] ;
+  comparison : EP.pre.hom
+    (SO.from-presented Direct.solution)
+    (SO.from-presented presented-cusl-solution) =
+    Initial.center.1 ;
+  algebra-law : Initial.Morphism comparison =
+    Initial.center.2 ;
+
+  direct-domain : SO.Domain = SO.from-presented Direct.solution ;
+  compact-direct : ScottCUSL[l].CUSL = KM.object direct-domain ;
+  presented-compact-direct : SD.Scott =
+    ID.Canonical[compact-direct].O.scott ;
+  counit : EP.pre.Iso direct-domain
+    (SO.from-presented presented-compact-direct) =
+    EQ.equivalence.unit-target direct-domain ;
+  direct-algebra : EP.pre.hom
+    (SO.from-presented (G.F.object presented-compact-direct))
+    direct-domain =
+    EP.pre.comp
+      (SO.from-presented (G.F.object presented-compact-direct))
+      (SO.from-presented (G.F.object Direct.solution))
+      direct-domain Direct.fold
+      (G.F.action presented-compact-direct Direct.solution
+        counit.2.1) ;
+  compact-algebra : ScottCUSL[l].pre.hom
+    (G.object compact-direct) compact-direct =
+    KM.arrow (G.domain compact-direct) direct-domain
+      direct-algebra ;
+  module CInitial = CU.C.Algebra[
+    compact-direct,compact-algebra] ;
+  reverse : ScottCUSL[l].pre.hom CU.cusl compact-direct =
+    CInitial.canonical.1 ;
+  reverse-algebra-law : CInitial.Morphism =
+    CInitial.canonical ;
+  source-unit : ScottCUSL[l].pre.Iso CU.cusl
+    (KM.object (IM.object CU.cusl)) =
+    EQ.equivalence.unit-source CU.cusl ;
+  compact-comparison : ScottCUSL[l].pre.hom compact-direct
+    (KM.object (IM.object CU.cusl)) =
+    KM.arrow direct-domain (IM.object CU.cusl) comparison ;
+  forward : ScottCUSL[l].pre.hom compact-direct CU.cusl =
+    ScottCUSL[l].pre.comp compact-direct
+      (KM.object (IM.object CU.cusl)) CU.cusl
+      source-unit.2.1 compact-comparison ;
+} ;
