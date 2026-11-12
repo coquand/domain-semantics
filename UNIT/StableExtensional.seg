@@ -1,0 +1,13 @@
+-- Pointwise paths determine stable maps; useful for diagram equations.
+level l ;
+open Base ; open Prelude[l+] ;
+module Between (D E : ScottDomain[l].Scott) {
+  module S = StableMaps[l].Between[D,E] ;
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ;
+  forward (f g : S.Map) (h : (x : A.C) -> Id B.C (S.run f x) (S.run g x)) : S.LE f g =
+    S.equal-below f g
+      (\ a -> subst B.C (\ z -> B.LE (S.run f (A.basic a)) z) (S.run f (A.basic a)) (S.run g (A.basic a)) (h (A.basic a)) (E.order.reflexive (S.run f (A.basic a))))
+      (\ a -> subst B.C (\ z -> B.LE z (S.run f (A.basic a))) (S.run f (A.basic a)) (S.run g (A.basic a)) (h (A.basic a)) (E.order.reflexive (S.run f (A.basic a)))) ;
+  equation (f g : S.Map) (h : (x : A.C) -> Id B.C (S.run f x) (S.run g x)) : Id S.Map f g =
+    S.ext f g (forward f g h) (forward g f (\ x -> sym B.C (S.run f x) (S.run g x) (h x))) ;
+} ;

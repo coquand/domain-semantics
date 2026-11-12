@@ -1,0 +1,265 @@
+Proposition 2.27: corrected rank-stage theorem and printed obstruction
+====================================================================
+
+The corrected rank-stage version is now checked in Unit for every n.
+The chosen repair starts the compact basis with bottom and U. The
+unamended printed rules still have the obstruction recorded below.
+
+Direct fixed-point proof (now checked)
+--------------------------------------
+
+Write P_0 = bottom, P_(k+1) = Phi(P_k), p = sup_k P_k, and
+
+  rho_n(Q)(a,x) = r_n(Q(e_n a,e_n x)).
+
+RankProjection proves the structural equations for q_n = e_n r_n. In
+particular, application of a stage-(n+1) element has stage-n range and
+factors through q_n. Its Pi family has the same properties, and its Pi
+domain lies in stage n. These facts use only ranks and the domain equation.
+
+StageFusion proves, for arbitrary continuous binary Q,R:
+
+  rho_0(Phi(Q)) = rho_0(Phi(R));
+  rho_n(Q) = rho_n(R) implies rho_(n+1)(Phi(Q)) = rho_(n+1)(Phi(R)).
+
+Thus rho_n(P_k) is constant for k >= n+1. OperationalStages defines
+
+  p-hat_n = rho_n(P_(n+1)),
+
+using only a FINITE unfolding, not the limit p. Continuity of restriction
+then proves
+
+  r_n(p(e_n a,e_n x)) = p-hat_n(a,x).
+
+OperationalStages.proposition-2-27 is the resulting identity in D_n.
+StageFusion.eventual and OperationalStages.stabilizes state the stronger
+finite-stabilization result. There are no projector hypotheses on Q,R
+in the one-step fusion lemma. No unrestricted commutation of p with q_n
+on arbitrary arguments is asserted or needed.
+
+This proof does not use the sandwich lemma or the identification of p
+with the typing projector. The direct modules are checked BEFORE
+StageInterpolation is imported in All.seg.
+
+StageComparison.agreement separately proves p-hat_n = p_n for the
+bounded-typing definition below. StageComparison.At.finitary transfers
+finitariness to its ambient extension x |-> e_n(p-hat_n(a,r_n x)). This
+comparison still uses the earlier sandwich proof. A direct independent
+proof of all the per-iterate projector invariants is not claimed.
+
+Corrected statement and independent definitions
+------------------------------------------------
+
+Use the information order <= in this explanation (Unit's token Le is
+the reverse order). Let rank(bottom) = rank(U) = 0, with
+
+  rank(Pi(a,f)) = 1 + max(rank(a), graph-rank(f)),
+  rank(a -> b)  = 1 + max(rank(a), rank(b)).
+
+Graph rank assigns a -> b the maximum of the ranks of a and b, without
+the extra successor; joins take maxima. Let K_n be the compact classes
+having a proper consistent representative of rank at most n. This
+existential formulation matters: syntactically equivalent tokens can
+have different ranks. K_0 consists exactly of the bottom and U classes.
+
+Define q_n(x) as the supremum of the K_n compacts below x. Let D_n be
+its fixed image, e_n its inclusion in D, and r_n(x) = q_n(x), considered
+as an element of D_n. The embedding-projection laws and exhaustion of D
+are checked.
+
+For proper compact representatives u,b, the bounded MIN judgement is
+
+  u :_n b  iff  rank(u), rank(b) <= n and MIN.Tp(u:b).
+
+In particular bottom :_0 bottom, bottom :_0 U, and U :_0 U all hold.
+For A in D_n, define the stage compact family independently by the
+typed generators u with u :_n b for some b in A, closing under
+compatible finite joins and compact equivalence. Its associated
+projector, restricted to D_n, is p_n. Neither this definition nor the
+definition of :_n mentions the global p.
+
+For p constructed by the actual Phi/Kleene iteration, Unit now proves
+
+  r_n (p (e_n A) (e_n X)) = p_n A X       (A,X in D_n).
+
+The final equality is in D_n, not merely in the ambient domain D:
+
+  StageCompatibility.proposition-2-27
+
+The bounded-typing proof's interpolation lemma
+----------------------------------------------
+
+Suppose L, X, A have proper consistent representatives of rank at most
+n. Given an arbitrary compact typing u:b with
+
+  L <= u <= X,    b <= A,
+
+there are proper bounded-rank u',b' with
+
+  u':b',    L <= u' <= X,    b' <= A.
+
+There is deliberately no assertion u' <= u or b' <= b. Such a one-sided
+shrinking assertion is too strong. StageInterpolation.interpolate proves
+the two-sided statement by induction on n and then on the lower token L.
+The graph cases select typed input/output witnesses, select bounded
+support from the upper caps, and interpolate the inputs and outputs
+together. The Pi case joins the interpolated domains before forming its
+typed family; the function case uses a common lower bound assembled
+from the supports of both the value graph and its classifier graph.
+
+For compatibility, a compact observation of q_n(p(A,X)) gives such a
+lower L. A typed observation of p gives u:b. Since A and X lie in D_n,
+their memberships give bounded caps for b and u. Interpolation then
+gives a generator of p_n covering L. This proves the difficult inclusion.
+The converse uses inclusion of bounded typed generators in global typed
+generators, together with the fact that p_n has stage-bounded image.
+Finally KleeneProjector.identification transfers the result to the p
+defined by iteration rather than typing.
+
+Checked files and exact scope
+-----------------------------
+
+  CorrectedRank.seg: ranks, bounded selections, zero-stage classification.
+  StageInterpolation.seg: the full interpolation lemma, with no new axiom.
+  CorrectedStages.seg: projections, bounded representatives, retracts,
+                       the increasing chain, and exhaustion.
+  StageCompatibility.seg: independent p_n, the three base judgements,
+                          finitariness and proposition-2-27.
+
+StageCompatibility.first-pi-equation also checks that the previously
+problematic first-stage value Pi(bottom,bottom) is fixed by p_1(U,-).
+
+This is a theorem about the corrected MIN rank/filter presentation.
+The stage judgement above is a restriction of the existing inductive MIN
+typing, not a new encoding of every rule in the paper's Figure 2. No
+equivalence with a separately encoded Figure 2 stage relation, or formal
+isomorphism D_(n+1) = F(D_n), is claimed. Those comparisons are separate
+from the now-proved compatibility equation. The old Stages module and
+its printed-base obstruction are retained unchanged for comparison.
+
+Printed conventions (paper1.pdf, pages 8--9 and 12)
+-------------------------------------------------
+
+  C_0 = {bottom},  C_(n+1) = F(C_n).
+  u :_n a is a judgement with u,a in C_n.
+
+Figure 2 has these rules, among others:
+
+  a :_n U                 U :_(n+1) U
+  --------
+  bottom :_n a
+
+  a :_n U, dom(g,a), all values of g :_n U
+  ---------------------------------------
+  Pi(a,g) :_(n+1) U.
+
+The Lam rule likewise requires a :_n U. There is no stage-zero axiom.
+Consequently there is no finite derivation of any stage-zero element
+typing judgement: Bot can only recurse into another such derivation, and
+the other three rules have successor-stage conclusions.
+
+First-stage calculation
+-----------------------
+
+Let z = Pi(bottom,bottom-function). Both U and z belong to C_1, and z is
+distinct from bottom because the Pi summand is lifted.
+
+At stage 1, neither Pi nor Lam can apply, since each requires a stage-zero
+domain typing. Thus the only possible typed values are bottom and U.
+Of these, only bottom lies below z. The paper's typed-generator definition
+therefore gives
+
+  p_1(U,z) = bottom.
+
+In contrast, the global recursive equations give
+
+  p(U,z) = Pi(p(U,bottom), lambda x. p(U,bottom)) = z.
+
+The first-stage embedding sends z to z, and restriction fixes this embedded
+element. Hence the left side of Proposition 2.27 is z, while its right
+side is bottom. The mismatch already affects Proposition 2.18: bottom
+:_1 bottom is derivable, but bottom :_0 bottom is not. Also z :_2 U is
+derivable whereas z :_1 U is not.
+
+What is checked, and what is not
+--------------------------------
+
+StageBaseObstruction.seg introduces a PERMISSIVE skeleton Printed of the
+four Figure 2 rules. It retains the predecessor-stage domain typing
+premise in Pi and Lam but drops their other premises, and allows ambient
+token representatives and conversion. This admits more derivations, not
+fewer. It is not a full encoding of the paper's stage-indexed extensional
+typing relation. The first-stage absence argument depends only on the
+retained premises, so applies also to the literal rules.
+
+The checked declarations are:
+
+  zero-empty / one-shape / pi-untyped
+    No zero-stage derivation; first-stage typed values are bottom or U;
+    z is not typed at stage 1 even in this permissive relation.
+
+  printed-bottom-bottom-one / printed-pi-two
+    The delayed derivations in the permissive relation.
+    For the actual rules the omitted premises at these examples hold:
+    choose bottom in dom(bottom,bottom), and every value is bottom.
+
+  universe-stage / pi-stage
+    Both counterexample arguments are fixed by the existing first-depth
+    projection. Their membership in the printed C_1 also follows directly
+    from F({bottom}); no general successor-stage isomorphism is used.
+
+  StageProjector / FirstValue.equation
+    An independent projector generated by stage-bounded Printed typings,
+    with compatible-join closure. Its value at z is bottom, for every
+    type argument. Since this is a permissive extension of the literal
+    rules, the literal typed-generator supremum cannot have a larger value
+    there. Adding bottom or compatible-join closure does not remove the
+    obstruction.
+
+  global-observation / lhs-observation / different / not-compatible
+    The actual Kleene projector contains the observation z; its first
+    restriction retains z; the two stage elements are unequal. Compatibility
+    with the independently generated permissive stage projector is refuted.
+
+This is a checked obstruction to the printed conventions, together with
+the mathematical comparison above. It must not be reported as a completed
+formalisation of the paper's full stage construction or as a proof of
+Proposition 2.27.
+
+Possible amendments
+-------------------
+
+1. Keep C_0 = {bottom}, but permit the external classifier judgement
+   bottom :_0 U. This is an explicit exception to the condition that the
+   type of every stage judgement lies in that stage.
+2. Start with C_0 containing bottom and U and the judgement U :_0 U.
+   The older MIN rank convention RANK(bottom) = RANK(U) = 0 is compatible
+   with this starting point, though it differs from the printed chain.
+
+The second amendment has now been explicitly adopted for the new MIN
+rank-stage theorem above. The amendment alone is not the proof: the
+bounded-rank interpolation lemma supplies the missing general argument.
+
+The independent fixed-point result
+----------------------------------
+
+OperatorContinuity.Phi is a continuous binary operation for every
+continuous binary input, and Approximate proves joint directed continuity
+in the operation and its two arguments. BinarySup constructs pointwise
+directed suprema of continuous binary maps.
+
+KleeneProjector.iterate starts at bottom and applies this actual Phi.
+candidate is its pointwise supremum. equation proves Phi(candidate) =
+candidate and Below.least proves leastness among pre-fixed binary maps.
+Only afterwards are semantic-prefixed, above-semantic and identification
+used to compare it with the typed compact-family projector. finitary and
+normalization follow. No projector property is assumed to construct the
+iterates or their supremum.
+
+This checks the identification route quoted in the conversation. It does
+not separately formalise the two finitariness/normalization invariants
+for every individual Kleene iterate, nor identify Kleene indices with
+domain-stage indices.
+
+Validation: python3 UNIT/check.py, 4,562 declarations, zero failures,
+40 frozen dependency hashes verified.

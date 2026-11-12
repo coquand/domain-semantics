@@ -1,0 +1,73 @@
+-- Compatible stable meets are pointwise. The pointwise meet is always
+-- stable, but is a stable lower bound only under compatibility.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module Between (D E : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ;
+  module AN = ScottMeet[l].On[D] ; module BN = ScottMeet[l].On[E] ;
+  module M = ScottMaps[l].Between[D,E] ; module S = StableMaps[l].Between[D,E] ;
+  module C = DC[D.order,D.complete] ; module V = DC[E.order,E.complete] ;
+  module Pointwise (f g : S.Map) {
+    value (x : A.C) : B.C = BN.meet (S.run f x) (S.run g x) ;
+    monotone : M.Monotone value = \ x y h -> BN.monotone (S.run f x) (S.run g x)
+      (S.run f y) (S.run g y) (S.mono f x y h) (S.mono g x y h) ;
+    module Directed (I : U l) (x : I -> A.C) (d : M.O.Dir I x) (z : B.C)
+      (h : (i : I) -> B.LE (value (x i)) z) {
+      fd : M.R.Dir I (\ i -> S.run f (x i)) = M.image-dir (S.run f) (S.mono f) I x d ;
+      gd : M.R.Dir I (\ i -> S.run g (x i)) = M.image-dir (S.run g) (S.mono g) I x d ;
+      cross (i j : I) : B.LE (BN.meet (S.run f (x i)) (S.run g (x j))) z =
+        T.rec (M.O.Upper I x i j) @l (B.LE (BN.meet (S.run f (x i)) (S.run g (x j))) z)
+          (E.order.proposition (BN.meet (S.run f (x i)) (S.run g (x j))) z)
+          (\ w -> E.order.transitive (BN.meet (S.run f (x i)) (S.run g (x j))) (value (x w.1)) z
+            (BN.monotone (S.run f (x i)) (S.run g (x j)) (S.run f (x w.1)) (S.run g (x w.1))
+              (S.mono f (x i) (x w.1) w.2.1) (S.mono g (x j) (x w.1) w.2.2)) (h w.1)) (d.2 i j) ;
+      result : B.LE (value (C.sup I x d)) z = E.order.transitive (value (C.sup I x d))
+        (BN.meet (V.sup I (\ i -> S.run f (x i)) fd) (V.sup I (\ i -> S.run g (x i)) gd)) z
+        (BN.monotone (S.run f (C.sup I x d)) (S.run g (C.sup I x d))
+          (V.sup I (\ i -> S.run f (x i)) fd) (V.sup I (\ i -> S.run g (x i)) gd)
+          (M.continuous f.1 I x d (V.sup I (\ i -> S.run f (x i)) fd) (V.upper I (\ i -> S.run f (x i)) fd))
+          (M.continuous g.1 I x d (V.sup I (\ i -> S.run g (x i)) gd) (V.upper I (\ i -> S.run g (x i)) gd)))
+        (BN.directed-left I (\ i -> S.run f (x i)) fd (V.sup I (\ i -> S.run g (x i)) gd) z
+          (\ i -> BN.directed-right I (\ j -> S.run g (x j)) gd (S.run f (x i)) z (cross i))) ;
+    } ;
+    preserves (x y z : A.C) (xz : A.LE x z) (yz : A.LE y z) :
+      B.LE (BN.meet (value x) (value y)) (value (AN.meet x y)) =
+      BN.greatest (S.run f (AN.meet x y)) (S.run g (AN.meet x y)) (BN.meet (value x) (value y))
+        (E.order.transitive (BN.meet (value x) (value y)) (BN.meet (S.run f x) (S.run f y)) (S.run f (AN.meet x y))
+          (BN.monotone (value x) (value y) (S.run f x) (S.run f y) (BN.left (S.run f x) (S.run g x)) (BN.left (S.run f y) (S.run g y))) (S.preserves f x y z xz yz))
+        (E.order.transitive (BN.meet (value x) (value y)) (BN.meet (S.run g x) (S.run g y)) (S.run g (AN.meet x y))
+          (BN.monotone (value x) (value y) (S.run g x) (S.run g y) (BN.right (S.run f x) (S.run g x)) (BN.right (S.run f y) (S.run g y))) (S.preserves g x y z xz yz)) ;
+    map : S.Map = ((value,(monotone,\ I x d z h -> Directed[I,x,d,z,h].result)),
+      \ a b c -> preserves (A.basic a) (A.basic b) (A.basic c)) ;
+  } ;
+  module Compatible (f g h : S.Map) (fh : S.LE f h) (gh : S.LE g h) {
+    module P = Pointwise[f,g] ;
+    bound : S.LE P.map h = S.from-law P.map h
+      (\ x -> E.order.transitive (P.value x) (S.run f x) (S.run h x) (BN.left (S.run f x) (S.run g x)) (S.pointwise f h fh x))
+      (\ x y xy -> BN.greatest (S.run f x) (S.run g x) (BN.meet (P.value y) (S.run h x))
+        (E.order.transitive (BN.meet (P.value y) (S.run h x)) (BN.meet (S.run f y) (S.run h x)) (S.run f x)
+          (BN.monotone (P.value y) (S.run h x) (S.run f y) (S.run h x) (BN.left (S.run f y) (S.run g y)) (E.order.reflexive (S.run h x))) (S.restriction f h fh x y xy))
+        (E.order.transitive (BN.meet (P.value y) (S.run h x)) (BN.meet (S.run g y) (S.run h x)) (S.run g x)
+          (BN.monotone (P.value y) (S.run h x) (S.run g y) (S.run h x) (BN.right (S.run f y) (S.run g y)) (E.order.reflexive (S.run h x))) (S.restriction g h gh x y xy))) ;
+    left : S.LE P.map f = S.under-bound P.map f h bound fh (\ a -> BN.left (S.run f (A.basic a)) (S.run g (A.basic a))) ;
+    right : S.LE P.map g = S.under-bound P.map g h bound gh (\ a -> BN.right (S.run f (A.basic a)) (S.run g (A.basic a))) ;
+    greatest (k : S.Map) (kf : S.LE k f) (kg : S.LE k g) : S.LE k P.map =
+      S.under-bound k P.map h (S.transitive k f h kf fh) bound
+        (\ a -> BN.greatest (S.run f (A.basic a)) (S.run g (A.basic a)) (S.run k (A.basic a)) (kf.1 a) (kg.1 a)) ;
+  } ;
+} ;
+module Exponential (D E : DIDomain[l].DI) {
+  module X = StableExponential[l].Exponential[D,E] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module N = ScottMeet[l].On[X.scott] ; module B = ScottMeet[l].On[E.scott] ;
+  module M = Between[D.scott,E.scott] ;
+  equation (f g h : S.Map) (fh : S.LE f h) (gh : S.LE g h) :
+    Id S.Map (N.meet f g) M.Pointwise[f,g].map =
+    S.ext (N.meet f g) M.Pointwise[f,g].map
+      (M.Compatible[f,g,h,fh,gh].greatest (N.meet f g) (N.left f g) (N.right f g))
+      (N.greatest f g M.Pointwise[f,g].map M.Compatible[f,g,h,fh,gh].left M.Compatible[f,g,h,fh,gh].right) ;
+  pointwise (f g h : S.Map) (fh : S.LE f h) (gh : S.LE g h) (x : D.scott.order.carrier) :
+    Id E.scott.order.carrier (S.run (N.meet f g) x) (B.meet (S.run f x) (S.run g x)) =
+    ap S.Map E.scott.order.carrier (\ k -> S.run k x) (N.meet f g) M.Pointwise[f,g].map (equation f g h fh gh) ;
+} ;

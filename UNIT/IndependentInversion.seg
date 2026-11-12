@@ -1,0 +1,57 @@
+-- Syntactic Pi inversion derived from the independent fundamental lemma.
+-- Conclusions are mere pairs of derivations, as in the invariant clause.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open SynLemmas[l] ; open Subst[l] ; open Presup[l] ; open ExtFilter[l] ; open Domain[l] ;
+module S = Sem[l] ; module Raw = Filter[l] ; module Soundness = Sound[l] ;
+bottom-env : (n : Nat) -> S.Env n = split {
+  zero -> \ i -> Prelude[l+].absurd Raw.Filt i ;
+  suc n | rho -> S.extE n rho (Raw.prin om) } ;
+bottom-entry : (n : Nat) -> (i : Fin n) -> Raw.Incl (bottom-env n i) (Raw.prin om) = split {
+  zero -> \ i -> efq i ;
+  suc n | ih -> split { none -> Raw.incl-refl (Raw.prin om) ; some i -> ih i } } ;
+module Extend (n : Nat) (G : Ctx n) (A : Tm n) (dA : Der n (jty G A (uu n))) (fits : Soundness.Fits n G (bottom-env n)) {
+  hA : Soundness.TyU (S.sem n A (bottom-env n)) =
+    Soundness.tyu-of n A (bottom-env n) (Soundness.soundness-ty n G A (uu n) dA (bottom-env n) fits) ;
+  result : Soundness.Fits (suc n) (ext n G A) (bottom-env (suc n)) =
+    Soundness.fits-ext n G A (bottom-env n) om fits hA
+      (new Raw.TyInR[S.sem n A (bottom-env n),om,om,(S.sem n A (bottom-env n)).fom,tp-omom]) ;
+} ;
+bottom-fits : (n : Nat) -> (G : Ctx n) -> Der n (jwf G) -> Soundness.Fits n G (bottom-env n) = split {
+  zero -> \ G wg -> tt ;
+  suc n | ih -> \ G wg -> Extend[n,G.1,G.2,wf-inv (suc n) (jwf G) wg,
+    ih G.1 (wf-of n (jty G.1 G.2 (uu n)) (wf-inv (suc n) (jwf G) wg))].result } ;
+module At (n : Nat) (G : Ctx n) (wg : Der n (jwf G)) {
+  module I = IndependentLogicalRelation[l].At[n,G] ;
+  module Rules = IndependentRelationRules[l].At[n,G] ;
+  module RS = IndependentRelationSubstitutions[l].At[n,G] ;
+  module F = IndependentFundamental[l].At[n,G,wg] ;
+  variables (i : Fin n) : RS.Term (bottom-env n i) (Sub.trav n (lookup n G i) n (idS n)) (var n i) (var n i) = \ k hk ->
+    (I.relation.tm (Sub.trav n (lookup n G i) n (idS n)) (var n i) (var n i)).lower (principal k) bottom
+      (prin-anti om k.1 (bottom-entry n i k.1 hk))
+      (I.strict.2 (Sub.trav n (lookup n G i) n (idS n)) (var n i) (var n i)) ;
+  identity : RS.Related[n,G,bottom-env n,idS n,idS n] = new RS.Related[n,G,bottom-env n,idS n,idS n,
+    id-ok n G wg,id-ok n G wg,
+    \ i -> eq-refl n G (var n i) (Sub.trav n (lookup n G i) n (idS n)) (id-ok n G wg i),
+    \ i -> eq-refl n G (var n i) (Sub.trav n (lookup n G i) n (idS n)) (id-ok n G wg i),
+    \ i -> (variables i,variables i)] ;
+  module Products (A A' : Tm n) (B B' : Tm (suc n)) (T : Tm n) (d : Der n (jeq G (pp n A B) (pp n A' B') T)) {
+    key : K = (pi om om,((tt,(tt,tt)),cons-pi om om cons-om cons-om)) ;
+    seen : (S.sem n (pp n A B) (bottom-env n)).mem key.1 = (S.sem-pp-eq n A B (bottom-env n)).2 key.1
+      (inr (new Raw.PiWR[S.sem n A (bottom-env n),S.fam n B (bottom-env n),pi om om,om,om,le-refl (pi om om),
+        (S.sem n A (bottom-env n)).fom,es-om])) ;
+    observed : Rules.Type (principal key) (Sub.trav n (pp n A B) n (idS n)) (Sub.trav n (pp n A' B') n (idS n)) =
+      Rules.to-type (principal key) (Sub.trav n T n (idS n)) (Sub.trav n (pp n A B) n (idS n)) (Sub.trav n (pp n A' B') n (idS n))
+        ((F.equality n G (pp n A B) (pp n A' B') T d (bottom-env n) (bottom-fits n G wg) (idS n) (idS n) identity).1 key seen) ;
+    types : Rules.Type (principal key) (pp n A B) (pp n A' B') =
+      subst (Tm n) (\ V -> Rules.Type (principal key) (pp n A B) V) (Sub.trav n (pp n A' B') n (idS n)) (pp n A' B') (sub-id n (pp n A' B'))
+        (subst (Tm n) (\ V -> Rules.Type (principal key) V (Sub.trav n (pp n A' B') n (idS n)))
+          (Sub.trav n (pp n A B) n (idS n)) (pp n A B) (sub-id n (pp n A B)) observed) ;
+    components : Ex (Der n (jeq G A A' (uu n)) * Der (suc n) (jeq (ext n G A) B B' (uu (suc n)))) =
+      I.Inversion.Products[A,A',B,B'].components (principal key) types (prin-in (pi om om)) ;
+  } ;
+} ;
+pi-injectivity (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (T : Tm n)
+  (d : Der n (jeq G (pp n A B) (pp n A' B') T)) :
+  Ex (Der n (jeq G A A' (uu n)) * Der (suc n) (jeq (ext n G A) B B' (uu (suc n)))) =
+  At[n,G,wf-of n (jeq G (pp n A B) (pp n A' B') T) d].Products[A,A',B,B',T,d].components ;

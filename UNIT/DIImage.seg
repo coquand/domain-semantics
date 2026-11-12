@@ -1,0 +1,45 @@
+-- Rigid images inherit both extra dI axioms. The I-axiom is supplied
+-- explicitly with the ambient dI-domain; it is not silently postulated.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+
+module Image (D : DIDomain[l].DI) (p : RigidProjector[l].On[D.scott].Rigid) {
+  S : ScottDomain[l].Scott = D.scott ;
+  module A = ScottDomain[l].On[S] ; open A ;
+  module R = RigidProjector[l].On[S] ;
+  module F = RigidImage[l].Image[S,p] ;
+  module O = ScottOrder[l].On[P] ;
+  module Q = ScottOrder[l].On[F.order] ;
+  module AP = DIDomain[l].Properties[P] ;
+  module FP = DIDomain[l].Properties[F.order] ;
+  ambient-lub (I : U l) (x : I -> F.carrier) (z : F.carrier) (h : Q.Lub I x z) : O.Lub I (\ i -> (x i).1) z.1 =
+    (h.1,\ b hb -> P.transitive z.1 (R.run p b) b
+      (h.2 (R.run p b,R.output-fixed p b) (\ i -> R.greatest p b (x i).1 (x i).2 (hb i))) (p.deflation b)) ;
+  ambient-inf (x y m : F.carrier) (h : FP.Infimum x y m) : AP.Infimum x.1 y.1 m.1 =
+    (h.1,(h.2.1,\ z zx zy -> h.2.2 (z,R.downward p z x.1 zx x.2) zx zy)) ;
+  -- Explicit Boolean elimination keeps the two pair presentations aligned.
+  pair-value (x y : F.carrier) : (i : Bool) -> Id C ((FP.pair x y i).1) (AP.pair x.1 y.1 i) =
+    split { true -> refl x.1 ; false -> refl y.1 } ;
+  pair-lub (x y z : F.carrier) (h : Q.Lub Bool (FP.pair x y) z) : O.Lub Bool (AP.pair x.1 y.1) z.1 =
+    (\ i -> subst C (\ t -> LE t z.1) ((FP.pair x y i).1) (AP.pair x.1 y.1 i)
+      (pair-value x y i) (h.1 i),
+     \ b hb -> (ambient-lub Bool (FP.pair x y) z h).2 b
+       (\ i -> subst C (\ t -> LE t b) (AP.pair x.1 y.1 i) ((FP.pair x y i).1)
+         (sym C ((FP.pair x y i).1) (AP.pair x.1 y.1 i) (pair-value x y i)) (hb i))) ;
+  distributive : FP.Distributive = \ x y z u m n v w ju hm hn hv jw ->
+    Sigma-eq C (\ t -> R.Fixed p t) m.1 w.1 m.2 w.2
+      (D.distributive x.1 y.1 z.1 u.1 m.1 n.1 v.1 w.1
+        (pair-lub y z u ju) (ambient-inf x u m hm) (ambient-inf x y n hn)
+        (ambient-inf x z v hv) (pair-lub n v w jw)) (R.fixed-prop p w.1) ;
+  lift-ideal (a : F.carrier) (ambient : AP.FiniteIdeal[a.1]) : FP.FiniteIdeal[a] =
+    new FP.FiniteIdeal[a, shape := ambient.shape,
+      point := \ i -> (ambient.point i,R.downward p (ambient.point i) a.1 (ambient.below i) a.2),
+      below := ambient.below, covers := \ x h -> ambient.covers x.1 h,
+      distinct := ambient.distinct] ;
+  finite-ideals (a : F.carrier) (c : DC[F.order,F.complete].Compact a) : ScottOrder[l+].Ex (FP.FiniteIdeal[a]) =
+    TruncationCombinators[l+].map (AP.FiniteIdeal[a.1]) (FP.FiniteIdeal[a]) (lift-ideal a)
+      (D.finite-ideals a.1 (F.image-to-ambient a c)) ;
+  domain : DIDomain[l].DI = new DIDomain[l].DI[scott := F.scott,
+    distributive := distributive, finite-ideals := finite-ideals] ;
+} ;

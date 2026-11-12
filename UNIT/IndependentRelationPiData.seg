@@ -1,0 +1,36 @@
+-- The independent type clause at an actual Pi constructor, with the
+-- component predicates evaluated on the supplied domain and family.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Syntax[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Abstraction[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ; module Tr = TruncationCombinators[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module C = LogicalRelationClauses[l].At[n,Delta] ;
+  module TC = LogicalRelationTypeClause[l].At[n,Delta] ;
+  module Pi (R : C.TermFamily) (S : C.TypeFamily) (a : D) (phi : FD) (T T' : Tm n) {
+    module Constructor = Constructors[l].Pi[a,phi] ;
+    module Step = TC.Step[R,S,T,T'] ;
+    Components (s : Step.H.Shape) : U l =
+      (S s.1.1 s.2.1).holds a * C.Families[R,S,s.1.1,s.1.2,s.2.2].predicate.holds phi.1 ;
+    Witness : U l = (s : Step.H.Shape) * (Step.H.Evidence s * Components s) ;
+    head : Parts[l].PHead Constructor.value = Constructor.intro om om (fom a.1) (fom phi.1.1) ;
+    extract-witness (w : Step.AtHead[Constructor.value,head].Data.Witness) : Witness =
+      (w.1,(w.2.1,
+        ((S w.1.1.1 w.1.2.1).lower a Parts[l].PiParts[Constructor.value,head].domain
+          (\ t h -> Constructor.intro t om h (fom phi.1.1)) w.2.2.1,
+         C.Families[R,S,w.1.1.1,w.1.1.2,w.1.2.2].predicate.lower phi.1 Parts[l].PiParts[Constructor.value,head].familyD
+          (\ t h -> Constructor.intro om t (fom a.1) h) w.2.2.2))) ;
+    extract (h : Step.predicate.holds Constructor.value) : Ex Witness =
+      Tr.map Step.AtHead[Constructor.value,head].Data.Witness Witness extract-witness ((Step.unfold Constructor.value h).2 head) ;
+    insert-witness (w : Witness) (hp : Parts[l].PHead Constructor.value) : Step.AtHead[Constructor.value,hp].Data.Witness =
+      (w.1,(w.2.1,
+        ((S w.1.1.1 w.1.2.1).lower Parts[l].PiParts[Constructor.value,hp].domain a (\ t h -> (Constructor.parts t om h).1) w.2.2.1,
+         C.Families[R,S,w.1.1.1,w.1.1.2,w.1.2.2].predicate.lower Parts[l].PiParts[Constructor.value,hp].familyD phi.1
+           (\ t h -> (Constructor.parts om t h).2) w.2.2.2))) ;
+    insert (w : Ex Witness) : Step.predicate.holds Constructor.value = Step.fold Constructor.value
+      (\ hu -> efq (Constructor.no-U hu),\ hp ->
+        Tr.map Witness Step.AtHead[Constructor.value,hp].Data.Witness (\ v -> insert-witness v hp) w) ;
+    equation : (Step.predicate.holds Constructor.value -> Ex Witness) * (Ex Witness -> Step.predicate.holds Constructor.value) =
+      (extract,insert) ;
+  } ;
+} ;

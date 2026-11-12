@@ -1,0 +1,303 @@
+-- Two-sided, bounded-rank interpolation. Le is reverse information order.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ;
+open Consistency[l] ; open Typing[l] ; open CorrectedRank[l] ;
+open Proper[l] ;
+
+record Witness {
+  n : Nat ; low : Ty ; cap-value : Ty ; cap-type : Ty ;
+  value : Ty ; code : Ty ;
+  pv : Good value ; pc : Good code ; rv : R n value ; rc : R n code ;
+  typed : Tp (el value code) ;
+  covers : Le value low ; bounded-value : Le cap-value value ; bounded-code : Le cap-type code ;
+} ;
+Interpolation (n : Nat) : U l =
+  (low x a : Ty) -> Good low -> Good x -> Good a ->
+  R n low -> R n x -> R n a -> Cons x -> Cons a ->
+  (u b : Ty) -> Tp (el u b) -> Le u low -> Le x u -> Le a b -> Witness[n,low,x,a] ;
+
+bot (n : Nat) (low x a : Ty) (h : Le om low) : Witness[n,low,x,a] =
+  new Witness[n,low,x,a,om,om,tt,tt,tt,tt,tp-omom,h,le-om x,le-om a] ;
+
+join (n : Nat) (s t x a : Ty) (cx : Cons x) (ca : Cons a)
+  (v : Witness[n,s,x,a]) (w : Witness[n,t,x,a]) : Witness[n,meet s t,x,a] =
+  new Witness[n,meet s t,x,a,meet v.value w.value,meet v.code w.code,
+    (v.pv,w.pv),(v.pc,w.pc),rjoin n v.value w.value v.rv w.rv,rjoin n v.code w.code v.rc w.rc,
+    tp-join v.value w.value (meet v.code w.code)
+      (tp-up v.value v.code (meet v.code w.code) v.typed (le-meet-l v.code w.code) hcode)
+      (tp-up w.value w.code (meet v.code w.code) w.typed (le-meet-r v.code w.code) hcode)
+      (cons-down x (meet v.value w.value) bv cx),
+    le-meet-mono v.value s w.value t v.covers w.covers,bv,bc]
+  where {
+    bv : Le x (meet v.value w.value) = le-meet x v.value w.value v.bounded-value w.bounded-value ;
+    bc : Le a (meet v.code w.code) = le-meet a v.code w.code v.bounded-code w.bounded-code ;
+    hcode : Tp (el (meet v.code w.code) univ) = tp-join v.code w.code univ
+      (tp-pre v.value v.code v.typed) (tp-pre w.value w.code w.typed)
+      (cons-down a (meet v.code w.code) bc ca) ; } ;
+
+-- A selection from a typed graph has a typed key, including the empty
+-- selection. The consistency premise comes from the observing input.
+key-typed : (f d t : Ty) -> ASel f d t -> (a phi : Ty) ->
+  Tp (el a univ) -> Tp (ent f a phi) -> Cons d -> Tp (el d a) = split {
+  as-none f -> \ a phi ha hf cd -> t-bot om a (le-refl om) ha ;
+  as-here d t -> \ a phi ha hf cd -> (ent-inv (arr d t) a phi hf).1 ;
+  as-l f g d t q | rq -> \ a phi ha hf cd -> rq a phi ha (ent-inv (meet f g) a phi hf).1 cd ;
+  as-r f g d t q | rq -> \ a phi ha hf cd -> rq a phi ha (ent-inv (meet f g) a phi hf).2 cd ;
+  as-meet f d1 t1 d2 t2 q1 q2 | r1 r2 -> \ a phi ha hf cd ->
+    tp-join d1 d2 a (r1 a phi ha hf (cons-meet-l d1 d2 cd))
+      (r2 a phi ha hf (cons-down (meet d1 d2) d2 (le-meet-r d1 d2) cd)) cd } ;
+
+record TypedSelection {
+  f : Ty ; a : Ty ; phi : Ty ; input : Ty ; output : Ty ;
+  key : Ty ; value : Ty ; code : Ty ;
+  key-typing : Tp (el key a) ; value-typing : Tp (el value code) ;
+  key-below : Le input key ; covers : Le value output ;
+  value-supported : Le f (arr key value) ; code-supported : Le phi (arr key code) ;
+} ;
+typed-selection (f a phi k v : Ty) (ha : Tp (el a univ)) (hf : Tp (ent f a phi))
+  (cf : Cons f) (cp : Cons phi) (ck : Cons k) (h : Le f (arr k v)) : TypedSelection[f,a,phi,k,v] =
+  new TypedSelection[f,a,phi,k,v,i.1,i.2.1,y.1,hk,y.2.2,i.2.2.2.1,i.2.2.2.2,
+    asel-le f i.1 i.2.1 i.2.2.1,y.2.1]
+  where {
+    i : InvArr f k v = inv-arr f k v h ;
+    hk : Tp (el i.1 a) = key-typed f i.1 i.2.1 i.2.2.1 a phi ha hf (cons-down k i.1 i.2.2.2.1 ck) ;
+    y : SelT phi i.1 i.2.1 = ent-sel f i.1 i.2.1 i.2.2.1 a phi i.1 hf cf cp hk (le-refl i.1) ; } ;
+
+ent-noup (f a phi : Ty) (h : Tp (ent f a phi)) : AllC Filter[l].NotUP f =
+  Filter[l].ents-all (ProjPi[l].ValR a phi) f (ProjPi[l].ent-vals f a phi h) ;
+ent-not-pi (f a phi s t : Ty) (hf : Tp (ent f a phi)) (h : Le f (pi s t)) : Empty =
+  sel-all Filter[l].NotUP f (pi i.1 i.2.1) i.2.2.2.2.1 (ent-noup f a phi hf)
+  where { i : InvPi f s t = inv-pi f s t h ; } ;
+noarr-bottom (f k v : Ty) (nf : AllC NoArr f) (h : Le f (arr k v)) : Le om (arr k v) =
+  le-trans om (arr k om) (arr k v) (om-arr-at om k)
+    (le-arr k k om v (le-refl k)
+      (le-trans om i.2.1 v (les-le om i.2.1 (om-les-omonly i.2.1
+        (asel-noarr f i.1 i.2.1 i.2.2.1 nf))) i.2.2.2.2))
+  where { i : InvArr f k v = inv-arr f k v h ; } ;
+
+univ-shape (u b : Ty) (lo : Le u univ) : Shape u b -> Eqv u univ * Eqv b univ = split {
+  sh-bot e hb -> efq (om-not-univ (le-trans om u univ e lo)) ;
+  sh-univ eu eb -> (eu,eb) ;
+  sh-pi a phi eu eb ha hf cf -> efq (pi-not-univ a phi (le-trans (pi a phi) u univ eu.2 lo)) ;
+  sh-lam a phi f eu eb hp hf cf -> efq
+    (sel-all Filter[l].NotUP f univ (inv-univ f (le-trans f u univ eu.2 lo)) (ent-noup f a phi hf)) } ;
+universe (n : Nat) (x a u b : Ty) (h : Tp (el u b))
+  (lo : Le u univ) (vx : Le x u) (ba : Le a b) : Witness[n,univ,x,a] =
+  new Witness[n,univ,x,a,univ,univ,tt,tt,tt,tt,tp-UU,le-refl univ,
+    le-trans x u univ vx e.1.1,le-trans a b univ ba e.2.1]
+  where { e : Eqv u univ * Eqv b univ = univ-shape u b lo (shape u b h) ; } ;
+
+base-case : (s : Ty) -> (x a : Ty) -> Good s -> Good x -> Good a ->
+  R zero s -> R zero x -> R zero a -> Cons x -> Cons a ->
+  (u b : Ty) -> Tp (el u b) -> Le u s -> Le x u -> Le a b -> Witness[zero,s,x,a] = split {
+  om -> \ x a ps px pa rs rx ra cx ca u b h lo vx ba -> bot zero om x a (le-refl om) ;
+  univ -> \ x a ps px pa rs rx ra cx ca u b h lo vx ba -> universe zero x a u b h lo vx ba ;
+  pi d f -> \ x a ps px pa rs rx ra cx ca u b h lo vx ba -> efq rs ;
+  arr k v -> \ x a ps px pa rs rx ra cx ca u b h lo vx ba -> efq rs ;
+  meet s t | is it -> \ x a ps px pa rs rx ra cx ca u b h lo vx ba ->
+    join zero s t x a cx ca
+      (is x a ps.1 px pa (ml (rank s) (rank t) zero rs) rx ra cx ca u b h
+        (le-trans u (meet s t) s lo (le-meet-l s t)) vx ba)
+      (it x a ps.2 px pa (mr (rank s) (rank t) zero rs) rx ra cx ca u b h
+        (le-trans u (meet s t) t lo (le-meet-r s t)) vx ba) } ;
+
+record GraphWitness {
+  n : Nat ; low : Ty ; cap-domain : Ty ; cap-family : Ty ;
+  domain : Ty ; family : Ty ;
+  pd : Good domain ; pf : Good family ; arrows : Arrows family ;
+  rd : R n domain ; rf : G n family ;
+  td : Tp (el domain univ) ; tf : Tp (ent family domain (arr om univ)) ;
+  covers : Le family low ; bounded-domain : Le cap-domain domain ; bounded-family : Le cap-family family ;
+} ;
+graph-join (n : Nat) (s t a f : Ty) (ca : Cons a)
+  (v : GraphWitness[n,s,a,f]) (w : GraphWitness[n,t,a,f]) : GraphWitness[n,meet s t,a,f] =
+  new GraphWitness[n,meet s t,a,f,meet v.domain w.domain,meet v.family w.family,
+    (v.pd,w.pd),(v.pf,w.pf),(v.arrows,w.arrows),
+    rjoin n v.domain w.domain v.rd w.rd,gjoin n v.family w.family v.rf w.rf,hd,
+    en-meet v.family w.family (meet v.domain w.domain) (arr om univ)
+      (tp-up-ent v.family v.domain (arr om univ) (meet v.domain w.domain) (arr om univ)
+        v.tf (le-meet-l v.domain w.domain) (le-refl (arr om univ)) hd)
+      (tp-up-ent w.family w.domain (arr om univ) (meet v.domain w.domain) (arr om univ)
+        w.tf (le-meet-r v.domain w.domain) (le-refl (arr om univ)) hd),
+    le-meet-mono v.family s w.family t v.covers w.covers,bd,
+    le-meet f v.family w.family v.bounded-family w.bounded-family]
+  where {
+    bd : Le a (meet v.domain w.domain) = le-meet a v.domain w.domain v.bounded-domain w.bounded-domain ;
+    hd : Tp (el (meet v.domain w.domain) univ) = tp-join v.domain w.domain univ v.td w.td
+      (cons-down a (meet v.domain w.domain) bd ca) ; } ;
+
+module Successor (n : Nat) (ih : Interpolation n) {
+  module UE = Filter[l].Entries[\ x -> Filter[l].prin univ,
+    \ x x' le v h -> h,\ x v -> Le univ v,\ x v h -> h] ;
+  univ-graph-cons : Cons (arr om univ) = UE.cons
+    (\ x cx v h -> cons-down univ v h cons-univ) (arr om univ) (es-arr om univ (le-refl univ)) ;
+  module Family (a phi ad af : Ty) (ha : Tp (el a univ))
+    (hf : Tp (ent phi a (arr om univ))) (cf : Cons phi)
+    (pd : Good ad) (pf : Good af) (rd : R n ad) (rf : G n af)
+    (cd : Cons ad) (cg : Cons af) (bd : Le ad a) (bf : Le af phi) {
+    edge (k v : Ty) (pk : Good k) (pv : Good v) (ck : Cons k)
+      (rk : R n k) (rv : R n v) (h : Le phi (arr k v)) : GraphWitness[n,arr k v,ad,af] =
+      new GraphWitness[n,arr k v,ad,af,wk.code,arr wk.value wv.value,
+        wk.pc,(wk.pv,(tp-cons wk.value wk.code wk.typed,wv.pv)),tt,wk.rc,
+        leN-max-lub (rank wk.value) (rank wv.value) n wk.rv wv.rv,
+        tp-pre wk.value wk.code wk.typed,
+        en-arr wk.value wv.value univ wk.code (arr om univ) wk.typed
+          (le-arr om wk.value univ univ (le-om wk.value) (le-refl univ)) hv,
+        le-arr wk.value k wv.value v wk.bounded-value wv.covers,wk.bounded-code,
+        le-trans af (arr capw.key capw.value) (arr wk.value wv.value) capw.supported
+          (le-arr capw.key wk.value capw.value wv.value wk.covers wv.bounded-value)]
+      where {
+        sel : TypedSelection[phi,a,arr om univ,k,v] = typed-selection phi a (arr om univ) k v
+          ha hf cf univ-graph-cons ck h ;
+        capw : Cap[n,af,sel.key,sel.value] = cap n af sel.key sel.value pf
+          (le-trans af phi (arr sel.key sel.value) bf sel.value-supported)
+          (\ d t q -> asel-graph af d t q n rf) ;
+        cc : Cons capw.value = cons-value af capw.key capw.value cg
+          (cons-down sel.key capw.key capw.key-below (tp-cons sel.key a sel.key-typing)) capw.supported ;
+        wk : Witness[n,capw.key,k,ad] = ih capw.key k ad capw.key-proper pk pd capw.key-rank rk rd ck cd
+          sel.key a sel.key-typing capw.key-below sel.key-below bd ;
+        ht : Tp (el sel.value univ) = tp-up sel.value sel.code univ sel.value-typing
+          (ProjPi[l].univ-cod sel.key sel.code sel.code-supported) tp-UU ;
+        wv : Witness[n,v,capw.value,univ] = ih v capw.value univ pv capw.value-proper tt rv capw.value-rank tt
+          cc cons-univ sel.value univ ht sel.covers capw.value-above (le-refl univ) ;
+        hv : Tp (el wv.value univ) = tp-up wv.value wv.code univ wv.typed wv.bounded-code tp-UU ; } ;
+
+    build : (f : Ty) -> Good f -> Arrows f -> G n f -> Le phi f -> GraphWitness[n,f,ad,af] = split {
+      om -> \ p ar r h -> new GraphWitness[n,om,ad,af,om,om,tt,tt,tt,tt,tt,tp-omU,
+        en-om om (arr om univ),le-refl om,le-om ad,le-om af] ;
+      univ -> \ p ar r h -> efq ar ;
+      pi d g -> \ p ar r h -> efq ar ;
+      arr k v -> \ p ar r h -> edge k v p.1 p.2.2 p.2.1
+        (ml (rank k) (rank v) n r) (mr (rank k) (rank v) n r) h ;
+      meet f g | is it -> \ p ar r h -> graph-join n f g ad af cd
+        (is p.1 ar.1 (ml (graph f) (graph g) n r) (le-trans phi (meet f g) f h (le-meet-l f g)))
+        (it p.2 ar.2 (mr (graph f) (graph g) n r) (le-trans phi (meet f g) g h (le-meet-r f g))) } ;
+  } ;
+
+  module Product (s t x c a phi : Ty)
+    (ps : Good s) (pt : Good t) (at : Arrows t) (px : Good x)
+    (rs : R n s) (rt : G n t) (rx : R (suc n) x) (cx : Cons x)
+    (ha : Tp (el a univ)) (hf : Tp (ent phi a (arr om univ))) (cf : Cons phi)
+    (lo : Le (pi a phi) (pi s t)) (hi : Le x (pi a phi)) (uc : Le c univ) {
+    capw : PiCap[n,x,a,phi] = pi-cap n x a phi px rx hi ;
+    cc : Cons (pi capw.a capw.f) = cons-down x (pi capw.a capw.f) capw.supported cx ;
+    cd : Cons capw.a = (cons-psel (pi capw.a capw.f) capw.a capw.f cc (ps-here capw.a capw.f)).1 ;
+    cg : Cons capw.f = (cons-psel (pi capw.a capw.f) capw.a capw.f cc (ps-here capw.a capw.f)).2 ;
+    parts : Le a s * Le phi t = pi-inj a phi s t lo ;
+    dw : Witness[n,s,capw.a,univ] = ih s capw.a univ ps capw.pa tt rs capw.ra tt cd cons-univ
+      a univ ha parts.1 capw.above-domain (le-refl univ) ;
+    gw : GraphWitness[n,t,capw.a,capw.f] = Family[a,phi,capw.a,capw.f,ha,hf,cf,
+      capw.pa,capw.pf,capw.ra,capw.rf,cd,cg,capw.above-domain,capw.above-family].build t pt at rt parts.2 ;
+    dom : Ty = meet dw.value gw.domain ;
+    bd : Le capw.a dom = le-meet capw.a dw.value gw.domain dw.bounded-value gw.bounded-domain ;
+    hd : Tp (el dom univ) = tp-join dw.value gw.domain univ
+      (tp-up dw.value dw.code univ dw.typed dw.bounded-code tp-UU) gw.td
+      (cons-down capw.a dom bd cd) ;
+    hg : Tp (ent gw.family dom (arr om univ)) = tp-up-ent gw.family gw.domain (arr om univ)
+      dom (arr om univ) gw.tf (le-meet-r dw.value gw.domain) (le-refl (arr om univ)) hd ;
+    result : Witness[suc n,pi s t,x,c] = new Witness[suc n,pi s t,x,c,pi dom gw.family,univ,
+      ((dw.pv,gw.pd),(gw.pf,gw.arrows)),tt,
+      leN-max-lub (rank dom) (graph gw.family) n (rjoin n dw.value gw.domain dw.rv gw.rd) gw.rf,tt,
+      t-pi (pi dom gw.family) univ dom gw.family (eqv-refl (pi dom gw.family)) (eqv-refl univ) hd hg
+        (cons-down capw.f gw.family gw.bounded-family cg),
+      le-pi dom s gw.family t (le-trans dom dw.value s (le-meet-l dw.value gw.domain) dw.covers) gw.covers,
+      le-trans x (pi capw.a capw.f) (pi dom gw.family) capw.supported
+        (le-pi capw.a dom capw.f gw.family bd gw.bounded-family),uc] ;
+  } ;
+
+  module Function (k v x c a phi f : Ty)
+    (pk : Good k) (pv : Good v) (px : Good x) (pc : Good c) (ck : Cons k)
+    (rk : R n k) (rv : R n v) (rx : R (suc n) x) (rc : R (suc n) c) (cx : Cons x) (cc : Cons c)
+    (hp : Tp (el (pi a phi) univ)) (hf : Tp (ent f a phi)) (cf : Cons f)
+    (lo : Le f (arr k v)) (vx : Le x f) (bc : Le c (pi a phi)) {
+    capw : PiCap[n,c,a,phi] = pi-cap n c a phi pc rc bc ;
+    cpp : Cons (pi capw.a capw.f) = cons-down c (pi capw.a capw.f) capw.supported cc ;
+    cd : Cons capw.a = (cons-psel (pi capw.a capw.f) capw.a capw.f cpp (ps-here capw.a capw.f)).1 ;
+    cg : Cons capw.f = (cons-psel (pi capw.a capw.f) capw.a capw.f cpp (ps-here capw.a capw.f)).2 ;
+    sel : TypedSelection[f,a,phi,k,v] = typed-selection f a phi k v (pi-dom a phi hp) hf cf (pi-fam-cons a phi hp) ck lo ;
+    vxcap : Cap[n,x,sel.key,sel.value] = cap n x sel.key sel.value px
+      (le-trans x f (arr sel.key sel.value) vx sel.value-supported) (\ d t q -> asel-rank x d t q n rx) ;
+    cycap : Cap[n,capw.f,sel.key,sel.code] = cap n capw.f sel.key sel.code capw.pf
+      (le-trans capw.f phi (arr sel.key sel.code) capw.above-family sel.code-supported)
+      (\ d t q -> asel-graph capw.f d t q n capw.rf) ;
+    keylow : Ty = meet vxcap.key cycap.key ;
+    keybelow : Le sel.key keylow = le-meet sel.key vxcap.key cycap.key vxcap.key-below cycap.key-below ;
+    wk : Witness[n,keylow,k,capw.a] = ih keylow k capw.a (vxcap.key-proper,cycap.key-proper) pk capw.pa
+      (rjoin n vxcap.key cycap.key vxcap.key-rank cycap.key-rank) rk capw.ra ck cd
+      sel.key a sel.key-typing keybelow sel.key-below capw.above-domain ;
+    wv : Witness[n,v,vxcap.value,cycap.value] = ih v vxcap.value cycap.value pv vxcap.value-proper cycap.value-proper
+      rv vxcap.value-rank cycap.value-rank
+      (cons-value x vxcap.key vxcap.value cx (cons-down sel.key vxcap.key vxcap.key-below
+        (tp-cons sel.key a sel.key-typing)) vxcap.supported)
+      (cons-value capw.f cycap.key cycap.value cg (cons-down sel.key cycap.key cycap.key-below
+        (tp-cons sel.key a sel.key-typing)) cycap.supported)
+      sel.value sel.code sel.value-typing sel.covers vxcap.value-above cycap.value-above ;
+    val : Ty = arr wk.value wv.value ;
+    fam : Ty = arr wk.value wv.code ;
+    code : Ty = pi wk.code fam ;
+    bv : Le x val = le-trans x (arr vxcap.key vxcap.value) val vxcap.supported
+      (le-arr vxcap.key wk.value vxcap.value wv.value
+        (le-trans wk.value keylow vxcap.key wk.covers (le-meet-l vxcap.key cycap.key)) wv.bounded-value) ;
+    bf : Le capw.f fam = le-trans capw.f (arr cycap.key cycap.value) fam cycap.supported
+      (le-arr cycap.key wk.value cycap.value wv.code
+        (le-trans wk.value keylow cycap.key wk.covers (le-meet-r vxcap.key cycap.key)) wv.bounded-code) ;
+    hc : Tp (el code univ) = t-pi code univ wk.code fam (eqv-refl code) (eqv-refl univ)
+      (tp-pre wk.value wk.code wk.typed)
+      (en-arr wk.value wv.code univ wk.code (arr om univ) wk.typed
+        (le-arr om wk.value univ univ (le-om wk.value) (le-refl univ)) (tp-pre wv.value wv.code wv.typed))
+      (cons-down capw.f fam bf cg) ;
+    result : Witness[suc n,arr k v,x,c] = new Witness[suc n,arr k v,x,c,val,code,
+      (wk.pv,(tp-cons wk.value wk.code wk.typed,wv.pv)),
+      (wk.pc,((wk.pv,(tp-cons wk.value wk.code wk.typed,wv.pc)),tt)),
+      leN-max-lub (rank wk.value) (rank wv.value) n wk.rv wv.rv,
+      leN-max-lub (rank wk.code) (graph fam) n wk.rc
+        (leN-max-lub (rank wk.value) (rank wv.code) n wk.rv wv.rc),
+      t-lam val code wk.code fam val (eqv-refl val) (eqv-refl code) hc
+        (en-arr wk.value wv.value wv.code wk.code fam wk.typed (le-refl fam) wv.typed) (cons-down x val bv cx),
+      le-arr wk.value k wv.value v wk.bounded-value wv.covers,bv,
+      le-trans c (pi capw.a capw.f) code capw.supported (le-pi capw.a wk.code capw.f fam wk.bounded-code bf)] ;
+  } ;
+
+  product-by (s t x c u b : Ty) (ps : Good s) (pt : Good t) (at : Arrows t) (px : Good x)
+    (rs : R n s) (rt : G n t) (rx : R (suc n) x) (cx : Cons x)
+    (lo : Le u (pi s t)) (vx : Le x u) (bc : Le c b) : Shape u b -> Witness[suc n,pi s t,x,c] = split {
+    sh-bot e hb -> efq (om-not-pi s t (le-trans om u (pi s t) e lo)) ;
+    sh-univ eu eb -> efq (univ-not-pi s t (le-trans univ u (pi s t) eu.2 lo)) ;
+    sh-pi a phi eu eb ha hf cf -> Product[s,t,x,c,a,phi,ps,pt,at,px,rs,rt,rx,cx,ha,hf,cf,
+      le-trans (pi a phi) u (pi s t) eu.2 lo,le-trans x u (pi a phi) vx eu.1,
+      le-trans c b univ bc eb.1].result ;
+    sh-lam a phi f eu eb hp hf cf -> efq (ent-not-pi f a phi s t hf (le-trans f u (pi s t) eu.2 lo)) } ;
+
+  function-by (k v x c u b : Ty) (pk : Good k) (pv : Good v) (px : Good x) (pc : Good c) (ck : Cons k)
+    (rk : R n k) (rv : R n v) (rx : R (suc n) x) (rc : R (suc n) c) (cx : Cons x) (cc : Cons c)
+    (lo : Le u (arr k v)) (vx : Le x u) (bc : Le c b) : Shape u b -> Witness[suc n,arr k v,x,c] = split {
+    sh-bot e hb -> bot (suc n) (arr k v) x c (le-trans om u (arr k v) e lo) ;
+    sh-univ eu eb -> bot (suc n) (arr k v) x c
+      (noarr-bottom univ k v tt (le-trans univ u (arr k v) eu.2 lo)) ;
+    sh-pi a phi eu eb ha hf cf -> bot (suc n) (arr k v) x c
+      (noarr-bottom (pi a phi) k v tt (le-trans (pi a phi) u (arr k v) eu.2 lo)) ;
+    sh-lam a phi f eu eb hp hf cf -> Function[k,v,x,c,a,phi,f,pk,pv,px,pc,ck,rk,rv,rx,rc,cx,cc,hp,hf,cf,
+      le-trans f u (arr k v) eu.2 lo,le-trans x u f vx eu.1,le-trans c b (pi a phi) bc eb.1].result } ;
+
+  step : (s : Ty) -> (x a : Ty) -> Good s -> Good x -> Good a ->
+    R (suc n) s -> R (suc n) x -> R (suc n) a -> Cons x -> Cons a ->
+    (u b : Ty) -> Tp (el u b) -> Le u s -> Le x u -> Le a b -> Witness[suc n,s,x,a] = split {
+    om -> \ x a ps px pa rs rx ra cx ca u b h lo vx ba -> bot (suc n) om x a (le-refl om) ;
+    univ -> \ x a ps px pa rs rx ra cx ca u b h lo vx ba -> universe (suc n) x a u b h lo vx ba ;
+    pi d f -> \ x a ps px pa rs rx ra cx ca u b h lo vx ba ->
+      product-by d f x a u b ps.1 ps.2.1 ps.2.2 px (ml (rank d) (graph f) n rs)
+        (mr (rank d) (graph f) n rs) rx cx lo vx ba (shape u b h) ;
+    arr k v -> \ x a ps px pa rs rx ra cx ca u b h lo vx ba ->
+      function-by k v x a u b ps.1 ps.2.2 px pa ps.2.1 (ml (rank k) (rank v) n rs)
+        (mr (rank k) (rank v) n rs) rx ra cx ca lo vx ba (shape u b h) ;
+    meet s t | is it -> \ x a ps px pa rs rx ra cx ca u b h lo vx ba ->
+      join (suc n) s t x a cx ca
+        (is x a ps.1 px pa (ml (rank s) (rank t) (suc n) rs) rx ra cx ca u b h
+          (le-trans u (meet s t) s lo (le-meet-l s t)) vx ba)
+        (it x a ps.2 px pa (mr (rank s) (rank t) (suc n) rs) rx ra cx ca u b h
+          (le-trans u (meet s t) t lo (le-meet-r s t)) vx ba) } ;
+} ;
+
+interpolate : (n : Nat) -> Interpolation n = split {
+  zero -> base-case ;
+  suc n | ih -> Successor[n,ih].step } ;

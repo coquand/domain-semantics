@@ -1,0 +1,36 @@
+-- Actual stable section spaces and finite compact-input/output tests.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ; open ScottFinite[l] ;
+
+module Between (D E : DIDomain[l].DI) {
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module M = ScottMaps[l].Between[D.scott,E.scott] ; module EM = ScottMaps[l].Between[E.scott,E.scott] ;
+  module X = StableExponential[l].Exponential[D,E] ;
+  module G = ScottExponential[l].Exponential[D.scott,E.scott] ;
+  module R = RigidProjector[l].On[E.scott] ;
+  module RS = RigidSections[l].Between[D.scott,E.scott] ;
+  functions : RS.FunctionDomain = new RS.FunctionDomain[space := X.scott,
+    interpret := \ f -> f.1, monotone := S.pointwise,
+    bounded := \ I f b h x -> E.scott.order.reflexive
+      (E.scott.complete.bounded I (\ i -> S.run (f i) x) (S.run b x) (\ i -> S.pointwise (f i) b (h i) x)).1] ;
+  module Sections = RS.In[functions] ;
+  module FiniteTests (g : X.Basis) {
+    shape : Shape = g.1.1.1 ;
+    input (j : Ix shape) : A.C = A.basic (G.input g.1.1 j) ;
+    output (j : Ix shape) : B.C = B.basic (G.output g.1.1 j) ;
+    Tests (b : RS.Family) : U l = (j : Ix shape) -> R.Fixed (b.at (input j)) (output j) ;
+    necessary (b : RS.Family) (h : Sections.Sections[b].Member (X.basic g)) : Tests b = \ j ->
+      R.downward (b.at (input j)) (output j) (S.run (X.basic g) (input j))
+        (G.At[g.1.1,g.1.2,input j].entry j (D.scott.order.reflexive (input j)))
+        (Sections.Sections[b].all-inputs (X.basic g) h (input j)) ;
+    all-inputs (b : RS.Family) (h : Tests b) (x : A.C) : R.Fixed (b.at x) (S.run (X.basic g) x) =
+      G.At[g.1.1,g.1.2,x].least (R.run (b.at x) (S.run (X.basic g) x))
+        (\ j jx -> E.scott.order.transitive (output j) (R.run (b.at (input j)) (output j)) (R.run (b.at x) (S.run (X.basic g) x))
+          (h j) (E.scott.order.transitive (R.run (b.at (input j)) (output j)) (R.run (b.at x) (output j)) (R.run (b.at x) (S.run (X.basic g) x))
+            (b.increasing (input j) x jx (output j))
+            (EM.mono (b.at x).operation (output j) (S.run (X.basic g) x) (G.At[g.1.1,g.1.2,x].entry j jx)))) ;
+    sufficient (b : RS.Family) (h : Tests b) : Sections.Sections[b].Member (X.basic g) = \ a -> all-inputs b h (A.basic a) ;
+    output-compact (j : Ix shape) : DC[E.scott.order,E.scott.complete].Compact (output j) = E.scott.basis.compact (G.output g.1.1 j) ;
+  } ;
+} ;

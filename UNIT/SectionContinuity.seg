@@ -1,0 +1,112 @@
+-- Continuity in an arbitrary Scott parameter domain, proved using the
+-- finite tests of StableSections. No finite-trace hypothesis remains.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+
+module Between (D E : DIDomain[l].DI) (P : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module Q = ScottDomain[l].On[P] ; module PO = ScottOrder[l].On[P.order] ; module PV = DC[P.order,P.complete] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module X = StableExponential[l].Exponential[D,E] ;
+  module SS = StableSections[l].Between[D,E] ; module RS = RigidSections[l].Between[D.scott,E.scott] ;
+  module R = RigidProjector[l].On[E.scott] ;
+  module M = ScottMaps[l].Between[P,E.scott] ; module N = ScottMaps[l].Between[P,X.scott] ;
+  module V = DC[E.scott.order,E.scott.complete] ;
+  record Parameters {
+    family : Q.C -> RS.Family ;
+    increasing : (p q : Q.C) -> Q.LE p q -> (x : A.C) (z : B.C) ->
+      B.LE (R.run ((family p).at x) z) (R.run ((family q).at x) z) ;
+    continuous : (x : A.C) (z : B.C) -> M.Continuous (\ p -> R.run ((family p).at x) z) ;
+  } ;
+  module On (F : Parameters) {
+    module Fibres (x : A.C) (z : B.C) {
+      value (p : Q.C) : B.C = R.run ((F.family p).at x) z ;
+      monotone : M.Monotone value = \ p q pq -> F.increasing p q pq x z ;
+      map : M.Map = (value,(monotone,F.continuous x z)) ;
+    } ;
+    module Limit (I : U l) (p : I -> Q.C) (d : PO.Dir I p) {
+      sup : Q.C = PV.sup I p d ;
+      module Tests (g : X.Basis) {
+        module FT = SS.FiniteTests[g] ;
+        Test (j : Ix FT.shape) (i : I) : U l = R.Fixed ((F.family (p i)).at (FT.input j)) (FT.output j) ;
+        witness (j : Ix FT.shape) (h : R.Fixed ((F.family sup).at (FT.input j)) (FT.output j)) : Ex ((i : I) * Test j i) =
+          FT.output-compact j I (\ i -> Fibres[FT.input j,FT.output j].value (p i))
+            (M.image-dir Fibres[FT.input j,FT.output j].value Fibres[FT.input j,FT.output j].monotone I p d)
+            (E.scott.order.transitive (FT.output j) (Fibres[FT.input j,FT.output j].value sup)
+              (V.sup I (\ i -> Fibres[FT.input j,FT.output j].value (p i))
+                (M.image-dir Fibres[FT.input j,FT.output j].value Fibres[FT.input j,FT.output j].monotone I p d)) h
+              (F.continuous (FT.input j) (FT.output j) I p d
+                (V.sup I (\ i -> Fibres[FT.input j,FT.output j].value (p i))
+                  (M.image-dir Fibres[FT.input j,FT.output j].value Fibres[FT.input j,FT.output j].monotone I p d))
+                (V.upper I (\ i -> Fibres[FT.input j,FT.output j].value (p i))
+                  (M.image-dir Fibres[FT.input j,FT.output j].value Fibres[FT.input j,FT.output j].monotone I p d)))) ;
+        collect (h : SS.Sections.Sections[F.family sup].Member (X.basic g)) :
+          Ex ((i : I) * SS.Sections.Sections[F.family (p i)].Member (X.basic g)) =
+          T.map ((i : I) * FT.Tests (F.family (p i))) ((i : I) * SS.Sections.Sections[F.family (p i)].Member (X.basic g))
+            (\ w -> (w.1,FT.sufficient (F.family (p w.1)) w.2))
+            (Directed[P.order,I,p,d].collect FT.shape Test
+              (\ j i k ik hi -> E.scott.order.transitive (FT.output j)
+                (R.run ((F.family (p i)).at (FT.input j)) (FT.output j)) (R.run ((F.family (p k)).at (FT.input j)) (FT.output j))
+                hi (F.increasing (p i) (p k) ik (FT.input j) (FT.output j)))
+              (\ j -> witness j (FT.necessary (F.family sup) h j))) ;
+      } ;
+    } ;
+    module At (f : S.Map) {
+      value (p : Q.C) : S.Map = SS.Sections.Sections[F.family p].value f ;
+      monotone : N.Monotone value = \ p q pq -> SS.Sections.inclusion (F.family p) (F.family q) (F.increasing p q pq) f ;
+      continuous : N.Continuous value = \ I p d z h -> X.scott.basis.density (value (PV.sup I p d)) z
+        (\ g hg -> T.rec ((i : I) * SS.Sections.Sections[F.family (p i)].Member (X.basic g)) @l (S.LE (X.basic g) z)
+          (S.le-prop (X.basic g) z)
+          (\ w -> S.transitive (X.basic g) (value (p w.1)) z
+            (SS.Sections.Sections[F.family (p w.1)].P.greatest f (X.basic g) w.2
+              (S.transitive (X.basic g) (value (PV.sup I p d)) f hg (SS.Sections.Sections[F.family (PV.sup I p d)].P.deflation f))) (h w.1))
+          (Limit[I,p,d].Tests[g].collect
+            ((SS.Sections.Sections[F.family (PV.sup I p d)].subdomain).downward (X.basic g) (value (PV.sup I p d)) hg
+              (SS.Sections.Sections[F.family (PV.sup I p d)].P.member f)))) ;
+      map : N.Map = (value,(monotone,continuous)) ;
+      equation (I : U l) (p : I -> Q.C) (d : PO.Dir I p) :
+        Id S.Map (value (PV.sup I p d)) (DC[S.order,X.scott.complete].sup I (\ i -> value (p i)) (N.image-dir value monotone I p d)) =
+        S.ext (value (PV.sup I p d)) (DC[S.order,X.scott.complete].sup I (\ i -> value (p i)) (N.image-dir value monotone I p d))
+          (continuous I p d (DC[S.order,X.scott.complete].sup I (\ i -> value (p i)) (N.image-dir value monotone I p d))
+            (DC[S.order,X.scott.complete].upper I (\ i -> value (p i)) (N.image-dir value monotone I p d)))
+          (DC[S.order,X.scott.complete].least I (\ i -> value (p i)) (N.image-dir value monotone I p d) (value (PV.sup I p d))
+            (\ i -> monotone (p i) (PV.sup I p d) (PV.upper I p d i))) ;
+    } ;
+    -- A continuous function argument may vary with the same parameter.
+    -- This is joint continuity expressed without requiring a product encoding.
+    module WithInput (g : N.Map) {
+      module End = ScottMaps[l].Between[X.scott,X.scott] ;
+      module SV = DC[S.order,X.scott.complete] ;
+      value (p : Q.C) : S.Map = SS.Sections.Sections[F.family p].value (N.run g p) ;
+      monotone : N.Monotone value = \ p q pq -> S.transitive (value p)
+        (SS.Sections.Sections[F.family p].value (N.run g q)) (value q)
+        (End.mono (SS.Sections.Sections[F.family p].projection).operation (N.run g p) (N.run g q) (N.mono g p q pq))
+        (SS.Sections.inclusion (F.family p) (F.family q) (F.increasing p q pq) (N.run g q)) ;
+      module Directed (I : U l) (p : I -> Q.C) (d : PO.Dir I p) (z : S.Map) (h : (i : I) -> S.LE (value (p i)) z) {
+        sup : Q.C = PV.sup I p d ;
+        module Rlim = SS.Sections.Sections[F.family sup] ;
+        cross (i j : I) : S.LE (SS.Sections.Sections[F.family (p j)].value (N.run g (p i))) z =
+          T.rec (PO.Upper I p i j) @l
+            (S.LE (SS.Sections.Sections[F.family (p j)].value (N.run g (p i))) z)
+            (S.le-prop (SS.Sections.Sections[F.family (p j)].value (N.run g (p i))) z)
+            (\ w -> S.transitive (SS.Sections.Sections[F.family (p j)].value (N.run g (p i))) (value (p w.1)) z
+              (S.transitive (SS.Sections.Sections[F.family (p j)].value (N.run g (p i)))
+                (SS.Sections.Sections[F.family (p j)].value (N.run g (p w.1))) (value (p w.1))
+                (End.mono (SS.Sections.Sections[F.family (p j)].projection).operation (N.run g (p i)) (N.run g (p w.1))
+                  (N.mono g (p i) (p w.1) w.2.1))
+                (SS.Sections.inclusion (F.family (p j)) (F.family (p w.1)) (F.increasing (p j) (p w.1) w.2.2) (N.run g (p w.1))))
+              (h w.1)) (d.2 i j) ;
+        at-limit (i : I) : S.LE (Rlim.value (N.run g (p i))) z = At[N.run g (p i)].continuous I p d z (\ j -> cross i j) ;
+        bound : S.LE (value sup) z =
+          S.transitive (value sup) (Rlim.value (SV.sup I (\ i -> N.run g (p i)) (N.image-dir (N.run g) (N.mono g) I p d))) z
+            (End.mono Rlim.projection.operation (N.run g sup) (SV.sup I (\ i -> N.run g (p i)) (N.image-dir (N.run g) (N.mono g) I p d))
+              (N.continuous g I p d (SV.sup I (\ i -> N.run g (p i)) (N.image-dir (N.run g) (N.mono g) I p d))
+                (SV.upper I (\ i -> N.run g (p i)) (N.image-dir (N.run g) (N.mono g) I p d))))
+            (End.continuous Rlim.projection.operation I (\ i -> N.run g (p i)) (N.image-dir (N.run g) (N.mono g) I p d) z at-limit) ;
+      } ;
+      continuous : N.Continuous value = \ I p d z h -> Directed[I,p,d,z,h].bound ;
+      map : N.Map = (value,(monotone,continuous)) ;
+    } ;
+  } ;
+} ;

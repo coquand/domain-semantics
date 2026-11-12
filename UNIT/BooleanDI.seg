@@ -1,0 +1,101 @@
+-- The two-element chain is a dI-domain under SMALL propositional
+-- excluded middle. This is a local argument, not a global assumption.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+Classical : U l+ = (Q : U l) -> Prelude[l].isProp Q -> FiniteDiscrete[l].Dec Q ;
+holds-prop : (b : Bool) -> Prelude[l].isProp (IsT b) = split {
+  true -> isTop ; false -> Prelude[l].isProp-Empty } ;
+LE (a b : Bool) : U l = IsT a -> IsT b ;
+reflexive (a : Bool) : LE a a = \ h -> h ;
+transitive (a b c : Bool) (h : LE a b) (k : LE b c) : LE a c = \ p -> k (h p) ;
+bottom (a : Bool) : LE false a = \ h -> absurd (IsT a) h ;
+top (a : Bool) : LE a true = \ _ -> tt ;
+antisymmetric : (a b : Bool) -> LE a b -> LE b a -> Id Bool a b = split {
+  true -> split { true -> \ h k -> refl true ; false -> \ h k -> absurd (Id Bool true false) (h tt) } ;
+  false -> split { true -> \ h k -> absurd (Id Bool false true) (k tt) ; false -> \ h k -> refl false } } ;
+order : Order = new Order[carrier := Bool,le := LE,
+  proposition := \ a b -> F.isProp-Pi (IsT a) (\ _ -> IsT b) (\ _ -> holds-prop b),
+  reflexive := reflexive,transitive := transitive,antisymmetric := antisymmetric] ;
+module O = ScottOrder[l].On[order] ;
+module DP = DIDomain[l].Properties[order] ;
+
+-- The supremum is true precisely when some member is true.
+module With (em : Classical) {
+  module Join (I : U l) (x : I -> Bool) {
+    Witness : U l = (i : I) * IsT (x i) ;
+    Occurs : U l = Ex Witness ;
+    choose : FiniteDiscrete[l].Dec Occurs -> O.Supremum I x = split {
+      inl yes -> (true,(\ i -> top (x i),\ z hz _ -> T.rec Witness @l (IsT z) (holds-prop z) (\ w -> hz w.1 w.2) yes)) ;
+      inr no -> (false,(\ i h -> no (inc Witness (i,h)),\ z hz -> bottom z)) } ;
+    supremum : O.Supremum I x = choose (em Occurs (prop Witness)) ;
+    detects (d : FiniteDiscrete[l].Dec Occurs) : IsT (choose d).1 -> Occurs =
+      ScottFinite[l].cases Occurs (Occurs -> Empty) (\ e -> IsT (choose e).1 -> Occurs)
+        (\ yes _ -> yes) (\ no h -> absurd Occurs h) d ;
+    observed : IsT supremum.1 -> Occurs = detects (em Occurs (prop Witness)) ;
+  } ;
+  complete : Complete[order] = new Complete[order,
+    directed := \ I x d -> Join[I,x].supremum,
+    bounded := \ I x b h -> Join[I,x].supremum] ;
+  module V = DC[order,complete] ;
+  compact : (a : Bool) -> V.Compact a = split {
+    true -> \ I x d h -> T.map ((i : I) * IsT (x i)) ((i : I) * LE true (x i))
+      (\ w -> (w.1,\ _ -> w.2)) (Join[I,x].observed (h tt)) ;
+    false -> \ I x d h -> T.map I ((i : I) * LE false (x i)) (\ i -> (i,bottom (x i))) d.1 } ;
+  basis : ScottDomain[l].Basis[order,complete] = new ScottDomain[l].Basis[order,complete,
+    index := Bool,basic := \ a -> a,compact := compact,
+    directed := \ x -> (inc ((a : Bool) * LE a x) (x,reflexive x),
+      \ a b -> inc (O.Upper ((a : Bool) * LE a x) (\ a -> a.1) a b) ((x,reflexive x),(a.2,b.2))),
+    density := \ x y h -> h x (reflexive x)] ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order,complete := complete,basis := basis,
+    bottom := false,bottom-least := bottom] ;
+} ;
+
+-- Distributivity and finite ideals do not themselves need em.
+distributive : DP.Distributive = split {
+  true -> \ y z u m n v w ju im inn iv jw -> antisymmetric m w
+    (transitive m u w im.2.1 (ju.2 w (DistributiveJoins[l].bool (\ i -> LE (DP.pair y z i) w)
+      (transitive y n w (inn.2.2 y (top y) (reflexive y)) (jw.1 true))
+      (transitive z v w (iv.2.2 z (top z) (reflexive z)) (jw.1 false)))))
+    (im.2.2 w (top w) (jw.2 u (DistributiveJoins[l].bool (\ i -> LE (DP.pair n v i) u)
+      (transitive n y u inn.2.1 (ju.1 true))
+      (transitive v z u iv.2.1 (ju.1 false))))) ;
+  false -> \ y z u m n v w ju im inn iv jw -> antisymmetric m w
+    (transitive m false w im.1 (bottom w))
+    (transitive w false m (jw.2 false (DistributiveJoins[l].bool (\ i -> LE (DP.pair n v i) false) inn.1 iv.1)) (bottom m)) } ;
+shape : Bool -> ScottFinite[l].Shape = split { true -> fork leaf leaf ; false -> leaf } ;
+point : (a : Bool) -> ScottFinite[l].Ix (shape a) -> Bool = split {
+  true -> split { inl u -> false ; inr u -> true } ; false -> \ _ -> false } ;
+below : (a : Bool) (i : ScottFinite[l].Ix (shape a)) -> LE (point a i) a = split {
+  true -> \ i -> top (point true i) ; false -> \ i -> reflexive false } ;
+covers : (a x : Bool) -> LE x a -> Ex ((i : ScottFinite[l].Ix (shape a)) * (LE x (point a i) * LE (point a i) x)) = split {
+  true -> split {
+    true -> \ h -> inc ((i : ScottFinite[l].Ix (shape true)) * (LE true (point true i) * LE (point true i) true)) (inr tt,(reflexive true,reflexive true)) ;
+    false -> \ h -> inc ((i : ScottFinite[l].Ix (shape true)) * (LE false (point true i) * LE (point true i) false)) (inl tt,(reflexive false,reflexive false)) } ;
+  false -> \ x h -> inc ((i : Top) * (LE x false * LE false x)) (tt,(h,bottom x)) } ;
+distinct : (a : Bool) (i j : ScottFinite[l].Ix (shape a)) -> LE (point a i) (point a j) -> LE (point a j) (point a i) -> Id (ScottFinite[l].Ix (shape a)) i j = split {
+  true -> split {
+    inl i -> split {
+      inl j -> \ h k -> ap Top (Plus Top Top) (\ u -> inl u) i j (isTop i j) ;
+      inr j -> \ h k -> absurd (Id (Plus Top Top) (inl i) (inr j)) (k tt) } ;
+    inr i -> split {
+      inl j -> \ h k -> absurd (Id (Plus Top Top) (inr i) (inl j)) (h tt) ;
+      inr j -> \ h k -> ap Top (Plus Top Top) (\ u -> inr u) i j (isTop i j) } } ;
+  false -> \ i j h k -> isTop i j } ;
+ideal (a : Bool) : DP.FiniteIdeal[a] = new DP.FiniteIdeal[a,shape := shape a,point := point a,
+  below := below a,covers := covers a,distinct := distinct a] ;
+domain (em : Classical) : DIDomain[l].DI = new DIDomain[l].DI[scott := With[em].scott,
+  distributive := distributive,finite-ideals := \ a c -> ScottOrder[l+].inc (DP.FiniteIdeal[a]) (ideal a)] ;
+nonbottom : LE true false -> Empty = \ h -> h tt ;
+different (h : Id Bool true false) : Empty = Prelude[l].subst Bool IsT true false h tt ;
+
+-- The classical parameter is necessary already for the chosen compact top.
+module Necessary (complete : Complete[order]) (basis : ScottDomain[l].Basis[order,complete])
+  (c : DC[order,complete].Compact true) {
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order,complete := complete,
+    basis := basis,bottom := false,bottom-least := bottom] ;
+  module CI = CompactIdeals[l].On[scott] ;
+  module Local = CI.Local[true,c,ideal true] ;
+  excluded-middle : Classical = Local.excluded-middle nonbottom ;
+} ;

@@ -1,0 +1,35 @@
+-- The dependent function rules for the actual syntax interpretation.
+-- These are semantic rules; induction over all Syntax.Der is separate.
+level l ;
+open Base ; open Prelude[l+] ; open Syntax[l] ;
+module On (D : DIDomain[l].DI) (representation : RigidUniverse[l].On[D].Representation) {
+  module Interpretation = StableSyntax[l].On[D,representation] ; open Interpretation ;
+  module Substitution = StableSubstitution[l].On[D,representation] ;
+  Typed (n : Nat) (t a : Tm n) (rho : Env n) : U l =
+    A.LE (value n t rho) (V.C.apply (value n a rho) (value n t rho)) ;
+  typed-fixed (n : Nat) (t a : Tm n) (rho : Env n) (h : Typed n t a rho) :
+    Id A.C (V.C.apply (value n a rho) (value n t rho)) (value n t rho) =
+    D.scott.order.antisymmetric (V.C.apply (value n a rho) (value n t rho)) (value n t rho)
+      (V.C.deflation (value n a rho) (value n t rho)) h ;
+  module Binder (n : Nat) (a : Tm n) (b m : Tm (suc n)) (rho : Env n) {
+    module At = V.At[value n a rho,body n b rho] ;
+    Section : U l+ = (x : A.C) -> A.LE x (V.C.apply (value n a rho) x) -> Typed (suc n) m b (rho,x) ;
+    introduction (h : Section) : Id A.C
+      (V.C.apply (value n (pp n a b) rho) (value n (lam n a m) rho)) (value n (lam n a m) rho) =
+      At.abstraction (body n m rho) h ;
+    typed (h : Section) : Typed n (lam n a m) (pp n a b) rho =
+      subst A.C (\ z -> A.LE (value n (lam n a m) rho) z) (value n (lam n a m) rho)
+        (V.C.apply (value n (pp n a b) rho) (value n (lam n a m) rho))
+        (sym A.C (V.C.apply (value n (pp n a b) rho) (value n (lam n a m) rho)) (value n (lam n a m) rho) (introduction h))
+        (D.scott.order.reflexive (value n (lam n a m) rho)) ;
+  } ;
+  elimination (n : Nat) (a : Tm n) (b : Tm (suc n)) (f x : Tm n) (rho : Env n)
+    (hf : Typed n f (pp n a b) rho) (hx : Typed n x a rho) : Typed n (app n f x) (subst1 n b x) rho =
+    subst A.C (\ z -> A.LE (value n (app n f x) rho) (V.C.apply z (value n (app n f x) rho)))
+      (value (suc n) b (rho,value n x rho)) (value n (subst1 n b x) rho)
+      (sym A.C (value n (subst1 n b x) rho) (value (suc n) b (rho,value n x rho)) (Substitution.substitution-one n b x rho))
+      (V.At[value n a rho,body n b rho].Eliminate[value n f rho,hf].typed-result (value n x rho) hx) ;
+  beta-typed (n : Nat) (a : Tm n) (b : Tm (suc n)) (x : Tm n) (rho : Env n) (hx : Typed n x a rho) :
+    Id A.C (value n (app n (lam n a b) x) rho) (value n (subst1 n b x) rho) =
+    Substitution.syntactic-beta n a b x rho (typed-fixed n x a rho hx) ;
+} ;

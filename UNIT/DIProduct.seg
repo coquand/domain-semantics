@@ -1,0 +1,64 @@
+-- Products inherit both dI axioms; together with StableCurrying this
+-- closes the binary product/exponential constructions in dI-domains.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ; module TL = TruncationCombinators[l+] ;
+module Product (D E : DIDomain[l].DI) {
+  module P = ScottProduct[l].Product[D.scott,E.scott] ;
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module AP = DIDomain[l].Properties[D.scott.order] ; module BP = DIDomain[l].Properties[E.scott.order] ;
+  module DP = DIDomain[l].Properties[P.order] ;
+  left-lub (x y u : P.C) (h : P.O.Lub Bool (DP.pair x y) u) : P.AO.Lub Bool (AP.pair x.1 y.1) u.1 =
+    (DistributiveJoins[l].bool (\ i -> A.LE (AP.pair x.1 y.1 i) u.1) (h.1 true).1 (h.1 false).1,
+     \ z hz -> (h.2 (z,u.2) (DistributiveJoins[l].bool (\ i -> P.LE (DP.pair x y i) (z,u.2))
+       (hz true,(h.1 true).2) (hz false,(h.1 false).2))).1) ;
+  right-lub (x y u : P.C) (h : P.O.Lub Bool (DP.pair x y) u) : P.BO.Lub Bool (BP.pair x.2 y.2) u.2 =
+    (DistributiveJoins[l].bool (\ i -> B.LE (BP.pair x.2 y.2 i) u.2) (h.1 true).2 (h.1 false).2,
+     \ z hz -> (h.2 (u.1,z) (DistributiveJoins[l].bool (\ i -> P.LE (DP.pair x y i) (u.1,z))
+       ((h.1 true).1,hz true) ((h.1 false).1,hz false))).2) ;
+  left-inf (x y m : P.C) (h : DP.Infimum x y m) : AP.Infimum x.1 y.1 m.1 =
+    (h.1.1,(h.2.1.1,\ z zx zy -> (h.2.2 (z,E.scott.bottom) (zx,E.scott.bottom-least x.2) (zy,E.scott.bottom-least y.2)).1)) ;
+  right-inf (x y m : P.C) (h : DP.Infimum x y m) : BP.Infimum x.2 y.2 m.2 =
+    (h.1.2,(h.2.1.2,\ z zx zy -> (h.2.2 (D.scott.bottom,z) (D.scott.bottom-least x.1,zx) (D.scott.bottom-least y.1,zy)).2)) ;
+  distributive : DP.Distributive = \ x y z u m n v w ju im iny iv jw ->
+    FiniteEnumeration[l].pair-eq A.C B.C m.1 w.1 m.2 w.2
+      (D.distributive x.1 y.1 z.1 u.1 m.1 n.1 v.1 w.1 (left-lub y z u ju) (left-inf x u m im) (left-inf x y n iny) (left-inf x z v iv) (left-lub n v w jw))
+      (E.distributive x.2 y.2 z.2 u.2 m.2 n.2 v.2 w.2 (right-lub y z u ju) (right-inf x u m im) (right-inf x y n iny) (right-inf x z v iv) (right-lub n v w jw)) ;
+  module Finite (a : P.Basis) (F : AP.FiniteIdeal[A.basic a.1]) (G : BP.FiniteIdeal[B.basic a.2]) {
+    module FD = FiniteDiscrete[l].Ideal[D.scott.order,A.basic a.1,F] ;
+    module GD = FiniteDiscrete[l].Ideal[E.scott.order,B.basic a.2,G] ;
+    Index : U l+ = Ix F.shape * Ix G.shape ;
+    indices : FiniteEnumeration[l].Enumeration[Ix G.shape] = new FiniteEnumeration[l].Enumeration[(Ix G.shape),
+      shape := G.shape,point := \ i -> i,covers := \ i -> ScottOrder[l+].inc ((j : Ix G.shape) * Id (Ix G.shape) i j) (i,refl i)] ;
+    enumeration : FiniteEnumeration[l].Enumeration[Index] = FiniteEnumeration[l].Rows[Ix G.shape,indices].enumeration F.shape ;
+    value (i : Index) : P.C = (F.point i.1,G.point i.2) ;
+    point (i : Ix enumeration.shape) : P.C = value (enumeration.point i) ;
+    bound (i : Ix enumeration.shape) : P.LE (point i) (P.basic a) = (F.below (enumeration.point i).1,G.below (enumeration.point i).2) ;
+    decide (x y : P.C) (hx : P.LE x (P.basic a)) (hy : P.LE y (P.basic a)) : FiniteDiscrete[l].Dec (P.LE x y * P.LE y x) =
+      FiniteDiscrete[l].map-decision (FD.Eq x.1 y.1 * GD.Eq x.2 y.2) (P.LE x y * P.LE y x)
+        (\ h -> ((h.1.1,h.2.1),(h.1.2,h.2.2))) (\ h -> ((h.1.1,h.2.1),(h.1.2,h.2.2)))
+        (FiniteRange[l].both (FD.Eq x.1 y.1) (GD.Eq x.2 y.2)
+          (FD.decide x.1 y.1 hx.1 hy.1) (GD.decide x.2 y.2 hx.2 hy.2)) ;
+    selected (x : P.C) (h : P.LE x (P.basic a)) : Index = ((FD.position x.1 h.1).1,(GD.position x.2 h.2).1) ;
+    selected-eq (x : P.C) (h : P.LE x (P.basic a)) : P.LE x (value (selected x h)) * P.LE (value (selected x h)) x =
+      (((FD.position x.1 h.1).2.1,(GD.position x.2 h.2).2.1),((FD.position x.1 h.1).2.2,(GD.position x.2 h.2).2.2)) ;
+    covers (x : P.C) (h : P.LE x (P.basic a)) : Ex ((i : Ix enumeration.shape) * (P.LE x (point i) * P.LE (point i) x)) =
+      TL.rec ((i : Ix enumeration.shape) * Id Index (selected x h) (enumeration.point i)) @l
+        (Ex ((i : Ix enumeration.shape) * (P.LE x (point i) * P.LE (point i) x)))
+        (prop ((i : Ix enumeration.shape) * (P.LE x (point i) * P.LE (point i) x)))
+        (\ w -> inc ((i : Ix enumeration.shape) * (P.LE x (point i) * P.LE (point i) x))
+          (w.1,subst Index (\ i -> P.LE x (value i) * P.LE (value i) x) (selected x h) (enumeration.point w.1) w.2 (selected-eq x h)))
+        (enumeration.covers (selected x h)) ;
+    ideal : DP.FiniteIdeal[P.basic a] = FiniteRange[l].Ideal[P.order,P.basic a,decide].Present[enumeration.shape,point,bound,covers].ideal ;
+  } ;
+  basic-finite (a : P.Basis) : ScottOrder[l+].Ex (DP.FiniteIdeal[P.basic a]) =
+    TL.map2 (AP.FiniteIdeal[A.basic a.1]) (BP.FiniteIdeal[B.basic a.2]) (DP.FiniteIdeal[P.basic a])
+      (\ F G -> Finite[a,F,G].ideal) (D.finite-ideals (A.basic a.1) (D.scott.basis.compact a.1)) (E.finite-ideals (B.basic a.2) (E.scott.basis.compact a.2)) ;
+  finite-ideals (x : P.C) (c : P.V.Compact x) : ScottOrder[l+].Ex (DP.FiniteIdeal[x]) =
+    T.rec ((a : P.Basis) * (P.LE x (P.basic a) * P.LE (P.basic a) x)) @l+
+      (ScottOrder[l+].Ex (DP.FiniteIdeal[x])) (ScottOrder[l+].prop (DP.FiniteIdeal[x]))
+      (\ w -> TL.map (DP.FiniteIdeal[P.basic w.1]) (DP.FiniteIdeal[x])
+        (\ F -> subst P.C (\ y -> DP.FiniteIdeal[y]) (P.basic w.1) x (P.order.antisymmetric (P.basic w.1) x w.2.2 w.2.1) F) (basic-finite w.1))
+      (ScottDomain[l].On[P.scott].compact-basis x c) ;
+  domain : DIDomain[l].DI = new DIDomain[l].DI[scott := P.scott,distributive := distributive,finite-ideals := finite-ideals] ;
+} ;

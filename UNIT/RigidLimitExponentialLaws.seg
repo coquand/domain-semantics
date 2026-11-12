@@ -1,0 +1,67 @@
+-- Restriction and assembly are inverse stable maps.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ; open Lib[l] ;
+module Embed = RigidLimitEmbedding[l] ;
+module On (S : RigidLimitOrder[l].Chain) {
+  module P = RigidLimitExponential[l].On[S] ;
+  module L = P.L ; module T = P.T ; module M = P.M ; module X = P.X ;
+  module At (n : Nat) (y : T.carrier) {
+    module A = P.At[n] ;
+    module R = StableMaps[l].Between[X.domain.scott,(P.chain.domain n).scott] ;
+    value (m : Nat) : T.C n = R.run A.restrict (P.At[m].value y) ;
+    diagonal : Id (T.C n) (value n) (y.1 n) = A.E.retract (y.1 n) ;
+    monotone (m k : Nat) (h : LeN m k) : A.SM.LE (value m) (value k) =
+      R.mono A.restrict (P.At[m].value y) (P.At[k].value y)
+        (P.TX.pointwise P.At[m].map P.At[k].map
+          (OrderedChains[l].monotone m P.TX.order (\ j -> P.At[j].map) (\ j -> P.Step[j].increasing) k h) y) ;
+    before (m : Nat) (h : LeN m n) : A.SM.LE (value m) (y.1 n) =
+      subst (T.C n) (\ f -> A.SM.LE (value m) f) (value n) (y.1 n) diagonal (monotone m n h) ;
+    after (m : Nat) (h : LeN n m) : Id (T.C n) (value (suc m)) (value m) =
+      trans (T.C n) (value (suc m)) (R.run A.restrict (P.At[m].E.value (P.At[suc m].value y))) (value m)
+        (sym (T.C n) (R.run A.restrict (P.At[m].E.value (P.At[suc m].value y))) (value (suc m))
+          (P.Nested[n,m,h].equation (P.At[suc m].value y)))
+        (ap M.Map (T.C n) (R.run A.restrict) (P.At[m].E.value (P.At[suc m].value y)) (P.At[m].value y) (P.Step[m].corner-equation y)) ;
+    step (m : Nat) (ih : A.SM.LE (value m) (y.1 n)) : Plus (LeN n m) (LeN (suc m) n) -> A.SM.LE (value (suc m)) (y.1 n) = split {
+      inl h -> subst (T.C n) (\ f -> A.SM.LE f (y.1 n)) (value m) (value (suc m)) (sym (T.C n) (value (suc m)) (value m) (after m h)) ih ;
+      inr h -> before (suc m) h } ;
+    bound : (m : Nat) -> A.SM.LE (value m) (y.1 n) = split {
+      zero -> before zero tt ; suc m | r -> step m r (OrderedChains[l].compare n m) } ;
+    forward : A.SM.LE ((P.XT.run P.encode (P.TX.run P.decode y)).1 n) (y.1 n) =
+      ScottMaps[l].Between[X.domain.scott,(P.chain.domain n).scott].continuous A.restrict.1 Nat (\ m -> P.At[m].value y) (P.Sup.evaluated y) (y.1 n) bound ;
+    backward : A.SM.LE (y.1 n) ((P.XT.run P.encode (P.TX.run P.decode y)).1 n) =
+      subst (T.C n) (\ f -> A.SM.LE f ((P.XT.run P.encode (P.TX.run P.decode y)).1 n)) (value n) (y.1 n) diagonal
+        (R.mono A.restrict (P.At[n].value y) (P.TX.run P.decode y) (P.Sup.point-upper n y)) ;
+  } ;
+  encode-decode (y : T.carrier) : Id T.carrier (P.XT.run P.encode (P.TX.run P.decode y)) y =
+    T.ext (P.XT.run P.encode (P.TX.run P.decode y)) y (\ n -> At[n,y].forward) (\ n -> At[n,y].backward) ;
+  module Function (f : M.Map) {
+    y : T.carrier = P.XT.run P.encode f ;
+    module Sup = StableDirected[l].Between[P.D.domain.scott,P.D.domain.scott].Sup[Nat,\ n -> P.At[n].value y,P.Sup.evaluated y] ;
+    forward : M.LE (P.TX.run P.decode y) f = Sup.least f (\ n -> P.At[n].E.At[f].below) ;
+    module Point (x : L.carrier) {
+      value : L.carrier = M.run (P.TX.run P.decode y) x ;
+      cover (n m : Nat) : L.le (Embed.approximate S m (M.run f (Embed.approximate S n x))) value =
+        L.order.transitive (Embed.approximate S m (M.run f (Embed.approximate S n x)))
+          (Embed.approximate S (max m n) (M.run f (Embed.approximate S n x))) value
+          (P.D.Domain.approximate-mono m (max m n) (leN-max-l m n) (M.run f (Embed.approximate S n x)))
+          (L.order.transitive (Embed.approximate S (max m n) (M.run f (Embed.approximate S n x)))
+            (Embed.approximate S (max m n) (M.run f (Embed.approximate S (max m n) x))) value
+            (M.mono (P.Laws.stage (max m n)) (M.run f (Embed.approximate S n x)) (M.run f (Embed.approximate S (max m n) x))
+              (M.mono f (Embed.approximate S n x) (Embed.approximate S (max m n) x) (P.D.Domain.approximate-mono n (max m n) (leN-max-r m n) x)))
+            (Sup.point-upper (max m n) x)) ;
+      finite (n : Nat) : L.le (M.run f (Embed.approximate S n x)) value = P.Laws.point-least (M.run f (Embed.approximate S n x)) value (cover n) ;
+      backward : L.le (M.run f x) value =
+        subst L.carrier (\ z -> L.le (M.run f z) value)
+          (L.V.sup Nat (\ n -> Embed.approximate S n x) (P.Laws.point-directed x)) x (P.Laws.point-equation x)
+          (ScottMaps[l].Between[P.D.domain.scott,P.D.domain.scott].continuous f.1 Nat (\ n -> Embed.approximate S n x) (P.Laws.point-directed x) value finite) ;
+    } ;
+    backward : M.LE f (P.TX.run P.decode y) = M.equal-below f (P.TX.run P.decode y)
+      (\ a -> Point[P.D.Domain.basic a].backward) forward.1 ;
+    equation : Id M.Map (P.TX.run P.decode y) f = M.ext (P.TX.run P.decode y) f forward backward ;
+  } ;
+  module E = RigidEmbedding[l].Between[X.domain,P.TD.domain] ;
+  module C = E.C.Compose[P.decode,P.encode] ;
+  rigid : E.BB.LE C.map E.End.identity =
+    StableExtensional[l].Between[P.TD.domain.scott,P.TD.domain.scott].forward C.map E.End.identity encode-decode ;
+  embedding : E.Embedding = new E.Embedding[embed := P.encode,project := P.decode,retract := \ f -> Function[f].equation,rigid := rigid] ;
+} ;

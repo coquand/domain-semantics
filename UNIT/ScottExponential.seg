@@ -1,0 +1,152 @@
+-- Finite compatible step graphs give a small compact basis of [D -> E].
+-- Compatibility tests finite selections; no test of a <= x is decided.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+
+module Exponential (D E : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ;
+  module O = ScottOrder[l].On[D.order] ; module R = ScottOrder[l].On[E.order] ;
+  module C = DC[D.order,D.complete] ; module V = DC[E.order,E.complete] ;
+  module AF = InDomain[D] ; module BF = InDomain[E] ;
+  module M = ScottMaps[l].Between[D,E] ;
+  Graph : U l = (s : Shape) * (Ix s -> A.B * B.B) ;
+  input (g : Graph) (j : Ix g.1) : A.B = (g.2 j).1 ;
+  output (g : Graph) (j : Ix g.1) : B.B = (g.2 j).2 ;
+  Selection (g : Graph) : U l = (s : Shape) * (Ix s -> Ix g.1) ;
+  inputs (g : Graph) (s : Selection g) (j : Ix s.1) : A.B = input g (s.2 j) ;
+  outputs (g : Graph) (s : Selection g) (j : Ix s.1) : B.B = output g (s.2 j) ;
+  Admissible (g : Graph) : U l = (s : Selection g) ->
+    Ex (AF.Bound s.1 (inputs g s)) -> Ex (BF.Bound s.1 (outputs g s)) ;
+  Fits (g : Graph) (f : M.Map) : U l =
+    (j : Ix g.1) -> B.LE (B.basic (output g j)) (M.run f (A.basic (input g j))) ;
+  fits-admissible (g : Graph) (f : M.Map) (h : Fits g f) : Admissible g = \ s ->
+    T.bind (AF.Bound s.1 (inputs g s)) (BF.Bound s.1 (outputs g s))
+      (\ w -> BF.bounded s.1 (outputs g s) (M.run f (A.basic w.1))
+        (\ j -> E.order.transitive (B.basic (output g (s.2 j)))
+          (M.run f (A.basic (input g (s.2 j)))) (M.run f (A.basic w.1))
+          (h (s.2 j)) (M.mono f (A.basic (input g (s.2 j))) (A.basic w.1) (w.2 j)))) ;
+
+  module At (g : Graph) (ok : Admissible g) (x : A.C) {
+    Active (s : Selection g) : U l = (j : Ix s.1) -> A.LE (A.basic (inputs g s j)) x ;
+    index : U l = (s : Selection g) * Active s ;
+    finite (s : index) : R.Supremum (Ix s.1.1) (\ j -> B.basic (outputs g s.1 j)) =
+      BF.finite-lub s.1.1 (outputs g s.1) (ok s.1 (AF.bounded s.1.1 (inputs g s.1) x s.2)) ;
+    part (s : index) : B.C = (finite s).1 ;
+    empty : index = ((none,\ j -> absurd (Ix g.1) j),\ j -> absurd (A.LE (A.basic (input g (absurd (Ix g.1) j))) x) j) ;
+    combine (s t : index) : index =
+      ((fork s.1.1 t.1.1,join (Ix g.1) s.1.1 t.1.1 s.1.2 t.1.2),
+       cases (Ix s.1.1) (Ix t.1.1)
+        (\ j -> A.LE (A.basic (input g (join (Ix g.1) s.1.1 t.1.1 s.1.2 t.1.2 j))) x) s.2 t.2) ;
+    left (s t : index) : B.LE (part s) (part (combine s t)) =
+      (finite s).2.2 (part (combine s t)) (\ j -> (finite (combine s t)).2.1 (inl j)) ;
+    right (s t : index) : B.LE (part t) (part (combine s t)) =
+      (finite t).2.2 (part (combine s t)) (\ j -> (finite (combine s t)).2.1 (inr j)) ;
+    directed : R.Dir index part =
+      (inc index empty,\ s t -> inc (R.Upper index part s t) (combine s t,(left s t,right s t))) ;
+    value : B.C = V.sup index part directed ;
+    singleton (j : Ix g.1) (h : A.LE (A.basic (input g j)) x) : index =
+      ((leaf,\ _ -> j),\ _ -> h) ;
+    entry (j : Ix g.1) (h : A.LE (A.basic (input g j)) x) : B.LE (B.basic (output g j)) value =
+      E.order.transitive (B.basic (output g j)) (part (singleton j h)) value
+        ((finite (singleton j h)).2.1 tt) (V.upper index part directed (singleton j h)) ;
+    least (y : B.C) (h : (j : Ix g.1) -> A.LE (A.basic (input g j)) x -> B.LE (B.basic (output g j)) y) :
+      B.LE value y = V.least index part directed y (\ s -> (finite s).2.2 y (\ j -> h (s.1.2 j) (s.2 j))) ;
+  } ;
+
+  module Realize (g : Graph) (ok : Admissible g) {
+    value (x : A.C) : B.C = At[g,ok,x].value ;
+    monotone : M.Monotone value = \ x y xy -> At[g,ok,x].least (value y)
+      (\ j h -> At[g,ok,y].entry j (D.order.transitive (A.basic (input g j)) x y h xy)) ;
+    preserves : M.Continuous value = \ I x d z h -> At[g,ok,C.sup I x d].least z
+      (\ j p -> T.rec ((i : I) * A.LE (A.basic (input g j)) (x i)) @l (B.LE (B.basic (output g j)) z)
+        (E.order.proposition (B.basic (output g j)) z)
+        (\ w -> E.order.transitive (B.basic (output g j)) (value (x w.1)) z
+          (At[g,ok,x w.1].entry j w.2) (h w.1)) (D.basis.compact (input g j) I x d p)) ;
+    map : M.Map = (value,(monotone,preserves)) ;
+    below (f : M.Map) (h : Fits g f) : M.LE map f = \ a -> At[g,ok,A.basic a].least (M.run f (A.basic a))
+      (\ j p -> E.order.transitive (B.basic (output g j)) (M.run f (A.basic (input g j)))
+        (M.run f (A.basic a)) (h j) (M.mono f (A.basic (input g j)) (A.basic a) p)) ;
+    fits (f : M.Map) (h : M.LE map f) : Fits g f = \ j ->
+      E.order.transitive (B.basic (output g j)) (value (A.basic (input g j))) (M.run f (A.basic (input g j)))
+        (At[g,ok,A.basic (input g j)].entry j (D.order.reflexive (A.basic (input g j)))) (h (input g j)) ;
+    compact : DC[M.order,M.complete].Compact map = \ I f d h ->
+      T.map ((i : I) * Fits g (f i)) ((i : I) * M.LE map (f i)) (\ w -> (w.1,below (f w.1) w.2))
+        (ScottFinite[l].Directed[M.order,I,f,d].collect g.1
+          (\ j i -> B.LE (B.basic (output g j)) (M.run (f i) (A.basic (input g j))))
+          (\ j i k ik p -> E.order.transitive (B.basic (output g j)) (M.run (f i) (A.basic (input g j)))
+            (M.run (f k) (A.basic (input g j))) p (ik (input g j)))
+          (\ j -> E.basis.compact (output g j) I (\ i -> M.run (f i) (A.basic (input g j)))
+            (M.evaluated-dir I f d (A.basic (input g j)))
+            (fits (DC[M.order,M.complete].sup I f d) h j))) ;
+  } ;
+
+  Basis : U l = (g : Graph) * Admissible g ;
+  basic (g : Basis) : M.Map = Realize[g.1,g.2].map ;
+  empty-graph : Graph = (none,\ j -> absurd (A.B * B.B) j) ;
+  one-graph (a : A.B) (b : B.B) : Graph = (leaf,\ _ -> (a,b)) ;
+  one-ok (a : A.B) (b : B.B) : Admissible (one-graph a b) = \ s h ->
+    inc (BF.Bound s.1 (outputs (one-graph a b) s)) (b,\ j -> E.order.reflexive (B.basic b)) ;
+  step (a : A.B) (b : B.B) : M.Map = Realize[one-graph a b,one-ok a b].map ;
+  step-below (a : A.B) (b : B.B) (f : M.Map) (h : B.LE (B.basic b) (M.run f (A.basic a))) :
+    M.LE (step a b) f = Realize[one-graph a b,one-ok a b].below f (\ _ -> h) ;
+  step-test (a : A.B) (b : B.B) (f : M.Map) (h : M.LE (step a b) f) :
+    B.LE (B.basic b) (M.run f (A.basic a)) = Realize[one-graph a b,one-ok a b].fits f h tt ;
+  union-graph (g h : Graph) : Graph = (fork g.1 h.1,join (A.B * B.B) g.1 h.1 g.2 h.2) ;
+  Local (f : M.Map) : U l = (g : Basis) * M.LE (basic g) f ;
+  local-part (f : M.Map) (g : Local f) : M.Map = basic g.1 ;
+
+  module Approximation (f : M.Map) {
+    empty-fits : Fits empty-graph f = \ j -> absurd
+      (B.LE (B.basic (output empty-graph j)) (M.run f (A.basic (input empty-graph j)))) j ;
+    empty-ok : Admissible empty-graph = fits-admissible empty-graph f empty-fits ;
+    empty : Local f = ((empty-graph,empty-ok),Realize[empty-graph,empty-ok].below f empty-fits) ;
+    union-fits (g h : Local f) : Fits (union-graph g.1.1 h.1.1) f =
+      cases (Ix g.1.1.1) (Ix h.1.1.1) (\ j ->
+        B.LE (B.basic (output (union-graph g.1.1 h.1.1) j)) (M.run f (A.basic (input (union-graph g.1.1 h.1.1) j))))
+        (Realize[g.1.1,g.1.2].fits f g.2) (Realize[h.1.1,h.1.2].fits f h.2) ;
+    union-ok (g h : Local f) : Admissible (union-graph g.1.1 h.1.1) =
+      fits-admissible (union-graph g.1.1 h.1.1) f (union-fits g h) ;
+    union (g h : Local f) : Local f =
+      (((union-graph g.1.1 h.1.1),union-ok g h),
+       Realize[union-graph g.1.1 h.1.1,union-ok g h].below f (union-fits g h)) ;
+    left (g h : Local f) : M.LE (basic g.1) (basic (union g h).1) =
+      Realize[g.1.1,g.1.2].below (basic (union g h).1)
+        (\ j -> At[union-graph g.1.1 h.1.1,union-ok g h,A.basic (input g.1.1 j)].entry
+          (inl j) (D.order.reflexive (A.basic (input g.1.1 j)))) ;
+    right (g h : Local f) : M.LE (basic h.1) (basic (union g h).1) =
+      Realize[h.1.1,h.1.2].below (basic (union g h).1)
+        (\ j -> At[union-graph g.1.1 h.1.1,union-ok g h,A.basic (input h.1.1 j)].entry
+          (inr j) (D.order.reflexive (A.basic (input h.1.1 j)))) ;
+    directed : M.MO.Dir (Local f) (local-part f) =
+      (inc (Local f) empty,\ g h -> inc (M.MO.Upper (Local f) (local-part f) g h)
+        (union g h,(left g h,right g h))) ;
+  } ;
+
+  module Density (f h : M.Map) (bounded : (g : Basis) -> M.LE (basic g) f -> M.LE (basic g) h) {
+    single (a : A.B) (b : B.B) (p : B.LE (B.basic b) (M.run f (A.basic a)))
+      (x : A.C) (ax : A.LE (A.basic a) x) : B.LE (B.basic b) (M.run h x) =
+      E.order.transitive (B.basic b) (M.run (basic (one-graph a b,ok)) x) (M.run h x)
+        (At[one-graph a b,ok,x].entry tt ax)
+        (M.pointwise (basic (one-graph a b,ok)) h
+          (bounded (one-graph a b,ok) (Realize[one-graph a b,ok].below f (\ _ -> p))) x)
+      where { ok : Admissible (one-graph a b) = fits-admissible (one-graph a b) f (\ _ -> p) ; } ;
+    pointwise (x : A.C) : B.LE (M.run f x) (M.run h x) =
+      E.basis.density (M.run f x) (M.run h x) (\ b p ->
+        T.rec ((a : A.BI x) * B.LE (B.basic b) (M.run f (A.basic a.1))) @l
+          (B.LE (B.basic b) (M.run h x)) (E.order.proposition (B.basic b) (M.run h x))
+          (\ w -> single w.1.1 b w.2 x w.1.2) (M.Finite[f,x].witness b p)) ;
+    inclusion : M.LE f h = M.small f h pointwise ;
+  } ;
+  basis : ScottDomain[l].Basis[M.order,M.complete] = new ScottDomain[l].Basis[M.order,M.complete,
+    index := Basis, basic := basic, compact := \ g -> Realize[g.1,g.2].compact,
+    directed := \ f -> Approximation[f].directed, density := \ f h p -> Density[f,h,p].inclusion] ;
+  bottom : M.Map = (\ _ -> E.bottom,
+    (\ x y p -> E.order.reflexive E.bottom,\ I x d z h -> E.bottom-least z)) ;
+  bottom-least (f : M.Map) : M.LE bottom f = \ a -> E.bottom-least (M.run f (A.basic a)) ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := M.order, complete := M.complete, basis := basis,
+    bottom := bottom, bottom-least := bottom-least] ;
+  compact-graph (f : M.Map) (compact : DC[M.order,M.complete].Compact f) :
+    Ex ((g : Basis) * (M.LE f (basic g) * M.LE (basic g) f)) =
+    ScottDomain[l].On[scott].compact-basis f compact ;
+} ;

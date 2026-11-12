@@ -1,0 +1,193 @@
+dI-domain development, 11 November 2026
+======================================
+
+Mathematical account: di-domains.tex / di-domains.pdf.
+
+Completed and included in All.seg:
+  ScottMeet / RigidProjector / RigidImage / RigidSubdomain:
+    Rigid-projector algebra, Scott images, compactness characterization,
+    construction from downward-closed bounded-join-closed predicates.
+  DIDomain / DIImage:
+    Explicit abstract dI interface; rigid images inherit distributivity
+    and the finite-discrete I-axiom, with mere finite presentations.
+  RigidSections:
+    Section construction over an explicit function-domain interface;
+    greatest-section property, monotonicity, intersection, joint meet law.
+  StableMaps:
+    Small compact-basis tests equivalent to full stability and stable
+    comparison. The genuine stable order, not the pointwise order.
+    Pointwise comparison suffices below a common stable upper bound.
+  StableDirected / DistributiveJoins / StableComplete:
+    Directed and bounded joins in stable order are pointwise. Bounded
+    completeness needs distributivity in the codomain, not the I-axiom.
+  FiniteDiscrete / CompactIdeals:
+    Unique finite positions. A nonbottom compact with finite discrete
+    lower ideal implies small propositional excluded middle locally.
+    Every element below a compact is compact under the literal I-axiom.
+    These are derived theorems; no classical global parameter was added.
+  StableComposition / PrincipalProjection / StablePatches:
+    Stable composition, monotonicity in stable order, rigid restriction
+    to principal ideals. The maps x |-> f(x meet a) meet b for compact
+    a,b are stable, below f in stable order, and ordinarily compact.
+  StableExponential:
+    Stable maps between dI-domains form a Scott domain with small compact
+    basis. Stable compactness iff ordinary continuous-map compactness,
+    for a stable map. The global basis uses stable finite graph
+    presentations; density is proved using the direct compact restrictions.
+  StableMeet / StableDistributive / StableFiniteIdeals:
+    Compatible stable meets are pointwise. Both extra dI axioms hold;
+    StableFiniteIdeals.Exponential.domain packages the exponential as DI.
+    A subfunction of a finite graph is reconstructed from its finitely
+    many clipped outputs. Finite output ideals give a finite enumeration;
+    finite tests decide equality and permit duplicate removal.
+  FiniteEnumeration / FiniteRange:
+    Small finite indices for large types, finite products and mere finite
+    choice, decidable finite tests, and duplicate-free finite ranges.
+  ScottProduct / DIProduct / StableProduct:
+    Products of Scott and dI-domains; stable projections, pairing and
+    constants. Product joins and meets are componentwise.
+  StableEvaluation / StableCurrying:
+    Joint evaluation is stable and continuous. Currying and uncurrying
+    are defined for any Scott parameter P and dI-domains D,E, with beta
+    and eta identities of stable maps.
+  StableSections:
+    Actual stable function-domain instance of RigidSections; finite tests
+    of section membership for compact basis functions. These are finite
+    presentations, not a formalisation of canonical minimal traces.
+  SectionContinuity:
+    For any Scott parameter P and a monotone family p |-> B^p with each
+    fibre evaluation p |-> B^p_x(z) continuous, p |-> R_(B^p)(f) is
+    continuous. A continuously varying argument f_p is also allowed.
+    No finite-test hypothesis remains: it is proved in StableSections.
+
+  RigidSpace / StableFamilies:
+    Rigid projections form the principal dI ideal below identity in the
+    stable endomorphism space. Their meets are pointwise. Stable families
+    form [D => R(E)], with compatible meets given by fibre intersection.
+    StableFamilies.Between.joint proves (B,f) |-> R_B(f) stable.
+    StableFamilies.Between.operation proves B |-> R_B stable as a map
+    to R([D => E]); computes identifies it with the greatest-section
+    construction. No additional finite-test or continuity hypotheses.
+
+  StableInternalComposition / RigidOperations:
+    Stable internal composition, and stable composition/evaluation of
+    rigid projections. Rigid composition is the meet in R(D).
+  StableInputRestriction / StableImageMaps / StableVaryingFamilies:
+    Input restriction I_p(f)=f o p is rigid and varies stably with p.
+    Stable maps on Fix(p) extend/restrict with beta/eta; stable families
+    on that image extend to the ambient family space.
+    Q_(p,B)=R_B I_p=I_p R_B is the greatest supported section below f.
+    It is stable in (p,B), also jointly with f, and depends only on B's
+    values at fixed inputs. This completes varying rigid input domains.
+  StableFixpoint / StableProjectorFixpoint:
+    The least-fixed-point operator [D=>D] -> D itself is stable.
+    Its stages are a directed chain in stable function order.
+    Recursive operators on R(D) have rigid stages and a rigid least
+    solution, with pointwise limits and earlier-stage absorption.
+    Stable feedback through the varying-family operation is supported.
+  RigidEmbedding / RigidUniverse:
+    Explicit rigid embedding/retraction interface, with stable transport
+    of rigid projections. CONDITIONAL universe theorem: given rigid
+    embeddings R(D) -> D and [D=>D] -> D, derive stable typing, U:U,
+    stable term application with beta, and a stable Pi-code constructor
+    with computation, introduction/abstraction and elimination laws.
+    This interface adds no global axiom; the construction below now
+    supplies both embeddings from an arbitrary seed dI-domain.
+  RigidUniverseRecursion:
+    Given the code embedding R(D) -> D, a stable code-valued functional
+    F:D->R(D) has a stable recursive-type operator mu(F), lying in U.
+    mu(F)=encode(F(mu(F))) and it is least among all ambient prefixed
+    points. Stages start at bottom, unfold, lie in U, increase, and have
+    supremum mu(F). The function embedding is not needed for this theorem.
+
+  RigidEmbeddingComposition / StableConjugation / RigidEmbeddingExponential:
+    Identity, composition and image embeddings; stable conjugation.
+    Rigid embeddings lift to stable endomorphism spaces by e f r, with
+    retraction r g e. Constants and evaluation at bottom give a rigid
+    embedding D -> [D=>D]. The code embedding R(D) -> D follows from
+    a function-space embedding, since R(D) is a rigid image in [D=>D].
+  RigidEmbeddingLaws / RigidLimitOrder / RigidLimitEmbedding:
+    Rigid embeddings preserve compactness; their retractions preserve
+    bounded joins. Coherent-sequence limits have coordinatewise directed
+    and bounded joins, canonical embeddings and their order adjunction.
+  RigidLimitDomain / RigidLimitRigid / RigidLimitDI:
+    Stage compact elements form a small compact basis of the limit.
+    Stage images are downward closed. Finite discrete compact ideals
+    transfer from a stage; distributivity holds coordinatewise. The
+    limit is an actual dI-domain with canonical rigid stage embeddings.
+  OrderedChains / StableExtensional / RigidLimitLaws / RigidLimitMaps:
+    Stage projections increase to identity in stable order. Adjacent
+    embeddings commute, nested projections absorb, and stable cones
+    assemble into stable maps to the limit.
+  RigidLimitExponential / RigidLimitExponentialLaws / RigidLimitTail:
+    The stable endomorphism space of a rigid limit is stably isomorphic
+    to the limit of the endomorphism spaces. Restriction f |-> (r_n f e_n)
+    and assembly (f_n) |-> sup_n e_n f_n r_n are inverse stable maps.
+    Deleting the first coordinate is also a stable limit isomorphism.
+  RigidExponentialTower / RigidReflexiveDomain:
+    For EVERY seed dI-domain D, construct D_infinity with a rigid seed
+    embedding and D_infinity isomorphic to [D_infinity=>D_infinity].
+    Both inverse equations check. This supplies the universe
+    representation, U:U, dependent function codes and recursive types
+    from the previous theorems. Faithfulness of the seed embedding
+    preserves nontriviality. No function/code representation is assumed
+    of the seed, and no new global axiom is introduced.
+
+  BooleanDI / BooleanReflexive:
+    The two-element chain is a dI-domain under an EXPLICIT LOCAL
+    parameter for excluded middle of small propositions. All joins,
+    compactness, distributivity and finite discrete ideals are proved.
+    Conversely, a Scott structure on this order with bottom false and
+    compact top implies that same excluded-middle principle.
+    Applying RigidReflexiveDomain gives two distinct represented points;
+    the upper seed point is nonbottom and already has tower rank zero.
+    This is a conditional concrete seed, not a new global axiom.
+  ScottTerminal / StableSyntax / StableSubstitution / StableSyntaxTyping:
+    A total stable interpretation of the existing Syntax.Tm, using finite
+    product environments with the terminal Scott domain at length zero.
+    U and Pi use the represented universe operations; annotated lambda
+    denotes encode(f o decode(A)). Renaming and simultaneous substitution
+    are proved, including weakening and single substitution. Beta holds
+    at arguments fixed by their interpreted type. The dependent-function
+    introduction and elimination rules are proved for these denotations.
+    This does not yet prove soundness by induction over all Syntax.Der.
+  RigidRankStages / ReflexiveSyntax:
+    Tower rank means fixedness by the canonical stage projection. Rank
+    is downward closed and persists at later stages. Every compact
+    observation of an element is captured at some finite tower stage;
+    every compact element has a mere finite-rank witness. Postcomposing
+    any stable map with the stage projections gives stable approximations
+    increasing in stable order to that map. This applies to every term.
+    Coordinate n+1 of a represented function is its restriction to stage
+    n. In particular, writing p_n=i_n r_n and app(v,x)=decode(v)(x),
+      p_n(app(v,p_n(x))) = i_n(v_(n+1)(x_n)).
+    These are tower-stage results, not Scott-filter rank identifications.
+
+Remaining obligations:
+  1. A nontrivial seed without a classical parameter is NOT supplied.
+     BooleanDI makes the necessary classical input explicit for its
+     compact nonbottom top. The old Scott filter model has not been
+     shown to satisfy the literal finite-discrete dI axioms.
+  2. Complete soundness for all Syntax.Der judgements, especially Pi
+     congruence and typed function extensionality, remains to be proved
+     for the new stable interpretation. The existing Scott-model
+     soundness and adequacy do not automatically transfer.
+  3. Relate tower ranks to any intended syntactic rank discipline or to
+     the earlier Scott-model stages/Proposition 2.27. Stable term
+     approximation and the one-step application equation are now proved,
+     but do not identify these different constructions. Finiteness of
+     the Boolean tower's whole stage carriers has not been formalised.
+  4. A constructive event presentation and its relationship to literal
+     classical dI-domains remain open. Finite discrete compact lower
+     ideals with a nonbottom compact force small excluded middle.
+
+The pointwise formula B_x(f(x)) is not the rigid section projection in
+stable order. The construction takes the greatest stable subfunction
+that is a section. See the two-element counterexample in the LaTeX.
+
+Validation: python3 UNIT/check.py
+  7,745 declarations, 0 failures; 40 frozen dependencies verified.
+  This combined count includes the separate Scott-model logical-relation
+  extension described in LOGICAL_RELATION_PROGRAM.md.
+Global assumptions remain univalence and the existing replacement
+interface. No vendor file or existing Scott-model proof was changed.

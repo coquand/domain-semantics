@@ -1,0 +1,61 @@
+-- Cartesian products of Scott domains, with componentwise joins/meets.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module Product (D E : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ;
+  module AO = ScottOrder[l].On[D.order] ; module BO = ScottOrder[l].On[E.order] ;
+  module AV = DC[D.order,D.complete] ; module BV = DC[E.order,E.complete] ;
+  C : U l+ = A.C * B.C ; LE (x y : C) : U l = A.LE x.1 y.1 * B.LE x.2 y.2 ;
+  order : Order = new Order[carrier := C,le := LE,
+    proposition := \ x y -> Prelude[l].isProp-Sigma (A.LE x.1 y.1) (\ _ -> B.LE x.2 y.2) (D.order.proposition x.1 y.1) (\ _ -> E.order.proposition x.2 y.2),
+    reflexive := \ x -> (D.order.reflexive x.1,E.order.reflexive x.2),
+    transitive := \ x y z h k -> (D.order.transitive x.1 y.1 z.1 h.1 k.1,E.order.transitive x.2 y.2 z.2 h.2 k.2),
+    antisymmetric := \ x y h k -> FiniteEnumeration[l].pair-eq A.C B.C x.1 y.1 x.2 y.2
+      (D.order.antisymmetric x.1 y.1 h.1 k.1) (E.order.antisymmetric x.2 y.2 h.2 k.2)] ;
+  module O = ScottOrder[l].On[order] ;
+  left-dir (I : U l) (x : I -> C) (d : O.Dir I x) : AO.Dir I (\ i -> (x i).1) =
+    (d.1,\ i j -> T.map (O.Upper I x i j) (AO.Upper I (\ k -> (x k).1) i j) (\ w -> (w.1,(w.2.1.1,w.2.2.1))) (d.2 i j)) ;
+  right-dir (I : U l) (x : I -> C) (d : O.Dir I x) : BO.Dir I (\ i -> (x i).2) =
+    (d.1,\ i j -> T.map (O.Upper I x i j) (BO.Upper I (\ k -> (x k).2) i j) (\ w -> (w.1,(w.2.1.2,w.2.2.2))) (d.2 i j)) ;
+  pair-sup (I : U l) (x : I -> C) (a : AO.Supremum I (\ i -> (x i).1)) (b : BO.Supremum I (\ i -> (x i).2)) : O.Supremum I x =
+    ((a.1,b.1),(\ i -> (a.2.1 i,b.2.1 i),\ z h -> (a.2.2 z.1 (\ i -> (h i).1),b.2.2 z.2 (\ i -> (h i).2)))) ;
+  complete : Complete[order] = new Complete[order,
+    directed := \ I x d -> pair-sup I x (D.complete.directed I (\ i -> (x i).1) (left-dir I x d)) (E.complete.directed I (\ i -> (x i).2) (right-dir I x d)),
+    bounded := \ I x b h -> pair-sup I x (D.complete.bounded I (\ i -> (x i).1) b.1 (\ i -> (h i).1)) (E.complete.bounded I (\ i -> (x i).2) b.2 (\ i -> (h i).2))] ;
+  module V = DC[order,complete] ;
+  Basis : U l = A.B * B.B ; basic (a : Basis) : C = (A.basic a.1,B.basic a.2) ;
+  compact (a : Basis) : V.Compact (basic a) = \ I x d h ->
+    T.bind2 ((i : I) * A.LE (A.basic a.1) (x i).1) ((j : I) * B.LE (B.basic a.2) (x j).2) ((k : I) * LE (basic a) (x k))
+      (\ u v -> T.map (O.Upper I x u.1 v.1) ((k : I) * LE (basic a) (x k))
+        (\ w -> (w.1,(D.order.transitive (A.basic a.1) (x u.1).1 (x w.1).1 u.2 w.2.1.1,
+          E.order.transitive (B.basic a.2) (x v.1).2 (x w.1).2 v.2 w.2.2.2))) (d.2 u.1 v.1))
+      (D.basis.compact a.1 I (\ i -> (x i).1) (left-dir I x d) h.1)
+      (E.basis.compact a.2 I (\ i -> (x i).2) (right-dir I x d) h.2) ;
+  Local (x : C) : U l = (a : Basis) * LE (basic a) x ;
+  part (x : C) (a : Local x) : C = basic a.1 ;
+  inhabited (x : C) : Ex (Local x) = T.map2 (A.BI x.1) (B.BI x.2) (Local x)
+    (\ a b -> ((a.1,b.1),(a.2,b.2))) (A.dir x.1).1 (B.dir x.2).1 ;
+  upper (x : C) (a b : Local x) : Ex (O.Upper (Local x) (part x) a b) =
+    T.map2 (AO.Upper (A.BI x.1) (A.part x.1) (a.1.1,a.2.1) (b.1.1,b.2.1))
+      (BO.Upper (B.BI x.2) (B.part x.2) (a.1.2,a.2.2) (b.1.2,b.2.2)) (O.Upper (Local x) (part x) a b)
+      (\ u v -> (((u.1.1,v.1.1),(u.1.2,v.1.2)),((u.2.1,v.2.1),(u.2.2,v.2.2))))
+      ((A.dir x.1).2 (a.1.1,a.2.1) (b.1.1,b.2.1)) ((B.dir x.2).2 (a.1.2,a.2.2) (b.1.2,b.2.2)) ;
+  density (x y : C) (h : (a : Basis) -> LE (basic a) x -> LE (basic a) y) : LE x y =
+    (D.basis.density x.1 y.1 (\ a ha -> T.rec (B.BI x.2) @l (A.LE (A.basic a) y.1) (D.order.proposition (A.basic a) y.1)
+      (\ b -> (h (a,b.1) (ha,b.2)).1) (B.dir x.2).1),
+     E.basis.density x.2 y.2 (\ b hb -> T.rec (A.BI x.1) @l (B.LE (B.basic b) y.2) (E.order.proposition (B.basic b) y.2)
+      (\ a -> (h (a.1,b) (a.2,hb)).2) (A.dir x.1).1)) ;
+  basis : ScottDomain[l].Basis[order,complete] = new ScottDomain[l].Basis[order,complete,
+    index := Basis,basic := basic,compact := compact,directed := \ x -> (inhabited x,upper x),density := density] ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order,complete := complete,basis := basis,
+    bottom := (D.bottom,E.bottom),bottom-least := \ x -> (D.bottom-least x.1,E.bottom-least x.2)] ;
+  module AN = ScottMeet[l].On[D] ; module BN = ScottMeet[l].On[E] ; module N = ScottMeet[l].On[scott] ;
+  meet (x y : C) : C = (AN.meet x.1 y.1,BN.meet x.2 y.2) ;
+  meet-to (x y : C) : LE (N.meet x y) (meet x y) =
+    (AN.greatest x.1 y.1 (N.meet x y).1 (N.left x y).1 (N.right x y).1,
+     BN.greatest x.2 y.2 (N.meet x y).2 (N.left x y).2 (N.right x y).2) ;
+  meet-from (x y : C) : LE (meet x y) (N.meet x y) =
+    N.greatest x y (meet x y) (AN.left x.1 y.1,BN.left x.2 y.2) (AN.right x.1 y.1,BN.right x.2 y.2) ;
+  meet-equation (x y : C) : Id C (N.meet x y) (meet x y) = order.antisymmetric (N.meet x y) (meet x y) (meet-to x y) (meet-from x y) ;
+} ;

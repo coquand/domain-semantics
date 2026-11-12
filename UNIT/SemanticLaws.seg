@@ -1,0 +1,93 @@
+-- Section 2.4: the typed generators are already a compact family.
+-- This removes the apparent extra closure in SemanticProjector.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open ExtFilter[l] ; open Domain[l] ; open CompactFamilies[l] ;
+module R = Filter[l] ; module SP = SemanticProjector[l] ;
+module TC = TruncationCombinators[l] ; module CF = ProjectorDomain[l] ;
+
+p (A X : D) : D = Projector[l].project (SP.interpret A) X ;
+
+module Generators (A : D) {
+  G (k : K) : U l = SP.Gen (raw A.1) k ;
+  at-bottom : G bottomK = new R.TyInR[raw A.1,om,om,fom A.1,tp-omom] ;
+  at-join (u v : K) (cv : Cons (meet u.1 v.1)) (a : G u) (b : G v) : G (joinK u v cv) =
+    new R.TyInR[raw A.1,meet u.1 v.1,meet a.a b.a,hab,
+      tp-join u.1 v.1 (meet a.a b.a)
+        (tp-up u.1 a.a (meet a.a b.a) a.tp (le-meet-l a.a b.a) hU)
+        (tp-up v.1 b.a (meet a.a b.a) b.tp (le-meet-r a.a b.a) hU) cv]
+    where {
+      hab : In A (meet a.a b.a) = fmeet A.1 a.a b.a a.ina b.ina ;
+      hU : Tp (el (meet a.a b.a) univ) =
+        tp-join a.a b.a univ (tp-pre u.1 a.a a.tp) (tp-pre v.1 b.a b.tp)
+          (consistent A (meet a.a b.a) hab) ; } ;
+  at-equiv (u v : K) (e : EqK u v) (a : G u) : G v =
+    new R.TyInR[raw A.1,v.1,a.a,a.ina,tp-conv u.1 a.a v.1 a.a a.tp e (eqv-refl a.a)] ;
+  family : Family = (\ k -> Ex (G k),(\ k -> ex-prop (G k),
+    (ex (G bottomK) at-bottom,
+      (\ u v cv -> TC.map2 (G u) (G v) (G (joinK u v cv)) (at-join u v cv),
+       \ u v e -> TC.map (G u) (G v) (at-equiv u v e))))) ;
+  forward : CompactFamilies[l].Incl (SP.interpret A) family =
+    CF.least G family (\ k -> ex (G k)) ;
+  backward : CompactFamilies[l].Incl family (SP.interpret A) = \ k ->
+    ex-elim (G k) (Mem (SP.interpret A) k) (member-prop (SP.interpret A) k) (CF.inc G k) ;
+  equation : Id Family (SP.interpret A) family =
+    CompactFamilies[l].ext (SP.interpret A) family (forward,backward) ;
+} ;
+
+-- An observation of p A X has one typed witness, not just a finite join
+-- of typed witnesses. Existentials remain propositionally truncated.
+record Observation {
+  A : D ; X : D ; target : Ty ;
+  value : Ty ; code : Ty ; proper : Good value ;
+  inside : In X value ; type-inside : In A code ;
+  typed : Tp (el value code) ; below : Le value target ;
+} ;
+
+observe (A X : D) (t : Ty) : In (p A X) t -> Ex Observation[A,X,t] =
+  TC.bind (Projector[l].At[SP.interpret A,X].W t) Observation[A,X,t]
+    (\ w -> TC.map (Generators[A].G w.1) Observation[A,X,t]
+      (\ a -> new Observation[A,X,t,w.1.1,a.a,w.1.2.1,w.2.2.1,a.ina,a.tp,w.2.2.2])
+      (Generators[A].forward w.1 w.2.1)) ;
+
+introduce (A X : D) (u a : Ty) (hu : In X u) (ha : In A a) (h : Tp (el u a)) : In (p A X) u =
+  fup (p A X).1 r.value u r.equiv.2
+    (Projector[l].intro (SP.interpret A) X (r.value,(r.proper,tp-cons r.value a hr))
+      (CF.inc (SP.Gen (raw A.1)) (r.value,(r.proper,tp-cons r.value a hr))
+        (new R.TyInR[raw A.1,r.value,a,ha,hr]))
+      (fup X.1 u r.value r.equiv.1 hu))
+  where {
+    r : Proper[l].Rep[u] = Proper[l].typed-rep u a h ;
+    hr : Tp (el r.value a) = tp-conv u a r.value a h r.equiv (eqv-refl a) ; } ;
+
+below (A X : D) : Domain[l].Below (p A X) X = Projector[l].At[SP.interpret A,X].below ;
+mono (A B X Y : D) (ab : Domain[l].Below A B) (xy : Domain[l].Below X Y) :
+  Domain[l].Below (p A X) (p B Y) =
+  Projector[l].mono (SP.interpret A) (SP.interpret B) X Y
+    (SP.types-mono (raw A.1) (raw B.1) ab) xy ;
+
+universe-in (A : D) (a : Ty) (ha : In A a) (hU : Tp (el a univ)) : In (p universe A) a =
+  introduce universe A a univ ha (prin-in univ) hU ;
+
+module Normalize (A : D) {
+  normalized : D = p universe A ;
+  forward : CompactFamilies[l].Incl (SP.interpret normalized) (SP.interpret A) =
+    SP.types-mono (raw normalized.1) (raw A.1) (below universe A) ;
+  backward : CompactFamilies[l].Incl (SP.interpret A) (SP.interpret normalized) =
+    CF.least (SP.Gen (raw A.1)) (SP.interpret normalized) (\ k a ->
+      CF.inc (SP.Gen (raw normalized.1)) k
+        (new R.TyInR[raw normalized.1,k.1,a.a,
+          universe-in A a.a a.ina (tp-pre k.1 a.a a.tp),a.tp])) ;
+  family-equation : Id Family (SP.interpret normalized) (SP.interpret A) =
+    CompactFamilies[l].ext (SP.interpret normalized) (SP.interpret A) (forward,backward) ;
+  equation (X : D) : Id D (p normalized X) (p A X) =
+    Domain[l].ext (p normalized X) (p A X)
+      (Projector[l].mono (SP.interpret normalized) (SP.interpret A) X X forward (sub-refl X.1),
+       Projector[l].mono (SP.interpret A) (SP.interpret normalized) X X backward (sub-refl X.1)) ;
+} ;
+
+universe-equation : Id D (p universe universe) universe =
+  Domain[l].ext (p universe universe) universe
+    (below universe universe,
+     prin-sub univ (p universe universe).1
+       (introduce universe universe univ univ (prin-in univ) (prin-in univ) tp-UU)) ;

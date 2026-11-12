@@ -1,0 +1,57 @@
+-- The coherent-sequence limit has a small compact basis: take all
+-- canonical images of all stage basis elements.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ; module Embed = RigidLimitEmbedding[l] ;
+module On (S : RigidLimitOrder[l].Chain) {
+  module L = RigidLimitOrder[l].On[S] ;
+  B (n : Nat) : U l = (S.domain n).scott.basis.index ;
+  basic-at (n : Nat) : B n -> L.C n = (S.domain n).scott.basis.basic ;
+  Basis : U l = (n : Nat) * B n ;
+  basic (a : Basis) : L.carrier = Embed.lift a.1 S (basic-at a.1 a.2) ;
+  compact (a : Basis) : L.V.Compact (basic a) = Embed.compact a.1 S (basic-at a.1 a.2) ((S.domain a.1).scott.basis.compact a.2) ;
+  Local (x : L.carrier) : U l = (a : Basis) * L.le (basic a) x ;
+  part (x : L.carrier) (a : Local x) : L.carrier = basic a.1 ;
+  module At (n : Nat) (x : L.carrier) {
+    module A = ScottDomain[l].On[(S.domain n).scott] ; module O = ScottOrder[l].On[(S.domain n).scott.order] ;
+    index : U l = A.BI (x.1 n) ;
+    value (a : index) : L.carrier = basic (n,a.1) ;
+    directed : L.O.Dir index value = ((A.dir (x.1 n)).1,\ a b ->
+      T.map (O.Upper index (A.part (x.1 n)) a b) (L.O.Upper index value a b)
+        (\ w -> (w.1,(Embed.monotone n S (A.basic a.1) (A.basic w.1.1) w.2.1,Embed.monotone n S (A.basic b.1) (A.basic w.1.1) w.2.2)))
+        ((A.dir (x.1 n)).2 a b)) ;
+    sup : L.carrier = L.V.sup index value directed ;
+    cover : L.le (Embed.approximate S n x) sup = Embed.lower n S (x.1 n) sup
+      ((S.domain n).scott.basis.density (x.1 n) (sup.1 n)
+        (\ a h -> Embed.upper n S (A.basic a) sup (L.V.upper index value directed (a,h)))) ;
+    into (a : index) : Local x = ((n,a.1),Embed.lower n S (A.basic a.1) x a.2) ;
+  } ;
+  inhabited (x : L.carrier) : Ex (Local x) = T.map At[zero,x].index (Local x) At[zero,x].into At[zero,x].directed.1 ;
+  approximate-mono (m n : Nat) (h : LeN m n) (x : L.carrier) : L.le (Embed.approximate S m x) (Embed.approximate S n x) =
+    OrderedChains[l].monotone m L.order (\ k -> Embed.approximate S k x) (\ k -> Embed.increasing S k x) n h ;
+  module Upper (x : L.carrier) (a b : Local x) {
+    n : Nat = max a.1.1 b.1.1 ;
+    module Q = At[n,x] ;
+    bound (c : Local x) (h : LeN c.1.1 n) : L.le (part x c) Q.sup =
+      L.order.transitive (part x c) (Embed.approximate S n x) Q.sup
+        (L.order.transitive (part x c) (Embed.approximate S c.1.1 x) (Embed.approximate S n x)
+          (Embed.monotone c.1.1 S (basic-at c.1.1 c.1.2) (x.1 c.1.1) (Embed.upper c.1.1 S (basic-at c.1.1 c.1.2) x c.2))
+          (approximate-mono c.1.1 n h x)) Q.cover ;
+    witness : Ex (L.O.Upper (Local x) (part x) a b) =
+      T.bind2 ((i : Q.index) * L.le (part x a) (Q.value i)) ((i : Q.index) * L.le (part x b) (Q.value i))
+        (L.O.Upper (Local x) (part x) a b)
+        (\ u v -> T.map (L.O.Upper Q.index Q.value u.1 v.1) (L.O.Upper (Local x) (part x) a b)
+          (\ w -> (Q.into w.1,(L.order.transitive (part x a) (Q.value u.1) (Q.value w.1) u.2 w.2.1,
+            L.order.transitive (part x b) (Q.value v.1) (Q.value w.1) v.2 w.2.2))) (Q.directed.2 u.1 v.1))
+        (compact a.1 Q.index Q.value Q.directed (bound a (leN-max-l a.1.1 b.1.1)))
+        (compact b.1 Q.index Q.value Q.directed (bound b (leN-max-r a.1.1 b.1.1))) ;
+  } ;
+  density (x y : L.carrier) (h : (a : Basis) -> L.le (basic a) x -> L.le (basic a) y) : L.le x y = \ n ->
+    (S.domain n).scott.basis.density (x.1 n) (y.1 n)
+      (\ a ax -> Embed.upper n S (basic-at n a) y (h (n,a) (Embed.lower n S (basic-at n a) x ax))) ;
+  basis : ScottDomain[l].Basis[L.order,L.complete] = new ScottDomain[l].Basis[L.order,L.complete,
+    index := Basis,basic := basic,compact := compact,directed := \ x -> (inhabited x,\ a b -> Upper[x,a,b].witness),density := density] ;
+  bottom : L.carrier = Embed.lift zero S (S.domain zero).scott.bottom ;
+  bottom-least (x : L.carrier) : L.le bottom x = Embed.lower zero S (S.domain zero).scott.bottom x ((S.domain zero).scott.bottom-least (x.1 zero)) ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := L.order,complete := L.complete,basis := basis,bottom := bottom,bottom-least := bottom-least] ;
+} ;

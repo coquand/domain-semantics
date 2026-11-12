@@ -1,0 +1,61 @@
+-- Compact stable approximations (f(x meet a)) meet b.
+-- Finite lower ideals are used as finite evaluation tests. Truncated
+-- presentations are eliminated only into propositional compact witnesses.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ; module TL = TruncationCombinators[l+] ;
+
+module Between (D E : DIDomain[l].DI) {
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module M = ScottMaps[l].Between[D.scott,E.scott] ; module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module DE = StableComposition[l].Between[D.scott,D.scott,E.scott] ;
+  module EE = StableComposition[l].Between[D.scott,E.scott,E.scott] ;
+  module DA = StableComposition[l].Endo[D.scott] ; module EB = StableComposition[l].Endo[E.scott] ;
+  module AP = DIDomain[l].Properties[D.scott.order] ;
+  module CI = CompactIdeals[l].On[E.scott] ;
+  module MC = DC[M.order,M.complete] ; module V = DC[E.scott.order,E.scott.complete] ;
+  module Patch (f : S.Map) (a : A.B) (b : B.B) {
+    module PA = PrincipalProjection[l].On[D.scott].At[A.basic a] ;
+    module PB = PrincipalProjection[l].On[E.scott].At[B.basic b] ;
+    module Pre = DE.Compose[DA.from-rigid PA.projection,f] ;
+    module Post = EE.Compose[f,EB.from-rigid PB.projection] ;
+    module Both = EE.Compose[Pre.map,EB.from-rigid PB.projection] ;
+    map : S.Map = Both.map ;
+    value : A.C -> B.C = S.run map ;
+    pre-below : S.LE Pre.map f = DE.pre-order (DA.from-rigid PA.projection) DA.identity (DA.below-id PA.projection) f ;
+    below : S.LE map f = S.transitive map Pre.map f
+      (EE.post-order Pre.map (EB.from-rigid PB.projection) EB.identity (EB.below-id PB.projection)) pre-below ;
+    output-compact (x : A.C) : V.Compact (value x) =
+      CI.below-compact (B.basic b) (E.scott.basis.compact b) (E.finite-ideals (B.basic b) (E.scott.basis.compact b))
+        (value x) (PB.bounded (S.run f (PA.value x))) ;
+    entry (x : A.C) (ax : A.LE (A.basic a) x) (h : B.LE (B.basic b) (S.run f (A.basic a))) : B.LE (B.basic b) (value x) =
+      PB.greatest (S.run f (PA.value x)) (B.basic b)
+        (E.scott.order.transitive (B.basic b) (S.run f (A.basic a)) (S.run f (PA.value x)) h
+          (S.mono f (A.basic a) (PA.value x) (PA.greatest x (A.basic a) ax (D.scott.order.reflexive (A.basic a)))))
+        (E.scott.order.reflexive (B.basic b)) ;
+    module Finite (F : AP.FiniteIdeal[A.basic a]) {
+      module FD = FiniteDiscrete[l].Ideal[D.scott.order,A.basic a,F] ;
+      Fits (g : M.Map) : U l = (j : Ix F.shape) -> B.LE (value (F.point j)) (M.run g (F.point j)) ;
+      pointwise (g : M.Map) (h : Fits g) (x : A.C) : B.LE (value x) (M.run g x) =
+        T.rec ((j : Ix F.shape) * FD.Eq (PA.value x) (F.point j)) @l (B.LE (value x) (M.run g x))
+          (E.scott.order.proposition (value x) (M.run g x))
+          (\ w -> E.scott.order.transitive (value x) (value (F.point w.1)) (M.run g x)
+            (S.mono Post.map (PA.value x) (PA.value (F.point w.1))
+              (PA.greatest (F.point w.1) (PA.value x) w.2.1 (PA.bounded x)))
+            (E.scott.order.transitive (value (F.point w.1)) (M.run g (F.point w.1)) (M.run g x) (h w.1)
+              (M.mono g (F.point w.1) x (D.scott.order.transitive (F.point w.1) (PA.value x) x w.2.2 (PA.below x)))))
+          (F.covers (PA.value x) (PA.bounded x)) ;
+      tests-below (g : M.Map) (h : Fits g) : M.LE map.1 g = M.small map.1 g (pointwise g h) ;
+      compact : MC.Compact map.1 = \ I g d h -> T.map
+        ((i : I) * Fits (g i)) ((i : I) * M.LE map.1 (g i)) (\ w -> (w.1,tests-below (g w.1) w.2))
+        (Directed[M.order,I,g,d].collect F.shape (\ j i -> B.LE (value (F.point j)) (M.run (g i) (F.point j)))
+          (\ j i k ik hi -> E.scott.order.transitive (value (F.point j)) (M.run (g i) (F.point j)) (M.run (g k) (F.point j))
+            hi (M.pointwise (g i) (g k) ik (F.point j)))
+          (\ j -> output-compact (F.point j) I (\ i -> M.run (g i) (F.point j)) (M.evaluated-dir I g d (F.point j))
+            (M.pointwise map.1 (MC.sup I g d) h (F.point j)))) ;
+    } ;
+    compact : MC.Compact map.1 = \ I g d h -> TL.rec (AP.FiniteIdeal[A.basic a]) @l
+      (Ex ((i : I) * M.LE map.1 (g i))) (prop ((i : I) * M.LE map.1 (g i)))
+      (\ F -> Finite[F].compact I g d h) (D.finite-ideals (A.basic a) (D.scott.basis.compact a)) ;
+  } ;
+} ;

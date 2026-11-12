@@ -1,0 +1,19 @@
+-- Monotonicity of any increasing natural-number chain.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ;
+from-zero (P : Order) (x : Nat -> P.carrier) (step : (n : Nat) -> P.le (x n) (x (suc n))) : (n : Nat) -> P.le (x zero) (x n) = split {
+  zero -> P.reflexive (x zero) ; suc n | r -> P.transitive (x zero) (x n) (x (suc n)) r (step n) } ;
+monotone : (m : Nat) (P : Order) (x : Nat -> P.carrier) -> ((n : Nat) -> P.le (x n) (x (suc n))) ->
+  (n : Nat) -> LeN m n -> P.le (x m) (x n) = split {
+  zero -> \ P x step n h -> from-zero P x step n ;
+  suc m | r -> \ P x step -> split {
+    zero -> \ h -> absurd (P.le (x (suc m)) (x zero)) h ;
+    suc n -> \ h -> r P (\ k -> x (suc k)) (\ k -> step (suc k)) n h } } ;
+directed (P : Order) (x : Nat -> P.carrier) (step : (n : Nat) -> P.le (x n) (x (suc n))) : ScottOrder[l].On[P].Dir Nat x =
+  (inc Nat zero,\ m n -> inc (ScottOrder[l].On[P].Upper Nat x m n)
+    (max m n,(monotone m P x step (max m n) (leN-max-l m n),monotone n P x step (max m n) (leN-max-r m n)))) ;
+compare : (n m : Nat) -> Plus (LeN n m) (LeN (suc m) n) = split {
+  zero -> \ m -> inl tt ;
+  suc n | r -> split {
+    zero -> inr tt ;
+    suc m -> r m } } ;

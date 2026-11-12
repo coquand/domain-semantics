@@ -1,0 +1,145 @@
+-- The I-axiom for the stable exponential. Subfunctions of a finite graph
+-- are reconstructed from finitely many clipped output observations.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ; module TL = TruncationCombinators[l+] ;
+module Exponential (D E : DIDomain[l].DI) {
+  module X = StableExponential[l].Exponential[D,E] ;
+  module G = ScottExponential[l].Exponential[D.scott,E.scott] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module BN = ScottMeet[l].On[E.scott] ;
+  module SC = StableComplete[l].Between[D.scott,E.scott,E.distributive] ;
+  module J = DistributiveJoins[l].On[E.scott,E.distributive] ;
+  module BP = DIDomain[l].Properties[E.scott.order] ; module FP = DIDomain[l].Properties[S.order] ;
+  module DE = StableComposition[l].Between[D.scott,D.scott,E.scott] ;
+  module EE = StableComposition[l].Between[D.scott,E.scott,E.scott] ;
+  module DA = StableComposition[l].Endo[D.scott] ; module EB = StableComposition[l].Endo[E.scott] ;
+  module Cut (f : S.Map) (a : A.C) (b : B.C) {
+    module PA = PrincipalProjection[l].On[D.scott].At[a] ;
+    module PB = PrincipalProjection[l].On[E.scott].At[b] ;
+    module Pre = DE.Compose[DA.from-rigid PA.projection,f] ;
+    module Post = EE.Compose[Pre.map,EB.from-rigid PB.projection] ;
+    map : S.Map = Post.map ;
+    below : S.LE map f = S.transitive map Pre.map f
+      (EE.post-order Pre.map (EB.from-rigid PB.projection) EB.identity (EB.below-id PB.projection))
+      (DE.pre-order (DA.from-rigid PA.projection) DA.identity (DA.below-id PA.projection) f) ;
+    entry (x : A.C) (ax : A.LE a x) (bf : B.LE b (S.run f a)) : B.LE b (S.run map x) =
+      PB.greatest (S.run f (PA.value x)) b
+        (E.scott.order.transitive b (S.run f a) (S.run f (PA.value x)) bf
+          (S.mono f a (PA.value x) (PA.greatest x a ax (D.scott.order.reflexive a)))) (E.scott.order.reflexive b) ;
+    under (g : S.Map) (gf : S.LE g f) (bg : B.LE b (S.run g a)) : S.LE map g =
+      S.under-bound map g f below gf (\ i ->
+        E.scott.order.transitive (S.run map (A.basic i)) (S.run g (PA.value (A.basic i))) (S.run g (A.basic i))
+          (E.scott.order.transitive (S.run map (A.basic i))
+            (BN.meet (S.run g a) (S.run f (PA.value (A.basic i)))) (S.run g (PA.value (A.basic i)))
+            (BN.greatest (S.run g a) (S.run f (PA.value (A.basic i))) (S.run map (A.basic i))
+              (E.scott.order.transitive (S.run map (A.basic i)) b (S.run g a) (PB.bounded (S.run f (PA.value (A.basic i)))) bg)
+              (PB.below (S.run f (PA.value (A.basic i)))))
+            (S.restriction g f gf (PA.value (A.basic i)) a (PA.bounded (A.basic i))))
+          (S.mono g (PA.value (A.basic i)) (A.basic i) (PA.below (A.basic i)))) ;
+  } ;
+  module Basis (k : X.Basis) {
+    f : S.Map = X.basic k ; graph : G.Graph = k.1.1 ;
+    shape : Shape = graph.1 ;
+    a (j : Ix shape) : A.C = A.basic (G.input graph j) ;
+    b (j : Ix shape) : B.C = B.basic (G.output graph j) ;
+    fits (j : Ix shape) : B.LE (b j) (S.run f (a j)) =
+      G.At[graph,k.1.2,a j].entry j (D.scott.order.reflexive (a j)) ;
+    observation (g : S.Map) (j : Ix shape) : B.C = BN.meet (S.run g (a j)) (b j) ;
+    Tuple : U l+ = (j : Ix shape) -> (c : B.C) * B.LE c (b j) ;
+    code (g : S.Map) : Tuple = \ j -> (observation g j,BN.right (S.run g (a j)) (b j)) ;
+    module Decode (v : Tuple) {
+      part (j : Ix shape) : S.Map = Cut[f,a j,(v j).1].map ;
+      bound (j : Ix shape) : S.LE (part j) f = Cut[f,a j,(v j).1].below ;
+      module Q = SC.Sup[Ix shape,part,f,bound] ;
+      map : S.Map = Q.map ;
+      below : S.LE map f = Q.least f bound ;
+    } ;
+    module Reconstruct (g : S.Map) (gf : S.LE g f) {
+      module Q = Decode[code g] ;
+      below : S.LE Q.map g = Q.Q.least g (\ j -> Cut[f,a j,observation g j].under g gf (BN.left (S.run g (a j)) (b j))) ;
+      module At (x : A.C) {
+        Active : U l = (j : Ix shape) * A.LE (a j) x ;
+        output (j : Active) : B.C = b j.1 ;
+        bound (j : Active) : B.LE (output j) (S.run f x) = G.At[graph,k.1.2,x].entry j.1 j.2 ;
+        sup : ScottOrder[l].On[E.scott.order].Supremum Active output = E.scott.complete.bounded Active output (S.run f x) bound ;
+        cover : B.LE (S.run f x) sup.1 = G.At[graph,k.1.2,x].least sup.1 (\ j h -> sup.2.1 (j,h)) ;
+        test (j : Active) : B.LE (BN.meet (S.run g x) (output j)) (S.run Q.map x) =
+          E.scott.order.transitive (BN.meet (S.run g x) (output j)) (observation g j.1) (S.run Q.map x)
+            (BN.greatest (S.run g (a j.1)) (b j.1) (BN.meet (S.run g x) (b j.1))
+              (E.scott.order.transitive (BN.meet (S.run g x) (b j.1)) (BN.meet (S.run g x) (S.run f (a j.1))) (S.run g (a j.1))
+                (BN.monotone (S.run g x) (b j.1) (S.run g x) (S.run f (a j.1)) (E.scott.order.reflexive (S.run g x)) (fits j.1))
+                (S.restriction g f gf (a j.1) x j.2)) (BN.right (S.run g x) (b j.1)))
+            (E.scott.order.transitive (observation g j.1) (S.run (Q.part j.1) x) (S.run Q.map x)
+              (Cut[f,a j.1,observation g j.1].entry x j.2
+                (E.scott.order.transitive (observation g j.1) (b j.1) (S.run f (a j.1)) (BN.right (S.run g (a j.1)) (b j.1)) (fits j.1)))
+              (Q.Q.point-upper j.1 x)) ;
+        result : B.LE (S.run g x) (S.run Q.map x) =
+          E.scott.order.transitive (S.run g x) (BN.meet (S.run g x) sup.1) (S.run Q.map x)
+            (BN.greatest (S.run g x) sup.1 (S.run g x) (E.scott.order.reflexive (S.run g x))
+              (E.scott.order.transitive (S.run g x) (S.run f x) sup.1 (S.pointwise g f gf x) cover))
+            (J.bounded-right Active output (S.run f x) bound (S.run g x) (S.run Q.map x) test) ;
+      } ;
+      above : S.LE g Q.map = S.under-bound g Q.map f gf Q.below (\ i -> At[A.basic i].result) ;
+      equation : Id S.Map g Q.map = S.ext g Q.map above below ;
+    } ;
+    module Present (F : (j : Ix shape) -> BP.FiniteIdeal[b j]) {
+      module Position (j : Ix shape) { module FD = FiniteDiscrete[l].Ideal[E.scott.order,b j,F j] ; } ;
+      equal-tests (g h : S.Map) : U l = (j : Ix shape) -> Position[j].FD.Eq (observation g j) (observation h j) ;
+      tests (g h : S.Map) (gh : S.LE g h) (hg : S.LE h g) : equal-tests g h = \ j ->
+        (BN.monotone (S.run g (a j)) (b j) (S.run h (a j)) (b j) (S.pointwise g h gh (a j)) (E.scott.order.reflexive (b j)),
+         BN.monotone (S.run h (a j)) (b j) (S.run g (a j)) (b j) (S.pointwise h g hg (a j)) (E.scott.order.reflexive (b j))) ;
+      code-equal (g h : S.Map) (p : equal-tests g h) : Id Tuple (code g) (code h) =
+        Axioms[l+].FunExtLemmas[fe @l+].funext (Ix shape) (\ j -> (c : B.C) * B.LE c (b j)) (code g) (code h)
+          (\ j -> Sigma-eq B.C (\ c -> B.LE c (b j)) (observation g j) (observation h j)
+            (BN.right (S.run g (a j)) (b j)) (BN.right (S.run h (a j)) (b j))
+            (E.scott.order.antisymmetric (observation g j) (observation h j) (p j).1 (p j).2)
+            (E.scott.order.proposition (observation h j) (b j))) ;
+      equal (g h : S.Map) (gf : S.LE g f) (hf : S.LE h f) (p : equal-tests g h) : Id S.Map g h =
+        trans S.Map g Decode[code g].map h Reconstruct[g,gf].equation
+          (trans S.Map Decode[code g].map Decode[code h].map h
+            (ap Tuple S.Map (\ v -> Decode[v].map) (code g) (code h) (code-equal g h p))
+            (sym S.Map h Decode[code h].map Reconstruct[h,hf].equation)) ;
+      decide (g h : S.Map) (gf : S.LE g f) (hf : S.LE h f) : FiniteDiscrete[l].Dec (S.LE g h * S.LE h g) =
+        FiniteDiscrete[l].map-decision (equal-tests g h) (S.LE g h * S.LE h g)
+          (\ p -> subst S.Map (\ v -> S.LE g v * S.LE v g) g h (equal g h gf hf p) (S.reflexive g,S.reflexive g))
+          (\ p -> tests g h p.1 p.2)
+          (FiniteRange[l].all shape (\ j -> Position[j].FD.Eq (observation g j) (observation h j))
+            (\ j -> Position[j].FD.decide (observation g j) (observation h j) (BN.right (S.run g (a j)) (b j)) (BN.right (S.run h (a j)) (b j)))) ;
+      entry-enumeration (j : Ix shape) : FiniteEnumeration[l].Enumeration[(c : B.C) * B.LE c (b j)] =
+        new FiniteEnumeration[l].Enumeration[((c : B.C) * B.LE c (b j)),shape := (F j).shape,
+          point := \ i -> ((F j).point i,(F j).below i),
+          covers := \ x -> T.rec ((i : Ix (F j).shape) * Position[j].FD.Eq x.1 ((F j).point i)) @l+
+            (ScottOrder[l+].Ex ((i : Ix (F j).shape) * Id ((c : B.C) * B.LE c (b j)) x ((F j).point i,(F j).below i)))
+            (ScottOrder[l+].prop ((i : Ix (F j).shape) * Id ((c : B.C) * B.LE c (b j)) x ((F j).point i,(F j).below i)))
+            (\ w -> ScottOrder[l+].inc ((i : Ix (F j).shape) * Id ((c : B.C) * B.LE c (b j)) x ((F j).point i,(F j).below i))
+              (w.1,Sigma-eq B.C (\ c -> B.LE c (b j)) x.1 ((F j).point w.1) x.2 ((F j).below w.1)
+                (E.scott.order.antisymmetric x.1 ((F j).point w.1) w.2.1 w.2.2) (E.scott.order.proposition ((F j).point w.1) (b j))))
+            ((F j).covers x.1 x.2)] ;
+      enumeration : FiniteEnumeration[l].Enumeration[Tuple] = FiniteEnumeration[l].Tuples.enumeration shape
+        (\ j -> (c : B.C) * B.LE c (b j)) entry-enumeration ;
+      part (i : Ix enumeration.shape) : S.Map = Decode[enumeration.point i].map ;
+      bound (i : Ix enumeration.shape) : S.LE (part i) f = Decode[enumeration.point i].below ;
+      covers (g : S.Map) (gf : S.LE g f) : Ex ((i : Ix enumeration.shape) * (S.LE g (part i) * S.LE (part i) g)) =
+        TL.rec ((i : Ix enumeration.shape) * Id Tuple (code g) (enumeration.point i)) @l
+          (Ex ((i : Ix enumeration.shape) * (S.LE g (part i) * S.LE (part i) g)))
+          (prop ((i : Ix enumeration.shape) * (S.LE g (part i) * S.LE (part i) g)))
+          (\ w -> inc ((i : Ix enumeration.shape) * (S.LE g (part i) * S.LE (part i) g))
+            (w.1,subst Tuple (\ v -> S.LE g Decode[v].map * S.LE Decode[v].map g) (code g) (enumeration.point w.1) w.2
+              (Reconstruct[g,gf].above,Reconstruct[g,gf].below))) (enumeration.covers (code g)) ;
+      ideal : FP.FiniteIdeal[f] = FiniteRange[l].Ideal[S.order,f,decide].Present[enumeration.shape,part,bound,covers].ideal ;
+    } ;
+    finite : ScottOrder[l+].Ex (FP.FiniteIdeal[f]) = TL.map ((j : Ix shape) -> BP.FiniteIdeal[b j]) (FP.FiniteIdeal[f])
+      (\ F -> Present[F].ideal) (FiniteEnumeration[l].Tuples.choice shape (\ j -> BP.FiniteIdeal[b j])
+        (\ j -> E.finite-ideals (b j) (E.scott.basis.compact (G.output graph j)))) ;
+  } ;
+  finite-ideals (f : S.Map) (c : DC[S.order,X.scott.complete].Compact f) : ScottOrder[l+].Ex (FP.FiniteIdeal[f]) =
+    T.rec ((k : X.Basis) * (S.LE f (X.basic k) * S.LE (X.basic k) f)) @l+
+      (ScottOrder[l+].Ex (FP.FiniteIdeal[f])) (ScottOrder[l+].prop (FP.FiniteIdeal[f]))
+      (\ w -> TL.map (FP.FiniteIdeal[X.basic w.1]) (FP.FiniteIdeal[f])
+        (\ F -> subst S.Map (\ g -> FP.FiniteIdeal[g]) (X.basic w.1) f (S.ext (X.basic w.1) f w.2.2 w.2.1) F)
+        Basis[w.1].finite) (ScottDomain[l].On[X.scott].compact-basis f c) ;
+  domain : DIDomain[l].DI = new DIDomain[l].DI[scott := X.scott,
+    distributive := StableDistributive[l].Exponential[D,E].distributive, finite-ideals := finite-ideals] ;
+} ;

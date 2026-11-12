@@ -1,0 +1,31 @@
+-- Every seed dI-domain rigidly embeds in a reflexive dI-domain.
+-- No representation of functions or codes is assumed of the seed.
+level l ;
+open Base ; open Prelude[l+] ;
+module On (D : DIDomain[l].DI) {
+  module Tower = RigidExponentialTower[l].On[D] ;
+  domain : DIDomain[l].DI = Tower.domain ;
+  module X = StableFiniteIdeals[l].Exponential[domain,domain] ;
+  module Functions = RigidLimitExponentialLaws[l].On[Tower.chain] ;
+  module Tail = RigidLimitTail[l].On[Tower.chain] ;
+  module Composite = RigidEmbeddingComposition[l].Compose[X.domain,Tail.TD.domain,domain,Functions.embedding,Tail.embedding] ;
+  functions : RigidEmbedding[l].Between[X.domain,domain].Embedding = Composite.embedding ;
+  representation : RigidUniverse[l].On[domain].Representation = RigidEmbeddingComposition[l].Universe[domain,functions].representation ;
+  seed : RigidEmbedding[l].Between[D,domain].Embedding = Tower.seed ;
+  module E = RigidEmbedding[l].Between[X.domain,domain] ;
+  eta (x : domain.scott.order.carrier) : Id domain.scott.order.carrier (E.AB.run functions.embed (E.BA.run functions.project x)) x =
+    trans domain.scott.order.carrier (E.AB.run functions.embed (E.BA.run functions.project x))
+      (Tail.E.AB.run Tail.Cons.map (Tail.E.BA.run Tail.Drop.map x)) x
+      (ap Tail.T.carrier domain.scott.order.carrier (Tail.E.AB.run Tail.Cons.map)
+        (Functions.P.XT.run Functions.P.encode (Functions.P.TX.run Functions.P.decode (Tail.E.BA.run Tail.Drop.map x)))
+        (Tail.E.BA.run Tail.Drop.map x) (Functions.encode-decode (Tail.E.BA.run Tail.Drop.map x))) (Tail.cons-drop x) ;
+  module Seed = RigidEmbedding[l].Between[D,domain] ;
+  faithful (a b : D.scott.order.carrier) (h : Id domain.scott.order.carrier (Seed.AB.run seed.embed a) (Seed.AB.run seed.embed b)) : Id D.scott.order.carrier a b =
+    trans D.scott.order.carrier a (Seed.BA.run seed.project (Seed.AB.run seed.embed a)) b
+      (sym D.scott.order.carrier (Seed.BA.run seed.project (Seed.AB.run seed.embed a)) a (seed.retract a))
+      (trans D.scott.order.carrier (Seed.BA.run seed.project (Seed.AB.run seed.embed a)) (Seed.BA.run seed.project (Seed.AB.run seed.embed b)) b
+        (ap domain.scott.order.carrier D.scott.order.carrier (Seed.BA.run seed.project) (Seed.AB.run seed.embed a) (Seed.AB.run seed.embed b) h) (seed.retract b)) ;
+  module Universe = RigidUniverse[l].On[domain].With[representation] ;
+  module Recursion = RigidUniverseRecursion[l].On[domain,representation.codes] ;
+  self-typing : Id domain.scott.order.carrier (Universe.C.apply Universe.C.universe Universe.C.universe) Universe.C.universe = Universe.C.self-typing ;
+} ;

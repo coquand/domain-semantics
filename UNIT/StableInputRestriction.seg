@@ -1,0 +1,56 @@
+-- Input restriction I_p(f)=f o p is a rigid projection, and depends
+-- stably on the rigid input projection p.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Between (D E : DIDomain[l].DI) {
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module R = RigidProjector[l].On[D.scott] ; module RD = RigidSpace[l].On[D] ;
+  module X = StableFiniteIdeals[l].Exponential[D,E] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ; module BN = ScottMeet[l].On[E.scott] ;
+  module P = ScottProduct[l].Product[RD.domain.scott,X.domain.scott] ;
+  module Projections = StableProduct[l].Product[RD.domain.scott,X.domain.scott] ;
+  module Internal = StableInternalComposition[l].Between[D,D,E] ;
+  first : StableMaps[l].Between[P.scott,RD.X.domain.scott].Map =
+    StableComposition[l].Between[P.scott,RD.domain.scott,RD.X.domain.scott].Compose[Projections.left,RD.inclusion].map ;
+  module Pair = StableProduct[l].Pair[P.scott,RD.X.domain.scott,X.domain.scott,first,Projections.right] ;
+  joint : StableMaps[l].Between[P.scott,X.domain.scott].Map =
+    StableComposition[l].Between[P.scott,Internal.P.scott,X.domain.scott].Compose[Pair.map,Internal.map].map ;
+  module Curry = StableCurrying[l].Between[RD.domain.scott,X.domain,X.domain].Curry[joint] ;
+  module FR = RigidProjector[l].On[X.domain.scott] ;
+  module Out = RigidSpace[l].On[X.domain] ;
+  module End = StableMaps[l].Between[X.domain.scott,X.domain.scott] ;
+  module Composition = StableComposition[l].Between[D.scott,D.scott,E.scott] ;
+  module At (p : RD.I.carrier) {
+    value (f : S.Map) : S.Map = End.run (Curry.value p) f ;
+    computes (f : S.Map) (x : A.C) : Id B.C (S.run (value f) x) (S.run f (RD.run p x)) = refl (S.run f (RD.run p x)) ;
+    below (f : S.Map) : S.LE (value f) f =
+      S.transitive (value f) Composition.Compose[p.1,f].map f
+        (S.equal-below (value f) Composition.Compose[p.1,f].map
+          (\ a -> E.scott.order.reflexive (S.run f (RD.run p (A.basic a))))
+          (\ a -> E.scott.order.reflexive (S.run f (RD.run p (A.basic a)))))
+        (Composition.pre-order p.1 RD.End.identity (RD.bound p) f) ;
+    module Hereditary (g f : S.Map) (h : S.LE g (value f)) {
+      point (x : A.C) : B.LE (S.run g x) (S.run g (RD.run p x)) =
+        E.scott.order.transitive (S.run g x) (BN.meet (S.run g x) (S.run (value f) (RD.run p x))) (S.run g (RD.run p x))
+          (BN.greatest (S.run g x) (S.run (value f) (RD.run p x)) (S.run g x) (E.scott.order.reflexive (S.run g x))
+            (E.scott.order.transitive (S.run g x) (S.run f (RD.run p x)) (S.run f (RD.run p (RD.run p x)))
+              (S.pointwise g (value f) h x)
+              (S.mono f (RD.run p x) (RD.run p (RD.run p x)) (R.output-fixed (RD.decode p) x))))
+          (S.restriction g (value f) h (RD.run p x) x ((RD.decode p).deflation x)) ;
+      result : S.LE g (value g) = S.equal-below g (value g) (\ a -> point (A.basic a)) (below g).1 ;
+    } ;
+    projection : FR.Rigid = new FR.Rigid[operation := (Curry.value p).1,deflation := below,
+      hereditary := \ g f h -> Hereditary[g,f,h].result] ;
+    below-id : End.LE (Curry.value p) Out.End.identity =
+      End.transitive (Curry.value p) (Out.End.from-rigid projection) Out.End.identity
+        (End.equal-below (Curry.value p) (Out.End.from-rigid projection)
+          (\ a -> S.reflexive (value (X.X.basic a))) (\ a -> S.reflexive (value (X.X.basic a))))
+        (Out.End.below-id projection) ;
+    fixed : Out.PR.Fixed Out.Principal.projection (Curry.value p) =
+      Out.Principal.greatest (Curry.value p) (Curry.value p) (End.reflexive (Curry.value p)) below-id ;
+  } ;
+  module Operation = Out.Corestrict[RD.domain.scott,Curry.map,\ p -> At[p].fixed] ;
+  operation : StableMaps[l].Between[RD.domain.scott,Out.domain.scott].Map = Operation.map ;
+  computes (p : RD.I.carrier) (f : S.Map) (x : A.C) :
+    Id B.C (S.run (Out.run (Operation.value p) f) x) (S.run f (RD.run p x)) = refl (S.run f (RD.run p x)) ;
+} ;

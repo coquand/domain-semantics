@@ -1,0 +1,120 @@
+-- Restrict arbitrary argument tests to fitting environments. Only soundness
+-- and the independent typed relation laws enter this bridge.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Syntax[l] ; open SynLemmas[l] ;
+open Subst[l] ; open Presup[l] ; open Cross[l] ; open ExtFilter[l] ; open Domain[l] ;
+module Raw = Filter[l] ; module S = Sem[l] ; module Soundness = Sound[l] ; module Pr = Proj[l] ;
+module Subs = IndependentRelationSubstitutions[l] ;
+module Projection (A : Raw.Filt) (ha : Soundness.TyU A) (x : D) {
+  X : Raw.Filt = Pr.projF A (raw x.1) ;
+  below : Raw.Incl X (raw x.1) = Pr.proj-sub A (raw x.1) ;
+  module Collapse = Pr.Collapse[A,raw x.1,consistent x,ha] ;
+  enlarged (t : Ty) (h : X.mem t) : Soundness.Enl X A t =
+    new Soundness.EnlR[X,A,t,e.v,e.below,
+      Pr.proj-typed A (raw x.1) e.v (new Pr.TInR[A,raw x.1,e.v,e.inA,new Raw.TyInR[A,e.v,e.c,e.inB,e.tp]]),e.c,e.inB,e.tp]
+    where { e : Soundness.Enl (raw x.1) A t = Collapse.proj-enl t h ; } ;
+  typed : Soundness.HasTy X A = enlarged ;
+} ;
+
+-- Every selected entry of a semantic binder factors through this
+-- restriction, including tests whose original argument is untyped.
+module Evaluation (m : Nat) (A : Raw.Filt) (M : Tm (suc m)) (rho : S.Env m) (x : D) {
+  X : Raw.Filt = Pr.projF A (raw x.1) ;
+  Y : Raw.Filt = S.sem (suc m) M (S.extE m rho X) ;
+  H (t : Ty) : Raw.Filt = S.sem (suc m) M (S.extE m rho (Pr.projF A (Raw.prin t))) ;
+  anti (t u : Ty) (le : Le u t) : Raw.Incl (H t) (H u) =
+    S.sem-mono (suc m) M (S.extE m rho (Pr.projF A (Raw.prin t))) (S.extE m rho (Pr.projF A (Raw.prin u)))
+      (S.extE-incl m rho rho (Pr.projF A (Raw.prin t)) (Pr.projF A (Raw.prin u)) (S.envincl-refl m rho)
+        (Pr.proj-mono A A (Raw.prin t) (Raw.prin u) (Raw.incl-refl A) (Raw.prin-anti u t le))) ;
+  entry (t v : Ty) (e : Raw.EntR A (S.fam m M rho) t v) : (H t).mem v =
+    S.sem-mono (suc m) M (S.extE m rho (Raw.prin t)) (S.extE m rho (Pr.projF A (Raw.prin t)))
+      (S.extE-incl m rho rho (Raw.prin t) (Pr.projF A (Raw.prin t)) (S.envincl-refl m rho)
+        (Raw.prin-sub t (Pr.projF A (Raw.prin t))
+          (Pr.proj-typed A (Raw.prin t) t (new Pr.TInR[A,Raw.prin t,t,le-refl t,e.1])))) v e.2 ;
+  at (t : Ty) (h : In x t) : Raw.Incl (H t) Y =
+    S.sem-mono (suc m) M (S.extE m rho (Pr.projF A (Raw.prin t))) (S.extE m rho X)
+      (S.extE-incl m rho rho (Pr.projF A (Raw.prin t)) X (S.envincl-refl m rho)
+        (Pr.proj-mono A A (Raw.prin t) (raw x.1) (Raw.incl-refl A) (Raw.prin-sub t (raw x.1) h))) ;
+  apply (t : Ty) (w : Raw.AppW (Raw.lamF A (S.fam m M rho)) (raw x.1) t) : Y.mem t =
+    at w.x w.inx t ((H w.x).fup i.2.1 t i.2.2.2.2
+      (Raw.Entries[H,anti,Raw.EntR A (S.fam m M rho),entry].sel w.ing.f i.1 i.2.1 i.2.2.1 w.ing.ents w.x i.2.2.2.1))
+    where { i : InvArr w.ing.f w.x t = inv-arr w.ing.f w.x t (le-trans w.ing.f w.g (arr w.x t) w.ing.le w.le) ; } ;
+  module Lift (Q : ScottPredicates[l].On[ScottFilter[l].scott].Predicate) (f : D)
+    (inside : ExtFilter[l].Sub f.1 (reflect (Raw.lamF A (S.fam m M rho)))) (h : Subs.Observed Q Y) {
+    L : Raw.Filt = Raw.lamF A (S.fam m M rho) ;
+    at-observation (k : K) (w : Raw.AppW (raw f.1) (raw x.1) k.1) : Q.holds (principal k) =
+      ex-elim (L.mem w.g) (Q.holds (principal k)) (Q.proposition (principal k))
+        (\ lw -> h k (apply k.1 (new Raw.AppWR[L,raw x.1,k.1,w.g,w.x,lw,w.inx,w.le]))) (inside w.g w.ing) ;
+    result : Q.holds (Application[l].eval f x) =
+      ScottPredicates[l].On[ScottFilter[l].scott].Reconstruct[Q].Comparison.backward (Application[l].eval f x)
+        (\ k below -> ex-elim (Raw.AppW (raw f.1) (raw x.1) k.1) (Q.holds (principal k)) (Q.proposition (principal k))
+          (at-observation k) (below k.1 (prin-in k.1))) ;
+  } ;
+} ;
+
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module F = IndependentFundamentalRules[l].At[n,Delta,wellformed] ;
+  module Structural = IndependentFundamentalStructural[l].At[n,Delta,wellformed] ;
+  module RS = Subs.At[n,Delta] ; module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  module Rules = IndependentRelationRules[l].At[n,Delta] ; module Laws = IndependentRelationRawLaws[l].At[n,Delta] ;
+  module Under (m : Nat) (G : Ctx m) (A : Tm m) (dA : Der m (jty G A (uu m)))
+    (rA : F.Fundamental m G A A (uu m))
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (r : RS.Related[m,G,rho,s,s'])
+    (N N' : Tm n) (en : Der n (jeq Delta N N' (Sub.trav m A n s)))
+    (x : D) (hx : Rules.Term x (Sub.trav m A n s) N N') {
+    As : Tm n = Sub.trav m A n s ; As' : Tm n = Sub.trav m A n s' ;
+    hA : Soundness.TyU (S.sem m A rho) = Soundness.tyu-of m A rho (Soundness.soundness-ty m G A (uu m) dA rho fits) ;
+    module P = Projection[S.sem m A rho,hA,x] ;
+    module Operations = Laws.On[P.X,S.sem m A rho,P.typed,hA] ;
+    ea : Der n (jeq Delta As As' (uu n)) = subst-cross m n G Delta s s' A (uu m) dA r.ok r.ok' r.eq wellformed ;
+    da' : Der n (jty Delta As' (uu n)) = sub-der m (jty G A (uu m)) dA n Delta s' r.ok' wellformed ;
+    en' : Der n (jeq Delta N' N As') = eq-conv n Delta N' N As As'
+      (eq-sym n Delta N N' As en) ea da' ;
+    left : RS.Term P.X As N N' = \ k hk ->
+      (I.relation.tm As N N').lower (principal k) x (prin-sub k.1 x.1 (P.below k.1 hk)) hx ;
+    right : RS.Term P.X As' N N' = Operations.conversion As As' N N'
+      (Laws.to-type (S.sem m A rho) As As' (rA rho fits s s' r).1) left ;
+    module Extension = RS.Extension[m,G,A,rho,P.X,s,s',N,N',r,en,en',(left,right)] ;
+    extended : S.Env (suc m) = S.extE m rho P.X ;
+    fitted : Soundness.Fits (suc m) (ext m G A) extended = (fits,(hA,P.typed)) ;
+    inst (t : Fin m -> Tm n) (Z : Tm (suc m)) (V : Tm n) : Tm n =
+      subst1 n (Sub.trav (suc m) Z (suc n) (Sub.lift m n t)) V ;
+    transport (B M M' : Tm (suc m))
+      (h : RS.Term (S.sem (suc m) M extended) (Sub.trav (suc m) B n (Subs.extendS m n s N))
+        (Sub.trav (suc m) M n (Subs.extendS m n s N)) (Sub.trav (suc m) M' n (Subs.extendS m n s' N'))) :
+      RS.Term (S.sem (suc m) M extended) (inst s B N) (inst s M N) (inst s' M' N') =
+      subst (Tm n) (\ Z -> RS.Term (S.sem (suc m) M extended) (inst s B N) (inst s M N) Z)
+        (Sub.trav (suc m) M' n (Subs.extendS m n s' N')) (inst s' M' N')
+        (sym (Tm n) (inst s' M' N') (Sub.trav (suc m) M' n (Subs.extendS m n s' N')) (Subs.extend-equation m n s' N' M'))
+        (subst (Tm n) (\ Z -> RS.Term (S.sem (suc m) M extended) (inst s B N) Z (Sub.trav (suc m) M' n (Subs.extendS m n s' N')))
+          (Sub.trav (suc m) M n (Subs.extendS m n s N)) (inst s M N)
+          (sym (Tm n) (inst s M N) (Sub.trav (suc m) M n (Subs.extendS m n s N)) (Subs.extend-equation m n s N M))
+          (RS.term-index (S.sem (suc m) M extended) (Sub.trav (suc m) B n (Subs.extendS m n s N)) (inst s B N)
+            (Sub.trav (suc m) M n (Subs.extendS m n s N)) (Sub.trav (suc m) M' n (Subs.extendS m n s' N'))
+            (sym (Tm n) (inst s B N) (Sub.trav (suc m) B n (Subs.extendS m n s N)) (Subs.extend-equation m n s N B)) h)) ;
+    body (B M M' : Tm (suc m)) (ih : F.Fundamental (suc m) (ext m G A) M M' B) :
+      RS.Term (S.sem (suc m) M extended) (inst s B N) (inst s M N) (inst s' M' N') =
+      transport B M M' (ih extended fitted (Subs.extendS m n s N) (Subs.extendS m n s' N') Extension.related).1 ;
+  } ;
+  module Outputs (m : Nat) (G : Ctx m) (A : Tm m) (B M M' : Tm (suc m))
+    (dA : Der m (jty G A (uu m))) (dM : Der (suc m) (jty (ext m G A) M B))
+    (rA : F.Fundamental m G A A (uu m))
+    (self : F.Fundamental (suc m) (ext m G A) M M B) (cross : F.Fundamental (suc m) (ext m G A) M M' B)
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (r : RS.Related[m,G,rho,s,s'])
+    (N N' : Tm n) (en : Der n (jeq Delta N N' (Sub.trav m A n s)))
+    (x : D) (hx : Rules.Term x (Sub.trav m A n s) N N') {
+    module Test = Under[m,G,A,dA,rA,rho,fits,s,s',r,N,N',en,x,hx] ;
+    module L = Under[m,G,A,dA,rA,rho,fits,s,s,RS.diagonal m G rho s s' r,N,N',en,x,hx] ;
+    module Z = Under[m,G,A,dA,rA,rho,fits,s,s',r,N,N,
+      eq-refl n Delta N (Sub.trav m A n s) (eq-pre n (jeq Delta N N' (Sub.trav m A n s)) en).1,x,
+      IndependentRelationDiagonal[l].At[n,Delta].terms (Sub.trav m A n s) N N' x hx] ;
+    module Ops = Structural.Typed[suc m,ext m G A,M,B,dM,Test.extended,Test.fitted].Operations ;
+    V : Tm n = Test.inst s B N ; P : Tm n = Test.inst s M N ; P' : Tm n = Test.inst s M N' ;
+    Q : Tm n = Test.inst s' M' N ; Q' : Tm n = Test.inst s' M' N' ;
+    Y : Raw.Filt = S.sem (suc m) M Test.extended ;
+    left : RS.Term Y V P P' = L.body B M M self ;
+    across : RS.Term Y V P Q' = Test.body B M M' cross ;
+    right : RS.Term Y V Q Q' = Ops.transitivity V Q P Q'
+      (Ops.symmetry V P Q (Z.body B M M' cross)) across ;
+  } ;
+} ;

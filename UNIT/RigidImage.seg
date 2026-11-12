@@ -1,0 +1,61 @@
+-- The fixed image of a rigid projection, with its inherited compact basis.
+-- No finiteness, distributivity, choice, or decidability is required.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+
+module Image (S : ScottDomain[l].Scott) (p : RigidProjector[l].On[S].Rigid) {
+  module A = ScottDomain[l].On[S] ; open A ;
+  module R = RigidProjector[l].On[S] ;
+  module M = ScottMaps[l].Between[S,S] ;
+  module O = ScottOrder[l].On[P] ;
+  module V = DC[P,S.complete] ;
+  carrier : U l+ = (x : C) * R.Fixed p x ;
+  le (x y : carrier) : U l = LE x.1 y.1 ;
+  ext (x y : carrier) (xy : le x y) (yx : le y x) : Id carrier x y =
+    Sigma-eq C (\ z -> R.Fixed p z) x.1 y.1 x.2 y.2 (P.antisymmetric x.1 y.1 xy yx) (R.fixed-prop p y.1) ;
+  order : Order = new Order[carrier := carrier, le := le,
+    proposition := \ x y -> P.proposition x.1 y.1,
+    reflexive := \ x -> P.reflexive x.1,
+    transitive := \ x y z -> P.transitive x.1 y.1 z.1,
+    antisymmetric := ext] ;
+  module Q = ScottOrder[l].On[order] ;
+  -- Every existing ambient join of fixed points is fixed, including empty joins.
+  closed (I : U l) (x : I -> carrier) (z : C) (h : O.Lub I (\ i -> (x i).1) z) : R.Fixed p z =
+    h.2 (R.run p z) (\ i -> R.greatest p z (x i).1 (x i).2 (h.1 i)) ;
+  lift-sup (I : U l) (x : I -> carrier) (s : O.Supremum I (\ i -> (x i).1)) : Q.Supremum I x =
+    ((s.1,closed I x s.1 s.2),(s.2.1,\ y h -> s.2.2 y.1 h)) ;
+  complete : Complete[order] = new Complete[order,
+    directed := \ I x d -> lift-sup I x (S.complete.directed I (\ i -> (x i).1) d),
+    bounded := \ I x b h -> lift-sup I x (S.complete.bounded I (\ i -> (x i).1) b.1 h)] ;
+  module W = DC[order,complete] ;
+  ambient-to-image (x : carrier) (c : V.Compact x.1) : W.Compact x = \ I y d h -> c I (\ i -> (y i).1) d h ;
+  index : U l = (a : B) * R.Fixed p (basic a) ;
+  basic-fixed (a : index) : carrier = (basic a.1,a.2) ;
+  below-index (x : carrier) : U l = (a : index) * le (basic-fixed a) x ;
+  below-part (x : carrier) (a : below-index x) : carrier = basic-fixed a.1 ;
+  include (x : carrier) (a : BI x.1) : below-index x =
+    ((a.1,R.downward p (basic a.1) x.1 a.2 x.2),a.2) ;
+  directed (x : carrier) : Q.Dir (below-index x) (below-part x) =
+    (T.map (BI x.1) (below-index x) (include x) (dir x.1).1,
+      \ a b -> T.map (O.Upper (BI x.1) (part x.1) (a.1.1,a.2) (b.1.1,b.2))
+        (Q.Upper (below-index x) (below-part x) a b)
+        (\ w -> (include x w.1,w.2)) ((dir x.1).2 (a.1.1,a.2) (b.1.1,b.2))) ;
+  density (x y : carrier) (h : (a : index) -> le (basic-fixed a) x -> le (basic-fixed a) y) : le x y =
+    S.basis.density x.1 y.1 (\ a ax -> h (a,R.downward p (basic a) x.1 ax x.2) ax) ;
+  basis : ScottDomain[l].Basis[order,complete] = new ScottDomain[l].Basis[order,complete,
+    index := index, basic := basic-fixed,
+    compact := \ a -> ambient-to-image (basic-fixed a) (S.basis.compact a.1),
+    directed := directed, density := density] ;
+  bottom : carrier = (S.bottom,S.bottom-least (R.run p S.bottom)) ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order, complete := complete,
+    basis := basis, bottom := bottom, bottom-least := \ x -> S.bottom-least x.1] ;
+  module F = ScottDomain[l].On[scott] ;
+  image-to-ambient (x : carrier) (c : W.Compact x) : V.Compact x.1 = \ I y d h ->
+    T.bind ((a : index) * (le x (basic-fixed a) * le (basic-fixed a) x))
+      ((i : I) * LE x.1 (y i))
+      (\ w -> T.map ((i : I) * LE (basic w.1.1) (y i)) ((i : I) * LE x.1 (y i))
+        (\ z -> (z.1,P.transitive x.1 (basic w.1.1) (y z.1) w.2.1 z.2))
+        (S.basis.compact w.1.1 I y d
+          (P.transitive (basic w.1.1) x.1 (V.sup I y d) w.2.2 h))) (F.compact-basis x c) ;
+} ;

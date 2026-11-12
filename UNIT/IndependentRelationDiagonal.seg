@@ -1,0 +1,38 @@
+-- Left diagonals require no semantic typing hypothesis. The three
+-- self/cross conclusions in the clauses are essential to this proof.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+module Tr = TruncationCombinators[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module C = LogicalRelationClauses[l].At[n,Delta] ;
+  module TC = LogicalRelationTypeClause[l].At[n,Delta] ;
+  module St = LogicalRelationStages[l].At[n,Delta] ;
+  module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  TypeDiagonal (S : C.TypeFamily) : U l+ = (T T' : Tm n) -> (x : D) -> (S T T').holds x -> (S T T).holds x ;
+  TermDiagonal (R : C.TermFamily) : U l+ = (T M M' : Tm n) -> (x : D) -> (R T M M').holds x -> (R T M M).holds x ;
+  module TypeStep (R : C.TermFamily) (S : C.TypeFamily) (diagonal : TypeDiagonal S) (T T' : Tm n) {
+    module Before = TC.Step[R,S,T,T'] ; module After = TC.Step[R,S,T,T] ;
+    witness (x : D) (hp : Parts[l].PHead x) (w : Before.AtHead[x,hp].Data.Witness) : After.AtHead[x,hp].Data.Witness =
+      ((w.1.1,w.1.1),((w.2.1.1,(w.2.1.1,
+        (eq-refl n Delta w.1.1.1 (uu n) (Presup[l].eq-pre n (jeq Delta w.1.1.1 w.1.2.1 (uu n)) w.2.1.2.2.1).1,
+         eq-refl (suc n) (ext n Delta w.1.1.1) w.1.1.2 (uu (suc n))
+           (Presup[l].eq-pre (suc n) (jeq (ext n Delta w.1.1.1) w.1.1.2 w.1.2.2 (uu (suc n))) w.2.1.2.2.2).1))),
+        (diagonal w.1.1.1 w.1.2.1 Parts[l].PiParts[x,hp].domain w.2.2.1,
+         \ e k hk -> ((w.2.2.2 e k hk).1,((w.2.2.2 e k hk).1,(w.2.2.2 e k hk).1))))) ;
+    result (x : D) (h : Before.predicate.holds x) : After.predicate.holds x = After.fold x
+      (\ hu -> Tr.map Before.Universe After.Universe (\ w -> (w.1,w.1)) (h.1 hu),
+       \ hp -> Tr.map Before.AtHead[x,hp].Data.Witness After.AtHead[x,hp].Data.Witness
+         (witness x hp) ((Before.unfold x h).2 hp)) ;
+  } ;
+  initial : TypeDiagonal St.initial.ty = \ T T' x h hu ->
+    Tr.map St.Initial[T,T'].Evidence St.Initial[T,T].Evidence (\ w -> (w.1,w.1)) (h hu) ;
+  type-stage : (d : Nat) -> TypeDiagonal (St.stage d).ty = split {
+    zero -> initial ;
+    suc d | ih -> \ T T' -> TypeStep[(St.stage d).tm,(St.stage d).ty,ih,T,T'].result } ;
+  term-stage : (d : Nat) -> TermDiagonal (St.stage d).tm = split {
+    zero -> \ T -> initial ;
+    suc d -> \ T M M' x h -> (type-stage (suc d) M M' x h.1,
+      \ e k hk -> ((h.2 e k hk).1,((h.2 e k hk).1,(h.2 e k hk).1))) } ;
+  types : TypeDiagonal I.relation.ty = \ T T' x h d -> type-stage d T T' (CorrectedStages[l].approximate d x) (h d) ;
+  terms : TermDiagonal I.relation.tm = \ T M M' x h d -> term-stage d T M M' (CorrectedStages[l].approximate d x) (h d) ;
+} ;

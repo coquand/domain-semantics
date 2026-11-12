@@ -1,0 +1,45 @@
+-- The independent fundamental lemma, by one induction on derivations.
+-- No old logical relation, adequacy theorem, or syntactic Pi inversion
+-- is used by this module or its standalone dependency closure.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open Presup[l] ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module F = IndependentFundamentalRules[l].At[n,Delta,wellformed] ;
+  module Structural = IndependentFundamentalStructural[l].At[n,Delta,wellformed] ;
+  module Applications = IndependentFundamentalApplication[l].At[n,Delta,wellformed] ;
+  module Pi = IndependentFundamentalPi[l].At[n,Delta,wellformed] ;
+  module Lambdas = IndependentFundamentalLambda[l].At[n,Delta,wellformed] ;
+  module Extensionality = IndependentFundamentalExtensionality[l].At[n,Delta,wellformed] ;
+  Judgement (m : Nat) : Jf m -> U l+ = split {
+    jwf G -> Top ;
+    jty G M A -> F.Fundamental m G M M A ;
+    jeq G M N A -> F.Fundamental m G M N A } ;
+  fundamental : (m : Nat) -> (J : Jf m) -> Der m J -> Judgement m J = split {
+    wf-emp -> tt ;
+    wf-ext m G A h -> tt ;
+    ty-var m G i h -> F.variable m G i ;
+    ty-conv m G M A B h1 h2 h3 | r1 r2 r3 -> Structural.conversion m G M M A B h1 r1 r2 ;
+    ty-U m G h -> F.universe m G ;
+    ty-Pi m G A B h1 h2 | r1 r2 -> Pi.formation m G A B h1 h2 r1 r2 ;
+    ty-Lam m G A B M h1 h2 h3 | r1 r2 r3 -> Lambdas.lambda m G A B M h1 h2 h3 r1 r3 ;
+    ty-App m G A B f a h1 h2 h3 h4 | r1 r2 r3 r4 ->
+      Applications.application m G A B f f a a h1 h2 h3 (eq-refl m G a A h4) r3 r4 r2 ;
+    eq-refl m G M A h | r -> r ;
+    eq-sym m G M N A h | r -> Structural.symmetry m G M N A h r ;
+    eq-trans m G M N P A h1 h2 | r1 r2 -> Structural.transitivity m G M N P A h1 r1 r2 ;
+    eq-conv m G M N A B h1 h2 h3 | r1 r2 r3 ->
+      Structural.conversion m G M N A B (eq-pre m (jeq G M N A) h1).1 r1 r2 ;
+    eq-beta m G A B M a h1 h2 h3 h4 | r1 r2 r3 r4 -> F.beta m G A B M a h1 h2 h3 h4 r3 r4 ;
+    eq-Pi m G A A' B B' h1 h2 h3 h4 h5 | r1 r2 r3 r4 r5 ->
+      Pi.equality m G A A' B B' h1 h2 h3 h4 h5 r1 r4 r2 r5 ;
+    eq-funext m G A B f g h1 h2 h3 h4 | r1 r2 r3 r4 ->
+      Extensionality.extensionality m G A B f g h1 h2 h3 h4 r1 r2 ;
+    eq-app-fun m G A B f f' a h1 h2 h3 h4 | r1 r2 r3 r4 ->
+      Applications.application m G A B f f' a a h1 h2 (eq-pre m (jeq G f f' (pp m A B)) h3).1 (eq-refl m G a A h4) r3 r4 r2 ;
+    eq-app-arg m G A B f a a' h1 h2 h3 h4 | r1 r2 r3 r4 ->
+      Applications.application m G A B f f a a' h1 h2 h3 h4 r3 r4 r2 } ;
+  typing (m : Nat) (G : Ctx m) (M A : Tm m) (d : Der m (jty G M A)) : F.Fundamental m G M M A =
+    fundamental m (jty G M A) d ;
+  equality (m : Nat) (G : Ctx m) (M N A : Tm m) (d : Der m (jeq G M N A)) : F.Fundamental m G M N A =
+    fundamental m (jeq G M N A) d ;
+} ;

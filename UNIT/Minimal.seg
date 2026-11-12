@@ -1,0 +1,109 @@
+-- Minimal invariance by induction on proper tokens.
+-- Phi(delta) is the action of the domain functor on delta in both
+-- variances, conjugated by the checked domain equation.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ;
+open Abstraction[l] ; open Parts[l] ; open Lifting[l] ; open Sum[l] ;
+module P = Prelude[l+] ;
+
+arrow-map (d : Map) (f : FD) : Map = Maps[l].compose d (Maps[l].compose (apply f) d) ;
+arrow (d : Map) (f : FD) : FD = abstract (arrow-map d f) ;
+
+module Kill (d : Map) (strict : Maps[l].Strict d) (f : FD) (h : Equal f.1 bottom) {
+  at (x : D) : Equal (run (arrow-map d f) x) (run (apply bottom-function) x) =
+    eqv-trans (run (arrow-map d f) x).1 bottom.1 (run (apply bottom-function) x).1
+      (eqv-trans (run (arrow-map d f) x).1 (run d bottom).1 bottom.1
+        (Maps[l].respects d (Application[l].eval f.1 (run d x)) bottom
+          (eqv-trans (Application[l].eval f.1 (run d x)).1 (Application[l].eval bottom (run d x)).1 bottom.1
+            (Application[l].mono f.1 bottom (run d x) (run d x) h.1 (sub-refl (run d x).1),
+             Application[l].mono bottom f.1 (run d x) (run d x) h.2 (sub-refl (run d x).1))
+            (Maps[l].app-bottom (run d x)))) strict)
+      (eqv-sym (Application[l].eval bottom x).1 bottom.1 (Maps[l].app-bottom x)) ;
+  path : Id FD (arrow d f) bottom-function =
+    P.trans FD (arrow d f) (abstract (apply bottom-function)) bottom-function
+      (P.ap Map FD abstract (arrow-map d f) (apply bottom-function)
+        (Continuous[l].ext (arrow-map d f) (apply bottom-function) at)) (eta bottom-function) ;
+  equality : Equal (arrow d f).1 bottom =
+    id-eqv (arrow d f).1.1 bottom.1
+      (P.ap FD Filt (\ z -> z.1.1) (arrow d f) bottom-function path) ;
+} ;
+
+action-data (d : Map) (s : Data) : Data =
+  (s.1,((s.2.1.1,\ p -> (run d (PA s p),arrow d (PF s p))),arrow d (FN s))) ;
+action (d : Map) (strict : Maps[l].Strict d) (s : RHS) : RHS =
+  (action-data d s.1,(s.2.1,
+    (\ u -> Kill[d,strict,FN s.1,s.2.2.1 u].equality,
+     \ p -> Kill[d,strict,FN s.1,s.2.2.2 p].equality))) ;
+Phi (d : Map) (strict : Maps[l].Strict d) (x : D) : D = encode (action d strict (decode x)) ;
+
+module Least (d : Map) (strict : Maps[l].Strict d)
+  (prefixed : (x : D) -> Domain[l].Below (Phi d strict x) (run d x)) {
+  A (s : Ty) : U l+ = Good s -> (x : D) -> In x s -> In (run d x) s ;
+  B (s : Ty) : U l+ = Good s -> Arrows s -> (f : FD) -> In f.1 s -> In (arrow d f).1 s ;
+
+  arrow-step (a b : Ty) (ia : A a) (ib : A b) (p : Good (arr a b))
+    (f : FD) (h : In f.1 (arr a b)) : In (arrow d f).1 (arr a b) =
+    Lambda[arrow-map d f].entry a b
+      (new Lambda[arrow-map d f].Entry[a,b,p.1,p.2.1,p.2.2,
+        ib p.2.2 (Application[l].eval f.1 (run d (principal (a,(p.1,p.2.1)))))
+          (Application[l].intro f.1 (run d (principal (a,(p.1,p.2.1)))) (arr a b) a b h
+            (ia p.1 (principal (a,(p.1,p.2.1))) (prin-in a)) (le-refl (arr a b)))]) ;
+
+  arr-at (a b : Ty) (ia : A a) (ib : A b) (p : Good (arr a b)) (x : D) (h : In x (arr a b)) : In (run d x) (arr a b) =
+    prefixed x (arr a b)
+      (ex (Encode[action d strict (decode x)].W (arr a b))
+        (wf (arr a b) (arrow-step a b ia ib p (abstract (Application[l].map x))
+          (Lambda[Application[l].map x].entry a b
+            (new Lambda[Application[l].map x].Entry[a,b,p.1,p.2.1,p.2.2,
+              Application[l].intro x (principal (a,(p.1,p.2.1))) (arr a b) a b h (prin-in a) (le-refl (arr a b))]))))) ;
+
+  pi-at (a f : Ty) (ia : A a) (bf : B f) (p : Good (pi a f)) (x : D) (h : In x (pi a f)) : In (run d x) (pi a f) =
+    prefixed x (pi a f) (ex (Encode[action d strict (decode x)].W (pi a f))
+      (wp (pi a f) (pi-head x a f h) a f
+        (ia p.1 Parts[l].PiParts[x,pi-head x a f h].domain (pi-domain x a f h))
+        (bf p.2.1 p.2.2 Parts[l].PiParts[x,pi-head x a f h].family (pi-family x a f h))
+        (le-refl (pi a f)))) ;
+
+  induction : (s : Ty) -> A s * B s = split {
+    om -> (\ p x h -> fom (run d x).1,\ p a f h -> fom (arrow d f).1.1) ;
+    univ -> (\ p x h -> prefixed x univ (ex (Encode[action d strict (decode x)].W univ) (wu univ h (le-refl univ))),
+      \ p a f h -> absurd (In (arrow d f).1 univ) a) ;
+    pi a f | ra rf -> (pi-at a f ra.1 rf.2,\ p ar f' h -> absurd (In (arrow d f').1 (pi a f)) ar) ;
+    arr a b | ra rb -> (arr-at a b ra.1 rb.1,\ p ar -> arrow-step a b ra.1 rb.1 p) ;
+    meet a b | ra rb ->
+      (\ p x h -> fmeet (run d x).1 a b
+        (ra.1 p.1 x (fup x.1 (meet a b) a (le-meet-l a b) h))
+        (rb.1 p.2 x (fup x.1 (meet a b) b (le-meet-r a b) h)),
+       \ p ar f h -> fmeet (arrow d f).1.1 a b
+        (ra.2 p.1 ar.1 f (fup f.1.1 (meet a b) a (le-meet-l a b) h))
+        (rb.2 p.2 ar.2 f (fup f.1.1 (meet a b) b (le-meet-r a b) h))) } ;
+
+  least (x : D) : Domain[l].Below x (run d x) = \ t h ->
+    ex-elim (Domain[l].PW x.1 t) (In (run d x) t) (fprop (run d x).1 t)
+      (\ w -> fup (run d x).1 w.1 t w.2.2.2 ((induction w.1).1 w.2.1 x w.2.2.1)) (x.2.2 t h) ;
+} ;
+
+id-strict : Maps[l].Strict Maps[l].identity = eqv-refl bottom.1 ;
+arrow-id (f : FD) : Id FD (arrow Maps[l].identity f) f =
+  P.trans FD (arrow Maps[l].identity f) (abstract (apply f)) f
+    (P.ap Map FD abstract (arrow-map Maps[l].identity f) (apply f)
+      (Continuous[l].ext (arrow-map Maps[l].identity f) (apply f) (\ x -> eqv-refl (Application[l].eval f.1 x).1))) (eta f) ;
+action-id (s : RHS) : Id RHS (action Maps[l].identity id-strict s) s =
+  P.Sigma-eq Data (\ z -> Compatible z) (action Maps[l].identity id-strict s).1 s.1
+    (action Maps[l].identity id-strict s).2 s.2
+    (pair-path Prop (Lift (D * FD) * FD) s.1.1 s.1.1 (action Maps[l].identity id-strict s).1.2 s.1.2 (refl s.1.1)
+      (pair-path (Lift (D * FD)) FD (action Maps[l].identity id-strict s).1.2.1 s.1.2.1
+        (arrow Maps[l].identity (FN s.1)) (FN s.1)
+        (Lifting[l].ext (D * FD) (action Maps[l].identity id-strict s).1.2.1 s.1.2.1 (\ p -> p) (\ p -> p)
+          (\ p q -> pair-path D FD (PA s.1 p) (PA s.1 q)
+            (arrow Maps[l].identity (PF s.1 p)) (PF s.1 q)
+            (P.ap (PH s.1) D (PA s.1) p q (s.1.2.1.1.2 p q))
+            (P.trans FD (arrow Maps[l].identity (PF s.1 p)) (PF s.1 p) (PF s.1 q)
+              (arrow-id (PF s.1 p)) (P.ap (PH s.1) FD (PF s.1) p q (s.1.2.1.1.2 p q)))))
+        (arrow-id (FN s.1)))) (compatible-prop s.1) ;
+
+identity-fixed (x : D) : Id D (Phi Maps[l].identity id-strict x) x =
+  P.trans D (Phi Maps[l].identity id-strict x) (encode (decode x)) x
+    (P.ap RHS D encode (action Maps[l].identity id-strict (decode x)) (decode x) (action-id (decode x)))
+    Equation[l].Reconstruct[x].equation ;

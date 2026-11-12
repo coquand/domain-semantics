@@ -1,0 +1,221 @@
+Section 2.4: the fixed-point alternative
+======================================
+
+Status (2026-11-11)
+------------------
+
+The recursive equations are now checked in Unit for the actual domain D,
+without well-typedness assumptions on their arguments. Leastness among
+continuous binary maps satisfying the recursive lower clauses is checked.
+Every such least solution is proved to have finitary-projector operations,
+by identification with the compact-family construction. The full check
+has 4,562 declarations and no failures.
+
+The explicit guarded functional Phi, its joint directed continuity and
+its particular Kleene sequence are now checked. KleeneProjector constructs
+p from the iterates starting at bottom, proves the fixed-point equation
+and leastness, and only then identifies it with the typed compact-family
+projector. Finitariness and normalization are transferred by that
+identification. The separate invariant proof for every individual iterate
+described below remains informal.
+
+The corrected rank-stage version of 2.27 now also has a DIRECT fixed-point
+proof in OperationalStages. StageFusion proves that one unfolding lowers
+the comparison stage, so stage-n observations stabilize at P_(n+1).
+This uses neither StageInterpolation nor KleeneProjector.identification.
+The earlier StageCompatibility theorem uses bounded MIN typing and the
+two-sided interpolation lemma; StageComparison relates the constructions
+and transfers finitariness. Thus the direct compatibility proof is complete,
+while the independent per-iterate finitariness/normalization invariant
+proof below remains informal. The unamended printed conventions still have the checked
+StageBaseObstruction. PROPOSITION227.txt gives both statements and their
+precise scope. Kleene iteration numbers below measure unfoldings of Phi,
+not domain-stage rank.
+
+1. Define the recursive functional
+---------------------------------
+
+For a continuous binary map P : D x D -> D, define Q = Phi(P) by:
+
+  Q(U,U)             = U
+  Q(U,Pi(A,B))       = Pi(P(U,A), lambda x. P(U,B(P(A,x))))
+  Q(Pi(A,B),f)       = lambda x. P(B(P(A,x)), app(f,P(A,x)))
+  Q(A,f)             = bottom in the remaining constructor cases.
+
+The function clause applies to every f; for a data constructor f its
+application is bottom. When P is strict in its second argument this agrees
+with the indicated zero cases. Bottom is the bottom function element as
+well as the least element of D, so the unlifted function summand must not
+introduce a second bottom.
+
+Phi is monotone and continuous in P: the clauses use continuous
+constructors, application and evaluation of continuous maps, with only
+finitely many nested occurrences of P. At a directed supremum a common
+index captures the finitely many observations. The pattern matching is
+continuous on the coalesced sum: positive U/Pi heads are observable and
+the defaults at absent heads are bottom. Constructively, perform this
+argument on compact observations and extend by directed suprema; do not
+decide the head of an arbitrary partial element.
+
+Hence set P_0 = bottom and P_(n+1) = Phi(P_n), and p = sup_n P_n.
+Continuity gives Phi(p) = p; induction gives p <= R whenever Phi(R) <= R.
+Neither existence nor this leastness argument assumes that P_n or p is
+a projector.
+
+2. The two simultaneous invariants
+---------------------------------
+
+An independent proof that this p is a finitary projector can establish,
+simultaneously for each approximant P:
+
+  (F) For every A, P(A,-) is a finitary projector.
+  (N) P(P(U,A),x) = P(A,x), for every A,x.
+
+Joint continuity is maintained by construction. The bottom map satisfies
+both invariants. The extra normalization invariant (N) is essential to
+the universe/Pi idempotence calculation.
+
+Write R = P(A,-), S_v = P(B(v),-). The function clause of Q is
+
+  T(f)(x) = S_(R x)(app(f,R x)).
+
+It is deflationary: R x <= x and S_v <= id, followed by the domain's
+lambda/application inequality. For idempotence, put v = R x. Then
+
+  T(T(f))(x) = S_v(S_v(app(f,v))) = S_v(app(f,v)),
+
+using R v = v. Thus each Pi-indexed operation of Q is a projector.
+
+For Q(U,-), applying its Pi clause twice gives the same domain because
+P(U,-) is idempotent, and the same family because
+
+  P(P(U,A),-) = P(A,-),
+  P(U,P(U,z)) = P(U,z),
+  P(A,P(A,x)) = P(A,x).
+
+For normalization of Q, the substantive case is the type input Pi(A,B).
+Let A' = P(U,A) and B'(x) = P(U,B(P(A,x))). Then
+
+  Q(Q(U,Pi(A,B)),f)(x)
+    = P(B'(P(A',x)), app(f,P(A',x)))
+    = P(P(U,B(P(A,x))), app(f,P(A,x)))
+    = P(B(P(A,x)), app(f,P(A,x)))
+    = Q(Pi(A,B),f)(x).
+
+The second line uses normalization and idempotence for P; the third uses
+normalization once more, at B(P(A,x)). The U and zero cases are immediate.
+These calculations establish deflation, idempotence and (N) for Q.
+
+3. Why the successor projectors are FINITARY
+------------------------------------------
+
+Idempotence alone does not suffice. One must show compact fixed-point
+density, and there are two cases.
+
+Function case. Suppose g = T(g). A finite observation of g is a finite
+set of step demands k_i -> v_i. Since g = g o R, continuity and compact
+fixed-point density for R give compact fixed inputs u_i <= k_i with
+v_i <= g(u_i). Since g(u_i) is fixed by S_(u_i), choose compact fixed
+outputs w_i of S_(u_i), with v_i <= w_i <= g(u_i).
+
+Each step u_i -> w_i is fixed by T. Indeed, u_i <= x iff u_i <= R x,
+and whenever it fires, monotonicity of v |-> S_v gives
+S_(u_i) <= S_(R x), so w_i is fixed by S_(R x). Their compatible finite
+join is fixed too, is below g, and covers the original finite observation.
+This gives the required compact fixed-point basis.
+
+Universe case. Suppose Pi(A,B) is fixed by Q(U,-). Then
+
+  A = P(U,A),       B = P(U,-) o B o P(A,-).
+
+Start with a finite observation consisting of a compact domain demand a_0
+and finitely many family demands k_i -> v_i. As in the function case,
+find compact u_i fixed by P(A,-), below k_i, and compact w_i fixed by
+P(U,-), with v_i <= w_i <= B(u_i).
+
+Here is the additional finite-witness argument. A is the directed supremum
+of the compact fixed points a of P(U,-) below it. Continuity in the TYPE
+argument, and compactness of u_i, give such an a with u_i <= P(a,u_i).
+Deflation then makes this an equality. Choose a single a also above a_0
+and all the finitely many required domain witnesses. Put
+
+  g = join_i (u_i -> w_i).
+
+Now a = P(U,a), every u_i is fixed by P(a,-), and every w_i is fixed by
+P(U,-). Consequently Pi(a,g) is a compact fixed point of Q(U,-), below
+Pi(A,B), covering the original observation. This proves finitariness in
+the universe case. No bound on syntactic ranks is used.
+
+4. Passing to the limit
+----------------------
+
+Increasing suprema of finitary projectors are finitary. For compact
+fixed-point density, an observation of (sup_n P_n)(A,x) occurs in some
+P_n(A,x); take a compact fixed point of P_n(A,-) covering it. That compact
+is also fixed by the supremum because P_n <= p <= id.
+
+Normalization survives the limit by joint continuity and diagonal
+cofinality. For the nontrivial inequality, choose i >= n,m:
+
+  P_n(P_m(U,A),x) <= P_i(P_i(U,A),x) = P_i(A,x) <= p(A,x).
+
+Taking suprema gives p(p(U,A),x) <= p(A,x). Conversely each
+P_n(A,x) = P_n(P_n(U,A),x) is below p(p(U,A),x). This also explains why
+there is no illicit interchange of an unbounded witness with a fixed stage.
+
+This establishes informally the proposed order of construction: first
+define p by a least fixed point, then prove it is finitary. It bypasses
+2.26--2.27; it does not prove those statements about the paper's stages.
+
+5. What Unit currently proves
+----------------------------
+
+SemanticLaws.Generators.equation
+  The typed generators already form a compact family, without extra
+  closure. Presupposition makes their type witnesses elements of U;
+  compatible joins combine finitely many witnesses into one type.
+
+SemanticLaws.observe / introduce
+  Membership in p(A,X) is equivalent to the existence of a single typed
+  compact witness in X at a type observed in A (with proper normalization).
+
+SemanticLaws.Normalize.equation
+  p(p(U,A),X) = p(A,X), for all A,X.
+
+SemanticLaws.universe-equation
+ProjectorEquations.UniversePi.equation
+ProjectorEquations.FunctionClause.equation
+ProjectorZero.FunctionType.equation / UniverseFunction.equation
+ProjectorZero.bottom-input / bottom-type / pi-universe / pi-pi
+  The recursive constructor equations and the remaining zero cases.
+  The Pi and function clauses apply to arbitrary A and continuous B.
+
+BinaryMaps.semantic / Diagonal.map
+  Continuity in both arguments, and the common-compact-witness argument
+  for diagonal compositions of a continuous binary map.
+
+ProjectorLeast.Least.least
+  If q is continuous and satisfies the three recursive LOWER clauses,
+  then p <= q. No deflation, idempotence or finitariness is assumed of q.
+  Proof: simultaneous induction on MIN's element and entry typing.
+  The Pi case uses extracted components of the term filter; the function
+  case uses extracted components of the type filter. Thus the hypotheses
+  have exactly the shape supplied by the recursive equations.
+
+ProjectorFixedPoint.solution
+  An actual least recursive solution, with no projector field in its
+  specification. Existence is supplied by the checked semantic construction.
+
+ProjectorFixedPoint.finitary-after-least
+  Any least recursive solution has a finitary-projector structure whose
+  operation equals it. This proof uses the universal property to identify
+  it with the compact-family solution. Thus a separately constructed Kleene
+  least solution can inherit finitariness without formalizing Section 3's
+  compact-step induction a second time.
+
+This second finitariness proof is now fully checked in KleeneProjector:
+construct the least fixed point, identify it with the typed compact-family
+projector, then transfer its structure. Its declarations equation,
+Below.least, identification, solution, finitary and normalization provide
+these conclusions. OperatorContinuity and BinarySup supply the continuity
+and directed-completeness arguments used in the construction.

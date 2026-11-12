@@ -1,0 +1,102 @@
+-- Rigid projections on an arbitrary Scott domain. The hereditary law
+-- says that everything below an output is fixed. It is equivalent to
+-- being below the identity in the stable order (see stable-equation).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+
+module On (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ; open A ;
+  module M = ScottMaps[l].Between[S,S] ;
+  module N = ScottMeet[l].On[S] ;
+  module V = DC[P,S.complete] ;
+  record Rigid {
+    operation : M.Map ;
+    deflation : (x : C) -> LE (M.run operation x) x ;
+    hereditary : (x y : C) -> LE x (M.run operation y) -> LE x (M.run operation x) ;
+  } ;
+  run (p : Rigid) : C -> C = M.run p.operation ;
+  Fixed (p : Rigid) (x : C) : U l = LE x (run p x) ;
+  fixed-prop (p : Rigid) (x : C) : Prelude[l].isProp (Fixed p x) = P.proposition x (run p x) ;
+  output-fixed (p : Rigid) (x : C) : Fixed p (run p x) =
+    p.hereditary (run p x) x (P.reflexive (run p x)) ;
+  idempotent (p : Rigid) (x : C) : Id C (run p (run p x)) (run p x) =
+    P.antisymmetric (run p (run p x)) (run p x) (p.deflation (run p x)) (output-fixed p x) ;
+  downward (p : Rigid) (x y : C) (xy : LE x y) (fy : Fixed p y) : Fixed p x =
+    p.hereditary x y (P.transitive x y (run p y) xy fy) ;
+  greatest (p : Rigid) (x y : C) (fy : Fixed p y) (yx : LE y x) : LE y (run p x) =
+    P.transitive y (run p y) (run p x) fy (M.mono p.operation y x yx) ;
+  stable-equation (p : Rigid) (x y : C) (xy : LE x y) :
+    Id C (run p x) (N.meet (run p y) x) =
+    P.antisymmetric (run p x) (N.meet (run p y) x)
+      (N.greatest (run p y) x (run p x) (M.mono p.operation x y xy) (p.deflation x))
+      (greatest p x (N.meet (run p y) x)
+        (p.hereditary (N.meet (run p y) x) y (N.left (run p y) x)) (N.right (run p y) x)) ;
+
+  -- Conversely the stable-order equation supplies the hereditary law.
+  from-equation (f : M.Map)
+    (h : (x y : C) -> LE x y -> Id C (M.run f x) (N.meet (M.run f y) x)) : Rigid =
+    new Rigid[operation := f,
+      deflation := \ x -> subst C (\ z -> LE z x)
+        (N.meet (M.run f x) x) (M.run f x) (sym C (M.run f x) (N.meet (M.run f x) x) (h x x (P.reflexive x)))
+        (N.right (M.run f x) x),
+      hereditary := \ x y xy -> subst C (\ z -> LE x z)
+        (N.meet (M.run f y) x) (M.run f x)
+        (sym C (M.run f x) (N.meet (M.run f y) x)
+          (h x y (P.transitive x (M.run f y) y xy
+            (subst C (\ z -> LE z y) (N.meet (M.run f y) y) (M.run f y)
+              (sym C (M.run f y) (N.meet (M.run f y) y) (h y y (P.reflexive y)))
+              (N.right (M.run f y) y)))))
+        (N.greatest (M.run f y) x x xy (P.reflexive x))] ;
+
+  preserves-meet (p : Rigid) (x y : C) :
+    Id C (run p (N.meet x y)) (N.meet (run p x) (run p y)) =
+    P.antisymmetric (run p (N.meet x y)) (N.meet (run p x) (run p y))
+      (N.greatest (run p x) (run p y) (run p (N.meet x y))
+        (M.mono p.operation (N.meet x y) x (N.left x y))
+        (M.mono p.operation (N.meet x y) y (N.right x y)))
+      (greatest p (N.meet x y) (N.meet (run p x) (run p y))
+        (p.hereditary (N.meet (run p x) (run p y)) x (N.left (run p x) (run p y)))
+        (N.greatest x y (N.meet (run p x) (run p y))
+          (P.transitive (N.meet (run p x) (run p y)) (run p x) x (N.left (run p x) (run p y)) (p.deflation x))
+          (P.transitive (N.meet (run p x) (run p y)) (run p y) y (N.right (run p x) (run p y)) (p.deflation y)))) ;
+
+  composition-meet (p q : Rigid) (x : C) : Id C (run p (run q x)) (N.meet (run p x) (run q x)) =
+    P.antisymmetric (run p (run q x)) (N.meet (run p x) (run q x))
+      (N.greatest (run p x) (run q x) (run p (run q x))
+        (M.mono p.operation (run q x) x (q.deflation x)) (p.deflation (run q x)))
+      (greatest p (run q x) (N.meet (run p x) (run q x))
+        (p.hereditary (N.meet (run p x) (run q x)) x (N.left (run p x) (run q x)))
+        (N.right (run p x) (run q x))) ;
+  commute (p q : Rigid) (x : C) : Id C (run p (run q x)) (run q (run p x)) =
+    trans C (run p (run q x)) (N.meet (run p x) (run q x)) (run q (run p x))
+      (composition-meet p q x)
+      (trans C (N.meet (run p x) (run q x)) (N.meet (run q x) (run p x)) (run q (run p x))
+        (N.commutes (run p x) (run q x))
+        (sym C (run q (run p x)) (N.meet (run q x) (run p x)) (composition-meet q p x))) ;
+
+  identity : Rigid = new Rigid[operation := (\ x -> x,(\ x y h -> h,\ I x d z h -> V.least I x d z h)),
+    deflation := P.reflexive, hereditary := \ x y h -> P.reflexive x] ;
+  module Compose (p q : Rigid) {
+    value (x : C) : C = run p (run q x) ;
+    monotone : M.Monotone value = \ x y xy -> M.mono p.operation (run q x) (run q y) (M.mono q.operation x y xy) ;
+    continuous : M.Continuous value = \ I x d z h ->
+      P.transitive (value (V.sup I x d))
+        (run p (V.sup I (\ i -> run q (x i)) (M.image-dir (run q) (M.mono q.operation) I x d))) z
+        (M.mono p.operation (run q (V.sup I x d))
+          (V.sup I (\ i -> run q (x i)) (M.image-dir (run q) (M.mono q.operation) I x d))
+          (M.continuous q.operation I x d
+            (V.sup I (\ i -> run q (x i)) (M.image-dir (run q) (M.mono q.operation) I x d))
+            (V.upper I (\ i -> run q (x i)) (M.image-dir (run q) (M.mono q.operation) I x d))))
+        (M.continuous p.operation I (\ i -> run q (x i)) (M.image-dir (run q) (M.mono q.operation) I x d) z h) ;
+    projection : Rigid = new Rigid[operation := (value,(monotone,continuous)),
+      deflation := \ x -> P.transitive (value x) (run q x) x (p.deflation (run q x)) (q.deflation x),
+      hereditary := \ x y xy -> P.transitive x (run p x) (value x) (p.hereditary x (run q y) xy)
+        (M.mono p.operation x (run q x)
+          (q.hereditary x y (P.transitive x (value y) (run q y) xy (p.deflation (run q y)))))] ;
+    fixed-left (x : C) (h : Fixed projection x) : Fixed p x =
+      P.transitive x (value x) (run p x) h (M.mono p.operation (run q x) x (q.deflation x)) ;
+    fixed-right (x : C) (h : Fixed projection x) : Fixed q x = P.transitive x (value x) (run q x) h (p.deflation (run q x)) ;
+    fixed-both (x : C) (hp : Fixed p x) (hq : Fixed q x) : Fixed projection x =
+      P.transitive x (run p x) (value x) hp (M.mono p.operation x (run q x) hq) ;
+  } ;
+} ;

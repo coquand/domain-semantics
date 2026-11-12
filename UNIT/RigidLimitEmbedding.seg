@@ -1,0 +1,61 @@
+-- Canonical embeddings of every stage into the coherent-sequence limit.
+-- A stage element extends by projections to its left and embeddings to
+-- its right. The adjunction is proved without a chosen comparison path.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ; open RigidLimitOrder[l] ;
+module Limit = RigidLimitOrder[l] ;
+module T = TruncationCombinators[l] ;
+rise : (n : Nat) (S : Chain) -> Limit.On[S].C zero -> Limit.On[S].C n = split {
+  zero -> \ S a -> a ; suc n | r -> \ S a -> Limit.On[S].embed n (r S a) } ;
+forward (S : Chain) (a : Limit.On[S].C zero) : Limit.On[S].carrier =
+  (\ n -> rise n S a,\ n -> (S.link n).retract (rise n S a)) ;
+drop (S : Chain) (x : Limit.On[S].carrier) : Limit.On[tail S].carrier = (\ n -> x.1 (suc n),\ n -> x.2 (suc n)) ;
+cons-point (S : Chain) (y : Limit.On[tail S].carrier) : Limit.On[S].Points = split {
+  zero -> Limit.On[S].project zero (y.1 zero) ; suc n -> y.1 n } ;
+cons-coherent (S : Chain) (y : Limit.On[tail S].carrier) : Limit.On[S].Coherent (cons-point S y) = split {
+  zero -> refl (Limit.On[S].project zero (y.1 zero)) ; suc n -> y.2 n } ;
+prepend (S : Chain) (y : Limit.On[tail S].carrier) : Limit.On[S].carrier = (cons-point S y,cons-coherent S y) ;
+lift : (n : Nat) (S : Chain) -> Limit.On[S].C n -> Limit.On[S].carrier = split {
+  zero -> \ S a -> forward S a ; suc n | r -> \ S a -> prepend S (r (tail S) a) } ;
+section : (n : Nat) (S : Chain) (a : Limit.On[S].C n) -> Id (Limit.On[S].C n) ((lift n S a).1 n) a = split {
+  zero -> \ S a -> refl a ; suc n | r -> \ S a -> r (tail S) a } ;
+module At (S : Chain) {
+  module L = Limit.On[S] ;
+  coherent-from (x : L.carrier) (n : Nat) : L.LE n (x.1 n) (L.project n (x.1 (suc n))) =
+    subst (L.C n) (\ z -> L.LE n z (L.project n (x.1 (suc n)))) (L.project n (x.1 (suc n))) (x.1 n) (x.2 n)
+      ((S.domain n).scott.order.reflexive (L.project n (x.1 (suc n)))) ;
+  coherent-to (x : L.carrier) (n : Nat) : L.LE n (L.project n (x.1 (suc n))) (x.1 n) =
+    subst (L.C n) (\ z -> L.LE n (L.project n (x.1 (suc n))) z) (L.project n (x.1 (suc n))) (x.1 n) (x.2 n)
+      ((S.domain n).scott.order.reflexive (L.project n (x.1 (suc n)))) ;
+  step-bound (x : L.carrier) (n : Nat) : L.LE (suc n) (L.embed n (x.1 n)) (x.1 (suc n)) =
+    RigidEmbeddingLaws[l].On[S.domain n,S.domain (suc n),S.link n].lower (x.1 n) (x.1 (suc n)) (coherent-from x n) ;
+  forward-lower (a : L.C zero) (x : L.carrier) (h : L.LE zero a (x.1 zero)) : L.le (forward S a) x = split {
+    zero -> h ; suc n | r -> (S.domain (suc n)).scott.order.transitive (rise (suc n) S a) (L.embed n (x.1 n)) (x.1 (suc n))
+      (StableMaps[l].Between[(S.domain n).scott,(S.domain (suc n)).scott].mono (S.link n).embed (rise n S a) (x.1 n) r) (step-bound x n) } ;
+  cons-lower (y : Limit.On[tail S].carrier) (x : L.carrier) (h : Limit.On[tail S].le y (drop S x)) : L.le (prepend S y) x = split {
+    zero -> (S.domain zero).scott.order.transitive (L.project zero (y.1 zero)) (L.project zero (x.1 (suc zero))) (x.1 zero)
+      (StableMaps[l].Between[(S.domain (suc zero)).scott,(S.domain zero).scott].mono (S.link zero).project (y.1 zero) (x.1 (suc zero)) (h zero)) (coherent-to x zero) ;
+    suc n -> h n } ;
+} ;
+lower : (n : Nat) (S : Chain) (a : Limit.On[S].C n) (x : Limit.On[S].carrier) -> Limit.On[S].LE n a (x.1 n) -> Limit.On[S].le (lift n S a) x = split {
+  zero -> \ S a x h -> At[S].forward-lower a x h ;
+  suc n | r -> \ S a x h -> At[S].cons-lower (lift n (tail S) a) x (r (tail S) a (drop S x) h) } ;
+upper (n : Nat) (S : Chain) (a : Limit.On[S].C n) (x : Limit.On[S].carrier) (h : Limit.On[S].le (lift n S a) x) : Limit.On[S].LE n a (x.1 n) =
+  subst (Limit.On[S].C n) (\ z -> Limit.On[S].LE n z (x.1 n)) ((lift n S a).1 n) a (section n S a) (h n) ;
+monotone (n : Nat) (S : Chain) (a b : Limit.On[S].C n) (h : Limit.On[S].LE n a b) : Limit.On[S].le (lift n S a) (lift n S b) =
+  lower n S a (lift n S b) (subst (Limit.On[S].C n) (\ z -> Limit.On[S].LE n a z) b ((lift n S b).1 n)
+    (sym (Limit.On[S].C n) ((lift n S b).1 n) b (section n S b)) h) ;
+reflect (n : Nat) (S : Chain) (a b : Limit.On[S].C n) (h : Limit.On[S].le (lift n S a) (lift n S b)) : Limit.On[S].LE n a b =
+  subst (Limit.On[S].C n) (\ z -> Limit.On[S].LE n a z) ((lift n S b).1 n) b (section n S b) (upper n S a (lift n S b) h) ;
+compact (n : Nat) (S : Chain) (a : Limit.On[S].C n) (c : DC[(S.domain n).scott.order,(S.domain n).scott.complete].Compact a) : Limit.On[S].V.Compact (lift n S a) =
+  \ I x d h -> T.map ((i : I) * Limit.On[S].LE n a ((x i).1 n)) ((i : I) * Limit.On[S].le (lift n S a) (x i))
+    (\ w -> (w.1,lower n S a (x w.1) w.2))
+    (c I (\ i -> (x i).1 n) (Limit.On[S].evaluated I x d n) (upper n S a (Limit.On[S].V.sup I x d) h)) ;
+approximate (S : Chain) (n : Nat) (x : Limit.On[S].carrier) : Limit.On[S].carrier = lift n S (x.1 n) ;
+deflation (S : Chain) (n : Nat) (x : Limit.On[S].carrier) : Limit.On[S].le (approximate S n x) x = lower n S (x.1 n) x ((S.domain n).scott.order.reflexive (x.1 n)) ;
+increasing (S : Chain) (n : Nat) (x : Limit.On[S].carrier) : Limit.On[S].le (approximate S n x) (approximate S (suc n) x) =
+  lower n S (x.1 n) (approximate S (suc n) x)
+    ((S.domain n).scott.order.transitive (x.1 n) (Limit.On[S].project n (x.1 (suc n))) ((approximate S (suc n) x).1 n)
+      (At[S].coherent-from x n)
+      (subst (Limit.On[S].C (suc n)) (\ y -> Limit.On[S].LE n (Limit.On[S].project n y) ((approximate S (suc n) x).1 n))
+        ((approximate S (suc n) x).1 (suc n)) (x.1 (suc n)) (section (suc n) S (x.1 (suc n))) (At[S].coherent-to (approximate S (suc n) x) n))) ;

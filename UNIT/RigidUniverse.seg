@@ -1,0 +1,141 @@
+-- Conditional internal universe theorem. The two rigid embeddings are
+-- explicit representation data; their existence is NOT an axiom/theorem
+-- of this file. All universe and dependent-function laws are derived.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module On (D : DIDomain[l].DI) {
+  module A = ScottDomain[l].On[D.scott] ;
+  module R = RigidProjector[l].On[D.scott] ;
+  module RP = RigidSpace[l].On[D] ;
+  module X = StableFiniteIdeals[l].Exponential[D,D] ;
+  module S = StableMaps[l].Between[D.scott,D.scott] ;
+  module CodesEmbedding = RigidEmbedding[l].Between[RP.domain,D] ;
+  module FunctionsEmbedding = RigidEmbedding[l].Between[X.domain,D] ;
+  record Representation {
+    codes : CodesEmbedding.Embedding ;
+    functions : FunctionsEmbedding.Embedding ;
+  } ;
+  module Codes (e : CodesEmbedding.Embedding) {
+    module Embedding = CodesEmbedding.On[e] ;
+    encode (p : RP.I.carrier) : A.C = CodesEmbedding.AB.run e.embed p ;
+    decode (a : A.C) : RP.I.carrier = CodesEmbedding.BA.run e.project a ;
+    decoded (a : A.C) : R.Rigid = RP.decode (decode a) ;
+    apply (a x : A.C) : A.C = RP.run (decode a) x ;
+    module Product = ScottProduct[l].Product[D.scott,D.scott] ;
+    module Parts = StableProduct[l].Product[D.scott,D.scott] ;
+    first : StableMaps[l].Between[Product.scott,RP.domain.scott].Map =
+      StableComposition[l].Between[Product.scott,D.scott,RP.domain.scott].Compose[Parts.left,e.project].map ;
+    module Pair = StableProduct[l].Pair[Product.scott,RP.domain.scott,D.scott,first,Parts.right] ;
+    module Eval = RigidOperations[l].On[D].Application ;
+    typing : StableMaps[l].Between[Product.scott,D.scott].Map =
+      StableComposition[l].Between[Product.scott,Eval.Product.scott,D.scott].Compose[Pair.map,Eval.map].map ;
+    computes (p : RP.I.carrier) (x : A.C) : Id A.C (apply (encode p) x) (RP.run p x) =
+      ap RP.I.carrier A.C (\ q -> RP.run q x) (decode (encode p)) p (e.retract p) ;
+    deflation (a x : A.C) : A.LE (apply a x) x = (decoded a).deflation x ;
+    idempotent (a x : A.C) : Id A.C (apply a (apply a x)) (apply a x) = R.idempotent (decoded a) x ;
+    universe-projection : R.Rigid = Embedding.projection ;
+    universe : A.C = encode (RP.encode universe-projection) ;
+    universe-equation (x : A.C) : Id A.C (apply universe x) (R.run universe-projection x) = computes (RP.encode universe-projection) x ;
+    code-in-universe (p : RP.I.carrier) : Id A.C (apply universe (encode p)) (encode p) =
+      trans A.C (apply universe (encode p)) (R.run universe-projection (encode p)) (encode p)
+        (universe-equation (encode p)) (Embedding.fixes p) ;
+    self-typing : Id A.C (apply universe universe) universe = code-in-universe (RP.encode universe-projection) ;
+    classify (a : A.C) (h : A.LE a (apply universe a)) : Id A.C (encode (decode a)) a =
+      D.scott.order.antisymmetric (encode (decode a)) a (universe-projection.deflation a)
+        (subst A.C (\ x -> A.LE a x) (apply universe a) (R.run universe-projection a) (universe-equation a) h) ;
+  } ;
+  module With (representation : Representation) {
+    module C = Codes[representation.codes] ;
+    module Functions = FunctionsEmbedding.On[representation.functions] ;
+    module Families = StableVaryingFamilies[l].Between[D,D] ;
+    module FamilyDomain = StableFiniteIdeals[l].Exponential[D,RP.domain] ;
+    module Application {
+      module Product = ScottProduct[l].Product[D.scott,D.scott] ;
+      module Projections = StableProduct[l].Product[D.scott,D.scott] ;
+      function : StableMaps[l].Between[Product.scott,X.domain.scott].Map =
+        StableComposition[l].Between[Product.scott,D.scott,X.domain.scott].Compose[Projections.left,representation.functions.project].map ;
+      module Pair = StableProduct[l].Pair[Product.scott,X.domain.scott,D.scott,function,Projections.right] ;
+      module Eval = StableEvaluation[l].Exponential[D,D] ;
+      map : StableMaps[l].Between[Product.scott,D.scott].Map =
+        StableComposition[l].Between[Product.scott,Eval.P.scott,D.scott].Compose[Pair.map,Eval.map].map ;
+      value (f x : A.C) : A.C = S.run (FunctionsEmbedding.BA.run representation.functions.project f) x ;
+      beta (f : S.Map) (x : A.C) : Id A.C (value (FunctionsEmbedding.AB.run representation.functions.embed f) x) (S.run f x) =
+        ap S.Map A.C (\ g -> S.run g x)
+          (FunctionsEmbedding.BA.run representation.functions.project (FunctionsEmbedding.AB.run representation.functions.embed f)) f
+          (representation.functions.retract f) ;
+    } ;
+    module Internal = StableInternalComposition[l].Between[D,D,RP.domain] ;
+    module FamilyArguments = StableProduct[l].Pair[X.domain.scott,X.domain.scott,FamilyDomain.domain.scott,
+      StableComposition[l].Endo[X.domain.scott].identity,
+      StableProduct[l].Constant[X.domain.scott,FamilyDomain.domain.scott,representation.codes.project].map] ;
+    family : StableMaps[l].Between[X.domain.scott,FamilyDomain.domain.scott].Map =
+      StableComposition[l].Between[X.domain.scott,Internal.P.scott,FamilyDomain.domain.scott].Compose[FamilyArguments.map,Internal.map].map ;
+    module Parameter = DIProduct[l].Product[D,X.domain] ;
+    module Parts = StableProduct[l].Product[D.scott,X.domain.scott] ;
+    input : StableMaps[l].Between[Parameter.domain.scott,RP.domain.scott].Map =
+      StableComposition[l].Between[Parameter.domain.scott,D.scott,RP.domain.scott].Compose[Parts.left,representation.codes.project].map ;
+    fibres : StableMaps[l].Between[Parameter.domain.scott,FamilyDomain.domain.scott].Map =
+      StableComposition[l].Between[Parameter.domain.scott,X.domain.scott,FamilyDomain.domain.scott].Compose[Parts.right,family].map ;
+    module Arguments = StableProduct[l].Pair[Parameter.domain.scott,RP.domain.scott,FamilyDomain.domain.scott,input,fibres] ;
+    sections : StableMaps[l].Between[Parameter.domain.scott,Families.Out.domain.scott].Map =
+      StableComposition[l].Between[Parameter.domain.scott,Families.P.domain.scott,Families.Out.domain.scott].Compose[Arguments.map,Families.operation].map ;
+    projection : StableMaps[l].Between[Parameter.domain.scott,RP.domain.scott].Map =
+      StableComposition[l].Between[Parameter.domain.scott,Families.Out.domain.scott,RP.domain.scott].Compose[sections,Functions.transport].map ;
+    pi : StableMaps[l].Between[Parameter.domain.scott,D.scott].Map =
+      StableComposition[l].Between[Parameter.domain.scott,RP.domain.scott,D.scott].Compose[projection,representation.codes.embed].map ;
+    value (a : A.C) (b : S.Map) : A.C = StableMaps[l].Between[Parameter.domain.scott,D.scott].run pi (a,b) ;
+    is-type (a : A.C) (b : S.Map) : Id A.C (C.apply C.universe (value a b)) (value a b) =
+      C.code-in-universe (StableMaps[l].Between[Parameter.domain.scott,RP.domain.scott].run projection (a,b)) ;
+    module At (a : A.C) (b : S.Map) {
+      parameter : Families.P.P.C = StableMaps[l].Between[Parameter.domain.scott,Families.P.domain.scott].run Arguments.map (a,b) ;
+      q : Families.Out.I.carrier = StableMaps[l].Between[Parameter.domain.scott,Families.Out.domain.scott].run sections (a,b) ;
+      module Q = Families.At[parameter.1,parameter.2] ;
+      application (f : S.Map) : Id A.C
+        (C.apply (value a b) (FunctionsEmbedding.AB.run representation.functions.embed f))
+        (FunctionsEmbedding.AB.run representation.functions.embed (Q.value f)) =
+        trans A.C (C.apply (value a b) (FunctionsEmbedding.AB.run representation.functions.embed f))
+          (RP.run (Functions.Lift.value q) (FunctionsEmbedding.AB.run representation.functions.embed f))
+          (FunctionsEmbedding.AB.run representation.functions.embed (Q.value f))
+          (C.computes (Functions.Lift.value q) (FunctionsEmbedding.AB.run representation.functions.embed f))
+          (trans A.C (RP.run (Functions.Lift.value q) (FunctionsEmbedding.AB.run representation.functions.embed f))
+            (FunctionsEmbedding.AB.run representation.functions.embed (Families.Out.run q f))
+            (FunctionsEmbedding.AB.run representation.functions.embed (Q.value f)) (Functions.on-image q f)
+            (ap S.Map A.C (FunctionsEmbedding.AB.run representation.functions.embed) (Families.Out.run q f) (Q.value f) (Q.implementation f))) ;
+      general-application (x : A.C) : Id A.C (C.apply (value a b) x)
+        (FunctionsEmbedding.AB.run representation.functions.embed (Q.value (FunctionsEmbedding.BA.run representation.functions.project x))) =
+        trans A.C (C.apply (value a b) x) (RP.run (Functions.Lift.value q) x)
+          (FunctionsEmbedding.AB.run representation.functions.embed (Q.value (FunctionsEmbedding.BA.run representation.functions.project x)))
+          (C.computes (Functions.Lift.value q) x)
+          (ap S.Map A.C (FunctionsEmbedding.AB.run representation.functions.embed)
+            (Families.Out.run q (FunctionsEmbedding.BA.run representation.functions.project x))
+            (Q.value (FunctionsEmbedding.BA.run representation.functions.project x))
+            (Q.implementation (FunctionsEmbedding.BA.run representation.functions.project x))) ;
+      introduction (f : S.Map) (support : Q.Supported f) (section : Q.OnImage f) : Id A.C
+        (C.apply (value a b) (FunctionsEmbedding.AB.run representation.functions.embed f))
+        (FunctionsEmbedding.AB.run representation.functions.embed f) =
+        trans A.C (C.apply (value a b) (FunctionsEmbedding.AB.run representation.functions.embed f))
+          (FunctionsEmbedding.AB.run representation.functions.embed (Q.value f)) (FunctionsEmbedding.AB.run representation.functions.embed f)
+          (application f) (ap S.Map A.C (FunctionsEmbedding.AB.run representation.functions.embed) (Q.value f) f (Q.fixed f support section)) ;
+      abstraction (f : S.Map) (section : Q.OnImage f) : Id A.C
+        (C.apply (value a b) (FunctionsEmbedding.AB.run representation.functions.embed (Q.Restriction.value f)))
+        (FunctionsEmbedding.AB.run representation.functions.embed (Q.Restriction.value f)) =
+        introduction (Q.Restriction.value f) (Families.FR.output-fixed Q.Restriction.projection f)
+          (\ y hy -> R.downward (C.decoded (S.run b y)) (S.run (Q.Restriction.value f) y) (S.run f y)
+            (S.pointwise (Q.Restriction.value f) f (Q.Restriction.below f) y) (section y hy)) ;
+      module Eliminate (x : A.C) (typed : A.LE x (C.apply (value a b) x)) {
+        f : S.Map = FunctionsEmbedding.BA.run representation.functions.project x ;
+        below : A.LE x (FunctionsEmbedding.AB.run representation.functions.embed (Q.value f)) =
+          subst A.C (\ z -> A.LE x z) (C.apply (value a b) x) (FunctionsEmbedding.AB.run representation.functions.embed (Q.value f))
+            (general-application x) typed ;
+        restricted : S.LE f (Q.value f) =
+          subst S.Map (\ g -> S.LE f g)
+            (FunctionsEmbedding.BA.run representation.functions.project (FunctionsEmbedding.AB.run representation.functions.embed (Q.value f)))
+            (Q.value f) (representation.functions.retract (Q.value f))
+            (FunctionsEmbedding.BA.mono representation.functions.project x (FunctionsEmbedding.AB.run representation.functions.embed (Q.value f)) below) ;
+        typed-result (y : A.C) (hy : A.LE y (C.apply a y)) : A.LE (Application.value x y) (C.apply (S.run b y) (Application.value x y)) =
+          R.downward (C.decoded (S.run b y)) (S.run f y) (S.run (Q.value f) y)
+            (S.pointwise f (Q.value f) restricted y) (Q.section f y hy) ;
+      } ;
+    } ;
+  } ;
+} ;

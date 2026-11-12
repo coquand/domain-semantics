@@ -1,0 +1,53 @@
+-- The projector associated to a compatible-join-closed compact family.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open CompactFamilies[l] ;
+module TC = TruncationCombinators[l] ;
+
+module At (E : Family) (x : D) {
+  W (t : Ty) : U l = (k : K) * (Mem E k * (In x k.1 * Le k.1 t)) ;
+  wom : W om = (bottomK,(empty-in E,(fom x.1,le-refl om))) ;
+  wmeet (s t : Ty) (a : W s) (b : W t) : W (meet s t) =
+    (joinK a.1 b.1 c,(join-in E a.1 b.1 c a.2.1 b.2.1,
+      (h,le-meet-mono a.1.1 s b.1.1 t a.2.2.2 b.2.2.2)))
+    where {
+      h : In x (meet a.1.1 b.1.1) = fmeet x.1 a.1.1 b.1.1 a.2.2.1 b.2.2.1 ;
+      c : Cons (meet a.1.1 b.1.1) = consistent x (meet a.1.1 b.1.1) h ; } ;
+  wup (s t : Ty) (h : Le s t) (a : W s) : W t =
+    (a.1,(a.2.1,(a.2.2.1,le-trans a.1.1 s t a.2.2.2 h))) ;
+  carrier : Filt = truncF W wom wmeet wup ;
+  valid : Valid carrier = \ t -> TC.map (W t) (Cons t)
+    (\ w -> cons-down w.1.1 t w.2.2.2 w.1.2.2) ;
+  generated : Generated carrier = \ t -> TC.map (W t) (Domain[l].PW carrier t)
+    (\ w -> (w.1.1,(w.1.2.1,(ex (W w.1.1) (w.1,(w.2.1,(w.2.2.1,le-refl w.1.1))),w.2.2.2)))) ;
+  value : D = (carrier,(valid,generated)) ;
+  below : Domain[l].Below value x = \ t -> ex-elim (W t) (In x t) (fprop x.1 t)
+    (\ w -> fup x.1 w.1.1 t w.2.2.2 w.2.2.1) ;
+} ;
+
+project (E : Family) (x : D) : D = At[E,x].value ;
+
+intro (E : Family) (x : D) (k : K) (hk : Mem E k) (hx : In x k.1) : In (project E x) k.1 =
+  ex (At[E,x].W k.1) (k,(hk,(hx,le-refl k.1))) ;
+
+mono (E H : Family) (x y : D) (eh : CompactFamilies[l].Incl E H) (xy : Domain[l].Below x y) :
+  Domain[l].Below (project E x) (project H y) = \ t ->
+  TC.map (At[E,x].W t) (At[H,y].W t) (\ w -> (w.1,(eh w.1 w.2.1,(xy w.1.1 w.2.2.1,w.2.2.2)))) ;
+
+idempotent (E : Family) (x : D) : Equal (project E (project E x)) (project E x) =
+  (At[E,project E x].below,\ t -> TC.map (At[E,x].W t) (At[E,project E x].W t)
+    (\ w -> (w.1,(w.2.1,(intro E x w.1 w.2.1 w.2.2.1,w.2.2.2))))) ;
+
+finite (E : Family) : Finite (project E) = \ x t ->
+  TC.map (At[E,x].W t) (Trace (project E) x t)
+    (\ w -> (w.1,(w.2.2.1,ex (At[E,principal w.1].W t)
+      (w.1,(w.2.1,(prin-in w.1.1,w.2.2.2)))))) ;
+map (E : Family) : Map = (project E,(\ x y -> mono E E x y (\ k h -> h),finite E)) ;
+
+compact-fixed (E : Family) (k : K) (h : Mem E k) : Equal (project E (principal k)) (principal k) =
+  (At[E,principal k].below,prin-sub k.1 (project E (principal k)).1 (intro E (principal k) k h (prin-in k.1))) ;
+
+fixed-compact (E : Family) (k : K) (h : Equal (project E (principal k)) (principal k)) : Mem E k =
+  ex-elim (At[E,principal k].W k.1) (Mem E k) (member-prop E k)
+    (\ w -> ex-elim (Le k.1 w.1.1) (Mem E k) (member-prop E k)
+      (\ hk -> equiv-in E w.1 k (w.2.2.2,hk) w.2.1) w.2.2.1) (h.2 k.1 (prin-in k.1)) ;

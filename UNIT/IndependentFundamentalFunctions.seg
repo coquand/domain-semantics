@@ -1,0 +1,55 @@
+-- The common function case: semantic input restriction and syntactic
+-- expansion of the three body comparisons.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Syntax[l] ; open Subst[l] ; open Presup[l] ;
+open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+module Raw = Filter[l] ; module S = Sem[l] ; module Soundness = Sound[l] ;
+module Subs = IndependentRelationSubstitutions[l] ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module F = IndependentFundamentalRules[l].At[n,Delta,wellformed] ;
+  module Binder = IndependentFundamentalBinder[l].At[n,Delta,wellformed] ;
+  module RS = Subs.At[n,Delta] ; module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  module Rules = IndependentRelationRules[l].At[n,Delta] ; module Red = IndependentRelationReduction[l].At[n,Delta] ;
+  module C = LogicalRelationClauses[l].At[n,Delta] ;
+  module Case (m : Nat) (G : Ctx m) (A : Tm m) (B M M' : Tm (suc m)) (fn gn : Tm m)
+    (dA : Der m (jty G A (uu m))) (dM : Der (suc m) (jty (ext m G A) M B))
+    (rA : F.Fundamental m G A A (uu m))
+    (self : F.Fundamental (suc m) (ext m G A) M M B) (cross : F.Fundamental (suc m) (ext m G A) M M' B)
+    (reduce : (t : Fin m -> Tm n) -> (V : Tm n) -> Reds n (app n (Sub.trav m fn n t) V)
+      (subst1 n (Sub.trav (suc m) M (suc n) (Sub.lift m n t)) V))
+    (reduce' : (t : Fin m -> Tm n) -> (V : Tm n) -> Reds n (app n (Sub.trav m gn n t) V)
+      (subst1 n (Sub.trav (suc m) M' (suc n) (Sub.lift m n t)) V))
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (r : RS.Related[m,G,rho,s,s'])
+    (inside : Raw.Incl (S.sem m fn rho) (Raw.lamF (S.sem m A rho) (S.fam m M rho))) {
+    As : Tm n = Sub.trav m A n s ; Bs : Tm (suc n) = Sub.trav (suc m) B (suc n) (Sub.lift m n s) ;
+    Fs : Tm n = Sub.trav m fn n s ; Gs : Tm n = Sub.trav m gn n s' ;
+    L : Raw.Filt = Raw.lamF (S.sem m A rho) (S.fam m M rho) ;
+    module Observed (f : D) (below : ExtFilter[l].Sub f.1 (reflect L)) {
+      no-U : In f univ -> Empty = \ hu -> ex-elim (L.mem univ) Empty isProp-Empty
+        (\ w -> sel-all Raw.NotUP w.f univ (inv-univ w.f w.le)
+          (Raw.ents-all (Raw.EntR (S.sem m A rho) (S.fam m M rho)) w.f w.ents)) (below univ hu) ;
+      no-Pi : Parts[l].PHead f -> Empty = \ hp -> ex-elim (L.mem (pi om om)) Empty isProp-Empty
+        (\ w -> sel-all Raw.NotUP w.f (pi (inv-pi w.f om om w.le).1 (inv-pi w.f om om w.le).2.1)
+          (inv-pi w.f om om w.le).2.2.2.2.1 (Raw.ents-all (Raw.EntR (S.sem m A rho) (S.fam m M rho)) w.f w.ents))
+        (below (pi om om) hp) ;
+      types : Rules.Type f Fs Gs = I.Invariant.type-fold Fs Gs f (\ hu -> efq (no-U hu),\ hp -> efq (no-Pi hp)) ;
+      module Test (e : C.Argument[As]) (x : D) (hx : Rules.Term x As e.N e.N') {
+        module Out = Binder.Outputs[m,G,A,B,M,M',dA,dM,rA,self,cross,rho,fits,s,s',r,e.N,e.N',e.conversion,x,hx] ;
+        module Output = C.TermOutputs[I.relation.tm,subst1 n Bs e.N,Fs,Gs,e.N,e.N'] ;
+        observations : Subs.Observed Output.predicate Out.Y = \ k hk ->
+          (Red.term-expansion Out.V (app n Fs e.N) (app n Fs e.N') Out.P Out.P'
+            (reduce s e.N) (reduce s e.N') (principal k) (Out.left k hk),
+           (Red.term-expansion Out.V (app n Gs e.N) (app n Gs e.N') Out.Q Out.Q'
+             (reduce' s' e.N) (reduce' s' e.N') (principal k) (Out.right k hk),
+            Red.term-expansion Out.V (app n Fs e.N) (app n Gs e.N') Out.P Out.Q'
+              (reduce s e.N) (reduce' s' e.N') (principal k) (Out.across k hk))) ;
+        result : Output.predicate.holds (Application[l].eval f x) =
+          IndependentFundamentalBinder[l].Evaluation[m,S.sem m A rho,M,rho,x].Lift[Output.predicate,f,below,observations].result ;
+      } ;
+      terms : Rules.Term f (pp n As Bs) Fs Gs = I.Invariant.term-fold (pp n As Bs) Fs Gs f
+        (types,Rules.LiteralFunctions[As,Bs,Fs,Gs,f].introduce (\ e k hk -> Test[e,principal k,hk].result)) ;
+    } ;
+    result : RS.Term (S.sem m fn rho) (pp n As Bs) Fs Gs = \ k hk ->
+      Observed[principal k,prin-sub k.1 (reflect L) (ex (L.mem k.1) (inside k.1 hk))].terms ;
+  } ;
+} ;

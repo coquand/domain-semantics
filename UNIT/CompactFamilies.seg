@@ -1,0 +1,53 @@
+-- Collections of compact elements closed under compatible finite joins.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module FP = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+EqK (a b : K) : U l = Typing[l].Eqv a.1 b.1 ;
+joinK (a b : K) (c : Cons (meet a.1 b.1)) : K = (meet a.1 b.1,((a.2.1,b.2.1),c)) ;
+
+Closed (m : K -> U l) : U l =
+  ((k : K) -> isProp (m k)) * (m bottomK *
+   (((a b : K) (c : Cons (meet a.1 b.1)) -> m a -> m b -> m (joinK a b c)) *
+    ((a b : K) -> EqK a b -> m a -> m b))) ;
+Family : U l+ = (m : K -> U l) * Closed m ;
+Mem (E : Family) (k : K) : U l = E.1 k ;
+Incl (E H : Family) : U l = (k : K) -> Mem E k -> Mem H k ;
+EqualF (E H : Family) : U l = Incl E H * Incl H E ;
+member-prop (E : Family) (k : K) : isProp (Mem E k) = E.2.1 k ;
+empty-in (E : Family) : Mem E bottomK = E.2.2.1 ;
+join-in (E : Family) (a b : K) (c : Cons (meet a.1 b.1)) :
+  Mem E a -> Mem E b -> Mem E (joinK a b c) = E.2.2.2.1 a b c ;
+equiv-in (E : Family) (a b : K) : EqK a b -> Mem E a -> Mem E b = E.2.2.2.2 a b ;
+
+closed-prop (m : K -> U l) : isProp (Closed m) =
+  isProp-Sigma ((k : K) -> isProp (m k))
+    (\ _ -> m bottomK * (((a b : K) (c : Cons (meet a.1 b.1)) -> m a -> m b -> m (joinK a b c)) *
+       ((a b : K) -> EqK a b -> m a -> m b)))
+    (F.isProp-Pi K (\ k -> isProp (m k)) (\ k -> F.isProp-isProp (m k)))
+    (\ p -> isProp-Sigma (m bottomK)
+      (\ _ -> ((a b : K) (c : Cons (meet a.1 b.1)) -> m a -> m b -> m (joinK a b c)) *
+       ((a b : K) -> EqK a b -> m a -> m b)) (p bottomK)
+      (\ _ -> isProp-Sigma ((a b : K) (c : Cons (meet a.1 b.1)) -> m a -> m b -> m (joinK a b c))
+        (\ _ -> (a b : K) -> EqK a b -> m a -> m b)
+        (F.isProp-Pi K (\ a -> (b : K) (c : Cons (meet a.1 b.1)) -> m a -> m b -> m (joinK a b c)) (\ a ->
+          F.isProp-Pi K (\ b -> (c : Cons (meet a.1 b.1)) -> m a -> m b -> m (joinK a b c)) (\ b ->
+            F.isProp-Pi (Cons (meet a.1 b.1)) (\ c -> m a -> m b -> m (joinK a b c)) (\ c ->
+              F.isProp-Pi (m a) (\ _ -> m b -> m (joinK a b c)) (\ _ ->
+                F.isProp-Pi (m b) (\ _ -> m (joinK a b c)) (\ _ -> p (joinK a b c)))))))
+        (\ _ -> F.isProp-Pi K (\ a -> (b : K) -> EqK a b -> m a -> m b) (\ a ->
+          F.isProp-Pi K (\ b -> EqK a b -> m a -> m b) (\ b ->
+            F.isProp-Pi (EqK a b) (\ _ -> m a -> m b) (\ _ ->
+              F.isProp-Pi (m a) (\ _ -> m b) (\ _ -> p b))))))) ;
+
+ext (E H : Family) (h : EqualF E H) : Id Family E H =
+  Prelude[l+].Sigma-eq (K -> U l) (\ m -> Closed m) E.1 H.1 E.2 H.2
+    (FP.funext K (\ _ -> U l) E.1 H.1
+      (\ k -> prop-ext (Mem E k) (Mem H k) (member-prop E k) (member-prop H k) (h.1 k) (h.2 k)))
+    (closed-prop H.1) ;
+
+incl-prop (E H : Family) : isProp (Incl E H) =
+  F.isProp-Pi K (\ k -> Mem E k -> Mem H k)
+    (\ k -> F.isProp-Pi (Mem E k) (\ _ -> Mem H k) (\ _ -> member-prop H k)) ;

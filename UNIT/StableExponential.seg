@@ -1,0 +1,100 @@
+-- The genuine stable function space has a small compact basis.
+-- Compact stable maps are exactly stable maps compact in the ordinary
+-- continuous function space. Finite graphs encode the global basis;
+-- density is proved by the direct compact restrictions in StablePatches.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+
+module Exponential (D E : DIDomain[l].DI) {
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module BN = ScottMeet[l].On[E.scott] ;
+  module M = ScottMaps[l].Between[D.scott,E.scott] ; module MC = DC[M.order,M.complete] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module SD = StableDirected[l].Between[D.scott,E.scott] ;
+  module SC = StableComplete[l].Between[D.scott,E.scott,E.distributive] ;
+  module V = DC[S.order,SC.complete] ;
+  module X = ScottExponential[l].Exponential[D.scott,E.scott] ;
+  module Patches = StablePatches[l].Between[D,E] ;
+  Basis : U l = (g : X.Basis) * S.Stable (X.basic g) ;
+  basic (g : Basis) : S.Map = (X.basic g.1,g.2) ;
+  ordinary-to-stable (f : S.Map) (c : MC.Compact f.1) : V.Compact f = \ I g d h ->
+    T.map ((i : I) * M.LE f.1 (g i).1) ((i : I) * S.LE f (g i))
+      (\ w -> (w.1,S.under-bound f (g w.1) (V.sup I g d) h (SD.Sup[I,g,d].upper w.1) w.2))
+      (c I (\ i -> (g i).1) (SD.forget-dir I g d) h.1) ;
+  basic-ordinary (g : Basis) : MC.Compact (basic g).1 = X.Realize[g.1.1,g.1.2].compact ;
+  compact (g : Basis) : V.Compact (basic g) = ordinary-to-stable (basic g) (basic-ordinary g) ;
+  encoding (f : S.Map) (g : X.Basis) (fg : M.LE f.1 (X.basic g)) (gf : M.LE (X.basic g) f.1) : Basis =
+    (g,subst M.Map (\ u -> S.Stable u) f.1 (X.basic g) (M.ext f.1 (X.basic g) fg gf) f.2) ;
+  encode (f : S.Map) (c : MC.Compact f.1) : Ex ((g : Basis) * (S.LE f (basic g) * S.LE (basic g) f)) =
+    T.map ((g : X.Basis) * (M.LE f.1 (X.basic g) * M.LE (X.basic g) f.1))
+      ((g : Basis) * (S.LE f (basic g) * S.LE (basic g) f))
+      (\ w -> (encoding f w.1 w.2.1 w.2.2,
+        (S.equal-below f (basic (encoding f w.1 w.2.1 w.2.2)) w.2.1 w.2.2,
+         S.equal-below (basic (encoding f w.1 w.2.1 w.2.2)) f w.2.2 w.2.1))) (X.compact-graph f.1 c) ;
+  bottom-ordinary : MC.Compact SD.bottom.1 = \ I f d h -> T.map I ((i : I) * M.LE SD.bottom.1 (f i))
+    (\ i -> (i,\ a -> E.scott.bottom-least (M.run (f i) (A.basic a)))) d.1 ;
+  module Join (f g h : S.Map) (fh : S.LE f h) (gh : S.LE g h) {
+    family : Bool -> S.Map = split { true -> f ; false -> g } ;
+    bounds : S.SO.Bounds Bool family h = split { true -> fh ; false -> gh } ;
+    module J = SC.Sup[Bool,family,h,bounds] ;
+    map : S.Map = J.map ;
+    sh : Shape = fork leaf leaf ;
+    fs : Ix sh -> M.Map = join M.Map leaf leaf (\ _ -> f.1) (\ _ -> g.1) ;
+    lub : M.MO.Lub (Ix sh) fs map.1 =
+      (cases Top Top (\ i -> M.LE (fs i) map.1) (\ _ -> (J.upper true).1) (\ _ -> (J.upper false).1),
+       \ z hz -> J.P.least z (DistributiveJoins[l].bool (\ i -> M.LE (family i).1 z) (hz (inl tt)) (hz (inr tt)))) ;
+    ordinary (cf : MC.Compact f.1) (cg : MC.Compact g.1) : MC.Compact map.1 =
+      InDomain[X.scott].finite-compact sh fs (cases Top Top (\ i -> MC.Compact (fs i)) (\ _ -> cf) (\ _ -> cg)) map.1 lub ;
+  } ;
+  Local (f : S.Map) : U l = (g : Basis) * S.LE (basic g) f ;
+  part (f : S.Map) (g : Local f) : S.Map = basic g.1 ;
+  inhabited (f : S.Map) : Ex (Local f) = T.map
+    ((g : Basis) * (S.LE SD.bottom (basic g) * S.LE (basic g) SD.bottom)) (Local f)
+    (\ w -> (w.1,S.transitive (basic w.1) SD.bottom f w.2.2 (SD.bottom-least f))) (encode SD.bottom bottom-ordinary) ;
+  upper (f : S.Map) (g h : Local f) : Ex (S.SO.Upper (Local f) (part f) g h) =
+    T.map ((a : Basis) * (S.LE Join[basic g.1,basic h.1,f,g.2,h.2].map (basic a) * S.LE (basic a) Join[basic g.1,basic h.1,f,g.2,h.2].map))
+      (S.SO.Upper (Local f) (part f) g h)
+      (\ w -> ((w.1,S.transitive (basic w.1) Join[basic g.1,basic h.1,f,g.2,h.2].map f w.2.2
+          (Join[basic g.1,basic h.1,f,g.2,h.2].J.least f Join[basic g.1,basic h.1,f,g.2,h.2].bounds)),
+        (S.transitive (basic g.1) Join[basic g.1,basic h.1,f,g.2,h.2].map (basic w.1) (Join[basic g.1,basic h.1,f,g.2,h.2].J.upper true) w.2.1,
+         S.transitive (basic h.1) Join[basic g.1,basic h.1,f,g.2,h.2].map (basic w.1) (Join[basic g.1,basic h.1,f,g.2,h.2].J.upper false) w.2.1)))
+      (encode Join[basic g.1,basic h.1,f,g.2,h.2].map (Join[basic g.1,basic h.1,f,g.2,h.2].ordinary (basic-ordinary g.1) (basic-ordinary h.1))) ;
+  directed (f : S.Map) : S.SO.Dir (Local f) (part f) = (inhabited f,upper f) ;
+
+  Witness (f : S.Map) (x : A.C) (b : B.B) : U l = (g : Basis) * (S.LE (basic g) f * B.LE (B.basic b) (S.run (basic g) x)) ;
+  observation (f : S.Map) (x : A.C) (b : B.B) (h : B.LE (B.basic b) (S.run f x)) : Ex (Witness f x b) =
+    T.bind ((a : A.BI x) * B.LE (B.basic b) (S.run f (A.basic a.1))) (Witness f x b)
+      (\ a -> T.map ((g : Basis) * (S.LE Patches.Patch[f,a.1.1,b].map (basic g) * S.LE (basic g) Patches.Patch[f,a.1.1,b].map))
+        (Witness f x b)
+        (\ w -> (w.1,(S.transitive (basic w.1) Patches.Patch[f,a.1.1,b].map f w.2.2 Patches.Patch[f,a.1.1,b].below,
+          E.scott.order.transitive (B.basic b) (Patches.Patch[f,a.1.1,b].value x) (S.run (basic w.1) x)
+            (Patches.Patch[f,a.1.1,b].entry x a.1.2 a.2) (S.pointwise Patches.Patch[f,a.1.1,b].map (basic w.1) w.2.1 x))))
+        (encode Patches.Patch[f,a.1.1,b].map Patches.Patch[f,a.1.1,b].compact)) (M.Finite[f.1,x].witness b h) ;
+  module Density (f g : S.Map) (h : (a : Basis) -> S.LE (basic a) f -> S.LE (basic a) g) {
+    pointwise (x : A.C) : B.LE (S.run f x) (S.run g x) = E.scott.basis.density (S.run f x) (S.run g x)
+      (\ b hb -> T.rec (Witness f x b) @l (B.LE (B.basic b) (S.run g x)) (E.scott.order.proposition (B.basic b) (S.run g x))
+        (\ w -> E.scott.order.transitive (B.basic b) (S.run (basic w.1) x) (S.run g x) w.2.2 (S.pointwise (basic w.1) g (h w.1 w.2.1) x)) (observation f x b hb)) ;
+    restriction (x y : A.C) (xy : A.LE x y) : B.LE (BN.meet (S.run f y) (S.run g x)) (S.run f x) =
+      E.scott.basis.density (BN.meet (S.run f y) (S.run g x)) (S.run f x) (\ b hb ->
+        T.rec (Witness f y b) @l (B.LE (B.basic b) (S.run f x)) (E.scott.order.proposition (B.basic b) (S.run f x))
+          (\ w -> E.scott.order.transitive (B.basic b) (S.run (basic w.1) x) (S.run f x)
+            (E.scott.order.transitive (B.basic b) (BN.meet (S.run (basic w.1) y) (S.run g x)) (S.run (basic w.1) x)
+              (BN.greatest (S.run (basic w.1) y) (S.run g x) (B.basic b) w.2.2
+                (E.scott.order.transitive (B.basic b) (BN.meet (S.run f y) (S.run g x)) (S.run g x) hb (BN.right (S.run f y) (S.run g x))))
+              (S.restriction (basic w.1) g (h w.1 w.2.1) x y xy)) (S.pointwise (basic w.1) f w.2.1 x))
+          (observation f y b (E.scott.order.transitive (B.basic b) (BN.meet (S.run f y) (S.run g x)) (S.run f y) hb (BN.left (S.run f y) (S.run g x))))) ;
+    inclusion : S.LE f g = S.from-law f g pointwise restriction ;
+  } ;
+  basis : ScottDomain[l].Basis[S.order,SC.complete] = new ScottDomain[l].Basis[S.order,SC.complete,
+    index := Basis, basic := basic, compact := compact, directed := directed,
+    density := \ f g h -> Density[f,g,h].inclusion] ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := S.order, complete := SC.complete, basis := basis,
+    bottom := SD.bottom, bottom-least := SD.bottom-least] ;
+  stable-to-ordinary (f : S.Map) (c : V.Compact f) : MC.Compact f.1 = \ I g d h ->
+    T.bind ((a : Basis) * (S.LE f (basic a) * S.LE (basic a) f)) ((i : I) * M.LE f.1 (g i))
+      (\ w -> T.map ((i : I) * M.LE (basic w.1).1 (g i)) ((i : I) * M.LE f.1 (g i))
+        (\ v -> (v.1,M.order.transitive f.1 (basic w.1).1 (g v.1) w.2.1.1 v.2))
+        (basic-ordinary w.1 I g d (M.order.transitive (basic w.1).1 f.1 (MC.sup I g d) w.2.2.1 h)))
+      (ScottDomain[l].On[scott].compact-basis f c) ;
+} ;

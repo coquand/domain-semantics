@@ -1,0 +1,98 @@
+-- Independent existence of the invariant logical relation. The only
+-- recursion is on finite depth; the limit is a small countable
+-- intersection of continuous pullbacks of lower admissible predicates.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Syntax[l] ; open ExtFilter[l] ; open Domain[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module S = CorrectedStages[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module C = LogicalRelationClauses[l].At[n,Delta] ;
+  module O = LogicalRelationOperator[l].At[n,Delta] ;
+  module L = LogicalRelationLocality[l].At[n,Delta] ;
+  module St = LogicalRelationStages[l].At[n,Delta] ;
+  module TypeLimit (T T' : Tm n) {
+    module Tower = CompatiblePredicateLimit[l].Tower[\ d -> (St.stage d).ty T T',
+      \ d e de -> ((St.compatible d e de).1.1 T T',(St.compatible d e de).2.1 T T')] ;
+    predicate : P.Predicate = Tower.predicate ;
+  } ;
+  module TermLimit (T M M' : Tm n) {
+    module Tower = CompatiblePredicateLimit[l].Tower[\ d -> (St.stage d).tm T M M',
+      \ d e de -> ((St.compatible d e de).1.2 T M M',(St.compatible d e de).2.2 T M M')] ;
+    predicate : P.Predicate = Tower.predicate ;
+  } ;
+  relation : O.Relations = new O.Relations[ty := \ T T' -> TypeLimit[T,T'].predicate,
+    tm := \ T M M' -> TermLimit[T,M,M'].predicate] ;
+  strict : O.Strict relation =
+    (\ T T' -> TypeLimit[T,T'].Tower.strict (\ d -> (St.strict d).1 T T'),
+     \ T M M' -> TermLimit[T,M,M'].Tower.strict (\ d -> (St.strict d).2 T M M')) ;
+  finite-agreement (d : Nat) : L.Agree d relation (St.stage d) =
+    ((\ T T' -> TypeLimit[T,T'].Tower.recover d,\ T M M' -> TermLimit[T,M,M'].Tower.recover d),
+     (\ T T' -> TypeLimit[T,T'].Tower.introduce d,\ T M M' -> TermLimit[T,M,M'].Tower.introduce d)) ;
+  advanced (d : Nat) : L.Agree (suc d) (L.advance relation) (St.stage (suc d)) =
+    L.contractive d relation (St.stage d) (finite-agreement d) ;
+  forward-stage : (d : Nat) -> L.IncludesAt d relation (L.advance relation) = split {
+    zero ->
+      (\ T T' x hx h -> St.BaseStage[relation,strict].forward.1 T T' x hx ((finite-agreement zero).1.1 T T' x hx h),
+       \ T M M' x hx h -> St.BaseStage[relation,strict].forward.2 T M M' x hx ((finite-agreement zero).1.2 T M M' x hx h)) ;
+    suc d ->
+      (\ T T' x hx h -> (advanced d).2.1 T T' x hx ((finite-agreement (suc d)).1.1 T T' x hx h),
+       \ T M M' x hx h -> (advanced d).2.2 T M M' x hx ((finite-agreement (suc d)).1.2 T M M' x hx h)) } ;
+  backward-stage : (d : Nat) -> L.IncludesAt d (L.advance relation) relation = split {
+    zero ->
+      (\ T T' x hx h -> (finite-agreement zero).2.1 T T' x hx (St.BaseStage[relation,strict].backward.1 T T' x hx h),
+       \ T M M' x hx h -> (finite-agreement zero).2.2 T M M' x hx (St.BaseStage[relation,strict].backward.2 T M M' x hx h)) ;
+    suc d ->
+      (\ T T' x hx h -> (finite-agreement (suc d)).2.1 T T' x hx ((advanced d).1.1 T T' x hx h),
+       \ T M M' x hx h -> (finite-agreement (suc d)).2.2 T M M' x hx ((advanced d).1.2 T M M' x hx h)) } ;
+  forward : O.Includes relation (L.advance relation) =
+    (\ T T' k -> (forward-stage (CorrectedRank[l].rank k.1)).1 T T' (principal k)
+      (S.Stage[CorrectedRank[l].rank k.1].compact k (leN-refl (CorrectedRank[l].rank k.1))).2,
+     \ T M M' k -> (forward-stage (CorrectedRank[l].rank k.1)).2 T M M' (principal k)
+      (S.Stage[CorrectedRank[l].rank k.1].compact k (leN-refl (CorrectedRank[l].rank k.1))).2) ;
+  backward : O.Includes (L.advance relation) relation =
+    (\ T T' k -> (backward-stage (CorrectedRank[l].rank k.1)).1 T T' (principal k)
+      (S.Stage[CorrectedRank[l].rank k.1].compact k (leN-refl (CorrectedRank[l].rank k.1))).2,
+     \ T M M' k -> (backward-stage (CorrectedRank[l].rank k.1)).2 T M M' (principal k)
+      (S.Stage[CorrectedRank[l].rank k.1].compact k (leN-refl (CorrectedRank[l].rank k.1))).2) ;
+  -- Translate the type-before-term fixed point to the original mutual
+  -- equations: use its type equation at the same observation.
+  unfolding : O.Includes relation (O.operator relation relation) =
+    (forward.1,\ T M M' k h ->
+      (backward.1 M M' k (forward.2 T M M' k h).1,(forward.2 T M M' k h).2)) ;
+  folding : O.Includes (O.operator relation relation) relation =
+    (backward.1,\ T M M' k h -> backward.2 T M M' k (forward.1 M M' k h.1,h.2)) ;
+  equations : O.Equations relation = (unfolding,folding) ;
+  module Invariant = O.Invariant[relation,equations] ;
+  module Inversion = O.Inversion[relation,unfolding] ;
+  -- Any strict lower admissible solution agrees at every finite depth,
+  -- hence on all compact observations and all domain elements.
+  module Unique (R : O.Relations) (rs : O.Strict R) (eq : O.Equations R) {
+    module Fixed = L.Fixed[R,eq] ;
+    finite : (d : Nat) -> L.Agree d R (St.stage d) = split {
+      zero ->
+        (L.compose zero R (L.advance R) St.initial (L.restrict zero R (L.advance R) Fixed.forward)
+          St.BaseStage[R,rs].backward,
+         L.compose zero St.initial (L.advance R) R St.BaseStage[R,rs].forward
+          (L.restrict zero (L.advance R) R Fixed.backward)) ;
+      suc d | ih ->
+        (L.compose (suc d) R (L.advance R) (St.stage (suc d))
+          (L.restrict (suc d) R (L.advance R) Fixed.forward) (L.contractive d R (St.stage d) ih).1,
+         L.compose (suc d) (St.stage (suc d)) (L.advance R) R
+          (L.contractive d R (St.stage d) ih).2 (L.restrict (suc d) (L.advance R) R Fixed.backward)) } ;
+    to-limit (d : Nat) : L.IncludesAt d R relation =
+      L.compose d R (St.stage d) relation (finite d).1 (finite-agreement d).2 ;
+    from-limit (d : Nat) : L.IncludesAt d relation R =
+      L.compose d relation (St.stage d) R (finite-agreement d).1 (finite d).2 ;
+    inclusion : O.Includes R relation =
+      (\ T T' k -> (to-limit (CorrectedRank[l].rank k.1)).1 T T' (principal k)
+        (S.Stage[CorrectedRank[l].rank k.1].compact k (leN-refl (CorrectedRank[l].rank k.1))).2,
+       \ T M M' k -> (to-limit (CorrectedRank[l].rank k.1)).2 T M M' (principal k)
+        (S.Stage[CorrectedRank[l].rank k.1].compact k (leN-refl (CorrectedRank[l].rank k.1))).2) ;
+    reverse : O.Includes relation R =
+      (\ T T' k -> (from-limit (CorrectedRank[l].rank k.1)).1 T T' (principal k)
+        (S.Stage[CorrectedRank[l].rank k.1].compact k (leN-refl (CorrectedRank[l].rank k.1))).2,
+       \ T M M' k -> (from-limit (CorrectedRank[l].rank k.1)).2 T M M' (principal k)
+        (S.Stage[CorrectedRank[l].rank k.1].compact k (leN-refl (CorrectedRank[l].rank k.1))).2) ;
+    equivalence : O.Includes R relation * O.Includes relation R = (inclusion,reverse) ;
+  } ;
+} ;

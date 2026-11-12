@@ -1,0 +1,90 @@
+-- Joint directed continuity of the actual recursive projector functional.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ;
+open Domain[l] ; open Continuous[l] ; open BinaryMaps[l] ; open DirectedApprox[l] ;
+module TC = TruncationCombinators[l] ; module PO = ProjectorOperator[l] ;
+
+module Approximate (N : Net) (q : On[N].Binaries) (a x : On[N].Approx) {
+  module O = On[N] ;
+  I : U l = N.index ;
+  part (i : I) : D = PO.At[q.part i,a.part i,x.part i].result ;
+  module L = PO.At[q.limit,a.limit,x.limit] ;
+  Witness (t : Ty) : U l = (i : I) * In (part i) t ;
+  at-bottom (t : Ty) (h : Le om t) : Ex (Witness t) = TC.map I (Witness t)
+    (\ i -> (i,fup (part i).1 om t h (fom (part i).1))) N.inhabited ;
+  at-universe (t : Ty) (ha : Parts[l].UHead a.limit) (hx : Parts[l].UHead x.limit) (le : Le univ t) :
+    Ex (Witness t) = TC.map (O.Both a x univ univ) (Witness t)
+      (\ w -> (w.1,PO.At[q.part w.1,a.part w.1,x.part w.1].u-in w.2.1 w.2.2 t (ex (Le univ t) le)))
+      (O.both a x univ univ ha hx) ;
+
+  module PiCase (ha : Parts[l].UHead a.limit) (hx : Parts[l].PHead x.limit) {
+    P (i : I) : U l = Parts[l].UHead (a.part i) * Parts[l].PHead (x.part i) ;
+    stable (i j : I) (ij : N.le i j) (h : P i) : P j =
+      (a.mono i j ij univ h.1,x.mono i j ij (pi om om) h.2) ;
+    module Tail = OperatorApprox[l].Restrict[N,P,stable,O.both a x univ (pi om om) ha hx] ;
+    module T = On[Tail.net] ; module OA = OperatorApprox[l].OnNet[Tail.net] ;
+    qa : T.Binaries = Tail.binaries q ;
+    xa : T.Approx = Tail.approx x ;
+    module C = OA.PiParts[xa,\ i -> i.2.2,hx] ;
+    domain : T.Approx = T.Evaluation[qa,T.constant universe,C.domain].approx ;
+    module F = OA.Family[qa,C.domain,OA.const-map universe,C.family] ;
+    finish (t d f : Ty) (hd : In (L.pi-domain hx) d) (hf : In (L.pi-family hx).1 f)
+      (le : Le (pi d f) t) : Ex (Witness t) =
+      TC.map (T.Both domain F.L.approx d f) (Witness t)
+        (\ w -> (w.1.1,ex (PO.At[q.part w.1.1,a.part w.1.1,x.part w.1.1].E.W t)
+          (wp t w.1.2 d f w.2.1 w.2.2 le))) (T.both domain F.L.approx d f hd hf) ;
+  } ;
+
+  module FunctionCase (ha : Parts[l].PHead a.limit) {
+    P (i : I) : U l = Parts[l].PHead (a.part i) ;
+    stable (i j : I) (ij : N.le i j) : P i -> P j = a.mono i j ij (pi om om) ;
+    module Tail = OperatorApprox[l].Restrict[N,P,stable,a.cover (pi om om) ha] ;
+    module T = On[Tail.net] ; module OA = OperatorApprox[l].OnNet[Tail.net] ;
+    qa : T.Binaries = Tail.binaries q ;
+    aa : T.Approx = Tail.approx a ;
+    module C = OA.PiParts[aa,\ i -> i.2,ha] ;
+    module F = OA.Family[qa,C.domain,OA.app-map C.family,Tail.approx x] ;
+    finish (t : Ty) (h : In (L.function ha).1 t) : Ex (Witness t) =
+      TC.map ((i : Tail.I) * In (F.L.part i).1 t) (Witness t)
+        (\ w -> (w.1.1,PO.At[q.part w.1.1,a.part w.1.1,x.part w.1.1].function-in w.1.2 t w.2))
+        (F.L.cover t h) ;
+  } ;
+  guarded (t : Ty) : L.G.G.W t -> Ex (Witness t) = split {
+    inl h -> at-bottom t h ;
+    inr w -> FunctionCase[w.1].finish t w.2 } ;
+  witness : (t : Ty) -> L.E.W t -> Ex (Witness t) = split {
+    wbot t h -> at-bottom t h ;
+    wu t h le -> at-universe t h.1 h.2 le ;
+    wp t h d f hd hf le -> PiCase[h.1,h.2].finish t d f hd hf le ;
+    wf t h -> TC.bind (L.G.G.W t) (Witness t) (guarded t) h } ;
+  cover (t : Ty) : In L.result t -> Ex (Witness t) = TC.bind (L.E.W t) (Witness t) (witness t) ;
+  approx : O.Approx = new O.Approx[part,L.result,
+    \ i j ij -> PO.Monotone[q.part i,q.part j,q.mono i j ij,a.part i,a.part j,x.part i,x.part j,
+      a.mono i j ij,x.mono i j ij].inclusion,
+    \ i -> PO.Monotone[q.part i,q.limit,q.bound i,a.part i,a.limit,x.part i,x.limit,a.bound i,x.bound i].inclusion,
+    cover] ;
+} ;
+
+reflexive (q : Binary) : PO.LE q q = \ a x -> sub-refl (value q a x).1 ;
+operation (q : Binary) (a x : D) : D = PO.At[q,a,x].result ;
+module Second (q : Binary) (a x : D) {
+  module B = DirectedApprox[l].Basis[x] ; module O = On[B.net] ;
+  module A = Approximate[B.net,O.binary-constant q,O.constant a,B.approx] ;
+  finite (t : Ty) (h : In (operation q a x) t) : Ex (Trace (operation q a) x t) =
+    TC.map (A.Witness t) (Trace (operation q a) x t) (\ w -> (w.1.1,(w.1.2,w.2))) (A.cover t h) ;
+} ;
+module First (q : Binary) (a x : D) {
+  module B = DirectedApprox[l].Basis[a] ; module O = On[B.net] ;
+  module A = Approximate[B.net,O.binary-constant q,B.approx,O.constant x] ;
+  finite (t : Ty) (h : In (operation q a x) t) : Ex ((k : K) * (In a k.1 * In (operation q (principal k) x) t)) =
+    TC.map (A.Witness t) ((k : K) * (In a k.1 * In (operation q (principal k) x) t))
+      (\ w -> (w.1.1,(w.1.2,w.2))) (A.cover t h) ;
+} ;
+at (q : Binary) (a : D) : Map = (operation q a,
+  (\ x y xy -> PO.Monotone[q,q,reflexive q,a,a,x,y,sub-refl a.1,xy].inclusion,
+   \ x -> Second[q,a,x].finite)) ;
+Phi (q : Binary) : Binary = new Binary[at q,
+  \ a b ab x -> PO.Monotone[q,q,reflexive q,a,b,x,x,ab,sub-refl x.1].inclusion,
+  \ a x -> First[q,a,x].finite] ;
+monotone (q r : Binary) (qr : PO.LE q r) : PO.LE (Phi q) (Phi r) = \ a x ->
+  PO.Monotone[q,r,qr,a,a,x,x,sub-refl a.1,sub-refl x.1].inclusion ;

@@ -1,0 +1,67 @@
+-- The observable constructors of the checked domain equation.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Abstraction[l] ;
+module S = Sum[l] ; module TC = TruncationCombinators[l] ;
+
+module Pi (A : D) (B : FD) {
+  presentation : S.RHS =
+    (((Empty,isProp-Empty),(((Top,isTop),\ _ -> (A,B)),Parts[l].bottom-function)),
+      (\ e _ -> e,(\ e -> efq e,\ _ -> ExtFilter[l].eqv-refl bottom.1))) ;
+  module E = S.Encode[presentation] ;
+  value : D = E.value ;
+  intro (a b : Ty) (ha : In A a) (hb : In B.1 b) : In value (pi a b) =
+    ex (E.W (pi a b)) (wp (pi a b) tt a b ha hb (le-refl (pi a b))) ;
+  no-U-witness : (t : Ty) -> E.W t -> Le t univ -> Empty = split {
+    wbot t h -> \ k -> om-not-univ (le-trans om t univ h k) ;
+    wu t e h -> \ k -> e ;
+    wp t p a b ha hb h -> \ k -> pi-not-univ a b (le-trans (pi a b) t univ h k) ;
+    wf t h -> \ k -> ex-elim (Le om t) Empty isProp-Empty
+      (\ h -> om-not-univ (le-trans om t univ h k)) h } ;
+  no-U : In value univ -> Empty =
+    ex-elim (E.W univ) Empty isProp-Empty (\ w -> no-U-witness univ w (le-refl univ)) ;
+  parts-witness (a b : Ty) : (t : Ty) -> E.W t -> Le t (pi a b) -> In A a * In B.1 b = split {
+    wbot t h -> \ k -> efq (om-not-pi a b (le-trans om t (pi a b) h k)) ;
+    wu t e h -> \ k -> efq e ;
+    wp t p c d hc hd h -> \ k ->
+      (fup A.1 c a (pi-inj c d a b (le-trans (pi c d) t (pi a b) h k)).1 hc,
+       fup B.1.1 d b (pi-inj c d a b (le-trans (pi c d) t (pi a b) h k)).2 hd) ;
+    wf t h -> \ k -> ex-elim (Le om t) (In A a * In B.1 b)
+      (isProp-Sigma (In A a) (\ _ -> In B.1 b) (fprop A.1 a) (\ _ -> fprop B.1.1 b))
+      (\ h -> efq (om-not-pi a b (le-trans om t (pi a b) h k))) h } ;
+  parts (a b : Ty) : In value (pi a b) -> In A a * In B.1 b =
+    ex-elim (E.W (pi a b)) (In A a * In B.1 b)
+      (isProp-Sigma (In A a) (\ _ -> In B.1 b) (fprop A.1 a) (\ _ -> fprop B.1.1 b))
+      (\ w -> parts-witness a b (pi a b) w (le-refl (pi a b))) ;
+} ;
+
+module PiMono (A C : D) (B H : FD) (ac : Domain[l].Below A C) (bh : Domain[l].Below B.1 H.1) {
+  module P = Pi[A,B] ; module Q = Pi[C,H] ;
+  witness : (t : Ty) -> P.E.W t -> Q.E.W t = split {
+    wbot t h -> wbot t h ; wu t e h -> efq e ;
+    wp t q a b ha hb le -> wp t tt a b (ac a ha) (bh b hb) le ;
+    wf t h -> wf t h } ;
+  inclusion : Domain[l].Below P.value Q.value = \ t -> TC.map (P.E.W t) (Q.E.W t) (witness t) ;
+} ;
+
+module PiBelow (X : D) (head : Parts[l].PHead X) {
+  module C = Parts[l].PiParts[X,head] ;
+  module P = Pi[C.domain,C.family] ;
+  witness : (t : Ty) -> P.E.W t -> In X t = split {
+    wbot t h -> fup X.1 om t h (fom X.1) ;
+    wu t e h -> efq e ;
+    wp t q a b ha hb le -> fup X.1 (pi a b) t le (Parts[l].pi-combine X a b ha hb) ;
+    wf t h -> bottom-least X t h } ;
+  inclusion : Domain[l].Below P.value X = \ t ->
+    ex-elim (P.E.W t) (In X t) (fprop X.1 t) (witness t) ;
+} ;
+
+-- An application at a principal argument is exactly an arrow observation.
+arrow-observation (F : D) (k : K) (v : Ty) :
+  In (Application[l].eval F (principal k)) v -> In F (arr k.1 v) =
+  ex-elim (Filter[l].AppW (raw F.1) (raw (principal k).1) v)
+    (In F (arr k.1 v)) (fprop F.1 (arr k.1 v))
+    (\ w -> ex-elim (Le k.1 w.x) (In F (arr k.1 v)) (fprop F.1 (arr k.1 v))
+      (\ h -> fup F.1 w.g (arr k.1 v)
+        (le-trans w.g (arr w.x v) (arr k.1 v) w.le
+          (le-arr w.x k.1 v v h (le-refl v))) w.ing) w.inx) ;

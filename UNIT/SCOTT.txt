@@ -1,0 +1,145 @@
+General Scott domains and their function spaces
+===============================================
+
+Checked interface
+-----------------
+
+ScottDomain.Scott describes a pointed, bounded-complete algebraic dcpo
+with a small compact basis. The carrier is in U (l+); the order and basis
+indices are in U l. Directed and bounded completeness are for families
+indexed by U l. Order is propositional and antisymmetric with respect to
+identity. The carrier is consequently a set (ScottOrder.On.order-set).
+
+ScottMaps.Between[D,E].Map consists of monotone functions preserving
+small directed suprema. The preservation field says that every upper
+bound of the image family is above the image of its supremum. Together
+with monotonicity this is exactly the usual supremum equation.
+
+The order on maps tests only the input compact basis. ScottMaps.pointwise
+proves equivalence with the full pointwise order, keeping the order small.
+Pointwise suprema are continuous, for both directed and bounded families.
+
+The main theorem is:
+
+  ScottExponential.Exponential[D,E].scott : ScottDomain.Scott
+
+Its carrier is exactly ScottMaps.Between[D,E].Map, with no extra hypotheses
+on D or E. Its bottom is the constant bottom function. Its compact basis
+is the small type of admissible finite graphs of input/output basis pairs.
+compact-graph proves that every compact continuous map is represented by
+such a graph, propositionally and up to equality of functions.
+
+The direct finite-join proof
+----------------------------
+
+ScottStepApprox is now a separate checked proof, imported before
+ScottExponential. It uses no graph selections or admissibility condition.
+The mathematical presentation in scott-domains.tex follows this proof.
+
+For compact a,b the step a => b is constructed by bounded completeness,
+as the supremum of the constant b family indexed by a <= x. Step.below
+and Step.test prove (a => b) <= f iff b <= f(a). Step.compact proves
+compactness using compactness of b at the input a.
+
+Given a continuous f and a finite list (a_i,b_i) with b_i <= f(a_i),
+all the steps are bounded by f. FiniteJoin therefore forms their join
+directly using pointwise bounded completeness. Its compactness follows
+by combining finitely many directed witnesses. This construction never
+needs to decide which entries are active at an input.
+
+Approximation[f] takes all such finite lists. It is a small directed
+index type: the empty list gives bottom and concatenation gives a common
+upper approximation. Compact-input witnesses from continuity show that
+the singleton steps already cover every observation of f. equation proves
+that the supremum of the finite joins is f; compact-finite proves that a
+compact f is itself one finite join.
+
+The small global presentation
+-----------------------------
+
+The older ScottExponential construction additionally supplies a single
+small basis index type, uniformly for all functions. It uses intrinsic
+boundedness of finite presentations to avoid a large existential over
+upper functions. This representation is separate from the direct
+finite-join approximation argument above.
+
+For compact a in D and b in E, the step function a => b is the supremum
+of the constant b family indexed by the proposition a <= x, at each x.
+It does not require deciding this proposition. Its characteristic law is
+
+  (a => b) <= f    iff    b <= f(a).
+
+The formal declarations are step-below and step-test. Compactness of b,
+and pointwise directed suprema, imply compactness of this step function.
+The same argument, combining finitely many directed witnesses, proves
+compactness of every admissible finite graph.
+
+A finite graph G is admissible when every finite selection of its entries
+whose input compacts have a common upper bound has output compacts with a
+common upper bound. Bounds can be tested using basis elements: finitely
+many compacts below x have a common basis upper bound below x. Thus the
+admissibility predicate is U l-valued.
+
+To evaluate G at x, consider finite selections whose inputs are all below
+x. Each selection has a bounded output join. These joins form a small
+directed family, under concatenation of selections. Its supremum is G(x).
+This avoids treating the undecidable active part of a finite graph as a
+decidable finite set. The key universal property is
+
+  G <= f    iff    b_i <= f(a_i) for every entry (a_i,b_i) of G.
+
+Every finite graph satisfying the right side is admissible. Finite unions
+of graphs below f remain below f, so these graphs form a directed family.
+Continuity of f gives a compact input witness for each compact output
+observation. The corresponding singleton graph lies below f and covers
+that observation. Hence f is the supremum of the compact graphs below it.
+
+No choices are extracted from mere bounds. A bounded family's supremum,
+together with its universal property, is a proposition by antisymmetry.
+Truncation can therefore eliminate a mere bound into this unique result.
+
+A correction to the general pairwise criterion
+----------------------------------------------
+
+The paragraph following Definition 2.11 in paper1.pdf gives a pairwise
+compatibility criterion for finite step presentations. For general Scott
+domains, pairwise compatibility alone does not suffice.
+
+For example, let D be the one-point domain and let E be the poset of all
+proper subsets of {1,2,3}, ordered by inclusion. E is a finite pointed
+algebraic dcpo and is bounded complete: a bounded family's union is still
+a proper subset. The three singleton subsets are pairwise compatible,
+but have no common upper bound. The graph sending D's single point to
+each of these three singleton outputs satisfies the pairwise criterion
+yet cannot define a function value there.
+
+The finite-selection condition above is necessary and sufficient and
+needs no extra coherence assumption. This counterexample is an informal
+observation; the checked theorem itself uses finite-selection admissibility.
+
+Connection to the existing construction
+---------------------------------------
+
+ScottFilter.scott packages the existing intersection-type filter domain.
+ScottFilter.map-equivalence identifies the generic continuous maps with
+Continuous.Map, preserving the underlying functions in both directions.
+ScottFilter.function-scott instantiates the general exponential theorem.
+
+ScottFixpoint.Kleene[S,f] defines f^n(bottom), proves that this is directed,
+and takes its supremum. equation proves f(value) = value; Below.least proves
+value <= x whenever f(x) <= x. No projector property is assumed.
+
+The projector-specific functional is defined in ProjectorOperator.At.
+OperatorContinuity now proves its joint directed continuity, and
+KleeneProjector explicitly constructs its Kleene least fixed point,
+identifies it with the typed projector and derives finitariness and
+normalization. RankProjection, StageFusion and OperationalStages now
+give a direct finite-unfolding proof of stage compatibility: stage-n
+observations of the Kleene sequence stabilize at P_(n+1). This proof
+does not use typing identification or the sandwich lemma. StageComparison
+separately identifies the operational and bounded-typing stages and
+transfers finitariness. PROPOSITION227.txt explains the two routes and
+the base-stage obstruction to the unamended printed construction.
+
+All proofs use only the existing univalence and replacement parameters;
+there is no excluded middle, choice or propositional resizing assumption.

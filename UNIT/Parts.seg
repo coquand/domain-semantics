@@ -1,0 +1,108 @@
+-- The three components of a domain element. Pi components are read
+-- only under positive evidence of its Pi head; no case split on an
+-- arbitrary proposition is used.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Abstraction[l] ;
+module TC = TruncationCombinators[l] ;
+
+UHead (x : D) : U l = In x univ ;
+PHead (x : D) : U l = In x (pi om om) ;
+
+pi-domain (x : D) (a b : Ty) (h : In x (pi a b)) : In x (pi a om) =
+  fup x.1 (pi a b) (pi a om) (le-pi a a b om (le-refl a) (le-om b)) h ;
+pi-family (x : D) (a b : Ty) (h : In x (pi a b)) : In x (pi om b) =
+  fup x.1 (pi a b) (pi om b) (le-pi a om b b (le-om a) (le-refl b)) h ;
+pi-head (x : D) (a b : Ty) (h : In x (pi a b)) : PHead x =
+  fup x.1 (pi a b) (pi om om) (le-pi a om b om (le-om a) (le-om b)) h ;
+
+pi-combine (x : D) (a b : Ty) (ha : In x (pi a om)) (hb : In x (pi om b)) : In x (pi a b) =
+  fup x.1 (meet (pi a om) (pi om b)) (pi a b)
+    (le-trans (meet (pi a om) (pi om b)) (pi (meet a om) (meet om b)) (pi a b)
+      (le-pi-meet a om om b)
+      (le-pi (meet a om) a (meet om b) b (le-meet-l a om) (le-meet-r om b)))
+    (fmeet x.1 (pi a om) (pi om b) ha hb) ;
+
+module PiParts (x : D) (hp : PHead x) {
+  dm (t : Ty) : U l = In x (pi t om) ;
+  fm (t : Ty) : U l = In x (pi om t) ;
+  dmeet (s t : Ty) (a : dm s) (b : dm t) : dm (meet s t) =
+    pi-domain x (meet s t) (meet om om)
+      (fup x.1 (meet (pi s om) (pi t om)) (pi (meet s t) (meet om om))
+        (le-pi-meet s om t om) (fmeet x.1 (pi s om) (pi t om) a b)) ;
+  fmeet' (s t : Ty) (a : fm s) (b : fm t) : fm (meet s t) =
+    pi-family x (meet om om) (meet s t)
+      (fup x.1 (meet (pi om s) (pi om t)) (pi (meet om om) (meet s t))
+        (le-pi-meet om s om t) (fmeet x.1 (pi om s) (pi om t) a b)) ;
+  df : Filt = (dm,(\ t -> fprop x.1 (pi t om),
+    (hp,(dmeet,\ s t h -> fup x.1 (pi s om) (pi t om) (le-pi s t om om h (le-refl om)))))) ;
+  ff : Filt = (fm,(\ t -> fprop x.1 (pi om t),
+    (hp,(fmeet',\ s t h -> fup x.1 (pi om s) (pi om t) (le-pi om om s t (le-refl om) h))))) ;
+  dc (t : Ty) (h : dm t) : Cons t =
+    (cons-psel (pi t om) t om (consistent x (pi t om) h) (ps-here t om)).1 ;
+  fc (t : Ty) (h : fm t) : Cons t =
+    (cons-psel (pi om t) om t (consistent x (pi om t) h) (ps-here om t)).2 ;
+
+  da (t : Ty) (w : Domain[l].PW x.1 (pi t om)) : Domain[l].PW df t =
+    (e.domain,(e.proper-domain,
+      (pi-domain x e.domain e.family (fup x.1 w.1 (pi e.domain e.family) e.below w.2.2.1),e.below-domain)))
+    where { e : Regular[l].PiExtract[w.1,t,om] = Regular[l].extract-pi w.1 t om w.2.1 w.2.2.2 ; } ;
+  fa (t : Ty) (w : Domain[l].PW x.1 (pi om t)) : Domain[l].PW ff t =
+    (e.family,(e.proper-family,
+      (pi-family x e.domain e.family (fup x.1 w.1 (pi e.domain e.family) e.below w.2.2.1),e.below-family)))
+    where { e : Regular[l].PiExtract[w.1,om,t] = Regular[l].extract-pi w.1 om t w.2.1 w.2.2.2 ; } ;
+  domain : D = (df,(\ t h -> ex (Cons t) (dc t h),
+    \ t h -> TC.map (Domain[l].PW x.1 (pi t om)) (Domain[l].PW df t) (da t) (x.2.2 (pi t om) h))) ;
+  familyD : D = (ff,(\ t h -> ex (Cons t) (fc t h),
+    \ t h -> TC.map (Domain[l].PW x.1 (pi om t)) (Domain[l].PW ff t) (fa t) (x.2.2 (pi om t) h))) ;
+  aa (t : Ty) (w : Domain[l].PW x.1 (pi om t)) : AW familyD t =
+    (e.family,(e.proper-family,(e.arrows,
+      (pi-family x e.domain e.family (fup x.1 w.1 (pi e.domain e.family) e.below w.2.2.1),e.below-family))))
+    where { e : Regular[l].PiExtract[w.1,om,t] = Regular[l].extract-pi w.1 om t w.2.1 w.2.2.2 ; } ;
+  family : FD = (familyD,\ t h -> TC.map (Domain[l].PW x.1 (pi om t)) (AW familyD t) (aa t) (x.2.2 (pi om t) h)) ;
+} ;
+
+-- Heads are disjoint, and a defined data head has bottom application.
+disjoint (x : D) (u : UHead x) (p : PHead x) : Empty =
+  cons-clash (meet univ (pi om om))
+    (consistent x (meet univ (pi om om)) (fmeet x.1 univ (pi om om) u p)) om om
+    (sel-l univ (pi om om) univ (sel-here univ))
+    (sel-r univ (pi om om) (pi om om) (sel-here (pi om om))) ;
+
+u-arrow (x : D) (u : UHead x) (a t : Ty) (ca : Cons a) (h : In x (arr a t)) : Le om t =
+  les-le om t (cl-ua Cons (meet univ (arr a t))
+    (cons-fix-to (meet univ (arr a t))
+      (consistent x (meet univ (arr a t)) (fmeet x.1 univ (arr a t) u h))) a t
+    (sel-l univ (arr a t) univ (sel-here univ))
+    (as-r univ (arr a t) a t (as-here a t)) ca) ;
+
+p-arrow (x : D) (p : PHead x) (a t : Ty) (ca : Cons a) (h : In x (arr a t)) : Le om t =
+  les-le om t (cl-pa Cons (meet (pi om om) (arr a t))
+    (cons-fix-to (meet (pi om om) (arr a t))
+      (consistent x (meet (pi om om) (arr a t)) (fmeet x.1 (pi om om) (arr a t) p h))) om om a t
+    (sel-l (pi om om) (arr a t) (pi om om) (sel-here (pi om om)))
+    (as-r (pi om om) (arr a t) a t (as-here a t)) ca) ;
+
+bottom-function : FD = (bottom,\ t h -> TC.map (Le om t) (AW bottom t)
+  (\ le -> (om,(tt,(tt,(prin-in om,le))))) h) ;
+
+module Kill (x : D) (kill : (a t : Ty) -> Cons a -> In x (arr a t) -> Le om t) {
+  module L = Lambda[Application[l].map x] ;
+  entry-bottom (a t : Ty) (e : L.ER a t) : Le om t =
+    les-le om t (ConsStable[l].bottom-to t
+      (ex-elim (Filter[l].AppW (raw x.1) (raw (principal (a,(e.good-in,e.cons-in))).1) t)
+        (ConsStable[l].BottomLike t) (ConsStable[l].bottom-prop t)
+        (\ w -> ConsStable[l].bottom-from om t
+          (le-les om t (kill w.x t
+            (consistent (principal (a,(e.good-in,e.cons-in))) w.x w.inx)
+            (fup x.1 w.g (arr w.x t) w.le w.ing))) tt) e.observed)) ;
+
+  graph-bottom : (s : Ty) -> Filter[l].EntS L.ER s -> Le om s = split {
+    es-om -> le-refl om ;
+    es-arr a t e -> le-trans om (arr om om) (arr a t) le-om-arr
+      (le-arr om a om t (le-om a) (entry-bottom a t e)) ;
+    es-meet s t h1 h2 | r1 r2 -> le-meet om s t r1 r2 } ;
+  below : Domain[l].Below L.value bottom = \ t -> TC.map (L.W t) (Le om t)
+    (\ w -> le-trans om w.graph t (graph-bottom w.graph w.entries) w.below) ;
+  equality : Equal L.value bottom = (below,bottom-least L.value) ;
+} ;

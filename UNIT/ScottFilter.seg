@@ -1,0 +1,50 @@
+-- The intersection-type filter domain is an instance of the abstract interface.
+level l ;
+open Base ; open Prelude[l+] ; open ExtFilter[l] ; open Domain[l] ;
+module S = ScottOrder[l] ; module T = TruncationCombinators[l] ;
+order : S.Order = new S.Order[carrier := D, le := Domain[l].Below,
+  proposition := \ x y -> sub-prop x.1 y.1,
+  reflexive := \ x -> sub-refl x.1,
+  transitive := \ x y z -> sub-trans x.1 y.1 z.1,
+  antisymmetric := \ x y h k -> Domain[l].ext x y (h,k)] ;
+complete : S.Complete[order] = new S.Complete[order,
+  directed := \ I x d -> (Domain[l].Sup[I,x,d].value,(Domain[l].Sup[I,x,d].inc,Domain[l].Sup[I,x,d].least)),
+  bounded := \ I x b h -> (Bounded[l].Sup[I,x,b,h].value,(Bounded[l].Sup[I,x,b,h].upper,Bounded[l].Sup[I,x,b,h].least))] ;
+Local (x : D) : U l = (a : K) * Domain[l].Below (principal a) x ;
+part (x : D) (a : Local x) : D = principal a.1 ;
+convert (x : D) (a : BasisD[x].index) : Local x = (a.1,BasisD[x].bounded a) ;
+unconvert (x : D) (a : Local x) : BasisD[x].index = (a.1,a.2 a.1.1 (prin-in a.1.1)) ;
+directed (x : D) : S.On[order].Dir (Local x) (part x) =
+  (ex (Local x) (bottomK,bottom-least x),\ a b ->
+    T.map (Directed[l].Upper BasisD[x].index (\ i -> (BasisD[x].part i).1) (unconvert x a) (unconvert x b))
+      (S.On[order].Upper (Local x) (part x) a b)
+      (\ w -> (convert x w.1,w.2)) (BasisD[x].directed.2 (unconvert x a) (unconvert x b))) ;
+density (x y : D) (h : (a : K) -> Domain[l].Below (principal a) x -> Domain[l].Below (principal a) y) :
+  Domain[l].Below x y = sub-trans x.1 BasisD[x].S.value.1 y.1 BasisD[x].from
+    (BasisD[x].S.least y (\ a -> h a.1 (BasisD[x].bounded a))) ;
+basis : ScottDomain[l].Basis[order,complete] = new ScottDomain[l].Basis[order,complete,
+  index := K, basic := principal, compact := principal-compact, directed := directed, density := density] ;
+scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order, complete := complete, basis := basis,
+  bottom := bottom, bottom-least := bottom-least] ;
+module M = ScottMaps[l].Between[scott,scott] ;
+module C = Continuous[l] ;
+
+-- The two existing notions of continuous function are equivalent.
+to-map (f : C.Map) : M.Map = (f.1,(f.2.1,\ I x d z h ->
+  sub-trans (C.run f (Sup[I,x,d].value)).1 (C.Preserve[f,I,x,d].T.value).1 z.1
+    C.Preserve[f,I,x,d].forward (C.Preserve[f,I,x,d].T.least z h))) ;
+preserves (f : M.Map) : C.Preserves f.1 f.2.1 = \ I x d ->
+  Domain[l].ext (f.1 Sup[I,x,d].value)
+    Sup[I,\ i -> f.1 (x i),C.image-dir f.1 f.2.1 I x d].value
+    (f.2.2 I x d Sup[I,\ i -> f.1 (x i),C.image-dir f.1 f.2.1 I x d].value
+      (Sup[I,\ i -> f.1 (x i),C.image-dir f.1 f.2.1 I x d].inc),
+     Sup[I,\ i -> f.1 (x i),C.image-dir f.1 f.2.1 I x d].least (f.1 Sup[I,x,d].value)
+      (\ i -> f.2.1 (x i) Sup[I,x,d].value (Sup[I,x,d].inc i))) ;
+from-map (f : M.Map) : C.Map = C.from-scott f.1 f.2.1 (preserves f) ;
+to-from (f : M.Map) : Id M.Map (to-map (from-map f)) f =
+  M.ext (to-map (from-map f)) f (\ a -> sub-refl (f.1 (principal a)).1) (\ a -> sub-refl (f.1 (principal a)).1) ;
+from-to (f : C.Map) : Id C.Map (from-map (to-map f)) f =
+  C.ext (from-map (to-map f)) f (\ x -> eqv-refl (f.1 x).1) ;
+map-equivalence : Equiv C.Map M.Map =
+  (to-map,qinv C.Map M.Map to-map from-map to-from from-to) ;
+function-scott : ScottDomain[l].Scott = ScottExponential[l].Exponential[scott,scott].scott ;

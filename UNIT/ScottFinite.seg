@@ -1,0 +1,64 @@
+-- Finite families and common directed witnesses, without choice.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+data Shape : U l = none | leaf | fork (s t : Shape) ;
+Ix : Shape -> U l = split { none -> Empty ; leaf -> Top ; fork s t | a b -> Plus a b } ;
+cases (A B : U l) (P : Plus A B -> U l+) (f : (a : A) -> P (inl a))
+  (g : (b : B) -> P (inr b)) : (i : Plus A B) -> P i = split { inl a -> f a ; inr b -> g b } ;
+unit (P : Top -> U l+) (p : P tt) : (i : Top) -> P i = split { tt -> p } ;
+join (A : U l+) (s t : Shape) (f : Ix s -> A) (g : Ix t -> A) : Ix (fork s t) -> A =
+  cases (Ix s) (Ix t) (\ _ -> A) f g ;
+
+module Directed (P : Order) (I : U l) (x : I -> P.carrier) (d : ScottOrder[l].On[P].Dir I x) {
+  module O = ScottOrder[l].On[P] ;
+  Witness (s : Shape) (R : Ix s -> I -> U l) : U l = (i : I) * ((j : Ix s) -> R j i) ;
+  Mon (s : Shape) (R : Ix s -> I -> U l) : U l =
+    (j : Ix s) (i k : I) -> P.le (x i) (x k) -> R j i -> R j k ;
+  both (s t : Shape) (R : Ix (fork s t) -> I -> U l) (m : Mon (fork s t) R)
+    (a : Witness s (\ j -> R (inl j))) (b : Witness t (\ j -> R (inr j))) :
+    Ex (Witness (fork s t) R) =
+    T.map (O.Upper I x a.1 b.1) (Witness (fork s t) R)
+      (\ w -> (w.1,cases (Ix s) (Ix t) (\ j -> R j w.1)
+        (\ j -> m (inl j) a.1 w.1 w.2.1 (a.2 j))
+        (\ j -> m (inr j) b.1 w.1 w.2.2 (b.2 j)))) (d.2 a.1 b.1) ;
+  collect : (s : Shape) (R : Ix s -> I -> U l) -> Mon s R ->
+    ((j : Ix s) -> Ex ((i : I) * R j i)) -> Ex (Witness s R) = split {
+    none -> \ R m h -> T.map I (Witness none R) (\ i -> (i,\ j -> absurd (R j i) j)) d.1 ;
+    leaf -> \ R m h -> T.map ((i : I) * R tt i) (Witness leaf R)
+      (\ w -> (w.1,unit (\ j -> R j w.1) w.2)) (h tt) ;
+    fork s t | rs rt -> \ R m h -> T.bind2
+      (Witness s (\ j -> R (inl j))) (Witness t (\ j -> R (inr j))) (Witness (fork s t) R)
+      (both s t R m) (rs (\ j -> R (inl j)) (\ j -> m (inl j)) (\ j -> h (inl j)))
+      (rt (\ j -> R (inr j)) (\ j -> m (inr j)) (\ j -> h (inr j))) } ;
+} ;
+
+module InDomain (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ; module O = ScottOrder[l].On[S.order] ;
+  module C = DC[S.order,S.complete] ;
+  basis-bound (s : Shape) (a : Ix s -> A.B) (x : A.C)
+    (h : (j : Ix s) -> A.LE (A.basic (a j)) x) :
+    Ex ((b : A.BI x) * ((j : Ix s) -> A.LE (A.basic (a j)) (A.basic b.1))) =
+    Directed[S.order,A.BI x,A.part x,A.dir x].collect s
+      (\ j b -> A.LE (A.basic (a j)) (A.basic b.1))
+      (\ j i k ik p -> S.order.transitive (A.basic (a j)) (A.basic i.1) (A.basic k.1) p ik)
+      (\ j -> A.cover (a j) x (h j)) ;
+  finite-compact (s : Shape) (a : Ix s -> A.C) (compact : (j : Ix s) -> C.Compact (a j))
+    (v : A.C) (lub : O.Lub (Ix s) a v) : C.Compact v = \ I x d h ->
+    T.map ((i : I) * ((j : Ix s) -> A.LE (a j) (x i))) ((i : I) * A.LE v (x i))
+      (\ w -> (w.1,lub.2 (x w.1) w.2))
+      (Directed[S.order,I,x,d].collect s (\ j i -> A.LE (a j) (x i))
+        (\ j i k ik p -> S.order.transitive (a j) (x i) (x k) p ik)
+        (\ j -> compact j I x d (S.order.transitive (a j) v (C.sup I x d) (lub.1 j) h))) ;
+  Bound (s : Shape) (a : Ix s -> A.B) : U l =
+    (b : A.B) * ((j : Ix s) -> A.LE (A.basic (a j)) (A.basic b)) ;
+  bounded (s : Shape) (a : Ix s -> A.B) (x : A.C)
+    (h : (j : Ix s) -> A.LE (A.basic (a j)) x) : Ex (Bound s a) =
+    T.map ((b : A.BI x) * ((j : Ix s) -> A.LE (A.basic (a j)) (A.basic b.1))) (Bound s a)
+      (\ w -> (w.1.1,w.2)) (basis-bound s a x h) ;
+  finite-lub (s : Shape) (a : Ix s -> A.B) (bound : Ex (Bound s a)) :
+    O.Supremum (Ix s) (\ j -> A.basic (a j)) =
+    T.rec (Bound s a) @l+ (O.Supremum (Ix s) (\ j -> A.basic (a j)))
+      (O.sup-prop (Ix s) (\ j -> A.basic (a j)))
+      (\ w -> S.complete.bounded (Ix s) (\ j -> A.basic (a j)) (A.basic w.1) w.2) bound ;
+} ;

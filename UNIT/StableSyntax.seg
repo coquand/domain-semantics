@@ -1,0 +1,82 @@
+-- Total stable interpretation of the existing annotated MLTT syntax.
+-- Lambda restricts its argument by the annotation's rigid projection.
+-- No typing derivation or classical parameter is needed to interpret terms.
+level l ;
+open Base ; open Prelude[l+] ; open Syntax[l] ;
+module On (D : DIDomain[l].DI) (representation : RigidUniverse[l].On[D].Representation) {
+  module Universe = RigidUniverse[l].On[D] ;
+  module V = Universe.With[representation] ;
+  module A = ScottDomain[l].On[D.scott] ;
+  module S = StableMaps[l].Between[D.scott,D.scott] ;
+  module Restrict = StableInputRestriction[l].Between[D,D] ;
+  module Lambda {
+    module Args = StableProduct[l].Pair[V.Parameter.domain.scott,Universe.RP.domain.scott,Universe.X.domain.scott,V.input,V.Parts.right] ;
+    restricted : StableMaps[l].Between[V.Parameter.domain.scott,Universe.X.domain.scott].Map =
+      StableComposition[l].Between[V.Parameter.domain.scott,Restrict.P.scott,Universe.X.domain.scott].Compose[Args.map,Restrict.joint].map ;
+    map : StableMaps[l].Between[V.Parameter.domain.scott,D.scott].Map =
+      StableComposition[l].Between[V.Parameter.domain.scott,Universe.X.domain.scott,D.scott].Compose[restricted,representation.functions.embed].map ;
+    value (a : A.C) (f : S.Map) : A.C = StableMaps[l].Between[V.Parameter.domain.scott,D.scott].run map (a,f) ;
+    beta (a : A.C) (f : S.Map) (x : A.C) : Id A.C
+      (V.Application.value (value a f) x) (S.run f (V.C.apply a x)) =
+      V.Application.beta (Restrict.At[V.C.decode a].value f) x ;
+    beta-fixed (a : A.C) (f : S.Map) (x : A.C) (h : Id A.C (V.C.apply a x) x) :
+      Id A.C (V.Application.value (value a f) x) (S.run f x) =
+      trans A.C (V.Application.value (value a f) x) (S.run f (V.C.apply a x)) (S.run f x)
+        (beta a f x) (ap A.C A.C (S.run f) (V.C.apply a x) x h) ;
+  } ;
+  environment : Nat -> ScottDomain[l].Scott = split {
+    zero -> ScottTerminal[l].scott ;
+    suc n | E -> ScottProduct[l].Product[E,D.scott].scott } ;
+  Env (n : Nat) : U l+ = (environment n).order.carrier ;
+  Map (n : Nat) : U l+ = StableMaps[l].Between[environment n,D.scott].Map ;
+  run (n : Nat) : Map n -> Env n -> A.C = StableMaps[l].Between[environment n,D.scott].run ;
+  variable : (n : Nat) -> Fin n -> Map n = split {
+    zero -> \ i -> absurd (Map zero) i ;
+    suc n | v -> split {
+      none -> StableProduct[l].Product[environment n,D.scott].right ;
+      some i -> StableComposition[l].Between[environment (suc n),environment n,D.scott].Compose[
+        StableProduct[l].Product[environment n,D.scott].left,v i].map } } ;
+  lookup (n : Nat) (rho : Env n) (i : Fin n) : A.C = run n (variable n i) rho ;
+  module Constructors (n : Nat) {
+    module Curry = StableCurrying[l].Between[environment n,D,D] ;
+    module App (f x : Map n) {
+      module Pair = StableProduct[l].Pair[environment n,D.scott,D.scott,f,x] ;
+      map : Map n = StableComposition[l].Between[environment n,V.Application.Product.scott,D.scott].Compose[Pair.map,V.Application.map].map ;
+    } ;
+    module Binder (a : Map n) (b : Map (suc n)) {
+      module Curried = Curry.Curry[b] ;
+      module Pair = StableProduct[l].Pair[environment n,D.scott,Universe.X.domain.scott,a,Curried.map] ;
+      pi : Map n = StableComposition[l].Between[environment n,V.Parameter.domain.scott,D.scott].Compose[Pair.map,V.pi].map ;
+      lam : Map n = StableComposition[l].Between[environment n,V.Parameter.domain.scott,D.scott].Compose[Pair.map,Lambda.map].map ;
+    } ;
+  } ;
+  interpret : (n : Nat) -> Tm n -> Map n = split {
+    var n i -> variable n i ;
+    uu n -> StableProduct[l].Constant[environment n,D.scott,V.C.universe].map ;
+    pp n a b | ra rb -> Constructors[n].Binder[ra,rb].pi ;
+    lam n a b | ra rb -> Constructors[n].Binder[ra,rb].lam ;
+    app n f x | rf rx -> Constructors[n].App[rf,rx].map } ;
+  value (n : Nat) (t : Tm n) (rho : Env n) : A.C = run n (interpret n t) rho ;
+  body (n : Nat) (t : Tm (suc n)) (rho : Env n) : S.Map =
+    Constructors[n].Curry.Curry[interpret (suc n) t].value rho ;
+  universe (n : Nat) (rho : Env n) : Id A.C (value n (uu n) rho) V.C.universe = refl V.C.universe ;
+  pi-code (n : Nat) (a : Tm n) (b : Tm (suc n)) (rho : Env n) :
+    Id A.C (value n (pp n a b) rho) (V.value (value n a rho) (body n b rho)) = refl (value n (pp n a b) rho) ;
+  lambda (n : Nat) (a : Tm n) (b : Tm (suc n)) (rho : Env n) :
+    Id A.C (value n (lam n a b) rho) (Lambda.value (value n a rho) (body n b rho)) = refl (value n (lam n a b) rho) ;
+  application (n : Nat) (f x : Tm n) (rho : Env n) :
+    Id A.C (value n (app n f x) rho) (V.Application.value (value n f rho) (value n x rho)) = refl (value n (app n f x) rho) ;
+  beta (n : Nat) (a : Tm n) (b : Tm (suc n)) (x : Tm n) (rho : Env n) :
+    Id A.C (value n (app n (lam n a b) x) rho)
+      (value (suc n) b (rho,V.C.apply (value n a rho) (value n x rho))) =
+    Lambda.beta (value n a rho) (body n b rho) (value n x rho) ;
+  beta-fixed (n : Nat) (a : Tm n) (b : Tm (suc n)) (x : Tm n) (rho : Env n)
+    (h : Id A.C (V.C.apply (value n a rho) (value n x rho)) (value n x rho)) :
+    Id A.C (value n (app n (lam n a b) x) rho) (value (suc n) b (rho,value n x rho)) =
+    Lambda.beta-fixed (value n a rho) (body n b rho) (value n x rho) h ;
+  universe-typed (n : Nat) (rho : Env n) : Id A.C
+    (V.C.apply (value n (uu n) rho) (value n (uu n) rho)) (value n (uu n) rho) = V.C.self-typing ;
+  pi-typed (n : Nat) (a : Tm n) (b : Tm (suc n)) (rho : Env n) : Id A.C
+    (V.C.apply (value n (uu n) rho) (value n (pp n a b) rho)) (value n (pp n a b) rho) =
+    V.is-type (value n a rho) (body n b rho) ;
+} ;

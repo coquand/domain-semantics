@@ -1,0 +1,80 @@
+-- Lower admissible predicates are determined by their compact basis.
+-- Admissible means closure under small directed suprema; strictness
+-- (membership of bottom) is a separate property.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module On (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ; open A ;
+  module O = ScottOrder[l].On[P] ; module V = DC[P,S.complete] ;
+  record Predicate {
+    holds : C -> U l ;
+    proposition : (x : C) -> Prelude[l].isProp (holds x) ;
+    lower : (x y : C) -> LE x y -> holds y -> holds x ;
+    directed : (I : U l) (x : I -> C) (d : O.Dir I x) ->
+      ((i : I) -> holds (x i)) -> holds (V.sup I x d) ;
+  } ;
+  module Extend (R : B -> U l) (rp : (b : B) -> Prelude[l].isProp (R b)) {
+    holds (x : C) : U l = (b : B) -> LE (basic b) x -> R b ;
+    proposition (x : C) : Prelude[l].isProp (holds x) =
+      F.isProp-Pi B (\ b -> LE (basic b) x -> R b)
+        (\ b -> F.isProp-Pi (LE (basic b) x) (\ _ -> R b) (\ _ -> rp b)) ;
+    lower (x y : C) (xy : LE x y) (h : holds y) : holds x =
+      \ b bx -> h b (P.transitive (basic b) x y bx xy) ;
+    directed (I : U l) (x : I -> C) (d : O.Dir I x) (h : (i : I) -> holds (x i)) : holds (V.sup I x d) =
+      \ b below -> T.rec ((i : I) * LE (basic b) (x i)) @l (R b) (rp b)
+        (\ w -> h w.1 b w.2) (S.basis.compact b I x d below) ;
+    restrict (I : U l) (x : I -> C) (d : O.Dir I x) (h : holds (V.sup I x d)) : (i : I) -> holds (x i) =
+      \ i -> lower (x i) (V.sup I x d) (V.upper I x d i) h ;
+    directed-equation (I : U l) (x : I -> C) (d : O.Dir I x) :
+      (holds (V.sup I x d) -> (i : I) -> holds (x i)) *
+      (((i : I) -> holds (x i)) -> holds (V.sup I x d)) = (restrict I x d,directed I x d) ;
+    predicate : Predicate = new Predicate[holds := holds,proposition := proposition,lower := lower,directed := directed] ;
+    recover (b : B) (h : holds (basic b)) : R b = h b (P.reflexive (basic b)) ;
+    module Lower (down : (a b : B) -> LE (basic a) (basic b) -> R b -> R a) {
+      introduce (b : B) (h : R b) : holds (basic b) = \ a ab -> down a b ab h ;
+      equation (b : B) : (holds (basic b) -> R b) * (R b -> holds (basic b)) = (recover b,introduce b) ;
+    } ;
+    module Unique (Q : Predicate)
+      (to-basis : (b : B) -> Q.holds (basic b) -> R b)
+      (from-basis : (b : B) -> R b -> Q.holds (basic b)) {
+      forward (x : C) (h : Q.holds x) : holds x = \ b bx -> to-basis b (Q.lower (basic b) x bx h) ;
+      backward (x : C) (h : holds x) : Q.holds x =
+        Q.lower x (V.sup (BI x) (part x) (dir x)) (A.from x)
+          (Q.directed (BI x) (part x) (dir x) (\ b -> from-basis b.1 (h b.1 b.2))) ;
+      equation (x : C) : (Q.holds x -> holds x) * (holds x -> Q.holds x) = (forward x,backward x) ;
+    } ;
+  } ;
+  module Reconstruct (Q : Predicate) {
+    module E = Extend[\ b -> Q.holds (basic b),\ b -> Q.proposition (basic b)] ;
+    module Comparison = E.Unique[Q,\ b h -> h,\ b h -> h] ;
+    equation (x : C) : (Q.holds x -> E.holds x) * (E.holds x -> Q.holds x) = Comparison.equation x ;
+  } ;
+
+  -- Predicate inclusion has a small presentation on the basis.
+  Includes (P Q : Predicate) : U l = (b : B) -> P.holds (basic b) -> Q.holds (basic b) ;
+  entails (P Q : Predicate) (h : Includes P Q) (x : C) (px : P.holds x) : Q.holds x =
+    Reconstruct[Q].Comparison.backward x (\ b below -> h b (P.lower (basic b) x below px)) ;
+  inclusion (P Q : Predicate) (h : (x : C) -> P.holds x -> Q.holds x) : Includes P Q =
+    \ b -> h (basic b) ;
+
+  module Intersection (I : U l) (Q : I -> Predicate) {
+    holds (x : C) : U l = (i : I) -> (Q i).holds x ;
+    proposition (x : C) : Prelude[l].isProp (holds x) =
+      F.isProp-Pi I (\ i -> (Q i).holds x) (\ i -> (Q i).proposition x) ;
+    lower (x y : C) (xy : LE x y) (h : holds y) : holds x = \ i -> (Q i).lower x y xy (h i) ;
+    directed (J : U l) (x : J -> C) (d : O.Dir J x) (h : (j : J) -> holds (x j)) : holds (V.sup J x d) =
+      \ i -> (Q i).directed J x d (\ j -> h j i) ;
+    predicate : Predicate = new Predicate[holds := holds,proposition := proposition,lower := lower,directed := directed] ;
+  } ;
+  module Both (P Q : Predicate) {
+    holds (x : C) : U l = P.holds x * Q.holds x ;
+    proposition (x : C) : Prelude[l].isProp (holds x) =
+      Prelude[l].isProp-Sigma (P.holds x) (\ _ -> Q.holds x) (P.proposition x) (\ _ -> Q.proposition x) ;
+    lower (x y : C) (xy : LE x y) (h : holds y) : holds x = (P.lower x y xy h.1,Q.lower x y xy h.2) ;
+    directed (I : U l) (x : I -> C) (d : O.Dir I x) (h : (i : I) -> holds (x i)) : holds (V.sup I x d) =
+      (P.directed I x d (\ i -> (h i).1),Q.directed I x d (\ i -> (h i).2)) ;
+    predicate : Predicate = new Predicate[holds := holds,proposition := proposition,lower := lower,directed := directed] ;
+  } ;
+} ;

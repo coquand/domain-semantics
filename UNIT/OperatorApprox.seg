@@ -1,0 +1,73 @@
+-- Cofinal restriction to observed heads and approximation of the clauses.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open Abstraction[l] ; open BinaryMaps[l] ; open DirectedApprox[l] ;
+module TC = TruncationCombinators[l] ; module AP = Application[l] ; module PO = ProjectorOperator[l] ;
+
+module Restrict (N : Net) (P : N.index -> U l)
+  (stable : (i j : N.index) -> N.le i j -> P i -> P j)
+  (inhabited : Ex ((i : N.index) * P i)) {
+  module O = On[N] ;
+  I : U l = (i : N.index) * P i ;
+  net : Net = new Net[I,\ i j -> N.le i.1 j.1,
+    \ i -> N.reflexive i.1,\ i j k -> N.trans i.1 j.1 k.1,inhabited,
+    \ i j -> TC.map ((k : N.index) * (N.le i.1 k * N.le j.1 k))
+      ((k : I) * (N.le i.1 k.1 * N.le j.1 k.1))
+      (\ w -> ((w.1,stable i.1 w.1 w.2.1 i.2),w.2)) (N.upper i.1 j.1)] ;
+  module R = On[net] ;
+  cofinal (i : N.index) : Ex ((j : I) * N.le i j.1) =
+    TC.bind I ((j : I) * N.le i j.1) (\ a ->
+      TC.map ((k : N.index) * (N.le i k * N.le a.1 k)) ((j : I) * N.le i j.1)
+        (\ w -> ((w.1,stable a.1 w.1 w.2.2 a.2),w.2.1)) (N.upper i a.1)) inhabited ;
+  approx (a : O.Approx) : R.Approx = new R.Approx[\ i -> a.part i.1,a.limit,
+    \ i j h -> a.mono i.1 j.1 h,\ i -> a.bound i.1,
+    \ t h -> TC.bind ((i : N.index) * In (a.part i) t) ((j : I) * In (a.part j.1) t)
+      (\ w -> TC.map ((j : I) * N.le w.1 j.1) ((j : I) * In (a.part j.1) t)
+        (\ v -> (v.1,a.mono w.1 v.1.1 v.2 t w.2)) (cofinal w.1)) (a.cover t h)] ;
+  binaries (q : O.Binaries) : R.Binaries = new R.Binaries[\ i -> q.part i.1,q.limit,
+    \ i j h -> q.mono i.1 j.1 h,\ i -> q.bound i.1,
+    \ a x t h -> TC.bind ((i : N.index) * In (value (q.part i) a x) t)
+      ((j : I) * In (value (q.part j.1) a x) t)
+      (\ w -> TC.map ((j : I) * N.le w.1 j.1) ((j : I) * In (value (q.part j.1) a x) t)
+        (\ v -> (v.1,q.mono w.1 v.1.1 v.2 a x t w.2)) (cofinal w.1)) (q.cover a x t h)] ;
+} ;
+
+module OnNet (N : Net) {
+  module O = On[N] ; I : U l = N.index ;
+  ignore (f : Map) : Binary = new Binary[\ a -> f,\ a b h x -> sub-refl (run f x).1,
+    \ a x t h -> ex ((k : K) * (In a k.1 * In (run f x) t)) (bottomK,(fom a.1,h))] ;
+  as-binary (f : O.MapNet) : O.Binaries = new O.Binaries[\ i -> ignore (f.part i),ignore f.limit,
+    \ i j h a -> f.mono i j h,\ i a -> f.bound i,\ a x -> f.cover x] ;
+  map-eval (f : O.MapNet) (x : O.Approx) : O.Approx = O.Evaluation[as-binary f,O.constant bottom,x].approx ;
+  const-map (x : D) : O.MapNet = new O.MapNet[\ i -> BinaryMaps[l].constant x,BinaryMaps[l].constant x,
+    \ i j h z -> sub-refl x.1,\ i z -> sub-refl x.1,\ z -> (O.constant x).cover] ;
+  app-map (f : O.Approx) : O.MapNet = new O.MapNet[\ i -> AP.map (f.part i),AP.map f.limit,
+    \ i j h z -> AP.mono (f.part i) (f.part j) z z (f.mono i j h) (sub-refl z.1),
+    \ i z -> AP.mono (f.part i) f.limit z z (f.bound i) (sub-refl z.1),
+    \ z -> O.ApplyNet[f,O.constant z].cover] ;
+
+  module PiParts (x : O.Approx) (heads : (i : I) -> Parts[l].PHead (x.part i)) (head : Parts[l].PHead x.limit) {
+    domain : O.Approx = new O.Approx[\ i -> Parts[l].PiParts[x.part i,heads i].domain,
+      Parts[l].PiParts[x.limit,head].domain,\ i j h t -> x.mono i j h (pi t om),
+      \ i t -> x.bound i (pi t om),\ t -> x.cover (pi t om)] ;
+    family : O.Approx = new O.Approx[\ i -> Parts[l].PiParts[x.part i,heads i].family.1,
+      Parts[l].PiParts[x.limit,head].family.1,\ i j h t -> x.mono i j h (pi om t),
+      \ i t -> x.bound i (pi om t),\ t -> x.cover (pi om t)] ;
+  } ;
+
+  module Family (q : O.Binaries) (a : O.Approx) (h : O.MapNet) (f : O.Approx) {
+    part (i : I) : Map = ProjectorLeast[l].family-map (q.part i) (a.part i) (h.part i) (f.part i) ;
+    limit : Map = ProjectorLeast[l].family-map q.limit a.limit h.limit f.limit ;
+    module Eval (z : D) {
+      input : O.Approx = O.Evaluation[q,a,O.constant z].approx ;
+      result : O.Approx = O.Evaluation[q,map-eval h input,O.ApplyNet[f,input].approx].approx ;
+    } ;
+    maps : O.MapNet = new O.MapNet[part,limit,
+      \ i j ij -> PO.FamilyMono[q.part i,q.part j,q.mono i j ij,a.part i,a.part j,a.mono i j ij,
+        h.part i,h.part j,h.mono i j ij,f.part i,f.part j,f.mono i j ij].pointwise,
+      \ i -> PO.FamilyMono[q.part i,q.limit,q.bound i,a.part i,a.limit,a.bound i,
+        h.part i,h.limit,h.bound i,f.part i,f.limit,f.bound i].pointwise,
+      \ z -> Eval[z].result.cover] ;
+    module L = O.AbstractNet[maps] ;
+  } ;
+} ;

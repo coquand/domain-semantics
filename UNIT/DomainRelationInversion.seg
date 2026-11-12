@@ -1,0 +1,36 @@
+-- The admissible relation retains the head observations and syntactic
+-- component equalities needed for inversion. Conclusions are mere data.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ;
+open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+open DomainLogicalRelation[l] ;
+module TC = TruncationCombinators[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module Relation = DomainLogicalRelation[l].At[n,Delta] ;
+  module Compact = RelC[l].RelCD[n,Delta] ;
+  module Laws = LawsC[l].LawsCD[n,Delta] ;
+  universe (x : D) (A B : Tm n) (h : Relation.Type x A B) (seen : In x univ) :
+    Ex (Reds n A (uu n) * Reds n B (uu n)) =
+    TC.map (Compact.TyR univ A B) (Reds n A (uu n) * Reds n B (uu n))
+      (\ r -> ((Compact.tyr-unfold univ A B).1 r).un (sel-here univ))
+      (Relation.For[types A B].to-tokenwise x h univ seen) ;
+  module Products (A A' : Tm n) (B B' : Tm (suc n)) {
+    Components : U l = Der n (jeq Delta A A' (uu n)) * Der (suc n) (jeq (ext n Delta A) B B' (uu (suc n))) ;
+    module Raw (h : Compact.TyR (pi om om) (pp n A B) (pp n A' B')) {
+      observation : Compact.PiTy Compact.Can om om (pp n A B) (pp n A' B') =
+        ((Compact.tyr-unfold (pi om om) (pp n A B) (pp n A' B')).1 h).pc
+          om om om om (sel-here (pi om om)) (ps-here om om) ;
+      components : Compact.PiD Compact.Can om om A B A' B' =
+        Laws.pid-r Compact.Can om om A B observation.A1 A' observation.B1 B'
+          (sym (Tm n) (pp n A' B') (pp n observation.A1 observation.B1)
+            (reds-from-normal n (pp n A' B') (pp n observation.A1 observation.B1) observation.red' (normal-pp n A' B')))
+          (Laws.pid-l Compact.Can om om observation.A0 A observation.B0 B observation.A1 observation.B1
+            (sym (Tm n) (pp n A B) (pp n observation.A0 observation.B0)
+              (reds-from-normal n (pp n A B) (pp n observation.A0 observation.B0) observation.red (normal-pp n A B))) observation.d) ;
+      result : Components = (components.cA,components.cB) ;
+    } ;
+    inversion (x : D) (h : Relation.Type x (pp n A B) (pp n A' B')) (seen : In x (pi om om)) : Ex Components =
+      TC.map (Compact.TyR (pi om om) (pp n A B) (pp n A' B')) Components (\ r -> Raw[r].result)
+        (Relation.For[types (pp n A B) (pp n A' B')].to-tokenwise x h (pi om om) seen) ;
+  } ;
+} ;

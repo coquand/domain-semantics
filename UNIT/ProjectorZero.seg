@@ -1,0 +1,64 @@
+-- Remaining constructor cases of the recursive projector equations.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ; open SemanticLaws[l] ;
+module TC = TruncationCombinators[l] ;
+
+module FunctionType (A : FD) (X : D) {
+  shape-bottom (u c : Ty) (hc : In A.1 c) : Shape u c -> Le om u = split {
+    sh-bot e h -> e ;
+    sh-univ e1 e2 -> efq (Equation[l].no-u A (fup A.1.1 c univ e2.1 hc)) ;
+    sh-pi a phi e1 e2 h1 h2 cs -> efq (Equation[l].no-u A (fup A.1.1 c univ e2.1 hc)) ;
+    sh-lam a phi f e1 e2 h1 h2 cf -> efq (Equation[l].no-pi A a phi (fup A.1.1 c (pi a phi) e2.1 hc)) } ;
+  forward : Domain[l].Below (p A.1 X) bottom = \ t h ->
+    TC.map Observation[A.1,X,t] (Le om t)
+      (\ o -> le-trans om o.value t (shape-bottom o.value o.code o.type-inside (shape o.value o.code o.typed)) o.below)
+      (observe A.1 X t h) ;
+  equation : Id D (p A.1 X) bottom = Domain[l].ext (p A.1 X) bottom (forward,bottom-least (p A.1 X)) ;
+} ;
+
+module UniverseFunction (F : FD) {
+  shape-bottom (u : Ty) (hu : In F.1 u) : Shape u univ -> Le om u = split {
+    sh-bot e h -> e ;
+    sh-univ e1 e2 -> efq (Equation[l].no-u F (fup F.1.1 u univ e1.1 hu)) ;
+    sh-pi a phi e1 e2 h1 h2 cs -> efq (Equation[l].no-pi F a phi (fup F.1.1 u (pi a phi) e1.1 hu)) ;
+    sh-lam a phi f e1 e2 h1 h2 cf -> efq (univ-not-pi a phi e2.1) } ;
+  forward : Domain[l].Below (p universe F.1) bottom = \ t h ->
+    TC.bind Observation[universe,F.1,t] (Le om t)
+      (\ o -> TC.map (Le univ o.code) (Le om t)
+        (\ le -> le-trans om o.value t
+          (shape-bottom o.value o.inside (shape o.value univ (tp-up o.value o.code univ o.typed le tp-UU))) o.below)
+        o.type-inside) (observe universe F.1 t h) ;
+  equation : Id D (p universe F.1) bottom = Domain[l].ext (p universe F.1) bottom (forward,bottom-least (p universe F.1)) ;
+} ;
+
+bottom-input (A : D) : Id D (p A bottom) bottom =
+  Domain[l].ext (p A bottom) bottom (below A bottom,bottom-least (p A bottom)) ;
+bottom-type (X : D) : Id D (p bottom X) bottom = FunctionType[Parts[l].bottom-function,X].equation ;
+
+module DataArgument (A : D) (B : FD) (X : D)
+  (kill : (a t : Ty) -> Cons a -> In X (arr a t) -> Le om t) {
+  module C = ProjectorEquations[l].FunctionClause[A,B,X] ;
+  app-below (Z : D) : Domain[l].Below (Application[l].eval X Z) bottom = \ t ->
+    TC.map (Filter[l].AppW (raw X.1) (raw Z.1) t) (Le om t)
+      (\ w -> kill w.x t (consistent Z w.x w.inx) (fup X.1 w.g (arr w.x t) w.le w.ing)) ;
+  op-below (Z : D) : Domain[l].Below (run C.operation Z) bottom =
+    sub-trans (run C.operation Z).1 (Application[l].eval X (p A Z)).1 bottom.1
+      (below (Application[l].eval B.1 (p A Z)) (Application[l].eval X (p A Z))) (app-below (p A Z)) ;
+  lambda-below : Domain[l].Below C.rhs bottom =
+    sub-trans C.rhs.1 Lambda[Application[l].map bottom].value.1 bottom.1
+      MonotoneLambda[C.operation,Application[l].map bottom,
+        \ Z -> sub-trans (run C.operation Z).1 bottom.1 (Application[l].eval bottom Z).1
+          (op-below Z) (bottom-least (Application[l].eval bottom Z))].inclusion
+      Eta[Parts[l].bottom-function].forward ;
+  equation : Id D C.lhs bottom = Domain[l].ext C.lhs bottom
+    (sub-trans C.lhs.1 C.rhs.1 bottom.1 C.forward lambda-below,bottom-least C.lhs) ;
+} ;
+
+pi-universe (A : D) (B : FD) : Id D (p Constructors[l].Pi[A,B].value universe) bottom =
+  DataArgument[A,B,universe,Parts[l].u-arrow universe (prin-in univ)].equation ;
+pi-pi (A C : D) (B H : FD) :
+  Id D (p Constructors[l].Pi[A,B].value Constructors[l].Pi[C,H].value) bottom =
+  DataArgument[A,B,Constructors[l].Pi[C,H].value,
+    Parts[l].p-arrow Constructors[l].Pi[C,H].value
+      (Constructors[l].Pi[C,H].intro om om (fom C.1) (fom H.1.1))].equation ;

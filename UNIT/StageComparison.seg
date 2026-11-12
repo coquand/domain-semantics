@@ -1,0 +1,32 @@
+-- Comparison with the earlier bounded-typing stage construction.
+-- This bridge uses the sandwich-based theorem; OperationalStages does not.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ;
+open Domain[l] ; open Continuous[l] ;
+module S = CorrectedStages[l] ; module O = OperationalStages[l] ; module T = StageCompatibility[l] ;
+module P = Prelude[l+] ; module TC = TruncationCombinators[l] ;
+
+agreement (n : Nat) (a x : S.Stage[n].carrier) : Id S.Stage[n].carrier (O.p n a x) (T.p n a x) =
+  P.trans S.Stage[n].carrier (O.p n a x) (S.Stage[n].restrict (KleeneProjector[l].p a.1 x.1)) (T.p n a x)
+    (P.sym S.Stage[n].carrier (S.Stage[n].restrict (KleeneProjector[l].p a.1 x.1)) (O.p n a x)
+      (O.proposition-2-27 n a x)) (T.proposition-2-27 n a x) ;
+
+module At (n : Nat) (a : S.Stage[n].carrier) {
+  extension : Map = Maps[l].compose (RankProjection[l].q n)
+    (Maps[l].compose ((KleeneProjector[l].iterate (suc n)).at a.1) (RankProjection[l].q n)) ;
+  family : CompactFamilies[l].Family = T.family n a.1 ;
+  input-restriction (x : D) : Equal (T.value n a.1 (S.approximate n x)) (T.value n a.1 x) =
+    (Projector[l].mono family family (S.approximate n x) x (\ k h -> h) (S.deflation n x),
+     \ t -> TC.map (Projector[l].At[family,x].W t) (Projector[l].At[family,S.approximate n x].W t)
+       (\ w -> (w.1,(w.2.1,(Projector[l].intro (S.compacts n) x w.1
+         (T.stage-bounded n a.1 w.1 w.2.1) w.2.2.1,w.2.2.2))))) ;
+  pointwise (x : D) : Id D (run extension x) (T.value n a.1 x) =
+    P.trans D (run extension x) (T.value n a.1 (S.approximate n x)) (T.value n a.1 x)
+      (P.ap S.Stage[n].carrier D (\ y -> y.1) (O.p n a (S.Stage[n].restrict x)) (T.p n a (S.Stage[n].restrict x))
+        (agreement n a (S.Stage[n].restrict x)))
+      (Domain[l].ext (T.value n a.1 (S.approximate n x)) (T.value n a.1 x) (input-restriction x)) ;
+  map-equality : Id Map extension (Projector[l].map family) = Continuous[l].ext extension (Projector[l].map family)
+    (\ x -> StageFusion[l].path (run extension x) (T.value n a.1 x) (pointwise x)) ;
+  finitary : (f : Finitary[l].Finitary) * Id Map f.operation extension =
+    (Finitary[l].of-family family,P.sym Map extension (Projector[l].map family) map-equality) ;
+} ;

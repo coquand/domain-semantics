@@ -1,0 +1,76 @@
+-- Head reduction laws for the independently constructed relation.
+-- Head determinism suffices; subject reduction is not used.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+module Tr = TruncationCombinators[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ;
+after : (n : Nat) -> (M N : Tm n) -> Reds n M N -> (H : Tm n) -> Normal n H -> Reds n M H -> Reds n N H = split {
+  rrefl n M -> \ H nh r -> r ;
+  rstep n M M1 M2 h r | ih -> \ H nh s -> ih H nh (reds-step-inv n M H s M1 h nh) } ;
+HeadMap (n : Nat) (M N : Tm n) : U l = (H : Tm n) -> Normal n H -> Reds n M H -> Reds n N H ;
+expand (n : Nat) (M N : Tm n) (r : Reds n M N) : HeadMap n N M = \ H nh -> reds-trans n M N r H ;
+module At (n : Nat) (Delta : Ctx n) {
+  module C = LogicalRelationClauses[l].At[n,Delta] ;
+  module TC = LogicalRelationTypeClause[l].At[n,Delta] ;
+  module St = LogicalRelationStages[l].At[n,Delta] ;
+  module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  module TypeStep (R : C.TermFamily) (S : C.TypeFamily) (T T' V V' : Tm n)
+    (left : HeadMap n T V) (right : HeadMap n T' V') {
+    module Before = TC.Step[R,S,T,T'] ; module After = TC.Step[R,S,V,V'] ;
+    witness (x : D) (hp : Parts[l].PHead x) (w : Before.AtHead[x,hp].Data.Witness) : After.AtHead[x,hp].Data.Witness =
+      (w.1,((left (pp n w.1.1.1 w.1.1.2) (normal-pp n w.1.1.1 w.1.1.2) w.2.1.1,
+        (right (pp n w.1.2.1 w.1.2.2) (normal-pp n w.1.2.1 w.1.2.2) w.2.1.2.1,w.2.1.2.2)),w.2.2)) ;
+    transport (x : D) (h : Before.predicate.holds x) : After.predicate.holds x = After.fold x
+      (\ hu -> Tr.map Before.Universe After.Universe
+        (\ w -> (left (uu n) (normal-uu n) w.1,right (uu n) (normal-uu n) w.2)) (h.1 hu),
+       \ hp -> Tr.map Before.AtHead[x,hp].Data.Witness After.AtHead[x,hp].Data.Witness
+         (witness x hp) ((Before.unfold x h).2 hp)) ;
+  } ;
+  type-stage : (d : Nat) -> (T T' V V' : Tm n) -> HeadMap n T V -> HeadMap n T' V' ->
+    (x : D) -> ((St.stage d).ty T T').holds x -> ((St.stage d).ty V V').holds x = split {
+      zero -> \ T T' V V' left right x h hu -> Tr.map St.Initial[T,T'].Evidence St.Initial[V,V'].Evidence
+        (\ w -> (left (uu n) (normal-uu n) w.1,right (uu n) (normal-uu n) w.2)) (h hu) ;
+      suc d -> \ T T' V V' left right -> TypeStep[(St.stage d).tm,(St.stage d).ty,T,T',V,V',left,right].transport } ;
+  Expansion (d : Nat) : U l+ = (T M M' V V' : Tm n) -> Reds n M V -> Reds n M' V' -> (x : D) ->
+    ((St.stage d).tm T V V').holds x -> ((St.stage d).tm T M M').holds x ;
+  module Step (d : Nat) (ih : Expansion d) (T M M' V V' : Tm n) (r : Reds n M V) (r' : Reds n M' V') {
+    module Before = C.Functions[(St.stage d).tm,(St.stage d).tm,T,V,V'] ;
+    module After = C.Functions[(St.stage d).tm,(St.stage d).tm,T,M,M'] ;
+    functions (x : D) (h : Before.predicate.holds x) : After.predicate.holds x = \ e k hk ->
+      (ih (subst1 n e.B e.argument.N) (app n M e.argument.N) (app n M e.argument.N')
+        (app n V e.argument.N) (app n V e.argument.N') (reds-app n M V r e.argument.N) (reds-app n M V r e.argument.N')
+        (Application[l].eval x (principal k)) (h e k hk).1,
+       (ih (subst1 n e.B e.argument.N) (app n M' e.argument.N) (app n M' e.argument.N')
+         (app n V' e.argument.N) (app n V' e.argument.N') (reds-app n M' V' r' e.argument.N) (reds-app n M' V' r' e.argument.N')
+         (Application[l].eval x (principal k)) (h e k hk).2.1,
+        ih (subst1 n e.B e.argument.N) (app n M e.argument.N) (app n M' e.argument.N')
+          (app n V e.argument.N) (app n V' e.argument.N') (reds-app n M V r e.argument.N) (reds-app n M' V' r' e.argument.N')
+          (Application[l].eval x (principal k)) (h e k hk).2.2)) ;
+    result (x : D) (h : ((St.stage (suc d)).tm T V V').holds x) : ((St.stage (suc d)).tm T M M').holds x =
+      (type-stage (suc d) V V' M M' (expand n M V r) (expand n M' V' r') x h.1,functions x h.2) ;
+  } ;
+  term-stage : (d : Nat) -> Expansion d = split {
+    zero -> \ T M M' V V' r r' -> type-stage zero V V' M M' (expand n M V r) (expand n M' V' r') ;
+    suc d | ih -> \ T M M' V V' r r' -> Step[d,ih,T,M,M',V,V',r,r'].result } ;
+  type-transport (T T' V V' : Tm n) (left : HeadMap n T V) (right : HeadMap n T' V') (x : D)
+    (h : (I.relation.ty T T').holds x) : (I.relation.ty V V').holds x =
+      \ d -> type-stage d T T' V V' left right (CorrectedStages[l].approximate d x) (h d) ;
+  type-expansion (T T' V V' : Tm n) (r : Reds n T V) (r' : Reds n T' V') (x : D)
+    (h : (I.relation.ty V V').holds x) : (I.relation.ty T T').holds x =
+      type-transport V V' T T' (expand n T V r) (expand n T' V' r') x h ;
+  type-reduction (T T' V V' : Tm n) (r : Reds n T V) (r' : Reds n T' V') (x : D)
+    (h : (I.relation.ty T T').holds x) : (I.relation.ty V V').holds x =
+      type-transport T T' V V' (after n T V r) (after n T' V' r') x h ;
+  term-expansion (T M M' V V' : Tm n) (r : Reds n M V) (r' : Reds n M' V') (x : D)
+    (h : (I.relation.tm T V V').holds x) : (I.relation.tm T M M').holds x =
+      \ d -> term-stage d T M M' V V' r r' (CorrectedStages[l].approximate d x) (h d) ;
+  index (T V M M' : Tm n) (heads : HeadMap n V T) (x : D)
+    (h : (I.relation.tm T M M').holds x) : (I.relation.tm V M M').holds x =
+      I.Invariant.term-fold V M M' x ((I.Invariant.term-unfold T M M' x h).1,\ e ->
+        (I.Invariant.term-unfold T M M' x h).2
+          (new C.FunctionTest[T,e.A,e.B,heads (pp n e.A e.B) (normal-pp n e.A e.B) e.reduction,e.argument])) ;
+  index-expansion (T V M M' : Tm n) (r : Reds n T V) (x : D) :
+    (I.relation.tm V M M').holds x -> (I.relation.tm T M M').holds x = index V T M M' (after n T V r) x ;
+  index-reduction (T V M M' : Tm n) (r : Reds n T V) (x : D) :
+    (I.relation.tm T M M').holds x -> (I.relation.tm V M M').holds x = index T V M M' (expand n T V r) x ;
+} ;

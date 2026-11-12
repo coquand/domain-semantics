@@ -1,0 +1,30 @@
+-- Deleting the first coordinate is an isomorphism of rigid limits.
+level l ;
+open Base ; open Prelude[l+] ;
+module Embed = RigidLimitEmbedding[l] ;
+module On (S : RigidLimitOrder[l].Chain) {
+  tail : RigidLimitOrder[l].Chain = RigidLimitOrder[l].tail S ;
+  module L = RigidLimitOrder[l].On[S] ; module D = RigidLimitDI[l].On[S] ;
+  module T = RigidLimitOrder[l].On[tail] ; module TD = RigidLimitDI[l].On[tail] ;
+  module Drop = RigidLimitMaps[l].On[tail].Assemble[D.domain.scott,\ n -> D.Stage[suc n].Q.project,\ x n -> x.2 (suc n)] ;
+  module Zero = StableComposition[l].Between[TD.domain.scott,(S.domain (suc zero)).scott,(S.domain zero).scott].Compose[TD.Stage[zero].Q.project,(S.link zero).project] ;
+  coordinate : (n : Nat) -> StableMaps[l].Between[TD.domain.scott,(S.domain n).scott].Map = split {
+    zero -> Zero.map ; suc n -> TD.Stage[n].Q.project } ;
+  coherent (y : T.carrier) : L.Coherent (\ n -> StableMaps[l].Between[TD.domain.scott,(S.domain n).scott].run (coordinate n) y) = split {
+    zero -> refl (L.project zero (y.1 zero)) ; suc n -> y.2 n } ;
+  module Cons = RigidLimitMaps[l].On[S].Assemble[TD.domain.scott,coordinate,coherent] ;
+  module E = RigidEmbedding[l].Between[TD.domain,D.domain] ;
+  cons-drop-forward (x : L.carrier) : L.le (E.AB.run Cons.map (E.BA.run Drop.map x)) x = split {
+    zero -> Embed.At[S].coherent-to x zero ; suc n -> (S.domain (suc n)).scott.order.reflexive (x.1 (suc n)) } ;
+  cons-drop-backward (x : L.carrier) : L.le x (E.AB.run Cons.map (E.BA.run Drop.map x)) = split {
+    zero -> Embed.At[S].coherent-from x zero ; suc n -> (S.domain (suc n)).scott.order.reflexive (x.1 (suc n)) } ;
+  cons-drop (x : L.carrier) : Id L.carrier (E.AB.run Cons.map (E.BA.run Drop.map x)) x =
+    L.ext (E.AB.run Cons.map (E.BA.run Drop.map x)) x
+      (cons-drop-forward x)
+      (cons-drop-backward x) ;
+  drop-cons (y : T.carrier) : Id T.carrier (E.BA.run Drop.map (E.AB.run Cons.map y)) y =
+    T.ext (E.BA.run Drop.map (E.AB.run Cons.map y)) y (T.order.reflexive y) (T.order.reflexive y) ;
+  module C = E.C.Compose[Drop.map,Cons.map] ;
+  rigid : E.BB.LE C.map E.End.identity = StableExtensional[l].Between[D.domain.scott,D.domain.scott].forward C.map E.End.identity cons-drop ;
+  embedding : E.Embedding = new E.Embedding[embed := Cons.map,project := Drop.map,retract := drop-cons,rigid := rigid] ;
+} ;

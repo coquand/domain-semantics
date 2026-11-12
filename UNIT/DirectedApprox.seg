@@ -1,0 +1,131 @@
+-- A calculus of directed observations, including higher-order evaluation.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open Abstraction[l] ; open BinaryMaps[l] ;
+module TC = TruncationCombinators[l] ; module AP = Application[l] ;
+module R = Filter[l] ;
+record Net {
+  index : U l ;
+  le : index -> index -> U l ;
+  reflexive (i : index) : le i i ;
+  trans (i j k : index) : le i j -> le j k -> le i k ;
+  inhabited : Ex index ;
+  upper (i j : index) : Ex ((k : index) * (le i k * le j k)) ;
+} ;
+
+module On (N : Net) {
+  I : U l = N.index ;
+  record Approx {
+    part : I -> D ; limit : D ;
+    mono (i j : I) : N.le i j -> Domain[l].Below (part i) (part j) ;
+    bound (i : I) : Domain[l].Below (part i) limit ;
+    cover (t : Ty) : In limit t -> Ex ((i : I) * In (part i) t) ;
+  } ;
+  record MapNet {
+    part : I -> Map ; limit : Map ;
+    mono (i j : I) : N.le i j -> (x : D) -> Domain[l].Below (run (part i) x) (run (part j) x) ;
+    bound (i : I) (x : D) : Domain[l].Below (run (part i) x) (run limit x) ;
+    cover (x : D) (t : Ty) : In (run limit x) t -> Ex ((i : I) * In (run (part i) x) t) ;
+  } ;
+  record Binaries {
+    part : I -> Binary ; limit : Binary ;
+    mono (i j : I) : N.le i j -> ProjectorOperator[l].LE (part i) (part j) ;
+    bound (i : I) : ProjectorOperator[l].LE (part i) limit ;
+    cover (a x : D) (t : Ty) : In (value limit a x) t -> Ex ((i : I) * In (value (part i) a x) t) ;
+  } ;
+  constant (x : D) : Approx = new Approx[\ _ -> x,x,\ i j p -> sub-refl x.1,\ i -> sub-refl x.1,
+    \ t h -> TC.map I ((i : I) * In x t) (\ i -> (i,h)) N.inhabited] ;
+  binary-constant (q : Binary) : Binaries = new Binaries[\ _ -> q,q,
+    \ i j p a x -> sub-refl (value q a x).1,\ i a x -> sub-refl (value q a x).1,
+    \ a x t h -> TC.map I ((i : I) * In (value q a x) t) (\ i -> (i,h)) N.inhabited] ;
+  at (f : MapNet) (x : D) : Approx = new Approx[\ i -> run (f.part i) x,run f.limit x,
+    \ i j h -> f.mono i j h x,\ i -> f.bound i x,f.cover x] ;
+  Both (a b : Approx) (s t : Ty) : U l = (i : I) * (In (a.part i) s * In (b.part i) t) ;
+  combine (a b : Approx) (s t : Ty) (u : (i : I) * In (a.part i) s)
+    (v : (i : I) * In (b.part i) t) : Ex (Both a b s t) =
+    TC.map ((k : I) * (N.le u.1 k * N.le v.1 k)) (Both a b s t)
+      (\ w -> (w.1,(a.mono u.1 w.1 w.2.1 s u.2,b.mono v.1 w.1 w.2.2 t v.2))) (N.upper u.1 v.1) ;
+  both (a b : Approx) (s t : Ty) (h : In a.limit s) (k : In b.limit t) : Ex (Both a b s t) =
+    TC.bind2 ((i : I) * In (a.part i) s) ((i : I) * In (b.part i) t) (Both a b s t)
+      (combine a b s t) (a.cover s h) (b.cover t k) ;
+
+  module ApplyNet (f x : Approx) {
+    part (i : I) : D = AP.eval (f.part i) (x.part i) ;
+    limit : D = AP.eval f.limit x.limit ;
+    witness (t : Ty) (w : R.AppW (raw f.limit.1) (raw x.limit.1) t) : Ex ((i : I) * In (part i) t) =
+      TC.map (Both f x w.g w.x) ((i : I) * In (part i) t)
+        (\ z -> (z.1,AP.intro (f.part z.1) (x.part z.1) w.g w.x t z.2.1 z.2.2 w.le))
+        (both f x w.g w.x w.ing w.inx) ;
+    cover (t : Ty) : In limit t -> Ex ((i : I) * In (part i) t) =
+      TC.bind (R.AppW (raw f.limit.1) (raw x.limit.1) t) ((i : I) * In (part i) t) (witness t) ;
+    approx : Approx = new Approx[part,limit,
+      \ i j h -> AP.mono (f.part i) (f.part j) (x.part i) (x.part j) (f.mono i j h) (x.mono i j h),
+      \ i -> AP.mono (f.part i) f.limit (x.part i) x.limit (f.bound i) (x.bound i),cover] ;
+  } ;
+
+  module Evaluation (q : Binaries) (a x : Approx) {
+    part (i : I) : D = value (q.part i) (a.part i) (x.part i) ;
+    limit : D = value q.limit a.limit x.limit ;
+    monotone (i j : I) (h : N.le i j) : Domain[l].Below (part i) (part j) =
+      sub-trans (part i).1 (value (q.part j) (a.part i) (x.part i)).1 (part j).1
+        (q.mono i j h (a.part i) (x.part i))
+        (BinaryMaps[l].mono (q.part j) (a.part i) (a.part j) (x.part i) (x.part j) (a.mono i j h) (x.mono i j h)) ;
+    bounded (i : I) : Domain[l].Below (part i) limit =
+      sub-trans (part i).1 (value q.limit (a.part i) (x.part i)).1 limit.1
+        (q.bound i (a.part i) (x.part i))
+        (BinaryMaps[l].mono q.limit (a.part i) a.limit (x.part i) x.limit (a.bound i) (x.bound i)) ;
+    finish (t : Ty) (i : I) (k h : K) (p : In (value (q.part i) (principal k) (principal h)) t)
+      (w : Both a x k.1 h.1) : Ex ((j : I) * In (part j) t) =
+      TC.map ((j : I) * (N.le i j * N.le w.1 j)) ((j : I) * In (part j) t)
+        (\ z -> (z.1,BinaryMaps[l].mono (q.part z.1) (principal k) (a.part z.1) (principal h) (x.part z.1)
+          (prin-sub k.1 (a.part z.1).1 (a.mono w.1 z.1 z.2.2 k.1 w.2.1))
+          (prin-sub h.1 (x.part z.1).1 (x.mono w.1 z.1 z.2.2 h.1 w.2.2)) t
+          (q.mono i z.1 z.2.1 (principal k) (principal h) t p))) (N.upper i w.1) ;
+    at-index (t : Ty) (i : I) (p : In (value (q.part i) a.limit x.limit) t) : Ex ((j : I) * In (part j) t) =
+      TC.bind ((k : K) * (In a.limit k.1 * In (value (q.part i) (principal k) x.limit) t))
+        ((j : I) * In (part j) t) (\ k ->
+      TC.bind (Trace (run ((q.part i).at (principal k.1))) x.limit t) ((j : I) * In (part j) t)
+        (\ h -> TC.bind (Both a x k.1.1 h.1.1) ((j : I) * In (part j) t)
+          (finish t i k.1 h.1 h.2.2) (both a x k.1.1 h.1.1 k.2.1 h.2.1))
+        (((q.part i).at (principal k.1)).2.2 x.limit t k.2.2)) ((q.part i).finite a.limit x.limit t p) ;
+    cover (t : Ty) (p : In limit t) : Ex ((i : I) * In (part i) t) =
+      TC.bind ((i : I) * In (value (q.part i) a.limit x.limit) t) ((i : I) * In (part i) t)
+        (\ w -> at-index t w.1 w.2) (q.cover a.limit x.limit t p) ;
+    approx : Approx = new Approx[part,limit,monotone,bounded,cover] ;
+  } ;
+
+  module AbstractNet (f : MapNet) {
+    part (i : I) : FD = abstract (f.part i) ; limit : FD = abstract f.limit ;
+    monotone (i j : I) (h : N.le i j) : Domain[l].Below (part i).1 (part j).1 =
+      MonotoneLambda[f.part i,f.part j,f.mono i j h].inclusion ;
+    bounded (i : I) : Domain[l].Below (part i).1 limit.1 =
+      MonotoneLambda[f.part i,f.limit,f.bound i].inclusion ;
+    graph : (s : Ty) -> R.EntS Abstraction[l].Lambda[f.limit].ER s -> Ex ((i : I) * In (part i).1 s) = split {
+      es-om -> TC.map I ((i : I) * In (part i).1 om) (\ i -> (i,fom (part i).1.1)) N.inhabited ;
+      es-arr a b e -> TC.map ((i : I) * In (run (f.part i) (principal (a,(e.good-in,e.cons-in)))) b)
+        ((i : I) * In (part i).1 (arr a b))
+        (\ w -> (w.1,Abstraction[l].Lambda[f.part w.1].entry a b
+          (new Abstraction[l].Lambda[f.part w.1].Entry[a,b,e.good-in,e.cons-in,e.good-out,w.2])))
+        (f.cover (principal (a,(e.good-in,e.cons-in))) b e.observed) ;
+      es-meet s t hs ht | rs rt -> TC.bind2 ((i : I) * In (part i).1 s) ((i : I) * In (part i).1 t)
+        ((i : I) * In (part i).1 (meet s t))
+        (\ a b -> TC.map ((j : I) * (N.le a.1 j * N.le b.1 j)) ((i : I) * In (part i).1 (meet s t))
+          (\ w -> (w.1,fmeet (part w.1).1.1 s t (monotone a.1 w.1 w.2.1 s a.2)
+            (monotone b.1 w.1 w.2.2 t b.2))) (N.upper a.1 b.1)) rs rt } ;
+    cover (t : Ty) : In limit.1 t -> Ex ((i : I) * In (part i).1 t) =
+      TC.bind (Abstraction[l].Lambda[f.limit].W t) ((i : I) * In (part i).1 t)
+        (\ w -> TC.map ((i : I) * In (part i).1 w.graph) ((i : I) * In (part i).1 t)
+          (\ a -> (a.1,fup (part a.1).1.1 w.graph t w.below a.2)) (graph w.graph w.entries)) ;
+    approx : Approx = new Approx[\ i -> (part i).1,limit.1,monotone,bounded,cover] ;
+  } ;
+} ;
+
+module Basis (x : D) {
+  I : U l = Domain[l].BasisD[x].index ;
+  part : I -> D = Domain[l].BasisD[x].part ;
+  net : Net = new Net[I,\ i j -> Domain[l].Below (part i) (part j),
+    \ i -> sub-refl (part i).1,\ i j k -> sub-trans (part i).1 (part j).1 (part k).1,
+    Domain[l].BasisD[x].directed.1,Domain[l].BasisD[x].directed.2] ;
+  approx : On[net].Approx = new On[net].Approx[part,x,\ i j h -> h,Domain[l].BasisD[x].bounded,
+    \ t -> Domain[l].BasisD[x].from t] ;
+} ;

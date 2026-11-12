@@ -1,0 +1,54 @@
+-- Decidable equality of finite shapes, and unique positions in a
+-- propositionally covered finite discrete lower ideal.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+Dec (P : U l) : U l = Plus P (P -> Empty) ;
+left-code (A B : U l) (a : A) : Plus A B -> U l = split { inl x -> Id A a x ; inr y -> Empty } ;
+right-code (A B : U l) (b : B) : Plus A B -> U l = split { inl x -> Empty ; inr y -> Id B b y } ;
+left-inj (A B : U l) (a x : A) (h : Id (Plus A B) (inl a) (inl x)) : Id A a x =
+  subst (Plus A B) (left-code A B a) (inl a) (inl x) h (refl a) ;
+right-inj (A B : U l) (b y : B) (h : Id (Plus A B) (inr b) (inr y)) : Id B b y =
+  subst (Plus A B) (right-code A B b) (inr b) (inr y) h (refl b) ;
+disjoint (A B : U l) (a : A) (b : B) (h : Id (Plus A B) (inl a) (inr b)) : Empty =
+  subst (Plus A B) (left-code A B a) (inl a) (inr b) h (refl a) ;
+map-decision (P Q : U l) (f : P -> Q) (g : Q -> P) : Dec P -> Dec Q = split {
+  inl p -> inl (f p) ; inr n -> inr (\ q -> n (g q)) } ;
+sum-equality (A B : U l) (da : (a x : A) -> Dec (Id A a x)) (db : (b y : B) -> Dec (Id B b y)) :
+  (u v : Plus A B) -> Dec (Id (Plus A B) u v) = split {
+  inl a -> split {
+    inl x -> map-decision (Id A a x) (Id (Plus A B) (inl a) (inl x))
+      (\ h -> ap A (Plus A B) (\ z -> inl z) a x h) (left-inj A B a x) (da a x) ;
+    inr y -> inr (disjoint A B a y) } ;
+  inr b -> split {
+    inl x -> inr (\ h -> disjoint A B x b (sym (Plus A B) (inr b) (inl x) h)) ;
+    inr y -> map-decision (Id B b y) (Id (Plus A B) (inr b) (inr y))
+      (\ h -> ap B (Plus A B) (\ z -> inr z) b y h) (right-inj A B b y) (db b y) } } ;
+equality : (s : Shape) (i j : Ix s) -> Dec (Id (Ix s) i j) = split {
+  none -> \ i j -> absurd (Dec (Id Empty i j)) i ;
+  leaf -> \ i j -> inl (isTop i j) ;
+  fork s t | ds dt -> sum-equality (Ix s) (Ix t) ds dt } ;
+
+module Ideal (P : ScottOrder[l].Order) (a : P.carrier) (F : DIDomain[l].Properties[P].FiniteIdeal[a]) {
+  module H = Prelude[l+] ;
+  Eq (x y : P.carrier) : U l = P.le x y * P.le y x ;
+  eq-prop (x y : P.carrier) : isProp (Eq x y) = isProp-Sigma (P.le x y) (\ _ -> P.le y x) (P.proposition x y) (\ _ -> P.proposition y x) ;
+  Witness (x : P.carrier) : U l = (i : Ix F.shape) * Eq x (F.point i) ;
+  same (x : P.carrier) (u v : Witness x) : Id (Ix F.shape) u.1 v.1 =
+    F.distinct u.1 v.1 (P.transitive (F.point u.1) x (F.point v.1) u.2.2 v.2.1)
+      (P.transitive (F.point v.1) x (F.point u.1) v.2.2 u.2.1) ;
+  witness-prop (x : P.carrier) : isProp (Witness x) = \ u v ->
+    Sigma-eq (Ix F.shape) (\ i -> Eq x (F.point i)) u.1 v.1 u.2 v.2 (same x u v) (eq-prop x (F.point v.1)) ;
+  position (x : P.carrier) (h : P.le x a) : Witness x = T.rec (Witness x) @l (Witness x) (witness-prop x) (\ w -> w) (F.covers x h) ;
+  compare (x y : P.carrier) (u : Witness x) (v : Witness y) : Dec (Eq x y) =
+    map-decision (Id (Ix F.shape) u.1 v.1) (Eq x y)
+      (\ h -> (P.transitive x (F.point u.1) y u.2.1
+          (subst (Ix F.shape) (\ i -> P.le (F.point i) y) v.1 u.1 (sym (Ix F.shape) u.1 v.1 h) v.2.2),
+        P.transitive y (F.point v.1) x v.2.1
+          (subst (Ix F.shape) (\ i -> P.le (F.point i) x) u.1 v.1 h u.2.2)))
+      (\ h -> F.distinct u.1 v.1
+        (P.transitive (F.point u.1) x (F.point v.1) u.2.2 (P.transitive x y (F.point v.1) h.1 v.2.1))
+        (P.transitive (F.point v.1) y (F.point u.1) v.2.2 (P.transitive y x (F.point u.1) h.2 u.2.1)))
+      (equality F.shape u.1 v.1) ;
+  decide (x y : P.carrier) (hx : P.le x a) (hy : P.le y a) : Dec (Eq x y) = compare x y (position x hx) (position y hy) ;
+} ;

@@ -1,0 +1,36 @@
+-- Continuous maps preserve lower admissible predicates exactly when
+-- they preserve them on the compact basis. No witnesses are chosen.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ;
+module Predicates = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module TC = TruncationCombinators[l] ;
+
+module Pullback (f : Map) (Q : Predicates.Predicate) {
+  holds (x : D) : U l = Q.holds (run f x) ;
+  lower (x y : D) (xy : Domain[l].Below x y) : holds y -> holds x =
+    Q.lower (run f x) (run f y) (f.2.1 x y xy) ;
+  directed (I : U l) (x : I -> D) (d : Dir I (\ i -> (x i).1))
+    (h : (i : I) -> holds (x i)) : holds Sup[I,x,d].value =
+    Q.lower (run f Sup[I,x,d].value) Continuous[l].Preserve[f,I,x,d].T.value
+      Continuous[l].Preserve[f,I,x,d].forward
+      (Q.directed I (\ i -> run f (x i)) (image-dir (run f) f.2.1 I x d) h) ;
+  predicate : Predicates.Predicate = new Predicates.Predicate[
+    holds := holds,proposition := \ x -> Q.proposition (run f x),
+    lower := lower,directed := directed] ;
+} ;
+
+module Preservation (f : Map) (P Q : Predicates.Predicate) {
+  All : U l+ = (x : D) -> P.holds x -> Q.holds (run f x) ;
+  Compact : U l = (k : K) -> P.holds (principal k) -> Q.holds (run f (principal k)) ;
+  restrict (h : All) : Compact = \ k -> h (principal k) ;
+  module Reconstruction = Predicates.Reconstruct[Q] ;
+  extend (h : Compact) : All = \ x hx ->
+    Reconstruction.Comparison.backward (run f x) (\ k below ->
+      TC.rec (Trace (run f) x k.1) @l (Q.holds (principal k)) (Q.proposition (principal k))
+        (\ a -> Q.lower (principal k) (run f (principal a.1))
+          (prin-sub k.1 (run f (principal a.1)).1 a.2.2)
+          (h a.1 (P.lower (principal a.1) x (prin-sub a.1.1 x.1 a.2.1) hx)))
+        (f.2.2 x k.1 (below k.1 (prin-in k.1)))) ;
+  equation : (All -> Compact) * (Compact -> All) = (restrict,extend) ;
+} ;

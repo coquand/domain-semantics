@@ -1,0 +1,56 @@
+-- Compact observations guard small propositions. Pi-component predicates
+-- can be expressed this way without choosing a positive-head witness.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+module Predicates = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module TC = TruncationCombinators[l] ;
+module Test (t : Ty) (P : U l) (prop : isProp P) {
+  holds (x : D) : U l = In x t -> P ;
+  proposition (x : D) : isProp (holds x) = F.isProp-Pi (In x t) (\ _ -> P) (\ _ -> prop) ;
+  lower (x y : D) (xy : Domain[l].Below x y) (h : holds y) : holds x = \ seen -> h (xy t seen) ;
+  directed (I : U l) (x : I -> D) (d : Dir I (\ i -> (x i).1)) (h : (i : I) -> holds (x i)) : holds Sup[I,x,d].value =
+    TC.rec (Directed[l].UW I (\ i -> (x i).1) t) @l P prop (\ w -> h w.1 w.2) ;
+  predicate : Predicates.Predicate = new Predicates.Predicate[holds,proposition,lower,directed] ;
+  strict (absent : In bottom t -> Empty) : holds bottom = \ seen -> efq (absent seen) ;
+} ;
+no-bottom-U : In bottom univ -> Empty = TC.rec (Le om univ) @l Empty isProp-Empty om-not-univ ;
+no-bottom-Pi (a b : Ty) : In bottom (pi a b) -> Empty =
+  TC.rec (Le om (pi a b)) @l Empty isProp-Empty (om-not-pi a b) ;
+
+module PiBody (P Q : Predicates.Predicate) {
+  module DomainTests = Predicates.Intersection[K,\ k ->
+    Test[pi k.1 om,P.holds (principal k),P.proposition (principal k)].predicate] ;
+  module FamilyTests = Predicates.Intersection[K,\ k ->
+    Test[pi om k.1,Q.holds (principal k),Q.proposition (principal k)].predicate] ;
+  module Combined = Predicates.Both[DomainTests.predicate,FamilyTests.predicate] ;
+  predicate : Predicates.Predicate = Combined.predicate ;
+  Components (x : D) (hp : Parts[l].PHead x) : U l =
+    P.holds Parts[l].PiParts[x,hp].domain * Q.holds Parts[l].PiParts[x,hp].familyD ;
+  components-prop (x : D) (hp : Parts[l].PHead x) : isProp (Components x hp) =
+    isProp-Sigma (P.holds Parts[l].PiParts[x,hp].domain) (\ _ -> Q.holds Parts[l].PiParts[x,hp].familyD)
+      (P.proposition Parts[l].PiParts[x,hp].domain) (\ _ -> Q.proposition Parts[l].PiParts[x,hp].familyD) ;
+  components (x : D) (h : predicate.holds x) (hp : Parts[l].PHead x) : Components x hp =
+    (Predicates.Reconstruct[P].Comparison.backward Parts[l].PiParts[x,hp].domain (\ k below -> h.1 k (below k.1 (prin-in k.1))),
+     Predicates.Reconstruct[Q].Comparison.backward Parts[l].PiParts[x,hp].familyD (\ k below -> h.2 k (below k.1 (prin-in k.1)))) ;
+  domain-test (x : D) (h : (hp : Parts[l].PHead x) -> Components x hp) (k : K) (seen : In x (pi k.1 om)) : P.holds (principal k) =
+    P.lower (principal k) Parts[l].PiParts[x,Parts[l].pi-head x k.1 om seen].domain
+      (prin-sub k.1 Parts[l].PiParts[x,Parts[l].pi-head x k.1 om seen].df seen)
+      (h (Parts[l].pi-head x k.1 om seen)).1 ;
+  family-test (x : D) (h : (hp : Parts[l].PHead x) -> Components x hp) (k : K) (seen : In x (pi om k.1)) : Q.holds (principal k) =
+    Q.lower (principal k) Parts[l].PiParts[x,Parts[l].pi-head x om k.1 seen].familyD
+      (prin-sub k.1 Parts[l].PiParts[x,Parts[l].pi-head x om k.1 seen].ff seen)
+      (h (Parts[l].pi-head x om k.1 seen)).2 ;
+  introduce (x : D) (h : (hp : Parts[l].PHead x) -> Components x hp) : predicate.holds x = (domain-test x h,family-test x h) ;
+  equation (x : D) : (predicate.holds x -> (hp : Parts[l].PHead x) -> Components x hp) *
+    (((hp : Parts[l].PHead x) -> Components x hp) -> predicate.holds x) = (components x,introduce x) ;
+  strict : predicate.holds bottom =
+    (\ k seen -> efq (no-bottom-Pi k.1 om seen),\ k seen -> efq (no-bottom-Pi om k.1 seen)) ;
+} ;
+module PiBodyVariance (P P' Q Q' : Predicates.Predicate)
+  (domain : Predicates.Includes P P') (family : Predicates.Includes Q Q') {
+  pointwise (x : D) (h : PiBody[P,Q].predicate.holds x) : PiBody[P',Q'].predicate.holds x =
+    (\ k seen -> domain k (h.1 k seen),\ k seen -> family k (h.2 k seen)) ;
+  inclusion : Predicates.Includes PiBody[P,Q].predicate PiBody[P',Q'].predicate =
+    Predicates.inclusion PiBody[P,Q].predicate PiBody[P',Q'].predicate pointwise ;
+} ;

@@ -1,0 +1,59 @@
+-- Directed unions, compact principal filters, and the principal basis.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module TC = TruncationCombinators[l] ;
+
+Upper (I : U l) (x : I -> Filt) (i j : I) : U l =
+  (k : I) * (Sub (x i) (x k) * Sub (x j) (x k)) ;
+Directed (I : U l) (x : I -> Filt) : U l =
+  Ex I * ((i j : I) -> Ex (Upper I x i j)) ;
+
+UW (I : U l) (x : I -> Filt) (t : Ty) : U l = (i : I) * mem (x i) t ;
+
+module Union (I : U l) (x : I -> Filt) (d : Directed I x) {
+  m (t : Ty) : U l = Ex (UW I x t) ;
+  at-om : m om = TC.map I (UW I x om) (\ i -> (i,fom (x i))) d.1 ;
+  at-meet (s t : Ty) (a : m s) (b : m t) : m (meet s t) =
+    TC.bind2 (UW I x s) (UW I x t) (UW I x (meet s t))
+      (\ u v -> TC.map (Upper I x u.1 v.1) (UW I x (meet s t))
+        (\ w -> (w.1,fmeet (x w.1) s t (w.2.1 s u.2) (w.2.2 t v.2)))
+        (d.2 u.1 v.1)) a b ;
+  at-up (s t : Ty) (h : Le s t) : m s -> m t =
+    TC.map (UW I x s) (UW I x t) (\ w -> (w.1,fup (x w.1) s t h w.2)) ;
+  sup : Filt = (m,(\ t -> ex-prop (UW I x t),(at-om,(at-meet,at-up)))) ;
+  inc (i : I) : Sub (x i) sup = \ t h -> ex (UW I x t) (i,h) ;
+  least (y : Filt) (h : (i : I) -> Sub (x i) y) : Sub sup y =
+    \ t -> ex-elim (UW I x t) (mem y t) (fprop y t) (\ w -> h w.1 t w.2) ;
+} ;
+
+Compact (x : Filt) : U l+ =
+  (I : U l) (y : I -> Filt) (d : Directed I y) ->
+  Sub x Union[I,y,d].sup -> Ex ((i : I) * Sub x (y i)) ;
+
+principal-compact (s : Ty) : Compact (prin s) = \ I y d h ->
+  TC.map (UW I y s) ((i : I) * Sub (prin s) (y i))
+    (\ w -> (w.1,prin-sub s (y w.1) w.2)) (h s (prin-in s)) ;
+
+module Basis (x : Filt) {
+  index : U l = (s : Ty) * mem x s ;
+  part (i : index) : Filt = prin i.1 ;
+  directed : Directed index part =
+    (ex index (om,fom x), \ i j -> ex (Upper index part i j)
+      ((meet i.1 j.1,fmeet x i.1 j.1 i.2 j.2),
+       (prin-anti (meet i.1 j.1) i.1 (le-meet-l i.1 j.1),
+        prin-anti (meet i.1 j.1) j.1 (le-meet-r i.1 j.1)))) ;
+  approximation : Eqv Union[index,part,directed].sup x =
+    (Union[index,part,directed].least x (\ i -> prin-sub i.1 x i.2),
+     \ t h -> Union[index,part,directed].inc (t,h) t (prin-in t)) ;
+  equation : Id Filt Union[index,part,directed].sup x =
+    filt-ext Union[index,part,directed].sup x approximation ;
+} ;
+
+-- Conversely every compact filter is principal, merely: no choice.
+compact-principal (x : Filt) (c : Compact x) :
+  Ex ((s : Ty) * Eqv x (prin s)) =
+  TC.map ((i : Basis[x].index) * Sub x (Basis[x].part i))
+    ((s : Ty) * Eqv x (prin s))
+    (\ w -> (w.1.1,(w.2,prin-sub w.1.1 x w.1.2)))
+    (c Basis[x].index Basis[x].part Basis[x].directed Basis[x].approximation.2) ;

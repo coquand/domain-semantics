@@ -1,0 +1,33 @@
+-- An abstract interface for classical dI-domains. Finite lower ideals
+-- have mere finite discrete presentations, not a consequence of the
+-- constructive Scott-domain interface. BooleanDI supplies a nontrivial
+-- instance with an explicit local classical parameter.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+
+module Properties (P : Order) {
+  C : U l+ = P.carrier ;
+  LE : C -> C -> U l = P.le ;
+  pair (x y : C) : Bool -> C = split { true -> x ; false -> y } ;
+  Infimum (x y m : C) : U l+ = LE m x * (LE m y * ((z : C) -> LE z x -> LE z y -> LE z m)) ;
+  -- m = x meet (y join z), n = x meet y, v = x meet z,
+  -- w = n join v. A join witness includes the boundedness it needs.
+  Distributive : U l+ = (x y z u m n v w : C) ->
+    ScottOrder[l].On[P].Lub Bool (pair y z) u -> Infimum x u m ->
+    Infimum x y n -> Infimum x z v -> ScottOrder[l].On[P].Lub Bool (pair n v) w -> Id C m w ;
+  record FiniteIdeal {
+    top : C ;
+    shape : ScottFinite[l].Shape ;
+    point : ScottFinite[l].Ix shape -> C ;
+    below : (i : ScottFinite[l].Ix shape) -> LE (point i) top ;
+    covers : (x : C) -> LE x top -> Ex ((i : ScottFinite[l].Ix shape) * (LE x (point i) * LE (point i) x)) ;
+    distinct : (i j : ScottFinite[l].Ix shape) -> LE (point i) (point j) -> LE (point j) (point i) ->
+      Id (ScottFinite[l].Ix shape) i j ;
+  } ;
+} ;
+record DI {
+  scott : ScottDomain[l].Scott ;
+  distributive : Properties[scott.order].Distributive ;
+  finite-ideals : (a : scott.order.carrier) -> DC[scott.order,scott.complete].Compact a ->
+    ScottOrder[l+].Ex (Properties[scott.order].FiniteIdeal[a]) ;
+} ;

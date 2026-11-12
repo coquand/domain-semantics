@@ -1,0 +1,95 @@
+-- Pi formation and equality from fitting-environment induction hypotheses.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Syntax[l] ; open SynLemmas[l] ;
+open Subst[l] ; open Presup[l] ; open Cross[l] ; open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+module Raw = Filter[l] ; module S = Sem[l] ; module Soundness = Sound[l] ;
+module Subs = IndependentRelationSubstitutions[l] ; module Tr = TruncationCombinators[l] ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module F = IndependentFundamentalRules[l].At[n,Delta,wellformed] ;
+  module Binder = IndependentFundamentalBinder[l].At[n,Delta,wellformed] ;
+  module RS = Subs.At[n,Delta] ; module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  module Rules = IndependentRelationRules[l].At[n,Delta] ; module Laws = IndependentRelationRawLaws[l].At[n,Delta] ;
+  module C = LogicalRelationClauses[l].At[n,Delta] ;
+  module Case (m : Nat) (G : Ctx m) (A A' : Tm m) (B B' : Tm (suc m))
+    (dA : Der m (jty G A (uu m))) (dB : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+    (dB' : Der (suc m) (jty (ext m G A) B' (uu (suc m))))
+    (eA : Der m (jeq G A A' (uu m))) (eB : Der (suc m) (jeq (ext m G A) B B' (uu (suc m))))
+    (rA : F.Fundamental m G A A (uu m)) (rAA' : F.Fundamental m G A A' (uu m))
+    (rB : F.Fundamental (suc m) (ext m G A) B B (uu (suc m)))
+    (rBB' : F.Fundamental (suc m) (ext m G A) B B' (uu (suc m)))
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (r : RS.Related[m,G,rho,s,s']) {
+    As : Tm n = Sub.trav m A n s ; As' : Tm n = Sub.trav m A' n s' ;
+    Bs : Tm (suc n) = Sub.trav (suc m) B (suc n) (Sub.lift m n s) ;
+    Bs' : Tm (suc n) = Sub.trav (suc m) B' (suc n) (Sub.lift m n s') ;
+    ea0 : Der n (jeq Delta As (Sub.trav m A n s') (uu n)) =
+      subst-cross m n G Delta s s' A (uu m) dA r.ok r.ok' r.eq wellformed ;
+    module XB = Cross[l].XB[m,n,G,Delta,s,s',r.ok,r.ok',r.eq,wellformed,A,dA,ea0] ;
+    ea : Der n (jeq Delta As As' (uu n)) = eq-trans n Delta As (Sub.trav m A n s') As' (uu n) ea0
+      (sub-der m (jeq G A A' (uu m)) eA n Delta s' r.ok' wellformed) ;
+    eb : Der (suc n) (jeq (ext n Delta As) Bs Bs' (uu (suc n))) =
+      eq-trans (suc n) (ext n Delta As) Bs (Sub.trav (suc m) B' (suc n) (Sub.lift m n s)) Bs' (uu (suc n))
+        (sub-der (suc m) (jeq (ext m G A) B B' (uu (suc m))) eB (suc n) (ext n Delta As) (Sub.lift m n s) XB.soL XB.wHA)
+        (subst-cross (suc m) (suc n) (ext m G A) (ext n Delta As) (Sub.lift m n s) (Sub.lift m n s') B' (uu (suc m))
+          dB' XB.soL XB.soL' XB.seL XB.wHA) ;
+    a : Raw.Filt = S.sem m A rho ; phi : Raw.Filt = Raw.lamF a (S.fam m B rho) ;
+    p : Raw.Filt = Raw.piF a (S.fam m B rho) ;
+    hA : Soundness.TyU a = Soundness.tyu-of m A rho (Soundness.soundness-ty m G A (uu m) dA rho fits) ;
+    ca : Raw.ConsF a = Soundness.hasty-cons a Raw.univF hA ;
+    pa : Regular[l].Regular a = Regular[l].typed-regular a Raw.univF hA ;
+    domain : Rules.Type (from-raw a ca pa) As As' =
+      Subs.Reflection[I.relation.ty As As',a,ca,pa].introduce (Laws.to-type a As As' (rAA' rho fits s s' r).1) ;
+    module Observed (f : D) (inside : ExtFilter[l].Sub f.1 (reflect p)) {
+      no-U : In f univ -> Empty = \ hu -> ex-elim (p.mem univ) Empty isProp-Empty
+        (Soundness.pi-univ-clash a (S.fam m B rho) univ (le-refl univ)) (inside univ hu) ;
+      module Head (hp : Parts[l].PHead f) {
+        module Components = Parts[l].PiParts[f,hp] ;
+        domain-below : Domain[l].Below Components.domain (from-raw a ca pa) = \ t ht ->
+          Tr.map (p.mem (pi t om)) (a.mem t)
+            (\ w -> (Soundness.pi-in-pi a (S.fam m B rho) (pi t om) t om (le-refl (pi t om)) w).inA1)
+            (inside (pi t om) ht) ;
+        family-below : ExtFilter[l].Sub Components.familyD.1 (reflect phi) = \ t ht ->
+          Tr.map (p.mem (pi om t)) (phi.mem t)
+            (\ w -> new Raw.LamWR[a,S.fam m B rho,t,
+              (Soundness.pi-in-pi a (S.fam m B rho) (pi om t) om t (le-refl (pi om t)) w).b,
+              (Soundness.pi-in-pi a (S.fam m B rho) (pi om t) om t (le-refl (pi om t)) w).leb,
+              (Soundness.pi-in-pi a (S.fam m B rho) (pi om t) om t (le-refl (pi om t)) w).ents])
+            (inside (pi om t) ht) ;
+        module Test (e : C.Argument[As]) (x : D) (hx : Rules.Term x As e.N e.N') {
+          module Out = Binder.Outputs[m,G,A,uu (suc m),B,B',dA,dB,rA,rB,rBB',rho,fits,s,s',r,e.N,e.N',e.conversion,x,hx] ;
+          module Output = C.FamilyOutputs[I.relation.ty,Bs,Bs',e.N,e.N'] ;
+          observations : Subs.Observed Output.predicate Out.Y = \ k hk ->
+            (Rules.to-type (principal k) (uu n) (subst1 n Bs e.N) (subst1 n Bs e.N') (Out.left k hk),
+             (Rules.to-type (principal k) (uu n) (subst1 n Bs' e.N) (subst1 n Bs' e.N') (Out.right k hk),
+              Rules.to-type (principal k) (uu n) (subst1 n Bs e.N) (subst1 n Bs' e.N') (Out.across k hk))) ;
+          result : Output.predicate.holds (Application[l].eval Components.familyD x) =
+            IndependentFundamentalBinder[l].Evaluation[m,a,B,rho,x].Lift[Output.predicate,Components.familyD,family-below,observations].result ;
+        } ;
+        family : C.Families[I.relation.tm,I.relation.ty,As,Bs,Bs'].predicate.holds Components.familyD =
+          \ e k hk -> Test[e,principal k,hk].result ;
+      } ;
+      module Step = LogicalRelationTypeClause[l].At[n,Delta].Step[I.relation.tm,I.relation.ty,pp n As Bs,pp n As' Bs'] ;
+      types : Rules.Type f (pp n As Bs) (pp n As' Bs') = I.Invariant.type-fold (pp n As Bs) (pp n As' Bs') f
+        (\ hu -> efq (no-U hu),\ hp -> ex Step.AtHead[f,hp].Data.Witness
+          (((As,Bs),(As',Bs')),((rrefl n (pp n As Bs),(rrefl n (pp n As' Bs'),(ea,eb))),
+            ((I.relation.ty As As').lower Head[hp].Components.domain (from-raw a ca pa) Head[hp].domain-below domain,Head[hp].family)))) ;
+      terms : Rules.Term f (uu n) (pp n As Bs) (pp n As' Bs') = Rules.at-universe f (pp n As Bs) (pp n As' Bs') types ;
+    } ;
+    result : RS.Term (S.sem m (pp m A B) rho) (uu n) (pp n As Bs) (pp n As' Bs') = \ k hk ->
+      Observed[principal k,prin-sub k.1 (reflect p) (ex (p.mem k.1) ((S.sem-pp-eq m A B rho).1 k.1 hk))].terms ;
+  } ;
+  equality (m : Nat) (G : Ctx m) (A A' : Tm m) (B B' : Tm (suc m))
+    (dA : Der m (jty G A (uu m))) (dB : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+    (dB' : Der (suc m) (jty (ext m G A) B' (uu (suc m))))
+    (eA : Der m (jeq G A A' (uu m))) (eB : Der (suc m) (jeq (ext m G A) B B' (uu (suc m))))
+    (rA : F.Fundamental m G A A (uu m)) (rAA' : F.Fundamental m G A A' (uu m))
+    (rB : F.Fundamental (suc m) (ext m G A) B B (uu (suc m)))
+    (rBB' : F.Fundamental (suc m) (ext m G A) B B' (uu (suc m))) :
+    F.Fundamental m G (pp m A B) (pp m A' B') (uu m) = \ rho fits s s' r ->
+      (Case[m,G,A,A',B,B',dA,dB,dB',eA,eB,rA,rAA',rB,rBB',rho,fits,s,s',r].result,
+       Case[m,G,A,A',B,B',dA,dB,dB',eA,eB,rA,rAA',rB,rBB',rho,fits,s,s',r].result) ;
+  formation (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m))
+    (dA : Der m (jty G A (uu m))) (dB : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+    (rA : F.Fundamental m G A A (uu m)) (rB : F.Fundamental (suc m) (ext m G A) B B (uu (suc m))) :
+    F.Fundamental m G (pp m A B) (pp m A B) (uu m) = equality m G A A B B dA dB dB
+      (eq-refl m G A (uu m) dA) (eq-refl (suc m) (ext m G A) B (uu (suc m)) dB) rA rA rB rB ;
+} ;

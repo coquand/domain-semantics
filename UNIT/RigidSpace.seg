@@ -1,0 +1,61 @@
+-- The dI-domain of rigid projections is the principal ideal below the
+-- identity in the stable endomorphism domain.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module On (D : DIDomain[l].DI) {
+  module A = ScottDomain[l].On[D.scott] ; module AN = ScottMeet[l].On[D.scott] ;
+  module R = RigidProjector[l].On[D.scott] ;
+  module S = StableMaps[l].Between[D.scott,D.scott] ;
+  module End = StableComposition[l].Endo[D.scott] ;
+  module X = StableFiniteIdeals[l].Exponential[D,D] ;
+  module N = ScottMeet[l].On[X.domain.scott] ;
+  module PR = RigidProjector[l].On[X.domain.scott] ;
+  module Principal = PrincipalProjection[l].On[X.domain.scott].At[End.identity] ;
+  module Image = DIImage[l].Image[X.domain,Principal.projection] ;
+  domain : DIDomain[l].DI = Image.domain ;
+  module I = RigidImage[l].Image[X.domain.scott,Principal.projection] ;
+  module IN = ScottMeet[l].On[domain.scott] ;
+  bound (p : I.carrier) : S.LE p.1 End.identity = S.transitive p.1 (Principal.value p.1) End.identity p.2 (Principal.bounded p.1) ;
+  decode (p : I.carrier) : R.Rigid = R.from-equation p.1.1 (S.stable-equation p.1 End.identity (bound p)) ;
+  encode (p : R.Rigid) : I.carrier = (End.from-rigid p,
+    Principal.greatest (End.from-rigid p) (End.from-rigid p) (S.reflexive (End.from-rigid p)) (End.below-id p)) ;
+  run (p : I.carrier) (x : A.C) : A.C = S.run p.1 x ;
+  pointwise (p q : I.carrier) (h : I.le p q) (x : A.C) : A.LE (run p x) (run q x) = S.pointwise p.1 q.1 h x ;
+  from-pointwise (p q : I.carrier) (h : (x : A.C) -> A.LE (run p x) (run q x)) : I.le p q =
+    S.under-bound p.1 q.1 End.identity (bound p) (bound q) (\ a -> h (A.basic a)) ;
+  ambient-meet (p q : I.carrier) : I.carrier = (N.meet p.1 q.1,PR.downward Principal.projection (N.meet p.1 q.1) p.1 (N.left p.1 q.1) p.2) ;
+  meet-to (p q : I.carrier) : S.LE (IN.meet p q).1 (N.meet p.1 q.1) =
+    N.greatest p.1 q.1 (IN.meet p q).1 (IN.left p q) (IN.right p q) ;
+  meet-from (p q : I.carrier) : S.LE (N.meet p.1 q.1) (IN.meet p q).1 =
+    IN.greatest p q (ambient-meet p q) (N.left p.1 q.1) (N.right p.1 q.1) ;
+  inclusion : StableMaps[l].Between[domain.scott,X.domain.scott].Map =
+    ((\ p -> p.1,(\ p q h -> h,\ J p d z h -> DC[S.order,X.domain.scott.complete].least J (\ j -> (p j).1) d z h)),
+      \ a b c ac bc -> meet-from (I.basic-fixed a) (I.basic-fixed b)) ;
+  meet-value (p q : I.carrier) (x : A.C) : Id A.C (run (IN.meet p q) x) (AN.meet (run p x) (run q x)) =
+    trans A.C (run (IN.meet p q) x) (S.run (N.meet p.1 q.1) x) (AN.meet (run p x) (run q x))
+      (ap S.Map A.C (\ f -> S.run f x) (IN.meet p q).1 (N.meet p.1 q.1)
+        (S.ext (IN.meet p q).1 (N.meet p.1 q.1) (meet-to p q) (meet-from p q)))
+      (StableMeet[l].Exponential[D,D].pointwise p.1 q.1 End.identity (bound p) (bound q) x) ;
+  module Observe (x : A.C) {
+    module M = ScottMaps[l].Between[domain.scott,D.scott] ;
+    continuous : M.Continuous (\ p -> run p x) = \ J p d z h ->
+      (D.scott.complete.directed J (\ j -> run (p j) x)
+        (StableDirected[l].Between[D.scott,D.scott].Sup[J,\ j -> (p j).1,d].evaluated x)).2.2 z h ;
+    map : M.Map = (\ p -> run p x,(\ p q h -> pointwise p q h x,continuous)) ;
+    stable : StableMaps[l].Between[domain.scott,D.scott].Map = (map,\ a b c ac bc ->
+      subst A.C (\ z -> A.LE (AN.meet (run (I.basic-fixed a) x) (run (I.basic-fixed b) x)) z)
+        (AN.meet (run (I.basic-fixed a) x) (run (I.basic-fixed b) x)) (run (IN.meet (I.basic-fixed a) (I.basic-fixed b)) x)
+        (sym A.C (run (IN.meet (I.basic-fixed a) (I.basic-fixed b)) x) (AN.meet (run (I.basic-fixed a) x) (run (I.basic-fixed b) x))
+          (meet-value (I.basic-fixed a) (I.basic-fixed b) x)) (D.scott.order.reflexive (AN.meet (run (I.basic-fixed a) x) (run (I.basic-fixed b) x)))) ;
+  } ;
+  module Corestrict (P : ScottDomain[l].Scott) (f : StableMaps[l].Between[P,X.domain.scott].Map)
+    (fixed : (p : P.order.carrier) -> PR.Fixed Principal.projection (StableMaps[l].Between[P,X.domain.scott].run f p)) {
+    module F = StableMaps[l].Between[P,X.domain.scott] ; module M = ScottMaps[l].Between[P,X.domain.scott] ;
+    module O = StableMaps[l].Between[P,domain.scott] ; module PA = ScottDomain[l].On[P] ; module PN = ScottMeet[l].On[P] ;
+    value (p : PA.C) : I.carrier = (F.run f p,fixed p) ;
+    map : O.Map = ((value,(F.mono f,\ J p d z h -> M.continuous f.1 J p d z.1 h)),
+      \ a b c ac bc -> S.transitive (IN.meet (value (PA.basic a)) (value (PA.basic b))).1
+        (N.meet (F.run f (PA.basic a)) (F.run f (PA.basic b))) (F.run f (PN.meet (PA.basic a) (PA.basic b)))
+        (meet-to (value (PA.basic a)) (value (PA.basic b))) (f.2 a b c ac bc)) ;
+  } ;
+} ;

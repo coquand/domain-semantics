@@ -1,0 +1,96 @@
+-- Constructor locality on the corrected rank stages. Negative tests
+-- are restricted by application factorisation, not by monotonicity
+-- of the diagonal relation operator.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open ExtFilter[l] ; open Domain[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module S = CorrectedStages[l] ; module RP = RankProjection[l] ; module AP = Application[l] ;
+AtDepth (d : Nat) (R Q : P.Predicate) : U l+ =
+  (x : D) -> S.Stage[d].Fixed x -> R.holds x -> Q.holds x ;
+module Arrow (d : Nat) (R R' Q Q' : P.Predicate)
+  (negative : AtDepth d R' R) (positive : AtDepth d Q Q')
+  (f : D) (supports : RP.Supports d f) {
+  forward (h : DomainPredicateArrow[l].Arrow[R,Q].holds f) : DomainPredicateArrow[l].Arrow[R',Q'].holds f =
+    DomainPredicateArrow[l].Arrow[R',Q'].restrict f (\ x hx ->
+      Q'.lower (AP.eval f x) (AP.eval f (S.approximate d x))
+        RP.AtApplication[d,f,supports,x].factor.1
+        (positive (AP.eval f (S.approximate d x)) RP.AtApplication[d,f,supports,S.approximate d x].range
+          (DomainPredicateArrow[l].Arrow[R,Q].apply f h (S.approximate d x)
+            (negative (S.approximate d x) (S.idempotence d x)
+              (R'.lower (S.approximate d x) x (S.deflation d x) hx))))) ;
+} ;
+module At (n : Nat) (Delta : Ctx n) {
+  module C = LogicalRelationClauses[l].At[n,Delta] ;
+  module O = LogicalRelationOperator[l].At[n,Delta] ;
+  module TC = LogicalRelationTypeClause[l].At[n,Delta] ;
+  TypeAt (d : Nat) (R Q : C.TypeFamily) : U l+ = (T T' : Tm n) -> AtDepth d (R T T') (Q T T') ;
+  TermAt (d : Nat) (R Q : C.TermFamily) : U l+ = (T M M' : Tm n) -> AtDepth d (R T M M') (Q T M M') ;
+  IncludesAt (d : Nat) (R Q : O.Relations) : U l+ = TypeAt d R.ty Q.ty * TermAt d R.tm Q.tm ;
+  Agree (d : Nat) (R Q : O.Relations) : U l+ = IncludesAt d R Q * IncludesAt d Q R ;
+  restrict (d : Nat) (R Q : O.Relations) (h : O.Includes R Q) : IncludesAt d R Q =
+    (\ T T' x hx -> P.entails (R.ty T T') (Q.ty T T') (h.1 T T') x,
+     \ T M M' x hx -> P.entails (R.tm T M M') (Q.tm T M M') (h.2 T M M') x) ;
+  compose (d : Nat) (R Q V : O.Relations) (a : IncludesAt d R Q) (b : IncludesAt d Q V) : IncludesAt d R V =
+    (\ T T' x hx h -> b.1 T T' x hx (a.1 T T' x hx h),
+     \ T M M' x hx h -> b.2 T M M' x hx (a.2 T M M' x hx h)) ;
+  module Functions (d : Nat) (R R' Q Q' : C.TermFamily)
+    (negative : TermAt d R' R) (positive : TermAt d Q Q')
+    (T M M' : Tm n) (f : D) (supports : RP.Supports d f) {
+    module Before = C.Functions[R,Q,T,M,M'] ; module After = C.Functions[R',Q',T,M,M'] ;
+    outputs (e : C.FunctionTest[T]) : AtDepth d Before.Test[e].output After.Test[e].output = \ x hx h ->
+      (positive (subst1 n e.B e.argument.N) (app n M e.argument.N) (app n M e.argument.N') x hx h.1,
+       (positive (subst1 n e.B e.argument.N) (app n M' e.argument.N) (app n M' e.argument.N') x hx h.2.1,
+        positive (subst1 n e.B e.argument.N) (app n M e.argument.N) (app n M' e.argument.N') x hx h.2.2)) ;
+    forward (h : Before.predicate.holds f) : After.predicate.holds f = \ e ->
+      Arrow[d,Before.Test[e].input,After.Test[e].input,Before.Test[e].output,After.Test[e].output,
+        negative e.A e.argument.N e.argument.N',outputs e,f,supports].forward (h e) ;
+  } ;
+  module Families (d : Nat) (R R' : C.TermFamily) (Q Q' : C.TypeFamily)
+    (negative : TermAt d R' R) (positive : TypeAt d Q Q')
+    (A : Tm n) (B B' : Tm (suc n)) (f : D) (supports : RP.Supports d f) {
+    module Before = C.Families[R,Q,A,B,B'] ; module After = C.Families[R',Q',A,B,B'] ;
+    outputs (e : C.Argument[A]) : AtDepth d Before.Test[e].output After.Test[e].output = \ x hx h ->
+      (positive (subst1 n B e.N) (subst1 n B e.N') x hx h.1,
+       (positive (subst1 n B' e.N) (subst1 n B' e.N') x hx h.2.1,
+        positive (subst1 n B e.N) (subst1 n B' e.N') x hx h.2.2)) ;
+    forward (h : Before.predicate.holds f) : After.predicate.holds f = \ e ->
+      Arrow[d,Before.Test[e].input,After.Test[e].input,Before.Test[e].output,After.Test[e].output,
+        negative A e.N e.N',outputs e,f,supports].forward (h e) ;
+  } ;
+  module TypeChange (d : Nat) (R R' : C.TermFamily) (Q Q' : C.TypeFamily)
+    (negative : TermAt d R' R) (positive : TypeAt d Q Q') (T T' : Tm n)
+    (x : D) (hx : S.Stage[suc d].Fixed x) {
+    module Before = TC.Step[R,Q,T,T'] ; module After = TC.Step[R',Q',T,T'] ;
+    module Fixed = RP.FixedInput[d,x,hx] ;
+    body (e : Before.H.Heads) (h : Before.Body[e.1].Pi.predicate.holds x) : After.Body[e.1].Pi.predicate.holds x =
+      After.Body[e.1].Pi.introduce x (\ hp ->
+        (positive e.1.1.1 e.1.2.1 Parts[l].PiParts[x,hp].domain Fixed.Pi[hp].domain-fixed
+          (Before.Body[e.1].Pi.components x h hp).1,
+         Families[d,R,R',Q,Q',negative,positive,e.1.1.1,e.1.1.2,e.1.2.2,
+           Parts[l].PiParts[x,hp].familyD,Fixed.Pi[hp].family-supports].forward
+           (Before.Body[e.1].Pi.components x h hp).2)) ;
+    forward (h : Before.predicate.holds x) : After.predicate.holds x = (h.1,(h.2.1,\ e -> body e (h.2.2 e))) ;
+  } ;
+  -- Type-before-term action: the term clause reads the freshly built
+  -- type component. This action has the same invariants as operator.
+  advance (R : O.Relations) : O.Relations = new O.Relations[
+    ty := (O.operator R R).ty,
+    tm := \ T M M' -> C.TermStep[R.tm,R.tm,(O.operator R R).ty,T,M,M'].predicate] ;
+  advance-strict (R : O.Relations) (h : O.Strict R) : O.Strict (advance R) =
+    (\ T T' -> TC.Step[R.tm,R.ty,T,T'].strict,
+     \ T M M' -> (TC.Step[R.tm,R.ty,M,M'].strict,C.Functions[R.tm,R.tm,T,M,M'].strict h.2)) ;
+  module Fixed (R : O.Relations) (equations : O.Equations R) {
+    forward : O.Includes R (advance R) =
+      (equations.1.1,\ T M M' k h ->
+        (equations.1.1 M M' k (equations.1.2 T M M' k h).1,(equations.1.2 T M M' k h).2)) ;
+    backward : O.Includes (advance R) R =
+      (equations.2.1,\ T M M' k h -> equations.2.2 T M M' k (equations.2.1 M M' k h.1,h.2)) ;
+  } ;
+  lift (d : Nat) (R Q : O.Relations) (h : Agree d R Q) : IncludesAt (suc d) (advance R) (advance Q) =
+    (\ T T' x hx -> TypeChange[d,R.tm,Q.tm,R.ty,Q.ty,h.2.2,h.1.1,T,T',x,hx].forward,
+     \ T M M' x hx v ->
+       (TypeChange[d,R.tm,Q.tm,R.ty,Q.ty,h.2.2,h.1.1,M,M',x,hx].forward v.1,
+        Functions[d,R.tm,Q.tm,R.tm,Q.tm,h.2.2,h.1.2,T,M,M',x,RP.FixedInput[d,x,hx].supports].forward v.2)) ;
+  contractive (d : Nat) (R Q : O.Relations) (h : Agree d R Q) : Agree (suc d) (advance R) (advance Q) =
+    (lift d R Q h,lift d Q R (h.2,h.1)) ;
+} ;

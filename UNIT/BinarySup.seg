@@ -1,0 +1,37 @@
+-- Pointwise directed suprema of continuous binary operations.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open BinaryMaps[l] ; open DirectedApprox[l] ;
+module TC = TruncationCombinators[l] ; module PO = ProjectorOperator[l] ;
+
+module Sup (N : Net) (q : N.index -> Binary)
+  (monotone : (i j : N.index) -> N.le i j -> PO.LE (q i) (q j)) {
+  I : U l = N.index ;
+  part (a x : D) (i : I) : D = value (q i) a x ;
+  directed (a x : D) : Dir I (\ i -> (part a x i).1) =
+    (N.inhabited,\ i j -> TC.map ((k : I) * (N.le i k * N.le j k))
+      (Directed[l].Upper I (\ k -> (part a x k).1) i j)
+      (\ w -> (w.1,(monotone i w.1 w.2.1 a x,monotone j w.1 w.2.2 a x))) (N.upper i j)) ;
+  operation (a x : D) : D = Domain[l].Sup[I,part a x,directed a x].value ;
+  upper (i : I) (a x : D) : Domain[l].Below (part a x i) (operation a x) =
+    Domain[l].Sup[I,part a x,directed a x].inc i ;
+  least (a x y : D) (h : (i : I) -> Domain[l].Below (part a x i) y) : Domain[l].Below (operation a x) y =
+    Domain[l].Sup[I,part a x,directed a x].least y h ;
+  mono (a b x y : D) (ab : Domain[l].Below a b) (xy : Domain[l].Below x y) :
+    Domain[l].Below (operation a x) (operation b y) = least a x (operation b y)
+      (\ i -> sub-trans (part a x i).1 (part b y i).1 (operation b y).1
+        (BinaryMaps[l].mono (q i) a b x y ab xy) (upper i b y)) ;
+  finite-right (a x : D) (t : Ty) : In (operation a x) t -> Ex (Trace (operation a) x t) =
+    TC.bind ((i : I) * In (part a x i) t) (Trace (operation a) x t)
+      (\ w -> TC.map (Trace (run ((q w.1).at a)) x t) (Trace (operation a) x t)
+        (\ k -> (k.1,(k.2.1,upper w.1 a (principal k.1) t k.2.2))) (((q w.1).at a).2.2 x t w.2)) ;
+  finite-left (a x : D) (t : Ty) : In (operation a x) t ->
+    Ex ((k : K) * (In a k.1 * In (operation (principal k) x) t)) =
+    TC.bind ((i : I) * In (part a x i) t) ((k : K) * (In a k.1 * In (operation (principal k) x) t))
+      (\ w -> TC.map ((k : K) * (In a k.1 * In (value (q w.1) (principal k) x) t))
+        ((k : K) * (In a k.1 * In (operation (principal k) x) t))
+        (\ k -> (k.1,(k.2.1,upper w.1 (principal k.1) x t k.2.2))) ((q w.1).finite a x t w.2)) ;
+  map (a : D) : Map = (operation a,(\ x y -> mono a a x y (sub-refl a.1),finite-right a)) ;
+  binary : Binary = new Binary[map,\ a b ab x -> mono a b x x ab (sub-refl x.1),finite-left] ;
+  approx : On[N].Binaries = new On[N].Binaries[q,binary,monotone,upper,\ a x t h -> h] ;
+} ;

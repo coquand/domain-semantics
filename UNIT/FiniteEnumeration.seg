@@ -1,0 +1,89 @@
+-- Finite products, finite choice, and duplicate removal. All enumerating
+-- index types remain small, even when the enumerated type is large.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ; module TL = TruncationCombinators[l+] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+pair-eq (A B : U l+) (a c : A) (b d : B) (ac : Id A a c) (bd : Id B b d) : Id (A * B) (a,b) (c,d) =
+  trans (A * B) (a,b) (c,b) (c,d) (ap A (A * B) (\ x -> (x,b)) a c ac) (ap B (A * B) (\ y -> (c,y)) b d bd) ;
+record Enumeration (C : U l+) {
+  shape : Shape ;
+  point : Ix shape -> C ;
+  covers : (x : C) -> ScottOrder[l+].Ex ((i : Ix shape) * Id C x (point i)) ;
+} ;
+module Image (A B : U l+) (E : Enumeration[A]) (f : A -> B)
+  (onto : (y : B) -> ScottOrder[l+].Ex ((x : A) * Id B y (f x))) {
+  covers (y : B) : ScottOrder[l+].Ex ((i : Ix E.shape) * Id B y (f (E.point i))) =
+    TL.bind ((x : A) * Id B y (f x)) ((i : Ix E.shape) * Id B y (f (E.point i)))
+      (\ w -> TL.map ((i : Ix E.shape) * Id A w.1 (E.point i)) ((i : Ix E.shape) * Id B y (f (E.point i)))
+        (\ v -> (v.1,trans B y (f w.1) (f (E.point v.1)) w.2 (ap A B f w.1 (E.point v.1) v.2))) (E.covers w.1)) (onto y) ;
+  enumeration : Enumeration[B] = new Enumeration[B,shape := E.shape,point := \ i -> f (E.point i),covers := covers] ;
+} ;
+module Sum (A B : U l+) (E : Enumeration[A]) (F : Enumeration[B]) {
+  point : Ix (fork E.shape F.shape) -> Lib[l+].Plus A B = cases (Ix E.shape) (Ix F.shape)
+    (\ _ -> Lib[l+].Plus A B) (\ i -> inl (E.point i)) (\ i -> inr (F.point i)) ;
+  covers : (x : Lib[l+].Plus A B) -> ScottOrder[l+].Ex ((i : Ix (fork E.shape F.shape)) * Id (Lib[l+].Plus A B) x (point i)) = split {
+    inl a -> TL.map ((i : Ix E.shape) * Id A a (E.point i))
+      ((i : Ix (fork E.shape F.shape)) * Id (Lib[l+].Plus A B) (inl a) (point i))
+      (\ w -> (inl w.1,ap A (Lib[l+].Plus A B) (\ x -> inl x) a (E.point w.1) w.2)) (E.covers a) ;
+    inr b -> TL.map ((i : Ix F.shape) * Id B b (F.point i))
+      ((i : Ix (fork E.shape F.shape)) * Id (Lib[l+].Plus A B) (inr b) (point i))
+      (\ w -> (inr w.1,ap B (Lib[l+].Plus A B) (\ x -> inr x) b (F.point w.1) w.2)) (F.covers b) } ;
+  enumeration : Enumeration[Lib[l+].Plus A B] = new Enumeration[(Lib[l+].Plus A B),
+    shape := fork E.shape F.shape, point := point, covers := covers] ;
+} ;
+module Rows (B : U l+) (F : Enumeration[B]) {
+  empty : Enumeration[Empty * B] = new Enumeration[(Empty * B),shape := none,
+    point := \ i -> absurd (Empty * B) i,
+    covers := \ x -> absurd (ScottOrder[l+].Ex ((i : Empty) * Id (Empty * B) x (absurd (Empty * B) i))) x.1] ;
+  one : Enumeration[Top * B] = Image[B,Top * B,F,\ b -> (tt,b),\ x ->
+    ScottOrder[l+].inc ((b : B) * Id (Top * B) x (tt,b)) (x.2,pair-eq Top B x.1 tt x.2 x.2 (isTop x.1 tt) (refl x.2))].enumeration ;
+  module Fork (s t : Shape) (E : Enumeration[Ix s * B]) (G : Enumeration[Ix t * B]) {
+    C : U l+ = Lib[l+].Plus (Ix s * B) (Ix t * B) ;
+    value : C -> Ix (fork s t) * B = split { inl x -> (inl x.1,x.2) ; inr y -> (inr y.1,y.2) } ;
+    preimage : (i : Ix (fork s t)) (b : B) -> ScottOrder[l+].Ex ((x : C) * Id (Ix (fork s t) * B) (i,b) (value x)) = split {
+      inl i -> \ b -> ScottOrder[l+].inc ((x : C) * Id (Ix (fork s t) * B) (inl i,b) (value x)) (inl (i,b),refl (inl i,b)) ;
+      inr i -> \ b -> ScottOrder[l+].inc ((x : C) * Id (Ix (fork s t) * B) (inr i,b) (value x)) (inr (i,b),refl (inr i,b)) } ;
+    enumeration : Enumeration[Ix (fork s t) * B] = Image[C,Ix (fork s t) * B,
+      Sum[Ix s * B,Ix t * B,E,G].enumeration,value,\ x -> preimage x.1 x.2].enumeration ;
+  } ;
+  enumeration : (s : Shape) -> Enumeration[Ix s * B] = split {
+    none -> empty ; leaf -> one ; fork s t | es et -> Fork[s,t,es,et].enumeration } ;
+} ;
+module Product (A B : U l+) (E : Enumeration[A]) (F : Enumeration[B]) {
+  value (x : Ix E.shape * B) : A * B = (E.point x.1,x.2) ;
+  onto (y : A * B) : ScottOrder[l+].Ex ((x : Ix E.shape * B) * Id (A * B) y (value x)) =
+    TL.map ((i : Ix E.shape) * Id A y.1 (E.point i)) ((x : Ix E.shape * B) * Id (A * B) y (value x))
+      (\ w -> ((w.1,y.2),pair-eq A B y.1 (E.point w.1) y.2 y.2 w.2 (refl y.2))) (E.covers y.1) ;
+  enumeration : Enumeration[A * B] = Image[Ix E.shape * B,A * B,Rows[B,F].enumeration E.shape,value,onto].enumeration ;
+} ;
+module Tuples {
+  empty (C : Empty -> U l+) : Enumeration[(i : Empty) -> C i] =
+    new Enumeration[((i : Empty) -> C i),shape := leaf,point := \ _ i -> absurd (C i) i,
+      covers := \ x -> ScottOrder[l+].inc ((j : Top) * Id ((i : Empty) -> C i) x (\ i -> absurd (C i) i))
+        (tt,H.funext Empty C x (\ i -> absurd (C i) i) (\ i -> absurd (Id (C i) (x i) (absurd (C i) i)) i))] ;
+  one (C : Top -> U l+) (F : (i : Top) -> Enumeration[C i]) : Enumeration[(i : Top) -> C i] =
+    Image[C tt,(i : Top) -> C i,F tt,\ x -> unit C x,\ x ->
+      ScottOrder[l+].inc ((v : C tt) * Id ((i : Top) -> C i) x (unit C v))
+        (x tt,H.funext Top C x (unit C (x tt)) (unit (\ i -> Id (C i) (x i) (unit C (x tt) i)) (refl (x tt))))].enumeration ;
+  module Fork (s t : Shape) (C : Ix (fork s t) -> U l+)
+    (E : Enumeration[(i : Ix s) -> C (inl i)]) (F : Enumeration[(i : Ix t) -> C (inr i)]) {
+    L : U l+ = (i : Ix s) -> C (inl i) ; R : U l+ = (i : Ix t) -> C (inr i) ;
+    value (v : L * R) : (i : Ix (fork s t)) -> C i = cases (Ix s) (Ix t) C v.1 v.2 ;
+    onto (x : (i : Ix (fork s t)) -> C i) : ScottOrder[l+].Ex ((v : L * R) * Id ((i : Ix (fork s t)) -> C i) x (value v)) =
+      ScottOrder[l+].inc ((v : L * R) * Id ((i : Ix (fork s t)) -> C i) x (value v))
+        ((\ i -> x (inl i),\ i -> x (inr i)),H.funext (Ix (fork s t)) C x (value (\ i -> x (inl i),\ i -> x (inr i)))
+          (cases (Ix s) (Ix t) (\ i -> Id (C i) (x i) (value (\ j -> x (inl j),\ j -> x (inr j)) i))
+            (\ i -> refl (x (inl i))) (\ i -> refl (x (inr i))))) ;
+    enumeration : Enumeration[(i : Ix (fork s t)) -> C i] =
+      Image[L * R,(i : Ix (fork s t)) -> C i,Product[L,R,E,F].enumeration,value,onto].enumeration ;
+  } ;
+  enumeration : (s : Shape) (C : Ix s -> U l+) -> ((i : Ix s) -> Enumeration[C i]) -> Enumeration[(i : Ix s) -> C i] = split {
+    none -> \ C F -> empty C ; leaf -> \ C F -> one C F ;
+    fork s t | es et -> \ C F -> Fork[s,t,C,es (\ i -> C (inl i)) (\ i -> F (inl i)),et (\ i -> C (inr i)) (\ i -> F (inr i))].enumeration } ;
+  choice : (s : Shape) (C : Ix s -> U l+) -> ((i : Ix s) -> ScottOrder[l+].Ex (C i)) -> ScottOrder[l+].Ex ((i : Ix s) -> C i) = split {
+    none -> \ C h -> ScottOrder[l+].inc ((i : Empty) -> C i) (\ i -> absurd (C i) i) ;
+    leaf -> \ C h -> TL.map (C tt) ((i : Top) -> C i) (unit C) (h tt) ;
+    fork s t | cs ct -> \ C h -> TL.map2 ((i : Ix s) -> C (inl i)) ((i : Ix t) -> C (inr i)) ((i : Ix (fork s t)) -> C i)
+      (cases (Ix s) (Ix t) C) (cs (\ i -> C (inl i)) (\ i -> h (inl i))) (ct (\ i -> C (inr i)) (\ i -> h (inr i))) } ;
+} ;

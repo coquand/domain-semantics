@@ -1,0 +1,78 @@
+-- Finite-depth stages as images of finitary projections. Their union is
+-- D. Pi families use graph depth: the family arrow does not cost a second
+-- application of the domain functor.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ;
+open ExtFilter[l] ; open Domain[l] ; open CompactFamilies[l] ;
+module CF = ProjectorDomain[l] ; module TC = TruncationCombinators[l] ;
+module P = Prelude[l+] ;
+
+depths : Ty -> Nat * Nat = split {
+  om -> (zero,zero) ; univ -> (suc zero,suc zero) ;
+  pi a f | ra rf -> (suc (max ra.1 rf.2),suc (max ra.1 rf.2)) ;
+  arr a b | ra rb -> (suc (max ra.1 rb.1),max ra.1 rb.1) ;
+  meet a b | ra rb -> (max ra.1 rb.1,max ra.2 rb.2) } ;
+depth (s : Ty) : Nat = (depths s).1 ;
+Bound (n : Nat) (k : K) : U l = LeN (depth k.1) n ;
+compacts (n : Nat) : Family = CF.closure (Bound n) ;
+approximate (n : Nat) (x : D) : D = Projector[l].project (compacts n) x ;
+
+monotone (m n : Nat) (mn : LeN m n) : CF.Inc (compacts m) (compacts n) =
+  CF.least (Bound m) (compacts n) (\ k h -> CF.inc (Bound n) k (leN-trans (depth k.1) m n h mn)) ;
+chain (m n : Nat) (mn : LeN m n) (x : D) : Domain[l].Below (approximate m x) (approximate n x) =
+  Projector[l].mono (compacts m) (compacts n) x x (monotone m n mn) (sub-refl x.1) ;
+deflation (n : Nat) (x : D) : Domain[l].Below (approximate n x) x = Projector[l].At[compacts n,x].below ;
+idempotence (n : Nat) (x : D) : Equal (approximate n (approximate n x)) (approximate n x) =
+  Projector[l].idempotent (compacts n) x ;
+
+zero-token : (s : Ty) -> LeN (depth s) zero -> Le om s = split {
+  om -> \ h -> le-refl om ; univ -> \ h -> efq h ;
+  pi a b -> \ h -> efq h ; arr a b -> \ h -> efq h ;
+  meet a b | ra rb -> \ h -> le-meet om a b
+    (ra (leN-trans (depth a) (max (depth a) (depth b)) zero (leN-max-l (depth a) (depth b)) h))
+    (rb (leN-trans (depth b) (max (depth a) (depth b)) zero (leN-max-r (depth a) (depth b)) h)) } ;
+zero-closure : (k : K) -> CF.Der (Bound zero) k -> Le om k.1 = split {
+  d-empty -> le-refl om ;
+  d-in k h -> zero-token k.1 h ;
+  d-join a b c ha hb | ra rb -> le-meet om a.1 b.1 ra rb ;
+  d-equiv a b e h | rh -> le-trans om a.1 b.1 rh e.1 } ;
+zero-bottom (x : D) : Equal (approximate zero x) bottom =
+  (\ t -> TC.bind (Projector[l].At[compacts zero,x].W t) (Le om t)
+    (\ w -> TC.map (CF.Der (Bound zero) w.1) (Le om t)
+      (\ h -> le-trans om w.1.1 t (zero-closure w.1 h) w.2.2.2) w.2.1),
+   bottom-least (approximate zero x)) ;
+
+module Exhaust (x : D) {
+  directed : Domain[l].Dir Nat (\ n -> (approximate n x).1) =
+    (ex Nat zero,\ m n -> ex (Directed[l].Upper Nat (\ i -> (approximate i x).1) m n)
+      (max m n,(chain m (max m n) (leN-max-l m n) x,chain n (max m n) (leN-max-r m n) x))) ;
+  module S = Domain[l].Sup[Nat,\ n -> approximate n x,directed] ;
+  token (k : K) (h : In x k.1) : In S.value k.1 =
+    S.inc (depth k.1) k.1 (Projector[l].intro (compacts (depth k.1)) x k
+      (CF.inc (Bound (depth k.1)) k (leN-refl (depth k.1))) h) ;
+  forward : Domain[l].Below S.value x = S.least x (\ n -> deflation n x) ;
+  backward : Domain[l].Below x S.value = \ t h ->
+    ex-elim (Domain[l].PW x.1 t) (In S.value t) (fprop S.value.1 t)
+      (\ w -> fup S.value.1 w.1 t w.2.2.2
+        (token (w.1,(w.2.1,consistent x w.1 w.2.2.1)) w.2.2.1)) (x.2.2 t h) ;
+  equation : Id D S.value x = Domain[l].ext S.value x (forward,backward) ;
+} ;
+
+module Stage (n : Nat) {
+  Fixed (x : D) : U l = Equal (approximate n x) x ;
+  carrier : U l+ = (x : D) * Fixed x ;
+  embed (a : carrier) : D = a.1 ;
+  restrict (x : D) : carrier = (approximate n x,idempotence n x) ;
+  retract (a : carrier) : Id carrier (restrict (embed a)) a =
+    P.Sigma-eq D (\ x -> Fixed x) (approximate n a.1) a.1 (idempotence n a.1) a.2
+      (Domain[l].ext (approximate n a.1) a.1 a.2) (eqv-prop (approximate n a.1).1 a.1.1) ;
+  below (x : D) : Domain[l].Below (embed (restrict x)) x = deflation n x ;
+} ;
+
+module Between (m n : Nat) (mn : LeN m n) {
+  raise (a : Stage[m].carrier) : Stage[n].carrier =
+    (a.1,(deflation n a.1,\ t h -> chain m n mn a.1 t (a.2.2 t h))) ;
+  lower (a : Stage[n].carrier) : Stage[m].carrier = Stage[m].restrict a.1 ;
+  retract (a : Stage[m].carrier) : Id Stage[m].carrier (lower (raise a)) a = Stage[m].retract a ;
+  below (a : Stage[n].carrier) : Domain[l].Below (raise (lower a)).1 a.1 = deflation m a.1 ;
+} ;

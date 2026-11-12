@@ -1,0 +1,84 @@
+-- Continuous maps, expressed using the checked compact basis.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+DLe (x y : D) : U l = Domain[l].Below x y ;
+
+module FP = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+Monotone (f : D -> D) : U l+ =
+  (x y : D) -> DLe x y -> DLe (f x) (f y) ;
+Trace (f : D -> D) (x : D) (t : Ty) : U l =
+  (k : K) * (In x k.1 * In (f (principal k)) t) ;
+Finite (f : D -> D) : U l+ =
+  (x : D) (t : Ty) -> In (f x) t -> Ex (Trace f x t) ;
+Laws (f : D -> D) : U l+ = Monotone f * Finite f ;
+Map : U l+ = (f : D -> D) * Laws f ;
+run (f : Map) : D -> D = f.1 ;
+
+mono-prop (f : D -> D) : Prelude[l+].isProp (Monotone f) =
+  FP.isProp-Pi D (\ x -> (y : D) -> DLe x y -> DLe (f x) (f y)) (\ x ->
+    FP.isProp-Pi D (\ y -> DLe x y -> DLe (f x) (f y)) (\ y ->
+      FP.isProp-Pi (DLe x y) (\ _ -> DLe (f x) (f y))
+        (\ _ -> sub-prop (f x).1 (f y).1))) ;
+finite-prop (f : D -> D) : Prelude[l+].isProp (Finite f) =
+  FP.isProp-Pi D (\ x -> (t : Ty) -> In (f x) t -> Ex (Trace f x t)) (\ x ->
+    FP.isProp-Pi Ty (\ t -> In (f x) t -> Ex (Trace f x t)) (\ t ->
+      FP.isProp-Pi (In (f x) t) (\ _ -> Ex (Trace f x t))
+        (\ _ -> ex-prop (Trace f x t)))) ;
+laws-prop (f : D -> D) : Prelude[l+].isProp (Laws f) =
+  Prelude[l+].isProp-Sigma (Monotone f) (\ _ -> Finite f) (mono-prop f) (\ _ -> finite-prop f) ;
+ext (f g : Map) (h : (x : D) -> Equal (run f x) (run g x)) : Id Map f g =
+  Prelude[l+].Sigma-eq (D -> D) Laws f.1 g.1 f.2 g.2
+    (FP.funext D (\ _ -> D) f.1 g.1 (\ x -> Domain[l].ext (f.1 x) (g.1 x) (h x)))
+    (laws-prop g.1) ;
+
+-- Finite character is exactly preservation of small directed suprema.
+module Preserve (f : Map) (I : U l) (x : I -> D)
+  (d : Dir I (\ i -> (x i).1)) {
+  image-directed : Dir I (\ i -> (run f (x i)).1) =
+    (d.1,\ i j -> TruncationCombinators[l].map
+      (Directed[l].Upper I (\ a -> (x a).1) i j)
+      (Directed[l].Upper I (\ a -> (run f (x a)).1) i j)
+      (\ w -> (w.1,(f.2.1 (x i) (x w.1) w.2.1,f.2.1 (x j) (x w.1) w.2.2))) (d.2 i j)) ;
+  module S = Sup[I,x,d] ;
+  module T = Sup[I,\ i -> run f (x i),image-directed] ;
+  forward : DLe (run f S.value) T.value = \ t h ->
+    ex-elim (Trace f.1 S.value t) (In T.value t) (fprop T.value.1 t)
+      (\ w -> ex-elim (Directed[l].UW I (\ i -> (x i).1) w.1.1)
+        (In T.value t) (fprop T.value.1 t)
+        (\ a -> T.inc a.1 t (f.2.1 (principal w.1) (x a.1)
+          (prin-sub w.1.1 (x a.1).1 a.2) t w.2.2)) w.2.1)
+      (f.2.2 S.value t h) ;
+  backward : DLe T.value (run f S.value) =
+    T.least (run f S.value) (\ i -> f.2.1 (x i) S.value (S.inc i)) ;
+  equation : Id D (run f S.value) T.value =
+    Domain[l].ext (run f S.value) T.value (forward,backward) ;
+} ;
+
+image-dir (f : D -> D) (m : Monotone f) (I : U l) (x : I -> D)
+  (d : Dir I (\ i -> (x i).1)) : Dir I (\ i -> (f (x i)).1) =
+  (d.1,\ i j -> TruncationCombinators[l].map
+    (Directed[l].Upper I (\ a -> (x a).1) i j)
+    (Directed[l].Upper I (\ a -> (f (x a)).1) i j)
+    (\ w -> (w.1,(m (x i) (x w.1) w.2.1,m (x j) (x w.1) w.2.2))) (d.2 i j)) ;
+
+Preserves (f : D -> D) (m : Monotone f) : U l+ =
+  (I : U l) (x : I -> D) (d : Dir I (\ i -> (x i).1)) ->
+  Id D (f Sup[I,x,d].value) Sup[I,\ i -> f (x i),image-dir f m I x d].value ;
+
+-- Conversely, preservation applied to the small compact basis supplies
+-- the finite witness used by Map. No choice of witnesses is needed.
+finite-from-preservation (f : D -> D) (m : Monotone f) (p : Preserves f m)
+  (x : D) (t : Ty) (h : In (f x) t) : Ex (Trace f x t) =
+  TruncationCombinators[l].map
+    (Directed[l].UW BasisD[x].index (\ i -> (f (BasisD[x].part i)).1) t)
+    (Trace f x t) (\ w -> (w.1.1,(w.1.2,w.2)))
+    (Prelude[l+].subst D (\ y -> In y t)
+      (f BasisD[x].S.value)
+      Sup[BasisD[x].index,\ i -> f (BasisD[x].part i),
+        image-dir f m BasisD[x].index BasisD[x].part BasisD[x].directed].value
+      (p BasisD[x].index BasisD[x].part BasisD[x].directed)
+      (m x BasisD[x].S.value BasisD[x].from t h)) ;
+
+from-scott (f : D -> D) (m : Monotone f) (p : Preserves f m) : Map =
+  (f,(m,finite-from-preservation f m p)) ;

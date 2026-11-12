@@ -1,0 +1,77 @@
+-- The image of a finitary projector is itself a Scott domain. Its
+-- compact elements are precisely the ambient compact fixed points.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open CompactFamilies[l] ;
+module TC = TruncationCombinators[l] ; module P = Prelude[l+] ;
+
+module Image (p : Finitary[l].Finitary) {
+  f : Map = p.operation ;
+  Fixed (x : D) : U l = Finitary[l].Fixed f x ;
+  carrier : U l+ = (x : D) * Fixed x ;
+  LE (x y : carrier) : U l = Domain[l].Below x.1 y.1 ;
+  ext (x y : carrier) (h : Equal x.1 y.1) : Id carrier x y =
+    P.Sigma-eq D (\ z -> Fixed z) x.1 y.1 x.2 y.2
+      (Domain[l].ext x.1 y.1 h) (eqv-prop (run f y.1).1 y.1.1) ;
+
+  module Sup (I : U l) (x : I -> carrier) (d : Domain[l].Dir I (\ i -> (x i).1.1)) {
+    module S = Domain[l].Sup[I,\ i -> (x i).1,d] ;
+    value : carrier = (run f S.value,p.idempotence S.value) ;
+    upper (i : I) : LE (x i) value = \ t h -> f.2.1 (x i).1 S.value (S.inc i) t ((x i).2.2 t h) ;
+    least (y : carrier) (h : (i : I) -> LE (x i) y) : LE value y =
+      \ t m -> y.2.1 t (f.2.1 S.value y.1 (S.least y.1 h) t m) ;
+  } ;
+  module BoundedSup (I : U l) (x : I -> carrier) (bound : carrier) (h : (i : I) -> LE (x i) bound) {
+    module S = Bounded[l].Sup[I,\ i -> (x i).1,bound.1,h] ;
+    value : carrier = (run f S.value,p.idempotence S.value) ;
+    upper (i : I) : LE (x i) value = \ t ht -> f.2.1 (x i).1 S.value (S.upper i) t ((x i).2.2 t ht) ;
+    least (y : carrier) (hy : (i : I) -> LE (x i) y) : LE value y =
+      \ t ht -> y.2.1 t (f.2.1 S.value y.1 (S.least y.1 hy) t ht) ;
+  } ;
+  Compact (x : carrier) : U l+ = (I : U l) (y : I -> carrier)
+    (d : Domain[l].Dir I (\ i -> (y i).1.1)) -> LE x Sup[I,y,d].value -> Ex ((i : I) * LE x (y i)) ;
+
+  ambient-to-image (x : carrier) (c : CompactD x.1) : Compact x = \ I y d h ->
+    c I (\ i -> (y i).1) d
+      (sub-trans x.1.1 Sup[I,y,d].value.1.1 Domain[l].Sup[I,\ i -> (y i).1,d].value.1
+        h (p.deflation Domain[l].Sup[I,\ i -> (y i).1,d].value)) ;
+  principal-compact (k : K) (h : Fixed (principal k)) : Compact (principal k,h) =
+    ambient-to-image (principal k,h) (Domain[l].principal-compact k) ;
+
+  module Basis (x : carrier) {
+    index : U l = (k : K) * (Fixed (principal k) * In x.1 k.1) ;
+    part (i : index) : carrier = (principal i.1,i.2.1) ;
+    bounded (i : index) : LE (part i) x = prin-sub i.1.1 x.1.1 i.2.2 ;
+    upper (i j : index) : Ex (Directed[l].Upper index (\ a -> (part a).1.1) i j) =
+      ex (Directed[l].Upper index (\ a -> (part a).1.1) i j)
+        ((joinK i.1 j.1 c,(Finitary[l].Compacts[p].at-join i.1 j.1 c i.2.1 j.2.1,h)),
+         (prin-anti (meet i.1.1 j.1.1) i.1.1 (le-meet-l i.1.1 j.1.1),
+          prin-anti (meet i.1.1 j.1.1) j.1.1 (le-meet-r i.1.1 j.1.1)))
+      where {
+        h : In x.1 (meet i.1.1 j.1.1) = fmeet x.1.1 i.1.1 j.1.1 i.2.2 j.2.2 ;
+        c : Cons (meet i.1.1 j.1.1) = consistent x.1 (meet i.1.1 j.1.1) h ; } ;
+    directed : Domain[l].Dir index (\ i -> (part i).1.1) =
+      (ex index (bottomK,(Finitary[l].Compacts[p].at-bottom,fom x.1.1)),upper) ;
+    module S = Sup[index,part,directed] ;
+    forward : LE S.value x = S.least x bounded ;
+    backward : LE x S.value = \ t h ->
+      ex-elim (Finitary[l].FixedBasis f x.1 t) (In S.value.1 t) (fprop S.value.1.1 t)
+        (\ w -> fup S.value.1.1 w.1.1 t w.2.2.2
+          (S.upper (w.1,(w.2.1,w.2.2.1)) w.1.1 (prin-in w.1.1))) (p.density x.1 x.2 t h) ;
+    equation : Id carrier S.value x = ext S.value x (forward,backward) ;
+  } ;
+
+  compact-principal (x : carrier) (c : Compact x) : Ex ((k : K) * Equal x.1 (principal k)) =
+    TC.map ((i : Basis[x].index) * LE x (Basis[x].part i)) ((k : K) * Equal x.1 (principal k))
+      (\ w -> (w.1.1,(w.2,Basis[x].bounded w.1)))
+      (c Basis[x].index Basis[x].part Basis[x].directed Basis[x].backward) ;
+
+  image-to-ambient (x : carrier) (c : Compact x) : CompactD x.1 = \ I y d h ->
+    ex-elim ((k : K) * Equal x.1 (principal k))
+      (Ex ((i : I) * Domain[l].Below x.1 (y i))) (ex-prop ((i : I) * Domain[l].Below x.1 (y i)))
+      (\ w -> TC.map ((i : I) * Domain[l].Below (principal w.1) (y i))
+        ((i : I) * Domain[l].Below x.1 (y i))
+        (\ z -> (z.1,sub-trans x.1.1 (principal w.1).1 (y z.1).1 w.2.1 z.2))
+        (Domain[l].principal-compact w.1 I y d
+          (sub-trans (principal w.1).1 x.1.1 Domain[l].Sup[I,y,d].value.1 w.2.2 h))) (compact-principal x c) ;
+} ;

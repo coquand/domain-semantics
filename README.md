@@ -1,7 +1,8 @@
 # Π-injectivity and subject reduction for `U : U`, by domain theory
 
-An Agda formalisation of a dependent type theory with a universe `U : U` and
-dependent function (`Π`) types, and a **domain-theoretic** proof of two
+This repository contains an Agda formalisation of a dependent type theory
+with a universe `U : U` and dependent function (`Π`) types, and a
+**domain-theoretic** proof of two
 syntactic metatheorems about it:
 
 - **Π-injectivity** — if `Γ ⊢ Π(x:A₀)B₀ = Π(x:A₁)B₁ : U` then
@@ -17,7 +18,7 @@ term is valid), and read both metatheorems off the logical relation by
 evaluating at the bottom environment. This is the method of Coquand–Huber,
 *An adequacy theorem for dependent type theory*, Arch. Math. Logic 57 (2018).
 
-The development is machine-checked with Agda (`--without-K --exact-split`),
+The Agda development is machine-checked with Agda (`--without-K --exact-split`),
 **with no postulates, no holes, and no `TERMINATING` / `NO_POSITIVITY`
 pragmas** — every definition passes Agda's termination and positivity checkers
 as written. The information order `u ≤ v` and the semantic membership `u : a`
@@ -31,6 +32,43 @@ write-up is in [`pi-u-rules.tex`](pi-u-rules.tex) (built:
 This `MIN/` development is the current, complete one. (The repository also
 contains an element-level identity type, and a self-contained formalisation of
 Colson's ultimate-obstination theorem; see the end.)
+
+## Scott domains and an independent logical relation (`UNIT/`)
+
+The [Scott-domain account (PDF)](UNIT/scott-domains.pdf), with
+[LaTeX source](UNIT/scott-domains.tex), presents continuous function spaces,
+compact approximations, projectors, and an independently constructed logical
+relation. The mathematical presentation comes first; the formal-check summary
+and timings are at the end. The comparison with bounded stage typing is in
+Appendix A.
+
+The Unit development proves the full fundamental lemma, including Pi
+formation and equality, annotated lambda, and typed function extensionality,
+without using old adequacy or syntactic Pi injectivity. It then derives
+whole-denotation adequacy and **Pi inversion as a propositionally truncated
+pair of component equality derivations**.
+
+- [Complete derivation induction](UNIT/IndependentFundamental.seg)
+- [Whole-denotation adequacy](UNIT/IndependentAdequacy.seg) and
+  [independent Pi inversion](UNIT/IndependentInversion.seg)
+- [Development guide](UNIT/README.txt) and
+  [logical-relation proof account](UNIT/LOGICAL_RELATION_PROGRAM.md)
+
+The full check covers **9,346 declarations**; the separate independent check
+covers **4,909 declarations**, with the old relation and adequacy proofs out
+of scope. Both pass, and all 40 frozen dependency hashes are verified. The
+recorded complete run took **3.82 seconds wall-clock time**. This development
+uses univalence and replacement as explicit ambient parameters.
+
+With the compiled Haskell Unit checker available, run:
+
+```sh
+python3 UNIT/check.py /path/to/seg
+```
+
+Python only verifies dependency hashes and launches the Haskell checker;
+it does no type-checking. The checker binary is not bundled. The guide
+explains the recorded local checker and the `UNIT_CHECKER` alternative.
 
 ## Main results — where they are proved
 

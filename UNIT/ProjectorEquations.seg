@@ -1,0 +1,275 @@
+-- Recursive equations for the total semantic projector on the actual D.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+open SemanticLaws[l] ;
+module TC = TruncationCombinators[l] ; module AP = Application[l] ;
+module R = Filter[l] ; module SP = SemanticProjector[l] ;
+
+pmap (A : D) : Map = Projector[l].map (SP.interpret A) ;
+
+module Binary (f g : Map) {
+  operation (x : D) : D = p (run f x) (run g x) ;
+  monotone (x y : D) (h : Domain[l].Below x y) : Domain[l].Below (operation x) (operation y) =
+    SemanticLaws[l].mono (run f x) (run f y) (run g x) (run g y) (f.2.1 x y h) (g.2.1 x y h) ;
+  witness (x : D) (t : Ty) (o : Observation[run f x,run g x,t])
+    (a : Trace f.1 x o.code) (b : Trace g.1 x o.value) : Trace operation x t =
+    (k,(hk,fup (operation (principal k)).1 o.value t o.below
+      (introduce (run f (principal k)) (run g (principal k)) o.value o.code
+        (g.2.1 (principal b.1) (principal k) (prin-anti k.1 b.1.1 (le-meet-r a.1.1 b.1.1)) o.value b.2.2)
+        (f.2.1 (principal a.1) (principal k) (prin-anti k.1 a.1.1 (le-meet-l a.1.1 b.1.1)) o.code a.2.2) o.typed)))
+    where {
+      hk : In x (meet a.1.1 b.1.1) = fmeet x.1 a.1.1 b.1.1 a.2.1 b.2.1 ;
+      k : K = CompactFamilies[l].joinK a.1 b.1 (consistent x (meet a.1.1 b.1.1) hk) ; } ;
+  finite (x : D) (t : Ty) (h : In (operation x) t) : Ex (Trace operation x t) =
+    TC.bind Observation[run f x,run g x,t] (Trace operation x t)
+      (\ o -> TC.map2 (Trace f.1 x o.code) (Trace g.1 x o.value) (Trace operation x t)
+        (witness x t o) (f.2.2 x o.code o.type-inside) (g.2.2 x o.value o.inside))
+      (observe (run f x) (run g x) t h) ;
+  map : Map = (operation,(monotone,finite)) ;
+} ;
+
+module UniversePi (A : D) (B : FD) {
+  module Pi = Constructors[l].Pi[A,B] ;
+  operation : Map = Maps[l].compose (pmap universe) (Maps[l].compose (apply B) (pmap A)) ;
+  module L = Lambda[operation] ;
+  module Out = Constructors[l].Pi[p universe A,L.function] ;
+  lhs : D = p universe Pi.value ;
+  rhs : D = Out.value ;
+
+  entry-forward (a x v : Ty) (ha : In A a) (hx : Tp (el x a)) (hv : Tp (el v univ))
+    (hf : In B.1 (arr x v)) : In L.value (arr x v) =
+    fup L.value.1 (arr rx.value rv.value) (arr x v)
+      (le-arr rx.value x rv.value v rx.equiv.1 rv.equiv.2)
+      (L.entry rx.value rv.value
+        (new L.Entry[rx.value,rv.value,rx.proper,tp-cons rx.value a hxr,rv.proper,
+          fup (run operation (principal k)).1 v rv.value rv.equiv.1
+            (universe-in (AP.eval B.1 (p A (principal k))) v
+              (AP.intro B.1 (p A (principal k)) (arr x v) x v hf
+                (introduce A (principal k) x a (ex (Le rx.value x) rx.equiv.2) ha hx)
+                (le-refl (arr x v))) hv)]))
+    where {
+      rx : Proper[l].Rep[x] = Proper[l].typed-rep x a hx ;
+      rv : Proper[l].Rep[v] = Proper[l].typed-rep v univ hv ;
+      hxr : Tp (el rx.value a) = tp-conv x a rx.value a hx rx.equiv (eqv-refl a) ;
+      k : K = (rx.value,(rx.proper,tp-cons rx.value a hxr)) ; } ;
+
+  graph-forward : (j : Form) -> Tp j -> ByForm (\ u a -> Top)
+    (\ f a phi -> In A a -> In B.1 f -> Le (arr om univ) phi -> In L.value f) j = split {
+      t-bot u a e h -> tt ; t-univ u a e1 e2 -> tt ;
+      t-pi u a d phi e1 e2 h1 h2 c -> tt ; t-lam u a d phi f e1 e2 h1 h2 c -> tt ;
+      en-om a phi -> \ ha hf le -> fom L.value.1 ;
+      en-arr x v y a phi hx ly hy -> \ ha hf le -> entry-forward a x v ha hx
+        (tp-up v y univ hy (ProjPi[l].univ-cod x y (le-trans (arr om univ) phi (arr x y) le ly)) tp-UU) hf ;
+      en-meet f g a phi h1 h2 | r1 r2 -> \ ha hf le ->
+        fmeet L.value.1 f g (r1 ha (fup B.1.1 (meet f g) f (le-meet-l f g) hf) le)
+          (r2 ha (fup B.1.1 (meet f g) g (le-meet-r f g) hf) le) } ;
+
+  shape-forward (u : Ty) (hu : In Pi.value u) : Shape u univ -> In rhs u = split {
+    sh-bot e h -> fup rhs.1 om u e (fom rhs.1) ;
+    sh-univ e1 e2 -> efq (Pi.no-U (fup Pi.value.1 u univ e1.1 hu)) ;
+    sh-pi a phi e1 e2 h1 h2 cs ->
+      fup rhs.1 (pi a phi) u e1.2
+        (Out.intro a phi (universe-in A a parts.1 h1)
+          (graph-forward (ent phi a (arr om univ)) h2 parts.1 parts.2 (le-refl (arr om univ))))
+      where { parts : In A a * In B.1 phi = Pi.parts a phi (fup Pi.value.1 u (pi a phi) e1.1 hu) ; } ;
+    sh-lam a phi f e1 e2 h1 h2 cf -> efq (univ-not-pi a phi e2.1) } ;
+  forward : Domain[l].Below lhs rhs = \ t h ->
+    ex-elim Observation[universe,Pi.value,t] (In rhs t) (fprop rhs.1 t)
+      (\ o -> ex-elim (Le univ o.code) (In rhs t) (fprop rhs.1 t)
+        (\ le -> fup rhs.1 o.value t o.below
+          (shape-forward o.value o.inside (shape o.value univ (tp-up o.value o.code univ o.typed le tp-UU)))) o.type-inside)
+      (observe universe Pi.value t h) ;
+
+  record Certificate {
+    target : Ty ; domain : Ty ; graph : Ty ;
+    in-domain : In A domain ; domain-type : Tp (el domain univ) ;
+    in-family : In B.1 graph ; entries : Tp (ent graph domain (arr om univ)) ;
+    approximation : Le graph target ;
+  } ;
+  merge (s t : Ty) (a : Certificate[s]) (b : Certificate[t]) : Certificate[meet s t] =
+    new Certificate[meet s t,meet a.domain b.domain,meet a.graph b.graph,
+      hab,hU,fmeet B.1.1 a.graph b.graph a.in-family b.in-family,
+      en-meet a.graph b.graph (meet a.domain b.domain) (arr om univ)
+        (tp-up-ent a.graph a.domain (arr om univ) (meet a.domain b.domain) (arr om univ)
+          a.entries (le-meet-l a.domain b.domain) (le-refl (arr om univ)) hU)
+        (tp-up-ent b.graph b.domain (arr om univ) (meet a.domain b.domain) (arr om univ)
+          b.entries (le-meet-r a.domain b.domain) (le-refl (arr om univ)) hU),
+      le-meet-mono a.graph s b.graph t a.approximation b.approximation]
+    where {
+      hab : In A (meet a.domain b.domain) = fmeet A.1 a.domain b.domain a.in-domain b.in-domain ;
+      hU : Tp (el (meet a.domain b.domain) univ) = tp-join a.domain b.domain univ
+        a.domain-type b.domain-type (consistent A (meet a.domain b.domain) hab) ; } ;
+
+  entry-certificate (k : K) (v : Ty)
+    (o : Observation[universe,AP.eval B.1 (p A (principal k)),v]) (lv : Le univ o.code)
+    (b : Trace (AP.eval B.1) (p A (principal k)) o.value)
+    (a : Observation[A,principal k,b.1.1]) (lk : Le k.1 a.value) : Certificate[arr k.1 v] =
+    new Certificate[arr k.1 v,a.code,arr a.value o.value,a.type-inside,tp-pre a.value a.code a.typed,
+      Constructors[l].arrow-observation B.1 (a.value,(a.proper,tp-cons a.value a.code a.typed)) o.value
+        ((AP.map B.1).2.1 (principal b.1) (principal (a.value,(a.proper,tp-cons a.value a.code a.typed)))
+          (prin-anti a.value b.1.1 a.below) o.value b.2.2),
+      en-arr a.value o.value univ a.code (arr om univ) a.typed
+        (le-arr om a.value univ univ (le-om a.value) (le-refl univ))
+        (tp-up o.value o.code univ o.typed lv tp-UU),
+      le-arr a.value k.1 o.value v lk o.below] ;
+
+  entry-ex (x v : Ty) (e : L.ER x v) : Ex Certificate[arr x v] =
+    TC.bind Observation[universe,AP.eval B.1 (p A (principal k)),v] Certificate[arr x v]
+      (\ o -> TC.bind (Le univ o.code) Certificate[arr x v]
+        (\ lv -> TC.bind (Trace (AP.eval B.1) (p A (principal k)) o.value) Certificate[arr x v]
+          (\ b -> TC.bind Observation[A,principal k,b.1.1] Certificate[arr x v]
+            (\ a -> TC.map (Le x a.value) Certificate[arr x v] (entry-certificate k v o lv b a) a.inside)
+            (observe A (principal k) b.1.1 b.2.1))
+          ((AP.map B.1).2.2 (p A (principal k)) o.value o.inside)) o.type-inside)
+      (observe universe (AP.eval B.1 (p A (principal k))) v e.observed)
+    where { k : K = (x,(e.good-in,e.cons-in)) ; } ;
+  graph-ex : (s : Ty) -> R.EntS L.ER s -> Ex Certificate[s] = split {
+    es-om -> ex Certificate[om] (new Certificate[om,om,om,fom A.1,tp-omU,fom B.1.1,en-om om (arr om univ),le-refl om]) ;
+    es-arr x v e -> entry-ex x v e ;
+    es-meet s t hs ht | rs rt -> TC.map2 Certificate[s] Certificate[t] Certificate[meet s t] (merge s t) rs rt } ;
+
+  pi-back (t a b : Ty) (ha : In (p universe A) a) (hb : In L.value b) (le : Le (pi a b) t) : In lhs t =
+    ex-elim Observation[universe,A,a] (In lhs t) (fprop lhs.1 t)
+      (\ o -> ex-elim (Le univ o.code) (In lhs t) (fprop lhs.1 t)
+        (\ lu -> ex-elim (L.W b) (In lhs t) (fprop lhs.1 t)
+          (\ w -> ex-elim Certificate[w.graph] (In lhs t) (fprop lhs.1 t)
+            (\ c -> complete t a b le o lu w c) (graph-ex w.graph w.entries)) hb) o.type-inside)
+      (observe universe A a ha)
+    where {
+      complete (t a b : Ty) (le : Le (pi a b) t) (o : Observation[universe,A,a])
+        (lu : Le univ o.code) (w : L.W b) (c : Certificate[w.graph]) : In lhs t =
+        fup lhs.1 (pi d c.graph) t
+          (le-trans (pi d c.graph) (pi a b) t
+            (le-pi d a c.graph b (le-trans d o.value a (le-meet-l o.value c.domain) o.below)
+              (le-trans c.graph w.graph b c.approximation w.below)) le)
+          (universe-in Pi.value (pi d c.graph) (Pi.intro d c.graph hd c.in-family)
+            (t-pi (pi d c.graph) univ d c.graph (eqv-refl (pi d c.graph)) (eqv-refl univ) hU
+              (tp-up-ent c.graph c.domain (arr om univ) d (arr om univ) c.entries
+                (le-meet-r o.value c.domain) (le-refl (arr om univ)) hU)
+              (consistent B.1 c.graph c.in-family)))
+        where {
+          d : Ty = meet o.value c.domain ;
+          hd : In A d = fmeet A.1 o.value c.domain o.inside c.in-domain ;
+          hU : Tp (el d univ) = tp-join o.value c.domain univ
+            (tp-up o.value o.code univ o.typed lu tp-UU) c.domain-type (consistent A d hd) ; } ; } ;
+
+  back-witness : (t : Ty) -> Out.E.W t -> In lhs t = split {
+    wbot t h -> fup lhs.1 om t h (fom lhs.1) ;
+    wu t e h -> efq e ;
+    wp t q a b ha hb le -> pi-back t a b ha hb le ;
+    wf t h -> bottom-least lhs t h } ;
+  backward : Domain[l].Below rhs lhs = \ t ->
+    ex-elim (Out.E.W t) (In lhs t) (fprop lhs.1 t) (back-witness t) ;
+  equation : Id D lhs rhs = Domain[l].ext lhs rhs (forward,backward) ;
+} ;
+
+
+module FunctionClause (A : D) (B : FD) (F : D) {
+  module Pi = Constructors[l].Pi[A,B] ;
+  input : Map = pmap A ;
+  family : Map = Maps[l].compose (apply B) input ;
+  argument : Map = Maps[l].compose (AP.map F) input ;
+  operation : Map = Binary[family,argument].map ;
+  module L = Lambda[operation] ;
+  lhs : D = p Pi.value F ;
+  rhs : D = L.value ;
+
+  entry-forward (a phi f x v y : Ty) (ha : In A a) (hp : In B.1 phi) (hf : In F f)
+    (hx : Tp (el x a)) (hy : Tp (el v y)) (lx : Le f (arr x v)) (ly : Le phi (arr x y)) : In rhs (arr x v) =
+    fup rhs.1 (arr rx.value rv.value) (arr x v)
+      (le-arr rx.value x rv.value v rx.equiv.1 rv.equiv.2)
+      (L.entry rx.value rv.value
+        (new L.Entry[rx.value,rv.value,rx.proper,tp-cons rx.value a hxr,rv.proper,
+          fup (run operation (principal k)).1 v rv.value rv.equiv.1
+            (introduce (AP.eval B.1 (p A (principal k))) (AP.eval F (p A (principal k))) v y
+              (AP.intro F (p A (principal k)) f x v hf px lx)
+              (AP.intro B.1 (p A (principal k)) phi x y hp px ly) hy)]))
+    where {
+      rx : Proper[l].Rep[x] = Proper[l].typed-rep x a hx ;
+      rv : Proper[l].Rep[v] = Proper[l].typed-rep v y hy ;
+      hxr : Tp (el rx.value a) = tp-conv x a rx.value a hx rx.equiv (eqv-refl a) ;
+      k : K = (rx.value,(rx.proper,tp-cons rx.value a hxr)) ;
+      px : In (p A (principal k)) x = introduce A (principal k) x a
+        (ex (Le rx.value x) rx.equiv.2) ha hx ; } ;
+
+  graph-forward : (j : Form) -> Tp j -> ByForm (\ u a -> Top)
+    (\ f a phi -> In A a -> In B.1 phi -> In F f -> In rhs f) j = split {
+      t-bot u a e h -> tt ; t-univ u a e1 e2 -> tt ;
+      t-pi u a d phi e1 e2 h1 h2 c -> tt ; t-lam u a d phi f e1 e2 h1 h2 c -> tt ;
+      en-om a phi -> \ ha hp hf -> fom rhs.1 ;
+      en-arr x v y a phi hx ly hy -> \ ha hp hf ->
+        entry-forward a phi (arr x v) x v y ha hp hf hx hy (le-refl (arr x v)) ly ;
+      en-meet f g a phi h1 h2 | r1 r2 -> \ ha hp hf ->
+        fmeet rhs.1 f g (r1 ha hp (fup F.1 (meet f g) f (le-meet-l f g) hf))
+          (r2 ha hp (fup F.1 (meet f g) g (le-meet-r f g) hf)) } ;
+
+  shape-forward (u c : Ty) (hu : In F u) (hc : In Pi.value c) : Shape u c -> In rhs u = split {
+    sh-bot e h -> fup rhs.1 om u e (fom rhs.1) ;
+    sh-univ e1 e2 -> efq (Pi.no-U (fup Pi.value.1 c univ e2.1 hc)) ;
+    sh-pi a phi e1 e2 h1 h2 cs -> efq (Pi.no-U (fup Pi.value.1 c univ e2.1 hc)) ;
+    sh-lam a phi f e1 e2 h1 h2 cf ->
+      fup rhs.1 f u e1.2 (graph-forward (ent f a phi) h2 parts.1 parts.2 (fup F.1 u f e1.1 hu))
+      where { parts : In A a * In B.1 phi = Pi.parts a phi (fup Pi.value.1 c (pi a phi) e2.1 hc) ; } } ;
+  forward : Domain[l].Below lhs rhs = \ t h ->
+    ex-elim Observation[Pi.value,F,t] (In rhs t) (fprop rhs.1 t)
+      (\ o -> fup rhs.1 o.value t o.below
+        (shape-forward o.value o.code o.inside o.type-inside (shape o.value o.code o.typed))) (observe Pi.value F t h) ;
+
+  -- A finite observation of the RHS is supported at one typed compact
+  -- argument. Capture both the family value and the function value there.
+  back-at (k : K) (v : Ty)
+    (o : Observation[AP.eval B.1 (p A (principal k)),AP.eval F (p A (principal k)),v])
+    (b : Trace (AP.eval B.1) (p A (principal k)) o.code)
+    (f : Trace (AP.eval F) (p A (principal k)) o.value)
+    (a : Observation[A,principal k,meet b.1.1 f.1.1]) (k-a : Le k.1 a.value) : In lhs (arr k.1 v) =
+    fup lhs.1 (arr a.value o.value) (arr k.1 v)
+      (le-arr a.value k.1 o.value v k-a o.below)
+      (introduce Pi.value F (arr a.value o.value) (pi a.code (arr a.value o.code))
+        hf (Pi.intro a.code (arr a.value o.code) a.type-inside hb)
+        (t-lam (arr a.value o.value) (pi a.code (arr a.value o.code)) a.code (arr a.value o.code)
+          (arr a.value o.value) (eqv-refl (arr a.value o.value)) (eqv-refl (pi a.code (arr a.value o.code)))
+          (t-pi (pi a.code (arr a.value o.code)) univ a.code (arr a.value o.code)
+            (eqv-refl (pi a.code (arr a.value o.code))) (eqv-refl univ)
+            (tp-pre a.value a.code a.typed)
+            (en-arr a.value o.code univ a.code (arr om univ) a.typed
+              (le-arr om a.value univ univ (le-om a.value) (le-refl univ)) (tp-pre o.value o.code o.typed))
+            (consistent B.1 (arr a.value o.code) hb))
+          (en-arr a.value o.value o.code a.code (arr a.value o.code) a.typed
+            (le-refl (arr a.value o.code)) o.typed)
+          (consistent F (arr a.value o.value) hf)))
+    where {
+      ka : K = (a.value,(a.proper,tp-cons a.value a.code a.typed)) ;
+      hb : In B.1 (arr a.value o.code) = Constructors[l].arrow-observation B.1 ka o.code
+        ((AP.map B.1).2.1 (principal b.1) (principal ka)
+          (prin-anti a.value b.1.1 (le-trans a.value (meet b.1.1 f.1.1) b.1.1 a.below (le-meet-l b.1.1 f.1.1)))
+          o.code b.2.2) ;
+      hf : In F (arr a.value o.value) = Constructors[l].arrow-observation F ka o.value
+        ((AP.map F).2.1 (principal f.1) (principal ka)
+          (prin-anti a.value f.1.1 (le-trans a.value (meet b.1.1 f.1.1) f.1.1 a.below (le-meet-r b.1.1 f.1.1)))
+          o.value f.2.2) ; } ;
+
+  back-entry (x v : Ty) (e : L.ER x v) : In lhs (arr x v) =
+    ex-elim Observation[AP.eval B.1 (p A (principal k)),AP.eval F (p A (principal k)),v]
+      (In lhs (arr x v)) (fprop lhs.1 (arr x v))
+      (\ o -> ex-elim (Trace (AP.eval B.1) (p A (principal k)) o.code)
+        (In lhs (arr x v)) (fprop lhs.1 (arr x v))
+        (\ b -> ex-elim (Trace (AP.eval F) (p A (principal k)) o.value)
+          (In lhs (arr x v)) (fprop lhs.1 (arr x v))
+          (\ f -> ex-elim Observation[A,principal k,meet b.1.1 f.1.1]
+            (In lhs (arr x v)) (fprop lhs.1 (arr x v))
+            (\ a -> ex-elim (Le x a.value) (In lhs (arr x v)) (fprop lhs.1 (arr x v))
+              (back-at k v o b f a) a.inside)
+            (observe A (principal k) (meet b.1.1 f.1.1)
+              (fmeet (p A (principal k)).1 b.1.1 f.1.1 b.2.1 f.2.1)))
+          ((AP.map F).2.2 (p A (principal k)) o.value o.inside))
+        ((AP.map B.1).2.2 (p A (principal k)) o.code o.type-inside))
+      (observe (AP.eval B.1 (p A (principal k))) (AP.eval F (p A (principal k))) v e.observed)
+    where { k : K = (x,(e.good-in,e.cons-in)) ; } ;
+  backward : Domain[l].Below rhs lhs = \ t ->
+    ex-elim (L.W t) (In lhs t) (fprop lhs.1 t)
+      (\ w -> fup lhs.1 w.graph t w.below
+        (R.ents-in (raw lhs.1) L.ER w.graph
+          (\ x v e h -> back-entry x v e) w.graph w.entries (le-refl w.graph))) ;
+  equation : Id D lhs rhs = Domain[l].ext lhs rhs (forward,backward) ;
+} ;

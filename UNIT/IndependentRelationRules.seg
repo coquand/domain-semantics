@@ -1,0 +1,87 @@
+-- Stage-free introduction and elimination rules for the new invariant.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Syntax[l] ; open Reduction[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ; module Tr = TruncationCombinators[l] ;
+head-tag : (n : Nat) -> Tm n -> Opt (Tm n) = split {
+  var n i -> none ; uu n -> none ; pp n A B -> some (uu n) ; lam n A M -> none ; app n M N -> none } ;
+module At (n : Nat) (Delta : Ctx n) {
+  module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  module C = LogicalRelationClauses[l].At[n,Delta] ;
+  module TC = LogicalRelationTypeClause[l].At[n,Delta] ;
+  module Red = IndependentRelationReduction[l].At[n,Delta] ;
+  Type (x : D) (A A' : Tm n) : U l = (I.relation.ty A A').holds x ;
+  Term (x : D) (T M M' : Tm n) : U l = (I.relation.tm T M M').holds x ;
+  to-type (x : D) (T M M' : Tm n) (h : Term x T M M') : Type x M M' = (I.Invariant.term-unfold T M M' x h).1 ;
+  universe-no-product (A : Tm n) (B : Tm (suc n)) (r : Reds n (uu n) (pp n A B)) : Empty =
+    none-not-some (Tm n) (uu n)
+      (ap (Tm n) (Opt (Tm n)) (head-tag n) (uu n) (pp n A B) (reds-from-normal n (uu n) (pp n A B) r (normal-uu n))) ;
+  at-universe (x : D) (M M' : Tm n) (h : Type x M M') : Term x (uu n) M M' =
+    I.Invariant.term-fold (uu n) M M' x (h,\ e -> efq (universe-no-product e.A e.B e.reduction)) ;
+  universe-type : Type universe (uu n) (uu n) = I.Invariant.type-fold (uu n) (uu n) universe
+    (\ hu -> ex (Reds n (uu n) (uu n) * Reds n (uu n) (uu n)) (rrefl n (uu n),rrefl n (uu n)),
+     \ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)) ;
+  universe-term : Term universe (uu n) (uu n) (uu n) = at-universe universe (uu n) (uu n) universe-type ;
+  function-type (f : FD) (M M' : Tm n) : Type f.1 M M' =
+    I.Invariant.type-fold M M' f.1 (\ hu -> efq (Equation[l].no-u f hu),\ hp -> efq (Equation[l].no-pi f om om hp)) ;
+
+  module PiIntroduction (a : D) (phi : FD) (A A' : Tm n) (B B' : Tm (suc n))
+    (ea : Der n (jeq Delta A A' (uu n)))
+    (eb : Der (suc n) (jeq (ext n Delta A) B B' (uu (suc n))))
+    (domain : Type a A A') (family : C.Families[I.relation.tm,I.relation.ty,A,B,B'].predicate.holds phi.1) {
+    module Constructor = Constructors[l].Pi[a,phi] ;
+    module Step = TC.Step[I.relation.tm,I.relation.ty,pp n A B,pp n A' B'] ;
+    head : Step.H.Shape = ((A,B),(A',B')) ;
+    witness (hp : Parts[l].PHead Constructor.value) : Step.AtHead[Constructor.value,hp].Data.Witness =
+      (head,((rrefl n (pp n A B),(rrefl n (pp n A' B'),(ea,eb))),
+        ((I.relation.ty A A').lower Parts[l].PiParts[Constructor.value,hp].domain a
+          (\ t h -> (Constructor.parts t om h).1) domain,
+         C.Families[I.relation.tm,I.relation.ty,A,B,B'].predicate.lower
+           Parts[l].PiParts[Constructor.value,hp].familyD phi.1 (\ t h -> (Constructor.parts om t h).2) family))) ;
+    types : Type Constructor.value (pp n A B) (pp n A' B') =
+      I.Invariant.type-fold (pp n A B) (pp n A' B') Constructor.value
+        (\ hu -> efq (Constructor.no-U hu),\ hp -> ex Step.AtHead[Constructor.value,hp].Data.Witness (witness hp)) ;
+    terms : Term Constructor.value (uu n) (pp n A B) (pp n A' B') =
+      at-universe Constructor.value (pp n A B) (pp n A' B') types ;
+  } ;
+  application (f x : D) (A : Tm n) (B : Tm (suc n)) (M M' N N' : Tm n)
+    (conversion : Der n (jeq Delta N N' A)) (hf : Term f (pp n A B) M M') (hx : Term x A N N') :
+    C.TermOutputs[I.relation.tm,subst1 n B N,M,M',N,N'].predicate.holds (Application[l].eval f x) =
+      C.Functions[I.relation.tm,I.relation.tm,pp n A B,M,M'].apply f
+        (I.Invariant.term-unfold (pp n A B) M M' f hf).2
+        (new C.FunctionTest[pp n A B,A,B,rrefl n (pp n A B),new C.Argument[A,N,N',conversion]]) x hx ;
+  module LiteralFunctions (A : Tm n) (B : Tm (suc n)) (M M' : Tm n) (f : D) {
+    Tests (s : Tm n * Tm (suc n)) : U l = (e : C.Argument[s.1]) ->
+      DomainPredicateArrow[l].Arrow[I.relation.tm s.1 e.N e.N',
+        C.TermOutputs[I.relation.tm,subst1 n s.2 e.N,M,M',e.N,e.N'].predicate].holds f ;
+    introduce (h : Tests (A,B)) : C.Functions[I.relation.tm,I.relation.tm,pp n A B,M,M'].predicate.holds f = \ e ->
+      (subst (Tm n * Tm (suc n)) Tests (A,B) (e.A,e.B)
+        (ap (Tm n) (Tm n * Tm (suc n)) (\ t -> (pp-dom n t,pp-cod n t))
+          (pp n A B) (pp n e.A e.B) (reds-from-normal n (pp n A B) (pp n e.A e.B) e.reduction (normal-pp n A B))) h) e.argument ;
+  } ;
+  module LambdaIntroduction (F : Map) (A : Tm n) (B M M' : Tm (suc n))
+    (body : (e : C.Argument[A]) -> (x : D) -> Term x A e.N e.N' ->
+      Term (run F x) (subst1 n B e.N) (subst1 n M e.N) (subst1 n M e.N') *
+      (Term (run F x) (subst1 n B e.N) (subst1 n M' e.N) (subst1 n M' e.N') *
+       Term (run F x) (subst1 n B e.N) (subst1 n M e.N) (subst1 n M' e.N'))) {
+    f : FD = abstract F ;
+    beta (N : Tm n) : Reds n (app n (lam n A M) N) (subst1 n M N) =
+      rstep n (app n (lam n A M) N) (subst1 n M N) (subst1 n M N) (red1-beta n A M N) (rrefl n (subst1 n M N)) ;
+    beta' (N : Tm n) : Reds n (app n (lam n A M') N) (subst1 n M' N) =
+      rstep n (app n (lam n A M') N) (subst1 n M' N) (subst1 n M' N) (red1-beta n A M' N) (rrefl n (subst1 n M' N)) ;
+    output (e : C.Argument[A]) (x : D) (hx : Term x A e.N e.N') :
+      C.TermOutputs[I.relation.tm,subst1 n B e.N,lam n A M,lam n A M',e.N,e.N'].predicate.holds (Application[l].eval f.1 x) =
+      C.TermOutputs[I.relation.tm,subst1 n B e.N,lam n A M,lam n A M',e.N,e.N'].predicate.lower
+        (Application[l].eval f.1 x) (run F x) Beta[F,x].forward
+        (Red.term-expansion (subst1 n B e.N) (app n (lam n A M) e.N) (app n (lam n A M) e.N')
+          (subst1 n M e.N) (subst1 n M e.N') (beta e.N) (beta e.N') (run F x) (body e x hx).1,
+         (Red.term-expansion (subst1 n B e.N) (app n (lam n A M') e.N) (app n (lam n A M') e.N')
+           (subst1 n M' e.N) (subst1 n M' e.N') (beta' e.N) (beta' e.N') (run F x) (body e x hx).2.1,
+          Red.term-expansion (subst1 n B e.N) (app n (lam n A M) e.N) (app n (lam n A M') e.N')
+            (subst1 n M e.N) (subst1 n M' e.N') (beta e.N) (beta' e.N') (run F x) (body e x hx).2.2)) ;
+    terms : Term f.1 (pp n A B) (lam n A M) (lam n A M') =
+      I.Invariant.term-fold (pp n A B) (lam n A M) (lam n A M') f.1
+        (function-type f (lam n A M) (lam n A M'),
+         LiteralFunctions[A,B,lam n A M,lam n A M',f.1].introduce (\ e k -> output e (principal k))) ;
+  } ;
+} ;

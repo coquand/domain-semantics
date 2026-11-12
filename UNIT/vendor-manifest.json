@@ -1,0 +1,210 @@
+{
+  "source_root": "/Users/coquand/CANONICITY/unit-indexed",
+  "source_revision": "788321856d860127a29139d1732ff938e147cf84",
+  "checker": {
+    "path": "/Users/coquand/CANONICITY/unit-indexed/dist-newstyle/build/aarch64-osx/ghc-9.6.7/seg-0.1.0.0/x/seg/build/seg/seg",
+    "sha256": "9802dd58639d2da2625b2a089f9f079b3a8ff8acd2a6dd9affe00ee82d4810fa"
+  },
+  "files": [
+    {
+      "file": "vendor/AdeqApp.seg",
+      "source": "domain/mltt/AdeqApp.seg",
+      "sha256": "cff92b9f012143a887c0d36c50dff66b0e7702b55436f6472f4eea2c4a854183"
+    },
+    {
+      "file": "vendor/AdeqBase.seg",
+      "source": "domain/mltt/AdeqBase.seg",
+      "sha256": "464f5328ceb0ac2651b7f91cacb50ded62f7fe65f58847863a8be4a75237ad9c"
+    },
+    {
+      "file": "vendor/AdeqFun.seg",
+      "source": "domain/mltt/AdeqFun.seg",
+      "sha256": "916cbd6a28a154b21c37f4d5087991b38443fa2cc7160e50e4634774046d19db"
+    },
+    {
+      "file": "vendor/AdeqLam.seg",
+      "source": "domain/mltt/AdeqLam.seg",
+      "sha256": "f84a6f40ab840acbbe92bc8cc4ddbc91c26b6c58f15bcdee0b3db82e28f310e7"
+    },
+    {
+      "file": "vendor/AdeqPi.seg",
+      "source": "domain/mltt/AdeqPi.seg",
+      "sha256": "a2d3ef44b32e9c3201c0ebc161cc6dc43163ca66f4dcc6ebc1e5eb1a7da362ac"
+    },
+    {
+      "file": "vendor/Adequacy.seg",
+      "source": "domain/mltt/Adequacy.seg",
+      "sha256": "50d4eb925ba41dfc85ff6dc625a1383b00fd582711784ffa9830135aa47bfb3f"
+    },
+    {
+      "file": "vendor/Axioms.seg",
+      "source": "core/Axioms.seg",
+      "sha256": "ff18c31520a4912fd02b23c3b07bcc131914ab709ba25a6b2cd44f2e42863562"
+    },
+    {
+      "file": "vendor/Base.seg",
+      "source": "core/Base.seg",
+      "sha256": "4167fcf690e01d415d8aa5610ba4963f4351ea619ad177908fa80d6e669be729"
+    },
+    {
+      "file": "vendor/Consequences.seg",
+      "source": "domain/mltt/Consequences.seg",
+      "sha256": "efc09b8b1f95f1a86282fe225b4756deea0c2f009ce66157b3fb09cf4c0dff44"
+    },
+    {
+      "file": "vendor/Consistency.seg",
+      "source": "domain/mltt/Consistency.seg",
+      "sha256": "f3e8b4df4423f1f765eca6045f28f3211cc2e42f296bd66435c9e0193b1e63a9"
+    },
+    {
+      "file": "vendor/Cross.seg",
+      "source": "domain/mltt/Cross.seg",
+      "sha256": "d8beb3ae429fd30aabd978b72ec49a884b7507c4044d63f98c6cd53fb39f2531"
+    },
+    {
+      "file": "vendor/EtaU.seg",
+      "source": "domain/mltt-proj/EtaU.seg",
+      "sha256": "e1fad9548dd77d39c2ad7651009a95fba225d7854ca93bfe2ddb44edc7111c8a"
+    },
+    {
+      "file": "vendor/Filter.seg",
+      "source": "domain/mltt/Filter.seg",
+      "sha256": "3fc82a39022ec311172f1e91b9934185a900cd0af318fccacc5af78c267a549d"
+    },
+    {
+      "file": "vendor/FunExtUA.seg",
+      "source": "core/FunExtUA.seg",
+      "sha256": "8ec750290674069ce98e532c341d15ac228c4ab6fe0741d2a58f2247aa671497"
+    },
+    {
+      "file": "vendor/Infinite.seg",
+      "source": "domain/mltt-proj/Infinite.seg",
+      "sha256": "f40f07554b73ba65fc00dc7452cf0fe8b0b4f4fd7af74882a6ab6f41b72988b8"
+    },
+    {
+      "file": "vendor/Laws.seg",
+      "source": "domain/mltt/Laws.seg",
+      "sha256": "43e8b34b1f538c6242c2ac69c3f9270860da70631eb8f0e6632b0720e7d2d8ea"
+    },
+    {
+      "file": "vendor/LawsC.seg",
+      "source": "domain/mltt/LawsC.seg",
+      "sha256": "1b51892001afdeda3eb3188745c86d83aa5cf75884ac1fd6f8a719e890440a0c"
+    },
+    {
+      "file": "vendor/Lib.seg",
+      "source": "domain/lazy/Lib.seg",
+      "sha256": "6bd8438a38134e9b3616c1f3b3eb9d25ea03f3275cb54bf0574579a133483774"
+    },
+    {
+      "file": "vendor/LogRel.seg",
+      "source": "domain/mltt/LogRel.seg",
+      "sha256": "b01b3702905089f6016c032ba9e77c3c85cd93064d246b4878c4fe518d18ff7a"
+    },
+    {
+      "file": "vendor/Paths.seg",
+      "source": "core/Paths.seg",
+      "sha256": "b7cb64b2db0d48adbdbd6b3ca37f11783a60ab5555a8ee6424eed2f07498a44a"
+    },
+    {
+      "file": "vendor/Prelude.seg",
+      "source": "core/Prelude.seg",
+      "sha256": "4c0ab361dc67b470b3c98b820cd89e12aefa153038795d790144d51084070a3e"
+    },
+    {
+      "file": "vendor/Presup.seg",
+      "source": "domain/mltt/Presup.seg",
+      "sha256": "7d9101ca0fb1f4b779d35c01e2172b9e2fed17bea2770e93cac89e9ed8077640"
+    },
+    {
+      "file": "vendor/Proj.seg",
+      "source": "domain/mltt-proj/Proj.seg",
+      "sha256": "7f3c7c66e138ed5a03ffc5e706b6269efc362f71f567aae6a01bacec2bff42f2"
+    },
+    {
+      "file": "vendor/ProjBot.seg",
+      "source": "domain/mltt-proj/ProjBot.seg",
+      "sha256": "ec3eb36982fd9a6845c528237e66661ce519c4f58b49b566ab3d583511060530"
+    },
+    {
+      "file": "vendor/ProjLam.seg",
+      "source": "domain/mltt-proj/ProjLam.seg",
+      "sha256": "3e52722da12692e4d34ac14420a402a05bcac10c67e7e5050267d5bf11983a64"
+    },
+    {
+      "file": "vendor/ProjPi.seg",
+      "source": "domain/mltt-proj/ProjPi.seg",
+      "sha256": "51591d1c016bf123e8a054ce019f3330f6779547916b300948d97117fcd6f699"
+    },
+    {
+      "file": "vendor/Reduction.seg",
+      "source": "domain/mltt/Reduction.seg",
+      "sha256": "355a2b693dd6141e04e46234fb84b0dce60443483c8a0ed41ca711979ef758b7"
+    },
+    {
+      "file": "vendor/RelC.seg",
+      "source": "domain/mltt/RelC.seg",
+      "sha256": "6fe3140df6da2b85fd63448df6347a3f1ecdf7683e496e02f25c9e1e6f57db55"
+    },
+    {
+      "file": "vendor/Replacement.seg",
+      "source": "sag/replacement/Replacement.seg",
+      "sha256": "0e48a1516ee963ef755b9d15febaa825a923fb8c1a97ae00fb681b5b3b7c685c"
+    },
+    {
+      "file": "vendor/Sem.seg",
+      "source": "domain/mltt/Sem.seg",
+      "sha256": "58425feff45f67ac3ea0ace68d00bfecf7c15670e614bbe720ecd5b6cc7a9117"
+    },
+    {
+      "file": "vendor/Sound.seg",
+      "source": "domain/mltt/Sound.seg",
+      "sha256": "b245f0a34d9b382da0bee2bfed81192be1782f0988e64fc1150adfad3bba07b8"
+    },
+    {
+      "file": "vendor/SubjRed.seg",
+      "source": "domain/mltt/SubjRed.seg",
+      "sha256": "3d1dcec26bc38bd9687f1347f9d91d65c28c7fed723af0ce645c4319f55faaa8"
+    },
+    {
+      "file": "vendor/Subst.seg",
+      "source": "domain/mltt/Subst.seg",
+      "sha256": "4f689536a6ce7610e756aa31b25c3fba9974bdba91e6c36dd42637c4c8f17bf8"
+    },
+    {
+      "file": "vendor/SynLemmas.seg",
+      "source": "domain/mltt/SynLemmas.seg",
+      "sha256": "e563fdd953387265cc57e49b79878c749f2b665cba781bd4b6b45f4bb1365515"
+    },
+    {
+      "file": "vendor/Syntax.seg",
+      "source": "domain/mltt/Syntax.seg",
+      "sha256": "ad9295002033827a52a0372bcb04ee5d32a3738d01252c9b460cc1f3608550b1"
+    },
+    {
+      "file": "vendor/Truncation.seg",
+      "source": "sag/replacement/Truncation.seg",
+      "sha256": "98755543929605cb87fa5863b29b46604350efaf8fbb391849dfdf12c25c369d"
+    },
+    {
+      "file": "vendor/TruncationCombinators.seg",
+      "source": "sag/replacement/TruncationCombinators.seg",
+      "sha256": "28a71d82808860665c05823e62194f84a93e881f85e97492c1dec6d171bd777f"
+    },
+    {
+      "file": "vendor/Types.seg",
+      "source": "domain/mltt/Types.seg",
+      "sha256": "49083073675df5b7755b41e15861273065210108685908b17fdaec3427cad919"
+    },
+    {
+      "file": "vendor/Typing.seg",
+      "source": "domain/mltt/Typing.seg",
+      "sha256": "4c6a1301019a597dfc07dcb947b1f506ecc37fbbca3756d6de5a59c0ba990006"
+    },
+    {
+      "file": "vendor/Weaken.seg",
+      "source": "domain/mltt/Weaken.seg",
+      "sha256": "6398a87b43dd6b4e3a8e8f206a412de2bc5c353018de901060f57c00c9e0cfa4"
+    }
+  ]
+}

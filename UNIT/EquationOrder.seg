@@ -1,0 +1,30 @@
+-- The equivalence of Equation is an order isomorphism, hence transports
+-- directed and bounded suprema rather than merely identifying carriers.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ;
+open Domain[l] ; open Continuous[l] ; open Abstraction[l] ; open Parts[l] ; open Sum[l] ;
+
+LE (x y : D) : U l = Domain[l].Below x y ;
+Order (s t : RHS) : U l =
+  (UH s.1 -> UH t.1) * ((PH s.1 -> PH t.1) *
+    (((p : PH s.1) (q : PH t.1) -> LE (PA s.1 p) (PA t.1 q) * LE (PF s.1 p).1 (PF t.1 q).1) *
+     LE (FN s.1).1 (FN t.1).1)) ;
+
+decode-mono (x y : D) (h : LE x y) : Order (decode x) (decode y) =
+  (h univ,(h (pi om om),
+    (\ p q -> (\ a -> h (pi a om),\ b -> h (pi om b)),
+     MonotoneLambda[Application[l].map x,Application[l].map y,
+       \ z -> Application[l].mono x y z z h (sub-refl z.1)].inclusion))) ;
+
+module EncodeMono (s t : RHS) (h : Order s t) {
+  module S = Encode[s] ; module T = Encode[t] ;
+  witness : (a : Ty) -> S.W a -> T.W a = split {
+    wbot a k -> wbot a k ;
+    wu a u k -> wu a (h.1 u) k ;
+    wp a p d f hd hf k -> wp a (h.2.1 p) d f
+      ((h.2.2.1 p (h.2.1 p)).1 d hd)
+      ((h.2.2.1 p (h.2.1 p)).2 f hf) k ;
+    wf a ha -> wf a (h.2.2.2 a ha) } ;
+  inclusion : LE (encode s) (encode t) = \ a ->
+    TruncationCombinators[l].map (S.W a) (T.W a) (witness a) ;
+} ;

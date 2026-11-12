@@ -1,0 +1,53 @@
+-- Identity, composition, and rigid-image embeddings. These are actual
+-- constructors of the representation interface, not existence fields.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Identity (D : DIDomain[l].DI) {
+  module E = RigidEmbedding[l].Between[D,D] ;
+  module S = StableMaps[l].Between[D.scott,D.scott] ;
+  module I = StableComposition[l].Endo[D.scott] ;
+  embedding : E.Embedding = new E.Embedding[embed := I.identity,project := I.identity,
+    retract := \ x -> refl x,rigid := S.reflexive I.identity] ;
+} ;
+module Compose (A B C : DIDomain[l].DI)
+  (e : RigidEmbedding[l].Between[A,B].Embedding) (f : RigidEmbedding[l].Between[B,C].Embedding) {
+  module AB = RigidEmbedding[l].Between[A,B] ; module BC = RigidEmbedding[l].Between[B,C] ;
+  module AC = RigidEmbedding[l].Between[A,C] ;
+  module Emb = StableComposition[l].Between[A.scott,B.scott,C.scott].Compose[e.embed,f.embed] ;
+  module Pro = StableComposition[l].Between[C.scott,B.scott,A.scott].Compose[f.project,e.project] ;
+  retract (x : AB.AC.C) : Id AB.AC.C (AC.BA.run Pro.map (AC.AB.run Emb.map x)) x =
+    trans AB.AC.C (AB.BA.run e.project (BC.BA.run f.project (BC.AB.run f.embed (AB.AB.run e.embed x))))
+      (AB.BA.run e.project (AB.AB.run e.embed x)) x
+      (ap BC.AC.C AB.AC.C (AB.BA.run e.project) (BC.BA.run f.project (BC.AB.run f.embed (AB.AB.run e.embed x)))
+        (AB.AB.run e.embed x) (f.retract (AB.AB.run e.embed x))) (e.retract x) ;
+  module Middle = StableComposition[l].Between[C.scott,B.scott,B.scott] ;
+  module Outside = StableComposition[l].Between[C.scott,B.scott,C.scott] ;
+  module Result = AC.C.Compose[Pro.map,Emb.map] ;
+  module Sandwich = Outside.Compose[Middle.Compose[f.project,AB.C.Compose[e.project,e.embed].map].map,f.embed] ;
+  rigid : AC.BB.LE Result.map AC.End.identity =
+    AC.BB.transitive Result.map Sandwich.map AC.End.identity
+      (AC.BB.equal-below Result.map Sandwich.map
+        (\ a -> C.scott.order.reflexive (AC.BB.run Result.map (AC.BC.basic a)))
+        (\ a -> C.scott.order.reflexive (AC.BB.run Result.map (AC.BC.basic a))))
+      (AC.BB.transitive Sandwich.map BC.C.Compose[f.project,f.embed].map AC.End.identity
+        (Outside.pre-order Middle.Compose[f.project,AB.C.Compose[e.project,e.embed].map].map f.project
+          (Middle.post-order f.project AB.C.Compose[e.project,e.embed].map AB.End.identity e.rigid) f.embed) f.rigid) ;
+  embedding : AC.Embedding = new AC.Embedding[embed := Emb.map,project := Pro.map,retract := retract,rigid := rigid] ;
+} ;
+module Image (D : DIDomain[l].DI) (p : RigidProjector[l].On[D.scott].Rigid) {
+  module I = StableImageMaps[l].Image[D,p] ;
+  module E = RigidEmbedding[l].Between[I.domain,D] ;
+  module R = StableComposition[l].Endo[D.scott] ;
+  module S = StableMaps[l].Between[D.scott,D.scott] ;
+  module Composite = E.C.Compose[I.projection,I.inclusion] ;
+  rigid : S.LE Composite.map R.identity = S.transitive Composite.map (R.from-rigid p) R.identity
+    (S.equal-below Composite.map (R.from-rigid p)
+      (\ a -> D.scott.order.reflexive (I.R.run p (I.A.basic a))) (\ a -> D.scott.order.reflexive (I.R.run p (I.A.basic a)))) (R.below-id p) ;
+  embedding : E.Embedding = new E.Embedding[embed := I.inclusion,project := I.projection,retract := I.retract,rigid := rigid] ;
+} ;
+module Universe (D : DIDomain[l].DI) (functions : RigidUniverse[l].On[D].FunctionsEmbedding.Embedding) {
+  module RP = RigidSpace[l].On[D] ;
+  module Codes = Image[RP.X.domain,RP.Principal.projection] ;
+  codes : RigidUniverse[l].On[D].CodesEmbedding.Embedding = Compose[RP.domain,RP.X.domain,D,Codes.embedding,functions].embedding ;
+  representation : RigidUniverse[l].On[D].Representation = new RigidUniverse[l].On[D].Representation[codes := codes,functions := functions] ;
+} ;

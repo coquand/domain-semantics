@@ -1,0 +1,129 @@
+-- Define the projector FIRST as the least fixed point of its clauses.
+-- The construction through leastness does not use MIN typing.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open BinaryMaps[l] ; open DirectedApprox[l] ;
+module PO = ProjectorOperator[l] ; module OC = OperatorContinuity[l] ;
+module TC = TruncationCombinators[l] ; module P = Prelude[l+] ;
+
+bottom-binary : Binary = new Binary[\ a -> constant bottom,
+  \ a b h x -> sub-refl bottom.1,
+  \ a x t h -> ex ((k : K) * (In a k.1 * In bottom t)) (bottomK,(fom a.1,h))] ;
+iterate : Nat -> Binary = split { zero -> bottom-binary ; suc n | r -> OC.Phi r } ;
+increasing : (n : Nat) -> PO.LE (iterate n) (iterate (suc n)) = split {
+  zero -> \ a x -> bottom-least (value (iterate (suc zero)) a x) ;
+  suc n | r -> OC.monotone (iterate n) (iterate (suc n)) r } ;
+monotone : (m n : Nat) -> LeN m n -> PO.LE (iterate m) (iterate n) = split {
+  zero -> \ n h a x -> bottom-least (value (iterate n) a x) ;
+  suc m | r -> split {
+    zero -> \ h -> P.absurd (PO.LE (iterate (suc m)) (iterate zero)) h ;
+    suc n -> \ h -> OC.monotone (iterate m) (iterate n) (r n h) } } ;
+net : Net = new Net[Nat,LeN,leN-refl,leN-trans,ex Nat zero,
+  \ m n -> ex ((k : Nat) * (LeN m k * LeN n k)) (max m n,(leN-max-l m n,leN-max-r m n))] ;
+module S = BinarySup[l].Sup[net,iterate,monotone] ;
+candidate : Binary = S.binary ;
+p (a x : D) : D = value candidate a x ;
+pre-fixed (a x : D) : Domain[l].Below (value (OC.Phi candidate) a x) (p a x) = \ t h ->
+  ex-elim (OperatorContinuity[l].Approximate[net,S.approx,On[net].constant a,On[net].constant x].Witness t)
+    (In (p a x) t) (fprop (p a x).1 t) (\ w -> S.upper (suc w.1) a x t w.2)
+    (OperatorContinuity[l].Approximate[net,S.approx,On[net].constant a,On[net].constant x].cover t h) ;
+below-image : (n : Nat) -> PO.LE (iterate n) (OC.Phi candidate) = split {
+  zero -> \ a x -> bottom-least (value (OC.Phi candidate) a x) ;
+  suc n -> OC.monotone (iterate n) candidate (S.upper n) } ;
+post-fixed (a x : D) : Domain[l].Below (p a x) (value (OC.Phi candidate) a x) =
+  S.least a x (value (OC.Phi candidate) a x) (\ n -> below-image n a x) ;
+equation (a x : D) : Id D (value (OC.Phi candidate) a x) (p a x) =
+  Domain[l].ext (value (OC.Phi candidate) a x) (p a x) (pre-fixed a x,post-fixed a x) ;
+module Below (q : Binary) (prefixed : PO.LE (OC.Phi q) q) {
+  stages : (n : Nat) -> PO.LE (iterate n) q = split {
+    zero -> \ a x -> bottom-least (value q a x) ;
+    suc n | r -> \ a x -> sub-trans (value (iterate (suc n)) a x).1 (value (OC.Phi q) a x).1 (value q a x).1
+      (OC.monotone (iterate n) q r a x) (prefixed a x) } ;
+  least : PO.LE candidate q = \ a x -> S.least a x (value q a x) (\ n -> stages n a x) ;
+} ;
+
+-- Recover the lower clauses from being a pre-fixed point of Phi.
+module Clauses (q : Binary) (prefixed : PO.LE (OC.Phi q) q) {
+  module Components (a : D) (b : Abstraction[l].FD) {
+    module C = Constructors[l].Pi[a,b] ;
+    head : Parts[l].PHead C.value = C.intro om om (fom a.1) (fom b.1.1) ;
+    module R = Parts[l].PiParts[C.value,head] ;
+    domain : Domain[l].Below a R.domain = \ t h -> C.intro t om h (fom b.1.1) ;
+    family : Domain[l].Below b.1 R.family.1 = \ t h -> C.intro om t (fom a.1) h ;
+  } ;
+  at-U : In (value q universe universe) univ = prefixed universe universe univ
+    (PO.At[q,universe,universe].u-in (prin-in univ) (prin-in univ) univ (prin-in univ)) ;
+  module PiClause (a : D) (b : Abstraction[l].FD) {
+    module C = Components[a,b] ;
+    proof :
+    Domain[l].Below Constructors[l].Pi[value q universe a,ProjectorLeast[l].universe-family q a b].value
+      (value q universe Constructors[l].Pi[a,b].value) =
+    sub-trans Constructors[l].Pi[value q universe a,ProjectorLeast[l].universe-family q a b].value.1
+      PO.At[q,universe,C.C.value].result.1 (value q universe C.C.value).1
+      (sub-trans Constructors[l].Pi[value q universe a,ProjectorLeast[l].universe-family q a b].value.1
+        Constructors[l].Pi[PO.At[q,universe,C.C.value].pi-domain C.head,PO.At[q,universe,C.C.value].pi-family C.head].value.1
+        PO.At[q,universe,C.C.value].result.1
+        Constructors[l].PiMono[value q universe a,value q universe C.R.domain,
+          ProjectorLeast[l].universe-family q a b,ProjectorLeast[l].universe-family q C.R.domain C.R.family,
+          (q.at universe).2.1 a C.R.domain C.domain,
+          PO.FamilyMono[q,q,OC.reflexive q,a,C.R.domain,C.domain,constant universe,constant universe,
+            \ z -> sub-refl universe.1,b.1,C.R.family.1,C.family].inclusion].inclusion
+        (PO.At[q,universe,C.C.value].pi-in (prin-in univ) C.head)) (prefixed universe C.C.value)
+    ;
+  } ;
+  at-Pi (a : D) (b : Abstraction[l].FD) :
+    Domain[l].Below Constructors[l].Pi[value q universe a,ProjectorLeast[l].universe-family q a b].value
+      (value q universe Constructors[l].Pi[a,b].value) = PiClause[a,b].proof ;
+  module FunctionClause (a : D) (b : Abstraction[l].FD) (x : D) {
+    module C = Components[a,b] ;
+    proof :
+    Domain[l].Below (Abstraction[l].abstract (ProjectorLeast[l].family-map q a (Abstraction[l].apply b) x)).1
+      (value q Constructors[l].Pi[a,b].value x) =
+    sub-trans (Abstraction[l].abstract (ProjectorLeast[l].family-map q a (Abstraction[l].apply b) x)).1.1
+      PO.At[q,C.C.value,x].result.1 (value q C.C.value x).1
+      (sub-trans (Abstraction[l].abstract (ProjectorLeast[l].family-map q a (Abstraction[l].apply b) x)).1.1
+        (PO.At[q,C.C.value,x].function C.head).1.1 PO.At[q,C.C.value,x].result.1
+        PO.FamilyMono[q,q,OC.reflexive q,a,C.R.domain,C.domain,Abstraction[l].apply b,Abstraction[l].apply C.R.family,
+          \ z -> Application[l].mono b.1 C.R.family.1 z z C.family (sub-refl z.1),x,x,sub-refl x.1].inclusion
+        (PO.At[q,C.C.value,x].function-in C.head)) (prefixed C.C.value x)
+    ;
+  } ;
+  at-function (a : D) (b : Abstraction[l].FD) (x : D) :
+    Domain[l].Below (Abstraction[l].abstract (ProjectorLeast[l].family-map q a (Abstraction[l].apply b) x)).1
+      (value q Constructors[l].Pi[a,b].value x) = FunctionClause[a,b,x].proof ;
+  laws : ProjectorLeast[l].LowerClauses[q] = new ProjectorLeast[l].LowerClauses[q,at-U,at-Pi,at-function] ;
+} ;
+
+-- Only now compare the independently constructed fixed point with typing.
+semantic-prefixed (a x : D) : Domain[l].Below (value (OC.Phi semantic) a x) (value semantic a x) =
+  PO.At[semantic,a,x].least (value semantic a x)
+    (\ ha hx -> sub-trans universe.1 (value semantic universe universe).1 (value semantic a x).1
+      (prin-sub univ (value semantic universe universe).1 ProjectorLeast[l].SemanticClauses.laws.at-U)
+      (BinaryMaps[l].mono semantic universe a universe x (prin-sub univ a.1 ha) (prin-sub univ x.1 hx)))
+    (\ ha hx -> sub-trans
+      Constructors[l].Pi[PO.At[semantic,a,x].pi-domain hx,PO.At[semantic,a,x].pi-family hx].value.1
+      (value semantic universe Constructors[l].PiBelow[x,hx].P.value).1 (value semantic a x).1
+      (ProjectorLeast[l].SemanticClauses.laws.at-Pi Parts[l].PiParts[x,hx].domain Parts[l].PiParts[x,hx].family)
+      (BinaryMaps[l].mono semantic universe a Constructors[l].PiBelow[x,hx].P.value x
+        (prin-sub univ a.1 ha) Constructors[l].PiBelow[x,hx].inclusion))
+    (\ ha -> sub-trans (PO.At[semantic,a,x].function ha).1.1
+      (value semantic Constructors[l].PiBelow[a,ha].P.value x).1 (value semantic a x).1
+      (ProjectorLeast[l].SemanticClauses.laws.at-function Parts[l].PiParts[a,ha].domain Parts[l].PiParts[a,ha].family x)
+      (semantic.monotone Constructors[l].PiBelow[a,ha].P.value a Constructors[l].PiBelow[a,ha].inclusion x)) ;
+below-semantic : PO.LE candidate semantic = Below[semantic,semantic-prefixed].least ;
+above-semantic : PO.LE semantic candidate = ProjectorLeast[l].Least[candidate,Clauses[candidate,pre-fixed].laws].least ;
+identification (a x : D) : Id D (p a x) (SemanticLaws[l].p a x) =
+  Domain[l].ext (p a x) (SemanticLaws[l].p a x) (below-semantic a x,above-semantic a x) ;
+solution : ProjectorFixedPoint[l].LeastRecursive = new ProjectorFixedPoint[l].LeastRecursive[
+  candidate,Clauses[candidate,pre-fixed].laws,
+  \ q h a x -> sub-trans (p a x).1 (SemanticLaws[l].p a x).1 (value q a x).1
+    (below-semantic a x) (ProjectorLeast[l].Least[q,h].least a x)] ;
+finitary (a : D) : (f : Finitary[l].Finitary) * Id Map f.operation (candidate.at a) =
+  ProjectorFixedPoint[l].finitary-after-least solution a ;
+normalization (a x : D) : Id D (p (p universe a) x) (p a x) =
+  P.trans D (p (p universe a) x) (SemanticLaws[l].p (p universe a) x) (p a x)
+    (identification (p universe a) x)
+    (P.trans D (SemanticLaws[l].p (p universe a) x) (SemanticLaws[l].p (SemanticLaws[l].p universe a) x) (p a x)
+      (P.ap D D (\ z -> SemanticLaws[l].p z x) (p universe a) (SemanticLaws[l].p universe a) (identification universe a))
+      (P.trans D (SemanticLaws[l].p (SemanticLaws[l].p universe a) x) (SemanticLaws[l].p a x) (p a x)
+        (SemanticLaws[l].Normalize[a].equation x) (P.sym D (p a x) (SemanticLaws[l].p a x) (identification a x)))) ;

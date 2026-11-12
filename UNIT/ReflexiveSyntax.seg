@@ -1,0 +1,45 @@
+-- The syntax interpretation and tower-rank observations in the actual
+-- reflexive domain constructed from a seed.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module On (seed : DIDomain[l].DI) {
+  module Model = RigidReflexiveDomain[l].On[seed] ;
+  module Interpretation = StableSyntax[l].On[Model.domain,Model.representation] ;
+  module Substitution = StableSubstitution[l].On[Model.domain,Model.representation] ;
+  module TypingRules = StableSyntaxTyping[l].On[Model.domain,Model.representation] ;
+  module Ranks = RigidRankStages[l].On[Model.Tower.chain] ;
+  module L = Ranks.L ;
+  module P = Model.Functions.P ;
+  module S = Interpretation.S ;
+  module Term (n : Nat) (t : Syntax[l].Tm n) {
+    module Approximation = Ranks.Map[Interpretation.environment n,Interpretation.interpret n t] ;
+    stage : Nat -> Interpretation.Map n = Approximation.stage ;
+    limit : Id (Interpretation.Map n) Approximation.Sup.map (Interpretation.interpret n t) = Approximation.equation ;
+    observation (rho : Interpretation.Env n) (k : L.carrier) (compact : L.V.Compact k)
+      (h : L.le k (Interpretation.value n t rho)) :
+      Ex ((m : Nat) * L.le k (Interpretation.run n (stage m) rho)) = Approximation.observation rho k compact h ;
+  } ;
+  -- Coordinate n+1 of a represented function is exactly its restriction
+  -- to stage n. This is the concrete one-step link to the exponential tower.
+  module Function (v : L.carrier) {
+    decoded : S.Map = Model.E.BA.run Model.functions.project v ;
+    module Coordinate (n : Nat) {
+      module R = StableMaps[l].Between[Model.X.domain.scott,(P.chain.domain n).scott] ;
+      equation : Id (P.T.C n) (R.run P.At[n].restrict decoded) (v.1 (suc n)) =
+        ap P.T.carrier (P.T.C n) (\ y -> y.1 n)
+          (P.XT.run P.encode decoded) (Model.Tail.E.BA.run Model.Tail.Drop.map v)
+          (Model.Functions.encode-decode (Model.Tail.E.BA.run Model.Tail.Drop.map v)) ;
+      application (a : L.C n) : Id (L.C n)
+        ((Interpretation.V.Application.value v (RigidLimitEmbedding[l].lift n Model.Tower.chain a)).1 n)
+        (P.At[n].SM.run (v.1 (suc n)) a) =
+        ap (P.T.C n) (L.C n) (\ f -> P.At[n].SM.run f a)
+          (R.run P.At[n].restrict decoded) (v.1 (suc n)) equation ;
+      stage-application (x : L.carrier) : Id L.carrier
+        (Ranks.approximate n (Interpretation.V.Application.value v (Ranks.approximate n x)))
+        (RigidLimitEmbedding[l].lift n Model.Tower.chain (P.At[n].SM.run (v.1 (suc n)) (x.1 n))) =
+        ap (L.C n) L.carrier (RigidLimitEmbedding[l].lift n Model.Tower.chain)
+          ((Interpretation.V.Application.value v (Ranks.approximate n x)).1 n)
+          (P.At[n].SM.run (v.1 (suc n)) (x.1 n)) (application (x.1 n)) ;
+    } ;
+  } ;
+} ;

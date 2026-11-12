@@ -1,0 +1,79 @@
+-- Finite distributivity plus algebraicity gives distribution of meets
+-- over all small bounded joins. No I-axiom or classical logic is used.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+bool (P : Bool -> U l+) (a : P true) (b : P false) : (i : Bool) -> P i = split { true -> a ; false -> b } ;
+
+module On (S : ScottDomain[l].Scott) (distributive : DIDomain[l].Properties[S.order].Distributive) {
+  module A = ScottDomain[l].On[S] ; open A ;
+  module O = ScottOrder[l].On[P] ; module V = DC[P,S.complete] ;
+  module N = ScottMeet[l].On[S] ; module DP = DIDomain[l].Properties[P] ;
+  inf (x y : C) : DP.Infimum x y (N.meet x y) = (N.left x y,(N.right x y,\ z -> N.greatest x y z)) ;
+  binary (x y z u t : C) (ju : O.Lub Bool (DP.pair y z) u)
+    (hy : LE (N.meet x y) t) (hz : LE (N.meet x z) t) : LE (N.meet x u) t =
+    subst C (\ w -> LE w t) j.1 (N.meet x u)
+      (sym C (N.meet x u) j.1 (distributive x y z u (N.meet x u) (N.meet x y) (N.meet x z) j.1
+        ju (inf x u) (inf x y) (inf x z) j.2)) (j.2.2 t bounds)
+    where {
+      bounds : O.Bounds Bool (DP.pair (N.meet x y) (N.meet x z)) t =
+        bool (\ i -> LE (DP.pair (N.meet x y) (N.meet x z) i) t) hy hz ;
+      j : O.Supremum Bool (DP.pair (N.meet x y) (N.meet x z)) =
+        S.complete.bounded Bool (DP.pair (N.meet x y) (N.meet x z)) t bounds ; } ;
+  fin (s : Shape) (x : Ix s -> C) (b : C) (h : O.Bounds (Ix s) x b) : O.Supremum (Ix s) x =
+    S.complete.bounded (Ix s) x b h ;
+  module Split (s t : Shape) (x : Ix (fork s t) -> C) (b : C) (h : O.Bounds (Ix (fork s t)) x b) {
+    lsup : O.Supremum (Ix s) (\ i -> x (inl i)) = fin s (\ i -> x (inl i)) b (\ i -> h (inl i)) ;
+    rsup : O.Supremum (Ix t) (\ i -> x (inr i)) = fin t (\ i -> x (inr i)) b (\ i -> h (inr i)) ;
+    total : O.Supremum (Ix (fork s t)) x = fin (fork s t) x b h ;
+    lub : O.Lub Bool (DP.pair lsup.1 rsup.1) total.1 =
+      (bool (\ i -> LE (DP.pair lsup.1 rsup.1 i) total.1)
+        (lsup.2.2 total.1 (\ i -> total.2.1 (inl i))) (rsup.2.2 total.1 (\ i -> total.2.1 (inr i))),
+       \ z hz -> total.2.2 z (cases (Ix s) (Ix t) (\ i -> LE (x i) z)
+         (\ i -> P.transitive (x (inl i)) lsup.1 z (lsup.2.1 i) (hz true))
+         (\ i -> P.transitive (x (inr i)) rsup.1 z (rsup.2.1 i) (hz false)))) ;
+  } ;
+  finite : (s : Shape) (x : Ix s -> C) (b : C) (h : O.Bounds (Ix s) x b) (y z : C) ->
+    ((i : Ix s) -> LE (N.meet y (x i)) z) -> LE (N.meet y (fin s x b h).1) z = split {
+    none -> \ x b h y z hz -> P.transitive (N.meet y (fin none x b h).1) (fin none x b h).1 z
+      (N.right y (fin none x b h).1) ((fin none x b h).2.2 z (\ i -> absurd (LE (x i) z) i)) ;
+    leaf -> \ x b h y z hz -> P.transitive (N.meet y (fin leaf x b h).1) (N.meet y (x tt)) z
+      (N.monotone y (fin leaf x b h).1 y (x tt) (P.reflexive y)
+        ((fin leaf x b h).2.2 (x tt) (unit (\ i -> LE (x i) (x tt)) (P.reflexive (x tt))))) (hz tt) ;
+    fork s t | fs ft -> \ x b h y z hz -> binary y Split[s,t,x,b,h].lsup.1 Split[s,t,x,b,h].rsup.1
+      (fin (fork s t) x b h).1 z Split[s,t,x,b,h].lub
+      (fs (\ i -> x (inl i)) b (\ i -> h (inl i)) y z (\ i -> hz (inl i)))
+      (ft (\ i -> x (inr i)) b (\ i -> h (inr i)) y z (\ i -> hz (inr i))) } ;
+  module Approximation (I : U l) (x : I -> C) (b : C) (h : O.Bounds I x b) {
+    index : U l = (s : Shape) * (Ix s -> I) ;
+    finite-join (a : index) : O.Supremum (Ix a.1) (\ j -> x (a.2 j)) = fin a.1 (\ j -> x (a.2 j)) b (\ j -> h (a.2 j)) ;
+    part (a : index) : C = (finite-join a).1 ;
+    empty : index = (none,\ j -> absurd I j) ;
+    combine (a c : index) : index = (fork a.1 c.1,join I a.1 c.1 a.2 c.2) ;
+    left (a c : index) : LE (part a) (part (combine a c)) = (finite-join a).2.2 (part (combine a c)) (\ j -> (finite-join (combine a c)).2.1 (inl j)) ;
+    right (a c : index) : LE (part c) (part (combine a c)) = (finite-join c).2.2 (part (combine a c)) (\ j -> (finite-join (combine a c)).2.1 (inr j)) ;
+    directed : O.Dir index part = (inc index empty,\ a c -> inc (O.Upper index part a c) (combine a c,(left a c,right a c))) ;
+    singleton (i : I) : index = (leaf,\ _ -> i) ;
+    entry (i : I) : LE (x i) (V.sup index part directed) =
+      P.transitive (x i) (part (singleton i)) (V.sup index part directed) ((finite-join (singleton i)).2.1 tt) (V.upper index part directed (singleton i)) ;
+    covers : LE (S.complete.bounded I x b h).1 (V.sup index part directed) = (S.complete.bounded I x b h).2.2 (V.sup index part directed) entry ;
+  } ;
+  module Bounded (I : U l) (x : I -> C) (b : C) (h : O.Bounds I x b) {
+    module Q = Approximation[I,x,b,h] ;
+    right-law (y z : C) (hz : (i : I) -> LE (N.meet y (x i)) z) : LE (N.meet y (S.complete.bounded I x b h).1) z =
+      P.transitive (N.meet y (S.complete.bounded I x b h).1) (N.meet y (V.sup Q.index Q.part Q.directed)) z
+        (N.monotone y (S.complete.bounded I x b h).1 y (V.sup Q.index Q.part Q.directed) (P.reflexive y) Q.covers)
+        (N.directed-right Q.index Q.part Q.directed y z
+          (\ a -> finite a.1 (\ j -> x (a.2 j)) b (\ j -> h (a.2 j)) y z (\ j -> hz (a.2 j)))) ;
+  } ;
+  bounded-right (I : U l) (x : I -> C) (b : C) (h : O.Bounds I x b) (y z : C)
+    (hz : (i : I) -> LE (N.meet y (x i)) z) : LE (N.meet y (S.complete.bounded I x b h).1) z =
+    Bounded[I,x,b,h].right-law y z hz ;
+  bounded-left (I : U l) (x : I -> C) (b : C) (h : O.Bounds I x b) (y z : C)
+    (hz : (i : I) -> LE (N.meet (x i) y) z) : LE (N.meet (S.complete.bounded I x b h).1 y) z =
+    P.transitive (N.meet (S.complete.bounded I x b h).1 y) (N.meet y (S.complete.bounded I x b h).1) z
+      (N.greatest y (S.complete.bounded I x b h).1 (N.meet (S.complete.bounded I x b h).1 y)
+        (N.right (S.complete.bounded I x b h).1 y) (N.left (S.complete.bounded I x b h).1 y))
+      (bounded-right I x b h y z (\ i -> P.transitive (N.meet y (x i)) (N.meet (x i) y) z
+        (N.greatest (x i) y (N.meet y (x i)) (N.right y (x i)) (N.left y (x i))) (hz i))) ;
+} ;

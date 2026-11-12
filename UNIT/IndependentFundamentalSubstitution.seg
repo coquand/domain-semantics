@@ -1,0 +1,50 @@
+-- Instantiating the independent fundamental statement under one binder.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open SynLemmas[l] ; open Subst[l] ; open Presup[l] ; open Cross[l] ;
+module S = Sem[l] ; module Soundness = Sound[l] ; module Substitutions = IndependentRelationSubstitutions[l] ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module F = IndependentFundamentalRules[l].At[n,Delta,wellformed] ; module RS = Substitutions.At[n,Delta] ;
+  module Instance (m : Nat) (G : Ctx m) (A : Tm m) (B M N : Tm (suc m)) (a : Tm m)
+    (dA : Der m (jty G A (uu m))) (da : Der m (jty G a A))
+    (body : F.Fundamental (suc m) (ext m G A) M N B) (argument : F.Fundamental m G a a A)
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (related : RS.Related[m,G,rho,s,s']) {
+    x : Tm n = Sub.trav m a n s ; x' : Tm n = Sub.trav m a n s' ;
+    extended : S.Env (suc m) = S.extE m rho (S.sem m a rho) ;
+    fitted : Soundness.Fits (suc m) (ext m G A) extended = (fits,
+      (Soundness.tyu-of m A rho (Soundness.soundness-ty m G A (uu m) dA rho fits),Soundness.soundness-ty m G a A da rho fits)) ;
+    exx : Der n (jeq Delta x x' (Sub.trav m A n s)) =
+      subst-cross m n G Delta s s' a A da related.ok related.ok' related.eq wellformed ;
+    exx' : Der n (jeq Delta x' x (Sub.trav m A n s')) =
+      subst-cross m n G Delta s' s a A da related.ok' related.ok related.eq' wellformed ;
+    module Extension = RS.Extension[m,G,A,rho,S.sem m a rho,s,s',x,x',related,exx,exx',argument rho fits s s' related] ;
+    at (s1 : Fin m -> Tm n)
+      (h : RS.Term (S.sem (suc m) M extended) (Sub.trav (suc m) B n (Substitutions.extendS m n s1 (Sub.trav m a n s1)))
+        (Sub.trav (suc m) M n (Substitutions.extendS m n s x)) (Sub.trav (suc m) N n (Substitutions.extendS m n s' x'))) :
+      RS.Term (S.sem m (subst1 m M a) rho) (Sub.trav m (subst1 m B a) n s1)
+        (Sub.trav m (subst1 m M a) n s) (Sub.trav m (subst1 m N a) n s') =
+      subst (Tm n) (\ V -> RS.Term (S.sem m (subst1 m M a) rho) (Sub.trav m (subst1 m B a) n s1)
+        (Sub.trav m (subst1 m M a) n s) V)
+        (Sub.trav (suc m) N n (Substitutions.extendS m n s' x')) (Sub.trav m (subst1 m N a) n s')
+        (IndependentFundamentalRules[l].instantiation m n s' N a)
+        (subst (Tm n) (\ V -> RS.Term (S.sem m (subst1 m M a) rho) (Sub.trav m (subst1 m B a) n s1)
+          V (Sub.trav (suc m) N n (Substitutions.extendS m n s' x')))
+          (Sub.trav (suc m) M n (Substitutions.extendS m n s x)) (Sub.trav m (subst1 m M a) n s)
+          (IndependentFundamentalRules[l].instantiation m n s M a)
+          (RS.term-index (S.sem m (subst1 m M a) rho)
+            (Sub.trav (suc m) B n (Substitutions.extendS m n s1 (Sub.trav m a n s1))) (Sub.trav m (subst1 m B a) n s1)
+            (Sub.trav (suc m) M n (Substitutions.extendS m n s x)) (Sub.trav (suc m) N n (Substitutions.extendS m n s' x'))
+            (IndependentFundamentalRules[l].instantiation m n s1 B a)
+            (\ k hk -> h k ((S.subst1-sem m M a rho).1 k.1 hk)))) ;
+    result : RS.Term (S.sem m (subst1 m M a) rho) (Sub.trav m (subst1 m B a) n s)
+        (Sub.trav m (subst1 m M a) n s) (Sub.trav m (subst1 m N a) n s') *
+      RS.Term (S.sem m (subst1 m M a) rho) (Sub.trav m (subst1 m B a) n s')
+        (Sub.trav m (subst1 m M a) n s) (Sub.trav m (subst1 m N a) n s') =
+      (at s (body extended fitted (Substitutions.extendS m n s x) (Substitutions.extendS m n s' x') Extension.related).1,
+       at s' (body extended fitted (Substitutions.extendS m n s x) (Substitutions.extendS m n s' x') Extension.related).2) ;
+  } ;
+  instantiate (m : Nat) (G : Ctx m) (A : Tm m) (B M N : Tm (suc m)) (a : Tm m)
+    (dA : Der m (jty G A (uu m))) (da : Der m (jty G a A))
+    (body : F.Fundamental (suc m) (ext m G A) M N B) (argument : F.Fundamental m G a a A) :
+    F.Fundamental m G (subst1 m M a) (subst1 m N a) (subst1 m B a) =
+    \ rho fits s s' related -> Instance[m,G,A,B,M,N,a,dA,da,body,argument,rho,fits,s,s',related].result ;
+} ;

@@ -1,0 +1,98 @@
+-- Corrected stages start with both bottom and U. Family graphs cost no
+-- additional stage inside Pi; function values do cost one stage.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ;
+open Consistency[l] ; open Typing[l] ; open Proper[l] ;
+
+Good (s : Ty) : U l = Proper[l].Proper s ;
+
+depths : Ty -> Nat * Nat = split {
+  om -> (zero,zero) ; univ -> (zero,zero) ;
+  pi a f | ra rf -> (suc (max ra.1 rf.2),suc (max ra.1 rf.2)) ;
+  arr a b | ra rb -> (suc (max ra.1 rb.1),max ra.1 rb.1) ;
+  meet a b | ra rb -> (max ra.1 rb.1,max ra.2 rb.2) } ;
+rank (s : Ty) : Nat = (depths s).1 ;
+graph (s : Ty) : Nat = (depths s).2 ;
+R (n : Nat) (s : Ty) : U l = LeN (rank s) n ;
+G (n : Nat) (s : Ty) : U l = LeN (graph s) n ;
+ml (a b n : Nat) (h : LeN (max a b) n) : LeN a n =
+  leN-trans a (max a b) n (leN-max-l a b) h ;
+mr (a b n : Nat) (h : LeN (max a b) n) : LeN b n =
+  leN-trans b (max a b) n (leN-max-r a b) h ;
+rjoin (n : Nat) (a b : Ty) (ha : R n a) (hb : R n b) : R n (meet a b) =
+  leN-max-lub (rank a) (rank b) n ha hb ;
+gjoin (n : Nat) (a b : Ty) (ha : G n a) (hb : G n b) : G n (meet a b) =
+  leN-max-lub (graph a) (graph b) n ha hb ;
+
+asel-rank : (f d t : Ty) -> ASel f d t -> (n : Nat) -> R (suc n) f -> R n d * R n t = split {
+  as-none f -> \ n h -> (tt,tt) ;
+  as-here a b -> \ n h -> (ml (rank a) (rank b) n h,mr (rank a) (rank b) n h) ;
+  as-l f g d t q | rq -> \ n h -> rq n (ml (rank f) (rank g) (suc n) h) ;
+  as-r f g d t q | rq -> \ n h -> rq n (mr (rank f) (rank g) (suc n) h) ;
+  as-meet f d1 t1 d2 t2 q1 q2 | r1 r2 -> \ n h ->
+    (rjoin n d1 d2 (r1 n h).1 (r2 n h).1,rjoin n t1 t2 (r1 n h).2 (r2 n h).2) } ;
+asel-graph : (f d t : Ty) -> ASel f d t -> (n : Nat) -> G n f -> R n d * R n t = split {
+  as-none f -> \ n h -> (tt,tt) ;
+  as-here a b -> \ n h -> (ml (rank a) (rank b) n h,mr (rank a) (rank b) n h) ;
+  as-l f g d t q | rq -> \ n h -> rq n (ml (graph f) (graph g) n h) ;
+  as-r f g d t q | rq -> \ n h -> rq n (mr (graph f) (graph g) n h) ;
+  as-meet f d1 t1 d2 t2 q1 q2 | r1 r2 -> \ n h ->
+    (rjoin n d1 d2 (r1 n h).1 (r2 n h).1,rjoin n t1 t2 (r1 n h).2 (r2 n h).2) } ;
+psel-rank : (f a b : Ty) -> PSel f a b -> (n : Nat) -> R (suc n) f -> R n a * G n b = split {
+  ps-none f -> \ n h -> (tt,tt) ;
+  ps-here a b -> \ n h -> (ml (rank a) (graph b) n h,mr (rank a) (graph b) n h) ;
+  ps-l f g a b q | rq -> \ n h -> rq n (ml (rank f) (rank g) (suc n) h) ;
+  ps-r f g a b q | rq -> \ n h -> rq n (mr (rank f) (rank g) (suc n) h) ;
+  ps-meet f a1 b1 a2 b2 q1 q2 | r1 r2 -> \ n h ->
+    (rjoin n a1 a2 (r1 n h).1 (r2 n h).1,gjoin n b1 b2 (r1 n h).2 (r2 n h).2) } ;
+
+-- A cap's selected graph gives a bounded input and a bounded output.
+record Cap {
+  n : Nat ; source : Ty ; input : Ty ; output : Ty ;
+  key : Ty ; value : Ty ;
+  key-proper : Good key ; value-proper : Good value ;
+  key-rank : R n key ; value-rank : R n value ;
+  key-below : Le input key ; value-above : Le value output ;
+  supported : Le source (arr key value) ;
+} ;
+cap (n : Nat) (f x v : Ty) (pf : Good f) (h : Le f (arr x v))
+  (bound : (d t : Ty) -> ASel f d t -> R n d * R n t) : Cap[n,f,x,v] =
+  new Cap[n,f,x,v,i.1,i.2.1,p.1,p.2,b.1,b.2,i.2.2.2.1,i.2.2.2.2,
+    asel-le f i.1 i.2.1 i.2.2.1]
+  where {
+    i : InvArr f x v = inv-arr f x v h ;
+    p : Good i.1 * Good i.2.1 = Regular[l].proper-asel f i.1 i.2.1 i.2.2.1 pf ;
+    b : R n i.1 * R n i.2.1 = bound i.1 i.2.1 i.2.2.1 ; } ;
+
+record PiCap {
+  n : Nat ; source : Ty ; domain : Ty ; family : Ty ;
+  a : Ty ; f : Ty ; pa : Good a ; pf : Good f ; arrows : Arrows f ;
+  ra : R n a ; rf : G n f ;
+  above-domain : Le a domain ; above-family : Le f family ;
+  supported : Le source (pi a f) ;
+} ;
+pi-cap (n : Nat) (s a f : Ty) (ps : Good s) (rs : R (suc n) s)
+  (h : Le s (pi a f)) : PiCap[n,s,a,f] =
+  new PiCap[n,s,a,f,e.domain,e.family,e.proper-domain,e.proper-family,e.arrows,
+    b.1,b.2,e.below-domain,e.below-family,e.below]
+  where {
+    e : Regular[l].PiExtract[s,a,f] = Regular[l].extract-pi s a f ps h ;
+    i : InvPi s a f = inv-pi s a f h ;
+    b : R n e.domain * G n e.family = psel-rank s i.2.2.1 i.2.2.2.1 i.2.2.2.2.2.1 n rs ; } ;
+
+-- The stage-zero compact classes are exactly bottom and U.
+ZeroForm (s : Ty) : U l = Plus (Eqv s om) (Eqv s univ) ;
+zero-join (s t : Ty) : ZeroForm s -> ZeroForm t -> ZeroForm (meet s t) = split {
+  inl es -> split {
+    inl et -> inl (le-om (meet s t),le-meet om s t es.2 et.2) ;
+    inr et -> inr (le-trans (meet s t) t univ (le-meet-r s t) et.1,
+      le-meet univ s t (le-trans univ om s (le-om univ) es.2) et.2) } ;
+  inr es -> split {
+    inl et -> inr (le-trans (meet s t) s univ (le-meet-l s t) es.1,
+      le-meet univ s t es.2 (le-trans univ om t (le-om univ) et.2)) ;
+    inr et -> inr (le-trans (meet s t) s univ (le-meet-l s t) es.1,le-meet univ s t es.2 et.2) } } ;
+zero-form : (s : Ty) -> R zero s -> ZeroForm s = split {
+  om -> \ h -> inl (eqv-refl om) ; univ -> \ h -> inr (eqv-refl univ) ;
+  pi a f -> \ h -> efq h ; arr a b -> \ h -> efq h ;
+  meet s t | rs rt -> \ h -> zero-join s t
+    (rs (ml (rank s) (rank t) zero h)) (rt (mr (rank s) (rank t) zero h)) } ;

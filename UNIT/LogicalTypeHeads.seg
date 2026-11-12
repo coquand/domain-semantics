@@ -1,0 +1,50 @@
+-- Uniqueness of the syntactic components of head reducts. Mere head
+-- existence plus a condition for every head equals mere witnessed data.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open Reduction[l] ; open ExtFilter[l] ;
+module TC = TruncationCombinators[l] ;
+pair-path (X Y : U l) (a a' : X) (b b' : Y) (p : Id X a a') (q : Id Y b b') : Id (X * Y) (a,b) (a',b') =
+  trans (X * Y) (a,b) (a',b) (a',b') (ap X (X * Y) (\ x -> (x,b)) a a' p) (ap Y (X * Y) (\ y -> (a',y)) b b' q) ;
+module At (n : Nat) (Delta : Ctx n) (T T' : Tm n) {
+  Shape : U l = (Tm n * Tm (suc n)) * (Tm n * Tm (suc n)) ;
+  Equalities (s : Shape) : U l = Der n (jeq Delta s.1.1 s.2.1 (uu n)) *
+    Der (suc n) (jeq (ext n Delta s.1.1) s.1.2 s.2.2 (uu (suc n))) ;
+  Evidence (s : Shape) : U l =
+    Reds n T (pp n s.1.1 s.1.2) * (Reds n T' (pp n s.2.1 s.2.2) * Equalities s) ;
+  Heads : U l = (s : Shape) * Evidence s ;
+  unique (a b : Heads) : Id Shape a.1 b.1 =
+    pair-path (Tm n * Tm (suc n)) (Tm n * Tm (suc n)) a.1.1 b.1.1 a.1.2 b.1.2
+      (ap (Tm n) (Tm n * Tm (suc n)) (\ t -> (pp-dom n t,pp-cod n t))
+        (pp n a.1.1.1 a.1.1.2) (pp n b.1.1.1 b.1.1.2)
+        (reds-pp n T a.1.1.1 b.1.1.1 a.1.1.2 b.1.1.2 a.2.1 b.2.1))
+      (ap (Tm n) (Tm n * Tm (suc n)) (\ t -> (pp-dom n t,pp-cod n t))
+        (pp n a.1.2.1 a.1.2.2) (pp n b.1.2.1 b.1.2.2)
+        (reds-pp n T' a.1.2.1 b.1.2.1 a.1.2.2 b.1.2.2 a.2.2.1 b.2.2.1)) ;
+  module With (Q : Shape -> U l) (prop : (s : Shape) -> isProp (Q s)) {
+    Witness : U l = (s : Shape) * (Evidence s * Q s) ;
+    forget : Ex Witness -> Ex Heads = TC.map Witness Heads (\ w -> (w.1,w.2.1)) ;
+    require (h : Ex Witness) (e : Heads) : Q e.1 =
+      TC.rec Witness @l (Q e.1) (prop e.1)
+        (\ w -> subst Shape Q w.1 e.1 (unique (w.1,w.2.1) e) w.2.2) h ;
+    assemble (heads : Ex Heads) (body : (e : Heads) -> Q e.1) : Ex Witness =
+      TC.map Heads Witness (\ e -> (e.1,(e.2,body e))) heads ;
+    equation : (Ex Witness -> Ex Heads * ((e : Heads) -> Q e.1)) *
+      ((Ex Heads * ((e : Heads) -> Q e.1)) -> Ex Witness) =
+      (\ h -> (forget h,require h),\ h -> assemble h.1 h.2) ;
+  } ;
+} ;
+module Products (n : Nat) (Delta : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) {
+  module H = At[n,Delta,pp n A B,pp n A' B'] ;
+  shape : H.Shape = ((A,B),(A',B')) ;
+  canonical (e : H.Heads) : Id H.Shape e.1 shape =
+    pair-path (Tm n * Tm (suc n)) (Tm n * Tm (suc n)) e.1.1 (A,B) e.1.2 (A',B')
+      (ap (Tm n) (Tm n * Tm (suc n)) (\ t -> (pp-dom n t,pp-cod n t))
+        (pp n e.1.1.1 e.1.1.2) (pp n A B)
+        (sym (Tm n) (pp n A B) (pp n e.1.1.1 e.1.1.2)
+          (reds-from-normal n (pp n A B) (pp n e.1.1.1 e.1.1.2) e.2.1 (normal-pp n A B))))
+      (ap (Tm n) (Tm n * Tm (suc n)) (\ t -> (pp-dom n t,pp-cod n t))
+        (pp n e.1.2.1 e.1.2.2) (pp n A' B')
+        (sym (Tm n) (pp n A' B') (pp n e.1.2.1 e.1.2.2)
+          (reds-from-normal n (pp n A' B') (pp n e.1.2.1 e.1.2.2) e.2.2.1 (normal-pp n A' B')))) ;
+  components (e : H.Heads) : H.Equalities shape = subst H.Shape H.Equalities e.1 shape (canonical e) e.2.2.2 ;
+} ;

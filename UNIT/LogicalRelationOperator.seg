@@ -1,0 +1,53 @@
+-- The independent mixed-variance mutual operator. Equations describes
+-- an invariant; no existence of such an invariant is assumed globally.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+module Predicates = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module Clauses = LogicalRelationClauses[l].At[n,Delta] ;
+  module TypeClause = LogicalRelationTypeClause[l].At[n,Delta] ;
+  record Relations { ty : Clauses.TypeFamily ; tm : Clauses.TermFamily ; } ;
+  Includes (R S : Relations) : U l = Clauses.TypeIncludes R.ty S.ty * Clauses.TermIncludes R.tm S.tm ;
+  operator (negative positive : Relations) : Relations = new Relations[
+    ty := \ T T' -> TypeClause.Step[negative.tm,positive.ty,T,T'].predicate,
+    tm := \ T M M' -> Clauses.TermStep[negative.tm,positive.tm,positive.ty,T,M,M'].predicate] ;
+  variance (R R' S S' : Relations) (input : Includes R' R) (output : Includes S S') :
+    Includes (operator R S) (operator R' S') =
+    (\ T T' -> TypeClause.Variance[R.tm,R'.tm,S.ty,S'.ty,input.2,output.1,T,T'].inclusion,
+     \ T M M' -> Clauses.TermStepVariance[R.tm,R'.tm,S.tm,S'.tm,S.ty,S'.ty,input.2,output.2,output.1,T,M,M'].inclusion) ;
+  Strict (R : Relations) : U l = ((T T' : Tm n) -> (R.ty T T').holds bottom) *
+    ((T M M' : Tm n) -> (R.tm T M M').holds bottom) ;
+  strict (R S : Relations) (s : Strict S) : Strict (operator R S) =
+    (\ T T' -> TypeClause.Step[R.tm,S.ty,T,T'].strict,
+     \ T M M' -> (s.1 M M',Clauses.Functions[R.tm,S.tm,T,M,M'].strict s.2)) ;
+  Equations (R : Relations) : U l = Includes R (operator R R) * Includes (operator R R) R ;
+  -- Inversion only needs the forward unfolding inclusion. It uses
+  -- the independent head clause, not compact logical-relation laws.
+  module Inversion (R : Relations) (unfolding : Includes R (operator R R)) {
+    universe (T T' : Tm n) (x : D) (h : (R.ty T T').holds x) (seen : Parts[l].UHead x) :
+      Ex (Reds n T (uu n) * Reds n T' (uu n)) =
+      (Predicates.entails (R.ty T T') ((operator R R).ty T T') (unfolding.1 T T') x h).1 seen ;
+    module Products (A A' : Tm n) (B B' : Tm (suc n)) {
+      module Heads = LogicalTypeHeads[l].Products[n,Delta,A,A',B,B'] ;
+      components (x : D) (h : (R.ty (pp n A B) (pp n A' B')).holds x) (hp : Parts[l].PHead x) :
+        Ex (Der n (jeq Delta A A' (uu n)) * Der (suc n) (jeq (ext n Delta A) B B' (uu (suc n)))) =
+        TruncationCombinators[l].map Heads.H.Heads (Heads.H.Equalities Heads.shape) Heads.components
+          ((Predicates.entails (R.ty (pp n A B) (pp n A' B')) ((operator R R).ty (pp n A B) (pp n A' B'))
+            (unfolding.1 (pp n A B) (pp n A' B')) x h).2.1 hp) ;
+    } ;
+  } ;
+  module Invariant (R : Relations) (equations : Equations R) {
+    type-unfold (T T' : Tm n) (x : D) (h : (R.ty T T').holds x) : TypeClause.Step[R.tm,R.ty,T,T'].Natural x =
+      TypeClause.Step[R.tm,R.ty,T,T'].unfold x
+        (Predicates.entails (R.ty T T') ((operator R R).ty T T') (equations.1.1 T T') x h) ;
+    type-fold (T T' : Tm n) (x : D) (h : TypeClause.Step[R.tm,R.ty,T,T'].Natural x) : (R.ty T T').holds x =
+      Predicates.entails ((operator R R).ty T T') (R.ty T T') (equations.2.1 T T') x
+        (TypeClause.Step[R.tm,R.ty,T,T'].fold x h) ;
+    term-unfold (T M M' : Tm n) (x : D) (h : (R.tm T M M').holds x) :
+      (R.ty M M').holds x * Clauses.Functions[R.tm,R.tm,T,M,M'].predicate.holds x =
+      Predicates.entails (R.tm T M M') ((operator R R).tm T M M') (equations.1.2 T M M') x h ;
+    term-fold (T M M' : Tm n) (x : D)
+      (h : (R.ty M M').holds x * Clauses.Functions[R.tm,R.tm,T,M,M'].predicate.holds x) : (R.tm T M M').holds x =
+      Predicates.entails ((operator R R).tm T M M') (R.tm T M M') (equations.2.2 T M M') x h ;
+  } ;
+} ;

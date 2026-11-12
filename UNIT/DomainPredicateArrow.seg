@@ -1,0 +1,29 @@
+-- An independently defined, small, lower admissible function predicate.
+-- Its input relation is contravariant and its output relation covariant.
+level l ;
+open Base ; open Prelude[l] ; open ExtFilter[l] ; open Domain[l] ;
+module Predicates = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module Arrow (P Q : Predicates.Predicate) {
+  module Test (k : K) {
+    module Output = DomainPredicateMaps[l].Pullback[ApplicationParameter[l].At[principal k].map,Q] ;
+    module Conditional = Predicates.Intersection[P.holds (principal k),\ _ -> Output.predicate] ;
+    predicate : Predicates.Predicate = Conditional.predicate ;
+  } ;
+  module Tests = Predicates.Intersection[K,\ k -> Test[k].predicate] ;
+  predicate : Predicates.Predicate = Tests.predicate ;
+  holds : D -> U l = predicate.holds ;
+  All (f : D) : U l+ = (x : D) -> P.holds x -> Q.holds (Application[l].eval f x) ;
+  restrict (f : D) (h : All f) : holds f = \ k -> h (principal k) ;
+  apply (f : D) (h : holds f) : All f = DomainPredicateMaps[l].Preservation[Application[l].map f,P,Q].extend h ;
+  equation (f : D) : (holds f -> All f) * (All f -> holds f) = (apply f,restrict f) ;
+  strict (qb : Q.holds bottom) : holds bottom = \ k _ ->
+    Q.lower (Application[l].eval bottom (principal k)) bottom (Maps[l].app-bottom (principal k)).1 qb ;
+} ;
+module Variance (P P' Q Q' : Predicates.Predicate)
+  (input : Predicates.Includes P' P) (output : Predicates.Includes Q Q') {
+  pointwise (f : D) (h : Arrow[P,Q].holds f) : Arrow[P',Q'].holds f = \ k hk ->
+    Predicates.entails Q Q' output (Application[l].eval f (principal k))
+      (h k (input k hk)) ;
+  inclusion : Predicates.Includes Arrow[P,Q].predicate Arrow[P',Q'].predicate =
+    Predicates.inclusion Arrow[P,Q].predicate Arrow[P',Q'].predicate pointwise ;
+} ;

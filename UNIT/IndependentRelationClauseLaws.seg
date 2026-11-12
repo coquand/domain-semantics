@@ -1,0 +1,51 @@
+-- Generic syntax and data-head laws for the independent clauses.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ;
+open Syntax[l] ; open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ; open Abstraction[l] ;
+module Tr = TruncationCombinators[l] ; module AP = Application[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module C = LogicalRelationClauses[l].At[n,Delta] ;
+  module TC = LogicalRelationTypeClause[l].At[n,Delta] ;
+  module O = LogicalRelationOperator[l].At[n,Delta] ;
+  module L = LogicalRelationLocality[l].At[n,Delta] ;
+  module With (R : O.Relations) (strict : O.Strict R) {
+    output-strict (V M M' N N' : Tm n) : C.TermOutputs[R.tm,V,M,M',N,N'].predicate.holds bottom =
+      (strict.2 V (app n M N) (app n M N'),(strict.2 V (app n M' N) (app n M' N'),strict.2 V (app n M N) (app n M' N'))) ;
+    function-type (f : FD) (M M' : Tm n) : ((L.advance R).ty M M').holds f.1 =
+      TC.Step[R.tm,R.ty,M,M'].fold f.1
+        (\ hu -> efq (Equation[l].no-u f hu),\ hp -> efq (Equation[l].no-pi f om om hp)) ;
+    module Data (x : D) (kill : (a t : Ty) -> Cons a -> In x (arr a t) -> Le om t) {
+      application (z : D) : Domain[l].Below (AP.eval x z) bottom = \ t ->
+        Tr.map (Filter[l].AppW (raw x.1) (raw z.1) t) (Le om t)
+          (\ w -> kill w.x t (consistent z w.x w.inx) (fup x.1 w.g (arr w.x t) w.le w.ing)) ;
+      functions (T M M' : Tm n) : C.Functions[R.tm,R.tm,T,M,M'].predicate.holds x = \ e k _ ->
+        C.Functions[R.tm,R.tm,T,M,M'].Test[e].output.lower (AP.eval x (principal k)) bottom (application (principal k))
+          (output-strict (subst1 n e.B e.argument.N) M M' e.argument.N e.argument.N') ;
+    } ;
+    universe-functions (X : D) (T M M' : Tm n) : C.Functions[R.tm,R.tm,T,M,M'].predicate.holds (SemanticLaws[l].p universe X) =
+      ProjectorPredicateCases[l].At[universe,X].Predicate[C.Functions[R.tm,R.tm,T,M,M'].predicate,
+        C.Functions[R.tm,R.tm,T,M,M'].strict strict.2,
+        \ hu hx -> Data[universe,Parts[l].u-arrow universe (prin-in univ)].functions T M M',
+        \ hu hx -> Data[Constructors[l].Pi[ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-domain hx,
+          ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-family hx].value,
+          Parts[l].p-arrow Constructors[l].Pi[ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-domain hx,
+            ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-family hx].value
+            (Constructors[l].Pi[ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-domain hx,
+              ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-family hx].intro om om
+                (fom (ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-domain hx).1)
+                (fom (ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-family hx).1.1))].functions T M M',
+        \ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)].result ;
+    module Literal (A : Tm n) (B : Tm (suc n)) (M M' : Tm n) (f : D) {
+      Tests (s : Tm n * Tm (suc n)) : U l = (e : C.Argument[s.1]) ->
+        DomainPredicateArrow[l].Arrow[R.tm s.1 e.N e.N',C.TermOutputs[R.tm,subst1 n s.2 e.N,M,M',e.N,e.N'].predicate].holds f ;
+      introduce (h : Tests (A,B)) : C.Functions[R.tm,R.tm,pp n A B,M,M'].predicate.holds f = \ e ->
+        (subst (Tm n * Tm (suc n)) Tests (A,B) (e.A,e.B)
+          (ap (Tm n) (Tm n * Tm (suc n)) (\ t -> (pp-dom n t,pp-cod n t))
+            (pp n A B) (pp n e.A e.B) (reds-from-normal n (pp n A B) (pp n e.A e.B) e.reduction (normal-pp n A B))) h) e.argument ;
+    } ;
+    index (T V M M' : Tm n) (heads : IndependentRelationReduction[l].HeadMap n V T) (f : D)
+      (h : C.Functions[R.tm,R.tm,T,M,M'].predicate.holds f) : C.Functions[R.tm,R.tm,V,M,M'].predicate.holds f = \ e ->
+        h (new C.FunctionTest[T,e.A,e.B,heads (pp n e.A e.B) (normal-pp n e.A e.B) e.reduction,e.argument]) ;
+  } ;
+} ;

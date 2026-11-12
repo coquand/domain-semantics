@@ -1,0 +1,44 @@
+-- Recursive operators on rigid projections: rigid Kleene stages,
+-- pointwise limits, leastness, and absorption of earlier stages.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ;
+module On (D : DIDomain[l].DI) {
+  module R = RigidSpace[l].On[D] ; module A = ScottDomain[l].On[D.scott] ;
+  module F = StableMaps[l].Between[R.domain.scott,R.domain.scott] ;
+  module V = DC[D.scott.order,D.scott.complete] ;
+  module Fix = StableFixpoint[l].On[R.domain] ;
+  operator : Fix.S.Map = Fix.map ;
+  module Kleene (phi : F.Map) {
+    module K = ScottFixpoint[l].Kleene[R.domain.scott,phi.1] ;
+    stage : Nat -> R.I.carrier = K.iterate ;
+    value : R.I.carrier = K.value ;
+    projection : R.R.Rigid = R.decode value ;
+    stage-projection (n : Nat) : R.R.Rigid = R.decode (stage n) ;
+    increasing (n : Nat) : R.I.le (stage n) (stage (suc n)) = K.increasing n ;
+    upper (n : Nat) : R.I.le (stage n) value = K.upper n ;
+    equation : Id R.I.carrier (F.run phi value) value = K.equation ;
+    least (p : R.I.carrier) (h : R.I.le (F.run phi p) p) : R.I.le value p = K.Below[p,h].least ;
+    idempotent (x : A.C) : Id A.C (R.run value (R.run value x)) (R.run value x) = R.R.idempotent projection x ;
+    stage-idempotent (n : Nat) (x : A.C) : Id A.C (R.run (stage n) (R.run (stage n) x)) (R.run (stage n) x) = R.R.idempotent (stage-projection n) x ;
+    module Pointwise (x : A.C) {
+      module SD = StableDirected[l].Between[D.scott,D.scott].Sup[Nat,\ n -> (stage n).1,K.directed] ;
+      directed : ScottOrder[l].On[D.scott.order].Dir Nat (\ n -> R.run (stage n) x) = SD.evaluated x ;
+      computes : Id A.C (R.run value x) (V.sup Nat (\ n -> R.run (stage n) x) directed) = refl (R.run value x) ;
+    } ;
+    absorption (p q : R.I.carrier) (pq : R.I.le p q) (x : A.C) : Id A.C (R.run p (R.run q x)) (R.run p x) =
+      D.scott.order.antisymmetric (R.run p (R.run q x)) (R.run p x)
+        (ScottMaps[l].Between[D.scott,D.scott].mono (R.decode p).operation (R.run q x) x ((R.decode q).deflation x))
+        (R.R.greatest (R.decode p) (R.run q x) (R.run p x) (R.R.output-fixed (R.decode p) x) (R.pointwise p q pq x)) ;
+    stages (m n : Nat) (mn : LeN m n) (x : A.C) : Id A.C (R.run (stage m) (R.run (stage n) x)) (R.run (stage m) x) =
+      absorption (stage m) (stage n) (K.monotone m n mn) x ;
+    limit (n : Nat) (x : A.C) : Id A.C (R.run (stage n) (R.run value x)) (R.run (stage n) x) = absorption (stage n) value (upper n) x ;
+  } ;
+} ;
+module Varying (D E : DIDomain[l].DI)
+  (feedback : StableMaps[l].Between[StableVaryingFamilies[l].Between[D,E].Out.domain.scott,StableVaryingFamilies[l].Between[D,E].P.domain.scott].Map) {
+  module Families = StableVaryingFamilies[l].Between[D,E] ;
+  module F = StableMaps[l].Between[Families.Out.domain.scott,Families.Out.domain.scott] ;
+  functional : F.Map = StableComposition[l].Between[Families.Out.domain.scott,Families.P.domain.scott,Families.Out.domain.scott].Compose[feedback,Families.operation].map ;
+  module Solution = On[Families.X.domain].Kleene[functional] ;
+  equation : Id Families.Out.I.carrier (F.run functional Solution.value) Solution.value = Solution.equation ;
+} ;

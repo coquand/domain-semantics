@@ -1,0 +1,76 @@
+-- A small downward-closed predicate closed under small bounded joins
+-- determines a rigid projection. We join its compact members, so no
+-- large supremum or propositional resizing is used.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+
+module On (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ; open A ;
+  module O = ScottOrder[l].On[P] ;
+  module V = DC[P,S.complete] ;
+  module M = ScottMaps[l].Between[S,S] ;
+  module R = RigidProjector[l].On[S] ;
+  record Subdomain {
+    member : C -> U l ;
+    proposition : (x : C) -> Prelude[l].isProp (member x) ;
+    downward : (x y : C) -> LE x y -> member y -> member x ;
+    closed : (I : U l) (x : I -> C) (b : C) (h : O.Bounds I x b) ->
+      ((i : I) -> member (x i)) -> member (S.complete.bounded I x b h).1 ;
+  } ;
+  module Projection (Z : Subdomain) {
+    index (x : C) : U l = (a : B) * (Z.member (basic a) * LE (basic a) x) ;
+    part (x : C) (a : index x) : C = basic a.1 ;
+    bound (x : C) : O.Bounds (index x) (part x) x = \ a -> a.2.2 ;
+    sup (x : C) : O.Supremum (index x) (part x) = S.complete.bounded (index x) (part x) x (bound x) ;
+    value (x : C) : C = (sup x).1 ;
+    deflation (x : C) : LE (value x) x = (sup x).2.2 x (bound x) ;
+    member (x : C) : Z.member (value x) = Z.closed (index x) (part x) x (bound x) (\ a -> a.2.1) ;
+    greatest (x y : C) (hy : Z.member y) (yx : LE y x) : LE y (value x) =
+      S.basis.density y (value x) (\ a ay -> (sup x).2.1
+        (a,(Z.downward (basic a) y ay hy,P.transitive (basic a) y x ay yx))) ;
+    monotone : M.Monotone value = \ x y xy -> greatest y (value x) (member x)
+      (P.transitive (value x) x y (deflation x) xy) ;
+    continuous : M.Continuous value = \ I x d z h -> S.basis.density (value (V.sup I x d)) z
+      (\ a ha -> T.rec ((i : I) * LE (basic a) (x i)) @l (LE (basic a) z) (P.proposition (basic a) z)
+        (\ w -> P.transitive (basic a) (value (x w.1)) z
+          (greatest (x w.1) (basic a) (Z.downward (basic a) (value (V.sup I x d)) ha (member (V.sup I x d))) w.2)
+          (h w.1))
+        (S.basis.compact a I x d (P.transitive (basic a) (value (V.sup I x d)) (V.sup I x d) ha (deflation (V.sup I x d))))) ;
+    projection : R.Rigid = new R.Rigid[operation := (value,(monotone,continuous)), deflation := deflation,
+      hereditary := \ x y xy -> greatest x x (Z.downward x (value y) xy (member y)) (P.reflexive x)] ;
+    member-fixed (x : C) (h : Z.member x) : R.Fixed projection x = greatest x x h (P.reflexive x) ;
+    fixed-member (x : C) (h : R.Fixed projection x) : Z.member x = Z.downward x (value x) h (member x) ;
+  } ;
+  from-projector (p : R.Rigid) : Subdomain = new Subdomain[member := R.Fixed p,
+    proposition := R.fixed-prop p, downward := R.downward p,
+    closed := \ I x b h f -> (S.complete.bounded I x b h).2.2 (R.run p (S.complete.bounded I x b h).1)
+      (\ i -> R.greatest p (S.complete.bounded I x b h).1 (x i) (f i) ((S.complete.bounded I x b h).2.1 i))] ;
+  roundtrip (p : R.Rigid) (x : C) : Id C (Projection[from-projector p].value x) (R.run p x) =
+    P.antisymmetric (Projection[from-projector p].value x) (R.run p x)
+      (R.greatest p x (Projection[from-projector p].value x) (Projection[from-projector p].member x)
+        (Projection[from-projector p].deflation x))
+      (Projection[from-projector p].greatest x (R.run p x) (R.output-fixed p x) (p.deflation x)) ;
+  inclusion (Z W : Subdomain) (h : (x : C) -> Z.member x -> W.member x) (x : C) :
+    LE (Projection[Z].value x) (Projection[W].value x) =
+    Projection[W].greatest x (Projection[Z].value x) (h (Projection[Z].value x) (Projection[Z].member x))
+      (Projection[Z].deflation x) ;
+  intersection (Z W : Subdomain) : Subdomain = new Subdomain[
+    member := \ x -> Z.member x * W.member x,
+    proposition := \ x -> Prelude[l].isProp-Sigma (Z.member x) (\ _ -> W.member x)
+      (Z.proposition x) (\ _ -> W.proposition x),
+    downward := \ x y xy h -> (Z.downward x y xy h.1,W.downward x y xy h.2),
+    closed := \ I x b h m -> (Z.closed I x b h (\ i -> (m i).1),W.closed I x b h (\ i -> (m i).2))] ;
+  intersection-equation (Z W : Subdomain) (x : C) :
+    Id C (Projection[intersection Z W].value x) (Projection[Z].value (Projection[W].value x)) =
+    P.antisymmetric (Projection[intersection Z W].value x) (Projection[Z].value (Projection[W].value x))
+      (Projection[Z].greatest (Projection[W].value x) (Projection[intersection Z W].value x)
+        (Projection[intersection Z W].member x).1
+        (inclusion (intersection Z W) W (\ y h -> h.2) x))
+      (Projection[intersection Z W].greatest x (Projection[Z].value (Projection[W].value x))
+        (Projection[Z].member (Projection[W].value x),
+          W.downward (Projection[Z].value (Projection[W].value x)) (Projection[W].value x)
+            (Projection[Z].deflation (Projection[W].value x)) (Projection[W].member x))
+        (P.transitive (Projection[Z].value (Projection[W].value x)) (Projection[W].value x) x
+          (Projection[Z].deflation (Projection[W].value x)) (Projection[W].deflation x))) ;
+} ;

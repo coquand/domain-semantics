@@ -1,0 +1,52 @@
+-- Distributivity iny the stable order, including an arbitrary first
+-- argument which need not be compatible with the bounded join.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Exponential (D E : DIDomain[l].DI) {
+  module X = StableExponential[l].Exponential[D,E] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module SC = StableComplete[l].Between[D.scott,E.scott,E.distributive] ;
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module N = ScottMeet[l].On[X.scott] ; module BN = ScottMeet[l].On[E.scott] ;
+  module PM = StableMeet[l].Between[D.scott,E.scott] ;
+  module DP = DIDomain[l].Properties[S.order] ;
+  module BP = DIDomain[l].Properties[E.scott.order] ;
+  module J = DistributiveJoins[l].On[E.scott,E.distributive] ;
+  module R = ScottOrder[l].On[E.scott.order] ;
+  module Join (I : U l) (f : I -> S.Map) (u : S.Map) (lub : S.SO.Lub I f u) {
+    module Q = SC.Sup[I,f,u,lub.1] ;
+    equal : Id S.Map Q.map u = S.ext Q.map u (Q.least u lub.1) (lub.2 Q.map Q.upper) ;
+    pointwise (x : A.C) : R.Lub I (\ i -> S.run (f i) x) (S.run u x) =
+      subst S.Map (\ v -> R.Lub I (\ i -> S.run (f i) x) (S.run v x)) Q.map u equal
+        (E.scott.complete.bounded I (\ i -> S.run (f i) x) (S.run u x) (Q.bound x)).2 ;
+  } ;
+  module Law (x y z u m n v w : S.Map)
+    (ju : S.SO.Lub Bool (DP.pair y z) u) (im : DP.Infimum x u m)
+    (iny : DP.Infimum x y n) (iv : DP.Infimum x z v)
+    (jw : S.SO.Lub Bool (DP.pair n v) w) {
+    ny : S.LE n u = S.transitive n y u iny.2.1 (ju.1 true) ;
+    vz : S.LE v u = S.transitive v z u iv.2.1 (ju.1 false) ;
+    wu : S.LE w u = jw.2 u (DistributiveJoins[l].bool (\ i -> S.LE (DP.pair n v i) u) ny vz) ;
+    wm : S.LE w m = jw.2 m (DistributiveJoins[l].bool (\ i -> S.LE (DP.pair n v i) m)
+      (im.2.2 n iny.1 ny) (im.2.2 v iv.1 vz)) ;
+    module MY = PM.Compatible[m,y,u,im.2.1,ju.1 true] ;
+    module MZ = PM.Compatible[m,z,u,im.2.1,ju.1 false] ;
+    yn : S.LE MY.P.map n = iny.2.2 MY.P.map (S.transitive MY.P.map m x MY.left im.1) MY.right ;
+    zv : S.LE MZ.P.map v = iv.2.2 MZ.P.map (S.transitive MZ.P.map m x MZ.left im.1) MZ.right ;
+    evaluated (a : A.C) : R.Lub Bool (BP.pair (S.run y a) (S.run z a)) (S.run u a) =
+      (DistributiveJoins[l].bool (\ i -> B.LE (BP.pair (S.run y a) (S.run z a) i) (S.run u a))
+        (S.pointwise y u (ju.1 true) a) (S.pointwise z u (ju.1 false) a),
+       \ b hb -> (Join[Bool,DP.pair y z,u,ju].pointwise a).2 b
+        (DistributiveJoins[l].bool (\ i -> B.LE (S.run (DP.pair y z i) a) b) (hb true) (hb false))) ;
+    point (a : A.C) : B.LE (S.run m a) (S.run w a) =
+      E.scott.order.transitive (S.run m a) (BN.meet (S.run m a) (S.run u a)) (S.run w a)
+        (BN.greatest (S.run m a) (S.run u a) (S.run m a) (E.scott.order.reflexive (S.run m a)) (S.pointwise m u im.2.1 a))
+        (J.binary (S.run m a) (S.run y a) (S.run z a) (S.run u a) (S.run w a)
+          (evaluated a)
+          (S.pointwise MY.P.map w (S.transitive MY.P.map n w yn (jw.1 true)) a)
+          (S.pointwise MZ.P.map w (S.transitive MZ.P.map v w zv (jw.1 false)) a)) ;
+    mw : S.LE m w = S.under-bound m w u im.2.1 wu (\ a -> point (A.basic a)) ;
+    equation : Id S.Map m w = S.ext m w mw wm ;
+  } ;
+  distributive : DP.Distributive = \ x y z u m n v w ju im iny iv jw -> Law[x,y,z,u,m,n,v,w,ju,im,iny,iv,jw].equation ;
+} ;

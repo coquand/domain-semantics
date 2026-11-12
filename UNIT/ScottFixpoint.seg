@@ -1,0 +1,34 @@
+-- Kleene's least fixed point, for any continuous endomap of a Scott domain.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ;
+
+module Kleene (S : ScottDomain[l].Scott) (f : ScottMaps[l].Between[S,S].Map) {
+  module A = ScottDomain[l].On[S] ; module O = ScottOrder[l].On[S.order] ;
+  module C = DC[S.order,S.complete] ; module M = ScottMaps[l].Between[S,S] ;
+  iterate : Nat -> A.C = split { zero -> S.bottom ; suc n | r -> M.run f r } ;
+  increasing : (n : Nat) -> A.LE (iterate n) (iterate (suc n)) = split {
+    zero -> S.bottom-least (M.run f S.bottom) ;
+    suc n | r -> M.mono f (iterate n) (iterate (suc n)) r } ;
+  monotone : (m n : Nat) -> LeN m n -> A.LE (iterate m) (iterate n) = split {
+    zero -> \ n h -> S.bottom-least (iterate n) ;
+    suc m | r -> split {
+      zero -> \ h -> absurd (A.LE (iterate (suc m)) (iterate zero)) h ;
+      suc n -> \ h -> M.mono f (iterate m) (iterate n) (r n h) } } ;
+  directed : O.Dir Nat iterate =
+    (inc Nat zero,\ m n -> inc (O.Upper Nat iterate m n)
+      (max m n,(monotone m (max m n) (leN-max-l m n),monotone n (max m n) (leN-max-r m n)))) ;
+  value : A.C = C.sup Nat iterate directed ;
+  upper (n : Nat) : A.LE (iterate n) value = C.upper Nat iterate directed n ;
+  pre-fixed : A.LE (M.run f value) value = M.continuous f Nat iterate directed value (\ n -> upper (suc n)) ;
+  below-image : (n : Nat) -> A.LE (iterate n) (M.run f value) = split {
+    zero -> S.bottom-least (M.run f value) ;
+    suc n -> M.mono f (iterate n) value (upper n) } ;
+  post-fixed : A.LE value (M.run f value) = C.least Nat iterate directed (M.run f value) below-image ;
+  equation : Id A.C (M.run f value) value = S.order.antisymmetric (M.run f value) value pre-fixed post-fixed ;
+  module Below (x : A.C) (h : A.LE (M.run f x) x) {
+    stage : (n : Nat) -> A.LE (iterate n) x = split {
+      zero -> S.bottom-least x ;
+      suc n | r -> S.order.transitive (M.run f (iterate n)) (M.run f x) x (M.mono f (iterate n) x r) h } ;
+    least : A.LE value x = C.least Nat iterate directed x stage ;
+  } ;
+} ;

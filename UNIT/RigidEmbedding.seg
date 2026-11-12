@@ -1,0 +1,59 @@
+-- Explicit rigid embedding/retraction data. No existence is postulated.
+-- Such an embedding transports rigid projections stably.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Between (A B : DIDomain[l].DI) {
+  module AB = StableMaps[l].Between[A.scott,B.scott] ;
+  module BA = StableMaps[l].Between[B.scott,A.scott] ;
+  module BB = StableMaps[l].Between[B.scott,B.scott] ;
+  module AC = ScottDomain[l].On[A.scott] ; module BC = ScottDomain[l].On[B.scott] ;
+  module R = RigidProjector[l].On[B.scott] ;
+  module End = StableComposition[l].Endo[B.scott] ;
+  module C = StableComposition[l].Between[B.scott,A.scott,B.scott] ;
+  record Embedding {
+    embed : AB.Map ;
+    project : BA.Map ;
+    retract : (x : AC.C) -> Id AC.C (BA.run project (AB.run embed x)) x ;
+    rigid : BB.LE C.Compose[project,embed].map End.identity ;
+  } ;
+  module On (e : Embedding) {
+    module Composite = C.Compose[e.project,e.embed] ;
+    projection : R.Rigid = R.from-equation Composite.map.1 (BB.stable-equation Composite.map End.identity e.rigid) ;
+    fixes (x : AC.C) : Id BC.C (R.run projection (AB.run e.embed x)) (AB.run e.embed x) =
+      ap AC.C BC.C (AB.run e.embed) (BA.run e.project (AB.run e.embed x)) x (e.retract x) ;
+    strict : Id BC.C (AB.run e.embed A.scott.bottom) B.scott.bottom =
+      B.scott.order.antisymmetric (AB.run e.embed A.scott.bottom) B.scott.bottom
+        (B.scott.order.transitive (AB.run e.embed A.scott.bottom) (R.run projection B.scott.bottom) B.scott.bottom
+          (AB.mono e.embed A.scott.bottom (BA.run e.project B.scott.bottom) (A.scott.bottom-least (BA.run e.project B.scott.bottom)))
+          (projection.deflation B.scott.bottom)) (B.scott.bottom-least (AB.run e.embed A.scott.bottom)) ;
+    module RA = RigidSpace[l].On[A] ; module RB = RigidSpace[l].On[B] ;
+    module P = ScottProduct[l].Product[RA.domain.scott,B.scott] ;
+    module Parts = StableProduct[l].Product[RA.domain.scott,B.scott] ;
+    argument : StableMaps[l].Between[P.scott,A.scott].Map =
+      StableComposition[l].Between[P.scott,B.scott,A.scott].Compose[Parts.right,e.project].map ;
+    module Pair = StableProduct[l].Pair[P.scott,RA.domain.scott,A.scott,Parts.left,argument] ;
+    module Eval = RigidOperations[l].On[A].Application ;
+    restricted : StableMaps[l].Between[P.scott,A.scott].Map =
+      StableComposition[l].Between[P.scott,Eval.Product.scott,A.scott].Compose[Pair.map,Eval.map].map ;
+    body : StableMaps[l].Between[P.scott,B.scott].Map =
+      StableComposition[l].Between[P.scott,A.scott,B.scott].Compose[restricted,e.embed].map ;
+    module Curry = StableCurrying[l].Between[RA.domain.scott,B,B].Curry[body] ;
+    module Inner = StableComposition[l].Between[B.scott,A.scott,A.scott] ;
+    below-id (p : RA.I.carrier) : BB.LE (Curry.value p) End.identity =
+      BB.transitive (Curry.value p) C.Compose[Inner.Compose[e.project,p.1].map,e.embed].map End.identity
+        (BB.equal-below (Curry.value p) C.Compose[Inner.Compose[e.project,p.1].map,e.embed].map
+          (\ a -> B.scott.order.reflexive (AB.run e.embed (RA.run p (BA.run e.project (BC.basic a)))))
+          (\ a -> B.scott.order.reflexive (AB.run e.embed (RA.run p (BA.run e.project (BC.basic a))))))
+        (BB.transitive C.Compose[Inner.Compose[e.project,p.1].map,e.embed].map Composite.map End.identity
+          (C.pre-order Inner.Compose[e.project,p.1].map e.project
+            (Inner.post-order e.project p.1 RA.End.identity (RA.bound p)) e.embed) e.rigid) ;
+    fixed (p : RA.I.carrier) : RB.PR.Fixed RB.Principal.projection (Curry.value p) =
+      RB.Principal.greatest (Curry.value p) (Curry.value p) (BB.reflexive (Curry.value p)) (below-id p) ;
+    module Lift = RB.Corestrict[RA.domain.scott,Curry.map,fixed] ;
+    transport : StableMaps[l].Between[RA.domain.scott,RB.domain.scott].Map = Lift.map ;
+    computes (p : RA.I.carrier) (x : BC.C) : Id BC.C (RB.run (Lift.value p) x) (AB.run e.embed (RA.run p (BA.run e.project x))) =
+      refl (AB.run e.embed (RA.run p (BA.run e.project x))) ;
+    on-image (p : RA.I.carrier) (x : AC.C) : Id BC.C (RB.run (Lift.value p) (AB.run e.embed x)) (AB.run e.embed (RA.run p x)) =
+      ap AC.C BC.C (\ y -> AB.run e.embed (RA.run p y)) (BA.run e.project (AB.run e.embed x)) x (e.retract x) ;
+  } ;
+} ;

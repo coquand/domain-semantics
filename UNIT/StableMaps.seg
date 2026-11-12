@@ -1,0 +1,125 @@
+-- Stable maps and their genuine stable order, both tested on small bases.
+-- No I-axiom or classical reasoning is used in this module.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+
+module Between (D E : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ;
+  module AN = ScottMeet[l].On[D] ; module BN = ScottMeet[l].On[E] ;
+  module O = ScottOrder[l].On[D.order] ;
+  module M = ScottMaps[l].Between[D,E] ;
+  Stable (f : M.Map) : U l = (a b c : A.B) -> A.LE (A.basic a) (A.basic c) -> A.LE (A.basic b) (A.basic c) ->
+    B.LE (BN.meet (M.run f (A.basic a)) (M.run f (A.basic b))) (M.run f (AN.meet (A.basic a) (A.basic b))) ;
+  stable-prop (f : M.Map) : Prelude[l].isProp (Stable f) =
+    F.isProp-Pi A.B (\ a -> (b c : A.B) -> A.LE (A.basic a) (A.basic c) -> A.LE (A.basic b) (A.basic c) ->
+      B.LE (BN.meet (M.run f (A.basic a)) (M.run f (A.basic b))) (M.run f (AN.meet (A.basic a) (A.basic b)))) (\ a ->
+    F.isProp-Pi A.B (\ b -> (c : A.B) -> A.LE (A.basic a) (A.basic c) -> A.LE (A.basic b) (A.basic c) ->
+      B.LE (BN.meet (M.run f (A.basic a)) (M.run f (A.basic b))) (M.run f (AN.meet (A.basic a) (A.basic b)))) (\ b ->
+    F.isProp-Pi A.B (\ c -> A.LE (A.basic a) (A.basic c) -> A.LE (A.basic b) (A.basic c) ->
+      B.LE (BN.meet (M.run f (A.basic a)) (M.run f (A.basic b))) (M.run f (AN.meet (A.basic a) (A.basic b)))) (\ c ->
+    F.isProp-Pi (A.LE (A.basic a) (A.basic c)) (\ _ -> A.LE (A.basic b) (A.basic c) ->
+      B.LE (BN.meet (M.run f (A.basic a)) (M.run f (A.basic b))) (M.run f (AN.meet (A.basic a) (A.basic b)))) (\ _ ->
+    F.isProp-Pi (A.LE (A.basic b) (A.basic c)) (\ _ ->
+      B.LE (BN.meet (M.run f (A.basic a)) (M.run f (A.basic b))) (M.run f (AN.meet (A.basic a) (A.basic b))))
+      (\ _ -> E.order.proposition (BN.meet (M.run f (A.basic a)) (M.run f (A.basic b))) (M.run f (AN.meet (A.basic a) (A.basic b)))))))) ;
+  Map : U l+ = (f : M.Map) * Stable f ;
+  run (f : Map) : A.C -> B.C = M.run f.1 ;
+  mono (f : Map) : M.Monotone (run f) = M.mono f.1 ;
+  compatible-basic (f : Map) (a b : A.B) (z : A.C) (az : A.LE (A.basic a) z) (bz : A.LE (A.basic b) z) :
+    B.LE (BN.meet (run f (A.basic a)) (run f (A.basic b))) (run f (AN.meet (A.basic a) (A.basic b))) =
+    T.rec (O.Upper (A.BI z) (A.part z) (a,az) (b,bz)) @l
+      (B.LE (BN.meet (run f (A.basic a)) (run f (A.basic b))) (run f (AN.meet (A.basic a) (A.basic b))))
+      (E.order.proposition (BN.meet (run f (A.basic a)) (run f (A.basic b))) (run f (AN.meet (A.basic a) (A.basic b))))
+      (\ w -> f.2 a b w.1.1 w.2.1 w.2.2) ((A.dir z).2 (a,az) (b,bz)) ;
+  preserves (f : Map) (x y z : A.C) (xz : A.LE x z) (yz : A.LE y z) :
+    B.LE (BN.meet (run f x) (run f y)) (run f (AN.meet x y)) =
+    E.basis.density (BN.meet (run f x) (run f y)) (run f (AN.meet x y)) (\ d hd ->
+      T.rec ((a : A.BI x) * B.LE (B.basic d) (run f (A.basic a.1))) @l
+        (B.LE (B.basic d) (run f (AN.meet x y))) (E.order.proposition (B.basic d) (run f (AN.meet x y)))
+        (\ a -> T.rec ((b : A.BI y) * B.LE (B.basic d) (run f (A.basic b.1))) @l
+          (B.LE (B.basic d) (run f (AN.meet x y))) (E.order.proposition (B.basic d) (run f (AN.meet x y)))
+          (\ b -> E.order.transitive (B.basic d) (BN.meet (run f (A.basic a.1.1)) (run f (A.basic b.1.1))) (run f (AN.meet x y))
+            (BN.greatest (run f (A.basic a.1.1)) (run f (A.basic b.1.1)) (B.basic d) a.2 b.2)
+            (E.order.transitive (BN.meet (run f (A.basic a.1.1)) (run f (A.basic b.1.1)))
+              (run f (AN.meet (A.basic a.1.1) (A.basic b.1.1))) (run f (AN.meet x y))
+              (compatible-basic f a.1.1 b.1.1 z
+                (D.order.transitive (A.basic a.1.1) x z a.1.2 xz) (D.order.transitive (A.basic b.1.1) y z b.1.2 yz))
+              (mono f (AN.meet (A.basic a.1.1) (A.basic b.1.1)) (AN.meet x y)
+                (AN.greatest x y (AN.meet (A.basic a.1.1) (A.basic b.1.1))
+                  (D.order.transitive (AN.meet (A.basic a.1.1) (A.basic b.1.1)) (A.basic a.1.1) x (AN.left (A.basic a.1.1) (A.basic b.1.1)) a.1.2)
+                  (D.order.transitive (AN.meet (A.basic a.1.1) (A.basic b.1.1)) (A.basic b.1.1) y (AN.right (A.basic a.1.1) (A.basic b.1.1)) b.1.2)))))
+          (M.Finite[f.1,y].witness d (E.order.transitive (B.basic d) (BN.meet (run f x) (run f y)) (run f y) hd (BN.right (run f x) (run f y)))))
+        (M.Finite[f.1,x].witness d (E.order.transitive (B.basic d) (BN.meet (run f x) (run f y)) (run f x) hd (BN.left (run f x) (run f y))))) ;
+  equation (f : Map) (x y z : A.C) (xz : A.LE x z) (yz : A.LE y z) :
+    Id B.C (run f (AN.meet x y)) (BN.meet (run f x) (run f y)) =
+    E.order.antisymmetric (run f (AN.meet x y)) (BN.meet (run f x) (run f y))
+      (BN.greatest (run f x) (run f y) (run f (AN.meet x y)) (mono f (AN.meet x y) x (AN.left x y)) (mono f (AN.meet x y) y (AN.right x y)))
+      (preserves f x y z xz yz) ;
+
+  Restriction (f g : Map) : U l = (a b : A.B) -> A.LE (A.basic a) (A.basic b) ->
+    B.LE (BN.meet (run f (A.basic b)) (run g (A.basic a))) (run f (A.basic a)) ;
+  LE (f g : Map) : U l = M.LE f.1 g.1 * Restriction f g ;
+  pointwise (f g : Map) (h : LE f g) (x : A.C) : B.LE (run f x) (run g x) = M.pointwise f.1 g.1 h.1 x ;
+  restriction (f g : Map) (h : LE f g) (x y : A.C) (xy : A.LE x y) :
+    B.LE (BN.meet (run f y) (run g x)) (run f x) =
+    E.basis.density (BN.meet (run f y) (run g x)) (run f x) (\ d hd ->
+      T.rec ((b : A.BI y) * B.LE (B.basic d) (run f (A.basic b.1))) @l
+        (B.LE (B.basic d) (run f x)) (E.order.proposition (B.basic d) (run f x))
+        (\ b -> T.rec ((a : A.BI x) * B.LE (B.basic d) (run g (A.basic a.1))) @l
+          (B.LE (B.basic d) (run f x)) (E.order.proposition (B.basic d) (run f x))
+          (\ a -> T.rec (O.Upper (A.BI y) (A.part y) (a.1.1,D.order.transitive (A.basic a.1.1) x y a.1.2 xy) b.1) @l
+            (B.LE (B.basic d) (run f x)) (E.order.proposition (B.basic d) (run f x))
+            (\ w -> E.order.transitive (B.basic d) (run f (A.basic a.1.1)) (run f x)
+              (E.order.transitive (B.basic d) (BN.meet (run f (A.basic w.1.1)) (run g (A.basic a.1.1))) (run f (A.basic a.1.1))
+                (BN.greatest (run f (A.basic w.1.1)) (run g (A.basic a.1.1)) (B.basic d)
+                  (E.order.transitive (B.basic d) (run f (A.basic b.1.1)) (run f (A.basic w.1.1)) b.2 (mono f (A.basic b.1.1) (A.basic w.1.1) w.2.2)) a.2)
+                (h.2 a.1.1 w.1.1 w.2.1)) (mono f (A.basic a.1.1) x a.1.2))
+            ((A.dir y).2 (a.1.1,D.order.transitive (A.basic a.1.1) x y a.1.2 xy) b.1))
+          (M.Finite[g.1,x].witness d (E.order.transitive (B.basic d) (BN.meet (run f y) (run g x)) (run g x) hd (BN.right (run f y) (run g x)))))
+        (M.Finite[f.1,y].witness d (E.order.transitive (B.basic d) (BN.meet (run f y) (run g x)) (run f y) hd (BN.left (run f y) (run g x))))) ;
+  stable-equation (f g : Map) (h : LE f g) (x y : A.C) (xy : A.LE x y) :
+    Id B.C (run f x) (BN.meet (run f y) (run g x)) =
+    E.order.antisymmetric (run f x) (BN.meet (run f y) (run g x))
+      (BN.greatest (run f y) (run g x) (run f x) (mono f x y xy) (pointwise f g h x)) (restriction f g h x y xy) ;
+  from-law (f g : Map) (h : (x : A.C) -> B.LE (run f x) (run g x))
+    (r : (x y : A.C) -> A.LE x y -> B.LE (BN.meet (run f y) (run g x)) (run f x)) : LE f g =
+    (M.small f.1 g.1 h,\ a b -> r (A.basic a) (A.basic b)) ;
+  reflexive (f : Map) : LE f f = (M.order.reflexive f.1,\ a b h -> BN.right (run f (A.basic b)) (run f (A.basic a))) ;
+  transitive-law (f g h : Map) (fg : LE f g) (gh : LE g h) (x y : A.C) (xy : A.LE x y) :
+    B.LE (BN.meet (run f y) (run h x)) (run f x) =
+    E.order.transitive z (BN.meet (run f y) (run g x)) (run f x)
+      (BN.greatest (run f y) (run g x) z (BN.left (run f y) (run h x))
+        (E.order.transitive z (BN.meet (run g y) (run h x)) (run g x)
+          (BN.greatest (run g y) (run h x) z
+            (E.order.transitive z (run f y) (run g y) (BN.left (run f y) (run h x)) (pointwise f g fg y))
+            (BN.right (run f y) (run h x))) (restriction g h gh x y xy)))
+      (restriction f g fg x y xy)
+    where { z : B.C = BN.meet (run f y) (run h x) ; } ;
+  transitive (f g h : Map) (fg : LE f g) (gh : LE g h) : LE f h =
+    (M.order.transitive f.1 g.1 h.1 fg.1 gh.1,\ a b ab -> transitive-law f g h fg gh (A.basic a) (A.basic b) ab) ;
+  restriction-prop (f g : Map) : Prelude[l].isProp (Restriction f g) =
+    F.isProp-Pi A.B (\ a -> (b : A.B) -> A.LE (A.basic a) (A.basic b) -> B.LE (BN.meet (run f (A.basic b)) (run g (A.basic a))) (run f (A.basic a))) (\ a ->
+    F.isProp-Pi A.B (\ b -> A.LE (A.basic a) (A.basic b) -> B.LE (BN.meet (run f (A.basic b)) (run g (A.basic a))) (run f (A.basic a))) (\ b ->
+    F.isProp-Pi (A.LE (A.basic a) (A.basic b)) (\ _ -> B.LE (BN.meet (run f (A.basic b)) (run g (A.basic a))) (run f (A.basic a)))
+      (\ _ -> E.order.proposition (BN.meet (run f (A.basic b)) (run g (A.basic a))) (run f (A.basic a))))) ;
+  le-prop (f g : Map) : Prelude[l].isProp (LE f g) =
+    Prelude[l].isProp-Sigma (M.LE f.1 g.1) (\ _ -> Restriction f g) (M.order.proposition f.1 g.1) (\ _ -> restriction-prop f g) ;
+  ext (f g : Map) (fg : LE f g) (gf : LE g f) : Id Map f g =
+    Sigma-eq M.Map (\ u -> Stable u) f.1 g.1 f.2 g.2 (M.ext f.1 g.1 fg.1 gf.1) (stable-prop g.1) ;
+  order : Order = new Order[carrier := Map, le := LE, proposition := le-prop,
+    reflexive := reflexive, transitive := transitive, antisymmetric := ext] ;
+  module SO = ScottOrder[l].On[order] ;
+  -- Within a common stable upper bound, pointwise comparison suffices.
+  under-bound (f g h : Map) (fh : LE f h) (gh : LE g h) (fg : M.LE f.1 g.1) : LE f g =
+    (fg,\ a b ab -> E.order.transitive (BN.meet (run f (A.basic b)) (run g (A.basic a)))
+      (BN.meet (run f (A.basic b)) (run h (A.basic a))) (run f (A.basic a))
+      (BN.greatest (run f (A.basic b)) (run h (A.basic a)) (BN.meet (run f (A.basic b)) (run g (A.basic a)))
+        (BN.left (run f (A.basic b)) (run g (A.basic a)))
+        (E.order.transitive (BN.meet (run f (A.basic b)) (run g (A.basic a))) (run g (A.basic a)) (run h (A.basic a))
+          (BN.right (run f (A.basic b)) (run g (A.basic a))) (gh.1 a))) (fh.2 a b ab)) ;
+  equal-below (f g : Map) (fg : M.LE f.1 g.1) (gf : M.LE g.1 f.1) : LE f g =
+    (fg,\ a b ab -> E.order.transitive (BN.meet (run f (A.basic b)) (run g (A.basic a)))
+      (run g (A.basic a)) (run f (A.basic a)) (BN.right (run f (A.basic b)) (run g (A.basic a))) (gf a)) ;
+} ;

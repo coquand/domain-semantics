@@ -1,0 +1,99 @@
+-- The actual recursive functional Phi, defined independently of typing.
+-- Partial heads are propositions; no decision procedure or excluded middle
+-- is used. The guarded function summand is bottom when its head is absent.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ;
+open Domain[l] ; open Continuous[l] ; open Abstraction[l] ; open Parts[l] ;
+open BinaryMaps[l] ; open ProjectorLeast[l] ;
+module S = Sum[l] ; module TC = TruncationCombinators[l] ;
+LE (q r : Binary) : U l+ = (A X : D) -> Domain[l].Below (value q A X) (value r A X) ;
+
+module At (q : Binary) (A X : D) {
+  UF : U l = UHead A * UHead X ;
+  PF : U l = UHead A * PHead X ;
+  uf-prop : isProp UF = isProp-Sigma (UHead A) (\ _ -> UHead X) (fprop A.1 univ) (\ _ -> fprop X.1 univ) ;
+  pf-prop : isProp PF = isProp-Sigma (UHead A) (\ _ -> PHead X) (fprop A.1 univ) (\ _ -> fprop X.1 (pi om om)) ;
+  pi-domain (h : PHead X) : D = value q universe Parts[l].PiParts[X,h].domain ;
+  pi-family (h : PHead X) : FD = universe-family q Parts[l].PiParts[X,h].domain Parts[l].PiParts[X,h].family ;
+  function (h : PHead A) : FD = abstract
+    (family-map q Parts[l].PiParts[A,h].domain (apply Parts[l].PiParts[A,h].family) X) ;
+  module G = Guard[l].Functions[PHead A,fprop A.1 (pi om om),function] ;
+  data-part : S.Data = ((UF,uf-prop),(((PF,pf-prop),\ h -> (pi-domain h.2,pi-family h.2)),G.value)) ;
+  presentation : S.RHS = (data-part,
+    (\ u h -> disjoint X u.2 h.2,
+      (\ u -> G.G.absent (disjoint A u.1),\ h -> G.G.absent (disjoint A h.1)))) ;
+  module E = S.Encode[presentation] ;
+  result : D = E.value ;
+  u-in (a : UHead A) (x : UHead X) : Domain[l].Below universe result = \ t ->
+    TC.map (Le univ t) (E.W t) (\ h -> wu t (a,x) h) ;
+  pi-in-w (a : UHead A) (x : PHead X) : (t : Ty) ->
+    Constructors[l].Pi[pi-domain x,pi-family x].E.W t -> E.W t = split {
+      wbot t h -> wbot t h ; wu t e h -> efq e ;
+      wp t p d f hd hf le -> wp t (a,x) d f hd hf le ; wf t h -> wf t (bottom-least G.value.1 t h) } ;
+  pi-in (a : UHead A) (x : PHead X) :
+    Domain[l].Below Constructors[l].Pi[pi-domain x,pi-family x].value result = \ t ->
+    TC.map (Constructors[l].Pi[pi-domain x,pi-family x].E.W t) (E.W t) (pi-in-w a x t) ;
+  function-in (h : PHead A) : Domain[l].Below (function h).1 result = \ t ht ->
+    ex (E.W t) (wf t (G.G.intro h t ht)) ;
+
+  fold (Y : D) (hu : UHead A -> UHead X -> Domain[l].Below universe Y)
+    (hp : (a : UHead A) (x : PHead X) -> Domain[l].Below Constructors[l].Pi[pi-domain x,pi-family x].value Y)
+    (hf : (a : PHead A) -> Domain[l].Below (function a).1 Y) : (t : Ty) -> E.W t -> In Y t = split {
+      wbot t h -> fup Y.1 om t h (fom Y.1) ;
+      wu t h le -> hu h.1 h.2 t (ex (Le univ t) le) ;
+      wp t h d f hd hf' le -> hp h.1 h.2 t
+        (fup Constructors[l].Pi[pi-domain h.2,pi-family h.2].value.1 (pi d f) t le
+          (Constructors[l].Pi[pi-domain h.2,pi-family h.2].intro d f hd hf')) ;
+      wf t h -> G.G.eliminate Y hf t h } ;
+  least (Y : D) (hu : UHead A -> UHead X -> Domain[l].Below universe Y)
+    (hp : (a : UHead A) (x : PHead X) -> Domain[l].Below Constructors[l].Pi[pi-domain x,pi-family x].value Y)
+    (hf : (a : PHead A) -> Domain[l].Below (function a).1 Y) : Domain[l].Below result Y = \ t ->
+    ex-elim (E.W t) (In Y t) (fprop Y.1 t) (fold Y hu hp hf t) ;
+} ;
+
+module FamilyMono (q r : Binary) (qr : LE q r) (A C : D) (ac : Domain[l].Below A C)
+  (H J : Map) (hj : (z : D) -> Domain[l].Below (run H z) (run J z))
+  (F G : D) (fg : Domain[l].Below F G) {
+  input (z : D) : Domain[l].Below (value q A z) (value r C z) =
+    sub-trans (value q A z).1 (value r A z).1 (value r C z).1 (qr A z) (r.monotone A C ac z) ;
+  pointwise (z : D) : Domain[l].Below (run (family-map q A H F) z) (run (family-map r C J G) z) =
+    sub-trans (run (family-map q A H F) z).1
+      (value r (run H (value q A z)) (Application[l].eval F (value q A z))).1
+      (run (family-map r C J G) z).1
+      (qr (run H (value q A z)) (Application[l].eval F (value q A z)))
+      (BinaryMaps[l].mono r (run H (value q A z)) (run J (value r C z))
+        (Application[l].eval F (value q A z)) (Application[l].eval G (value r C z))
+        (sub-trans (run H (value q A z)).1 (run J (value q A z)).1 (run J (value r C z)).1
+          (hj (value q A z)) (J.2.1 (value q A z) (value r C z) (input z)))
+        (Application[l].mono F G (value q A z) (value r C z) fg (input z))) ;
+  inclusion : Domain[l].Below (abstract (family-map q A H F)).1 (abstract (family-map r C J G)).1 =
+    MonotoneLambda[family-map q A H F,family-map r C J G,pointwise].inclusion ;
+} ;
+
+module Monotone (q r : Binary) (qr : LE q r) (A B X Y : D)
+  (ab : Domain[l].Below A B) (xy : Domain[l].Below X Y) {
+  module L = At[q,A,X] ; module R = At[r,B,Y] ;
+  pi-step (a : UHead A) (x : PHead X) :
+    Domain[l].Below Constructors[l].Pi[L.pi-domain x,L.pi-family x].value R.result =
+    sub-trans Constructors[l].Pi[L.pi-domain x,L.pi-family x].value.1
+      Constructors[l].Pi[R.pi-domain y,R.pi-family y].value.1 R.result.1
+      Constructors[l].PiMono[L.pi-domain x,R.pi-domain y,L.pi-family x,R.pi-family y,
+        sub-trans (L.pi-domain x).1 (value r universe Parts[l].PiParts[X,x].domain).1 (R.pi-domain y).1
+          (qr universe Parts[l].PiParts[X,x].domain)
+          ((r.at universe).2.1 Parts[l].PiParts[X,x].domain Parts[l].PiParts[Y,y].domain (\ t -> xy (pi t om))),
+        FamilyMono[q,r,qr,Parts[l].PiParts[X,x].domain,Parts[l].PiParts[Y,y].domain,\ t -> xy (pi t om),
+          constant universe,constant universe,\ z -> sub-refl universe.1,
+          Parts[l].PiParts[X,x].family.1,Parts[l].PiParts[Y,y].family.1,\ t -> xy (pi om t)].inclusion].inclusion
+      (R.pi-in (ab univ a) y)
+    where { y : PHead Y = xy (pi om om) x ; } ;
+  function-step (a : PHead A) : Domain[l].Below (L.function a).1 R.result =
+    sub-trans (L.function a).1.1 (R.function b).1.1 R.result.1
+      FamilyMono[q,r,qr,Parts[l].PiParts[A,a].domain,Parts[l].PiParts[B,b].domain,\ t -> ab (pi t om),
+        apply Parts[l].PiParts[A,a].family,apply Parts[l].PiParts[B,b].family,
+        \ z -> Application[l].mono Parts[l].PiParts[A,a].family.1 Parts[l].PiParts[B,b].family.1 z z
+          (\ t -> ab (pi om t)) (sub-refl z.1),X,Y,xy].inclusion
+      (R.function-in b)
+    where { b : PHead B = ab (pi om om) a ; } ;
+  inclusion : Domain[l].Below L.result R.result = L.least R.result
+    (\ a x -> R.u-in (ab univ a) (xy univ x)) pi-step function-step ;
+} ;

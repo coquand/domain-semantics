@@ -1,0 +1,93 @@
+-- The fixed-input family operation is stable, jointly with its argument,
+-- and as a map from stable families to rigid projections of functions.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Between (D E : DIDomain[l].DI) {
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module R = RigidProjector[l].On[E.scott] ; module BN = ScottMeet[l].On[E.scott] ;
+  module RP = RigidSpace[l].On[E] ;
+  module Families = StableFiniteIdeals[l].Exponential[D,RP.domain] ;
+  family-domain : DIDomain[l].DI = Families.domain ;
+  module F = StableMaps[l].Between[D.scott,RP.domain.scott] ;
+  module FN = ScottMeet[l].On[family-domain.scott] ;
+  module X = StableFiniteIdeals[l].Exponential[D,E] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module SN = ScottMeet[l].On[X.domain.scott] ;
+  module SS = StableSections[l].Between[D,E] ;
+  module RS = RigidSections[l].Between[D.scott,E.scott] ;
+  module P = ScottProduct[l].Product[family-domain.scott,X.domain.scott] ;
+  module C = SectionContinuity[l].Between[D,E,P.scott] ;
+  family (b : F.Map) : RS.Family = new RS.Family[
+    at := \ x -> RP.decode (F.run b x),
+    increasing := \ x y xy z -> RP.pointwise (F.run b x) (F.run b y) (F.mono b x y xy) z] ;
+  increasing (b c : F.Map) (bc : F.LE b c) (x : A.C) (z : B.C) :
+    B.LE (R.run ((family b).at x) z) (R.run ((family c).at x) z) =
+    RP.pointwise (F.run b x) (F.run c x) (F.pointwise b c bc x) z ;
+  module Fibre (x : A.C) (z : B.C) {
+    module Eval = StableEvaluation[l].Exponential[D,RP.domain].At[x] ;
+    module Compose = StableComposition[l].Between[family-domain.scott,RP.domain.scott,E.scott].Compose[Eval.evaluation,RP.Observe[z].stable] ;
+    module First = StableProduct[l].Product[family-domain.scott,X.domain.scott] ;
+    map : StableMaps[l].Between[P.scott,E.scott].Map =
+      StableComposition[l].Between[P.scott,family-domain.scott,E.scott].Compose[First.left,Compose.map].map ;
+  } ;
+  parameters : C.Parameters = new C.Parameters[family := \ p -> family p.1,
+    increasing := \ p q h -> increasing p.1 q.1 h.1,
+    continuous := \ x z -> ScottMaps[l].Between[P.scott,E.scott].continuous Fibre[x,z].map.1] ;
+  argument : ScottMaps[l].Between[P.scott,X.domain.scott].Map = StableProduct[l].Product[family-domain.scott,X.domain.scott].right.1 ;
+  module Continuous = C.On[parameters].WithInput[argument] ;
+  value (p : P.C) : S.Map = SS.Sections.Sections[family p.1].value p.2 ;
+  same-family (b c : RS.Family) (h : (x : A.C) (z : B.C) -> Id B.C (R.run (b.at x) z) (R.run (c.at x) z)) (f : S.Map) :
+    Id S.Map (SS.Sections.Sections[b].value f) (SS.Sections.Sections[c].value f) =
+    S.ext (SS.Sections.Sections[b].value f) (SS.Sections.Sections[c].value f)
+      (SS.Sections.inclusion b c (\ x z -> subst B.C (\ v -> B.LE (R.run (b.at x) z) v)
+        (R.run (b.at x) z) (R.run (c.at x) z) (h x z) (E.scott.order.reflexive (R.run (b.at x) z))) f)
+      (SS.Sections.inclusion c b (\ x z -> subst B.C (\ v -> B.LE v (R.run (b.at x) z))
+        (R.run (b.at x) z) (R.run (c.at x) z) (h x z) (E.scott.order.reflexive (R.run (b.at x) z))) f) ;
+  module Compatible (b c d : F.Map) (bd : F.LE b d) (cd : F.LE c d) {
+    meet-value (x : A.C) (z : B.C) : Id B.C (R.run ((family (FN.meet b c)).at x) z)
+      (BN.meet (R.run ((family b).at x) z) (R.run ((family c).at x) z)) =
+      trans B.C (RP.run (F.run (FN.meet b c) x) z) (RP.run (RP.IN.meet (F.run b x) (F.run c x)) z)
+        (BN.meet (RP.run (F.run b x) z) (RP.run (F.run c x) z))
+        (ap RP.I.carrier B.C (\ p -> RP.run p z) (F.run (FN.meet b c) x) (RP.IN.meet (F.run b x) (F.run c x))
+          (StableMeet[l].Exponential[D,RP.domain].pointwise b c d bd cd x))
+        (RP.meet-value (F.run b x) (F.run c x) z) ;
+    intersection (x : A.C) (z : B.C) : Id B.C (R.run ((family (FN.meet b c)).at x) z)
+      (R.run ((SS.Sections.intersection (family b) (family c)).at x) z) =
+      trans B.C (R.run ((family (FN.meet b c)).at x) z)
+        (BN.meet (R.run ((family b).at x) z) (R.run ((family c).at x) z))
+        (R.run ((SS.Sections.intersection (family b) (family c)).at x) z) (meet-value x z)
+        (sym B.C (R.run ((SS.Sections.intersection (family b) (family c)).at x) z)
+          (BN.meet (R.run ((family b).at x) z) (R.run ((family c).at x) z))
+          (R.composition-meet ((family b).at x) ((family c).at x) z)) ;
+    joint (f g : S.Map) : Id S.Map (value (FN.meet b c,SN.meet f g)) (SN.meet (value (b,f)) (value (c,g))) =
+      trans S.Map (value (FN.meet b c,SN.meet f g))
+        (SS.Sections.Sections[SS.Sections.intersection (family b) (family c)].value (SN.meet f g))
+        (SN.meet (value (b,f)) (value (c,g)))
+        (same-family (family (FN.meet b c)) (SS.Sections.intersection (family b) (family c)) intersection (SN.meet f g))
+        (SS.Sections.joint-intersection (family b) (family c) f g) ;
+  } ;
+  module Stable (p q r : P.C) (pr : P.LE p r) (qr : P.LE q r) {
+    equation : Id S.Map (value (P.meet p q)) (SN.meet (value p) (value q)) =
+      Compatible[p.1,q.1,r.1,pr.1,qr.1].joint p.2 q.2 ;
+    result : S.LE (SN.meet (value p) (value q)) (value (P.N.meet p q)) =
+      subst S.Map (\ f -> S.LE f (value (P.N.meet p q))) (value (P.meet p q)) (SN.meet (value p) (value q)) equation
+        (Continuous.monotone (P.meet p q) (P.N.meet p q) (P.meet-from p q)) ;
+  } ;
+  joint : StableMaps[l].Between[P.scott,X.domain.scott].Map =
+    (Continuous.map,\ a b c ac bc -> Stable[P.basic a,P.basic b,P.basic c,ac,bc].result) ;
+  module Curry = StableCurrying[l].Between[family-domain.scott,X.domain,X.domain].Curry[joint] ;
+  module Out = RigidSpace[l].On[X.domain] ;
+  module End = StableMaps[l].Between[X.domain.scott,X.domain.scott] ;
+  below-identity (b : F.Map) : End.LE (Curry.value b) Out.End.identity =
+    End.transitive (Curry.value b) (Out.End.from-rigid SS.Sections.Sections[family b].projection) Out.End.identity
+      (End.equal-below (Curry.value b) (Out.End.from-rigid SS.Sections.Sections[family b].projection)
+        (\ a -> S.reflexive (SS.Sections.Sections[family b].value (X.X.basic a)))
+        (\ a -> S.reflexive (SS.Sections.Sections[family b].value (X.X.basic a))))
+      (Out.End.below-id SS.Sections.Sections[family b].projection) ;
+  fixed (b : F.Map) : Out.PR.Fixed Out.Principal.projection (Curry.value b) =
+    Out.Principal.greatest (Curry.value b) (Curry.value b) (End.reflexive (Curry.value b)) (below-identity b) ;
+  module Operation = Out.Corestrict[family-domain.scott,Curry.map,fixed] ;
+  operation : StableMaps[l].Between[family-domain.scott,Out.domain.scott].Map = Operation.map ;
+  computes (b : F.Map) (f : S.Map) : Id S.Map (Out.run (Operation.value b) f) (SS.Sections.Sections[family b].value f) =
+    refl (SS.Sections.Sections[family b].value f) ;
+} ;

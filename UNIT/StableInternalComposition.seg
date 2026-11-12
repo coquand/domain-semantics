@@ -1,0 +1,38 @@
+-- Composition as a stable map of the two stable function spaces.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Between (D E F : DIDomain[l].DI) {
+  module DE = StableFiniteIdeals[l].Exponential[D,E] ;
+  module EF = StableFiniteIdeals[l].Exponential[E,F] ;
+  module DF = StableFiniteIdeals[l].Exponential[D,F] ;
+  module P = ScottProduct[l].Product[DE.domain.scott,EF.domain.scott] ;
+  module Q = ScottProduct[l].Product[P.scott,D.scott] ;
+  module Outer = StableProduct[l].Product[P.scott,D.scott] ;
+  module Inner = StableProduct[l].Product[DE.domain.scott,EF.domain.scott] ;
+  first : StableMaps[l].Between[Q.scott,DE.domain.scott].Map =
+    StableComposition[l].Between[Q.scott,P.scott,DE.domain.scott].Compose[Outer.left,Inner.left].map ;
+  second : StableMaps[l].Between[Q.scott,EF.domain.scott].Map =
+    StableComposition[l].Between[Q.scott,P.scott,EF.domain.scott].Compose[Outer.left,Inner.right].map ;
+  module EvalDE = StableEvaluation[l].Exponential[D,E] ;
+  module EvalEF = StableEvaluation[l].Exponential[E,F] ;
+  module Input = StableProduct[l].Pair[Q.scott,DE.domain.scott,D.scott,first,Outer.right] ;
+  intermediate : StableMaps[l].Between[Q.scott,E.scott].Map =
+    StableComposition[l].Between[Q.scott,EvalDE.P.scott,E.scott].Compose[Input.map,EvalDE.map].map ;
+  module Output = StableProduct[l].Pair[Q.scott,EF.domain.scott,E.scott,second,intermediate] ;
+  application : StableMaps[l].Between[Q.scott,F.scott].Map =
+    StableComposition[l].Between[Q.scott,EvalEF.P.scott,F.scott].Compose[Output.map,EvalEF.map].map ;
+  module Curry = StableCurrying[l].Between[P.scott,D,F].Curry[application] ;
+  map : StableMaps[l].Between[P.scott,DF.domain.scott].Map = Curry.map ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ; module T = StableMaps[l].Between[E.scott,F.scott] ;
+  module Out = StableMaps[l].Between[D.scott,F.scott] ;
+  computes (f : S.Map) (g : T.Map) (x : D.scott.order.carrier) :
+    Id F.scott.order.carrier (Out.run (Curry.value (f,g)) x) (T.run g (S.run f x)) = refl (T.run g (S.run f x)) ;
+  equation (f : S.Map) (g : T.Map) : Id Out.Map (Curry.value (f,g)) StableComposition[l].Between[D.scott,E.scott,F.scott].Compose[f,g].map =
+    Out.ext (Curry.value (f,g)) StableComposition[l].Between[D.scott,E.scott,F.scott].Compose[f,g].map
+      (Out.equal-below (Curry.value (f,g)) StableComposition[l].Between[D.scott,E.scott,F.scott].Compose[f,g].map
+        (\ a -> F.scott.order.reflexive (T.run g (S.run f (D.scott.basis.basic a))))
+        (\ a -> F.scott.order.reflexive (T.run g (S.run f (D.scott.basis.basic a)))))
+      (Out.equal-below StableComposition[l].Between[D.scott,E.scott,F.scott].Compose[f,g].map (Curry.value (f,g))
+        (\ a -> F.scott.order.reflexive (T.run g (S.run f (D.scott.basis.basic a))))
+        (\ a -> F.scott.order.reflexive (T.run g (S.run f (D.scott.basis.basic a))))) ;
+} ;

@@ -1,0 +1,100 @@
+-- Typed symmetry and transitivity at one relation step, using the
+-- freshly established type laws at that step.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Typing[l] ; open Syntax[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+module SL = SemanticLaws[l] ; module AP = Application[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module O = LogicalRelationOperator[l].At[n,Delta] ; module L = LogicalRelationLocality[l].At[n,Delta] ;
+  module C = LogicalRelationClauses[l].At[n,Delta] ; module Laws = IndependentRelationTypedSteps[l].At[n,Delta] ;
+  module Assemble (R : O.Relations) (strict : O.Strict R) (A X : D) (T M M' : Tm n)
+    (types : Parts[l].UHead A -> ((L.advance R).ty M M').holds (SL.p universe X))
+    (functions : (hp : Parts[l].PHead A) -> C.Functions[R.tm,R.tm,T,M,M'].predicate.holds
+      (ProjectorOperator[l].At[BinaryMaps[l].semantic,A,X].function hp).1) {
+    module Clauses = IndependentRelationClauseLaws[l].At[n,Delta].With[R,strict] ;
+    Q : ScottPredicates[l].On[ScottFilter[l].scott].Predicate = (L.advance R).tm T M M' ;
+    data-term (ha : Parts[l].UHead A) : Q.holds (SL.p universe X) = (types ha,Clauses.universe-functions X T M M') ;
+    result : Q.holds (SL.p A X) = ProjectorPredicateCases[l].At[A,X].Predicate[Q,(L.advance-strict R strict).2 T M M',
+      \ ha hx -> Q.lower universe (SL.p universe X)
+        (prin-sub univ (SL.p universe X).1 (SL.universe-in X univ hx tp-UU)) (data-term ha),
+      \ ha hx -> Q.lower Constructors[l].Pi[ProjectorOperator[l].At[BinaryMaps[l].semantic,A,X].pi-domain hx,
+        ProjectorOperator[l].At[BinaryMaps[l].semantic,A,X].pi-family hx].value (SL.p universe X)
+        (ProjectorPredicateCases[l].At[universe,X].pi-inclusion (prin-in univ) hx) (data-term ha),
+      \ ha -> (Clauses.function-type (ProjectorOperator[l].At[BinaryMaps[l].semantic,A,X].function ha) M M',functions ha)].result ;
+  } ;
+  module Symmetric (R : O.Relations) (strict : O.Strict R) (symmetric : Laws.TermSymmetry R) (transitive : Laws.TermTransitivity R)
+    (diagonal : IndependentRelationDiagonal[l].At[n,Delta].TermDiagonal R.tm) (type-symmetric : Laws.TypeSymmetry (L.advance R))
+    (A X : D) (T M M' : Tm n) (related : ((L.advance R).tm T M M').holds (SL.p A X)) {
+    types (ha : Parts[l].UHead A) : ((L.advance R).ty M' M).holds (SL.p universe X) = type-symmetric X M M'
+      (((L.advance R).tm T M M').lower (SL.p universe X) (SL.p A X)
+        (SL.mono universe A X X (prin-sub univ A.1 ha) (sub-refl X.1)) related).1 ;
+    module Function (hp : Parts[l].PHead A) {
+      module Components = Parts[l].PiParts[A,hp] ;
+      module Support = ProjectorFunctionSupport[l].At[Components.domain,apply Components.family,X] ;
+      functions : C.Functions[R.tm,R.tm,T,M,M'].predicate.holds Support.function.1 =
+        (((L.advance R).tm T M M').lower Support.function.1 (SL.p A X) (ProjectorPredicateCases[l].At[A,X].function hp) related).2 ;
+      module Test (e : C.FunctionTest[T]) (z : D) (hz : (R.tm e.A e.argument.N e.argument.N').holds z) {
+        V : Tm n = subst1 n e.B e.argument.N ; N : Tm n = e.argument.N ; N' : Tm n = e.argument.N' ;
+        same : C.FunctionTest[T] = new C.FunctionTest[T,e.A,e.B,e.reduction,new C.Argument[e.A,N,N,
+          eq-refl n Delta N e.A (Presup[l].eq-pre n (jeq Delta N N' e.A) e.argument.conversion).1]] ;
+        outputs : C.TermOutputs[R.tm,V,M,M',N,N'].predicate.holds (Support.result z) =
+          C.TermOutputs[R.tm,V,M,M',N,N'].predicate.lower (Support.result z) (AP.eval Support.function.1 z) Beta[Support.operation,z].backward
+            (C.Functions[R.tm,R.tm,T,M,M'].apply Support.function.1 functions e z hz) ;
+        same-outputs : C.TermOutputs[R.tm,V,M,M',N,N].predicate.holds (Support.result z) =
+          C.TermOutputs[R.tm,V,M,M',N,N].predicate.lower (Support.result z) (AP.eval Support.function.1 z) Beta[Support.operation,z].backward
+            (C.Functions[R.tm,R.tm,T,M,M'].apply Support.function.1 functions same z (diagonal e.A N N' z hz)) ;
+        result : C.TermOutputs[R.tm,V,M',M,N,N'].predicate.holds (AP.eval Support.function.1 z) =
+          Support.to-test C.TermOutputs[R.tm,V,M',M,N,N'].predicate z (outputs.2.1,(outputs.1,
+            transitive (Support.classifier z) (Support.body z) V (app n M' N) (app n M N) (app n M N')
+              (symmetric (Support.classifier z) (Support.body z) V (app n M N) (app n M' N) same-outputs.2.2) outputs.1)) ;
+      } ;
+      result : C.Functions[R.tm,R.tm,T,M',M].predicate.holds Support.function.1 = \ e k hk -> Test[e,principal k,hk].result ;
+    } ;
+    result : ((L.advance R).tm T M' M).holds (SL.p A X) =
+      Assemble[R,strict,A,X,T,M',M,types,\ hp -> Function[hp].result].result ;
+  } ;
+  symmetry-step (R : O.Relations) (strict : O.Strict R) (symmetric : Laws.TermSymmetry R) (transitive : Laws.TermTransitivity R)
+    (diagonal : IndependentRelationDiagonal[l].At[n,Delta].TermDiagonal R.tm) (type-symmetric : Laws.TypeSymmetry (L.advance R)) :
+    Laws.TermSymmetry (L.advance R) = \ A X T M M' related -> Symmetric[R,strict,symmetric,transitive,diagonal,type-symmetric,A,X,T,M,M',related].result ;
+  module Transitive (R : O.Relations) (strict : O.Strict R) (transitive : Laws.TermTransitivity R)
+    (diagonal : IndependentRelationDiagonal[l].At[n,Delta].TermDiagonal R.tm) (type-transitive : Laws.TypeTransitivity (L.advance R))
+    (A X : D) (T M V W : Tm n) (first : ((L.advance R).tm T M V).holds (SL.p A X))
+    (second : ((L.advance R).tm T V W).holds (SL.p A X)) {
+    types (ha : Parts[l].UHead A) : ((L.advance R).ty M W).holds (SL.p universe X) = type-transitive X M V W
+      (((L.advance R).tm T M V).lower (SL.p universe X) (SL.p A X)
+        (SL.mono universe A X X (prin-sub univ A.1 ha) (sub-refl X.1)) first).1
+      (((L.advance R).tm T V W).lower (SL.p universe X) (SL.p A X)
+        (SL.mono universe A X X (prin-sub univ A.1 ha) (sub-refl X.1)) second).1 ;
+    module Function (hp : Parts[l].PHead A) {
+      module Components = Parts[l].PiParts[A,hp] ;
+      module Support = ProjectorFunctionSupport[l].At[Components.domain,apply Components.family,X] ;
+      left : C.Functions[R.tm,R.tm,T,M,V].predicate.holds Support.function.1 =
+        (((L.advance R).tm T M V).lower Support.function.1 (SL.p A X) (ProjectorPredicateCases[l].At[A,X].function hp) first).2 ;
+      right : C.Functions[R.tm,R.tm,T,V,W].predicate.holds Support.function.1 =
+        (((L.advance R).tm T V W).lower Support.function.1 (SL.p A X) (ProjectorPredicateCases[l].At[A,X].function hp) second).2 ;
+      module Test (e : C.FunctionTest[T]) (z : D) (hz : (R.tm e.A e.argument.N e.argument.N').holds z) {
+        B : Tm n = subst1 n e.B e.argument.N ; N : Tm n = e.argument.N ; N' : Tm n = e.argument.N' ;
+        same : C.FunctionTest[T] = new C.FunctionTest[T,e.A,e.B,e.reduction,new C.Argument[e.A,N,N,
+          eq-refl n Delta N e.A (Presup[l].eq-pre n (jeq Delta N N' e.A) e.argument.conversion).1]] ;
+        outputs-left : C.TermOutputs[R.tm,B,M,V,N,N'].predicate.holds (Support.result z) =
+          C.TermOutputs[R.tm,B,M,V,N,N'].predicate.lower (Support.result z) (AP.eval Support.function.1 z) Beta[Support.operation,z].backward
+            (C.Functions[R.tm,R.tm,T,M,V].apply Support.function.1 left e z hz) ;
+        outputs-right : C.TermOutputs[R.tm,B,V,W,N,N'].predicate.holds (Support.result z) =
+          C.TermOutputs[R.tm,B,V,W,N,N'].predicate.lower (Support.result z) (AP.eval Support.function.1 z) Beta[Support.operation,z].backward
+            (C.Functions[R.tm,R.tm,T,V,W].apply Support.function.1 right e z hz) ;
+        outputs-same : C.TermOutputs[R.tm,B,M,V,N,N].predicate.holds (Support.result z) =
+          C.TermOutputs[R.tm,B,M,V,N,N].predicate.lower (Support.result z) (AP.eval Support.function.1 z) Beta[Support.operation,z].backward
+            (C.Functions[R.tm,R.tm,T,M,V].apply Support.function.1 left same z (diagonal e.A N N' z hz)) ;
+        result : C.TermOutputs[R.tm,B,M,W,N,N'].predicate.holds (AP.eval Support.function.1 z) =
+          Support.to-test C.TermOutputs[R.tm,B,M,W,N,N'].predicate z (outputs-left.1,(outputs-right.2.1,
+            transitive (Support.classifier z) (Support.body z) B (app n M N) (app n V N) (app n W N') outputs-same.2.2 outputs-right.2.2)) ;
+      } ;
+      result : C.Functions[R.tm,R.tm,T,M,W].predicate.holds Support.function.1 = \ e k hk -> Test[e,principal k,hk].result ;
+    } ;
+    result : ((L.advance R).tm T M W).holds (SL.p A X) =
+      Assemble[R,strict,A,X,T,M,W,types,\ hp -> Function[hp].result].result ;
+  } ;
+  transitivity-step (R : O.Relations) (strict : O.Strict R) (transitive : Laws.TermTransitivity R)
+    (diagonal : IndependentRelationDiagonal[l].At[n,Delta].TermDiagonal R.tm) (type-transitive : Laws.TypeTransitivity (L.advance R)) :
+    Laws.TermTransitivity (L.advance R) = \ A X T M V W first second -> Transitive[R,strict,transitive,diagonal,type-transitive,A,X,T,M,V,W,first,second].result ;
+} ;

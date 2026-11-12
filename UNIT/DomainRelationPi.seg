@@ -1,0 +1,45 @@
+-- A positive Pi observation yields syntactic component equalities,
+-- a related domain component, and the admissible family clause.
+-- This is a forward comparison with the existing compact relation.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ;
+open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+open DomainLogicalRelation[l] ;
+module TC = TruncationCombinators[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module Relation = DomainLogicalRelation[l].At[n,Delta] ;
+  module Compact = RelC[l].RelCD[n,Delta] ;
+  module Laws = LawsC[l].LawsCD[n,Delta] ;
+  module Comparison = DomainRelationClauseComparison[l].At[n,Delta] ;
+  module Products (X : D) (head : Parts[l].PHead X) (A A' : Tm n) (B B' : Tm (suc n))
+    (h : Relation.Type X (pp n A B) (pp n A' B')) {
+    module Components = Parts[l].PiParts[X,head] ;
+    module Family = Comparison.Families[A,B,B'] ;
+    module Raw (a phi : Ty) (r : Compact.TyR (pi a phi) (pp n A B) (pp n A' B')) {
+      observation : Compact.PiTy Compact.Can a phi (pp n A B) (pp n A' B') =
+        ((Compact.tyr-unfold (pi a phi) (pp n A B) (pp n A' B')).1 r).pc
+          a phi a phi (sel-here (pi a phi)) (ps-here a phi) ;
+      result : Compact.PiD Compact.Can a phi A B A' B' =
+        Laws.pid-r Compact.Can a phi A B observation.A1 A' observation.B1 B'
+          (sym (Tm n) (pp n A' B') (pp n observation.A1 observation.B1)
+            (reds-from-normal n (pp n A' B') (pp n observation.A1 observation.B1) observation.red' (normal-pp n A' B')))
+          (Laws.pid-l Compact.Can a phi observation.A0 A observation.B0 B observation.A1 observation.B1
+            (sym (Tm n) (pp n A B) (pp n observation.A0 observation.B0)
+              (reds-from-normal n (pp n A B) (pp n observation.A0 observation.B0) observation.red (normal-pp n A B))) observation.d) ;
+    } ;
+    observe (a phi : Ty) (seen : In X (pi a phi)) : Ex (Compact.PiD Compact.Can a phi A B A' B') =
+      TC.map (Compact.TyR (pi a phi) (pp n A B) (pp n A' B')) (Compact.PiD Compact.Can a phi A B A' B')
+        (\ r -> Raw[a,phi,r].result) (Relation.For[types (pp n A B) (pp n A' B')].to-tokenwise X h (pi a phi) seen) ;
+    syntactic : Ex (Der n (jeq Delta A A' (uu n)) * Der (suc n) (jeq (ext n Delta A) B B' (uu (suc n)))) =
+      TC.map (Compact.PiD Compact.Can om om A B A' B')
+        (Der n (jeq Delta A A' (uu n)) * Der (suc n) (jeq (ext n Delta A) B B' (uu (suc n))))
+        (\ r -> (r.cA,r.cB)) (observe om om head) ;
+    domain : Relation.Type Components.domain A A' = Relation.For[types A A'].from-tokenwise Components.domain
+      (\ a seen -> TC.map (Compact.PiD Compact.Can a om A B A' B') (Compact.TyR a A A') (\ r -> r.dom) (observe a om seen)) ;
+    uniform-family : Family.Uniform Components.familyD = \ k below ->
+      TC.map (Compact.PiD Compact.Can om k.1 A B A' B') (Compact.FamP Compact.Can k.1 A B B')
+        (\ r -> r.fam) (observe om k.1 (below k.1 (prin-in k.1))) ;
+    family : Family.Clause.predicate.holds Components.familyD =
+      Family.preserve Components.familyD (Family.forget Components.familyD uniform-family) ;
+  } ;
+} ;

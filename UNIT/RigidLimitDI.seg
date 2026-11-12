@@ -1,0 +1,67 @@
+-- A countable rigid limit of dI-domains is a dI-domain. Compact lower
+-- ideals stay entirely inside one stage, so finite discreteness survives.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ; module TL = TruncationCombinators[l+] ;
+module Embed = RigidLimitEmbedding[l] ;
+module On (S : RigidLimitOrder[l].Chain) {
+  module Domain = RigidLimitDomain[l].On[S] ; module L = RigidLimitOrder[l].On[S] ;
+  module Rigid = RigidLimitRigid[l].On[S] ;
+  module DP = DIDomain[l].Properties[L.order] ;
+  module At (n : Nat) {
+    module A = ScottDomain[l].On[(S.domain n).scott] ; module O = ScottOrder[l].On[(S.domain n).scott.order] ;
+    module AP = DIDomain[l].Properties[(S.domain n).scott.order] ;
+    point-lub (I : U l) (x : I -> L.carrier) (u : L.carrier) (h : L.O.Lub I x u) : O.Lub I (\ i -> (x i).1 n) (u.1 n) =
+      (\ i -> h.1 i n,\ z hz -> subst L.carrier (\ v -> A.LE (v.1 n) z) (L.complete.bounded I x u h.1).1 u
+        (L.ext (L.complete.bounded I x u h.1).1 u ((L.complete.bounded I x u h.1).2.2 u h.1) (h.2 (L.complete.bounded I x u h.1).1 (L.complete.bounded I x u h.1).2.1))
+        (((S.domain n).scott.complete.bounded I (\ i -> (x i).1 n) (u.1 n) (\ i -> h.1 i n)).2.2 z hz)) ;
+    pair-lub (x y u : L.carrier) (h : L.O.Lub Bool (DP.pair x y) u) : O.Lub Bool (AP.pair (x.1 n) (y.1 n)) (u.1 n) =
+      (DistributiveJoins[l].bool (\ i -> A.LE (AP.pair (x.1 n) (y.1 n) i) (u.1 n)) (h.1 true n) (h.1 false n),
+       \ z hz -> (point-lub Bool (DP.pair x y) u h).2 z
+        (DistributiveJoins[l].bool (\ i -> A.LE ((DP.pair x y i).1 n) z) (hz true) (hz false))) ;
+    point-inf (x y m : L.carrier) (h : DP.Infimum x y m) : AP.Infimum (x.1 n) (y.1 n) (m.1 n) =
+      (h.1 n,(h.2.1 n,\ a ax ay -> Embed.upper n S a m
+        (h.2.2 (Embed.lift n S a) (Embed.lower n S a x ax) (Embed.lower n S a y ay)))) ;
+    module Finite (a : A.C) (F : AP.FiniteIdeal[a]) {
+      top : L.carrier = Embed.lift n S a ;
+      point (i : Ix F.shape) : L.carrier = Embed.lift n S (F.point i) ;
+      bound (i : Ix F.shape) : L.le (point i) top = Embed.monotone n S (F.point i) a (F.below i) ;
+      below (x : L.carrier) (h : L.le x top) : A.LE (x.1 n) a =
+        subst A.C (\ z -> A.LE (x.1 n) z) (top.1 n) a (Embed.section n S a) (h n) ;
+      covers (x : L.carrier) (h : L.le x top) : Ex ((i : Ix F.shape) * (L.le x (point i) * L.le (point i) x)) =
+        T.map ((i : Ix F.shape) * (A.LE (x.1 n) (F.point i) * A.LE (F.point i) (x.1 n)))
+          ((i : Ix F.shape) * (L.le x (point i) * L.le (point i) x))
+          (\ w -> (w.1,(L.order.transitive x (Embed.approximate S n x) (point w.1)
+            (RigidLimitRigid[l].hereditary n S a x h) (Embed.monotone n S (x.1 n) (F.point w.1) w.2.1),Embed.lower n S (F.point w.1) x w.2.2)))
+          (F.covers (x.1 n) (below x h)) ;
+      ideal : DP.FiniteIdeal[top] = new DP.FiniteIdeal[top,shape := F.shape,point := point,below := bound,covers := covers,
+        distinct := \ i j ij ji -> F.distinct i j (Embed.reflect n S (F.point i) (F.point j) ij) (Embed.reflect n S (F.point j) (F.point i) ji)] ;
+    } ;
+  } ;
+  distributive : DP.Distributive = \ x y z u m a b w ju im ia ib jw ->
+    Sigma-eq L.Points L.Coherent m.1 w.1 m.2 w.2
+      (Axioms[l+].FunExtLemmas[fe @l+].funext Nat L.C m.1 w.1 (\ n ->
+        (S.domain n).distributive (x.1 n) (y.1 n) (z.1 n) (u.1 n) (m.1 n) (a.1 n) (b.1 n) (w.1 n)
+          (At[n].pair-lub y z u ju) (At[n].point-inf x u m im) (At[n].point-inf x y a ia) (At[n].point-inf x z b ib) (At[n].pair-lub a b w jw)))
+      (L.coherent-prop w.1) ;
+  basic-finite (a : Domain.Basis) : ScottOrder[l+].Ex (DP.FiniteIdeal[Domain.basic a]) =
+    TL.map (At[a.1].AP.FiniteIdeal[Domain.basic-at a.1 a.2]) (DP.FiniteIdeal[Domain.basic a])
+      (\ F -> At[a.1].Finite[Domain.basic-at a.1 a.2,F].ideal)
+      ((S.domain a.1).finite-ideals (Domain.basic-at a.1 a.2) ((S.domain a.1).scott.basis.compact a.2)) ;
+  finite-ideals (x : L.carrier) (c : L.V.Compact x) : ScottOrder[l+].Ex (DP.FiniteIdeal[x]) =
+    T.rec ((a : Domain.Basis) * (L.le x (Domain.basic a) * L.le (Domain.basic a) x)) @l+
+      (ScottOrder[l+].Ex (DP.FiniteIdeal[x])) (ScottOrder[l+].prop (DP.FiniteIdeal[x]))
+      (\ w -> TL.map (DP.FiniteIdeal[Domain.basic w.1]) (DP.FiniteIdeal[x])
+        (\ F -> subst L.carrier (\ y -> DP.FiniteIdeal[y]) (Domain.basic w.1) x (L.ext (Domain.basic w.1) x w.2.2 w.2.1) F) (basic-finite w.1))
+      (ScottDomain[l].On[Domain.scott].compact-basis x c) ;
+  domain : DIDomain[l].DI = new DIDomain[l].DI[scott := Domain.scott,distributive := distributive,finite-ideals := finite-ideals] ;
+  module Stage (n : Nat) {
+    module E = RigidEmbedding[l].Between[S.domain n,domain] ;
+    module Q = Rigid.Stage[n] ;
+    rigid : E.BB.LE Q.C.map E.End.identity = E.BB.transitive Q.C.map (E.End.from-rigid Q.projection) E.End.identity
+      (E.BB.equal-below Q.C.map (E.End.from-rigid Q.projection)
+        (\ a -> L.order.reflexive (Embed.approximate S n (Domain.basic a))) (\ a -> L.order.reflexive (Embed.approximate S n (Domain.basic a))))
+      (E.End.below-id Q.projection) ;
+    embedding : E.Embedding = new E.Embedding[embed := Q.embed,project := Q.project,retract := Embed.section n S,rigid := rigid] ;
+  } ;
+} ;

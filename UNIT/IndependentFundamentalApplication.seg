@@ -1,0 +1,38 @@
+-- Application at both substituted dependent result types.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open SynLemmas[l] ; open Subst[l] ; open Presup[l] ;
+module S = Sem[l] ; module Soundness = Sound[l] ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module F = IndependentFundamentalRules[l].At[n,Delta,wellformed] ;
+  module Structural = IndependentFundamentalStructural[l].At[n,Delta,wellformed] ;
+  module Substitution = IndependentFundamentalSubstitution[l].At[n,Delta,wellformed] ;
+  module RS = IndependentRelationSubstitutions[l].At[n,Delta] ;
+  module Laws = IndependentRelationRawLaws[l].At[n,Delta] ;
+  module Case (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m)) (f f' a a' : Tm m)
+    (dA : Der m (jty G A (uu m))) (dB : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+    (df : Der m (jty G f (pp m A B))) (ea : Der m (jeq G a a' A))
+    (rf : F.Fundamental m G f f' (pp m A B)) (ra : F.Fundamental m G a a' A)
+    (rb : F.Fundamental (suc m) (ext m G A) B B (uu (suc m)))
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (related : RS.Related[m,G,rho,s,s']) {
+    da : Der m (jty G a A) = (eq-pre m (jeq G a a' A) ea).1 ;
+    argument : F.Fundamental m G a a A = Structural.transitivity m G a a' a A ea ra (Structural.symmetry m G a a' A ea ra) ;
+    result-type : F.Fundamental m G (subst1 m B a) (subst1 m B a) (uu m) =
+      Substitution.instantiate m G A (uu (suc m)) B B a dA da rb argument ;
+    module Left = F.ApplicationCase[m,G,A,B,f,f',a,a',df,ea,rf,ra,rho,fits,s,s',related] ;
+    module Operations = Structural.Typed[m,G,app m f a,subst1 m B a,ty-App m G A B f a dA dB df da,rho,fits].Operations ;
+    right : RS.Term (S.sem m (app m f a) rho) (Sub.trav m (subst1 m B a) n s')
+      (Sub.trav m (app m f a) n s) (Sub.trav m (app m f' a') n s') =
+      Operations.conversion (Sub.trav m (subst1 m B a) n s) (Sub.trav m (subst1 m B a) n s')
+        (Sub.trav m (app m f a) n s) (Sub.trav m (app m f' a') n s')
+        (Laws.to-type (S.sem m (subst1 m B a) rho) (Sub.trav m (subst1 m B a) n s) (Sub.trav m (subst1 m B a) n s')
+          (result-type rho fits s s' related).1) Left.left ;
+  } ;
+  application (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m)) (f f' a a' : Tm m)
+    (dA : Der m (jty G A (uu m))) (dB : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+    (df : Der m (jty G f (pp m A B))) (ea : Der m (jeq G a a' A))
+    (rf : F.Fundamental m G f f' (pp m A B)) (ra : F.Fundamental m G a a' A)
+    (rb : F.Fundamental (suc m) (ext m G A) B B (uu (suc m))) :
+    F.Fundamental m G (app m f a) (app m f' a') (subst1 m B a) =
+    \ rho fits s s' related -> (Case[m,G,A,B,f,f',a,a',dA,dB,df,ea,rf,ra,rb,rho,fits,s,s',related].Left.left,
+      Case[m,G,A,B,f,f',a,a',dA,dB,df,ea,rf,ra,rb,rho,fits,s,s',related].right) ;
+} ;

@@ -1,0 +1,61 @@
+-- Stable maps on a rigid image correspond to ambient maps supported
+-- by its projection. Extension and restriction satisfy beta/eta.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Image (D : DIDomain[l].DI) (p : RigidProjector[l].On[D.scott].Rigid) {
+  module R = RigidProjector[l].On[D.scott] ; module A = ScottDomain[l].On[D.scott] ;
+  module N = ScottMeet[l].On[D.scott] ;
+  module I = RigidImage[l].Image[D.scott,p] ; module DI = DIImage[l].Image[D,p] ;
+  domain : DIDomain[l].DI = DI.domain ;
+  module IN = ScottMeet[l].On[domain.scott] ;
+  module M = ScottMaps[l].Between[D.scott,D.scott] ;
+  module V = DC[D.scott.order,D.scott.complete] ;
+  ambient-meet (x y : I.carrier) : I.carrier =
+    (N.meet x.1 y.1,R.downward p (N.meet x.1 y.1) x.1 (N.left x.1 y.1) x.2) ;
+  meet-to (x y : I.carrier) : A.LE (IN.meet x y).1 (N.meet x.1 y.1) =
+    N.greatest x.1 y.1 (IN.meet x y).1 (IN.left x y) (IN.right x y) ;
+  meet-from (x y : I.carrier) : A.LE (N.meet x.1 y.1) (IN.meet x y).1 =
+    IN.greatest x y (ambient-meet x y) (N.left x.1 y.1) (N.right x.1 y.1) ;
+  inclusion : StableMaps[l].Between[domain.scott,D.scott].Map =
+    ((\ x -> x.1,(\ x y h -> h,\ J x d z h -> V.least J (\ i -> (x i).1) d z h)),
+      \ a b c ac bc -> meet-from (I.basic-fixed a) (I.basic-fixed b)) ;
+  value (x : A.C) : I.carrier = (R.run p x,R.output-fixed p x) ;
+  projection : StableMaps[l].Between[D.scott,domain.scott].Map =
+    ((value,(M.mono p.operation,\ J x d z h -> M.continuous p.operation J x d z.1 h)),
+      \ a b c ac bc -> D.scott.order.transitive (IN.meet (value (A.basic a)) (value (A.basic b))).1
+        (N.meet (R.run p (A.basic a)) (R.run p (A.basic b))) (R.run p (N.meet (A.basic a) (A.basic b)))
+        (meet-to (value (A.basic a)) (value (A.basic b)))
+        ((StableComposition[l].Endo[D.scott].from-rigid p).2 a b c ac bc)) ;
+  retract (x : I.carrier) : Id I.carrier (value x.1) x = I.ext (value x.1) x (p.deflation x.1) x.2 ;
+} ;
+module Between (D E : DIDomain[l].DI) (p : RigidProjector[l].On[D.scott].Rigid) {
+  module I = Image[D,p] ;
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module T = StableMaps[l].Between[I.domain.scott,E.scott] ;
+  module Restrict (f : S.Map) {
+    map : T.Map = StableComposition[l].Between[I.domain.scott,D.scott,E.scott].Compose[I.inclusion,f].map ;
+  } ;
+  module Extend (g : T.Map) {
+    map : S.Map = StableComposition[l].Between[D.scott,I.domain.scott,E.scott].Compose[I.projection,g].map ;
+  } ;
+  beta (f : S.Map) (x : A.C) : Id B.C (S.run Extend[Restrict[f].map].map x) (S.run f (I.R.run p x)) = refl (S.run f (I.R.run p x)) ;
+  eta-forward (g : T.Map) : T.M.LE Restrict[Extend[g].map].map.1 g.1 =
+    \ a -> T.mono g (I.value (I.I.basic-fixed a).1) (I.I.basic-fixed a) (p.deflation (I.I.basic-fixed a).1) ;
+  eta-backward (g : T.Map) : T.M.LE g.1 Restrict[Extend[g].map].map.1 =
+    \ a -> T.mono g (I.I.basic-fixed a) (I.value (I.I.basic-fixed a).1) (I.I.basic-fixed a).2 ;
+  eta (g : T.Map) : Id T.Map Restrict[Extend[g].map].map g =
+    T.ext Restrict[Extend[g].map].map g
+      (T.equal-below Restrict[Extend[g].map].map g (eta-forward g) (eta-backward g))
+      (T.equal-below g Restrict[Extend[g].map].map (eta-backward g) (eta-forward g)) ;
+  supported (g : T.Map) (x : A.C) : Id B.C (S.run Extend[g].map (I.R.run p x)) (S.run Extend[g].map x) =
+    ap I.I.carrier B.C (T.run g) (I.value (I.R.run p x)) (I.value x) (I.retract (I.value x)) ;
+  recover (f : S.Map) (h : (x : A.C) -> Id B.C (S.run f (I.R.run p x)) (S.run f x)) : Id S.Map Extend[Restrict[f].map].map f =
+    S.ext Extend[Restrict[f].map].map f
+      (S.equal-below Extend[Restrict[f].map].map f
+        (\ a -> subst B.C (\ y -> B.LE (S.run f (I.R.run p (A.basic a))) y) (S.run f (I.R.run p (A.basic a))) (S.run f (A.basic a)) (h (A.basic a)) (E.scott.order.reflexive (S.run f (I.R.run p (A.basic a)))))
+        (\ a -> subst B.C (\ y -> B.LE y (S.run f (I.R.run p (A.basic a)))) (S.run f (I.R.run p (A.basic a))) (S.run f (A.basic a)) (h (A.basic a)) (E.scott.order.reflexive (S.run f (I.R.run p (A.basic a))))))
+      (S.equal-below f Extend[Restrict[f].map].map
+        (\ a -> subst B.C (\ y -> B.LE y (S.run f (I.R.run p (A.basic a)))) (S.run f (I.R.run p (A.basic a))) (S.run f (A.basic a)) (h (A.basic a)) (E.scott.order.reflexive (S.run f (I.R.run p (A.basic a)))))
+        (\ a -> S.mono f (I.R.run p (A.basic a)) (A.basic a) (p.deflation (A.basic a)))) ;
+} ;

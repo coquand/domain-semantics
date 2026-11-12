@@ -1,0 +1,135 @@
+-- Dependent sections: a construction over a supplied function domain.
+-- The interface isolates the function-space properties needed here.
+-- It is instantiated below for the continuous exponential and in
+-- StableSections for the genuine stable function domain.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module H = Axioms[l].FunExtLemmas[fe @l] ;
+
+module Between (D E : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ;
+  module M = ScottMaps[l].Between[D,E] ;
+  module R = RigidProjector[l].On[E] ;
+  module EM = ScottMaps[l].Between[E,E] ;
+  module ES = RigidSubdomain[l].On[E] ;
+  module V = DC[D.order,D.complete] ;
+  record Family {
+    at : A.C -> R.Rigid ;
+    increasing : (x y : A.C) -> A.LE x y -> (z : B.C) -> B.LE (R.run (at x) z) (R.run (at y) z) ;
+  } ;
+  record FunctionDomain {
+    space : ScottDomain[l].Scott ;
+    interpret : space.order.carrier -> M.Map ;
+    monotone : (f g : space.order.carrier) -> space.order.le f g ->
+      (x : A.C) -> B.LE (M.run (interpret f) x) (M.run (interpret g) x) ;
+    bounded : (I : U l) (f : I -> space.order.carrier) (b : space.order.carrier)
+      (h : ScottOrder[l].On[space.order].Bounds I f b) (x : A.C) ->
+      B.LE (M.run (interpret (space.complete.bounded I f b h).1) x)
+        (E.complete.bounded I (\ i -> M.run (interpret (f i)) x) (M.run (interpret b) x)
+          (\ i -> monotone (f i) b (h i) x)).1 ;
+  } ;
+  module In (F : FunctionDomain) {
+    module Q = ScottDomain[l].On[F.space] ;
+    module FS = RigidSubdomain[l].On[F.space] ;
+    module FR = RigidProjector[l].On[F.space] ;
+    module N = ScottMeet[l].On[F.space] ;
+    eval (f : Q.C) (x : A.C) : B.C = M.run (F.interpret f) x ;
+    module Sections (b : Family) {
+      -- Only compact-input tests are quantified over; this predicate is small.
+      Member (f : Q.C) : U l = (a : A.B) -> R.Fixed (b.at (A.basic a)) (eval f (A.basic a)) ;
+      all-inputs (f : Q.C) (h : Member f) (x : A.C) : R.Fixed (b.at x) (eval f x) =
+        E.order.transitive (eval f x) (eval f (V.sup (A.BI x) (A.part x) (A.dir x))) (R.run (b.at x) (eval f x))
+          (M.mono (F.interpret f) x (V.sup (A.BI x) (A.part x) (A.dir x)) (A.from x))
+          (M.continuous (F.interpret f) (A.BI x) (A.part x) (A.dir x) (R.run (b.at x) (eval f x))
+            (\ a -> E.order.transitive (eval f (A.basic a.1)) (R.run (b.at (A.basic a.1)) (eval f (A.basic a.1)))
+              (R.run (b.at x) (eval f x)) (h a.1)
+              (E.order.transitive (R.run (b.at (A.basic a.1)) (eval f (A.basic a.1)))
+                (R.run (b.at x) (eval f (A.basic a.1))) (R.run (b.at x) (eval f x))
+                (b.increasing (A.basic a.1) x a.2 (eval f (A.basic a.1)))
+                (EM.mono (b.at x).operation (eval f (A.basic a.1)) (eval f x)
+                  (M.mono (F.interpret f) (A.basic a.1) x a.2))))) ;
+      subdomain : FS.Subdomain = new FS.Subdomain[member := Member,
+        proposition := \ f -> H.isProp-Pi A.B (\ a -> R.Fixed (b.at (A.basic a)) (eval f (A.basic a)))
+          (\ a -> R.fixed-prop (b.at (A.basic a)) (eval f (A.basic a))),
+        downward := \ f g fg h a -> R.downward (b.at (A.basic a)) (eval f (A.basic a)) (eval g (A.basic a))
+          (F.monotone f g fg (A.basic a)) (h a),
+        closed := \ I f z hz h a -> R.downward (b.at (A.basic a))
+          (eval (F.space.complete.bounded I f z hz).1 (A.basic a))
+          (E.complete.bounded I (\ i -> eval (f i) (A.basic a)) (eval z (A.basic a))
+            (\ i -> F.monotone (f i) z (hz i) (A.basic a))).1
+          (F.bounded I f z hz (A.basic a))
+          ((ES.from-projector (b.at (A.basic a))).closed I (\ i -> eval (f i) (A.basic a)) (eval z (A.basic a))
+            (\ i -> F.monotone (f i) z (hz i) (A.basic a)) (\ i -> h i a))] ;
+      module P = FS.Projection[subdomain] ;
+      projection : FR.Rigid = P.projection ;
+      value : Q.C -> Q.C = P.value ;
+      section (f : Q.C) (x : A.C) : R.Fixed (b.at x) (eval (value f) x) = all-inputs (value f) (P.member f) x ;
+      greatest (f g : Q.C) (gf : Q.LE g f) (h : (x : A.C) -> R.Fixed (b.at x) (eval g x)) : Q.LE g (value f) =
+        P.greatest f g (\ a -> h (A.basic a)) gf ;
+      fixes (f : Q.C) (h : (x : A.C) -> R.Fixed (b.at x) (eval f x)) : Id Q.C (value f) f =
+        F.space.order.antisymmetric (value f) f (P.deflation f) (greatest f f (F.space.order.reflexive f) h) ;
+      module Image = RigidImage[l].Image[F.space,projection] ;
+    } ;
+    inclusion (b c : Family) (h : (x : A.C) (z : B.C) -> B.LE (R.run (b.at x) z) (R.run (c.at x) z)) (f : Q.C) :
+      Q.LE (Sections[b].value f) (Sections[c].value f) =
+      FS.inclusion Sections[b].subdomain Sections[c].subdomain
+        (\ g hg a -> E.order.transitive (eval g (A.basic a)) (R.run (b.at (A.basic a)) (eval g (A.basic a)))
+          (R.run (c.at (A.basic a)) (eval g (A.basic a))) (hg a) (h (A.basic a) (eval g (A.basic a)))) f ;
+    intersection (b c : Family) : Family = new Family[
+      at := \ x -> R.Compose[b.at x,c.at x].projection,
+      increasing := \ x y xy z -> E.order.transitive (R.run (b.at x) (R.run (c.at x) z))
+        (R.run (b.at x) (R.run (c.at y) z)) (R.run (b.at y) (R.run (c.at y) z))
+        (EM.mono (b.at x).operation (R.run (c.at x) z) (R.run (c.at y) z) (c.increasing x y xy z))
+        (b.increasing x y xy (R.run (c.at y) z))] ;
+    intersection-equation (b c : Family) (f : Q.C) :
+      Id Q.C (Sections[intersection b c].value f) (Sections[b].value (Sections[c].value f)) =
+      F.space.order.antisymmetric (Sections[intersection b c].value f) (Sections[b].value (Sections[c].value f))
+        (Sections[b].greatest (Sections[c].value f) (Sections[intersection b c].value f)
+          (Sections[c].greatest f (Sections[intersection b c].value f) (Sections[intersection b c].P.deflation f)
+            (\ x -> R.Compose[b.at x,c.at x].fixed-right (eval (Sections[intersection b c].value f) x)
+              (Sections[intersection b c].section f x)))
+          (\ x -> R.Compose[b.at x,c.at x].fixed-left (eval (Sections[intersection b c].value f) x)
+            (Sections[intersection b c].section f x)))
+        (Sections[intersection b c].greatest f (Sections[b].value (Sections[c].value f))
+          (F.space.order.transitive (Sections[b].value (Sections[c].value f)) (Sections[c].value f) f
+            (Sections[b].P.deflation (Sections[c].value f)) (Sections[c].P.deflation f))
+          (\ x -> R.Compose[b.at x,c.at x].fixed-both (eval (Sections[b].value (Sections[c].value f)) x)
+            (Sections[b].section (Sections[c].value f) x)
+            (R.downward (c.at x) (eval (Sections[b].value (Sections[c].value f)) x) (eval (Sections[c].value f) x)
+              (F.monotone (Sections[b].value (Sections[c].value f)) (Sections[c].value f)
+                (Sections[b].P.deflation (Sections[c].value f)) x) (Sections[c].section f x)))) ;
+    joint-intersection (b c : Family) (f g : Q.C) :
+      Id Q.C (Sections[intersection b c].value (N.meet f g)) (N.meet (Sections[b].value f) (Sections[c].value g)) =
+      F.space.order.antisymmetric (Sections[intersection b c].value (N.meet f g)) (N.meet (Sections[b].value f) (Sections[c].value g))
+        (N.greatest (Sections[b].value f) (Sections[c].value g) (Sections[intersection b c].value (N.meet f g))
+          (Sections[b].greatest f (Sections[intersection b c].value (N.meet f g))
+            (F.space.order.transitive (Sections[intersection b c].value (N.meet f g)) (N.meet f g) f
+              (Sections[intersection b c].P.deflation (N.meet f g)) (N.left f g))
+            (\ x -> R.Compose[b.at x,c.at x].fixed-left (eval (Sections[intersection b c].value (N.meet f g)) x)
+              (Sections[intersection b c].section (N.meet f g) x)))
+          (Sections[c].greatest g (Sections[intersection b c].value (N.meet f g))
+            (F.space.order.transitive (Sections[intersection b c].value (N.meet f g)) (N.meet f g) g
+              (Sections[intersection b c].P.deflation (N.meet f g)) (N.right f g))
+            (\ x -> R.Compose[b.at x,c.at x].fixed-right (eval (Sections[intersection b c].value (N.meet f g)) x)
+              (Sections[intersection b c].section (N.meet f g) x))))
+        (Sections[intersection b c].greatest (N.meet f g) (N.meet (Sections[b].value f) (Sections[c].value g))
+          (N.greatest f g (N.meet (Sections[b].value f) (Sections[c].value g))
+            (F.space.order.transitive (N.meet (Sections[b].value f) (Sections[c].value g)) (Sections[b].value f) f
+              (N.left (Sections[b].value f) (Sections[c].value g)) (Sections[b].P.deflation f))
+            (F.space.order.transitive (N.meet (Sections[b].value f) (Sections[c].value g)) (Sections[c].value g) g
+              (N.right (Sections[b].value f) (Sections[c].value g)) (Sections[c].P.deflation g)))
+          (\ x -> R.Compose[b.at x,c.at x].fixed-both (eval (N.meet (Sections[b].value f) (Sections[c].value g)) x)
+            (R.downward (b.at x) (eval (N.meet (Sections[b].value f) (Sections[c].value g)) x) (eval (Sections[b].value f) x)
+              (F.monotone (N.meet (Sections[b].value f) (Sections[c].value g)) (Sections[b].value f)
+                (N.left (Sections[b].value f) (Sections[c].value g)) x) (Sections[b].section f x))
+            (R.downward (c.at x) (eval (N.meet (Sections[b].value f) (Sections[c].value g)) x) (eval (Sections[c].value g) x)
+              (F.monotone (N.meet (Sections[b].value f) (Sections[c].value g)) (Sections[c].value g)
+                (N.right (Sections[b].value f) (Sections[c].value g)) x) (Sections[c].section g x)))) ;
+  } ;
+  -- A concrete instance, using the already checked Scott exponential.
+  -- Its order is pointwise, not the stable order.
+  continuous-functions : FunctionDomain = new FunctionDomain[space := ScottExponential[l].Exponential[D,E].scott,
+    interpret := \ f -> f, monotone := M.pointwise,
+    bounded := \ I f b h x -> E.order.reflexive
+      (E.complete.bounded I (\ i -> M.run (f i) x) (M.run b x) (\ i -> M.pointwise (f i) b (h i) x)).1] ;
+} ;

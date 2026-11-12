@@ -1,0 +1,49 @@
+-- Whole-domain adequacy obtained from the existing compact theorem.
+-- Arbitrary observations are first covered by TYPED observations; the
+-- compact relation is then lowered. No choice of reflected witnesses.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ;
+open ExtFilter[l] ; open Domain[l] ; open DomainLogicalRelation[l] ;
+module TC = TruncationCombinators[l] ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module Relation = DomainLogicalRelation[l].At[n,Delta] ;
+  module Compact = RelC[l].RelCD[n,Delta] ;
+  module Laws = AdeqBase[l].AdeqB[n,Delta] ;
+  module Equality (m : Nat) (G : Ctx m) (M N A : Tm m)
+    (derivation : Der m (jeq G M N A))
+    (rho : Sem[l].Env m) (fits : Sound[l].Fits m G rho)
+    (s s' : Fin m -> Tm n) (related : Laws.RelS m G rho s s') {
+    module Denotation = Model[l].Denotation[m,G,M,A,(Presup[l].eq-pre m (jeq G M N A) derivation).1,rho,fits] ;
+    value : D = Denotation.term ;
+    type-left : Tm n = Syntax[l].Sub.trav m A n s ;
+    type-right : Tm n = Syntax[l].Sub.trav m A n s' ;
+    term-left : Tm n = Syntax[l].Sub.trav m M n s ;
+    term-right : Tm n = Syntax[l].Sub.trav m N n s' ;
+    Witness (t : Ty) : U l = Compact.TmR t type-left term-left term-right * Compact.TmR t type-right term-left term-right ;
+    module Cover (t : Ty) (inside : (Sem[l].sem m M rho).mem t) {
+      cover : Sound[l].Enl (Sem[l].sem m M rho) (Sem[l].sem m A rho) t = Denotation.term-typed t inside ;
+      typed : Witness cover.v = Adequacy[l].AdeqT[n,Delta,wellformed].adequacy
+        m (jeq G M N A) derivation rho fits s s' related cover.v cover.c cover.inA cover.inB cover.tp ;
+      result : Witness t =
+        (Laws.cmono-tm cover.v t cover.below type-left term-left term-right typed.1,
+         Laws.cmono-tm cover.v t cover.below type-right term-left term-right typed.2) ;
+    } ;
+    observation (t : Ty) (inside : In value t) : Ex (Witness t) =
+      TC.map ((Sem[l].sem m M rho).mem t) (Witness t) (\ h -> Cover[t,h].result) inside ;
+    left : Relation.Term value type-left term-left term-right =
+      Relation.For[terms type-left term-left term-right].from-tokenwise value
+        (\ t inside -> TC.map (Witness t) (Compact.TmR t type-left term-left term-right) (\ w -> w.1) (observation t inside)) ;
+    right : Relation.Term value type-right term-left term-right =
+      Relation.For[terms type-right term-left term-right].from-tokenwise value
+        (\ t inside -> TC.map (Witness t) (Compact.TmR t type-right term-left term-right) (\ w -> w.2) (observation t inside)) ;
+    adequacy : Relation.Term value type-left term-left term-right * Relation.Term value type-right term-left term-right = (left,right) ;
+  } ;
+  module TypeEquality (m : Nat) (G : Ctx m) (A B : Tm m)
+    (derivation : Der m (jeq G A B (uu m)))
+    (rho : Sem[l].Env m) (fits : Sound[l].Fits m G rho)
+    (s s' : Fin m -> Tm n) (related : Laws.RelS m G rho s s') {
+    module E = Equality[m,G,A,B,uu m,derivation,rho,fits,s,s',related] ;
+    adequacy : Relation.Type E.value E.term-left E.term-right =
+      Relation.to-type E.value E.type-left E.term-left E.term-right E.left ;
+  } ;
+} ;

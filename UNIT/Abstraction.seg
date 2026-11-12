@@ -1,0 +1,196 @@
+-- The function-space representation theorem. Arrow-generated elements
+-- are equivalent to continuous maps D -> D, with application/abstraction
+-- as inverse maps. Consistent arrow inputs are essential for eta.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ;
+open Consistency[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ;
+module R = Filter[l] ;
+module TC = TruncationCombinators[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+
+Arrows (s : Ty) : U l = Proper[l].Arrows s ;
+AW (x : D) (t : Ty) : U l =
+  (s : Ty) * (Good s * (Arrows s * (In x s * Le s t))) ;
+Function (x : D) : U l = (t : Ty) -> In x t -> Ex (AW x t) ;
+FD : U l+ = (x : D) * Function x ;
+
+function-prop (x : D) : isProp (Function x) =
+  F.isProp-Pi Ty (\ t -> In x t -> Ex (AW x t))
+    (\ t -> F.isProp-Pi (In x t) (\ _ -> Ex (AW x t)) (\ _ -> ex-prop (AW x t))) ;
+function-ext (x y : FD) (h : Equal x.1 y.1) : Id FD x y =
+  Prelude[l+].Sigma-eq D (\ z -> Function z) x.1 y.1 x.2 y.2
+    (Domain[l].ext x.1 y.1 h) (function-prop y.1) ;
+
+module Lambda (f : Map) {
+  record Entry {
+    input : Ty ; output : Ty ;
+    good-in : Good input ; cons-in : Cons input ; good-out : Good output ;
+    observed : In (run f (principal (input,(good-in,cons-in)))) output ;
+  } ;
+  ER (x v : Ty) : U l = Entry[x,v] ;
+
+  graph-good : (s : Ty) -> R.EntS ER s -> Good s * Arrows s = split {
+    es-om -> (tt,tt) ;
+    es-arr x v e -> ((e.good-in,(e.cons-in,e.good-out)),tt) ;
+    es-meet a b h1 h2 | r1 r2 -> ((r1.1,r2.1),(r1.2,r2.2)) } ;
+
+  entry-at (x v : Ty) (e : ER x v) (k : K) (h : Le k.1 x) : In (run f (principal k)) v =
+    f.2.1 (principal (x,(e.good-in,e.cons-in))) (principal k)
+      (prin-anti k.1 x h) v e.observed ;
+
+  selection : (b d t : Ty) -> ASel b d t -> R.EntS ER b ->
+    (k : K) -> Le k.1 d -> In (run f (principal k)) t = split {
+    as-none b -> \ e k le -> fom (run f (principal k)).1 ;
+    as-here a v -> \ e k le -> entry-at a v (R.ents-inv ER (arr a v) e) k le ;
+    as-l a b d t h | rh -> \ e k le -> rh (R.ents-inv ER (meet a b) e).1 k le ;
+    as-r a b d t h | rh -> \ e k le -> rh (R.ents-inv ER (meet a b) e).2 k le ;
+    as-meet b d1 t1 d2 t2 h1 h2 | r1 r2 -> \ e k le ->
+      fmeet (run f (principal k)).1 t1 t2
+        (r1 e k (R.le-split-l k.1 d1 d2 le))
+        (r2 e k (R.le-split-r k.1 d1 d2 le)) } ;
+
+  graph-cons (s : Ty) (e : R.EntS ER s) : Cons s =
+    cons-fix-from s
+      (\ a b hu hp -> sel-all R.NotUP s univ hu shape,
+       (\ d t hu q cd -> efq (sel-all R.NotUP s univ hu shape),
+       (\ a b d t hp q cd -> efq (sel-all R.NotUP s (pi a b) hp shape),
+       (\ a b q -> (R.omonly-cons a (R.psel-nopi s a b q shape).1,
+                     R.omonly-cons b (R.psel-nopi s a b q shape).2),
+        \ d t q cd -> consistent
+          (run f (principal (d,((Regular[l].proper-asel s d t q (graph-good s e).1).1,cd)))) t
+          (selection s d t q e
+            (d,((Regular[l].proper-asel s d t q (graph-good s e).1).1,cd)) (le-refl d))))))
+    where { shape : AllC R.NotUP s = R.ents-all ER s e ; } ;
+
+  record GW {
+    target : Ty ; graph : Ty ; below : Le graph target ; entries : R.EntS ER graph ;
+  } ;
+  W (t : Ty) : U l = GW[t] ;
+  wom : W om = new GW[om,om,le-refl om,es-om] ;
+  wmeet (s t : Ty) (a : W s) (b : W t) : W (meet s t) =
+    new GW[meet s t,meet a.graph b.graph,le-meet-mono a.graph s b.graph t a.below b.below,
+      es-meet a.graph b.graph a.entries b.entries] ;
+  wup (s t : Ty) (h : Le s t) (a : W s) : W t =
+    new GW[t,a.graph,le-trans a.graph s t a.below h,a.entries] ;
+  carrier : Filt = truncF W wom wmeet wup ;
+  valid : Valid carrier = \ t -> TC.map (W t) (Cons t)
+    (\ w -> cons-down w.graph t w.below (graph-cons w.graph w.entries)) ;
+  generated : Generated carrier = \ t -> TC.map (W t) (Domain[l].PW carrier t)
+    (\ w -> (w.graph,((graph-good w.graph w.entries).1,
+      (ex (W w.graph) (new GW[w.graph,w.graph,le-refl w.graph,w.entries]),w.below)))) ;
+  value : D = (carrier,(valid,generated)) ;
+  arrow-generated : Function value = \ t -> TC.map (W t) (AW value t)
+    (\ w -> (w.graph,((graph-good w.graph w.entries).1,((graph-good w.graph w.entries).2,
+      (ex (W w.graph) (new GW[w.graph,w.graph,le-refl w.graph,w.entries]),w.below))))) ;
+  function : FD = (value,arrow-generated) ;
+  entry (x v : Ty) (e : ER x v) : In value (arr x v) =
+    ex (W (arr x v)) (new GW[arr x v,arr x v,le-refl (arr x v),es-arr x v e]) ;
+} ;
+
+abstract (f : Map) : FD = Lambda[f].function ;
+apply (f : FD) : Map = Application[l].map f.1 ;
+
+module MonotoneLambda (f g : Map) (h : (x : D) -> Domain[l].Below (run f x) (run g x)) {
+  module LF = Lambda[f] ; module LG = Lambda[g] ;
+  entry (a b : Ty) (e : LF.ER a b) : LG.ER a b =
+    new LG.Entry[a,b,e.good-in,e.cons-in,e.good-out,
+      h (principal (a,(e.good-in,e.cons-in))) b e.observed] ;
+  inclusion : Domain[l].Below LF.value LG.value = \ t ->
+    TC.map (LF.W t) (LG.W t) (\ w -> new LG.GW[t,w.graph,w.below,
+      R.ents-map LF.ER LG.ER entry w.graph w.entries]) ;
+} ;
+
+module Beta (f : Map) (x : D) {
+  module L = Lambda[f] ;
+  result : D = Application[l].eval L.value x ;
+
+  selected (t : Ty) (w : R.AppW (raw L.carrier) (raw x.1) t)
+    (g : L.W w.g) (a : Domain[l].PW x.1 w.x) : In (run f x) t =
+    f.2.1 (principal k) x (prin-sub a.1 x.1 a.2.2.1) t
+      (fup (run f (principal k)).1 i.2.1 t i.2.2.2.2
+        (L.selection g.graph i.1 i.2.1 i.2.2.1 g.entries k
+          (le-trans a.1 w.x i.1 a.2.2.2 i.2.2.2.1)))
+    where {
+      k : K = (a.1,(a.2.1,consistent x a.1 a.2.2.1)) ;
+      i : InvArr g.graph w.x t = inv-arr g.graph w.x t
+        (le-trans g.graph w.g (arr w.x t) g.below w.le) ; } ;
+
+  forward : Domain[l].Below result (run f x) = \ t ->
+    ex-elim (R.AppW (raw L.carrier) (raw x.1) t) (In (run f x) t) (fprop (run f x).1 t)
+      (\ w -> ex-elim (L.W w.g) (In (run f x) t) (fprop (run f x).1 t)
+        (\ g -> ex-elim (Domain[l].PW x.1 w.x) (In (run f x) t) (fprop (run f x).1 t)
+          (selected t w g) (x.2.2 w.x w.inx)) w.ing) ;
+
+  at (t : Ty) (w : Trace f.1 x t) (a : Domain[l].PW (run f (principal w.1)).1 t) : In result t =
+    Application[l].intro L.value x (arr w.1.1 a.1) w.1.1 t
+      (L.entry w.1.1 a.1 (new L.Entry[w.1.1,a.1,w.1.2.1,w.1.2.2,a.2.1,a.2.2.1])) w.2.1
+      (le-arr w.1.1 w.1.1 a.1 t (le-refl w.1.1) a.2.2.2) ;
+
+  backward : Domain[l].Below (run f x) result = \ t h ->
+    ex-elim (Trace f.1 x t) (In result t) (fprop result.1 t)
+      (\ w -> ex-elim (Domain[l].PW (run f (principal w.1)).1 t) (In result t) (fprop result.1 t)
+        (at t w) ((run f (principal w.1)).2.2 t w.2.2)) (f.2.2 x t h) ;
+  equality : Equal result (run f x) = (forward,backward) ;
+} ;
+
+module Lower (x : D) {
+  module L = Lambda[Application[l].map x] ;
+  entry-in (d v : Ty) (e : L.ER d v) : In x (arr d v) =
+    ex-elim (R.AppW (raw x.1) (raw (principal (d,(e.good-in,e.cons-in))).1) v)
+      (In x (arr d v)) (fprop x.1 (arr d v))
+      (\ w -> ex-elim (Le d w.x) (In x (arr d v)) (fprop x.1 (arr d v))
+        (\ h -> fup x.1 w.g (arr d v)
+          (le-trans w.g (arr w.x v) (arr d v) w.le
+            (le-arr w.x d v v h (le-refl v))) w.ing) w.inx) e.observed ;
+
+  forward : Domain[l].Below L.value x = \ t ->
+    ex-elim (L.W t) (In x t) (fprop x.1 t)
+      (\ w -> fup x.1 w.graph t w.below
+        (R.ents-in (raw x.1) L.ER w.graph (\ d v e le -> entry-in d v e)
+          w.graph w.entries (le-refl w.graph))) ;
+
+} ;
+
+module Eta (x : FD) {
+  module L = Lambda[apply x] ;
+  entry-in (d v : Ty) (e : L.ER d v) : In x.1 (arr d v) =
+    ex-elim (R.AppW (raw x.1.1) (raw (principal (d,(e.good-in,e.cons-in))).1) v)
+      (In x.1 (arr d v)) (fprop x.1.1 (arr d v))
+      (\ w -> ex-elim (Le d w.x) (In x.1 (arr d v)) (fprop x.1.1 (arr d v))
+        (\ h -> fup x.1.1 w.g (arr d v)
+          (le-trans w.g (arr w.x v) (arr d v) w.le
+            (le-arr w.x d v v h (le-refl v))) w.ing) w.inx) e.observed ;
+
+  forward : Domain[l].Below L.value x.1 = \ t ->
+    ex-elim (L.W t) (In x.1 t) (fprop x.1.1 t)
+      (\ w -> fup x.1.1 w.graph t w.below
+        (R.ents-in (raw x.1.1) L.ER w.graph (\ d v e le -> entry-in d v e)
+          w.graph w.entries (le-refl w.graph))) ;
+
+  rebuild (base : Ty) (hb : In x.1 base) : (s : Ty) -> Good s -> Arrows s ->
+    Le base s -> R.EntS L.ER s = split {
+    om -> \ p a h -> es-om ;
+    univ -> \ p a h -> efq a ;
+    pi d f -> \ p a h -> efq a ;
+    arr d v -> \ p a h -> es-arr d v
+      (new L.Entry[d,v,p.1,p.2.1,p.2.2,
+        Application[l].intro x.1 (principal (d,(p.1,p.2.1))) base d v hb (prin-in d) h]) ;
+    meet s t | rs rt -> \ p a h -> es-meet s t
+      (rs p.1 a.1 (R.le-split-l base s t h))
+      (rt p.2 a.2 (R.le-split-r base s t h)) } ;
+
+  backward : Domain[l].Below x.1 L.value = \ t h ->
+    ex-elim (AW x.1 t) (In L.value t) (fprop L.value.1 t)
+      (\ w -> ex (L.W t) (new L.GW[t,w.1,w.2.2.2.2,
+        rebuild w.1 w.2.2.2.1 w.1 w.2.1 w.2.2.1 (le-refl w.1)])) (x.2 t h) ;
+  equality : Equal L.value x.1 = (forward,backward) ;
+} ;
+
+beta (f : Map) : Id Map (apply (abstract f)) f =
+  Continuous[l].ext (apply (abstract f)) f (\ x -> Beta[f,x].equality) ;
+eta (x : FD) : Id FD (abstract (apply x)) x =
+  function-ext (abstract (apply x)) x Eta[x].equality ;
+
+function-space : Prelude[l+].Equiv FD Map =
+  (apply,Prelude[l+].qinv FD Map apply abstract beta eta) ;

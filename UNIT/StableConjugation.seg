@@ -1,0 +1,22 @@
+-- Stable sandwiching by fixed pre- and post-maps.
+level l ;
+open Base ; open Prelude[l+] ;
+module Between (A B C D : DIDomain[l].DI)
+  (before : StableMaps[l].Between[A.scott,B.scott].Map)
+  (after : StableMaps[l].Between[C.scott,D.scott].Map) {
+  module X = StableFiniteIdeals[l].Exponential[B,C] ;
+  module AB = StableFiniteIdeals[l].Exponential[A,B] ;
+  module AC = StableFiniteIdeals[l].Exponential[A,C] ;
+  module CD = StableFiniteIdeals[l].Exponential[C,D] ;
+  module AD = StableFiniteIdeals[l].Exponential[A,D] ;
+  module Pre = StableInternalComposition[l].Between[A,B,C] ;
+  module Post = StableInternalComposition[l].Between[A,C,D] ;
+  module First = StableProduct[l].Pair[X.domain.scott,AB.domain.scott,X.domain.scott,
+    StableProduct[l].Constant[X.domain.scott,AB.domain.scott,before].map,StableComposition[l].Endo[X.domain.scott].identity] ;
+  restricted : StableMaps[l].Between[X.domain.scott,AC.domain.scott].Map =
+    StableComposition[l].Between[X.domain.scott,Pre.P.scott,AC.domain.scott].Compose[First.map,Pre.map].map ;
+  module Second = StableProduct[l].Pair[X.domain.scott,AC.domain.scott,CD.domain.scott,restricted,
+    StableProduct[l].Constant[X.domain.scott,CD.domain.scott,after].map] ;
+  map : StableMaps[l].Between[X.domain.scott,AD.domain.scott].Map =
+    StableComposition[l].Between[X.domain.scott,Post.P.scott,AD.domain.scott].Compose[Second.map,Post.map].map ;
+} ;

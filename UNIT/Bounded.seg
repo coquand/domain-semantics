@@ -1,0 +1,42 @@
+-- Every small bounded family of domain elements has a least upper bound.
+-- Its finite derivations are truncated only after their closure rules.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ;
+module TC = TruncationCombinators[l] ;
+
+module Sup (I : U l) (x : I -> D) (bound : D)
+  (bounded : (i : I) -> Domain[l].Below (x i) bound) {
+  data W : (t : Ty) -> U l =
+      wempty : W om
+    | win (i : I) (t : Ty) (h : In (x i) t) : W t
+    | wjoin (s t : Ty) (hs : W s) (ht : W t) : W (meet s t)
+    | wup (s t : Ty) (le : Le s t) (h : W s) : W t ;
+  carrier : Filt = truncF W wempty (\ s t hs ht -> wjoin s t hs ht) (\ s t le h -> wup s t le h) ;
+  in-bound : (t : Ty) -> W t -> In bound t = split {
+    wempty -> fom bound.1 ;
+    win i t h -> bounded i t h ;
+    wjoin s t hs ht | rs rt -> fmeet bound.1 s t rs rt ;
+    wup s t le h | r -> fup bound.1 s t le r } ;
+  proper-witness : (t : Ty) -> W t -> Ex (Domain[l].PW carrier t) = split {
+    wempty -> ex (Domain[l].PW carrier om) (om,(tt,(fom carrier,le-refl om))) ;
+    win i t h -> TC.map (Domain[l].PW (x i).1 t) (Domain[l].PW carrier t)
+      (\ w -> (w.1,(w.2.1,(ex (W w.1) (win i w.1 w.2.2.1),w.2.2.2)))) ((x i).2.2 t h) ;
+    wjoin s t hs ht | rs rt -> TC.map2 (Domain[l].PW carrier s) (Domain[l].PW carrier t)
+      (Domain[l].PW carrier (meet s t))
+      (\ a b -> (meet a.1 b.1,((a.2.1,b.2.1),
+        (fmeet carrier a.1 b.1 a.2.2.1 b.2.2.1,le-meet-mono a.1 s b.1 t a.2.2.2 b.2.2.2)))) rs rt ;
+    wup s t le h | r -> TC.map (Domain[l].PW carrier s) (Domain[l].PW carrier t)
+      (\ w -> (w.1,(w.2.1,(w.2.2.1,le-trans w.1 s t w.2.2.2 le)))) r } ;
+  value : D = (carrier,
+    (\ t -> TC.map (W t) (Cons t) (\ w -> consistent bound t (in-bound t w)),
+     \ t -> TC.bind (W t) (Domain[l].PW carrier t) (proper-witness t))) ;
+  upper (i : I) : Domain[l].Below (x i) value = \ t h -> ex (W t) (win i t h) ;
+  fold (y : D) (hy : (i : I) -> Domain[l].Below (x i) y) : (t : Ty) -> W t -> In y t = split {
+    wempty -> fom y.1 ;
+    win i t h -> hy i t h ;
+    wjoin s t hs ht | rs rt -> fmeet y.1 s t rs rt ;
+    wup s t le h | r -> fup y.1 s t le r } ;
+  least (y : D) (hy : (i : I) -> Domain[l].Below (x i) y) : Domain[l].Below value y =
+    \ t -> ex-elim (W t) (In y t) (fprop y.1 t) (fold y hy t) ;
+} ;

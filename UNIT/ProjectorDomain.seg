@@ -1,0 +1,145 @@
+-- Fp D is an algebraic complete lattice, presented by compact families.
+-- Finite generators, rather than a powerset-resizing axiom, give its basis.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open CompactFamilies[l] ;
+module TC = TruncationCombinators[l] ;
+
+Inc (E H : Family) : U l = CompactFamilies[l].Incl E H ;
+irefl (E : Family) : Inc E E = \ k h -> h ;
+itrans (E H J : Family) (a : Inc E H) (b : Inc H J) : Inc E J = \ k h -> b k (a k h) ;
+
+data Der (P : K -> U l) : (k : K) -> U l =
+    d-empty : Der P bottomK
+  | d-in (k : K) (h : P k) : Der P k
+  | d-join (a b : K) (c : Cons (meet a.1 b.1)) (ha : Der P a) (hb : Der P b) : Der P (joinK a b c)
+  | d-equiv (a b : K) (e : EqK a b) (h : Der P a) : Der P b ;
+
+closure (P : K -> U l) : Family =
+  (\ k -> Ex (Der P k),(\ k -> ex-prop (Der P k),
+    (ex (Der P bottomK) d-empty,
+      (\ a b c -> TC.map2 (Der P a) (Der P b) (Der P (joinK a b c)) (\ ha hb -> d-join a b c ha hb),
+       \ a b e -> TC.map (Der P a) (Der P b) (\ h -> d-equiv a b e h))))) ;
+inc (P : K -> U l) (k : K) (h : P k) : Mem (closure P) k = ex (Der P k) (d-in k h) ;
+
+fold (P : K -> U l) (E : Family) (h : (k : K) -> P k -> Mem E k) : (k : K) -> Der P k -> Mem E k = split {
+  d-empty -> empty-in E ;
+  d-in k p -> h k p ;
+  d-join a b c ha hb | ra rb -> join-in E a b c ra rb ;
+  d-equiv a b e ha | ra -> equiv-in E a b e ra } ;
+least (P : K -> U l) (E : Family) (h : (k : K) -> P k -> Mem E k) : Inc (closure P) E =
+  \ k -> ex-elim (Der P k) (Mem E k) (member-prop E k) (fold P E h k) ;
+
+-- Arbitrary small suprema, including the empty one.
+module Supremum (I : U l) (E : I -> Family) {
+  generators (k : K) : U l = (i : I) * Mem (E i) k ;
+  value : Family = closure generators ;
+  upper (i : I) : Inc (E i) value = \ k h -> inc generators k (i,h) ;
+  lub (H : Family) (h : (i : I) -> Inc (E i) H) : Inc value H =
+    least generators H (\ k w -> h w.1 k w.2) ;
+} ;
+
+Upper (I : U l) (E : I -> Family) (i j : I) : U l =
+  (k : I) * (Inc (E i) (E k) * Inc (E j) (E k)) ;
+Dir (I : U l) (E : I -> Family) : U l = Ex I * ((i j : I) -> Ex (Upper I E i j)) ;
+
+module Union (I : U l) (E : I -> Family) (d : Dir I E) {
+  W (k : K) : U l = (i : I) * Mem (E i) k ;
+  at-bottom : Ex (W bottomK) = TC.map I (W bottomK) (\ i -> (i,empty-in (E i))) d.1 ;
+  at-join (a b : K) (c : Cons (meet a.1 b.1)) : Ex (W a) -> Ex (W b) -> Ex (W (joinK a b c)) =
+    TC.bind2 (W a) (W b) (W (joinK a b c)) (\ u v ->
+      TC.map (Upper I E u.1 v.1) (W (joinK a b c))
+        (\ w -> (w.1,join-in (E w.1) a b c (w.2.1 a u.2) (w.2.2 b v.2))) (d.2 u.1 v.1)) ;
+  at-equiv (a b : K) (e : EqK a b) : Ex (W a) -> Ex (W b) =
+    TC.map (W a) (W b) (\ w -> (w.1,equiv-in (E w.1) a b e w.2)) ;
+  value : Family = (\ k -> Ex (W k),(\ k -> ex-prop (W k),(at-bottom,(at-join,at-equiv)))) ;
+  upper (i : I) : Inc (E i) value = \ k h -> ex (W k) (i,h) ;
+  lub (H : Family) (h : (i : I) -> Inc (E i) H) : Inc value H =
+    \ k -> ex-elim (W k) (Mem H k) (member-prop H k) (\ w -> h w.1 k w.2) ;
+} ;
+
+data Finite : U l = none | single (k : K) | both (a b : Finite) ;
+Occ : Finite -> K -> U l = split {
+  none -> \ k -> Empty ;
+  single k -> \ t -> EqK k t ;
+  both a b | ra rb -> \ k -> Plus (ra k) (rb k) } ;
+finite (a : Finite) : Family = closure (Occ a) ;
+single-in (k : K) : Mem (finite (single k)) k = inc (Occ (single k)) k (le-refl k.1,le-refl k.1) ;
+left (a b : Finite) : Inc (finite a) (finite (both a b)) =
+  least (Occ a) (finite (both a b)) (\ k h -> inc (Occ (both a b)) k (inl h)) ;
+right (a b : Finite) : Inc (finite b) (finite (both a b)) =
+  least (Occ b) (finite (both a b)) (\ k h -> inc (Occ (both a b)) k (inr h)) ;
+both-into (a b : Finite) (E : Family) (ha : Inc (finite a) E) (hb : Inc (finite b) E)
+  (k : K) : Occ (both a b) k -> Mem E k = split {
+    inl h -> ha k (inc (Occ a) k h) ;
+    inr h -> hb k (inc (Occ b) k h) } ;
+both-least (a b : Finite) (E : Family) (ha : Inc (finite a) E) (hb : Inc (finite b) E) : Inc (finite (both a b)) E =
+  least (Occ (both a b)) E (both-into a b E ha hb) ;
+
+Compact (E : Family) : U l+ = (I : U l) (H : I -> Family) (d : Dir I H) ->
+  Inc E Union[I,H,d].value -> Ex ((i : I) * Inc E (H i)) ;
+
+finite-compact : (a : Finite) -> Compact (finite a) = split {
+  none -> \ I H d h -> TC.map I ((i : I) * Inc (finite none) (H i))
+    (\ i -> (i,least (Occ none) (H i) (\ k e -> efq e))) d.1 ;
+  single k -> \ I H d h -> TC.map (Union[I,H,d].W k)
+    ((i : I) * Inc (finite (single k)) (H i))
+    (\ w -> (w.1,least (Occ (single k)) (H w.1) (\ t e -> equiv-in (H w.1) k t e w.2)))
+    (h k (single-in k)) ;
+  both a b | ra rb -> \ I H d h ->
+    TC.bind2 ((i : I) * Inc (finite a) (H i)) ((i : I) * Inc (finite b) (H i))
+      ((i : I) * Inc (finite (both a b)) (H i))
+      (\ u v -> TC.map (Upper I H u.1 v.1) ((i : I) * Inc (finite (both a b)) (H i))
+        (\ w -> (w.1,both-least a b (H w.1)
+          (itrans (finite a) (H u.1) (H w.1) u.2 w.2.1)
+          (itrans (finite b) (H v.1) (H w.1) v.2 w.2.2))) (d.2 u.1 v.1))
+      (ra I H d (itrans (finite a) (finite (both a b)) Union[I,H,d].value (left a b) h))
+      (rb I H d (itrans (finite b) (finite (both a b)) Union[I,H,d].value (right a b) h)) } ;
+
+module Basis (E : Family) {
+  index : U l = (a : Finite) * Inc (finite a) E ;
+  part (i : index) : Family = finite i.1 ;
+  directed : Dir index part =
+    (ex index (none,least (Occ none) E (\ k e -> efq e)),
+     \ i j -> ex (Upper index part i j)
+       ((both i.1 j.1,both-least i.1 j.1 E i.2 j.2),(left i.1 j.1,right i.1 j.1))) ;
+  forward : Inc Union[index,part,directed].value E = Union[index,part,directed].lub E (\ i -> i.2) ;
+  backward (k : K) (h : Mem E k) : Mem Union[index,part,directed].value k =
+    Union[index,part,directed].upper
+      (single k,least (Occ (single k)) E (\ t e -> equiv-in E k t e h)) k (single-in k) ;
+  equation : Id Family Union[index,part,directed].value E =
+    CompactFamilies[l].ext Union[index,part,directed].value E (forward,backward) ;
+} ;
+
+compact-finite (E : Family) (c : Compact E) : Ex ((a : Finite) * EqualF E (finite a)) =
+  TC.map ((i : Basis[E].index) * Inc E (Basis[E].part i)) ((a : Finite) * EqualF E (finite a))
+    (\ w -> (w.1.1,(w.2,w.1.2)))
+    (c Basis[E].index Basis[E].part Basis[E].directed Basis[E].backward) ;
+
+-- The family order is exactly the pointwise order of projectors.
+order-to (E H : Family) (h : Inc E H) (x : D) :
+  Domain[l].Below (Projector[l].project E x) (Projector[l].project H x) =
+  Projector[l].mono E H x x h (sub-refl x.1) ;
+order-from (E H : Family) (h : (x : D) ->
+  Domain[l].Below (Projector[l].project E x) (Projector[l].project H x)) : Inc E H =
+  \ k e -> Projector[l].fixed-compact H k
+    (Projector[l].At[H,principal k].below,
+     \ t ht -> h (principal k) t ((Projector[l].compact-fixed E k e).2 t ht)) ;
+
+-- Directed suprema of projectors are computed pointwise.
+module Pointwise (I : U l) (E : I -> Family) (d : Dir I E) (x : D) {
+  module UQ = Union[I,E,d] ;
+  image-directed : Domain[l].Dir I (\ i -> (Projector[l].project (E i) x).1) =
+    (d.1,\ i j -> TC.map (Upper I E i j)
+      (Directed[l].Upper I (\ a -> (Projector[l].project (E a) x).1) i j)
+      (\ w -> (w.1,(order-to (E i) (E w.1) w.2.1 x,order-to (E j) (E w.1) w.2.2 x))) (d.2 i j)) ;
+  module S = Domain[l].Sup[I,\ i -> Projector[l].project (E i) x,image-directed] ;
+  module Q = Projector[l].At[UQ.value,x] ;
+  forward : Domain[l].Below Q.value S.value = \ t ->
+    ex-elim (Q.W t) (In S.value t) (fprop S.value.1 t)
+      (\ w -> ex-elim (UQ.W w.1) (In S.value t) (fprop S.value.1 t)
+        (\ a -> S.inc a.1 t (ex (Projector[l].At[E a.1,x].W t)
+          (w.1,(a.2,(w.2.2.1,w.2.2.2))))) w.2.1) ;
+  backward : Domain[l].Below S.value Q.value = S.least Q.value (\ i -> order-to (E i) UQ.value (UQ.upper i) x) ;
+  equation : Id D Q.value S.value = Domain[l].ext Q.value S.value (forward,backward) ;
+} ;

@@ -1,0 +1,37 @@
+-- Mutual typed laws for every independently constructed finite relation.
+-- Types are proved before terms at each successor, as in existence.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+module Tr = TruncationCombinators[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module O = LogicalRelationOperator[l].At[n,Delta] ; module L = LogicalRelationLocality[l].At[n,Delta] ;
+  module St = LogicalRelationStages[l].At[n,Delta] ; module Dg = IndependentRelationDiagonal[l].At[n,Delta] ;
+  module TS = IndependentRelationTypedSteps[l].At[n,Delta] ; module TM = IndependentRelationTypedTerms[l].At[n,Delta] ;
+  record Laws {
+    R : O.Relations ;
+    type-symmetry : TS.TypeSymmetry R ; type-transitivity : TS.TypeTransitivity R ;
+    term-symmetry : TS.TermSymmetry R ; term-transitivity : TS.TermTransitivity R ; conversion : TS.Conversion R ;
+  } ;
+  initial-symmetry (M N : Tm n) (x : D) (h : (St.initial.ty M N).holds x) : (St.initial.ty N M).holds x =
+    \ hu -> Tr.map St.Initial[M,N].Evidence St.Initial[N,M].Evidence (\ w -> (w.2,w.1)) (h hu) ;
+  initial-transitivity (M N V : Tm n) (x : D) (h : (St.initial.ty M N).holds x) (h' : (St.initial.ty N V).holds x) :
+    (St.initial.ty M V).holds x = \ hu -> Tr.map2 St.Initial[M,N].Evidence St.Initial[N,V].Evidence St.Initial[M,V].Evidence
+      (\ w v -> (w.1,v.2)) (h hu) (h' hu) ;
+  initial : Laws[St.initial] = new Laws[St.initial,
+    \ X M N -> initial-symmetry M N (SemanticLaws[l].p universe X),
+    \ X M N V -> initial-transitivity M N V (SemanticLaws[l].p universe X),
+    \ A X T M N -> initial-symmetry M N (SemanticLaws[l].p A X),
+    \ A X T M N V -> initial-transitivity M N V (SemanticLaws[l].p A X),
+    \ A X T T' M M' types terms -> terms] ;
+  module Step (d : Nat) (previous : Laws[St.stage d]) {
+    types-symmetric : TS.TypeSymmetry (St.stage (suc d)) =
+      TS.type-symmetry-step (St.stage d) previous.type-symmetry previous.term-symmetry previous.conversion ;
+    types-transitive : TS.TypeTransitivity (St.stage (suc d)) =
+      TS.type-transitivity-step (St.stage d) previous.type-transitivity previous.term-symmetry previous.conversion (Dg.term-stage d) ;
+    result : Laws[St.stage (suc d)] = new Laws[St.stage (suc d),types-symmetric,types-transitive,
+      TM.symmetry-step (St.stage d) (St.strict d) previous.term-symmetry previous.term-transitivity (Dg.term-stage d) types-symmetric,
+      TM.transitivity-step (St.stage d) (St.strict d) previous.term-transitivity (Dg.term-stage d) types-transitive,
+      TS.conversion-step (St.stage d) (St.strict d) previous.type-symmetry previous.conversion (Dg.term-stage d)] ;
+  } ;
+  laws : (d : Nat) -> Laws[St.stage d] = split { zero -> initial ; suc d | ih -> Step[d,ih].result } ;
+} ;

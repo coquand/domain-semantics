@@ -1,0 +1,76 @@
+-- Typed function extensionality. Semantic eta uses soundness only;
+-- relational eta is obtained from the pointwise induction hypothesis.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Syntax[l] ; open SynLemmas[l] ;
+open Subst[l] ; open Presup[l] ; open Reduction[l] ;
+module Raw = Filter[l] ; module S = Sem[l] ; module Soundness = Sound[l] ;
+module Subs = IndependentRelationSubstitutions[l] ;
+eta (m : Nat) (f : Tm m) : Tm (suc m) = app (suc m) (wk m f) (var (suc m) (fz m)) ;
+application-equation (m n : Nat) (s : Fin m -> Tm n) (f : Tm m) (N : Tm n) :
+  Id (Tm n) (subst1 n (Sub.trav (suc m) (eta m f) (suc n) (Sub.lift m n s)) N) (app n (Sub.trav m f n s) N) =
+  trans (Tm n) (subst1 n (Sub.trav (suc m) (eta m f) (suc n) (Sub.lift m n s)) N)
+    (Sub.trav (suc m) (eta m f) n (Subs.extendS m n s N)) (app n (Sub.trav m f n s) N)
+    (Subs.extend-equation m n s N (eta m f))
+    (ap (Tm n) (Tm n) (\ V -> app n V N) (Sub.trav (suc m) (wk m f) n (Subs.extendS m n s N)) (Sub.trav m f n s)
+      (Subs.extend-wk m n s N f)) ;
+reduce (m n : Nat) (f : Tm m) (s : Fin m -> Tm n) (N : Tm n) :
+  Reds n (app n (Sub.trav m f n s) N) (subst1 n (Sub.trav (suc m) (eta m f) (suc n) (Sub.lift m n s)) N) =
+  subst (Tm n) (\ V -> Reds n (app n (Sub.trav m f n s) N) V)
+    (app n (Sub.trav m f n s) N) (subst1 n (Sub.trav (suc m) (eta m f) (suc n) (Sub.lift m n s)) N)
+    (sym (Tm n) (subst1 n (Sub.trav (suc m) (eta m f) (suc n) (Sub.lift m n s)) N) (app n (Sub.trav m f n s) N)
+      (application-equation m n s f N)) (rrefl n (app n (Sub.trav m f n s) N)) ;
+module SemanticEta (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m)) (f : Tm m)
+  (df : Der m (jty G f (pp m A B))) (rho : S.Env m) (fits : Soundness.Fits m G rho) {
+  a : Raw.Filt = S.sem m A rho ; value : Raw.Filt = S.sem m f rho ;
+  L : Raw.Filt = Raw.lamF a (S.fam m (eta m f) rho) ;
+  body (x : Ty) : Raw.Incl (Raw.appF value (Raw.prin x)) (S.fam m (eta m f) rho x) =
+    Raw.incl-trans (Raw.appF value (Raw.prin x))
+      (Raw.appF (S.sem (suc m) (wk m f) (S.extE m rho (Raw.prin x))) (Raw.prin x)) (S.fam m (eta m f) rho x)
+      (Raw.appF-mono value (S.sem (suc m) (wk m f) (S.extE m rho (Raw.prin x))) (Raw.prin x) (Raw.prin x)
+        (S.wk-sem m f rho (Raw.prin x)).2 (Raw.incl-refl (Raw.prin x)))
+      (Soundness.app-var-eq m (wk m f) rho x).2 ;
+  step (x : Ty) (hx : Raw.TyIn a x) : Raw.Incl (Raw.appF value (Raw.prin x)) (Raw.appF L (Raw.prin x)) = \ t ht ->
+    new Raw.AppWR[L,Raw.prin x,t,arr x t,x,
+      new Raw.LamWR[a,S.fam m (eta m f) rho,arr x t,arr x t,le-refl (arr x t),es-arr x t (hx,body x t ht)],
+      le-refl x,le-refl (arr x t)] ;
+  typed : Soundness.HasTy value (Raw.piF a (S.fam m B rho)) =
+    Soundness.hasty-conv value (S.sem m (pp m A B) rho) (Raw.piF a (S.fam m B rho))
+      (Soundness.soundness-ty m G f (pp m A B) df rho fits) (S.sem-pp-eq m A B rho).1 ;
+  inclusion : Raw.Incl value L = Soundness.Eta[a,S.fam m B rho,value,L,typed,step].incl ;
+} ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module F = IndependentFundamentalRules[l].At[n,Delta,wellformed] ;
+  module Functions = IndependentFundamentalFunctions[l].At[n,Delta,wellformed] ;
+  module Structural = IndependentFundamentalStructural[l].At[n,Delta,wellformed] ;
+  module RS = Subs.At[n,Delta] ;
+  module Case (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m)) (f g : Tm m)
+    (dA : Der m (jty G A (uu m))) (eb : Der (suc m) (jeq (ext m G A) (eta m f) (eta m g) B))
+    (df : Der m (jty G f (pp m A B))) (dg : Der m (jty G g (pp m A B)))
+    (rA : F.Fundamental m G A A (uu m)) (rb : F.Fundamental (suc m) (ext m G A) (eta m f) (eta m g) B) {
+    eb' : Der (suc m) (jeq (ext m G A) (eta m g) (eta m f) B) = eq-sym (suc m) (ext m G A) (eta m f) (eta m g) B eb ;
+    reverse-body : F.Fundamental (suc m) (ext m G A) (eta m g) (eta m f) B =
+      Structural.symmetry (suc m) (ext m G A) (eta m f) (eta m g) B eb rb ;
+    left-body : F.Fundamental (suc m) (ext m G A) (eta m f) (eta m f) B =
+      Structural.transitivity (suc m) (ext m G A) (eta m f) (eta m g) (eta m f) B eb rb reverse-body ;
+    right-body : F.Fundamental (suc m) (ext m G A) (eta m g) (eta m g) B =
+      Structural.transitivity (suc m) (ext m G A) (eta m g) (eta m f) (eta m g) B eb' reverse-body rb ;
+    module Environment (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (r : RS.Related[m,G,rho,s,s']) {
+      module Left = Functions.Case[m,G,A,B,eta m f,eta m g,f,g,dA,(eq-pre (suc m) (jeq (ext m G A) (eta m f) (eta m g) B) eb).1,
+        rA,left-body,rb,reduce m n f,reduce m n g,rho,fits,s,s',r,SemanticEta[m,G,A,B,f,df,rho,fits].inclusion] ;
+      opposite : RS.Related[m,G,rho,s',s] = Structural.related-symmetry m G (wf-of m (jty G A (uu m)) dA) rho fits s s' r ;
+      module Opposite = Functions.Case[m,G,A,B,eta m g,eta m f,g,f,dA,(eq-pre (suc m) (jeq (ext m G A) (eta m f) (eta m g) B) eb).2,
+        rA,right-body,reverse-body,reduce m n g,reduce m n f,rho,fits,s',s,opposite,SemanticEta[m,G,A,B,g,dg,rho,fits].inclusion] ;
+      module Operations = Structural.Typed[m,G,g,pp m A B,dg,rho,fits].Operations ;
+      right : RS.Term (S.sem m f rho) (Sub.trav m (pp m A B) n s') (Sub.trav m f n s) (Sub.trav m g n s') = \ k hk ->
+        Operations.symmetry (Sub.trav m (pp m A B) n s') (Sub.trav m g n s') (Sub.trav m f n s) Opposite.result k
+          ((Soundness.soundness-eq m G f g (pp m A B) (eq-funext m G A B f g dA eb df dg) rho fits).1 k.1 hk) ;
+    } ;
+    result : F.Fundamental m G f g (pp m A B) = \ rho fits s s' r ->
+      (Environment[rho,fits,s,s',r].Left.result,Environment[rho,fits,s,s',r].right) ;
+  } ;
+  extensionality (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m)) (f g : Tm m)
+    (dA : Der m (jty G A (uu m))) (eb : Der (suc m) (jeq (ext m G A) (eta m f) (eta m g) B))
+    (df : Der m (jty G f (pp m A B))) (dg : Der m (jty G g (pp m A B)))
+    (rA : F.Fundamental m G A A (uu m)) (rb : F.Fundamental (suc m) (ext m G A) (eta m f) (eta m g) B) :
+    F.Fundamental m G f g (pp m A B) = Case[m,G,A,B,f,g,dA,eb,df,dg,rA,rb].result ;
+} ;

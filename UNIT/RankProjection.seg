@@ -1,0 +1,237 @@
+-- Structural description of the corrected rank projections.
+-- This module uses the domain equation and compact observations, not typing.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+module S = CorrectedStages[l] ; module R = CorrectedRank[l] ;
+module TC = TruncationCombinators[l] ; module AP = Application[l] ; module P = Prelude[l+] ;
+
+q (n : Nat) : Map = Projector[l].map (S.compacts n) ;
+strict (n : Nat) : Maps[l].Strict (q n) =
+  (S.deflation n bottom,bottom-least (S.approximate n bottom)) ;
+token (n : Nat) (x : D) (k : K) (rk : S.Bound n k) (hk : In x k.1) : In (S.approximate n x) k.1 =
+  Projector[l].intro (S.compacts n) x k (ProjectorDomain[l].inc (S.Bound n) k rk) hk ;
+
+record GraphObservation {
+  n : Nat ; f : FD ; target : Ty ;
+  graph : Ty ; good : Good graph ; arrows : Arrows graph ; bounded : R.G n graph ;
+  inside : In f.1 graph ; covers : Le graph target ;
+} ;
+graph-join (n : Nat) (f : FD) (s t : Ty)
+  (v : GraphObservation[n,f,s]) (w : GraphObservation[n,f,t]) : GraphObservation[n,f,meet s t] =
+  new GraphObservation[n,f,meet s t,meet v.graph w.graph,(v.good,w.good),(v.arrows,w.arrows),
+    R.gjoin n v.graph w.graph v.bounded w.bounded,fmeet f.1.1 v.graph w.graph v.inside w.inside,
+    le-meet-mono v.graph s w.graph t v.covers w.covers] ;
+
+module Arrow (n : Nat) (f : FD) {
+  operation : Map = Minimal[l].arrow-map (q n) f ;
+  module L = Lambda[operation] ;
+  module F = Lambda[apply f] ;
+  below : Domain[l].Below L.value f.1 = sub-trans L.value.1 (abstract (apply f)).1.1 f.1.1
+    MonotoneLambda[operation,apply f,\ x ->
+      sub-trans (run operation x).1 (AP.eval f.1 (S.approximate n x)).1 (AP.eval f.1 x).1
+        (S.deflation n (AP.eval f.1 (S.approximate n x)))
+        (AP.mono f.1 f.1 (S.approximate n x) x (sub-refl f.1.1) (S.deflation n x))].inclusion
+    (id-eqv (abstract (apply f)).1.1 f.1.1
+      (P.ap FD Filt (\ z -> z.1.1) (abstract (apply f)) f (eta f))).1 ;
+
+  entry-witness (a b : Ty) (e : L.Entry[a,b])
+    (v : S.Observation[n,AP.eval f.1 (S.approximate n (principal (a,(e.good-in,e.cons-in)))),b])
+    (w : Filter[l].AppW (raw f.1.1) (raw (S.approximate n (principal (a,(e.good-in,e.cons-in)))).1) v.key.1)
+    (k : S.Observation[n,principal (a,(e.good-in,e.cons-in)),w.x])
+    (ka : Le a k.key.1) : GraphObservation[n,f,arr a b] =
+    new GraphObservation[n,f,arr a b,arr k.key.1 v.key.1,
+      (k.key.2.1,(k.key.2.2,v.key.2.1)),tt,
+      leN-max-lub (R.rank k.key.1) (R.rank v.key.1) n k.bounded v.bounded,
+      fup f.1.1 w.g (arr k.key.1 v.key.1)
+        (le-trans w.g (arr w.x v.key.1) (arr k.key.1 v.key.1) w.le
+          (le-arr w.x k.key.1 v.key.1 v.key.1 k.covers (le-refl v.key.1))) w.ing,
+      le-arr k.key.1 a v.key.1 b ka v.covers] ;
+
+  entry (a b : Ty) (e : L.Entry[a,b]) : Ex GraphObservation[n,f,arr a b] =
+    TC.bind S.Observation[n,AP.eval f.1 (S.approximate n (principal (a,(e.good-in,e.cons-in)))),b]
+      GraphObservation[n,f,arr a b]
+      (\ v -> TC.bind (Filter[l].AppW (raw f.1.1) (raw (S.approximate n (principal (a,(e.good-in,e.cons-in)))).1) v.key.1)
+        GraphObservation[n,f,arr a b]
+        (\ w -> TC.bind S.Observation[n,principal (a,(e.good-in,e.cons-in)),w.x] GraphObservation[n,f,arr a b]
+          (\ k -> TC.map (Le a k.key.1) GraphObservation[n,f,arr a b] (entry-witness a b e v w k) k.inside)
+          (S.observe n (principal (a,(e.good-in,e.cons-in))) w.x w.inx)) v.inside)
+      (S.observe n (AP.eval f.1 (S.approximate n (principal (a,(e.good-in,e.cons-in))))) b e.observed) ;
+
+  graph : (g : Ty) -> Filter[l].EntS L.ER g -> Ex GraphObservation[n,f,g] = split {
+    es-om -> ex GraphObservation[n,f,om] (new GraphObservation[n,f,om,om,tt,tt,tt,fom f.1.1,le-refl om]) ;
+    es-arr a b e -> entry a b e ;
+    es-meet a b ha hb | ra rb -> TC.map2 GraphObservation[n,f,a] GraphObservation[n,f,b]
+      GraphObservation[n,f,meet a b] (graph-join n f a b) ra rb } ;
+  observe (t : Ty) : In L.value t -> Ex GraphObservation[n,f,t] =
+    TC.bind (L.W t) GraphObservation[n,f,t]
+      (\ w -> TC.map GraphObservation[n,f,w.graph] GraphObservation[n,f,t]
+        (\ g -> new GraphObservation[n,f,t,g.graph,g.good,g.arrows,g.bounded,g.inside,
+          le-trans g.graph w.graph t g.covers w.below]) (graph w.graph w.entries)) ;
+
+  bounded-entry (a b : Ty) (pa : Good a) (ca : Cons a) (pb : Good b)
+    (ra : R.R n a) (rb : R.R n b) (h : In f.1 (arr a b)) : In L.value (arr a b) =
+    L.entry a b (new L.Entry[a,b,pa,ca,pb,
+      token n (AP.eval f.1 (S.approximate n (principal (a,(pa,ca)))))
+        (b,(pb,consistent (AP.eval f.1 (principal (a,(pa,ca)))) b
+          (AP.intro f.1 (principal (a,(pa,ca))) (arr a b) a b h (prin-in a) (le-refl (arr a b))))) rb
+        (AP.intro f.1 (S.approximate n (principal (a,(pa,ca)))) (arr a b) a b h
+          (token n (principal (a,(pa,ca))) (a,(pa,ca)) ra (prin-in a)) (le-refl (arr a b)))]) ;
+  bounded-graph : (s : Ty) -> Good s -> Arrows s -> R.G n s -> In f.1 s -> In L.value s = split {
+    om -> \ p ar r h -> fom L.value.1 ;
+    univ -> \ p ar r h -> efq ar ; pi a b -> \ p ar r h -> efq ar ;
+    arr a b -> \ p ar r h -> bounded-entry a b p.1 p.2.1 p.2.2
+      (R.ml (R.rank a) (R.rank b) n r) (R.mr (R.rank a) (R.rank b) n r) h ;
+    meet a b | ra rb -> \ p ar r h -> fmeet L.value.1 a b
+      (ra p.1 ar.1 (R.ml (R.graph a) (R.graph b) n r) (fup f.1.1 (meet a b) a (le-meet-l a b) h))
+      (rb p.2 ar.2 (R.mr (R.graph a) (R.graph b) n r) (fup f.1.1 (meet a b) b (le-meet-r a b) h)) } ;
+} ;
+
+graph-rank (n : Nat) : (s : Ty) -> Arrows s -> R.G n s -> R.R (suc n) s = split {
+  om -> \ ar r -> tt ; univ -> \ ar r -> efq ar ; pi a b -> \ ar r -> efq ar ;
+  arr a b -> \ ar r -> r ;
+  meet a b | ra rb -> \ ar r -> R.rjoin (suc n) a b
+    (ra ar.1 (R.ml (R.graph a) (R.graph b) n r)) (rb ar.2 (R.mr (R.graph a) (R.graph b) n r)) } ;
+
+module Successor (n : Nat) (x : D) {
+  presentation : Sum[l].RHS = Minimal[l].action (q n) (strict n) (Sum[l].decode x) ;
+  module E = Sum[l].Encode[presentation] ;
+  target : D = S.approximate (suc n) x ;
+  function : FD = abstract (AP.map x) ;
+
+  pair (t d f : Ty) (h : Parts[l].PHead x) (le : Le (pi d f) t)
+    (a : S.Observation[n,Parts[l].PiParts[x,h].domain,d])
+    (b : GraphObservation[n,Parts[l].PiParts[x,h].family,f]) : In target t =
+    fup target.1 k.1 t (le-trans k.1 (pi d f) t (le-pi a.key.1 d b.graph f a.covers b.covers) le)
+      (token (suc n) x k (leN-max-lub (R.rank a.key.1) (R.graph b.graph) n a.bounded b.bounded) inside)
+    where {
+      inside : In x (pi a.key.1 b.graph) = Parts[l].pi-combine x a.key.1 b.graph a.inside b.inside ;
+      k : K = (pi a.key.1 b.graph,((a.key.2.1,(b.good,b.arrows)),consistent x (pi a.key.1 b.graph) inside)) ; } ;
+  fun (t : Ty) (w : GraphObservation[n,function,t]) : In target t =
+    fup target.1 w.graph t w.covers (token (suc n) x k (graph-rank n w.graph w.arrows w.bounded) inside)
+    where {
+      inside : In x w.graph = Lower[x].forward w.graph w.inside ;
+      k : K = (w.graph,(w.good,consistent x w.graph inside)) ; } ;
+  out : (t : Ty) -> E.W t -> In target t = split {
+    wbot t h -> fup target.1 om t h (fom target.1) ;
+    wu t h le -> fup target.1 univ t le (token (suc n) x universeK tt h) ;
+    wp t h d f hd hf le -> ex-elim S.Observation[n,Parts[l].PiParts[x,h].domain,d]
+      (In target t) (fprop target.1 t)
+      (\ a -> ex-elim GraphObservation[n,Parts[l].PiParts[x,h].family,f] (In target t) (fprop target.1 t)
+        (pair t d f h le a) (Arrow[n,Parts[l].PiParts[x,h].family].observe f hf))
+      (S.observe n Parts[l].PiParts[x,h].domain d hd) ;
+    wf t h -> ex-elim GraphObservation[n,function,t] (In target t) (fprop target.1 t)
+      (fun t) (Arrow[n,function].observe t h) } ;
+  forward : Domain[l].Below E.value target = \ t -> ex-elim (E.W t) (In target t) (fprop target.1 t) (out t) ;
+
+  bounded : (s : Ty) -> Good s -> R.R (suc n) s -> In x s -> In E.value s = split {
+    om -> \ p r h -> fom E.value.1 ;
+    univ -> \ p r h -> ex (E.W univ) (wu univ h (le-refl univ)) ;
+    pi a f -> \ p r h -> ex (E.W (pi a f))
+      (wp (pi a f) (Parts[l].pi-head x a f h) a f
+        (token n Parts[l].PiParts[x,Parts[l].pi-head x a f h].domain
+          (a,(p.1,Parts[l].PiParts[x,Parts[l].pi-head x a f h].dc a (Parts[l].pi-domain x a f h)))
+          (R.ml (R.rank a) (R.graph f) n r) (Parts[l].pi-domain x a f h))
+        (Arrow[n,Parts[l].PiParts[x,Parts[l].pi-head x a f h].family].bounded-graph f p.2.1 p.2.2
+          (R.mr (R.rank a) (R.graph f) n r) (Parts[l].pi-family x a f h)) (le-refl (pi a f))) ;
+    arr a b -> \ p r h -> ex (E.W (arr a b)) (wf (arr a b)
+      (Arrow[n,function].bounded-entry a b p.1 p.2.1 p.2.2
+        (R.ml (R.rank a) (R.rank b) n r) (R.mr (R.rank a) (R.rank b) n r)
+        (Lambda[AP.map x].entry a b (new Lambda[AP.map x].Entry[a,b,p.1,p.2.1,p.2.2,
+          AP.intro x (principal (a,(p.1,p.2.1))) (arr a b) a b h (prin-in a) (le-refl (arr a b))])))) ;
+    meet a b | ra rb -> \ p r h -> fmeet E.value.1 a b
+      (ra p.1 (R.ml (R.rank a) (R.rank b) (suc n) r) (fup x.1 (meet a b) a (le-meet-l a b) h))
+      (rb p.2 (R.mr (R.rank a) (R.rank b) (suc n) r) (fup x.1 (meet a b) b (le-meet-r a b) h)) } ;
+  backward : Domain[l].Below target E.value = \ t h ->
+    ex-elim S.Observation[suc n,x,t] (In E.value t) (fprop E.value.1 t)
+      (\ w -> fup E.value.1 w.key.1 t w.covers (bounded w.key.1 w.key.2.1 w.bounded w.inside))
+      (S.observe (suc n) x t h) ;
+  equation : Id D (S.approximate (suc n) x) (Minimal[l].Phi (q n) (strict n) x) =
+    Domain[l].ext target E.value (backward,forward) ;
+} ;
+
+module Zero (x : D) {
+  module G = Guard[l].At[Parts[l].UHead x,fprop x.1 univ,\ h -> universe] ;
+  target : D = S.approximate zero x ;
+  from-token (t : Ty) (w : S.Observation[zero,x,t]) : R.ZeroForm w.key.1 -> In G.value t = split {
+    inl e -> fup G.value.1 om t (le-trans om w.key.1 t e.2 w.covers) (fom G.value.1) ;
+    inr e -> fup G.value.1 univ t (le-trans univ w.key.1 t e.2 w.covers)
+      (G.intro (fup x.1 w.key.1 univ e.1 w.inside) univ (prin-in univ)) } ;
+  forward : Domain[l].Below target G.value = \ t h -> ex-elim S.Observation[zero,x,t]
+    (In G.value t) (fprop G.value.1 t) (\ w -> from-token t w (R.zero-form w.key.1 w.bounded)) (S.observe zero x t h) ;
+  backward : Domain[l].Below G.value target = G.eliminate target
+    (\ h -> prin-sub univ target.1 (token zero x universeK tt h)) ;
+  equation : Id D target G.value = Domain[l].ext target G.value (forward,backward) ;
+} ;
+
+record Support {
+  n : Nat ; f : D ; input : Ty ; output : Ty ;
+  key : K ; result : K ; kr : S.Bound n key ; vr : S.Bound n result ;
+  kb : Le input key.1 ; vb : Le result.1 output ; inside : In f (arr key.1 result.1) ;
+} ;
+support (n : Nat) (f : D) (a b : Ty) (ca : Cons a) (s : K)
+  (hs : In f s.1) (le : Le s.1 (arr a b))
+  (bounds : (d t : Ty) -> ASel s.1 d t -> R.R n d * R.R n t) : Support[n,f,a,b] =
+  new Support[n,f,a,b,(i.1,(p.1,cd)),(i.2.1,(p.2,cons-asel s.1 i.1 i.2.1 s.2.2 i.2.2.1 cd)),
+    r.1,r.2,i.2.2.2.1,i.2.2.2.2,fup f.1 s.1 (arr i.1 i.2.1) (asel-le s.1 i.1 i.2.1 i.2.2.1) hs]
+  where {
+    i : InvArr s.1 a b = inv-arr s.1 a b le ;
+    p : Good i.1 * Good i.2.1 = Regular[l].proper-asel s.1 i.1 i.2.1 i.2.2.1 s.2.1 ;
+    cd : Cons i.1 = cons-down a i.1 i.2.2.2.1 ca ;
+    r : R.R n i.1 * R.R n i.2.1 = bounds i.1 i.2.1 i.2.2.1 ; } ;
+Supports (n : Nat) (f : D) : U l =
+  (a b : Ty) -> Cons a -> In f (arr a b) -> Ex Support[n,f,a,b] ;
+
+module AtApplication (n : Nat) (f : D) (cover : Supports n f) (z : D) {
+  value : D = AP.eval f z ;
+  restricted : D = AP.eval f (S.approximate n z) ;
+  step (t : Ty) (a : Ty) (ha : In z a) (s : Support[n,f,a,t]) : In (S.approximate n restricted) t =
+    fup (S.approximate n restricted).1 s.result.1 t s.vb
+      (token n restricted s.result s.vr (AP.intro f (S.approximate n z)
+        (arr s.key.1 s.result.1) s.key.1 s.result.1 s.inside
+        (token n z s.key s.kr (fup z.1 a s.key.1 s.kb ha)) (le-refl (arr s.key.1 s.result.1)))) ;
+  forward : Domain[l].Below value (S.approximate n restricted) = \ t ->
+    ex-elim (Filter[l].AppW (raw f.1) (raw z.1) t) (In (S.approximate n restricted) t)
+      (fprop (S.approximate n restricted).1 t)
+      (\ w -> ex-elim Support[n,f,w.x,t] (In (S.approximate n restricted) t)
+        (fprop (S.approximate n restricted).1 t) (step t w.x w.inx)
+        (cover w.x t (consistent z w.x w.inx) (fup f.1 w.g (arr w.x t) w.le w.ing))) ;
+  factor : Equal value restricted =
+    (sub-trans value.1 (S.approximate n restricted).1 restricted.1 forward (S.deflation n restricted),
+     AP.mono f f (S.approximate n z) z (sub-refl f.1) (S.deflation n z)) ;
+  range : S.Stage[n].Fixed value =
+    (S.deflation n value,sub-trans value.1 (S.approximate n restricted).1 (S.approximate n value).1 forward
+      ((q n).2.1 restricted value factor.2)) ;
+} ;
+
+module FixedInput (n : Nat) (x : D) (hx : S.Stage[suc n].Fixed x) {
+  supports : Supports n x = \ a b ca h -> TC.map S.Observation[suc n,x,arr a b] Support[n,x,a,b]
+    (\ w -> support n x a b ca w.key w.inside w.covers (\ d t s -> R.asel-rank w.key.1 d t s n w.bounded))
+    (S.observe (suc n) x (arr a b) (hx.2 (arr a b) h)) ;
+  module Pi (p : Parts[l].PHead x) {
+    module C = Parts[l].PiParts[x,p] ;
+    domain-witness (t : Ty) (w : S.Observation[suc n,x,pi t om]) : In (S.approximate n C.domain) t =
+      fup (S.approximate n C.domain).1 c.a t c.above-domain
+        (token n C.domain k c.ra inside)
+      where {
+        c : R.PiCap[n,w.key.1,t,om] = R.pi-cap n w.key.1 t om w.key.2.1 w.bounded w.covers ;
+        inside : In C.domain c.a = Parts[l].pi-domain x c.a c.f
+          (fup x.1 w.key.1 (pi c.a c.f) c.supported w.inside) ;
+        k : K = (c.a,(c.pa,C.dc c.a inside)) ; } ;
+    domain-fixed : S.Stage[n].Fixed C.domain =
+      (S.deflation n C.domain,\ t h -> ex-elim S.Observation[suc n,x,pi t om]
+        (In (S.approximate n C.domain) t) (fprop (S.approximate n C.domain).1 t)
+        (domain-witness t) (S.observe (suc n) x (pi t om) (hx.2 (pi t om) h))) ;
+    family-witness (t : Ty) (w : S.Observation[suc n,x,pi om t]) : GraphObservation[n,C.family,t] =
+      new GraphObservation[n,C.family,t,c.f,c.pf,c.arrows,c.rf,
+        Parts[l].pi-family x c.a c.f (fup x.1 w.key.1 (pi c.a c.f) c.supported w.inside),c.above-family]
+      where { c : R.PiCap[n,w.key.1,om,t] = R.pi-cap n w.key.1 om t w.key.2.1 w.bounded w.covers ; } ;
+    family-observe (t : Ty) (h : In C.family.1 t) : Ex GraphObservation[n,C.family,t] =
+      TC.map S.Observation[suc n,x,pi om t] GraphObservation[n,C.family,t] (family-witness t)
+        (S.observe (suc n) x (pi om t) (hx.2 (pi om t) h)) ;
+    family-supports : Supports n C.family.1 = \ a b ca h -> TC.map GraphObservation[n,C.family,arr a b]
+      Support[n,C.family.1,a,b]
+      (\ w -> support n C.family.1 a b ca (w.graph,(w.good,consistent C.family.1 w.graph w.inside)) w.inside w.covers
+        (\ d t s -> R.asel-graph w.graph d t s n w.bounded)) (family-observe (arr a b) h) ;
+  } ;
+} ;

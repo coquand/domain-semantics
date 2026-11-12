@@ -1,0 +1,38 @@
+-- Transport MIN adequacy to proposition-valued observations. The result
+-- is a mere logical-relation witness: truncation does not choose syntax
+-- derivations. The original untruncated adequacy theorem remains available.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Typing[l] ;
+open Syntax[l] ; open Subst[l] ; open Sem[l] ; open Sound[l] ;
+open ExtFilter[l] ;
+
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  open RelC[l].RelCD[n,Delta] ;
+  open AdeqBase[l].AdeqB[n,Delta] ;
+
+  module Equality (m : Nat) (G : Ctx m) (M N A : Tm m)
+    (derivation : Der m (jeq G M N A))
+    (rho : Env m) (fits : Fits m G rho)
+    (s s' : Fin m -> Tm n) (related : RelS m G rho s s')
+    (u c : Ty) (typed : Tp (el u c)) {
+    Witness : U l =
+      TmR u (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m N n s') *
+      TmR u (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m N n s') ;
+    adequacy : mem (reflect (sem m M rho)) u ->
+      mem (reflect (sem m A rho)) c -> Ex Witness =
+      TruncationCombinators[l].map2 ((sem m M rho).mem u)
+        ((sem m A rho).mem c) Witness
+        (\ hu hc -> Adequacy[l].AdeqT[n,Delta,wellformed].adequacy
+          m (jeq G M N A) derivation rho fits s s' related u c hu hc typed) ;
+  } ;
+} ;
+
+-- Constructor disjointness in every well-formed context (paper 2.32).
+pi-not-U (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m))
+  (derivation : Der m (jeq G (pp m A B) (uu m) (uu m))) : Empty =
+  pi-univ-clash (sem m A (Consequences[l].rho0 m)) (fam m B (Consequences[l].rho0 m))
+    univ (le-refl univ)
+    ((sem-pp-eq m A B (Consequences[l].rho0 m)).1 univ
+      ((soundness-eq m G (pp m A B) (uu m) (uu m) derivation (Consequences[l].rho0 m)
+        (Consequences[l].fits-bot m G (Subst[l].wf-of m (jeq G (pp m A B) (uu m) (uu m)) derivation))).2
+        univ (AdeqPi[l].univ-in m (Consequences[l].rho0 m)))) ;

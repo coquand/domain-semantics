@@ -1,0 +1,77 @@
+-- Independent finite-depth relations, constructed type before term.
+-- They agree on the images of earlier corrected rank projections.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ;
+open Syntax[l] ; open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module S = CorrectedStages[l] ; module RP = RankProjection[l] ; module AP = Application[l] ;
+module Tr = TruncationCombinators[l] ;
+
+universe-output (a b : Ty) (h : Le univ (arr a b)) : Le om b =
+  le-trans om v.2.1 b (les-le om v.2.1 (om-les-omonly v.2.1 (asel-noarr univ v.1 v.2.1 v.2.2.1 tt))) v.2.2.2.2
+  where { v : InvArr univ a b = inv-arr univ a b h ; } ;
+universe-application (z : D) : Domain[l].Below (AP.eval universe z) bottom = \ t ->
+  Tr.bind (Filter[l].AppW (raw universe.1) (raw z.1) t) (Le om t)
+    (\ w -> Tr.map (Le univ w.g) (Le om t)
+      (\ h -> universe-output w.x t (le-trans univ w.g (arr w.x t) h w.le)) w.ing) ;
+module Zero (x : D) (hx : S.Stage[zero].Fixed x) {
+  below-universe : Domain[l].Below x universe =
+    sub-trans x.1 (S.approximate zero x).1 universe.1 hx.2
+      (sub-trans (S.approximate zero x).1 RP.Zero[x].G.value.1 universe.1 RP.Zero[x].forward
+        (RP.Zero[x].G.eliminate universe (\ _ -> sub-refl universe.1))) ;
+  no-pi (h : Parts[l].PHead x) : Empty =
+    Tr.rec (Le univ (pi om om)) @l Empty isProp-Empty (univ-not-pi om om) (below-universe (pi om om) h) ;
+  application (z : D) : Domain[l].Below (AP.eval x z) bottom =
+    sub-trans (AP.eval x z).1 (AP.eval universe z).1 bottom.1
+      (AP.mono x universe z z below-universe (sub-refl z.1)) (universe-application z) ;
+} ;
+module At (n : Nat) (Delta : Ctx n) {
+  module C = LogicalRelationClauses[l].At[n,Delta] ;
+  module O = LogicalRelationOperator[l].At[n,Delta] ;
+  module L = LogicalRelationLocality[l].At[n,Delta] ;
+  module TC = LogicalRelationTypeClause[l].At[n,Delta] ;
+  module Initial (T T' : Tm n) {
+    Evidence : U l = Reds n T (uu n) * Reds n T' (uu n) ;
+    module Test = DomainPredicateObservations[l].Test[univ,Ex Evidence,ex-prop Evidence] ;
+    predicate : P.Predicate = Test.predicate ;
+    strict : predicate.holds bottom = Test.strict DomainPredicateObservations[l].no-bottom-U ;
+  } ;
+  initial : O.Relations = new O.Relations[ty := \ T T' -> Initial[T,T'].predicate,
+    tm := \ T M M' -> Initial[M,M'].predicate] ;
+  initial-strict : O.Strict initial = (\ T T' -> Initial[T,T'].strict,\ T M M' -> Initial[M,M'].strict) ;
+  module BaseStage (R : O.Relations) (strict : O.Strict R) {
+    type-intro (T T' : Tm n) (x : D) (hx : S.Stage[zero].Fixed x)
+      (h : (initial.ty T T').holds x) : ((L.advance R).ty T T').holds x =
+      TC.Step[R.tm,R.ty,T,T'].fold x (h,\ hp -> efq (Zero[x,hx].no-pi hp)) ;
+    function-intro (T M M' : Tm n) (x : D) (hx : S.Stage[zero].Fixed x) : C.Functions[R.tm,R.tm,T,M,M'].predicate.holds x =
+      \ e k _ ->
+        ((R.tm (subst1 n e.B e.argument.N) (app n M e.argument.N) (app n M e.argument.N')).lower
+          (AP.eval x (principal k)) bottom (Zero[x,hx].application (principal k))
+          (strict.2 (subst1 n e.B e.argument.N) (app n M e.argument.N) (app n M e.argument.N')),
+        ((R.tm (subst1 n e.B e.argument.N) (app n M' e.argument.N) (app n M' e.argument.N')).lower
+          (AP.eval x (principal k)) bottom (Zero[x,hx].application (principal k))
+          (strict.2 (subst1 n e.B e.argument.N) (app n M' e.argument.N) (app n M' e.argument.N')),
+         (R.tm (subst1 n e.B e.argument.N) (app n M e.argument.N) (app n M' e.argument.N')).lower
+          (AP.eval x (principal k)) bottom (Zero[x,hx].application (principal k))
+          (strict.2 (subst1 n e.B e.argument.N) (app n M e.argument.N) (app n M' e.argument.N')))) ;
+    forward : L.IncludesAt zero initial (L.advance R) =
+      (type-intro,\ T M M' x hx h -> (type-intro M M' x hx h,function-intro T M M' x hx)) ;
+    backward : L.IncludesAt zero (L.advance R) initial =
+      (\ T T' x hx h -> h.1,\ T M M' x hx h -> h.1.1) ;
+    equation : L.Agree zero initial (L.advance R) = (forward,backward) ;
+  } ;
+  stage : Nat -> O.Relations = split { zero -> initial ; suc d | r -> L.advance r } ;
+  strict : (d : Nat) -> O.Strict (stage d) = split {
+    zero -> initial-strict ; suc d | ih -> L.advance-strict (stage d) ih } ;
+  adjacent : (d : Nat) -> L.Agree d (stage d) (stage (suc d)) = split {
+    zero -> BaseStage[initial,initial-strict].equation ;
+    suc d | ih -> L.contractive d (stage d) (stage (suc d)) ih } ;
+  base : (d : Nat) -> L.Agree zero initial (stage d) = split {
+    zero -> ((\ T T' x hx h -> h,\ T M M' x hx h -> h),(\ T T' x hx h -> h,\ T M M' x hx h -> h)) ;
+    suc d -> BaseStage[stage d,strict d].equation } ;
+  compatible : (d e : Nat) -> LeN d e -> L.Agree d (stage d) (stage e) = split {
+    zero -> \ e h -> base e ;
+    suc d | ih -> split {
+      zero -> \ h -> Prelude[l+].absurd (L.Agree (suc d) (stage (suc d)) (stage zero)) h ;
+      suc e -> \ h -> L.contractive d (stage d) (stage e) (ih e h) } } ;
+} ;

@@ -1,0 +1,21 @@
+-- Restriction to a principal lower ideal, constructed without deciding order.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module On (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ; open A ;
+  module Z = RigidSubdomain[l].On[S] ; module N = ScottMeet[l].On[S] ;
+  module R = RigidProjector[l].On[S] ;
+  module At (a : C) {
+    subdomain : Z.Subdomain = new Z.Subdomain[member := \ x -> LE x a, proposition := \ x -> P.proposition x a,
+      downward := \ x y xy ya -> P.transitive x y a xy ya,
+      closed := \ I x b h m -> (S.complete.bounded I x b h).2.2 a m] ;
+    module Q = Z.Projection[subdomain] ;
+    projection : R.Rigid = Q.projection ;
+    value : C -> C = Q.value ;
+    below (x : C) : LE (value x) x = Q.deflation x ;
+    bounded (x : C) : LE (value x) a = Q.member x ;
+    greatest (x y : C) (yx : LE y x) (ya : LE y a) : LE y (value x) = Q.greatest x y ya yx ;
+    equation (x : C) : Id C (value x) (N.meet x a) = P.antisymmetric (value x) (N.meet x a)
+      (N.greatest x a (value x) (below x) (bounded x)) (greatest x (N.meet x a) (N.left x a) (N.right x a)) ;
+  } ;
+} ;

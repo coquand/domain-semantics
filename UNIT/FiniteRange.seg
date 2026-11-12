@@ -1,0 +1,105 @@
+-- A finite surjection onto a decidably discrete lower ideal can be
+-- made duplicate-free. This does not use excluded middle or choice.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottFinite[l] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+Dec (P : U l) : U l = FiniteDiscrete[l].Dec P ;
+both (P Q : U l) (p : Dec P) (q : Dec Q) : Dec (P * Q) =
+  cases P (P -> Empty) (\ _ -> Dec (P * Q))
+    (\ hp -> cases Q (Q -> Empty) (\ _ -> Dec (P * Q))
+      (\ hq -> inl (hp,hq)) (\ nq -> inr (\ h -> nq h.2)) q)
+    (\ np -> inr (\ h -> np h.1)) p ;
+any : (s : Shape) (P : Ix s -> U l) -> ((i : Ix s) -> Dec (P i)) -> Dec ((i : Ix s) * P i) = split {
+  none -> \ P d -> inr (\ w -> w.1) ;
+  leaf -> \ P d -> cases (P tt) (P tt -> Empty) (\ _ -> Dec ((i : Top) * P i))
+    (\ p -> inl (tt,p)) (\ n -> inr (\ w -> unit (\ i -> P i -> Empty) n w.1 w.2)) (d tt) ;
+  fork s t | ds dt -> \ P d -> cases ((i : Ix s) * P (inl i)) (((i : Ix s) * P (inl i)) -> Empty)
+    (\ _ -> Dec ((i : Ix (fork s t)) * P i)) (\ w -> inl (inl w.1,w.2))
+    (\ ns -> cases ((i : Ix t) * P (inr i)) (((i : Ix t) * P (inr i)) -> Empty)
+      (\ _ -> Dec ((i : Ix (fork s t)) * P i)) (\ w -> inl (inr w.1,w.2))
+      (\ nt -> inr (\ w -> cases (Ix s) (Ix t) (\ i -> P i -> Empty)
+        (\ i p -> ns (i,p)) (\ i p -> nt (i,p)) w.1 w.2)) (dt (\ i -> P (inr i)) (\ i -> d (inr i))))
+    (ds (\ i -> P (inl i)) (\ i -> d (inl i))) } ;
+all : (s : Shape) (P : Ix s -> U l) -> ((i : Ix s) -> Dec (P i)) -> Dec ((i : Ix s) -> P i) = split {
+  none -> \ P d -> inl (\ i -> absurd (P i) i) ;
+  leaf -> \ P d -> FiniteDiscrete[l].map-decision (P tt) ((i : Top) -> P i) (unit (\ i -> P i)) (\ h -> h tt) (d tt) ;
+  fork s t | ds dt -> \ P d -> cases ((i : Ix s) -> P (inl i)) (((i : Ix s) -> P (inl i)) -> Empty)
+    (\ _ -> Dec ((i : Ix (fork s t)) -> P i))
+    (\ hs -> cases ((i : Ix t) -> P (inr i)) (((i : Ix t) -> P (inr i)) -> Empty)
+      (\ _ -> Dec ((i : Ix (fork s t)) -> P i)) (\ ht -> inl (cases (Ix s) (Ix t) (\ i -> P i) hs ht))
+      (\ nt -> inr (\ h -> nt (\ i -> h (inr i)))) (dt (\ i -> P (inr i)) (\ i -> d (inr i))))
+    (\ ns -> inr (\ h -> ns (\ i -> h (inl i)))) (ds (\ i -> P (inl i)) (\ i -> d (inl i))) } ;
+
+module Ideal (P : Order) (top : P.carrier)
+  (decide : (x y : P.carrier) -> P.le x top -> P.le y top -> Dec (P.le x y * P.le y x)) {
+  C : U l+ = P.carrier ; LE : C -> C -> U l = P.le ;
+  Eq (x y : C) : U l = LE x y * LE y x ;
+  eq-refl (x : C) : Eq x x = (P.reflexive x,P.reflexive x) ;
+  eq-trans (x y z : C) (h : Eq x y) (k : Eq y z) : Eq x z = (P.transitive x y z h.1 k.1,P.transitive z y x k.2 h.2) ;
+  record List {
+    shape : Shape ; point : Ix shape -> C ; below : (i : Ix shape) -> LE (point i) top ;
+    distinct : (i j : Ix shape) -> Eq (point i) (point j) -> Id (Ix shape) i j ;
+  } ;
+  Member (F : List) (x : C) : U l = Ex ((i : Ix F.shape) * Eq x (F.point i)) ;
+  record Extension (F : List) (s : Shape) (a : Ix s -> C) {
+    list : List ;
+    old : (i : Ix F.shape) -> Member list (F.point i) ;
+    added : (i : Ix s) -> Member list (a i) ;
+  } ;
+  carry (F G : List) (h : (i : Ix F.shape) -> Member G (F.point i)) (x : C) : Member F x -> Member G x =
+    T.bind ((i : Ix F.shape) * Eq x (F.point i)) ((j : Ix G.shape) * Eq x (G.point j))
+      (\ w -> T.map ((j : Ix G.shape) * Eq (F.point w.1) (G.point j)) ((j : Ix G.shape) * Eq x (G.point j))
+        (\ v -> (v.1,eq-trans x (F.point w.1) (G.point v.1) w.2 v.2)) (h w.1)) ;
+  module Fresh (F : List) (x : C) (xt : LE x top) (no : ((i : Ix F.shape) * Eq x (F.point i)) -> Empty) {
+    point : Ix (fork F.shape leaf) -> C = join C F.shape leaf F.point (\ _ -> x) ;
+    distinct : (i j : Ix (fork F.shape leaf)) -> Eq (point i) (point j) -> Id (Ix (fork F.shape leaf)) i j = split {
+      inl i -> split {
+        inl j -> \ h -> ap (Ix F.shape) (Ix (fork F.shape leaf)) (\ k -> inl k) i j (F.distinct i j h) ;
+        inr j -> \ h -> absurd (Id (Ix (fork F.shape leaf)) (inl i) (inr j)) (no (i,(h.2,h.1))) } ;
+      inr i -> split {
+        inl j -> \ h -> absurd (Id (Ix (fork F.shape leaf)) (inr i) (inl j)) (no (j,h)) ;
+        inr j -> \ h -> ap Top (Ix (fork F.shape leaf)) (\ k -> inr k) i j (isTop i j) } } ;
+    list : List = new List[shape := fork F.shape leaf,point := point,
+      below := cases (Ix F.shape) Top (\ i -> LE (point i) top) F.below (\ _ -> xt),distinct := distinct] ;
+    extension : Extension[F,leaf,\ _ -> x] = new Extension[F,leaf,\ _ -> x,list := list,
+      old := \ i -> inc ((j : Ix list.shape) * Eq (F.point i) (list.point j)) (inl i,eq-refl (F.point i)),
+      added := \ _ -> inc ((j : Ix list.shape) * Eq x (list.point j)) (inr tt,eq-refl x)] ;
+  } ;
+  insert (F : List) (x : C) (xt : LE x top) : Extension[F,leaf,\ _ -> x] =
+    cases ((i : Ix F.shape) * Eq x (F.point i)) (((i : Ix F.shape) * Eq x (F.point i)) -> Empty)
+      (\ _ -> Extension[F,leaf,\ _ -> x])
+      (\ yes -> new Extension[F,leaf,\ _ -> x,list := F,
+        old := \ i -> inc ((j : Ix F.shape) * Eq (F.point i) (F.point j)) (i,eq-refl (F.point i)),
+        added := \ _ -> inc ((i : Ix F.shape) * Eq x (F.point i)) yes])
+      (\ no -> Fresh[F,x,xt,no].extension)
+      (any F.shape (\ i -> Eq x (F.point i)) (\ i -> decide x (F.point i) xt (F.below i))) ;
+  module Fork (F : List) (s t : Shape) (a : Ix (fork s t) -> C)
+    (L : Extension[F,s,\ i -> a (inl i)]) (R : Extension[L.list,t,\ i -> a (inr i)]) {
+    extension : Extension[F,fork s t,a] = new Extension[F,fork s t,a,list := R.list,
+      old := \ i -> carry L.list R.list R.old (F.point i) (L.old i),
+      added := cases (Ix s) (Ix t) (\ i -> Member R.list (a i))
+        (\ i -> carry L.list R.list R.old (a (inl i)) (L.added i)) R.added] ;
+  } ;
+  extend : (s : Shape) (F : List) (a : Ix s -> C) -> ((i : Ix s) -> LE (a i) top) -> Extension[F,s,a] = split {
+    none -> \ F a h -> new Extension[F,none,a,list := F,
+      old := \ i -> inc ((j : Ix F.shape) * Eq (F.point i) (F.point j)) (i,eq-refl (F.point i)),
+      added := \ i -> absurd (Member F (a i)) i] ;
+    leaf -> \ F a h -> new Extension[F,leaf,a,list := (insert F (a tt) (h tt)).list,
+      old := (insert F (a tt) (h tt)).old,
+      added := unit (\ i -> Member (insert F (a tt) (h tt)).list (a i)) ((insert F (a tt) (h tt)).added tt)] ;
+    fork s t | es et -> \ F a h -> Fork[F,s,t,a,es F (\ i -> a (inl i)) (\ i -> h (inl i)),
+      et (es F (\ i -> a (inl i)) (\ i -> h (inl i))).list (\ i -> a (inr i)) (\ i -> h (inr i))].extension } ;
+  empty : List = new List[shape := none,point := \ i -> absurd C i,
+    below := \ i -> absurd (LE (absurd C i) top) i,
+    distinct := \ i j h -> absurd (Id Empty i j) i] ;
+  module Present (s : Shape) (a : Ix s -> C) (h : (i : Ix s) -> LE (a i) top)
+    (covers : (x : C) -> LE x top -> Ex ((i : Ix s) * Eq x (a i))) {
+    e : Extension[empty,s,a] = extend s empty a h ;
+    ideal : DIDomain[l].Properties[P].FiniteIdeal[top] = new DIDomain[l].Properties[P].FiniteIdeal[top,
+      shape := e.list.shape,point := e.list.point,below := e.list.below,
+      covers := \ x hx -> T.bind ((i : Ix s) * Eq x (a i)) ((j : Ix e.list.shape) * Eq x (e.list.point j))
+        (\ w -> T.map ((j : Ix e.list.shape) * Eq (a w.1) (e.list.point j)) ((j : Ix e.list.shape) * Eq x (e.list.point j))
+          (\ v -> (v.1,eq-trans x (a w.1) (e.list.point v.1) w.2 v.2)) (e.added w.1)) (covers x hx),
+      distinct := \ i j ij ji -> e.list.distinct i j (ij,ji)] ;
+  } ;
+} ;

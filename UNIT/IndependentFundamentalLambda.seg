@@ -1,0 +1,39 @@
+-- Annotated lambda at both substituted Pi types.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open Subst[l] ; open Reduction[l] ;
+module S = Sem[l] ; module Soundness = Sound[l] ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module F = IndependentFundamentalRules[l].At[n,Delta,wellformed] ;
+  module Functions = IndependentFundamentalFunctions[l].At[n,Delta,wellformed] ;
+  module Structural = IndependentFundamentalStructural[l].At[n,Delta,wellformed] ;
+  module RS = IndependentRelationSubstitutions[l].At[n,Delta] ;
+  module Case (m : Nat) (G : Ctx m) (A : Tm m) (B M : Tm (suc m))
+    (dA : Der m (jty G A (uu m))) (dB : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+    (dM : Der (suc m) (jty (ext m G A) M B))
+    (rA : F.Fundamental m G A A (uu m)) (rM : F.Fundamental (suc m) (ext m G A) M M B) {
+    reduce (t : Fin m -> Tm n) (V : Tm n) :
+      Reds n (app n (Sub.trav m (lam m A M) n t) V) (subst1 n (Sub.trav (suc m) M (suc n) (Sub.lift m n t)) V) =
+      rstep n (app n (Sub.trav m (lam m A M) n t) V)
+        (subst1 n (Sub.trav (suc m) M (suc n) (Sub.lift m n t)) V) (subst1 n (Sub.trav (suc m) M (suc n) (Sub.lift m n t)) V)
+        (red1-beta n (Sub.trav m A n t) (Sub.trav (suc m) M (suc n) (Sub.lift m n t)) V)
+        (rrefl n (subst1 n (Sub.trav (suc m) M (suc n) (Sub.lift m n t)) V)) ;
+    module Environment (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (r : RS.Related[m,G,rho,s,s']) {
+      module Left = Functions.Case[m,G,A,B,M,M,lam m A M,lam m A M,dA,dM,rA,rM,rM,reduce,reduce,rho,fits,s,s',r,
+        (S.sem-lam-eq m A M rho).1] ;
+      reverse : RS.Related[m,G,rho,s',s] = Structural.related-symmetry m G (wf-of m (jty G A (uu m)) dA) rho fits s s' r ;
+      module Opposite = Functions.Case[m,G,A,B,M,M,lam m A M,lam m A M,dA,dM,rA,rM,rM,reduce,reduce,rho,fits,s',s,reverse,
+        (S.sem-lam-eq m A M rho).1] ;
+      module Operations = Structural.Typed[m,G,lam m A M,pp m A B,ty-Lam m G A B M dA dB dM,rho,fits].Operations ;
+      right : RS.Term (S.sem m (lam m A M) rho) (Sub.trav m (pp m A B) n s')
+        (Sub.trav m (lam m A M) n s) (Sub.trav m (lam m A M) n s') =
+        Operations.symmetry (Sub.trav m (pp m A B) n s') (Sub.trav m (lam m A M) n s') (Sub.trav m (lam m A M) n s) Opposite.result ;
+    } ;
+    result : F.Fundamental m G (lam m A M) (lam m A M) (pp m A B) = \ rho fits s s' r ->
+      (Environment[rho,fits,s,s',r].Left.result,Environment[rho,fits,s,s',r].right) ;
+  } ;
+  lambda (m : Nat) (G : Ctx m) (A : Tm m) (B M : Tm (suc m))
+    (dA : Der m (jty G A (uu m))) (dB : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+    (dM : Der (suc m) (jty (ext m G A) M B))
+    (rA : F.Fundamental m G A A (uu m)) (rM : F.Fundamental (suc m) (ext m G A) M M B) :
+    F.Fundamental m G (lam m A M) (lam m A M) (pp m A B) = Case[m,G,A,B,M,dA,dB,dM,rA,rM].result ;
+} ;

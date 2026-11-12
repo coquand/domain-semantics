@@ -1,0 +1,54 @@
+-- The old relation maps into the independent type clause, for arbitrary
+-- syntax. Head determinism aligns all component tests with a fixed head.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ; open Reduction[l] ;
+open ExtFilter[l] ; open Domain[l] ; open DomainLogicalRelation[l] ;
+module TC = TruncationCombinators[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module Relation = DomainLogicalRelation[l].At[n,Delta] ;
+  module Compact = RelC[l].RelCD[n,Delta] ;
+  module Laws = LawsC[l].LawsCD[n,Delta] ;
+  module Comparison = DomainRelationClauseComparison[l].At[n,Delta] ;
+  module TypeClause = LogicalRelationTypeClause[l].At[n,Delta] ;
+  module Operator = LogicalRelationOperator[l].At[n,Delta] ;
+  module TypeAt (T T' : Tm n) (X : D) (h : Relation.Type X T T') {
+    module Step = TypeClause.Step[Comparison.term-family,Comparison.type-family,T,T'] ;
+    module Raw (a phi : Ty) (r : Compact.TyR (pi a phi) T T') {
+      observation : Compact.PiTy Compact.Can a phi T T' =
+        ((Compact.tyr-unfold (pi a phi) T T').1 r).pc a phi a phi (sel-here (pi a phi)) (ps-here a phi) ;
+      head : Step.H.Heads = (((observation.A0,observation.B0),(observation.A1,observation.B1)),
+        (observation.red,(observation.red',(observation.d.cA,observation.d.cB)))) ;
+      align (e : Step.H.Heads) : Compact.PiD Compact.Can a phi e.1.1.1 e.1.1.2 e.1.2.1 e.1.2.2 =
+        Laws.pid-r Compact.Can a phi e.1.1.1 e.1.1.2 observation.A1 e.1.2.1 observation.B1 e.1.2.2
+          (reds-pp n T' observation.A1 e.1.2.1 observation.B1 e.1.2.2 observation.red' e.2.2.1)
+          (Laws.pid-l Compact.Can a phi observation.A0 e.1.1.1 observation.B0 e.1.1.2 observation.A1 observation.B1
+            (reds-pp n T observation.A0 e.1.1.1 observation.B0 e.1.1.2 observation.red e.2.1) observation.d) ;
+    } ;
+    heads (hp : Parts[l].PHead X) : Ex Step.H.Heads =
+      TC.map (Compact.TyR (pi om om) T T') Step.H.Heads (\ r -> Raw[om,om,r].head)
+        (Relation.For[types T T'].to-tokenwise X h (pi om om) hp) ;
+    observe (e : Step.H.Heads) (a phi : Ty) (seen : In X (pi a phi)) :
+      Ex (Compact.PiD Compact.Can a phi e.1.1.1 e.1.1.2 e.1.2.1 e.1.2.2) =
+      TC.map (Compact.TyR (pi a phi) T T') (Compact.PiD Compact.Can a phi e.1.1.1 e.1.1.2 e.1.2.1 e.1.2.2)
+        (\ r -> Raw[a,phi,r].align e) (Relation.For[types T T'].to-tokenwise X h (pi a phi) seen) ;
+    module Components (e : Step.H.Heads) (hp : Parts[l].PHead X) {
+      module Part = Parts[l].PiParts[X,hp] ;
+      module Family = Comparison.Families[e.1.1.1,e.1.1.2,e.1.2.2] ;
+      domain : Relation.Type Part.domain e.1.1.1 e.1.2.1 = Relation.For[types e.1.1.1 e.1.2.1].from-tokenwise Part.domain
+        (\ a seen -> TC.map (Compact.PiD Compact.Can a om e.1.1.1 e.1.1.2 e.1.2.1 e.1.2.2)
+          (Compact.TyR a e.1.1.1 e.1.2.1) (\ r -> r.dom) (observe e a om seen)) ;
+      uniform-family : Family.Uniform Part.familyD = \ k below ->
+        TC.map (Compact.PiD Compact.Can om k.1 e.1.1.1 e.1.1.2 e.1.2.1 e.1.2.2)
+          (Compact.FamP Compact.Can k.1 e.1.1.1 e.1.1.2 e.1.2.2)
+          (\ r -> r.fam) (observe e om k.1 (below k.1 (prin-in k.1))) ;
+      family : Family.Clause.predicate.holds Part.familyD = Family.preserve Part.familyD (Family.forget Part.familyD uniform-family) ;
+      result : Step.Body[e.1].Pi.Components X hp = (domain,family) ;
+    } ;
+    forward : Step.predicate.holds X =
+      (DomainRelationInversion[l].At[n,Delta].universe X T T' h,
+       (heads,\ e -> Step.Body[e.1].Pi.introduce X (\ hp -> Components[e,hp].result))) ;
+  } ;
+  relations : Operator.Relations = new Operator.Relations[Comparison.type-family,Comparison.term-family] ;
+  forward : Operator.Includes relations (Operator.operator relations relations) =
+    (\ T T' k h -> TypeAt[T,T',principal k,h].forward,Comparison.term-step) ;
+} ;

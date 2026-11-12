@@ -1,0 +1,79 @@
+-- Consequences of the literal finite-discrete I-axiom. Excluded middle
+-- is DERIVED locally from a nonbottom compact with finite lower ideal;
+-- it is never added as an ambient parameter.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+module TL = TruncationCombinators[l+] ;
+
+module On (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ; open A ;
+  module O = ScottOrder[l].On[P] ; module V = DC[P,S.complete] ;
+  module DP = DIDomain[l].Properties[P] ;
+  Classical : U l+ = (Q : U l) -> Prelude[l].isProp Q -> FiniteDiscrete[l].Dec Q ;
+  module Local (c : C) (compact : V.Compact c) (F : DP.FiniteIdeal[c]) {
+    module FD = FiniteDiscrete[l].Ideal[P,c,F] ;
+    module Conditional (Q : U l) (qp : Prelude[l].isProp Q) (nonbottom : LE c S.bottom -> Empty) {
+      index : U l = Plus Top Q ;
+      part : index -> C = split { inl u -> S.bottom ; inr q -> c } ;
+      bound : O.Bounds index part c = split { inl u -> S.bottom-least c ; inr q -> P.reflexive c } ;
+      upper : (i j : index) -> Ex (O.Upper index part i j) = split {
+        inl u -> split {
+          inl v -> inc (O.Upper index part (inl u) (inl v)) (inl tt,(P.reflexive S.bottom,P.reflexive S.bottom)) ;
+          inr q -> inc (O.Upper index part (inl u) (inr q)) (inr q,(S.bottom-least c,P.reflexive c)) } ;
+        inr q -> \ j -> inc (O.Upper index part (inr q) j) (inr q,(P.reflexive c,bound j)) } ;
+      directed : O.Dir index part = (inc index (inl tt),upper) ;
+      value : C = V.sup index part directed ;
+      below : LE value c = V.least index part directed c bound ;
+      enter (q : Q) : LE c value = V.upper index part directed (inr q) ;
+      from-index : (i : index) -> LE c (part i) -> Q = split {
+        inl u -> \ h -> absurd Q (nonbottom h) ; inr q -> \ h -> q } ;
+      extract (h : LE c value) : Q = T.rec ((i : index) * LE c (part i)) @l Q qp
+        (\ w -> from-index w.1 w.2) (compact index part directed h) ;
+      decision : FiniteDiscrete[l].Dec Q =
+        FiniteDiscrete[l].map-decision (FD.Eq value c) Q (\ h -> extract h.2) (\ q -> (below,enter q))
+          (FD.decide value c below (P.reflexive c)) ;
+    } ;
+    excluded-middle (nonbottom : LE c S.bottom -> Empty) : Classical = \ Q qp -> Conditional[Q,qp,nonbottom].decision ;
+  } ;
+  module Attained (em : Classical) (c : C) (F : DP.FiniteIdeal[c])
+    (I : U l) (x : I -> C) (d : O.Dir I x) (bound : O.Bounds I x c) {
+    module FD = FiniteDiscrete[l].Ideal[P,c,F] ;
+    Occurs (j : Ix F.shape) : U l = Ex ((i : I) * FD.Eq (x i) (F.point j)) ;
+    Dominates (j : Ix F.shape) (i : I) : U l = (k : I) -> FD.Eq (x k) (F.point j) -> LE (x k) (x i) ;
+    witness (j : Ix F.shape) : Ex ((i : I) * Dominates j i) =
+      cases (Occurs j) (Occurs j -> Empty) (\ _ -> Ex ((i : I) * Dominates j i))
+        (\ yes -> T.map ((i : I) * FD.Eq (x i) (F.point j)) ((i : I) * Dominates j i)
+          (\ w -> (w.1,\ k hk -> P.transitive (x k) (F.point j) (x w.1) hk.1 w.2.2)) yes)
+        (\ no -> T.map I ((i : I) * Dominates j i)
+          (\ i -> (i,\ k hk -> absurd (LE (x k) (x i)) (no (inc ((i : I) * FD.Eq (x i) (F.point j)) (k,hk))))) d.1)
+        (em (Occurs j) (prop ((i : I) * FD.Eq (x i) (F.point j)))) ;
+    finite-bound : Ex ((i : I) * ((j : Ix F.shape) -> Dominates j i)) =
+      Directed[P,I,x,d].collect F.shape Dominates
+        (\ j i k ik hi t ht -> P.transitive (x t) (x i) (x k) (hi t ht) ik) witness ;
+    maximum : Ex ((i : I) * O.Bounds I x (x i)) =
+      T.map ((i : I) * ((j : Ix F.shape) -> Dominates j i)) ((i : I) * O.Bounds I x (x i))
+        (\ w -> (w.1,\ k -> T.rec ((j : Ix F.shape) * FD.Eq (x k) (F.point j)) @l
+          (LE (x k) (x w.1)) (P.proposition (x k) (x w.1))
+          (\ v -> w.2 v.1 k v.2) (F.covers (x k) (bound k)))) finite-bound ;
+  } ;
+  module Below (c : C) (compact : V.Compact c) (F : DP.FiniteIdeal[c]) (x : C) (xc : LE x c) {
+    module FD = FiniteDiscrete[l].Ideal[P,c,F] ;
+    from-bottom (h : FD.Eq x S.bottom) : V.Compact x = \ I y d xy ->
+      T.map I ((i : I) * LE x (y i)) (\ i -> (i,P.transitive x S.bottom (y i) h.1 (S.bottom-least (y i)))) d.1 ;
+    notbottom (h : FD.Eq x S.bottom -> Empty) (cb : LE c S.bottom) : Empty =
+      h (P.transitive x c S.bottom xc cb,S.bottom-least x) ;
+    from-classical (em : Classical) : V.Compact x = \ I y d xy ->
+      T.bind ((a : BI x) * O.Bounds (BI x) (part x) (part x a)) ((i : I) * LE x (y i))
+        (\ w -> T.map ((i : I) * LE (basic w.1.1) (y i)) ((i : I) * LE x (y i))
+          (\ v -> (v.1,P.transitive x (basic w.1.1) (y v.1) (S.basis.density x (basic w.1.1) (\ a ax -> w.2 (a,ax))) v.2))
+          (S.basis.compact w.1.1 I y d (P.transitive (basic w.1.1) x (V.sup I y d) w.1.2 xy)))
+        Attained[em,c,F,BI x,part x,dir x,\ a -> P.transitive (basic a.1) x c a.2 xc].maximum ;
+    is-compact : V.Compact x = cases (FD.Eq x S.bottom) (FD.Eq x S.bottom -> Empty) (\ _ -> V.Compact x)
+      from-bottom (\ no -> from-classical (Local[c,compact,F].excluded-middle (notbottom no)))
+      (FD.decide x S.bottom xc (S.bottom-least c)) ;
+  } ;
+  below-compact (c : C) (compact : V.Compact c) (finite : ScottOrder[l+].Ex (DP.FiniteIdeal[c])) (x : C) (xc : LE x c) : V.Compact x =
+    \ I y d xy -> TL.rec (DP.FiniteIdeal[c]) @l (Ex ((i : I) * LE x (y i))) (prop ((i : I) * LE x (y i)))
+      (\ F -> Below[c,compact,F,x,xc].is-compact I y d xy) finite ;
+} ;

@@ -1,0 +1,27 @@
+-- Whole-denotation and compact consequences of the independent induction.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open Presup[l] ; open ExtFilter[l] ; open Domain[l] ;
+module S = Sem[l] ; module Soundness = Sound[l] ; module Subs = IndependentRelationSubstitutions[l] ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module F = IndependentFundamental[l].At[n,Delta,wellformed] ;
+  module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  module Rules = IndependentRelationRules[l].At[n,Delta] ; module RS = Subs.At[n,Delta] ;
+  module Equality (m : Nat) (G : Ctx m) (M N A : Tm m) (d : Der m (jeq G M N A))
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (related : RS.Related[m,G,rho,s,s']) {
+    module Typed = IndependentFundamentalStructural[l].At[n,Delta,wellformed].Typed[m,G,M,A,(eq-pre m (jeq G M N A) d).1,rho,fits] ;
+    module V = Typed.Operations.V ;
+    left : Rules.Term V.value (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m N n s') =
+      Subs.Reflection[I.relation.tm (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m N n s'),S.sem m M rho,V.consistent,V.regular].introduce
+        (F.equality m G M N A d rho fits s s' related).1 ;
+    right : Rules.Term V.value (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m N n s') =
+      Subs.Reflection[I.relation.tm (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m N n s'),S.sem m M rho,V.consistent,V.regular].introduce
+        (F.equality m G M N A d rho fits s s' related).2 ;
+    types : Rules.Type V.value (Sub.trav m M n s) (Sub.trav m N n s') =
+      Rules.to-type V.value (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m N n s') left ;
+    compact (k : K) (seen : In V.value k.1) :
+      Rules.Term (principal k) (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m N n s') *
+      Rules.Term (principal k) (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m N n s') =
+      ((I.relation.tm (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m N n s')).lower (principal k) V.value (prin-sub k.1 V.value.1 seen) left,
+       (I.relation.tm (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m N n s')).lower (principal k) V.value (prin-sub k.1 V.value.1 seen) right) ;
+  } ;
+} ;

@@ -1,0 +1,88 @@
+-- Corrected chain: rank(bottom) = rank(U) = 0.
+-- Stage n is the image of the independently defined rank projection.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ;
+open Consistency[l] ; open Typing[l] ; open CorrectedRank[l] ;
+open ExtFilter[l] ; open Domain[l] ; open CompactFamilies[l] ;
+module CF = ProjectorDomain[l] ; module TC = TruncationCombinators[l] ;
+module P = Prelude[l+] ;
+
+Bound (n : Nat) (k : K) : U l = LeN (rank k.1) n ;
+compacts (n : Nat) : Family = CF.closure (Bound n) ;
+approximate (n : Nat) (x : D) : D = Projector[l].project (compacts n) x ;
+
+monotone (m n : Nat) (mn : LeN m n) : CF.Inc (compacts m) (compacts n) =
+  CF.least (Bound m) (compacts n) (\ k h -> CF.inc (Bound n) k (leN-trans (rank k.1) m n h mn)) ;
+chain (m n : Nat) (mn : LeN m n) (x : D) : Domain[l].Below (approximate m x) (approximate n x) =
+  Projector[l].mono (compacts m) (compacts n) x x (monotone m n mn) (sub-refl x.1) ;
+deflation (n : Nat) (x : D) : Domain[l].Below (approximate n x) x = Projector[l].At[compacts n,x].below ;
+idempotence (n : Nat) (x : D) : Equal (approximate n (approximate n x)) (approximate n x) =
+  Projector[l].idempotent (compacts n) x ;
+
+-- Equivalence may raise syntactic rank. Recover a bounded representative,
+-- rather than falsely claiming that rank is invariant under equivalence.
+record Representative {
+  n : Nat ; source : K ; key : K ; bounded : Bound n key ; equivalent : EqK key source ;
+} ;
+represent-join (n : Nat) (a b : K) (c : Cons (meet a.1 b.1))
+  (v : Representative[n,a]) (w : Representative[n,b]) : Representative[n,joinK a b c] =
+  new Representative[n,joinK a b c,joinK v.key w.key ck,
+    rjoin n v.key.1 w.key.1 v.bounded w.bounded,eqv-meet v.key.1 a.1 w.key.1 b.1 v.equivalent w.equivalent]
+  where { ck : Cons (meet v.key.1 w.key.1) = cons-down (meet a.1 b.1) (meet v.key.1 w.key.1)
+    (le-meet-mono a.1 v.key.1 b.1 w.key.1 v.equivalent.2 w.equivalent.2) c ; } ;
+represent (n : Nat) : (k : K) -> CF.Der (Bound n) k -> Representative[n,k] = split {
+  d-empty -> new Representative[n,bottomK,bottomK,tt,eqv-refl om] ;
+  d-in k h -> new Representative[n,k,k,h,eqv-refl k.1] ;
+  d-join a b c ha hb | ra rb -> represent-join n a b c ra rb ;
+  d-equiv a b e ha | ra -> new Representative[n,b,ra.key,ra.bounded,
+    eqv-trans ra.key.1 a.1 b.1 ra.equivalent e] } ;
+
+record Observation {
+  n : Nat ; x : D ; target : Ty ;
+  key : K ; bounded : Bound n key ; inside : In x key.1 ; covers : Le key.1 target ;
+} ;
+observe (n : Nat) (x : D) (t : Ty) : In (approximate n x) t -> Ex Observation[n,x,t] =
+  TC.bind (Projector[l].At[compacts n,x].W t) Observation[n,x,t]
+    (\ w -> TC.map (CF.Der (Bound n) w.1) Observation[n,x,t]
+      (\ d -> new Observation[n,x,t,(represent n w.1 d).key,(represent n w.1 d).bounded,
+        fup x.1 w.1.1 (represent n w.1 d).key.1 (represent n w.1 d).equivalent.2 w.2.2.1,
+        le-trans (represent n w.1 d).key.1 w.1.1 t (represent n w.1 d).equivalent.1 w.2.2.2]) w.2.1) ;
+
+module Exhaust (x : D) {
+  directed : Domain[l].Dir Nat (\ n -> (approximate n x).1) =
+    (ex Nat zero,\ m n -> ex (Directed[l].Upper Nat (\ i -> (approximate i x).1) m n)
+      (max m n,(chain m (max m n) (leN-max-l m n) x,chain n (max m n) (leN-max-r m n) x))) ;
+  module S = Domain[l].Sup[Nat,\ n -> approximate n x,directed] ;
+  token (k : K) (h : In x k.1) : In S.value k.1 =
+    S.inc (rank k.1) k.1 (Projector[l].intro (compacts (rank k.1)) x k
+      (CF.inc (Bound (rank k.1)) k (leN-refl (rank k.1))) h) ;
+  forward : Domain[l].Below S.value x = S.least x (\ n -> deflation n x) ;
+  backward : Domain[l].Below x S.value = \ t h ->
+    ex-elim (Domain[l].PW x.1 t) (In S.value t) (fprop S.value.1 t)
+      (\ w -> fup S.value.1 w.1 t w.2.2.2
+        (token (w.1,(w.2.1,consistent x w.1 w.2.2.1)) w.2.2.1)) (x.2.2 t h) ;
+  equation : Id D S.value x = Domain[l].ext S.value x (forward,backward) ;
+} ;
+
+module Stage (n : Nat) {
+  Fixed (x : D) : U l = Equal (approximate n x) x ;
+  carrier : U l+ = (x : D) * Fixed x ;
+  embed (a : carrier) : D = a.1 ;
+  restrict (x : D) : carrier = (approximate n x,idempotence n x) ;
+  retract (a : carrier) : Id carrier (restrict (embed a)) a =
+    P.Sigma-eq D (\ x -> Fixed x) (approximate n a.1) a.1 (idempotence n a.1) a.2
+      (Domain[l].ext (approximate n a.1) a.1 a.2) (eqv-prop (approximate n a.1).1 a.1.1) ;
+  below (x : D) : Domain[l].Below (embed (restrict x)) x = deflation n x ;
+  compact (k : K) (rk : Bound n k) : carrier =
+    (principal k,Projector[l].compact-fixed (compacts n) k (CF.inc (Bound n) k rk)) ;
+  bot : carrier = compact bottomK tt ;
+  univ : carrier = compact universeK tt ;
+} ;
+
+module Between (m n : Nat) (mn : LeN m n) {
+  raise (a : Stage[m].carrier) : Stage[n].carrier =
+    (a.1,(deflation n a.1,\ t h -> chain m n mn a.1 t (a.2.2 t h))) ;
+  lower (a : Stage[n].carrier) : Stage[m].carrier = Stage[m].restrict a.1 ;
+  retract (a : Stage[m].carrier) : Id Stage[m].carrier (lower (raise a)) a = Stage[m].retract a ;
+  below (a : Stage[n].carrier) : Domain[l].Below (raise (lower a)).1 a.1 = deflation m a.1 ;
+} ;

@@ -1,0 +1,62 @@
+-- Directed joins in the stable order exist and are pointwise.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+
+module Between (D E : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ;
+  module AN = ScottMeet[l].On[D] ; module BN = ScottMeet[l].On[E] ;
+  module M = ScottMaps[l].Between[D,E] ;
+  module S = StableMaps[l].Between[D,E] ;
+  module V = DC[E.order,E.complete] ;
+  forget-dir (I : U l) (f : I -> S.Map) (d : S.SO.Dir I f) : M.MO.Dir I (\ i -> (f i).1) =
+    (d.1,\ i j -> T.map (S.SO.Upper I f i j) (M.MO.Upper I (\ k -> (f k).1) i j)
+      (\ w -> (w.1,(w.2.1.1,w.2.2.1))) (d.2 i j)) ;
+  module Sup (I : U l) (f : I -> S.Map) (d : S.SO.Dir I f) {
+    ambient-dir : M.MO.Dir I (\ i -> (f i).1) = forget-dir I f d ;
+    evaluated (x : A.C) : ScottOrder[l].On[E.order].Dir I (\ i -> S.run (f i) x) =
+      M.evaluated-dir I (\ i -> (f i).1) ambient-dir x ;
+    module P = M.Pointwise[I,\ i -> (f i).1,\ x -> E.complete.directed I (\ i -> S.run (f i) x) (evaluated x)] ;
+    value : A.C -> B.C = P.value ;
+    point-upper (i : I) (x : A.C) : B.LE (S.run (f i) x) (value x) = V.upper I (\ j -> S.run (f j) x) (evaluated x) i ;
+    cross (i j : I) (x y z : A.C) (xz : A.LE x z) (yz : A.LE y z) :
+      B.LE (BN.meet (S.run (f i) x) (S.run (f j) y)) (value (AN.meet x y)) =
+      T.rec (S.SO.Upper I f i j) @l
+        (B.LE (BN.meet (S.run (f i) x) (S.run (f j) y)) (value (AN.meet x y)))
+        (E.order.proposition (BN.meet (S.run (f i) x) (S.run (f j) y)) (value (AN.meet x y)))
+        (\ w -> E.order.transitive (BN.meet (S.run (f i) x) (S.run (f j) y))
+          (BN.meet (S.run (f w.1) x) (S.run (f w.1) y)) (value (AN.meet x y))
+          (BN.monotone (S.run (f i) x) (S.run (f j) y) (S.run (f w.1) x) (S.run (f w.1) y)
+            (S.pointwise (f i) (f w.1) w.2.1 x) (S.pointwise (f j) (f w.1) w.2.2 y))
+          (E.order.transitive (BN.meet (S.run (f w.1) x) (S.run (f w.1) y)) (S.run (f w.1) (AN.meet x y)) (value (AN.meet x y))
+            (S.preserves (f w.1) x y z xz yz) (point-upper w.1 (AN.meet x y)))) (d.2 i j) ;
+    preserves (x y z : A.C) (xz : A.LE x z) (yz : A.LE y z) : B.LE (BN.meet (value x) (value y)) (value (AN.meet x y)) =
+      BN.directed-left I (\ i -> S.run (f i) x) (evaluated x) (value y) (value (AN.meet x y))
+        (\ i -> BN.directed-right I (\ j -> S.run (f j) y) (evaluated y) (S.run (f i) x) (value (AN.meet x y))
+          (\ j -> cross i j x y z xz yz)) ;
+    map : S.Map = (P.map,\ a b c -> preserves (A.basic a) (A.basic b) (A.basic c)) ;
+    upper-cross (i j : I) (x y : A.C) (xy : A.LE x y) : B.LE (BN.meet (S.run (f i) y) (S.run (f j) x)) (S.run (f i) x) =
+      T.rec (S.SO.Upper I f i j) @l
+        (B.LE (BN.meet (S.run (f i) y) (S.run (f j) x)) (S.run (f i) x))
+        (E.order.proposition (BN.meet (S.run (f i) y) (S.run (f j) x)) (S.run (f i) x))
+        (\ w -> E.order.transitive (BN.meet (S.run (f i) y) (S.run (f j) x))
+          (BN.meet (S.run (f i) y) (S.run (f w.1) x)) (S.run (f i) x)
+          (BN.monotone (S.run (f i) y) (S.run (f j) x) (S.run (f i) y) (S.run (f w.1) x)
+            (E.order.reflexive (S.run (f i) y)) (S.pointwise (f j) (f w.1) w.2.2 x))
+          (S.restriction (f i) (f w.1) w.2.1 x y xy)) (d.2 i j) ;
+    upper (i : I) : S.LE (f i) map =
+      S.from-law (f i) map (point-upper i) (\ x y xy ->
+        BN.directed-right I (\ j -> S.run (f j) x) (evaluated x) (S.run (f i) y) (S.run (f i) x)
+          (\ j -> upper-cross i j x y xy)) ;
+    least (g : S.Map) (h : (i : I) -> S.LE (f i) g) : S.LE map g =
+      (P.least g.1 (\ i -> (h i).1),\ a b ab ->
+        BN.directed-left I (\ i -> S.run (f i) (A.basic b)) (evaluated (A.basic b)) (S.run g (A.basic a)) (value (A.basic a))
+          (\ i -> E.order.transitive (BN.meet (S.run (f i) (A.basic b)) (S.run g (A.basic a))) (S.run (f i) (A.basic a)) (value (A.basic a))
+            ((h i).2 a b ab) (point-upper i (A.basic a)))) ;
+    supremum : S.SO.Supremum I f = (map,(upper,least)) ;
+  } ;
+  bottom : S.Map = ((\ _ -> E.bottom,(\ x y h -> E.order.reflexive E.bottom,\ I x d z h -> E.bottom-least z)),
+    \ a b c ac bc -> BN.left E.bottom E.bottom) ;
+  bottom-least (f : S.Map) : S.LE bottom f =
+    (\ a -> E.bottom-least (S.run f (A.basic a)),\ a b ab -> BN.left E.bottom (S.run f (A.basic a))) ;
+} ;

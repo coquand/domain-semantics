@@ -1,0 +1,45 @@
+-- A Scott domain: bounded complete, algebraic, with a small compact basis.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+
+record Basis {
+  order : Order ;
+  complete : Complete[order] ;
+  index : U l ;
+  basic : index -> order.carrier ;
+  compact : (a : index) -> DC[order,complete].Compact (basic a) ;
+  directed : (x : order.carrier) -> On[order].Dir
+    ((a : index) * order.le (basic a) x) (\ a -> basic a.1) ;
+  density : (x y : order.carrier) -> ((a : index) -> order.le (basic a) x -> order.le (basic a) y) -> order.le x y ;
+} ;
+record Scott {
+  order : Order ;
+  complete : Complete[order] ;
+  basis : Basis[order,complete] ;
+  bottom : order.carrier ;
+  bottom-least : (x : order.carrier) -> order.le bottom x ;
+} ;
+
+module On (S : Scott) {
+  P : Order = S.order ;
+  C : U l+ = P.carrier ;
+  LE : C -> C -> U l = P.le ;
+  B : U l = S.basis.index ;
+  basic : B -> C = S.basis.basic ;
+  BI (x : C) : U l = (a : B) * LE (basic a) x ;
+  part (x : C) (a : BI x) : C = basic a.1 ;
+  dir (x : C) : ScottOrder[l].On[P].Dir (BI x) (part x) = S.basis.directed x ;
+  basis-lub (x : C) : ScottOrder[l].On[P].Lub (BI x) (part x) x =
+    (\ a -> a.2,\ y h -> S.basis.density x y (\ a p -> h (a,p))) ;
+  from (x : C) : LE x (DC[P,S.complete].sup (BI x) (part x) (dir x)) =
+    S.basis.density x (DC[P,S.complete].sup (BI x) (part x) (dir x))
+      (\ a h -> DC[P,S.complete].upper (BI x) (part x) (dir x) (a,h)) ;
+  cover (a : B) (x : C) (h : LE (basic a) x) : Ex ((b : BI x) * LE (basic a) (part x b)) =
+    S.basis.compact a (BI x) (part x) (dir x)
+      (P.transitive (basic a) x (DC[P,S.complete].sup (BI x) (part x) (dir x)) h (from x)) ;
+  compact-basis (x : C) (compact : DC[P,S.complete].Compact x) :
+    Ex ((a : B) * (LE x (basic a) * LE (basic a) x)) =
+    TruncationCombinators[l].map ((a : BI x) * LE x (part x a))
+      ((a : B) * (LE x (basic a) * LE (basic a) x))
+      (\ w -> (w.1.1,(w.2,w.1.2))) (compact (BI x) (part x) (dir x) (from x)) ;
+} ;

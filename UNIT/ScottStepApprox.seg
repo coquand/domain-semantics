@@ -1,0 +1,107 @@
+-- Direct approximation by bounded finite joins of compact step maps.
+-- No graph-selection or graph-admissibility construction is used here.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+
+module Between (D E : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ;
+  module O = ScottOrder[l].On[D.order] ; module R = ScottOrder[l].On[E.order] ;
+  module C = DC[D.order,D.complete] ; module V = DC[E.order,E.complete] ;
+  module M = ScottMaps[l].Between[D,E] ; module MC = DC[M.order,M.complete] ;
+
+  module Step (a : A.B) (b : B.B) {
+    at (x : A.C) : R.Supremum (A.LE (A.basic a) x) (\ _ -> B.basic b) =
+      E.complete.bounded (A.LE (A.basic a) x) (\ _ -> B.basic b) (B.basic b)
+        (\ _ -> E.order.reflexive (B.basic b)) ;
+    value (x : A.C) : B.C = (at x).1 ;
+    entry (x : A.C) (h : A.LE (A.basic a) x) : B.LE (B.basic b) (value x) = (at x).2.1 h ;
+    least (x : A.C) (y : B.C) (h : A.LE (A.basic a) x -> B.LE (B.basic b) y) : B.LE (value x) y = (at x).2.2 y h ;
+    mono : M.Monotone value = \ x y xy -> least x (value y)
+      (\ ax -> entry y (D.order.transitive (A.basic a) x y ax xy)) ;
+    continuous : M.Continuous value = \ I x d z h -> least (C.sup I x d) z
+      (\ ax -> T.rec ((i : I) * A.LE (A.basic a) (x i)) @l (B.LE (B.basic b) z)
+        (E.order.proposition (B.basic b) z)
+        (\ w -> E.order.transitive (B.basic b) (value (x w.1)) z (entry (x w.1) w.2) (h w.1))
+        (D.basis.compact a I x d ax)) ;
+    map : M.Map = (value,(mono,continuous)) ;
+    below (f : M.Map) (h : B.LE (B.basic b) (M.run f (A.basic a))) : M.LE map f = \ c ->
+      least (A.basic c) (M.run f (A.basic c)) (\ ac ->
+        E.order.transitive (B.basic b) (M.run f (A.basic a)) (M.run f (A.basic c)) h (M.mono f (A.basic a) (A.basic c) ac)) ;
+    test (f : M.Map) (h : M.LE map f) : B.LE (B.basic b) (M.run f (A.basic a)) =
+      E.order.transitive (B.basic b) (value (A.basic a)) (M.run f (A.basic a))
+        (entry (A.basic a) (D.order.reflexive (A.basic a))) (h a) ;
+    compact : MC.Compact map = \ I f d h -> T.map
+      ((i : I) * B.LE (B.basic b) (M.run (f i) (A.basic a))) ((i : I) * M.LE map (f i))
+      (\ w -> (w.1,below (f w.1) w.2))
+      (E.basis.compact b I (\ i -> M.run (f i) (A.basic a)) (M.evaluated-dir I f d (A.basic a))
+        (test (MC.sup I f d) h)) ;
+  } ;
+
+Graph : U l = (s : Shape) * (Ix s -> A.B * B.B) ;
+input (g : Graph) (j : Ix g.1) : A.B = (g.2 j).1 ;
+output (g : Graph) (j : Ix g.1) : B.B = (g.2 j).2 ;
+Fits (g : Graph) (f : M.Map) : U l = (j : Ix g.1) -> B.LE (B.basic (output g j)) (M.run f (A.basic (input g j))) ;
+
+module FiniteJoin (f : M.Map) (g : Graph) (fits : Fits g f) {
+  steps (j : Ix g.1) : M.Map = Step[input g j,output g j].map ;
+  supremum : M.MO.Supremum (Ix g.1) steps = M.complete.bounded (Ix g.1) steps f
+    (\ j -> Step[input g j,output g j].below f (fits j)) ;
+  value : M.Map = supremum.1 ;
+  below : M.LE value f = supremum.2.2 f (\ j -> Step[input g j,output g j].below f (fits j)) ;
+  upper (j : Ix g.1) : M.LE (steps j) value = supremum.2.1 j ;
+  least (h : M.Map) (hg : Fits g h) : M.LE value h = supremum.2.2 h
+    (\ j -> Step[input g j,output g j].below h (hg j)) ;
+  test (h : M.Map) (le : M.LE value h) : Fits g h = \ j -> Step[input g j,output g j].test h
+    (M.order.transitive (steps j) value h (upper j) le) ;
+  compact : MC.Compact value = \ I h d p -> T.map
+    ((i : I) * ((j : Ix g.1) -> M.LE (steps j) (h i))) ((i : I) * M.LE value (h i))
+    (\ w -> (w.1,supremum.2.2 (h w.1) w.2))
+    (Directed[M.order,I,h,d].collect g.1 (\ j i -> M.LE (steps j) (h i))
+      (\ j i k ik le -> M.order.transitive (steps j) (h i) (h k) le ik)
+      (\ j -> Step[input g j,output g j].compact I h d (M.order.transitive (steps j) value (MC.sup I h d) (upper j) p))) ;
+} ;
+
+module Approximation (f : M.Map) {
+  index : U l = (g : Graph) * Fits g f ;
+  part (g : index) : M.Map = FiniteJoin[f,g.1,g.2].value ;
+  empty : index = ((none,\ j -> absurd (A.B * B.B) j),\ j -> absurd
+    (B.LE (B.basic (output (none,\ k -> absurd (A.B * B.B) k) j))
+      (M.run f (A.basic (input (none,\ k -> absurd (A.B * B.B) k) j)))) j) ;
+  combine (g h : index) : index = ((fork g.1.1 h.1.1,join (A.B * B.B) g.1.1 h.1.1 g.1.2 h.1.2),
+    cases (Ix g.1.1) (Ix h.1.1) (\ j -> B.LE
+      (B.basic (join (A.B * B.B) g.1.1 h.1.1 g.1.2 h.1.2 j).2)
+      (M.run f (A.basic (join (A.B * B.B) g.1.1 h.1.1 g.1.2 h.1.2 j).1))) g.2 h.2) ;
+  left (g h : index) : M.LE (part g) (part (combine g h)) =
+    FiniteJoin[f,g.1,g.2].supremum.2.2 (part (combine g h))
+      (\ j -> FiniteJoin[f,(combine g h).1,(combine g h).2].upper (inl j)) ;
+  right (g h : index) : M.LE (part h) (part (combine g h)) =
+    FiniteJoin[f,h.1,h.2].supremum.2.2 (part (combine g h))
+      (\ j -> FiniteJoin[f,(combine g h).1,(combine g h).2].upper (inr j)) ;
+  directed : M.MO.Dir index part = (inc index empty,\ g h -> inc (M.MO.Upper index part g h)
+    (combine g h,(left g h,right g h))) ;
+  below (g : index) : M.LE (part g) f = FiniteJoin[f,g.1,g.2].below ;
+
+  module Density (h : M.Map) (bounds : (g : index) -> M.LE (part g) h) {
+    singleton (a : A.B) (b : B.B) (p : B.LE (B.basic b) (M.run f (A.basic a))) : index =
+      ((leaf,\ j -> (a,b)),\ j -> p) ;
+    entry (a : A.B) (b : B.B) (p : B.LE (B.basic b) (M.run f (A.basic a)))
+      (x : A.C) (ax : A.LE (A.basic a) x) : B.LE (B.basic b) (M.run h x) =
+      E.order.transitive (B.basic b) (Step[a,b].value x) (M.run h x) (Step[a,b].entry x ax)
+        (M.pointwise Step[a,b].map h (M.order.transitive Step[a,b].map (part (singleton a b p)) h
+          (FiniteJoin[f,(singleton a b p).1,(singleton a b p).2].upper tt) (bounds (singleton a b p))) x) ;
+    pointwise (x : A.C) : B.LE (M.run f x) (M.run h x) = E.basis.density (M.run f x) (M.run h x)
+      (\ b p -> T.rec ((a : A.BI x) * B.LE (B.basic b) (M.run f (A.basic a.1))) @l
+        (B.LE (B.basic b) (M.run h x)) (E.order.proposition (B.basic b) (M.run h x))
+        (\ w -> entry w.1.1 b w.2 x w.1.2) (M.Finite[f,x].witness b p)) ;
+    inclusion : M.LE f h = M.small f h pointwise ;
+  } ;
+  equation : Id M.Map (MC.sup index part directed) f = M.order.antisymmetric (MC.sup index part directed) f
+    (MC.least index part directed f below)
+    Density[MC.sup index part directed,MC.upper index part directed].inclusion ;
+  compact-finite (compact : MC.Compact f) : Ex ((g : index) * (M.LE f (part g) * M.LE (part g) f)) =
+    T.map ((g : index) * M.LE f (part g)) ((g : index) * (M.LE f (part g) * M.LE (part g) f))
+      (\ w -> (w.1,(w.2,below w.1)))
+      (compact index part directed Density[MC.sup index part directed,MC.upper index part directed].inclusion) ;
+} ;
+} ;

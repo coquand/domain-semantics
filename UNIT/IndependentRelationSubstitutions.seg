@@ -1,0 +1,102 @@
+-- Related substitutions over raw semantic environments, independently
+-- of RelC. Every proper compact observation satisfies the new invariant.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open SynLemmas[l] ; open Weaken[l] ; open Subst[l] ; open Presup[l] ;
+open ExtFilter[l] ; open Domain[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ; module Tr = TruncationCombinators[l] ;
+module Raw = Filter[l] ;
+Observed (Q : P.Predicate) (X : Raw.Filt) : U l = (k : K) -> X.mem k.1 -> Q.holds (principal k) ;
+observed-mono (Q : P.Predicate) (X Y : Raw.Filt) (xy : Raw.Incl X Y) (h : Observed Q Y) : Observed Q X =
+  \ k hk -> h k (xy k.1 hk) ;
+module Reflection (Q : P.Predicate) (X : Raw.Filt) (consistent : Raw.ConsF X) (regular : Regular[l].Regular X) {
+  value : D = from-raw X consistent regular ;
+  introduce (h : Observed Q X) : Q.holds value = P.Reconstruct[Q].Comparison.backward value
+    (\ k below -> Tr.rec (X.mem k.1) @l (Q.holds (principal k)) (Q.proposition (principal k))
+      (h k) (below k.1 (prin-in k.1))) ;
+  eliminate (h : Q.holds value) : Observed Q X = \ k hk ->
+    Q.lower (principal k) value (prin-sub k.1 value.1 (ex (X.mem k.1) hk)) h ;
+  equation : (Observed Q X -> Q.holds value) * (Q.holds value -> Observed Q X) = (introduce,eliminate) ;
+} ;
+extendS (m n : Nat) (s : Fin m -> Tm n) (N : Tm n) : Fin (suc m) -> Tm n = split {
+  none -> N ; some i -> s i } ;
+extend-wk (m n : Nat) (s : Fin m -> Tm n) (N : Tm n) (A : Tm m) :
+  Id (Tm n) (Sub.trav (suc m) (wk m A) n (extendS m n s N)) (Sub.trav m A n s) =
+    SL.trav-ren m A (suc m) (\ i -> fs m i) n (extendS m n s N) ;
+extend-pointwise (m n : Nat) (s : Fin m -> Tm n) (N : Tm n) :
+  SL.PtEq (suc m) n (\ i -> Sub.trav (suc n) (Sub.lift m n s i) n (sub1 n N)) (extendS m n s N) = split {
+    none -> refl N ; some i -> sub1-wk n (s i) N } ;
+extend-equation (m n : Nat) (s : Fin m -> Tm n) (N : Tm n) (B : Tm (suc m)) :
+  Id (Tm n) (subst1 n (Sub.trav (suc m) B (suc n) (Sub.lift m n s)) N) (Sub.trav (suc m) B n (extendS m n s N)) =
+    trans (Tm n) (subst1 n (Sub.trav (suc m) B (suc n) (Sub.lift m n s)) N)
+      (Sub.trav (suc m) B n (\ i -> Sub.trav (suc n) (Sub.lift m n s i) n (sub1 n N)))
+      (Sub.trav (suc m) B n (extendS m n s N))
+      (sub-sub (suc m) B (suc n) (Sub.lift m n s) n (sub1 n N))
+      (SL.trav-ext (suc m) B n (\ i -> Sub.trav (suc n) (Sub.lift m n s i) n (sub1 n N))
+        (extendS m n s N) (extend-pointwise m n s N)) ;
+module At (n : Nat) (Delta : Ctx n) {
+  module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  module Rules = IndependentRelationRules[l].At[n,Delta] ;
+  module Diag = IndependentRelationDiagonal[l].At[n,Delta] ;
+  Type (X : Raw.Filt) (A A' : Tm n) : U l = Observed (I.relation.ty A A') X ;
+  Term (X : Raw.Filt) (T M M' : Tm n) : U l = Observed (I.relation.tm T M M') X ;
+  term-index (X : Raw.Filt) (T V M M' : Tm n) (e : Id (Tm n) T V) : Term X T M M' -> Term X V M M' =
+    subst (Tm n) (\ Z -> Term X Z M M') T V e ;
+  record Related {
+    m : Nat ; G : Ctx m ; rho : Sem[l].Env m ; s : Fin m -> Tm n ; s' : Fin m -> Tm n ;
+    ok : SubOk m n G Delta s ; ok' : SubOk m n G Delta s' ;
+    eq : Cross[l].SubEq m n G Delta s s' ; eq' : Cross[l].SubEq m n G Delta s' s ;
+    variables : (i : Fin m) ->
+      Term (rho i) (Sub.trav m (lookup m G i) n s) (s i) (s' i) *
+      Term (rho i) (Sub.trav m (lookup m G i) n s') (s i) (s' i) ;
+  } ;
+  diagonal (m : Nat) (G : Ctx m) (rho : Sem[l].Env m) (s s' : Fin m -> Tm n) (r : Related[m,G,rho,s,s']) : Related[m,G,rho,s,s] =
+    new Related[m,G,rho,s,s,r.ok,r.ok,
+      \ i -> eq-refl n Delta (s i) (Sub.trav m (lookup m G i) n s) (r.ok i),
+      \ i -> eq-refl n Delta (s i) (Sub.trav m (lookup m G i) n s) (r.ok i),
+      \ i -> (\ k hk -> Diag.terms (Sub.trav m (lookup m G i) n s) (s i) (s' i) (principal k) ((r.variables i).1 k hk),
+               \ k hk -> Diag.terms (Sub.trav m (lookup m G i) n s) (s i) (s' i) (principal k) ((r.variables i).1 k hk))] ;
+  extended-ok (m : Nat) (G : Ctx m) (A : Tm m) (s : Fin m -> Tm n) (N : Tm n)
+    (ok : SubOk m n G Delta s) (hn : Der n (jty Delta N (Sub.trav m A n s))) :
+    SubOk (suc m) n (ext m G A) Delta (extendS m n s N) = split {
+      none -> der-ty-ty n Delta N (Sub.trav m A n s) (Sub.trav (suc m) (wk m A) n (extendS m n s N))
+        (sym (Tm n) (Sub.trav (suc m) (wk m A) n (extendS m n s N)) (Sub.trav m A n s) (extend-wk m n s N A)) hn ;
+      some i -> der-ty-ty n Delta (s i) (Sub.trav m (lookup m G i) n s)
+        (Sub.trav (suc m) (wk m (lookup m G i)) n (extendS m n s N))
+        (sym (Tm n) (Sub.trav (suc m) (wk m (lookup m G i)) n (extendS m n s N))
+          (Sub.trav m (lookup m G i) n s) (extend-wk m n s N (lookup m G i))) (ok i) } ;
+  extended-eq (m : Nat) (G : Ctx m) (A : Tm m) (s s' : Fin m -> Tm n) (N N' : Tm n)
+    (eq : Cross[l].SubEq m n G Delta s s') (hn : Der n (jeq Delta N N' (Sub.trav m A n s))) :
+    Cross[l].SubEq (suc m) n (ext m G A) Delta (extendS m n s N) (extendS m n s' N') = split {
+      none -> der-eq-ty n Delta N N' (Sub.trav m A n s) (Sub.trav (suc m) (wk m A) n (extendS m n s N))
+        (sym (Tm n) (Sub.trav (suc m) (wk m A) n (extendS m n s N)) (Sub.trav m A n s) (extend-wk m n s N A)) hn ;
+      some i -> der-eq-ty n Delta (s i) (s' i) (Sub.trav m (lookup m G i) n s)
+        (Sub.trav (suc m) (wk m (lookup m G i)) n (extendS m n s N))
+        (sym (Tm n) (Sub.trav (suc m) (wk m (lookup m G i)) n (extendS m n s N))
+          (Sub.trav m (lookup m G i) n s) (extend-wk m n s N (lookup m G i))) (eq i) } ;
+  module Extension (m : Nat) (G : Ctx m) (A : Tm m) (rho : Sem[l].Env m) (X : Raw.Filt)
+    (s s' : Fin m -> Tm n) (N N' : Tm n) (r : Related[m,G,rho,s,s'])
+    (en : Der n (jeq Delta N N' (Sub.trav m A n s))) (en' : Der n (jeq Delta N' N (Sub.trav m A n s')))
+    (hn : Term X (Sub.trav m A n s) N N' * Term X (Sub.trav m A n s') N N') {
+    first (Y : Raw.Filt) (V : Tm m) (Q Q' : Tm n) :
+      Term Y (Sub.trav m V n s) Q Q' -> Term Y (Sub.trav (suc m) (wk m V) n (extendS m n s N)) Q Q' =
+        term-index Y (Sub.trav m V n s) (Sub.trav (suc m) (wk m V) n (extendS m n s N)) Q Q'
+          (sym (Tm n) (Sub.trav (suc m) (wk m V) n (extendS m n s N)) (Sub.trav m V n s) (extend-wk m n s N V)) ;
+    second (Y : Raw.Filt) (V : Tm m) (Q Q' : Tm n) :
+      Term Y (Sub.trav m V n s') Q Q' -> Term Y (Sub.trav (suc m) (wk m V) n (extendS m n s' N')) Q Q' =
+        term-index Y (Sub.trav m V n s') (Sub.trav (suc m) (wk m V) n (extendS m n s' N')) Q Q'
+          (sym (Tm n) (Sub.trav (suc m) (wk m V) n (extendS m n s' N')) (Sub.trav m V n s') (extend-wk m n s' N' V)) ;
+    variables : (i : Fin (suc m)) ->
+      Term (Sem[l].extE m rho X i) (Sub.trav (suc m) (lookup (suc m) (ext m G A) i) n (extendS m n s N))
+        (extendS m n s N i) (extendS m n s' N' i) *
+      Term (Sem[l].extE m rho X i) (Sub.trav (suc m) (lookup (suc m) (ext m G A) i) n (extendS m n s' N'))
+        (extendS m n s N i) (extendS m n s' N' i) = split {
+      none -> (first X A N N' hn.1,second X A N N' hn.2) ;
+      some i -> (first (rho i) (lookup m G i) (s i) (s' i) (r.variables i).1,
+                 second (rho i) (lookup m G i) (s i) (s' i) (r.variables i).2) } ;
+    related : Related[suc m,ext m G A,Sem[l].extE m rho X,extendS m n s N,extendS m n s' N'] =
+      new Related[suc m,ext m G A,Sem[l].extE m rho X,extendS m n s N,extendS m n s' N',
+        extended-ok m G A s N r.ok (eq-pre n (jeq Delta N N' (Sub.trav m A n s)) en).1,
+        extended-ok m G A s' N' r.ok' (eq-pre n (jeq Delta N' N (Sub.trav m A n s')) en').1,
+        extended-eq m G A s s' N N' r.eq en,extended-eq m G A s' s N' N r.eq' en',variables] ;
+  } ;
+} ;

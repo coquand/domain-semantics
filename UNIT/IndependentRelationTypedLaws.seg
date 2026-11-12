@@ -1,0 +1,106 @@
+-- Lift the finite typed laws to the invariant through typed compact
+-- covers. An arbitrary lower approximation is not assumed to be typed.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open ExtFilter[l] ; open Domain[l] ;
+module SL = SemanticLaws[l] ; module S = CorrectedStages[l] ; module Tr = TruncationCombinators[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module Cover (A X : D) (k : K) (w : SL.Observation[A,X,k.1]) {
+  code-rep : Proper[l].Rep[w.code] = Proper[l].typed-rep w.code univ (tp-pre w.value w.code w.typed) ;
+  code-typed : Tp (el code-rep.value univ) = tp-conv w.code univ code-rep.value univ
+    (tp-pre w.value w.code w.typed) code-rep.equiv (eqv-refl univ) ;
+  typed : Tp (el w.value code-rep.value) = tp-conv w.value w.code w.value code-rep.value w.typed (eqv-refl w.value) code-rep.equiv ;
+  key : K = (w.value,(w.proper,tp-cons w.value w.code w.typed)) ;
+  code-key : K = (code-rep.value,(code-rep.proper,tp-cons code-rep.value univ code-typed)) ;
+  value : D = principal key ; classifier : D = principal code-key ;
+  depth : Nat = max (CorrectedRank[l].rank key.1) (CorrectedRank[l].rank code-key.1) ;
+  value-rank : S.Stage[depth].Fixed value = (S.Stage[depth].compact key
+    (leN-max-l (CorrectedRank[l].rank key.1) (CorrectedRank[l].rank code-key.1))).2 ;
+  code-rank : S.Stage[depth].Fixed classifier = (S.Stage[depth].compact code-key
+    (leN-max-r (CorrectedRank[l].rank key.1) (CorrectedRank[l].rank code-key.1))).2 ;
+  fixed : Equal (SL.p classifier value) value = (SL.below classifier value,
+    prin-sub key.1 (SL.p classifier value).1 (SL.introduce classifier value key.1 code-key.1 (prin-in key.1) (prin-in code-key.1) typed)) ;
+  code-fixed : Equal (SL.p universe classifier) classifier = (SL.below universe classifier,
+    prin-sub code-key.1 (SL.p universe classifier).1 (SL.universe-in classifier code-key.1 (prin-in code-key.1) code-typed)) ;
+  below : Domain[l].Below value (SL.p A X) =
+    prin-sub key.1 (SL.p A X).1 (SL.introduce A X w.value w.code w.inside w.type-inside w.typed) ;
+  code-below : Domain[l].Below classifier (SL.p universe A) =
+    prin-sub code-key.1 (SL.p universe A).1 (SL.universe-in A code-key.1
+      (fup A.1 w.code code-key.1 code-rep.equiv.1 w.type-inside) code-typed) ;
+  covers : Domain[l].Below (principal k) value = prin-anti key.1 k.1 w.below ;
+} ;
+module At (n : Nat) (Delta : Ctx n) {
+  module I = IndependentLogicalRelation[l].At[n,Delta] ; module St = LogicalRelationStages[l].At[n,Delta] ;
+  module StageLaws = IndependentRelationTypedStages[l].At[n,Delta] ;
+  module Laws = IndependentRelationTypedSteps[l].At[n,Delta] ;
+  module Observation (A X : D) (k : K) (w : SL.Observation[A,X,k.1]) {
+    module C = Cover[A,X,k,w] ;
+    read-term (T M M' : Tm n) (h : (I.relation.tm T M M').holds (SL.p A X)) :
+      ((St.stage C.depth).tm T M M').holds (SL.p C.classifier C.value) =
+        ((St.stage C.depth).tm T M M').lower (SL.p C.classifier C.value) C.value C.fixed.1
+          ((I.finite-agreement C.depth).1.2 T M M' C.value C.value-rank
+            ((I.relation.tm T M M').lower C.value (SL.p A X) C.below h)) ;
+    read-type (T T' : Tm n) (h : (I.relation.ty T T').holds (SL.p universe A)) :
+      ((St.stage C.depth).ty T T').holds (SL.p universe C.classifier) =
+        ((St.stage C.depth).ty T T').lower (SL.p universe C.classifier) C.classifier C.code-fixed.1
+          ((I.finite-agreement C.depth).1.1 T T' C.classifier C.code-rank
+            ((I.relation.ty T T').lower C.classifier (SL.p universe A) C.code-below h)) ;
+    write-term (T M M' : Tm n) (h : ((St.stage C.depth).tm T M M').holds (SL.p C.classifier C.value)) :
+      (I.relation.tm T M M').holds (principal k) =
+        (I.relation.tm T M M').lower (principal k) C.value C.covers
+          ((I.finite-agreement C.depth).2.2 T M M' C.value C.value-rank
+            (((St.stage C.depth).tm T M M').lower C.value (SL.p C.classifier C.value) C.fixed.2 h)) ;
+  } ;
+  conversion : Laws.Conversion I.relation = \ A X T T' M M' types terms ->
+    P.Reconstruct[I.relation.tm T' M M'].Comparison.backward (SL.p A X) (\ k below ->
+      Tr.rec SL.Observation[A,X,k.1] @l ((I.relation.tm T' M M').holds (principal k)) ((I.relation.tm T' M M').proposition (principal k))
+        (\ w -> Observation[A,X,k,w].write-term T' M M'
+          ((StageLaws.laws Cover[A,X,k,w].depth).conversion Cover[A,X,k,w].classifier Cover[A,X,k,w].value T T' M M'
+            (Observation[A,X,k,w].read-type T T' types) (Observation[A,X,k,w].read-term T M M' terms)))
+        (SL.observe A X k.1 (below k.1 (prin-in k.1)))) ;
+  term-symmetry : Laws.TermSymmetry I.relation = \ A X T M M' terms ->
+    P.Reconstruct[I.relation.tm T M' M].Comparison.backward (SL.p A X) (\ k below ->
+      Tr.rec SL.Observation[A,X,k.1] @l ((I.relation.tm T M' M).holds (principal k)) ((I.relation.tm T M' M).proposition (principal k))
+        (\ w -> Observation[A,X,k,w].write-term T M' M
+          ((StageLaws.laws Cover[A,X,k,w].depth).term-symmetry Cover[A,X,k,w].classifier Cover[A,X,k,w].value T M M'
+            (Observation[A,X,k,w].read-term T M M' terms))) (SL.observe A X k.1 (below k.1 (prin-in k.1)))) ;
+  term-transitivity : Laws.TermTransitivity I.relation = \ A X T M V W first second ->
+    P.Reconstruct[I.relation.tm T M W].Comparison.backward (SL.p A X) (\ k below ->
+      Tr.rec SL.Observation[A,X,k.1] @l ((I.relation.tm T M W).holds (principal k)) ((I.relation.tm T M W).proposition (principal k))
+        (\ w -> Observation[A,X,k,w].write-term T M W
+          ((StageLaws.laws Cover[A,X,k,w].depth).term-transitivity Cover[A,X,k,w].classifier Cover[A,X,k,w].value T M V W
+            (Observation[A,X,k,w].read-term T M V first) (Observation[A,X,k,w].read-term T V W second)))
+        (SL.observe A X k.1 (below k.1 (prin-in k.1)))) ;
+  module TypeObservation (X : D) (k : K) (w : SL.Observation[universe,X,k.1]) {
+    module C = Cover[universe,X,k,w] ;
+    self-type : In (SL.p universe C.value) C.key.1 = Tr.rec (Le univ w.code) @l (In (SL.p universe C.value) C.key.1)
+      (fprop (SL.p universe C.value).1 C.key.1)
+      (\ le -> SL.universe-in C.value C.key.1 (prin-in C.key.1) (Sound[l].tp-univ w.value w.code w.typed le)) w.type-inside ;
+    fixed : Equal (SL.p universe C.value) C.value =
+      (SL.below universe C.value,prin-sub C.key.1 (SL.p universe C.value).1 self-type) ;
+    read (T T' : Tm n) (h : (I.relation.ty T T').holds (SL.p universe X)) :
+      ((St.stage C.depth).ty T T').holds (SL.p universe C.value) =
+        ((St.stage C.depth).ty T T').lower (SL.p universe C.value) C.value fixed.1
+          ((I.finite-agreement C.depth).1.1 T T' C.value C.value-rank
+            ((I.relation.ty T T').lower C.value (SL.p universe X) C.below h)) ;
+    write (T T' : Tm n) (h : ((St.stage C.depth).ty T T').holds (SL.p universe C.value)) :
+      (I.relation.ty T T').holds (principal k) =
+        (I.relation.ty T T').lower (principal k) C.value C.covers
+          ((I.finite-agreement C.depth).2.1 T T' C.value C.value-rank
+            (((St.stage C.depth).ty T T').lower C.value (SL.p universe C.value) fixed.2 h)) ;
+  } ;
+  type-symmetry : Laws.TypeSymmetry I.relation = \ X T T' types ->
+    P.Reconstruct[I.relation.ty T' T].Comparison.backward (SL.p universe X) (\ k below ->
+      Tr.rec SL.Observation[universe,X,k.1] @l ((I.relation.ty T' T).holds (principal k)) ((I.relation.ty T' T).proposition (principal k))
+        (\ w -> TypeObservation[X,k,w].write T' T
+          ((StageLaws.laws Cover[universe,X,k,w].depth).type-symmetry Cover[universe,X,k,w].value T T'
+            (TypeObservation[X,k,w].read T T' types))) (SL.observe universe X k.1 (below k.1 (prin-in k.1)))) ;
+  type-transitivity : Laws.TypeTransitivity I.relation = \ X T V W first second ->
+    P.Reconstruct[I.relation.ty T W].Comparison.backward (SL.p universe X) (\ k below ->
+      Tr.rec SL.Observation[universe,X,k.1] @l ((I.relation.ty T W).holds (principal k)) ((I.relation.ty T W).proposition (principal k))
+        (\ w -> TypeObservation[X,k,w].write T W
+          ((StageLaws.laws Cover[universe,X,k,w].depth).type-transitivity Cover[universe,X,k,w].value T V W
+            (TypeObservation[X,k,w].read T V first) (TypeObservation[X,k,w].read V W second)))
+        (SL.observe universe X k.1 (below k.1 (prin-in k.1)))) ;
+  laws : StageLaws.Laws[I.relation] = new StageLaws.Laws[I.relation,type-symmetry,type-transitivity,term-symmetry,term-transitivity,conversion] ;
+} ;

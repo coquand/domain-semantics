@@ -1,0 +1,139 @@
+-- Proposition-valued filters. Extensionality and truncation adapted
+-- from unit-indexed/domain/ideal/Filter.seg to the MIN token system.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ;
+module Raw = Filter[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module Tr = Truncation[l] ;
+module TC = TruncationCombinators[l] ;
+
+------------------------------------------------------------------------
+-- truncation
+
+Ex (A : U l) : U l = Tr.Trunc[A].carrier ;
+ex (A : U l) (a : A) : Ex A = Tr.Trunc[A].inc a ;
+ex-prop (A : U l) : isProp (Ex A) = Tr.Trunc[A].proposition ;
+ex-elim (A P : U l) (pP : isProp P) (f : A -> P) (e : Ex A) : P = TC.rec A @l P pP f e ;
+
+------------------------------------------------------------------------
+-- filters
+
+Closed (m : Ty -> U l) : U l =
+  m om * (((s t : Ty) -> m s -> m t -> m (meet s t)) * ((s t : Ty) -> Le s t -> m s -> m t)) ;
+IsFilter (m : Ty -> U l) : U l = ((s : Ty) -> isProp (m s)) * Closed m ;
+
+Filt : U l+ = (m : Ty -> U l) * IsFilter m ;
+
+mem (x : Filt) (s : Ty) : U l = x.1 s ;
+fprop (x : Filt) (s : Ty) : isProp (mem x s) = x.2.1 s ;
+fom (x : Filt) : mem x om = x.2.2.1 ;
+fmeet (x : Filt) (s t : Ty) (h1 : mem x s) (h2 : mem x t) : mem x (meet s t) = x.2.2.2.1 s t h1 h2 ;
+fup (x : Filt) (s t : Ty) (le : Le s t) (h : mem x s) : mem x t = x.2.2.2.2 s t le h ;
+
+Sub (x y : Filt) : U l = (s : Ty) -> mem x s -> mem y s ;
+Eqv (x y : Filt) : U l = Sub x y * Sub y x ;
+
+sub-refl (x : Filt) : Sub x x = \ s h -> h ;
+sub-trans (x y z : Filt) (p : Sub x y) (q : Sub y z) : Sub x z = \ s h -> q s (p s h) ;
+eqv-refl (x : Filt) : Eqv x x = (sub-refl x, sub-refl x) ;
+eqv-sym (x y : Filt) (e : Eqv x y) : Eqv y x = (e.2, e.1) ;
+eqv-trans (x y z : Filt) (p : Eqv x y) (q : Eqv y z) : Eqv x z =
+  (sub-trans x y z p.1 q.1, sub-trans z y x q.2 p.2) ;
+
+-- an equation of filters gives an equivalence
+id-eqv (x y : Filt) (e : Id Filt x y) : Eqv x y =
+  Prelude[l+].subst Filt (\ z -> Eqv x z) x y e (eqv-refl x) ;
+
+isProp-IsFilter (m : Ty -> U l) : isProp (IsFilter m) =
+  isProp-Sigma ((s : Ty) -> isProp (m s)) (\ _ -> Closed m)
+    (F.isProp-Pi Ty (\ s -> isProp (m s)) (\ s -> F.isProp-isProp (m s)))
+    (\ pm -> isProp-Sigma (m om) (\ _ -> ((s t : Ty) -> m s -> m t -> m (meet s t)) * ((s t : Ty) -> Le s t -> m s -> m t))
+      (pm om)
+      (\ _ -> isProp-Sigma ((s t : Ty) -> m s -> m t -> m (meet s t)) (\ _ -> (s t : Ty) -> Le s t -> m s -> m t)
+        (F.isProp-Pi Ty (\ s -> (t : Ty) -> m s -> m t -> m (meet s t)) (\ s ->
+          F.isProp-Pi Ty (\ t -> m s -> m t -> m (meet s t)) (\ t ->
+            F.isProp-Pi (m s) (\ _ -> m t -> m (meet s t)) (\ _ ->
+              F.isProp-Pi (m t) (\ _ -> m (meet s t)) (\ _ -> pm (meet s t))))))
+        (\ _ -> F.isProp-Pi Ty (\ s -> (t : Ty) -> Le s t -> m s -> m t) (\ s ->
+          F.isProp-Pi Ty (\ t -> Le s t -> m s -> m t) (\ t ->
+            F.isProp-Pi (Le s t) (\ _ -> m s -> m t) (\ _ ->
+              F.isProp-Pi (m s) (\ _ -> m t) (\ _ -> pm t))))))) ;
+
+-- propositional extensionality, from univalence for propositions
+prop-ext (P Q : U l) (pP : isProp P) (pQ : isProp Q) (f : P -> Q) (g : Q -> P) : Id (U l) P Q =
+  (propUA @l P Q pP pQ).sec (f, qinv P Q f g (\ b -> pQ (f (g b)) b) (\ a -> pP (g (f a)) a)) ;
+
+-- filters with the same elements are equal
+filt-ext (x y : Filt) (e : Eqv x y) : Id Filt x y =
+  Prelude[l+].Sigma-eq (Ty -> U l) (\ m -> IsFilter m) x.1 y.1 x.2 y.2
+    (Axioms[l+].FunExtLemmas[fe @l+].funext Ty (\ _ -> U l) x.1 y.1
+      (\ s -> prop-ext (x.1 s) (y.1 s) (x.2.1 s) (y.2.1 s) (e.1 s) (e.2 s)))
+    (isProp-IsFilter y.1) ;
+
+------------------------------------------------------------------------
+-- filters from witnesses
+
+truncF (W : Ty -> U l) (wom : W om)
+    (wmeet : (s t : Ty) -> W s -> W t -> W (meet s t))
+    (wup : (s t : Ty) -> Le s t -> W s -> W t) : Filt =
+  (\ t -> Ex (W t),
+   (\ t -> ex-prop (W t),
+    (ex (W om) wom,
+     (\ s t a b -> TC.bind2 (W s) (W t) (W (meet s t)) (\ u v -> ex (W (meet s t)) (wmeet s t u v)) a b,
+      \ s t h -> TC.map (W s) (W t) (wup s t h))))) ;
+
+-- an element of a truncated filter, given by a witness
+tr-in (W : Ty -> U l) (t : Ty) (w : W t) : Ex (W t) = ex (W t) w ;
+-- an inclusion is checked on the witnesses
+tr-sub (W : Ty -> U l) (y : Filt) (h : (t : Ty) -> W t -> mem y t) (t : Ty) (e : Ex (W t)) : mem y t =
+  ex-elim (W t) (mem y t) (fprop y t) (h t) e ;
+
+------------------------------------------------------------------------
+-- principal filters, bottom, top
+
+PW (s t : Ty) : U l = Le s t ;
+prin (s : Ty) : Filt = truncF (PW s) (le-om s) (\ t u h k -> le-meet s t u h k) (\ t u h k -> le-trans s t u k h) ;
+prin-in (s : Ty) : mem (prin s) s = tr-in (PW s) s (le-refl s) ;
+-- prin s is included in every filter containing s
+prin-sub (s : Ty) (x : Filt) (h : mem x s) : Sub (prin s) x =
+  tr-sub (PW s) x (\ t le -> fup x s t le h) ;
+-- prin is antitone
+prin-anti (s s' : Ty) (le : Le s s') : Sub (prin s') (prin s) =
+  prin-sub s' (prin s) (tr-in (PW s) s' le) ;
+
+bot : Filt = prin om ;
+bot-sub (x : Filt) : Sub bot x = prin-sub om x (fom x) ;
+
+topF : Filt = (\ t -> Top, (\ t -> isTop, (tt, (\ s t a b -> tt, \ s t h a -> tt)))) ;
+top-sub (x : Filt) : Sub x topF = \ s h -> tt ;
+
+------------------------------------------------------------------------
+-- The old, proof-relevant representation and its extensional reflection.
+
+raw (x : Filt) : Raw.Filt =
+  new Raw.Filt[mem x, fom x, fmeet x, fup x] ;
+
+reflect (X : Raw.Filt) : Filt = truncF X.mem X.fom X.fmeet X.fup ;
+
+reflect-in (X : Raw.Filt) : Raw.Incl X (raw (reflect X)) =
+  \ t w -> ex (X.mem t) w ;
+
+reflect-sub (X Y : Raw.Filt) (h : Raw.Incl X Y) : Sub (reflect X) (reflect Y) =
+  \ t -> TC.map (X.mem t) (Y.mem t) (h t) ;
+
+reflect-eq (X Y : Raw.Filt) (h : Raw.FEq X Y) : Id Filt (reflect X) (reflect Y) =
+  filt-ext (reflect X) (reflect Y) (reflect-sub X Y h.1, reflect-sub Y X h.2) ;
+
+reflect-raw (x : Filt) : Eqv (reflect (raw x)) x =
+  (\ t -> ex-elim (mem x t) (mem x t) (fprop x t) (\ h -> h),
+   \ t -> ex (mem x t)) ;
+
+sub-prop (x y : Filt) : isProp (Sub x y) =
+  F.isProp-Pi Ty (\ t -> mem x t -> mem y t)
+    (\ t -> F.isProp-Pi (mem x t) (\ _ -> mem y t) (\ _ -> fprop y t)) ;
+
+eqv-prop (x y : Filt) : isProp (Eqv x y) =
+  isProp-Sigma (Sub x y) (\ _ -> Sub y x) (sub-prop x y) (\ _ -> sub-prop y x) ;
+
+filt-set : Prelude[l+].isSet Filt = \ x ->
+  Prelude[l+].Hedberg[Filt,x,\ y -> Eqv x y,\ y -> eqv-prop x y,eqv-refl x,\ y -> filt-ext x y].hedberg ;

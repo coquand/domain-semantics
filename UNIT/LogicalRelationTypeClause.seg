@@ -1,0 +1,51 @@
+-- Independent universe/Pi clause. Separate mere head existence from
+-- universal coherent component tests, so admissibility uses no choice.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ; open Reduction[l] ;
+open ExtFilter[l] ; open Domain[l] ;
+module Predicates = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module Observations = DomainPredicateObservations[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module Clauses = LogicalRelationClauses[l].At[n,Delta] ;
+  module Step (R : Clauses.TermFamily) (S : Clauses.TypeFamily) (T T' : Tm n) {
+    module H = LogicalTypeHeads[l].At[n,Delta,T,T'] ;
+    Universe : U l = Reds n T (uu n) * Reds n T' (uu n) ;
+    module UniverseTest = Observations.Test[univ,Ex Universe,ex-prop Universe] ;
+    module HeadTest = Observations.Test[pi om om,Ex H.Heads,ex-prop H.Heads] ;
+    module Body (s : H.Shape) {
+      module Family = Clauses.Families[R,S,s.1.1,s.1.2,s.2.2] ;
+      module Pi = Observations.PiBody[S s.1.1 s.2.1,Family.predicate] ;
+    } ;
+    module Bodies = Predicates.Intersection[H.Heads,\ e -> Body[e.1].Pi.predicate] ;
+    module PiTests = Predicates.Both[HeadTest.predicate,Bodies.predicate] ;
+    module Combined = Predicates.Both[UniverseTest.predicate,PiTests.predicate] ;
+    predicate : Predicates.Predicate = Combined.predicate ;
+    strict : predicate.holds bottom =
+      (UniverseTest.strict Observations.no-bottom-U,
+       (HeadTest.strict (Observations.no-bottom-Pi om om),\ e -> Body[e.1].Pi.strict)) ;
+
+    module AtHead (x : D) (hp : Parts[l].PHead x) {
+      module Data = H.With[\ s -> Body[s].Pi.Components x hp,\ s -> Body[s].Pi.components-prop x hp] ;
+    } ;
+    Natural (x : D) : U l = (Parts[l].UHead x -> Ex Universe) *
+      ((hp : Parts[l].PHead x) -> Ex AtHead[x,hp].Data.Witness) ;
+    unfold (x : D) (h : predicate.holds x) : Natural x =
+      (h.1,\ hp -> AtHead[x,hp].Data.assemble (h.2.1 hp) (\ e -> Body[e.1].Pi.components x (h.2.2 e) hp)) ;
+    fold (x : D) (h : Natural x) : predicate.holds x =
+      (h.1,(\ hp -> AtHead[x,hp].Data.forget (h.2 hp),\ e -> Body[e.1].Pi.introduce x
+        (\ hp -> AtHead[x,hp].Data.require (h.2 hp) e))) ;
+    equation (x : D) : (predicate.holds x -> Natural x) * (Natural x -> predicate.holds x) = (unfold x,fold x) ;
+  } ;
+  module Variance (R R' : Clauses.TermFamily) (S S' : Clauses.TypeFamily)
+    (input : Clauses.TermIncludes R' R) (output : Clauses.TypeIncludes S S') (T T' : Tm n) {
+    module Before = Step[R,S,T,T'] ; module After = Step[R',S',T,T'] ;
+    module Body (s : Before.H.Shape) {
+      module FamilyChange = Clauses.FamilyVariance[R,R',S,S',input,output,s.1.1,s.1.2,s.2.2] ;
+      module Change = Observations.PiBodyVariance[S s.1.1 s.2.1,S' s.1.1 s.2.1,
+        Before.Body[s].Family.predicate,After.Body[s].Family.predicate,output s.1.1 s.2.1,FamilyChange.inclusion] ;
+    } ;
+    pointwise (x : D) (h : Before.predicate.holds x) : After.predicate.holds x =
+      (h.1,(h.2.1,\ e -> Body[e.1].Change.pointwise x (h.2.2 e))) ;
+    inclusion : Predicates.Includes Before.predicate After.predicate = Predicates.inclusion Before.predicate After.predicate pointwise ;
+  } ;
+} ;

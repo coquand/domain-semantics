@@ -1,0 +1,120 @@
+-- Constructive coalesced sum 1_bottom + (D x FD)_bottom + FD.
+-- A positive head in either lifted summand forces the unlifted function
+-- component to bottom. The two positive heads exclude one another.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Abstraction[l] ; open Parts[l] ; open Lifting[l] ;
+module TC = TruncationCombinators[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+
+Data : U l+ = Prop * (Lift (D * FD) * FD) ;
+UH (s : Data) : U l = s.1.1 ;
+PH (s : Data) : U l = s.2.1.1.1 ;
+PA (s : Data) (p : PH s) : D = (s.2.1.2 p).1 ;
+PF (s : Data) (p : PH s) : FD = (s.2.1.2 p).2 ;
+FN (s : Data) : FD = s.2.2 ;
+Compatible (s : Data) : U l =
+  (UH s -> PH s -> Empty) *
+  ((UH s -> Equal (FN s).1 bottom) * (PH s -> Equal (FN s).1 bottom)) ;
+compatible-prop (s : Data) : isProp (Compatible s) =
+  isProp-Sigma (UH s -> PH s -> Empty)
+    (\ _ -> (UH s -> Equal (FN s).1 bottom) * (PH s -> Equal (FN s).1 bottom))
+    (F.isProp-Pi (UH s) (\ _ -> PH s -> Empty)
+      (\ _ -> F.isProp-Pi (PH s) (\ _ -> Empty) (\ _ -> isProp-Empty)))
+    (\ _ -> isProp-Sigma (UH s -> Equal (FN s).1 bottom) (\ _ -> PH s -> Equal (FN s).1 bottom)
+      (F.isProp-Pi (UH s) (\ _ -> Equal (FN s).1 bottom) (\ _ -> eqv-prop (FN s).1.1 bottom.1))
+      (\ _ -> F.isProp-Pi (PH s) (\ _ -> Equal (FN s).1 bottom) (\ _ -> eqv-prop (FN s).1.1 bottom.1))) ;
+RHS : U l+ = (s : Data) * Compatible s ;
+
+decode (x : D) : RHS =
+  (((UHead x,fprop x.1 univ),
+    (((PHead x,fprop x.1 (pi om om)),\ p -> (Parts[l].PiParts[x,p].domain,Parts[l].PiParts[x,p].family)),
+     abstract (Application[l].map x))),
+   (disjoint x,(\ u -> Kill[x,u-arrow x u].equality,\ p -> Kill[x,p-arrow x p].equality))) ;
+
+module Encode (s : RHS) {
+  data W : (t : Ty) -> U l =
+      wbot (t : Ty) (h : Le om t) : W t
+    | wu (t : Ty) (u : UH s.1) (h : Le univ t) : W t
+    | wp (t : Ty) (p : PH s.1) (a b : Ty) (ha : In (PA s.1 p) a)
+        (hb : In (PF s.1 p).1 b) (h : Le (pi a b) t) : W t
+    | wf (t : Ty) (h : In (FN s.1).1 t) : W t ;
+
+  up-by : (a : Ty) -> W a -> (b : Ty) -> Le a b -> W b = split {
+    wbot a k -> \ b h -> wbot b (le-trans om a b k h) ;
+    wu a u k -> \ b h -> wu b u (le-trans univ a b k h) ;
+    wp a p d f hd hf k -> \ b h -> wp b p d f hd hf (le-trans (pi d f) a b k h) ;
+    wf a ha -> \ b h -> wf b (fup (FN s.1).1.1 a b h ha) } ;
+  up (a b : Ty) (h : Le a b) (w : W a) : W b = up-by a w b h ;
+  left-bot (a b : Ty) (h : Le om a) (w : W b) : W (meet a b) =
+    up b (meet a b) (le-meet b a b (le-trans b om a (le-om b) h) (le-refl b)) w ;
+  right-bot (a b : Ty) (w : W a) (h : Le om b) : W (meet a b) =
+    up a (meet a b) (le-meet a a b (le-refl a) (le-trans a om b (le-om a) h)) w ;
+
+  -- The partial product is proof-independent because its domain is a proposition.
+  sameA (p q : PH s.1) : Equal (PA s.1 p) (PA s.1 q) =
+    id-eqv (PA s.1 p).1 (PA s.1 q).1
+      (Prelude[l+].ap (PH s.1) Filt (\ r -> (PA s.1 r).1) p q (s.1.2.1.1.2 p q)) ;
+  sameF (p q : PH s.1) : Equal (PF s.1 p).1 (PF s.1 q).1 =
+    id-eqv (PF s.1 p).1.1 (PF s.1 q).1.1
+      (Prelude[l+].ap (PH s.1) Filt (\ r -> (PF s.1 r).1.1) p q (s.1.2.1.1.2 p q)) ;
+
+  merge-by : (a : Ty) -> W a -> (b : Ty) -> W b -> Ex (W (meet a b)) = split {
+    wbot a h -> \ b w -> ex (W (meet a b)) (left-bot a b h w) ;
+    wu a u h -> split {
+      wbot b k -> ex (W (meet a b)) (right-bot a b (wu a u h) k) ;
+      wu b v k -> ex (W (meet a b)) (wu (meet a b) u (le-meet univ a b h k)) ;
+      wp b p d f hd hf k -> efq (s.2.1 u p) ;
+      wf b hb -> TC.map (Le om b) (W (meet a b))
+        (right-bot a b (wu a u h)) ((s.2.2.1 u).1 b hb) } ;
+    wp a p d f hd hf h -> split {
+      wbot b k -> ex (W (meet a b)) (right-bot a b (wp a p d f hd hf h) k) ;
+      wu b u k -> efq (s.2.1 u p) ;
+      wp b q d' f' hd' hf' k -> ex (W (meet a b))
+        (wp (meet a b) p (meet d d') (meet f f')
+          (fmeet (PA s.1 p).1 d d' hd ((sameA q p).1 d' hd'))
+          (fmeet (PF s.1 p).1.1 f f' hf ((sameF q p).1 f' hf'))
+          (le-meet (pi (meet d d') (meet f f')) a b
+            (le-trans (pi (meet d d') (meet f f')) (pi d f) a
+              (le-pi (meet d d') d (meet f f') f (le-meet-l d d') (le-meet-l f f')) h)
+            (le-trans (pi (meet d d') (meet f f')) (pi d' f') b
+              (le-pi (meet d d') d' (meet f f') f' (le-meet-r d d') (le-meet-r f f')) k))) ;
+      wf b hb -> TC.map (Le om b) (W (meet a b))
+        (right-bot a b (wp a p d f hd hf h)) ((s.2.2.2 p).1 b hb) } ;
+    wf a ha -> split {
+      wbot b k -> ex (W (meet a b)) (right-bot a b (wf a ha) k) ;
+      wu b u k -> TC.map (Le om a) (W (meet a b))
+        (\ h -> left-bot a b h (wu b u k)) ((s.2.2.1 u).1 a ha) ;
+      wp b p d f hd hf k -> TC.map (Le om a) (W (meet a b))
+        (\ h -> left-bot a b h (wp b p d f hd hf k)) ((s.2.2.2 p).1 a ha) ;
+      wf b hb -> ex (W (meet a b)) (wf (meet a b) (fmeet (FN s.1).1.1 a b ha hb)) } } ;
+
+  merge (a b : Ty) (v : W a) (w : W b) : Ex (W (meet a b)) = merge-by a v b w ;
+
+  carrier : Filt = (\ t -> Ex (W t),(\ t -> ex-prop (W t),
+    (ex (W om) (wbot om (le-refl om)),
+     (\ a b -> TC.bind2 (W a) (W b) (W (meet a b)) (merge a b),
+      \ a b h -> TC.map (W a) (W b) (up a b h))))) ;
+  validW : (t : Ty) -> W t -> Cons t = split {
+    wbot t h -> cons-down om t h cons-om ;
+    wu t u h -> cons-down univ t h cons-univ ;
+    wp t p a b ha hb h -> cons-down (pi a b) t h
+      (cons-pi a b (consistent (PA s.1 p) a ha) (consistent (PF s.1 p).1 b hb)) ;
+    wf t h -> consistent (FN s.1).1 t h } ;
+  generatedW : (t : Ty) -> W t -> Ex (Domain[l].PW carrier t) = split {
+    wbot t h -> ex (Domain[l].PW carrier t) (om,(tt,(fom carrier,h))) ;
+    wu t u h -> ex (Domain[l].PW carrier t) (univ,(tt,(ex (W univ) (wu univ u (le-refl univ)),h))) ;
+    wp t p a b ha hb h -> TC.bind2 (Domain[l].PW (PA s.1 p).1 a) (AW (PF s.1 p).1 b)
+      (Domain[l].PW carrier t)
+      (\ v w -> ex (Domain[l].PW carrier t)
+        (pi v.1 w.1,((v.2.1,(w.2.1,w.2.2.1)),
+          (ex (W (pi v.1 w.1)) (wp (pi v.1 w.1) p v.1 w.1 v.2.2.1 w.2.2.2.1 (le-refl (pi v.1 w.1))),
+           le-trans (pi v.1 w.1) (pi a b) t (le-pi v.1 a w.1 b v.2.2.2 w.2.2.2.2) h))))
+      ((PA s.1 p).2.2 a ha) ((PF s.1 p).2 b hb) ;
+    wf t h -> TC.map (Domain[l].PW (FN s.1).1.1 t) (Domain[l].PW carrier t)
+      (\ w -> (w.1,(w.2.1,(ex (W w.1) (wf w.1 w.2.2.1),w.2.2.2)))) ((FN s.1).1.2.2 t h) } ;
+  value : D = (carrier,(\ t -> TC.map (W t) (Cons t) (validW t),
+    \ t -> TC.bind (W t) (Domain[l].PW carrier t) (generatedW t))) ;
+} ;
+
+encode (s : RHS) : D = Encode[s].value ;

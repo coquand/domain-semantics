@@ -1,0 +1,89 @@
+-- Restricting and assembling stable endomaps along a rigid chain.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ; open Lib[l] ;
+module Embed = RigidLimitEmbedding[l] ;
+exponential (S : RigidLimitOrder[l].Chain) : RigidLimitOrder[l].Chain = new RigidLimitOrder[l].Chain[
+  domain := \ n -> StableFiniteIdeals[l].Exponential[S.domain n,S.domain n].domain,
+  link := \ n -> RigidEmbeddingExponential[l].Lift[S.domain n,S.domain (suc n),S.link n].embedding] ;
+module On (S : RigidLimitOrder[l].Chain) {
+  chain : RigidLimitOrder[l].Chain = exponential S ;
+  module L = RigidLimitOrder[l].On[S] ; module D = RigidLimitDI[l].On[S] ; module Laws = RigidLimitLaws[l].On[S] ;
+  module T = RigidLimitOrder[l].On[chain] ; module TD = RigidLimitDI[l].On[chain] ; module TLaws = RigidLimitLaws[l].On[chain] ;
+  module X = StableFiniteIdeals[l].Exponential[D.domain,D.domain] ;
+  module M = StableMaps[l].Between[D.domain.scott,D.domain.scott] ;
+  module TX = StableMaps[l].Between[TD.domain.scott,X.domain.scott] ;
+  module XT = StableMaps[l].Between[X.domain.scott,TD.domain.scott] ;
+  module At (n : Nat) {
+    module F = StableFiniteIdeals[l].Exponential[S.domain n,S.domain n] ;
+    module SM = StableMaps[l].Between[(S.domain n).scott,(S.domain n).scott] ;
+    module E = RigidEmbeddingExponential[l].Lift[S.domain n,D.domain,D.Stage[n].embedding] ;
+    restrict : StableMaps[l].Between[X.domain.scott,F.domain.scott].Map = E.Pro.map ;
+    extend : StableMaps[l].Between[F.domain.scott,X.domain.scott].Map = E.Emb.map ;
+    map : TX.Map = StableComposition[l].Between[TD.domain.scott,F.domain.scott,X.domain.scott].Compose[TD.Stage[n].Q.project,extend].map ;
+    value (y : T.carrier) : M.Map = TX.run map y ;
+    point (y : T.carrier) (x : L.carrier) : L.carrier = M.run (value y) x ;
+  } ;
+  coherent (f : M.Map) : T.Coherent (\ n -> StableMaps[l].Between[X.domain.scott,(chain.domain n).scott].run At[n].restrict f) = \ n ->
+    StableExtensional[l].Between[(S.domain n).scott,(S.domain n).scott].equation
+      (T.project n (StableMaps[l].Between[X.domain.scott,(chain.domain (suc n)).scott].run At[suc n].restrict f))
+      (StableMaps[l].Between[X.domain.scott,(chain.domain n).scott].run At[n].restrict f)
+      (\ a -> trans (L.C n)
+        (L.project n ((M.run f (Embed.lift (suc n) S (L.embed n a))).1 (suc n)))
+        (L.project n ((M.run f (Embed.lift n S a)).1 (suc n))) ((M.run f (Embed.lift n S a)).1 n)
+        (ap L.carrier (L.C n) (\ x -> L.project n ((M.run f x).1 (suc n))) (Embed.lift (suc n) S (L.embed n a)) (Embed.lift n S a) (Laws.adjacent n a))
+        ((M.run f (Embed.lift n S a)).2 n)) ;
+  module Cone = RigidLimitMaps[l].On[chain].Assemble[X.domain.scott,\ n -> At[n].restrict,coherent] ;
+  encode : XT.Map = Cone.map ;
+  module Step (n : Nat) {
+    module C = StableComposition[l].Between[TD.domain.scott,TD.domain.scott,X.domain.scott] ;
+    module Cut = C.Compose[TLaws.stage n,At[suc n].map] ;
+    point (y : T.carrier) (x : L.carrier) : Id L.carrier (M.run (TX.run Cut.map y) x) (At[n].point y x) =
+      trans L.carrier (M.run (TX.run Cut.map y) x)
+        (Embed.lift (suc n) S (L.embed n (At[n].SM.run (y.1 n) (L.project n (x.1 (suc n)))))) (At[n].point y x)
+        (ap (T.C (suc n)) L.carrier (\ f -> Embed.lift (suc n) S (At[suc n].SM.run f (x.1 (suc n))))
+          ((Embed.approximate chain n y).1 (suc n)) (T.embed n (y.1 n)) (TLaws.lift-next n (y.1 n)))
+        (trans L.carrier (Embed.lift (suc n) S (L.embed n (At[n].SM.run (y.1 n) (L.project n (x.1 (suc n))))))
+          (Embed.lift n S (At[n].SM.run (y.1 n) (L.project n (x.1 (suc n))))) (At[n].point y x)
+          (Laws.adjacent n (At[n].SM.run (y.1 n) (L.project n (x.1 (suc n)))))
+          (ap (L.C n) L.carrier (\ a -> Embed.lift n S (At[n].SM.run (y.1 n) a)) (L.project n (x.1 (suc n))) (x.1 n) (x.2 n))) ;
+    equation (y : T.carrier) : Id M.Map (TX.run Cut.map y) (At[n].value y) =
+      StableExtensional[l].Between[D.domain.scott,D.domain.scott].equation (TX.run Cut.map y) (At[n].value y) (point y) ;
+    corner (y : T.carrier) (x : L.carrier) : Id L.carrier (M.run (At[n].E.value (At[suc n].value y)) x) (At[n].point y x) =
+      ap (L.C n) L.carrier (Embed.lift n S)
+        ((At[suc n].point y (Embed.approximate S n x)).1 n) (At[n].SM.run (y.1 n) (x.1 n))
+        (trans (L.C n) ((At[suc n].point y (Embed.approximate S n x)).1 n)
+          (L.project n (At[suc n].SM.run (y.1 (suc n)) ((Embed.approximate S n x).1 (suc n)))) (At[n].SM.run (y.1 n) (x.1 n))
+          (Laws.lift-previous n (At[suc n].SM.run (y.1 (suc n)) ((Embed.approximate S n x).1 (suc n))))
+          (trans (L.C n) (L.project n (At[suc n].SM.run (y.1 (suc n)) ((Embed.approximate S n x).1 (suc n))))
+            (L.project n (At[suc n].SM.run (y.1 (suc n)) (L.embed n (x.1 n)))) (At[n].SM.run (y.1 n) (x.1 n))
+            (ap (L.C (suc n)) (L.C n) (\ a -> L.project n (At[suc n].SM.run (y.1 (suc n)) a))
+              ((Embed.approximate S n x).1 (suc n)) (L.embed n (x.1 n)) (Laws.lift-next n (x.1 n)))
+            (ap (T.C n) (L.C n) (\ f -> At[n].SM.run f (x.1 n)) (T.project n (y.1 (suc n))) (y.1 n) (y.2 n)))) ;
+    corner-equation (y : T.carrier) : Id M.Map (At[n].E.value (At[suc n].value y)) (At[n].value y) =
+      StableExtensional[l].Between[D.domain.scott,D.domain.scott].equation (At[n].E.value (At[suc n].value y)) (At[n].value y) (corner y) ;
+    cut-below : TX.LE Cut.map At[suc n].map =
+      TLaws.pre-order X.domain.scott At[suc n].map n ;
+    same : TX.LE At[n].map Cut.map =
+      (StableExtensional[l].Between[TD.domain.scott,X.domain.scott].forward At[n].map Cut.map
+        (\ y -> sym M.Map (TX.run Cut.map y) (At[n].value y) (equation y))) ;
+    increasing : TX.LE At[n].map At[suc n].map = TX.transitive At[n].map Cut.map At[suc n].map same cut-below ;
+  } ;
+  directed : TX.SO.Dir Nat (\ n -> At[n].map) = OrderedChains[l].directed TX.order (\ n -> At[n].map) (\ n -> Step[n].increasing) ;
+  module Sup = StableDirected[l].Between[TD.domain.scott,X.domain.scott].Sup[Nat,\ n -> At[n].map,directed] ;
+  decode : TX.Map = Sup.map ;
+  module Nested (n m : Nat) (h : LeN n m) {
+    module K = Laws.Nested[n,m,h] ;
+    point (f : M.Map) (a : L.C n) : Id (L.C n)
+      ((M.run (At[m].E.value f) (Embed.lift n S a)).1 n) ((M.run f (Embed.lift n S a)).1 n) =
+      trans (L.C n) ((M.run (At[m].E.value f) (Embed.lift n S a)).1 n)
+        ((M.run f (Embed.approximate S m (Embed.lift n S a))).1 n) ((M.run f (Embed.lift n S a)).1 n)
+        (K.project (M.run f (Embed.approximate S m (Embed.lift n S a))))
+        (ap L.carrier (L.C n) (\ x -> (M.run f x).1 n) (Embed.approximate S m (Embed.lift n S a)) (Embed.lift n S a) (K.fixed a)) ;
+    equation (f : M.Map) : Id (T.C n)
+      (StableMaps[l].Between[X.domain.scott,(chain.domain n).scott].run At[n].restrict (At[m].E.value f))
+      (StableMaps[l].Between[X.domain.scott,(chain.domain n).scott].run At[n].restrict f) =
+      StableExtensional[l].Between[(S.domain n).scott,(S.domain n).scott].equation
+        (StableMaps[l].Between[X.domain.scott,(chain.domain n).scott].run At[n].restrict (At[m].E.value f))
+        (StableMaps[l].Between[X.domain.scott,(chain.domain n).scott].run At[n].restrict f) (point f) ;
+  } ;
+} ;

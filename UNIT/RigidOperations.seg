@@ -1,0 +1,52 @@
+-- Internal evaluation and composition of rigid projections are stable.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module On (D : DIDomain[l].DI) {
+  module R = RigidSpace[l].On[D] ;
+  module P = ScottProduct[l].Product[R.domain.scott,R.domain.scott] ;
+  module Projections = StableProduct[l].Product[R.domain.scott,R.domain.scott] ;
+  left : StableMaps[l].Between[P.scott,R.X.domain.scott].Map =
+    StableComposition[l].Between[P.scott,R.domain.scott,R.X.domain.scott].Compose[Projections.left,R.inclusion].map ;
+  right : StableMaps[l].Between[P.scott,R.X.domain.scott].Map =
+    StableComposition[l].Between[P.scott,R.domain.scott,R.X.domain.scott].Compose[Projections.right,R.inclusion].map ;
+  module Pair = StableProduct[l].Pair[P.scott,R.X.domain.scott,R.X.domain.scott,left,right] ;
+  module Internal = StableInternalComposition[l].Between[D,D,D] ;
+  ambient : StableMaps[l].Between[P.scott,R.X.domain.scott].Map =
+    StableComposition[l].Between[P.scott,Internal.P.scott,R.X.domain.scott].Compose[Pair.map,Internal.map].map ;
+  module A = StableMaps[l].Between[P.scott,R.X.domain.scott] ;
+  module C = StableComposition[l].Between[D.scott,D.scott,D.scott] ;
+  below-id (p : P.C) : R.S.LE (A.run ambient p) R.End.identity =
+    R.S.transitive (A.run ambient p) C.Compose[p.1.1,p.2.1].map R.End.identity
+      (R.S.equal-below (A.run ambient p) C.Compose[p.1.1,p.2.1].map
+        (\ a -> D.scott.order.reflexive (R.run p.2 (R.run p.1 (R.A.basic a))))
+        (\ a -> D.scott.order.reflexive (R.run p.2 (R.run p.1 (R.A.basic a)))))
+      (R.S.transitive C.Compose[p.1.1,p.2.1].map p.2.1 R.End.identity
+        (C.pre-order p.1.1 R.End.identity (R.bound p.1) p.2.1) (R.bound p.2)) ;
+  fixed (p : P.C) : R.PR.Fixed R.Principal.projection (A.run ambient p) =
+    R.Principal.greatest (A.run ambient p) (A.run ambient p) (R.S.reflexive (A.run ambient p)) (below-id p) ;
+  module Core = R.Corestrict[P.scott,ambient,fixed] ;
+  composition : StableMaps[l].Between[P.scott,R.domain.scott].Map = Core.map ;
+  computes (p q : R.I.carrier) (x : R.A.C) : Id R.A.C (R.run (Core.value (p,q)) x) (R.run q (R.run p x)) = refl (R.run q (R.run p x)) ;
+  meet (p q : R.I.carrier) : Id R.I.carrier (Core.value (p,q)) (R.IN.meet p q) =
+    R.I.ext (Core.value (p,q)) (R.IN.meet p q)
+      (R.from-pointwise (Core.value (p,q)) (R.IN.meet p q) (\ x ->
+        subst R.A.C (\ z -> R.A.LE (R.run q (R.run p x)) z) (R.AN.meet (R.run p x) (R.run q x)) (R.run (R.IN.meet p q) x)
+          (sym R.A.C (R.run (R.IN.meet p q) x) (R.AN.meet (R.run p x) (R.run q x)) (R.meet-value p q x))
+          (R.AN.greatest (R.run p x) (R.run q x) (R.run q (R.run p x))
+            ((R.decode q).deflation (R.run p x))
+            (ScottMaps[l].Between[D.scott,D.scott].mono (R.decode q).operation (R.run p x) x ((R.decode p).deflation x)))))
+      (R.from-pointwise (R.IN.meet p q) (Core.value (p,q)) (\ x ->
+        R.R.greatest (R.decode q) (R.run p x) (R.run (R.IN.meet p q) x)
+          ((R.decode q).hereditary (R.run (R.IN.meet p q) x) x (R.pointwise (R.IN.meet p q) q (R.IN.right p q) x))
+          (R.pointwise (R.IN.meet p q) p (R.IN.left p q) x))) ;
+  module Application {
+    module Product = ScottProduct[l].Product[R.domain.scott,D.scott] ;
+    module Parts = StableProduct[l].Product[R.domain.scott,D.scott] ;
+    input : StableMaps[l].Between[Product.scott,R.X.domain.scott].Map =
+      StableComposition[l].Between[Product.scott,R.domain.scott,R.X.domain.scott].Compose[Parts.left,R.inclusion].map ;
+    module Arguments = StableProduct[l].Pair[Product.scott,R.X.domain.scott,D.scott,input,Parts.right] ;
+    module Eval = StableEvaluation[l].Exponential[D,D] ;
+    map : StableMaps[l].Between[Product.scott,D.scott].Map =
+      StableComposition[l].Between[Product.scott,Eval.P.scott,D.scott].Compose[Arguments.map,Eval.map].map ;
+  } ;
+} ;

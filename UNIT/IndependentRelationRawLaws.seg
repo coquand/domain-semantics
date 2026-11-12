@@ -1,0 +1,42 @@
+-- Typed laws on raw denotations. The bridge uses semantic typing and
+-- admissibility only; neither the old relation nor adequacy is needed.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ;
+open ExtFilter[l] ; open Domain[l] ;
+module Raw = Filter[l] ; module Soundness = Sound[l] ; module SL = SemanticLaws[l] ;
+module Tr = TruncationCombinators[l] ; module Substitutions = IndependentRelationSubstitutions[l] ;
+module Typed (X A : Raw.Filt) (hx : Soundness.HasTy X A) (ha : Soundness.TyU A) {
+  consistent : Raw.ConsF X = Soundness.hasty-cons X A hx ;
+  regular : Regular[l].Regular X = Regular[l].typed-regular X A hx ;
+  type-consistent : Raw.ConsF A = Soundness.hasty-cons A Raw.univF ha ;
+  type-regular : Regular[l].Regular A = Regular[l].typed-regular A Raw.univF ha ;
+  value : D = from-raw X consistent regular ; classifier : D = from-raw A type-consistent type-regular ;
+  cover (t : Ty) (w : Soundness.Enl X A t) : In (SL.p classifier value) t =
+    fup (SL.p classifier value).1 w.v t w.below
+      (SL.introduce classifier value w.v w.c (ex (X.mem w.v) w.inA) (ex (A.mem w.c) w.inB) w.tp) ;
+  fixed : Equal (SL.p classifier value) value = (SL.below classifier value,
+    \ t -> Tr.rec (X.mem t) @l (In (SL.p classifier value) t) (fprop (SL.p classifier value).1 t) (\ h -> cover t (hx t h))) ;
+} ;
+module At (n : Nat) (Delta : Ctx n) {
+  module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  module RS = Substitutions.At[n,Delta] ; module Laws = IndependentRelationTypedLaws[l].At[n,Delta] ;
+  module On (X A : Raw.Filt) (hx : Soundness.HasTy X A) (ha : Soundness.TyU A) {
+    module V = Typed[X,A,hx,ha] ;
+    read (T M N : Tm n) (h : RS.Term X T M N) : (I.relation.tm T M N).holds (SL.p V.classifier V.value) =
+      (I.relation.tm T M N).lower (SL.p V.classifier V.value) V.value V.fixed.1
+        (Substitutions.Reflection[I.relation.tm T M N,X,V.consistent,V.regular].introduce h) ;
+    write (T M N : Tm n) (h : (I.relation.tm T M N).holds (SL.p V.classifier V.value)) : RS.Term X T M N =
+      Substitutions.Reflection[I.relation.tm T M N,X,V.consistent,V.regular].eliminate
+        ((I.relation.tm T M N).lower V.value (SL.p V.classifier V.value) V.fixed.2 h) ;
+    symmetry (T M N : Tm n) (h : RS.Term X T M N) : RS.Term X T N M =
+      write T N M (Laws.term-symmetry V.classifier V.value T M N (read T M N h)) ;
+    transitivity (T M N O : Tm n) (first : RS.Term X T M N) (second : RS.Term X T N O) : RS.Term X T M O =
+      write T M O (Laws.term-transitivity V.classifier V.value T M N O (read T M N first) (read T N O second)) ;
+    conversion (T T' M N : Tm n) (types : RS.Type A T T') (terms : RS.Term X T M N) : RS.Term X T' M N =
+      write T' M N (Laws.conversion V.classifier V.value T T' M N
+        ((I.relation.ty T T').lower (SL.p universe V.classifier) V.classifier (SL.below universe V.classifier)
+          (Substitutions.Reflection[I.relation.ty T T',A,V.type-consistent,V.type-regular].introduce types)) (read T M N terms)) ;
+  } ;
+  to-type (X : Raw.Filt) (M N : Tm n) (h : RS.Term X (uu n) M N) : RS.Type X M N =
+    \ k hk -> IndependentRelationRules[l].At[n,Delta].to-type (principal k) (uu n) M N (h k hk) ;
+} ;

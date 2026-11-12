@@ -1,0 +1,82 @@
+-- The stable endomorphism construction preserves rigid embeddings.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Lift (A B : DIDomain[l].DI) (e : RigidEmbedding[l].Between[A,B].Embedding) {
+  module E = RigidEmbedding[l].Between[A,B] ; module P = E.On[e] ;
+  module XA = StableFiniteIdeals[l].Exponential[A,A] ; module XB = StableFiniteIdeals[l].Exponential[B,B] ;
+  module SA = StableMaps[l].Between[A.scott,A.scott] ; module SB = StableMaps[l].Between[B.scott,B.scott] ;
+  module F = RigidEmbedding[l].Between[XA.domain,XB.domain] ;
+  module Emb = StableConjugation[l].Between[B,A,A,B,e.project,e.embed] ;
+  module Pro = StableConjugation[l].Between[A,B,B,A,e.embed,e.project] ;
+  module Composite = F.C.Compose[Pro.map,Emb.map] ;
+  module N = ScottMeet[l].On[B.scott] ;
+  module End = StableComposition[l].Endo[B.scott] ;
+  module R = RigidProjector[l].On[XB.domain.scott] ;
+  module C = StableComposition[l].Between[B.scott,B.scott,B.scott] ;
+  eq-point (f : SA.Map) (x : E.AC.C) : Id E.AC.C (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) x) (SA.run f x) =
+    trans E.AC.C (E.BA.run e.project (E.AB.run e.embed (SA.run f (E.BA.run e.project (E.AB.run e.embed x)))))
+      (SA.run f (E.BA.run e.project (E.AB.run e.embed x))) (SA.run f x)
+      (e.retract (SA.run f (E.BA.run e.project (E.AB.run e.embed x))))
+      (ap E.AC.C E.AC.C (SA.run f) (E.BA.run e.project (E.AB.run e.embed x)) x (e.retract x)) ;
+  retract (f : SA.Map) : Id SA.Map (F.BA.run Pro.map (F.AB.run Emb.map f)) f =
+    SA.ext (F.BA.run Pro.map (F.AB.run Emb.map f)) f
+      (SA.equal-below (F.BA.run Pro.map (F.AB.run Emb.map f)) f
+        (\ a -> subst E.AC.C (\ z -> E.AC.LE (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a)) z)
+          (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a)) (SA.run f (E.AC.basic a)) (eq-point f (E.AC.basic a))
+          (A.scott.order.reflexive (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a))))
+        (\ a -> subst E.AC.C (\ z -> E.AC.LE z (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a)))
+          (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a)) (SA.run f (E.AC.basic a)) (eq-point f (E.AC.basic a))
+          (A.scott.order.reflexive (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a)))))
+      (SA.equal-below f (F.BA.run Pro.map (F.AB.run Emb.map f))
+        (\ a -> subst E.AC.C (\ z -> E.AC.LE z (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a)))
+          (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a)) (SA.run f (E.AC.basic a)) (eq-point f (E.AC.basic a))
+          (A.scott.order.reflexive (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a))))
+        (\ a -> subst E.AC.C (\ z -> E.AC.LE (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a)) z)
+          (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a)) (SA.run f (E.AC.basic a)) (eq-point f (E.AC.basic a))
+          (A.scott.order.reflexive (SA.run (F.BA.run Pro.map (F.AB.run Emb.map f)) (E.AC.basic a))))) ;
+  value (f : SB.Map) : SB.Map = F.BB.run Composite.map f ;
+  module At (f : SB.Map) {
+    module Post = C.Compose[f,P.Composite.map] ;
+    module Both = C.Compose[P.Composite.map,Post.map] ;
+    below : SB.LE (value f) f = SB.transitive (value f) Both.map f
+      (SB.equal-below (value f) Both.map (\ a -> B.scott.order.reflexive (SB.run (value f) (E.BC.basic a)))
+        (\ a -> B.scott.order.reflexive (SB.run (value f) (E.BC.basic a))))
+      (SB.transitive Both.map Post.map f (C.pre-order P.Composite.map End.identity e.rigid Post.map)
+        (C.post-order f P.Composite.map End.identity e.rigid)) ;
+  } ;
+  module Hereditary (g f : SB.Map) (h : SB.LE g (value f)) {
+    point (x : E.BC.C) : E.BC.LE (SB.run g x) (SB.run g (E.R.run P.projection x)) =
+      B.scott.order.transitive (SB.run g x) (N.meet (SB.run g x) (SB.run (value f) (E.R.run P.projection x))) (SB.run g (E.R.run P.projection x))
+        (N.greatest (SB.run g x) (SB.run (value f) (E.R.run P.projection x)) (SB.run g x) (B.scott.order.reflexive (SB.run g x))
+          (B.scott.order.transitive (SB.run g x) (SB.run (value f) x) (SB.run (value f) (E.R.run P.projection x))
+            (SB.pointwise g (value f) h x)
+            (SB.mono At[f].Post.map (E.R.run P.projection x) (E.R.run P.projection (E.R.run P.projection x)) (E.R.output-fixed P.projection x))))
+        (SB.restriction g (value f) h (E.R.run P.projection x) x (P.projection.deflation x)) ;
+    fixed-output (x : E.BC.C) : E.BC.LE (SB.run g x) (E.R.run P.projection (SB.run g x)) =
+      P.projection.hereditary (SB.run g x) (SB.run f (E.R.run P.projection x)) (SB.pointwise g (value f) h x) ;
+    result : SB.LE g (value g) = SB.equal-below g (value g)
+      (\ a -> B.scott.order.transitive (SB.run g (E.BC.basic a)) (E.R.run P.projection (SB.run g (E.BC.basic a)))
+        (SB.run (value g) (E.BC.basic a)) (fixed-output (E.BC.basic a))
+        (SB.mono P.Composite.map (SB.run g (E.BC.basic a)) (SB.run g (E.R.run P.projection (E.BC.basic a))) (point (E.BC.basic a)))) At[g].below.1 ;
+  } ;
+  projection : R.Rigid = new R.Rigid[operation := Composite.map.1,deflation := \ f -> At[f].below,
+    hereditary := \ g f h -> Hereditary[g,f,h].result] ;
+  rigid : F.BB.LE Composite.map F.End.identity = F.BB.transitive Composite.map (F.End.from-rigid projection) F.End.identity
+    (F.BB.equal-below Composite.map (F.End.from-rigid projection) (\ a -> SB.reflexive (value (XB.X.basic a)))
+      (\ a -> SB.reflexive (value (XB.X.basic a)))) (F.End.below-id projection) ;
+  embedding : F.Embedding = new F.Embedding[embed := Emb.map,project := Pro.map,retract := retract,rigid := rigid] ;
+} ;
+module Constants (D : DIDomain[l].DI) {
+  module X = StableFiniteIdeals[l].Exponential[D,D] ;
+  module E = RigidEmbedding[l].Between[D,X.domain] ;
+  module Parts = StableProduct[l].Product[D.scott,D.scott] ;
+  module Emb = StableCurrying[l].Between[D.scott,D,D].Curry[Parts.left] ;
+  module Eval = StableEvaluation[l].Exponential[D,D].At[D.scott.bottom] ;
+  module RP = RigidSpace[l].On[D] ;
+  module I = StableInputRestriction[l].Between[D,D].At[RP.I.bottom] ;
+  module C = E.C.Compose[Eval.evaluation,Emb.map] ;
+  rigid : E.BB.LE C.map E.End.identity = E.BB.transitive C.map (E.End.from-rigid I.projection) E.End.identity
+    (E.BB.equal-below C.map (E.End.from-rigid I.projection) (\ a -> X.S.reflexive (I.value (X.X.basic a)))
+      (\ a -> X.S.reflexive (I.value (X.X.basic a)))) (E.End.below-id I.projection) ;
+  embedding : E.Embedding = new E.Embedding[embed := Emb.map,project := Eval.evaluation,retract := \ x -> refl x,rigid := rigid] ;
+} ;

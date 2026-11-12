@@ -1,0 +1,98 @@
+-- Scott-continuous functions, their small order and pointwise suprema.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+
+module Between (D E : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ;
+  module O = ScottOrder[l].On[D.order] ; module R = ScottOrder[l].On[E.order] ;
+  module C = DC[D.order,D.complete] ; module V = DC[E.order,E.complete] ;
+  Monotone (f : A.C -> B.C) : U l+ = (x y : A.C) -> A.LE x y -> B.LE (f x) (f y) ;
+  Continuous (f : A.C -> B.C) : U l+ = (I : U l) (x : I -> A.C) (d : O.Dir I x)
+    (z : B.C) -> ((i : I) -> B.LE (f (x i)) z) -> B.LE (f (C.sup I x d)) z ;
+  Laws (f : A.C -> B.C) : U l+ = Monotone f * Continuous f ;
+  Map : U l+ = (f : A.C -> B.C) * Laws f ;
+  run (f : Map) : A.C -> B.C = f.1 ;
+  mono (f : Map) : Monotone f.1 = f.2.1 ;
+  continuous (f : Map) : Continuous f.1 = f.2.2 ;
+  image-dir (f : A.C -> B.C) (m : Monotone f) (I : U l) (x : I -> A.C)
+    (d : O.Dir I x) : R.Dir I (\ i -> f (x i)) =
+    (d.1,\ i j -> T.map (O.Upper I x i j) (R.Upper I (\ k -> f (x k)) i j)
+      (\ w -> (w.1,(m (x i) (x w.1) w.2.1,m (x j) (x w.1) w.2.2))) (d.2 i j)) ;
+  mono-prop (f : A.C -> B.C) : isProp (Monotone f) =
+    H.isProp-Pi A.C (\ x -> (y : A.C) -> A.LE x y -> B.LE (f x) (f y)) (\ x ->
+      H.isProp-Pi A.C (\ y -> A.LE x y -> B.LE (f x) (f y)) (\ y ->
+        H.isProp-Pi (A.LE x y) (\ _ -> B.LE (f x) (f y)) (\ _ -> E.order.proposition (f x) (f y)))) ;
+  cont-prop (f : A.C -> B.C) : isProp (Continuous f) =
+    H.isProp-Pi (U l) (\ I -> (x : I -> A.C) (d : O.Dir I x) (z : B.C) ->
+      ((i : I) -> B.LE (f (x i)) z) -> B.LE (f (C.sup I x d)) z) (\ I ->
+    H.isProp-Pi (I -> A.C) (\ x -> (d : O.Dir I x) (z : B.C) ->
+      ((i : I) -> B.LE (f (x i)) z) -> B.LE (f (C.sup I x d)) z) (\ x ->
+    H.isProp-Pi (O.Dir I x) (\ d -> (z : B.C) ->
+      ((i : I) -> B.LE (f (x i)) z) -> B.LE (f (C.sup I x d)) z) (\ d ->
+    H.isProp-Pi B.C (\ z -> ((i : I) -> B.LE (f (x i)) z) -> B.LE (f (C.sup I x d)) z) (\ z ->
+    H.isProp-Pi ((i : I) -> B.LE (f (x i)) z) (\ _ -> B.LE (f (C.sup I x d)) z)
+      (\ _ -> E.order.proposition (f (C.sup I x d)) z))))) ;
+  laws-prop (f : A.C -> B.C) : isProp (Laws f) =
+    isProp-Sigma (Monotone f) (\ _ -> Continuous f) (mono-prop f) (\ _ -> cont-prop f) ;
+  LE (f g : Map) : U l = (a : A.B) -> B.LE (run f (A.basic a)) (run g (A.basic a)) ;
+  pointwise (f g : Map) (h : LE f g) (x : A.C) : B.LE (run f x) (run g x) =
+    E.order.transitive (run f x) (run f (C.sup (A.BI x) (A.part x) (A.dir x))) (run g x)
+      (mono f x (C.sup (A.BI x) (A.part x) (A.dir x)) (A.from x))
+      (continuous f (A.BI x) (A.part x) (A.dir x) (run g x)
+        (\ a -> E.order.transitive (run f (A.basic a.1)) (run g (A.basic a.1)) (run g x)
+          (h a.1) (mono g (A.basic a.1) x a.2))) ;
+  small (f g : Map) (h : (x : A.C) -> B.LE (run f x) (run g x)) : LE f g = \ a -> h (A.basic a) ;
+  ext (f g : Map) (fg : LE f g) (gf : LE g f) : Id Map f g =
+    Sigma-eq (A.C -> B.C) Laws f.1 g.1 f.2 g.2
+      (H.funext A.C (\ _ -> B.C) f.1 g.1 (\ x -> E.order.antisymmetric (f.1 x) (g.1 x)
+        (pointwise f g fg x) (pointwise g f gf x))) (laws-prop g.1) ;
+  order : Order = new Order[carrier := Map, le := LE,
+    proposition := \ f g -> F.isProp-Pi A.B (\ a -> B.LE (run f (A.basic a)) (run g (A.basic a)))
+      (\ a -> E.order.proposition (run f (A.basic a)) (run g (A.basic a))),
+    reflexive := \ f a -> E.order.reflexive (run f (A.basic a)),
+    transitive := \ f g h p q a -> E.order.transitive (run f (A.basic a)) (run g (A.basic a))
+      (run h (A.basic a)) (p a) (q a), antisymmetric := ext] ;
+  module MO = ScottOrder[l].On[order] ;
+
+  module Pointwise (I : U l) (f : I -> Map)
+    (s : (x : A.C) -> R.Supremum I (\ i -> run (f i) x)) {
+    value (x : A.C) : B.C = (s x).1 ;
+    monotone : Monotone value = \ x y xy -> (s x).2.2 (value y)
+      (\ i -> E.order.transitive (run (f i) x) (run (f i) y) (value y)
+        (mono (f i) x y xy) ((s y).2.1 i)) ;
+    preserves : Continuous value = \ J x d z h -> (s (C.sup J x d)).2.2 z
+      (\ i -> continuous (f i) J x d z
+        (\ j -> E.order.transitive (run (f i) (x j)) (value (x j)) z ((s (x j)).2.1 i) (h j))) ;
+    map : Map = (value,(monotone,preserves)) ;
+    upper (i : I) : LE (f i) map = \ a -> (s (A.basic a)).2.1 i ;
+    least (g : Map) (h : (i : I) -> LE (f i) g) : LE map g =
+      \ a -> (s (A.basic a)).2.2 (run g (A.basic a)) (\ i -> h i a) ;
+    lub : MO.Supremum I f = (map,(upper,least)) ;
+  } ;
+  evaluated-dir (I : U l) (f : I -> Map) (d : MO.Dir I f) (x : A.C) :
+    R.Dir I (\ i -> run (f i) x) =
+    (d.1,\ i j -> T.map (MO.Upper I f i j) (R.Upper I (\ k -> run (f k) x) i j)
+      (\ w -> (w.1,(pointwise (f i) (f w.1) w.2.1 x,pointwise (f j) (f w.1) w.2.2 x))) (d.2 i j)) ;
+  complete : Complete[order] = new Complete[order,
+    directed := \ I f d -> Pointwise[I,f,\ x -> E.complete.directed I (\ i -> run (f i) x) (evaluated-dir I f d x)].lub,
+    bounded := \ I f b h -> Pointwise[I,f,\ x -> E.complete.bounded I (\ i -> run (f i) x)
+      (run b x) (\ i -> pointwise (f i) b (h i) x)].lub] ;
+
+  module Finite (f : Map) (x : A.C) {
+    family (a : A.BI x) : B.C = run f (A.part x a) ;
+    directed : R.Dir (A.BI x) family = image-dir f.1 (mono f) (A.BI x) (A.part x) (A.dir x) ;
+    bound : B.LE (run f x) (V.sup (A.BI x) family directed) =
+      E.order.transitive (run f x) (run f (C.sup (A.BI x) (A.part x) (A.dir x)))
+        (V.sup (A.BI x) family directed)
+        (mono f x (C.sup (A.BI x) (A.part x) (A.dir x)) (A.from x))
+        (continuous f (A.BI x) (A.part x) (A.dir x) (V.sup (A.BI x) family directed)
+          (V.upper (A.BI x) family directed)) ;
+    witness (b : B.B) (h : B.LE (B.basic b) (run f x)) :
+      Ex ((a : A.BI x) * B.LE (B.basic b) (run f (A.basic a.1))) =
+      E.basis.compact b (A.BI x) family directed
+        (E.order.transitive (B.basic b) (run f x) (V.sup (A.BI x) family directed) h bound) ;
+  } ;
+} ;

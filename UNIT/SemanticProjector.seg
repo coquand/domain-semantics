@@ -1,0 +1,93 @@
+-- The total interpretation D -> Fp D, and comparison with MIN's projF.
+-- Closing typed compact generators also handles ill-formed type inputs.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open ExtFilter[l] ; open Domain[l] ; open CompactFamilies[l] ;
+module R = Filter[l] ; module Old = Proj[l] ; module CF = ProjectorDomain[l] ;
+module TC = TruncationCombinators[l] ;
+
+Gen (A : R.Filt) (k : K) : U l = R.TyIn A k.1 ;
+types (A : R.Filt) : Family = CF.closure (Gen A) ;
+interpret (A : D) : Family = types (raw A.1) ;
+
+types-mono (A B : R.Filt) (h : R.Incl A B) : CF.Inc (types A) (types B) =
+  CF.least (Gen A) (types B) (\ k a -> CF.inc (Gen B) k (R.tyin-mono A B h k.1 a)) ;
+
+module Reflection (A : R.Filt) {
+  forward : CF.Inc (types (raw (reflect A))) (types A) =
+    CF.least (Gen (raw (reflect A))) (types A) (\ k h ->
+      ex-elim (A.mem h.a) (Mem (types A) k) (member-prop (types A) k)
+        (\ ha -> CF.inc (Gen A) k (new R.TyInR[A,k.1,h.a,ha,h.tp])) h.ina) ;
+  backward : CF.Inc (types A) (types (raw (reflect A))) =
+    types-mono A (raw (reflect A)) (reflect-in A) ;
+  equation : Id Family (types (raw (reflect A))) (types A) =
+    CompactFamilies[l].ext (types (raw (reflect A))) (types A) (forward,backward) ;
+} ;
+
+module ContinuousTypes (I : U l) (A : I -> D) (d : Domain[l].Dir I (\ i -> (A i).1)) {
+  module S = Domain[l].Sup[I,A,d] ;
+  image-directed : CF.Dir I (\ i -> interpret (A i)) =
+    (d.1,\ i j -> TC.map (Directed[l].Upper I (\ a -> (A a).1) i j)
+      (CF.Upper I (\ a -> interpret (A a)) i j)
+      (\ w -> (w.1,(types-mono (raw (A i).1) (raw (A w.1).1) w.2.1,
+                     types-mono (raw (A j).1) (raw (A w.1).1) w.2.2))) (d.2 i j)) ;
+  module T = CF.Union[I,\ i -> interpret (A i),image-directed] ;
+  gen-out (k : K) (h : Gen (raw S.value.1) k) : Mem T.value k =
+    ex-elim (Directed[l].UW I (\ i -> (A i).1) h.a) (Mem T.value k) (member-prop T.value k)
+      (\ w -> T.upper w.1 k (CF.inc (Gen (raw (A w.1).1)) k
+        (new R.TyInR[raw (A w.1).1,k.1,h.a,w.2,h.tp]))) h.ina ;
+  forward : CF.Inc (interpret S.value) T.value = CF.least (Gen (raw S.value.1)) T.value gen-out ;
+  backward : CF.Inc T.value (interpret S.value) =
+    T.lub (interpret S.value) (\ i -> types-mono (raw (A i).1) (raw S.value.1) (S.inc i)) ;
+  equation : Id Family (interpret S.value) T.value = CompactFamilies[l].ext (interpret S.value) T.value (forward,backward) ;
+} ;
+
+module Compare (A X : R.Filt) (cX : R.ConsF X) (rX : Regular[l].Regular X) {
+  input : D = from-raw X cX rX ;
+  module Q = Projector[l].At[types A,input] ;
+  old : R.Filt = Old.projF A X ;
+
+  -- A derivation in the compact closure fixes its principal element.
+  derive : (k : K) -> CF.Der (Gen A) k -> X.mem k.1 -> old.mem k.1 = split {
+    d-empty -> \ h -> old.fom ;
+    d-in k h -> \ hx -> Old.proj-typed A X k.1 (new Old.TInR[A,X,k.1,hx,h]) ;
+    d-join a b c ha hb | ra rb -> \ hx -> old.fmeet a.1 b.1
+      (ra (X.fup (meet a.1 b.1) a.1 (le-meet-l a.1 b.1) hx))
+      (rb (X.fup (meet a.1 b.1) b.1 (le-meet-r a.1 b.1) hx)) ;
+    d-equiv a b e h | rh -> \ hx -> old.fup a.1 b.1 e.1 (rh (X.fup b.1 a.1 e.2 hx)) } ;
+
+  forward : Sub Q.carrier (reflect old) = \ t ->
+    ex-elim (Q.W t) (mem (reflect old) t) (fprop (reflect old) t)
+      (\ w -> TC.bind2 (CF.Der (Gen A) w.1) (X.mem w.1.1) (old.mem t)
+        (\ e hx -> ex (old.mem t) (old.fup w.1.1 t w.2.2.2 (derive w.1 e hx))) w.2.1 w.2.2.1) ;
+
+  record Normal {
+    source : Ty ; key : K ; equivalent : Eqv source key.1 ; inside : X.mem key.1 ;
+    member : CF.Der (Gen A) key ;
+  } ;
+  normal-one (v : Ty) (h : Old.TIn A X v) : Normal[v] =
+    new Normal[v,k,r.equiv,hx,d-in k
+      (new R.TyInR[A,r.value,h.ty.a,h.ty.ina,
+        tp-conv v h.ty.a r.value h.ty.a h.ty.tp r.equiv (eqv-refl h.ty.a)])]
+    where {
+      r : Proper[l].Rep[v] = Proper[l].typed-rep v h.ty.a h.ty.tp ;
+      hx : X.mem r.value = X.fup v r.value r.equiv.1 h.inX ;
+      k : K = (r.value,(r.proper,cX r.value hx)) ; } ;
+  normal-meet (a b : Ty) (ha : Normal[a]) (hb : Normal[b]) : Normal[meet a b] =
+    new Normal[meet a b,joinK ha.key hb.key c,
+      eqv-meet a ha.key.1 b hb.key.1 ha.equivalent hb.equivalent,h,
+      d-join ha.key hb.key c ha.member hb.member]
+    where {
+      h : X.mem (meet ha.key.1 hb.key.1) = X.fmeet ha.key.1 hb.key.1 ha.inside hb.inside ;
+      c : Cons (meet ha.key.1 hb.key.1) = cX (meet ha.key.1 hb.key.1) h ; } ;
+  normalise : (s : Ty) -> Old.Meets (Old.TIn A X) s -> Normal[s] = split {
+    ms-om -> new Normal[om,bottomK,eqv-refl om,X.fom,d-empty] ;
+    ms-one v h -> normal-one v h ;
+    ms-meet a b ha hb | ra rb -> normal-meet a b ra rb } ;
+  back-witness (t : Ty) (w : old.mem t) : Q.W t =
+    (n.key,(ex (CF.Der (Gen A) n.key) n.member,
+      (ex (X.mem n.key.1) n.inside,le-trans n.key.1 w.f t n.equivalent.2 w.le)))
+    where { n : Normal[w.f] = normalise w.f w.ms ; } ;
+  backward : Sub (reflect old) Q.carrier = \ t -> TC.map (old.mem t) (Q.W t) (back-witness t) ;
+  equation : Id Filt Q.carrier (reflect old) = filt-ext Q.carrier (reflect old) (forward,backward) ;
+} ;

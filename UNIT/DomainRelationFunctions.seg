@@ -1,0 +1,99 @@
+-- Exact uniform unfolding, and the constructive pointwise function law.
+-- Uniform witnesses imply pointwise witnesses; no converse is assumed.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ;
+open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+open DomainLogicalRelation[l] ;
+module TC = TruncationCombinators[l] ;
+module RawFilter = Filter[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module Relation = DomainLogicalRelation[l].At[n,Delta] ;
+  module Compact = RelC[l].RelCD[n,Delta] ;
+  module Laws = AdeqBase[l].AdeqB[n,Delta] ;
+  module ApplicationLaw = DomainRelationApplication[l].At[n,Delta] ;
+
+  Pointwise (u : Ty) (T M M' : Tm n) : U l =
+    (A : Tm n) (B : Tm (suc n)) -> Reds n T (pp n A B) ->
+    (d t : Ty) -> ASel u d t -> (N N' : Tm n) -> Compact.Arg Compact.Can d A N N' ->
+    Ex (Compact.AppC Compact.Can t (subst1 n B N) M M' N N') ;
+
+  module Function (f : D) (T M M' : Tm n) {
+    Uniform : U l = (k : K) -> Domain[l].Below (principal k) f -> Ex (Compact.FunC Compact.Can k.1 T M M') ;
+    PointwiseOn : U l = (k : K) -> Domain[l].Below (principal k) f -> Pointwise k.1 T M M' ;
+    uniform (h : Relation.Term f T M M') : Uniform = \ k below ->
+      TC.map (Compact.TmR k.1 T M M') (Compact.FunC Compact.Can k.1 T M M')
+        (\ r -> ((Compact.tmr-unfold k.1 T M M').1 r).fn) (h k below) ;
+    assemble (ty : Relation.Type f M M') (fn : Uniform) : Relation.Term f T M M' = \ k below ->
+      TC.map2 (Compact.TyR k.1 M M') (Compact.FunC Compact.Can k.1 T M M') (Compact.TmR k.1 T M M')
+        (\ a b -> (Compact.tmr-unfold k.1 T M M').2
+          (new Compact.TmCR[Compact.Can,k.1,T,M,M',ty := (Compact.tyr-unfold k.1 M M').1 a,fn := b]))
+        (ty k below) (fn k below) ;
+    unfolding : (Relation.Term f T M M' -> Relation.Type f M M' * Uniform) *
+      ((Relation.Type f M M' * Uniform) -> Relation.Term f T M M') =
+      (\ h -> (Relation.to-type f T M M' h,uniform h),\ h -> assemble h.1 h.2) ;
+    forget (h : Uniform) : PointwiseOn = \ k below A B red d t selected N N' arg ->
+      TC.map (Compact.FunC Compact.Can k.1 T M M')
+        (Compact.AppC Compact.Can t (subst1 n B N) M M' N N')
+        (\ fn -> fn A B red d t selected N N' arg) (h k below) ;
+
+    Extensional : U l+ = (A : Tm n) (B : Tm (suc n)) (red : Reds n T (pp n A B))
+      (N N' : Tm n) (cv : Der n (jeq Delta N N' A)) ->
+      ApplicationLaw.Applications[f,T,M,M',A,B,red,N,N',cv].AllArguments ;
+    CompactTests : U l = (A : Tm n) (B : Tm (suc n)) (red : Reds n T (pp n A B))
+      (N N' : Tm n) (cv : Der n (jeq Delta N N' A)) ->
+      ApplicationLaw.Applications[f,T,M,M',A,B,red,N,N',cv].CompactArguments ;
+    restrict (h : Extensional) : CompactTests = \ A B red N N' cv ->
+      ApplicationLaw.Applications[f,T,M,M',A,B,red,N,N',cv].restrict (h A B red N N' cv) ;
+    extend (h : CompactTests) : Extensional = \ A B red N N' cv ->
+      ApplicationLaw.Applications[f,T,M,M',A,B,red,N,N',cv].extend (h A B red N N' cv) ;
+
+    module Recover (h : CompactTests) (k : K) (below : Domain[l].Below (principal k) f)
+      (A : Tm n) (B : Tm (suc n)) (red : Reds n T (pp n A B))
+      (d t : Ty) (selected : ASel k.1 d t) (N N' : Tm n) (arg : Compact.Arg Compact.Can d A N N') {
+      input : K = (d,((Regular[l].proper-asel k.1 d t selected k.2.1).1,arg.cd)) ;
+      module Law = ApplicationLaw.Applications[f,T,M,M',A,B,red,N,N',arg.cv] ;
+      related : Relation.Term (principal input) A N N' =
+        (Relation.For[terms A N N'].principal-equation input).2 (ex (Compact.TmR d A N N') arg.rel) ;
+      seen : In (Application[l].eval f (principal input)) t =
+        Application[l].intro f (principal input) k.1 d t (below k.1 (prin-in k.1)) (prin-in d)
+          (asel-le k.1 d t selected) ;
+      result : Ex (Compact.AppC Compact.Can t (subst1 n B N) M M' N N') =
+        Law.observe (Application[l].eval f (principal input)) (h A B red N N' arg.cv input related) t seen ;
+    } ;
+    recover (h : CompactTests) : PointwiseOn = \ k below A B red d t selected N N' arg ->
+      Recover[h,k,below,A,B,red,d,t,selected,N,N',arg].result ;
+
+    module Preserve (h : PointwiseOn) (A : Tm n) (B : Tm (suc n)) (red : Reds n T (pp n A B))
+      (N N' : Tm n) (cv : Der n (jeq Delta N N' A)) (x : D) (hx : Relation.Term x A N N') {
+      module Law = ApplicationLaw.Applications[f,T,M,M',A,B,red,N,N',cv] ;
+      module Observation (t : Ty) (w : RawFilter.AppW (raw f.1) (raw x.1) t)
+        (a : Domain[l].PW f.1 w.g) {
+        k : K = (a.1,(a.2.1,consistent f a.1 a.2.2.1)) ;
+        selection : InvArr a.1 w.x t = inv-arr a.1 w.x t
+          (le-trans a.1 w.g (arr w.x t) a.2.2.2 w.le) ;
+        input-seen : In x selection.1 = fup x.1 w.x selection.1 selection.2.2.2.1 w.inx ;
+        raw (rx : Compact.TmR selection.1 A N N') : Ex (Law.Witness selection.2.1) =
+          h k (prin-sub a.1 f.1 a.2.2.1) A B red selection.1 selection.2.1 selection.2.2.1 N N'
+            (new Compact.ArgRC[Compact.Can,selection.1,A,N,N',consistent x selection.1 input-seen,cv,rx]) ;
+        lower (r : Law.Witness selection.2.1) : Law.Witness t =
+          new Compact.AppRC[Compact.Can,t,subst1 n B N,M,M',N,N',
+            Laws.cmono-tm selection.2.1 t selection.2.2.2.2 (subst1 n B N) (app n M N) (app n M N') r.c1,
+            Laws.cmono-tm selection.2.1 t selection.2.2.2.2 (subst1 n B N) (app n M' N) (app n M' N') r.c2,
+            Laws.cmono-tm selection.2.1 t selection.2.2.2.2 (subst1 n B N) (app n M N) (app n M' N') r.c3] ;
+        result : Ex (Law.Witness t) = TC.map (Law.Witness selection.2.1) (Law.Witness t) lower
+          (TC.bind (Compact.TmR selection.1 A N N') (Law.Witness selection.2.1) raw
+            (Relation.For[terms A N N'].to-tokenwise x hx selection.1 input-seen)) ;
+      } ;
+      observation (t : Ty) (inside : In (Application[l].eval f x) t) : Ex (Law.Witness t) =
+        TC.bind (RawFilter.AppW (raw f.1) (raw x.1) t) (Law.Witness t)
+          (\ w -> TC.bind (Domain[l].PW f.1 w.g) (Law.Witness t)
+            (\ a -> Observation[t,w,a].result) (f.2.2 w.g w.ing)) inside ;
+      result : Law.Outputs (Application[l].eval f x) = Law.Observations[Application[l].eval f x,observation].result ;
+    } ;
+    preserve (h : PointwiseOn) : Extensional = \ A B red N N' cv x hx -> Preserve[h,A,B,red,N,N',cv,x,hx].result ;
+    compact-equation : (PointwiseOn -> CompactTests) * (CompactTests -> PointwiseOn) =
+      (\ h -> restrict (preserve h),recover) ;
+    extensional-equation : (PointwiseOn -> Extensional) * (Extensional -> PointwiseOn) =
+      (preserve,\ h -> recover (restrict h)) ;
+  } ;
+} ;

@@ -1,0 +1,18 @@
+-- The one-point Scott domain, used for the empty environment.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+order : Order = new Order[carrier := Top,le := \ x y -> Top,
+  proposition := \ x y -> isTop,reflexive := \ x -> tt,
+  transitive := \ x y z h k -> tt,antisymmetric := \ x y h k -> isTop x y] ;
+module O = ScottOrder[l].On[order] ;
+supremum (I : U l) (x : I -> Top) : O.Supremum I x = (tt,(\ i -> tt,\ z h -> tt)) ;
+complete : Complete[order] = new Complete[order,
+  directed := \ I x d -> supremum I x,bounded := \ I x b h -> supremum I x] ;
+compact (a : Top) : DC[order,complete].Compact a = \ I x d h ->
+  TruncationCombinators[l].map I ((i : I) * Top) (\ i -> (i,tt)) d.1 ;
+basis : ScottDomain[l].Basis[order,complete] = new ScottDomain[l].Basis[order,complete,
+  index := Top,basic := \ a -> a,compact := compact,
+  directed := \ x -> (inc (Top * Top) (tt,tt),\ a b -> inc (O.Upper (Top * Top) (\ a -> a.1) a b) ((tt,tt),(tt,tt))),
+  density := \ x y h -> tt] ;
+scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order,complete := complete,basis := basis,
+  bottom := tt,bottom-least := \ x -> tt] ;

@@ -1,0 +1,18 @@
+-- The exponential tower over any given dI-domain, with rigid links.
+level l ;
+open Base ; open Prelude[l+] ;
+record Stage {
+  domain : DIDomain[l].DI ;
+  embedding : RigidEmbedding[l].Between[domain,StableFiniteIdeals[l].Exponential[domain,domain].domain].Embedding ;
+} ;
+next (A : Stage) : Stage = new Stage[domain := StableFiniteIdeals[l].Exponential[A.domain,A.domain].domain,
+  embedding := RigidEmbeddingExponential[l].Lift[A.domain,StableFiniteIdeals[l].Exponential[A.domain,A.domain].domain,A.embedding].embedding] ;
+module On (D : DIDomain[l].DI) {
+  stage : Nat -> Stage = split {
+    zero -> new Stage[domain := D,embedding := RigidEmbeddingExponential[l].Constants[D].embedding] ;
+    suc n | r -> next r } ;
+  chain : RigidLimitOrder[l].Chain = new RigidLimitOrder[l].Chain[domain := \ n -> (stage n).domain,link := \ n -> (stage n).embedding] ;
+  module Limit = RigidLimitDI[l].On[chain] ;
+  domain : DIDomain[l].DI = Limit.domain ;
+  seed : RigidEmbedding[l].Between[D,domain].Embedding = Limit.Stage[zero].embedding ;
+} ;

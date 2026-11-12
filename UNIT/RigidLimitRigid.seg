@@ -1,0 +1,56 @@
+-- The canonical stage approximations are rigid projections. Their images
+-- are downward closed in the limit, which is essential for the I-axiom.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Limit = RigidLimitOrder[l] ; module Embed = RigidLimitEmbedding[l] ;
+module At (S : Limit.Chain) {
+  module L = Limit.On[S] ;
+  forward-hereditary (a : L.C zero) (y : L.carrier) (h : L.le y (Embed.forward S a)) : L.le y (Embed.forward S (y.1 zero)) = split {
+    zero -> (S.domain zero).scott.order.reflexive (y.1 zero) ;
+    suc n | r -> (S.domain (suc n)).scott.order.transitive (y.1 (suc n)) (L.embed n (y.1 n)) (Embed.rise (suc n) S (y.1 zero))
+      ((S.domain (suc n)).scott.order.transitive (y.1 (suc n)) (L.embed n (L.project n (y.1 (suc n)))) (L.embed n (y.1 n))
+        (RigidEmbeddingLaws[l].On[S.domain n,S.domain (suc n),S.link n].fixed-below (Embed.rise n S a) (y.1 (suc n)) (h (suc n)))
+        (StableMaps[l].Between[(S.domain n).scott,(S.domain (suc n)).scott].mono (S.link n).embed
+          (L.project n (y.1 (suc n))) (y.1 n) (Embed.At[S].coherent-to y n)))
+      (StableMaps[l].Between[(S.domain n).scott,(S.domain (suc n)).scott].mono (S.link n).embed (y.1 n) (Embed.rise n S (y.1 zero)) r) } ;
+  cons-upper (x : L.carrier) (y : Limit.On[Limit.tail S].carrier) (h : Limit.On[Limit.tail S].le (Embed.drop S x) y) : L.le x (Embed.prepend S y) = split {
+    zero -> (S.domain zero).scott.order.transitive (x.1 zero) (L.project zero (x.1 (suc zero))) (L.project zero (y.1 zero))
+      (Embed.At[S].coherent-from x zero)
+      (StableMaps[l].Between[(S.domain (suc zero)).scott,(S.domain zero).scott].mono (S.link zero).project (x.1 (suc zero)) (y.1 zero) (h zero)) ;
+    suc n -> h n } ;
+} ;
+hereditary : (n : Nat) (S : Limit.Chain) (a : Limit.On[S].C n) (y : Limit.On[S].carrier) ->
+  Limit.On[S].le y (Embed.lift n S a) -> Limit.On[S].le y (Embed.approximate S n y) = split {
+  zero -> \ S a y h -> At[S].forward-hereditary a y h ;
+  suc n | r -> \ S a y h -> At[S].cons-upper y (Embed.lift n (Limit.tail S) (y.1 (suc n)))
+    (r (Limit.tail S) a (Embed.drop S y) (\ k -> h (suc k))) } ;
+module On (S : Limit.Chain) {
+  module Domain = RigidLimitDomain[l].On[S] ; module L = Limit.On[S] ;
+  module N = ScottMeet[l].On[Domain.scott] ; module R = RigidProjector[l].On[Domain.scott] ;
+  module Stage (n : Nat) {
+    module A = ScottDomain[l].On[(S.domain n).scott] ; module AN = ScottMeet[l].On[(S.domain n).scott] ;
+    module AV = DC[(S.domain n).scott.order,(S.domain n).scott.complete] ;
+    module M = ScottMaps[l].Between[(S.domain n).scott,Domain.scott] ;
+    module E = StableMaps[l].Between[(S.domain n).scott,Domain.scott] ;
+    module P = StableMaps[l].Between[Domain.scott,(S.domain n).scott] ;
+    project : P.Map = ((\ x -> x.1 n,(\ x y h -> h n,\ I x d z h -> AV.least I (\ i -> (x i).1 n) (L.evaluated I x d n) z h)),
+      \ a b c ac bc -> Embed.upper n S (AN.meet ((Domain.basic a).1 n) ((Domain.basic b).1 n)) (N.meet (Domain.basic a) (Domain.basic b))
+        (N.greatest (Domain.basic a) (Domain.basic b) (Embed.lift n S (AN.meet ((Domain.basic a).1 n) ((Domain.basic b).1 n)))
+          (Embed.lower n S (AN.meet ((Domain.basic a).1 n) ((Domain.basic b).1 n)) (Domain.basic a) (AN.left ((Domain.basic a).1 n) ((Domain.basic b).1 n)))
+          (Embed.lower n S (AN.meet ((Domain.basic a).1 n) ((Domain.basic b).1 n)) (Domain.basic b) (AN.right ((Domain.basic a).1 n) ((Domain.basic b).1 n))))) ;
+    embed-continuous : M.Continuous (Embed.lift n S) = \ I x d z h -> Embed.lower n S (AV.sup I x d) z
+      (AV.least I x d (z.1 n) (\ i -> Embed.upper n S (x i) z (h i))) ;
+    module Inf (a b : A.C) {
+      x : L.carrier = Embed.lift n S a ; y : L.carrier = Embed.lift n S b ;
+      m : L.carrier = N.meet x y ;
+      left : A.LE (m.1 n) a = subst A.C (\ z -> A.LE (m.1 n) z) (x.1 n) a (Embed.section n S a) (N.left x y n) ;
+      right : A.LE (m.1 n) b = subst A.C (\ z -> A.LE (m.1 n) z) (y.1 n) b (Embed.section n S b) (N.right x y n) ;
+      preserves : L.le m (Embed.lift n S (AN.meet a b)) = L.order.transitive m (Embed.approximate S n m) (Embed.lift n S (AN.meet a b))
+        (hereditary n S a m (N.left x y)) (Embed.monotone n S (m.1 n) (AN.meet a b) (AN.greatest a b (m.1 n) left right)) ;
+    } ;
+    embed : E.Map = ((Embed.lift n S,(Embed.monotone n S,embed-continuous)),\ a b c ac bc -> Inf[A.basic a,A.basic b].preserves) ;
+    module C = StableComposition[l].Between[Domain.scott,(S.domain n).scott,Domain.scott].Compose[project,embed] ;
+    projection : R.Rigid = new R.Rigid[operation := C.map.1,deflation := Embed.deflation S n,
+      hereditary := \ y x h -> hereditary n S (x.1 n) y h] ;
+  } ;
+} ;

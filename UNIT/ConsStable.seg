@@ -1,0 +1,58 @@
+-- Mere consistency suffices to construct a consistency proof.
+-- This is not choice: the clauses are built from stable propositions,
+-- products, and functions into stable types. Only bottom comparison
+-- needs a separate, canonical propositional presentation.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ;
+module TC = TruncationCombinators[l] ;
+
+BottomLike : Ty -> U l = split {
+  om -> Top ; univ -> Empty ; pi a b -> Empty ;
+  arr a b | ra rb -> rb ; meet a b | ra rb -> ra * rb } ;
+
+bottom-prop : (t : Ty) -> isProp (BottomLike t) = split {
+  om -> isTop ; univ -> isProp-Empty ; pi a b -> isProp-Empty ;
+  arr a b | ra rb -> rb ;
+  meet a b | ra rb -> isProp-Sigma (BottomLike a) (\ _ -> BottomLike b) ra (\ _ -> rb) } ;
+
+bottom-to : (t : Ty) -> BottomLike t -> Les om t = split {
+  om -> \ _ -> s-om om ; univ -> \ e -> absurd (Les om univ) e ;
+  pi a b -> \ e -> absurd (Les om (pi a b)) e ;
+  arr a b | ra rb -> \ h -> s-arr om a b om om (as-none om) (s-om a) (rb h) ;
+  meet a b | ra rb -> \ h -> s-meet om a b (ra h.1) (rb h.2) } ;
+
+bottom-from : (r t : Ty) -> Les r t -> OmOnly r -> BottomLike t = split {
+  s-om r -> \ _ -> tt ;
+  s-meet r a b h1 h2 | r1 r2 -> \ h -> (r1 h,r2 h) ;
+  s-univ r h -> \ o -> omonly-sel r univ h o ;
+  s-pi r a b f g s t h p h1 h2 -> \ o -> omonly-sel r (pi f g) h o ;
+  s-arr r a b d t p h1 h2 | r1 r2 -> \ o -> r2 (asel-omonly r d t p o) } ;
+
+bottom-stable (t : Ty) (e : Ex (Les om t)) : Les om t =
+  bottom-to t (ex-elim (Les om t) (BottomLike t) (bottom-prop t)
+    (\ h -> bottom-from om t h tt) e) ;
+
+module Clauses (P : Ty -> U l) (stable : (t : Ty) -> Ex (P t) -> P t)
+  (r : Ty) (e : Ex (CL P r)) {
+  up (f g : Ty) (hu : Sel r univ) (hp : Sel r (pi f g)) : Empty =
+    ex-elim (CL P r) Empty isProp-Empty (\ c -> cl-up P r c f g hu hp) e ;
+  uni-arrow (d t : Ty) (hu : Sel r univ) (q : ASel r d t) (pd : P d) : Les om t =
+    bottom-stable t (TC.map (CL P r) (Les om t) (\ c -> cl-ua P r c d t hu q pd) e) ;
+  pa (f g d t : Ty) (hp : Sel r (pi f g)) (q : ASel r d t) (pd : P d) : Les om t =
+    bottom-stable t (TC.map (CL P r) (Les om t) (\ c -> cl-pa P r c f g d t hp q pd) e) ;
+  ps (s t : Ty) (q : PSel r s t) : P s * P t =
+    (stable s (TC.map (CL P r) (P s) (\ c -> (cl-ps P r c s t q).1) e),
+     stable t (TC.map (CL P r) (P t) (\ c -> (cl-ps P r c s t q).2) e)) ;
+  ar (d t : Ty) (q : ASel r d t) (pd : P d) : P t =
+    stable t (TC.map (CL P r) (P t) (\ c -> cl-as P r c d t q pd) e) ;
+  result : CL P r = (up,(uni-arrow,(pa,(ps,ar)))) ;
+} ;
+
+fuel-stable : (n : Nat) -> (r : Ty) -> Ex (C n r) -> C n r = split {
+  zero -> \ r e -> tt ;
+  suc n | rn -> \ r e -> Clauses[C n,rn,r,e].result } ;
+
+cons-stable (r : Ty) (e : Ex (Cons r)) : Cons r =
+  (fuel-up r).2 (fuel-stable (suc (md r)) r
+    (TC.map (Cons r) (C (suc (md r)) r) (fuel-up r).1 e)) ;

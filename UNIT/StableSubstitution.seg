@@ -1,0 +1,87 @@
+-- Renaming, substitution and beta for the stable interpretation.
+level l ;
+open Base ; open Prelude[l+] ; open Syntax[l] ;
+module On (D : DIDomain[l].DI) (representation : RigidUniverse[l].On[D].Representation) {
+  module Interpretation = StableSyntax[l].On[D,representation] ; open Interpretation ;
+  module Ext = StableExtensional[l].Between[D.scott,D.scott] ;
+  pi-cong (a a' : A.C) (b b' : S.Map) (ha : Id A.C a a') (hb : Id S.Map b b') :
+    Id A.C (V.value a b) (V.value a' b') =
+    ap (A.C * S.Map) A.C (\ p -> V.value p.1 p.2) (a,b) (a',b')
+      (FiniteEnumeration[l].pair-eq A.C S.Map a a' b b' ha hb) ;
+  lam-cong (a a' : A.C) (b b' : S.Map) (ha : Id A.C a a') (hb : Id S.Map b b') :
+    Id A.C (Lambda.value a b) (Lambda.value a' b') =
+    ap (A.C * S.Map) A.C (\ p -> Lambda.value p.1 p.2) (a,b) (a',b')
+      (FiniteEnumeration[l].pair-eq A.C S.Map a a' b b' ha hb) ;
+  app-cong (f f' x x' : A.C) (hf : Id A.C f f') (hx : Id A.C x x') :
+    Id A.C (V.Application.value f x) (V.Application.value f' x') =
+    ap (A.C * A.C) A.C (\ p -> V.Application.value p.1 p.2) (f,x) (f',x')
+      (FiniteEnumeration[l].pair-eq A.C A.C f f' x x' hf hx) ;
+  Renames (m n : Nat) (s : Fin m -> Fin n) (rho : Env m) (tau : Env n) : U l+ =
+    (i : Fin m) -> Id A.C (Interpretation.lookup n tau (s i)) (Interpretation.lookup m rho i) ;
+  rename-lift (m n : Nat) (s : Fin m -> Fin n) (rho : Env m) (tau : Env n)
+    (h : Renames m n s rho tau) (x : A.C) : Renames (suc m) (suc n) (Ren.lift m n s) (rho,x) (tau,x) = split {
+    none -> refl x ; some i -> h i } ;
+  renaming : (m : Nat) (t : Tm m) (n : Nat) (s : Fin m -> Fin n)
+    (rho : Env m) (tau : Env n) -> Renames m n s rho tau ->
+    Id A.C (value n (Ren.trav m t n s) tau) (value m t rho) = split {
+    var m i -> \ n s rho tau h -> h i ;
+    uu m -> \ n s rho tau h -> refl V.C.universe ;
+    pp m a b | ra rb -> \ n s rho tau h -> pi-cong
+      (value n (Ren.trav m a n s) tau) (value m a rho)
+      (body n (Ren.trav (suc m) b (suc n) (Ren.lift m n s)) tau) (body m b rho)
+      (ra n s rho tau h)
+      (Ext.equation (body n (Ren.trav (suc m) b (suc n) (Ren.lift m n s)) tau) (body m b rho)
+        (\ x -> rb (suc n) (Ren.lift m n s) (rho,x) (tau,x) (rename-lift m n s rho tau h x))) ;
+    lam m a b | ra rb -> \ n s rho tau h -> lam-cong
+      (value n (Ren.trav m a n s) tau) (value m a rho)
+      (body n (Ren.trav (suc m) b (suc n) (Ren.lift m n s)) tau) (body m b rho)
+      (ra n s rho tau h)
+      (Ext.equation (body n (Ren.trav (suc m) b (suc n) (Ren.lift m n s)) tau) (body m b rho)
+        (\ x -> rb (suc n) (Ren.lift m n s) (rho,x) (tau,x) (rename-lift m n s rho tau h x))) ;
+    app m f x | rf rx -> \ n s rho tau h -> app-cong
+      (value n (Ren.trav m f n s) tau) (value m f rho)
+      (value n (Ren.trav m x n s) tau) (value m x rho)
+      (rf n s rho tau h) (rx n s rho tau h) } ;
+  weakening (n : Nat) (t : Tm n) (rho : Env n) (x : A.C) :
+    Id A.C (value (suc n) (wk n t) (rho,x)) (value n t rho) =
+    renaming n t (suc n) (\ i -> fs n i) rho (rho,x) (\ i -> refl (Interpretation.lookup n rho i)) ;
+  Substitutes (m n : Nat) (s : Fin m -> Tm n) (rho : Env m) (tau : Env n) : U l+ =
+    (i : Fin m) -> Id A.C (value n (s i) tau) (Interpretation.lookup m rho i) ;
+  substitute-lift (m n : Nat) (s : Fin m -> Tm n) (rho : Env m) (tau : Env n)
+    (h : Substitutes m n s rho tau) (x : A.C) : Substitutes (suc m) (suc n) (Sub.lift m n s) (rho,x) (tau,x) = split {
+    none -> refl x ; some i -> trans A.C (value (suc n) (wk n (s i)) (tau,x)) (value n (s i) tau) (Interpretation.lookup m rho i)
+      (weakening n (s i) tau x) (h i) } ;
+  substitution : (m : Nat) (t : Tm m) (n : Nat) (s : Fin m -> Tm n)
+    (rho : Env m) (tau : Env n) -> Substitutes m n s rho tau ->
+    Id A.C (value n (Sub.trav m t n s) tau) (value m t rho) = split {
+    var m i -> \ n s rho tau h -> h i ;
+    uu m -> \ n s rho tau h -> refl V.C.universe ;
+    pp m a b | ra rb -> \ n s rho tau h -> pi-cong
+      (value n (Sub.trav m a n s) tau) (value m a rho)
+      (body n (Sub.trav (suc m) b (suc n) (Sub.lift m n s)) tau) (body m b rho)
+      (ra n s rho tau h)
+      (Ext.equation (body n (Sub.trav (suc m) b (suc n) (Sub.lift m n s)) tau) (body m b rho)
+        (\ x -> rb (suc n) (Sub.lift m n s) (rho,x) (tau,x) (substitute-lift m n s rho tau h x))) ;
+    lam m a b | ra rb -> \ n s rho tau h -> lam-cong
+      (value n (Sub.trav m a n s) tau) (value m a rho)
+      (body n (Sub.trav (suc m) b (suc n) (Sub.lift m n s)) tau) (body m b rho)
+      (ra n s rho tau h)
+      (Ext.equation (body n (Sub.trav (suc m) b (suc n) (Sub.lift m n s)) tau) (body m b rho)
+        (\ x -> rb (suc n) (Sub.lift m n s) (rho,x) (tau,x) (substitute-lift m n s rho tau h x))) ;
+    app m f x | rf rx -> \ n s rho tau h -> app-cong
+      (value n (Sub.trav m f n s) tau) (value m f rho)
+      (value n (Sub.trav m x n s) tau) (value m x rho)
+      (rf n s rho tau h) (rx n s rho tau h) } ;
+  single (n : Nat) (x : Tm n) (rho : Env n) :
+    Substitutes (suc n) n (sub1 n x) (rho,value n x rho) rho = split {
+    none -> refl (value n x rho) ; some i -> refl (Interpretation.lookup n rho i) } ;
+  substitution-one (n : Nat) (t : Tm (suc n)) (x : Tm n) (rho : Env n) :
+    Id A.C (value n (subst1 n t x) rho) (value (suc n) t (rho,value n x rho)) =
+    substitution (suc n) t n (sub1 n x) (rho,value n x rho) rho (single n x rho) ;
+  syntactic-beta (n : Nat) (a : Tm n) (b : Tm (suc n)) (x : Tm n) (rho : Env n)
+    (h : Id A.C (V.C.apply (value n a rho) (value n x rho)) (value n x rho)) :
+    Id A.C (value n (app n (lam n a b) x) rho) (value n (subst1 n b x) rho) =
+    trans A.C (value n (app n (lam n a b) x) rho) (value (suc n) b (rho,value n x rho)) (value n (subst1 n b x) rho)
+      (beta-fixed n a b x rho h)
+      (sym A.C (value n (subst1 n b x) rho) (value (suc n) b (rho,value n x rho)) (substitution-one n b x rho)) ;
+} ;

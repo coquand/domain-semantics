@@ -1,0 +1,59 @@
+-- Stage-free, proposition-valued logical relations on the Scott model.
+-- Each compact observation has a mere old relation witness. This does
+-- not choose a family of raw witnesses or redefine the negative clauses.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ;
+open ExtFilter[l] ; open Domain[l] ;
+module TC = TruncationCombinators[l] ;
+data Judgement (n : Nat) : U l =
+    types (A B : Tm n)
+  | terms (A M N : Tm n) ;
+module At (n : Nat) (Delta : Ctx n) {
+  module Compact = RelC[l].RelCD[n,Delta] ;
+  module Laws = AdeqBase[l].AdeqB[n,Delta] ;
+  module Predicates = ScottPredicates[l].On[ScottFilter[l].scott] ;
+  witness : Judgement n -> Ty -> U l = split {
+    types A B -> \ t -> Compact.TyR t A B ;
+    terms A M N -> \ t -> Compact.TmR t A M N } ;
+  lower : (j : Judgement n) (t u : Ty) -> Le t u -> witness j t -> witness j u = split {
+    types A B -> \ t u h r -> Laws.cmono-ty t u h A B r ;
+    terms A M N -> \ t u h r -> Laws.cmono-tm t u h A M N r } ;
+  at-bottom : (j : Judgement n) (t : Ty) -> Le om t -> witness j t = split {
+    types A B -> \ t h -> Compact.can-om (rty t A B) h ;
+    terms A M N -> \ t h -> Compact.can-om (rtm t A M N) h } ;
+  module For (j : Judgement n) {
+    basis (k : K) : U l = Ex (witness j k.1) ;
+    module Extension = Predicates.Extend[basis,\ k -> ex-prop (witness j k.1)] ;
+    holds : D -> U l = Extension.holds ;
+    basis-lower (a b : K) (ab : Domain[l].Below (principal a) (principal b)) (h : basis b) : basis a =
+      TC.map2 (Le b.1 a.1) (witness j b.1) (witness j a.1) (lower j b.1 a.1)
+        (ab a.1 (prin-in a.1)) h ;
+    module Principal = Extension.Lower[basis-lower] ;
+    principal-equation (k : K) : (holds (principal k) -> basis k) * (basis k -> holds (principal k)) = Principal.equation k ;
+    Tokenwise (x : D) : U l = (t : Ty) -> In x t -> Ex (witness j t) ;
+    from-tokenwise (x : D) (h : Tokenwise x) : holds x = \ k below -> h k.1 (below k.1 (prin-in k.1)) ;
+    to-tokenwise (x : D) (h : holds x) : Tokenwise x = \ t inside ->
+      TC.bind (Domain[l].PW x.1 t) (witness j t)
+        (\ w -> TC.map (witness j w.1) (witness j t) (lower j w.1 t w.2.2.2)
+          (h (w.1,(w.2.1,consistent x w.1 w.2.2.1)) (prin-sub w.1 x.1 w.2.2.1)))
+        (x.2.2 t inside) ;
+    token-equation (x : D) : (holds x -> Tokenwise x) * (Tokenwise x -> holds x) = (to-tokenwise x,from-tokenwise x) ;
+    strict : holds bottom = from-tokenwise bottom (\ t -> TC.map (Le om t) (witness j t) (at-bottom j t)) ;
+    predicate : Predicates.Predicate = Extension.predicate ;
+    stage-forward (x : D) (h : holds x) (m : Nat) : holds (CorrectedStages[l].approximate m x) =
+      predicate.lower (CorrectedStages[l].approximate m x) x (CorrectedStages[l].deflation m x) h ;
+    stage-backward (x : D) (h : (m : Nat) -> holds (CorrectedStages[l].approximate m x)) : holds x =
+      predicate.lower x CorrectedStages[l].Exhaust[x].S.value CorrectedStages[l].Exhaust[x].backward
+        (predicate.directed Nat (\ m -> CorrectedStages[l].approximate m x) CorrectedStages[l].Exhaust[x].directed h) ;
+    stage-equation (x : D) : (holds x -> (m : Nat) -> holds (CorrectedStages[l].approximate m x)) *
+      (((m : Nat) -> holds (CorrectedStages[l].approximate m x)) -> holds x) = (stage-forward x,stage-backward x) ;
+    presentation (a b : K) (ab : Equal (principal a) (principal b)) : (basis a -> basis b) * (basis b -> basis a) =
+      (basis-lower b a ab.2,basis-lower a b ab.1) ;
+  } ;
+  Type (x : D) (A B : Tm n) : U l = For[types A B].holds x ;
+  Term (x : D) (A M N : Tm n) : U l = For[terms A M N].holds x ;
+  -- Universe elimination at every compact observation.
+  to-type (x : D) (A M N : Tm n) (h : Term x A M N) : Type x M N =
+    \ k below -> TC.map (Compact.TmR k.1 A M N) (Compact.TyR k.1 M N)
+      (Laws.tmr-ty k.1 A M N) (h k below) ;
+} ;

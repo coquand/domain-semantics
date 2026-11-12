@@ -1,0 +1,72 @@
+-- Application preserves related arguments, including all three
+-- self/cross comparisons. Compact argument tests suffice extensionally.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ;
+open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+open DomainLogicalRelation[l] ;
+module TC = TruncationCombinators[l] ;
+module R = Filter[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module Relation = DomainLogicalRelation[l].At[n,Delta] ;
+  module Compact = RelC[l].RelCD[n,Delta] ;
+  module Applications (f : D) (T M M' A : Tm n) (B : Tm (suc n))
+    (red : Reds n T (pp n A B)) (N N' : Tm n) (conversion : Der n (jeq Delta N N' A)) {
+    result-type : Tm n = subst1 n B N ;
+    module Input = Relation.For[terms A N N'] ;
+    module Left = Relation.For[terms result-type (app n M N) (app n M N')] ;
+    module Right = Relation.For[terms result-type (app n M' N) (app n M' N')] ;
+    module Mixed = Relation.For[terms result-type (app n M N) (app n M' N')] ;
+    Outputs (y : D) : U l = Left.holds y * (Right.holds y * Mixed.holds y) ;
+    Witness (t : Ty) : U l = Compact.AppC Compact.Can t result-type M M' N N' ;
+
+    -- Combining three mere witnesses uses only finite products.
+    observe (y : D) (h : Outputs y) (t : Ty) (inside : In y t) : Ex (Witness t) =
+      TC.map2 (Compact.TmR t result-type (app n M N) (app n M N'))
+        (Compact.TmR t result-type (app n M' N) (app n M' N') *
+         Compact.TmR t result-type (app n M N) (app n M' N')) (Witness t)
+        (\ a b -> new Compact.AppRC[Compact.Can,t,result-type,M,M',N,N',a,b.1,b.2])
+        (Left.to-tokenwise y h.1 t inside)
+        (TC.pair (Compact.TmR t result-type (app n M' N) (app n M' N'))
+          (Compact.TmR t result-type (app n M N) (app n M' N'))
+          (Right.to-tokenwise y h.2.1 t inside) (Mixed.to-tokenwise y h.2.2 t inside)) ;
+
+    module Observations (y : D) (h : (t : Ty) -> In y t -> Ex (Witness t)) {
+      left : Left.holds y = Left.from-tokenwise y (\ t inside ->
+        TC.map (Witness t) (Compact.TmR t result-type (app n M N) (app n M N')) (\ w -> w.c1) (h t inside)) ;
+      right : Right.holds y = Right.from-tokenwise y (\ t inside ->
+        TC.map (Witness t) (Compact.TmR t result-type (app n M' N) (app n M' N')) (\ w -> w.c2) (h t inside)) ;
+      cross : Mixed.holds y = Mixed.from-tokenwise y (\ t inside ->
+        TC.map (Witness t) (Compact.TmR t result-type (app n M N) (app n M' N')) (\ w -> w.c3) (h t inside)) ;
+      result : Outputs y = (left,(right,cross)) ;
+    } ;
+
+    module Forward (hf : Relation.Term f T M M') (x : D) (hx : Input.holds x) {
+      module Observation (t : Ty) (w : R.AppW (raw f.1) (raw x.1) t) {
+        apply (rf : Compact.TmR (arr w.x t) T M M') (rx : Compact.TmR w.x A N N') : Witness t =
+          ((Compact.tmr-unfold (arr w.x t) T M M').1 rf).fn A B red w.x t (as-here w.x t) N N'
+            (new Compact.ArgRC[Compact.Can,w.x,A,N,N',
+              cd := consistent x w.x w.inx,cv := conversion,rel := rx]) ;
+        result : Ex (Witness t) =
+          TC.map2 (Compact.TmR (arr w.x t) T M M') (Compact.TmR w.x A N N') (Witness t) apply
+            (Relation.For[terms T M M'].to-tokenwise f hf (arr w.x t)
+              (fup f.1 w.g (arr w.x t) w.le w.ing))
+            (Input.to-tokenwise x hx w.x w.inx) ;
+      } ;
+      observation (t : Ty) (inside : In (Application[l].eval f x) t) : Ex (Witness t) =
+        TC.bind (R.AppW (raw f.1) (raw x.1) t) (Witness t) (\ w -> Observation[t,w].result) inside ;
+      result : Outputs (Application[l].eval f x) = Observations[Application[l].eval f x,observation].result ;
+    } ;
+
+    AllArguments : U l+ = (x : D) -> Input.holds x -> Outputs (Application[l].eval f x) ;
+    CompactArguments : U l = (k : K) -> Input.holds (principal k) -> Outputs (Application[l].eval f (principal k)) ;
+    forward (hf : Relation.Term f T M M') : AllArguments = \ x hx -> Forward[hf,x,hx].result ;
+    restrict (h : AllArguments) : CompactArguments = \ k -> h (principal k) ;
+    module L = DomainPredicateMaps[l].Preservation[Application[l].map f,Input.predicate,Left.predicate] ;
+    module Rgt = DomainPredicateMaps[l].Preservation[Application[l].map f,Input.predicate,Right.predicate] ;
+    module C = DomainPredicateMaps[l].Preservation[Application[l].map f,Input.predicate,Mixed.predicate] ;
+    extend (h : CompactArguments) : AllArguments = \ x hx ->
+      (L.extend (\ k hk -> (h k hk).1) x hx,
+       (Rgt.extend (\ k hk -> (h k hk).2.1) x hx,C.extend (\ k hk -> (h k hk).2.2) x hx)) ;
+    equation : (AllArguments -> CompactArguments) * (CompactArguments -> AllArguments) = (restrict,extend) ;
+  } ;
+} ;

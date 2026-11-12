@@ -1,0 +1,23 @@
+-- Stable cones assemble into stable maps to the coherent-sequence limit.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module On (S : RigidLimitOrder[l].Chain) {
+  module L = RigidLimitOrder[l].On[S] ; module D = RigidLimitDI[l].On[S] ;
+  module N = ScottMeet[l].On[D.domain.scott] ;
+  module Assemble (P : ScottDomain[l].Scott)
+    (f : (n : Nat) -> StableMaps[l].Between[P,(S.domain n).scott].Map)
+    (coherent : (x : P.order.carrier) -> L.Coherent (\ n -> StableMaps[l].Between[P,(S.domain n).scott].run (f n) x)) {
+    module A = ScottDomain[l].On[P] ; module AN = ScottMeet[l].On[P] ;
+    module M = ScottMaps[l].Between[P,D.domain.scott] ; module ST = StableMaps[l].Between[P,D.domain.scott] ;
+    value (x : A.C) : L.carrier = (\ n -> StableMaps[l].Between[P,(S.domain n).scott].run (f n) x,coherent x) ;
+    mono (x y : A.C) (h : A.LE x y) : L.le (value x) (value y) =
+      \ n -> StableMaps[l].Between[P,(S.domain n).scott].mono (f n) x y h ;
+    continuous : M.Continuous value = \ I x d z h n -> ScottMaps[l].Between[P,(S.domain n).scott].continuous (f n).1 I x d (z.1 n) (\ i -> h i n) ;
+    stable : ST.Stable (value,(mono,continuous)) = \ a b c ac bc n ->
+      (S.domain n).scott.order.transitive ((N.meet (value (A.basic a)) (value (A.basic b))).1 n)
+        (ScottMeet[l].On[(S.domain n).scott].meet ((value (A.basic a)).1 n) ((value (A.basic b)).1 n)) ((value (AN.meet (A.basic a) (A.basic b))).1 n)
+        (ScottMeet[l].On[(S.domain n).scott].greatest ((value (A.basic a)).1 n) ((value (A.basic b)).1 n) ((N.meet (value (A.basic a)) (value (A.basic b))).1 n)
+          (N.left (value (A.basic a)) (value (A.basic b)) n) (N.right (value (A.basic a)) (value (A.basic b)) n)) ((f n).2 a b c ac bc) ;
+    map : ST.Map = ((value,(mono,continuous)),stable) ;
+  } ;
+} ;

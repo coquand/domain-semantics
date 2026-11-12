@@ -1,0 +1,101 @@
+-- Corrected Proposition 2.27 for the rank stages of the MIN filter model.
+-- The stage projector is defined from bounded typing, independently of p.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open ExtFilter[l] ; open Domain[l] ; open CompactFamilies[l] ;
+module S = CorrectedStages[l] ; module R = CorrectedRank[l] ;
+module CF = ProjectorDomain[l] ; module TC = TruncationCombinators[l] ; module P = Prelude[l+] ;
+module SL = SemanticLaws[l] ; module SP = SemanticProjector[l] ;
+
+-- Both the value and its classifier have bounded proper representatives.
+StageTyping (n : Nat) (u a : K) : U l = S.Bound n u * (S.Bound n a * Tp (el u.1 a.1)) ;
+bottom-bottom-zero : StageTyping zero bottomK bottomK = (tt,(tt,tp-omom)) ;
+bottom-universe-zero : StageTyping zero bottomK universeK = (tt,(tt,tp-omU)) ;
+universe-universe-zero : StageTyping zero universeK universeK = (tt,(tt,tp-UU)) ;
+Gen (n : Nat) (A : D) (k : K) : U l = (a : K) * (StageTyping n k a * In A a.1) ;
+family (n : Nat) (A : D) : Family = CF.closure (Gen n A) ;
+value (n : Nat) (A X : D) : D = Projector[l].project (family n A) X ;
+
+stage-bounded (n : Nat) (A : D) : CF.Inc (family n A) (S.compacts n) =
+  CF.least (Gen n A) (S.compacts n) (\ k h -> CF.inc (S.Bound n) k h.2.1.1) ;
+semantic-bounded (n : Nat) (A : D) : CF.Inc (family n A) (SP.interpret A) =
+  CF.least (Gen n A) (SP.interpret A) (\ k h -> CF.inc (SP.Gen (raw A.1)) k
+    (new Filter[l].TyInR[raw A.1,k.1,h.1.1,h.2.2,h.2.1.2.2])) ;
+below-global (n : Nat) (A X : D) : Domain[l].Below (value n A X) (SL.p A X) =
+  Projector[l].mono (family n A) (SP.interpret A) X X (semantic-bounded n A) (sub-refl X.1) ;
+fixed (n : Nat) (A X : D) : S.Stage[n].Fixed (value n A X) =
+  (S.deflation n (value n A X),\ t ->
+    TC.map (Projector[l].At[family n A,X].W t) (Projector[l].At[S.compacts n,value n A X].W t)
+      (\ w -> (w.1,(stage-bounded n A w.1 w.2.1,
+        (Projector[l].intro (family n A) X w.1 w.2.1 w.2.2.1,w.2.2.2))))) ;
+
+p (n : Nat) (A X : S.Stage[n].carrier) : S.Stage[n].carrier = (value n A.1 X.1,fixed n A.1 X.1) ;
+finitary (n : Nat) (A : D) : Finitary[l].Finitary = Finitary[l].of-family (family n A) ;
+
+introduce (n : Nat) (A X : D) (u a : K) (h : StageTyping n u a)
+  (hu : In X u.1) (ha : In A a.1) : In (value n A X) u.1 =
+  Projector[l].intro (family n A) X u (CF.inc (Gen n A) u (a,(h,ha))) hu ;
+
+module Compatible (n : Nat) (A X : S.Stage[n].carrier) {
+  target : D = value n A.1 X.1 ;
+  interpolate (t : Ty) (low : S.Observation[n,SL.p A.1 X.1,t])
+    (w : SL.Observation[A.1,X.1,low.key.1])
+    (xc : S.Observation[n,X.1,w.value]) (ac : S.Observation[n,A.1,w.code]) : In target t =
+    fup target.1 i.value t (le-trans i.value low.key.1 t i.covers low.covers)
+      (introduce n A.1 X.1 kv ka (i.rv,(i.rc,i.typed))
+        (fup X.1.1 xc.key.1 i.value i.bounded-value xc.inside)
+        (fup A.1.1 ac.key.1 i.code i.bounded-code ac.inside))
+    where {
+      i : StageInterpolation[l].Witness[n,low.key.1,xc.key.1,ac.key.1] =
+        StageInterpolation[l].interpolate n low.key.1 xc.key.1 ac.key.1
+          low.key.2.1 xc.key.2.1 ac.key.2.1 low.bounded xc.bounded ac.bounded xc.key.2.2 ac.key.2.2
+          w.value w.code w.typed w.below xc.covers ac.covers ;
+      kv : K = (i.value,(i.pv,tp-cons i.value i.code i.typed)) ;
+      ka : K = (i.code,(i.pc,tp-cons i.code univ (tp-pre i.value i.code i.typed))) ; } ;
+
+  witness (t : Ty) (low : S.Observation[n,SL.p A.1 X.1,t]) (w : SL.Observation[A.1,X.1,low.key.1]) : In target t =
+    ex-elim S.Observation[n,X.1,w.value] (In target t) (fprop target.1 t)
+      (\ xc -> ex-elim S.Observation[n,A.1,w.code] (In target t) (fprop target.1 t)
+        (interpolate t low w xc) (S.observe n A.1 w.code (A.2.2 w.code w.type-inside)))
+      (S.observe n X.1 w.value (X.2.2 w.value w.inside)) ;
+  observation (t : Ty) (low : S.Observation[n,SL.p A.1 X.1,t]) : In target t =
+    ex-elim SL.Observation[A.1,X.1,low.key.1] (In target t) (fprop target.1 t)
+      (witness t low) (SL.observe A.1 X.1 low.key.1 low.inside) ;
+  forward : Domain[l].Below (S.approximate n (SL.p A.1 X.1)) target = \ t h ->
+    ex-elim S.Observation[n,SL.p A.1 X.1,t] (In target t) (fprop target.1 t)
+      (observation t) (S.observe n (SL.p A.1 X.1) t h) ;
+  backward : Domain[l].Below target (S.approximate n (SL.p A.1 X.1)) =
+    sub-trans target.1 (S.approximate n target).1 (S.approximate n (SL.p A.1 X.1)).1
+      (fixed n A.1 X.1).2
+      (Projector[l].mono (S.compacts n) (S.compacts n) target (SL.p A.1 X.1)
+        (\ k h -> h) (below-global n A.1 X.1)) ;
+  semantic-equation : Id D (S.approximate n (SL.p A.1 X.1)) target =
+    Domain[l].ext (S.approximate n (SL.p A.1 X.1)) target (forward,backward) ;
+  kleene-equation : Id D (S.approximate n (KleeneProjector[l].p A.1 X.1)) target =
+    P.trans D (S.approximate n (KleeneProjector[l].p A.1 X.1)) (S.approximate n (SL.p A.1 X.1)) target
+      (P.ap D D (S.approximate n) (KleeneProjector[l].p A.1 X.1) (SL.p A.1 X.1)
+        (KleeneProjector[l].identification A.1 X.1)) semantic-equation ;
+} ;
+
+-- Equality in the stage itself, not just equality after embedding.
+proposition-2-27 (n : Nat) (A X : S.Stage[n].carrier) :
+  Id S.Stage[n].carrier
+    (S.Stage[n].restrict (KleeneProjector[l].p (S.Stage[n].embed A) (S.Stage[n].embed X))) (p n A X) =
+  P.Sigma-eq D (\ x -> S.Stage[n].Fixed x)
+    (S.approximate n (KleeneProjector[l].p A.1 X.1)) (value n A.1 X.1)
+    (S.idempotence n (KleeneProjector[l].p A.1 X.1)) (fixed n A.1 X.1)
+    (Compatible[n,A,X].kleene-equation)
+    (eqv-prop (S.approximate n (value n A.1 X.1)).1 (value n A.1 X.1).1) ;
+
+-- The old first-stage counterexample now has the required independent
+-- stage typing, and its stage projector is the non-bottom Pi element.
+first-pi : K = (pi om om,((tt,(tt,tt)),cons-pi om om cons-om cons-om)) ;
+first-pi-typing : StageTyping (suc zero) first-pi universeK =
+  (tt,(tt,t-pi (pi om om) univ om om (eqv-refl (pi om om)) (eqv-refl univ)
+    tp-omU (en-om om (arr om univ)) cons-om)) ;
+first-pi-equation : Id D (value (suc zero) universe (principal first-pi)) (principal first-pi) =
+  Domain[l].ext (value (suc zero) universe (principal first-pi)) (principal first-pi)
+    (Projector[l].At[family (suc zero) universe,principal first-pi].below,
+     prin-sub first-pi.1 (value (suc zero) universe (principal first-pi)).1
+       (introduce (suc zero) universe (principal first-pi) first-pi universeK first-pi-typing
+         (prin-in first-pi.1) (prin-in univ))) ;

@@ -1,0 +1,6 @@
+# LaTeX build intermediates; the source documents and PDFs are published.
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk

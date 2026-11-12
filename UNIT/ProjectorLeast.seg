@@ -1,0 +1,128 @@
+-- Leastness for the recursive projector clauses. No projector laws are
+-- assumed of the competing continuous binary map q.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+open BinaryMaps[l] ;
+module AP = Application[l] ; module TC = TruncationCombinators[l] ;
+
+family-map (q : Binary) (A : D) (H : Map) (F : D) : Map =
+  Diagonal[q,Maps[l].compose H (q.at A),Maps[l].compose (AP.map F) (q.at A)].map ;
+universe-family (q : Binary) (A : D) (B : FD) : FD =
+  abstract (family-map q A (constant universe) B.1) ;
+
+record LowerClauses {
+  q : Binary ;
+  at-U : In (value q universe universe) univ ;
+  at-Pi (A : D) (B : FD) :
+    Domain[l].Below Constructors[l].Pi[value q universe A,universe-family q A B].value
+      (value q universe Constructors[l].Pi[A,B].value) ;
+  at-function (A : D) (B : FD) (F : D) :
+    Domain[l].Below (abstract (family-map q A (apply B) F)).1
+      (value q Constructors[l].Pi[A,B].value F) ;
+} ;
+
+module SemanticClauses {
+  q : Binary = semantic ;
+  at-Pi (A : D) (B : FD) :
+    Domain[l].Below Constructors[l].Pi[value q universe A,universe-family q A B].value
+      (value q universe Constructors[l].Pi[A,B].value) =
+    sub-trans Constructors[l].Pi[value q universe A,universe-family q A B].value.1
+      ProjectorEquations[l].UniversePi[A,B].rhs.1 ProjectorEquations[l].UniversePi[A,B].lhs.1
+      Constructors[l].PiMono[value q universe A,SemanticLaws[l].p universe A,
+        universe-family q A B,ProjectorEquations[l].UniversePi[A,B].L.function,sub-refl (value q universe A).1,
+        MonotoneLambda[family-map q A (constant universe) B.1,ProjectorEquations[l].UniversePi[A,B].operation,
+          \ x -> sub-refl (run (family-map q A (constant universe) B.1) x).1].inclusion].inclusion
+      ProjectorEquations[l].UniversePi[A,B].backward ;
+  at-function (A : D) (B : FD) (F : D) :
+    Domain[l].Below (abstract (family-map q A (apply B) F)).1
+      (value q Constructors[l].Pi[A,B].value F) =
+    sub-trans (abstract (family-map q A (apply B) F)).1.1
+      ProjectorEquations[l].FunctionClause[A,B,F].rhs.1 ProjectorEquations[l].FunctionClause[A,B,F].lhs.1
+      MonotoneLambda[family-map q A (apply B) F,ProjectorEquations[l].FunctionClause[A,B,F].operation,
+        \ x -> sub-refl (run (family-map q A (apply B) F) x).1].inclusion
+      ProjectorEquations[l].FunctionClause[A,B,F].backward ;
+  laws : LowerClauses[q] = new LowerClauses[q,
+    SemanticLaws[l].introduce universe universe univ univ (prin-in univ) (prin-in univ) tp-UU,
+    at-Pi,at-function] ;
+} ;
+
+module Least (q : Binary) (clauses : LowerClauses[q]) {
+  El (u a : Ty) : U l+ = (A X : D) -> In A a -> In X u -> In (value q A X) u ;
+  Realizes (phi : Ty) (H : Map) : U l+ =
+    (Z : D) (x y : Ty) -> In Z x -> Le phi (arr x y) -> In (run H Z) y ;
+  Ent (f a phi : Ty) : U l+ = (A F : D) (H : Map) -> In A a -> In F f -> Realizes phi H ->
+    In (abstract (family-map q A H F)).1 f ;
+
+  module Entry (x v y a phi : Ty) (hx : Tp (el x a)) (hv : Tp (el v y)) (ly : Le phi (arr x y))
+    (ix : El x a) (iv : El v y) (A F : D) (H : Map)
+    (ha : In A a) (hf : In F (arr x v)) (hp : Realizes phi H) {
+    operation : Map = family-map q A H F ;
+    module L = Lambda[operation] ;
+      rx : Proper[l].Rep[x] = Proper[l].typed-rep x a hx ;
+      rv : Proper[l].Rep[v] = Proper[l].typed-rep v y hv ;
+      hxr : Tp (el rx.value a) = tp-conv x a rx.value a hx rx.equiv (eqv-refl a) ;
+      k : K = (rx.value,(rx.proper,tp-cons rx.value a hxr)) ;
+      px : In (value q A (principal k)) x = ix A (principal k) ha (ex (Le rx.value x) rx.equiv.2) ;
+    proof : In (abstract (family-map q A H F)).1 (arr x v) =
+    fup L.value.1 (arr rx.value rv.value) (arr x v)
+      (le-arr rx.value x rv.value v rx.equiv.1 rv.equiv.2)
+      (L.entry rx.value rv.value
+        (new L.Entry[rx.value,rv.value,rx.proper,tp-cons rx.value a hxr,rv.proper,
+          fup (run operation (principal k)).1 v rv.value rv.equiv.1
+            (iv (run H (value q A (principal k))) (AP.eval F (value q A (principal k)))
+              (hp (value q A (principal k)) x y px ly)
+              (AP.intro F (value q A (principal k)) (arr x v) x v hf px (le-refl (arr x v))))])) ;
+  } ;
+
+  module PiCase (u a d phi : Ty) (e1 : Eqv u (pi d phi)) (e2 : Eqv a univ)
+    (id : El d univ) (ig : Ent phi d (arr om univ)) (A X : D) (ha : In A a) (hu : In X u) {
+    hp : In X (pi d phi) = fup X.1 u (pi d phi) e1.1 hu ;
+      module C = Constructors[l].PiBelow[X,Parts[l].pi-head X d phi hp] ;
+      module O = Constructors[l].Pi[value q universe C.C.domain,universe-family q C.C.domain C.C.family] ;
+    proof : In (value q A X) u =
+    fup (value q A X).1 (pi d phi) u e1.2
+      (BinaryMaps[l].mono q universe A C.P.value X
+        (prin-sub univ A.1 (fup A.1 a univ e2.1 ha)) C.inclusion (pi d phi)
+        (clauses.at-Pi C.C.domain C.C.family (pi d phi)
+          (O.intro d phi
+            (id universe C.C.domain (prin-in univ) (Parts[l].pi-domain X d phi hp))
+            (ig C.C.domain C.C.family.1 (constant universe)
+              (Parts[l].pi-domain X d phi hp) (Parts[l].pi-family X d phi hp)
+              (\ Z x y hx ly -> ex (Le univ y) (ProjPi[l].univ-cod x y ly)))))) ;
+  } ;
+
+  module LamCase (u a d phi f : Ty) (e1 : Eqv u f) (e2 : Eqv a (pi d phi))
+    (ig : Ent f d phi) (A X : D) (ha : In A a) (hu : In X u) {
+    hp : In A (pi d phi) = fup A.1 a (pi d phi) e2.1 ha ;
+      module C = Constructors[l].PiBelow[A,Parts[l].pi-head A d phi hp] ;
+    proof : In (value q A X) u =
+    fup (value q A X).1 f u e1.2
+      (q.monotone C.P.value A C.inclusion X f
+        (clauses.at-function C.C.domain C.C.family X f
+          (ig C.C.domain X (apply C.C.family) (Parts[l].pi-domain A d phi hp)
+            (fup X.1 u f e1.1 hu)
+            (\ Z x y hx ly -> AP.intro C.C.family.1 Z phi x y (Parts[l].pi-family A d phi hp) hx ly)))) ;
+  } ;
+
+  Statement : Form -> U l+ = split { el u a -> El u a ; ent f a phi -> Ent f a phi } ;
+  induction : (j : Form) -> Tp j -> Statement j = split {
+    t-bot u a e h -> \ A X ha hu -> fup (value q A X).1 om u e (fom (value q A X).1) ;
+    t-univ u a e1 e2 -> \ A X ha hu -> fup (value q A X).1 univ u e1.2
+      (BinaryMaps[l].mono q universe A universe X
+        (prin-sub univ A.1 (fup A.1 a univ e2.1 ha))
+        (prin-sub univ X.1 (fup X.1 u univ e1.1 hu)) univ clauses.at-U) ;
+    t-pi u a d phi e1 e2 h1 h2 c | r1 r2 -> \ A X ha hu -> PiCase[u,a,d,phi,e1,e2,r1,r2,A,X,ha,hu].proof ;
+    t-lam u a d phi f e1 e2 h1 h2 c | r1 r2 -> \ A X ha hu -> LamCase[u,a,d,phi,f,e1,e2,r2,A,X,ha,hu].proof ;
+    en-om a phi -> \ A F H ha hf hp -> fom (abstract (family-map q A H F)).1.1 ;
+    en-arr x v y a phi hx ly hv | rx rv -> \ A F H ha hf hp -> Entry[x,v,y,a,phi,hx,hv,ly,rx,rv,A,F,H,ha,hf,hp].proof ;
+    en-meet f g a phi h1 h2 | r1 r2 -> \ A F H ha hf hp ->
+      fmeet (abstract (family-map q A H F)).1.1 f g
+        (r1 A F H ha (fup F.1 (meet f g) f (le-meet-l f g) hf) hp)
+        (r2 A F H ha (fup F.1 (meet f g) g (le-meet-r f g) hf) hp) } ;
+
+  least (A X : D) : Domain[l].Below (SemanticLaws[l].p A X) (value q A X) = \ t h ->
+    ex-elim SemanticLaws[l].Observation[A,X,t] (In (value q A X) t) (fprop (value q A X).1 t)
+      (\ o -> fup (value q A X).1 o.value t o.below
+        (induction (el o.value o.code) o.typed A X o.type-inside o.inside)) (SemanticLaws[l].observe A X t h) ;
+} ;

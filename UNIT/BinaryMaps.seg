@@ -1,0 +1,58 @@
+-- Continuous binary maps. Continuity in each variable gives the
+-- common-compact-witness construction for their diagonal composites.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ;
+module TC = TruncationCombinators[l] ;
+
+record Binary {
+  at : D -> Map ;
+  monotone (a b : D) (h : Domain[l].Below a b) (x : D) :
+    Domain[l].Below (run (at a) x) (run (at b) x) ;
+  finite (a x : D) (t : Ty) (h : In (run (at a) x) t) :
+    Ex ((k : K) * (In a k.1 * In (run (at (principal k)) x) t)) ;
+} ;
+value (q : Binary) (a x : D) : D = run (q.at a) x ;
+mono (q : Binary) (a b x y : D) (ab : Domain[l].Below a b) (xy : Domain[l].Below x y) :
+  Domain[l].Below (value q a x) (value q b y) =
+  sub-trans (value q a x).1 (value q b x).1 (value q b y).1 (q.monotone a b ab x) ((q.at b).2.1 x y xy) ;
+
+constant (a : D) : Map = (\ x -> a,(\ x y h -> sub-refl a.1,
+  \ x t h -> ex (Trace (\ _ -> a) x t) (bottomK,(fom x.1,h)))) ;
+
+module Diagonal (q : Binary) (f g : Map) {
+  operation (x : D) : D = value q (run f x) (run g x) ;
+  monotone (x y : D) (h : Domain[l].Below x y) : Domain[l].Below (operation x) (operation y) =
+    mono q (run f x) (run f y) (run g x) (run g y) (f.2.1 x y h) (g.2.1 x y h) ;
+  finish (x : D) (t : Ty) (a b : K) (h : In (value q (principal a) (principal b)) t)
+    (i : Trace f.1 x a.1) (j : Trace g.1 x b.1) : Trace operation x t =
+    (k,(hk,mono q (principal a) (run f (principal k)) (principal b) (run g (principal k))
+      (prin-sub a.1 (run f (principal k)).1
+        (f.2.1 (principal i.1) (principal k) (prin-anti k.1 i.1.1 (le-meet-l i.1.1 j.1.1)) a.1 i.2.2))
+      (prin-sub b.1 (run g (principal k)).1
+        (g.2.1 (principal j.1) (principal k) (prin-anti k.1 j.1.1 (le-meet-r i.1.1 j.1.1)) b.1 j.2.2)) t h))
+    where {
+      hk : In x (meet i.1.1 j.1.1) = fmeet x.1 i.1.1 j.1.1 i.2.1 j.2.1 ;
+      k : K = CompactFamilies[l].joinK i.1 j.1 (consistent x (meet i.1.1 j.1.1) hk) ; } ;
+  finite (x : D) (t : Ty) (h : In (operation x) t) : Ex (Trace operation x t) =
+    TC.bind ((a : K) * (In (run f x) a.1 * In (value q (principal a) (run g x)) t)) (Trace operation x t)
+      (\ a -> TC.bind (Trace (run (q.at (principal a.1))) (run g x) t) (Trace operation x t)
+        (\ b -> TC.bind (Trace f.1 x a.1.1) (Trace operation x t)
+          (\ i -> TC.map (Trace g.1 x b.1.1) (Trace operation x t) (finish x t a.1 b.1 b.2.2 i)
+            (g.2.2 x b.1.1 b.2.1)) (f.2.2 x a.1.1 a.2.1))
+        ((q.at (principal a.1)).2.2 (run g x) t a.2.2)) (q.finite (run f x) (run g x) t h) ;
+  map : Map = (operation,(monotone,finite)) ;
+} ;
+
+semantic-finite (a x : D) (t : Ty) (h : In (SemanticLaws[l].p a x) t) :
+  Ex ((k : K) * (In a k.1 * In (SemanticLaws[l].p (principal k) x) t)) =
+  TC.bind SemanticLaws[l].Observation[a,x,t]
+    ((k : K) * (In a k.1 * In (SemanticLaws[l].p (principal k) x) t))
+    (\ o -> TC.map (Domain[l].PW a.1 o.code)
+      ((k : K) * (In a k.1 * In (SemanticLaws[l].p (principal k) x) t))
+      (\ w -> ((w.1,(w.2.1,consistent a w.1 w.2.2.1)),
+        (w.2.2.1,fup (SemanticLaws[l].p (principal (w.1,(w.2.1,consistent a w.1 w.2.2.1))) x).1 o.value t o.below
+          (SemanticLaws[l].introduce (principal (w.1,(w.2.1,consistent a w.1 w.2.2.1))) x o.value o.code
+            o.inside (ex (Le w.1 o.code) w.2.2.2) o.typed)))) (a.2.2 o.code o.type-inside))
+    (SemanticLaws[l].observe a x t h) ;
+semantic : Binary = new Binary[ProjectorEquations[l].pmap,
+  \ a b h x -> SemanticLaws[l].mono a b x x h (sub-refl x.1),semantic-finite] ;

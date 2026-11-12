@@ -1,0 +1,82 @@
+-- Currying and uncurrying, with beta and eta as identities of stable maps.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Between (P : ScottDomain[l].Scott) (D E : DIDomain[l].DI) {
+  module A = ScottDomain[l].On[P] ; module AN = ScottMeet[l].On[P] ;
+  module B = ScottDomain[l].On[D.scott] ; module C = ScottDomain[l].On[E.scott] ;
+  module CN = ScottMeet[l].On[E.scott] ;
+  module X = StableExponential[l].Exponential[D,E] ;
+  module Q = ScottProduct[l].Product[P,D.scott] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module H = StableMaps[l].Between[Q.scott,E.scott] ;
+  module K = StableMaps[l].Between[P,X.scott] ;
+  module KM = ScottMaps[l].Between[P,X.scott] ; module RM = ScottMaps[l].Between[P,E.scott] ;
+  module SD = StableDirected[l].Between[D.scott,E.scott] ;
+  module SM = StableMeet[l].Between[D.scott,E.scott] ; module SN = ScottMeet[l].On[X.scott] ;
+  module PV = DC[P.order,P.complete] ;
+  module Curry (h : H.Map) {
+    module At (p : A.C) {
+      module Pair = StableProduct[l].Pair[D.scott,P,D.scott,StableProduct[l].Constant[D.scott,P,p].map,StableComposition[l].Endo[D.scott].identity] ;
+      map : S.Map = StableComposition[l].Between[D.scott,Q.scott,E.scott].Compose[Pair.map,h].map ;
+    } ;
+    module Row (x : B.C) {
+      module Pair = StableProduct[l].Pair[P,P,D.scott,StableComposition[l].Endo[P].identity,StableProduct[l].Constant[P,D.scott,x].map] ;
+      map : StableMaps[l].Between[P,E.scott].Map = StableComposition[l].Between[P,Q.scott,E.scott].Compose[Pair.map,h].map ;
+    } ;
+    value (p : A.C) : S.Map = At[p].map ;
+    restriction (p q : A.C) (pq : A.LE p q) (x y : B.C) (xy : B.LE x y) :
+      C.LE (CN.meet (S.run (value p) y) (S.run (value q) x)) (S.run (value p) x) =
+      E.scott.order.transitive (CN.meet (H.run h (p,y)) (H.run h (q,x))) (H.run h (Q.N.meet (p,y) (q,x))) (H.run h (p,x))
+        (H.preserves h (p,y) (q,x) (q,y) (pq,D.scott.order.reflexive y) (P.order.reflexive q,xy))
+        (H.mono h (Q.N.meet (p,y) (q,x)) (p,x) ((Q.N.left (p,y) (q,x)).1,(Q.N.right (p,y) (q,x)).2)) ;
+    monotone : KM.Monotone value = \ p q pq -> S.from-law (value p) (value q)
+      (\ x -> H.mono h (p,x) (q,x) (pq,D.scott.order.reflexive x)) (restriction p q pq) ;
+    module Directed (I : U l) (p : I -> A.C) (d : KM.O.Dir I p) {
+      fd : S.SO.Dir I (\ i -> value (p i)) = KM.image-dir value monotone I p d ;
+      module Sup = SD.Sup[I,\ i -> value (p i),fd] ;
+      point (x : B.C) : C.LE (S.run (value (PV.sup I p d)) x) (S.run Sup.map x) =
+        RM.continuous Row[x].map.1 I p d (S.run Sup.map x) (\ i -> Sup.point-upper i x) ;
+      reverse (x : B.C) : C.LE (S.run Sup.map x) (S.run (value (PV.sup I p d)) x) =
+        (E.scott.complete.directed I (\ i -> S.run (value (p i)) x) (Sup.evaluated x)).2.2
+          (S.run (value (PV.sup I p d)) x) (\ i -> S.pointwise (value (p i)) (value (PV.sup I p d)) (monotone (p i) (PV.sup I p d) (PV.upper I p d i)) x) ;
+      below : S.LE (value (PV.sup I p d)) Sup.map = S.equal-below (value (PV.sup I p d)) Sup.map
+        (\ a -> point (B.basic a)) (\ a -> reverse (B.basic a)) ;
+    } ;
+    continuous : KM.Continuous value = \ I p d z hz -> S.transitive (value (PV.sup I p d)) Directed[I,p,d].Sup.map z
+      Directed[I,p,d].below (Directed[I,p,d].Sup.least z hz) ;
+    module Compatible (p q r : A.C) (pr : A.LE p r) (qr : A.LE q r) {
+      m : S.Map = SN.meet (value p) (value q) ;
+      module Point = SM.Compatible[value p,value q,value r,monotone p r pr,monotone q r qr] ;
+      point (x : B.C) : C.LE (S.run m x) (S.run (value (AN.meet p q)) x) =
+        E.scott.order.transitive (S.run m x) (CN.meet (H.run h (p,x)) (H.run h (q,x))) (H.run h (AN.meet p q,x))
+          (S.pointwise m Point.P.map (Point.greatest m (SN.left (value p) (value q)) (SN.right (value p) (value q))) x)
+          (E.scott.order.transitive (CN.meet (H.run h (p,x)) (H.run h (q,x))) (H.run h (Q.N.meet (p,x) (q,x))) (H.run h (AN.meet p q,x))
+            (H.preserves h (p,x) (q,x) (r,x) (pr,D.scott.order.reflexive x) (qr,D.scott.order.reflexive x))
+            (H.mono h (Q.N.meet (p,x) (q,x)) (AN.meet p q,x)
+              (AN.greatest p q (Q.N.meet (p,x) (q,x)).1 (Q.N.left (p,x) (q,x)).1 (Q.N.right (p,x) (q,x)).1,(Q.N.left (p,x) (q,x)).2))) ;
+      result : S.LE m (value (AN.meet p q)) = S.under-bound m (value (AN.meet p q)) (value r)
+        (S.transitive m (value p) (value r) (SN.left (value p) (value q)) (monotone p r pr))
+        (monotone (AN.meet p q) r (P.order.transitive (AN.meet p q) p r (AN.left p q) pr)) (\ a -> point (B.basic a)) ;
+    } ;
+    map : K.Map = ((value,(monotone,continuous)),\ a b c ac bc -> Compatible[A.basic a,A.basic b,A.basic c,ac,bc].result) ;
+  } ;
+  module Uncurry (f : K.Map) {
+    module Projections = StableProduct[l].Product[P,D.scott] ;
+    first : StableMaps[l].Between[Q.scott,X.scott].Map = StableComposition[l].Between[Q.scott,P,X.scott].Compose[Projections.left,f].map ;
+    module Pair = StableProduct[l].Pair[Q.scott,X.scott,D.scott,first,Projections.right] ;
+    module Eval = StableEvaluation[l].Exponential[D,E] ;
+    map : H.Map = StableComposition[l].Between[Q.scott,Eval.P.scott,E.scott].Compose[Pair.map,Eval.map].map ;
+  } ;
+  beta (h : H.Map) : Id H.Map Uncurry[Curry[h].map].map h = H.ext Uncurry[Curry[h].map].map h
+    (H.equal-below Uncurry[Curry[h].map].map h (\ a -> E.scott.order.reflexive (H.run h (Q.basic a))) (\ a -> E.scott.order.reflexive (H.run h (Q.basic a))))
+    (H.equal-below h Uncurry[Curry[h].map].map (\ a -> E.scott.order.reflexive (H.run h (Q.basic a))) (\ a -> E.scott.order.reflexive (H.run h (Q.basic a)))) ;
+  eta-point (f : K.Map) (p : A.C) : S.LE (K.run Curry[Uncurry[f].map].map p) (K.run f p) =
+    S.equal-below (K.run Curry[Uncurry[f].map].map p) (K.run f p) (\ a -> E.scott.order.reflexive (S.run (K.run f p) (B.basic a)))
+      (\ a -> E.scott.order.reflexive (S.run (K.run f p) (B.basic a))) ;
+  eta-back (f : K.Map) (p : A.C) : S.LE (K.run f p) (K.run Curry[Uncurry[f].map].map p) =
+    S.equal-below (K.run f p) (K.run Curry[Uncurry[f].map].map p) (\ a -> E.scott.order.reflexive (S.run (K.run f p) (B.basic a)))
+      (\ a -> E.scott.order.reflexive (S.run (K.run f p) (B.basic a))) ;
+  eta (f : K.Map) : Id K.Map Curry[Uncurry[f].map].map f = K.ext Curry[Uncurry[f].map].map f
+    (K.equal-below Curry[Uncurry[f].map].map f (\ a -> eta-point f (A.basic a)) (\ a -> eta-back f (A.basic a)))
+    (K.equal-below f Curry[Uncurry[f].map].map (\ a -> eta-back f (A.basic a)) (\ a -> eta-point f (A.basic a))) ;
+} ;

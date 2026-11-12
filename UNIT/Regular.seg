@@ -1,0 +1,76 @@
+-- Good generators: the bridge from typed MIN elements to the domain.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ;
+open Consistency[l] ; open Typing[l] ; open Proper[l] ; open Filter[l] ;
+open Sound[l] ;
+Good (t : Ty) : U l = Proper[l].Proper t ;
+
+record Approx {
+  X : Filt ; t : Ty ;
+  value : Ty ; proper : Good value ;
+  inside : X.mem value ; below : Le value t ;
+} ;
+Regular (X : Filt) : U l = (t : Ty) -> X.mem t -> Approx[X,t] ;
+
+regular-prin (s : Ty) (p : Good s) : Regular (prin s) =
+  \ t h -> new Approx[prin s,t,s,p,le-refl s,h] ;
+
+regular-eq (X Y : Filt) (e : FEq X Y) (r : Regular X) (t : Ty) (h : Y.mem t) : Approx[Y,t] = new Approx[Y,t,a.value,a.proper,e.1 a.value a.inside,a.below]
+  where { a : Approx[X,t] = r t (e.2 t h) ; } ;
+
+-- The paper's semantic typing gives cofinally many typed elements.
+-- Replace each of these by the equivalent representative of Proper.
+typed-regular (X A : Filt) (h : HasTy X A) (t : Ty) (m : X.mem t) : Approx[X,t] = new Approx[X,t,r.value,r.proper,
+    X.fup w.v r.value r.equiv.1 w.inA,
+    le-trans r.value w.v t r.equiv.2 w.below]
+  where {
+    w : Enl X A t = h t m ;
+    r : Rep[w.v] = typed-rep w.v w.c w.tp ; } ;
+
+proper-asel : (f d t : Ty) -> ASel f d t -> Good f -> Good d * Good t = split {
+  as-none f -> \ p -> (tt,tt) ;
+  as-here a b -> \ p -> (p.1,p.2.2) ;
+  as-l f g d t h | r -> \ p -> r p.1 ;
+  as-r f g d t h | r -> \ p -> r p.2 ;
+  as-meet f d1 t1 d2 t2 h1 h2 | r1 r2 -> \ p ->
+    (((r1 p).1,(r2 p).1),((r1 p).2,(r2 p).2)) } ;
+
+proper-psel : (f a b : Ty) -> PSel f a b -> Good f ->
+  Good a * (Good b * Arrows b) = split {
+  ps-none f -> \ p -> (tt,(tt,tt)) ;
+  ps-here a b -> \ p -> p ;
+  ps-l f g a b h | r -> \ p -> r p.1 ;
+  ps-r f g a b h | r -> \ p -> r p.2 ;
+  ps-meet f a1 b1 a2 b2 h1 h2 | r1 r2 -> \ p ->
+    (((r1 p).1,(r2 p).1),(((r1 p).2.1,(r2 p).2.1),((r1 p).2.2,(r2 p).2.2))) } ;
+
+record PiExtract {
+  source : Ty ; a : Ty ; b : Ty ;
+  domain : Ty ; family : Ty ;
+  proper-domain : Good domain ; proper-family : Good family ; arrows : Arrows family ;
+  below-domain : Le domain a ; below-family : Le family b ;
+  below : Le source (pi domain family) ;
+} ;
+
+extract-pi (r a b : Ty) (p : Good r) (h : Le r (pi a b)) : PiExtract[r,a,b] =
+  new PiExtract[r,a,b,i.2.2.1,i.2.2.2.1,g.1,g.2.1,g.2.2,
+    i.2.2.2.2.2.2.1,i.2.2.2.2.2.2.2,
+    le-trans r (meet r (pi om om)) (pi i.2.2.1 i.2.2.2.1)
+      (le-meet r r (pi om om) (le-refl r)
+        (le-trans r (pi a b) (pi om om) h (le-pi a om b om (le-om a) (le-om b))))
+      (psel-le r i.2.2.1 i.2.2.2.1 i.2.2.2.2.2.1)]
+  where {
+    i : InvPi r a b = inv-pi r a b h ;
+    g : Good i.2.2.1 * (Good i.2.2.2.1 * Arrows i.2.2.2.1) =
+      proper-psel r i.2.2.1 i.2.2.2.1 i.2.2.2.2.2.1 p ; } ;
+
+regular-app (F X : Filt) (rF : Regular F) (t : Ty) (w : (appF F X).mem t) : Approx[appF F X,t] = new Approx[appF F X,t,i.2.1,(proper-asel a.value i.1 i.2.1 i.2.2.1 a.proper).2,
+    new AppWR[F,X,i.2.1,a.value,w.x,a.inside,w.inx,
+      le-trans a.value (arr i.1 i.2.1) (arr w.x i.2.1)
+        (asel-le a.value i.1 i.2.1 i.2.2.1)
+        (le-arr i.1 w.x i.2.1 i.2.1 i.2.2.2.1 (le-refl i.2.1))],
+    i.2.2.2.2]
+  where {
+    a : Approx[F,w.g] = rF w.g w.ing ;
+    i : InvArr a.value w.x t = inv-arr a.value w.x t
+      (le-trans a.value w.g (arr w.x t) a.below w.le) ; } ;

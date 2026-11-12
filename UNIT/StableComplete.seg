@@ -1,0 +1,52 @@
+-- Bounded and directed joins of stable maps. Distributivity is needed
+-- only in the codomain; the I-axiom is not needed for completeness.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+
+module Between (D E : ScottDomain[l].Scott) (distributive : DIDomain[l].Properties[E.order].Distributive) {
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ;
+  module AN = ScottMeet[l].On[D] ; module BN = ScottMeet[l].On[E] ;
+  module M = ScottMaps[l].Between[D,E] ;
+  module S = StableMaps[l].Between[D,E] ;
+  module J = DistributiveJoins[l].On[E,distributive] ;
+  module SD = StableDirected[l].Between[D,E] ;
+  module Sup (I : U l) (f : I -> S.Map) (b : S.Map) (h : S.SO.Bounds I f b) {
+    bound (x : A.C) (i : I) : B.LE (S.run (f i) x) (S.run b x) = S.pointwise (f i) b (h i) x ;
+    module P = M.Pointwise[I,\ i -> (f i).1,\ x -> E.complete.bounded I (\ i -> S.run (f i) x) (S.run b x) (bound x)] ;
+    value : A.C -> B.C = P.value ;
+    point-upper (i : I) (x : A.C) : B.LE (S.run (f i) x) (value x) =
+      (E.complete.bounded I (\ j -> S.run (f j) x) (S.run b x) (bound x)).2.1 i ;
+    cross-bound (i j : I) (x y z : A.C) (xz : A.LE x z) (yz : A.LE y z) :
+      B.LE (BN.meet (S.run (f i) x) (S.run (f j) y)) (S.run b (AN.meet x y)) =
+      E.order.transitive (BN.meet (S.run (f i) x) (S.run (f j) y)) (BN.meet (S.run b x) (S.run b y)) (S.run b (AN.meet x y))
+        (BN.monotone (S.run (f i) x) (S.run (f j) y) (S.run b x) (S.run b y) (bound x i) (bound y j))
+        (S.preserves b x y z xz yz) ;
+    cross (i j : I) (x y z : A.C) (xz : A.LE x z) (yz : A.LE y z) :
+      B.LE (BN.meet (S.run (f i) x) (S.run (f j) y)) (value (AN.meet x y)) =
+      E.order.transitive k (S.run (f i) (AN.meet x y)) (value (AN.meet x y))
+        (E.order.transitive k (BN.meet (S.run (f i) x) (S.run b (AN.meet x y))) (S.run (f i) (AN.meet x y))
+          (BN.greatest (S.run (f i) x) (S.run b (AN.meet x y)) k (BN.left (S.run (f i) x) (S.run (f j) y)) (cross-bound i j x y z xz yz))
+          (S.restriction (f i) b (h i) (AN.meet x y) x (AN.left x y))) (point-upper i (AN.meet x y))
+      where { k : B.C = BN.meet (S.run (f i) x) (S.run (f j) y) ; } ;
+    preserves (x y z : A.C) (xz : A.LE x z) (yz : A.LE y z) : B.LE (BN.meet (value x) (value y)) (value (AN.meet x y)) =
+      J.bounded-left I (\ i -> S.run (f i) x) (S.run b x) (bound x) (value y) (value (AN.meet x y))
+        (\ i -> J.bounded-right I (\ j -> S.run (f j) y) (S.run b y) (bound y) (S.run (f i) x) (value (AN.meet x y))
+          (\ j -> cross i j x y z xz yz)) ;
+    map : S.Map = (P.map,\ a c e -> preserves (A.basic a) (A.basic c) (A.basic e)) ;
+    upper (i : I) : S.LE (f i) map =
+      S.from-law (f i) map (point-upper i) (\ x y xy ->
+        J.bounded-right I (\ j -> S.run (f j) x) (S.run b x) (bound x) (S.run (f i) y) (S.run (f i) x)
+          (\ j -> E.order.transitive (BN.meet (S.run (f i) y) (S.run (f j) x)) (BN.meet (S.run (f i) y) (S.run b x)) (S.run (f i) x)
+            (BN.monotone (S.run (f i) y) (S.run (f j) x) (S.run (f i) y) (S.run b x)
+              (E.order.reflexive (S.run (f i) y)) (bound x j)) (S.restriction (f i) b (h i) x y xy))) ;
+    least (g : S.Map) (hg : (i : I) -> S.LE (f i) g) : S.LE map g =
+      (P.least g.1 (\ i -> (hg i).1),\ a c ac ->
+        J.bounded-left I (\ i -> S.run (f i) (A.basic c)) (S.run b (A.basic c)) (bound (A.basic c)) (S.run g (A.basic a)) (value (A.basic a))
+          (\ i -> E.order.transitive (BN.meet (S.run (f i) (A.basic c)) (S.run g (A.basic a))) (S.run (f i) (A.basic a)) (value (A.basic a))
+            ((hg i).2 a c ac) (point-upper i (A.basic a)))) ;
+    supremum : S.SO.Supremum I f = (map,(upper,least)) ;
+  } ;
+  complete : Complete[S.order] = new Complete[S.order,
+    directed := \ I f d -> SD.Sup[I,f,d].supremum,
+    bounded := \ I f b h -> Sup[I,f,b,h].supremum] ;
+} ;

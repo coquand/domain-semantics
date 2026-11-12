@@ -1,0 +1,110 @@
+-- A base-stage obstruction in the PRINTED Figure 2 rules.
+-- C_0={bottom}, Univ has conclusion at suc n, and Pi/Lam demand A :_n U.
+-- Printed below FORGETS the other Pi/Lam premises, admitting MORE typings.
+-- Its stage-one obstruction therefore also applies to the literal rules.
+-- This is not the unindexed MIN typing relation, which types bottom : U.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open CompactFamilies[l] ;
+module P = Prelude[l+] ; module TC = TruncationCombinators[l] ;
+module CF = ProjectorDomain[l] ; module ST = Stages[l] ;
+one : Nat = suc zero ;
+
+data Printed : (n : Nat) (u a : Ty) -> U l =
+    pr-bot (n : Nat) (u a : Ty) (e : Le om u) (h : Printed n a univ) : Printed n u a
+  | pr-univ (n : Nat) (u a : Ty) (eu : Typing[l].Eqv u univ) (ea : Typing[l].Eqv a univ) : Printed (suc n) u a
+  | pr-pi (n : Nat) (u a d f : Ty) (eu : Typing[l].Eqv u (pi d f)) (ea : Typing[l].Eqv a univ)
+      (h : Printed n d univ) : Printed (suc n) u a
+  | pr-lam (n : Nat) (u a d f g : Ty) (eu : Typing[l].Eqv u g) (ea : Typing[l].Eqv a (pi d f))
+      (h : Printed n d univ) : Printed (suc n) u a ;
+
+zero-empty : (n : Nat) (u a : Ty) -> Printed n u a -> LeN n zero -> Empty = split {
+  pr-bot n u a e h | r -> r ;
+  pr-univ n u a eu ea -> \ impossible -> impossible ;
+  pr-pi n u a d f eu ea h -> \ impossible -> impossible ;
+  pr-lam n u a d f g eu ea h -> \ impossible -> impossible } ;
+one-shape : (n : Nat) (u a : Ty) -> Printed n u a -> LeN n one ->
+  Plus (Le om u) (Typing[l].Eqv u univ) = split {
+    pr-bot n u a e h -> \ bound -> inl e ;
+    pr-univ n u a eu ea -> \ bound -> inr eu ;
+    pr-pi n u a d f eu ea h -> \ bound -> efq (zero-empty n d univ h bound) ;
+    pr-lam n u a d f g eu ea h -> \ bound -> efq (zero-empty n d univ h bound) } ;
+pi0 : Ty = pi om om ;
+piK : K = (pi0,((tt,(tt,tt)),cons-pi om om cons-om cons-om)) ;
+pi-domain : D = principal piK ;
+pi-shape-empty : Plus (Le om pi0) (Typing[l].Eqv pi0 univ) -> Empty = split {
+  inl h -> om-not-pi om om h ; inr e -> pi-not-univ om om e.1 } ;
+pi-untyped (a : Ty) (h : Printed one pi0 a) : Empty =
+  pi-shape-empty (one-shape one pi0 a h tt) ;
+printed-U-one : Printed one univ univ = pr-univ zero univ univ (Typing[l].eqv-refl univ) (Typing[l].eqv-refl univ) ;
+printed-bottom-U-one : Printed one om univ = pr-bot one om univ (le-refl om) printed-U-one ;
+printed-bottom-bottom-one : Printed one om om = pr-bot one om om (le-refl om) printed-bottom-U-one ;
+printed-pi-two : Printed (suc one) pi0 univ =
+  pr-pi one pi0 univ om om (Typing[l].eqv-refl pi0) (Typing[l].eqv-refl univ) printed-bottom-U-one ;
+no-zero-bottom : Printed zero om om -> Empty = \ h -> zero-empty zero om om h tt ;
+
+-- Both counterexample arguments really are fixed by the first domain stage.
+module Stage = ST.Stage[one] ;
+universe-stage : Stage.carrier = (universe,
+  Projector[l].compact-fixed (ST.compacts one) universeK (CF.inc (ST.Bound one) universeK tt)) ;
+pi-stage : Stage.carrier = (pi-domain,
+  Projector[l].compact-fixed (ST.compacts one) piK (CF.inc (ST.Bound one) piK tt)) ;
+
+-- Independently generate a stage projector from the (permissive) printed
+-- stage typing, restricting BOTH compact witnesses to the given stage.
+module StageProjector (n : Nat) (a : D) {
+  Gen (k : K) : U l = ST.Bound n k *
+    ((b : K) * (ST.Bound n b * (In a b.1 * Printed n k.1 b.1))) ;
+  family : Family = CF.closure Gen ;
+  stage-inclusion : Incl family (ST.compacts n) = CF.least Gen (ST.compacts n)
+    (\ k h -> CF.inc (ST.Bound n) k h.1) ;
+  operation (x : D) : D = Projector[l].project family x ;
+  fixed (x : D) : Equal (ST.approximate n (operation x)) (operation x) =
+    (ST.deflation n (operation x),\ t ->
+      TC.map (Projector[l].At[family,x].W t) (Projector[l].At[ST.compacts n,operation x].W t)
+        (\ w -> (w.1,(stage-inclusion w.1 w.2.1,
+          (Projector[l].intro family x w.1 w.2.1 w.2.2.1,w.2.2.2))))) ;
+  value (x : D) : ST.Stage[n].carrier = (operation x,fixed x) ;
+} ;
+pn (a x : Stage.carrier) : Stage.carrier = StageProjector[one,a.1].value x.1 ;
+
+module FirstValue (a : D) {
+  module Q = StageProjector[one,a] ;
+  base-shape (k : K) (h : Le pi0 k.1) : Plus (Le om k.1) (Typing[l].Eqv k.1 univ) -> Le om k.1 = split {
+    inl r -> r ; inr e -> efq (pi-not-univ om om (le-trans pi0 k.1 univ h e.1)) } ;
+  base (k : K) (w : Q.Gen k) (h : Le pi0 k.1) : Le om k.1 =
+    base-shape k h (one-shape one k.1 w.2.1.1 w.2.2.2.2 tt) ;
+  closure : (k : K) -> CF.Der Q.Gen k -> Le pi0 k.1 -> Le om k.1 = split {
+    d-empty -> \ h -> le-refl om ;
+    d-in k w -> base k w ;
+    d-join u v c hu hv | ru rv -> \ h -> le-meet om u.1 v.1
+      (ru (le-trans pi0 (meet u.1 v.1) u.1 h (le-meet-l u.1 v.1)))
+      (rv (le-trans pi0 (meet u.1 v.1) v.1 h (le-meet-r u.1 v.1))) ;
+    d-equiv u v e h | r -> \ p -> le-trans om u.1 v.1
+      (r (le-trans pi0 v.1 u.1 p e.2)) e.1 } ;
+  below : Domain[l].Below (Q.operation pi-domain) bottom = \ t ->
+    TC.bind (Projector[l].At[Q.family,pi-domain].W t) (Le om t)
+      (\ w -> TC.bind (CF.Der Q.Gen w.1) (Le om t)
+        (\ d -> TC.map (Le pi0 w.1.1) (Le om t)
+          (\ h -> le-trans om w.1.1 t (closure w.1 d h) w.2.2.2) w.2.2.1) w.2.1) ;
+  equation : Id D (Q.operation pi-domain) bottom =
+    Domain[l].ext (Q.operation pi-domain) bottom (below,bottom-least (Q.operation pi-domain)) ;
+} ;
+
+-- The independently constructed global least fixed point observes Pi(bot,bot).
+global-observation : In (KleeneProjector[l].p universe pi-domain) pi0 =
+  KleeneProjector[l].above-semantic universe pi-domain pi0
+    (SemanticLaws[l].introduce universe pi-domain pi0 univ (prin-in pi0) (prin-in univ)
+      (t-pi pi0 univ om om (Typing[l].eqv-refl pi0) (Typing[l].eqv-refl univ)
+        Typing[l].tp-omU (en-om om (arr om univ)) cons-om)) ;
+lhs : Stage.carrier = Stage.restrict (KleeneProjector[l].p (Stage.embed universe-stage) (Stage.embed pi-stage)) ;
+rhs : Stage.carrier = pn universe-stage pi-stage ;
+lhs-observation : In lhs.1 pi0 = Projector[l].intro (ST.compacts one)
+  (KleeneProjector[l].p universe pi-domain) piK (CF.inc (ST.Bound one) piK tt) global-observation ;
+different : Id Stage.carrier lhs rhs -> Empty = \ equality ->
+  ex-elim (Le om pi0) Empty isProp-Empty (om-not-pi om om)
+    (FirstValue[universe].below pi0
+      (P.subst Stage.carrier (\ z -> In z.1 pi0) lhs rhs equality lhs-observation)) ;
+Compatibility : U l+ = (a x : Stage.carrier) ->
+  Id Stage.carrier (Stage.restrict (KleeneProjector[l].p (Stage.embed a) (Stage.embed x))) (pn a x) ;
+not-compatible : Compatibility -> Empty = \ h -> different (h universe-stage pi-stage) ;

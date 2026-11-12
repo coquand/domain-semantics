@@ -1,0 +1,71 @@
+-- Typed compact elements have equivalent proper representatives.
+-- The simultaneous entry judgement gives arrow-only representatives.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ;
+open Consistency[l] ; open Typing[l] ;
+
+Arrows : Ty -> U l = split {
+  om -> Top ; univ -> Empty ; pi a f -> Empty ; arr a b -> Top ;
+  meet a b | ra rb -> ra * rb } ;
+
+Proper : Ty -> U l = split {
+  om -> Top ; univ -> Top ;
+  pi a f | ra rf -> ra * (rf * Arrows f) ;
+  arr a b | ra rb -> ra * (Cons a * rb) ;
+  meet a b | ra rb -> ra * rb } ;
+
+record Rep {
+  source : Ty ;
+  value : Ty ;
+  proper : Proper value ;
+  equiv : Eqv source value ;
+} ;
+
+record ArrowRep {
+  source : Ty ;
+  rep : Rep[source] ;
+  arrows : Arrows rep.value ;
+} ;
+
+rep-move (s t : Ty) (e : Eqv s t) (r : Rep[t]) : Rep[s] =
+  new Rep[s, r.value, r.proper, eqv-trans s t r.value e r.equiv] ;
+
+rep-om (s : Ty) (h : Le om s) : Rep[s] =
+  new Rep[s, om, tt, (le-om s, h)] ;
+
+rep-univ : Rep[univ] = new Rep[univ, univ, tt, eqv-refl univ] ;
+
+rep-pi (a f : Ty) (ra : Rep[a]) (rf : ArrowRep[f]) : Rep[pi a f] =
+  new Rep[pi a f, pi ra.value rf.rep.value,
+    (ra.proper, (rf.rep.proper, rf.arrows)),
+    (le-pi a ra.value f rf.rep.value ra.equiv.1 rf.rep.equiv.1,
+     le-pi ra.value a rf.rep.value f ra.equiv.2 rf.rep.equiv.2)] ;
+
+rep-arr (a b : Ty) (ca : Cons a) (ra : Rep[a]) (rb : Rep[b]) : ArrowRep[arr a b] =
+  new ArrowRep[arr a b,
+    new Rep[arr a b, arr ra.value rb.value,
+      (ra.proper, (cons-down a ra.value ra.equiv.1 ca, rb.proper)),
+      (le-arr a ra.value b rb.value ra.equiv.2 rb.equiv.1,
+       le-arr ra.value a rb.value b ra.equiv.1 rb.equiv.2)], tt] ;
+
+rep-meet (a b : Ty) (ra : ArrowRep[a]) (rb : ArrowRep[b]) : ArrowRep[meet a b] =
+  new ArrowRep[meet a b,
+    new Rep[meet a b, meet ra.rep.value rb.rep.value,
+      (ra.rep.proper, rb.rep.proper),
+      eqv-meet a ra.rep.value b rb.rep.value ra.rep.equiv rb.rep.equiv],
+    (ra.arrows, rb.arrows)] ;
+
+RepEl (u a : Ty) : U l = Rep[u] ;
+RepEnt (f a phi : Ty) : U l = ArrowRep[f] ;
+
+typed-rep-by : (j : Form) -> Tp j -> ByForm RepEl RepEnt j = split {
+  t-bot u a e h -> rep-om u e ;
+  t-univ u a e1 e2 -> rep-move u univ e1 rep-univ ;
+  t-pi u a A phi e1 e2 h1 h2 c | r1 r2 ->
+    rep-move u (pi A phi) e1 (rep-pi A phi r1 r2) ;
+  t-lam u a A phi f e1 e2 h1 h2 c | r1 r2 -> rep-move u f e1 r2.rep ;
+  en-om A phi -> new ArrowRep[om, rep-om om (le-refl om), tt] ;
+  en-arr x v y A phi h1 le h2 | r1 r2 -> rep-arr x v (tp-cons x A h1) r1 r2 ;
+  en-meet f1 f2 A phi h1 h2 | r1 r2 -> rep-meet f1 f2 r1 r2 } ;
+
+typed-rep (u a : Ty) (h : Tp (el u a)) : Rep[u] = typed-rep-by (el u a) h ;

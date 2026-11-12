@@ -1,0 +1,61 @@
+-- Application on consistent proper-generated filters.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ;
+DLe (x y : D) : U l = Domain[l].Below x y ;
+
+ProperWitness (x : Filt) (t : Ty) : U l = Domain[l].PW x t ;
+
+module R = Filter[l] ;
+module TC = TruncationCombinators[l] ;
+
+module Apply (f x : D) {
+  underlying : R.Filt = R.appF (raw f.1) (raw x.1) ;
+  carrier : Filt = reflect underlying ;
+  valid : Valid carrier = \ t -> TC.map (underlying.mem t) (Cons t)
+    (R.appF-cons (raw f.1) (raw x.1) (consistent f) (consistent x) t) ;
+
+  approx (t : Ty) (w : underlying.mem t) (a : ProperWitness f.1 w.g) : ProperWitness carrier t =
+    (i.2.1,((Regular[l].proper-asel a.1 i.1 i.2.1 i.2.2.1 a.2.1).2,
+      (ex (underlying.mem i.2.1)
+        (new R.AppWR[raw f.1,raw x.1,i.2.1,a.1,w.x,a.2.2.1,w.inx,
+          le-trans a.1 (arr i.1 i.2.1) (arr w.x i.2.1)
+            (asel-le a.1 i.1 i.2.1 i.2.2.1)
+            (le-arr i.1 w.x i.2.1 i.2.1 i.2.2.2.1 (le-refl i.2.1))]),
+       i.2.2.2.2)))
+    where { i : InvArr a.1 w.x t = inv-arr a.1 w.x t
+      (le-trans a.1 w.g (arr w.x t) a.2.2.2 w.le) ; } ;
+
+  generated : Generated carrier = \ t ->
+    TC.bind (underlying.mem t) (ProperWitness carrier t)
+      (\ w -> TC.map (ProperWitness f.1 w.g) (ProperWitness carrier t) (approx t w) (f.2.2 w.g w.ing)) ;
+  value : D = (carrier,(valid,generated)) ;
+} ;
+
+eval (f x : D) : D = Apply[f,x].value ;
+
+intro (f x : D) (g a t : Ty) (hg : In f g) (ha : In x a)
+  (le : Le g (arr a t)) : In (eval f x) t =
+  ex (R.AppW (raw f.1) (raw x.1) t)
+    (new R.AppWR[raw f.1,raw x.1,t,g,a,hg,ha,le]) ;
+
+mono (f f' x x' : D) (hf : DLe f f') (hx : DLe x x') : DLe (eval f x) (eval f' x') =
+  reflect-sub (R.appF (raw f.1) (raw x.1)) (R.appF (raw f'.1) (raw x'.1))
+    (R.appF-mono (raw f.1) (raw f'.1) (raw x.1) (raw x'.1) hf hx) ;
+
+module FiniteAt (f x : D) (t : Ty) (w : R.AppW (raw f.1) (raw x.1) t) {
+  witness (a : ProperWitness x.1 w.x) : Trace (eval f) x t =
+    ((a.1,(a.2.1,consistent x a.1 a.2.2.1)),
+     (a.2.2.1,intro f (principal (a.1,(a.2.1,consistent x a.1 a.2.2.1)))
+       w.g a.1 t w.ing (prin-in a.1)
+       (le-trans w.g (arr w.x t) (arr a.1 t) w.le
+         (le-arr w.x a.1 t t a.2.2.2 (le-refl t))))) ;
+  result : Ex (Trace (eval f) x t) = TC.map (ProperWitness x.1 w.x) (Trace (eval f) x t)
+    witness (x.2.2 w.x w.inx) ;
+} ;
+
+finite (f : D) : Finite (eval f) = \ x t ->
+  TC.bind (R.AppW (raw f.1) (raw x.1) t) (Trace (eval f) x t)
+    (\ w -> FiniteAt[f,x,t,w].result) ;
+
+map (f : D) : Map = (eval f,(\ x y -> mono f f x y (sub-refl f.1),finite f)) ;

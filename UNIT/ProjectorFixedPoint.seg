@@ -1,0 +1,37 @@
+-- A universal-property formulation of the least recursive solution.
+-- Its finitary-projector structure is derived AFTER identification with
+-- the compact-family construction; it is not a field of LeastRecursive.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open BinaryMaps[l] ; open ProjectorLeast[l] ;
+
+BelowBinary (q r : Binary) : U l+ = (A X : D) -> Domain[l].Below (value q A X) (value r A X) ;
+
+record LeastRecursive {
+  candidate : Binary ;
+  clauses : LowerClauses[candidate] ;
+  minimal (r : Binary) (hr : LowerClauses[r]) : BelowBinary candidate r ;
+} ;
+
+-- Existence is proved, not postulated. The finite MIN induction supplies
+-- the leastness theorem, while the domain equations supply its clauses.
+solution : LeastRecursive = new LeastRecursive[semantic,SemanticClauses.laws,
+  \ r hr -> Least[r,hr].least] ;
+
+module Identify (q : LeastRecursive) {
+  forward : BelowBinary q.candidate semantic = q.minimal semantic SemanticClauses.laws ;
+  backward : BelowBinary semantic q.candidate = Least[q.candidate,q.clauses].least ;
+  equation (A X : D) : Id D (value q.candidate A X) (SemanticLaws[l].p A X) =
+    Domain[l].ext (value q.candidate A X) (SemanticLaws[l].p A X) (forward A X,backward A X) ;
+  map-equation (A : D) : Id Map (q.candidate.at A) (ProjectorEquations[l].pmap A) =
+    Continuous[l].ext (q.candidate.at A) (ProjectorEquations[l].pmap A) (\ X -> (forward A X,backward A X)) ;
+  finitary (A : D) : Finitary[l].Finitary = Finitary[l].of-family (SemanticProjector[l].interpret A) ;
+  realizes (A : D) : Id Map (finitary A).operation (q.candidate.at A) =
+    Prelude[l+].sym Map (q.candidate.at A) (ProjectorEquations[l].pmap A) (map-equation A) ;
+} ;
+
+-- Thus every least continuous solution, including a Kleene construction
+-- once supplied, has precisely this finitary-projector operation.
+finitary-after-least (q : LeastRecursive) (A : D) :
+  (f : Finitary[l].Finitary) * Id Map f.operation (q.candidate.at A) =
+  (Identify[q].finitary A,Identify[q].realizes A) ;

@@ -1,0 +1,47 @@
+-- Rank as membership in a rigid tower stage, and finite observation.
+-- No identification with Scott-filter ranks or Kleene iterations.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Embed = RigidLimitEmbedding[l] ;
+module T = TruncationCombinators[l] ;
+module On (chain : RigidLimitOrder[l].Chain) {
+  module D = RigidLimitDI[l].On[chain] ;
+  module L = RigidLimitOrder[l].On[chain] ;
+  module Laws = RigidLimitLaws[l].On[chain] ;
+  approximate (n : Nat) (x : L.carrier) : L.carrier = Embed.approximate chain n x ;
+  Rank (n : Nat) (x : L.carrier) : U l = L.le x (approximate n x) ;
+  fixed (n : Nat) (x : L.carrier) (h : Rank n x) : Id L.carrier (approximate n x) x =
+    L.ext (approximate n x) x (Embed.deflation chain n x) h ;
+  downward (n : Nat) (x y : L.carrier) (xy : L.le x y) (hy : Rank n y) : Rank n x =
+    RigidProjector[l].On[D.domain.scott].downward D.Stage[n].Q.projection x y xy hy ;
+  persistent (n m : Nat) (nm : Lib[l].LeN n m) (x : L.carrier) (h : Rank n x) : Rank m x =
+    L.order.transitive x (approximate n x) (approximate m x) h (D.Domain.approximate-mono n m nm x) ;
+  module Observation (k : L.carrier) (compact : L.V.Compact k) (x : L.carrier) (below : L.le k x) {
+    captured : Ex ((n : Nat) * L.le k (approximate n x)) =
+      compact Nat (\ n -> approximate n x) (Laws.point-directed x)
+        (subst L.carrier (\ z -> L.le k z) x (L.V.sup Nat (\ n -> approximate n x) (Laws.point-directed x))
+          (sym L.carrier (L.V.sup Nat (\ n -> approximate n x) (Laws.point-directed x)) x (Laws.point-equation x)) below) ;
+    ranked : Ex ((n : Nat) * Rank n k) = T.map ((n : Nat) * L.le k (approximate n x)) ((n : Nat) * Rank n k)
+      (\ w -> (w.1,D.Stage[w.1].Q.projection.hereditary k x w.2)) captured ;
+  } ;
+  compact-rank (k : L.carrier) (compact : L.V.Compact k) : Ex ((n : Nat) * Rank n k) =
+    Observation[k,compact,k,L.order.reflexive k].ranked ;
+  -- Postcomposition gives stable term approximations, even when the
+  -- parameter domain is not itself a dI-domain.
+  module Map (P : ScottDomain[l].Scott) (f : StableMaps[l].Between[P,D.domain.scott].Map) {
+    module M = StableMaps[l].Between[P,D.domain.scott] ;
+    stage (n : Nat) : M.Map = StableComposition[l].Between[P,D.domain.scott,D.domain.scott].Compose[f,Laws.stage n].map ;
+    value (n : Nat) (rho : P.order.carrier) : L.carrier = M.run (stage n) rho ;
+    increasing (n : Nat) : M.LE (stage n) (stage (suc n)) =
+      StableComposition[l].Between[P,D.domain.scott,D.domain.scott].post-order f (Laws.stage n) (Laws.stage (suc n)) (Laws.increasing n) ;
+    directed : M.SO.Dir Nat stage = OrderedChains[l].directed M.order stage increasing ;
+    module Sup = StableDirected[l].Between[P,D.domain.scott].Sup[Nat,stage,directed] ;
+    point-equation (rho : P.order.carrier) : Id L.carrier (M.run Sup.map rho) (M.run f rho) =
+      L.ext (M.run Sup.map rho) (M.run f rho)
+        (L.V.least Nat (\ n -> value n rho) (Sup.evaluated rho) (M.run f rho) (\ n -> Embed.deflation chain n (M.run f rho)))
+        (Laws.point-least (M.run f rho) (M.run Sup.map rho) (\ n -> Sup.point-upper n rho)) ;
+    equation : Id M.Map Sup.map f = StableExtensional[l].Between[P,D.domain.scott].equation Sup.map f point-equation ;
+    observation (rho : P.order.carrier) (k : L.carrier) (compact : L.V.Compact k) (h : L.le k (M.run f rho)) :
+      Ex ((n : Nat) * L.le k (value n rho)) = Observation[k,compact,M.run f rho,h].captured ;
+  } ;
+} ;

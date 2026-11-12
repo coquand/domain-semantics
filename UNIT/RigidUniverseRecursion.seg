@@ -1,0 +1,63 @@
+-- Stable recursive-type formation in an explicitly represented universe.
+-- The operator takes a stable code-valued functional D -> R(D).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module On (D : DIDomain[l].DI) (e : RigidUniverse[l].On[D].CodesEmbedding.Embedding) {
+  module UCode = RigidUniverse[l].On[D].Codes[e] ;
+  module R = RigidSpace[l].On[D] ; module A = ScottDomain[l].On[D.scott] ;
+  module H = StableFiniteIdeals[l].Exponential[D,R.domain] ;
+  module F = StableMaps[l].Between[D.scott,R.domain.scott] ;
+  module E = StableFiniteIdeals[l].Exponential[R.domain,D] ;
+  module End = StableFiniteIdeals[l].Exponential[R.domain,R.domain] ;
+  module Internal = StableInternalComposition[l].Between[R.domain,D,R.domain] ;
+  module Arguments = StableProduct[l].Pair[H.domain.scott,E.domain.scott,H.domain.scott,
+    StableProduct[l].Constant[H.domain.scott,E.domain.scott,e.embed].map,StableComposition[l].Endo[H.domain.scott].identity] ;
+  functional : StableMaps[l].Between[H.domain.scott,End.domain.scott].Map =
+    StableComposition[l].Between[H.domain.scott,Internal.P.scott,End.domain.scott].Compose[Arguments.map,Internal.map].map ;
+  module Fix = StableFixpoint[l].On[R.domain] ;
+  module Code = Fix.Parameter[H.domain.scott,functional] ;
+  operator : StableMaps[l].Between[H.domain.scott,D.scott].Map =
+    StableComposition[l].Between[H.domain.scott,R.domain.scott,D.scott].Compose[Code.solution,e.embed].map ;
+  code (f : F.Map) : R.I.carrier = StableMaps[l].Between[H.domain.scott,R.domain.scott].run Code.solution f ;
+  value (f : F.Map) : A.C = UCode.encode (code f) ;
+  is-type (f : F.Map) : Id A.C (UCode.apply UCode.universe (value f)) (value f) = UCode.code-in-universe (code f) ;
+  module At (f : F.Map) {
+    phi : StableMaps[l].Between[R.domain.scott,R.domain.scott].Map =
+      StableMaps[l].Between[H.domain.scott,End.domain.scott].run functional f ;
+    module Stages = StableProjectorFixpoint[l].On[D].Kleene[phi] ;
+    equation : Id A.C (UCode.encode (F.run f (value f))) (value f) =
+      ap R.I.carrier A.C UCode.encode (F.run f (value f)) (code f) (Fix.At[phi].equation) ;
+    module Below (x : A.C) (h : A.LE (UCode.encode (F.run f x)) x) {
+      decoded : R.I.le (F.run f x) (UCode.decode x) =
+        subst R.I.carrier (\ p -> R.I.le p (UCode.decode x)) (UCode.decode (UCode.encode (F.run f x))) (F.run f x)
+          (e.retract (F.run f x))
+          (RigidUniverse[l].On[D].CodesEmbedding.BA.mono e.project (UCode.encode (F.run f x)) x h) ;
+      prefixed : R.I.le (StableMaps[l].Between[R.domain.scott,R.domain.scott].run phi (UCode.decode x)) (UCode.decode x) =
+        R.I.order.transitive (F.run f (UCode.encode (UCode.decode x))) (F.run f x) (UCode.decode x)
+          (F.mono f (UCode.encode (UCode.decode x)) x (UCode.universe-projection.deflation x)) decoded ;
+      code-below : R.I.le (code f) (UCode.decode x) = Fix.At[phi].least (UCode.decode x) prefixed ;
+      least : A.LE (value f) x = D.scott.order.transitive (value f) (UCode.encode (UCode.decode x)) x
+        (RigidUniverse[l].On[D].CodesEmbedding.AB.mono e.embed (code f) (UCode.decode x) code-below)
+        (UCode.universe-projection.deflation x) ;
+    } ;
+    stage (n : Nat) : A.C = UCode.encode (Stages.stage n) ;
+    zero : Id A.C (stage zero) D.scott.bottom = UCode.Embedding.strict ;
+    successor (n : Nat) : Id A.C (stage (suc n)) (UCode.encode (F.run f (stage n))) = refl (stage (suc n)) ;
+    stage-type (n : Nat) : Id A.C (UCode.apply UCode.universe (stage n)) (stage n) = UCode.code-in-universe (Stages.stage n) ;
+    increasing (n : Nat) : A.LE (stage n) (stage (suc n)) =
+      RigidUniverse[l].On[D].CodesEmbedding.AB.mono e.embed (Stages.stage n) (Stages.stage (suc n)) (Stages.increasing n) ;
+    stage-bound (n : Nat) : A.LE (stage n) (value f) = RigidUniverse[l].On[D].CodesEmbedding.AB.mono e.embed (Stages.stage n) (code f)
+      (R.I.order.transitive (Stages.stage n) Stages.value (code f) (Stages.upper n) Fix.At[phi].backward) ;
+    directed : ScottOrder[l].On[D.scott.order].Dir Nat stage =
+      ScottMaps[l].Between[R.domain.scott,D.scott].image-dir UCode.encode (RigidUniverse[l].On[D].CodesEmbedding.AB.mono e.embed)
+        Nat Stages.stage Stages.K.directed ;
+    module V = DC[D.scott.order,D.scott.complete] ;
+    limit-forward : A.LE (value f) (V.sup Nat stage directed) =
+      D.scott.order.transitive (value f) (UCode.encode Stages.value) (V.sup Nat stage directed)
+        (RigidUniverse[l].On[D].CodesEmbedding.AB.mono e.embed (code f) Stages.value Fix.At[phi].forward)
+        (ScottMaps[l].Between[R.domain.scott,D.scott].continuous e.embed.1 Nat Stages.stage Stages.K.directed
+          (V.sup Nat stage directed) (V.upper Nat stage directed)) ;
+    limit : Id A.C (value f) (V.sup Nat stage directed) = D.scott.order.antisymmetric (value f) (V.sup Nat stage directed)
+      limit-forward (V.least Nat stage directed (value f) stage-bound) ;
+  } ;
+} ;

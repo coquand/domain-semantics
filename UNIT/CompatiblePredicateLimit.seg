@@ -1,0 +1,33 @@
+-- A countable admissible limit of compatible finite-depth predicates.
+-- No large intersection, choice, or relation fixed-point axiom is used.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open ExtFilter[l] ; open Domain[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module S = CorrectedStages[l] ; module RP = RankProjection[l] ;
+compare : (d e : Nat) -> Plus (LeN d e) (LeN e d) = split {
+  zero -> \ e -> inl tt ;
+  suc d | ih -> split { zero -> inr tt ; suc e -> ih e } } ;
+module Tower (F : Nat -> P.Predicate)
+  (compatible : (d e : Nat) -> LeN d e ->
+    LogicalRelationLocality[l].AtDepth d (F d) (F e) * LogicalRelationLocality[l].AtDepth d (F e) (F d)) {
+  module Projected (d : Nat) {
+    module Pullback = DomainPredicateMaps[l].Pullback[RP.q d,F d] ;
+    predicate : P.Predicate = Pullback.predicate ;
+  } ;
+  module Limit = P.Intersection[Nat,\ d -> Projected[d].predicate] ;
+  predicate : P.Predicate = Limit.predicate ;
+  recover (d : Nat) (x : D) (hx : S.Stage[d].Fixed x) (h : predicate.holds x) : (F d).holds x =
+    (F d).lower x (S.approximate d x) hx.2 (h d) ;
+  at (d e : Nat) (x : D) (hx : S.Stage[d].Fixed x) (h : (F d).holds x) :
+    Plus (LeN d e) (LeN e d) -> (F e).holds (S.approximate e x) = split {
+      inl de -> (F e).lower (S.approximate e x) x (S.deflation e x) ((compatible d e de).1 x hx h) ;
+      inr ed -> (compatible e d ed).2 (S.approximate e x) (S.idempotence e x)
+        ((F d).lower (S.approximate e x) x (S.deflation e x) h) } ;
+  introduce (d : Nat) (x : D) (hx : S.Stage[d].Fixed x) (h : (F d).holds x) : predicate.holds x =
+    \ e -> at d e x hx h (compare d e) ;
+  equation (d : Nat) (x : D) (hx : S.Stage[d].Fixed x) :
+    (predicate.holds x -> (F d).holds x) * ((F d).holds x -> predicate.holds x) =
+    (recover d x hx,introduce d x hx) ;
+  strict (h : (d : Nat) -> (F d).holds bottom) : predicate.holds bottom =
+    \ d -> (F d).lower (S.approximate d bottom) bottom (S.deflation d bottom) (h d) ;
+} ;

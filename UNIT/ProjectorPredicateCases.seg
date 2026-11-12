@@ -1,0 +1,48 @@
+-- Eliminate the semantic projector into a lower admissible predicate.
+-- This is a domain-level alternative to splitting typed compact tokens.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Sum[l] ; open BinaryMaps[l] ;
+module P = ScottPredicates[l].On[ScottFilter[l].scott] ; module Tr = TruncationCombinators[l] ;
+module PO = ProjectorOperator[l] ; module KP = KleeneProjector[l] ; module OC = OperatorContinuity[l] ;
+module SL = SemanticLaws[l] ;
+module At (A X : D) {
+  module Step = PO.At[semantic,A,X] ;
+  forward : Domain[l].Below Step.result (SL.p A X) = KP.semantic-prefixed A X ;
+  backward : Domain[l].Below (SL.p A X) Step.result =
+    sub-trans (SL.p A X).1 (KP.p A X).1 Step.result.1 (KP.above-semantic A X)
+      (sub-trans (KP.p A X).1 (value (OC.Phi KP.candidate) A X).1 Step.result.1 (KP.post-fixed A X)
+        (OC.monotone KP.candidate semantic KP.below-semantic A X)) ;
+  function (h : Parts[l].PHead A) : Domain[l].Below (Step.function h).1 (SL.p A X) =
+    sub-trans (Step.function h).1.1 Step.result.1 (SL.p A X).1 (Step.function-in h) forward ;
+  pi-inclusion (ha : Parts[l].UHead A) (hx : Parts[l].PHead X) :
+    Domain[l].Below Constructors[l].Pi[Step.pi-domain hx,Step.pi-family hx].value (SL.p A X) =
+      sub-trans Constructors[l].Pi[Step.pi-domain hx,Step.pi-family hx].value.1 Step.result.1 (SL.p A X).1
+        (Step.pi-in ha hx) forward ;
+  module Predicate (Q : P.Predicate) (strict : Q.holds bottom)
+    (hu : Parts[l].UHead A -> Parts[l].UHead X -> Q.holds universe)
+    (hp : (a : Parts[l].UHead A) -> (x : Parts[l].PHead X) ->
+      Q.holds Constructors[l].Pi[Step.pi-domain x,Step.pi-family x].value)
+    (hf : (a : Parts[l].PHead A) -> Q.holds (Step.function a).1) {
+    guard (k : K) : Step.G.G.W k.1 -> Q.holds (principal k) = split {
+      inl h -> Q.lower (principal k) bottom (prin-sub k.1 bottom.1 (ex (Le om k.1) h)) strict ;
+      inr w -> Q.lower (principal k) (Step.function w.1).1 (prin-sub k.1 (Step.function w.1).1.1 w.2) (hf w.1) } ;
+    witness : (t : Ty) -> Step.E.W t -> (k : K) -> Le t k.1 -> Q.holds (principal k) = split {
+      wbot t h -> \ k le -> Q.lower (principal k) bottom
+        (prin-sub k.1 bottom.1 (ex (Le om k.1) (le-trans om t k.1 h le))) strict ;
+      wu t h e -> \ k le -> Q.lower (principal k) universe
+        (prin-sub k.1 universe.1 (ex (Le univ k.1) (le-trans univ t k.1 e le))) (hu h.1 h.2) ;
+      wp t h d f hd hf' e -> \ k le -> Q.lower (principal k)
+        Constructors[l].Pi[Step.pi-domain h.2,Step.pi-family h.2].value
+        (prin-sub k.1 Constructors[l].Pi[Step.pi-domain h.2,Step.pi-family h.2].value.1
+          (fup Constructors[l].Pi[Step.pi-domain h.2,Step.pi-family h.2].value.1 (pi d f) k.1
+            (le-trans (pi d f) t k.1 e le) (Constructors[l].Pi[Step.pi-domain h.2,Step.pi-family h.2].intro d f hd hf')))
+        (hp h.1 h.2) ;
+      wf t h -> \ k le -> Tr.rec (Step.G.G.W k.1) @l (Q.holds (principal k)) (Q.proposition (principal k))
+        (guard k) (fup Step.G.G.value.1 t k.1 le h) } ;
+    step : Q.holds Step.result = P.Reconstruct[Q].Comparison.backward Step.result (\ k below ->
+      Tr.rec (Step.E.W k.1) @l (Q.holds (principal k)) (Q.proposition (principal k))
+        (\ w -> witness k.1 w k (le-refl k.1)) (below k.1 (prin-in k.1))) ;
+    result : Q.holds (SL.p A X) = Q.lower (SL.p A X) Step.result backward step ;
+  } ;
+} ;

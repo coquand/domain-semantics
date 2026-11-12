@@ -1,0 +1,108 @@
+-- Comparison only: the independent clauses are defined in
+-- LogicalRelationClauses without reference to RelC or its adequacy.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ;
+open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+open DomainLogicalRelation[l] ;
+module TC = TruncationCombinators[l] ;
+module RawFilter = Filter[l] ;
+module Predicates = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module Relation = DomainLogicalRelation[l].At[n,Delta] ;
+  module Compact = RelC[l].RelCD[n,Delta] ;
+  module Laws = AdeqBase[l].AdeqB[n,Delta] ;
+  module Clauses = LogicalRelationClauses[l].At[n,Delta] ;
+  term-family : Clauses.TermFamily = \ T M M' -> Relation.For[terms T M M'].predicate ;
+  type-family : Clauses.TypeFamily = \ A A' -> Relation.For[types A A'].predicate ;
+
+  module Functions (f : D) (T M M' : Tm n) {
+    module Clause = Clauses.Functions[term-family,term-family,T,M,M'] ;
+    module Old = DomainRelationFunctions[l].At[n,Delta].Function[f,T,M,M'] ;
+    from-extensional (h : Old.Extensional) : Clause.predicate.holds f =
+      Clause.introduce f (\ e -> h e.A e.B e.reduction e.argument.N e.argument.N' e.argument.conversion) ;
+    to-extensional (h : Clause.predicate.holds f) : Old.Extensional = \ A B red N N' cv ->
+      Clause.apply f h (new Clauses.FunctionTest[T,A,B,red,new Clauses.Argument[A,N,N',cv]]) ;
+    from-pointwise (h : Old.PointwiseOn) : Clause.predicate.holds f = from-extensional (Old.preserve h) ;
+    to-pointwise (h : Clause.predicate.holds f) : Old.PointwiseOn = Old.recover (Old.restrict (to-extensional h)) ;
+    equation : (Clause.predicate.holds f -> Old.PointwiseOn) * (Old.PointwiseOn -> Clause.predicate.holds f) =
+      (to-pointwise,from-pointwise) ;
+    forward (h : Relation.Term f T M M') : Clause.predicate.holds f = from-pointwise (Old.forget (Old.uniform h)) ;
+  } ;
+  term-step (T M M' : Tm n) : Predicates.Includes (term-family T M M')
+    Clauses.TermStep[term-family,term-family,type-family,T,M,M'].predicate =
+    \ k h -> (Relation.to-type (principal k) T M M' h,Functions[principal k,T,M,M'].forward h) ;
+
+  module Families (A : Tm n) (B B' : Tm (suc n)) {
+    module Clause = Clauses.Families[term-family,type-family,A,B,B'] ;
+    Uniform (phi : D) : U l = (k : K) -> Domain[l].Below (principal k) phi ->
+      Ex (Compact.FamP Compact.Can k.1 A B B') ;
+    Pointwise (phi : D) : U l = (k : K) -> Domain[l].Below (principal k) phi ->
+      (d t : Ty) -> ASel k.1 d t -> (N N' : Tm n) -> Compact.Arg Compact.Can d A N N' ->
+      Ex (Compact.FamC Compact.Can t B B' N N') ;
+    forget (phi : D) (h : Uniform phi) : Pointwise phi = \ k below d t selected N N' arg ->
+      TC.map (Compact.FamP Compact.Can k.1 A B B') (Compact.FamC Compact.Can t B B' N N')
+        (\ fam -> fam d t selected N N' arg) (h k below) ;
+
+    module Outputs (N N' : Tm n) {
+      module Left = Relation.For[types (subst1 n B N) (subst1 n B N')] ;
+      module Right = Relation.For[types (subst1 n B' N) (subst1 n B' N')] ;
+      module Mixed = Relation.For[types (subst1 n B N) (subst1 n B' N')] ;
+      predicate : Predicates.Predicate = Clauses.FamilyOutputs[type-family,B,B',N,N'].predicate ;
+      Witness (t : Ty) : U l = Compact.FamC Compact.Can t B B' N N' ;
+      observe (y : D) (h : predicate.holds y) (t : Ty) (seen : In y t) : Ex (Witness t) =
+        TC.map2 (Compact.TyR t (subst1 n B N) (subst1 n B N'))
+          (Compact.TyR t (subst1 n B' N) (subst1 n B' N') * Compact.TyR t (subst1 n B N) (subst1 n B' N')) (Witness t)
+          (\ a b -> new Compact.FamRC[Compact.Can,t,B,B',N,N',a,b.1,b.2])
+          (Left.to-tokenwise y h.1 t seen)
+          (TC.pair (Compact.TyR t (subst1 n B' N) (subst1 n B' N')) (Compact.TyR t (subst1 n B N) (subst1 n B' N'))
+            (Right.to-tokenwise y h.2.1 t seen) (Mixed.to-tokenwise y h.2.2 t seen)) ;
+      introduce (y : D) (h : (t : Ty) -> In y t -> Ex (Witness t)) : predicate.holds y =
+        (Left.from-tokenwise y (\ t seen -> TC.map (Witness t) (Compact.TyR t (subst1 n B N) (subst1 n B N')) (\ w -> w.c1) (h t seen)),
+         (Right.from-tokenwise y (\ t seen -> TC.map (Witness t) (Compact.TyR t (subst1 n B' N) (subst1 n B' N')) (\ w -> w.c2) (h t seen)),
+          Mixed.from-tokenwise y (\ t seen -> TC.map (Witness t) (Compact.TyR t (subst1 n B N) (subst1 n B' N')) (\ w -> w.c3) (h t seen)))) ;
+      lower (s t : Ty) (le : Le s t) (r : Witness s) : Witness t =
+        new Compact.FamRC[Compact.Can,t,B,B',N,N',
+          Laws.cmono-ty s t le (subst1 n B N) (subst1 n B N') r.c1,
+          Laws.cmono-ty s t le (subst1 n B' N) (subst1 n B' N') r.c2,
+          Laws.cmono-ty s t le (subst1 n B N) (subst1 n B' N') r.c3] ;
+    } ;
+
+    module Recover (phi : D) (h : Clause.predicate.holds phi) (k : K) (below : Domain[l].Below (principal k) phi)
+      (d t : Ty) (selected : ASel k.1 d t) (N N' : Tm n) (arg : Compact.Arg Compact.Can d A N N') {
+      input : K = (d,((Regular[l].proper-asel k.1 d t selected k.2.1).1,arg.cd)) ;
+      related : Relation.Term (principal input) A N N' =
+        (Relation.For[terms A N N'].principal-equation input).2 (ex (Compact.TmR d A N N') arg.rel) ;
+      result : Ex (Compact.FamC Compact.Can t B B' N N') =
+        Outputs[N,N'].observe (Application[l].eval phi (principal input))
+          (Clause.apply phi h (new Clauses.Argument[A,N,N',arg.cv]) (principal input) related) t
+          (Application[l].intro phi (principal input) k.1 d t (below k.1 (prin-in k.1)) (prin-in d) (asel-le k.1 d t selected)) ;
+    } ;
+    recover (phi : D) (h : Clause.predicate.holds phi) : Pointwise phi = \ k below d t selected N N' arg ->
+      Recover[phi,h,k,below,d,t,selected,N,N',arg].result ;
+
+    module Preserve (phi : D) (h : Pointwise phi) (e : Clauses.Argument[A]) (x : D) (hx : Relation.Term x A e.N e.N') {
+      module Output = Outputs[e.N,e.N'] ;
+      module Observation (t : Ty) (w : RawFilter.AppW (raw phi.1) (raw x.1) t) (a : Domain[l].PW phi.1 w.g) {
+        k : K = (a.1,(a.2.1,consistent phi a.1 a.2.2.1)) ;
+        selection : InvArr a.1 w.x t = inv-arr a.1 w.x t (le-trans a.1 w.g (arr w.x t) a.2.2.2 w.le) ;
+        input-seen : In x selection.1 = fup x.1 w.x selection.1 selection.2.2.2.1 w.inx ;
+        raw (rx : Compact.TmR selection.1 A e.N e.N') : Ex (Output.Witness selection.2.1) =
+          h k (prin-sub a.1 phi.1 a.2.2.1) selection.1 selection.2.1 selection.2.2.1 e.N e.N'
+            (new Compact.ArgRC[Compact.Can,selection.1,A,e.N,e.N',consistent x selection.1 input-seen,e.conversion,rx]) ;
+        result : Ex (Output.Witness t) = TC.map (Output.Witness selection.2.1) (Output.Witness t)
+          (Output.lower selection.2.1 t selection.2.2.2.2)
+          (TC.bind (Compact.TmR selection.1 A e.N e.N') (Output.Witness selection.2.1) raw
+            (Relation.For[terms A e.N e.N'].to-tokenwise x hx selection.1 input-seen)) ;
+      } ;
+      observation (t : Ty) (inside : In (Application[l].eval phi x) t) : Ex (Output.Witness t) =
+        TC.bind (RawFilter.AppW (raw phi.1) (raw x.1) t) (Output.Witness t)
+          (\ w -> TC.bind (Domain[l].PW phi.1 w.g) (Output.Witness t)
+            (\ a -> Observation[t,w,a].result) (phi.2.2 w.g w.ing)) inside ;
+      result : Output.predicate.holds (Application[l].eval phi x) = Output.introduce (Application[l].eval phi x) observation ;
+    } ;
+    preserve (phi : D) (h : Pointwise phi) : Clause.predicate.holds phi =
+      Clause.introduce phi (\ e x hx -> Preserve[phi,h,e,x,hx].result) ;
+    equation (phi : D) : (Clause.predicate.holds phi -> Pointwise phi) * (Pointwise phi -> Clause.predicate.holds phi) =
+      (recover phi,preserve phi) ;
+  } ;
+} ;

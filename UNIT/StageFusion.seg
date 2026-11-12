@@ -1,0 +1,152 @@
+-- One unfolding of Phi lowers the domain-stage comparison by one.
+-- No typing, sandwich lemma, or identification with a typed projector.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ;
+open Domain[l] ; open Continuous[l] ; open Abstraction[l] ; open BinaryMaps[l] ;
+module S = CorrectedStages[l] ; module RP = RankProjection[l] ; module PO = ProjectorOperator[l] ;
+module AP = Application[l] ; module P = Prelude[l+] ; module TC = TruncationCombinators[l] ;
+
+eq (x y z : D) (a : Equal x y) (b : Equal y z) : Equal x z = eqv-trans x.1 y.1 z.1 a b ;
+sym (x y : D) (a : Equal x y) : Equal y x = (a.2,a.1) ;
+path (x y : D) (h : Id D x y) : Equal x y = id-eqv x.1 y.1 (P.ap D Filt (\ z -> z.1) x y h) ;
+bin (Q : Binary) (a b x y : D) (ab : Equal a b) (xy : Equal x y) : Equal (value Q a x) (value Q b y) =
+  (BinaryMaps[l].mono Q a b x y ab.1 xy.1,BinaryMaps[l].mono Q b a y x ab.2 xy.2) ;
+Agree (n : Nat) (Q R : Binary) : U l+ =
+  (a x : D) -> S.Stage[n].Fixed a -> S.Stage[n].Fixed x ->
+  Equal (S.approximate n (value Q a x)) (S.approximate n (value R a x)) ;
+
+module Family (n : Nat) (Q R : Binary) (agree : Agree n Q R)
+  (a : D) (ha : S.Stage[n].Fixed a) (H : Map)
+  (factor : (z : D) -> Equal (run H z) (run H (S.approximate n z)))
+  (range : (z : D) -> S.Stage[n].Fixed (run H z))
+  (f : D) (supports : RP.Supports n f) {
+  left : Map = ProjectorLeast[l].family-map Q a H f ;
+  right : Map = ProjectorLeast[l].family-map R a H f ;
+  module At (z : D) {
+    z0 : D = S.approximate n z ;
+    u : D = value Q a z0 ; v : D = value R a z0 ;
+    uv : Equal (S.approximate n u) (S.approximate n v) = agree a z0 ha (S.idempotence n z) ;
+    types : Equal (run H u) (run H v) = eq (run H u) (run H (S.approximate n u)) (run H v) (factor u)
+      (eq (run H (S.approximate n u)) (run H (S.approximate n v)) (run H v)
+        (Maps[l].respects H (S.approximate n u) (S.approximate n v) uv)
+        (sym (run H v) (run H (S.approximate n v)) (factor v))) ;
+    values : Equal (AP.eval f u) (AP.eval f v) = eq (AP.eval f u) (AP.eval f (S.approximate n u)) (AP.eval f v)
+      RP.AtApplication[n,f,supports,u].factor
+      (eq (AP.eval f (S.approximate n u)) (AP.eval f (S.approximate n v)) (AP.eval f v)
+        (Maps[l].respects (AP.map f) (S.approximate n u) (S.approximate n v) uv)
+        (sym (AP.eval f v) (AP.eval f (S.approximate n v)) RP.AtApplication[n,f,supports,v].factor)) ;
+    comparison : Equal (S.approximate n (run left z0)) (S.approximate n (run right z0)) =
+      eq (S.approximate n (run left z0)) (S.approximate n (value R (run H u) (AP.eval f u)))
+        (S.approximate n (run right z0))
+        (agree (run H u) (AP.eval f u) (range u) RP.AtApplication[n,f,supports,u].range)
+        (Maps[l].respects (RP.q n) (value R (run H u) (AP.eval f u)) (value R (run H v) (AP.eval f v))
+          (bin R (run H u) (run H v) (AP.eval f u) (AP.eval f v) types values)) ;
+    beta-left : Equal (AP.eval (abstract left).1 z0) (run left z0) = (Beta[left,z0].forward,Beta[left,z0].backward) ;
+    beta-right : Equal (AP.eval (abstract right).1 z0) (run right z0) = (Beta[right,z0].forward,Beta[right,z0].backward) ;
+    arrows : Equal (run (Minimal[l].arrow-map (RP.q n) (abstract left)) z)
+      (run (Minimal[l].arrow-map (RP.q n) (abstract right)) z) =
+      eq (S.approximate n (AP.eval (abstract left).1 z0)) (S.approximate n (run left z0))
+        (S.approximate n (AP.eval (abstract right).1 z0))
+        (Maps[l].respects (RP.q n) (AP.eval (abstract left).1 z0) (run left z0) beta-left)
+        (eq (S.approximate n (run left z0)) (S.approximate n (run right z0))
+          (S.approximate n (AP.eval (abstract right).1 z0)) comparison
+          (Maps[l].respects (RP.q n) (run right z0) (AP.eval (abstract right).1 z0)
+            (sym (AP.eval (abstract right).1 z0) (run right z0) beta-right))) ;
+  } ;
+  equality : Equal (Minimal[l].arrow (RP.q n) (abstract left)).1 (Minimal[l].arrow (RP.q n) (abstract right)).1 =
+    (MonotoneLambda[Minimal[l].arrow-map (RP.q n) (abstract left),Minimal[l].arrow-map (RP.q n) (abstract right),
+      \ z -> At[z].arrows.1].inclusion,
+     MonotoneLambda[Minimal[l].arrow-map (RP.q n) (abstract right),Minimal[l].arrow-map (RP.q n) (abstract left),
+      \ z -> At[z].arrows.2].inclusion) ;
+} ;
+
+module Guarded (n : Nat) (I : U l) (ip : isProp I) (f g : I -> FD)
+  (h : (i : I) -> Domain[l].Below (Minimal[l].arrow (RP.q n) (f i)).1 (Minimal[l].arrow (RP.q n) (g i)).1) {
+  module F = Guard[l].Functions[I,ip,f] ; module G = Guard[l].Functions[I,ip,g] ;
+  target : D = (Minimal[l].arrow (RP.q n) G.value).1 ;
+  inside (t : Ty) (w : RP.GraphObservation[n,F.value,t]) : F.G.W w.graph -> In target w.graph = split {
+    inl e -> fup target.1 om w.graph e (fom target.1) ;
+    inr a -> RP.Arrow[n,G.value].bounded-graph w.graph w.good w.arrows w.bounded
+      (G.G.intro a.1 w.graph (RP.Arrow[n,g a.1].below w.graph
+        (h a.1 w.graph (RP.Arrow[n,f a.1].bounded-graph w.graph w.good w.arrows w.bounded a.2)))) } ;
+  inclusion : Domain[l].Below (Minimal[l].arrow (RP.q n) F.value).1 target = \ t ht ->
+    ex-elim RP.GraphObservation[n,F.value,t] (In target t) (fprop target.1 t)
+      (\ w -> fup target.1 w.graph t w.covers
+        (ex-elim (F.G.W w.graph) (In target w.graph) (fprop target.1 w.graph) (inside t w) w.inside))
+      (RP.Arrow[n,F.value].observe t ht) ;
+} ;
+
+restricted-encode (n : Nat) (s : Sum[l].RHS) :
+  Id D (S.approximate (suc n) (Sum[l].encode s)) (Sum[l].encode (Minimal[l].action (RP.q n) (RP.strict n) s)) =
+  P.trans D (S.approximate (suc n) (Sum[l].encode s))
+    (Minimal[l].Phi (RP.q n) (RP.strict n) (Sum[l].encode s))
+    (Sum[l].encode (Minimal[l].action (RP.q n) (RP.strict n) s))
+    RP.Successor[n,Sum[l].encode s].equation
+    (P.ap Sum[l].RHS D (\ t -> Sum[l].encode (Minimal[l].action (RP.q n) (RP.strict n) t))
+      (Sum[l].decode (Sum[l].encode s)) s Equation[l].Components[s].equation) ;
+
+module OneWay (n : Nat) (Q R : Binary) (agree : Agree n Q R)
+  (A X : D) (ha : S.Stage[suc n].Fixed A) (hx : S.Stage[suc n].Fixed X) {
+  module L = PO.At[Q,A,X] ; module V = PO.At[R,A,X] ;
+  module IA = RP.FixedInput[n,A,ha] ; module IX = RP.FixedInput[n,X,hx] ;
+  left : Sum[l].RHS = Minimal[l].action (RP.q n) (RP.strict n) L.presentation ;
+  right : Sum[l].RHS = Minimal[l].action (RP.q n) (RP.strict n) V.presentation ;
+  module E = Sum[l].Encode[right] ;
+  domain (h : L.PF) : Equal (S.approximate n (L.pi-domain h.2)) (S.approximate n (V.pi-domain h.2)) =
+    agree universe Parts[l].PiParts[X,h.2].domain S.Stage[n].univ.2 IX.Pi[h.2].domain-fixed ;
+  family (h : L.PF) : Equal (Minimal[l].arrow (RP.q n) (L.pi-family h.2)).1
+    (Minimal[l].arrow (RP.q n) (V.pi-family h.2)).1 =
+    Family[n,Q,R,agree,Parts[l].PiParts[X,h.2].domain,IX.Pi[h.2].domain-fixed,constant universe,
+      \ z -> eqv-refl universe.1,\ z -> S.Stage[n].univ.2,
+      Parts[l].PiParts[X,h.2].family.1,IX.Pi[h.2].family-supports].equality ;
+  function (h : Parts[l].PHead A) : Equal (Minimal[l].arrow (RP.q n) (L.function h)).1
+    (Minimal[l].arrow (RP.q n) (V.function h)).1 =
+    Family[n,Q,R,agree,Parts[l].PiParts[A,h].domain,IA.Pi[h].domain-fixed,apply Parts[l].PiParts[A,h].family,
+      \ z -> RP.AtApplication[n,Parts[l].PiParts[A,h].family.1,IA.Pi[h].family-supports,z].factor,
+      \ z -> RP.AtApplication[n,Parts[l].PiParts[A,h].family.1,IA.Pi[h].family-supports,z].range,
+      X,IX.supports].equality ;
+  order : EquationOrder[l].Order left right =
+    (\ h -> h,(\ h -> h,(\ h k ->
+      (sub-trans (Sum[l].PA left.1 h).1 (Sum[l].PA right.1 h).1 (Sum[l].PA right.1 k).1 (domain h).1 (E.sameA h k).1,
+       sub-trans (Sum[l].PF left.1 h).1.1 (Sum[l].PF right.1 h).1.1 (Sum[l].PF right.1 k).1.1
+         (family h).1 (E.sameF h k).1),
+      Guarded[n,Parts[l].PHead A,fprop A.1 (pi om om),L.function,V.function,\ h -> (function h).1].inclusion))) ;
+  inclusion : Domain[l].Below (S.approximate (suc n) L.result) (S.approximate (suc n) V.result) =
+    sub-trans (S.approximate (suc n) L.result).1 (Sum[l].encode left).1 (S.approximate (suc n) V.result).1
+      (path (S.approximate (suc n) L.result) (Sum[l].encode left) (restricted-encode n L.presentation)).1
+      (sub-trans (Sum[l].encode left).1 (Sum[l].encode right).1 (S.approximate (suc n) V.result).1
+        EquationOrder[l].EncodeMono[left,right,order].inclusion
+        (path (S.approximate (suc n) V.result) (Sum[l].encode right) (restricted-encode n V.presentation)).2) ;
+} ;
+
+successor (n : Nat) (Q R : Binary) (h : Agree n Q R) :
+  Agree (suc n) (OperatorContinuity[l].Phi Q) (OperatorContinuity[l].Phi R) = \ A X ha hx ->
+    (OneWay[n,Q,R,h,A,X,ha,hx].inclusion,
+     OneWay[n,R,Q,\ a x h1 h2 -> sym (S.approximate n (value Q a x)) (S.approximate n (value R a x)) (h a x h1 h2),A,X,ha,hx].inclusion) ;
+
+module BaseCase (Q R : Binary) (A X : D) {
+  module L = PO.At[Q,A,X] ; module V = PO.At[R,A,X] ;
+  head (h : Parts[l].UHead L.result) : Parts[l].UHead V.result =
+    Equation[l].Components[V.presentation].u-in (Equation[l].Components[L.presentation].u-out h) ;
+  inclusion : Domain[l].Below (S.approximate zero L.result) (S.approximate zero V.result) =
+    sub-trans (S.approximate zero L.result).1 RP.Zero[L.result].G.value.1 (S.approximate zero V.result).1
+      RP.Zero[L.result].forward
+      (RP.Zero[L.result].G.eliminate (S.approximate zero V.result)
+        (\ h -> prin-sub univ (S.approximate zero V.result).1 (RP.token zero V.result universeK tt (head h)))) ;
+} ;
+base (Q R : Binary) : Agree zero (OperatorContinuity[l].Phi Q) (OperatorContinuity[l].Phi R) =
+  \ A X ha hx -> (BaseCase[Q,R,A,X].inclusion,BaseCase[R,Q,A,X].inclusion) ;
+
+Eventual (n : Nat) : U l+ = (k j : Nat) -> LeN (suc n) k -> LeN (suc n) j ->
+  Agree n (KleeneProjector[l].iterate k) (KleeneProjector[l].iterate j) ;
+eventual-base : Eventual zero = split {
+  zero -> \ j hk hj -> P.absurd (Agree zero (KleeneProjector[l].iterate zero) (KleeneProjector[l].iterate j)) hk ;
+  suc k -> split {
+    zero -> \ hk hj -> P.absurd (Agree zero (KleeneProjector[l].iterate (suc k)) (KleeneProjector[l].iterate zero)) hj ;
+    suc j -> \ hk hj -> base (KleeneProjector[l].iterate k) (KleeneProjector[l].iterate j) } } ;
+eventual-step (n : Nat) (ih : Eventual n) : Eventual (suc n) = split {
+  zero -> \ j hk hj -> P.absurd (Agree (suc n) (KleeneProjector[l].iterate zero) (KleeneProjector[l].iterate j)) hk ;
+  suc k -> split {
+    zero -> \ hk hj -> P.absurd (Agree (suc n) (KleeneProjector[l].iterate (suc k)) (KleeneProjector[l].iterate zero)) hj ;
+    suc j -> \ hk hj -> successor n (KleeneProjector[l].iterate k) (KleeneProjector[l].iterate j) (ih k j hk hj) } } ;
+eventual : (n : Nat) -> Eventual n = split { zero -> eventual-base ; suc n | ih -> eventual-step n ih } ;

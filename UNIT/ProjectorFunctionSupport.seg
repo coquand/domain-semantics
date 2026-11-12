@@ -1,0 +1,31 @@
+-- A projected function only sees projected arguments; its result is
+-- fixed by the corresponding projected codomain. No relation is assumed.
+level l ;
+open Base ; open Prelude[l] ; open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+module SL = SemanticLaws[l] ; module AP = Application[l] ; module P = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module At (A : D) (H : Map) (X : D) {
+  operation : Map = ProjectorLeast[l].family-map BinaryMaps[l].semantic A H X ;
+  function : FD = abstract operation ;
+  argument (z : D) : D = SL.p A z ;
+  classifier (z : D) : D = run H (argument z) ;
+  body (z : D) : D = AP.eval X (argument z) ;
+  result (z : D) : D = SL.p (classifier z) (body z) ;
+  input-idempotence (z : D) : Equal (argument z) (argument (argument z)) =
+    ((Projector[l].idempotent (SemanticProjector[l].interpret A) z).2,
+     (Projector[l].idempotent (SemanticProjector[l].interpret A) z).1) ;
+  factor (z : D) : Equal (result z) (result (argument z)) =
+    (SL.mono (classifier z) (classifier (argument z)) (body z) (body (argument z))
+      (H.2.1 (argument z) (argument (argument z)) (input-idempotence z).1)
+      (AP.mono X X (argument z) (argument (argument z)) (sub-refl X.1) (input-idempotence z).1),
+     SL.mono (classifier (argument z)) (classifier z) (body (argument z)) (body z)
+       (H.2.1 (argument (argument z)) (argument z) (input-idempotence z).2)
+       (AP.mono X X (argument (argument z)) (argument z) (sub-refl X.1) (input-idempotence z).2)) ;
+  from-test (Q : P.Predicate) (z : D) (h : Q.holds (AP.eval function.1 (argument z))) : Q.holds (result z) =
+    Q.lower (result z) (AP.eval function.1 (argument z))
+      (sub-trans (result z).1 (result (argument z)).1 (AP.eval function.1 (argument z)).1
+        (factor z).1 Beta[operation,argument z].backward) h ;
+  to-test (Q : P.Predicate) (z : D) (h : Q.holds (result z)) : Q.holds (AP.eval function.1 z) =
+    Q.lower (AP.eval function.1 z) (result z) Beta[operation,z].forward h ;
+  fixed (z : D) : Equal (SL.p (classifier z) (result z)) (result z) =
+    Projector[l].idempotent (SemanticProjector[l].interpret (classifier z)) (body z) ;
+} ;

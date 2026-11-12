@@ -1,0 +1,119 @@
+-- Function and dependent-family clauses from independent admissible
+-- predicates. No compact logical relation, fuel, or adequacy is used.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open Reduction[l] ;
+open ExtFilter[l] ; open Domain[l] ;
+module Predicates = ScottPredicates[l].On[ScottFilter[l].scott] ;
+module Arrows = DomainPredicateArrow[l] ;
+module Three (P Q R : Predicates.Predicate) {
+  module Tail = Predicates.Both[Q,R] ;
+  module Pair = Predicates.Both[P,Tail.predicate] ;
+  predicate : Predicates.Predicate = Pair.predicate ;
+} ;
+module At (n : Nat) (Delta : Ctx n) {
+  TermFamily : U l+ = (T M M' : Tm n) -> Predicates.Predicate ;
+  TypeFamily : U l+ = (A A' : Tm n) -> Predicates.Predicate ;
+  TermIncludes (R S : TermFamily) : U l = (T M M' : Tm n) -> Predicates.Includes (R T M M') (S T M M') ;
+  TypeIncludes (R S : TypeFamily) : U l = (A A' : Tm n) -> Predicates.Includes (R A A') (S A A') ;
+
+  record Argument {
+    A : Tm n ; N : Tm n ; N' : Tm n ; conversion : Der n (jeq Delta N N' A) ;
+  } ;
+  record FunctionTest {
+    T : Tm n ; A : Tm n ; B : Tm (suc n) ;
+    reduction : Reds n T (pp n A B) ; argument : Argument[A] ;
+  } ;
+  module TermOutputs (S : TermFamily) (V M M' N N' : Tm n) {
+    module Triple = Three[S V (app n M N) (app n M N'),
+      S V (app n M' N) (app n M' N'),S V (app n M N) (app n M' N')] ;
+    predicate : Predicates.Predicate = Triple.predicate ;
+  } ;
+  module FamilyOutputs (S : TypeFamily) (B B' : Tm (suc n)) (N N' : Tm n) {
+    module Triple = Three[S (subst1 n B N) (subst1 n B N'),
+      S (subst1 n B' N) (subst1 n B' N'),S (subst1 n B N) (subst1 n B' N')] ;
+    predicate : Predicates.Predicate = Triple.predicate ;
+  } ;
+
+  module Functions (R S : TermFamily) (T M M' : Tm n) {
+    module Test (e : FunctionTest[T]) {
+      input : Predicates.Predicate = R e.A e.argument.N e.argument.N' ;
+      output : Predicates.Predicate = TermOutputs[S,subst1 n e.B e.argument.N,M,M',e.argument.N,e.argument.N'].predicate ;
+      module Arrow = Arrows.Arrow[input,output] ;
+    } ;
+    module Tests = Predicates.Intersection[FunctionTest[T],\ e -> Test[e].Arrow.predicate] ;
+    predicate : Predicates.Predicate = Tests.predicate ;
+    All (f : D) : U l+ = (e : FunctionTest[T]) -> Test[e].Arrow.All f ;
+    apply (f : D) (h : predicate.holds f) : All f = \ e -> Test[e].Arrow.apply f (h e) ;
+    introduce (f : D) (h : All f) : predicate.holds f = \ e -> Test[e].Arrow.restrict f (h e) ;
+    equation (f : D) : (predicate.holds f -> All f) * (All f -> predicate.holds f) = (apply f,introduce f) ;
+    strict (s : (V P P' : Tm n) -> (S V P P').holds bottom) : predicate.holds bottom =
+      \ e -> Test[e].Arrow.strict
+        (s (subst1 n e.B e.argument.N) (app n M e.argument.N) (app n M e.argument.N'),
+         (s (subst1 n e.B e.argument.N) (app n M' e.argument.N) (app n M' e.argument.N'),
+          s (subst1 n e.B e.argument.N) (app n M e.argument.N) (app n M' e.argument.N'))) ;
+  } ;
+
+  module Families (R : TermFamily) (S : TypeFamily) (A : Tm n) (B B' : Tm (suc n)) {
+    module Test (e : Argument[A]) {
+      input : Predicates.Predicate = R A e.N e.N' ;
+      output : Predicates.Predicate = FamilyOutputs[S,B,B',e.N,e.N'].predicate ;
+      module Arrow = Arrows.Arrow[input,output] ;
+    } ;
+    module Tests = Predicates.Intersection[Argument[A],\ e -> Test[e].Arrow.predicate] ;
+    predicate : Predicates.Predicate = Tests.predicate ;
+    All (phi : D) : U l+ = (e : Argument[A]) -> Test[e].Arrow.All phi ;
+    apply (phi : D) (h : predicate.holds phi) : All phi = \ e -> Test[e].Arrow.apply phi (h e) ;
+    introduce (phi : D) (h : All phi) : predicate.holds phi = \ e -> Test[e].Arrow.restrict phi (h e) ;
+    equation (phi : D) : (predicate.holds phi -> All phi) * (All phi -> predicate.holds phi) = (apply phi,introduce phi) ;
+    strict (s : (V V' : Tm n) -> (S V V').holds bottom) : predicate.holds bottom = \ e ->
+      Test[e].Arrow.strict (s (subst1 n B e.N) (subst1 n B e.N'),
+        (s (subst1 n B' e.N) (subst1 n B' e.N'),s (subst1 n B e.N) (subst1 n B' e.N'))) ;
+  } ;
+
+  module FunctionVariance (R R' S S' : TermFamily) (input : TermIncludes R' R) (output : TermIncludes S S')
+    (T M M' : Tm n) {
+    module Before = Functions[R,S,T,M,M'] ; module After = Functions[R',S',T,M,M'] ;
+    module Test (e : FunctionTest[T]) {
+      V : Tm n = subst1 n e.B e.argument.N ;
+      output-inclusion : Predicates.Includes Before.Test[e].output After.Test[e].output = \ k h ->
+        (output V (app n M e.argument.N) (app n M e.argument.N') k h.1,
+         (output V (app n M' e.argument.N) (app n M' e.argument.N') k h.2.1,
+          output V (app n M e.argument.N) (app n M' e.argument.N') k h.2.2)) ;
+      module Change = Arrows.Variance[Before.Test[e].input,After.Test[e].input,Before.Test[e].output,After.Test[e].output,
+        input e.A e.argument.N e.argument.N',output-inclusion] ;
+    } ;
+    pointwise (f : D) (h : Before.predicate.holds f) : After.predicate.holds f = \ e -> Test[e].Change.pointwise f (h e) ;
+    inclusion : Predicates.Includes Before.predicate After.predicate = Predicates.inclusion Before.predicate After.predicate pointwise ;
+  } ;
+  module FamilyVariance (R R' : TermFamily) (S S' : TypeFamily) (input : TermIncludes R' R) (output : TypeIncludes S S')
+    (A : Tm n) (B B' : Tm (suc n)) {
+    module Before = Families[R,S,A,B,B'] ; module After = Families[R',S',A,B,B'] ;
+    module Test (e : Argument[A]) {
+      output-inclusion : Predicates.Includes Before.Test[e].output After.Test[e].output = \ k h ->
+        (output (subst1 n B e.N) (subst1 n B e.N') k h.1,
+         (output (subst1 n B' e.N) (subst1 n B' e.N') k h.2.1,
+          output (subst1 n B e.N) (subst1 n B' e.N') k h.2.2)) ;
+      module Change = Arrows.Variance[Before.Test[e].input,After.Test[e].input,Before.Test[e].output,After.Test[e].output,
+        input A e.N e.N',output-inclusion] ;
+    } ;
+    pointwise (phi : D) (h : Before.predicate.holds phi) : After.predicate.holds phi = \ e -> Test[e].Change.pointwise phi (h e) ;
+    inclusion : Predicates.Includes Before.predicate After.predicate = Predicates.inclusion Before.predicate After.predicate pointwise ;
+  } ;
+
+  -- The term half of the mutual operator. The independent type half
+  -- is supplied by LogicalRelationTypeClause; existence is separate.
+  module TermStep (R S : TermFamily) (TypesOut : TypeFamily) (T M M' : Tm n) {
+    module FunctionPart = Functions[R,S,T,M,M'] ;
+    module Combined = Predicates.Both[TypesOut M M',FunctionPart.predicate] ;
+    predicate : Predicates.Predicate = Combined.predicate ;
+  } ;
+  module TermStepVariance (R R' S S' : TermFamily) (TypesOut TypesOut' : TypeFamily)
+    (input : TermIncludes R' R) (output : TermIncludes S S') (types : TypeIncludes TypesOut TypesOut')
+    (T M M' : Tm n) {
+    module Before = TermStep[R,S,TypesOut,T,M,M'] ;
+    module After = TermStep[R',S',TypesOut',T,M,M'] ;
+    module FunctionChange = FunctionVariance[R,R',S,S',input,output,T,M,M'] ;
+    inclusion : Predicates.Includes Before.predicate After.predicate = \ k h ->
+      (types M M' k h.1,FunctionChange.inclusion k h.2) ;
+  } ;
+} ;

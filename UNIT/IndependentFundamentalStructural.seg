@@ -1,0 +1,78 @@
+-- Structural rules of the independent fundamental lemma, using the
+-- independently established typed laws of the invariant.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open SynLemmas[l] ; open Subst[l] ; open Presup[l] ;
+module S = Sem[l] ; module Soundness = Sound[l] ; module Raw = Filter[l] ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module F = IndependentFundamentalRules[l].At[n,Delta,wellformed] ;
+  module RS = IndependentRelationSubstitutions[l].At[n,Delta] ;
+  module Laws = IndependentRelationRawLaws[l].At[n,Delta] ;
+  module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  related-symmetry (m : Nat) (G : Ctx m) (wg : Der m (jwf G))
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (r : RS.Related[m,G,rho,s,s']) :
+    RS.Related[m,G,rho,s',s] = new RS.Related[m,G,rho,s',s,r.ok',r.ok,r.eq',r.eq,
+      \ i -> (Laws.On[rho i,S.sem m (lookup m G i) rho,Soundness.fits-var m G rho fits i,
+        Soundness.tyu-of m (lookup m G i) rho (Soundness.soundness-ty m G (lookup m G i) (uu m) (lookup-ty m G wg i) rho fits)].symmetry
+          (Sub.trav m (lookup m G i) n s') (s i) (s' i) (r.variables i).2,
+        Laws.On[rho i,S.sem m (lookup m G i) rho,Soundness.fits-var m G rho fits i,
+        Soundness.tyu-of m (lookup m G i) rho (Soundness.soundness-ty m G (lookup m G i) (uu m) (lookup-ty m G wg i) rho fits)].symmetry
+          (Sub.trav m (lookup m G i) n s) (s i) (s' i) (r.variables i).1)] ;
+  module Typed (m : Nat) (G : Ctx m) (M A : Tm m) (d : Der m (jty G M A))
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) {
+    typed : Soundness.HasTy (S.sem m M rho) (S.sem m A rho) = Soundness.soundness-ty m G M A d rho fits ;
+    type-typed : Soundness.TyU (S.sem m A rho) = Soundness.tyu-of m A rho
+      (Soundness.soundness-ty m G A (uu m) (ty-of m (jty G M A) d) rho fits) ;
+    module Operations = Laws.On[S.sem m M rho,S.sem m A rho,typed,type-typed] ;
+  } ;
+  module Symmetry (m : Nat) (G : Ctx m) (M N A : Tm m) (e : Der m (jeq G M N A)) (r : F.Fundamental m G M N A)
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (related : RS.Related[m,G,rho,s,s']) {
+    module Operations = Typed[m,G,M,A,(eq-pre m (jeq G M N A) e).1,rho,fits].Operations ;
+    opposite : RS.Related[m,G,rho,s',s] = related-symmetry m G (wf-of m (jeq G M N A) e) rho fits s s' related ;
+    move (T : Tm n) (h : RS.Term (S.sem m M rho) T (Sub.trav m M n s') (Sub.trav m N n s)) :
+      RS.Term (S.sem m N rho) T (Sub.trav m N n s) (Sub.trav m M n s') = \ k hk ->
+        Operations.symmetry T (Sub.trav m M n s') (Sub.trav m N n s) h k ((Soundness.soundness-eq m G M N A e rho fits).2 k.1 hk) ;
+    result : RS.Term (S.sem m N rho) (Sub.trav m A n s) (Sub.trav m N n s) (Sub.trav m M n s') *
+      RS.Term (S.sem m N rho) (Sub.trav m A n s') (Sub.trav m N n s) (Sub.trav m M n s') =
+      (move (Sub.trav m A n s) (r rho fits s' s opposite).2,move (Sub.trav m A n s') (r rho fits s' s opposite).1) ;
+  } ;
+  symmetry (m : Nat) (G : Ctx m) (M N A : Tm m) (e : Der m (jeq G M N A)) (r : F.Fundamental m G M N A) :
+    F.Fundamental m G N M A = \ rho fits s s' related -> Symmetry[m,G,M,N,A,e,r,rho,fits,s,s',related].result ;
+  module Transitivity (m : Nat) (G : Ctx m) (M N O A : Tm m) (e : Der m (jeq G M N A))
+    (first : F.Fundamental m G M N A) (second : F.Fundamental m G N O A)
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (related : RS.Related[m,G,rho,s,s']) {
+    module Operations = Typed[m,G,M,A,(eq-pre m (jeq G M N A) e).1,rho,fits].Operations ;
+    at-left : RS.Related[m,G,rho,s,s] = RS.diagonal m G rho s s' related ;
+    at-right : RS.Related[m,G,rho,s',s'] = RS.diagonal m G rho s' s
+      (related-symmetry m G (wf-of m (jeq G M N A) e) rho fits s s' related) ;
+    move (T P Q : Tm n) (h : RS.Term (S.sem m N rho) T P Q) : RS.Term (S.sem m M rho) T P Q =
+      \ k hk -> h k ((Soundness.soundness-eq m G M N A e rho fits).1 k.1 hk) ;
+    result : RS.Term (S.sem m M rho) (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m O n s') *
+      RS.Term (S.sem m M rho) (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m O n s') =
+      (Operations.transitivity (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m N n s) (Sub.trav m O n s')
+        (first rho fits s s at-left).1
+        (move (Sub.trav m A n s) (Sub.trav m N n s) (Sub.trav m O n s') (second rho fits s s' related).1),
+       Operations.transitivity (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m N n s') (Sub.trav m O n s')
+        (first rho fits s s' related).2
+        (move (Sub.trav m A n s') (Sub.trav m N n s') (Sub.trav m O n s') (second rho fits s' s' at-right).1)) ;
+  } ;
+  transitivity (m : Nat) (G : Ctx m) (M N O A : Tm m) (e : Der m (jeq G M N A))
+    (first : F.Fundamental m G M N A) (second : F.Fundamental m G N O A) : F.Fundamental m G M O A =
+    \ rho fits s s' related -> Transitivity[m,G,M,N,O,A,e,first,second,rho,fits,s,s',related].result ;
+  module Conversion (m : Nat) (G : Ctx m) (M N A B : Tm m) (d : Der m (jty G M A))
+    (terms : F.Fundamental m G M N A) (types : F.Fundamental m G A B (uu m))
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (related : RS.Related[m,G,rho,s,s']) {
+    module Operations = Typed[m,G,M,A,d,rho,fits].Operations ;
+    at-left : RS.Related[m,G,rho,s,s] = RS.diagonal m G rho s s' related ;
+    at-right : RS.Related[m,G,rho,s',s'] = RS.diagonal m G rho s' s
+      (related-symmetry m G (wf-of m (jty G M A) d) rho fits s s' related) ;
+    result : RS.Term (S.sem m M rho) (Sub.trav m B n s) (Sub.trav m M n s) (Sub.trav m N n s') *
+      RS.Term (S.sem m M rho) (Sub.trav m B n s') (Sub.trav m M n s) (Sub.trav m N n s') =
+      (Operations.conversion (Sub.trav m A n s) (Sub.trav m B n s) (Sub.trav m M n s) (Sub.trav m N n s')
+        (Laws.to-type (S.sem m A rho) (Sub.trav m A n s) (Sub.trav m B n s) (types rho fits s s at-left).1) (terms rho fits s s' related).1,
+       Operations.conversion (Sub.trav m A n s') (Sub.trav m B n s') (Sub.trav m M n s) (Sub.trav m N n s')
+        (Laws.to-type (S.sem m A rho) (Sub.trav m A n s') (Sub.trav m B n s') (types rho fits s' s' at-right).1) (terms rho fits s s' related).2) ;
+  } ;
+  conversion (m : Nat) (G : Ctx m) (M N A B : Tm m) (d : Der m (jty G M A))
+    (terms : F.Fundamental m G M N A) (types : F.Fundamental m G A B (uu m)) : F.Fundamental m G M N B =
+    \ rho fits s s' related -> Conversion[m,G,M,N,A,B,d,terms,types,rho,fits,s,s',related].result ;
+} ;

@@ -1,0 +1,52 @@
+-- The least-fixed-point operator itself is stable. Its stages are a
+-- directed chain in the stable function order, not just pointwise.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module On (D : DIDomain[l].DI) {
+  module A = ScottDomain[l].On[D.scott] ; module V = DC[D.scott.order,D.scott.complete] ;
+  module X = StableFiniteIdeals[l].Exponential[D,D] ;
+  module End = StableMaps[l].Between[D.scott,D.scott] ;
+  module H = StableFiniteIdeals[l].Exponential[X.domain,D] ;
+  module S = StableMaps[l].Between[X.domain.scott,D.scott] ;
+  module P = ScottProduct[l].Product[H.domain.scott,X.domain.scott] ;
+  module Parts = StableProduct[l].Product[H.domain.scott,X.domain.scott] ;
+  module FirstEval = StableEvaluation[l].Exponential[X.domain,D] ;
+  module Eval = StableEvaluation[l].Exponential[D,D] ;
+  module Arguments = StableProduct[l].Pair[P.scott,X.domain.scott,D.scott,Parts.right,FirstEval.map] ;
+  body : StableMaps[l].Between[P.scott,D.scott].Map =
+    StableComposition[l].Between[P.scott,Eval.P.scott,D.scott].Compose[Arguments.map,Eval.map].map ;
+  module Step = StableCurrying[l].Between[H.domain.scott,X.domain,D].Curry[body] ;
+  functional : StableMaps[l].Between[H.domain.scott,H.domain.scott].Map = Step.map ;
+  module K = ScottFixpoint[l].Kleene[H.domain.scott,functional.1] ;
+  stage : Nat -> S.Map = K.iterate ;
+  map : S.Map = K.value ;
+  increasing (n : Nat) : S.LE (stage n) (stage (suc n)) = K.increasing n ;
+  upper (n : Nat) : S.LE (stage n) map = K.upper n ;
+  module At (f : End.Map) {
+    module Ordinary = ScottFixpoint[l].Kleene[D.scott,f.1] ;
+    stage-equation : (n : Nat) -> Id A.C (S.run (stage n) f) (Ordinary.iterate n) = split {
+      zero -> refl D.scott.bottom ;
+      suc n | r -> ap A.C A.C (End.run f) (S.run (stage n) f) (Ordinary.iterate n) r } ;
+    module Sup = StableDirected[l].Between[X.domain.scott,D.scott].Sup[Nat,stage,K.directed] ;
+    forward : A.LE (S.run map f) Ordinary.value =
+      (D.scott.complete.directed Nat (\ n -> S.run (stage n) f) (Sup.evaluated f)).2.2 Ordinary.value
+        (\ n -> subst A.C (\ x -> A.LE x Ordinary.value) (Ordinary.iterate n) (S.run (stage n) f)
+          (sym A.C (S.run (stage n) f) (Ordinary.iterate n) (stage-equation n)) (Ordinary.upper n)) ;
+    backward : A.LE Ordinary.value (S.run map f) = V.least Nat Ordinary.iterate Ordinary.directed (S.run map f)
+      (\ n -> subst A.C (\ x -> A.LE x (S.run map f)) (S.run (stage n) f) (Ordinary.iterate n) (stage-equation n) (Sup.point-upper n f)) ;
+    computes : Id A.C (S.run map f) Ordinary.value = D.scott.order.antisymmetric (S.run map f) Ordinary.value forward backward ;
+    equation : Id A.C (End.run f (S.run map f)) (S.run map f) =
+      trans A.C (End.run f (S.run map f)) (End.run f Ordinary.value) (S.run map f)
+        (ap A.C A.C (End.run f) (S.run map f) Ordinary.value computes)
+        (trans A.C (End.run f Ordinary.value) Ordinary.value (S.run map f) Ordinary.equation
+          (sym A.C (S.run map f) Ordinary.value computes)) ;
+    least (x : A.C) (h : A.LE (End.run f x) x) : A.LE (S.run map f) x =
+      D.scott.order.transitive (S.run map f) Ordinary.value x forward Ordinary.Below[x,h].least ;
+  } ;
+  module Parameter (Z : ScottDomain[l].Scott) (f : StableMaps[l].Between[Z,X.domain.scott].Map) {
+    solution : StableMaps[l].Between[Z,D.scott].Map = StableComposition[l].Between[Z,X.domain.scott,D.scott].Compose[f,map].map ;
+    equation (p : Z.order.carrier) : Id A.C
+      (End.run (StableMaps[l].Between[Z,X.domain.scott].run f p) (StableMaps[l].Between[Z,D.scott].run solution p))
+      (StableMaps[l].Between[Z,D.scott].run solution p) = At[StableMaps[l].Between[Z,X.domain.scott].run f p].equation ;
+  } ;
+} ;

@@ -1,0 +1,45 @@
+-- Binary meets from bounded completeness and a small algebraic basis.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+
+module On (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ;
+  open A ;
+  index (x y : C) : U l = (a : B) * (LE (basic a) x * LE (basic a) y) ;
+  part (x y : C) (a : index x y) : C = basic a.1 ;
+  module Inf (x y : C) {
+    sup : ScottOrder[l].On[P].Supremum (index x y) (part x y) =
+      S.complete.bounded (index x y) (part x y) x (\ a -> a.2.1) ;
+    value : C = sup.1 ;
+    left : LE value x = sup.2.2 x (\ a -> a.2.1) ;
+    right : LE value y = sup.2.2 y (\ a -> a.2.2) ;
+    greatest (z : C) (zx : LE z x) (zy : LE z y) : LE z value =
+      S.basis.density z value (\ a az -> sup.2.1
+        (a,(P.transitive (basic a) z x az zx,P.transitive (basic a) z y az zy))) ;
+  } ;
+  meet (x y : C) : C = Inf[x,y].value ;
+  left (x y : C) : LE (meet x y) x = Inf[x,y].left ;
+  right (x y : C) : LE (meet x y) y = Inf[x,y].right ;
+  greatest (x y z : C) : LE z x -> LE z y -> LE z (meet x y) = Inf[x,y].greatest z ;
+  commutes (x y : C) : Id C (meet x y) (meet y x) =
+    P.antisymmetric (meet x y) (meet y x)
+      (greatest y x (meet x y) (right x y) (left x y))
+      (greatest x y (meet y x) (right y x) (left y x)) ;
+  monotone (x y u v : C) (xu : LE x u) (yv : LE y v) : LE (meet x y) (meet u v) =
+    greatest u v (meet x y)
+      (P.transitive (meet x y) x u (left x y) xu) (P.transitive (meet x y) y v (right x y) yv) ;
+  module V = DC[P,S.complete] ;
+  directed-left (I : U l) (x : I -> C) (d : ScottOrder[l].On[P].Dir I x) (y z : C)
+    (h : (i : I) -> LE (meet (x i) y) z) : LE (meet (V.sup I x d) y) z =
+    S.basis.density (meet (V.sup I x d) y) z (\ a ha ->
+      TruncationCombinators[l].rec ((i : I) * LE (basic a) (x i)) @l (LE (basic a) z) (P.proposition (basic a) z)
+        (\ w -> P.transitive (basic a) (meet (x w.1) y) z
+          (greatest (x w.1) y (basic a) w.2 (P.transitive (basic a) (meet (V.sup I x d) y) y ha (right (V.sup I x d) y))) (h w.1))
+        (S.basis.compact a I x d (P.transitive (basic a) (meet (V.sup I x d) y) (V.sup I x d) ha (left (V.sup I x d) y)))) ;
+  directed-right (I : U l) (x : I -> C) (d : ScottOrder[l].On[P].Dir I x) (y z : C)
+    (h : (i : I) -> LE (meet y (x i)) z) : LE (meet y (V.sup I x d)) z =
+    P.transitive (meet y (V.sup I x d)) (meet (V.sup I x d) y) z
+      (greatest (V.sup I x d) y (meet y (V.sup I x d)) (right y (V.sup I x d)) (left y (V.sup I x d)))
+      (directed-left I x d y z (\ i -> P.transitive (meet (x i) y) (meet y (x i)) z
+        (greatest y (x i) (meet (x i) y) (right (x i) y) (left (x i) y)) (h i))) ;
+} ;

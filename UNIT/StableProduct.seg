@@ -1,0 +1,35 @@
+-- Projections, pairing and constant maps in the stable category.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Constant (D E : ScottDomain[l].Scott) (c : E.order.carrier) {
+  module S = StableMaps[l].Between[D,E] ; module M = ScottMaps[l].Between[D,E] ;
+  module N = ScottMeet[l].On[E] ;
+  continuous : M.Continuous (\ _ -> c) = \ I x d z h -> TruncationCombinators[l].rec I @l
+    (E.order.le c z) (E.order.proposition c z) h d.1 ;
+  map : S.Map = ((\ _ -> c,(\ x y h -> E.order.reflexive c,continuous)),\ a b e ae be -> N.left c c) ;
+} ;
+module Product (D E : ScottDomain[l].Scott) {
+  module P = ScottProduct[l].Product[D,E] ;
+  module L = StableMaps[l].Between[P.scott,D] ; module R = StableMaps[l].Between[P.scott,E] ;
+  left : L.Map = ((\ x -> x.1,(\ x y h -> h.1,\ I x d z h -> P.AV.least I (\ i -> (x i).1) (P.left-dir I x d) z h)),
+    \ a b c ac bc -> (P.meet-from (P.basic a) (P.basic b)).1) ;
+  right : R.Map = ((\ x -> x.2,(\ x y h -> h.2,\ I x d z h -> P.BV.least I (\ i -> (x i).2) (P.right-dir I x d) z h)),
+    \ a b c ac bc -> (P.meet-from (P.basic a) (P.basic b)).2) ;
+} ;
+module Pair (C D E : ScottDomain[l].Scott)
+  (f : StableMaps[l].Between[C,D].Map) (g : StableMaps[l].Between[C,E].Map) {
+  module P = ScottProduct[l].Product[D,E] ;
+  module S = StableMaps[l].Between[C,D] ; module T = StableMaps[l].Between[C,E] ;
+  module O = StableMaps[l].Between[C,P.scott] ;
+  module M = ScottMaps[l].Between[C,D] ; module N = ScottMaps[l].Between[C,E] ;
+  module A = ScottDomain[l].On[C] ; module AN = ScottMeet[l].On[C] ;
+  value (x : A.C) : P.C = (S.run f x,T.run g x) ;
+  map : O.Map = ((value,(\ x y h -> (S.mono f x y h,T.mono g x y h),
+    \ I x d z h -> (M.continuous f.1 I x d z.1 (\ i -> (h i).1),N.continuous g.1 I x d z.2 (\ i -> (h i).2)))),
+    \ a b c ac bc -> (D.order.transitive (P.N.meet (value (A.basic a)) (value (A.basic b))).1
+      (P.AN.meet (S.run f (A.basic a)) (S.run f (A.basic b))) (S.run f (AN.meet (A.basic a) (A.basic b)))
+      (P.meet-to (value (A.basic a)) (value (A.basic b))).1 (f.2 a b c ac bc),
+    E.order.transitive (P.N.meet (value (A.basic a)) (value (A.basic b))).2
+      (P.BN.meet (T.run g (A.basic a)) (T.run g (A.basic b))) (T.run g (AN.meet (A.basic a) (A.basic b)))
+      (P.meet-to (value (A.basic a)) (value (A.basic b))).2 (g.2 a b c ac bc))) ;
+} ;

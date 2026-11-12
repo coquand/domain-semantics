@@ -1,0 +1,210 @@
+-- The typed conversion step for the type-before-term construction.
+-- Hypotheses concern the preceding relation; no old relation law is used.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Typing[l] ; open Syntax[l] ; open Reduction[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+module SL = SemanticLaws[l] ; module AP = Application[l] ; module Tr = TruncationCombinators[l] ;
+module At (n : Nat) (Delta : Ctx n) {
+  module O = LogicalRelationOperator[l].At[n,Delta] ; module L = LogicalRelationLocality[l].At[n,Delta] ;
+  module C = LogicalRelationClauses[l].At[n,Delta] ; module PD = IndependentRelationPiData[l].At[n,Delta] ;
+  TypeSymmetry (R : O.Relations) : U l+ = (A : D) -> (T T' : Tm n) ->
+    (R.ty T T').holds (SL.p universe A) -> (R.ty T' T).holds (SL.p universe A) ;
+  Conversion (R : O.Relations) : U l+ = (A X : D) -> (T T' M M' : Tm n) ->
+    (R.ty T T').holds (SL.p universe A) -> (R.tm T M M').holds (SL.p A X) -> (R.tm T' M M').holds (SL.p A X) ;
+  TermSymmetry (R : O.Relations) : U l+ = (A X : D) -> (T M M' : Tm n) ->
+    (R.tm T M M').holds (SL.p A X) -> (R.tm T M' M).holds (SL.p A X) ;
+  TypeTransitivity (R : O.Relations) : U l+ = (A : D) -> (T V W : Tm n) ->
+    (R.ty T V).holds (SL.p universe A) -> (R.ty V W).holds (SL.p universe A) -> (R.ty T W).holds (SL.p universe A) ;
+  TermTransitivity (R : O.Relations) : U l+ = (A X : D) -> (T M V W : Tm n) ->
+    (R.tm T M V).holds (SL.p A X) -> (R.tm T V W).holds (SL.p A X) -> (R.tm T M W).holds (SL.p A X) ;
+  module Convert (R : O.Relations) (strict : O.Strict R) (symmetric : TypeSymmetry R) (convert : Conversion R)
+    (diagonal : IndependentRelationDiagonal[l].At[n,Delta].TermDiagonal R.tm)
+    (A X : D) (T T' M M' : Tm n)
+    (types : ((L.advance R).ty T T').holds (SL.p universe A))
+    (terms : ((L.advance R).tm T M M').holds (SL.p A X)) {
+    module Clauses = IndependentRelationClauseLaws[l].At[n,Delta].With[R,strict] ;
+    Q : ScottPredicates[l].On[ScottFilter[l].scott].Predicate = (L.advance R).tm T' M M' ;
+    data-term (ha : Parts[l].UHead A) : Q.holds (SL.p universe X) =
+      ((((L.advance R).tm T M M').lower (SL.p universe X) (SL.p A X)
+        (SL.mono universe A X X (prin-sub univ A.1 ha) (sub-refl X.1)) terms).1,
+       Clauses.universe-functions X T' M M') ;
+    module FunctionCase (head : Parts[l].PHead A) {
+      module Components = Parts[l].PiParts[A,head] ;
+      module Support = ProjectorFunctionSupport[l].At[Components.domain,apply Components.family,X] ;
+      module TypeSupport = ProjectorFunctionSupport[l].At[Components.domain,BinaryMaps[l].constant universe,Components.family.1] ;
+      module Pi = PD.Pi[R.tm,R.ty,SL.p universe Components.domain,TypeSupport.function,T,T'] ;
+      heads : Ex Pi.Witness = Pi.extract
+        (((L.advance R).ty T T').lower Pi.Constructor.value (SL.p universe A)
+          (ProjectorPredicateCases[l].At[universe,A].pi-inclusion (prin-in univ) head) types) ;
+      functions : C.Functions[R.tm,R.tm,T,M,M'].predicate.holds Support.function.1 =
+        (((L.advance R).tm T M M').lower Support.function.1 (SL.p A X)
+          (ProjectorPredicateCases[l].At[A,X].function head) terms).2 ;
+      module Witness (w : Pi.Witness) {
+        A0 : Tm n = w.1.1.1 ; B0 : Tm (suc n) = w.1.1.2 ;
+        A1 : Tm n = w.1.2.1 ; B1 : Tm (suc n) = w.1.2.2 ;
+        module Test (e : C.Argument[A1]) (z : D) (hz : (R.tm A1 e.N e.N').holds z) {
+          input : (R.tm A0 e.N e.N').holds (Support.argument z) =
+            convert Components.domain z A1 A0 e.N e.N' (symmetric Components.domain A0 A1 w.2.2.1)
+              ((R.tm A1 e.N e.N').lower (Support.argument z) z (SL.below Components.domain z) hz) ;
+          argument : C.Argument[A0] = new C.Argument[A0,e.N,e.N',
+            eq-conv n Delta e.N e.N' A1 A0 e.conversion (eq-sym n Delta A0 A1 (uu n) w.2.1.2.2.1)
+              (Presup[l].eq-pre n (jeq Delta A0 A1 (uu n)) w.2.1.2.2.1).1] ;
+          test : C.FunctionTest[T] = new C.FunctionTest[T,A0,B0,w.2.1.1,argument] ;
+          outputs : C.TermOutputs[R.tm,subst1 n B0 e.N,M,M',e.N,e.N'].predicate.holds (Support.result z) =
+            Support.from-test C.TermOutputs[R.tm,subst1 n B0 e.N,M,M',e.N,e.N'].predicate z
+              (C.Functions[R.tm,R.tm,T,M,M'].apply Support.function.1 functions test (Support.argument z) input) ;
+          diagonal-argument : C.Argument[A0] = new C.Argument[A0,e.N,e.N,
+            eq-refl n Delta e.N A0 (Presup[l].eq-pre n (jeq Delta e.N e.N' A0) argument.conversion).1] ;
+          family : C.FamilyOutputs[R.ty,B0,B1,e.N,e.N].predicate.holds (SL.p universe (Support.classifier z)) =
+            TypeSupport.from-test C.FamilyOutputs[R.ty,B0,B1,e.N,e.N].predicate z
+              (C.Families[R.tm,R.ty,A0,B0,B1].apply TypeSupport.function.1 w.2.2.2 diagonal-argument
+                (Support.argument z) (diagonal A0 e.N e.N' (Support.argument z) input)) ;
+          result : C.TermOutputs[R.tm,subst1 n B1 e.N,M,M',e.N,e.N'].predicate.holds (AP.eval Support.function.1 z) =
+            Support.to-test C.TermOutputs[R.tm,subst1 n B1 e.N,M,M',e.N,e.N'].predicate z
+              (convert (Support.classifier z) (Support.body z) (subst1 n B0 e.N) (subst1 n B1 e.N)
+                (app n M e.N) (app n M e.N') family.2.2 outputs.1,
+               (convert (Support.classifier z) (Support.body z) (subst1 n B0 e.N) (subst1 n B1 e.N)
+                 (app n M' e.N) (app n M' e.N') family.2.2 outputs.2.1,
+                convert (Support.classifier z) (Support.body z) (subst1 n B0 e.N) (subst1 n B1 e.N)
+                  (app n M e.N) (app n M' e.N') family.2.2 outputs.2.2)) ;
+        } ;
+        result : Q.holds Support.function.1 = (Clauses.function-type Support.function M M',
+          Clauses.index (pp n A1 B1) T' M M' (IndependentRelationReduction[l].after n T' (pp n A1 B1) w.2.1.2.1) Support.function.1
+            (Clauses.Literal[A1,B1,M,M',Support.function.1].introduce (\ e k hk -> Test[e,principal k,hk].result))) ;
+      } ;
+      result : Q.holds Support.function.1 = Tr.rec Pi.Witness @l (Q.holds Support.function.1) (Q.proposition Support.function.1)
+        (\ w -> Witness[w].result) heads ;
+    } ;
+    result : Q.holds (SL.p A X) = ProjectorPredicateCases[l].At[A,X].Predicate[Q,(L.advance-strict R strict).2 T' M M',
+      \ ha hx -> Q.lower universe (SL.p universe X)
+        (prin-sub univ (SL.p universe X).1 (SL.universe-in X univ hx tp-UU)) (data-term ha),
+      \ ha hx -> Q.lower Constructors[l].Pi[ProjectorOperator[l].At[BinaryMaps[l].semantic,A,X].pi-domain hx,
+        ProjectorOperator[l].At[BinaryMaps[l].semantic,A,X].pi-family hx].value (SL.p universe X)
+        (ProjectorPredicateCases[l].At[universe,X].pi-inclusion (prin-in univ) hx) (data-term ha),
+      \ ha -> FunctionCase[ha].result].result ;
+  } ;
+  conversion-step (R : O.Relations) (strict : O.Strict R) (symmetric : TypeSymmetry R) (convert : Conversion R)
+    (diagonal : IndependentRelationDiagonal[l].At[n,Delta].TermDiagonal R.tm) : Conversion (L.advance R) =
+      \ A X T T' M M' types terms -> Convert[R,strict,symmetric,convert,diagonal,A,X,T,T',M,M',types,terms].result ;
+  module TypeSymmetric (R : O.Relations) (symmetric : TypeSymmetry R) (term-symmetric : TermSymmetry R) (convert : Conversion R)
+    (X : D) (T T' : Tm n) (related : ((L.advance R).ty T T').holds (SL.p universe X)) {
+    module TC = LogicalRelationTypeClause[l].At[n,Delta] ;
+    Q : ScottPredicates[l].On[ScottFilter[l].scott].Predicate = (L.advance R).ty T' T ;
+    module Product (head : Parts[l].PHead X) {
+      module Components = Parts[l].PiParts[X,head] ;
+      module Support = ProjectorFunctionSupport[l].At[Components.domain,BinaryMaps[l].constant universe,Components.family.1] ;
+      module Before = PD.Pi[R.tm,R.ty,SL.p universe Components.domain,Support.function,T,T'] ;
+      module After = PD.Pi[R.tm,R.ty,SL.p universe Components.domain,Support.function,T',T] ;
+      source : Ex Before.Witness = Before.extract
+        (((L.advance R).ty T T').lower Before.Constructor.value (SL.p universe X)
+          (ProjectorPredicateCases[l].At[universe,X].pi-inclusion (prin-in univ) head) related) ;
+      module Witness (w : Before.Witness) {
+        A0 : Tm n = w.1.1.1 ; A1 : Tm n = w.1.2.1 ;
+        B0 : Tm (suc n) = w.1.1.2 ; B1 : Tm (suc n) = w.1.2.2 ;
+        module Test (e : C.Argument[A1]) (z : D) (hz : (R.tm A1 e.N e.N').holds z) {
+          input : (R.tm A0 e.N e.N').holds (Support.argument z) =
+            convert Components.domain z A1 A0 e.N e.N' (symmetric Components.domain A0 A1 w.2.2.1)
+              ((R.tm A1 e.N e.N').lower (Support.argument z) z (SL.below Components.domain z) hz) ;
+          argument : C.Argument[A0] = new C.Argument[A0,e.N,e.N',
+            eq-conv n Delta e.N e.N' A1 A0 e.conversion (eq-sym n Delta A0 A1 (uu n) w.2.1.2.2.1)
+              (Presup[l].eq-pre n (jeq Delta A0 A1 (uu n)) w.2.1.2.2.1).1] ;
+          reverse-argument : C.Argument[A0] = new C.Argument[A0,e.N',e.N,eq-sym n Delta e.N e.N' A0 argument.conversion] ;
+          outputs : C.FamilyOutputs[R.ty,B0,B1,e.N,e.N'].predicate.holds (Support.result z) =
+            Support.from-test C.FamilyOutputs[R.ty,B0,B1,e.N,e.N'].predicate z
+              (C.Families[R.tm,R.ty,A0,B0,B1].apply Support.function.1 w.2.2.2 argument (Support.argument z) input) ;
+          reverse-outputs : C.FamilyOutputs[R.ty,B0,B1,e.N',e.N].predicate.holds (Support.result z) =
+            Support.from-test C.FamilyOutputs[R.ty,B0,B1,e.N',e.N].predicate z
+              (C.Families[R.tm,R.ty,A0,B0,B1].apply Support.function.1 w.2.2.2 reverse-argument (Support.argument z)
+                (term-symmetric Components.domain z A0 e.N e.N' input)) ;
+          result : C.FamilyOutputs[R.ty,B1,B0,e.N,e.N'].predicate.holds (AP.eval Support.function.1 z) =
+            Support.to-test C.FamilyOutputs[R.ty,B1,B0,e.N,e.N'].predicate z
+              (outputs.2.1,(outputs.1,symmetric (Support.body z) (subst1 n B0 e.N') (subst1 n B1 e.N) reverse-outputs.2.2)) ;
+        } ;
+        result : After.Witness = ((w.1.2,w.1.1),((w.2.1.2.1,(w.2.1.1,
+          (eq-sym n Delta A0 A1 (uu n) w.2.1.2.2.1,
+           Subst[l].ctxconv-eq n Delta A0 A1 (Presup[l].eq-pre n (jeq Delta A0 A1 (uu n)) w.2.1.2.2.1).1
+             (Presup[l].eq-pre n (jeq Delta A0 A1 (uu n)) w.2.1.2.2.1).2 w.2.1.2.2.1 B1 B0 (uu (suc n))
+             (eq-sym (suc n) (ext n Delta A0) B0 B1 (uu (suc n)) w.2.1.2.2.2)))),
+          (symmetric Components.domain A0 A1 w.2.2.1,\ e k hk -> Test[e,principal k,hk].result))) ;
+      } ;
+      result : Q.holds After.Constructor.value = After.insert (Tr.map Before.Witness After.Witness (\ w -> Witness[w].result) source) ;
+    } ;
+    at-universe (hx : Parts[l].UHead X) : Q.holds universe = TC.Step[R.tm,R.ty,T',T].fold universe
+      (\ hu -> Tr.map (Reds n T (uu n) * Reds n T' (uu n)) (Reds n T' (uu n) * Reds n T (uu n))
+        (\ w -> (w.2,w.1)) (related.1 (SL.universe-in X univ hx tp-UU)),
+       \ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)) ;
+    result : Q.holds (SL.p universe X) = ProjectorPredicateCases[l].At[universe,X].Predicate[Q,TC.Step[R.tm,R.ty,T',T].strict,
+      \ hu hx -> at-universe hx,\ hu hx -> Product[hx].result,\ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)].result ;
+  } ;
+  type-symmetry-step (R : O.Relations) (symmetric : TypeSymmetry R) (term-symmetric : TermSymmetry R) (convert : Conversion R) :
+    TypeSymmetry (L.advance R) = \ X T T' related -> TypeSymmetric[R,symmetric,term-symmetric,convert,X,T,T',related].result ;
+  module TypeTransitive (R : O.Relations) (transitive : TypeTransitivity R) (term-symmetric : TermSymmetry R) (convert : Conversion R)
+    (diagonal : IndependentRelationDiagonal[l].At[n,Delta].TermDiagonal R.tm)
+    (X : D) (T V W : Tm n) (first : ((L.advance R).ty T V).holds (SL.p universe X))
+    (second : ((L.advance R).ty V W).holds (SL.p universe X)) {
+    module TC = LogicalRelationTypeClause[l].At[n,Delta] ;
+    Q : ScottPredicates[l].On[ScottFilter[l].scott].Predicate = (L.advance R).ty T W ;
+    module Product (head : Parts[l].PHead X) {
+      module Components = Parts[l].PiParts[X,head] ;
+      module Support = ProjectorFunctionSupport[l].At[Components.domain,BinaryMaps[l].constant universe,Components.family.1] ;
+      module Left = PD.Pi[R.tm,R.ty,SL.p universe Components.domain,Support.function,T,V] ;
+      module Right = PD.Pi[R.tm,R.ty,SL.p universe Components.domain,Support.function,V,W] ;
+      module After = PD.Pi[R.tm,R.ty,SL.p universe Components.domain,Support.function,T,W] ;
+      left : Ex Left.Witness = Left.extract (((L.advance R).ty T V).lower Left.Constructor.value (SL.p universe X)
+        (ProjectorPredicateCases[l].At[universe,X].pi-inclusion (prin-in univ) head) first) ;
+      right : Ex Right.Witness = Right.extract (((L.advance R).ty V W).lower Right.Constructor.value (SL.p universe X)
+        (ProjectorPredicateCases[l].At[universe,X].pi-inclusion (prin-in univ) head) second) ;
+      module Witness (w : Left.Witness) (v : Right.Witness) {
+        A0 : Tm n = w.1.1.1 ; A1 : Tm n = w.1.2.1 ; A2 : Tm n = v.1.2.1 ;
+        B0 : Tm (suc n) = w.1.1.2 ; B1 : Tm (suc n) = w.1.2.2 ; B2 : Tm (suc n) = v.1.2.2 ;
+        aligned : Right.Step.H.Evidence (w.1.2,v.1.2) * Right.Components (w.1.2,v.1.2) =
+          subst (Tm n * Tm (suc n)) (\ s -> Right.Step.H.Evidence (s,v.1.2) * Right.Components (s,v.1.2)) v.1.1 w.1.2
+            (ap (Tm n) (Tm n * Tm (suc n)) (\ t -> (pp-dom n t,pp-cod n t))
+              (pp n v.1.1.1 v.1.1.2) (pp n A1 B1) (reds-pp n V v.1.1.1 A1 v.1.1.2 B1 v.2.1.1 w.2.1.2.1)) v.2 ;
+        module Test (e : C.Argument[A0]) (z : D) (hz : (R.tm A0 e.N e.N').holds z) {
+          input : (R.tm A0 e.N e.N').holds (Support.argument z) =
+            (R.tm A0 e.N e.N').lower (Support.argument z) z (SL.below Components.domain z) hz ;
+          converted : (R.tm A1 e.N e.N').holds (Support.argument z) =
+            convert Components.domain z A0 A1 e.N e.N' w.2.2.1 input ;
+          argument : C.Argument[A1] = new C.Argument[A1,e.N,e.N',
+            eq-conv n Delta e.N e.N' A0 A1 e.conversion w.2.1.2.2.1 (Presup[l].eq-pre n (jeq Delta A0 A1 (uu n)) w.2.1.2.2.1).2] ;
+          same : C.Argument[A1] = new C.Argument[A1,e.N',e.N',
+            eq-refl n Delta e.N' A1 (Presup[l].eq-pre n (jeq Delta e.N e.N' A1) argument.conversion).2] ;
+          outputs-left : C.FamilyOutputs[R.ty,B0,B1,e.N,e.N'].predicate.holds (Support.result z) =
+            Support.from-test C.FamilyOutputs[R.ty,B0,B1,e.N,e.N'].predicate z
+              (C.Families[R.tm,R.ty,A0,B0,B1].apply Support.function.1 w.2.2.2 e (Support.argument z) input) ;
+          outputs-right : C.FamilyOutputs[R.ty,B1,B2,e.N,e.N'].predicate.holds (Support.result z) =
+            Support.from-test C.FamilyOutputs[R.ty,B1,B2,e.N,e.N'].predicate z
+              (C.Families[R.tm,R.ty,A1,B1,B2].apply Support.function.1 aligned.2.2 argument (Support.argument z) converted) ;
+          outputs-same : C.FamilyOutputs[R.ty,B1,B2,e.N',e.N'].predicate.holds (Support.result z) =
+            Support.from-test C.FamilyOutputs[R.ty,B1,B2,e.N',e.N'].predicate z
+              (C.Families[R.tm,R.ty,A1,B1,B2].apply Support.function.1 aligned.2.2 same (Support.argument z)
+                (diagonal A1 e.N' e.N (Support.argument z) (term-symmetric Components.domain z A1 e.N e.N' converted))) ;
+          result : C.FamilyOutputs[R.ty,B0,B2,e.N,e.N'].predicate.holds (AP.eval Support.function.1 z) =
+            Support.to-test C.FamilyOutputs[R.ty,B0,B2,e.N,e.N'].predicate z
+              (outputs-left.1,(outputs-right.2.1,
+                transitive (Support.body z) (subst1 n B0 e.N) (subst1 n B1 e.N') (subst1 n B2 e.N') outputs-left.2.2 outputs-same.2.2)) ;
+        } ;
+        result : After.Witness = ((w.1.1,v.1.2),((w.2.1.1,(aligned.1.2.1,
+          (eq-trans n Delta A0 A1 A2 (uu n) w.2.1.2.2.1 aligned.1.2.2.1,
+           eq-trans (suc n) (ext n Delta A0) B0 B1 B2 (uu (suc n)) w.2.1.2.2.2
+             (Subst[l].ctxconv-eq n Delta A1 A0 (Presup[l].eq-pre n (jeq Delta A0 A1 (uu n)) w.2.1.2.2.1).2
+               (Presup[l].eq-pre n (jeq Delta A0 A1 (uu n)) w.2.1.2.2.1).1
+               (eq-sym n Delta A0 A1 (uu n) w.2.1.2.2.1) B1 B2 (uu (suc n)) aligned.1.2.2.2)))),
+          (transitive Components.domain A0 A1 A2 w.2.2.1 aligned.2.1,\ e k hk -> Test[e,principal k,hk].result))) ;
+      } ;
+      result : Q.holds After.Constructor.value = After.insert (Tr.map2 Left.Witness Right.Witness After.Witness
+        (\ w v -> Witness[w,v].result) left right) ;
+    } ;
+    at-universe (hx : Parts[l].UHead X) : Q.holds universe = TC.Step[R.tm,R.ty,T,W].fold universe
+      (\ hu -> Tr.map2 (Reds n T (uu n) * Reds n V (uu n)) (Reds n V (uu n) * Reds n W (uu n))
+        (Reds n T (uu n) * Reds n W (uu n)) (\ w v -> (w.1,v.2))
+        (first.1 (SL.universe-in X univ hx tp-UU)) (second.1 (SL.universe-in X univ hx tp-UU)),
+       \ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)) ;
+    result : Q.holds (SL.p universe X) = ProjectorPredicateCases[l].At[universe,X].Predicate[Q,TC.Step[R.tm,R.ty,T,W].strict,
+      \ hu hx -> at-universe hx,\ hu hx -> Product[hx].result,\ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)].result ;
+  } ;
+  type-transitivity-step (R : O.Relations) (transitive : TypeTransitivity R) (term-symmetric : TermSymmetry R) (convert : Conversion R)
+    (diagonal : IndependentRelationDiagonal[l].At[n,Delta].TermDiagonal R.tm) : TypeTransitivity (L.advance R) =
+      \ X T V W first second -> TypeTransitive[R,transitive,term-symmetric,convert,diagonal,X,T,V,W,first,second].result ;
+} ;

@@ -1,0 +1,989 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=27mm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[hidelinks]{hyperref}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}[theorem]{Definition}
+\newcommand{\Fix}{\operatorname{Fix}}
+\newcommand{\id}{\mathrm{id}}
+\newcommand{\K}{\mathrm K}
+\newcommand{\llbracket}{[\![}
+\newcommand{\rrbracket}{]\!]}
+\title{Rigid projections, dependent sections, and represented universes}
+\author{}
+\date{11 November 2026}
+\begin{document}
+\maketitle
+
+We develop dI-domain semantics, construct a represented reflexive domain
+from a seed, and interpret the annotated term syntax in that domain. A Scott domain
+is a pointed, bounded-complete algebraic dcpo. For the constructive
+formulation, it has a small compact basis, a small-valued order, and
+suprema of small directed and small bounded families. All joins below
+are understood with this size restriction.
+
+\section{Rigid projections}
+
+Binary meets exist in a Scott domain: $x\wedge y$ is the bounded join of
+the basic compact elements below both $x$ and $y$. A stable map is a
+Scott-continuous map preserving meets of compatible pairs. The stable
+order is
+\[
+ f\le_s g\quad\Longleftrightarrow\quad
+ \forall x\le y,\quad f(x)=f(y)\wedge g(x).
+\]
+In particular this implies the pointwise inequality $f\le g$.
+
+\begin{definition}
+A rigid projection on $D$ is a continuous map $p:D\to D$ such that
+$p\le_s\id$. Equivalently, $p(x)\le x$, and
+\[
+ x\le p(y)\quad\Longrightarrow\quad x\le p(x).
+\tag{H}
+\]
+\end{definition}
+The equivalence uses monotonicity. In the reverse direction, $p(x)$ is
+below $p(y)\wedge x$ for $x\le y$, whereas this meet is fixed by (H) and
+therefore below $p(x)$. In the forward direction, put $x=y$ to obtain
+deflationarity and then apply the stable-order equation to $x\le p(y)\le y$.
+
+\begin{theorem}
+Every rigid projection is idempotent. Its fixed set is downward closed,
+and $p(x)$ is the greatest fixed point below $x$. It preserves all binary
+meets, including meets of incompatible elements. For rigid projections
+$p,q$,
+\[
+ pq=qp=p\wedge q,
+\]
+where the last meet is pointwise. Their composition is again a rigid
+projection and has fixed set $\Fix(p)\cap\Fix(q)$.
+\end{theorem}
+\begin{proof}
+Apply (H) to $p(y)\le p(y)$ for idempotence. If $x\le y=p(y)$,
+apply (H) again. If $y=p(y)\le x$, monotonicity gives $y\le p(x)$.
+The element $p(x)\wedge p(y)$ is fixed, by downward closure, and is below
+$x\wedge y$; the opposite inequality for meet preservation follows
+by monotonicity. Finally, $p(q(x))$ is below both $p(x)$ and $q(x)$.
+Their meet is fixed by $p$ and below $q(x)$, proving the reverse inequality.
+Composition is continuous; its hereditary law follows from those of
+$p$ and $q$.
+\end{proof}
+
+\section{Images and dI-domains}
+
+\begin{theorem}
+The fixed image of a rigid projection on a Scott domain is a Scott
+domain. Its existing joins agree with ambient joins, and its compact
+elements are exactly the ambient compact fixed points.
+\end{theorem}
+\begin{proof}
+If $u=\bigvee_i x_i$ and each $x_i$ is fixed, then
+$x_i=p(x_i)\le p(u)$, so $u\le p(u)\le u$. This also deals with
+the empty join. For a fixed $x$, every basic compact below $x$ is fixed.
+Consequently the ambient directed compact approximation of $x$ is an
+approximation inside the image. Ambient compact fixed points remain
+compact since directed joins are inherited. Conversely, a compact
+element in the image equals one of the ambient basic compact elements
+in its directed approximation. This proves both algebraicity and the
+compactness characterization.
+\end{proof}
+
+A classical dI-domain is a Scott domain satisfying bounded
+distributivity and the I-axiom: the lower set of each compact element is
+finite. Here bounded distributivity means
+\[
+ x\wedge(y\vee z)=(x\wedge y)\vee(x\wedge z)
+\]
+whenever $y,z$ have a common upper bound.
+
+\begin{theorem}
+The fixed image of a rigid projection on a dI-domain is a dI-domain.
+\end{theorem}
+\begin{proof}
+Meets and bounded joins in the image are the ambient ones, so
+distributivity is inherited. A compact element of the image is compact
+in the ambient domain. Its entire ambient lower set lies in the image,
+so its finite lower-set presentation is inherited unchanged.
+\end{proof}
+
+The literal I-axiom requires care constructively. A finite discrete
+presentation of every compact lower set, together with all small
+directed suprema and a compact element $c\ne\bot$, implies excluded
+middle for small propositions. Indeed, for a proposition $P$, take the
+directed join $x_P$ of $\bot$ and a copy of $c$ indexed by $P$.
+Then $x_P\le c$, so finite discreteness decides $x_P=c$. Compactness
+and $c\ne\bot$ give $x_P=c$ if and only if $P$. Thus a constructive
+event presentation with finite causal histories must not silently be
+identified with this literal finite-discrete I-axiom. The image theorem
+is conditional on the ambient dI structure; it does not construct a
+nontrivial example under the constructive foundations alone.
+
+\section{Constructing a projection from its fixed set}
+
+\begin{theorem}\label{thm:subdomain}
+Let $Z\subseteq D$ be a small-valued predicate that is downward closed
+and closed under bounded joins, including the empty join. There is a
+unique rigid projection with fixed set $Z$, namely
+\[
+ r_Z(x)=\bigvee\{k\mid k\text{ is basic compact},\ k\in Z,\ k\le x\}.
+\]
+Equivalently it is the greatest element of $Z$ below $x$.
+\end{theorem}
+\begin{proof}
+The displayed family is small and bounded by $x$; closure places its
+join in $Z$. If $y\in Z$ and $y\le x$, every basic compact below $y$
+occurs in the family, proving $y\le r_Z(x)$. This gives monotonicity,
+deflationarity and the hereditary law. To prove continuity, let $(x_i)$
+be directed. A basic compact $k\le r_Z(\bigvee_i x_i)$ belongs to $Z$
+and lies below some $x_i$, hence below $r_Z(x_i)$. Algebraicity gives
+the required inequality. The greatest-element property proves uniqueness.
+\end{proof}
+
+For such predicates $Z,W$, inclusion gives $r_Z\le r_W$, and
+\[
+ r_{Z\cap W}=r_Zr_W.
+\]
+Thus constructing the fixed set first avoids any need to guess a
+pointwise projector formula.
+
+\section{The stable function domain}
+
+\begin{theorem}\label{thm:stable}
+For dI-domains $D,E$, the stable maps $D\to E$, ordered by the stable
+order, form a Scott domain with a small compact basis. Directed joins
+and bounded joins are pointwise. A stable map is compact in the stable
+order if and only if it is compact in the ordinary continuous function
+space with its pointwise order.
+\end{theorem}
+\begin{proof}
+Stability and stable comparison can be tested on the small compact
+bases. For example, compatible basic inputs have a common basic compact
+upper bound. For general compatible inputs, continuity supplies basic
+input witnesses for any compact output observation; directedness supplies
+the common compact upper bound needed to apply the basic-input test.
+The same method extends the stable-order equation from comparable basic
+inputs to arbitrary $x\le y$. Thus both predicates are small-valued.
+
+Below a common stable upper bound $h$, pointwise comparison implies
+stable comparison. Indeed, if $f,g\le_s h$ and $f\le g$ pointwise, then
+$f(y)\wedge g(x)\le f(y)\wedge h(x)=f(x)$ for $x\le y$; the other
+inequality follows from monotonicity and $f\le g$.
+
+Binary meets in any Scott domain preserve directed joins in each
+argument, by compact approximation. Finite distributivity in $E$ extends
+to all bounded joins: express a bounded join as the directed join of
+its finite subjoins. These facts show that pointwise directed joins of
+stable maps are stable, and that a pointwise join of maps bounded in
+the stable order is stable and is their stable supremum. For example,
+if $f_i,f_j\le_s h$ and $x,y\le z$, then
+\[
+ f_i(x)\wedge f_j(y)\le h(x\wedge y),\qquad
+ f_i(x)\wedge f_j(y)\le f_i(x\wedge y).
+\]
+The second inequality follows from the first and the restriction equation
+for $f_i\le_s h$. Distributing meets over the joins proves stability.
+
+Every element below a compact element of a dI-domain is compact. To
+justify this under the explicit finite-discrete formulation, fix a
+finite presentation of $\mathord\downarrow c$. Equality in that lower
+set is decidable. An element $x\le c$ either equals bottom, or gives
+$c\ne\bot$ and hence local excluded middle by the argument above.
+In the latter case, a directed family in a finite discrete poset has
+a greatest member. Apply this to the directed basic approximation of
+$x$, whose values lie in $\mathord\downarrow c$. Thus $x$ equals a
+basic compact. The argument eliminates finite presentations and compact
+witnesses only into propositions; it needs no choice of presentations.
+
+For compact $a\in D$, $b\in E$ and stable $f$, put
+\[
+ k_{a,b,f}(x)=f(x\wedge a)\wedge b.
+\]
+Restriction to a principal lower ideal is a rigid projection, so this
+map is stable and $k_{a,b,f}\le_s f$. It is compact in the ordinary
+continuous function space. To see this, enumerate
+$\mathord\downarrow a=\{u_1,\ldots,u_m\}$. A continuous map $g$ is
+pointwise above $k_{a,b,f}$ exactly when
+\[
+ k_{a,b,f}(u_j)\le g(u_j)\quad(1\le j\le m).
+\]
+For sufficiency use $x\wedge a=u_j\le x$ and
+$k_{a,b,f}(x)=k_{a,b,f}(u_j)$. Each output in these finitely many tests
+is compact because it lies below $b$. Compactness of the outputs and
+directedness give a common index satisfying all the tests.
+
+These maps detect every compact observation of $f$: if compact
+$b\le f(x)$, continuity supplies compact $a\le x$ with $b\le f(a)$,
+and then $b\le k_{a,b,f}(x)$. Finite bounded joins of the approximations
+are again stable and ordinarily compact. Ordinary compact maps have
+finite compact-input/output graph presentations. Selecting the stable
+ones gives a small basis, since stability is small-valued. This basis
+is directed below every $f$. It determines both the pointwise order
+and the stable restriction equation: for a compact observation below
+$f(y)\wedge g(x)$ choose a basic stable approximation detecting it at
+$y$, and apply that approximation's stable comparison with $g$.
+
+Ordinary compactness of a stable map implies stable compactness: a
+pointwise directed witness becomes a stable witness by the common-upper-bound
+observation above. Conversely, stable compactness selects one element
+of the directed basis approximation; hence the map equals an ordinarily
+compact basis element.
+\end{proof}
+
+\begin{theorem}
+The stable function space is a dI-domain. For compatible stable functions,
+its meet is pointwise.
+\end{theorem}
+\begin{proof}
+The pointwise meet of two stable functions is continuous and stable.
+If $f,g\le_s h$, the restriction equations show that their pointwise
+meet also lies below $h$ in the stable order. Pointwise comparison below
+$h$ then proves the two lower-bound inequalities and the greatest-lower-bound
+property.
+
+For distributivity, write $u=y\vee z$ and $m=x\wedge u$. All of $m,y,z$
+lie below $u$, so their compatible meets and bounded joins can be
+computed pointwise. Distributivity in the codomain gives
+$m=(m\wedge y)\vee(m\wedge z)=(x\wedge y)\vee(x\wedge z)$.
+This argument permits $x$ to be incompatible with $u$.
+
+For the I-axiom, first take a compact basis function with finite graph
+$(a_j,b_j)_{j\in J}$, so
+$f(x)=\bigvee_{a_j\le x}b_j$. Every $g\le_s f$ is reconstructed by
+\[
+ g=\bigvee_{j\in J} k_{a_j,c_j,f},\qquad
+ c_j=g(a_j)\wedge b_j.
+ \tag{R}
+\]
+Indeed, $c_j\le g(a_j)$ and the stable restriction equation imply
+$k_{a_j,c_j,f}\le_s g$. Conversely, distribute $g(x)\wedge f(x)=g(x)$
+over the active graph outputs. For $a_j\le x$, the restriction equation
+and $b_j\le f(a_j)$ give
+$g(x)\wedge b_j\le g(a_j)\wedge b_j=c_j\le k_{a_j,c_j,f}(x)$.
+Thus the bounded join in (R) is exactly $g$.
+
+Each $c_j$ lies in the finite discrete lower ideal of $b_j$. Enumerating
+the finite product of these ideals and taking the corresponding joins
+of restrictions gives a finite surjection onto $\mathord\downarrow f$.
+Equation (R) also shows that equality of subfunctions is decided by the
+finitely many clipped outputs. Duplicate removal therefore gives a
+finite discrete presentation. The finite presentations of the output
+ideals are used under propositional truncation; only finite choice,
+proved by induction on the finite shape, is needed. Finally, any compact
+stable function equals a compact basis function, so it inherits such a
+presentation. This proof introduces no additional classical principle.
+\end{proof}
+
+\begin{theorem}
+Binary products of dI-domains are dI-domains. Evaluation
+\[
+ [D\Rightarrow_s E]\times D\longrightarrow E,\qquad (f,x)\longmapsto f(x),
+\]
+is stable and continuous. For any Scott parameter domain $P$, currying
+and uncurrying give mutually inverse operations between stable maps
+$P\times D\to E$ and stable maps $P\to[D\Rightarrow_s E]$.
+Their beta and eta laws are identities of stable maps.
+\end{theorem}
+\begin{proof}
+Products have componentwise order, joins and meets, with products of
+compact bases. Their distributivity is componentwise, and a compact
+lower ideal is a product of two finite discrete compact lower ideals.
+
+Continuity of evaluation follows from the pointwise directed-join law
+and a common directed index for the function and argument observations.
+For stability, let $f,g\le_s h$ and $x,y\le z$. Put
+$t=f(x)\wedge g(y)$. Stability of $h$ gives $t\le h(x\wedge y)$.
+The restriction equations for $f,g\le_s h$ then give
+$t\le f(x\wedge y)$ and $t\le g(x\wedge y)$. The pointwise formula for
+compatible function meets proves the required inequality; monotonicity
+gives the other direction.
+
+For a stable $H:P\times D\to E$, its sections $H(p,-)$ are stable.
+If $p\le q$ and $x\le y$, stability applied to $(p,y),(q,x)\le(q,y)$
+gives the restriction equation
+$H(p,x)=H(p,y)\wedge H(q,x)$. Thus currying is monotone into the stable
+order. Pointwise directed joins prove continuity, and stability applied
+to $(p,x),(q,x)$ proves preservation of compatible meets in the parameter.
+Uncurrying is stable by pairing and evaluation. Extensionality proves
+beta and eta.
+\end{proof}
+
+\section{Dependent sections over a fixed domain}
+
+For dI-domains $A,E$, take the stable function domain
+$F=[A\Rightarrow_s E]$ from Theorem~\ref{thm:stable}. Its order is the stable
+order; its bounded joins are pointwise. Let $x\mapsto b_x$ be a
+monotone family of rigid projections on $E$, and set
+\[
+ S_b=\{f\in F\mid \forall x\in A,\ b_x(f(x))=f(x)\}.
+\]
+The following construction only uses that $F$ is a Scott domain of
+continuous maps, its order implies pointwise order, and its bounded
+joins are pointwise.
+
+\begin{lemma}
+Membership in $S_b$ can be tested at basic compact inputs. In particular
+it is small-valued when the input basis is small.
+\end{lemma}
+\begin{proof}
+Suppose $b_a(f(a))=f(a)$ for basic compact $a$. For $a\le x$,
+monotonicity of the family gives $f(a)\le b_x(f(a))\le b_x(f(x))$.
+Continuity of $f$ and the directed compact approximation of $x$ yield
+$f(x)\le b_x(f(x))$. Deflationarity gives equality.
+\end{proof}
+
+\begin{theorem}
+$S_b$ is a downward-closed, bounded-join-closed subdomain of $F$.
+Its rigid projection is
+\[
+ R_b(f)=\bigvee\{k\mid k\text{ is basic compact in }F,
+                         \ k\le_s f,\ k\in S_b\}.
+\]
+For two families $b,c$, write $(b\cap c)_x=b_xc_x$. Then
+\begin{align*}
+ b\le c&\ \Longrightarrow\ R_b\le R_c,\\
+ R_{b\cap c}&=R_bR_c,\\
+ R_{b\cap c}(f\wedge g)&=R_b(f)\wedge R_c(g).
+\end{align*}
+The meets of functions in the last line are in the order of $F$.
+\end{theorem}
+\begin{proof}
+Stable order implies pointwise order, and each fibre is downward closed,
+so $S_b$ is downward closed. Bounded joins are pointwise and each fibre
+is closed under bounded joins. Apply Theorem~\ref{thm:subdomain}.
+The first two laws follow from inclusion and intersection of the fixed
+sets. For the last law, $R_b(f)\wedge R_c(g)$ is a section of both
+families, by downward closure, and is below $f\wedge g$. Conversely,
+any common section below $f\wedge g$ is below both $R_b(f)$ and $R_c(g)$.
+\end{proof}
+
+This differs essentially from pointwise clipping. On the two-element
+chain, take $b_0=\bot$ and $b_1=\id$. Clipping the constant-one function
+gives the identity, but $\id\not\le_s(\lambda x.1)$: the stable-order
+equation at $0\le1$ fails. The actual rigid section projection sends
+the constant-one function to bottom.
+
+\section{Finite tests and parameter continuity}
+
+The preceding theorems give the section domain for each family.
+The finite compact presentations now prove continuity in the family.
+
+The finite-test property is the following: for each compact
+function $k$ there are finitely many compact input/output pairs
+$(a_j,c_j)$ such that, for every monotone family $b$,
+\[
+ k\in S_b\quad\Longleftrightarrow\quad
+ \forall j,\ b_{a_j}(c_j)=c_j.                 \tag{FT}
+\]
+The finite graph presentation
+$k(x)=\bigvee\{c_j\mid a_j\le x\}$ supplies this property. For necessity
+use $c_j\le k(a_j)$ and downward closure. For sufficiency, each active
+$c_j$ belongs to the fibre at $x$, by monotonicity, and that fibre is
+closed under the displayed bounded join. The presentations need not be
+canonical minimal traces. They are available by Theorem~\ref{thm:stable}.
+
+\begin{lemma}
+For a directed family $(b_i)$ with pointwise supremum $b$,
+\[
+ R_b(f)=\bigvee_i R_{b_i}(f).
+\]
+\end{lemma}
+\begin{proof}
+The right side is below the left by monotonicity. If compact
+$k\le R_b(f)$, then $k\in S_b$ and $k\le f$. Apply (FT). For each of its
+finitely many tests,
+$c_j=b_{a_j}(c_j)=\bigvee_i(b_i)_{a_j}(c_j)$.
+Compactness gives an index passing that test. Directedness gives a
+single index passing all tests, hence $k\in S_{b_i}$ and
+$k\le R_{b_i}(f)$. Algebraicity completes the proof.
+\end{proof}
+
+More precisely, let $P$ be any Scott parameter domain, and suppose
+$p\mapsto b^p$ is monotone and each map
+$p\mapsto b^p_x(z)$ is continuous. Then $p\mapsto R_{b^p}(f)$ is
+continuous. If $p\mapsto f_p$ is also continuous, so is
+$p\mapsto R_{b^p}(f_p)$: apply continuity separately in the two arguments
+and then use directedness to dominate both indices by a common index.
+Both assertions are checked in Unit.
+
+\begin{theorem}
+Let $\mathcal R(E)$ denote the rigid projections on $E$. This is a
+dI-domain, represented by the principal ideal below the identity in
+$[E\Rightarrow_s E]$. For stable families in
+$\mathcal F=[D\Rightarrow_s\mathcal R(E)]$, both maps
+\[
+ \mathcal F\times[D\Rightarrow_s E]\longrightarrow[D\Rightarrow_s E],
+ \quad (b,f)\longmapsto R_b(f),
+\]
+\[
+ \mathcal F\longrightarrow\mathcal R([D\Rightarrow_s E]),
+ \quad b\longmapsto R_b
+\]
+are stable.
+\end{theorem}
+\begin{proof}
+The principal ideal is a rigid image, so inherits the dI structure.
+Every element below identity satisfies the rigid projection equation,
+and conversely every rigid projection defines such an element.
+All rigid projections have the common stable upper bound identity;
+therefore their meets are pointwise and equal composition.
+Compatible meets in $\mathcal F$ are consequently fibre intersections.
+
+Fibre evaluations on this actual family domain are continuous, by
+stable evaluation and the inherited pointwise directed joins in the
+rigid image. The preceding parameter-continuity theorem therefore
+applies to $(b,f)\mapsto R_b(f)$. Its joint intersection equation proves
+preservation of compatible meets. Currying gives a stable map into the
+stable endomorphism domain of $[D\Rightarrow_s E]$; each value is a rigid
+projection, so it factors through the principal ideal below identity.
+The formal computation theorem identifies this factor with the original
+greatest-section construction.
+\end{proof}
+
+The earlier section construction and its intersection laws apply to
+arbitrary monotone families. The stable family space above supplies the
+parameter domain for the following varying-input construction.
+
+\section{Varying rigid input domains}
+
+For a rigid projection $p$ on $D$, define input restriction on the stable
+function domain $F=[D\Rightarrow_s E]$ by $I_p(f)=f\circ p$.
+
+\begin{theorem}
+$I_p$ is a rigid projection on $F$, and $p\mapsto I_p$ is stable as a map
+$\mathcal R(D)\to\mathcal R(F)$. Stable maps $\Fix(p)\to E$ correspond
+by extension and restriction to ambient stable maps $f:D\to E$ satisfying
+$f\circ p=f$.
+\end{theorem}
+\begin{proof}
+Internal composition is stable, by evaluation, pairing and currying.
+Since $p\le_s\id$, composition gives $f\circ p\le_s f$.
+For heredity, suppose $g\le_s f\circ p$. Apply the restriction equation
+at $p(x)\le x$. Idempotence of $p$ gives
+\[
+ g(p(x))=g(x)\wedge f(p(p(x)))=g(x),
+\]
+since $g(x)\le f(p(x))$. Thus $g\le_s g\circ p$, as required.
+Currying internal composition and restricting its values to the
+principal ideal below identity proves stability in $p$.
+
+The inclusion $\Fix(p)\to D$ and projection $D\to\Fix(p)$ are stable;
+their composite on the image is identity and their ambient composite
+is $p$. Precomposition with these maps gives extension and restriction,
+with the stated beta and eta laws.
+\end{proof}
+
+\begin{theorem}
+For a stable family $B:D\to\mathcal R(E)$, put
+\[
+ Q_{p,B}=R_B I_p=I_p R_B.
+\]
+This is a rigid projection on $F$ and is stable in $(p,B)$, also jointly
+with its function argument. $Q_{p,B}(f)$ is the greatest $g\le_s f$ such that
+\[
+ g\circ p=g,\qquad B_x(g(x))=g(x)\quad(x\in\Fix(p)).
+\]
+It depends only on the restriction of $B$ to $\Fix(p)$.
+\end{theorem}
+\begin{proof}
+Rigid projections commute and their composition is their meet.
+Composition of rigid projections is itself stable: restrict internal
+composition to the two principal ideals below identity, and then
+restrict its output to the same ideal. Composing this operation with
+$p\mapsto I_p$ and $B\mapsto R_B$ proves the stability assertions.
+
+For a supported $g$, the fibre condition at fixed inputs implies the
+condition at every $x$: $g(x)=g(p(x))$ belongs to the fibre at $p(x)$,
+and the family is monotone with $p(x)\le x$. Thus the two displayed
+conditions say precisely that $g$ is fixed by both $I_p$ and $R_B$.
+The greatest-fixed-point property of their composition gives the result.
+It also proves independence of the family away from fixed inputs.
+Finally, any stable family defined directly on $\Fix(p)$ extends along
+$p$, so this ambient representation covers those families too.
+\end{proof}
+
+\section{Stable recursion and projector stages}
+
+\begin{theorem}
+For a dI-domain $D$, the least-fixed-point operation
+$Y:[D\Rightarrow_s D]\to D$ is stable. Its finite stages are an increasing
+chain in the stable function order. Stable parameter families of
+endomorphisms consequently have stable least solutions.
+\end{theorem}
+\begin{proof}
+Let $X=[D\Rightarrow_s D]$ and $H=[X\Rightarrow_s D]$. The functional
+\[
+ T:H\to H,\qquad T(g)(f)=f(g(f)),
+\]
+is stable by evaluation, pairing and currying. Its Kleene iterates
+starting at the bottom of $H$ are increasing in the stable order.
+Their directed join is an element of $H$, hence a stable map $X\to D$.
+At each $f$, induction identifies the iterates with $f^n(\bot)$, and
+pointwise directed joins identify their limit with the ordinary Kleene
+least fixed point. Parameter stability follows by composition.
+\end{proof}
+
+In particular, a stable recursive operator on $\mathcal R(D)$ has rigid
+stages $p_n$ and a rigid least solution $p_\infty$, with
+$p_\infty(x)=\bigvee_n p_n(x)$. Since $p_m\le p_n$ for $m\le n$,
+\[
+ p_m p_n=p_m,\qquad p_n p_\infty=p_n.
+\]
+Stable feedback into the varying-family parameters, followed by
+$(p,B)\mapsto Q_{p,B}$, is one such recursive projector operator.
+These are abstract Kleene stages. No finiteness of the stages or
+identification with the earlier Scott-model rank stages is claimed.
+
+\section{A conditional internal universe}
+
+A \emph{rigid embedding} $e:A\to D$ comes with a stable retraction
+$r:D\to A$ satisfying $re=\id_A$ and $er\le_s\id_D$.
+Then $er$ is a rigid projection and $e$ is strict. Transport of rigid
+projections is stable:
+\[
+ \mathcal R(A)\longrightarrow\mathcal R(D),\qquad q\longmapsto eqr.
+\]
+Its action on embedded arguments is $eqr(e(x))=e(q(x))$.
+
+The following is a theorem \emph{from explicit representation data}.
+The next section constructs these data from an arbitrary seed dI-domain;
+nontriviality of that seed remains an explicit requirement for a
+nontrivial model.
+
+\begin{theorem}
+Suppose a dI-domain $D$ has rigid embeddings
+\[
+ e_U:\mathcal R(D)\longrightarrow D,\qquad
+ e_F:[D\Rightarrow_s D]\longrightarrow D,
+\]
+with stable retractions $r_U,r_F$. There are a stable typing operation
+$\Delta:D\times D\to D$, a universe element $U$ satisfying $\Delta(U,U)=U$,
+and a stable dependent-function code constructor
+$\Pi:D\times[D\Rightarrow_s D]\to D$.
+\end{theorem}
+\begin{proof}
+Set $\Delta(a,x)=r_U(a)(x)$ and $u=e_Ur_U$, regarded as a rigid
+projection on $D$. Let $U=e_U(u)$. Then $r_U(U)=u$, so
+\[
+ \Delta(U,x)=u(x),\qquad
+ \Delta(U,e_U(q))=e_U(q),\qquad \Delta(U,U)=U.
+\]
+Conversely, $\Delta(U,a)=a$ implies $a=e_U(r_U(a))$, so universe members
+are exactly the represented rigid projections. Each $\Delta(a,-)$ is
+rigid; stability of $\Delta$ follows from rigid evaluation.
+
+For $a\in D$ and stable $b:D\to D$, let $p=r_U(a)$ and
+$B(x)=r_U(b(x))$. Define
+\[
+ \Pi(a,b)=e_U\bigl(e_F Q_{p,B}r_F\bigr).
+\]
+Every operation in this expression has been proved stable. The result
+is a code, hence lies in $U$, and
+\[
+ \Delta(\Pi(a,b),e_F(f))=e_F(Q_{p,B}(f)).
+\]
+Stable term application is $\operatorname{app}(v,x)=r_F(v)(x)$, with
+$\operatorname{app}(e_F(f),x)=f(x)$.
+The greatest-supported-section theorem gives dependent-function
+introduction, including abstraction via $f\circ p$ for functions
+specified on fixed inputs. For elimination, if
+$x\le\Delta(\Pi(a,b),x)$, applying $r_F$ shows
+$r_F(x)\le_s Q_{p,B}(r_F(x))$. Thus $r_F(x)$ is a section on fixed inputs.
+For $y\le\Delta(a,y)$, downward closure of the fibre gives
+\[
+ \operatorname{app}(x,y)\le
+ \Delta(b(y),\operatorname{app}(x,y)).
+\]
+The inequalities express fixedness, since the typing operations are
+deflationary. These introduction and elimination laws are checked.
+\end{proof}
+
+\begin{theorem}
+The code embedding $e_U$ alone gives a stable recursive-type operation
+on stable code-valued functionals $G:D\to\mathcal R(D)$. Its result
+$\mu(G)$ lies in $U$ and satisfies
+\[
+ \mu(G)=e_U(G(\mu(G))).
+\]
+It is least among all $x\in D$ satisfying $e_U(G(x))\le x$.
+Its stages start at bottom, lie in $U$, unfold by this equation, increase,
+and have supremum $\mu(G)$.
+\end{theorem}
+\begin{proof}
+Define $\widehat G(c)=G(e_U(c))$ on $\mathcal R(D)$ and set
+$\mu(G)=e_U(Y(\widehat G))$. Internal composition and the stable
+least-fixed-point operator prove stability in $G$. The fixed-point
+equation gives unfolding, and the result lies in $U$ since it is a code.
+
+If $e_U(G(x))\le x$, apply $r_U$ to get $G(x)\le r_U(x)$.
+Since $e_U(r_U(x))\le x$, monotonicity gives
+$\widehat G(r_U(x))\le r_U(x)$. Leastness on the code domain yields
+$Y(\widehat G)\le r_U(x)$, hence $\mu(G)\le e_U(r_U(x))\le x$.
+The stages are $e_U(\widehat G^n(\bot))$; strictness and continuity of
+$e_U$ give their bottom start and limit, and every stage is a code.
+\end{proof}
+
+\section{A represented universe from a seed}
+
+The code embedding does not need an independent construction.
+The domain $\mathcal R(D)$ is the rigid principal image below identity
+in $[D\Rightarrow_s D]$. Composing this image embedding with any rigid
+embedding $[D\Rightarrow_s D]\to D$ supplies $e_U$.
+
+\begin{theorem}
+For every dI-domain $A$ there is a dI-domain $D$ with a rigid embedding
+$A\to D$ and a stable isomorphism
+\[
+ D\cong[D\Rightarrow_s D].
+\]
+Consequently $D$ has the represented universe, stable dependent-function
+codes and stable recursive-type operation of the previous section.
+The seed embedding is faithful, so nontriviality of $A$ implies
+nontriviality of $D$.
+\end{theorem}
+\begin{proof}
+First, rigid embeddings lift through stable endomorphism spaces. If
+$e:A\to B$ and $r:B\to A$ form a rigid embedding/retraction pair, the
+lifted pair is
+\[
+ f\longmapsto efr,\qquad g\longmapsto rge.
+\]
+These maps are stable by internal composition. Their first composite is
+identity. The second is $g\mapsto pgp$, where $p=er$, and is below
+identity in stable order: both precomposition and postcomposition by
+$p\le_s\id$ decrease a stable map. The hereditary property is checked,
+so this is again a rigid embedding. There is also a starting embedding
+$A\to[A\Rightarrow_s A]$, sending $a$ to the constant function $a$,
+with retraction evaluation at bottom. Its composite is the rigid input
+restriction $f\mapsto f\circ\bot$.
+
+We need closure under countable rigid limits. For a chain
+$(A_n,e_n,r_n)$, let
+\[
+ L=\{(x_n)\mid r_n(x_{n+1})=x_n\},
+\]
+ordered coordinatewise. Rigid retractions preserve bounded joins, so
+both directed and bounded joins in $L$ are coordinatewise. Write
+$\iota_n:A_n\to L$ for the canonical extension by embeddings to the
+right and projections to the left, and $\pi_n:L\to A_n$ for evaluation.
+They satisfy
+\[
+ \pi_n\iota_n=\id,\qquad
+ \iota_n(a)\le x\ \Longleftrightarrow\ a\le\pi_n(x).
+\]
+Both maps are stable, and $p_n=\iota_n\pi_n$ is rigid. Moreover
+$p_n\le_s p_{n+1}$ and $\sup_n p_n=\id_L$.
+
+The elements $\iota_n(a)$, for stage basis elements $a$, form a small
+compact basis. Compactness follows from the displayed adjunction;
+directedness uses a common later stage and compactness there, and
+density is coordinatewise. Distributivity transfers coordinatewise.
+If $a$ is compact at a stage, the lower ideal of $\iota_n(a)$ is entirely
+inside the image of $\iota_n$, by rigidity. A finite discrete
+presentation of $\mathord\downarrow a$ therefore transfers to one of
+$\mathord\downarrow\iota_n(a)$. Every compact of $L$ equals a basis
+element, so $L$ satisfies the finite-ideal axiom as well.
+
+The stable endomorphism construction commutes with this limit. For the
+chain of endomorphism spaces with the lifted embeddings, the inverse
+stable maps are
+\[
+ f\longmapsto(\pi_n f\iota_n)_n,
+ \qquad
+ (f_n)_n\longmapsto\sup_n\iota_n f_n\pi_n.
+\]
+The restrictions form a stable cone. The assembly maps increase in
+stable order: the $n$th assembly equals the next one precomposed with
+the $n$th rigid projection of the function-sequence limit. Hence their
+supremum is stable, also as a function of the sequence.
+
+For the first inverse law, assembly after restriction is
+$\sup_n p_nfp_n=f$. To verify the nontrivial inequality, continuity
+reduces to inputs $p_nx$ and density reduces outputs to
+$p_mf(p_nx)$. Each is below the diagonal approximation at
+$\max(m,n)$. For the other inverse law, compression to level $n$ of an
+assembly at level $m\le n$ is below $f_n$, while compression of any
+later assembly is exactly $f_n$. Coherence and absorption of nested
+stage projections prove these claims. Continuity of compression then
+gives the inverse equation.
+
+Now set $A_0=A$ and $A_{n+1}=[A_n\Rightarrow_s A_n]$, starting with
+the constant-function embedding and lifting each successive embedding.
+Let $D$ be its rigid limit. The chain of endomorphism spaces is precisely
+the tail of this tower. Deleting the first coordinate is a stable
+isomorphism of limits, with inverse adjoining $r_0(x_1)$. Thus
+\[
+ [D\Rightarrow_s D]\cong\lim_n[A_n\Rightarrow_s A_n]
+   =\lim_n A_{n+1}\cong D.
+\]
+The canonical embedding of $A_0$ gives the seed embedding. Its retraction
+proves faithfulness. Composing the rigid-code image embedding with the
+function-space isomorphism supplies the universe representation.
+\end{proof}
+
+This is a construction relative to any seed dI-domain, with no assumed
+function-space or code embedding for the seed. It does not supply an
+unconditional nontrivial seed under constructive foundations: the
+finite-discrete compact-ideal obstruction discussed earlier still
+applies. The existing Scott filter model has not been shown to provide
+such a seed. The following sections supply a conditional concrete seed and connect
+the resulting reflexive universe to terms and tower-stage observations.
+
+\section{A conditional nontrivial Boolean seed}
+
+Write $2=\{0<1\}$. The classical input in this section is an explicit
+parameter
+\[
+ \mathsf{EM}_{\ell}:\quad P+\neg P
+ \quad\text{for each proposition }P:\mathcal U_{\ell}.
+\]
+It is not a parameter of the ambient formal development.
+
+\begin{theorem}
+Under $\mathsf{EM}_{\ell}$, the two-element chain is a dI-domain with
+both elements compact. Its associated represented reflexive domain is
+nontrivial. Conversely, a Scott-domain structure on this Boolean order
+with bottom $0$ and compact top $1$ implies $\mathsf{EM}_{\ell}$.
+\end{theorem}
+\begin{proof}
+For a small family $(x_i)_{i\in I}$, decide the proposition
+$\|\sum_{i:I}(x_i=1)\|$. Its join is $1$ when this proposition holds,
+and $0$ otherwise. This gives all small joins, including the empty join.
+If $1\le\bigvee_i x_i$, the definition supplies a mere index with
+$x_i=1$, proving compactness of $1$. Compactness of $0$ uses the
+inhabitedness of a directed family. The whole Boolean carrier is a
+compact basis. Distributivity is a Boolean case distinction, and the
+lower ideals have the explicit presentations $\{0\}$ and $\{0,1\}$.
+Neither of these last two verifications needs excluded middle.
+
+The seed embedding in the reflexive construction is faithful and
+strict. Thus its two images are distinct, and the upper image is
+nonbottom. For the converse, apply the compact-ideal excluded-middle
+argument to $1$ and its two-element lower ideal.
+\end{proof}
+
+This supplies a concrete classical instance while exposing exactly the
+logical input used. It does not claim a nontrivial literal dI-domain
+under the constructive global assumptions alone.
+
+\section{Stable interpretation of annotated syntax}
+
+Let $D$ have the representation data constructed above. Put
+$E_0=1$ and $E_{n+1}=E_n\times D$. A term with $n$ free variables is
+interpreted as a stable map $E_n\to D$. For an environment $\rho$, set
+$a=\llbracket A\rrbracket\rho$ and
+$f(x)=\llbracket M\rrbracket(\rho,x)$. The clauses are
+\begin{align*}
+ \llbracket U\rrbracket\rho&=U,\\
+ \llbracket\Pi(A,B)\rrbracket\rho
+   &=\Pi\bigl(a,x\mapsto\llbracket B\rrbracket(\rho,x)\bigr),\\
+ \llbracket\lambda(A,M)\rrbracket\rho
+   &=e_F\bigl(f\circ r_U(a)\bigr),\\
+ \llbracket MN\rrbracket\rho
+   &=\operatorname{app}(\llbracket M\rrbracket\rho,
+                          \llbracket N\rrbracket\rho).
+\end{align*}
+Variables are product projections. The restriction in the lambda clause
+is needed for the supported-section interpretation of dependent functions.
+
+\begin{theorem}
+These clauses give a total stable interpretation of the existing
+\texttt{Syntax.Tm}. It respects renaming and simultaneous substitution.
+For an argument $x=\llbracket N\rrbracket\rho$,
+\[
+ \llbracket(\lambda(A,M))N\rrbracket\rho
+   =\llbracket M\rrbracket(\rho,\Delta(a,x)).
+\]
+Consequently, if $\Delta(a,x)=x$, this equals
+$\llbracket M[N]\rrbracket\rho$.
+\end{theorem}
+\begin{proof}
+All constructors are stable by composition, pairing and currying;
+input restriction is jointly stable in the projection and function.
+Renaming is proved by induction on terms, extending the environment
+comparison with an identical last argument under each binder.
+Extensionality of stable maps identifies the curried bodies. The same
+induction proves substitution; weakening, obtained from renaming,
+handles substitution under a binder. The represented application beta
+law gives the displayed equation, and single substitution gives the
+last assertion.
+\end{proof}
+
+\begin{theorem}
+Write $t:a$ at $\rho$ for
+$\llbracket t\rrbracket\rho\le
+\Delta(\llbracket a\rrbracket\rho,\llbracket t\rrbracket\rho)$.
+If $M:B$ at every $(\rho,x)$ with $\Delta(a,x)=x$, then
+$\lambda(A,M):\Pi(A,B)$ at $\rho$. If
+$f:\Pi(A,B)$ and $N:A$ at $\rho$, then $fN:B[N]$ at $\rho$.
+Also $U:U$, every Pi expression lies in $U$, and beta holds at typed
+arguments.
+\end{theorem}
+\begin{proof}
+Introduction is the greatest-supported-section abstraction theorem;
+elimination is its application theorem, followed by semantic single
+substitution in the result type. Deflationarity turns semantic typing
+into fixedness, giving the beta premise.
+\end{proof}
+
+These are semantic rules for the new interpretation. Full induction over
+\texttt{Syntax.Der}, including Pi congruence and typed function
+extensionality, is not yet formalised. In particular, the old Scott-model
+soundness and adequacy results are not being reused as results about this
+different interpretation.
+
+\section{Tower rank and finite observation}
+
+For any rigid chain limit, let $p_n=\iota_n\pi_n$ and say that $x$ has
+rank at most $n$ when $p_nx=x$.
+
+\begin{theorem}
+Rank is downward closed and persists at later stages. Every compact
+observation $k\le x$ is captured at some finite stage:
+\[
+ \exists n,\quad k\le p_nx.
+\]
+Every compact element has a finite-rank witness. For any stable map
+$f:P\to D$, the maps $p_n\circ f$ form an increasing chain in stable
+order with supremum $f$. In particular this applies to every term
+interpretation and every environment.
+\end{theorem}
+\begin{proof}
+Downward closure follows from rigidity, and persistence from
+$p_n\le_s p_m$ for $n\le m$. Since $x=\bigvee_n p_nx$, compactness
+supplies the observation witness. Heredity then gives $p_nk=k$.
+Postcomposition preserves stable comparison. Pointwise directed joins
+and $\bigvee_n p_n=\id$ identify the supremum of the composed maps.
+The existential witnesses are propositionally truncated; no least rank
+or simultaneous choice of ranks is asserted.
+\end{proof}
+
+The exponential tower gives a more specific link to application. If
+$v=(v_n)$ is an element of its reflexive limit and $r_F(v)$ is its decoded
+stable function, then
+\[
+ \pi_n\,r_F(v)\,\iota_n=v_{n+1}.
+\]
+This is the $n$th coordinate of the exponential-limit inverse equation,
+since dropping the first coordinate of $v$ gives its function sequence.
+Consequently the following equation is checked:
+\[
+ p_n\bigl(\operatorname{app}(v,p_nx)\bigr)
+   =\iota_n\bigl(v_{n+1}(\pi_nx)\bigr).
+\]
+It connects a finite input/output observation of application to the next
+function stage, without appealing to the old Scott-filter syntax ranks.
+
+For the Boolean seed, rank zero already contains two distinct points.
+These stages are therefore not the bottom-starting Kleene iterations.
+We have not proved finiteness of the whole Boolean tower stage carriers,
+a bound on observations from syntactic term rank, or an identification
+with the earlier Scott-model stages or Proposition~2.27.
+
+\section{What is formalised}
+
+The following files are included in the combined Unit check:
+\begin{itemize}
+\item \texttt{ScottMeet.seg}: binary meets from the small compact basis.
+\item \texttt{RigidProjector.seg}: the equivalence of the hereditary law
+and the stable-order equation, idempotence, downward closure, meet
+preservation, composition and commutation.
+\item \texttt{RigidImage.seg}: the Scott-domain image and both directions
+of the compactness characterization.
+\item \texttt{DIDomain.seg}, \texttt{DIImage.seg}: an explicit abstract
+dI-domain interface and inheritance of distributivity and finite
+discrete compact lower ideals by rigid images. Finite presentations
+are propositionally truncated, so no simultaneous choice is required.
+\item \texttt{RigidSubdomain.seg}: construction from a small
+downward-closed bounded-join-closed predicate, the converse, round trip,
+monotonicity and intersection.
+\item \texttt{RigidSections.seg}: compact-input tests, the section
+projection, its greatest-section property, monotonicity, intersection,
+and the joint intersection equation, over an explicitly supplied
+function-domain interface.
+\item \texttt{StableMaps.seg}, \texttt{StableDirected.seg},\\
+\texttt{DistributiveJoins.seg}, \texttt{StableComplete.seg}: small tests
+for stability and stable order, and pointwise directed and bounded joins.
+\item \texttt{FiniteDiscrete.seg}, \texttt{CompactIdeals.seg}: finite
+discrete positions, locally derived excluded middle, and compactness
+of elements below compact elements.
+\item \texttt{StableComposition.seg}, \texttt{PrincipalProjection.seg},\\
+\texttt{StablePatches.seg}: stable composition, principal restrictions,
+and the ordinarily compact stable approximations $k_{a,b,f}$.
+\item \texttt{StableExponential.seg}: the Scott domain of stable maps,
+its small compact basis, and equivalence of stable and ordinary
+compactness for stable maps.
+\item \texttt{StableMeet.seg}, \texttt{StableDistributive.seg},\\
+\texttt{StableFiniteIdeals.seg}: pointwise compatible meets, distributivity,
+and finite discrete compact lower ideals; the stable exponential as a
+\texttt{DIDomain.DI}.
+\item \texttt{FiniteEnumeration.seg}, \texttt{FiniteRange.seg}: finite
+products, mere finite choice, decidable tests and duplicate removal,
+with small indices even for large enumerated types.
+\item \texttt{ScottProduct.seg}, \texttt{DIProduct.seg},
+\texttt{StableProduct.seg}: products and stable projections and pairing.
+\item \texttt{StableEvaluation.seg}, \texttt{StableCurrying.seg}:
+joint stable evaluation, currying and uncurrying, and beta/eta identities.
+\item \texttt{StableSections.seg}: the genuine stable function-domain
+instance of the section construction and the finite tests (FT) on its
+compact basis.
+\item \texttt{SectionContinuity.seg}: continuity in any Scott parameter
+with continuous fibre evaluations, including a simultaneously varying
+continuous function argument.
+\item \texttt{RigidSpace.seg}, \texttt{StableFamilies.seg}: the dI-domain
+of rigid projections, the stable family domain, joint stability of section
+application, and stability of the family-to-projection operation.
+\item \texttt{StableInternalComposition.seg}, \texttt{RigidOperations.seg}:
+internal composition and rigid composition/evaluation as stable maps.
+\item \texttt{StableInputRestriction.seg}, \texttt{StableImageMaps.seg},\\
+\texttt{StableVaryingFamilies.seg}: input restriction, image extension and
+restriction, and the stable greatest-supported-section construction.
+\item \texttt{StableFixpoint.seg}, \texttt{StableProjectorFixpoint.seg}:
+stable least-fixed-point formation and rigid projector stages and limits.
+\item \texttt{RigidEmbedding.seg}, \texttt{RigidUniverse.seg}:
+explicit rigid representation data, stable transport, and the conditional
+universe, application and dependent-function typing theorems.
+\item \texttt{RigidUniverseRecursion.seg}: stable recursive-type formation,
+leastness, and stages, conditional on the code representation.
+\item \texttt{RigidEmbeddingComposition.seg}, \texttt{StableConjugation.seg},\\
+\texttt{RigidEmbeddingExponential.seg}, \texttt{RigidEmbeddingLaws.seg}:
+embedding constructors, stable conjugation, exponential lifting,
+compactness and bounded-join preservation.
+\item \texttt{RigidLimitOrder.seg}, \texttt{RigidLimitEmbedding.seg},\\
+\texttt{RigidLimitDomain.seg}, \texttt{RigidLimitRigid.seg},
+\texttt{RigidLimitDI.seg}: countable rigid limits, their compact basis,
+rigid stage embeddings and both dI axioms.
+\item \texttt{OrderedChains.seg}, \texttt{StableExtensional.seg},\\
+\texttt{RigidLimitLaws.seg}, \texttt{RigidLimitMaps.seg}: stage identities,
+identity approximation and stable assembly of cones.
+\item \texttt{RigidLimitExponential.seg},
+\texttt{RigidLimitExponentialLaws.seg},\\
+\texttt{RigidLimitTail.seg}: the stable exponential limit isomorphism
+and the tail isomorphism, with both inverse laws.
+\item \texttt{RigidExponentialTower.seg}, \texttt{RigidReflexiveDomain.seg}:\\
+the relative reflexive-domain construction, faithful seed embedding,
+represented universe and recursive types.
+\item \texttt{BooleanDI.seg}, \texttt{BooleanReflexive.seg}: the conditional
+Boolean seed, its necessary classical input, and two distinct points
+in its represented reflexive domain.
+\item \texttt{ScottTerminal.seg}, \texttt{StableSyntax.seg},\\
+\texttt{StableSubstitution.seg}, \texttt{StableSyntaxTyping.seg}:\\
+stable term interpretation, renaming, substitution, and introduction,
+elimination and beta laws for dependent functions.
+\item \texttt{RigidRankStages.seg}, \texttt{ReflexiveSyntax.seg}: tower ranks,
+compact-observation capture, stable term approximation, and the
+one-step application equation.
+\end{itemize}
+
+A nontrivial seed without a classical parameter, full judgemental
+soundness for the stable interpretation, comparison with syntactic and
+Scott-model ranks, and a constructive event-structure presentation
+remain open. The conditional Boolean instance takes small excluded
+middle explicitly; the general dI theorems continue to take only their
+stated domain and representation data.
+The formal development still uses only the existing univalence and
+replacement interfaces as global assumptions. The combined check
+reports 7,745 declarations and zero failures, with all 40 frozen
+dependency hashes verified.
+
+\end{document}

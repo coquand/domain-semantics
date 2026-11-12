@@ -1,0 +1,46 @@
+-- A proposition-indexed partial domain element, with bottom when absent.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Abstraction[l] ;
+module TC = TruncationCombinators[l] ; module P = Prelude[l+] ;
+
+module At (Q : U l) (prop : isProp Q) (x : Q -> D) {
+  W (t : Ty) : U l = Plus (Le om t) ((q : Q) * In (x q) t) ;
+  same (q r : Q) : Domain[l].Below (x q) (x r) =
+    (id-eqv (x q).1 (x r).1 (P.ap Q Filt (\ p -> (x p).1) q r (prop q r))).1 ;
+  merge (s t : Ty) : W s -> W t -> W (meet s t) = split {
+    inl hs -> split {
+      inl ht -> inl (le-meet om s t hs ht) ;
+      inr b -> inr (b.1,fmeet (x b.1).1 s t (fup (x b.1).1 om s hs (fom (x b.1).1)) b.2) } ;
+    inr a -> split {
+      inl ht -> inr (a.1,fmeet (x a.1).1 s t a.2 (fup (x a.1).1 om t ht (fom (x a.1).1))) ;
+      inr b -> inr (a.1,fmeet (x a.1).1 s t a.2 (same b.1 a.1 t b.2)) } } ;
+  up (s t : Ty) (le : Le s t) : W s -> W t = split {
+    inl h -> inl (le-trans om s t h le) ;
+    inr a -> inr (a.1,fup (x a.1).1 s t le a.2) } ;
+  carrier : Filt = truncF W (inl (le-refl om)) merge up ;
+  valid-w (t : Ty) : W t -> Cons t = split {
+    inl h -> cons-down om t h cons-om ; inr a -> consistent (x a.1) t a.2 } ;
+  good-w (t : Ty) : W t -> Ex (Domain[l].PW carrier t) = split {
+    inl h -> ex (Domain[l].PW carrier t) (om,(tt,(fom carrier,h))) ;
+    inr a -> TC.map (Domain[l].PW (x a.1).1 t) (Domain[l].PW carrier t)
+      (\ w -> (w.1,(w.2.1,(ex (W w.1) (inr (a.1,w.2.2.1)),w.2.2.2)))) ((x a.1).2.2 t a.2) } ;
+  value : D = (carrier,(\ t -> TC.map (W t) (Cons t) (valid-w t),
+    \ t -> TC.bind (W t) (Domain[l].PW carrier t) (good-w t))) ;
+  intro (q : Q) : Domain[l].Below (x q) value = \ t h -> ex (W t) (inr (q,h)) ;
+  cases (y : D) (h : (q : Q) -> Domain[l].Below (x q) y) (t : Ty) : W t -> In y t = split {
+    inl le -> fup y.1 om t le (fom y.1) ; inr a -> h a.1 t a.2 } ;
+  eliminate (y : D) (h : (q : Q) -> Domain[l].Below (x q) y) : Domain[l].Below value y = \ t ->
+    ex-elim (W t) (In y t) (fprop y.1 t) (cases y h t) ;
+  absent (no : Q -> Empty) : Equal value bottom =
+    (eliminate bottom (\ q -> absurd (Domain[l].Below (x q) bottom) (no q)),bottom-least value) ;
+} ;
+
+module Functions (Q : U l) (prop : isProp Q) (x : Q -> FD) {
+  module G = At[Q,prop,\ q -> (x q).1] ;
+  arrows (t : Ty) : G.W t -> Ex (AW G.value t) = split {
+    inl h -> ex (AW G.value t) (om,(tt,(tt,(fom G.value.1,h)))) ;
+    inr a -> TC.map (AW (x a.1).1 t) (AW G.value t)
+      (\ w -> (w.1,(w.2.1,(w.2.2.1,(G.intro a.1 w.1 w.2.2.2.1,w.2.2.2.2))))) ((x a.1).2 t a.2) } ;
+  value : FD = (G.value,\ t -> TC.bind (G.W t) (AW G.value t) (arrows t)) ;
+} ;

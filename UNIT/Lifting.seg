@@ -1,0 +1,32 @@
+-- Small-proposition lifting, with extensional equality. The carrier A
+-- may live one universe above the propositions specifying definedness.
+level l ;
+open Base ; open Prelude[l] ; open ExtFilter[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module FP = Axioms[l+].FunExtLemmas[fe @l+] ;
+module P = Prelude[l+] ;
+
+Prop : U l+ = (Q : U l) * isProp Q ;
+Lift (A : U l+) : U l+ = (Q : Prop) * (Q.1 -> A) ;
+
+prop-path (Q R : Prop) (qr : Q.1 -> R.1) (rq : R.1 -> Q.1) : Id Prop Q R =
+  P.Sigma-eq (U l) (\ S -> isProp S) Q.1 R.1 Q.2 R.2
+    (prop-ext Q.1 R.1 Q.2 R.2 qr rq) (F.isProp-isProp R.1) ;
+
+pair-path (A B : U l+) (a a' : A) (b b' : B) (pa : Id A a a') (pb : Id B b b') :
+  Id (A * B) (a,b) (a',b') =
+  P.trans (A * B) (a,b) (a',b) (a',b')
+    (P.ap A (A * B) (\ u -> (u,b)) a a' pa)
+    (P.ap B (A * B) (\ v -> (a',v)) b b' pb) ;
+
+lift-path (A : U l+) (Q R : Prop) (e : Id Prop Q R) :
+  (v : Q.1 -> A) (w : R.1 -> A) -> ((p : Q.1) (q : R.1) -> Id A (v p) (w q)) ->
+  Id (Lift A) (Q,v) (R,w) =
+  idJ Prop Q (\ S path -> (v : Q.1 -> A) (w : S.1 -> A) ->
+    ((p : Q.1) (q : S.1) -> Id A (v p) (w q)) -> Id (Lift A) (Q,v) (S,w))
+    (\ v w h -> P.ap (Q.1 -> A) (Lift A) (\ f -> (Q,f)) v w
+      (FP.funext Q.1 (\ _ -> A) v w (\ p -> h p p))) R e ;
+
+ext (A : U l+) (x y : Lift A) (xy : x.1.1 -> y.1.1) (yx : y.1.1 -> x.1.1)
+  (values : (p : x.1.1) (q : y.1.1) -> Id A (x.2 p) (y.2 q)) : Id (Lift A) x y =
+  lift-path A x.1 y.1 (prop-path x.1 y.1 xy yx) x.2 y.2 values ;

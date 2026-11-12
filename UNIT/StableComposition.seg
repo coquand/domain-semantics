@@ -1,0 +1,53 @@
+-- Composition of stable maps and monotonicity in the stable order.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+
+module Between (D E F : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D] ; module B = ScottDomain[l].On[E] ; module C = ScottDomain[l].On[F] ;
+  module AN = ScottMeet[l].On[D] ; module BN = ScottMeet[l].On[E] ; module CN = ScottMeet[l].On[F] ;
+  module M = ScottMaps[l].Between[D,E] ; module N = ScottMaps[l].Between[E,F] ; module L = ScottMaps[l].Between[D,F] ;
+  module S = StableMaps[l].Between[D,E] ; module T = StableMaps[l].Between[E,F] ; module Out = StableMaps[l].Between[D,F] ;
+  module DV = DC[D.order,D.complete] ; module EV = DC[E.order,E.complete] ;
+  module Compose (f : S.Map) (g : T.Map) {
+    value (x : A.C) : C.C = T.run g (S.run f x) ;
+    monotone : L.Monotone value = \ x y xy -> T.mono g (S.run f x) (S.run f y) (S.mono f x y xy) ;
+    continuous : L.Continuous value = \ I x d z h ->
+      F.order.transitive (value (DV.sup I x d))
+        (T.run g (EV.sup I (\ i -> S.run f (x i)) (M.image-dir (S.run f) (S.mono f) I x d))) z
+        (T.mono g (S.run f (DV.sup I x d)) (EV.sup I (\ i -> S.run f (x i)) (M.image-dir (S.run f) (S.mono f) I x d))
+          (M.continuous f.1 I x d (EV.sup I (\ i -> S.run f (x i)) (M.image-dir (S.run f) (S.mono f) I x d))
+            (EV.upper I (\ i -> S.run f (x i)) (M.image-dir (S.run f) (S.mono f) I x d))))
+        (N.continuous g.1 I (\ i -> S.run f (x i)) (M.image-dir (S.run f) (S.mono f) I x d) z h) ;
+    preserves (x y z : A.C) (xz : A.LE x z) (yz : A.LE y z) : C.LE (CN.meet (value x) (value y)) (value (AN.meet x y)) =
+      F.order.transitive (CN.meet (value x) (value y)) (T.run g (BN.meet (S.run f x) (S.run f y))) (value (AN.meet x y))
+        (T.preserves g (S.run f x) (S.run f y) (S.run f z) (S.mono f x z xz) (S.mono f y z yz))
+        (T.mono g (BN.meet (S.run f x) (S.run f y)) (S.run f (AN.meet x y)) (S.preserves f x y z xz yz)) ;
+    map : Out.Map = ((value,(monotone,continuous)),\ a b c -> preserves (A.basic a) (A.basic b) (A.basic c)) ;
+  } ;
+  post-order (f : S.Map) (g h : T.Map) (gh : T.LE g h) : Out.LE Compose[f,g].map Compose[f,h].map =
+    Out.from-law Compose[f,g].map Compose[f,h].map (\ x -> T.pointwise g h gh (S.run f x))
+      (\ x y xy -> T.restriction g h gh (S.run f x) (S.run f y) (S.mono f x y xy)) ;
+  pre-order (f h : S.Map) (fh : S.LE f h) (g : T.Map) : Out.LE Compose[f,g].map Compose[h,g].map =
+    Out.from-law Compose[f,g].map Compose[h,g].map (\ x -> T.mono g (S.run f x) (S.run h x) (S.pointwise f h fh x))
+      (\ x y xy -> F.order.transitive (CN.meet (T.run g (S.run f y)) (T.run g (S.run h x)))
+        (T.run g (BN.meet (S.run f y) (S.run h x))) (T.run g (S.run f x))
+        (T.preserves g (S.run f y) (S.run h x) (S.run h y) (S.pointwise f h fh y) (S.mono h x y xy))
+        (T.mono g (BN.meet (S.run f y) (S.run h x)) (S.run f x) (S.restriction f h fh x y xy))) ;
+} ;
+
+module Endo (D : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[D] ; module N = ScottMeet[l].On[D] ;
+  module S = StableMaps[l].Between[D,D] ; module V = DC[D.order,D.complete] ;
+  module R = RigidProjector[l].On[D] ;
+  identity : S.Map = ((\ x -> x,(\ x y h -> h,\ I x d z h -> V.least I x d z h)),
+    \ a b c ac bc -> D.order.reflexive (N.meet (A.basic a) (A.basic b))) ;
+  from-rigid (p : R.Rigid) : S.Map = (p.operation,\ a b c ac bc ->
+    subst A.C (\ z -> A.LE (N.meet (R.run p (A.basic a)) (R.run p (A.basic b))) z)
+      (N.meet (R.run p (A.basic a)) (R.run p (A.basic b))) (R.run p (N.meet (A.basic a) (A.basic b)))
+      (sym A.C (R.run p (N.meet (A.basic a) (A.basic b))) (N.meet (R.run p (A.basic a)) (R.run p (A.basic b)))
+        (R.preserves-meet p (A.basic a) (A.basic b)))
+      (D.order.reflexive (N.meet (R.run p (A.basic a)) (R.run p (A.basic b))))) ;
+  below-id (p : R.Rigid) : S.LE (from-rigid p) identity = S.from-law (from-rigid p) identity p.deflation
+    (\ x y xy -> R.greatest p x (N.meet (R.run p y) x)
+      (p.hereditary (N.meet (R.run p y) x) y (N.left (R.run p y) x)) (N.right (R.run p y) x)) ;
+} ;

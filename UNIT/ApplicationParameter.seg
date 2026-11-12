@@ -1,0 +1,21 @@
+-- Application is also continuous in its function parameter.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ;
+module TC = TruncationCombinators[l] ;
+module R = Filter[l] ;
+module At (x : D) {
+  operation (f : D) : D = Application[l].eval f x ;
+  monotone (f g : D) (h : Domain[l].Below f g) : Domain[l].Below (operation f) (operation g) =
+    Application[l].mono f g x x h (sub-refl x.1) ;
+  module Observation (f : D) (t : Ty) (w : R.AppW (raw f.1) (raw x.1) t) {
+    witness (a : Domain[l].PW f.1 w.g) : Trace operation f t =
+      (k,(a.2.2.1,Application[l].intro (principal k) x a.1 w.x t (prin-in a.1) w.inx
+        (le-trans a.1 w.g (arr w.x t) a.2.2.2 w.le)))
+      where { k : K = (a.1,(a.2.1,consistent f a.1 a.2.2.1)) ; } ;
+    result : Ex (Trace operation f t) = TC.map (Domain[l].PW f.1 w.g) (Trace operation f t) witness (f.2.2 w.g w.ing) ;
+  } ;
+  finite : Finite operation = \ f t -> TC.bind (R.AppW (raw f.1) (raw x.1) t) (Trace operation f t)
+    (\ w -> Observation[f,t,w].result) ;
+  map : Map = (operation,(monotone,finite)) ;
+} ;

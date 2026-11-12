@@ -1,0 +1,64 @@
+-- Joint evaluation is continuous and stable for the genuine stable order.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module Exponential (D E : DIDomain[l].DI) {
+  module X = StableExponential[l].Exponential[D,E] ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module SD = StableDirected[l].Between[D.scott,E.scott] ;
+  module SM = StableMeet[l].Between[D.scott,E.scott] ;
+  module P = ScottProduct[l].Product[X.scott,D.scott] ;
+  module M = ScottMaps[l].Between[D.scott,E.scott] ;
+  module O = StableMaps[l].Between[P.scott,E.scott] ;
+  module OM = ScottMaps[l].Between[P.scott,E.scott] ;
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module AN = ScottMeet[l].On[D.scott] ; module BN = ScottMeet[l].On[E.scott] ;
+  value (u : P.C) : B.C = S.run u.1 u.2 ;
+  monotone : OM.Monotone value = \ u v h -> E.scott.order.transitive (value u) (S.run v.1 u.2) (value v)
+    (S.pointwise u.1 v.1 h.1 u.2) (S.mono v.1 u.2 v.2 h.2) ;
+  module Directed (I : U l) (u : I -> P.C) (d : P.O.Dir I u) (z : B.C) (h : (i : I) -> B.LE (value (u i)) z) {
+    fd : S.SO.Dir I (\ i -> (u i).1) = P.left-dir I u d ;
+    xd : M.O.Dir I (\ i -> (u i).2) = P.right-dir I u d ;
+    module Q = SD.Sup[I,\ i -> (u i).1,fd] ;
+    cross (i j : I) : B.LE (S.run (u i).1 (u j).2) z =
+      T.rec (P.O.Upper I u i j) @l (B.LE (S.run (u i).1 (u j).2) z) (E.scott.order.proposition (S.run (u i).1 (u j).2) z)
+        (\ w -> E.scott.order.transitive (S.run (u i).1 (u j).2) (value (u w.1)) z
+          (monotone ((u i).1,(u j).2) (u w.1) (w.2.1.1,w.2.2.2)) (h w.1)) (d.2 i j) ;
+    result : B.LE (value (P.V.sup I u d)) z =
+      (E.scott.complete.directed I (\ i -> S.run (u i).1 (P.BV.sup I (\ j -> (u j).2) xd))
+        (Q.evaluated (P.BV.sup I (\ j -> (u j).2) xd))).2.2 z
+        (\ i -> M.continuous (u i).1.1 I (\ j -> (u j).2) xd z (cross i)) ;
+  } ;
+  module Compatible (f g h : S.Map) (fh : S.LE f h) (gh : S.LE g h)
+    (x y z : A.C) (xz : A.LE x z) (yz : A.LE y z) {
+    k : B.C = BN.meet (S.run f x) (S.run g y) ;
+    common : B.LE k (S.run h (AN.meet x y)) = E.scott.order.transitive k
+      (BN.meet (S.run h x) (S.run h y)) (S.run h (AN.meet x y))
+      (BN.monotone (S.run f x) (S.run g y) (S.run h x) (S.run h y) (S.pointwise f h fh x) (S.pointwise g h gh y))
+      (S.preserves h x y z xz yz) ;
+    left : B.LE k (S.run f (AN.meet x y)) = E.scott.order.transitive k
+      (BN.meet (S.run f x) (S.run h (AN.meet x y))) (S.run f (AN.meet x y))
+      (BN.greatest (S.run f x) (S.run h (AN.meet x y)) k (BN.left (S.run f x) (S.run g y)) common)
+      (S.restriction f h fh (AN.meet x y) x (AN.left x y)) ;
+    right : B.LE k (S.run g (AN.meet x y)) = E.scott.order.transitive k
+      (BN.meet (S.run g y) (S.run h (AN.meet x y))) (S.run g (AN.meet x y))
+      (BN.greatest (S.run g y) (S.run h (AN.meet x y)) k (BN.right (S.run f x) (S.run g y)) common)
+      (S.restriction g h gh (AN.meet x y) y (AN.right x y)) ;
+    pointwise : B.LE k (S.run SM.Pointwise[f,g].map (AN.meet x y)) =
+      BN.greatest (S.run f (AN.meet x y)) (S.run g (AN.meet x y)) k left right ;
+    result : B.LE k (value (P.N.meet (f,x) (g,y))) = E.scott.order.transitive k
+      (value (SM.Pointwise[f,g].map,AN.meet x y)) (value (P.N.meet (f,x) (g,y))) pointwise
+      (monotone (SM.Pointwise[f,g].map,AN.meet x y) (P.N.meet (f,x) (g,y))
+        (P.N.greatest (f,x) (g,y) (SM.Pointwise[f,g].map,AN.meet x y)
+          (SM.Compatible[f,g,h,fh,gh].left,AN.left x y) (SM.Compatible[f,g,h,fh,gh].right,AN.right x y))) ;
+  } ;
+  map : O.Map = ((value,(monotone,\ I u d z h -> Directed[I,u,d,z,h].result)),
+    \ a b c ac bc -> Compatible[(P.basic a).1,(P.basic b).1,(P.basic c).1,ac.1,bc.1,
+      (P.basic a).2,(P.basic b).2,(P.basic c).2,ac.2,bc.2].result) ;
+  module At (x : A.C) {
+    module Pair = StableProduct[l].Pair[X.scott,X.scott,D.scott,
+      StableComposition[l].Endo[X.scott].identity,StableProduct[l].Constant[X.scott,D.scott,x].map] ;
+    evaluation : StableMaps[l].Between[X.scott,E.scott].Map =
+      StableComposition[l].Between[X.scott,P.scott,E.scott].Compose[Pair.map,map].map ;
+  } ;
+} ;

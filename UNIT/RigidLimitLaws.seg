@@ -1,0 +1,57 @@
+-- The stage approximations exhaust the limit; adjacent embeddings commute.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Embed = RigidLimitEmbedding[l] ;
+module On (S : RigidLimitOrder[l].Chain) {
+  module L = RigidLimitOrder[l].On[S] ; module D = RigidLimitDI[l].On[S] ;
+  module A = ScottDomain[l].On[D.domain.scott] ;
+  module M = StableMaps[l].Between[D.domain.scott,D.domain.scott] ;
+  module End = StableComposition[l].Endo[D.domain.scott] ;
+  successor-lower (n : Nat) (a : L.C n) (x : L.carrier) (h : L.LE n a (x.1 n)) : L.le (Embed.lift (suc n) S (L.embed n a)) x =
+    Embed.lower (suc n) S (L.embed n a) x (RigidEmbeddingLaws[l].On[S.domain n,S.domain (suc n),S.link n].lower a (x.1 (suc n))
+      ((S.domain n).scott.order.transitive a (x.1 n) (L.project n (x.1 (suc n))) h (Embed.At[S].coherent-from x n))) ;
+  adjacent (n : Nat) (a : L.C n) : Id L.carrier (Embed.lift (suc n) S (L.embed n a)) (Embed.lift n S a) =
+    L.ext (Embed.lift (suc n) S (L.embed n a)) (Embed.lift n S a)
+      (successor-lower n a (Embed.lift n S a) (Embed.upper n S a (Embed.lift n S a) (L.order.reflexive (Embed.lift n S a))))
+      (Embed.lower n S a (Embed.lift (suc n) S (L.embed n a))
+        ((S.domain n).scott.order.transitive a (L.project n ((Embed.lift (suc n) S (L.embed n a)).1 (suc n)))
+          ((Embed.lift (suc n) S (L.embed n a)).1 n)
+          (RigidEmbeddingLaws[l].On[S.domain n,S.domain (suc n),S.link n].upper a ((Embed.lift (suc n) S (L.embed n a)).1 (suc n))
+            (Embed.upper (suc n) S (L.embed n a) (Embed.lift (suc n) S (L.embed n a)) (L.order.reflexive (Embed.lift (suc n) S (L.embed n a)))))
+          (Embed.At[S].coherent-to (Embed.lift (suc n) S (L.embed n a)) n))) ;
+  lift-next (n : Nat) (a : L.C n) : Id (L.C (suc n)) ((Embed.lift n S a).1 (suc n)) (L.embed n a) =
+    trans (L.C (suc n)) ((Embed.lift n S a).1 (suc n)) ((Embed.lift (suc n) S (L.embed n a)).1 (suc n)) (L.embed n a)
+      (ap L.carrier (L.C (suc n)) (\ x -> x.1 (suc n)) (Embed.lift n S a) (Embed.lift (suc n) S (L.embed n a))
+        (sym L.carrier (Embed.lift (suc n) S (L.embed n a)) (Embed.lift n S a) (adjacent n a))) (Embed.section (suc n) S (L.embed n a)) ;
+  lift-previous (n : Nat) (a : L.C (suc n)) : Id (L.C n) ((Embed.lift (suc n) S a).1 n) (L.project n a) =
+    trans (L.C n) ((Embed.lift (suc n) S a).1 n) (L.project n ((Embed.lift (suc n) S a).1 (suc n))) (L.project n a)
+      (sym (L.C n) (L.project n ((Embed.lift (suc n) S a).1 (suc n))) ((Embed.lift (suc n) S a).1 n) ((Embed.lift (suc n) S a).2 n))
+      (ap (L.C (suc n)) (L.C n) (L.project n) ((Embed.lift (suc n) S a).1 (suc n)) a (Embed.section (suc n) S a)) ;
+  module Nested (n m : Nat) (h : Lib[l].LeN n m) {
+    smaller (x : L.carrier) : L.le (Embed.approximate S n x) (Embed.approximate S m x) = D.Domain.approximate-mono n m h x ;
+    project (x : L.carrier) : Id (L.C n) ((Embed.approximate S m x).1 n) (x.1 n) =
+      (S.domain n).scott.order.antisymmetric ((Embed.approximate S m x).1 n) (x.1 n) (Embed.deflation S m x n)
+        (Embed.upper n S (x.1 n) (Embed.approximate S m x) (smaller x)) ;
+    fixed (a : L.C n) : Id L.carrier (Embed.approximate S m (Embed.lift n S a)) (Embed.lift n S a) =
+      L.ext (Embed.approximate S m (Embed.lift n S a)) (Embed.lift n S a) (Embed.deflation S m (Embed.lift n S a))
+        (L.order.transitive (Embed.lift n S a) (Embed.approximate S n (Embed.lift n S a)) (Embed.approximate S m (Embed.lift n S a))
+          (RigidLimitRigid[l].hereditary n S a (Embed.lift n S a) (L.order.reflexive (Embed.lift n S a))) (smaller (Embed.lift n S a))) ;
+  } ;
+  stage (n : Nat) : M.Map = D.Stage[n].Q.C.map ;
+  pre-order (E : ScottDomain[l].Scott) (f : StableMaps[l].Between[D.domain.scott,E].Map) (n : Nat) :
+    StableMaps[l].Between[D.domain.scott,E].LE (StableComposition[l].Between[D.domain.scott,D.domain.scott,E].Compose[stage n,f].map) f =
+    StableComposition[l].Between[D.domain.scott,D.domain.scott,E].pre-order (stage n) End.identity D.Stage[n].rigid f ;
+  increasing (n : Nat) : M.LE (stage n) (stage (suc n)) = M.under-bound (stage n) (stage (suc n)) End.identity
+    D.Stage[n].rigid D.Stage[suc n].rigid (\ a -> Embed.increasing S n (A.basic a)) ;
+  directed : M.SO.Dir Nat stage = OrderedChains[l].directed M.order stage increasing ;
+  module Sup = StableDirected[l].Between[D.domain.scott,D.domain.scott].Sup[Nat,stage,directed] ;
+  point-least (x z : L.carrier) (h : (n : Nat) -> L.le (Embed.approximate S n x) z) : L.le x z =
+    \ n -> Embed.upper n S (x.1 n) z (h n) ;
+  identity : Id M.Map Sup.map End.identity = M.ext Sup.map End.identity (Sup.least End.identity (\ n -> D.Stage[n].rigid))
+    (M.equal-below End.identity Sup.map (\ a -> point-least (A.basic a) (Sup.value (A.basic a)) (\ n -> Sup.point-upper n (A.basic a)))
+      (\ a -> M.pointwise Sup.map End.identity (Sup.least End.identity (\ n -> D.Stage[n].rigid)) (A.basic a))) ;
+  point-directed (x : L.carrier) : L.O.Dir Nat (\ n -> Embed.approximate S n x) = Sup.evaluated x ;
+  point-equation (x : L.carrier) : Id L.carrier (L.V.sup Nat (\ n -> Embed.approximate S n x) (point-directed x)) x =
+    L.ext (Sup.value x) x (L.V.least Nat (\ n -> Embed.approximate S n x) (point-directed x) x (\ n -> Embed.deflation S n x))
+      (point-least x (Sup.value x) (\ n -> Sup.point-upper n x)) ;
+} ;

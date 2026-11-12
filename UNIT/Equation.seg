@@ -1,0 +1,140 @@
+-- The full domain equation, proved by two inverse maps.
+-- The function factor FD is equivalent to continuous D -> D by
+-- Abstraction.function-space. Sum.RHS is the constructive coalesced sum.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ;
+open Abstraction[l] ; open Parts[l] ; open Lifting[l] ; open Sum[l] ;
+module R = Filter[l] ;
+module TC = TruncationCombinators[l] ;
+module P = Prelude[l+] ;
+
+arrow-shape : (s : Ty) -> Arrows s -> AllC R.NotUP s = split {
+  om -> \ a -> tt ; univ -> \ a -> efq a ; pi a b -> \ h -> efq h ;
+  arr a b -> \ h -> tt ; meet a b | ra rb -> \ h -> (ra h.1,rb h.2) } ;
+no-u (f : FD) (h : In f.1 univ) : Empty =
+  ex-elim (AW f.1 univ) Empty isProp-Empty
+    (\ w -> sel-all R.NotUP w.1 univ (inv-univ w.1 w.2.2.2.2) (arrow-shape w.1 w.2.2.1)) (f.2 univ h) ;
+arrow-no-pi (r a b : Ty) (ar : Arrows r) (le : Le r (pi a b)) : Empty =
+  sel-all R.NotUP r (pi i.1 i.2.1) i.2.2.2.2.1 (arrow-shape r ar)
+  where { i : InvPi r a b = inv-pi r a b le ; } ;
+no-pi (f : FD) (a b : Ty) (h : In f.1 (pi a b)) : Empty =
+  ex-elim (AW f.1 (pi a b)) Empty isProp-Empty
+    (\ w -> arrow-no-pi w.1 a b w.2.2.1 w.2.2.2.2) (f.2 (pi a b) h) ;
+
+module Reconstruct (x : D) {
+  module E = Encode[decode x] ;
+  module L = Lambda[Application[l].map x] ;
+  out : (t : Ty) -> E.W t -> In x t = split {
+    wbot t h -> fup x.1 om t h (fom x.1) ;
+    wu t u h -> fup x.1 univ t h u ;
+    wp t p a b ha hb h -> fup x.1 (pi a b) t h (pi-combine x a b ha hb) ;
+    wf t h -> Lower[x].forward t h } ;
+  forward : Domain[l].Below E.value x = \ t ->
+    ex-elim (E.W t) (In x t) (fprop x.1 t) (out t) ;
+  token : (s : Ty) -> Good s -> In x s -> In E.value s = split {
+    om -> \ p h -> fom E.carrier ;
+    univ -> \ p h -> ex (E.W univ) (wu univ h (le-refl univ)) ;
+    pi a b -> \ p h -> ex (E.W (pi a b))
+      (wp (pi a b) (pi-head x a b h) a b (pi-domain x a b h) (pi-family x a b h) (le-refl (pi a b))) ;
+    arr a b -> \ p h -> ex (E.W (arr a b))
+      (wf (arr a b) (L.entry a b (new L.Entry[a,b,p.1,p.2.1,p.2.2,
+        Application[l].intro x (principal (a,(p.1,p.2.1))) (arr a b) a b h (prin-in a) (le-refl (arr a b))]))) ;
+    meet a b | ra rb -> \ p h -> fmeet E.carrier a b
+      (ra p.1 (fup x.1 (meet a b) a (le-meet-l a b) h))
+      (rb p.2 (fup x.1 (meet a b) b (le-meet-r a b) h)) } ;
+  backward : Domain[l].Below x E.value = \ t h ->
+    ex-elim (Domain[l].PW x.1 t) (In E.value t) (fprop E.carrier t)
+      (\ w -> fup E.carrier w.1 t w.2.2.2 (token w.1 w.2.1 w.2.2.1)) (x.2.2 t h) ;
+  equation : Id D (encode (decode x)) x = Domain[l].ext E.value x (forward,backward) ;
+} ;
+
+module Components (s : RHS) {
+  module E = Encode[s] ;
+  x : D = E.value ;
+  u-in (u : UH s.1) : UHead x = ex (E.W univ) (wu univ u (le-refl univ)) ;
+  p-in (p : PH s.1) : PHead x = ex (E.W (pi om om))
+    (wp (pi om om) p om om (fom (PA s.1 p).1) (fom (PF s.1 p).1.1) (le-refl (pi om om))) ;
+
+  u-out-by : (t : Ty) -> E.W t -> Le t univ -> UH s.1 = split {
+    wbot t h -> \ k -> efq (om-not-univ (le-trans om t univ h k)) ;
+    wu t u h -> \ k -> u ;
+    wp t p a b ha hb h -> \ k -> efq (pi-not-univ a b (le-trans (pi a b) t univ h k)) ;
+    wf t h -> \ k -> efq (no-u (FN s.1) (fup (FN s.1).1.1 t univ k h)) } ;
+  u-out (h : UHead x) : UH s.1 = ex-elim (E.W univ) (UH s.1) s.1.1.2
+    (\ w -> u-out-by univ w (le-refl univ)) h ;
+
+  PI (a b : Ty) : U l = (p : PH s.1) * (In (PA s.1 p) a * In (PF s.1 p).1 b) ;
+  pi-prop (a b : Ty) : isProp (PI a b) =
+    isProp-Sigma (PH s.1) (\ p -> In (PA s.1 p) a * In (PF s.1 p).1 b) s.1.2.1.1.2
+      (\ p -> isProp-Sigma (In (PA s.1 p) a) (\ _ -> In (PF s.1 p).1 b)
+        (fprop (PA s.1 p).1 a) (\ _ -> fprop (PF s.1 p).1.1 b)) ;
+  pi-out-by : (t : Ty) -> E.W t -> (a b : Ty) -> Le t (pi a b) -> PI a b = split {
+    wbot t h -> \ a b k -> efq (om-not-pi a b (le-trans om t (pi a b) h k)) ;
+    wu t u h -> \ a b k -> efq (univ-not-pi a b (le-trans univ t (pi a b) h k)) ;
+    wp t p d f hd hf h -> \ a b k ->
+      (p,(fup (PA s.1 p).1 d a (pi-inj d f a b (le-trans (pi d f) t (pi a b) h k)).1 hd,
+          fup (PF s.1 p).1.1 f b (pi-inj d f a b (le-trans (pi d f) t (pi a b) h k)).2 hf)) ;
+    wf t h -> \ a b k -> efq (no-pi (FN s.1) a b (fup (FN s.1).1.1 t (pi a b) k h)) } ;
+  pi-out (a b : Ty) (h : In x (pi a b)) : PI a b =
+    ex-elim (E.W (pi a b)) (PI a b) (pi-prop a b)
+      (\ w -> pi-out-by (pi a b) w a b (le-refl (pi a b))) h ;
+  p-out (h : PHead x) : PH s.1 = (pi-out om om h).1 ;
+
+  module Pair (p : PHead x) (q : PH s.1) {
+    module V = Parts[l].PiParts[x,p] ;
+    dforward (t : Ty) (h : In V.domain t) : In (PA s.1 q) t =
+      (E.sameA (pi-out t om h).1 q).1 t (pi-out t om h).2.1 ;
+    dback (t : Ty) (h : In (PA s.1 q) t) : In V.domain t =
+      ex (E.W (pi t om)) (wp (pi t om) q t om h (fom (PF s.1 q).1.1) (le-refl (pi t om))) ;
+    fforward (t : Ty) (h : In V.familyD t) : In (PF s.1 q).1 t =
+      (E.sameF (pi-out om t h).1 q).1 t (pi-out om t h).2.2 ;
+    fback (t : Ty) (h : In (PF s.1 q).1 t) : In V.familyD t =
+      ex (E.W (pi om t)) (wp (pi om t) q om t (fom (PA s.1 q).1) h (le-refl (pi om t))) ;
+    equality : Id (D * FD) (V.domain,V.family) (PA s.1 q,PF s.1 q) =
+      pair-path D FD V.domain (PA s.1 q) V.family (PF s.1 q)
+        (Domain[l].ext V.domain (PA s.1 q) (dforward,dback))
+        (function-ext V.family (PF s.1 q) (fforward,fback)) ;
+  } ;
+
+  bottom-cod (a t : Ty) (h : Le om (arr a t)) : Le om t =
+    les-le om t (ConsStable[l].bottom-to t
+      (ConsStable[l].bottom-from om (arr a t) (le-les om (arr a t) h) tt)) ;
+
+  module Apps (y : D) {
+    target : D = Application[l].eval (FN s.1).1 y ;
+    at : (g : Ty) -> E.W g -> (a t : Ty) -> In y a -> Le g (arr a t) -> In target t = split {
+      wbot g h -> \ a t ha le -> bottom-least target t
+        (ex (Le om t) (bottom-cod a t (le-trans om g (arr a t) h le))) ;
+      wu g u h -> \ a t ha le -> bottom-least target t
+        (ex (Le om t) (u-arrow x (u-in u) a t (consistent y a ha)
+          (fup E.carrier g (arr a t) le (ex (E.W g) (wu g u h))))) ;
+      wp g p d f hd hf h -> \ a t ha le -> bottom-least target t
+        (ex (Le om t) (p-arrow x (p-in p) a t (consistent y a ha)
+          (fup E.carrier g (arr a t) le (ex (E.W g) (wp g p d f hd hf h))))) ;
+      wf g h -> \ a t ha le -> Application[l].intro (FN s.1).1 y g a t h ha le } ;
+    forward : Domain[l].Below (Application[l].eval x y) target = \ t ->
+      ex-elim (R.AppW (raw E.carrier) (raw y.1) t) (In target t) (fprop target.1 t)
+        (\ w -> ex-elim (E.W w.g) (In target t) (fprop target.1 t)
+          (\ e -> at w.g e w.x t w.inx w.le) w.ing) ;
+    backward : Domain[l].Below target (Application[l].eval x y) =
+      Application[l].mono (FN s.1).1 x y y (\ t h -> ex (E.W t) (wf t h)) (sub-refl y.1) ;
+  } ;
+  maps-equal : Id Map (Application[l].map x) (apply (FN s.1)) =
+    Continuous[l].ext (Application[l].map x) (apply (FN s.1)) (\ y -> (Apps[y].forward,Apps[y].backward)) ;
+  functions-equal : Id FD (abstract (Application[l].map x)) (FN s.1) =
+    P.trans FD (abstract (Application[l].map x)) (abstract (apply (FN s.1))) (FN s.1)
+      (P.ap Map FD abstract (Application[l].map x) (apply (FN s.1)) maps-equal) (eta (FN s.1)) ;
+
+  data-equal : Id Data (decode x).1 s.1 =
+    pair-path Prop (Lift (D * FD) * FD) (decode x).1.1 s.1.1 (decode x).1.2 s.1.2
+      (prop-path (decode x).1.1 s.1.1 u-out u-in)
+      (pair-path (Lift (D * FD)) FD (decode x).1.2.1 s.1.2.1 (decode x).1.2.2 s.1.2.2
+        (Lifting[l].ext (D * FD) (decode x).1.2.1 s.1.2.1 p-out p-in (\ p q -> Pair[p,q].equality))
+        functions-equal) ;
+  equation : Id RHS (decode (encode s)) s =
+    P.Sigma-eq Data (\ d -> Compatible d) (decode x).1 s.1 (decode x).2 s.2 data-equal (compatible-prop s.1) ;
+} ;
+
+domain-equation : P.Equiv D RHS =
+  (decode,P.qinv D RHS decode encode (\ s -> Components[s].equation) (\ x -> Reconstruct[x].equation)) ;

@@ -1,0 +1,42 @@
+-- Stage operations defined by finite unfoldings, before taking the global
+-- least fixed point. Compatibility follows from stage fusion/stabilisation.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ;
+open Domain[l] ; open Continuous[l] ; open BinaryMaps[l] ;
+module S = CorrectedStages[l] ; module RP = RankProjection[l] ;
+module K = KleeneProjector[l] ; module F = StageFusion[l] ; module P = Prelude[l+] ;
+
+finite-value (n : Nat) (a x : D) : D = S.approximate n (value (K.iterate (suc n)) a x) ;
+p (n : Nat) (a x : S.Stage[n].carrier) : S.Stage[n].carrier =
+  S.Stage[n].restrict (value (K.iterate (suc n)) a.1 x.1) ;
+
+module Limit (n : Nat) (a x : S.Stage[n].carrier) {
+  part (k : Nat) : D = value (K.iterate k) a.1 x.1 ;
+  target : D = finite-value n a.1 x.1 ;
+  module C = Continuous[l].Preserve[RP.q n,Nat,part,K.S.directed a.1 x.1] ;
+  upper (k : Nat) : Domain[l].Below (S.approximate n (part k)) target =
+    sub-trans (S.approximate n (part k)).1 (S.approximate n (part (max k (suc n)))).1 target.1
+      ((RP.q n).2.1 (part k) (part (max k (suc n)))
+        (K.monotone k (max k (suc n)) (leN-max-l k (suc n)) a.1 x.1))
+      (F.eventual n (max k (suc n)) (suc n) (leN-max-r k (suc n)) (leN-refl (suc n)) a.1 x.1 a.2 x.2).1 ;
+  forward : Domain[l].Below (S.approximate n (K.p a.1 x.1)) target =
+    sub-trans (S.approximate n (K.p a.1 x.1)).1 C.T.value.1 target.1 C.forward (C.T.least target upper) ;
+  backward : Domain[l].Below target (S.approximate n (K.p a.1 x.1)) =
+    (RP.q n).2.1 (part (suc n)) (K.p a.1 x.1) (K.S.upper (suc n) a.1 x.1) ;
+  equation : Id D (S.approximate n (K.p a.1 x.1)) target =
+    Domain[l].ext (S.approximate n (K.p a.1 x.1)) target (forward,backward) ;
+} ;
+
+proposition-2-27 (n : Nat) (a x : S.Stage[n].carrier) :
+  Id S.Stage[n].carrier (S.Stage[n].restrict (K.p (S.Stage[n].embed a) (S.Stage[n].embed x))) (p n a x) =
+  P.Sigma-eq D (\ y -> S.Stage[n].Fixed y)
+    (S.approximate n (K.p a.1 x.1)) (finite-value n a.1 x.1)
+    (S.idempotence n (K.p a.1 x.1)) (S.idempotence n (value (K.iterate (suc n)) a.1 x.1))
+    (Limit[n,a,x].equation)
+    (eqv-prop (S.approximate n (finite-value n a.1 x.1)).1 (finite-value n a.1 x.1).1) ;
+
+-- This is a finite-stabilisation theorem, not a definition by the limit.
+stabilizes (n k : Nat) (nk : LeN (suc n) k) (a x : S.Stage[n].carrier) :
+  Id D (S.approximate n (value (K.iterate k) a.1 x.1)) (finite-value n a.1 x.1) =
+  Domain[l].ext (S.approximate n (value (K.iterate k) a.1 x.1)) (finite-value n a.1 x.1)
+    (F.eventual n k (suc n) nk (leN-refl (suc n)) a.1 x.1 a.2 x.2) ;

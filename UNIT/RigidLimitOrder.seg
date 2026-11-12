@@ -1,0 +1,58 @@
+-- Countable inverse limits of rigid embedding chains: coherent points,
+-- their locally small order, and coordinatewise directed/bounded joins.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+record Chain {
+  domain : Nat -> DIDomain[l].DI ;
+  link : (n : Nat) -> RigidEmbedding[l].Between[domain n,domain (suc n)].Embedding ;
+} ;
+tail (S : Chain) : Chain = new Chain[domain := \ n -> S.domain (suc n),link := \ n -> S.link (suc n)] ;
+module On (S : Chain) {
+  C (n : Nat) : U l+ = (S.domain n).scott.order.carrier ;
+  LE (n : Nat) : C n -> C n -> U l = (S.domain n).scott.order.le ;
+  embed (n : Nat) : C n -> C (suc n) = StableMaps[l].Between[(S.domain n).scott,(S.domain (suc n)).scott].run (S.link n).embed ;
+  project (n : Nat) : C (suc n) -> C n = StableMaps[l].Between[(S.domain (suc n)).scott,(S.domain n).scott].run (S.link n).project ;
+  Points : U l+ = (n : Nat) -> C n ;
+  Coherent (x : Points) : U l+ = (n : Nat) -> Id (C n) (project n (x (suc n))) (x n) ;
+  coherent-prop (x : Points) : isProp (Coherent x) = H.isProp-Pi Nat (\ n -> Id (C n) (project n (x (suc n))) (x n))
+    (\ n -> ScottOrder[l].On[(S.domain n).scott.order].order-set (project n (x (suc n))) (x n)) ;
+  carrier : U l+ = (x : Points) * Coherent x ;
+  le (x y : carrier) : U l = (n : Nat) -> LE n (x.1 n) (y.1 n) ;
+  ext (x y : carrier) (xy : le x y) (yx : le y x) : Id carrier x y =
+    Sigma-eq Points Coherent x.1 y.1 x.2 y.2
+      (H.funext Nat C x.1 y.1 (\ n -> (S.domain n).scott.order.antisymmetric (x.1 n) (y.1 n) (xy n) (yx n))) (coherent-prop y.1) ;
+  order : Order = new Order[carrier := carrier,le := le,
+    proposition := \ x y -> F.isProp-Pi Nat (\ n -> LE n (x.1 n) (y.1 n)) (\ n -> (S.domain n).scott.order.proposition (x.1 n) (y.1 n)),
+    reflexive := \ x n -> (S.domain n).scott.order.reflexive (x.1 n),
+    transitive := \ x y z h k n -> (S.domain n).scott.order.transitive (x.1 n) (y.1 n) (z.1 n) (h n) (k n),antisymmetric := ext] ;
+  module O = ScottOrder[l].On[order] ;
+  evaluated (I : U l) (x : I -> carrier) (d : O.Dir I x) (n : Nat) : ScottOrder[l].On[(S.domain n).scott.order].Dir I (\ i -> (x i).1 n) =
+    (d.1,\ i j -> T.map (O.Upper I x i j) (ScottOrder[l].On[(S.domain n).scott.order].Upper I (\ k -> (x k).1 n) i j)
+      (\ w -> (w.1,((w.2.1 n),(w.2.2 n)))) (d.2 i j)) ;
+  module Sup (I : U l) (x : I -> carrier)
+    (sup : (n : Nat) -> ScottOrder[l].On[(S.domain n).scott.order].Supremum I (\ i -> (x i).1 n))
+    (preserves : (n : Nat) (z : C n) -> ((i : I) -> LE n (project n ((x i).1 (suc n))) z) -> LE n (project n (sup (suc n)).1) z) {
+    point (n : Nat) : C n = (sup n).1 ;
+    forward (n : Nat) : LE n (project n (point (suc n))) (point n) = preserves n (point n)
+      (\ i -> subst (C n) (\ z -> LE n z (point n)) ((x i).1 n) (project n ((x i).1 (suc n)))
+        (sym (C n) (project n ((x i).1 (suc n))) ((x i).1 n) ((x i).2 n)) ((sup n).2.1 i)) ;
+    backward (n : Nat) : LE n (point n) (project n (point (suc n))) = (sup n).2.2 (project n (point (suc n)))
+      (\ i -> subst (C n) (\ z -> LE n z (project n (point (suc n)))) (project n ((x i).1 (suc n))) ((x i).1 n) ((x i).2 n)
+        (StableMaps[l].Between[(S.domain (suc n)).scott,(S.domain n).scott].mono (S.link n).project
+          ((x i).1 (suc n)) (point (suc n)) ((sup (suc n)).2.1 i))) ;
+    coherent : Coherent point = \ n -> (S.domain n).scott.order.antisymmetric (project n (point (suc n))) (point n) (forward n) (backward n) ;
+    value : carrier = (point,coherent) ;
+    supremum : O.Supremum I x = (value,(\ i n -> (sup n).2.1 i,\ z h n -> (sup n).2.2 (z.1 n) (\ i -> h i n))) ;
+  } ;
+  complete : Complete[order] = new Complete[order,
+    directed := \ I x d -> Sup[I,x,\ n -> (S.domain n).scott.complete.directed I (\ i -> (x i).1 n) (evaluated I x d n),
+      \ n z h -> ScottMaps[l].Between[(S.domain (suc n)).scott,(S.domain n).scott].continuous (S.link n).project.1
+        I (\ i -> (x i).1 (suc n)) (evaluated I x d (suc n)) z h].supremum,
+    bounded := \ I x b h -> Sup[I,x,\ n -> (S.domain n).scott.complete.bounded I (\ i -> (x i).1 n) (b.1 n) (\ i -> h i n),
+      \ n z hz -> RigidEmbeddingLaws[l].On[S.domain n,S.domain (suc n),S.link n].project-bounded
+        I (\ i -> (x i).1 (suc n)) (b.1 (suc n)) (\ i -> h i (suc n)) z hz].supremum] ;
+  module V = DC[order,complete] ;
+} ;

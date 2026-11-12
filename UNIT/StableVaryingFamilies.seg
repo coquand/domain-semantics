@@ -1,0 +1,94 @@
+-- Varying rigid input domains. Q_(p,b) is the greatest supported section
+-- below a function; it depends stably on both the input and the family.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Between (D E : DIDomain[l].DI) {
+  module SF = StableFamilies[l].Between[D,E] ;
+  module Input = StableInputRestriction[l].Between[D,E] ;
+  module RD = RigidSpace[l].On[D] ; module RE = RigidSpace[l].On[E] ;
+  module X = StableFiniteIdeals[l].Exponential[D,E] ;
+  module Out = RigidSpace[l].On[X.domain] ;
+  module Compose = RigidOperations[l].On[X.domain] ;
+  module P = DIProduct[l].Product[RD.domain,SF.family-domain] ;
+  module Projections = StableProduct[l].Product[RD.domain.scott,SF.family-domain.scott] ;
+  input : StableMaps[l].Between[P.domain.scott,Out.domain.scott].Map =
+    StableComposition[l].Between[P.domain.scott,RD.domain.scott,Out.domain.scott].Compose[Projections.left,Input.operation].map ;
+  sections : StableMaps[l].Between[P.domain.scott,Out.domain.scott].Map =
+    StableComposition[l].Between[P.domain.scott,SF.family-domain.scott,Out.domain.scott].Compose[Projections.right,SF.operation].map ;
+  module Pair = StableProduct[l].Pair[P.domain.scott,Out.domain.scott,Out.domain.scott,input,sections] ;
+  operation : StableMaps[l].Between[P.domain.scott,Out.domain.scott].Map =
+    StableComposition[l].Between[P.domain.scott,Compose.P.scott,Out.domain.scott].Compose[Pair.map,Compose.composition].map ;
+  module S = StableMaps[l].Between[D.scott,E.scott] ;
+  module A = ScottDomain[l].On[D.scott] ; module B = ScottDomain[l].On[E.scott] ;
+  module FR = RigidProjector[l].On[X.domain.scott] ;
+  module Application {
+    module Product = ScottProduct[l].Product[P.domain.scott,X.domain.scott] ;
+    module Parts = StableProduct[l].Product[P.domain.scott,X.domain.scott] ;
+    operator : StableMaps[l].Between[Product.scott,Out.domain.scott].Map =
+      StableComposition[l].Between[Product.scott,P.domain.scott,Out.domain.scott].Compose[Parts.left,operation].map ;
+    module Arguments = StableProduct[l].Pair[Product.scott,Out.domain.scott,X.domain.scott,operator,Parts.right] ;
+    module Eval = RigidOperations[l].On[X.domain].Application ;
+    map : StableMaps[l].Between[Product.scott,X.domain.scott].Map =
+      StableComposition[l].Between[Product.scott,Eval.Product.scott,X.domain.scott].Compose[Arguments.map,Eval.map].map ;
+  } ;
+  module At (p : RD.I.carrier) (b : SF.F.Map) {
+    module Restriction = Input.At[p] ;
+    module Sections = SF.SS.Sections.Sections[SF.family b] ;
+    module Q = FR.Compose[Sections.projection,Restriction.projection] ;
+    projection : FR.Rigid = Q.projection ;
+    value : S.Map -> S.Map = Q.value ;
+    Supported (f : S.Map) : U l = FR.Fixed Restriction.projection f ;
+    OnImage (f : S.Map) : U l+ = (x : A.C) -> RD.R.Fixed (RD.decode p) x ->
+      SF.R.Fixed ((SF.family b).at x) (S.run f x) ;
+    full-section (f : S.Map) (support : Supported f) (section : OnImage f) (x : A.C) :
+      SF.R.Fixed ((SF.family b).at x) (S.run f x) =
+      E.scott.order.transitive (S.run f x) (S.run f (RD.run p x)) (SF.R.run ((SF.family b).at x) (S.run f x))
+        (S.pointwise f (Restriction.value f) support x)
+        (E.scott.order.transitive (S.run f (RD.run p x)) (SF.R.run ((SF.family b).at (RD.run p x)) (S.run f (RD.run p x)))
+          (SF.R.run ((SF.family b).at x) (S.run f x)) (section (RD.run p x) (RD.R.output-fixed (RD.decode p) x))
+          (E.scott.order.transitive (SF.R.run ((SF.family b).at (RD.run p x)) (S.run f (RD.run p x)))
+            (SF.R.run ((SF.family b).at x) (S.run f (RD.run p x))) (SF.R.run ((SF.family b).at x) (S.run f x))
+            ((SF.family b).increasing (RD.run p x) x ((RD.decode p).deflation x) (S.run f (RD.run p x)))
+            (ScottMaps[l].Between[E.scott,E.scott].mono ((SF.family b).at x).operation (S.run f (RD.run p x)) (S.run f x)
+              (S.mono f (RD.run p x) x ((RD.decode p).deflation x))))) ;
+    supported (f : S.Map) : Supported (value f) = Q.fixed-right (value f) (FR.output-fixed projection f) ;
+    section (f : S.Map) : OnImage (value f) = \ x hx -> Sections.section (Restriction.value f) x ;
+    greatest (f g : S.Map) (gf : S.LE g f) (support : Supported g) (section : OnImage g) : S.LE g (value f) =
+      FR.greatest projection f g (Q.fixed-both g
+        (Sections.greatest g g (S.reflexive g) (full-section g support section)) support) gf ;
+    fixed (f : S.Map) (support : Supported f) (section : OnImage f) : Id S.Map (value f) f =
+      S.ext (value f) f (projection.deflation f) (greatest f f (S.reflexive f) support section) ;
+    computes (f : S.Map) (x : A.C) : Id B.C (S.run (value f) x) (S.run (Sections.value f) (RD.run p x)) =
+      ap S.Map B.C (\ g -> S.run g x) (value f) (Restriction.value (Sections.value f))
+        (FR.commute Sections.projection Restriction.projection f) ;
+    implementation (f : S.Map) : Id S.Map
+      (Out.run (StableMaps[l].Between[P.domain.scott,Out.domain.scott].run operation (p,b)) f) (value f) =
+      S.ext (Out.run (StableMaps[l].Between[P.domain.scott,Out.domain.scott].run operation (p,b)) f) (value f)
+        (S.equal-below (Out.run (StableMaps[l].Between[P.domain.scott,Out.domain.scott].run operation (p,b)) f) (value f)
+          (\ a -> E.scott.order.reflexive (S.run (value f) (A.basic a))) (\ a -> E.scott.order.reflexive (S.run (value f) (A.basic a))))
+        (S.equal-below (value f) (Out.run (StableMaps[l].Between[P.domain.scott,Out.domain.scott].run operation (p,b)) f)
+          (\ a -> E.scott.order.reflexive (S.run (value f) (A.basic a))) (\ a -> E.scott.order.reflexive (S.run (value f) (A.basic a)))) ;
+  } ;
+  module ImageFamily (p : RD.I.carrier) {
+    module M = StableImageMaps[l].Between[D,RE.domain,RD.decode p] ;
+    extend (b : M.T.Map) : SF.F.Map = M.Extend[b].map ;
+    agrees (b : M.T.Map) (x : M.I.I.carrier) : Id RE.I.carrier (SF.F.run (extend b) x.1) (M.T.run b x) =
+      ap M.T.Map RE.I.carrier (\ h -> M.T.run h x) M.Restrict[M.Extend[b].map].map b (M.eta b) ;
+  } ;
+  module Extensional (p : RD.I.carrier) (b c : SF.F.Map)
+    (same : (x : A.C) -> RD.R.Fixed (RD.decode p) x -> (z : B.C) ->
+      Id B.C (SF.R.run ((SF.family b).at x) z) (SF.R.run ((SF.family c).at x) z)) {
+    forward (f : S.Map) : S.LE (At[p,b].value f) (At[p,c].value f) =
+      At[p,c].greatest f (At[p,b].value f) (At[p,b].projection.deflation f) (At[p,b].supported f)
+        (\ x hx -> subst B.C (\ z -> B.LE (S.run (At[p,b].value f) x) z)
+          (SF.R.run ((SF.family b).at x) (S.run (At[p,b].value f) x)) (SF.R.run ((SF.family c).at x) (S.run (At[p,b].value f) x))
+          (same x hx (S.run (At[p,b].value f) x)) (At[p,b].section f x hx)) ;
+    backward (f : S.Map) : S.LE (At[p,c].value f) (At[p,b].value f) =
+      At[p,b].greatest f (At[p,c].value f) (At[p,c].projection.deflation f) (At[p,c].supported f)
+        (\ x hx -> subst B.C (\ z -> B.LE (S.run (At[p,c].value f) x) z)
+          (SF.R.run ((SF.family c).at x) (S.run (At[p,c].value f) x)) (SF.R.run ((SF.family b).at x) (S.run (At[p,c].value f) x))
+          (sym B.C (SF.R.run ((SF.family b).at x) (S.run (At[p,c].value f) x)) (SF.R.run ((SF.family c).at x) (S.run (At[p,c].value f) x))
+            (same x hx (S.run (At[p,c].value f) x))) (At[p,c].section f x hx)) ;
+    equation (f : S.Map) : Id S.Map (At[p,b].value f) (At[p,c].value f) = S.ext (At[p,b].value f) (At[p,c].value f) (forward f) (backward f) ;
+  } ;
+} ;

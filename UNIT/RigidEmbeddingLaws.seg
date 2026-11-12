@@ -1,0 +1,59 @@
+-- Order adjunction, compactness, and bounded-join preservation for rigid
+-- embeddings. Distributivity is used for the projection's bounded joins.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module Projection (D : DIDomain[l].DI) (p : RigidProjector[l].On[D.scott].Rigid) {
+  module A = ScottDomain[l].On[D.scott] ; module O = ScottOrder[l].On[D.scott.order] ;
+  module R = RigidProjector[l].On[D.scott] ; module N = ScottMeet[l].On[D.scott] ;
+  module J = DistributiveJoins[l].On[D.scott,D.distributive] ;
+  module Bounded (I : U l) (x : I -> A.C) (b : A.C) (h : O.Bounds I x b) {
+    sup : A.C = (D.scott.complete.bounded I x b h).1 ;
+    least (z : A.C) (hz : (i : I) -> A.LE (R.run p (x i)) z) : A.LE (R.run p sup) z =
+      D.scott.order.transitive (R.run p sup) (N.meet (R.run p sup) sup) z
+        (N.greatest (R.run p sup) sup (R.run p sup) (D.scott.order.reflexive (R.run p sup)) (p.deflation sup))
+        (J.bounded-right I x b h (R.run p sup) z (\ i ->
+          D.scott.order.transitive (N.meet (R.run p sup) (x i)) (R.run p (x i)) z
+            (R.greatest p (x i) (N.meet (R.run p sup) (x i))
+              (p.hereditary (N.meet (R.run p sup) (x i)) sup (N.left (R.run p sup) (x i))) (N.right (R.run p sup) (x i))) (hz i))) ;
+  } ;
+} ;
+module On (A B : DIDomain[l].DI) (e : RigidEmbedding[l].Between[A,B].Embedding) {
+  module E = RigidEmbedding[l].Between[A,B] ; module P = E.On[e] ;
+  module AV = DC[A.scott.order,A.scott.complete] ; module BV = DC[B.scott.order,B.scott.complete] ;
+  module AO = ScottOrder[l].On[A.scott.order] ; module BO = ScottOrder[l].On[B.scott.order] ;
+  unit-from (a : E.AC.C) : E.AC.LE a (E.BA.run e.project (E.AB.run e.embed a)) =
+    subst E.AC.C (\ x -> E.AC.LE x (E.BA.run e.project (E.AB.run e.embed a)))
+      (E.BA.run e.project (E.AB.run e.embed a)) a (e.retract a) (A.scott.order.reflexive (E.BA.run e.project (E.AB.run e.embed a))) ;
+  unit-to (a : E.AC.C) : E.AC.LE (E.BA.run e.project (E.AB.run e.embed a)) a =
+    subst E.AC.C (\ x -> E.AC.LE (E.BA.run e.project (E.AB.run e.embed a)) x)
+      (E.BA.run e.project (E.AB.run e.embed a)) a (e.retract a) (A.scott.order.reflexive (E.BA.run e.project (E.AB.run e.embed a))) ;
+  lower (a : E.AC.C) (x : E.BC.C) (h : E.AC.LE a (E.BA.run e.project x)) : E.BC.LE (E.AB.run e.embed a) x =
+    B.scott.order.transitive (E.AB.run e.embed a) (E.R.run P.projection x) x
+      (E.AB.mono e.embed a (E.BA.run e.project x) h) (P.projection.deflation x) ;
+  upper (a : E.AC.C) (x : E.BC.C) (h : E.BC.LE (E.AB.run e.embed a) x) : E.AC.LE a (E.BA.run e.project x) =
+    A.scott.order.transitive a (E.BA.run e.project (E.AB.run e.embed a)) (E.BA.run e.project x) (unit-from a)
+      (E.BA.mono e.project (E.AB.run e.embed a) x h) ;
+  reflect (a b : E.AC.C) (h : E.BC.LE (E.AB.run e.embed a) (E.AB.run e.embed b)) : E.AC.LE a b =
+    A.scott.order.transitive a (E.BA.run e.project (E.AB.run e.embed b)) b (upper a (E.AB.run e.embed b) h) (unit-to b) ;
+  fixed-below (a : E.AC.C) (x : E.BC.C) (h : E.BC.LE x (E.AB.run e.embed a)) : E.BC.LE x (E.R.run P.projection x) =
+    P.projection.hereditary x (E.AB.run e.embed a)
+      (B.scott.order.transitive x (E.AB.run e.embed a) (E.R.run P.projection (E.AB.run e.embed a)) h
+        (E.AB.mono e.embed a (E.BA.run e.project (E.AB.run e.embed a)) (unit-from a))) ;
+  compact (a : E.AC.C) (c : AV.Compact a) : BV.Compact (E.AB.run e.embed a) = \ I x d h ->
+    T.map ((i : I) * E.AC.LE a (E.BA.run e.project (x i))) ((i : I) * E.BC.LE (E.AB.run e.embed a) (x i))
+      (\ w -> (w.1,lower a (x w.1) w.2))
+      (c I (\ i -> E.BA.run e.project (x i)) (E.BA.M.image-dir (E.BA.run e.project) (E.BA.mono e.project) I x d)
+        (A.scott.order.transitive a (E.BA.run e.project (BV.sup I x d))
+          (AV.sup I (\ i -> E.BA.run e.project (x i)) (E.BA.M.image-dir (E.BA.run e.project) (E.BA.mono e.project) I x d))
+          (upper a (BV.sup I x d) h)
+          (E.BA.M.continuous e.project.1 I x d
+            (AV.sup I (\ i -> E.BA.run e.project (x i)) (E.BA.M.image-dir (E.BA.run e.project) (E.BA.mono e.project) I x d))
+            (AV.upper I (\ i -> E.BA.run e.project (x i)) (E.BA.M.image-dir (E.BA.run e.project) (E.BA.mono e.project) I x d))))) ;
+  project-bounded (I : U l) (x : I -> E.BC.C) (b : E.BC.C) (h : BO.Bounds I x b)
+    (z : E.AC.C) (hz : (i : I) -> E.AC.LE (E.BA.run e.project (x i)) z) :
+    E.AC.LE (E.BA.run e.project (B.scott.complete.bounded I x b h).1) z =
+    reflect (E.BA.run e.project (B.scott.complete.bounded I x b h).1) z
+      (Projection[B,P.projection].Bounded[I,x,b,h].least (E.AB.run e.embed z)
+        (\ i -> E.AB.mono e.embed (E.BA.run e.project (x i)) z (hz i))) ;
+} ;

@@ -1,0 +1,134 @@
+-- The independent fundamental statement and its elementary derivation
+-- rules. IndependentFundamental assembles the complete derivation induction.
+level l ;
+open Base ; open Types[l] ; open Prelude[l] ; open Syntax[l] ; open SynLemmas[l] ; open Subst[l] ; open Presup[l] ; open Cross[l] ;
+open Reduction[l] ; open ExtFilter[l] ; open Domain[l] ;
+module Raw = Filter[l] ; module S = Sem[l] ; module Soundness = Sound[l] ;
+module Substitutions = IndependentRelationSubstitutions[l] ;
+instantiation (m n : Nat) (s : Fin m -> Tm n) (B : Tm (suc m)) (a : Tm m) :
+  Id (Tm n) (Sub.trav (suc m) B n (Substitutions.extendS m n s (Sub.trav m a n s))) (Sub.trav m (subst1 m B a) n s) =
+    trans (Tm n) (Sub.trav (suc m) B n (Substitutions.extendS m n s (Sub.trav m a n s)))
+      (subst1 n (Sub.trav (suc m) B (suc n) (Sub.lift m n s)) (Sub.trav m a n s)) (Sub.trav m (subst1 m B a) n s)
+      (sym (Tm n) (subst1 n (Sub.trav (suc m) B (suc n) (Sub.lift m n s)) (Sub.trav m a n s))
+        (Sub.trav (suc m) B n (Substitutions.extendS m n s (Sub.trav m a n s)))
+        (Substitutions.extend-equation m n s (Sub.trav m a n s) B))
+      (sym (Tm n) (Sub.trav m (subst1 m B a) n s)
+        (subst1 n (Sub.trav (suc m) B (suc n) (Sub.lift m n s)) (Sub.trav m a n s)) (sub-subst1 m n s B a)) ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module I = IndependentLogicalRelation[l].At[n,Delta] ;
+  module Rules = IndependentRelationRules[l].At[n,Delta] ;
+  module Red = IndependentRelationReduction[l].At[n,Delta] ;
+  module RS = Substitutions.At[n,Delta] ;
+  Fundamental (m : Nat) (G : Ctx m) (M N A : Tm m) : U l+ =
+    (rho : S.Env m) -> Soundness.Fits m G rho -> (s s' : Fin m -> Tm n) -> RS.Related[m,G,rho,s,s'] ->
+      RS.Term (S.sem m M rho) (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m N n s') *
+      RS.Term (S.sem m M rho) (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m N n s') ;
+  variable (m : Nat) (G : Ctx m) (i : Fin m) : Fundamental m G (var m i) (var m i) (lookup m G i) =
+    \ rho fits s s' related ->
+      (\ k hk -> (related.variables i).1 k ((S.sem-var-eq m i rho).1 k.1 hk),
+       \ k hk -> (related.variables i).2 k ((S.sem-var-eq m i rho).1 k.1 hk)) ;
+  universe (m : Nat) (G : Ctx m) : Fundamental m G (uu m) (uu m) (uu m) =
+    \ rho fits s s' related ->
+      (\ k hk -> (I.relation.tm (uu n) (uu n) (uu n)).lower (principal k) Domain[l].universe
+        (prin-anti univ k.1 ((S.sem-uu-eq m rho).1 k.1 hk)) Rules.universe-term,
+       \ k hk -> (I.relation.tm (uu n) (uu n) (uu n)).lower (principal k) Domain[l].universe
+        (prin-anti univ k.1 ((S.sem-uu-eq m rho).1 k.1 hk)) Rules.universe-term) ;
+  module RawApplication (F X : Raw.Filt) (cf : Raw.ConsF F) (cx : Raw.ConsF X)
+    (pf : Regular[l].Regular F) (px : Regular[l].Regular X)
+    (A : Tm n) (B : Tm (suc n)) (M M' N N' : Tm n) (conversion : Der n (jeq Delta N N' A))
+    (hf : RS.Term F (pp n A B) M M') (hx : RS.Term X A N N') {
+    f : D = from-raw F cf pf ; x : D = from-raw X cx px ;
+    application : Rules.Term (Application[l].eval f x) (subst1 n B N) (app n M N) (app n M' N') =
+      (Rules.application f x A B M M' N N' conversion
+        (Substitutions.Reflection[I.relation.tm (pp n A B) M M',F,cf,pf].introduce hf)
+        (Substitutions.Reflection[I.relation.tm A N N',X,cx,px].introduce hx)).2.2 ;
+    result : RS.Term (Raw.appF F X) (subst1 n B N) (app n M N) (app n M' N') = \ k w ->
+      (I.relation.tm (subst1 n B N) (app n M N) (app n M' N')).lower (principal k) (Application[l].eval f x)
+        (prin-sub k.1 (Application[l].eval f x).1
+          (Application[l].intro f x w.g w.x k.1 (ex (F.mem w.g) w.ing) (ex (X.mem w.x) w.inx) w.le)) application ;
+  } ;
+  -- Application at the left substituted result type. Conversion to the
+  -- right substituted result type is a separate typed-relation obligation.
+  module ApplicationCase (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m)) (f f' a a' : Tm m)
+    (df : Der m (jty G f (pp m A B))) (ea : Der m (jeq G a a' A))
+    (rf : Fundamental m G f f' (pp m A B)) (ra : Fundamental m G a a' A)
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (related : RS.Related[m,G,rho,s,s']) {
+    da : Der m (jty G a A) = (eq-pre m (jeq G a a' A) ea).1 ;
+    da' : Der m (jty G a' A) = (eq-pre m (jeq G a a' A) ea).2 ;
+    As : Tm n = Sub.trav m A n s ; Bs : Tm (suc n) = Sub.trav (suc m) B (suc n) (Sub.lift m n s) ;
+    conversion : Der n (jeq Delta (Sub.trav m a n s) (Sub.trav m a' n s') As) =
+      eq-trans n Delta (Sub.trav m a n s) (Sub.trav m a' n s) (Sub.trav m a' n s') As
+        (sub-der m (jeq G a a' A) ea n Delta s related.ok wellformed)
+        (subst-cross m n G Delta s s' a' A da' related.ok related.ok' related.eq wellformed) ;
+    typed-f : Soundness.HasTy (S.sem m f rho) (S.sem m (pp m A B) rho) = Soundness.soundness-ty m G f (pp m A B) df rho fits ;
+    typed-a : Soundness.HasTy (S.sem m a rho) (S.sem m A rho) = Soundness.soundness-ty m G a A da rho fits ;
+    module Apply = RawApplication[S.sem m f rho,S.sem m a rho,
+      Soundness.hasty-cons (S.sem m f rho) (S.sem m (pp m A B) rho) typed-f,
+      Soundness.hasty-cons (S.sem m a rho) (S.sem m A rho) typed-a,
+      Regular[l].typed-regular (S.sem m f rho) (S.sem m (pp m A B) rho) typed-f,
+      Regular[l].typed-regular (S.sem m a rho) (S.sem m A rho) typed-a,
+      As,Bs,Sub.trav m f n s,Sub.trav m f' n s',Sub.trav m a n s,Sub.trav m a' n s',conversion,
+      (rf rho fits s s' related).1,(ra rho fits s s' related).1] ;
+    left : RS.Term (S.sem m (app m f a) rho) (Sub.trav m (subst1 m B a) n s)
+      (Sub.trav m (app m f a) n s) (Sub.trav m (app m f' a') n s') =
+      RS.term-index (S.sem m (app m f a) rho) (subst1 n Bs (Sub.trav m a n s)) (Sub.trav m (subst1 m B a) n s)
+        (Sub.trav m (app m f a) n s) (Sub.trav m (app m f' a') n s')
+        (sym (Tm n) (Sub.trav m (subst1 m B a) n s) (subst1 n Bs (Sub.trav m a n s)) (sub-subst1 m n s B a)) (\ k hk -> Apply.result k ((S.sem-app-eq m f a rho).1 k.1 hk)) ;
+  } ;
+  module BetaCase (m : Nat) (G : Ctx m) (A : Tm m) (B M : Tm (suc m)) (a : Tm m)
+    (dA : Der m (jty G A (uu m))) (dB : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+    (dM : Der (suc m) (jty (ext m G A) M B)) (da : Der m (jty G a A))
+    (body : Fundamental (suc m) (ext m G A) M M B) (argument : Fundamental m G a a A)
+    (rho : S.Env m) (fits : Soundness.Fits m G rho) (s s' : Fin m -> Tm n) (related : RS.Related[m,G,rho,s,s']) {
+    N : Tm n = Sub.trav m a n s ; N' : Tm n = Sub.trav m a n s' ;
+    extended : S.Env (suc m) = S.extE m rho (S.sem m a rho) ;
+    fitted : Soundness.Fits (suc m) (ext m G A) extended = (fits,
+      (Soundness.tyu-of m A rho (Soundness.soundness-ty m G A (uu m) dA rho fits),Soundness.soundness-ty m G a A da rho fits)) ;
+    en : Der n (jeq Delta N N' (Sub.trav m A n s)) =
+      subst-cross m n G Delta s s' a A da related.ok related.ok' related.eq wellformed ;
+    en' : Der n (jeq Delta N' N (Sub.trav m A n s')) =
+      subst-cross m n G Delta s' s a A da related.ok' related.ok related.eq' wellformed ;
+    module Extension = RS.Extension[m,G,A,rho,S.sem m a rho,s,s',N,N',related,en,en',argument rho fits s s' related] ;
+    syntax-beta : Reds n (Sub.trav m (app m (lam m A M) a) n s) (Sub.trav m (subst1 m M a) n s) =
+      subst (Tm n) (\ V -> Reds n (Sub.trav m (app m (lam m A M) a) n s) V)
+        (subst1 n (Sub.trav (suc m) M (suc n) (Sub.lift m n s)) N) (Sub.trav m (subst1 m M a) n s)
+        (sym (Tm n) (Sub.trav m (subst1 m M a) n s) (subst1 n (Sub.trav (suc m) M (suc n) (Sub.lift m n s)) N)
+          (sub-subst1 m n s M a))
+        (rstep n (Sub.trav m (app m (lam m A M) a) n s)
+          (subst1 n (Sub.trav (suc m) M (suc n) (Sub.lift m n s)) N)
+          (subst1 n (Sub.trav (suc m) M (suc n) (Sub.lift m n s)) N)
+          (red1-beta n (Sub.trav m A n s) (Sub.trav (suc m) M (suc n) (Sub.lift m n s)) N)
+          (rrefl n (subst1 n (Sub.trav (suc m) M (suc n) (Sub.lift m n s)) N))) ;
+    semantic-beta : Raw.Incl (S.sem m (app m (lam m A M) a) rho) (S.sem (suc m) M extended) =
+      Raw.incl-trans (S.sem m (app m (lam m A M) a) rho) (S.sem m (subst1 m M a) rho) (S.sem (suc m) M extended)
+        (Soundness.soundness-eq m G (app m (lam m A M) a) (subst1 m M a) (subst1 m B a)
+          (eq-beta m G A B M a dA dB dM da) rho fits).1 (S.subst1-sem m M a rho).1 ;
+    transport (s1 : Fin m -> Tm n)
+      (h : RS.Term (S.sem (suc m) M extended) (Sub.trav (suc m) B n (Substitutions.extendS m n s1 (Sub.trav m a n s1)))
+        (Sub.trav (suc m) M n (Substitutions.extendS m n s N)) (Sub.trav (suc m) M n (Substitutions.extendS m n s' N'))) :
+      RS.Term (S.sem m (app m (lam m A M) a) rho) (Sub.trav m (subst1 m B a) n s1)
+        (Sub.trav m (app m (lam m A M) a) n s) (Sub.trav m (subst1 m M a) n s') = \ k hk ->
+      Red.term-expansion (Sub.trav m (subst1 m B a) n s1) (Sub.trav m (app m (lam m A M) a) n s) (Sub.trav m (subst1 m M a) n s')
+        (Sub.trav m (subst1 m M a) n s) (Sub.trav m (subst1 m M a) n s') syntax-beta (rrefl n (Sub.trav m (subst1 m M a) n s')) (principal k)
+        (subst (Tm n) (\ V -> Rules.Term (principal k) (Sub.trav m (subst1 m B a) n s1) (Sub.trav m (subst1 m M a) n s) V)
+          (Sub.trav (suc m) M n (Substitutions.extendS m n s' N')) (Sub.trav m (subst1 m M a) n s') (instantiation m n s' M a)
+          (subst (Tm n) (\ V -> Rules.Term (principal k) (Sub.trav m (subst1 m B a) n s1) V (Sub.trav (suc m) M n (Substitutions.extendS m n s' N')))
+            (Sub.trav (suc m) M n (Substitutions.extendS m n s N)) (Sub.trav m (subst1 m M a) n s) (instantiation m n s M a)
+            (subst (Tm n) (\ V -> Rules.Term (principal k) V (Sub.trav (suc m) M n (Substitutions.extendS m n s N))
+              (Sub.trav (suc m) M n (Substitutions.extendS m n s' N')))
+              (Sub.trav (suc m) B n (Substitutions.extendS m n s1 (Sub.trav m a n s1))) (Sub.trav m (subst1 m B a) n s1)
+              (instantiation m n s1 B a) (h k (semantic-beta k.1 hk))))) ;
+    result : RS.Term (S.sem m (app m (lam m A M) a) rho) (Sub.trav m (subst1 m B a) n s)
+        (Sub.trav m (app m (lam m A M) a) n s) (Sub.trav m (subst1 m M a) n s') *
+      RS.Term (S.sem m (app m (lam m A M) a) rho) (Sub.trav m (subst1 m B a) n s')
+        (Sub.trav m (app m (lam m A M) a) n s) (Sub.trav m (subst1 m M a) n s') =
+      (transport s (body extended fitted (Substitutions.extendS m n s N) (Substitutions.extendS m n s' N') Extension.related).1,
+       transport s' (body extended fitted (Substitutions.extendS m n s N) (Substitutions.extendS m n s' N') Extension.related).2) ;
+  } ;
+  beta (m : Nat) (G : Ctx m) (A : Tm m) (B M : Tm (suc m)) (a : Tm m)
+    (dA : Der m (jty G A (uu m))) (dB : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+    (dM : Der (suc m) (jty (ext m G A) M B)) (da : Der m (jty G a A))
+    (body : Fundamental (suc m) (ext m G A) M M B) (argument : Fundamental m G a a A) :
+    Fundamental m G (app m (lam m A M) a) (subst1 m M a) (subst1 m B a) =
+      \ rho fits s s' related -> BetaCase[m,G,A,B,M,a,dA,dB,dM,da,body,argument,rho,fits,s,s',related].result ;
+} ;

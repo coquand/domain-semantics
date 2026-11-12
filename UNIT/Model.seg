@@ -1,0 +1,55 @@
+-- Soundness in the actual domain, with types interpreted as finitary
+-- projectors. The old soundness/adequacy proofs are imported unchanged.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Typing[l] ; open Syntax[l] ;
+open ExtFilter[l] ; open Domain[l] ;
+module R = Filter[l] ; module S = Sem[l] ; module T = Sound[l] ; module Old = Proj[l] ;
+module P = Prelude[l+] ;
+
+module Typed (X A : R.Filt) (h : T.HasTy X A) {
+  consistent : R.ConsF X = T.hasty-cons X A h ;
+  regular : Regular[l].Regular X = Regular[l].typed-regular X A h ;
+  value : D = from-raw X consistent regular ;
+  module C = SemanticProjector[l].Compare[A,X,consistent,regular] ;
+  old-fixed : R.FEq (Old.projF A X) X =
+    (Old.proj-sub A X,\ t m -> Old.enl-proj A X t (h t m)) ;
+  fixed : Equal (Projector[l].project (SemanticProjector[l].types A) value) value =
+    ExtFilter[l].eqv-trans C.Q.carrier (reflect C.old) (reflect X)
+      (C.forward,C.backward)
+      (reflect-sub C.old X old-fixed.1,reflect-sub X C.old old-fixed.2) ;
+} ;
+
+module TypeAndTerm (X A : R.Filt) (hX : T.HasTy X A) (hA : T.TyU A) {
+  term : D = Typed[X,A,hX].value ;
+  semantic-type : D = Typed[A,R.univF,hA].value ;
+  family : CompactFamilies[l].Family = SemanticProjector[l].interpret semantic-type ;
+  fixed : Equal (Projector[l].project family term) term =
+    ExtFilter[l].eqv-trans (Projector[l].project family term).1
+      (Projector[l].project (SemanticProjector[l].types A) term).1 term.1
+      (Projector[l].mono family (SemanticProjector[l].types A) term term
+        SemanticProjector[l].Reflection[A].forward (sub-refl term.1),
+       Projector[l].mono (SemanticProjector[l].types A) family term term
+        SemanticProjector[l].Reflection[A].backward (sub-refl term.1)) Typed[X,A,hX].fixed ;
+  equation : Id D (Projector[l].project family term) term = Domain[l].ext (Projector[l].project family term) term fixed ;
+} ;
+
+module Denotation (n : Nat) (G : Ctx n) (M A : Tm n) (derivation : Der n (jty G M A))
+  (rho : S.Env n) (fits : T.Fits n G rho) {
+  term-typed : T.HasTy (S.sem n M rho) (S.sem n A rho) = T.soundness-ty n G M A derivation rho fits ;
+  semantic-type-typed : T.TyU (S.sem n A rho) = T.tyu-of n A rho
+    (T.soundness-ty n G A (uu n) (Presup[l].ty-of n (jty G M A) derivation) rho fits) ;
+  module V = TypeAndTerm[S.sem n M rho,S.sem n A rho,term-typed,semantic-type-typed] ;
+  term : D = V.term ;
+  semantic-type : D = V.semantic-type ;
+  soundness : Id D (Projector[l].project (SemanticProjector[l].interpret semantic-type) term) term = V.equation ;
+} ;
+
+conversion (n : Nat) (G : Ctx n) (M N A : Tm n) (d : Der n (jeq G M N A))
+  (rho : S.Env n) (fits : T.Fits n G rho) :
+  Id D Denotation[n,G,M,A,(Presup[l].eq-pre n (jeq G M N A) d).1,rho,fits].term
+       Denotation[n,G,N,A,(Presup[l].eq-pre n (jeq G M N A) d).2,rho,fits].term =
+  Domain[l].ext
+    Denotation[n,G,M,A,(Presup[l].eq-pre n (jeq G M N A) d).1,rho,fits].term
+    Denotation[n,G,N,A,(Presup[l].eq-pre n (jeq G M N A) d).2,rho,fits].term
+    (reflect-sub (S.sem n M rho) (S.sem n N rho) (T.soundness-eq n G M N A d rho fits).1,
+     reflect-sub (S.sem n N rho) (S.sem n M rho) (T.soundness-eq n G M N A d rho fits).2) ;

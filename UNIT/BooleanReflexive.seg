@@ -1,0 +1,20 @@
+-- A concrete nontrivial represented reflexive domain, conditional only
+-- on a local small propositional excluded-middle argument.
+level l ;
+open Base ; open Prelude[l+] ;
+module With (em : BooleanDI[l].Classical) {
+  seed : DIDomain[l].DI = BooleanDI[l].domain em ;
+  module Model = RigidReflexiveDomain[l].On[seed] ;
+  module SyntaxModel = ReflexiveSyntax[l].On[seed] ;
+  module A = ScottDomain[l].On[Model.domain.scott] ;
+  low : A.C = Model.Seed.AB.run Model.seed.embed false ;
+  high : A.C = Model.Seed.AB.run Model.seed.embed true ;
+  different (h : Id A.C high low) : Empty = BooleanDI[l].different (Model.faithful true false h) ;
+  bottom-equation : Id A.C low Model.domain.scott.bottom = refl low ;
+  nonbottom (h : A.LE high Model.domain.scott.bottom) : Empty =
+    different (Model.domain.scott.order.antisymmetric high low h (Model.domain.scott.bottom-least high)) ;
+  high-rank-zero : SyntaxModel.Ranks.Rank zero high =
+    RigidLimitRigid[l].hereditary zero Model.Tower.chain true high (Model.domain.scott.order.reflexive high) ;
+  -- Thus tower rank zero already contains two distinct points; it is
+  -- not the bottom-only base of a Kleene iteration.
+} ;

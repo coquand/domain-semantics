@@ -1,0 +1,60 @@
+-- Locally small orders; completeness is only for U l-indexed families.
+level l ;
+open Base ; open Prelude[l+] ;
+module T = TruncationCombinators[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+Ex (A : U l) : U l = Truncation[l].Trunc[A].carrier ;
+inc (A : U l) : A -> Ex A = Truncation[l].Trunc[A].inc ;
+prop (A : U l) : Prelude[l].isProp (Ex A) = Truncation[l].Trunc[A].proposition ;
+
+record Order {
+  carrier : U l+ ;
+  le : carrier -> carrier -> U l ;
+  proposition : (x y : carrier) -> Prelude[l].isProp (le x y) ;
+  reflexive : (x : carrier) -> le x x ;
+  transitive : (x y z : carrier) -> le x y -> le y z -> le x z ;
+  antisymmetric : (x y : carrier) -> le x y -> le y x -> Id carrier x y ;
+} ;
+
+module On (P : Order) {
+  C : U l+ = P.carrier ;
+  LE : C -> C -> U l = P.le ;
+  Upper (I : U l) (x : I -> C) (i j : I) : U l =
+    (k : I) * (LE (x i) (x k) * LE (x j) (x k)) ;
+  Dir (I : U l) (x : I -> C) : U l =
+    Ex I * ((i j : I) -> Ex (Upper I x i j)) ;
+  Bounds (I : U l) (x : I -> C) (y : C) : U l = (i : I) -> LE (x i) y ;
+  Lub (I : U l) (x : I -> C) (y : C) : U l+ =
+    Bounds I x y * ((z : C) -> Bounds I x z -> LE y z) ;
+  Supremum (I : U l) (x : I -> C) : U l+ = (y : C) * Lub I x y ;
+  bounds-prop (I : U l) (x : I -> C) (y : C) : isProp (Bounds I x y) =
+    F.isProp-Pi I (\ i -> LE (x i) y) (\ i -> P.proposition (x i) y) ;
+  lub-prop (I : U l) (x : I -> C) (y : C) : isProp (Lub I x y) =
+    isProp-Sigma (Bounds I x y) (\ _ -> (z : C) -> Bounds I x z -> LE y z)
+      (bounds-prop I x y) (\ _ -> H.isProp-Pi C (\ z -> Bounds I x z -> LE y z)
+        (\ z -> H.isProp-Pi (Bounds I x z) (\ _ -> LE y z) (\ _ -> P.proposition y z))) ;
+  sup-prop (I : U l) (x : I -> C) : isProp (Supremum I x) = \ u v ->
+    Sigma-eq C (Lub I x) u.1 v.1 u.2 v.2
+      (P.antisymmetric u.1 v.1 (u.2.2 v.1 v.2.1) (v.2.2 u.1 u.2.1)) (lub-prop I x v.1) ;
+  order-set : isSet C = \ x -> Hedberg[C,x,\ y -> LE x y * LE y x,
+    \ y -> isProp-Sigma (LE x y) (\ _ -> LE y x) (P.proposition x y) (\ _ -> P.proposition y x),
+    (P.reflexive x,P.reflexive x),\ y h -> P.antisymmetric x y h.1 h.2].hedberg ;
+} ;
+
+record Complete {
+  order : Order ;
+  directed : (I : U l) (x : I -> order.carrier) -> On[order].Dir I x -> On[order].Supremum I x ;
+  bounded : (I : U l) (x : I -> order.carrier) (b : order.carrier) ->
+    On[order].Bounds I x b -> On[order].Supremum I x ;
+} ;
+
+module DC (P : Order) (c : Complete[P]) {
+  open On[P] ;
+  sup (I : U l) (x : I -> C) (d : Dir I x) : C = (c.directed I x d).1 ;
+  upper (I : U l) (x : I -> C) (d : Dir I x) : Bounds I x (sup I x d) = (c.directed I x d).2.1 ;
+  least (I : U l) (x : I -> C) (d : Dir I x) : (y : C) -> Bounds I x y -> LE (sup I x d) y =
+    (c.directed I x d).2.2 ;
+  Compact (a : C) : U l+ = (I : U l) (x : I -> C) (d : Dir I x) ->
+    LE a (sup I x d) -> Ex ((i : I) * LE a (x i)) ;
+} ;
