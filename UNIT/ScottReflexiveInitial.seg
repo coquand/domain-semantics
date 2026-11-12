@@ -1,0 +1,540 @@
+-- Initiality of the constructed F_A-algebra among presented EP algebras.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+
+module On (A Y : ScottDomain[l].Scott)
+  (algebra : EP.Between[SO.from-presented
+      (ScottReflexiveFunctor[l].Constructor[A].object Y),
+    SO.from-presented Y].Pair) {
+  module F = ScottReflexiveFunctor[l].Constructor[A] ;
+  module R = ScottReflexiveSolution[l].On[A] ;
+  module C = ScottEPLimitCone[l].On[F.chain] ;
+  module K = ScottReflexiveContinuity[l].On[A] ;
+  module B = ScottReflexiveAlgebra[l].On[A,Y,algebra] ;
+  Morphism (h : EP.Between[SO.from-presented R.solution,
+    SO.from-presented Y].Pair) : U l+ =
+    Id (EP.Between[SO.from-presented R.next,
+      SO.from-presented Y].Pair)
+      (EP.compose (SO.from-presented R.next)
+        (SO.from-presented R.solution) (SO.from-presented Y)
+        h R.fold)
+      (EP.compose (SO.from-presented R.next)
+        (SO.from-presented (F.object Y)) (SO.from-presented Y)
+        algebra (F.action R.solution Y h)) ;
+  tail-pair (n : Nat) :
+    EP.Between[SO.from-presented (K.tail.stage n),
+      SO.from-presented Y].Pair = B.stage-pair (suc n) ;
+  tail-cone-law (n : Nat) :
+    Id (EP.Between[SO.from-presented (K.tail.stage n),
+      SO.from-presented Y].Pair)
+      (EP.compose (SO.from-presented (K.tail.stage n))
+        (SO.from-presented (K.tail.stage (suc n)))
+        (SO.from-presented Y)
+        (tail-pair (suc n)) (K.tail.link n))
+      (tail-pair n) = B.cone-law (suc n) ;
+  module TailColimit = ScottEPLimitColimit[l].On[K.tail,Y,
+    tail-pair,tail-cone-law] ;
+  candidate : EP.Between[SO.from-presented R.solution,
+    SO.from-presented Y].Pair = B.mediator ;
+  left : EP.Between[SO.from-presented R.next,
+    SO.from-presented Y].Pair =
+    EP.compose (SO.from-presented R.next)
+      (SO.from-presented R.solution) (SO.from-presented Y)
+      candidate R.fold ;
+  right : EP.Between[SO.from-presented R.next,
+    SO.from-presented Y].Pair =
+    EP.compose (SO.from-presented R.next)
+      (SO.from-presented (F.object Y)) (SO.from-presented Y)
+      algebra (F.action R.solution Y candidate) ;
+  module At (n : Nat) {
+    X : ScottDomain[l].Scott = F.stage n ;
+    FX : ScottDomain[l].Scott = F.stage (suc n) ;
+    Pair : U l+ = EP.Between[SO.from-presented FX,
+      SO.from-presented Y].Pair ;
+    left-cone : Pair = EP.compose (SO.from-presented FX)
+      (SO.from-presented R.next) (SO.from-presented Y)
+      left (K.q n) ;
+    left-middle : Pair =
+      EP.compose (SO.from-presented FX)
+        (SO.from-presented R.solution) (SO.from-presented Y)
+        candidate
+        (EP.compose (SO.from-presented FX)
+          (SO.from-presented R.next)
+          (SO.from-presented R.solution) R.fold (K.q n)) ;
+    left-assoc : Id Pair left-cone left-middle =
+      sym Pair left-middle left-cone
+        (EP.pre.assoc (SO.from-presented FX)
+          (SO.from-presented R.next)
+          (SO.from-presented R.solution) (SO.from-presented Y)
+          (K.q n) R.fold candidate) ;
+    left-stage : Id Pair left-middle
+      (EP.compose (SO.from-presented FX)
+        (SO.from-presented R.solution) (SO.from-presented Y)
+        candidate C.At[suc n].pair) =
+      ap (EP.Between[SO.from-presented FX,
+          SO.from-presented R.solution].Pair) Pair
+        (\ z -> EP.compose (SO.from-presented FX)
+          (SO.from-presented R.solution) (SO.from-presented Y)
+          candidate z)
+        (EP.compose (SO.from-presented FX)
+          (SO.from-presented R.next)
+          (SO.from-presented R.solution) R.fold (K.q n))
+        C.At[suc n].pair (K.Stage[n].fold-cone) ;
+    left-law : Id Pair left-cone (tail-pair n) =
+      trans Pair left-cone left-middle (tail-pair n)
+        left-assoc
+        (trans Pair left-middle
+          (EP.compose (SO.from-presented FX)
+            (SO.from-presented R.solution) (SO.from-presented Y)
+            candidate C.At[suc n].pair)
+          (tail-pair n)
+          left-stage (B.Colimit.ConeLaw[suc n].law)) ;
+    right-cone : Pair = EP.compose (SO.from-presented FX)
+      (SO.from-presented R.next) (SO.from-presented Y)
+      right (K.q n) ;
+    right-middle : Pair =
+      EP.compose (SO.from-presented FX)
+        (SO.from-presented (F.object Y)) (SO.from-presented Y)
+        algebra
+        (EP.compose (SO.from-presented FX)
+          (SO.from-presented R.next)
+          (SO.from-presented (F.object Y))
+          (F.action R.solution Y candidate) (K.q n)) ;
+    right-assoc : Id Pair right-cone right-middle =
+      sym Pair right-middle right-cone
+        (EP.pre.assoc (SO.from-presented FX)
+          (SO.from-presented R.next)
+          (SO.from-presented (F.object Y)) (SO.from-presented Y)
+          (K.q n) (F.action R.solution Y candidate) algebra) ;
+    right-functor : Id Pair right-middle
+      (EP.compose (SO.from-presented FX)
+        (SO.from-presented (F.object Y)) (SO.from-presented Y)
+        algebra
+        (F.action X Y
+          (EP.compose (SO.from-presented X)
+            (SO.from-presented R.solution) (SO.from-presented Y)
+            candidate C.At[n].pair))) =
+      ap (EP.Between[SO.from-presented FX,
+          SO.from-presented (F.object Y)].Pair) Pair
+        (\ z -> EP.compose (SO.from-presented FX)
+          (SO.from-presented (F.object Y)) (SO.from-presented Y)
+          algebra z)
+        (EP.compose (SO.from-presented FX)
+          (SO.from-presented R.next)
+          (SO.from-presented (F.object Y))
+          (F.action R.solution Y candidate) (K.q n))
+        (F.action X Y
+          (EP.compose (SO.from-presented X)
+            (SO.from-presented R.solution) (SO.from-presented Y)
+            candidate C.At[n].pair))
+        (sym (EP.Between[SO.from-presented FX,
+          SO.from-presented (F.object Y)].Pair)
+          (F.action X Y
+            (EP.compose (SO.from-presented X)
+              (SO.from-presented R.solution) (SO.from-presented Y)
+              candidate C.At[n].pair))
+          (EP.compose (SO.from-presented FX)
+            (SO.from-presented R.next)
+            (SO.from-presented (F.object Y))
+            (F.action R.solution Y candidate) (K.q n))
+          (F.action-composition X R.solution Y
+            C.At[n].pair candidate)) ;
+    right-stage : Id Pair
+      (EP.compose (SO.from-presented FX)
+        (SO.from-presented (F.object Y)) (SO.from-presented Y)
+        algebra
+        (F.action X Y
+          (EP.compose (SO.from-presented X)
+            (SO.from-presented R.solution) (SO.from-presented Y)
+            candidate C.At[n].pair)))
+      (tail-pair n) =
+      ap (EP.Between[SO.from-presented X,
+          SO.from-presented Y].Pair) Pair
+        (\ z -> EP.compose (SO.from-presented FX)
+          (SO.from-presented (F.object Y)) (SO.from-presented Y)
+          algebra (F.action X Y z))
+        (EP.compose (SO.from-presented X)
+          (SO.from-presented R.solution) (SO.from-presented Y)
+          candidate C.At[n].pair)
+        (B.stage-pair n) (B.Colimit.ConeLaw[n].law) ;
+    right-law : Id Pair right-cone (tail-pair n) =
+      trans Pair right-cone right-middle (tail-pair n)
+        right-assoc
+        (trans Pair right-middle
+          (EP.compose (SO.from-presented FX)
+            (SO.from-presented (F.object Y)) (SO.from-presented Y)
+            algebra
+            (F.action X Y
+              (EP.compose (SO.from-presented X)
+                (SO.from-presented R.solution) (SO.from-presented Y)
+                candidate C.At[n].pair)))
+          (tail-pair n) right-functor right-stage) ;
+  } ;
+  left-cone (n : Nat) :
+    Id (EP.Between[SO.from-presented (K.tail.stage n),
+      SO.from-presented Y].Pair)
+      (EP.compose (SO.from-presented (K.tail.stage n))
+        (SO.from-presented R.next) (SO.from-presented Y)
+        left (K.q n)) (tail-pair n) = At[n].left-law ;
+  right-cone (n : Nat) :
+    Id (EP.Between[SO.from-presented (K.tail.stage n),
+      SO.from-presented Y].Pair)
+      (EP.compose (SO.from-presented (K.tail.stage n))
+        (SO.from-presented R.next) (SO.from-presented Y)
+        right (K.q n)) (tail-pair n) = At[n].right-law ;
+  module TailCone = ScottEPLimitCone[l].On[K.tail] ;
+  PairNext : U l+ = EP.Between[SO.from-presented R.next,
+    SO.from-presented Y].Pair ;
+  PairTail : U l+ = EP.Between[SO.from-presented K.T,
+    SO.from-presented Y].Pair ;
+  module Via (t : PairNext)
+    (t-cone : (n : Nat) ->
+      Id (EP.Between[SO.from-presented (K.tail.stage n),
+        SO.from-presented Y].Pair)
+        (EP.compose (SO.from-presented (K.tail.stage n))
+          (SO.from-presented R.next) (SO.from-presented Y)
+          t (K.q n)) (tail-pair n)) {
+    value : PairTail = EP.compose (SO.from-presented K.T)
+      (SO.from-presented R.next) (SO.from-presented Y)
+      t K.Colimit.mediator ;
+    module ViaStep (n : Nat) {
+      X : ScottDomain[l].Scott = K.tail.stage n ;
+      lhs : EP.Between[SO.from-presented X,
+        SO.from-presented Y].Pair =
+        EP.compose (SO.from-presented X)
+          (SO.from-presented K.T) (SO.from-presented Y)
+          value TailCone.At[n].pair ;
+      middle : EP.Between[SO.from-presented X,
+        SO.from-presented Y].Pair =
+        EP.compose (SO.from-presented X)
+          (SO.from-presented R.next) (SO.from-presented Y)
+          t (EP.compose (SO.from-presented X)
+            (SO.from-presented K.T) (SO.from-presented R.next)
+            K.Colimit.mediator TailCone.At[n].pair) ;
+      assoc : Id (EP.Between[SO.from-presented X,
+        SO.from-presented Y].Pair) lhs middle =
+        sym (EP.Between[SO.from-presented X,
+          SO.from-presented Y].Pair) middle lhs
+          (EP.pre.assoc (SO.from-presented X)
+            (SO.from-presented K.T) (SO.from-presented R.next)
+            (SO.from-presented Y)
+            TailCone.At[n].pair K.Colimit.mediator t) ;
+      step : Id (EP.Between[SO.from-presented X,
+        SO.from-presented Y].Pair) middle
+        (EP.compose (SO.from-presented X)
+          (SO.from-presented R.next) (SO.from-presented Y)
+          t (K.q n)) =
+        ap (EP.Between[SO.from-presented X,
+            SO.from-presented R.next].Pair)
+          (EP.Between[SO.from-presented X,
+            SO.from-presented Y].Pair)
+          (\ z -> EP.compose (SO.from-presented X)
+            (SO.from-presented R.next) (SO.from-presented Y)
+            t z)
+          (EP.compose (SO.from-presented X)
+            (SO.from-presented K.T) (SO.from-presented R.next)
+            K.Colimit.mediator TailCone.At[n].pair)
+          (K.q n) (K.Colimit.ConeLaw[n].law) ;
+      law : Id (EP.Between[SO.from-presented X,
+        SO.from-presented Y].Pair) lhs (tail-pair n) =
+        trans (EP.Between[SO.from-presented X,
+          SO.from-presented Y].Pair)
+          lhs middle (tail-pair n) assoc
+          (trans (EP.Between[SO.from-presented X,
+            SO.from-presented Y].Pair)
+            middle
+            (EP.compose (SO.from-presented X)
+              (SO.from-presented R.next) (SO.from-presented Y)
+              t (K.q n))
+            (tail-pair n) step (t-cone n)) ;
+    } ;
+    cone-law (n : Nat) :
+      Id (EP.Between[SO.from-presented (K.tail.stage n),
+        SO.from-presented Y].Pair)
+        (EP.compose (SO.from-presented (K.tail.stage n))
+          (SO.from-presented K.T) (SO.from-presented Y)
+          value TailCone.At[n].pair)
+        (tail-pair n) = ViaStep[n].law ;
+    unique : Id PairTail value TailColimit.mediator =
+      TailColimit.Unique[value,cone-law].equation ;
+  } ;
+  module LeftVia = Via[left,left-cone] ;
+  module RightVia = Via[right,right-cone] ;
+  via-equal : Id PairTail LeftVia.value RightVia.value =
+    trans PairTail LeftVia.value TailColimit.mediator RightVia.value
+      LeftVia.unique
+      (sym PairTail RightVia.value TailColimit.mediator RightVia.unique) ;
+  inverse-law : Id (EP.Between[SO.from-presented R.next,
+      SO.from-presented R.next].Pair)
+    (EP.compose (SO.from-presented R.next)
+      (SO.from-presented K.T) (SO.from-presented R.next)
+      K.Colimit.mediator K.comparison-iso.1)
+    (EP.identity (SO.from-presented R.next)) =
+    trans (EP.Between[SO.from-presented R.next,
+      SO.from-presented R.next].Pair)
+      (EP.compose (SO.from-presented R.next)
+        (SO.from-presented K.T) (SO.from-presented R.next)
+        K.Colimit.mediator K.comparison-iso.1)
+      (EP.compose (SO.from-presented R.next)
+        (SO.from-presented K.T) (SO.from-presented R.next)
+        K.comparison-iso.2.1 K.comparison-iso.1)
+      (EP.identity (SO.from-presented R.next))
+      (ap (EP.Between[SO.from-presented K.T,
+          SO.from-presented R.next].Pair)
+        (EP.Between[SO.from-presented R.next,
+          SO.from-presented R.next].Pair)
+        (\ z -> EP.compose (SO.from-presented R.next)
+          (SO.from-presented K.T) (SO.from-presented R.next)
+          z K.comparison-iso.1)
+        K.Colimit.mediator K.comparison-iso.2.1 K.mediator-equal)
+      K.comparison-iso.2.2.1 ;
+  reconstruct (t : PairNext) : Id PairNext t
+    (EP.compose (SO.from-presented R.next)
+      (SO.from-presented K.T) (SO.from-presented Y)
+      (EP.compose (SO.from-presented K.T)
+        (SO.from-presented R.next) (SO.from-presented Y)
+        t K.Colimit.mediator)
+      K.comparison-iso.1) =
+    trans PairNext t
+      (EP.compose (SO.from-presented R.next)
+        (SO.from-presented R.next) (SO.from-presented Y)
+        t (EP.identity (SO.from-presented R.next)))
+      (EP.compose (SO.from-presented R.next)
+        (SO.from-presented K.T) (SO.from-presented Y)
+        (EP.compose (SO.from-presented K.T)
+          (SO.from-presented R.next) (SO.from-presented Y)
+          t K.Colimit.mediator)
+        K.comparison-iso.1)
+      (sym PairNext
+        (EP.compose (SO.from-presented R.next)
+          (SO.from-presented R.next) (SO.from-presented Y)
+          t (EP.identity (SO.from-presented R.next)))
+        t (EP.pre.unit-r (SO.from-presented R.next)
+          (SO.from-presented Y) t))
+      (trans PairNext
+        (EP.compose (SO.from-presented R.next)
+          (SO.from-presented R.next) (SO.from-presented Y)
+          t (EP.identity (SO.from-presented R.next)))
+        (EP.compose (SO.from-presented R.next)
+          (SO.from-presented R.next) (SO.from-presented Y)
+          t (EP.compose (SO.from-presented R.next)
+            (SO.from-presented K.T) (SO.from-presented R.next)
+            K.Colimit.mediator K.comparison-iso.1))
+        (EP.compose (SO.from-presented R.next)
+          (SO.from-presented K.T) (SO.from-presented Y)
+          (EP.compose (SO.from-presented K.T)
+            (SO.from-presented R.next) (SO.from-presented Y)
+            t K.Colimit.mediator)
+          K.comparison-iso.1)
+        (ap (EP.Between[SO.from-presented R.next,
+            SO.from-presented R.next].Pair) PairNext
+          (\ z -> EP.compose (SO.from-presented R.next)
+            (SO.from-presented R.next) (SO.from-presented Y)
+            t z)
+          (EP.identity (SO.from-presented R.next))
+          (EP.compose (SO.from-presented R.next)
+            (SO.from-presented K.T) (SO.from-presented R.next)
+            K.Colimit.mediator K.comparison-iso.1)
+          (sym (EP.Between[SO.from-presented R.next,
+            SO.from-presented R.next].Pair)
+            (EP.compose (SO.from-presented R.next)
+              (SO.from-presented K.T) (SO.from-presented R.next)
+              K.Colimit.mediator K.comparison-iso.1)
+            (EP.identity (SO.from-presented R.next)) inverse-law))
+        (EP.pre.assoc (SO.from-presented R.next)
+          (SO.from-presented K.T) (SO.from-presented R.next)
+          (SO.from-presented Y)
+          K.comparison-iso.1 K.Colimit.mediator t)) ;
+  algebra-law : Morphism candidate =
+    trans PairNext left
+      (EP.compose (SO.from-presented R.next)
+        (SO.from-presented K.T) (SO.from-presented Y)
+        LeftVia.value K.comparison-iso.1)
+      right (reconstruct left)
+      (trans PairNext
+        (EP.compose (SO.from-presented R.next)
+          (SO.from-presented K.T) (SO.from-presented Y)
+          LeftVia.value K.comparison-iso.1)
+        (EP.compose (SO.from-presented R.next)
+          (SO.from-presented K.T) (SO.from-presented Y)
+          RightVia.value K.comparison-iso.1)
+        right
+        (ap PairTail PairNext
+          (\ z -> EP.compose (SO.from-presented R.next)
+            (SO.from-presented K.T) (SO.from-presented Y)
+            z K.comparison-iso.1)
+          LeftVia.value RightVia.value via-equal)
+        (sym PairNext right
+          (EP.compose (SO.from-presented R.next)
+            (SO.from-presented K.T) (SO.from-presented Y)
+            RightVia.value K.comparison-iso.1)
+          (reconstruct right))) ;
+  module Unique
+    (h : EP.Between[SO.from-presented R.solution,
+      SO.from-presented Y].Pair)
+    (h-law : Morphism h) {
+    module Successor (n : Nat)
+      (ih : Id (EP.Between[SO.from-presented (F.stage n),
+          SO.from-presented Y].Pair)
+        (EP.compose (SO.from-presented (F.stage n))
+          (SO.from-presented R.solution) (SO.from-presented Y)
+          h C.At[n].pair)
+        (B.stage-pair n)) {
+      X : ScottDomain[l].Scott = F.stage n ;
+      FX : ScottDomain[l].Scott = F.stage (suc n) ;
+      Pair : U l+ = EP.Between[SO.from-presented FX,
+        SO.from-presented Y].Pair ;
+      lhs : Pair = EP.compose (SO.from-presented FX)
+        (SO.from-presented R.solution) (SO.from-presented Y)
+        h C.At[suc n].pair ;
+      one : Pair = EP.compose (SO.from-presented FX)
+        (SO.from-presented R.solution) (SO.from-presented Y)
+        h (EP.compose (SO.from-presented FX)
+          (SO.from-presented R.next)
+          (SO.from-presented R.solution) R.fold (K.q n)) ;
+      first : Id Pair lhs one =
+        ap (EP.Between[SO.from-presented FX,
+            SO.from-presented R.solution].Pair) Pair
+          (\ z -> EP.compose (SO.from-presented FX)
+            (SO.from-presented R.solution) (SO.from-presented Y)
+            h z)
+          C.At[suc n].pair
+          (EP.compose (SO.from-presented FX)
+            (SO.from-presented R.next)
+            (SO.from-presented R.solution) R.fold (K.q n))
+          (sym (EP.Between[SO.from-presented FX,
+            SO.from-presented R.solution].Pair)
+            (EP.compose (SO.from-presented FX)
+              (SO.from-presented R.next)
+              (SO.from-presented R.solution) R.fold (K.q n))
+            C.At[suc n].pair (K.Stage[n].fold-cone)) ;
+      two : Pair = EP.compose (SO.from-presented FX)
+        (SO.from-presented R.next) (SO.from-presented Y)
+        (EP.compose (SO.from-presented R.next)
+          (SO.from-presented R.solution) (SO.from-presented Y)
+          h R.fold) (K.q n) ;
+      second : Id Pair one two =
+        EP.pre.assoc (SO.from-presented FX)
+          (SO.from-presented R.next)
+          (SO.from-presented R.solution) (SO.from-presented Y)
+          (K.q n) R.fold h ;
+      three : Pair = EP.compose (SO.from-presented FX)
+        (SO.from-presented R.next) (SO.from-presented Y)
+        (EP.compose (SO.from-presented R.next)
+          (SO.from-presented (F.object Y)) (SO.from-presented Y)
+          algebra (F.action R.solution Y h)) (K.q n) ;
+      third : Id Pair two three =
+        ap (EP.Between[SO.from-presented R.next,
+            SO.from-presented Y].Pair) Pair
+          (\ z -> EP.compose (SO.from-presented FX)
+            (SO.from-presented R.next) (SO.from-presented Y)
+            z (K.q n))
+          (EP.compose (SO.from-presented R.next)
+            (SO.from-presented R.solution) (SO.from-presented Y)
+            h R.fold)
+          (EP.compose (SO.from-presented R.next)
+            (SO.from-presented (F.object Y)) (SO.from-presented Y)
+            algebra (F.action R.solution Y h)) h-law ;
+      four : Pair = EP.compose (SO.from-presented FX)
+        (SO.from-presented (F.object Y)) (SO.from-presented Y)
+        algebra
+        (EP.compose (SO.from-presented FX)
+          (SO.from-presented R.next)
+          (SO.from-presented (F.object Y))
+          (F.action R.solution Y h) (K.q n)) ;
+      fourth : Id Pair three four =
+        sym Pair four three
+          (EP.pre.assoc (SO.from-presented FX)
+            (SO.from-presented R.next)
+            (SO.from-presented (F.object Y))
+            (SO.from-presented Y)
+            (K.q n) (F.action R.solution Y h) algebra) ;
+      five : Pair = EP.compose (SO.from-presented FX)
+        (SO.from-presented (F.object Y)) (SO.from-presented Y)
+        algebra
+        (F.action X Y
+          (EP.compose (SO.from-presented X)
+            (SO.from-presented R.solution) (SO.from-presented Y)
+            h C.At[n].pair)) ;
+      fifth : Id Pair four five =
+        ap (EP.Between[SO.from-presented FX,
+            SO.from-presented (F.object Y)].Pair) Pair
+          (\ z -> EP.compose (SO.from-presented FX)
+            (SO.from-presented (F.object Y)) (SO.from-presented Y)
+            algebra z)
+          (EP.compose (SO.from-presented FX)
+            (SO.from-presented R.next)
+            (SO.from-presented (F.object Y))
+            (F.action R.solution Y h) (K.q n))
+          (F.action X Y
+            (EP.compose (SO.from-presented X)
+              (SO.from-presented R.solution) (SO.from-presented Y)
+              h C.At[n].pair))
+          (sym (EP.Between[SO.from-presented FX,
+            SO.from-presented (F.object Y)].Pair)
+            (F.action X Y
+              (EP.compose (SO.from-presented X)
+                (SO.from-presented R.solution) (SO.from-presented Y)
+                h C.At[n].pair))
+            (EP.compose (SO.from-presented FX)
+              (SO.from-presented R.next)
+              (SO.from-presented (F.object Y))
+              (F.action R.solution Y h) (K.q n))
+            (F.action-composition X R.solution Y C.At[n].pair h)) ;
+      last : Id Pair five (B.stage-pair (suc n)) =
+        ap (EP.Between[SO.from-presented X,
+            SO.from-presented Y].Pair) Pair
+          (\ z -> EP.compose (SO.from-presented FX)
+            (SO.from-presented (F.object Y)) (SO.from-presented Y)
+            algebra (F.action X Y z))
+          (EP.compose (SO.from-presented X)
+            (SO.from-presented R.solution) (SO.from-presented Y)
+            h C.At[n].pair)
+          (B.stage-pair n) ih ;
+      law : Id Pair lhs (B.stage-pair (suc n)) =
+        trans Pair lhs one (B.stage-pair (suc n)) first
+          (trans Pair one two (B.stage-pair (suc n)) second
+            (trans Pair two three (B.stage-pair (suc n)) third
+              (trans Pair three four (B.stage-pair (suc n)) fourth
+                (trans Pair four five (B.stage-pair (suc n))
+                  fifth last)))) ;
+    } ;
+    cone-law : (n : Nat) ->
+      Id (EP.Between[SO.from-presented (F.stage n),
+        SO.from-presented Y].Pair)
+        (EP.compose (SO.from-presented (F.stage n))
+          (SO.from-presented R.solution) (SO.from-presented Y)
+          h C.At[n].pair)
+        (B.stage-pair n) = split {
+      zero -> ScottReflexiveFunctor[l].initial-unique Y
+        (EP.compose (SO.from-presented (F.stage zero))
+          (SO.from-presented R.solution) (SO.from-presented Y)
+          h C.At[zero].pair) ;
+      suc n | r -> Successor[n,r].law } ;
+    equation : Id (EP.Between[SO.from-presented R.solution,
+      SO.from-presented Y].Pair) h candidate =
+      B.Colimit.Unique[h,cone-law].equation ;
+  } ;
+  morphism-prop (h : EP.Between[SO.from-presented R.solution,
+      SO.from-presented Y].Pair) : isProp (Morphism h) =
+    EP.Between[SO.from-presented R.next,
+      SO.from-presented Y].set
+      (EP.compose (SO.from-presented R.next)
+        (SO.from-presented R.solution) (SO.from-presented Y)
+        h R.fold)
+      (EP.compose (SO.from-presented R.next)
+        (SO.from-presented (F.object Y)) (SO.from-presented Y)
+        algebra (F.action R.solution Y h)) ;
+  AlgebraMorphism : U l+ =
+    (h : EP.Between[SO.from-presented R.solution,
+      SO.from-presented Y].Pair) * Morphism h ;
+  center : AlgebraMorphism = (candidate,algebra-law) ;
+  initial : (w : AlgebraMorphism) -> Id AlgebraMorphism w center =
+    \ w -> Sigma-eq
+      (EP.Between[SO.from-presented R.solution,
+        SO.from-presented Y].Pair)
+      Morphism w.1 candidate w.2 algebra-law
+      (Unique[w.1,w.2].equation) (morphism-prop candidate) ;
+} ;

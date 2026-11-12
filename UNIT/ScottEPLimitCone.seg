@@ -1,0 +1,53 @@
+-- Canonical embedding-projection pairs from stages into their limit.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Limit = ScottEPLimit[l] ;
+module Basis = ScottEPLimitBasis[l] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+
+module On (S : Limit.Chain) {
+  module L = Limit.On[S] ;
+  module C = Limit.Completion[S] ;
+  D : ScottDomain[l].Scott = Basis.On[S].scott ;
+  module At (n : Nat) {
+    X : ScottDomain[l].Scott = S.stage n ;
+    module XD = DM.Between[SO.from-presented X,SO.from-presented D] ;
+    module DX = DM.Between[SO.from-presented D,SO.from-presented X] ;
+    embedding : XD.Map = (Limit.lift n S,
+      (C.lift-mono n,
+       \ I x d z h -> Limit.lower n S
+         (DC[X.order,X.complete].sup I x d) z
+         (DC[X.order,X.complete].least I x d (z.1 n)
+           (\ i -> Limit.upper n S (x i) z (h i))))) ;
+    projection : DX.Map = (\ x -> x.1 n,
+      (\ x y h -> h n,
+       \ I x d z h ->
+         ((X.complete.directed I (\ i -> (x i).1 n)
+           (L.evaluated I x d n)).2.2 z h))) ;
+    pair : EP.Between[SO.from-presented X,SO.from-presented D].Pair =
+      ((embedding,projection),
+        (Limit.section n S,Limit.deflation S n)) ;
+  } ;
+  cone-law (n : Nat) :
+    Id (EP.Between[SO.from-presented (S.stage n),SO.from-presented D].Pair)
+      (EP.compose (SO.from-presented (S.stage n))
+        (SO.from-presented (S.stage (suc n))) (SO.from-presented D)
+        (At[suc n].pair) (S.link n))
+      (At[n].pair) =
+    EP.Between[SO.from-presented (S.stage n),SO.from-presented D].equal
+      (EP.compose (SO.from-presented (S.stage n))
+        (SO.from-presented (S.stage (suc n))) (SO.from-presented D)
+        (At[suc n].pair) (S.link n)) (At[n].pair)
+      (DM.Between[SO.from-presented (S.stage n),SO.from-presented D].equal
+        (EP.compose (SO.from-presented (S.stage n))
+          (SO.from-presented (S.stage (suc n))) (SO.from-presented D)
+          (At[suc n].pair) (S.link n)).1.1
+        (At[n].embedding) (Limit.lift-link S n))
+      (DM.Between[SO.from-presented D,SO.from-presented (S.stage n)].equal
+        (EP.compose (SO.from-presented (S.stage n))
+          (SO.from-presented (S.stage (suc n))) (SO.from-presented D)
+          (At[suc n].pair) (S.link n)).1.2
+        (At[n].projection) (\ x -> x.2 n)) ;
+} ;

@@ -1,0 +1,118 @@
+-- Products with a fixed Scott domain act on embedding-projection pairs.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+
+module RightMap (A X Y : ScottDomain[l].Scott)
+  (f : DM.Between[SO.from-presented X,SO.from-presented Y].Map) {
+  module PX = ScottProduct[l].Product[A,X] ;
+  module PY = ScottProduct[l].Product[A,Y] ;
+  module XY = DM.Between[SO.from-presented X,SO.from-presented Y] ;
+  module Out = DM.Between[SO.from-presented PX.scott,SO.from-presented PY.scott] ;
+  value (w : PX.C) : PY.C = (w.1,XY.run f w.2) ;
+  monotone : Out.Monotone value = \ u v h ->
+    (h.1,XY.mono f u.2 v.2 h.2) ;
+  preserves : Out.Continuous value = \ I x d z h ->
+    (ScottOrder[l].DC[A.order,A.complete].least I
+      (\ i -> (x i).1) (PX.left-dir I x d) z.1 (\ i -> (h i).1),
+     XY.continuous f I (\ i -> (x i).2) (PX.right-dir I x d)
+       z.2 (\ i -> (h i).2)) ;
+  map : Out.Map = (value,(monotone,preserves)) ;
+} ;
+
+module Action (A X Y : ScottDomain[l].Scott)
+  (q : EP.Between[SO.from-presented X,SO.from-presented Y].Pair) {
+  module F = RightMap[A,X,Y,q.1.1] ;
+  module G = RightMap[A,Y,X,q.1.2] ;
+  module PX = ScottProduct[l].Product[A,X] ;
+  module PY = ScottProduct[l].Product[A,Y] ;
+  retract (w : PX.C) : Id PX.C (G.value (F.value w)) w =
+    FiniteEnumeration[l].pair-eq A.order.carrier X.order.carrier
+      w.1 w.1 (q.1.2.1 (q.1.1.1 w.2)) w.2
+      (refl w.1) (q.2.1 w.2) ;
+  below (w : PY.C) : PY.LE (F.value (G.value w)) w =
+    (A.order.reflexive w.1,q.2.2 w.2) ;
+  pair : EP.Between[SO.from-presented PX.scott,SO.from-presented PY.scott].Pair =
+    ((F.map,G.map),(retract,below)) ;
+} ;
+
+module FunctorLaws (A : ScottDomain[l].Scott) {
+  module P (X : ScottDomain[l].Scott) {
+    D : ScottDomain[l].Scott = ScottProduct[l].Product[A,X].scott ;
+  } ;
+  identity (X : ScottDomain[l].Scott) :
+    Id (EP.Between[SO.from-presented P[X].D,
+      SO.from-presented P[X].D].Pair)
+      (Action[A,X,X,EP.identity (SO.from-presented X)].pair)
+      (EP.identity (SO.from-presented P[X].D)) =
+    EP.Between[SO.from-presented P[X].D,
+      SO.from-presented P[X].D].equal
+      (Action[A,X,X,EP.identity (SO.from-presented X)].pair)
+      (EP.identity (SO.from-presented P[X].D))
+      (DM.Between[SO.from-presented P[X].D,
+        SO.from-presented P[X].D].equal
+        (Action[A,X,X,EP.identity (SO.from-presented X)].pair).1.1
+        (EP.identity (SO.from-presented P[X].D)).1.1
+        (\ w -> refl w))
+      (DM.Between[SO.from-presented P[X].D,
+        SO.from-presented P[X].D].equal
+        (Action[A,X,X,EP.identity (SO.from-presented X)].pair).1.2
+        (EP.identity (SO.from-presented P[X].D)).1.2
+        (\ w -> refl w)) ;
+  composition (X Y Z : ScottDomain[l].Scott)
+    (q : EP.Between[SO.from-presented X,SO.from-presented Y].Pair)
+    (r : EP.Between[SO.from-presented Y,SO.from-presented Z].Pair) :
+    Id (EP.Between[SO.from-presented P[X].D,
+      SO.from-presented P[Z].D].Pair)
+      (Action[A,X,Z,EP.compose (SO.from-presented X)
+        (SO.from-presented Y) (SO.from-presented Z) r q].pair)
+      (EP.compose (SO.from-presented P[X].D)
+        (SO.from-presented P[Y].D) (SO.from-presented P[Z].D)
+        (Action[A,Y,Z,r].pair) (Action[A,X,Y,q].pair)) =
+    EP.Between[SO.from-presented P[X].D,
+      SO.from-presented P[Z].D].equal
+      (Action[A,X,Z,EP.compose (SO.from-presented X)
+        (SO.from-presented Y) (SO.from-presented Z) r q].pair)
+      (EP.compose (SO.from-presented P[X].D)
+        (SO.from-presented P[Y].D) (SO.from-presented P[Z].D)
+        (Action[A,Y,Z,r].pair) (Action[A,X,Y,q].pair))
+      (DM.Between[SO.from-presented P[X].D,
+        SO.from-presented P[Z].D].equal
+        (Action[A,X,Z,EP.compose (SO.from-presented X)
+          (SO.from-presented Y) (SO.from-presented Z) r q].pair).1.1
+        (EP.compose (SO.from-presented P[X].D)
+          (SO.from-presented P[Y].D) (SO.from-presented P[Z].D)
+          (Action[A,Y,Z,r].pair) (Action[A,X,Y,q].pair)).1.1
+        (\ w -> refl ((w.1,r.1.1.1 (q.1.1.1 w.2)))))
+      (DM.Between[SO.from-presented P[Z].D,
+        SO.from-presented P[X].D].equal
+        (Action[A,X,Z,EP.compose (SO.from-presented X)
+          (SO.from-presented Y) (SO.from-presented Z) r q].pair).1.2
+        (EP.compose (SO.from-presented P[X].D)
+          (SO.from-presented P[Y].D) (SO.from-presented P[Z].D)
+          (Action[A,Y,Z,r].pair) (Action[A,X,Y,q].pair)).1.2
+        (\ w -> refl ((w.1,q.1.2.1 (r.1.2.1 w.2))))) ;
+} ;
+
+module Iso (A X Y : ScottDomain[l].Scott)
+  (i : SO.OrderIso X.order Y.order) {
+  module P = ScottProduct[l].Product[A,X] ;
+  module Q = ScottProduct[l].Product[A,Y] ;
+  forward (w : P.C) : Q.C = (w.1,i.1.1 w.2) ;
+  backward (w : Q.C) : P.C = (w.1,i.1.2.sec w.2) ;
+  section (w : Q.C) : Id Q.C (forward (backward w)) w =
+    FiniteEnumeration[l].pair-eq A.order.carrier Y.order.carrier
+      w.1 w.1 (i.1.1 (i.1.2.sec w.2)) w.2
+      (refl w.1) (i.1.2.sec-eq w.2) ;
+  retract (w : P.C) : Id P.C (backward (forward w)) w =
+    FiniteEnumeration[l].pair-eq A.order.carrier X.order.carrier
+      w.1 w.1 (i.1.2.sec (i.1.1 w.2)) w.2
+      (refl w.1)
+      (sec-ret X.order.carrier Y.order.carrier i.1.1 i.1.2 w.2) ;
+  iso : SO.OrderIso P.order Q.order =
+    ((forward,qinv P.C Q.C forward backward section retract),
+      (\ x y h -> (h.1,i.2.1 x.2 y.2 h.2),
+       \ x y h -> (h.1,i.2.2 x.2 y.2 h.2))) ;
+} ;

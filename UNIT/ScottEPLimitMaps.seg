@@ -1,0 +1,31 @@
+-- A coherent family of continuous maps assembles into a limit map.
+level l ;
+open Base ; open Prelude[l+] ;
+module Limit = ScottEPLimit[l] ;
+module Basis = ScottEPLimitBasis[l] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+
+module On (S : Limit.Chain) {
+  module L = Limit.On[S] ;
+  D : ScottDomain[l].Scott = Basis.On[S].scott ;
+  module Assemble (P : ScottDomain[l].Scott)
+    (f : (n : Nat) -> DM.Between[SO.from-presented P,
+      SO.from-presented (S.stage n)].Map)
+    (coherent : (x : P.order.carrier) -> L.Coherent
+      (\ n -> DM.Between[SO.from-presented P,
+        SO.from-presented (S.stage n)].run (f n) x)) {
+    module Out = DM.Between[SO.from-presented P,SO.from-presented D] ;
+    value (x : P.order.carrier) : L.carrier =
+      (\ n -> DM.Between[SO.from-presented P,
+        SO.from-presented (S.stage n)].run (f n) x,coherent x) ;
+    monotone : Out.Monotone value = \ x y h n ->
+      DM.Between[SO.from-presented P,
+        SO.from-presented (S.stage n)].mono (f n) x y h ;
+    continuous : Out.Continuous value = \ I x d z h n ->
+      DM.Between[SO.from-presented P,
+        SO.from-presented (S.stage n)].continuous (f n)
+        I x d (z.1 n) (\ i -> h i n) ;
+    map : Out.Map = (value,(monotone,continuous)) ;
+  } ;
+} ;

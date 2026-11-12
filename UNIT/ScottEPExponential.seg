@@ -1,0 +1,145 @@
+-- Conjugation of continuous endomaps along continuous maps.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+module Conjugate (X Y : ScottDomain[l].Scott)
+  (f : DM.Between[SO.from-presented X,SO.from-presented Y].Map)
+  (g : DM.Between[SO.from-presented Y,SO.from-presented X].Map) {
+  module XX = ScottMaps[l].Between[X,X] ;
+  module YY = ScottMaps[l].Between[Y,Y] ;
+  module XY = DM.Between[SO.from-presented X,SO.from-presented Y] ;
+  module YX = DM.Between[SO.from-presented Y,SO.from-presented X] ;
+  EX : ScottDomain[l].Scott = ScottExponential[l].Exponential[X,X].scott ;
+  EY : ScottDomain[l].Scott = ScottExponential[l].Exponential[Y,Y].scott ;
+  module Out = DM.Between[SO.from-presented EX,SO.from-presented EY] ;
+  value (h : XX.Map) : YY.Map =
+    DM.Triple[SO.from-presented Y,SO.from-presented X,SO.from-presented Y].compose f
+      (DM.Triple[SO.from-presented Y,SO.from-presented X,SO.from-presented X].compose h g) ;
+  monotone : Out.Monotone value = \ h k hk ->
+    YY.small (value h) (value k) (\ y ->
+      XY.mono f (XX.run h (YX.run g y)) (XX.run k (YX.run g y))
+        (XX.pointwise h k hk (YX.run g y))) ;
+  preserves : Out.Continuous value = \ I h d z ub a ->
+    XY.continuous f I
+      (\ i -> XX.run (h i) (YX.run g (Y.basis.basic a)))
+      (XX.evaluated-dir I h d (YX.run g (Y.basis.basic a)))
+      (YY.run z (Y.basis.basic a)) (\ i -> ub i a) ;
+  map : Out.Map = (value,(monotone,preserves)) ;
+} ;
+
+module Action (X Y : ScottDomain[l].Scott)
+  (q : EP.Between[SO.from-presented X,SO.from-presented Y].Pair) {
+  module F = Conjugate[X,Y,q.1.1,q.1.2] ;
+  module G = Conjugate[Y,X,q.1.2,q.1.1] ;
+  module XX = ScottMaps[l].Between[X,X] ;
+  module YY = ScottMaps[l].Between[Y,Y] ;
+  module XY = DM.Between[SO.from-presented X,SO.from-presented Y] ;
+  module YX = DM.Between[SO.from-presented Y,SO.from-presented X] ;
+  retract-point (h : XX.Map) (x : X.order.carrier) :
+    Id X.order.carrier (XX.run (G.value (F.value h)) x) (XX.run h x) =
+    trans X.order.carrier
+      (YX.run q.1.2 (XY.run q.1.1
+        (XX.run h (YX.run q.1.2 (XY.run q.1.1 x)))))
+      (YX.run q.1.2 (XY.run q.1.1 (XX.run h x))) (XX.run h x)
+      (ap X.order.carrier X.order.carrier
+        (\ z -> YX.run q.1.2 (XY.run q.1.1 (XX.run h z)))
+        (YX.run q.1.2 (XY.run q.1.1 x)) x (q.2.1 x))
+      (q.2.1 (XX.run h x)) ;
+  retract (h : XX.Map) : Id XX.Map (G.value (F.value h)) h =
+    Sigma-eq (X.order.carrier -> X.order.carrier) XX.Laws
+      (G.value (F.value h)).1 h.1
+      (G.value (F.value h)).2 h.2
+      (H.funext X.order.carrier (\ _ -> X.order.carrier)
+        (G.value (F.value h)).1 h.1 (retract-point h))
+      (XX.laws-prop h.1) ;
+  below (k : YY.Map) : YY.LE (F.value (G.value k)) k = \ a ->
+    Y.order.transitive
+      (YY.run (F.value (G.value k)) (Y.basis.basic a))
+      (YY.run k (XY.run q.1.1 (YX.run q.1.2 (Y.basis.basic a))))
+      (YY.run k (Y.basis.basic a))
+      (q.2.2 (YY.run k (XY.run q.1.1 (YX.run q.1.2 (Y.basis.basic a)))))
+      (YY.mono k (XY.run q.1.1 (YX.run q.1.2 (Y.basis.basic a)))
+        (Y.basis.basic a) (q.2.2 (Y.basis.basic a))) ;
+  pair : EP.Between[SO.from-presented F.EX,SO.from-presented F.EY].Pair =
+    ((F.map,G.map),(retract,below)) ;
+} ;
+
+module FunctorLaws {
+  module Exp (X : ScottDomain[l].Scott) {
+    D : ScottDomain[l].Scott = ScottExponential[l].Exponential[X,X].scott ;
+  } ;
+  identity (X : ScottDomain[l].Scott) :
+    Id (EP.Between[SO.from-presented Exp[X].D,
+      SO.from-presented Exp[X].D].Pair)
+      (Action[X,X,EP.identity (SO.from-presented X)].pair)
+      (EP.identity (SO.from-presented Exp[X].D)) =
+    EP.Between[SO.from-presented Exp[X].D,
+      SO.from-presented Exp[X].D].equal
+      (Action[X,X,EP.identity (SO.from-presented X)].pair)
+      (EP.identity (SO.from-presented Exp[X].D))
+      (DM.Between[SO.from-presented Exp[X].D,
+        SO.from-presented Exp[X].D].equal
+        (Action[X,X,EP.identity (SO.from-presented X)].pair).1.1
+        (EP.identity (SO.from-presented Exp[X].D)).1.1
+        (\ h -> DM.Between[SO.from-presented X,
+          SO.from-presented X].equal
+          (Action[X,X,EP.identity (SO.from-presented X)].F.value h) h
+          (\ x -> refl (h.1 x))))
+      (DM.Between[SO.from-presented Exp[X].D,
+        SO.from-presented Exp[X].D].equal
+        (Action[X,X,EP.identity (SO.from-presented X)].pair).1.2
+        (EP.identity (SO.from-presented Exp[X].D)).1.2
+        (\ h -> DM.Between[SO.from-presented X,
+          SO.from-presented X].equal
+          (Action[X,X,EP.identity (SO.from-presented X)].G.value h) h
+          (\ x -> refl (h.1 x)))) ;
+  composition (X Y Z : ScottDomain[l].Scott)
+    (q : EP.Between[SO.from-presented X,SO.from-presented Y].Pair)
+    (r : EP.Between[SO.from-presented Y,SO.from-presented Z].Pair) :
+    Id (EP.Between[SO.from-presented Exp[X].D,
+      SO.from-presented Exp[Z].D].Pair)
+      (Action[X,Z,EP.compose (SO.from-presented X)
+        (SO.from-presented Y) (SO.from-presented Z) r q].pair)
+      (EP.compose (SO.from-presented Exp[X].D)
+        (SO.from-presented Exp[Y].D) (SO.from-presented Exp[Z].D)
+        (Action[Y,Z,r].pair) (Action[X,Y,q].pair)) =
+    EP.Between[SO.from-presented Exp[X].D,
+      SO.from-presented Exp[Z].D].equal
+      (Action[X,Z,EP.compose (SO.from-presented X)
+        (SO.from-presented Y) (SO.from-presented Z) r q].pair)
+      (EP.compose (SO.from-presented Exp[X].D)
+        (SO.from-presented Exp[Y].D) (SO.from-presented Exp[Z].D)
+        (Action[Y,Z,r].pair) (Action[X,Y,q].pair))
+      (DM.Between[SO.from-presented Exp[X].D,
+        SO.from-presented Exp[Z].D].equal
+        (Action[X,Z,EP.compose (SO.from-presented X)
+          (SO.from-presented Y) (SO.from-presented Z) r q].pair).1.1
+        (EP.compose (SO.from-presented Exp[X].D)
+          (SO.from-presented Exp[Y].D) (SO.from-presented Exp[Z].D)
+          (Action[Y,Z,r].pair) (Action[X,Y,q].pair)).1.1
+        (\ h -> DM.Between[SO.from-presented Z,
+          SO.from-presented Z].equal
+          (Action[X,Z,EP.compose (SO.from-presented X)
+            (SO.from-presented Y) (SO.from-presented Z) r q].F.value h)
+          (Action[Y,Z,r].F.value (Action[X,Y,q].F.value h))
+          (\ x -> refl (r.1.1.1 (q.1.1.1
+            (h.1 (q.1.2.1 (r.1.2.1 x))))))))
+      (DM.Between[SO.from-presented Exp[Z].D,
+        SO.from-presented Exp[X].D].equal
+        (Action[X,Z,EP.compose (SO.from-presented X)
+          (SO.from-presented Y) (SO.from-presented Z) r q].pair).1.2
+        (EP.compose (SO.from-presented Exp[X].D)
+          (SO.from-presented Exp[Y].D) (SO.from-presented Exp[Z].D)
+          (Action[Y,Z,r].pair) (Action[X,Y,q].pair)).1.2
+        (\ h -> DM.Between[SO.from-presented X,
+          SO.from-presented X].equal
+          (Action[X,Z,EP.compose (SO.from-presented X)
+            (SO.from-presented Y) (SO.from-presented Z) r q].G.value h)
+          (Action[X,Y,q].G.value (Action[Y,Z,r].G.value h))
+          (\ x -> refl (q.1.2.1 (r.1.2.1
+            (h.1 (r.1.1.1 (q.1.1.1 x)))))))) ;
+} ;

@@ -1,0 +1,77 @@
+-- Scott-continuous maps on domains with merely existing compact bases.
+level l ;
+open Base ; open Prelude[l+] ;
+module O = ScottDomainObjects[l] ;
+module S = ScottOrder[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module T = TruncationCombinators[l] ;
+
+module Between (D E : O.Domain) {
+  module A = S.On[D.order] ; module B = S.On[E.order] ;
+  module C = S.DC[D.order,D.complete] ;
+  Monotone (f : A.C -> B.C) : U l+ =
+    (x y : A.C) -> A.LE x y -> B.LE (f x) (f y) ;
+  Continuous (f : A.C -> B.C) : U l+ =
+    (I : U l) (x : I -> A.C) (d : A.Dir I x) (z : B.C) ->
+      ((i : I) -> B.LE (f (x i)) z) -> B.LE (f (C.sup I x d)) z ;
+  Laws (f : A.C -> B.C) : U l+ = Monotone f * Continuous f ;
+  Map : U l+ = (f : A.C -> B.C) * Laws f ;
+  run (f : Map) : A.C -> B.C = f.1 ;
+  mono (f : Map) : Monotone f.1 = f.2.1 ;
+  continuous (f : Map) : Continuous f.1 = f.2.2 ;
+  mono-prop (f : A.C -> B.C) : isProp (Monotone f) =
+    H.isProp-Pi A.C (\ x -> (y : A.C) -> A.LE x y -> B.LE (f x) (f y)) (\ x ->
+      H.isProp-Pi A.C (\ y -> A.LE x y -> B.LE (f x) (f y)) (\ y ->
+        H.isProp-Pi (A.LE x y) (\ _ -> B.LE (f x) (f y))
+          (\ _ -> E.order.proposition (f x) (f y)))) ;
+  cont-prop (f : A.C -> B.C) : isProp (Continuous f) =
+    H.isProp-Pi (U l) (\ I -> (x : I -> A.C) (d : A.Dir I x) (z : B.C) ->
+      ((i : I) -> B.LE (f (x i)) z) -> B.LE (f (C.sup I x d)) z) (\ I ->
+    H.isProp-Pi (I -> A.C) (\ x -> (d : A.Dir I x) (z : B.C) ->
+      ((i : I) -> B.LE (f (x i)) z) -> B.LE (f (C.sup I x d)) z) (\ x ->
+    H.isProp-Pi (A.Dir I x) (\ d -> (z : B.C) ->
+      ((i : I) -> B.LE (f (x i)) z) -> B.LE (f (C.sup I x d)) z) (\ d ->
+    H.isProp-Pi B.C (\ z -> ((i : I) -> B.LE (f (x i)) z) -> B.LE (f (C.sup I x d)) z) (\ z ->
+    H.isProp-Pi ((i : I) -> B.LE (f (x i)) z) (\ _ -> B.LE (f (C.sup I x d)) z)
+      (\ _ -> E.order.proposition (f (C.sup I x d)) z))))) ;
+  laws-prop (f : A.C -> B.C) : isProp (Laws f) =
+    isProp-Sigma (Monotone f) (\ _ -> Continuous f)
+      (mono-prop f) (\ _ -> cont-prop f) ;
+  equal (f g : Map) (p : (x : A.C) -> Id B.C (run f x) (run g x)) :
+    Id Map f g =
+    Sigma-eq (A.C -> B.C) Laws f.1 g.1 f.2 g.2
+      (H.funext A.C (\ _ -> B.C) f.1 g.1 p) (laws-prop g.1) ;
+  set : isSet Map =
+    isSet-Sigma (A.C -> B.C) Laws
+      (H.isSet-Pi A.C (\ _ -> B.C) (\ _ -> B.order-set))
+      (\ f -> prop-to-set (Laws f) (laws-prop f)) ;
+  image-dir (f : Map) (I : U l) (x : I -> A.C) (d : A.Dir I x) :
+    B.Dir I (\ i -> run f (x i)) =
+    (d.1,\ i j -> T.map (A.Upper I x i j)
+      (B.Upper I (\ k -> run f (x k)) i j)
+      (\ w -> (w.1,(mono f (x i) (x w.1) w.2.1,
+        mono f (x j) (x w.1) w.2.2))) (d.2 i j)) ;
+} ;
+
+module End (D : O.Domain) {
+  module M = Between[D,D] ;
+  identity : M.Map = (\ x -> x,
+    ((\ x y h -> h),\ I x d z h -> M.C.least I x d z h)) ;
+} ;
+
+module Triple (D E F : O.Domain) {
+  module DE = Between[D,E] ; module EF = Between[E,F] ;
+  module DF = Between[D,F] ;
+  compose (g : EF.Map) (f : DE.Map) : DF.Map =
+    (\ x -> EF.run g (DE.run f x),
+      (\ x y h -> EF.mono g (DE.run f x) (DE.run f y) (DE.mono f x y h),
+       \ I x d z h ->
+         F.order.transitive (EF.run g (DE.run f (DE.C.sup I x d)))
+           (EF.run g (EF.C.sup I (\ i -> DE.run f (x i)) (DE.image-dir f I x d))) z
+           (EF.mono g (DE.run f (DE.C.sup I x d))
+             (EF.C.sup I (\ i -> DE.run f (x i)) (DE.image-dir f I x d))
+             (DE.continuous f I x d
+               (EF.C.sup I (\ i -> DE.run f (x i)) (DE.image-dir f I x d))
+               (EF.C.upper I (\ i -> DE.run f (x i)) (DE.image-dir f I x d))))
+           (EF.continuous g I (\ i -> DE.run f (x i)) (DE.image-dir f I x d) z h))) ;
+} ;

@@ -1,0 +1,130 @@
+-- Initial-chain cocones for algebras of A x [X -> X].
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+
+module On (A Y : ScottDomain[l].Scott)
+  (algebra : EP.Between[SO.from-presented
+      (ScottReflexiveFunctor[l].Constructor[A].object Y),
+    SO.from-presented Y].Pair) {
+  module F = ScottReflexiveFunctor[l].Constructor[A] ;
+  stage-pair : (n : Nat) ->
+    EP.Between[SO.from-presented (F.stage n),
+      SO.from-presented Y].Pair = split {
+    zero -> ScottReflexiveFunctor[l].initial-pair Y ;
+    suc n | r ->
+      EP.compose (SO.from-presented (F.stage (suc n)))
+        (SO.from-presented (F.object Y)) (SO.from-presented Y)
+        algebra (F.action (F.stage n) Y r) } ;
+  module Step (n : Nat) {
+    X : ScottDomain[l].Scott = F.stage n ;
+    X1 : ScottDomain[l].Scott = F.stage (suc n) ;
+    X2 : ScottDomain[l].Scott = F.stage (suc (suc n)) ;
+    left : EP.Between[SO.from-presented X1,
+      SO.from-presented Y].Pair =
+      EP.compose (SO.from-presented X1)
+        (SO.from-presented X2) (SO.from-presented Y)
+        (stage-pair (suc (suc n))) (F.link (suc n)) ;
+    middle : EP.Between[SO.from-presented X1,
+      SO.from-presented Y].Pair =
+      EP.compose (SO.from-presented X1)
+        (SO.from-presented (F.object Y)) (SO.from-presented Y)
+        algebra
+        (EP.compose (SO.from-presented X1)
+          (SO.from-presented X2) (SO.from-presented (F.object Y))
+          (F.action X1 Y (stage-pair (suc n)))
+          (F.action X X1 (F.link n))) ;
+    after-assoc : Id (EP.Between[SO.from-presented X1,
+      SO.from-presented Y].Pair) left middle =
+      sym (EP.Between[SO.from-presented X1,
+        SO.from-presented Y].Pair) middle left
+        (EP.pre.assoc (SO.from-presented X1)
+          (SO.from-presented X2)
+          (SO.from-presented (F.object Y)) (SO.from-presented Y)
+          (F.action X X1 (F.link n))
+          (F.action X1 Y (stage-pair (suc n))) algebra) ;
+    composite : EP.Between[SO.from-presented X1,
+      SO.from-presented Y].Pair =
+      EP.compose (SO.from-presented X1)
+        (SO.from-presented (F.object Y)) (SO.from-presented Y)
+        algebra
+        (F.action X Y
+          (EP.compose (SO.from-presented X)
+            (SO.from-presented X1) (SO.from-presented Y)
+            (stage-pair (suc n)) (F.link n))) ;
+    after-functor : Id (EP.Between[SO.from-presented X1,
+      SO.from-presented Y].Pair) middle composite =
+      ap (EP.Between[SO.from-presented X1,
+          SO.from-presented (F.object Y)].Pair)
+        (EP.Between[SO.from-presented X1,
+          SO.from-presented Y].Pair)
+        (\ z -> EP.compose (SO.from-presented X1)
+          (SO.from-presented (F.object Y)) (SO.from-presented Y)
+          algebra z)
+        (EP.compose (SO.from-presented X1)
+          (SO.from-presented X2) (SO.from-presented (F.object Y))
+          (F.action X1 Y (stage-pair (suc n)))
+          (F.action X X1 (F.link n)))
+        (F.action X Y
+          (EP.compose (SO.from-presented X)
+            (SO.from-presented X1) (SO.from-presented Y)
+            (stage-pair (suc n)) (F.link n)))
+        (sym (EP.Between[SO.from-presented X1,
+          SO.from-presented (F.object Y)].Pair)
+          (F.action X Y
+            (EP.compose (SO.from-presented X)
+              (SO.from-presented X1) (SO.from-presented Y)
+              (stage-pair (suc n)) (F.link n)))
+          (EP.compose (SO.from-presented X1)
+            (SO.from-presented X2) (SO.from-presented (F.object Y))
+            (F.action X1 Y (stage-pair (suc n)))
+            (F.action X X1 (F.link n)))
+          (F.action-composition X X1 Y (F.link n)
+            (stage-pair (suc n)))) ;
+    after-induction
+      (ih : Id (EP.Between[SO.from-presented X,
+          SO.from-presented Y].Pair)
+        (EP.compose (SO.from-presented X)
+          (SO.from-presented X1) (SO.from-presented Y)
+          (stage-pair (suc n)) (F.link n)) (stage-pair n)) :
+      Id (EP.Between[SO.from-presented X1,
+        SO.from-presented Y].Pair)
+        composite (stage-pair (suc n)) =
+      ap (EP.Between[SO.from-presented X,
+          SO.from-presented Y].Pair)
+        (EP.Between[SO.from-presented X1,
+          SO.from-presented Y].Pair)
+        (\ z -> EP.compose (SO.from-presented X1)
+          (SO.from-presented (F.object Y)) (SO.from-presented Y)
+          algebra (F.action X Y z))
+        (EP.compose (SO.from-presented X)
+          (SO.from-presented X1) (SO.from-presented Y)
+          (stage-pair (suc n)) (F.link n)) (stage-pair n) ih ;
+  } ;
+  cone-law : (n : Nat) ->
+    Id (EP.Between[SO.from-presented (F.stage n),
+      SO.from-presented Y].Pair)
+      (EP.compose (SO.from-presented (F.stage n))
+        (SO.from-presented (F.stage (suc n)))
+        (SO.from-presented Y)
+        (stage-pair (suc n)) (F.link n))
+      (stage-pair n) = split {
+    zero -> ScottReflexiveFunctor[l].initial-unique Y
+      (EP.compose (SO.from-presented (F.stage zero))
+        (SO.from-presented (F.stage (suc zero)))
+        (SO.from-presented Y)
+        (stage-pair (suc zero)) (F.link zero)) ;
+    suc n | r ->
+      trans (EP.Between[SO.from-presented (F.stage (suc n)),
+        SO.from-presented Y].Pair)
+        Step[n].left Step[n].middle (stage-pair (suc n))
+        Step[n].after-assoc
+        (trans (EP.Between[SO.from-presented (F.stage (suc n)),
+          SO.from-presented Y].Pair)
+          Step[n].middle Step[n].composite (stage-pair (suc n))
+          Step[n].after-functor (Step[n].after-induction r)) } ;
+  module Colimit = ScottEPLimitColimit[l].On[F.chain,Y,stage-pair,cone-law] ;
+  mediator : EP.Between[SO.from-presented F.solution,
+    SO.from-presented Y].Pair = Colimit.mediator ;
+} ;

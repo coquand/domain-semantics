@@ -1,0 +1,288 @@
+-- Univalent categories of Scott domains and continuous maps.
+level l ;
+open Base ; open Prelude[l+] ;
+module O = ScottDomainObjects[l] ;
+module M = ScottDomainMaps[l] ;
+module K = Category[l++,l+] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+le-replace (P : ScottOrder[l].Order) (x x' y y' : P.carrier)
+  (p : Id P.carrier x x') (q : Id P.carrier y y')
+  (h : P.le x y) : P.le x' y' =
+  subst P.carrier (\ b -> P.le x' b) y y' q
+    (subst P.carrier (\ a -> P.le a y) x x' p h) ;
+
+module Continuous {
+  pre : K.Precategory = new K.Precategory[
+    ob := O.Domain,
+    hom := \ D E -> M.Between[D,E].Map,
+    hom-set := \ D E -> M.Between[D,E].set,
+    idn := \ D -> M.End[D].identity,
+    comp := \ D E F g f -> M.Triple[D,E,F].compose g f,
+    unit-l := \ D E f -> M.Between[D,E].equal
+      (M.Triple[D,E,E].compose M.End[E].identity f) f
+      (\ x -> refl (M.Between[D,E].run f x)),
+    unit-r := \ D E f -> M.Between[D,E].equal
+      (M.Triple[D,D,E].compose f M.End[D].identity) f
+      (\ x -> refl (M.Between[D,E].run f x)),
+    assoc := \ W D E F f g h -> M.Between[W,F].equal
+      (M.Triple[W,E,F].compose h (M.Triple[W,D,E].compose g f))
+      (M.Triple[W,D,F].compose (M.Triple[D,E,F].compose h g) f)
+      (\ x -> refl (M.Between[E,F].run h
+        (M.Between[D,E].run g (M.Between[W,D].run f x))))] ;
+  module A = CategoryArrows[l++,l+].Arrows[pre] ;
+
+  -- An isomorphism of continuous maps gives an order isomorphism.
+  to-order (D E : O.Domain) (i : pre.Iso D E) : O.DomainIso D E =
+    ((i.1.1,
+      qinv D.order.carrier E.order.carrier i.1.1 i.2.1.1
+        (\ y -> ap (M.Between[E,E].Map) E.order.carrier
+          (\ f -> f.1 y) (M.Triple[E,D,E].compose i.1 i.2.1)
+          M.End[E].identity i.2.2.2)
+        (\ x -> ap (M.Between[D,D].Map) D.order.carrier
+          (\ f -> f.1 x) (M.Triple[D,E,D].compose i.2.1 i.1)
+          M.End[D].identity i.2.2.1)),
+      (i.1.2.1,
+       \ x y h -> le-replace D.order
+         (i.2.1.1 (i.1.1 x)) x (i.2.1.1 (i.1.1 y)) y
+         (ap (M.Between[D,D].Map) D.order.carrier (\ f -> f.1 x)
+           (M.Triple[D,E,D].compose i.2.1 i.1)
+           M.End[D].identity i.2.2.1)
+         (ap (M.Between[D,D].Map) D.order.carrier (\ f -> f.1 y)
+           (M.Triple[D,E,D].compose i.2.1 i.1)
+           M.End[D].identity i.2.2.1)
+         (i.2.1.2.1 (i.1.1 x) (i.1.1 y) h))) ;
+
+  module FromOrder (D E : O.Domain) (i : O.DomainIso D E) {
+    module DE = M.Between[D,E] ; module ED = M.Between[E,D] ;
+    f : D.order.carrier -> E.order.carrier = i.1.1 ;
+    g : E.order.carrier -> D.order.carrier = i.1.2.sec ;
+    fg (y : E.order.carrier) : Id E.order.carrier (f (g y)) y = i.1.2.sec-eq y ;
+    gf (x : D.order.carrier) : Id D.order.carrier (g (f x)) x =
+      sec-ret D.order.carrier E.order.carrier f i.1.2 x ;
+    g-mono : ED.Monotone g = \ y z h ->
+      i.2.2 (g y) (g z)
+        (le-replace E.order y (f (g y)) z (f (g z))
+          (sym E.order.carrier (f (g y)) y (fg y))
+          (sym E.order.carrier (f (g z)) z (fg z)) h) ;
+    forward : DE.Map = (f,(i.2.1,
+      \ I x d z h -> le-replace E.order (f (DE.C.sup I x d))
+        (f (DE.C.sup I x d)) (f (g z)) z
+        (refl (f (DE.C.sup I x d))) (fg z)
+        (i.2.1 (DE.C.sup I x d) (g z)
+          (DE.C.least I x d (g z)
+            (\ a -> i.2.2 (x a) (g z)
+              (le-replace E.order (f (x a)) (f (x a)) z (f (g z))
+                (refl (f (x a)))
+                (sym E.order.carrier (f (g z)) z (fg z)) (h a))))))) ;
+    backward : ED.Map = (g,(g-mono,
+      \ I x d z h -> le-replace D.order (g (ED.C.sup I x d))
+        (g (ED.C.sup I x d)) (g (f z)) z
+        (refl (g (ED.C.sup I x d))) (gf z)
+        (g-mono (ED.C.sup I x d) (f z)
+          (ED.C.least I x d (f z)
+            (\ a -> le-replace E.order (f (g (x a))) (x a)
+              (f z) (f z) (fg (x a)) (refl (f z))
+              (i.2.1 (g (x a)) z (h a))))))) ;
+    iso : pre.Iso D E =
+      (forward,backward,
+        M.Between[D,D].equal
+          (M.Triple[D,E,D].compose backward forward) M.End[D].identity gf,
+        M.Between[E,E].equal
+          (M.Triple[E,D,E].compose forward backward) M.End[E].identity fg) ;
+  } ;
+  from-order (D E : O.Domain) (i : O.DomainIso D E) : pre.Iso D E =
+    FromOrder[D,E,i].iso ;
+  to-from (D E : O.Domain) (i : pre.Iso D E) :
+    Id (pre.Iso D E) (from-order D E (to-order D E i)) i =
+    A.iso-eq (from-order D E (to-order D E i)) i
+      (M.Between[D,E].equal
+        (from-order D E (to-order D E i)).1 i.1
+        (\ x -> refl (i.1.1 x))) ;
+  module Single (D : O.Domain) {
+    module S = K.Singletons[pre] ;
+    module DS = O.DomainSingleton[D] ;
+    into (w : S.Singl D) : DS.Total = (w.1,to-order D w.1 w.2) ;
+    out (w : DS.Total) : S.Singl D = (w.1,from-order D w.1 w.2) ;
+    retract (w : S.Singl D) : Id (S.Singl D) (out (into w)) w =
+      Prelude[l++].Sigma-path O.Domain (\ E -> pre.Iso D E) w.1 w.1
+        (from-order D w.1 (to-order D w.1 w.2)) w.2
+        (refl w.1) (to-from D w.1 w.2) ;
+    prop : Prelude[l++].isProp (S.Singl D) =
+      Prelude[l++].retract-prop (S.Singl D) DS.Total into out retract DS.total-prop ;
+  } ;
+  univalent : K.Univalent pre =
+    K.FromTotal[pre,\ D -> Single[D].prop].univalent ;
+  category : K.Category = new K.Category[pre,univalent] ;
+} ;
+
+module EmbeddingProjection {
+  module Between (D E : O.Domain) {
+    module DE = M.Between[D,E] ; module ED = M.Between[E,D] ;
+    Retract (e : DE.Map) (p : ED.Map) : U l+ =
+      (x : D.order.carrier) -> Id D.order.carrier
+        (ED.run p (DE.run e x)) x ;
+    Below (e : DE.Map) (p : ED.Map) : U l+ =
+      (y : E.order.carrier) -> E.order.le (DE.run e (ED.run p y)) y ;
+    Laws (w : DE.Map * ED.Map) : U l+ = Retract w.1 w.2 * Below w.1 w.2 ;
+    Pair : U l+ = (w : DE.Map * ED.Map) * Laws w ;
+    laws-prop (w : DE.Map * ED.Map) : isProp (Laws w) =
+      isProp-Sigma (Retract w.1 w.2) (\ _ -> Below w.1 w.2)
+        (H.isProp-Pi D.order.carrier
+          (\ x -> Id D.order.carrier (ED.run w.2 (DE.run w.1 x)) x)
+          (\ x -> ScottOrder[l].On[D.order].order-set
+            (ED.run w.2 (DE.run w.1 x)) x))
+        (\ _ -> H.isProp-Pi E.order.carrier
+          (\ y -> E.order.le (DE.run w.1 (ED.run w.2 y)) y)
+          (\ y -> E.order.proposition (DE.run w.1 (ED.run w.2 y)) y)) ;
+    set : isSet Pair =
+      isSet-Sigma (DE.Map * ED.Map) Laws
+        (isSet-Sigma DE.Map (\ _ -> ED.Map) DE.set (\ _ -> ED.set))
+        (\ w -> prop-to-set (Laws w) (laws-prop w)) ;
+    equal (a b : Pair) (pe : Id DE.Map a.1.1 b.1.1)
+      (pp : Id ED.Map a.1.2 b.1.2) : Id Pair a b =
+      Sigma-eq (DE.Map * ED.Map) Laws a.1 b.1 a.2 b.2
+        (trans (DE.Map * ED.Map) a.1 (b.1.1,a.1.2) b.1
+          (ap DE.Map (DE.Map * ED.Map) (\ e -> (e,a.1.2)) a.1.1 b.1.1 pe)
+          (ap ED.Map (DE.Map * ED.Map) (\ p -> (b.1.1,p)) a.1.2 b.1.2 pp))
+        (laws-prop b.1) ;
+  } ;
+  identity (D : O.Domain) : Between[D,D].Pair = ((M.End[D].identity,M.End[D].identity),
+      (\ x -> refl x,\ y -> D.order.reflexive y)) ;
+  compose (D E F : O.Domain) (g : Between[E,F].Pair) (f : Between[D,E].Pair) : Between[D,F].Pair =
+    ((M.Triple[D,E,F].compose g.1.1 f.1.1,
+        M.Triple[F,E,D].compose f.1.2 g.1.2),
+       (\ x -> trans D.order.carrier
+          (M.Between[E,D].run f.1.2
+            (M.Between[F,E].run g.1.2
+              (M.Between[E,F].run g.1.1 (M.Between[D,E].run f.1.1 x))))
+          (M.Between[E,D].run f.1.2 (M.Between[D,E].run f.1.1 x)) x
+          (ap E.order.carrier D.order.carrier (M.Between[E,D].run f.1.2)
+            (M.Between[F,E].run g.1.2
+              (M.Between[E,F].run g.1.1 (M.Between[D,E].run f.1.1 x)))
+            (M.Between[D,E].run f.1.1 x) (g.2.1 (M.Between[D,E].run f.1.1 x)))
+          (f.2.1 x),
+        \ y -> F.order.transitive
+          (M.Between[E,F].run g.1.1
+            (M.Between[D,E].run f.1.1
+              (M.Between[E,D].run f.1.2 (M.Between[F,E].run g.1.2 y))))
+          (M.Between[E,F].run g.1.1 (M.Between[F,E].run g.1.2 y)) y
+          (M.Between[E,F].mono g.1.1
+            (M.Between[D,E].run f.1.1
+              (M.Between[E,D].run f.1.2 (M.Between[F,E].run g.1.2 y)))
+            (M.Between[F,E].run g.1.2 y)
+            (f.2.2 (M.Between[F,E].run g.1.2 y)))
+          (g.2.2 y))) ;
+  pre : K.Precategory = new K.Precategory[
+    ob := O.Domain,
+    hom := \ D E -> Between[D,E].Pair,
+    hom-set := \ D E -> Between[D,E].set,
+    idn := identity,
+    comp := compose,
+    unit-l := \ D E f -> Between[D,E].equal
+      (compose D E E (identity E) f) f
+      (M.Between[D,E].equal
+        (compose D E E (identity E) f).1.1 f.1.1
+        (\ x -> refl (M.Between[D,E].run f.1.1 x)))
+      (M.Between[E,D].equal
+        (compose D E E (identity E) f).1.2 f.1.2
+        (\ x -> refl (M.Between[E,D].run f.1.2 x))),
+    unit-r := \ D E f -> Between[D,E].equal
+      (compose D D E f (identity D)) f
+      (M.Between[D,E].equal
+        (compose D D E f (identity D)).1.1 f.1.1
+        (\ x -> refl (M.Between[D,E].run f.1.1 x)))
+      (M.Between[E,D].equal
+        (compose D D E f (identity D)).1.2 f.1.2
+        (\ x -> refl (M.Between[E,D].run f.1.2 x))),
+    assoc := \ W D E F f g h -> Between[W,F].equal
+      (compose W E F h (compose W D E g f))
+      (compose W D F (compose D E F h g) f)
+      (M.Between[W,F].equal
+        (compose W E F h (compose W D E g f)).1.1
+        (compose W D F (compose D E F h g) f).1.1
+        (\ x -> refl (M.Between[E,F].run h.1.1
+          (M.Between[D,E].run g.1.1 (M.Between[W,D].run f.1.1 x)))))
+      (M.Between[F,W].equal
+        (compose W E F h (compose W D E g f)).1.2
+        (compose W D F (compose D E F h g) f).1.2
+        (\ x -> refl (M.Between[D,W].run f.1.2
+          (M.Between[E,D].run g.1.2 (M.Between[F,E].run h.1.2 x)))))] ;
+  module A = CategoryArrows[l++,l+].Arrows[pre] ;
+  embedding-iso (D E : O.Domain) (i : pre.Iso D E) :
+    Continuous.pre.Iso D E =
+    (i.1.1.1,i.2.1.1.1,
+      ap (Between[D,D].Pair) (M.Between[D,D].Map)
+        (\ w -> w.1.1) (compose D E D i.2.1 i.1)
+        (identity D) i.2.2.1,
+      ap (Between[E,E].Pair) (M.Between[E,E].Map)
+        (\ w -> w.1.1) (compose E D E i.1 i.2.1)
+        (identity E) i.2.2.2) ;
+  to-order (D E : O.Domain) (i : pre.Iso D E) : O.DomainIso D E =
+    Continuous.to-order D E (embedding-iso D E i) ;
+  module FromOrder (D E : O.Domain) (i : O.DomainIso D E) {
+    module F = Continuous.FromOrder[D,E,i] ;
+    forward : Between[D,E].Pair = ((F.forward,F.backward),
+      (F.gf,\ y -> le-replace E.order y (F.f (F.g y)) y y
+        (sym E.order.carrier (F.f (F.g y)) y (F.fg y))
+        (refl y) (E.order.reflexive y))) ;
+    backward : Between[E,D].Pair = ((F.backward,F.forward),
+      (F.fg,\ x -> le-replace D.order x (F.g (F.f x)) x x
+        (sym D.order.carrier (F.g (F.f x)) x (F.gf x))
+        (refl x) (D.order.reflexive x))) ;
+    iso : pre.Iso D E = (forward,backward,
+      Between[D,D].equal (compose D E D backward forward) (identity D)
+        (M.Between[D,D].equal
+          (compose D E D backward forward).1.1 M.End[D].identity F.gf)
+        (M.Between[D,D].equal
+          (compose D E D backward forward).1.2 M.End[D].identity F.gf),
+      Between[E,E].equal (compose E D E forward backward) (identity E)
+        (M.Between[E,E].equal
+          (compose E D E forward backward).1.1 M.End[E].identity F.fg)
+        (M.Between[E,E].equal
+          (compose E D E forward backward).1.2 M.End[E].identity F.fg)) ;
+  } ;
+  from-order (D E : O.Domain) (i : O.DomainIso D E) : pre.Iso D E =
+    FromOrder[D,E,i].iso ;
+  project-inverse (D E : O.Domain) (i : pre.Iso D E)
+    (y : E.order.carrier) :
+    Id D.order.carrier (i.1.1.2.1 y) (i.2.1.1.1.1 y) =
+    trans D.order.carrier (i.1.1.2.1 y)
+      (i.1.1.2.1 (i.1.1.1.1 (i.2.1.1.1.1 y)))
+      (i.2.1.1.1.1 y)
+      (sym D.order.carrier
+        (i.1.1.2.1 (i.1.1.1.1 (i.2.1.1.1.1 y)))
+        (i.1.1.2.1 y)
+        (ap E.order.carrier D.order.carrier i.1.1.2.1
+          (i.1.1.1.1 (i.2.1.1.1.1 y)) y
+          (ap (Between[E,E].Pair) E.order.carrier
+            (\ w -> w.1.1.1 y) (compose E D E i.1 i.2.1)
+            (identity E) i.2.2.2)))
+      (i.1.2.1 (i.2.1.1.1.1 y)) ;
+  to-from (D E : O.Domain) (i : pre.Iso D E) :
+    Id (pre.Iso D E) (from-order D E (to-order D E i)) i =
+    A.iso-eq (from-order D E (to-order D E i)) i
+      (Between[D,E].equal (from-order D E (to-order D E i)).1 i.1
+        (M.Between[D,E].equal
+          (from-order D E (to-order D E i)).1.1.1 i.1.1.1
+          (\ x -> refl (i.1.1.1.1 x)))
+        (M.Between[E,D].equal
+          (from-order D E (to-order D E i)).1.1.2 i.1.1.2
+          (\ y -> sym D.order.carrier (i.1.1.2.1 y)
+            (i.2.1.1.1.1 y) (project-inverse D E i y)))) ;
+  module Single (D : O.Domain) {
+    module S = K.Singletons[pre] ;
+    module DS = O.DomainSingleton[D] ;
+    into (w : S.Singl D) : DS.Total = (w.1,to-order D w.1 w.2) ;
+    out (w : DS.Total) : S.Singl D = (w.1,from-order D w.1 w.2) ;
+    retract (w : S.Singl D) : Id (S.Singl D) (out (into w)) w =
+      Prelude[l++].Sigma-path O.Domain (\ E -> pre.Iso D E) w.1 w.1
+        (from-order D w.1 (to-order D w.1 w.2)) w.2
+        (refl w.1) (to-from D w.1 w.2) ;
+    prop : Prelude[l++].isProp (S.Singl D) =
+      Prelude[l++].retract-prop (S.Singl D) DS.Total into out retract DS.total-prop ;
+  } ;
+  univalent : K.Univalent pre =
+    K.FromTotal[pre,\ D -> Single[D].prop].univalent ;
+  category : K.Category = new K.Category[pre,univalent] ;
+}

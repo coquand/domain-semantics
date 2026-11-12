@@ -1,0 +1,119 @@
+-- Order laws of embedding-projection pairs on presented Scott domains.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module CR = ScottDomainCategories[l] ;
+
+module On (X Y : ScottDomain[l].Scott)
+  (q : EP.Between[SO.from-presented X,SO.from-presented Y].Pair) {
+  module XY = DM.Between[SO.from-presented X,SO.from-presented Y] ;
+  module YX = DM.Between[SO.from-presented Y,SO.from-presented X] ;
+  embed : X.order.carrier -> Y.order.carrier = XY.run q.1.1 ;
+  project : Y.order.carrier -> X.order.carrier = YX.run q.1.2 ;
+  lower (x : X.order.carrier) (y : Y.order.carrier)
+    (h : X.order.le x (project y)) : Y.order.le (embed x) y =
+    Y.order.transitive (embed x) (embed (project y)) y
+      (XY.mono q.1.1 x (project y) h) (q.2.2 y) ;
+  upper (x : X.order.carrier) (y : Y.order.carrier)
+    (h : Y.order.le (embed x) y) : X.order.le x (project y) =
+    CR.le-replace X.order (project (embed x)) x (project y) (project y)
+      (q.2.1 x) (refl (project y))
+      (YX.mono q.1.2 (embed x) y h) ;
+  embed-bottom : Id Y.order.carrier (embed X.bottom) Y.bottom =
+    Y.order.antisymmetric (embed X.bottom) Y.bottom
+      (lower X.bottom Y.bottom (X.bottom-least (project Y.bottom)))
+      (Y.bottom-least (embed X.bottom)) ;
+  project-bottom : Id X.order.carrier (project Y.bottom) X.bottom =
+    trans X.order.carrier (project Y.bottom) (project (embed X.bottom)) X.bottom
+      (sym X.order.carrier (project (embed X.bottom)) (project Y.bottom)
+        (ap Y.order.carrier X.order.carrier project
+          (embed X.bottom) Y.bottom embed-bottom))
+      (q.2.1 X.bottom) ;
+} ;
+
+module Determined (X Y : ScottDomain[l].Scott)
+  (q r : EP.Between[SO.from-presented X,
+    SO.from-presented Y].Pair)
+  (same-project : Id (DM.Between[SO.from-presented Y,
+      SO.from-presented X].Map) q.1.2 r.1.2) {
+  module Q = On[X,Y,q] ;
+  module R = On[X,Y,r] ;
+  module XY = DM.Between[SO.from-presented X,SO.from-presented Y] ;
+  module YX = DM.Between[SO.from-presented Y,SO.from-presented X] ;
+  project-point (y : Y.order.carrier) :
+    Id X.order.carrier (Q.project y) (R.project y) =
+    ap YX.Map X.order.carrier (\ p -> YX.run p y)
+      q.1.2 r.1.2 same-project ;
+  left (x : X.order.carrier) : Y.order.le (Q.embed x) (R.embed x) =
+    Q.lower x (R.embed x)
+      (CR.le-replace X.order x x x (Q.project (R.embed x))
+        (refl x)
+        (sym X.order.carrier (Q.project (R.embed x)) x
+          (trans X.order.carrier
+            (Q.project (R.embed x)) (R.project (R.embed x)) x
+            (project-point (R.embed x)) (r.2.1 x)))
+        (X.order.reflexive x)) ;
+  right (x : X.order.carrier) : Y.order.le (R.embed x) (Q.embed x) =
+    R.lower x (Q.embed x)
+      (CR.le-replace X.order x x x (R.project (Q.embed x))
+        (refl x)
+        (sym X.order.carrier (R.project (Q.embed x)) x
+          (trans X.order.carrier
+            (R.project (Q.embed x)) (Q.project (Q.embed x)) x
+            (sym X.order.carrier (Q.project (Q.embed x))
+              (R.project (Q.embed x))
+              (project-point (Q.embed x)))
+            (q.2.1 x)))
+        (X.order.reflexive x)) ;
+  embed-point (x : X.order.carrier) :
+    Id Y.order.carrier (Q.embed x) (R.embed x) =
+    Y.order.antisymmetric (Q.embed x) (R.embed x)
+      (left x) (right x) ;
+  embedding : Id XY.Map q.1.1 r.1.1 =
+    XY.equal q.1.1 r.1.1 embed-point ;
+  equation : Id (EP.Between[SO.from-presented X,
+      SO.from-presented Y].Pair) q r =
+    EP.Between[SO.from-presented X,
+      SO.from-presented Y].equal q r embedding same-project ;
+} ;
+
+module DeterminedEmbedding (X Y : ScottDomain[l].Scott)
+  (q r : EP.Between[SO.from-presented X,
+    SO.from-presented Y].Pair)
+  (same-embed : Id (DM.Between[SO.from-presented X,
+      SO.from-presented Y].Map) q.1.1 r.1.1) {
+  module Q = On[X,Y,q] ;
+  module R = On[X,Y,r] ;
+  module XY = DM.Between[SO.from-presented X,SO.from-presented Y] ;
+  module YX = DM.Between[SO.from-presented Y,SO.from-presented X] ;
+  embed-point (x : X.order.carrier) :
+    Id Y.order.carrier (Q.embed x) (R.embed x) =
+    ap XY.Map Y.order.carrier (\ e -> XY.run e x)
+      q.1.1 r.1.1 same-embed ;
+  left (y : Y.order.carrier) :
+    X.order.le (Q.project y) (R.project y) =
+    R.upper (Q.project y) y
+      (CR.le-replace Y.order (Q.embed (Q.project y))
+        (R.embed (Q.project y)) y y
+        (embed-point (Q.project y)) (refl y) (q.2.2 y)) ;
+  right (y : Y.order.carrier) :
+    X.order.le (R.project y) (Q.project y) =
+    Q.upper (R.project y) y
+      (CR.le-replace Y.order (R.embed (R.project y))
+        (Q.embed (R.project y)) y y
+        (sym Y.order.carrier (Q.embed (R.project y))
+          (R.embed (R.project y)) (embed-point (R.project y)))
+        (refl y) (r.2.2 y)) ;
+  project-point (y : Y.order.carrier) :
+    Id X.order.carrier (Q.project y) (R.project y) =
+    X.order.antisymmetric (Q.project y) (R.project y)
+      (left y) (right y) ;
+  projection : Id YX.Map q.1.2 r.1.2 =
+    YX.equal q.1.2 r.1.2 project-point ;
+  equation : Id (EP.Between[SO.from-presented X,
+      SO.from-presented Y].Pair) q r =
+    EP.Between[SO.from-presented X,
+      SO.from-presented Y].equal q r same-embed projection ;
+} ;

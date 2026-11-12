@@ -1,0 +1,346 @@
+-- Countable coherent-sequence limits of presented Scott domains and EP pairs.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module CR = ScottDomainCategories[l] ;
+
+record Chain {
+  stage : Nat -> ScottDomain[l].Scott ;
+  link (n : Nat) : EP.Between[SO.from-presented (stage n),
+    SO.from-presented (stage (suc n))].Pair ;
+} ;
+tail (S : Chain) : Chain = new Chain[
+  stage := \ n -> S.stage (suc n),link := \ n -> S.link (suc n)] ;
+
+module On (S : Chain) {
+  C (n : Nat) : U l+ = (S.stage n).order.carrier ;
+  LE (n : Nat) : C n -> C n -> U l = (S.stage n).order.le ;
+  module At (n : Nat) {
+    module B = ScottEPBasics[l].On[S.stage n,S.stage (suc n),S.link n] ;
+    embed : C n -> C (suc n) = B.embed ;
+    project : C (suc n) -> C n = B.project ;
+    project-bottom : Id (C n) (project (S.stage (suc n)).bottom)
+      (S.stage n).bottom = B.project-bottom ;
+  } ;
+  embed (n : Nat) : C n -> C (suc n) = At[n].embed ;
+  project (n : Nat) : C (suc n) -> C n = At[n].project ;
+  Points : U l+ = (n : Nat) -> C n ;
+  Coherent (x : Points) : U l+ =
+    (n : Nat) -> Id (C n) (project n (x (suc n))) (x n) ;
+  coherent-prop (x : Points) : isProp (Coherent x) =
+    H.isProp-Pi Nat (\ n -> Id (C n) (project n (x (suc n))) (x n))
+      (\ n -> ScottOrder[l].On[(S.stage n).order].order-set
+        (project n (x (suc n))) (x n)) ;
+  carrier : U l+ = (x : Points) * Coherent x ;
+  le (x y : carrier) : U l = (n : Nat) -> LE n (x.1 n) (y.1 n) ;
+  ext (x y : carrier) (xy : le x y) (yx : le y x) : Id carrier x y =
+    Sigma-eq Points Coherent x.1 y.1 x.2 y.2
+      (H.funext Nat C x.1 y.1 (\ n ->
+        (S.stage n).order.antisymmetric (x.1 n) (y.1 n) (xy n) (yx n)))
+      (coherent-prop y.1) ;
+  order : Order = new Order[carrier := carrier,le := le,
+    proposition := \ x y -> F.isProp-Pi Nat (\ n -> LE n (x.1 n) (y.1 n))
+      (\ n -> (S.stage n).order.proposition (x.1 n) (y.1 n)),
+    reflexive := \ x n -> (S.stage n).order.reflexive (x.1 n),
+    transitive := \ x y z h k n ->
+      (S.stage n).order.transitive (x.1 n) (y.1 n) (z.1 n) (h n) (k n),
+    antisymmetric := ext] ;
+  module LO = ScottOrder[l].On[order] ;
+  evaluated (I : U l) (x : I -> carrier) (d : LO.Dir I x)
+    (n : Nat) : ScottOrder[l].On[(S.stage n).order].Dir I (\ i -> (x i).1 n) =
+    (d.1,\ i j -> T.map (LO.Upper I x i j)
+      (ScottOrder[l].On[(S.stage n).order].Upper I (\ k -> (x k).1 n) i j)
+      (\ w -> (w.1,(w.2.1 n,w.2.2 n))) (d.2 i j)) ;
+  module Sup (I : U l) (x : I -> carrier) (d : LO.Dir I x) {
+    at (n : Nat) : ScottOrder[l].On[(S.stage n).order].Supremum I
+      (\ i -> (x i).1 n) =
+      (S.stage n).complete.directed I (\ i -> (x i).1 n)
+        (evaluated I x d n) ;
+    point (n : Nat) : C n = (at n).1 ;
+    forward (n : Nat) : LE n (project n (point (suc n))) (point n) =
+      DM.Between[SO.from-presented (S.stage (suc n)),
+        SO.from-presented (S.stage n)].continuous (S.link n).1.2
+        I (\ i -> (x i).1 (suc n)) (evaluated I x d (suc n))
+        (point n) (\ i -> CR.le-replace (S.stage n).order
+          ((x i).1 n) (project n ((x i).1 (suc n)))
+          (point n) (point n)
+          (sym (C n) (project n ((x i).1 (suc n))) ((x i).1 n)
+            ((x i).2 n)) (refl (point n)) ((at n).2.1 i)) ;
+    backward (n : Nat) : LE n (point n) (project n (point (suc n))) =
+      (at n).2.2 (project n (point (suc n))) (\ i ->
+        CR.le-replace (S.stage n).order
+          (project n ((x i).1 (suc n))) ((x i).1 n)
+          (project n (point (suc n))) (project n (point (suc n)))
+          ((x i).2 n) (refl (project n (point (suc n))))
+          (DM.Between[SO.from-presented (S.stage (suc n)),
+            SO.from-presented (S.stage n)].mono (S.link n).1.2
+            ((x i).1 (suc n)) (point (suc n)) ((at (suc n)).2.1 i))) ;
+    coherent : Coherent point = \ n ->
+      (S.stage n).order.antisymmetric (project n (point (suc n)))
+        (point n) (forward n) (backward n) ;
+    value : carrier = (point,coherent) ;
+    supremum : LO.Supremum I x =
+      (value,(\ i n -> (at n).2.1 i,
+        \ y h n -> (at n).2.2 (y.1 n) (\ i -> h i n))) ;
+  } ;
+  directed (I : U l) (x : I -> carrier) (d : LO.Dir I x) :
+    LO.Supremum I x = Sup[I,x,d].supremum ;
+  bottom-point : Points = \ n -> (S.stage n).bottom ;
+  bottom-coherent : Coherent bottom-point = \ n -> At[n].project-bottom ;
+  bottom : carrier = (bottom-point,bottom-coherent) ;
+  bottom-least (x : carrier) : le bottom x = \ n ->
+    (S.stage n).bottom-least (x.1 n) ;
+} ;
+
+rise : (n : Nat) (S : Chain) -> On[S].C zero -> On[S].C n = split {
+  zero -> \ S a -> a ;
+  suc n | r -> \ S a -> On[S].embed n (r S a) } ;
+forward (S : Chain) (a : On[S].C zero) : On[S].carrier =
+  (\ n -> rise n S a,\ n -> (S.link n).2.1 (rise n S a)) ;
+drop (S : Chain) (x : On[S].carrier) : On[tail S].carrier =
+  (\ n -> x.1 (suc n),\ n -> x.2 (suc n)) ;
+cons-point (S : Chain) (y : On[tail S].carrier) : On[S].Points = split {
+  zero -> On[S].project zero (y.1 zero) ;
+  suc n -> y.1 n } ;
+cons-coherent (S : Chain) (y : On[tail S].carrier) :
+  On[S].Coherent (cons-point S y) = split {
+  zero -> refl (On[S].project zero (y.1 zero)) ;
+  suc n -> y.2 n } ;
+prepend (S : Chain) (y : On[tail S].carrier) : On[S].carrier =
+  (cons-point S y,cons-coherent S y) ;
+past-zero : (n : Nat) (S : Chain) (u v : On[S].carrier) ->
+  Id (On[S].C n) (u.1 n) (v.1 n) ->
+  Id (On[S].C zero) (u.1 zero) (v.1 zero) = split {
+  zero -> \ S u v q -> q ;
+  suc n | r -> \ S u v q ->
+    trans (On[S].C zero) (u.1 zero)
+      (On[S].project zero (u.1 (suc zero))) (v.1 zero)
+      (sym (On[S].C zero)
+        (On[S].project zero (u.1 (suc zero))) (u.1 zero) (u.2 zero))
+      (trans (On[S].C zero)
+        (On[S].project zero (u.1 (suc zero)))
+        (On[S].project zero (v.1 (suc zero))) (v.1 zero)
+        (ap (On[S].C (suc zero)) (On[S].C zero)
+          (On[S].project zero) (u.1 (suc zero)) (v.1 (suc zero))
+          (r (tail S) (drop S u) (drop S v) q))
+        (v.2 zero)) } ;
+past : (m : Nat) (S : Chain) (n : Nat) (h : LeN m n)
+  (u v : On[S].carrier) ->
+  Id (On[S].C n) (u.1 n) (v.1 n) ->
+  Id (On[S].C m) (u.1 m) (v.1 m) = split {
+  zero -> \ S n h u v q -> past-zero n S u v q ;
+  suc m | r -> \ S -> split {
+    zero -> \ h u v q -> absurd
+      (Id (On[S].C (suc m)) (u.1 (suc m)) (v.1 (suc m))) h ;
+    suc n -> \ h u v q ->
+      r (tail S) n h (drop S u) (drop S v) q } } ;
+lift : (n : Nat) (S : Chain) -> On[S].C n -> On[S].carrier = split {
+  zero -> \ S a -> forward S a ;
+  suc n | r -> \ S a -> prepend S (r (tail S) a) } ;
+section : (n : Nat) (S : Chain) (a : On[S].C n) ->
+  Id (On[S].C n) ((lift n S a).1 n) a = split {
+  zero -> \ S a -> refl a ;
+  suc n | r -> \ S a -> r (tail S) a } ;
+
+module Embedding (S : Chain) {
+  module L = On[S] ;
+  step-bound (x : L.carrier) (n : Nat) :
+    L.LE (suc n) (L.embed n (x.1 n)) (x.1 (suc n)) =
+    CR.le-replace (S.stage (suc n)).order
+      (L.embed n (L.project n (x.1 (suc n))))
+      (L.embed n (x.1 n)) (x.1 (suc n)) (x.1 (suc n))
+      (ap (L.C n) (L.C (suc n)) (L.embed n)
+        (L.project n (x.1 (suc n))) (x.1 n) (x.2 n))
+      (refl (x.1 (suc n))) ((S.link n).2.2 (x.1 (suc n))) ;
+  forward-lower (a : L.C zero) (x : L.carrier)
+    (h : L.LE zero a (x.1 zero)) : L.le (forward S a) x = split {
+    zero -> h ;
+    suc n | r -> (S.stage (suc n)).order.transitive
+      (rise (suc n) S a) (L.embed n (x.1 n)) (x.1 (suc n))
+      (DM.Between[SO.from-presented (S.stage n),
+        SO.from-presented (S.stage (suc n))].mono (S.link n).1.1
+        (rise n S a) (x.1 n) r)
+      (step-bound x n) } ;
+  cons-lower (y : On[tail S].carrier) (x : L.carrier)
+    (h : On[tail S].le y (drop S x)) : L.le (prepend S y) x = split {
+    zero -> (S.stage zero).order.transitive
+      (L.project zero (y.1 zero))
+      (L.project zero (x.1 (suc zero))) (x.1 zero)
+      (DM.Between[SO.from-presented (S.stage (suc zero)),
+        SO.from-presented (S.stage zero)].mono (S.link zero).1.2
+        (y.1 zero) (x.1 (suc zero)) (h zero))
+      (CR.le-replace (S.stage zero).order
+        (L.project zero (x.1 (suc zero))) (L.project zero (x.1 (suc zero)))
+        (L.project zero (x.1 (suc zero))) (x.1 zero)
+        (refl (L.project zero (x.1 (suc zero)))) (x.2 zero)
+        ((S.stage zero).order.reflexive (L.project zero (x.1 (suc zero))))) ;
+    suc n -> h n } ;
+} ;
+lower : (n : Nat) (S : Chain) (a : On[S].C n)
+  (x : On[S].carrier) -> On[S].LE n a (x.1 n) ->
+  On[S].le (lift n S a) x = split {
+  zero -> \ S a x h -> Embedding[S].forward-lower a x h ;
+  suc n | r -> \ S a x h ->
+    Embedding[S].cons-lower (lift n (tail S) a) x
+      (r (tail S) a (drop S x) h) } ;
+upper (n : Nat) (S : Chain) (a : On[S].C n) (x : On[S].carrier)
+  (h : On[S].le (lift n S a) x) : On[S].LE n a (x.1 n) =
+  subst (On[S].C n) (\ z -> On[S].LE n z (x.1 n))
+    ((lift n S a).1 n) a (section n S a) (h n) ;
+approximate (S : Chain) (n : Nat) (x : On[S].carrier) : On[S].carrier =
+  lift n S (x.1 n) ;
+deflation (S : Chain) (n : Nat) (x : On[S].carrier) :
+  On[S].le (approximate S n x) x =
+  lower n S (x.1 n) x ((S.stage n).order.reflexive (x.1 n)) ;
+increasing (S : Chain) (n : Nat) (x : On[S].carrier) :
+  On[S].le (approximate S n x) (approximate S (suc n) x) =
+  lower n S (x.1 n) (approximate S (suc n) x)
+    ((S.stage n).order.transitive (x.1 n)
+      (On[S].project n (x.1 (suc n)))
+      ((approximate S (suc n) x).1 n)
+      (CR.le-replace (S.stage n).order
+        (On[S].project n (x.1 (suc n))) (x.1 n)
+        (On[S].project n (x.1 (suc n)))
+        (On[S].project n (x.1 (suc n)))
+        (x.2 n) (refl (On[S].project n (x.1 (suc n))))
+        ((S.stage n).order.reflexive (On[S].project n (x.1 (suc n)))))
+      (CR.le-replace (S.stage n).order
+        (On[S].project n (x.1 (suc n)))
+        (On[S].project n (x.1 (suc n)))
+        (On[S].project n (x.1 (suc n)))
+        ((approximate S (suc n) x).1 n)
+        (refl (On[S].project n (x.1 (suc n))))
+        (trans (On[S].C n)
+          (On[S].project n (x.1 (suc n)))
+          (On[S].project n ((approximate S (suc n) x).1 (suc n)))
+          ((approximate S (suc n) x).1 n)
+          (ap (On[S].C (suc n)) (On[S].C n) (On[S].project n)
+            (x.1 (suc n)) ((approximate S (suc n) x).1 (suc n))
+            (sym (On[S].C (suc n))
+              ((approximate S (suc n) x).1 (suc n)) (x.1 (suc n))
+              (section (suc n) S (x.1 (suc n)))))
+          ((approximate S (suc n) x).2 n))
+        ((S.stage n).order.reflexive (On[S].project n (x.1 (suc n)))))) ;
+
+module Completion (S : Chain) {
+  module L = On[S] ;
+  approx-mono (x : L.carrier) (m n : Nat) (h : LeN m n) :
+    L.le (approximate S m x) (approximate S n x) =
+    OrderedChains[l].monotone m L.order (\ k -> approximate S k x)
+      (\ k -> increasing S k x) n h ;
+  approx-dir (x : L.carrier) : L.LO.Dir Nat (\ n -> approximate S n x) =
+    (inc Nat zero,\ m n -> inc
+      (L.LO.Upper Nat (\ k -> approximate S k x) m n)
+      (max m n,(approx-mono x m (max m n) (leN-max-l m n),
+        approx-mono x n (max m n) (leN-max-r m n)))) ;
+  approx-sup (x : L.carrier) : L.LO.Supremum Nat
+    (\ n -> approximate S n x) =
+    L.directed Nat (\ n -> approximate S n x) (approx-dir x) ;
+  exhaustion-to (x : L.carrier) : L.le x (approx-sup x).1 = \ n ->
+    CR.le-replace (S.stage n).order
+      ((approximate S n x).1 n) (x.1 n)
+      ((approx-sup x).1.1 n) ((approx-sup x).1.1 n)
+      (section n S (x.1 n)) (refl ((approx-sup x).1.1 n))
+      ((approx-sup x).2.1 n n) ;
+  exhaustion-from (x : L.carrier) : L.le (approx-sup x).1 x =
+    (approx-sup x).2.2 x (\ n -> deflation S n x) ;
+  exhaustion (x : L.carrier) : Id L.carrier (approx-sup x).1 x =
+    L.order.antisymmetric (approx-sup x).1 x
+      (exhaustion-from x) (exhaustion-to x) ;
+  lift-mono (n : Nat) (a b : L.C n) (h : L.LE n a b) :
+    L.le (lift n S a) (lift n S b) =
+    lower n S a (lift n S b)
+      (CR.le-replace (S.stage n).order a a b ((lift n S b).1 n)
+        (refl a)
+        (sym (L.C n) ((lift n S b).1 n) b (section n S b)) h) ;
+  next-coordinate (n : Nat) (a : L.C (suc n)) :
+    Id (L.C n) (L.project n a) ((lift (suc n) S a).1 n) =
+    trans (L.C n) (L.project n a)
+      (L.project n ((lift (suc n) S a).1 (suc n)))
+      ((lift (suc n) S a).1 n)
+      (ap (L.C (suc n)) (L.C n) (L.project n) a
+        ((lift (suc n) S a).1 (suc n))
+        (sym (L.C (suc n))
+          ((lift (suc n) S a).1 (suc n)) a
+          (section (suc n) S a)))
+      ((lift (suc n) S a).2 n) ;
+  module Bounded (I : U l) (x : I -> L.carrier) (b : L.carrier)
+    (h : L.LO.Bounds I x b) {
+    at (n : Nat) : ScottOrder[l].On[(S.stage n).order].Supremum I
+      (\ i -> (x i).1 n) =
+      (S.stage n).complete.bounded I (\ i -> (x i).1 n) (b.1 n)
+        (\ i -> h i n) ;
+    stage (n : Nat) : L.C n = (at n).1 ;
+    value (n : Nat) : L.carrier = lift n S (stage n) ;
+    next-upper (n : Nat) (i : I) :
+      L.LE n ((x i).1 n) ((value (suc n)).1 n) =
+      CR.le-replace (S.stage n).order
+        (L.project n ((x i).1 (suc n))) ((x i).1 n)
+        (L.project n (stage (suc n))) ((value (suc n)).1 n)
+        ((x i).2 n) (next-coordinate n (stage (suc n)))
+        (DM.Between[SO.from-presented (S.stage (suc n)),
+          SO.from-presented (S.stage n)].mono (S.link n).1.2
+          ((x i).1 (suc n)) (stage (suc n))
+          ((at (suc n)).2.1 i)) ;
+    stage-increasing (n : Nat) : L.le (value n) (value (suc n)) =
+      lower n S (stage n) (value (suc n))
+        ((at n).2.2 ((value (suc n)).1 n) (next-upper n)) ;
+    monotone (m n : Nat) (mn : LeN m n) :
+      L.le (value m) (value n) =
+      OrderedChains[l].monotone m L.order value stage-increasing n mn ;
+    directed : L.LO.Dir Nat value =
+      (inc Nat zero,\ m n -> inc (L.LO.Upper Nat value m n)
+        (max m n,(monotone m (max m n) (leN-max-l m n),
+          monotone n (max m n) (leN-max-r m n)))) ;
+    supremum : L.LO.Supremum Nat value = L.directed Nat value directed ;
+    family-upper (i : I) : L.le (x i) supremum.1 = \ n ->
+      upper n S ((x i).1 n) supremum.1
+        (L.order.transitive (lift n S ((x i).1 n)) (value n)
+          supremum.1
+          (lift-mono n ((x i).1 n) (stage n) ((at n).2.1 i))
+          (supremum.2.1 n)) ;
+    least (z : L.carrier) (hz : L.LO.Bounds I x z) :
+      L.le supremum.1 z =
+      supremum.2.2 z (\ n -> lower n S (stage n) z
+        ((at n).2.2 (z.1 n) (\ i -> hz i n))) ;
+    result : L.LO.Supremum I x = (supremum.1,(family-upper,least)) ;
+  } ;
+  complete : Complete[L.order] = new Complete[L.order,
+    directed := L.directed,
+    bounded := \ I x b h -> Bounded[I,x,b,h].result] ;
+} ;
+
+lift-link (S : Chain) (n : Nat) (a : On[S].C n) :
+  Id On[S].carrier (lift (suc n) S (On[S].embed n a))
+    (lift n S a) =
+  On[S].order.antisymmetric
+    (lift (suc n) S (On[S].embed n a)) (lift n S a)
+    (lower (suc n) S (On[S].embed n a) (lift n S a)
+      (CR.le-replace (S.stage (suc n)).order
+        (On[S].embed n (On[S].project n ((lift n S a).1 (suc n))))
+        (On[S].embed n a)
+        ((lift n S a).1 (suc n)) ((lift n S a).1 (suc n))
+        (ap (On[S].C n) (On[S].C (suc n)) (On[S].embed n)
+          (On[S].project n ((lift n S a).1 (suc n))) a
+          (trans (On[S].C n)
+            (On[S].project n ((lift n S a).1 (suc n)))
+            ((lift n S a).1 n) a
+            ((lift n S a).2 n) (section n S a)))
+        (refl ((lift n S a).1 (suc n)))
+        ((S.link n).2.2 ((lift n S a).1 (suc n)))))
+    (lower n S a (lift (suc n) S (On[S].embed n a))
+      (CR.le-replace (S.stage n).order a a a
+        ((lift (suc n) S (On[S].embed n a)).1 n)
+        (refl a)
+        (trans (On[S].C n) a
+          (On[S].project n (On[S].embed n a))
+          ((lift (suc n) S (On[S].embed n a)).1 n)
+          (sym (On[S].C n) (On[S].project n (On[S].embed n a)) a
+            ((S.link n).2.1 a))
+          (Completion[S].next-coordinate n (On[S].embed n a)))
+        ((S.stage n).order.reflexive a))) ;

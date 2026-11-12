@@ -1,0 +1,352 @@
+-- The coherent-sequence construction is a colimit of presented EP chains.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ;
+module Limit = ScottEPLimit[l] ;
+module Cone = ScottEPLimitCone[l] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module CR = ScottDomainCategories[l] ;
+
+leN-next : (n : Nat) -> LeN n (suc n) = split {
+  zero -> tt ;
+  suc n | r -> r } ;
+
+module On (S : Limit.Chain) (Y : ScottDomain[l].Scott)
+  (q : (n : Nat) -> EP.Between[SO.from-presented (S.stage n),
+    SO.from-presented Y].Pair)
+  (cone-law : (n : Nat) ->
+    Id (EP.Between[SO.from-presented (S.stage n),
+      SO.from-presented Y].Pair)
+      (EP.compose (SO.from-presented (S.stage n))
+        (SO.from-presented (S.stage (suc n))) (SO.from-presented Y)
+        (q (suc n)) (S.link n)) (q n)) {
+  module L = Limit.On[S] ;
+  module C = Limit.Completion[S] ;
+  module LC = Cone.On[S] ;
+  D : ScottDomain[l].Scott = LC.D ;
+  module DY = ScottMaps[l].Between[D,Y] ;
+  module YD = DM.Between[SO.from-presented Y,SO.from-presented D] ;
+  embed (n : Nat) : DM.Between[SO.from-presented (S.stage n),
+    SO.from-presented Y].Map = (q n).1.1 ;
+  project (n : Nat) : DM.Between[SO.from-presented Y,
+    SO.from-presented (S.stage n)].Map = (q n).1.2 ;
+  module Step (n : Nat) {
+    module X = DM.Between[SO.from-presented (S.stage n),
+      SO.from-presented Y] ;
+    module P = DM.Between[SO.from-presented Y,
+      SO.from-presented (S.stage n)] ;
+    embed-law (a : (S.stage n).order.carrier) :
+      Id Y.order.carrier
+        (DM.Between[SO.from-presented (S.stage (suc n)),
+          SO.from-presented Y].run (embed (suc n)) (L.embed n a))
+        (X.run (embed n) a) =
+      ap (EP.Between[SO.from-presented (S.stage n),
+          SO.from-presented Y].Pair) Y.order.carrier
+        (\ z -> z.1.1.1 a)
+        (EP.compose (SO.from-presented (S.stage n))
+          (SO.from-presented (S.stage (suc n)))
+          (SO.from-presented Y) (q (suc n)) (S.link n))
+        (q n) (cone-law n) ;
+    project-law (y : Y.order.carrier) :
+      Id (S.stage n).order.carrier
+        (L.project n
+          (DM.Between[SO.from-presented Y,
+            SO.from-presented (S.stage (suc n))].run
+              (project (suc n)) y))
+        (P.run (project n) y) =
+      ap (EP.Between[SO.from-presented (S.stage n),
+          SO.from-presented Y].Pair) (S.stage n).order.carrier
+        (\ z -> z.1.2.1 y)
+        (EP.compose (SO.from-presented (S.stage n))
+          (SO.from-presented (S.stage (suc n)))
+          (SO.from-presented Y) (q (suc n)) (S.link n))
+        (q n) (cone-law n) ;
+  } ;
+  coherent (y : Y.order.carrier) : L.Coherent
+    (\ n -> DM.Between[SO.from-presented Y,
+      SO.from-presented (S.stage n)].run (project n) y) =
+    \ n -> Step[n].project-law y ;
+  projection : YD.Map =
+    ScottEPLimitMaps[l].On[S].Assemble[Y,project,coherent].map ;
+  stage-map (n : Nat) : DY.Map =
+    DM.Triple[SO.from-presented D,
+      SO.from-presented (S.stage n),SO.from-presented Y].compose
+      (embed n) (LC.At[n].projection) ;
+  module Increasing (n : Nat) {
+    pointwise (x : D.order.carrier) :
+      Y.order.le (DY.run (stage-map n) x)
+        (DY.run (stage-map (suc n)) x) =
+      CR.le-replace Y.order
+        (DM.Between[SO.from-presented (S.stage (suc n)),
+          SO.from-presented Y].run (embed (suc n))
+          (L.embed n (L.project n (x.1 (suc n)))))
+        (DY.run (stage-map n) x)
+        (DY.run (stage-map (suc n)) x)
+        (DY.run (stage-map (suc n)) x)
+        (trans Y.order.carrier
+          (DM.Between[SO.from-presented (S.stage (suc n)),
+            SO.from-presented Y].run (embed (suc n))
+            (L.embed n (L.project n (x.1 (suc n)))))
+          (DM.Between[SO.from-presented (S.stage n),
+            SO.from-presented Y].run (embed n)
+            (L.project n (x.1 (suc n))))
+          (DY.run (stage-map n) x)
+          (Step[n].embed-law (L.project n (x.1 (suc n))))
+          (ap (L.C n) Y.order.carrier
+            (DM.Between[SO.from-presented (S.stage n),
+              SO.from-presented Y].run (embed n))
+            (L.project n (x.1 (suc n))) (x.1 n) (x.2 n)))
+        (refl (DY.run (stage-map (suc n)) x))
+        (DM.Between[SO.from-presented (S.stage (suc n)),
+          SO.from-presented Y].mono (embed (suc n))
+          (L.embed n (L.project n (x.1 (suc n))))
+          (x.1 (suc n))
+          ((S.link n).2.2 (x.1 (suc n)))) ;
+    small : DY.LE (stage-map n) (stage-map (suc n)) =
+      DY.small (stage-map n) (stage-map (suc n)) pointwise ;
+  } ;
+  directed : DY.MO.Dir Nat stage-map =
+    OrderedChains[l].directed DY.order stage-map
+      (\ n -> Increasing[n].small) ;
+  embedding : DY.Map =
+    (DY.complete.directed Nat stage-map directed).1 ;
+  module Retract (x : D.order.carrier) {
+    value : D.order.carrier = YD.run projection (DY.run embedding x) ;
+    stage-value (m : Nat) : Y.order.carrier = DY.run (stage-map m) x ;
+    eval-dir : ScottOrder[l].On[Y.order].Dir Nat stage-value =
+      DY.evaluated-dir Nat stage-map directed x ;
+    stage-upper (m : Nat) : Y.order.le (stage-value m)
+      (DY.run embedding x) =
+      (Y.complete.directed Nat stage-value eval-dir).2.1 m ;
+    stage-section (m : Nat) : Id (L.C m)
+      ((YD.run projection (stage-value m)).1 m) (x.1 m) =
+      (q m).2.1 (x.1 m) ;
+    module At (n : Nat) {
+      module P = DM.Between[SO.from-presented Y,
+        SO.from-presented (S.stage n)] ;
+      bound-case (m : Nat) :
+        (c : Plus (LeN m n) (LeN (suc n) m)) ->
+        (S.stage n).order.le (P.run (project n) (stage-value m))
+          (x.1 n) = split {
+          inl mn ->
+            CR.le-replace (S.stage n).order
+              (P.run (project n) (stage-value m))
+              (P.run (project n) (stage-value m))
+              (P.run (project n) (stage-value n)) (x.1 n)
+              (refl (P.run (project n) (stage-value m)))
+              (stage-section n)
+              (P.mono (project n) (stage-value m) (stage-value n)
+                (DY.pointwise (stage-map m) (stage-map n)
+                  (OrderedChains[l].monotone m DY.order stage-map
+                    (\ k -> Increasing[k].small) n mn) x)) ;
+          inr nm ->
+            CR.le-replace (S.stage n).order (x.1 n)
+              (P.run (project n) (stage-value m))
+              (x.1 n) (x.1 n)
+              (sym (L.C n)
+                (P.run (project n) (stage-value m)) (x.1 n)
+                (Limit.past n S m
+                  (leN-trans n (suc n) m (leN-next n) nm)
+                  (YD.run projection (stage-value m)) x
+                  (stage-section m)))
+              (refl (x.1 n))
+              ((S.stage n).order.reflexive (x.1 n)) } ;
+      stage-bound (m : Nat) :
+        (S.stage n).order.le (P.run (project n) (stage-value m))
+          (x.1 n) = bound-case m (OrderedChains[l].compare m n) ;
+      upper : (S.stage n).order.le (value.1 n) (x.1 n) =
+        P.continuous (project n) Nat stage-value eval-dir
+          (x.1 n) stage-bound ;
+      lower : (S.stage n).order.le (x.1 n) (value.1 n) =
+        CR.le-replace (S.stage n).order
+          (P.run (project n) (stage-value n)) (x.1 n)
+          (value.1 n) (value.1 n)
+          (stage-section n) (refl (value.1 n))
+          (P.mono (project n) (stage-value n)
+            (DY.run embedding x) (stage-upper n)) ;
+    } ;
+    equation : Id D.order.carrier value x =
+      L.order.antisymmetric value x
+        (\ n -> At[n].upper) (\ n -> At[n].lower) ;
+  } ;
+  below (y : Y.order.carrier) :
+    Y.order.le (DY.run embedding (YD.run projection y)) y =
+    (Y.complete.directed Nat
+      (\ n -> DY.run (stage-map n) (YD.run projection y))
+      (DY.evaluated-dir Nat stage-map directed
+        (YD.run projection y))).2.2 y
+      (\ n -> (q n).2.2 y) ;
+  mediator : EP.Between[SO.from-presented D,
+    SO.from-presented Y].Pair =
+    ((embedding,projection),
+      (\ x -> Retract[x].equation,below)) ;
+  module ConeLaw (n : Nat) {
+    module X = DM.Between[SO.from-presented (S.stage n),
+      SO.from-presented Y] ;
+    module P = DM.Between[SO.from-presented Y,
+      SO.from-presented (S.stage n)] ;
+    module DtoY = DM.Between[SO.from-presented D,
+      SO.from-presented Y] ;
+    module At (a : (S.stage n).order.carrier) {
+      value : Y.order.carrier = DY.run embedding (Limit.lift n S a) ;
+      stage-n : Y.order.carrier = DY.run (stage-map n) (Limit.lift n S a) ;
+      stage-section : Id Y.order.carrier stage-n (X.run (embed n) a) =
+        ap (S.stage n).order.carrier Y.order.carrier
+          (X.run (embed n))
+          ((Limit.lift n S a).1 n) a (Limit.section n S a) ;
+      lower : Y.order.le (X.run (embed n) a) value =
+        CR.le-replace Y.order stage-n (X.run (embed n) a)
+          value value stage-section (refl value)
+          (DY.pointwise (stage-map n) embedding
+            ((DY.complete.directed Nat stage-map directed).2.1 n)
+            (Limit.lift n S a)) ;
+      projection-bound : L.le (Limit.lift n S a)
+        (YD.run projection (X.run (embed n) a)) =
+        Limit.lower n S a
+          (YD.run projection (X.run (embed n) a))
+          (CR.le-replace (S.stage n).order a a a
+            ((YD.run projection (X.run (embed n) a)).1 n)
+            (refl a)
+            (sym (S.stage n).order.carrier
+              ((YD.run projection (X.run (embed n) a)).1 n)
+              a ((q n).2.1 a))
+            ((S.stage n).order.reflexive a)) ;
+      upper : Y.order.le value (X.run (embed n) a) =
+        Y.order.transitive value
+          (DY.run embedding
+            (YD.run projection (X.run (embed n) a)))
+          (X.run (embed n) a)
+          (DY.mono embedding (Limit.lift n S a)
+            (YD.run projection (X.run (embed n) a)) projection-bound)
+          (below (X.run (embed n) a)) ;
+      equation : Id Y.order.carrier value (X.run (embed n) a) =
+        Y.order.antisymmetric value (X.run (embed n) a) upper lower ;
+    } ;
+    composite : EP.Between[SO.from-presented (S.stage n),
+      SO.from-presented Y].Pair =
+      EP.compose (SO.from-presented (S.stage n))
+        (SO.from-presented D) (SO.from-presented Y)
+        mediator LC.At[n].pair ;
+    law : Id (EP.Between[SO.from-presented (S.stage n),
+      SO.from-presented Y].Pair) composite (q n) =
+      EP.Between[SO.from-presented (S.stage n),
+        SO.from-presented Y].equal composite (q n)
+        (X.equal composite.1.1 (embed n)
+          (\ a -> At[a].equation))
+        (P.equal composite.1.2 (project n)
+          (\ y -> refl (P.run (project n) y))) ;
+  } ;
+  module Unique
+    (t : EP.Between[SO.from-presented D,SO.from-presented Y].Pair)
+    (t-cone : (n : Nat) ->
+      Id (EP.Between[SO.from-presented (S.stage n),
+        SO.from-presented Y].Pair)
+        (EP.compose (SO.from-presented (S.stage n))
+          (SO.from-presented D) (SO.from-presented Y)
+          t LC.At[n].pair) (q n)) {
+    module T = DM.Between[SO.from-presented D,SO.from-presented Y] ;
+    module P = DM.Between[SO.from-presented Y,SO.from-presented D] ;
+    stage-embed (n : Nat) (a : (S.stage n).order.carrier) :
+      Id Y.order.carrier (T.run t.1.1 (Limit.lift n S a))
+        (DM.Between[SO.from-presented (S.stage n),
+          SO.from-presented Y].run (embed n) a) =
+      ap (EP.Between[SO.from-presented (S.stage n),
+          SO.from-presented Y].Pair) Y.order.carrier
+        (\ z -> z.1.1.1 a)
+        (EP.compose (SO.from-presented (S.stage n))
+          (SO.from-presented D) (SO.from-presented Y)
+          t LC.At[n].pair) (q n) (t-cone n) ;
+    stage-project (n : Nat) (y : Y.order.carrier) :
+      Id (L.C n) ((P.run t.1.2 y).1 n)
+        (DM.Between[SO.from-presented Y,
+          SO.from-presented (S.stage n)].run (project n) y) =
+      ap (EP.Between[SO.from-presented (S.stage n),
+          SO.from-presented Y].Pair) (L.C n)
+        (\ z -> z.1.2.1 y)
+        (EP.compose (SO.from-presented (S.stage n))
+          (SO.from-presented D) (SO.from-presented Y)
+          t LC.At[n].pair) (q n) (t-cone n) ;
+    module AtY (y : Y.order.carrier) {
+      left (n : Nat) : (S.stage n).order.le
+        ((P.run t.1.2 y).1 n) ((YD.run projection y).1 n) =
+        CR.le-replace (S.stage n).order
+          ((YD.run projection y).1 n) ((P.run t.1.2 y).1 n)
+          ((YD.run projection y).1 n) ((YD.run projection y).1 n)
+          (sym (L.C n) ((P.run t.1.2 y).1 n)
+            ((YD.run projection y).1 n) (stage-project n y))
+          (refl ((YD.run projection y).1 n))
+          ((S.stage n).order.reflexive ((YD.run projection y).1 n)) ;
+      right (n : Nat) : (S.stage n).order.le
+        ((YD.run projection y).1 n) ((P.run t.1.2 y).1 n) =
+        CR.le-replace (S.stage n).order
+          ((YD.run projection y).1 n) ((YD.run projection y).1 n)
+          ((YD.run projection y).1 n) ((P.run t.1.2 y).1 n)
+          (refl ((YD.run projection y).1 n))
+          (sym (L.C n) ((P.run t.1.2 y).1 n)
+            ((YD.run projection y).1 n) (stage-project n y))
+          ((S.stage n).order.reflexive ((YD.run projection y).1 n)) ;
+      equation : Id D.order.carrier (P.run t.1.2 y)
+        (YD.run projection y) =
+        L.order.antisymmetric (P.run t.1.2 y)
+          (YD.run projection y) left right ;
+    } ;
+    projection-equal : Id P.Map t.1.2 projection =
+      P.equal t.1.2 projection (\ y -> AtY[y].equation) ;
+    module AtX (x : D.order.carrier) {
+      stage-value (n : Nat) : Y.order.carrier = DY.run (stage-map n) x ;
+      eval-dir : ScottOrder[l].On[Y.order].Dir Nat stage-value =
+        DY.evaluated-dir Nat stage-map directed x ;
+      stage-equal (n : Nat) :
+        Id Y.order.carrier
+          (T.run t.1.1 (Limit.approximate S n x)) (stage-value n) =
+        stage-embed n (x.1 n) ;
+      stage-upper (n : Nat) :
+        Y.order.le (stage-value n) (DY.run embedding x) =
+        (Y.complete.directed Nat stage-value eval-dir).2.1 n ;
+      first-stage (n : Nat) :
+        Y.order.le (T.run t.1.1 (Limit.approximate S n x))
+          (DY.run embedding x) =
+        CR.le-replace Y.order (stage-value n)
+          (T.run t.1.1 (Limit.approximate S n x))
+          (DY.run embedding x) (DY.run embedding x)
+          (sym Y.order.carrier
+            (T.run t.1.1 (Limit.approximate S n x))
+            (stage-value n) (stage-equal n))
+          (refl (DY.run embedding x)) (stage-upper n) ;
+      left : Y.order.le (T.run t.1.1 x) (DY.run embedding x) =
+        CR.le-replace Y.order
+          (T.run t.1.1 (C.approx-sup x).1)
+          (T.run t.1.1 x)
+          (DY.run embedding x) (DY.run embedding x)
+          (ap D.order.carrier Y.order.carrier (T.run t.1.1)
+            (C.approx-sup x).1 x (C.exhaustion x))
+          (refl (DY.run embedding x))
+          (T.continuous t.1.1 Nat
+            (\ n -> Limit.approximate S n x) (C.approx-dir x)
+            (DY.run embedding x) first-stage) ;
+      second-stage (n : Nat) :
+        Y.order.le (stage-value n) (T.run t.1.1 x) =
+        CR.le-replace Y.order
+          (T.run t.1.1 (Limit.approximate S n x)) (stage-value n)
+          (T.run t.1.1 x) (T.run t.1.1 x)
+          (stage-equal n) (refl (T.run t.1.1 x))
+          (T.mono t.1.1 (Limit.approximate S n x) x
+            (Limit.deflation S n x)) ;
+      right : Y.order.le (DY.run embedding x) (T.run t.1.1 x) =
+        (Y.complete.directed Nat stage-value eval-dir).2.2
+          (T.run t.1.1 x) second-stage ;
+      equation : Id Y.order.carrier (T.run t.1.1 x)
+        (DY.run embedding x) =
+        Y.order.antisymmetric (T.run t.1.1 x)
+          (DY.run embedding x) left right ;
+    } ;
+    embedding-equal : Id T.Map t.1.1 embedding =
+      T.equal t.1.1 embedding (\ x -> AtX[x].equation) ;
+    equation : Id (EP.Between[SO.from-presented D,
+        SO.from-presented Y].Pair) t mediator =
+      EP.Between[SO.from-presented D,
+        SO.from-presented Y].equal t mediator
+        embedding-equal projection-equal ;
+  } ;
+} ;

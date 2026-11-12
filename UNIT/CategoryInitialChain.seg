@@ -1,0 +1,411 @@
+-- Initial algebras from a preserved initial-chain colimit.
+level k l ; open Base ;
+module P = Prelude[l] ;
+module C = Category[k,l] ;
+
+record Endofunctor (D : C.Precategory) {
+  object : D.ob -> D.ob ;
+  arrow (X Y : D.ob) : D.hom X Y -> D.hom (object X) (object Y) ;
+  identity (X : D.ob) : Id (D.hom (object X) (object X))
+    (arrow X X (D.idn X)) (D.idn (object X)) ;
+  composition (X Y Z : D.ob) (f : D.hom X Y) (g : D.hom Y Z) :
+    Id (D.hom (object X) (object Z))
+      (arrow X Z (D.comp X Y Z g f))
+      (D.comp (object X) (object Y) (object Z)
+        (arrow Y Z g) (arrow X Y f)) ;
+} ;
+
+record Initial (D : C.Precategory) {
+  object : D.ob ;
+  arrow (Y : D.ob) : D.hom object Y ;
+  unique (Y : D.ob) (f : D.hom object Y) :
+    Id (D.hom object Y) f (arrow Y) ;
+} ;
+
+record Chain (D : C.Precategory) {
+  stage : Nat -> D.ob ;
+  link (n : Nat) : D.hom (stage n) (stage (suc n)) ;
+} ;
+
+tail (D : C.Precategory) (S : Chain[D]) : Chain[D] =
+  new Chain[D,
+    stage := \ n -> S.stage (suc n),
+    link := \ n -> S.link (suc n)] ;
+
+record Colimit (D : C.Precategory) (S : Chain[D])
+  (L : D.ob) (leg : (n : Nat) -> D.hom (S.stage n) L) {
+  mediator (Y : D.ob)
+    (q : (n : Nat) -> D.hom (S.stage n) Y)
+    (coherent : (n : Nat) -> Id (D.hom (S.stage n) Y)
+      (D.comp (S.stage n) (S.stage (suc n)) Y
+        (q (suc n)) (S.link n)) (q n)) : D.hom L Y ;
+  factor (Y : D.ob)
+    (q : (n : Nat) -> D.hom (S.stage n) Y)
+    (coherent : (n : Nat) -> Id (D.hom (S.stage n) Y)
+      (D.comp (S.stage n) (S.stage (suc n)) Y
+        (q (suc n)) (S.link n)) (q n))
+    (n : Nat) : Id (D.hom (S.stage n) Y)
+      (D.comp (S.stage n) L Y
+        (mediator Y q coherent) (leg n)) (q n) ;
+  unique (Y : D.ob)
+    (q : (n : Nat) -> D.hom (S.stage n) Y)
+    (coherent : (n : Nat) -> Id (D.hom (S.stage n) Y)
+      (D.comp (S.stage n) (S.stage (suc n)) Y
+        (q (suc n)) (S.link n)) (q n))
+    (f : D.hom L Y)
+    (law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+      (D.comp (S.stage n) L Y f (leg n)) (q n)) :
+    Id (D.hom L Y) f (mediator Y q coherent) ;
+} ;
+
+module Mapped (D : C.Precategory)
+  (F : Endofunctor[D]) (S : Chain[D])
+  (L : D.ob) (source-leg : (n : Nat) -> D.hom (S.stage n) L)
+  (leg-law : (n : Nat) -> Id (D.hom (S.stage n) L)
+    (D.comp (S.stage n) (S.stage (suc n)) L
+      (source-leg (suc n)) (S.link n)) (source-leg n)) {
+  module H = Paths[l] ;
+  chain : Chain[D] = new Chain[D,
+    stage := \ n -> F.object (S.stage n),
+    link := \ n -> F.arrow (S.stage n) (S.stage (suc n))
+      (S.link n)] ;
+  leg (n : Nat) : D.hom (chain.stage n) (F.object L) =
+    F.arrow (S.stage n) L (source-leg n) ;
+  law (n : Nat) : Id (D.hom (chain.stage n) (F.object L))
+    (D.comp (chain.stage n) (chain.stage (suc n)) (F.object L)
+      (leg (suc n)) (chain.link n)) (leg n) =
+    H.transH
+      (H.symH (F.composition (S.stage n)
+        (S.stage (suc n)) L (S.link n) (source-leg (suc n))))
+      (H.apH (F.arrow (S.stage n) L) (leg-law n)) ;
+} ;
+
+-- Preservation of existing countable-chain colimits. This interface does
+-- not assert that local continuity on ordered homs implies preservation.
+record OmegaContinuous (D : C.Precategory)
+  (F : Endofunctor[D]) {
+  preserve (S : Chain[D]) (L : D.ob)
+    (leg : (n : Nat) -> D.hom (S.stage n) L)
+    (leg-law : (n : Nat) -> Id (D.hom (S.stage n) L)
+      (D.comp (S.stage n) (S.stage (suc n)) L
+        (leg (suc n)) (S.link n)) (leg n))
+    (c : Colimit[D,S,L,leg]) :
+    Colimit[D,Mapped[D,F,S,L,leg,leg-law].chain,
+      F.object L,Mapped[D,F,S,L,leg,leg-law].leg] ;
+} ;
+
+record ChainColimit (D : C.Precategory) (S : Chain[D]) {
+  vertex : D.ob ;
+  leg (n : Nat) : D.hom (S.stage n) vertex ;
+  law (n : Nat) : Id (D.hom (S.stage n) vertex)
+    (D.comp (S.stage n) (S.stage (suc n)) vertex
+      (leg (suc n)) (S.link n)) (leg n) ;
+  universal : Colimit[D,S,vertex,leg] ;
+} ;
+
+record OmegaCocomplete (D : C.Precategory) {
+  colimit (S : Chain[D]) : ChainColimit[D,S] ;
+} ;
+
+module InitialChain (D : C.Precategory)
+  (F : Endofunctor[D]) (Z : Initial[D]) {
+  stage : Nat -> D.ob = split {
+    zero -> Z.object ;
+    suc n | r -> F.object r } ;
+  link : (n : Nat) -> D.hom (stage n) (stage (suc n)) = split {
+    zero -> Z.arrow (F.object Z.object) ;
+    suc n | r -> F.arrow (stage n) (stage (suc n)) r } ;
+  chain : Chain[D] = new Chain[D,stage := stage,link := link] ;
+  shift : Chain[D] = tail D chain ;
+} ;
+
+module Setup (D : C.Precategory)
+  (F : Endofunctor[D]) (Z : Initial[D])
+  (L : D.ob)
+  (leg : (n : Nat) -> D.hom
+    (InitialChain[D,F,Z].chain.stage n) L)
+  (leg-law : (n : Nat) ->
+    Id (D.hom (InitialChain[D,F,Z].chain.stage n) L)
+      (D.comp (InitialChain[D,F,Z].chain.stage n)
+        (InitialChain[D,F,Z].chain.stage (suc n)) L
+        (leg (suc n)) (InitialChain[D,F,Z].chain.link n))
+      (leg n))
+  (original : Colimit[D,InitialChain[D,F,Z].chain,L,leg]) {
+  module I = InitialChain[D,F,Z] ;
+  module A = CategoryArrows[k,l].Arrows[D] ;
+  module H = Paths[l] ;
+  S : Chain[D] = I.chain ;
+  T : Chain[D] = I.shift ;
+  shift-leg (n : Nat) : D.hom (T.stage n) L = leg (suc n) ;
+  shift-law (n : Nat) :
+    Id (D.hom (T.stage n) L)
+      (D.comp (T.stage n) (T.stage (suc n)) L
+        (shift-leg (suc n)) (T.link n))
+      (shift-leg n) = leg-law (suc n) ;
+  image-leg (n : Nat) : D.hom (T.stage n) (F.object L) =
+    F.arrow (S.stage n) L (leg n) ;
+  image-law (n : Nat) :
+    Id (D.hom (T.stage n) (F.object L))
+      (D.comp (T.stage n) (T.stage (suc n)) (F.object L)
+        (image-leg (suc n)) (T.link n))
+      (image-leg n) =
+    H.transH
+      (H.symH (F.composition (S.stage n)
+        (S.stage (suc n)) L (S.link n) (leg (suc n))))
+      (H.apH (F.arrow (S.stage n) L) (leg-law n)) ;
+  extend (Y : D.ob)
+    (q : (n : Nat) -> D.hom (T.stage n) Y) :
+    (n : Nat) -> D.hom (S.stage n) Y = split {
+      zero -> Z.arrow Y ;
+      suc n | r -> q n } ;
+  extend-law (Y : D.ob)
+    (q : (n : Nat) -> D.hom (T.stage n) Y)
+    (coherent : (n : Nat) -> Id (D.hom (T.stage n) Y)
+      (D.comp (T.stage n) (T.stage (suc n)) Y
+        (q (suc n)) (T.link n)) (q n)) :
+    (n : Nat) -> Id (D.hom (S.stage n) Y)
+      (D.comp (S.stage n) (S.stage (suc n)) Y
+        (extend Y q (suc n)) (S.link n)) (extend Y q n) = split {
+      zero -> Z.unique Y
+        (D.comp (S.stage zero) (S.stage (suc zero)) Y
+          (q zero) (S.link zero)) ;
+      suc n | r -> coherent n } ;
+  extend-unique-law (Y : D.ob)
+    (q : (n : Nat) -> D.hom (T.stage n) Y)
+    (f : D.hom L Y)
+    (law : (n : Nat) -> Id (D.hom (T.stage n) Y)
+      (D.comp (T.stage n) L Y f (shift-leg n)) (q n)) :
+    (n : Nat) -> Id (D.hom (S.stage n) Y)
+      (D.comp (S.stage n) L Y f (leg n)) (extend Y q n) = split {
+      zero -> Z.unique Y
+        (D.comp (S.stage zero) L Y f (leg zero)) ;
+      suc n | r -> law n } ;
+  shift-colimit : Colimit[D,T,L,shift-leg] =
+    new Colimit[D,T,L,shift-leg,
+      mediator := \ Y q coherent ->
+        original.mediator Y (extend Y q)
+          (extend-law Y q coherent),
+      factor := \ Y q coherent n ->
+        original.factor Y (extend Y q)
+          (extend-law Y q coherent) (suc n),
+      unique := \ Y q coherent f law ->
+        original.unique Y (extend Y q)
+          (extend-law Y q coherent) f
+          (extend-unique-law Y q f law)] ;
+
+  module Solution
+    (preserved : Colimit[D,T,F.object L,image-leg]) {
+    fold : D.hom (F.object L) L =
+      preserved.mediator L shift-leg shift-law ;
+    unfold : D.hom L (F.object L) =
+      shift-colimit.mediator (F.object L) image-leg image-law ;
+    fold-stage (n : Nat) : Id (D.hom (T.stage n) L)
+      (A.cmp fold (image-leg n)) (shift-leg n) =
+      preserved.factor L shift-leg shift-law n ;
+    unfold-stage (n : Nat) : Id (D.hom (T.stage n) (F.object L))
+      (A.cmp unfold (shift-leg n)) (image-leg n) =
+      shift-colimit.factor (F.object L) image-leg image-law n ;
+    fold-unfold-stage (n : Nat) : Id (D.hom (T.stage n) L)
+      (A.cmp (A.cmp fold unfold) (shift-leg n)) (shift-leg n) =
+      H.transH (H.symH (A.assoc fold unfold (shift-leg n)))
+        (H.transH (A.left fold (unfold-stage n)) (fold-stage n)) ;
+    unfold-fold-stage (n : Nat) :
+      Id (D.hom (T.stage n) (F.object L))
+        (A.cmp (A.cmp unfold fold) (image-leg n)) (image-leg n) =
+      H.transH (H.symH (A.assoc unfold fold (image-leg n)))
+        (H.transH (A.left unfold (fold-stage n)) (unfold-stage n)) ;
+    fold-unfold : Id (D.hom L L)
+      (A.cmp fold unfold) (D.idn L) =
+      H.transH
+        (shift-colimit.unique L shift-leg shift-law
+          (A.cmp fold unfold) fold-unfold-stage)
+        (H.symH (shift-colimit.unique L shift-leg shift-law
+          (D.idn L) (\ n -> A.unit-l (shift-leg n)))) ;
+    unfold-fold : Id (D.hom (F.object L) (F.object L))
+      (A.cmp unfold fold) (D.idn (F.object L)) =
+      H.transH
+        (preserved.unique (F.object L) image-leg image-law
+          (A.cmp unfold fold) unfold-fold-stage)
+        (H.symH (preserved.unique (F.object L) image-leg image-law
+          (D.idn (F.object L)) (\ n -> A.unit-l (image-leg n)))) ;
+    iso : D.Iso (F.object L) L =
+      (fold,unfold,unfold-fold,fold-unfold) ;
+
+    module Algebra (Y : D.ob) (algebra : D.hom (F.object Y) Y) {
+      stage-map : (n : Nat) -> D.hom (S.stage n) Y = split {
+        zero -> Z.arrow Y ;
+        suc n | r ->
+          A.cmp algebra (F.arrow (S.stage n) Y r) } ;
+      module Step (n : Nat) {
+        X : D.ob = S.stage n ;
+        FX : D.ob = S.stage (suc n) ;
+        FFX : D.ob = S.stage (suc (suc n)) ;
+        left : D.hom FX Y =
+          A.cmp (stage-map (suc (suc n))) (S.link (suc n)) ;
+        middle : D.hom FX Y =
+          A.cmp algebra
+            (A.cmp (F.arrow FX Y (stage-map (suc n)))
+              (F.arrow X FX (S.link n))) ;
+        first : Id (D.hom FX Y) left middle =
+          H.symH (A.assoc algebra
+            (F.arrow FX Y (stage-map (suc n)))
+            (F.arrow X FX (S.link n))) ;
+        next : D.hom FX Y =
+          A.cmp algebra
+            (F.arrow X Y
+              (A.cmp (stage-map (suc n)) (S.link n))) ;
+        second : Id (D.hom FX Y) middle next =
+          A.left algebra
+            (H.symH (F.composition X FX Y
+              (S.link n) (stage-map (suc n)))) ;
+        third (ih : Id (D.hom X Y)
+            (A.cmp (stage-map (suc n)) (S.link n))
+            (stage-map n)) :
+          Id (D.hom FX Y) next (stage-map (suc n)) =
+          H.apH (\ z -> A.cmp algebra (F.arrow X Y z)) ih ;
+      } ;
+      cone-law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+        (A.cmp (stage-map (suc n)) (S.link n))
+        (stage-map n) = split {
+        zero -> Z.unique Y
+          (A.cmp (stage-map (suc zero)) (S.link zero)) ;
+        suc n | r -> H.transH Step[n].first
+          (H.transH Step[n].second (Step[n].third r)) } ;
+      candidate : D.hom L Y =
+        original.mediator Y stage-map cone-law ;
+      candidate-stage (n : Nat) :
+        Id (D.hom (S.stage n) Y)
+          (A.cmp candidate (leg n)) (stage-map n) =
+        original.factor Y stage-map cone-law n ;
+      Morphism (h : D.hom L Y) : U l =
+        Id (D.hom (F.object L) Y)
+          (A.cmp h fold)
+          (A.cmp algebra (F.arrow L Y h)) ;
+      tail-map (n : Nat) : D.hom (T.stage n) Y =
+        stage-map (suc n) ;
+      tail-law (n : Nat) : Id (D.hom (T.stage n) Y)
+        (A.cmp (tail-map (suc n)) (T.link n)) (tail-map n) =
+        cone-law (suc n) ;
+      left : D.hom (F.object L) Y = A.cmp candidate fold ;
+      right : D.hom (F.object L) Y =
+        A.cmp algebra (F.arrow L Y candidate) ;
+      left-stage (n : Nat) : Id (D.hom (T.stage n) Y)
+        (A.cmp left (image-leg n)) (tail-map n) =
+        H.transH (H.symH
+          (A.assoc candidate fold (image-leg n)))
+          (H.transH (A.left candidate (fold-stage n))
+            (candidate-stage (suc n))) ;
+      right-stage (n : Nat) : Id (D.hom (T.stage n) Y)
+        (A.cmp right (image-leg n)) (tail-map n) =
+        H.transH (H.symH
+          (A.assoc algebra (F.arrow L Y candidate)
+            (image-leg n)))
+          (H.transH (A.left algebra
+            (H.symH (F.composition (S.stage n) L Y
+              (leg n) candidate)))
+            (A.left algebra
+              (H.apH (F.arrow (S.stage n) Y)
+                (candidate-stage n)))) ;
+      algebra-law : Morphism candidate =
+        H.transH
+          (preserved.unique Y tail-map tail-law left left-stage)
+          (H.symH
+            (preserved.unique Y tail-map tail-law right right-stage)) ;
+      module Unique (h : D.hom L Y) (h-law : Morphism h) {
+        module Successor (n : Nat)
+          (ih : Id (D.hom (S.stage n) Y)
+            (A.cmp h (leg n)) (stage-map n)) {
+          lhs : D.hom (T.stage n) Y =
+            A.cmp h (shift-leg n) ;
+          one : D.hom (T.stage n) Y =
+            A.cmp h (A.cmp fold (image-leg n)) ;
+          first : Id (D.hom (T.stage n) Y) lhs one =
+            A.left h (H.symH (fold-stage n)) ;
+          two : D.hom (T.stage n) Y =
+            A.cmp (A.cmp h fold) (image-leg n) ;
+          second : Id (D.hom (T.stage n) Y) one two =
+            A.assoc h fold (image-leg n) ;
+          three : D.hom (T.stage n) Y =
+            A.cmp (A.cmp algebra (F.arrow L Y h))
+              (image-leg n) ;
+          third : Id (D.hom (T.stage n) Y) two three =
+            A.right h-law (image-leg n) ;
+          four : D.hom (T.stage n) Y =
+            A.cmp algebra
+              (A.cmp (F.arrow L Y h) (image-leg n)) ;
+          fourth : Id (D.hom (T.stage n) Y) three four =
+            H.symH (A.assoc algebra (F.arrow L Y h)
+              (image-leg n)) ;
+          five : D.hom (T.stage n) Y =
+            A.cmp algebra
+              (F.arrow (S.stage n) Y (A.cmp h (leg n))) ;
+          fifth : Id (D.hom (T.stage n) Y) four five =
+            A.left algebra
+              (H.symH (F.composition (S.stage n) L Y
+                (leg n) h)) ;
+          last : Id (D.hom (T.stage n) Y)
+            five (stage-map (suc n)) =
+            A.left algebra (H.apH (F.arrow (S.stage n) Y) ih) ;
+          law : Id (D.hom (T.stage n) Y)
+            lhs (stage-map (suc n)) =
+            H.transH first (H.transH second
+              (H.transH third (H.transH fourth
+                (H.transH fifth last)))) ;
+        } ;
+        stage-law : (n : Nat) -> Id (D.hom (S.stage n) Y)
+          (A.cmp h (leg n)) (stage-map n) = split {
+          zero -> Z.unique Y (A.cmp h (leg zero)) ;
+          suc n | r -> Successor[n,r].law } ;
+        equation : Id (D.hom L Y) h candidate =
+          original.unique Y stage-map cone-law h stage-law ;
+      } ;
+      morphism-prop (h : D.hom L Y) : P.isProp (Morphism h) =
+        D.hom-set (F.object L) Y
+          (A.cmp h fold)
+          (A.cmp algebra (F.arrow L Y h)) ;
+      AlgebraMorphism : U l = (h : D.hom L Y) * Morphism h ;
+      center : AlgebraMorphism = (candidate,algebra-law) ;
+      initial : (w : AlgebraMorphism) ->
+        Id AlgebraMorphism w center = \ w ->
+        P.Sigma-eq (D.hom L Y) Morphism
+          w.1 candidate w.2 algebra-law
+          (Unique[w.1,w.2].equation) (morphism-prop candidate) ;
+    } ;
+  } ;
+  module FromContinuous (omega : OmegaContinuous[D,F]) {
+    preserved : Colimit[D,T,F.object L,image-leg] =
+      omega.preserve S L leg leg-law original ;
+    module Result = Solution[preserved] ;
+  } ;
+} ;
+
+module General (D : C.Precategory)
+  (F : Endofunctor[D]) (Z : Initial[D])
+  (omega : OmegaContinuous[D,F])
+  (cocomplete : OmegaCocomplete[D]) {
+  module I = InitialChain[D,F,Z] ;
+  c : ChainColimit[D,I.chain] = cocomplete.colimit I.chain ;
+  module S = Setup[D,F,Z,c.vertex,c.leg,c.law,c.universal] ;
+  module R = S.FromContinuous[omega].Result ;
+  fold : D.hom (F.object c.vertex) c.vertex = R.fold ;
+  unfold : D.hom c.vertex (F.object c.vertex) = R.unfold ;
+  isomorphism : D.Iso (F.object c.vertex) c.vertex = R.iso ;
+  module Algebra (Y : D.ob) (a : D.hom (F.object Y) Y) {
+    module T = R.Algebra[Y,a] ;
+    AlgebraMorphism : U l = T.AlgebraMorphism ;
+    center : AlgebraMorphism = T.center ;
+    initial : (w : AlgebraMorphism) ->
+      Id AlgebraMorphism w center = T.initial ;
+  } ;
+} ;
+
+module UnivalentGeneral (E : C.Category)
+  (F : Endofunctor[E.pre]) (Z : Initial[E.pre])
+  (omega : OmegaContinuous[E.pre,F])
+  (cocomplete : OmegaCocomplete[E.pre]) {
+  module G = General[E.pre,F,Z,omega,cocomplete] ;
+  equation : Id E.pre.ob G.c.vertex (F.object G.c.vertex) =
+    Prelude[k].sym E.pre.ob (F.object G.c.vertex) G.c.vertex
+      (E.isotoid (F.object G.c.vertex)
+        G.c.vertex G.isomorphism) ;
+} ;

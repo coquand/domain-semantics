@@ -1,0 +1,121 @@
+-- A small compact basis for the coherent-sequence limit.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module Limit = ScottEPLimit[l] ;
+module CR = ScottDomainCategories[l] ;
+
+module On (S : Limit.Chain) {
+  module L = Limit.On[S] ;
+  module C = Limit.Completion[S] ;
+  module V = DC[L.order,C.complete] ;
+  B (n : Nat) : U l = (S.stage n).basis.index ;
+  basic-at (n : Nat) : B n -> L.C n = (S.stage n).basis.basic ;
+  Basis : U l = (n : Nat) * B n ;
+  basic (a : Basis) : L.carrier =
+    Limit.lift a.1 S (basic-at a.1 a.2) ;
+  compact (a : Basis) : V.Compact (basic a) = \ I x d h ->
+    T.map ((i : I) * L.LE a.1 (basic-at a.1 a.2) ((x i).1 a.1))
+      ((i : I) * L.le (basic a) (x i))
+      (\ w -> (w.1,Limit.lower a.1 S (basic-at a.1 a.2) (x w.1) w.2))
+      ((S.stage a.1).basis.compact a.2 I (\ i -> (x i).1 a.1)
+        (L.evaluated I x d a.1)
+        (Limit.upper a.1 S (basic-at a.1 a.2)
+          (V.sup I x d) h)) ;
+  Local (x : L.carrier) : U l =
+    (a : Basis) * L.le (basic a) x ;
+  part (x : L.carrier) (a : Local x) : L.carrier = basic a.1 ;
+  module At (n : Nat) (x : L.carrier) {
+    module A = ScottDomain[l].On[S.stage n] ;
+    index : U l = A.BI (x.1 n) ;
+    value (a : index) : L.carrier = Limit.lift n S (A.basic a.1) ;
+    directed : L.LO.Dir index value =
+      ((A.dir (x.1 n)).1,\ a b -> T.map
+        (ScottOrder[l].On[(S.stage n).order].Upper index
+          (A.part (x.1 n)) a b)
+        (L.LO.Upper index value a b)
+        (\ w -> (w.1,(C.lift-mono n (A.basic a.1) (A.basic w.1.1) w.2.1,
+          C.lift-mono n (A.basic b.1) (A.basic w.1.1) w.2.2)))
+        ((A.dir (x.1 n)).2 a b)) ;
+    supremum : L.LO.Supremum index value =
+      L.directed index value directed ;
+    cover : L.le (Limit.approximate S n x) supremum.1 =
+      Limit.lower n S (x.1 n) supremum.1
+        ((S.stage n).basis.density (x.1 n) (supremum.1.1 n)
+          (\ a h -> Limit.upper n S (A.basic a) supremum.1
+            (supremum.2.1 (a,h)))) ;
+    local (a : index) : Local x =
+      ((n,a.1),Limit.lower n S (A.basic a.1) x a.2) ;
+    find (a : Basis) (h : L.le (basic a) (Limit.approximate S n x)) :
+      Ex ((b : index) * L.le (basic a) (value b)) =
+      compact a index value directed
+        (L.order.transitive (basic a) (Limit.approximate S n x)
+          supremum.1 h cover) ;
+  } ;
+  inhabited (x : L.carrier) : Ex (Local x) =
+    T.map (At[zero,x].index) (Local x) At[zero,x].local
+      (At[zero,x].directed).1 ;
+  catch (x : L.carrier) (a : Local x) :
+    Ex ((n : Nat) * L.le (basic a.1) (Limit.approximate S n x)) =
+    compact a.1 Nat (\ n -> Limit.approximate S n x) (C.approx-dir x)
+      (CR.le-replace L.order (basic a.1) (basic a.1) x
+        (C.approx-sup x).1 (refl (basic a.1))
+        (sym L.carrier (C.approx-sup x).1 x (C.exhaustion x)) a.2) ;
+  module Combine (x : L.carrier) (a b : Local x) {
+    HitA : U l = (n : Nat) *
+      L.le (basic a.1) (Limit.approximate S n x) ;
+    HitB : U l = (n : Nat) *
+      L.le (basic b.1) (Limit.approximate S n x) ;
+    Goal : U l = L.LO.Upper (Local x) (part x) a b ;
+    module Hits (u : HitA) (v : HitB) {
+      n : Nat = max u.1 v.1 ;
+      module Q = At[n,x] ;
+      a-bound : L.le (basic a.1) (Limit.approximate S n x) =
+        L.order.transitive (basic a.1)
+          (Limit.approximate S u.1 x) (Limit.approximate S n x)
+          u.2 (C.approx-mono x u.1 n (leN-max-l u.1 v.1)) ;
+      b-bound : L.le (basic b.1) (Limit.approximate S n x) =
+        L.order.transitive (basic b.1)
+          (Limit.approximate S v.1 x) (Limit.approximate S n x)
+          v.2 (C.approx-mono x v.1 n (leN-max-r u.1 v.1)) ;
+      AHit : U l = (c : Q.index) * L.le (basic a.1) (Q.value c) ;
+      BHit : U l = (c : Q.index) * L.le (basic b.1) (Q.value c) ;
+      module Join (c : AHit) (d : BHit) {
+        StageUpper : U l =
+          ScottOrder[l].On[(S.stage n).order].Upper Q.index
+            (Q.A.part (x.1 n)) c.1 d.1 ;
+        into (w : StageUpper) : Goal =
+          (Q.local w.1,
+            (L.order.transitive (basic a.1) (Q.value c.1) (Q.value w.1)
+               c.2 (C.lift-mono n (Q.A.basic c.1.1)
+                 (Q.A.basic w.1.1) w.2.1),
+             L.order.transitive (basic b.1) (Q.value d.1) (Q.value w.1)
+               d.2 (C.lift-mono n (Q.A.basic d.1.1)
+                 (Q.A.basic w.1.1) w.2.2))) ;
+        result : Ex Goal =
+          T.map StageUpper Goal into ((Q.A.dir (x.1 n)).2 c.1 d.1) ;
+      } ;
+      result : Ex Goal =
+        T.bind2 AHit BHit Goal (\ c d -> Join[c,d].result)
+          (Q.find a.1 a-bound) (Q.find b.1 b-bound) ;
+    } ;
+    result : Ex Goal =
+      T.bind2 HitA HitB Goal (\ u v -> Hits[u,v].result)
+        (catch x a) (catch x b) ;
+  } ;
+  directed (x : L.carrier) : L.LO.Dir (Local x) (part x) =
+    (inhabited x,\ a b -> Combine[x,a,b].result) ;
+  density (x y : L.carrier)
+    (h : (a : Basis) -> L.le (basic a) x -> L.le (basic a) y) :
+    L.le x y = \ n ->
+    (S.stage n).basis.density (x.1 n) (y.1 n)
+      (\ a ax -> Limit.upper n S (basic-at n a) y
+        (h (n,a) (Limit.lower n S (basic-at n a) x ax))) ;
+  basis : ScottDomain[l].Basis[L.order,C.complete] =
+    new ScottDomain[l].Basis[L.order,C.complete,
+      index := Basis,basic := basic,compact := compact,
+      directed := directed,density := density] ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[
+    order := L.order,complete := C.complete,basis := basis,
+    bottom := L.bottom,bottom-least := L.bottom-least] ;
+} ;

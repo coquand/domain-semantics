@@ -1,0 +1,53 @@
+-- A canonical solution of X = A x [X -> X] from the initial EP chain.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module Iso = ScottEPOrderIso[l] ;
+
+module On (A : ScottDomain[l].Scott) {
+  module F = ScottReflexiveFunctor[l].Constructor[A] ;
+  module X = ScottEPLimitExponential[l].On[F.chain] ;
+  module P = ScottEPLimitProduct[l].On[A,X.chain] ;
+  module H = ScottEPLimitShift[l].On[F.chain] ;
+  module ProductIso = ScottEPProduct[l].Iso[A,X.E,X.T,X.order-iso] ;
+  solution : ScottDomain[l].Scott = F.solution ;
+  next : ScottDomain[l].Scott = F.object solution ;
+  first : SO.OrderIso next.order P.P.order = ProductIso.iso ;
+  second : SO.OrderIso P.P.order P.T.order = P.iso ;
+  third : SO.OrderIso P.T.order solution.order = H.reverse-iso ;
+  comparison : SO.OrderIso next.order P.T.order =
+    Iso.compose next.order P.P.order P.T.order first second ;
+  order-iso : SO.OrderIso next.order solution.order =
+    Iso.compose next.order P.T.order solution.order comparison third ;
+  domain-iso : SO.DomainIso (SO.from-presented next)
+    (SO.from-presented solution) = order-iso ;
+  categorical-iso : EP.pre.Iso (SO.from-presented next)
+    (SO.from-presented solution) =
+    EP.from-order (SO.from-presented next)
+      (SO.from-presented solution) domain-iso ;
+  fold : EP.Between[SO.from-presented next,
+    SO.from-presented solution].Pair = categorical-iso.1 ;
+  unfold : EP.Between[SO.from-presented solution,
+    SO.from-presented next].Pair = categorical-iso.2.1 ;
+  unfold-fold : Id (EP.Between[SO.from-presented next,
+      SO.from-presented next].Pair)
+    (EP.compose (SO.from-presented next)
+      (SO.from-presented solution) (SO.from-presented next)
+      unfold fold)
+    (EP.identity (SO.from-presented next)) =
+    categorical-iso.2.2.1 ;
+  fold-unfold : Id (EP.Between[SO.from-presented solution,
+      SO.from-presented solution].Pair)
+    (EP.compose (SO.from-presented solution)
+      (SO.from-presented next) (SO.from-presented solution)
+      fold unfold)
+    (EP.identity (SO.from-presented solution)) =
+    categorical-iso.2.2.2 ;
+  equation : Id SO.Domain (SO.from-presented solution)
+    (SO.from-presented next) =
+    Prelude[l++].sym SO.Domain (SO.from-presented next)
+      (SO.from-presented solution)
+      (EP.category.isotoid (SO.from-presented next)
+        (SO.from-presented solution) categorical-iso) ;
+} ;

@@ -1,0 +1,108 @@
+-- Deleting the first stage gives an isomorphism of coherent limits.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Limit = ScottEPLimit[l] ;
+module Basis = ScottEPLimitBasis[l] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module CR = ScottDomainCategories[l] ;
+
+module On (S : Limit.Chain) {
+  module L = Limit.On[S] ; module R = Limit.On[Limit.tail S] ;
+  D : ScottDomain[l].Scott = Basis.On[S].scott ;
+  E : ScottDomain[l].Scott = Basis.On[Limit.tail S].scott ;
+  module DE = DM.Between[SO.from-presented D,SO.from-presented E] ;
+  module ED = DM.Between[SO.from-presented E,SO.from-presented D] ;
+  drop-map : DE.Map = (Limit.drop S,
+    (\ x y h n -> h (suc n),
+     \ I x d z h n ->
+       ((S.stage (suc n)).complete.directed I
+         (\ i -> (x i).1 (suc n))
+         (L.evaluated I x d (suc n))).2.2
+           (z.1 n) (\ i -> h i n))) ;
+  prepend-mono : ED.Monotone (Limit.prepend S) =
+    \ x y h -> split {
+       zero -> DM.Between[SO.from-presented (S.stage (suc zero)),
+         SO.from-presented (S.stage zero)].mono (S.link zero).1.2
+           (x.1 zero) (y.1 zero) (h zero) ;
+       suc n -> h n } ;
+  prepend-cont : ED.Continuous (Limit.prepend S) =
+    \ I x d z h -> split {
+       zero -> DM.Between[SO.from-presented (S.stage (suc zero)),
+         SO.from-presented (S.stage zero)].continuous
+           (S.link zero).1.2 I (\ i -> (x i).1 zero)
+           (R.evaluated I x d zero) (z.1 zero)
+           (\ i -> h i zero) ;
+       suc n -> ((S.stage (suc n)).complete.directed I
+         (\ i -> (x i).1 n) (R.evaluated I x d n)).2.2
+           (z.1 (suc n)) (\ i -> h i (suc n)) } ;
+  prepend-map : ED.Map = (Limit.prepend S,(prepend-mono,prepend-cont)) ;
+  drop-prepend (x : R.carrier) :
+    Id R.carrier (Limit.drop S (Limit.prepend S x)) x =
+    R.order.antisymmetric (Limit.drop S (Limit.prepend S x)) x
+      (\ n -> (S.stage (suc n)).order.reflexive (x.1 n))
+      (\ n -> (S.stage (suc n)).order.reflexive (x.1 n)) ;
+  prepend-drop-to (x : L.carrier) :
+    L.le (Limit.prepend S (Limit.drop S x)) x = split {
+        zero -> CR.le-replace (S.stage zero).order
+          (L.project zero (x.1 (suc zero)))
+          (L.project zero (x.1 (suc zero)))
+          (L.project zero (x.1 (suc zero))) (x.1 zero)
+          (refl (L.project zero (x.1 (suc zero)))) (x.2 zero)
+          ((S.stage zero).order.reflexive
+            (L.project zero (x.1 (suc zero)))) ;
+        suc n -> (S.stage (suc n)).order.reflexive (x.1 (suc n)) } ;
+  prepend-drop-from (x : L.carrier) :
+    L.le x (Limit.prepend S (Limit.drop S x)) = split {
+        zero -> CR.le-replace (S.stage zero).order
+          (x.1 zero) (x.1 zero)
+          (x.1 zero) (L.project zero (x.1 (suc zero)))
+          (refl (x.1 zero))
+          (sym (L.C zero) (L.project zero (x.1 (suc zero)))
+            (x.1 zero) (x.2 zero))
+          ((S.stage zero).order.reflexive (x.1 zero)) ;
+        suc n -> (S.stage (suc n)).order.reflexive (x.1 (suc n)) } ;
+  prepend-drop (x : L.carrier) :
+    Id L.carrier (Limit.prepend S (Limit.drop S x)) x =
+    L.order.antisymmetric (Limit.prepend S (Limit.drop S x)) x
+      (prepend-drop-to x) (prepend-drop-from x) ;
+  forward : EP.Between[SO.from-presented D,SO.from-presented E].Pair =
+    ((drop-map,prepend-map),
+      (prepend-drop,\ x -> CR.le-replace E.order x
+        (Limit.drop S (Limit.prepend S x)) x x
+        (sym R.carrier (Limit.drop S (Limit.prepend S x)) x
+          (drop-prepend x)) (refl x) (E.order.reflexive x))) ;
+  inverse : EP.Between[SO.from-presented E,SO.from-presented D].Pair =
+    ((prepend-map,drop-map),
+      (drop-prepend,\ x -> CR.le-replace D.order x
+        (Limit.prepend S (Limit.drop S x)) x x
+        (sym L.carrier (Limit.prepend S (Limit.drop S x)) x
+          (prepend-drop x)) (refl x) (D.order.reflexive x))) ;
+  continuous-iso : CR.Continuous.pre.Iso
+    (SO.from-presented D) (SO.from-presented E) =
+    (drop-map,prepend-map,
+      DM.Between[SO.from-presented D,SO.from-presented D].equal
+        (DM.Triple[SO.from-presented D,SO.from-presented E,
+          SO.from-presented D].compose prepend-map drop-map)
+        (DM.End[SO.from-presented D].identity) prepend-drop,
+      DM.Between[SO.from-presented E,SO.from-presented E].equal
+        (DM.Triple[SO.from-presented E,SO.from-presented D,
+          SO.from-presented E].compose drop-map prepend-map)
+        (DM.End[SO.from-presented E].identity) drop-prepend) ;
+  order-iso : SO.OrderIso D.order E.order =
+    CR.Continuous.to-order (SO.from-presented D)
+      (SO.from-presented E) continuous-iso ;
+  reverse-iso : SO.OrderIso E.order D.order =
+    CR.Continuous.to-order (SO.from-presented E)
+      (SO.from-presented D)
+      (prepend-map,drop-map,
+        DM.Between[SO.from-presented E,SO.from-presented E].equal
+          (DM.Triple[SO.from-presented E,SO.from-presented D,
+            SO.from-presented E].compose drop-map prepend-map)
+          (DM.End[SO.from-presented E].identity) drop-prepend,
+        DM.Between[SO.from-presented D,SO.from-presented D].equal
+          (DM.Triple[SO.from-presented D,SO.from-presented E,
+            SO.from-presented D].compose prepend-map drop-map)
+          (DM.End[SO.from-presented D].identity) prepend-drop) ;
+} ;

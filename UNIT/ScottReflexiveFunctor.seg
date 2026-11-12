@@ -1,0 +1,127 @@
+-- The presented constructor F_A(X) = A x [X -> X] and its initial chain.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module Limit = ScottEPLimit[l] ;
+
+initial-pair (D : ScottDomain[l].Scott) :
+  EP.Between[SO.from-presented ScottTerminal[l].scott,
+    SO.from-presented D].Pair =
+  (((\ _ -> D.bottom,
+      (\ x y h -> D.order.reflexive D.bottom,
+       \ I x d z h -> D.bottom-least z)),
+    (\ _ -> tt,(\ x y h -> tt,\ I x d z h -> tt))),
+   (\ x -> ScottTerminal[l].order.antisymmetric tt x tt tt,
+    D.bottom-least)) ;
+
+initial-unique (D : ScottDomain[l].Scott)
+  (q : EP.Between[SO.from-presented ScottTerminal[l].scott,
+    SO.from-presented D].Pair) :
+  Id (EP.Between[SO.from-presented ScottTerminal[l].scott,
+    SO.from-presented D].Pair) q (initial-pair D) =
+  EP.Between[SO.from-presented ScottTerminal[l].scott,
+    SO.from-presented D].equal q (initial-pair D)
+    (DM.Between[SO.from-presented ScottTerminal[l].scott,
+      SO.from-presented D].equal q.1.1 (initial-pair D).1.1
+      (\ a -> D.order.antisymmetric (q.1.1.1 a) D.bottom
+        (ScottDomainCategories[l].le-replace D.order
+          (q.1.1.1 (q.1.2.1 D.bottom)) (q.1.1.1 a)
+          D.bottom D.bottom
+          (ap ScottTerminal[l].order.carrier D.order.carrier q.1.1.1
+            (q.1.2.1 D.bottom) a
+            (ScottTerminal[l].order.antisymmetric
+              (q.1.2.1 D.bottom) a tt tt))
+          (refl D.bottom) (q.2.2 D.bottom))
+        (D.bottom-least (q.1.1.1 a))))
+    (DM.Between[SO.from-presented D,
+      SO.from-presented ScottTerminal[l].scott].equal
+      q.1.2 (initial-pair D).1.2
+      (\ y -> ScottTerminal[l].order.antisymmetric
+        (q.1.2.1 y) tt tt tt)) ;
+
+module Constructor (A : ScottDomain[l].Scott) {
+  endomaps (X : ScottDomain[l].Scott) : ScottDomain[l].Scott =
+    ScottExponential[l].Exponential[X,X].scott ;
+  object (X : ScottDomain[l].Scott) : ScottDomain[l].Scott =
+    ScottProduct[l].Product[A,endomaps X].scott ;
+  action (X Y : ScottDomain[l].Scott)
+    (q : EP.Between[SO.from-presented X,SO.from-presented Y].Pair) :
+    EP.Between[SO.from-presented (object X),
+      SO.from-presented (object Y)].Pair =
+    ScottEPProduct[l].Action[A,endomaps X,endomaps Y,
+      ScottEPExponential[l].Action[X,Y,q].pair].pair ;
+  action-identity (X : ScottDomain[l].Scott) :
+    Id (EP.Between[SO.from-presented (object X),
+      SO.from-presented (object X)].Pair)
+      (action X X (EP.identity (SO.from-presented X)))
+      (EP.identity (SO.from-presented (object X))) =
+    trans (EP.Between[SO.from-presented (object X),
+      SO.from-presented (object X)].Pair)
+      (action X X (EP.identity (SO.from-presented X)))
+      (ScottEPProduct[l].Action[A,endomaps X,endomaps X,
+        EP.identity (SO.from-presented (endomaps X))].pair)
+      (EP.identity (SO.from-presented (object X)))
+      (ap (EP.Between[SO.from-presented (endomaps X),
+          SO.from-presented (endomaps X)].Pair)
+        (EP.Between[SO.from-presented (object X),
+          SO.from-presented (object X)].Pair)
+        (\ q -> ScottEPProduct[l].Action[A,endomaps X,endomaps X,q].pair)
+        (ScottEPExponential[l].Action[X,X,
+          EP.identity (SO.from-presented X)].pair)
+        (EP.identity (SO.from-presented (endomaps X)))
+        (ScottEPExponential[l].FunctorLaws.identity X))
+      (ScottEPProduct[l].FunctorLaws[A].identity (endomaps X)) ;
+  action-composition (X Y Z : ScottDomain[l].Scott)
+    (q : EP.Between[SO.from-presented X,SO.from-presented Y].Pair)
+    (r : EP.Between[SO.from-presented Y,SO.from-presented Z].Pair) :
+    Id (EP.Between[SO.from-presented (object X),
+      SO.from-presented (object Z)].Pair)
+      (action X Z (EP.compose (SO.from-presented X)
+        (SO.from-presented Y) (SO.from-presented Z) r q))
+      (EP.compose (SO.from-presented (object X))
+        (SO.from-presented (object Y)) (SO.from-presented (object Z))
+        (action Y Z r) (action X Y q)) =
+    trans (EP.Between[SO.from-presented (object X),
+      SO.from-presented (object Z)].Pair)
+      (action X Z (EP.compose (SO.from-presented X)
+        (SO.from-presented Y) (SO.from-presented Z) r q))
+      (ScottEPProduct[l].Action[A,endomaps X,endomaps Z,
+        EP.compose (SO.from-presented (endomaps X))
+          (SO.from-presented (endomaps Y))
+          (SO.from-presented (endomaps Z))
+          (ScottEPExponential[l].Action[Y,Z,r].pair)
+          (ScottEPExponential[l].Action[X,Y,q].pair)].pair)
+      (EP.compose (SO.from-presented (object X))
+        (SO.from-presented (object Y)) (SO.from-presented (object Z))
+        (action Y Z r) (action X Y q))
+      (ap (EP.Between[SO.from-presented (endomaps X),
+          SO.from-presented (endomaps Z)].Pair)
+        (EP.Between[SO.from-presented (object X),
+          SO.from-presented (object Z)].Pair)
+        (\ s -> ScottEPProduct[l].Action[A,endomaps X,endomaps Z,s].pair)
+        (ScottEPExponential[l].Action[X,Z,
+          EP.compose (SO.from-presented X)
+            (SO.from-presented Y) (SO.from-presented Z) r q].pair)
+        (EP.compose (SO.from-presented (endomaps X))
+          (SO.from-presented (endomaps Y))
+          (SO.from-presented (endomaps Z))
+          (ScottEPExponential[l].Action[Y,Z,r].pair)
+          (ScottEPExponential[l].Action[X,Y,q].pair))
+        (ScottEPExponential[l].FunctorLaws.composition X Y Z q r))
+      (ScottEPProduct[l].FunctorLaws[A].composition
+        (endomaps X) (endomaps Y) (endomaps Z)
+        (ScottEPExponential[l].Action[X,Y,q].pair)
+        (ScottEPExponential[l].Action[Y,Z,r].pair)) ;
+  stage : Nat -> ScottDomain[l].Scott = split {
+    zero -> ScottTerminal[l].scott ;
+    suc n | r -> object r } ;
+  link : (n : Nat) ->
+    EP.Between[SO.from-presented (stage n),
+      SO.from-presented (stage (suc n))].Pair = split {
+    zero -> initial-pair (stage (suc zero)) ;
+    suc n | r -> action (stage n) (stage (suc n)) r } ;
+  chain : Limit.Chain = new Limit.Chain[stage := stage,link := link] ;
+  solution : ScottDomain[l].Scott = ScottEPLimitBasis[l].On[chain].scott ;
+} ;

@@ -1,0 +1,27 @@
+-- Composition of small-order isomorphisms.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ;
+
+compose (P Q R : ScottOrder[l].Order)
+  (i : SO.OrderIso P Q) (j : SO.OrderIso Q R) : SO.OrderIso P R =
+  ((\ x -> j.1.1 (i.1.1 x),
+    qinv P.carrier R.carrier (\ x -> j.1.1 (i.1.1 x))
+      (\ z -> i.1.2.sec (j.1.2.sec z))
+      (\ z -> trans R.carrier
+        (j.1.1 (i.1.1 (i.1.2.sec (j.1.2.sec z))))
+        (j.1.1 (j.1.2.sec z)) z
+        (ap Q.carrier R.carrier j.1.1
+          (i.1.1 (i.1.2.sec (j.1.2.sec z)))
+          (j.1.2.sec z) (i.1.2.sec-eq (j.1.2.sec z)))
+        (j.1.2.sec-eq z))
+      (\ x -> trans P.carrier
+        (i.1.2.sec (j.1.2.sec (j.1.1 (i.1.1 x))))
+        (i.1.2.sec (i.1.1 x)) x
+        (ap Q.carrier P.carrier i.1.2.sec
+          (j.1.2.sec (j.1.1 (i.1.1 x))) (i.1.1 x)
+          (sec-ret Q.carrier R.carrier j.1.1 j.1.2 (i.1.1 x)))
+        (sec-ret P.carrier Q.carrier i.1.1 i.1.2 x))),
+   (\ x y h -> j.2.1 (i.1.1 x) (i.1.1 y) (i.2.1 x y h),
+    \ x y h -> i.2.2 x y
+      (j.2.2 (i.1.1 x) (i.1.1 y) h))) ;

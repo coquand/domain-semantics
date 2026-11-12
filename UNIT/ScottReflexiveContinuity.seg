@@ -1,0 +1,168 @@
+-- The recursive constructor preserves its initial presented EP-chain colimit.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+
+module On (A : ScottDomain[l].Scott) {
+  module F = ScottReflexiveFunctor[l].Constructor[A] ;
+  module R = ScottReflexiveSolution[l].On[A] ;
+  module C = ScottEPLimitCone[l].On[F.chain] ;
+  tail : ScottEPLimit[l].Chain = ScottEPLimit[l].tail F.chain ;
+  T : ScottDomain[l].Scott = ScottEPLimitBasis[l].On[tail].scott ;
+  q (n : Nat) : EP.Between[SO.from-presented (F.stage (suc n)),
+    SO.from-presented R.next].Pair =
+    F.action (F.stage n) R.solution C.At[n].pair ;
+  module Step (n : Nat) {
+    X : ScottDomain[l].Scott = F.stage n ;
+    Y : ScottDomain[l].Scott = F.stage (suc n) ;
+    left : EP.Between[SO.from-presented (F.stage (suc n)),
+      SO.from-presented R.next].Pair =
+      EP.compose (SO.from-presented (F.stage (suc n)))
+        (SO.from-presented (F.stage (suc (suc n))))
+        (SO.from-presented R.next) (q (suc n)) (F.link (suc n)) ;
+    middle : EP.Between[SO.from-presented (F.stage (suc n)),
+      SO.from-presented R.next].Pair =
+      F.action X R.solution
+        (EP.compose (SO.from-presented X)
+          (SO.from-presented Y) (SO.from-presented R.solution)
+          C.At[suc n].pair (F.link n)) ;
+    first : Id (EP.Between[SO.from-presented (F.stage (suc n)),
+      SO.from-presented R.next].Pair) left middle =
+      sym (EP.Between[SO.from-presented (F.stage (suc n)),
+        SO.from-presented R.next].Pair)
+        middle left
+        (F.action-composition X Y R.solution
+          (F.link n) C.At[suc n].pair) ;
+    second : Id (EP.Between[SO.from-presented (F.stage (suc n)),
+      SO.from-presented R.next].Pair) middle (q n) =
+      ap (EP.Between[SO.from-presented X,
+          SO.from-presented R.solution].Pair)
+        (EP.Between[SO.from-presented (F.stage (suc n)),
+          SO.from-presented R.next].Pair)
+        (\ z -> F.action X R.solution z)
+        (EP.compose (SO.from-presented X)
+          (SO.from-presented Y) (SO.from-presented R.solution)
+          C.At[suc n].pair (F.link n))
+        C.At[n].pair (C.cone-law n) ;
+    law : Id (EP.Between[SO.from-presented (F.stage (suc n)),
+      SO.from-presented R.next].Pair) left (q n) =
+      trans (EP.Between[SO.from-presented (F.stage (suc n)),
+        SO.from-presented R.next].Pair)
+        left middle (q n) first second ;
+  } ;
+  cone-law (n : Nat) :
+    Id (EP.Between[SO.from-presented (tail.stage n),
+      SO.from-presented R.next].Pair)
+      (EP.compose (SO.from-presented (tail.stage n))
+        (SO.from-presented (tail.stage (suc n)))
+        (SO.from-presented R.next)
+        (q (suc n)) (tail.link n)) (q n) = Step[n].law ;
+  module Colimit = ScottEPLimitColimit[l].On[tail,R.next,q,cone-law] ;
+  comparison-iso : EP.pre.Iso (SO.from-presented R.next)
+    (SO.from-presented T) =
+    EP.from-order (SO.from-presented R.next)
+      (SO.from-presented T) R.comparison ;
+  same-projection : Id (DM.Between[SO.from-presented R.next,
+      SO.from-presented T].Map)
+      Colimit.mediator.1.2 comparison-iso.2.1.1.2 =
+    DM.Between[SO.from-presented R.next,
+      SO.from-presented T].equal
+      Colimit.mediator.1.2 comparison-iso.2.1.1.2
+      (\ w -> T.order.antisymmetric
+        (Colimit.mediator.1.2.1 w)
+        (comparison-iso.2.1.1.2.1 w)
+        (\ n -> (tail.stage n).order.reflexive
+          ((Colimit.mediator.1.2.1 w).1 n))
+        (\ n -> (tail.stage n).order.reflexive
+          ((Colimit.mediator.1.2.1 w).1 n))) ;
+  mediator-equal : Id (EP.Between[SO.from-presented T,
+      SO.from-presented R.next].Pair)
+      Colimit.mediator comparison-iso.2.1 =
+    ScottEPBasics[l].Determined[T,R.next,
+      Colimit.mediator,comparison-iso.2.1,same-projection].equation ;
+  module Stage (n : Nat) {
+    X : ScottDomain[l].Scott = F.stage (suc n) ;
+    module TailCone = ScottEPLimitCone[l].On[tail] ;
+    lift (a : X.order.carrier) : T.order.carrier =
+      ScottEPLimit[l].lift n tail a ;
+    into (a : X.order.carrier) : R.next.order.carrier =
+      (q n).1.1.1 a ;
+    into-mediator (a : X.order.carrier) :
+      Id R.next.order.carrier (into a)
+        (Colimit.mediator.1.1.1 (lift a)) =
+      sym R.next.order.carrier
+        (Colimit.mediator.1.1.1 (lift a)) (into a)
+        (ap (EP.Between[SO.from-presented X,
+            SO.from-presented R.next].Pair)
+          R.next.order.carrier (\ z -> z.1.1.1 a)
+          (EP.compose (SO.from-presented X)
+            (SO.from-presented T) (SO.from-presented R.next)
+            Colimit.mediator TailCone.At[n].pair)
+          (q n) (Colimit.ConeLaw[n].law)) ;
+    mediator-inverse (a : X.order.carrier) :
+      Id R.next.order.carrier
+        (Colimit.mediator.1.1.1 (lift a))
+        (comparison-iso.2.1.1.1.1 (lift a)) =
+      ap (EP.Between[SO.from-presented T,
+          SO.from-presented R.next].Pair)
+        R.next.order.carrier (\ z -> z.1.1.1 (lift a))
+        Colimit.mediator comparison-iso.2.1 mediator-equal ;
+    section (a : X.order.carrier) :
+      Id T.order.carrier
+        (comparison-iso.1.1.1.1
+          (comparison-iso.2.1.1.1.1 (lift a))) (lift a) =
+      ap (EP.Between[SO.from-presented T,
+          SO.from-presented T].Pair) T.order.carrier
+        (\ z -> z.1.1.1 (lift a))
+        (EP.compose (SO.from-presented T)
+          (SO.from-presented R.next) (SO.from-presented T)
+          comparison-iso.1 comparison-iso.2.1)
+        (EP.identity (SO.from-presented T))
+        comparison-iso.2.2.2 ;
+    fold-embed (a : X.order.carrier) :
+      Id R.solution.order.carrier
+        (R.fold.1.1.1 (into a))
+        ((C.At[suc n].pair).1.1.1 a) =
+      trans R.solution.order.carrier
+        (R.fold.1.1.1 (into a))
+        (R.fold.1.1.1 (Colimit.mediator.1.1.1 (lift a)))
+        ((C.At[suc n].pair).1.1.1 a)
+        (ap R.next.order.carrier R.solution.order.carrier
+          R.fold.1.1.1 (into a)
+          (Colimit.mediator.1.1.1 (lift a))
+          (into-mediator a))
+        (trans R.solution.order.carrier
+          (R.fold.1.1.1 (Colimit.mediator.1.1.1 (lift a)))
+          (R.fold.1.1.1 (comparison-iso.2.1.1.1.1 (lift a)))
+          ((C.At[suc n].pair).1.1.1 a)
+          (ap R.next.order.carrier R.solution.order.carrier
+            R.fold.1.1.1
+            (Colimit.mediator.1.1.1 (lift a))
+            (comparison-iso.2.1.1.1.1 (lift a))
+            (mediator-inverse a))
+          (ap T.order.carrier R.solution.order.carrier
+            (ScottEPLimit[l].prepend F.chain)
+            (comparison-iso.1.1.1.1
+              (comparison-iso.2.1.1.1.1 (lift a)))
+            (lift a) (section a))) ;
+    fold-cone : Id (EP.Between[SO.from-presented X,
+        SO.from-presented R.solution].Pair)
+      (EP.compose (SO.from-presented X)
+        (SO.from-presented R.next)
+        (SO.from-presented R.solution) R.fold (q n))
+      C.At[suc n].pair =
+      ScottEPBasics[l].DeterminedEmbedding[X,R.solution,
+        EP.compose (SO.from-presented X)
+          (SO.from-presented R.next)
+          (SO.from-presented R.solution) R.fold (q n),
+        C.At[suc n].pair,
+        DM.Between[SO.from-presented X,
+          SO.from-presented R.solution].equal
+          (EP.compose (SO.from-presented X)
+            (SO.from-presented R.next)
+            (SO.from-presented R.solution) R.fold (q n)).1.1
+          (C.At[suc n].pair).1.1 fold-embed].equation ;
+  } ;
+} ;

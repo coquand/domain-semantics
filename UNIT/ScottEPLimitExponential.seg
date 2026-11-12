@@ -1,0 +1,348 @@
+-- Restricting endomaps of a limit to its stages.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ;
+module Limit = ScottEPLimit[l] ;
+module Cone = ScottEPLimitCone[l] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module CR = ScottDomainCategories[l] ;
+module Ex = ScottEPExponential[l] ;
+
+exponential (S : Limit.Chain) : Limit.Chain = new Limit.Chain[
+  stage := \ n -> ScottExponential[l].Exponential[S.stage n,S.stage n].scott,
+  link := \ n -> Ex.Action[S.stage n,S.stage (suc n),S.link n].pair] ;
+
+module On (S : Limit.Chain) {
+  chain : Limit.Chain = exponential S ;
+  D : ScottDomain[l].Scott = ScottEPLimitBasis[l].On[S].scott ;
+  E : ScottDomain[l].Scott = ScottExponential[l].Exponential[D,D].scott ;
+  T : ScottDomain[l].Scott = ScottEPLimitBasis[l].On[chain].scott ;
+  module C = Cone.On[S] ;
+  module L = Limit.On[chain] ;
+  module M = ScottEPLimitMaps[l].On[chain] ;
+  restrict (n : Nat) : DM.Between[SO.from-presented E,
+    SO.from-presented (chain.stage n)].Map =
+    (Ex.Action[S.stage n,D,C.At[n].pair].pair).1.2 ;
+  module Step (n : Nat) {
+    X : ScottDomain[l].Scott = S.stage n ;
+    Y : ScottDomain[l].Scott = S.stage (suc n) ;
+    PairX : U l+ = EP.Between[SO.from-presented (chain.stage n),
+      SO.from-presented E].Pair ;
+    composite : PairX =
+      EP.compose (SO.from-presented (chain.stage n))
+        (SO.from-presented (chain.stage (suc n)))
+        (SO.from-presented E)
+        (Ex.Action[Y,D,C.At[suc n].pair].pair)
+        (Ex.Action[X,Y,S.link n].pair) ;
+    action-composite : PairX =
+      Ex.Action[X,D,
+        EP.compose (SO.from-presented X) (SO.from-presented Y)
+          (SO.from-presented D) C.At[suc n].pair (S.link n)].pair ;
+    action-cone : PairX = Ex.Action[X,D,C.At[n].pair].pair ;
+    first : Id PairX composite action-composite =
+      sym PairX action-composite composite
+        (Ex.FunctorLaws.composition X Y D (S.link n) C.At[suc n].pair) ;
+    second : Id PairX action-composite action-cone =
+      ap (EP.Between[SO.from-presented X,SO.from-presented D].Pair)
+        PairX (\ q -> Ex.Action[X,D,q].pair)
+        (EP.compose (SO.from-presented X) (SO.from-presented Y)
+          (SO.from-presented D) C.At[suc n].pair (S.link n))
+        C.At[n].pair (C.cone-law n) ;
+    coherent (h : E.order.carrier) :
+      Id (chain.stage n).order.carrier
+        (L.project n (DM.Between[SO.from-presented E,
+          SO.from-presented (chain.stage (suc n))].run
+            (restrict (suc n)) h))
+        (DM.Between[SO.from-presented E,
+          SO.from-presented (chain.stage n)].run (restrict n) h) =
+      trans (chain.stage n).order.carrier
+        (composite.1.2.1 h) (action-composite.1.2.1 h)
+        (action-cone.1.2.1 h)
+        (ap PairX (chain.stage n).order.carrier
+          (\ q -> q.1.2.1 h) composite action-composite first)
+        (ap PairX (chain.stage n).order.carrier
+          (\ q -> q.1.2.1 h) action-composite action-cone second) ;
+  } ;
+  coherent (h : E.order.carrier) : L.Coherent
+    (\ n -> DM.Between[SO.from-presented E,
+      SO.from-presented (chain.stage n)].run (restrict n) h) =
+    \ n -> Step[n].coherent h ;
+  encode : DM.Between[SO.from-presented E,SO.from-presented T].Map =
+    M.Assemble[E,restrict,coherent].map ;
+  module TC = Cone.On[chain] ;
+  module TE = ScottMaps[l].Between[T,E] ;
+  extend (n : Nat) : DM.Between[SO.from-presented (chain.stage n),
+    SO.from-presented E].Map =
+    (Ex.Action[S.stage n,D,C.At[n].pair].pair).1.1 ;
+  stage-map (n : Nat) : TE.Map =
+    DM.Triple[SO.from-presented T,
+      SO.from-presented (chain.stage n),SO.from-presented E].compose
+      (extend n) (TC.At[n].projection) ;
+  module Increasing (n : Nat) {
+    module X = DM.Between[SO.from-presented (chain.stage n),
+      SO.from-presented E] ;
+    module Y = DM.Between[SO.from-presented (chain.stage (suc n)),
+      SO.from-presented E] ;
+    module K = DM.Between[SO.from-presented (chain.stage n),
+      SO.from-presented (chain.stage (suc n))] ;
+    module P = DM.Between[SO.from-presented (chain.stage (suc n)),
+      SO.from-presented (chain.stage n)] ;
+    module End = ScottMaps[l].Between[D,D] ;
+    forward-link : K.Map =
+      (Ex.Action[S.stage n,S.stage (suc n),S.link n].pair).1.1 ;
+    project-link : P.Map =
+      (Ex.Action[S.stage n,S.stage (suc n),S.link n].pair).1.2 ;
+    extension-path (h : (chain.stage n).order.carrier) :
+      Id E.order.carrier
+        (Y.run (extend (suc n)) (K.run forward-link h))
+        (X.run (extend n) h) =
+      trans E.order.carrier
+        (Step[n].composite.1.1.1 h)
+        (Step[n].action-composite.1.1.1 h)
+        (Step[n].action-cone.1.1.1 h)
+        (ap Step[n].PairX E.order.carrier (\ q -> q.1.1.1 h)
+          Step[n].composite Step[n].action-composite Step[n].first)
+        (ap Step[n].PairX E.order.carrier (\ q -> q.1.1.1 h)
+          Step[n].action-composite Step[n].action-cone Step[n].second) ;
+    pointwise (y : T.order.carrier) :
+      E.order.le (TE.run (stage-map n) y)
+        (TE.run (stage-map (suc n)) y) =
+      CR.le-replace E.order
+        (Y.run (extend (suc n))
+          (K.run forward-link (P.run project-link (y.1 (suc n)))))
+        (X.run (extend n) (y.1 n))
+        (Y.run (extend (suc n)) (y.1 (suc n)))
+        (Y.run (extend (suc n)) (y.1 (suc n)))
+        (trans E.order.carrier
+          (Y.run (extend (suc n))
+            (K.run forward-link (P.run project-link (y.1 (suc n)))))
+          (X.run (extend n) (P.run project-link (y.1 (suc n))))
+          (X.run (extend n) (y.1 n))
+          (extension-path (P.run project-link (y.1 (suc n))))
+          (ap (chain.stage n).order.carrier E.order.carrier
+            (X.run (extend n))
+            (P.run project-link (y.1 (suc n))) (y.1 n) (y.2 n)))
+        (refl (Y.run (extend (suc n)) (y.1 (suc n))))
+        (Y.mono (extend (suc n))
+          (K.run forward-link (P.run project-link (y.1 (suc n))))
+          (y.1 (suc n))
+          ((Ex.Action[S.stage n,S.stage (suc n),S.link n].pair).2.2
+            (y.1 (suc n)))) ;
+    small : TE.LE (stage-map n) (stage-map (suc n)) =
+      TE.small (stage-map n) (stage-map (suc n)) pointwise ;
+  } ;
+  directed : TE.MO.Dir Nat stage-map =
+    OrderedChains[l].directed TE.order stage-map
+      (\ n -> Increasing[n].small) ;
+  decode : TE.Map = (TE.complete.directed Nat stage-map directed).1 ;
+  module DecodeEncode (h : E.order.carrier) {
+    module L0 = Limit.On[S] ;
+    module C0 = Limit.Completion[S] ;
+    module End = ScottMaps[l].Between[D,D] ;
+    value : E.order.carrier =
+      TE.run decode
+        (DM.Between[SO.from-presented E,SO.from-presented T].run encode h) ;
+    stage-value (n : Nat) : E.order.carrier =
+      TE.run (stage-map n)
+        (DM.Between[SO.from-presented E,SO.from-presented T].run encode h) ;
+    eval-dir : ScottOrder[l].On[E.order].Dir Nat stage-value =
+      TE.evaluated-dir Nat stage-map directed
+        (DM.Between[SO.from-presented E,SO.from-presented T].run encode h) ;
+    stage-upper (n : Nat) : E.order.le (stage-value n) value =
+      (E.complete.directed Nat stage-value eval-dir).2.1 n ;
+    stage-bound (n : Nat) (x : D.order.carrier) :
+      D.order.le (Limit.approximate S n
+        (End.run h (Limit.approximate S n x))) (End.run value x) =
+      End.pointwise (stage-value n) value (stage-upper n) x ;
+    approx-mono (n : Nat) (x y : D.order.carrier)
+      (xy : D.order.le x y) :
+      D.order.le (Limit.approximate S n x)
+        (Limit.approximate S n y) =
+      C0.lift-mono n (x.1 n) (y.1 n) (xy n) ;
+    cross (m n : Nat) (x : D.order.carrier) :
+      D.order.le
+        (Limit.approximate S n (End.run h (Limit.approximate S m x)))
+        (End.run value x) =
+      D.order.transitive
+        (Limit.approximate S n (End.run h (Limit.approximate S m x)))
+        (Limit.approximate S (max m n)
+          (End.run h (Limit.approximate S m x)))
+        (End.run value x)
+        (C0.approx-mono (End.run h (Limit.approximate S m x))
+          n (max m n) (leN-max-r m n))
+        (D.order.transitive
+          (Limit.approximate S (max m n)
+            (End.run h (Limit.approximate S m x)))
+          (Limit.approximate S (max m n)
+            (End.run h (Limit.approximate S (max m n) x)))
+          (End.run value x)
+          (approx-mono (max m n) (End.run h (Limit.approximate S m x))
+            (End.run h (Limit.approximate S (max m n) x))
+            (End.mono h (Limit.approximate S m x)
+              (Limit.approximate S (max m n) x)
+              (C0.approx-mono x m (max m n) (leN-max-l m n))))
+          (stage-bound (max m n) x)) ;
+    inner (m : Nat) (x : D.order.carrier) :
+      D.order.le (End.run h (Limit.approximate S m x))
+        (End.run value x) =
+      D.order.transitive (End.run h (Limit.approximate S m x))
+        (C0.approx-sup (End.run h (Limit.approximate S m x))).1
+        (End.run value x)
+        (C0.exhaustion-to (End.run h (Limit.approximate S m x)))
+        ((C0.approx-sup (End.run h (Limit.approximate S m x))).2.2
+          (End.run value x) (\ n -> cross m n x)) ;
+    lower-point (x : D.order.carrier) :
+      D.order.le (End.run h x) (End.run value x) =
+      CR.le-replace D.order
+        (End.run h (C0.approx-sup x).1) (End.run h x)
+        (End.run value x) (End.run value x)
+        (ap D.order.carrier D.order.carrier (End.run h)
+          (C0.approx-sup x).1 x (C0.exhaustion x))
+        (refl (End.run value x))
+        (End.continuous h Nat (\ n -> Limit.approximate S n x)
+          (C0.approx-dir x) (End.run value x)
+          (\ n -> inner n x)) ;
+    lower : E.order.le h value = End.small h value lower-point ;
+    stage-below (n : Nat) (x : D.order.carrier) :
+      D.order.le (End.run (stage-value n) x) (End.run h x) =
+      D.order.transitive
+        (Limit.approximate S n (End.run h (Limit.approximate S n x)))
+        (End.run h (Limit.approximate S n x)) (End.run h x)
+        (Limit.deflation S n (End.run h (Limit.approximate S n x)))
+        (End.mono h (Limit.approximate S n x) x
+          (Limit.deflation S n x)) ;
+    stage-below-small (n : Nat) : E.order.le (stage-value n) h =
+      End.small (stage-value n) h (stage-below n) ;
+    upper : E.order.le value h =
+      (E.complete.directed Nat stage-value eval-dir).2.2 h stage-below-small ;
+    equation : Id E.order.carrier value h =
+      E.order.antisymmetric value h upper lower ;
+  } ;
+  module EncodeDecode (y : T.order.carrier) {
+    module T0 = Limit.On[chain] ;
+    value : T.order.carrier =
+      DM.Between[SO.from-presented E,SO.from-presented T].run encode
+        (TE.run decode y) ;
+    stage-value (n : Nat) : E.order.carrier = TE.run (stage-map n) y ;
+    eval-dir : ScottOrder[l].On[E.order].Dir Nat stage-value =
+      TE.evaluated-dir Nat stage-map directed y ;
+    stage-upper (n : Nat) : E.order.le (stage-value n) (TE.run decode y) =
+      (E.complete.directed Nat stage-value eval-dir).2.1 n ;
+    stage-section (n : Nat) : Id (chain.stage n).order.carrier
+      (DM.Between[SO.from-presented E,
+        SO.from-presented (chain.stage n)].run (restrict n)
+        (DM.Between[SO.from-presented (chain.stage n),
+          SO.from-presented E].run (extend n) (y.1 n))) (y.1 n) =
+      (Ex.Action[S.stage n,D,C.At[n].pair].pair).2.1 (y.1 n) ;
+    module At (n : Nat) {
+      module R = DM.Between[SO.from-presented E,
+        SO.from-presented (chain.stage n)] ;
+      module F = DM.Between[SO.from-presented (chain.stage n),
+        SO.from-presented E] ;
+      past-one (u v : T0.carrier)
+        (p : Id (T0.C (suc n)) (u.1 (suc n)) (v.1 (suc n))) :
+        Id (T0.C n) (u.1 n) (v.1 n) =
+        trans (T0.C n) (u.1 n) (T0.project n (u.1 (suc n)))
+          (v.1 n)
+          (sym (T0.C n) (T0.project n (u.1 (suc n)))
+            (u.1 n) (u.2 n))
+          (trans (T0.C n)
+            (T0.project n (u.1 (suc n)))
+            (T0.project n (v.1 (suc n))) (v.1 n)
+            (ap (T0.C (suc n)) (T0.C n) (T0.project n)
+              (u.1 (suc n)) (v.1 (suc n)) p)
+            (v.2 n)) ;
+      bound-case (k : Nat) :
+        (c : Plus (LeN k n) (LeN (suc n) k)) ->
+        (chain.stage n).order.le
+          (R.run (restrict n) (stage-value k)) (y.1 n) = split {
+            inl kn ->
+              CR.le-replace (chain.stage n).order
+                (R.run (restrict n) (stage-value k))
+                (R.run (restrict n) (stage-value k))
+                (R.run (restrict n) (stage-value n)) (y.1 n)
+                (refl (R.run (restrict n) (stage-value k))) (stage-section n)
+                (R.mono (restrict n) (stage-value k) (stage-value n)
+                  (TE.pointwise (stage-map k) (stage-map n)
+                    (OrderedChains[l].monotone k TE.order stage-map
+                      (\ j -> Increasing[j].small) n kn) y)) ;
+            inr nk ->
+              CR.le-replace (chain.stage n).order
+                (y.1 n) (R.run (restrict n) (stage-value k))
+                (y.1 n) (y.1 n)
+                (sym (chain.stage n).order.carrier
+                  (R.run (restrict n) (stage-value k)) (y.1 n)
+                  (past-one
+                    (DM.Between[SO.from-presented E,
+                      SO.from-presented T].run encode (stage-value k))
+                    y (Limit.past (suc n) chain k nk
+                      (DM.Between[SO.from-presented E,
+                        SO.from-presented T].run encode (stage-value k))
+                      y (stage-section k))))
+                (refl (y.1 n))
+                ((chain.stage n).order.reflexive (y.1 n)) } ;
+      stage-bound (k : Nat) : (chain.stage n).order.le
+        (R.run (restrict n) (stage-value k)) (y.1 n) =
+        bound-case k (OrderedChains[l].compare k n) ;
+      upper : (chain.stage n).order.le (value.1 n) (y.1 n) =
+        R.continuous (restrict n) Nat stage-value eval-dir
+          (y.1 n) stage-bound ;
+      lower : (chain.stage n).order.le (y.1 n) (value.1 n) =
+        CR.le-replace (chain.stage n).order
+          (R.run (restrict n) (stage-value n)) (y.1 n)
+          (value.1 n) (value.1 n) (stage-section n)
+          (refl (value.1 n))
+          (R.mono (restrict n) (stage-value n)
+            (TE.run decode y) (stage-upper n)) ;
+    } ;
+    equation : Id T.order.carrier value y =
+      T.order.antisymmetric value y
+        (\ n -> At[n].upper) (\ n -> At[n].lower) ;
+  } ;
+  forward-pair : EP.Between[SO.from-presented E,
+    SO.from-presented T].Pair =
+    ((encode,decode),
+      (\ h -> DecodeEncode[h].equation,
+       \ y -> CR.le-replace T.order y
+         (DM.Between[SO.from-presented E,
+           SO.from-presented T].run encode (TE.run decode y))
+         y y
+         (sym T.order.carrier
+           (DM.Between[SO.from-presented E,
+             SO.from-presented T].run encode (TE.run decode y)) y
+           (EncodeDecode[y].equation))
+         (refl y) (T.order.reflexive y))) ;
+  backward-pair : EP.Between[SO.from-presented T,
+    SO.from-presented E].Pair =
+    ((decode,encode),
+      (\ y -> EncodeDecode[y].equation,
+       \ h -> CR.le-replace E.order h
+         (TE.run decode
+           (DM.Between[SO.from-presented E,
+             SO.from-presented T].run encode h))
+         h h
+         (sym E.order.carrier
+           (TE.run decode
+             (DM.Between[SO.from-presented E,
+               SO.from-presented T].run encode h)) h
+           (DecodeEncode[h].equation))
+         (refl h) (E.order.reflexive h))) ;
+  continuous-iso :
+    ScottDomainCategories[l].Continuous.pre.Iso
+      (SO.from-presented E) (SO.from-presented T) =
+    (encode,decode,
+      DM.Between[SO.from-presented E,SO.from-presented E].equal
+        (DM.Triple[SO.from-presented E,SO.from-presented T,
+          SO.from-presented E].compose decode encode)
+        (DM.End[SO.from-presented E].identity)
+        (\ h -> DecodeEncode[h].equation),
+      DM.Between[SO.from-presented T,SO.from-presented T].equal
+        (DM.Triple[SO.from-presented T,SO.from-presented E,
+          SO.from-presented T].compose encode decode)
+        (DM.End[SO.from-presented T].identity)
+        (\ y -> EncodeDecode[y].equation)) ;
+  order-iso : SO.OrderIso E.order T.order =
+    ScottDomainCategories[l].Continuous.to-order
+      (SO.from-presented E) (SO.from-presented T) continuous-iso ;
+} ;

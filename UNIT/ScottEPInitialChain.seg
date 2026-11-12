@@ -1,0 +1,74 @@
+-- Abstract initial-chain theorem in the univalent Scott-domain EP category.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module K = CategoryInitialChain[l++,l+] ;
+
+initial-chain (F : K.Endofunctor[EP.pre]) : K.Chain[EP.pre] =
+  K.InitialChain[EP.pre,F,ScottEPInitial[l].initial].chain ;
+
+record InitialChainColimit (F : K.Endofunctor[EP.pre]) {
+  vertex : SO.Domain ;
+  leg (n : Nat) : EP.pre.hom ((initial-chain F).stage n) vertex ;
+  law (n : Nat) : Id (EP.pre.hom ((initial-chain F).stage n) vertex)
+    (EP.pre.comp ((initial-chain F).stage n)
+      ((initial-chain F).stage (suc n)) vertex
+      (leg (suc n)) ((initial-chain F).link n)) (leg n) ;
+  universal : K.Colimit[EP.pre,initial-chain F,vertex,leg] ;
+} ;
+
+module On (F : K.Endofunctor[EP.pre])
+  (omega : K.OmegaContinuous[EP.pre,F])
+  (c : InitialChainColimit[F]) {
+  module S = K.Setup[EP.pre,F,ScottEPInitial[l].initial,
+    c.vertex,c.leg,c.law,c.universal] ;
+  module R = S.FromContinuous[omega].Result ;
+  fold : EP.pre.hom (F.object c.vertex) c.vertex = R.fold ;
+  unfold : EP.pre.hom c.vertex (F.object c.vertex) = R.unfold ;
+  inverse-left : Id (EP.pre.hom (F.object c.vertex)
+      (F.object c.vertex))
+    (EP.pre.comp (F.object c.vertex) c.vertex
+      (F.object c.vertex) unfold fold)
+    (EP.pre.idn (F.object c.vertex)) = R.unfold-fold ;
+  inverse-right : Id (EP.pre.hom c.vertex c.vertex)
+    (EP.pre.comp c.vertex (F.object c.vertex) c.vertex
+      fold unfold)
+    (EP.pre.idn c.vertex) = R.fold-unfold ;
+  isomorphism : EP.pre.Iso (F.object c.vertex) c.vertex = R.iso ;
+  equation : Id SO.Domain c.vertex (F.object c.vertex) =
+    Prelude[l++].sym SO.Domain (F.object c.vertex) c.vertex
+      (EP.category.isotoid (F.object c.vertex)
+        c.vertex isomorphism) ;
+  module Algebra (Y : SO.Domain)
+    (a : EP.pre.hom (F.object Y) Y) {
+    module A = R.Algebra[Y,a] ;
+    Morphism : U l+ = A.AlgebraMorphism ;
+    canonical : Morphism = A.center ;
+    initial : (w : Morphism) -> Id Morphism w canonical =
+      A.initial ;
+  } ;
+} ;
+
+module WithAllColimits (F : K.Endofunctor[EP.pre])
+  (omega : K.OmegaContinuous[EP.pre,F])
+  (cocomplete : K.OmegaCocomplete[EP.pre]) {
+  module G = K.General[EP.pre,F,ScottEPInitial[l].initial,
+    omega,cocomplete] ;
+  fold : EP.pre.hom (F.object G.c.vertex) G.c.vertex = G.fold ;
+  unfold : EP.pre.hom G.c.vertex (F.object G.c.vertex) = G.unfold ;
+  isomorphism : EP.pre.Iso (F.object G.c.vertex)
+    G.c.vertex = G.isomorphism ;
+  equation : Id SO.Domain G.c.vertex (F.object G.c.vertex) =
+    Prelude[l++].sym SO.Domain (F.object G.c.vertex) G.c.vertex
+      (EP.category.isotoid (F.object G.c.vertex)
+        G.c.vertex isomorphism) ;
+  module Algebra (Y : SO.Domain)
+    (a : EP.pre.hom (F.object Y) Y) {
+    module T = G.Algebra[Y,a] ;
+    Morphism : U l+ = T.AlgebraMorphism ;
+    canonical : Morphism = T.center ;
+    initial : (w : Morphism) -> Id Morphism w canonical =
+      T.initial ;
+  } ;
+} ;

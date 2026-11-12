@@ -1,0 +1,90 @@
+-- A fixed product factor commutes with presented EP-chain limits.
+level l ;
+open Base ; open Prelude[l+] ;
+module Limit = ScottEPLimit[l] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module CR = ScottDomainCategories[l] ;
+
+product-chain (A : ScottDomain[l].Scott) (S : Limit.Chain) :
+  Limit.Chain = new Limit.Chain[
+    stage := \ n -> ScottProduct[l].Product[A,S.stage n].scott,
+    link := \ n -> ScottEPProduct[l].Action[A,S.stage n,
+      S.stage (suc n),S.link n].pair] ;
+
+module On (A : ScottDomain[l].Scott) (S : Limit.Chain) {
+  chain : Limit.Chain = product-chain A S ;
+  D : ScottDomain[l].Scott = ScottEPLimitBasis[l].On[S].scott ;
+  P : ScottDomain[l].Scott = ScottProduct[l].Product[A,D].scott ;
+  T : ScottDomain[l].Scott = ScottEPLimitBasis[l].On[chain].scott ;
+  module L = Limit.On[S] ; module R = Limit.On[chain] ;
+  constant-point (a : A.order.carrier) (y : T.order.carrier) :
+    R.Points = \ n -> (a,(y.1 n).2) ;
+  constant-coherent (a : A.order.carrier) (y : T.order.carrier) :
+    R.Coherent (constant-point a y) = \ n ->
+    FiniteEnumeration[l].pair-eq A.order.carrier (L.C n)
+      a a (L.project n (y.1 (suc n)).2) (y.1 n).2
+      (refl a)
+      (ap (R.C n) (L.C n) (\ w -> w.2)
+        (R.project n (y.1 (suc n))) (y.1 n) (y.2 n)) ;
+  constant (a : A.order.carrier) (y : T.order.carrier) :
+    T.order.carrier = (constant-point a y,constant-coherent a y) ;
+  same-at (n : Nat) (y : T.order.carrier) :
+    Id (R.C n) ((constant (y.1 n).1 y).1 n) (y.1 n) =
+    FiniteEnumeration[l].pair-eq A.order.carrier (L.C n)
+      (y.1 n).1 (y.1 n).1 (y.1 n).2 (y.1 n).2
+      (refl (y.1 n).1) (refl (y.1 n).2) ;
+  first-constant (n : Nat) (y : T.order.carrier) :
+    Id A.order.carrier (y.1 n).1 (y.1 zero).1 =
+    ap (R.C zero) A.order.carrier (\ w -> w.1)
+      ((constant (y.1 n).1 y).1 zero) (y.1 zero)
+      (Limit.past-zero n chain (constant (y.1 n).1 y) y
+        (same-at n y)) ;
+  encode-coherent (w : P.order.carrier) : R.Coherent
+    (\ n -> (w.1,w.2.1 n)) = \ n ->
+    FiniteEnumeration[l].pair-eq A.order.carrier (L.C n)
+      w.1 w.1 (L.project n (w.2.1 (suc n))) (w.2.1 n)
+      (refl w.1) (w.2.2 n) ;
+  encode (w : P.order.carrier) : T.order.carrier =
+    (\ n -> (w.1,w.2.1 n),encode-coherent w) ;
+  decode-coherent (y : T.order.carrier) : L.Coherent
+    (\ n -> (y.1 n).2) = \ n ->
+    ap (R.C n) (L.C n) (\ w -> w.2)
+      (R.project n (y.1 (suc n))) (y.1 n) (y.2 n) ;
+  decode (y : T.order.carrier) : P.order.carrier =
+    ((y.1 zero).1,(\ n -> (y.1 n).2,decode-coherent y)) ;
+  decode-encode (w : P.order.carrier) :
+    Id P.order.carrier (decode (encode w)) w =
+    P.order.antisymmetric (decode (encode w)) w
+      (A.order.reflexive w.1,\ n -> (S.stage n).order.reflexive (w.2.1 n))
+      (A.order.reflexive w.1,\ n -> (S.stage n).order.reflexive (w.2.1 n)) ;
+  encode-decode-to (y : T.order.carrier) : R.le (encode (decode y)) y =
+    \ n ->
+      (CR.le-replace A.order (y.1 n).1 (y.1 zero).1
+         (y.1 n).1 (y.1 n).1
+         (first-constant n y) (refl (y.1 n).1)
+         (A.order.reflexive (y.1 n).1),
+       (S.stage n).order.reflexive (y.1 n).2) ;
+  encode-decode-from (y : T.order.carrier) : R.le y (encode (decode y)) =
+    \ n ->
+      (CR.le-replace A.order (y.1 n).1 (y.1 n).1
+         (y.1 n).1 (y.1 zero).1
+         (refl (y.1 n).1) (first-constant n y)
+         (A.order.reflexive (y.1 n).1),
+       (S.stage n).order.reflexive (y.1 n).2) ;
+  encode-decode (y : T.order.carrier) :
+    Id T.order.carrier (encode (decode y)) y =
+    T.order.antisymmetric (encode (decode y)) y
+      (encode-decode-to y) (encode-decode-from y) ;
+  preserves (u v : P.order.carrier)
+    (h : P.order.le u v) : T.order.le (encode u) (encode v) =
+    \ n -> (h.1,h.2 n) ;
+  reflects (u v : P.order.carrier)
+    (h : T.order.le (encode u) (encode v)) : P.order.le u v =
+    ((h zero).1,\ n -> (h n).2) ;
+  iso : SO.OrderIso P.order T.order =
+    ((encode,qinv P.order.carrier T.order.carrier encode decode
+      encode-decode decode-encode),(preserves,reflects)) ;
+  pair : EP.Between[SO.from-presented P,SO.from-presented T].Pair =
+    (EP.from-order (SO.from-presented P) (SO.from-presented T) iso).1 ;
+} ;
