@@ -2,7 +2,7 @@ Section 2 in Unit, using intersection types and filters
 =====================================================
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 9,346
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 9,361
 declarations, with 0 failures, using the recorded checker (2026-11-12).
 
 Run from DOMAIN:
@@ -101,6 +101,10 @@ New names except Proper and Regular are under All.Theory, at universe l.
     Finite character and directed-supremum continuity.
   ScottDomain.Scott; ScottOrder.On.order-set
     Abstract pointed Scott domains with small compact bases and small order.
+  ScottDomainObjects.Domain / from-presented / same-presentation
+    A domain object with merely existing small compact basis; two chosen
+    bases over the same ordered, complete, pointed domain give equal objects.
+    The existing ScottDomain.Scott retains a basis for calculations.
   ScottMaps.Between.Pointwise.lub / complete
     Directed and bounded suprema of continuous maps are pointwise.
   ScottStepApprox.Between.Step.compact / FiniteJoin.compact
@@ -324,7 +328,7 @@ ideal below identity. StableFamilies proves both joint stability of
 (B,f) |-> R_B(f) and stability of B |-> R_B into rigid projections of the
 stable function domain, for stable families over the fixed input domain.
 
-The combined check reports 9,346 declarations and zero failures.
+The combined check reports 9,361 declarations and zero failures.
 StableInputRestriction, StableImageMaps and StableVaryingFamilies now
 handle varying rigid input domains: input restriction is rigid, stable
 maps on its image extend/restrict with beta/eta, and Q_(p,B) is the

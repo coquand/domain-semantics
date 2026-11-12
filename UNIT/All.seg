@@ -17,7 +17,7 @@ module Theory
  fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
  propUA : [l] Axioms[l].PropUnivalence = <l> Axioms[l].UnivalenceLemmas[ua @l].prop-univ ;
  import Truncation ; import TruncationCombinators ;
- import ScottOrder ; import ScottDomain ; import ScottMaps ; import ScottFinite ;
+ import ScottOrder ; import ScottDomain ; import ScottDomainObjects ; import ScottMaps ; import ScottFinite ;
  import ScottPredicates ;
  import ScottStepApprox ;
  import ScottExponential ;

@@ -1,0 +1,46 @@
+-- A Scott domain whose small compact basis is a property, not part of
+-- its chosen presentation.  ScottDomain.Scott remains the computational
+-- interface for arguments that use explicit compact basis elements.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module SD = ScottDomain[l] ;
+module Tr = Truncation[l+] ;
+
+BasisExists (P : Order) (c : Complete[P]) : U l+ = Tr.Trunc[SD.Basis[P,c]].carrier ;
+basis-exists-prop (P : Order) (c : Complete[P]) : isProp (BasisExists P c) =
+  Tr.Trunc[SD.Basis[P,c]].proposition ;
+
+bottom-least-prop (P : Order) (b : P.carrier) :
+  isProp ((x : P.carrier) -> P.le b x) =
+  Axioms[l+].FunExtLemmas[fe @l+].isProp-Pi P.carrier (\ x -> P.le b x)
+    (\ x -> P.proposition b x) ;
+
+record Domain {
+  order : Order ;
+  complete : Complete[order] ;
+  bottom : order.carrier ;
+  bottom-least : (x : order.carrier) -> order.le bottom x ;
+  basis-exists : BasisExists order complete ;
+} ;
+
+from-presented (D : SD.Scott) : Domain = new Domain[
+  order := D.order,complete := D.complete,bottom := D.bottom,
+  bottom-least := D.bottom-least,
+  basis-exists := Tr.Trunc[SD.Basis[D.order,D.complete]].inc D.basis] ;
+
+-- Two presentations of the same ordered, complete, pointed carrier give
+-- the same domain object.  This is the key reason to truncate the basis.
+same-presentation (P : Order) (c : Complete[P]) (b : P.carrier)
+  (least : (x : P.carrier) -> P.le b x)
+  (B B' : SD.Basis[P,c]) :
+  Id Domain
+    (from-presented (new SD.Scott[order := P,complete := c,basis := B,
+      bottom := b,bottom-least := least]))
+    (from-presented (new SD.Scott[order := P,complete := c,basis := B',
+      bottom := b,bottom-least := least])) =
+  Prelude[l++].ap (BasisExists P c) Domain
+    (\ e -> new Domain[order := P,complete := c,bottom := b,
+      bottom-least := least,basis-exists := e])
+    (Tr.Trunc[SD.Basis[P,c]].inc B) (Tr.Trunc[SD.Basis[P,c]].inc B')
+    (basis-exists-prop P c (Tr.Trunc[SD.Basis[P,c]].inc B)
+      (Tr.Trunc[SD.Basis[P,c]].inc B')) ;
