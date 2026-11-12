@@ -5,6 +5,131 @@ level l ;
 open Base ; open Prelude[l+] ; open ScottOrder[l] ;
 module SD = ScottDomain[l] ;
 module Tr = Truncation[l+] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+OrderLaws (C : U l+) (r : C -> C -> U l) : U l+ =
+  ((x y : C) -> isProp (r x y)) *
+  ((x : C) -> r x x) *
+  ((x y z : C) -> r x y -> r y z -> r x z) *
+  ((x y : C) -> r x y -> r y x -> Id C x y) ;
+order-from-laws (C : U l+) (r : C -> C -> U l) (w : OrderLaws C r) : Order =
+  new Order[carrier := C,le := r,proposition := w.1,
+    reflexive := w.2.1,transitive := w.2.2.1,antisymmetric := w.2.2.2] ;
+order-laws (P : Order) : OrderLaws P.carrier P.le =
+  (P.proposition,(P.reflexive,(P.transitive,P.antisymmetric))) ;
+order-eta : (P : Order) -> Id Order
+  (order-from-laws P.carrier P.le (order-laws P)) P =
+  split { Order C r p rf tr an -> refl (new Order[C,r,p,rf,tr,an]) } ;
+
+module FixedOrder (C : U l+) (r : C -> C -> U l) {
+  PropLaw : U l+ = (x y : C) -> isProp (r x y) ;
+  ReflLaw : U l+ = (x : C) -> r x x ;
+  TransLaw : U l+ = (x y z : C) -> r x y -> r y z -> r x z ;
+  AntiLaw : U l+ = (x y : C) -> r x y -> r y x -> Id C x y ;
+  prop-law-prop : isProp PropLaw =
+    H.isProp-Pi C (\ x -> (y : C) -> isProp (r x y)) (\ x ->
+      H.isProp-Pi C (\ y -> isProp (r x y)) (\ y ->
+        Axioms[l].FunExtLemmas[fe @l].isProp-isProp (r x y))) ;
+  refl-law-prop (p : PropLaw) : isProp ReflLaw =
+    H.isProp-Pi C (\ x -> r x x) (\ x -> p x x) ;
+  trans-law-prop (p : PropLaw) : isProp TransLaw =
+    H.isProp-Pi C (\ x -> (y z : C) -> r x y -> r y z -> r x z) (\ x ->
+      H.isProp-Pi C (\ y -> (z : C) -> r x y -> r y z -> r x z) (\ y ->
+        H.isProp-Pi C (\ z -> r x y -> r y z -> r x z) (\ z ->
+          H.isProp-Pi (r x y) (\ _ -> r y z -> r x z) (\ _ ->
+            H.isProp-Pi (r y z) (\ _ -> r x z) (\ _ -> p x z))))) ;
+  anti-law-prop (w : OrderLaws C r) : isProp AntiLaw =
+    H.isProp-Pi C (\ x -> (y : C) -> r x y -> r y x -> Id C x y) (\ x ->
+      H.isProp-Pi C (\ y -> r x y -> r y x -> Id C x y) (\ y ->
+        H.isProp-Pi (r x y) (\ _ -> r y x -> Id C x y) (\ _ ->
+          H.isProp-Pi (r y x) (\ _ -> Id C x y) (\ _ ->
+            On[order-from-laws C r w].order-set x y)))) ;
+  laws-prop : isProp (OrderLaws C r) = \ w v ->
+    isProp-Sigma PropLaw (\ _ -> ReflLaw * TransLaw * AntiLaw)
+      prop-law-prop (\ p ->
+        isProp-Sigma ReflLaw (\ _ -> TransLaw * AntiLaw)
+          (refl-law-prop p) (\ _ ->
+            isProp-Sigma TransLaw (\ _ -> AntiLaw)
+              (trans-law-prop p) (\ _ -> anti-law-prop w))) w v ;
+} ;
+
+OrderAt (C : U l+) : U l+ =
+  (r : C -> C -> U l) * OrderLaws C r ;
+from-order-at (C : U l+) (w : OrderAt C) : Order =
+  order-from-laws C w.1 w.2 ;
+order-at-path (C : U l+) (r s : C -> C -> U l)
+  (w : OrderLaws C r) (v : OrderLaws C s)
+  (p : Id (C -> C -> U l) r s) :
+  Id Order (order-from-laws C r w) (order-from-laws C s v) =
+  Prelude[l++].ap (OrderAt C) Order (from-order-at C) (r,w) (s,v)
+    (Sigma-eq (C -> C -> U l) (\ t -> OrderLaws C t)
+      r s w v p (FixedOrder[C,s].laws-prop)) ;
+
+module OrderPaths (P : Order) {
+  module UA = Axioms[l+].UnivalenceLemmas[ua @l+] ;
+  C : U l+ = P.carrier ;
+  Goal (T : U l+) (e : Equiv C T) : U l++ =
+    (r : T -> T -> U l) (w : OrderLaws T r) ->
+    ((x y : C) -> P.le x y -> r (e.1 x) (e.1 y)) ->
+    ((x y : C) -> r (e.1 x) (e.1 y) -> P.le x y) ->
+    Id Order P (order-from-laws T r w) ;
+  relation-path (r : C -> C -> U l) (w : OrderLaws C r)
+    (f : (x y : C) -> P.le x y -> r x y)
+    (g : (x y : C) -> r x y -> P.le x y) :
+    Id (C -> C -> U l) P.le r =
+    H.funext C (\ _ -> C -> U l) P.le r (\ x ->
+      H.funext C (\ _ -> U l) (P.le x) (r x) (\ y ->
+        (propUA @l (P.le x y) (r x y) (P.proposition x y) (w.1 x y)).sec
+          (f x y, Prelude[l].qinv (P.le x y) (r x y) (f x y) (g x y)
+            (\ v -> (w.1 x y) (f x y (g x y v)) v)
+            (\ v -> (P.proposition x y) (g x y (f x y v)) v)))) ;
+  base : Goal C (idEquiv C) = \ r w f g ->
+    Prelude[l++].trans Order P
+      (order-from-laws C P.le (order-laws P))
+      (order-from-laws C r w)
+      (Prelude[l++].sym Order (order-from-laws C P.le (order-laws P)) P
+        (order-eta P))
+      (order-at-path C P.le r (order-laws P) w (relation-path r w f g)) ;
+  path (T : U l+) (e : Equiv C T) : Goal T e =
+    UA.eqind C Goal base T e ;
+} ;
+
+DirectedLaw (P : Order) : U l+ =
+  (I : U l) (x : I -> P.carrier) -> On[P].Dir I x -> On[P].Supremum I x ;
+BoundedLaw (P : Order) : U l+ =
+  (I : U l) (x : I -> P.carrier) (b : P.carrier) ->
+    On[P].Bounds I x b -> On[P].Supremum I x ;
+
+directed-law-prop (P : Order) : isProp (DirectedLaw P) =
+  H.isProp-Pi (U l) (\ I -> (x : I -> P.carrier) -> On[P].Dir I x -> On[P].Supremum I x)
+    (\ I -> H.isProp-Pi (I -> P.carrier) (\ x -> On[P].Dir I x -> On[P].Supremum I x)
+      (\ x -> H.isProp-Pi (On[P].Dir I x) (\ _ -> On[P].Supremum I x)
+        (\ _ -> On[P].sup-prop I x))) ;
+
+bounded-law-prop (P : Order) : isProp (BoundedLaw P) =
+  H.isProp-Pi (U l) (\ I -> (x : I -> P.carrier) (b : P.carrier) ->
+      On[P].Bounds I x b -> On[P].Supremum I x)
+    (\ I -> H.isProp-Pi (I -> P.carrier) (\ x -> (b : P.carrier) ->
+        On[P].Bounds I x b -> On[P].Supremum I x)
+      (\ x -> H.isProp-Pi P.carrier (\ b -> On[P].Bounds I x b -> On[P].Supremum I x)
+        (\ b -> H.isProp-Pi (On[P].Bounds I x b) (\ _ -> On[P].Supremum I x)
+          (\ _ -> On[P].sup-prop I x)))) ;
+
+Fields (P : Order) : U l+ = DirectedLaw P * BoundedLaw P ;
+fields-prop (P : Order) : isProp (Fields P) =
+  isProp-Sigma (DirectedLaw P) (\ _ -> BoundedLaw P)
+    (directed-law-prop P) (\ _ -> bounded-law-prop P) ;
+fields (P : Order) (c : Complete[P]) : Fields P = (c.directed,c.bounded) ;
+from-fields (P : Order) (f : Fields P) : Complete[P] =
+  new Complete[P,directed := f.1,bounded := f.2] ;
+
+complete-eta (P : Order) : (c : Complete[P]) -> Id (Complete[P])
+  (new Complete[P,directed := c.directed,bounded := c.bounded]) c =
+  split { Complete o d b -> refl (new Complete[P,d,b]) } ;
+
+complete-prop (P : Order) : isProp (Complete[P]) =
+  retract-prop (Complete[P]) (Fields P) (fields P) (from-fields P)
+    (complete-eta P) (fields-prop P) ;
 
 BasisExists (P : Order) (c : Complete[P]) : U l+ = Tr.Trunc[SD.Basis[P,c]].carrier ;
 basis-exists-prop (P : Order) (c : Complete[P]) : isProp (BasisExists P c) =
@@ -15,6 +140,23 @@ bottom-least-prop (P : Order) (b : P.carrier) :
   Axioms[l+].FunExtLemmas[fe @l+].isProp-Pi P.carrier (\ x -> P.le b x)
     (\ x -> P.proposition b x) ;
 
+Bottom (P : Order) : U l+ =
+  (b : P.carrier) * ((x : P.carrier) -> P.le b x) ;
+bottom-prop (P : Order) : isProp (Bottom P) = \ u v ->
+  Sigma-eq P.carrier (\ b -> (x : P.carrier) -> P.le b x)
+    u.1 v.1 u.2 v.2
+    (P.antisymmetric u.1 v.1 (u.2 v.1) (v.2 u.1))
+    (bottom-least-prop P v.1) ;
+
+Fiber (P : Order) : U l+ =
+  (c : Complete[P]) * Bottom P * BasisExists P c ;
+FiberHigh (P : Order) : U l++ = Fiber P ;
+fiber-prop (P : Order) : isProp (Fiber P) =
+  isProp-Sigma (Complete[P]) (\ c -> Bottom P * BasisExists P c)
+    (complete-prop P)
+    (\ c -> isProp-Sigma (Bottom P) (\ _ -> BasisExists P c)
+      (bottom-prop P) (\ _ -> basis-exists-prop P c)) ;
+
 record Domain {
   order : Order ;
   complete : Complete[order] ;
@@ -22,6 +164,46 @@ record Domain {
   bottom-least : (x : order.carrier) -> order.le bottom x ;
   basis-exists : BasisExists order complete ;
 } ;
+
+Raw : U l++ = (P : Order) * FiberHigh P ;
+raw (D : Domain) : Raw =
+  (D.order,(D.complete,((D.bottom,D.bottom-least),D.basis-exists))) ;
+from-raw (w : Raw) : Domain = new Domain[
+  order := w.1,complete := w.2.1,bottom := w.2.2.1.1,
+  bottom-least := w.2.2.1.2,basis-exists := w.2.2.2] ;
+domain-eta : (D : Domain) -> Id Domain (from-raw (raw D)) D =
+  split { Domain P c b least basis ->
+    refl (new Domain[P,c,b,least,basis]) } ;
+
+-- At a fixed underlying order there is at most one Scott-domain object.
+from-order-path (D E : Domain) (p : Id Order D.order E.order) : Id Domain D E =
+  Prelude[l++].trans Domain D (from-raw (raw D)) E
+    (Prelude[l++].sym Domain (from-raw (raw D)) D (domain-eta D))
+    (Prelude[l++].trans Domain (from-raw (raw D)) (from-raw (raw E)) E
+      (Prelude[l++].ap Raw Domain from-raw (raw D) (raw E)
+        (Prelude[l++].Sigma-eq Order FiberHigh D.order E.order (raw D).2 (raw E).2 p
+          (fiber-prop E.order)))
+      (domain-eta E)) ;
+
+-- An order isomorphism is an equivalence whose action preserves and
+-- reflects the small order relation.
+OrderIso (P Q : Order) : U l+ =
+  (e : Equiv P.carrier Q.carrier) *
+    ((x y : P.carrier) -> P.le x y -> Q.le (e.1 x) (e.1 y)) *
+    ((x y : P.carrier) -> Q.le (e.1 x) (e.1 y) -> P.le x y) ;
+order-iso-id (P : Order) : OrderIso P P =
+  (idEquiv P.carrier,(\ x y h -> h,\ x y h -> h)) ;
+idto-order-iso (P Q : Order) (p : Id Order P Q) : OrderIso P Q =
+  idJ Order P (\ R _ -> OrderIso P R) (order-iso-id P) Q p ;
+order-isotoid (P : Order) : (Q : Order) -> OrderIso P Q -> Id Order P Q =
+  split { Order C r p rf tr an -> \ i ->
+    OrderPaths[P].path C i.1 r (p,(rf,(tr,an))) i.2.1 i.2.2 } ;
+DomainIso (D E : Domain) : U l+ = OrderIso D.order E.order ;
+idto-domain-iso (D E : Domain) (p : Id Domain D E) : DomainIso D E =
+  idto-order-iso D.order E.order
+    (Prelude[l++].ap Domain Order (\ X -> X.order) D E p) ;
+domain-isotoid (D E : Domain) (i : DomainIso D E) : Id Domain D E =
+  from-order-path D E (order-isotoid D.order E.order i) ;
 
 from-presented (D : SD.Scott) : Domain = new Domain[
   order := D.order,complete := D.complete,bottom := D.bottom,

@@ -107,6 +107,25 @@ written
 Our completeness convention is for small indexed families, not arbitrary
 families indexed by types in $\UU^+$.
 
+For comparison of domains, we also use an \emph{unpresented} form of this
+definition: the small compact basis is merely known to exist, rather than
+selected as part of the object. A presentation supplies such an object by
+propositional truncation.
+\begin{proposition}[Order isomorphisms give equal domain objects]
+Let $D$ and $E$ be unpresented Scott domains. An order isomorphism between
+their carriers induces an equality $D=E$.
+\end{proposition}
+\begin{proof}
+Suprema are unique, so completeness contributes no choices for a fixed
+order. Least elements are unique, and the basis-existence condition is a
+proposition. It therefore suffices to compare the orders. Univalence
+identifies the carrier types along the underlying equivalence. On the
+common carrier, the order-isomorphism laws give logically equivalent
+order propositions; propositional univalence makes these relations equal.
+The order laws themselves are propositions. The resulting equality of
+orders lifts to the domain objects.
+\end{proof}
+
 \begin{lemma}[Finite common bounds]\label{lem:finite}
 If finitely many compact elements $a_1,\ldots,a_n$ lie below the supremum
 of a directed family $(x_i)_{i\in I}$, then there exists $i\in I$ with
@@ -1332,7 +1351,7 @@ No excluded middle, choice or propositional resizing axiom is added.
 The main checked results are:
 \begin{enumerate}[leftmargin=*,itemsep=3pt]
 \item Scott domains with small compact bases, including an object with merely
-existing basis; continuous function spaces,
+existing basis and equality induced by order isomorphism; continuous function spaces,
 compact step approximations, and least fixed points.
 \item The Scott filter domain and recursive projector; corrected rank
 stages, finite stabilisation, and comparison with bounded compact typing.
@@ -1358,12 +1377,12 @@ complete command.
 \hline
 Check & Declarations & Checker CPU time\\
 \hline
-Complete development & 9,361 & 2.42 s\\
-Independent relation and consequences & 4,909 & 1.19 s\\
+Complete development & 9,414 & 2.31 s\\
+Independent relation and consequences & 4,909 & 1.10 s\\
 \hline
 \end{tabular}
 \end{center}
-The \textbf{total wall-clock time was 3.69 seconds}, including dependency
+The \textbf{total wall-clock time was 3.50 seconds}, including dependency
 verification and both checker processes. The independent run has a
 104-module dependency closure with the old logical relation and the earlier
 proofs of adequacy, syntactic Pi injectivity and subject reduction out of scope. All 40 frozen
