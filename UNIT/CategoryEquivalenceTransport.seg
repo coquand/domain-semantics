@@ -1,0 +1,109 @@
+-- Univalence turns a categorical equivalence into an equivalence of
+-- object types.  This is the first component of the structure identity
+-- principle for univalent categories.
+level k l ;
+open Base ;
+module K = Category[k,l] ;
+module CE = CategoryEquivalence[k,l] ;
+module P = Prelude[k] ;
+module UA = Axioms[k].UnivalenceLemmas[ua @k] ;
+module H = Paths[l] ;
+
+module On (C D : K.Category) (e : CE.Equivalence[C,D]) {
+  module AC = CategoryArrows[k,l].Arrows[C.pre] ;
+  module AD = CategoryArrows[k,l].Arrows[D.pre] ;
+  object-equivalence : P.Equiv C.pre.ob D.pre.ob =
+    (e.forward.object,
+      P.qinv C.pre.ob D.pre.ob
+      e.forward.object e.backward.object
+      (\ y -> P.sym D.pre.ob y
+        (e.forward.object (e.backward.object y))
+        (D.isotoid y
+          (e.forward.object (e.backward.object y))
+          (e.unit-target y)))
+      (\ x -> P.sym C.pre.ob x
+        (e.backward.object (e.forward.object x))
+        (C.isotoid x
+          (e.backward.object (e.forward.object x))
+          (e.unit-source x)))) ;
+  object-equality : Id (U k) C.pre.ob D.pre.ob =
+    UA.ua C.pre.ob D.pre.ob object-equivalence ;
+
+  forward-faithful (x y : C.pre.ob)
+    (f g : C.pre.hom x y)
+    (p : Id (D.pre.hom (e.forward.object x)
+      (e.forward.object y))
+      (e.forward.arrow x y f) (e.forward.arrow x y g)) :
+    Id (C.pre.hom x y) f g =
+    AC.cancel-l (e.unit-source y)
+      (H.transH
+        (H.symH (e.source-natural x y f))
+        (H.transH
+          (AC.right
+            (H.apH
+              (e.backward.arrow
+                (e.forward.object x) (e.forward.object y)) p)
+            (e.unit-source x).1)
+          (e.source-natural x y g))) ;
+  backward-faithful (x y : D.pre.ob)
+    (f g : D.pre.hom x y)
+    (p : Id (C.pre.hom (e.backward.object x)
+      (e.backward.object y))
+      (e.backward.arrow x y f) (e.backward.arrow x y g)) :
+    Id (D.pre.hom x y) f g =
+    AD.cancel-l (e.unit-target y)
+      (H.transH
+        (H.symH (e.target-natural x y f))
+        (H.transH
+          (AD.right
+            (H.apH
+              (e.forward.arrow
+                (e.backward.object x) (e.backward.object y)) p)
+            (e.unit-target x).1)
+          (e.target-natural x y g))) ;
+
+  hom-inverse (x y : C.pre.ob)
+    (g : D.pre.hom (e.forward.object x)
+      (e.forward.object y)) : C.pre.hom x y =
+    AC.cmp (e.unit-source y).2.1
+      (AC.cmp
+        (e.backward.arrow (e.forward.object x)
+          (e.forward.object y) g)
+        (e.unit-source x).1) ;
+  inverse-forward (x y : C.pre.ob)
+    (f : C.pre.hom x y) :
+    Id (C.pre.hom x y)
+      (hom-inverse x y (e.forward.arrow x y f)) f =
+    H.transH
+      (AC.left (e.unit-source y).2.1
+        (e.source-natural x y f))
+      (AC.undo-l (e.unit-source y) f) ;
+  forward-inverse (x y : C.pre.ob)
+    (g : D.pre.hom (e.forward.object x)
+      (e.forward.object y)) :
+    Id (D.pre.hom (e.forward.object x)
+      (e.forward.object y))
+      (e.forward.arrow x y (hom-inverse x y g)) g =
+    backward-faithful
+      (e.forward.object x) (e.forward.object y)
+      (e.forward.arrow x y (hom-inverse x y g)) g
+      (AC.cancel-r (e.unit-source x)
+        (H.transH
+          (e.source-natural x y (hom-inverse x y g))
+          (AC.undo-l
+            (AC.iso-inv (e.unit-source y))
+            (AC.cmp
+              (e.backward.arrow (e.forward.object x)
+                (e.forward.object y) g)
+              (e.unit-source x).1)))) ;
+  hom-equivalence (x y : C.pre.ob) :
+    Prelude[l].Equiv (C.pre.hom x y)
+      (D.pre.hom (e.forward.object x)
+        (e.forward.object y)) =
+    (e.forward.arrow x y,
+      Prelude[l].qinv (C.pre.hom x y)
+        (D.pre.hom (e.forward.object x)
+          (e.forward.object y))
+        (e.forward.arrow x y) (hom-inverse x y)
+        (forward-inverse x y) (inverse-forward x y)) ;
+} ;

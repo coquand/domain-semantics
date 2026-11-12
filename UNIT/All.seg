@@ -18,9 +18,10 @@ module Theory
  propUA : [l] Axioms[l].PropUnivalence = <l> Axioms[l].UnivalenceLemmas[ua @l].prop-univ ;
  import Truncation ; import TruncationCombinators ;
  import ScottOrder ; import ScottDomain ; import ScottDomainObjects ; import ScottDomainMaps ; import ScottMaps ; import ScottFinite ;
- import EquivalenceLemmas ; import Category ; import CategoryArrows ; import CategoryEquivalence ; import ScottDomainCategories ;
+ import EquivalenceLemmas ; import Category ; import CategoryArrows ; import CategoryEquivalence ; import CategoryEquivalenceTransport ; import ScottDomainCategories ;
  import ScottSmallness ; import ScottCUSL ; import ScottCUSLIdeals ; import ScottCUSLCompacts ; import ScottCUSLIdealMaps ; import ScottCUSLEquivalence ;
  import CategoryInitialChain ;
+ import CategoryEquivalenceColimits ;
  import CategoryAlgebras ;
  import ScottPredicates ;
  import ScottStepApprox ;
@@ -92,6 +93,7 @@ module Theory
  import ScottReflexiveInitial ;
  import ScottEPInitial ;
  import ScottEPInitialChain ;
+ import ScottEPTransport ;
  import RigidLimitDomain ;
  import RigidLimitRigid ;
  import RigidLimitDI ;

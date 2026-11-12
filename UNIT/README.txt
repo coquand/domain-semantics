@@ -2,7 +2,7 @@ Section 2 in Unit, using intersection types and filters
 =====================================================
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 11,424
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 11,550
 declarations, with 0 failures, using the recorded checker (2026-11-12).
 
 Run from DOMAIN:
@@ -58,11 +58,9 @@ with function space, fixed products, and the shifted chain. An abstract
 initial-chain theorem is now checked for any category with an initial
 object and countable-chain colimits preserved by an endofunctor. It gives
 an initial algebra, inverse fold/unfold maps, and object equality in a
-univalent category. The Scott EP specialization applies to an arbitrary
-omega-continuous endofunctor when its initial chain has a supplied
-colimit. Omega-cocompleteness of the category of unpresented Scott
-domains is not yet established from mere basis existence, so that
-colimit remains an explicit premise.
+univalent category. The Scott EP specialization now applies to any
+endofunctor preserving countable-chain colimits, with no separately
+supplied colimit of its initial chain.
 Here omega-continuity means preservation of existing countable-chain
 colimits; the implication from continuity on ordered homs to that
 preservation is not yet proved.
@@ -77,9 +75,15 @@ preserving countable-chain colimits has an initial algebra, inverse
 fold/unfold maps, and an equality X = F(X). Preservation is a proposition:
 the universal property of a fixed cocone is a proposition. No countable
 choice is used in selecting small presentations for the ideal domains.
-The analogous unconditional statement for arbitrary EP endofunctors still
-requires formal transport of functors and colimit preservation across the
-CUSL--EP equivalence.
+The equivalence transports this omega-cocompleteness to the unpresented
+Scott EP category. The generic proof constructs a colimit cocone using
+the quasi-inverse, proves its factorization and uniqueness from the
+equivalence on homs, and works for chains with merely existing bases.
+Consequently every EP endofunctor preserving countable-chain colimits
+has an initial algebra, an isomorphism, and object equality X = F(X).
+The equivalence also gives an equality of the categories' object types
+by univalence. Equality of the entire category records is not yet proved;
+the transfer does not require that stronger structure identity theorem.
 
 The univalent category of Scott domains and embedding-projection pairs is
 now equivalent to the univalent category of conditional upper semilattices
@@ -189,12 +193,21 @@ New names except Proper and Regular are under All.Theory, at universe l.
   CategoryInitialChain.ColimitProof.proposition / OmegaContinuousProof.proposition
     A fixed cocone's universal property and preservation of countable-chain
     colimits are propositions.
+  CategoryEquivalenceTransport.On.object-equality / hom-equivalence
+    Equivalence of univalent categories gives equality of object types
+    and equivalence on each hom type.
+  CategoryEquivalenceColimits.On.transported
+    Generic transfer of countable-chain colimits across a categorical
+    equivalence.
   ScottCUSLInitial.initial / ScottCUSLColimit.cocomplete
     The one-point CUSL is initial; every countable chain of CUSL embeddings
     has a colimit, built from compact elements of a presented EP limit.
   ScottCUSLFixedPoint.On.equation / Algebra.initial
     A colimit-preserving CUSL endofunctor has a solution X = F(X), whose
     fold map is an initial algebra.
+  ScottEPTransport.cocomplete / On.equation / On.Algebra.initial
+    The unpresented Scott EP category is omega-cocomplete; any endofunctor
+    preserving those colimits has an initial algebra and X = F(X).
   CategoryAlgebras.On.pre / Univalent.category
     The algebra category for any endofunctor on a precategory, and its
     univalence when the base category is univalent. An algebra isomorphism
@@ -447,7 +460,7 @@ ideal below identity. StableFamilies proves both joint stability of
 (B,f) |-> R_B(f) and stability of B |-> R_B into rigid projections of the
 stable function domain, for stable families over the fixed input domain.
 
-The combined check reports 11,424 declarations and zero failures.
+The combined check reports 11,550 declarations and zero failures.
 StableInputRestriction, StableImageMaps and StableVaryingFamilies now
 handle varying rigid input domains: input restriction is rigid, stable
 maps on its image extend/restrict with beta/eta, and Q_(p,B) is the

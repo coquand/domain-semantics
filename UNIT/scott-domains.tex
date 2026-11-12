@@ -52,7 +52,10 @@ Scott domain $A$, and we formalize the abstract initial-chain theorem for
 endofunctors preserving countable chain colimits. A direct
 construction of countable chain colimits in the conditional-upper-semilattice
 category gives an initial algebra and an object equality $X=F(X)$ for
-every colimit-preserving endofunctor of that category. A direct
+every colimit-preserving endofunctor of that category. Transport across
+the categorical equivalence gives the same result for all unpresented
+Scott-domain embedding--projection endofunctors preserving these colimits.
+A direct
 construction shows that the category of algebras for any endofunctor
 of a univalent category is itself univalent. A finite-stabilisation
 argument relates
@@ -376,6 +379,24 @@ proposition. The small presentations used in ideal completion are
 selected by univalence from mere smallness; no countable choice is used.
 \end{proof}
 
+\begin{corollary}[Unpresented Scott EP initial algebras]
+\label{cor:ep-initial}
+The category of unpresented Scott domains and embedding--projection pairs
+has colimits of countable chains. Every endofunctor of this category that
+preserves these colimits has an initial algebra with an invertible
+structure map and an object equality $X=F(X)$.
+\end{corollary}
+\begin{proof}
+The established CUSL--EP equivalence transports the CUSL chain colimits.
+For an EP chain, apply the compact-elements functor, take its CUSL
+colimit, and apply ideal completion. The natural reconstruction
+isomorphisms give cocone legs and mediate arbitrary EP cocones.
+The functors induce equivalences on hom types; these establish
+factorization and uniqueness. The one-point EP domain is initial, so
+Theorem~\ref{thm:initial-chain} applies. Univalence turns its solution
+isomorphism into equality of objects.
+\end{proof}
+
 \begin{theorem}[Univalence of the algebra category]
 For any univalent category $\mathcal C$ and endofunctor
 $F:\mathcal C\to\mathcal C$, the category $\operatorname{Alg}(F)$ is
@@ -392,21 +413,16 @@ inverse. The functor laws give identities and composition of algebra
 arrows. No colimit preservation assumption on $F$ is used.
 \end{proof}
 
-The one-point domain is initial in the unpresented EP category. Thus any
-$\omega$-continuous endofunctor of that category has an initial algebra whenever its initial
-chain has a supplied colimit; in particular this follows from an
-$\omega$-cocompleteness structure on the category. The present formalization
-constructs colimits for chains of \emph{presented} Scott domains, but does
-not establish $\omega$-cocompleteness for arbitrary chains of unpresented
-objects with merely existing compact bases. This premise remains explicit
-in the Scott-category theorem. Here ``$\omega$-continuous'' means
+The direct coherent-sequence construction uses \emph{presented} Scott
+domains. The categorical transfer above extends countable-chain colimits
+to arbitrary unpresented objects with merely existing compact bases.
+Here ``$\omega$-continuous'' means
 preservation of existing countable-chain colimits. An implication from
 continuity on ordered hom types to this preservation is not asserted.
-The CUSL colimit construction above removes the colimit premise for
-CUSL endofunctors. Transporting arbitrary EP endofunctors and their
-preservation property through the established categorical equivalence
-would give the corresponding unconditional EP theorem; that transport is
-not part of the checked development yet.
+The preservation property is a proposition. The equivalence also gives
+equality of CUSL and EP object types by univalence. Equality of the full
+category records would follow from a structure identity theorem for
+univalent categories; that stronger theorem is not used here.
 
 \begin{lemma}[Finite common bounds]\label{lem:finite}
 If finitely many compact elements $a_1,\ldots,a_n$ lie below the supremum
@@ -1641,7 +1657,8 @@ initial-chain theorem, Theorem~\ref{thm:initial-chain}, and the generic
 univalent category of endofunctor algebras; the equivalence of univalent
 Scott EP and CUSL categories, Theorem~\ref{thm:cusl-equivalence}.
 The CUSL initial-algebra theorem, Theorem~\ref{thm:cusl-initial},
-uses the checked countable-chain colimit construction.
+uses the checked countable-chain colimit construction; its transfer gives
+the unpresented EP corollary, Corollary~\ref{cor:ep-initial}.
 \item The Scott filter domain and recursive projector; corrected rank
 stages, finite stabilisation, and comparison with bounded compact typing.
 \item The independent strict lower admissible invariant, its equations
@@ -1666,12 +1683,12 @@ complete command.
 \hline
 Check & Declarations & Checker CPU time\\
 \hline
-Complete development & 11,424 & 4.34 s\\
-Independent relation and consequences & 4,909 & 1.12 s\\
+Complete development & 11,550 & 4.68 s\\
+Independent relation and consequences & 4,909 & 1.23 s\\
 \hline
 \end{tabular}
 \end{center}
-The \textbf{total wall-clock time was 5.59 seconds}, including dependency
+The \textbf{total wall-clock time was 6.04 seconds}, including dependency
 verification and both checker processes. The independent run has a
 104-module dependency closure with the old logical relation and the earlier
 proofs of adequacy, syntactic Pi injectivity and subject reduction out of scope. All 40 frozen
