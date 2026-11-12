@@ -61,6 +61,10 @@ an initial algebra, inverse fold/unfold maps, and object equality in a
 univalent category. The Scott EP specialization now applies to any
 endofunctor preserving countable-chain colimits, with no separately
 supplied colimit of its initial chain.
+The concrete F_A solution uses the presented EP chain directly. The CUSL
+solution-transport theorem below is separate: the checked development has
+not identified a transported CUSL endofunctor with F_A or compared their
+initial algebras.
 Here omega-continuity means preservation of existing countable-chain
 colimits; the implication from continuity on ordered homs to that
 preservation is not yet proved.

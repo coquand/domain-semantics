@@ -59,6 +59,8 @@ transfers each CUSL functor together with its preservation proof and initial
 solution to Scott EP. It also transfers countable-chain colimit structure,
 giving initial algebras for all unpresented Scott-domain
 embedding--projection endofunctors preserving these colimits.
+The displayed equation with parameter $A$ is solved directly in the
+presented EP category; the CUSL transport result is a separate theorem.
 A direct
 construction shows that the category of algebras for any endofunctor
 of a univalent category is itself univalent. A finite-stabilisation
@@ -319,6 +321,15 @@ $h_n$ at every stage. Colimit uniqueness then gives equality with $h$.
 The arrow type is a set, so the algebra equation is a proposition; this
 upgrades uniqueness to contractibility of the morphism type.
 \end{proof}
+
+\begin{remark}
+This proof of $\mu_A\cong A\times\Cont{\mu_A}{\mu_A}$ uses the presented
+EP chain and its explicit comparison isomorphisms. It does not invoke the
+CUSL colimit theorem or transport. The later transport corollary applies
+to a CUSL endofunctor equipped with preservation of countable-chain
+colimits. The checked development has not identified its transported
+functor with this particular $F_A$, nor identified their initial algebras.
+\end{remark}
 
 \begin{theorem}[Abstract initial-chain theorem]\label{thm:initial-chain}
 Let $\mathcal C$ be a category with an initial object and colimits of
