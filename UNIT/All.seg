@@ -26,6 +26,7 @@ module Theory
  import CategorySIPFixed ;
  import CategorySIPTheorem ;
  import CategoryInitialChain ;
+ import CategoryInitialSolution ;
  import CategoryEquivalenceColimits ;
  import CategoryAlgebras ;
  import ScottPredicates ;
@@ -99,6 +100,7 @@ module Theory
  import ScottEPInitial ;
  import ScottEPInitialChain ;
  import ScottEPTransport ;
+ import ScottCUSLSolutionTransport ;
  import RigidLimitDomain ;
  import RigidLimitRigid ;
  import RigidLimitDI ;

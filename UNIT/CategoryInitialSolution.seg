@@ -1,0 +1,34 @@
+-- A transportable package for an initial endofunctor algebra.
+level l ;
+open Base ;
+module CAT = Category[l++,l+] ;
+module K = CategoryInitialChain[l++,l+] ;
+
+Morphism (E : CAT.Category) (F : K.Endofunctor[E.pre])
+  (X : E.pre.ob) (fold : E.pre.hom (F.object X) X)
+  (Y : E.pre.ob) (a : E.pre.hom (F.object Y) Y) : U l+ =
+  (h : E.pre.hom X Y) *
+    Id (E.pre.hom (F.object X) Y)
+      (E.pre.comp (F.object X) X Y h fold)
+      (E.pre.comp (F.object X) (F.object Y) Y
+        a (F.arrow X Y h)) ;
+
+record InitialSolution (E : CAT.Category)
+  (F : K.Endofunctor[E.pre]) {
+  object : E.pre.ob ;
+  fold : E.pre.hom (F.object object) object ;
+  invertible : E.pre.isIso (F.object object) object fold ;
+  equation : Id E.pre.ob object (F.object object) ;
+  center (Y : E.pre.ob)
+    (a : E.pre.hom (F.object Y) Y) :
+    Morphism E F object fold Y a ;
+  initial (Y : E.pre.ob)
+    (a : E.pre.hom (F.object Y) Y)
+    (w : Morphism E F object fold Y a) :
+    Id (Morphism E F object fold Y a)
+      w (center Y a) ;
+} ;
+
+Total (E : CAT.Category) : U l+++ =
+  (F : K.Endofunctor[E.pre]) *
+    (K.OmegaContinuous[E.pre,F] * InitialSolution[E,F]) ;

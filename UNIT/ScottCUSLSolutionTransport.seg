@@ -1,0 +1,46 @@
+-- Solve in CUSL, then transport the functor and its initial algebra
+-- along the univalent equality of CUSL and Scott EP categories.
+level l ;
+open Base ;
+module CAT = Category[l++,l+] ;
+module K = CategoryInitialChain[l++,l+] ;
+module Sol = CategoryInitialSolution[l] ;
+module CU = ScottCUSL[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+
+module On (F : K.Endofunctor[CU.pre])
+  (omega : K.OmegaContinuous[CU.pre,F]) {
+  module C = ScottCUSLFixedPoint[l].On[F,omega] ;
+  cusl-solution : Sol.InitialSolution[
+    CU.CategoryUnivalence.category,F] =
+    new Sol.InitialSolution[CU.CategoryUnivalence.category,F,
+      object := C.solution,
+      fold := C.fold,
+      invertible := C.isomorphism.2,
+      equation := C.equation,
+      center := \ Y a -> C.Algebra[Y,a].canonical,
+      initial := \ Y a w -> C.Algebra[Y,a].initial w] ;
+  source : Sol.Total CU.CategoryUnivalence.category =
+    (F,(omega,cusl-solution)) ;
+  transported : Sol.Total EP.category =
+    Prelude[l+++].subst CAT.Category Sol.Total
+      CU.CategoryUnivalence.category EP.category
+      ScottEPTransport[l].category-equality source ;
+  functor : K.Endofunctor[EP.pre] = transported.1 ;
+  preservation : K.OmegaContinuous[EP.pre,functor] =
+    transported.2.1 ;
+  solution : Sol.InitialSolution[EP.category,functor] =
+    transported.2.2 ;
+  equation : Id EP.pre.ob solution.object
+    (functor.object solution.object) =
+    solution.equation ;
+  module Algebra (Y : EP.pre.ob)
+    (a : EP.pre.hom (functor.object Y) Y) {
+    Morphism : U l+ =
+      Sol.Morphism EP.category functor
+        solution.object solution.fold Y a ;
+    canonical : Morphism = solution.center Y a ;
+    initial : (w : Morphism) -> Id Morphism w canonical =
+      solution.initial Y a ;
+  } ;
+} ;

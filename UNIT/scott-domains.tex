@@ -55,8 +55,10 @@ category gives an initial algebra and an object equality $X=F(X)$ for
 every colimit-preserving endofunctor of that category. A checked
 categorical structure identity principle identifies the equivalent
 univalent CUSL and Scott EP categories. Transport along this equality
-gives the same result for all unpresented
-Scott-domain embedding--projection endofunctors preserving these colimits.
+transfers each CUSL functor together with its preservation proof and initial
+solution to Scott EP. It also transfers countable-chain colimit structure,
+giving initial algebras for all unpresented Scott-domain
+embedding--projection endofunctors preserving these colimits.
 A direct
 construction shows that the category of algebras for any endofunctor
 of a univalent category is itself univalent. A finite-stabilisation
@@ -423,6 +425,27 @@ endofunctor of EP throughout: only the colimit structure is transported.
 The one-point EP domain is initial, so
 Theorem~\ref{thm:initial-chain} applies. Univalence turns its solution
 isomorphism into equality of objects.
+\end{proof}
+
+\begin{corollary}[Transport of a CUSL domain equation]
+\label{cor:cusl-solution-transport}
+Let $F:\mathbf{CUSL}\to\mathbf{CUSL}$ preserve countable-chain
+colimits. Under the equality
+$\mathbf{CUSL}=\mathbf{Dom}_{\triangleleft}$ of
+Theorem~\ref{thm:category-sip}, transport of $F$ and its initial algebra
+gives an EP endofunctor $F^{\mathrm{EP}}$ with an initial algebra
+$\mathsf{fold}^{\mathrm{EP}}:F^{\mathrm{EP}}(\mu^{\mathrm{EP}}F)
+\to\mu^{\mathrm{EP}}F$. Its fold map is invertible and
+$\mu^{\mathrm{EP}}F=F^{\mathrm{EP}}(\mu^{\mathrm{EP}}F)$.
+\end{corollary}
+\begin{proof}
+Theorem~\ref{thm:cusl-initial} gives a dependent package comprising
+$F$, its colimit-preservation proof, the initial $F$-algebra, invertibility
+of its structure map, and the object equality. Transport this whole
+package along the category equality. The resulting package has exactly
+the stated fields for an EP endofunctor. The checked construction is
+\texttt{ScottCUSLSolutionTransport.On}; its algebra-morphism center and
+uniqueness fields establish initiality after transport.
 \end{proof}
 
 \begin{theorem}[Univalence of the algebra category]
@@ -1687,7 +1710,8 @@ Scott EP and CUSL categories, Theorem~\ref{thm:cusl-equivalence}.
 The CUSL initial-algebra theorem, Theorem~\ref{thm:cusl-initial},
 uses the checked countable-chain colimit construction; the categorical
 structure identity principle, Theorem~\ref{thm:category-sip}, transfers it to
-the unpresented EP corollary, Corollary~\ref{cor:ep-initial}.
+the unpresented EP corollary, Corollary~\ref{cor:ep-initial}, and directly
+transports each CUSL solution by Corollary~\ref{cor:cusl-solution-transport}.
 \item The Scott filter domain and recursive projector; corrected rank
 stages, finite stabilisation, and comparison with bounded compact typing.
 \item The independent strict lower admissible invariant, its equations
@@ -1712,12 +1736,12 @@ complete command.
 \hline
 Check & Declarations & Checker CPU time\\
 \hline
-Complete development & 11,736 & 4.31 s\\
-Independent relation and consequences & 4,909 & 1.13 s\\
+Complete development & 11,769 & 4.60 s\\
+Independent relation and consequences & 4,909 & 1.15 s\\
 \hline
 \end{tabular}
 \end{center}
-The \textbf{total wall-clock time was 5.52 seconds}, including dependency
+The \textbf{total wall-clock time was 5.85 seconds}, including dependency
 verification and both checker processes. The independent run has a
 104-module dependency closure with the old logical relation and the earlier
 proofs of adequacy, syntactic Pi injectivity and subject reduction out of scope. All 40 frozen

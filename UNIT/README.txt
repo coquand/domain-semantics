@@ -2,7 +2,7 @@ Section 2 in Unit, using intersection types and filters
 =====================================================
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 11,736
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 11,769
 declarations, with 0 failures, using the recorded checker (2026-11-12).
 
 Run from DOMAIN:
@@ -86,6 +86,13 @@ whose stages have merely existing bases. A direct generic transfer proof
 via the quasi-inverse is also checked independently.
 Consequently every EP endofunctor preserving countable-chain colimits
 has an initial algebra, an isomorphism, and object equality X = F(X).
+There is also a literal transport of a CUSL solution. Given a CUSL
+endofunctor F and its colimit-preservation proof, the package consisting
+of F, that proof, and its initial solution is transported along the
+category equality to EP. This gives an EP endofunctor with its preservation
+proof, initial algebra, invertible fold map, and object equation. Thus the
+EP solution in this case is obtained by transport of the CUSL solution,
+without choosing presentations or rebuilding its initial chain.
 
 The univalent category of Scott domains and embedding-projection pairs is
 now equivalent to the univalent category of conditional upper semilattices
@@ -212,6 +219,10 @@ New names except Proper and Regular are under All.Theory, at universe l.
   ScottCUSLFixedPoint.On.equation / Algebra.initial
     A colimit-preserving CUSL endofunctor has a solution X = F(X), whose
     fold map is an initial algebra.
+  CategoryInitialSolution.InitialSolution / ScottCUSLSolutionTransport.On.solution
+    A transportable dependent package for an initial solution. Transport
+    of a CUSL functor, preservation proof and solution along category
+    equality yields an EP functor and its initial solution.
   ScottEPTransport.cocomplete / On.equation / On.Algebra.initial
     Transport of CUSL omega-cocompleteness along category equality gives
     unpresented EP omega-cocompleteness. A colimit-preserving endofunctor
@@ -468,7 +479,7 @@ ideal below identity. StableFamilies proves both joint stability of
 (B,f) |-> R_B(f) and stability of B |-> R_B into rigid projections of the
 stable function domain, for stable families over the fixed input domain.
 
-The combined check reports 11,736 declarations and zero failures.
+The combined check reports 11,769 declarations and zero failures.
 StableInputRestriction, StableImageMaps and StableVaryingFamilies now
 handle varying rigid input domains: input restriction is rigid, stable
 maps on its image extend/restrict with beta/eta, and Q_(p,B) is the
