@@ -1,9 +1,9 @@
 -- The typed conversion step for the type-before-term construction.
 -- Hypotheses concern the preceding relation; no old relation law is used.
 level l ;
-open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Typing[l] ; open Syntax[l] ; open Reduction[l] ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Syntax[l] ; open Reduction[l] ;
 open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
-module SL = SemanticLaws[l] ; module AP = Application[l] ; module Tr = TruncationCombinators[l] ;
+module SL = StructuralProjectorLaws[l] ; module AP = Application[l] ; module Tr = TruncationCombinators[l] ;
 module At (n : Nat) (Delta : Ctx n) {
   module O = LogicalRelationOperator[l].At[n,Delta] ; module L = LogicalRelationLocality[l].At[n,Delta] ;
   module C = LogicalRelationClauses[l].At[n,Delta] ; module PD = IndependentRelationPiData[l].At[n,Delta] ;
@@ -77,9 +77,9 @@ module At (n : Nat) (Delta : Ctx n) {
     } ;
     result : Q.holds (SL.p A X) = ProjectorPredicateCases[l].At[A,X].Predicate[Q,(L.advance-strict R strict).2 T' M M',
       \ ha hx -> Q.lower universe (SL.p universe X)
-        (prin-sub univ (SL.p universe X).1 (SL.universe-in X univ hx tp-UU)) (data-term ha),
-      \ ha hx -> Q.lower Constructors[l].Pi[ProjectorOperator[l].At[BinarySemantic[l].semantic,A,X].pi-domain hx,
-        ProjectorOperator[l].At[BinarySemantic[l].semantic,A,X].pi-family hx].value (SL.p universe X)
+        (prin-sub univ (SL.p universe X).1 (SL.universe-in X hx)) (data-term ha),
+      \ ha hx -> Q.lower Constructors[l].Pi[ProjectorOperator[l].At[KleeneConstruction[l].candidate,A,X].pi-domain hx,
+        ProjectorOperator[l].At[KleeneConstruction[l].candidate,A,X].pi-family hx].value (SL.p universe X)
         (ProjectorPredicateCases[l].At[universe,X].pi-inclusion (prin-in univ) hx) (data-term ha),
       \ ha -> FunctionCase[ha].result].result ;
   } ;
@@ -131,7 +131,7 @@ module At (n : Nat) (Delta : Ctx n) {
     } ;
     at-universe (hx : Parts[l].UHead X) : Q.holds universe = TC.Step[R.tm,R.ty,T',T].fold universe
       (\ hu -> Tr.map (Reds n T (uu n) * Reds n T' (uu n)) (Reds n T' (uu n) * Reds n T (uu n))
-        (\ w -> (w.2,w.1)) (related.1 (SL.universe-in X univ hx tp-UU)),
+        (\ w -> (w.2,w.1)) (related.1 (SL.universe-in X hx)),
        \ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)) ;
     result : Q.holds (SL.p universe X) = ProjectorPredicateCases[l].At[universe,X].Predicate[Q,TC.Step[R.tm,R.ty,T',T].strict,
       \ hu hx -> at-universe hx,\ hu hx -> Product[hx].result,\ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)].result ;
@@ -199,7 +199,7 @@ module At (n : Nat) (Delta : Ctx n) {
     at-universe (hx : Parts[l].UHead X) : Q.holds universe = TC.Step[R.tm,R.ty,T,W].fold universe
       (\ hu -> Tr.map2 (Reds n T (uu n) * Reds n V (uu n)) (Reds n V (uu n) * Reds n W (uu n))
         (Reds n T (uu n) * Reds n W (uu n)) (\ w v -> (w.1,v.2))
-        (first.1 (SL.universe-in X univ hx tp-UU)) (second.1 (SL.universe-in X univ hx tp-UU)),
+        (first.1 (SL.universe-in X hx)) (second.1 (SL.universe-in X hx)),
        \ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)) ;
     result : Q.holds (SL.p universe X) = ProjectorPredicateCases[l].At[universe,X].Predicate[Q,TC.Step[R.tm,R.ty,T,W].strict,
       \ hu hx -> at-universe hx,\ hu hx -> Product[hx].result,\ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)].result ;

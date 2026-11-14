@@ -38,8 +38,8 @@ Colson's ultimate-obstination theorem; see the end.)
 The [revised Scott-domain note (PDF)](UNIT/scott-domains-revised.pdf), with
 [LaTeX source](UNIT/scott-domains-revised.tex), presents the equivalence of Scott domains with embedding–projection pairs
 and conditional upper semilattices (CUSLs), continuous function spaces,
-dependent products and sums, finitary projectors, and an independent
-logical relation proving adequacy and definitional inversion.
+dependent products and sums, finitary projectors, and a logical relation
+constructed by finite depth, proving adequacy and definitional inversion.
 The mathematical presentation comes first; the formal-check summary and
 recorded timings are at the end.
 
@@ -53,6 +53,13 @@ The [independent CUSL session](UNIT/CUSLFpCheck.seg) follows this change of
 representation through [closed compact families](UNIT/ScottCUSLClosedFamilies.seg)
 to the continuous `Fp` functor, including preservation of small directed
 colimits and transport to Scott domains.
+
+Semantic typing is defined by projector fixedness, `p(a,x) = x`.
+The [direct compact-cover proof](UNIT/NormalizedCompactCover.seg) and
+[structural typed-law session](UNIT/StructuralTypedLawsCheck.seg) establish
+coverage, symmetry, transitivity and conversion without using the
+inductive compact typing judgement. The later bridge to the existing
+filter-model soundness proof still uses that judgement.
 
 The full fundamental lemma includes Pi formation and equality, annotated
 lambda, and typed function extensionality, without using the old adequacy
@@ -68,10 +75,11 @@ derivations.
 - [Development guide](UNIT/README.txt) and
   [logical-relation proof account](UNIT/LOGICAL_RELATION_PROGRAM.md)
 
-`python3 UNIT/check.py` checks five sessions: the full development
-(15,724 declarations), general CUSL `Fp` construction (2,412), general
-dependent products and sums (1,156), independent projector proof (3,849),
-and independent logical relation (6,349). All pass with zero failures,
+`python3 UNIT/check.py` checks six sessions: the full development
+(15,785 declarations), general CUSL `Fp` construction (2,412), general
+dependent products and sums (1,156), independent projector proof (3,916),
+structural typed laws (5,118), and independent logical relation (6,410).
+All pass with zero failures,
 and all 40 frozen dependency hashes match. The separate sessions audit
 which earlier proof modules are excluded. The development uses univalence
 and replacement as explicit ambient parameters.

@@ -87,6 +87,6 @@ module Theory
  import BinaryAdmissible ;
  import NormalizedProjectorSup ;
  import KleeneConstruction ;
- import IndependentKleeneProjector ;
+ import IndependentKleeneProjector ; import NormalizedCompactCover ; import StructuralProjectorLaws ;
  import EPRestrictionObstruction ;
 } ;

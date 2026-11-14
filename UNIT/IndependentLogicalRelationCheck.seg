@@ -81,7 +81,7 @@ module Theory
  import ScottFilterReflexiveEP ;
  import DependentProductProjector ; import SectionProjector ; import ProjectorNormalization ; import UniversePayloadProjector ; import ScottFilterCompactFunction ; import CompactProduct ; import UniverseProductProjector ; import StructuralUniverseProductProjector ; import ProjectorInvariant ;
  import BinarySup ; import BinaryAdmissible ; import NormalizedProjectorSup ;
- import KleeneConstruction ; import IndependentKleeneProjector ; import KleeneProjector ;
+ import KleeneConstruction ; import IndependentKleeneProjector ; import NormalizedCompactCover ; import StructuralProjectorLaws ; import KleeneProjector ;
  import CorrectedRank ;
  import CorrectedStages ;
  import RankProjection ;

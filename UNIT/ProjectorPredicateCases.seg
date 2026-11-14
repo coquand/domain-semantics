@@ -1,19 +1,15 @@
--- Eliminate the semantic projector into a lower admissible predicate.
+-- Eliminate the least-fixed-point projector into a lower admissible predicate.
 -- This is a domain-level alternative to splitting typed compact tokens.
 level l ;
-open BinarySemantic[l] ;
 open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
 open Sum[l] ; open BinaryMaps[l] ;
 module P = ScottPredicates[l].On[ScottFilter[l].scott] ; module Tr = TruncationCombinators[l] ;
-module PO = ProjectorOperator[l] ; module KP = KleeneProjector[l] ; module OC = OperatorContinuity[l] ;
-module SL = SemanticLaws[l] ;
+module PO = ProjectorOperator[l] ; module KP = KleeneConstruction[l] ;
+module SL = StructuralProjectorLaws[l] ;
 module At (A X : D) {
-  module Step = PO.At[semantic,A,X] ;
-  forward : Domain[l].Below Step.result (SL.p A X) = KP.semantic-prefixed A X ;
-  backward : Domain[l].Below (SL.p A X) Step.result =
-    sub-trans (SL.p A X).1 (KP.p A X).1 Step.result.1 (KP.above-semantic A X)
-      (sub-trans (KP.p A X).1 (value (OC.Phi KP.candidate) A X).1 Step.result.1 (KP.post-fixed A X)
-        (OC.monotone KP.candidate semantic KP.below-semantic A X)) ;
+  module Step = PO.At[KP.candidate,A,X] ;
+  forward : Domain[l].Below Step.result (SL.p A X) = KP.pre-fixed A X ;
+  backward : Domain[l].Below (SL.p A X) Step.result = KP.post-fixed A X ;
   function (h : Parts[l].PHead A) : Domain[l].Below (Step.function h).1 (SL.p A X) =
     sub-trans (Step.function h).1.1 Step.result.1 (SL.p A X).1 (Step.function-in h) forward ;
   pi-inclusion (ha : Parts[l].UHead A) (hx : Parts[l].PHead X) :

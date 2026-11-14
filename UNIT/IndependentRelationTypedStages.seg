@@ -18,10 +18,10 @@ module At (n : Nat) (Delta : Ctx n) {
     (St.initial.ty M V).holds x = \ hu -> Tr.map2 St.Initial[M,N].Evidence St.Initial[N,V].Evidence St.Initial[M,V].Evidence
       (\ w v -> (w.1,v.2)) (h hu) (h' hu) ;
   initial : Laws[St.initial] = new Laws[St.initial,
-    \ X M N -> initial-symmetry M N (SemanticLaws[l].p universe X),
-    \ X M N V -> initial-transitivity M N V (SemanticLaws[l].p universe X),
-    \ A X T M N -> initial-symmetry M N (SemanticLaws[l].p A X),
-    \ A X T M N V -> initial-transitivity M N V (SemanticLaws[l].p A X),
+    \ X M N -> initial-symmetry M N (StructuralProjectorLaws[l].p universe X),
+    \ X M N V -> initial-transitivity M N V (StructuralProjectorLaws[l].p universe X),
+    \ A X T M N -> initial-symmetry M N (StructuralProjectorLaws[l].p A X),
+    \ A X T M N V -> initial-transitivity M N V (StructuralProjectorLaws[l].p A X),
     \ A X T T' M M' types terms -> terms] ;
   module Step (d : Nat) (previous : Laws[St.stage d]) {
     types-symmetric : TS.TypeSymmetry (St.stage (suc d)) =

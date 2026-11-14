@@ -2,6 +2,35 @@
 
 ## Checked progress (2026-11-14)
 
+Semantic typing is now fixedness, `StructuralProjectorLaws.HasType x a`:
+`p(a,x) = x`. `NormalizedCompactCover.On.observe` proves the direct
+compact-cover lemma for any continuous normalized finitary-projector
+family. It normalizes the classifier, uses continuity and compact fixed-point
+density to get a compact universe-fixed classifier, then uses density again
+to get a compact value fixed by that classifier. No inductive typing is used.
+
+`ProjectorPredicateCases`, `ProjectorFunctionSupport`, and the finite-depth
+typed relation laws now use the independently constructed Kleene projector.
+`IndependentRelationTypedLaws` lifts them using the new fixed-point witnesses.
+`StructuralTypedLawsCheck.seg` checks the whole route with `SemanticProjector`,
+`SemanticLaws`, `BinarySemantic`, `KleeneProjector`, `ProjectorLeast`, and the
+raw soundness bridge out of scope. `check.py` audits that boundary and the
+absence of inductive compact typing references in the new proof files.
+Foundational imports still contain the unused typing family, alongside the
+order-equivalence helpers used by the compact basis library.
+
+The raw soundness bridge in `IndependentRelationRawLaws` still uses the
+checked comparison between the old and Kleene projectors. Eliminating
+inductive compact typing from the complete filter-model soundness proof
+is separate from the now direct compact-cover and typed-law construction.
+
+The latest checks pass six sessions: All (15,785), CUSL Fp (2,412), generic
+products/sums (1,156), projector/direct cover (3,916), structural typed
+laws (5,118), and the full independent logical relation (6,410). All have
+zero failures, with all 40 frozen dependency hashes unchanged. Both the
+recorded checker and the checker built from published Unit 18bb219f pass.
+The remaining progress records below describe the earlier checkpoints.
+
 The general dependent-product closure theorem is now checked for Scott
 domains `A,D` and a continuous EP-valued family over `A` with coherent
 embeddings of its fibers into `D`:

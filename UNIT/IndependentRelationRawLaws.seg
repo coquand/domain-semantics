@@ -3,7 +3,7 @@
 level l ;
 open Base ; open Prelude[l] ; open Types[l] ; open Syntax[l] ;
 open ExtFilter[l] ; open Domain[l] ;
-module Raw = Filter[l] ; module Soundness = Sound[l] ; module SL = SemanticLaws[l] ;
+module Raw = Filter[l] ; module Soundness = Sound[l] ; module Old = SemanticLaws[l] ; module SL = StructuralProjectorLaws[l] ;
 module Tr = TruncationCombinators[l] ; module Substitutions = IndependentRelationSubstitutions[l] ;
 module Typed (X A : Raw.Filt) (hx : Soundness.HasTy X A) (ha : Soundness.TyU A) {
   consistent : Raw.ConsF X = Soundness.hasty-cons X A hx ;
@@ -11,11 +11,13 @@ module Typed (X A : Raw.Filt) (hx : Soundness.HasTy X A) (ha : Soundness.TyU A) 
   type-consistent : Raw.ConsF A = Soundness.hasty-cons A Raw.univF ha ;
   type-regular : Regular[l].Regular A = Regular[l].typed-regular A Raw.univF ha ;
   value : D = from-raw X consistent regular ; classifier : D = from-raw A type-consistent type-regular ;
-  cover (t : Ty) (w : Soundness.Enl X A t) : In (SL.p classifier value) t =
-    fup (SL.p classifier value).1 w.v t w.below
-      (SL.introduce classifier value w.v w.c (ex (X.mem w.v) w.inA) (ex (A.mem w.c) w.inB) w.tp) ;
+  cover (t : Ty) (w : Soundness.Enl X A t) : In (Old.p classifier value) t =
+    fup (Old.p classifier value).1 w.v t w.below
+      (Old.introduce classifier value w.v w.c (ex (X.mem w.v) w.inA) (ex (A.mem w.c) w.inB) w.tp) ;
+  old-fixed : Equal (Old.p classifier value) value = (Old.below classifier value,
+    \ t -> Tr.rec (X.mem t) @l (In (Old.p classifier value) t) (fprop (Old.p classifier value).1 t) (\ h -> cover t (hx t h))) ;
   fixed : Equal (SL.p classifier value) value = (SL.below classifier value,
-    \ t -> Tr.rec (X.mem t) @l (In (SL.p classifier value) t) (fprop (SL.p classifier value).1 t) (\ h -> cover t (hx t h))) ;
+    \ t h -> KleeneProjector[l].above-semantic classifier value t (old-fixed.2 t h)) ;
 } ;
 module At (n : Nat) (Delta : Ctx n) {
   module I = IndependentLogicalRelation[l].At[n,Delta] ;

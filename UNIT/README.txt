@@ -12,8 +12,17 @@ typing modules. ScottCUSLClosedFamilies.seg implements the closed families,
 and ScottCUSLFpContinuity.seg proves directed-colimit preservation.
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 15,724
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 15,785
 declarations, with 0 failures, using the recorded checker (2026-11-14).
+
+Semantic typing is projector fixedness: StructuralProjectorLaws.HasType x a
+means p(a,x) = x. NormalizedCompactCover proves compact coverage directly
+from continuity, finitariness and normalization. The finite-depth typed
+laws and their lift to the relation use this proof, without inductive
+compact typing witnesses. StructuralTypedLawsCheck checks them with the
+inductive semantic projector and its comparison theorem out of scope.
+The later IndependentRelationRawLaws bridge to the original filter-based
+soundness proof still uses that comparison and the old typing judgement.
 
 Run from DOMAIN:
 
@@ -29,18 +38,24 @@ then on CUSLFpCheck.seg (2,412 declarations, zero failures), with no
 filter, typing, or specialized projector-family modules in scope,
 IndependentDependentProductCheck.seg (1,156 declarations, zero failures)
 with no filter-domain or typing modules in scope,
-IndependentProjectorCheck.seg (3,849 declarations, zero failures)
+IndependentProjectorCheck.seg (3,916 declarations, zero failures)
 with the semantic projector, typed stage comparisons, and older direct
 common-code proof out of scope,
-and IndependentLogicalRelationCheck.seg (6,349 declarations, zero failures)
+StructuralTypedLawsCheck.seg (5,118 declarations, zero failures)
+with the inductive semantic projector, its comparison theorem, and the
+raw soundness bridge out of scope,
+and IndependentLogicalRelationCheck.seg (6,410 declarations, zero failures)
 with the old relation and adequacy out of scope, each in a separate process.
+The import boundaries and absence of inductive compact typing references
+in the new cover and typed-law files are audited by check.py. Typing.seg
+remains imported by the foundational library for order-equivalence helpers.
 No external Python packages or Agda checker are needed. The Unit checker
 binary itself is not bundled.
 
 Reproduce with a published Unit checker
 -------------------------------------
 
-All five sessions also pass with the checker built from published Unit
+All six sessions also pass with the checker built from published Unit
 revision 18bb219f040ba1f66c4d57185fedc5b5c4d4617e:
 
     git clone https://github.com/coquand/unit.git

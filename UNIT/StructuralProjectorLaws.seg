@@ -1,0 +1,19 @@
+-- Projector API derived before comparison with inductive compact typing.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open BinaryMaps[l] ;
+module K = KleeneConstruction[l] ; module I = IndependentKleeneProjector[l] ;
+module PO = ProjectorOperator[l] ;
+p (a x : D) : D = K.p a x ;
+HasType (x a : D) : U l = Equal (p a x) x ;
+typed-equation (x a : D) (h : HasType x a) : Id D (p a x) x = Domain[l].ext (p a x) x h ;
+below (a x : D) : Domain[l].Below (p a x) x = (I.finitary a).deflation x ;
+idempotent (a x : D) : Equal (p a (p a x)) (p a x) = (I.finitary a).idempotence x ;
+mono (a b x y : D) : Domain[l].Below a b -> Domain[l].Below x y ->
+ Domain[l].Below (p a x) (p b y) = BinaryMaps[l].mono K.candidate a b x y ;
+normalization (a x : D) : Equal (p (p universe a) x) (p a x) = I.family.normalization a x ;
+universe-self : In (p universe universe) univ = K.pre-fixed universe universe univ
+ (PO.At[K.candidate,universe,universe].u-in (prin-in univ) (prin-in univ) univ (prin-in univ)) ;
+universe-in (x : D) (h : In x univ) : In (p universe x) univ =
+ (K.candidate.at universe).2.1 universe x (prin-sub univ x.1 h) univ universe-self ;
+module Cover = NormalizedCompactCover[l].On[K.candidate,I.family.finitary,I.family.normalization] ;

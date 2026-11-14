@@ -1,0 +1,60 @@
+-- Compact coverage from continuity, finitariness and normalization only.
+-- Semantic typing is fixedness. No inductive typing judgement is used.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open BinaryMaps[l] ; open Finitary[l] ;
+module T = TruncationCombinators[l] ;
+
+module On (q : Binary) (fp : (a : D) -> Finitary[l].Finitary[q.at a])
+ (norm : ProjectorNormalization[l].Normalized q) {
+ p (a x : D) : D = value q a x ;
+ record Observation {
+  A : D ; X : D ; target : Ty ;
+  key : K ; code : K ;
+  inside : In X key.1 ; type-inside : In A code.1 ;
+  normalized-inside : In (p universe A) code.1 ;
+  fixed : Fixed (q.at (principal code)) (principal key) ;
+  code-fixed : Fixed (q.at universe) (principal code) ;
+  covers : Le key.1 target ;
+ } ;
+ module At (A X : D) (t : Ty) {
+  normalized : D = p universe A ;
+  First : U l = (k : K) * (In normalized k.1 * In (p (principal k) X) t) ;
+  module Classifier (w : First) (c : FixedBasis (q.at universe) normalized w.1.1) {
+   code : K = c.1 ;
+   observed : In (p (principal code) X) t =
+    q.monotone (principal w.1) (principal code)
+     (prin-anti code.1 w.1.1 c.2.2.2) X t w.2.2 ;
+   module Value (v : FixedBasis (q.at (principal code)) (p (principal code) X) t) {
+    witness : Observation[A,X,t] = new Observation[A,X,t,v.1,code,
+     (fp (principal code)).deflation X v.1.1 v.2.2.1,
+     (fp universe).deflation A code.1 c.2.2.1,c.2.2.1,
+     v.2.1,c.2.1,v.2.2.2] ;
+   } ;
+   result : Ex Observation[A,X,t] =
+    T.map (FixedBasis (q.at (principal code)) (p (principal code) X) t)
+     Observation[A,X,t] (\ v -> Value[v].witness)
+     ((fp (principal code)).density (p (principal code) X)
+      ((fp (principal code)).idempotence X) t observed) ;
+  } ;
+  first (w : First) : Ex Observation[A,X,t] =
+   T.bind (FixedBasis (q.at universe) normalized w.1.1) Observation[A,X,t]
+    (\ c -> Classifier[w,c].result)
+    ((fp universe).density normalized ((fp universe).idempotence A) w.1.1 w.2.1) ;
+  observe (h : In (p A X) t) : Ex Observation[A,X,t] =
+   T.bind First Observation[A,X,t] first
+    (q.finite normalized X t ((norm A X).2 t h)) ;
+ } ;
+ observe (A X : D) (t : Ty) : In (p A X) t -> Ex Observation[A,X,t] = At[A,X,t].observe ;
+ module Witness (A X : D) (t : Ty) (w : Observation[A,X,t]) {
+  value : D = principal w.key ; classifier : D = principal w.code ;
+  below : Domain[l].Below value (p A X) =
+   sub-trans value.1 (p classifier value).1 (p A X).1 w.fixed.2
+    (BinaryMaps[l].mono q classifier A value X
+     (prin-sub w.code.1 A.1 w.type-inside) (prin-sub w.key.1 X.1 w.inside)) ;
+  code-below : Domain[l].Below classifier (p universe A) =
+   prin-sub w.code.1 (p universe A).1 w.normalized-inside ;
+  covers : (k : K) -> Le t k.1 -> Domain[l].Below (principal k) value =
+   \ k le -> prin-anti w.key.1 k.1 (le-trans w.key.1 t k.1 w.covers le) ;
+ } ;
+} ;

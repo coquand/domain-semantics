@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check dependencies, all declarations, and the four independent sessions.
+"""Check dependencies, all declarations, and the five independent sessions.
 
 Usage: python3 UNIT/check.py [path/to/seg]
 UNIT_CHECKER is also accepted; otherwise use the recorded local checker.
@@ -58,11 +58,35 @@ def main():
     }
     if forbidden:
         sys.exit(f"CUSL Fp check imports forbidden modules: {sorted(forbidden)}")
+    structural_imports = set(re.findall(
+        r"\bimport\s+(\w+)\s*;", (root / "StructuralTypedLawsCheck.seg").read_text()))
+    forbidden = structural_imports & {
+        "SemanticProjector", "SemanticLaws", "BinarySemantic", "ProjectorLeast",
+        "ProjectorFixedPoint", "ProjectorEquations", "KleeneProjector",
+        "UniverseProductProjector", "StageTyping", "StageCompatibility",
+        "StageComparison", "IndependentRelationRawLaws", "All",
+    }
+    if forbidden:
+        sys.exit(f"Structural typed-law check imports forbidden modules: {sorted(forbidden)}")
+    # Typing.seg also contains order-equivalence helpers used by the basis
+    # library. The new projector/typed-law proofs must not use its typing
+    # family, constructors or elimination lemmas, even though it is in scope.
+    for source in (
+        "NormalizedCompactCover.seg", "StructuralProjectorLaws.seg",
+        "ProjectorPredicateCases.seg", "ProjectorFunctionSupport.seg",
+        "IndependentRelationClauseLaws.seg", "IndependentRelationTypedSteps.seg",
+        "IndependentRelationTypedTerms.seg", "IndependentRelationTypedStages.seg",
+        "IndependentRelationTypedLaws.seg",
+    ):
+        code = re.sub(r"--[^\n]*", "", (root / source).read_text())
+        if re.search(r"\b(?:Typing|Tp|t-bot|t-univ|t-pi|t-lam|en-om|en-arr|en-meet|tp-[\w-]+)\b", code):
+            sys.exit(f"Structural proof refers to inductive compact typing: {source}")
     recorded = hashlib.sha256(checker.read_bytes()).hexdigest() == manifest["checker"]["sha256"]
     print(f"Dependencies: {len(manifest['files'])} hashes verified", flush=True)
     print(f"Checker: {checker} ({'recorded build' if recorded else 'different build'})", flush=True)
     for source in ("All.seg", "CUSLFpCheck.seg", "IndependentDependentProductCheck.seg",
-                   "IndependentProjectorCheck.seg", "IndependentLogicalRelationCheck.seg"):
+                   "IndependentProjectorCheck.seg", "StructuralTypedLawsCheck.seg",
+                   "IndependentLogicalRelationCheck.seg"):
         try:
             result = subprocess.run([str(checker), source], cwd=root,
                                     text=True, capture_output=True, timeout=60)
