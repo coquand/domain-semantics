@@ -1,0 +1,35 @@
+-- Both maps of the general Fp / endomap adjunction preserve directed suprema.
+-- Endomap suprema are transported along the explicit conjugation isomorphism.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ; module S = ScottOrder[l] ;
+module On (D : SO.Domain) {
+  module G = ScottFpAdjunction[l].On[D] ; module P = G.P ; module F = G.F ;
+  module Maps (I : U l) (f : I -> G.DD.Map) (d : F.M.MO.Dir I (\ i -> G.to-ideals (f i))) {
+    ideal-limit : F.M.Map = S.DC[F.M.order,F.M.complete].sup I (\ i -> G.to-ideals (f i)) d ;
+    limit : G.DD.Map = G.to-domain ideal-limit ;
+    upper (i : I) : G.Below (f i) limit = \ x ->
+      ScottDomainCategories[l].le-replace D.order
+        (G.DD.run (G.to-domain (G.to-ideals (f i))) x) (G.DD.run (f i) x)
+        (G.DD.run limit x) (G.DD.run limit x) (G.domain-retract (f i) x) (refl (G.DD.run limit x))
+        (G.to-domain-mono (G.to-ideals (f i)) ideal-limit
+          (S.DC[F.M.order,F.M.complete].upper I (\ i -> G.to-ideals (f i)) d i) x) ;
+    least (h : G.DD.Map) (bounds : (i : I) -> G.Below (f i) h) : G.Below limit h = \ x ->
+      ScottDomainCategories[l].le-replace D.order (G.DD.run limit x) (G.DD.run limit x)
+        (G.DD.run (G.to-domain (G.to-ideals h)) x) (G.DD.run h x)
+        (refl (G.DD.run limit x)) (G.domain-retract h x)
+        (G.to-domain-mono ideal-limit (G.to-ideals h)
+          (S.DC[F.M.order,F.M.complete].least I (\ i -> G.to-ideals (f i)) d (G.to-ideals h)
+            (\ i -> G.to-ideals-mono (f i) h (bounds i))) x) ;
+    module K = F.Directed[I,\ i -> G.to-ideals (f i),d] ;
+    equation : Id P.Family (G.kappa limit) P.Union[I,\ i -> G.kappa (f i),K.directed].value =
+      trans P.Family (G.kappa limit) F.Interior[ideal-limit].family P.Union[I,\ i -> G.kappa (f i),K.directed].value
+        (ap F.M.Map P.Family (\ h -> F.Interior[h].family) (G.to-ideals limit) ideal-limit G.IdealRetract[ideal-limit].equation)
+        K.equation ;
+  } ;
+  module Families (I : U l) (E : I -> P.Family) (d : S.On[P.order].Dir I E) {
+    module K = F.MapDirected[I,E,d] ;
+    equation : Id G.DD.Map (G.include P.Union[I,E,d].value) (G.to-domain K.limit) =
+      ap F.M.Map G.DD.Map G.to-domain F.Projector[P.Union[I,E,d].value].map K.limit K.equation ;
+  } ;
+} ;

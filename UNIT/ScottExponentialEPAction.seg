@@ -1,0 +1,52 @@
+-- The ordinary Scott exponential acts on explicit embedding/projection pairs.
+level l ;
+open Base ; open Prelude[l+] ;
+module EP = ScottEmbeddingProjection[l] ; module Ops = ScottMapOperations[l] ;
+
+module Action (A B C D : ScottDomain[l].Scott) (input : EP.Between[A,C].Pair) (output : EP.Between[B,D].Pair) {
+  module AB = ScottMaps[l].Between[A,B] ; module CD = ScottMaps[l].Between[C,D] ;
+  module AC = ScottMaps[l].Between[A,C] ; module CA = ScottMaps[l].Between[C,A] ;
+  module BD = ScottMaps[l].Between[B,D] ; module DB = ScottMaps[l].Between[D,B] ;
+  module X = ScottExponential[l].Exponential[A,B] ; module Y = ScottExponential[l].Exponential[C,D] ;
+  module E = ScottMaps[l].Between[X.scott,Y.scott] ; module R = ScottMaps[l].Between[Y.scott,X.scott] ;
+  embed-value (f : AB.Map) : CD.Map =
+    Ops.Compose[C,B,D,output.embed,Ops.Compose[C,A,B,f,input.project].map].map ;
+  project-value (g : CD.Map) : AB.Map =
+    Ops.Compose[A,D,B,output.project,Ops.Compose[A,C,D,g,input.embed].map].map ;
+  embed : E.Map = (embed-value,
+    (\ f g h c -> BD.mono output.embed (AB.run f (CA.run input.project (C.basis.basic c)))
+      (AB.run g (CA.run input.project (C.basis.basic c)))
+      (AB.pointwise f g h (CA.run input.project (C.basis.basic c))),
+     \ I f d g h c -> BD.continuous output.embed I
+       (\ i -> AB.run (f i) (CA.run input.project (C.basis.basic c)))
+       (AB.evaluated-dir I f d (CA.run input.project (C.basis.basic c))) (CD.run g (C.basis.basic c))
+       (\ i -> h i c))) ;
+  project : R.Map = (project-value,
+    (\ f g h a -> DB.mono output.project (CD.run f (AC.run input.embed (A.basis.basic a)))
+      (CD.run g (AC.run input.embed (A.basis.basic a)))
+      (CD.pointwise f g h (AC.run input.embed (A.basis.basic a))),
+     \ I g d f h a -> DB.continuous output.project I
+       (\ i -> CD.run (g i) (AC.run input.embed (A.basis.basic a)))
+       (CD.evaluated-dir I g d (AC.run input.embed (A.basis.basic a))) (AB.run f (A.basis.basic a))
+       (\ i -> h i a))) ;
+  module Retract (f : AB.Map) {
+    point (a : A.order.carrier) : Id B.order.carrier (AB.run (project-value (embed-value f)) a) (AB.run f a) =
+      trans B.order.carrier (AB.run (project-value (embed-value f)) a)
+        (AB.run f (CA.run input.project (AC.run input.embed a))) (AB.run f a)
+        (output.retract (AB.run f (CA.run input.project (AC.run input.embed a))))
+        (ap A.order.carrier B.order.carrier (AB.run f) (CA.run input.project (AC.run input.embed a)) a (input.retract a)) ;
+    equation : Id AB.Map (project-value (embed-value f)) f = AB.ext (project-value (embed-value f)) f
+      (AB.small (project-value (embed-value f)) f (\ a -> Ops.replace B.order (AB.run (project-value (embed-value f)) a)
+        (AB.run (project-value (embed-value f)) a) (AB.run (project-value (embed-value f)) a) (AB.run f a)
+        (refl (AB.run (project-value (embed-value f)) a)) (point a) (B.order.reflexive (AB.run (project-value (embed-value f)) a))))
+      (AB.small f (project-value (embed-value f)) (\ a -> Ops.replace B.order (AB.run (project-value (embed-value f)) a)
+        (AB.run f a) (AB.run (project-value (embed-value f)) a) (AB.run (project-value (embed-value f)) a)
+        (point a) (refl (AB.run (project-value (embed-value f)) a)) (B.order.reflexive (AB.run (project-value (embed-value f)) a)))) ;
+  } ;
+  below (g : CD.Map) : CD.LE (embed-value (project-value g)) g = \ c ->
+    D.order.transitive (CD.run (embed-value (project-value g)) (C.basis.basic c))
+      (CD.run g (AC.run input.embed (CA.run input.project (C.basis.basic c)))) (CD.run g (C.basis.basic c))
+      (output.below (CD.run g (AC.run input.embed (CA.run input.project (C.basis.basic c)))))
+      (CD.mono g (AC.run input.embed (CA.run input.project (C.basis.basic c))) (C.basis.basic c) (input.below (C.basis.basic c))) ;
+  pair : EP.Between[X.scott,Y.scott].Pair = new EP.Between[X.scott,Y.scott].Pair[embed,project,\ f -> Retract[f].equation,below] ;
+} ;

@@ -56,8 +56,8 @@ module OnNet (N : Net) {
   } ;
 
   module Family (q : O.Binaries) (a : O.Approx) (h : O.MapNet) (f : O.Approx) {
-    part (i : I) : Map = ProjectorLeast[l].family-map (q.part i) (a.part i) (h.part i) (f.part i) ;
-    limit : Map = ProjectorLeast[l].family-map q.limit a.limit h.limit f.limit ;
+    part (i : I) : Map = ProjectorFamilyMaps[l].family-map (q.part i) (a.part i) (h.part i) (f.part i) ;
+    limit : Map = ProjectorFamilyMaps[l].family-map q.limit a.limit h.limit f.limit ;
     module Eval (z : D) {
       input : O.Approx = O.Evaluation[q,a,O.constant z].approx ;
       result : O.Approx = O.Evaluation[q,map-eval h input,O.ApplyNet[f,input].approx].approx ;

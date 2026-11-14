@@ -1,0 +1,91 @@
+-- Fp preserves directed EP exhaustion, for every small directed index set.
+-- A covered CUSL cocone provides compact representatives of the colimit.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ; module CF = ScottCUSLClosedFamilies[l] ; module FM = ScottCUSLFpMaps[l] ;
+module FF = ScottCUSLFpFunctor[l] ; module SO = ScottDomainObjects[l] ;
+module KM = ScottCUSLCompacts[l] ; module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module Tools = ScottEPImageTools[l] ; module S = ScottOrder[l] ;
+module TC = TruncationCombinators[l] ; module TH = TruncationCombinators[l+] ;
+
+module Exhaustion (I : U l) (stage : I -> CU.CUSL) (L : CU.CUSL)
+  (leg : (i : I) -> CU.pre.hom (stage i) L)
+  (rel : I -> I -> U l) (inhabited : S.Ex I)
+  (upper : (i j : I) -> S.Ex ((k : I) * (rel i k * rel j k)))
+  (link : (i j : I) -> rel i j -> CU.pre.hom (stage i) (stage j))
+  (law : (i j : I) (h : rel i j) -> Id (CU.pre.hom (stage i) L)
+    (CU.pre.comp (stage i) (stage j) L (leg j) (link i j h)) (leg i)) {
+  module P = CF.On[L] ;
+  module At (i : I) { module Map = FM.Between[stage i,L,leg i] ; } ;
+  part (T : P.Family) (i : I) : P.Family = At[i].Map.forward (At[i].Map.backward T) ;
+  increasing (T : P.Family) (i j : I) (h : rel i j) : P.Inc (part T i) (part T j) =
+    subst (EP.pre.hom (FF.Domains.object (stage i)) (FF.Domains.object L))
+      (\ q -> P.Inc (q.1.1.1 (q.1.2.1 T)) (part T j))
+      (EP.pre.comp (FF.Domains.object (stage i)) (FF.Domains.object (stage j)) (FF.Domains.object L)
+        (FF.Domains.arrow (stage j) L (leg j)) (FF.Domains.arrow (stage i) (stage j) (link i j h)))
+      (FF.Domains.arrow (stage i) L (leg i))
+      (trans (EP.pre.hom (FF.Domains.object (stage i)) (FF.Domains.object L))
+        (EP.pre.comp (FF.Domains.object (stage i)) (FF.Domains.object (stage j)) (FF.Domains.object L)
+          (FF.Domains.arrow (stage j) L (leg j)) (FF.Domains.arrow (stage i) (stage j) (link i j h)))
+        (FF.Domains.arrow (stage i) L (CU.pre.comp (stage i) (stage j) L (leg j) (link i j h)))
+        (FF.Domains.arrow (stage i) L (leg i))
+        (sym (EP.pre.hom (FF.Domains.object (stage i)) (FF.Domains.object L))
+          (FF.Domains.arrow (stage i) L (CU.pre.comp (stage i) (stage j) L (leg j) (link i j h)))
+          (EP.pre.comp (FF.Domains.object (stage i)) (FF.Domains.object (stage j)) (FF.Domains.object L)
+            (FF.Domains.arrow (stage j) L (leg j)) (FF.Domains.arrow (stage i) (stage j) (link i j h)))
+          (FF.Domains.composition (stage i) (stage j) L (link i j h) (leg j)))
+        (ap (CU.pre.hom (stage i) L) (EP.pre.hom (FF.Domains.object (stage i)) (FF.Domains.object L))
+          (FF.Domains.arrow (stage i) L)
+          (CU.pre.comp (stage i) (stage j) L (leg j) (link i j h)) (leg i) (law i j h)))
+      (Tools.Factor[FF.Domains.object (stage i),FF.Domains.object (stage j),FF.Domains.object L,
+        FF.Domains.arrow (stage i) (stage j) (link i j h),FF.Domains.arrow (stage j) L (leg j)].below T) ;
+  directed (T : P.Family) : S.On[P.order].Dir I (part T) =
+    (inhabited,\ i j -> TC.map ((k : I) * (rel i k * rel j k)) (S.On[P.order].Upper I (part T) i j)
+      (\ w -> (w.1,(increasing T i w.1 w.2.1,increasing T j w.1 w.2.2))) (upper i j)) ;
+  module Cover (covered : (x : L.order.carrier) -> Truncation[l+].Trunc[
+    (i : I) * ((a : (stage i).order.carrier) * Id L.order.carrier ((leg i).1 a) x)].carrier) {
+  module AtMember (T : P.Family) (k : P.X) (hk : P.Mem T k)
+    (i : I) (a : (stage i).order.carrier) (eq : Id L.order.carrier ((leg i).1 a) (P.A.val k)) {
+    module M = At[i].Map ;
+    source : M.A.X = M.A.A.at a ;
+    index : P.EqX (M.f source) k = P.equal (M.f source) k
+      (trans L.order.carrier (P.A.val (M.f source)) ((leg i).1 (M.A.A.val source)) (P.A.val k)
+        (M.I.f-val source)
+        (trans L.order.carrier ((leg i).1 (M.A.A.val source)) ((leg i).1 a) (P.A.val k)
+          (ap (stage i).order.carrier L.order.carrier (leg i).1 (M.A.A.val source) a (M.A.A.at-val a)) eq)) ;
+    witness : P.Union[I,part T,directed T].W k =
+      (i,S.inc (M.Forward[M.backward T].W k)
+        (source,(P.equiv-in T k (M.f source) (index.2,index.1) hk,index))) ;
+  } ;
+  forward (T : P.Family) : P.Inc T P.Union[I,part T,directed T].value = \ k hk ->
+    TH.rec ((i : I) * ((a : (stage i).order.carrier) * Id L.order.carrier ((leg i).1 a) (P.A.val k))) @l
+      (P.Mem P.Union[I,part T,directed T].value k) (P.member-prop P.Union[I,part T,directed T].value k)
+      (\ w -> S.inc (P.Union[I,part T,directed T].W k) AtMember[T,k,hk,w.1,w.2.1,w.2.2].witness)
+      (covered (P.A.val k)) ;
+  backward (T : P.Family) : P.Inc P.Union[I,part T,directed T].value T =
+    P.Union[I,part T,directed T].lub T (\ i -> At[i].Map.below T) ;
+  equation (T : P.Family) : Id P.Family P.Union[I,part T,directed T].value T =
+    P.ext P.Union[I,part T,directed T].value T (backward T,forward T) ;
+
+  module Compact (c : KM.On[P.domain].Carrier) {
+    module Target = KM.On[P.domain] ;
+    Rep : U l+ = (i : I) * ((a : KM.On[FF.Domains.object (stage i)].Carrier) *
+      Id Target.Carrier ((FF.Compacts.arrow (stage i) L (leg i)).1 a) c) ;
+    module Finish (i : I) (h : P.Inc c.1 (part c.1 i)) {
+      module M = At[i].Map ; module Source = KM.On[M.A.domain] ;
+      value : M.A.Family = M.backward c.1 ;
+      eq : Id P.Family (M.forward value) c.1 = P.ext (M.forward value) c.1 (M.below c.1,h) ;
+      compact-image : Target.Compact (M.forward value) =
+        subst P.Family (\ z -> Target.Compact z) c.1 (M.forward value)
+          (sym P.Family (M.forward value) c.1 eq) c.2 ;
+      compact-source : Source.Compact value = Tools.On[M.A.domain,P.domain,M.pair].compact-reflect value compact-image ;
+      source : Source.Carrier = (value,compact-source) ;
+      witness : Rep = (i,(source,Target.carrier-path ((FF.Compacts.arrow (stage i) L (leg i)).1 source) c eq)) ;
+    } ;
+    represented : Truncation[l+].Trunc[Rep].carrier =
+      TC.rec ((i : I) * P.Inc c.1 (part c.1 i)) @l+ (Truncation[l+].Trunc[Rep].carrier)
+        (Truncation[l+].Trunc[Rep].proposition) (\ w -> Truncation[l+].Trunc[Rep].inc Finish[w.1,w.2].witness)
+        (c.2 I (part c.1) (directed c.1) (forward c.1)) ;
+  } ;
+  } ;
+} ;

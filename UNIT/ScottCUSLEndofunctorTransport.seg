@@ -1,0 +1,113 @@
+-- Transport a presented EP endofunctor to CUSLs via ideal completion
+-- and compact elements, using canonical presented ideals.
+level l ;
+open Base ; open Prelude[l+] ;
+module Pres = ScottPresentedEP[l] ;
+module SD = ScottDomain[l] ;
+module SO = ScottDomainObjects[l] ;
+module CU = ScottCUSL[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module ID = ScottCUSLIdeals[l] ;
+module IM = ScottCUSLIdealMaps[l].Functor ;
+module KM = ScottCUSLCompacts[l].Functor ;
+module EQ = ScottCUSLEquivalence[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+
+module On (F : K.Endofunctor[Pres.pre]) {
+  presented (C : CU.CUSL) : SD.Scott = ID.Canonical[C].O.scott ;
+  domain (C : CU.CUSL) : SO.Domain =
+    SO.from-presented (F.object (presented C)) ;
+  object (C : CU.CUSL) : CU.CUSL = KM.object (domain C) ;
+  ideal-arrow (C D : CU.CUSL) (e : CU.pre.hom C D) :
+    EP.pre.hom (IM.object C) (IM.object D) = IM.arrow C D e ;
+  domain-arrow (C D : CU.CUSL) (e : CU.pre.hom C D) :
+    EP.pre.hom (domain C) (domain D) =
+    F.arrow (presented C) (presented D) (ideal-arrow C D e) ;
+  arrow (C D : CU.CUSL) (e : CU.pre.hom C D) :
+    CU.pre.hom (object C) (object D) =
+    KM.arrow (domain C) (domain D) (domain-arrow C D e) ;
+  comparison (C : CU.CUSL) :
+    EP.pre.Iso (domain C) (IM.object (object C)) =
+    EQ.equivalence.unit-target (domain C) ;
+  comparison-path (C : CU.CUSL) :
+    Id SO.Domain (domain C) (IM.object (object C)) =
+    EP.category.isotoid (domain C)
+      (IM.object (object C)) (comparison C) ;
+  comparison-natural (C D : CU.CUSL)
+    (e : CU.pre.hom C D) :
+    Id (EP.pre.hom (domain C) (IM.object (object D)))
+      (EP.pre.comp (domain C) (IM.object (object C))
+        (IM.object (object D))
+        (IM.arrow (object C) (object D) (arrow C D e))
+        (comparison C).1)
+      (EP.pre.comp (domain C) (domain D)
+        (IM.object (object D))
+        (comparison D).1 (domain-arrow C D e)) =
+    EQ.equivalence.target-natural
+      (domain C) (domain D) (domain-arrow C D e) ;
+  identity (C : CU.CUSL) :
+    Id (CU.pre.hom (object C) (object C))
+      (arrow C C (CU.pre.idn C)) (CU.pre.idn (object C)) =
+    trans (CU.pre.hom (object C) (object C))
+      (arrow C C (CU.pre.idn C))
+      (KM.arrow (domain C) (domain C) (EP.pre.idn (domain C)))
+      (CU.pre.idn (object C))
+      (ap (EP.pre.hom (domain C) (domain C))
+        (CU.pre.hom (object C) (object C))
+        (KM.arrow (domain C) (domain C))
+        (domain-arrow C C (CU.pre.idn C))
+        (EP.pre.idn (domain C))
+        (trans (EP.pre.hom (domain C) (domain C))
+          (domain-arrow C C (CU.pre.idn C))
+          (F.arrow (presented C) (presented C)
+            (EP.pre.idn (IM.object C)))
+          (EP.pre.idn (domain C))
+          (ap (EP.pre.hom (IM.object C) (IM.object C))
+            (EP.pre.hom (domain C) (domain C))
+            (F.arrow (presented C) (presented C))
+            (IM.arrow C C (CU.pre.idn C))
+            (EP.pre.idn (IM.object C)) (IM.identity C))
+          (F.identity (presented C))))
+      (KM.identity (domain C)) ;
+  composition (C D E : CU.CUSL)
+    (e : CU.pre.hom C D) (f : CU.pre.hom D E) :
+    Id (CU.pre.hom (object C) (object E))
+      (arrow C E (CU.pre.comp C D E f e))
+      (CU.pre.comp (object C) (object D) (object E)
+        (arrow D E f) (arrow C D e)) =
+    trans (CU.pre.hom (object C) (object E))
+      (arrow C E (CU.pre.comp C D E f e))
+      (KM.arrow (domain C) (domain E)
+        (EP.pre.comp (domain C) (domain D) (domain E)
+          (domain-arrow D E f) (domain-arrow C D e)))
+      (CU.pre.comp (object C) (object D) (object E)
+        (arrow D E f) (arrow C D e))
+      (ap (EP.pre.hom (domain C) (domain E))
+        (CU.pre.hom (object C) (object E))
+        (KM.arrow (domain C) (domain E))
+        (domain-arrow C E (CU.pre.comp C D E f e))
+        (EP.pre.comp (domain C) (domain D) (domain E)
+          (domain-arrow D E f) (domain-arrow C D e))
+        (trans (EP.pre.hom (domain C) (domain E))
+          (domain-arrow C E (CU.pre.comp C D E f e))
+          (F.arrow (presented C) (presented E)
+            (EP.pre.comp (IM.object C) (IM.object D) (IM.object E)
+              (ideal-arrow D E f) (ideal-arrow C D e)))
+          (EP.pre.comp (domain C) (domain D) (domain E)
+            (domain-arrow D E f) (domain-arrow C D e))
+          (ap (EP.pre.hom (IM.object C) (IM.object E))
+            (EP.pre.hom (domain C) (domain E))
+            (F.arrow (presented C) (presented E))
+            (ideal-arrow C E (CU.pre.comp C D E f e))
+            (EP.pre.comp (IM.object C) (IM.object D) (IM.object E)
+              (ideal-arrow D E f) (ideal-arrow C D e))
+            (IM.composition C D E e f))
+          (F.composition (presented C) (presented D)
+            (presented E) (ideal-arrow C D e) (ideal-arrow D E f))))
+      (KM.composition (domain C) (domain D) (domain E)
+        (domain-arrow C D e) (domain-arrow D E f)) ;
+  functor : K.Endofunctor[CU.pre] =
+    new K.Endofunctor[CU.pre,
+      object := object,arrow := arrow,
+      identity := identity,composition := composition] ;
+} ;

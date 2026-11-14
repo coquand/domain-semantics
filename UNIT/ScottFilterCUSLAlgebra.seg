@@ -1,0 +1,457 @@
+-- The old filter domain gives an algebra for the exact compact CUSL
+-- constructor. Initiality supplies an embedding of the new solution
+-- into its compact elements; surjectivity is a separate obligation.
+level l ;
+open Base ; open Prelude[l+] ; open Types[l] ;
+module CU = ScottCUSL[l] ;
+module SO = ScottDomainObjects[l] ;
+module S = ScottOrder[l] ;
+module R = Replacement[l,l+] ;
+module ID = ScottCUSLIdeals[l] ;
+module IM = ScottCUSLIdealMaps[l].Functor ;
+module KM = ScottCUSLCompacts[l].Functor ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module EQ = ScottCUSLEquivalence[l] ;
+module Exact = ScottCUSLExactFunctor[l] ;
+module Old = ScottFilterFunctionIdealComparison[l] ;
+module Shape = ScottFilterExactShapeComparison[l] ;
+module New = Shape.New ;
+module Chain = ScottCUSLExactChain[l] ;
+module Arrows = CategoryArrows[l++,l+].Arrows[EP.pre] ;
+module CArrows = CategoryArrows[l++,l+].Arrows[CU.pre] ;
+module TH = TruncationCombinators[l+] ;
+module TC = TruncationCombinators[l] ;
+
+constructor : CU.CUSL = Exact.object Old.compacts ;
+custom-small : R.Small constructor.order.carrier =
+  New.Outer.BS.result ;
+canonical-small : R.Small constructor.order.carrier =
+  ID.Canonical[constructor].small ;
+small-path : Id (R.Small constructor.order.carrier)
+  custom-small canonical-small =
+  ScottSmallness[l].SmallSet[constructor.order.carrier,
+    S.On[constructor.order].order-set]
+      .Compare[custom-small,canonical-small].equation ;
+domain-path : Id SO.Domain New.Outer.BI.domain
+  (IM.object constructor) =
+  Prelude[l++].ap (R.Small constructor.order.carrier) SO.Domain
+    (\ c -> ID.On[constructor,c].domain)
+    custom-small canonical-small small-path ;
+canonical-iso : EP.pre.Iso New.Outer.BI.domain
+  (IM.object constructor) =
+  EP.pre.idtoiso New.Outer.BI.domain
+    (IM.object constructor) domain-path ;
+old-canonical-iso : EP.pre.Iso Old.old-domain
+  (IM.object constructor) =
+  Arrows.iso-cmp canonical-iso Shape.old-domain-ep-iso ;
+
+compact-path : Id CU.CUSL Old.compacts
+  (KM.object (IM.object constructor)) =
+  Prelude[l++].ap SO.Domain CU.CUSL KM.object
+    Old.old-domain (IM.object constructor)
+    (EP.category.isotoid Old.old-domain
+      (IM.object constructor) old-canonical-iso) ;
+compact-iso : CU.pre.Iso Old.compacts
+  (KM.object (IM.object constructor)) =
+  CU.pre.idtoiso Old.compacts
+    (KM.object (IM.object constructor)) compact-path ;
+constructor-unit : CU.pre.Iso constructor
+  (KM.object (IM.object constructor)) =
+  EQ.Unit[constructor].category-iso ;
+algebra-iso : CU.pre.Iso constructor Old.compacts =
+  CArrows.iso-cmp (CArrows.iso-inv compact-iso)
+    constructor-unit ;
+algebra : CU.pre.hom (Exact.object Old.compacts)
+  Old.compacts = algebra-iso.1 ;
+
+module InitialMap {
+  module A = Chain.Solved.Algebra[Old.compacts,algebra] ;
+  morphism : A.Morphism = A.canonical ;
+  embedding : CU.pre.hom Chain.candidate Old.compacts =
+    morphism.1 ;
+  unique (h : A.Morphism) : Id A.Morphism h morphism =
+    A.initial h ;
+  stage-map (n : Nat) : CU.pre.hom
+    (Chain.stage n) Old.compacts =
+    CU.pre.comp (Chain.stage n) Chain.candidate Old.compacts
+      embedding (Chain.leg n) ;
+  stage-law (n : Nat) :
+    Id (CU.pre.hom (Chain.stage n) Old.compacts)
+      (CU.pre.comp (Chain.stage n) (Chain.stage (suc n))
+        Old.compacts (stage-map (suc n))
+        (Chain.chain.link n))
+      (stage-map n) =
+    trans (CU.pre.hom (Chain.stage n) Old.compacts)
+      (CArrows.cmp (CArrows.cmp embedding
+        (Chain.leg (suc n))) (Chain.chain.link n))
+      (CArrows.cmp embedding
+        (CArrows.cmp (Chain.leg (suc n))
+          (Chain.chain.link n)))
+      (CArrows.cmp embedding (Chain.leg n))
+      (sym (CU.pre.hom (Chain.stage n) Old.compacts)
+        (CArrows.cmp embedding
+          (CArrows.cmp (Chain.leg (suc n))
+            (Chain.chain.link n)))
+        (CArrows.cmp (CArrows.cmp embedding
+          (Chain.leg (suc n))) (Chain.chain.link n))
+        (CArrows.assoc embedding (Chain.leg (suc n))
+          (Chain.chain.link n)))
+      (CArrows.left embedding (Chain.Limit.law n)) ;
+  ideal-embedding : EP.pre.hom
+    (IM.object Chain.candidate) (IM.object Old.compacts) =
+    IM.arrow Chain.candidate Old.compacts embedding ;
+  domain-embedding : EP.pre.hom
+    (IM.object Chain.candidate) Old.old-domain =
+    EP.pre.comp (IM.object Chain.candidate)
+      (IM.object Old.compacts) Old.old-domain
+      (EQ.Counit[Old.old-domain].category-iso.2.1)
+      ideal-embedding ;
+} ;
+
+-- This is the exact outstanding coverage condition. Since the
+-- canonical algebra map is an embedding, stage coverage of every old
+-- compact would identify the initial solution with the old one.
+StageWitness (c : Old.compacts.order.carrier) : U l+ =
+  (n : Nat) *
+    ((a : (Chain.stage n).order.carrier) *
+      Id Old.compacts.order.carrier
+        ((InitialMap.stage-map n).1 a) c) ;
+StageCoverage : U l+ =
+  (c : Old.compacts.order.carrier) ->
+    Truncation[l+].Trunc[StageWitness c].carrier ;
+Preimage (c : Old.compacts.order.carrier) : U l+ =
+  (x : Chain.candidate.order.carrier) *
+    Id Old.compacts.order.carrier
+      (InitialMap.embedding.1 x) c ;
+Surjective : U l+ =
+  (c : Old.compacts.order.carrier) ->
+    Truncation[l+].Trunc[Preimage c].carrier ;
+
+module BasisReduction {
+  module Compact = ScottCUSLCompacts[l].On[Old.old-domain] ;
+  module Basis = ScottDomain[l].On[ScottFilter[l].scott] ;
+  basic (k : Domain[l].K) : Old.compacts.order.carrier =
+    (Domain[l].principal k,Domain[l].principal-compact k) ;
+  BasisCoverage : U l+ =
+    (k : Domain[l].K) ->
+      Truncation[l+].Trunc[StageWitness (basic k)].carrier ;
+  all-to-basis (h : StageCoverage) : BasisCoverage =
+    \ k -> h (basic k) ;
+  module FromBasis (h : BasisCoverage)
+    (c : Old.compacts.order.carrier) {
+    W : U l =
+      (k : Domain[l].K) *
+        (ScottFilter[l].order.le c.1 (Domain[l].principal k) *
+         ScottFilter[l].order.le (Domain[l].principal k) c.1) ;
+    convert (w : W) :
+      Truncation[l+].Trunc[StageWitness c].carrier =
+      TH.map (StageWitness (basic w.1)) (StageWitness c)
+        (\ v -> subst Old.compacts.order.carrier StageWitness
+          (basic w.1) c
+          (Compact.carrier-path (basic w.1) c
+            (ScottFilter[l].order.antisymmetric
+              (Domain[l].principal w.1) c.1
+              w.2.2 w.2.1)) v)
+        (h w.1) ;
+    result : Truncation[l+].Trunc[StageWitness c].carrier =
+      TC.rec W @l+
+        (Truncation[l+].Trunc[StageWitness c].carrier)
+        (Truncation[l+].Trunc[StageWitness c].proposition)
+        convert (Basis.compact-basis c.1 c.2) ;
+  } ;
+  basis-to-all (h : BasisCoverage) : StageCoverage =
+    \ c -> FromBasis[h,c].result ;
+} ;
+bottom-covered :
+  Truncation[l+].Trunc[
+    StageWitness Old.compacts.bottom].carrier =
+  Truncation[l+].Trunc[
+    StageWitness Old.compacts.bottom].inc
+    (zero,((Chain.stage zero).bottom,
+      trans Old.compacts.order.carrier
+        ((InitialMap.stage-map zero).1
+          (Chain.stage zero).bottom)
+        (InitialMap.embedding.1 Chain.candidate.bottom)
+        Old.compacts.bottom
+        (ap Chain.candidate.order.carrier
+          Old.compacts.order.carrier
+          InitialMap.embedding.1
+          ((Chain.leg zero).1 (Chain.stage zero).bottom)
+          Chain.candidate.bottom
+          (CU.Between[Chain.stage zero,Chain.candidate]
+            .bottom-law (Chain.leg zero)))
+        (CU.Between[Chain.candidate,Old.compacts]
+          .bottom-law InitialMap.embedding))) ;
+basis-bottom-covered :
+  Truncation[l+].Trunc[
+    StageWitness
+      (BasisReduction.basic Domain[l].bottomK)].carrier =
+  TH.map (StageWitness Old.compacts.bottom)
+    (StageWitness
+      (BasisReduction.basic Domain[l].bottomK))
+    (\ w -> subst Old.compacts.order.carrier StageWitness
+      Old.compacts.bottom
+      (BasisReduction.basic Domain[l].bottomK)
+      (BasisReduction.Compact.carrier-path
+        Old.compacts.bottom
+        (BasisReduction.basic Domain[l].bottomK)
+        (refl Domain[l].bottom)) w)
+    bottom-covered ;
+coverage-to-surjective (h : StageCoverage) : Surjective =
+  \ c -> TH.map (StageWitness c) (Preimage c)
+    (\ w -> ((Chain.leg w.1).1 w.2.1,w.2.2)) (h c) ;
+surjective-to-coverage (h : Surjective) : StageCoverage =
+  \ c -> TH.bind (Preimage c) (StageWitness c)
+    (\ w -> TH.map
+      (Chain.Limit.CompactRepresentation[w.1].Witness)
+      (StageWitness c)
+      (\ v -> (v.1,(v.2.1,
+        trans Old.compacts.order.carrier
+          ((InitialMap.stage-map v.1).1 v.2.1)
+          (InitialMap.embedding.1 w.1) c
+          (ap Chain.candidate.order.carrier
+            Old.compacts.order.carrier InitialMap.embedding.1
+            ((Chain.leg v.1).1 v.2.1) w.1 v.2.2)
+          w.2)))
+      Chain.Compact[w.1].witness)
+    (h c) ;
+
+module IfCovered (coverage : StageCoverage) {
+  module E = CU.Between[Chain.candidate,Old.compacts] ;
+  Fiber (c : Old.compacts.order.carrier) : U l+ =
+    (x : Chain.candidate.order.carrier) *
+      Id Old.compacts.order.carrier
+        (InitialMap.embedding.1 x) c ;
+  id-to-le (x y : Old.compacts.order.carrier)
+    (p : Id Old.compacts.order.carrier x y) :
+    Old.compacts.order.le x y =
+    idJ Old.compacts.order.carrier x
+      (\ z _ -> Old.compacts.order.le x z)
+      (Old.compacts.order.reflexive x) y p ;
+  fiber-prop (c : Old.compacts.order.carrier) :
+    isProp (Fiber c) =
+    \ u v -> Sigma-eq Chain.candidate.order.carrier
+      (\ x -> Id Old.compacts.order.carrier
+        (InitialMap.embedding.1 x) c)
+      u.1 v.1 u.2 v.2
+      (Chain.candidate.order.antisymmetric u.1 v.1
+        (E.reflect InitialMap.embedding u.1 v.1
+          (id-to-le (InitialMap.embedding.1 u.1)
+            (InitialMap.embedding.1 v.1)
+            (trans Old.compacts.order.carrier
+              (InitialMap.embedding.1 u.1) c
+              (InitialMap.embedding.1 v.1)
+              u.2
+              (sym Old.compacts.order.carrier
+                (InitialMap.embedding.1 v.1) c v.2))))
+        (E.reflect InitialMap.embedding v.1 u.1
+          (id-to-le (InitialMap.embedding.1 v.1)
+            (InitialMap.embedding.1 u.1)
+            (trans Old.compacts.order.carrier
+              (InitialMap.embedding.1 v.1) c
+              (InitialMap.embedding.1 u.1)
+              v.2
+              (sym Old.compacts.order.carrier
+                (InitialMap.embedding.1 u.1) c u.2)))))
+      (S.On[Old.compacts.order].order-set
+        (InitialMap.embedding.1 v.1) c) ;
+  from-stage (c : Old.compacts.order.carrier)
+    (w : StageWitness c) : Fiber c =
+    ((Chain.leg w.1).1 w.2.1,w.2.2) ;
+  covered (c : Old.compacts.order.carrier) : Fiber c =
+    TH.rec (StageWitness c) @l+ (Fiber c)
+      (fiber-prop c) (from-stage c) (coverage c) ;
+  inverse (c : Old.compacts.order.carrier) :
+    Chain.candidate.order.carrier =
+    (covered c).1 ;
+  section (c : Old.compacts.order.carrier) :
+    Id Old.compacts.order.carrier
+      (InitialMap.embedding.1 (inverse c)) c =
+    (covered c).2 ;
+  retraction (x : Chain.candidate.order.carrier) :
+    Id Chain.candidate.order.carrier
+      (inverse (InitialMap.embedding.1 x)) x =
+    ap (Fiber (InitialMap.embedding.1 x))
+      Chain.candidate.order.carrier (\ v -> v.1)
+      (covered (InitialMap.embedding.1 x))
+      (x,refl (InitialMap.embedding.1 x))
+      (fiber-prop (InitialMap.embedding.1 x)
+        (covered (InitialMap.embedding.1 x))
+        (x,refl (InitialMap.embedding.1 x))) ;
+  iso : CU.OrderIso Chain.candidate Old.compacts =
+    ((InitialMap.embedding.1,
+      qinv Chain.candidate.order.carrier
+        Old.compacts.order.carrier
+        InitialMap.embedding.1 inverse section retraction),
+     (E.mono InitialMap.embedding,E.reflect InitialMap.embedding)) ;
+  category-iso : CU.pre.Iso Chain.candidate Old.compacts =
+    CU.CategoryUnivalence.from-order
+      Chain.candidate Old.compacts iso ;
+} ;
+
+-- The stage image is closed under compatible joins. In the syntax
+-- presentation this is the case needed for finite meets of tokens.
+module JoinClosure (x y : Old.compacts.order.carrier)
+  (compatible : CU.Compatible Old.compacts.order x y) {
+  module Target = CU.On[Old.compacts] ;
+  module Source = CU.On[Chain.candidate] ;
+  module E = CU.Between[Chain.candidate,Old.compacts] ;
+  value : Old.compacts.order.carrier =
+    Target.join x y compatible ;
+  id-to-le (a b : Old.compacts.order.carrier)
+    (p : Id Old.compacts.order.carrier a b) :
+    Old.compacts.order.le a b =
+    idJ Old.compacts.order.carrier a
+      (\ z _ -> Old.compacts.order.le a z)
+      (Old.compacts.order.reflexive a) b p ;
+  module FromWitness (wx : StageWitness x)
+    (wy : StageWitness y) {
+    a : Chain.candidate.order.carrier =
+      (Chain.leg wx.1).1 wx.2.1 ;
+    b : Chain.candidate.order.carrier =
+      (Chain.leg wy.1).1 wy.2.1 ;
+    image-a : Id Old.compacts.order.carrier
+      (InitialMap.embedding.1 a) x = wx.2.2 ;
+    image-b : Id Old.compacts.order.carrier
+      (InitialMap.embedding.1 b) y = wy.2.2 ;
+    image-compatible : Target.compatible
+      (InitialMap.embedding.1 a)
+      (InitialMap.embedding.1 b) =
+      subst Old.compacts.order.carrier
+        (\ z -> Target.compatible z
+          (InitialMap.embedding.1 b))
+        x (InitialMap.embedding.1 a)
+        (sym Old.compacts.order.carrier
+          (InitialMap.embedding.1 a) x image-a)
+        (subst Old.compacts.order.carrier
+          (\ z -> Target.compatible x z)
+          y (InitialMap.embedding.1 b)
+          (sym Old.compacts.order.carrier
+            (InitialMap.embedding.1 b) y image-b)
+          compatible) ;
+    source-compatible : Source.compatible a b =
+      E.compat-reflect InitialMap.embedding a b
+        image-compatible ;
+    mapped-compatible : Target.compatible
+      (InitialMap.embedding.1 a)
+      (InitialMap.embedding.1 b) =
+      E.image-compatible InitialMap.embedding.1
+        (E.mono InitialMap.embedding) a b
+        source-compatible ;
+    source-join : Chain.candidate.order.carrier =
+      Source.join a b source-compatible ;
+    mapped-join : Old.compacts.order.carrier =
+      Target.join (InitialMap.embedding.1 a)
+        (InitialMap.embedding.1 b) mapped-compatible ;
+    mapped-below : Old.compacts.order.le mapped-join value =
+      Target.least (InitialMap.embedding.1 a)
+        (InitialMap.embedding.1 b) mapped-compatible value
+        (Old.compacts.order.transitive
+          (InitialMap.embedding.1 a) x value
+          (id-to-le (InitialMap.embedding.1 a) x image-a)
+          (Target.left x y compatible))
+        (Old.compacts.order.transitive
+          (InitialMap.embedding.1 b) y value
+          (id-to-le (InitialMap.embedding.1 b) y image-b)
+          (Target.right x y compatible)) ;
+    value-below : Old.compacts.order.le value mapped-join =
+      Target.least x y compatible mapped-join
+        (Old.compacts.order.transitive x
+          (InitialMap.embedding.1 a) mapped-join
+          (id-to-le x (InitialMap.embedding.1 a)
+            (sym Old.compacts.order.carrier
+              (InitialMap.embedding.1 a) x image-a))
+          (Target.left (InitialMap.embedding.1 a)
+            (InitialMap.embedding.1 b) mapped-compatible))
+        (Old.compacts.order.transitive y
+          (InitialMap.embedding.1 b) mapped-join
+          (id-to-le y (InitialMap.embedding.1 b)
+            (sym Old.compacts.order.carrier
+              (InitialMap.embedding.1 b) y image-b))
+          (Target.right (InitialMap.embedding.1 a)
+            (InitialMap.embedding.1 b) mapped-compatible)) ;
+    mapped-eq : Id Old.compacts.order.carrier
+      mapped-join value =
+      Old.compacts.order.antisymmetric
+        mapped-join value mapped-below value-below ;
+    image-eq : Id Old.compacts.order.carrier
+      (InitialMap.embedding.1 source-join) value =
+      trans Old.compacts.order.carrier
+        (InitialMap.embedding.1 source-join)
+        mapped-join value
+        (E.join-law InitialMap.embedding a b
+          source-compatible) mapped-eq ;
+    result : Truncation[l+].Trunc[StageWitness value].carrier =
+      TH.map
+        (Chain.Limit.CompactRepresentation[source-join].Witness)
+        (StageWitness value)
+        (\ w -> (w.1,(w.2.1,
+          trans Old.compacts.order.carrier
+            ((InitialMap.stage-map w.1).1 w.2.1)
+            (InitialMap.embedding.1 source-join)
+            value
+            (ap Chain.candidate.order.carrier
+              Old.compacts.order.carrier
+              InitialMap.embedding.1
+              ((Chain.leg w.1).1 w.2.1)
+              source-join w.2.2)
+            image-eq)))
+        Chain.Compact[source-join].witness ;
+  } ;
+  result
+    (hx : Truncation[l+].Trunc[StageWitness x].carrier)
+    (hy : Truncation[l+].Trunc[StageWitness y].carrier) :
+    Truncation[l+].Trunc[StageWitness value].carrier =
+    TH.bind (StageWitness x) (StageWitness value)
+      (\ wx -> TH.bind (StageWitness y) (StageWitness value)
+        (\ wy -> FromWitness[wx,wy].result) hy) hx ;
+} ;
+
+module BasisMeet (a b : Domain[l].K)
+  (c : Consistency[l].Cons (meet a.1 b.1)) {
+  module Target = CU.On[Old.compacts] ;
+  key : Domain[l].K = CompactFamilies[l].joinK a b c ;
+  left : Old.compacts.order.carrier = BasisReduction.basic a ;
+  right : Old.compacts.order.carrier = BasisReduction.basic b ;
+  joined : Old.compacts.order.carrier =
+    BasisReduction.basic key ;
+  below-left : Old.compacts.order.le left joined =
+    ExtFilter[l].prin-anti
+      (meet a.1 b.1) a.1
+      (le-meet-l a.1 b.1) ;
+  below-right : Old.compacts.order.le right joined =
+    ExtFilter[l].prin-anti
+      (meet a.1 b.1) b.1
+      (le-meet-r a.1 b.1) ;
+  compatible : CU.Compatible Old.compacts.order left right =
+    CU.by-bound Old.compacts.order left right
+      joined below-left below-right ;
+  module J = JoinClosure[left,right,compatible] ;
+  left-member : Domain[l].In J.value.1 a.1 =
+    Target.left left right compatible a.1
+      (ExtFilter[l].prin-in a.1) ;
+  right-member : Domain[l].In J.value.1 b.1 =
+    Target.right left right compatible b.1
+      (ExtFilter[l].prin-in b.1) ;
+  meet-member : Domain[l].In J.value.1
+    (meet a.1 b.1) =
+    ExtFilter[l].fmeet J.value.1.1 a.1 b.1
+      left-member right-member ;
+  joined-below : Old.compacts.order.le joined J.value =
+    ExtFilter[l].prin-sub (meet a.1 b.1)
+      J.value.1.1 meet-member ;
+  value-below : Old.compacts.order.le J.value joined =
+    Target.least left right compatible joined
+      below-left below-right ;
+  equation : Id Old.compacts.order.carrier J.value joined =
+    Old.compacts.order.antisymmetric J.value joined
+      value-below joined-below ;
+  cover
+    (ha : Truncation[l+].Trunc[StageWitness left].carrier)
+    (hb : Truncation[l+].Trunc[StageWitness right].carrier) :
+    Truncation[l+].Trunc[StageWitness joined].carrier =
+    TH.map (StageWitness J.value) (StageWitness joined)
+      (\ w -> subst Old.compacts.order.carrier StageWitness
+        J.value joined equation w)
+      (J.result ha hb) ;
+} ;

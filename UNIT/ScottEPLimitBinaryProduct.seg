@@ -1,0 +1,71 @@
+-- The limit of two EP chains commutes with their variable product.
+level l ;
+open Base ; open Prelude[l+] ;
+module Limit = ScottEPLimit[l] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+
+product-chain (S T : Limit.Chain) : Limit.Chain =
+  new Limit.Chain[
+    stage := \ n -> ScottProduct[l].Product[S.stage n,T.stage n].scott,
+    link := \ n -> ScottEPBinaryProduct[l].Action[
+      S.stage n,T.stage n,S.stage (suc n),T.stage (suc n),
+      S.link n,T.link n].pair] ;
+
+module On (S T : Limit.Chain) {
+  chain : Limit.Chain = product-chain S T ;
+  D : ScottDomain[l].Scott = ScottEPLimitBasis[l].On[S].scott ;
+  E : ScottDomain[l].Scott = ScottEPLimitBasis[l].On[T].scott ;
+  P : ScottDomain[l].Scott = ScottProduct[l].Product[D,E].scott ;
+  V : ScottDomain[l].Scott = ScottEPLimitBasis[l].On[chain].scott ;
+  module L = Limit.On[S] ;
+  module M = Limit.On[T] ;
+  module N = Limit.On[chain] ;
+  encode-coherent (w : P.order.carrier) : N.Coherent
+    (\ n -> (w.1.1 n,w.2.1 n)) = \ n ->
+    FiniteEnumeration[l].pair-eq
+      (S.stage n).order.carrier (T.stage n).order.carrier
+      (L.project n (w.1.1 (suc n))) (w.1.1 n)
+      (M.project n (w.2.1 (suc n))) (w.2.1 n)
+      (w.1.2 n) (w.2.2 n) ;
+  encode (w : P.order.carrier) : V.order.carrier =
+    (\ n -> (w.1.1 n,w.2.1 n),encode-coherent w) ;
+  decode-left-coherent (w : V.order.carrier) : L.Coherent
+    (\ n -> (w.1 n).1) = \ n ->
+    ap (N.C n) (L.C n) (\ z -> z.1)
+      (N.project n (w.1 (suc n))) (w.1 n) (w.2 n) ;
+  decode-right-coherent (w : V.order.carrier) : M.Coherent
+    (\ n -> (w.1 n).2) = \ n ->
+    ap (N.C n) (M.C n) (\ z -> z.2)
+      (N.project n (w.1 (suc n))) (w.1 n) (w.2 n) ;
+  decode (w : V.order.carrier) : P.order.carrier =
+    ((\ n -> (w.1 n).1,decode-left-coherent w),
+     (\ n -> (w.1 n).2,decode-right-coherent w)) ;
+  decode-encode (w : P.order.carrier) :
+    Id P.order.carrier (decode (encode w)) w =
+    P.order.antisymmetric (decode (encode w)) w
+      ((\ n -> (S.stage n).order.reflexive (w.1.1 n)),
+       \ n -> (T.stage n).order.reflexive (w.2.1 n))
+      ((\ n -> (S.stage n).order.reflexive (w.1.1 n)),
+       \ n -> (T.stage n).order.reflexive (w.2.1 n)) ;
+  encode-decode (w : V.order.carrier) :
+    Id V.order.carrier (encode (decode w)) w =
+    V.order.antisymmetric (encode (decode w)) w
+      (\ n -> ((S.stage n).order.reflexive (w.1 n).1,
+                (T.stage n).order.reflexive (w.1 n).2))
+      (\ n -> ((S.stage n).order.reflexive (w.1 n).1,
+                (T.stage n).order.reflexive (w.1 n).2)) ;
+  preserves (u v : P.order.carrier)
+    (h : P.order.le u v) : V.order.le (encode u) (encode v) =
+    \ n -> (h.1 n,h.2 n) ;
+  reflects (u v : P.order.carrier)
+    (h : V.order.le (encode u) (encode v)) : P.order.le u v =
+    (\ n -> (h n).1,\ n -> (h n).2) ;
+  iso : SO.OrderIso P.order V.order =
+    ((encode,qinv P.order.carrier V.order.carrier encode decode
+      encode-decode decode-encode),(preserves,reflects)) ;
+  pair : EP.Between[SO.from-presented P,
+    SO.from-presented V].Pair =
+    (EP.from-order (SO.from-presented P)
+      (SO.from-presented V) iso).1 ;
+} ;

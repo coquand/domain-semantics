@@ -1,0 +1,37 @@
+-- At the old filter domain, ideal completion of the exact functor's
+-- compact product payload is the Scott product domain.
+level l ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module Pres = ScottPresentedEP[l] ;
+module SF = ScottFilter[l] ;
+module ID = ScottCUSLIdeals[l] ;
+module EQ = ScottCUSLEquivalence[l] ;
+module Core = ScottEPExactCore[l] ;
+module P = ScottCUSLExactCore[l].Transport ;
+module Old = ScottFilterFunctionIdealComparison[l] ;
+module MapIso = CategoryEndofunctorIso[l++,l+].On[
+  Pres.pre,Core.functor] ;
+module A = CategoryArrows[l++,l+].Arrows[EP.pre] ;
+
+product-iso : Pres.pre.Iso
+  (Core.object SF.scott)
+  (Core.object Old.OldIdeal.O.scott) =
+  MapIso.map SF.scott Old.OldIdeal.O.scott
+    Old.presented-counit ;
+target-domain : SO.Domain = P.domain Old.compacts ;
+product-ep-iso : EP.pre.Iso
+  (SO.from-presented (Core.object SF.scott))
+  target-domain = product-iso ;
+module TargetIdeal = ID.Canonical[P.object Old.compacts] ;
+target-counit : EP.pre.Iso target-domain TargetIdeal.domain =
+  EQ.Counit[target-domain].category-iso ;
+comparison : EP.pre.Iso
+  (SO.from-presented (Core.object SF.scott))
+  TargetIdeal.domain =
+  A.iso-cmp target-counit product-ep-iso ;
+order-iso : SO.DomainIso
+  (SO.from-presented (Core.object SF.scott))
+  TargetIdeal.domain =
+  EP.to-order (SO.from-presented (Core.object SF.scott))
+    TargetIdeal.domain comparison ;

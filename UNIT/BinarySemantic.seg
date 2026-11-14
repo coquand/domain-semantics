@@ -1,0 +1,19 @@
+-- The typed comparison binary; kept outside the operator construction.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ;
+module TC = TruncationCombinators[l] ;
+
+open BinaryMaps[l] ;
+semantic-finite (a x : D) (t : Ty) (h : In (SemanticLaws[l].p a x) t) :
+  Ex ((k : K) * (In a k.1 * In (SemanticLaws[l].p (principal k) x) t)) =
+  TC.bind SemanticLaws[l].Observation[a,x,t]
+    ((k : K) * (In a k.1 * In (SemanticLaws[l].p (principal k) x) t))
+    (\ o -> TC.map (Domain[l].PW a.1 o.code)
+      ((k : K) * (In a k.1 * In (SemanticLaws[l].p (principal k) x) t))
+      (\ w -> ((w.1,(w.2.1,consistent a w.1 w.2.2.1)),
+        (w.2.2.1,fup (SemanticLaws[l].p (principal (w.1,(w.2.1,consistent a w.1 w.2.2.1))) x).1 o.value t o.below
+          (SemanticLaws[l].introduce (principal (w.1,(w.2.1,consistent a w.1 w.2.2.1))) x o.value o.code
+            o.inside (ex (Le w.1 o.code) w.2.2.2) o.typed)))) (a.2.2 o.code o.type-inside))
+    (SemanticLaws[l].observe a x t h) ;
+semantic : Binary = new Binary[ProjectorEquations[l].pmap,
+  \ a b h x -> SemanticLaws[l].mono a b x x h (sub-refl x.1),semantic-finite] ;

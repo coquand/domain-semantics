@@ -1,0 +1,33 @@
+-- Component order isomorphisms for matching the exact CUSL branch
+-- decomposition against the old coalesced-sum presentation.
+level l ;
+module S = ScottOrder[l] ;
+module SO = ScottDomainObjects[l] ;
+module EQ = EquivalenceLemmas[l+] ;
+module F = ScottFilterFunctionComparison[l] ;
+module P = ScottFilterProductComparison[l] ;
+module FI = ScottFilterFunctionIdealComparison[l] ;
+module PI = ScottFilterProductIdealComparison[l] ;
+
+compose (A B C : S.Order)
+  (f : SO.OrderIso A B) (g : SO.OrderIso B C) :
+  SO.OrderIso A C =
+  (EQ.then A.carrier B.carrier C.carrier f.1 g.1,
+    (\ x y h -> g.2.1 (f.1.1 x) (f.1.1 y)
+        (f.2.1 x y h),
+     \ x y h -> f.2.2 x y
+       (g.2.2 (f.1.1 x) (f.1.1 y) h))) ;
+
+function-component : SO.OrderIso
+  F.order FI.TargetIdeal.domain.order =
+  compose F.order ScottFilter[l].function-scott.order
+    FI.TargetIdeal.domain.order
+    F.order-iso FI.order-iso ;
+product-component : SO.OrderIso
+  P.order PI.TargetIdeal.domain.order =
+  compose P.order
+    (ScottProduct[l].Product[
+      ScottFilter[l].scott,
+      ScottFilter[l].function-scott].order)
+    PI.TargetIdeal.domain.order
+    P.order-iso PI.order-iso ;

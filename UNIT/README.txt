@@ -1,9 +1,15 @@
-Section 2 in Unit, using intersection types and filters
-=====================================================
+Scott domains and definitional inversion in Unit
+===============================================
+
+Start with scott-domains-revised.pdf (source: scott-domains-revised.tex).
+Theorem 4.2 represents finitary projectors by compact fixed-point families;
+CUSLFpCheck.seg checks this representation independently of the filter and
+typing modules. ScottCUSLClosedFamilies.seg implements the closed families,
+and ScottCUSLFpContinuity.seg proves directed-colimit preservation.
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 12,187
-declarations, with 0 failures, using the recorded checker (2026-11-12).
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 15,724
+declarations, with 0 failures, using the recorded checker (2026-11-14).
 
 Run from DOMAIN:
 
@@ -15,13 +21,90 @@ Or specify another Unit checker (UNIT_CHECKER also works):
 
 The type-checker is a compiled Haskell program. The Python script only
 verifies the frozen dependency hashes and launches that checker on All.seg,
-then on IndependentLogicalRelationCheck.seg in a separate process (4,909
-declarations, zero failures) with the old relation and adequacy out of scope.
+then on CUSLFpCheck.seg (2,412 declarations, zero failures), with no
+filter, typing, or specialized projector-family modules in scope,
+IndependentDependentProductCheck.seg (1,156 declarations, zero failures)
+with no filter-domain or typing modules in scope,
+IndependentProjectorCheck.seg (3,849 declarations, zero failures)
+with the semantic projector, typed stage comparisons, and older direct
+common-code proof out of scope,
+and IndependentLogicalRelationCheck.seg (6,349 declarations, zero failures)
+with the old relation and adequacy out of scope, each in a separate process.
 No external Python packages or Agda checker are needed. The Unit checker
 binary itself is not bundled.
 
+Reproduce with a published Unit checker
+-------------------------------------
+
+All five sessions also pass with the checker built from published Unit
+revision 18bb219f040ba1f66c4d57185fedc5b5c4d4617e:
+
+    git clone https://github.com/coquand/unit.git
+    cd unit
+    git checkout 18bb219f040ba1f66c4d57185fedc5b5c4d4617e
+    cabal build exe:seg
+    cabal list-bin exe:seg
+
+From the domain-semantics checkout, pass the absolute path printed by the
+last command to:
+
+    python3 UNIT/check.py /absolute/path/to/seg
+
+The checker was also built directly with GHC using its src/ and app/
+directories for this verification. vendor-manifest.json records both the
+original local build and the compatible published checker revision;
+all 40 frozen dependency hashes are unchanged.
+
 Main construction
 -----------------
+
+The general continuous Fp functor is now checked on the CUSL side.
+ScottCUSLClosedFamilies represents finitary projectors by compact subsets
+containing bottom and closed under ambient compatible joins. Such subsets
+are not required to be downward closed. Their finitely generated members
+form a small compact basis, and their compact CUSL represents Fp(D).
+ScottCUSLFpMaps constructs direct image and inverse image as a continuous
+EP pair; ScottCUSLFpFunctor proves identity and composition.
+ScottCUSLFpProjector identifies the families with all finitary projector
+operations on ideal completion and constructs the continuous right adjoint.
+ScottCUSLFpContinuity preserves all existing small directed colimits, not
+only omega-chains. It derives compact stage coverage from the universal
+property using ScottCUSLCoveredColimit and ScottCUSLDirectedUnion.
+ScottFpFunctor and ScottFpContinuity transport the functor and full colimit
+theorem to arbitrary Scott EP domains through the Scott-CUSL equivalence.
+ScottFpAdjunction and ScottFpAdjunctionContinuity give the general adjunction
+and directed continuity of both maps; ScottFpRepresentation proves that
+its included maps are exactly the finitary operations on presented domains.
+ScottCUSLFpRestriction checks the e P r embedding formula and identifies
+the inverse-image operation with kappa(r P e).
+These results are checked separately in CUSLFpCheck, using only generic
+Scott/CUSL modules and the existing univalence/replacement parameters.
+
+Dependent products of subdomains are now formalized independently of the
+filter domain. Given Scott domains A,D and a continuous EP-valued family
+B over A whose fibers embed coherently in D, ScottEPDependentProduct.Sections
+constructs the Scott domain Pi(A,B). If A and [D -> D] embed in D, its
+Product module constructs the explicit EP pair Pi(A,B) -> D and the induced
+finitary projection. ScottDependentProductEmbedding proves continuity and
+the EP laws for E(s)(z)=s(r_A z), R(g)(a)=Q_a(g(e_A a)).
+The continuous family of image domains is checked, including the directed
+colimit criterion. DependentProductProjector identifies this construction
+with Phi's function clause, and SectionProjector.finitary now uses it.
+Dependent sums and varying function spaces now have a general proof too.
+ScottDependentSum constructs Sigma(A,B) for continuous families of finitary
+subdomains, with compact basis pairs (a,b) where b is fixed in the fiber at a.
+ScottDependentSumEmbedding embeds this total space in C x D when A embeds
+in C. ScottVaryingFunctionSpace proves continuity of the family
+[Fix(Q_a) -> Fix(R)], represented by the projectors g |-> R o g o Q_a;
+its At.equivalence identifies each image with the actual exponential.
+ScottFunctionPayload combines these results to embed its total space in
+C x [D -> D] and obtain a finitary projector.
+UniversePayloadProjector specializes the construction and checks its exact
+formula under normalization. StructuralUniverseProductProjector transports
+its simultaneous compact code/function witnesses to the Pi-headed filter
+clause. ProjectorInvariant now uses this structural route. The older direct
+UniverseProductProjector remains checked in All but is excluded from the
+independent projector session.
 
 The central result is an order isomorphism implementing
 
@@ -96,6 +179,74 @@ preserving countable-chain colimits has an initial algebra, inverse
 fold/unfold maps, and an equality X = F(X). Preservation is a proposition:
 the universal property of a fixed cocone is a proposition. No countable
 choice is used in selecting small presentations for the ideal domains.
+ScottCUSLColimit now also exposes a checked finite-stage representation
+for each compact element, a theorem that every compact observation below
+a limit point appears at some stage approximant, and proposition-valued
+induction on stage images. See CUSL-INDUCTIVE-REDUCTION.md for the exact
+scope of replacing the filter model's rank and finite-token inductions;
+the exact three-branch compact CUSL endofunctor, its initial chain, and
+its fixed point are now checked in ScottCUSLExactFunctor.seg and
+ScottCUSLExactChain.seg. The latter proves folded Pi-payload injectivity
+and Pi/universe incompatibility. Identification of its ideal completion
+with the coalesced-sum domain and comparison with the filter domain
+remain to be proved.
+The endomap and variable Pi-payload components now separately preserve
+countable-chain colimits: ScottEPEndomapsPreservation.seg and
+ScottEPExactCorePreservation.seg prove this for presented EP domains,
+and ScottCUSLEndofunctorPreservation.seg transports both proofs to
+CUSLs. ScottCUSLAddBranchComparison.seg proves the synchronized
+added-branch colimit isomorphism using finite-stage representation;
+ScottCUSLBranchPreservation.seg then proves preservation for pointwise
+branches of omega-continuous functors. CategoryConstantPreservation.seg
+handles the singleton branch, and ScottCUSLExactPreservation.seg combines
+these results into omega-continuity of the exact constructor.
+ScottCUSLExactSolution.seg transports its initial algebra and object
+equation to the Scott-domain EP category.
+ScottCUSLColimit.AdmissibleStageInduction now proves that any lower
+admissible predicate on the ideal limit is determined by its finite-stage
+projections, and follows everywhere from proofs on embedded stages.
+ScottCUSLBranchIdeals.seg now proves an order isomorphism between the
+ideal completion of an added branch B(C,P) and the corresponding
+proposition-valued optional-branch shape. A positive ideal forces its
+left trace to bottom; the inverse construction and both round trips
+are checked. It also characterizes the bottom branch ideal by its left
+trace and the absence of a positive point. ScottCUSLExactIdealShape.seg
+applies this twice and proves an order isomorphism between the exact
+three-branch ideal completion and a flat shape with the Pi and universe
+head compatibility conditions. ScottFilterExactShapeComparison.seg
+matches that flat shape with Sum.RHS by a checked order isomorphism,
+and composes it with the old filter-domain equivalence to obtain an
+embedding-projection isomorphism D ≅ Idl(T(K(D))).
+ScottFilterCUSLAlgebra.seg makes the old compact CUSL an algebra for T,
+using equality of the explicit and canonical small presentations. The
+initial CUSL solution has a unique algebra embedding into these old
+compacts, and its ideal completion embeds into D. The module proves that
+finite-stage coverage of every old compact would make this embedding an
+isomorphism, and that coverage is equivalent to surjectivity of the
+canonical embedding; coverage itself is still open.
+Coverage has been reduced to the old principal-filter basis. Bottom is
+covered at stage zero, and coverage is closed under compatible joins,
+using intrinsic compact representation rather than a token rank.
+The join of compatible principal filters is the principal filter of
+their consistent meet, so the meet case is covered without a rank.
+ScottFilterFunctionComparison.seg proves that the existing FD carrier
+equivalence is an order isomorphism with the Scott endomap space.
+ScottFilterProductComparison.seg proves the corresponding order
+isomorphism for D x FD and the Scott product. Their transport through
+compact/ideal reconstruction is checked in
+ScottFilterFunctionIdealComparison.seg,
+ScottFilterProductIdealComparison.seg, and ScottFilterExactComponents.seg.
+ScottFilterExactBottom.seg proves that the old bottom function matches
+the least ideal of the compact function branch. The full object
+comparison then assembles these component isomorphisms and their
+compatibility conditions.
+ScottCUSLSingletonIdeals.seg identifies the outer lifted singleton
+component with small propositions under implication. ScottFilterSumOrder.seg
+checks that the explicit order on Sum.RHS agrees with the filter-domain
+order. The flat-shape comparison with Sum.RHS is checked. Compatibility
+with the recursive algebra, application, and the old stage projections
+is still needed to identify the initial CUSL solution with the old
+filter domain and remove rank-based modules from the independent proof.
 The categorical structure identity principle is now checked at these
 universe levels: equivalent univalent categories are equal as Category
 records. The proof uses univalence on the object types and fiberwise on
@@ -155,8 +306,20 @@ The recursive projector equations of Section 2.4 now also hold for arbitrary
 domain arguments, without extra typing hypotheses. The projector is least
 among continuous binary maps satisfying their lower-bound clauses.
 The explicit Phi/Kleene construction is now checked as well: its limit
-is a least fixed point, agrees with the typed construction, and inherits
-finitariness and normalization. SECTION24.txt gives the proof routes.
+is a least fixed point. ProjectorInvariant.Preserve proves that Phi preserves
+normalized finitary families, using the general dependent-product and
+dependent-sum subdomain theorems. IndependentKleeneProjector
+now proves finitariness and normalization by admissible fixed-point
+induction: it supplies the bottom family, preservation by Phi, and
+directed-supremum closure of the combined invariant. The application
+contains no explicit natural-number induction. BinaryAdmissible defines
+the closure condition; KleeneConstruction.Induction derives the rule
+from the Kleene construction. ScottAdmissible.On.FixedPoint supplies
+the corresponding general rule for any presented Scott domain. Neither
+rule requires downward closure or propositional resizing.
+KleeneProjector.finitary and
+.normalization now use this independent proof. The typed comparison remains
+available for the later logical relation. SECTION24.txt gives the proof routes.
 The corrected rank-stage version of Proposition 2.27 now has a direct
 fixed-point proof: stage-n observations of the Kleene sequence stabilize
 at P_(n+1). OperationalStages defines its stage operation by this finite
@@ -164,12 +327,81 @@ unfolding and proves compatibility without the sandwich lemma or typing
 identification. StageComparison separately identifies it with the earlier
 bounded-typing stage projector and transfers finitariness. PROPOSITION227.txt
 gives both routes and the retained obstruction to the printed base rules.
+DirectProjectorStages now defines p_n(a,x) := r_n(p(e_n(a),e_n(x))) from the
+least fixed point and checks its equality with the finite unfolding.
+Its finitariness has not been proved by induction from these equations:
+the checked transfer in StageComparison still depends on bounded typing.
+The handoff's proposed generic EP restriction argument does not work:
+r P e can fail idempotence even when P is a finitary projection. The
+finite-chain EP and projector laws, and failure of restricted idempotence,
+are checked in EPRestrictionObstruction. A rank-specific compatibility
+argument is still needed to remove bounded typing from stage finitariness.
+CGW's actual Fp restriction includes the greatest-finitary-projector
+operator kappa: P |-> kappa(r P e). Thus the counterexample concerns raw
+conjugation, not the existence of the Fp action. FinitaryInterior now
+constructs kappa on the filter domain and proves its greatest-projector
+property and retraction; FinitaryInteriorContinuity proves directed
+continuity. The new CUSL construction now proves the general adjunction,
+continuous Fp functor, and both action formulas independently of these
+filter-specific modules. The direct stages still require equality with
+this interior.
 
 Theorem map
 -----------
 
 New names except Proper and Regular are under All.Theory, at universe l.
 
+  ScottCUSLClosedFamilies.On.scott / finite-compact / compact-finite
+    General Fp domains and their finitely generated compact families.
+  ScottCUSLFpFunctor.Domains.functor / Compacts.functor
+    Direct/inverse image EP action with identity and composition laws.
+  ScottCUSLFpContinuity.preserves / ScottFpContinuity.preserves
+    Preservation of all existing small directed colimits on CUSLs and Scott EP domains.
+  ScottFpAdjunction.On.adjunction / retraction / below
+    The general Fp(D) -> [D -> D] adjunction and EP laws.
+  ScottFpAdjunctionContinuity.On.Maps.equation / Families.equation
+    Directed continuity of the right adjoint and the inclusion.
+  ScottFpRepresentation.On.Include.finitary / Recover.represented
+    The represented maps are exactly all finitary projector operations.
+  ScottCUSLFpRestriction.On.Extend.equation / Restrict.equation
+    The e P r and kappa(r P e) formulas on ideal domains.
+  ScottEPDependentProduct.Sections.domain / ComponentCone.equation
+    Scott domain of continuous sections and CGW's component continuity law.
+  ScottEPDependentProduct.Product.pair / finitary
+    Dependent products of coherently embedded subdomains embed into D.
+  ScottDependentProductEmbedding.Embedding.embed / project / retract / below
+    The explicit continuous E,R pair through [D -> D].
+  ScottFinitaryImage.Image.pair; ScottFinitaryFamily.On.Colimit.equation
+    Generic finitary image domains and continuous EP-valued image families.
+  DependentProductProjector.On.realizes
+    The general closure theorem yields exactly the Phi function clause.
+  ProjectorInvariant.Preserve.family / preserves
+    Phi preserves normalized, continuous finitary-projector families.
+  ScottDependentSum.Total.scott / EPFamily.component-equation
+    General dependent sums of coherently embedded subdomains.
+  ScottDependentSumEmbedding.Embedding.pair / finitary
+    Their total spaces embed in the ambient product.
+  ScottVaryingFunctionSpace.Family.family / At.equivalence
+    Continuous varying exponentials, identified with finitary image domains.
+  ScottFunctionPayload.Payload.pair / finitary
+    The total varying-function-space domain embeds in C x [D -> D].
+  UniversePayloadProjector.On.Formula.encoded / FilterFormula.equality
+    Normalization identifies its projector with Phi's universe payload.
+  SectionProjector.On.finitary; StructuralUniverseProductProjector.On.observe
+    The general product/sum theorems supply Phi's compact fixed witnesses.
+  NormalizedProjectorSup.Sup.family
+    Directed suprema preserve finitariness and normalization by cofinality.
+  IndependentKleeneProjector.iterates / finitary / normalization
+    The independent Kleene invariant and its limit laws.
+  FinitaryInterior.At.below / greatest; retract / family-retract
+    The right adjoint Fp(D) <- [D -> D]: greatest finitary projector below
+    an arbitrary continuous endomap, with both retraction presentations.
+  FinitaryInteriorContinuity.DirectedSup.equation
+    Directed continuity of that right adjoint.
+  FinitaryImageScott.On.scott / embed / project / retract / below
+    Scott-domain images and their continuous embedding-projection maps.
+  EPRestrictionObstruction.not-idempotent
+    The obstruction to arbitrary EP restriction of projector operations.
   Proper.typed-rep; Regular.typed-regular
     Proper representatives of typed tokens and typed filters.
   ExtFilter.filt-ext; Domain.ext; Domain.domain-set
@@ -357,9 +589,16 @@ New names except Proper and Regular are under All.Theory, at universe l.
   OperatorContinuity.Phi / Approximate.cover
     Continuity in both arguments and joint directed continuity in the
     binary operation and its arguments.
+  ScottAdmissible.On.FixedPoint.result
+    General admissible fixed-point induction on a presented Scott domain.
+  BinaryAdmissible.Admissible / KleeneConstruction.Induction.result
+    Directed-supremum closure and fixed-point induction for Phi invariants.
+  NormalizedProjectorSup.admissible / IndependentKleeneProjector.family
+    Finitariness and normalization form an admissible invariant; the
+    projector proof applies induction using bottom and preservation.
   KleeneProjector.equation / Below.least / identification / finitary
     The explicit Kleene least fixed point, its identification with the
-    typed projector, and finitariness obtained after construction.
+    typed projector, and independently proved finitariness after construction.
   KleeneProjector.normalization
     p(p(U,A),X) = p(A,X) for the Kleene-defined p.
   StageBaseObstruction.different / not-compatible
@@ -525,7 +764,7 @@ ideal below identity. StableFamilies proves both joint stability of
 (B,f) |-> R_B(f) and stability of B |-> R_B into rigid projections of the
 stable function domain, for stable families over the fixed input domain.
 
-The combined check reports 12,187 declarations and zero failures.
+The combined check reports 13,486 declarations and zero failures.
 StableInputRestriction, StableImageMaps and StableVaryingFamilies now
 handle varying rigid input domains: input restriction is rigid, stable
 maps on its image extend/restrict with beta/eta, and Q_(p,B) is the

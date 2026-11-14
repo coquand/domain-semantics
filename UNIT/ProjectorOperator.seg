@@ -4,7 +4,7 @@
 level l ;
 open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ;
 open Domain[l] ; open Continuous[l] ; open Abstraction[l] ; open Parts[l] ;
-open BinaryMaps[l] ; open ProjectorLeast[l] ;
+open BinaryMaps[l] ; open ProjectorFamilyMaps[l] ;
 module S = Sum[l] ; module TC = TruncationCombinators[l] ;
 LE (q r : Binary) : U l+ = (A X : D) -> Domain[l].Below (value q A X) (value r A X) ;
 

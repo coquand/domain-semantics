@@ -1,6 +1,7 @@
 -- Eliminate the semantic projector into a lower admissible predicate.
 -- This is a domain-level alternative to splitting typed compact tokens.
 level l ;
+open BinarySemantic[l] ;
 open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
 open Sum[l] ; open BinaryMaps[l] ;
 module P = ScottPredicates[l].On[ScottFilter[l].scott] ; module Tr = TruncationCombinators[l] ;

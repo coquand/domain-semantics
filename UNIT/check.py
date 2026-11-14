@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check frozen dependencies, all Unit declarations, and relation independence.
+"""Check dependencies, all declarations, and the four independent sessions.
 
 Usage: python3 UNIT/check.py [path/to/seg]
 UNIT_CHECKER is also accepted; otherwise use the recorded local checker.
@@ -30,10 +30,39 @@ def main():
     checker = checker.expanduser().resolve()
     if not checker.is_file():
         sys.exit("Unit checker missing. Pass its path or set UNIT_CHECKER.")
+    projector_imports = set(re.findall(
+        r"\bimport\s+(\w+)\s*;", (root / "IndependentProjectorCheck.seg").read_text()))
+    forbidden = projector_imports & {
+        "SemanticProjector", "SemanticLaws", "BinarySemantic", "ProjectorLeast",
+        "ProjectorFixedPoint", "KleeneProjector", "StageTyping",
+        "StageCompatibility", "StageComparison",
+        "UniverseProductProjector",
+    }
+    if forbidden:
+        sys.exit(f"Projector independence check imports forbidden modules: {sorted(forbidden)}")
+    product_imports = set(re.findall(
+        r"\bimport\s+(\w+)\s*;", (root / "IndependentDependentProductCheck.seg").read_text()))
+    forbidden = product_imports & {
+        "Types", "Typing", "Filter", "Domain", "ExtFilter", "Finitary",
+        "SemanticProjector", "SemanticLaws", "BinaryMaps", "ProjectorOperator",
+        "SectionProjector", "DependentProductProjector",
+    }
+    if forbidden:
+        sys.exit(f"General dependent-product check imports forbidden modules: {sorted(forbidden)}")
+    cusl_imports = set(re.findall(
+        r"\bimport\s+(\w+)\s*;", (root / "CUSLFpCheck.seg").read_text()))
+    forbidden = cusl_imports & {
+        "Types", "Typing", "Filter", "Domain", "ExtFilter", "Finitary",
+        "CompactFamilies", "Projector", "ProjectorDomain", "SemanticProjector",
+        "FinitaryInterior", "FinitaryInteriorContinuity", "All",
+    }
+    if forbidden:
+        sys.exit(f"CUSL Fp check imports forbidden modules: {sorted(forbidden)}")
     recorded = hashlib.sha256(checker.read_bytes()).hexdigest() == manifest["checker"]["sha256"]
     print(f"Dependencies: {len(manifest['files'])} hashes verified", flush=True)
     print(f"Checker: {checker} ({'recorded build' if recorded else 'different build'})", flush=True)
-    for source in ("All.seg", "IndependentLogicalRelationCheck.seg"):
+    for source in ("All.seg", "CUSLFpCheck.seg", "IndependentDependentProductCheck.seg",
+                   "IndependentProjectorCheck.seg", "IndependentLogicalRelationCheck.seg"):
         try:
             result = subprocess.run([str(checker), source], cwd=root,
                                     text=True, capture_output=True, timeout=60)

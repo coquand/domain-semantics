@@ -1,0 +1,26 @@
+-- Composition and order transport for maps of presented Scott domains.
+level l ;
+open Base ; open Prelude[l+] ;
+
+replace (P : ScottOrder[l].Order) (x x' y y' : P.carrier)
+  (p : Id P.carrier x x') (q : Id P.carrier y y') (h : P.le x y) : P.le x' y' =
+  subst P.carrier (\ b -> P.le x' b) y y' q
+    (subst P.carrier (\ a -> P.le a y) x x' p h) ;
+
+module Compose (A B C : ScottDomain[l].Scott)
+  (g : ScottMaps[l].Between[B,C].Map) (f : ScottMaps[l].Between[A,B].Map) {
+  module AB = ScottMaps[l].Between[A,B] ; module BC = ScottMaps[l].Between[B,C] ;
+  module AC = ScottMaps[l].Between[A,C] ;
+  value (x : A.order.carrier) : C.order.carrier = BC.run g (AB.run f x) ;
+  monotone : AC.Monotone value = \ x y h -> BC.mono g (AB.run f x) (AB.run f y) (AB.mono f x y h) ;
+  continuous : AC.Continuous value = \ I x d z h ->
+    C.order.transitive (value (AB.C.sup I x d))
+      (BC.run g (BC.C.sup I (\ i -> AB.run f (x i)) (AB.image-dir f.1 (AB.mono f) I x d))) z
+      (BC.mono g (AB.run f (AB.C.sup I x d))
+        (BC.C.sup I (\ i -> AB.run f (x i)) (AB.image-dir f.1 (AB.mono f) I x d))
+        (AB.continuous f I x d
+          (BC.C.sup I (\ i -> AB.run f (x i)) (AB.image-dir f.1 (AB.mono f) I x d))
+          (BC.C.upper I (\ i -> AB.run f (x i)) (AB.image-dir f.1 (AB.mono f) I x d))))
+      (BC.continuous g I (\ i -> AB.run f (x i)) (AB.image-dir f.1 (AB.mono f) I x d) z h) ;
+  map : AC.Map = (value,(monotone,continuous)) ;
+} ;

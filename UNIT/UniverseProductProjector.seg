@@ -1,0 +1,85 @@
+-- Compact witnesses for the varying function-space total space (CGW 7/8).
+-- A common compact code is assembled by joins. Continuity in the type
+-- parameter supplies each support witness; normalization is essential here.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+open BinaryMaps[l] ; open Finitary[l] ;
+module T = TruncationCombinators[l] ; module PO = ProjectorOperator[l] ;
+module OC = OperatorContinuity[l] ; module FM = ProjectorFamilyMaps[l] ;
+module R = Filter[l] ; module CF = CompactFamilies[l] ;
+
+module On (q : Binary) (fp : (a : D) -> Finitary[l].Finitary[q.at a])
+  (norm : ProjectorNormalization[l].Normalized q) (A : D) (F : FD) {
+  module S = SectionProjector[l].On[q,fp,A,constant universe] ;
+  module L = S.At[F.1] ;
+  module UF = FinitaryTools[l].Deflation[q.at universe,(fp universe).deflation] ;
+  UQ : D = value q universe A ;
+  record Graph {
+    target : Ty ;
+    code : K ; code-fixed : Fixed (q.at universe) (principal code) ; code-inside : In UQ code.1 ;
+    key : K ; arrows : Arrows key.1 ; inside : In F.1 key.1 ; covers : Le key.1 target ;
+    fixed : Equal (SectionProjector[l].On[q,fp,principal code,constant universe].result (principal key)).1 (principal key) ;
+  } ;
+  module Entry (d v : Ty) (o : L.Observation[arr d v]) {
+    normalized : In (value q UQ (principal o.input)) o.input.1 =
+      (norm A (principal o.input)).2 o.input.1 (o.input-fixed.2 o.input.1 (prin-in o.input.1)) ;
+    module Finish (k : K) (hk : In UQ k.1) (hu : In (value q (principal k) (principal o.input)) o.input.1)
+      (a : FixedBasis (q.at universe) UQ k.1) {
+      input-fixed : Fixed (q.at (principal a.1)) (principal o.input) =
+        ((fp (principal a.1)).deflation (principal o.input),
+         prin-sub o.input.1 (value q (principal a.1) (principal o.input)).1
+          (q.monotone (principal k) (principal a.1) (prin-anti a.1.1 k.1 a.2.2.2) (principal o.input) o.input.1 hu)) ;
+      module Step = SectionProjector[l].On[q,fp,principal a.1,constant universe].Step[
+        o.input,o.output,input-fixed,o.output-fixed,F.1,o.inside] ;
+      graph : Graph[arr d v] = new Graph[arr d v,a.1,a.2.1,a.2.2.1,Step.k,tt,o.inside,o.covers,Step.fixed] ;
+    } ;
+    graph : Ex Graph[arr d v] =
+      T.bind ((k : K) * (In UQ k.1 * In (value q (principal k) (principal o.input)) o.input.1)) Graph[arr d v]
+        (\ k -> T.map (FixedBasis (q.at universe) UQ k.1.1) Graph[arr d v]
+          (\ a -> Finish[k.1,k.2.1,k.2.2,a].graph)
+          ((fp universe).density UQ ((fp universe).idempotence A) k.1.1 k.2.1))
+        (q.finite UQ (principal o.input) o.input.1 normalized) ;
+  } ;
+  empty : Graph[om] = new Graph[om,bottomK,UF.bottom-fixed,fom UQ.1,
+    bottomK,tt,fom F.1.1,le-refl om,
+    FinitaryTools[l].Deflation[SectionProjector[l].On[q,fp,bottom,constant universe].map,
+      SectionProjector[l].On[q,fp,bottom,constant universe].DF.function bottom (constant universe)].bottom-fixed] ;
+
+  module Enlarge (s : Ty) (a : Graph[s]) (c : K) (ac : Domain[l].Below (principal a.code) (principal c)) {
+    module CS = SectionProjector[l].On[q,fp,principal c,constant universe] ;
+    fixed : Equal (CS.result (principal a.key)).1 (principal a.key) =
+      (CS.DF.function (principal c) (constant universe) (principal a.key),
+       sub-trans (principal a.key).1
+         (SectionProjector[l].On[q,fp,principal a.code,constant universe].result (principal a.key)).1.1
+         (CS.result (principal a.key)).1.1 a.fixed.2
+         PO.FamilyMono[q,q,OC.reflexive q,principal a.code,principal c,ac,
+           constant universe,constant universe,\ z -> sub-refl universe.1,
+           principal a.key,principal a.key,sub-refl (principal a.key).1].inclusion) ;
+  } ;
+  module Merge (s t : Ty) (a : Graph[s]) (b : Graph[t]) {
+    ch : In UQ (meet a.code.1 b.code.1) = fmeet UQ.1 a.code.1 b.code.1 a.code-inside b.code-inside ;
+    cc : Cons (meet a.code.1 b.code.1) = consistent UQ (meet a.code.1 b.code.1) ch ;
+    code : K = CF.joinK a.code b.code cc ;
+    kh : In F.1 (meet a.key.1 b.key.1) = fmeet F.1.1 a.key.1 b.key.1 a.inside b.inside ;
+    kc : Cons (meet a.key.1 b.key.1) = consistent F.1 (meet a.key.1 b.key.1) kh ;
+    key : K = CF.joinK a.key b.key kc ;
+    module CS = SectionProjector[l].On[q,fp,principal code,constant universe] ;
+    fixed : Equal (CS.result (principal key)).1 (principal key) =
+      FinitaryTools[l].Deflation[CS.map,CS.DF.function (principal code) (constant universe)].join-fixed
+        a.key b.key kc
+        Enlarge[s,a,code,prin-anti code.1 a.code.1 (le-meet-l a.code.1 b.code.1)].fixed
+        Enlarge[t,b,code,prin-anti code.1 b.code.1 (le-meet-r a.code.1 b.code.1)].fixed ;
+    graph : Graph[meet s t] = new Graph[meet s t,code,
+      UF.join-fixed a.code b.code cc a.code-fixed b.code-fixed,ch,
+      key,(a.arrows,b.arrows),kh,le-meet-mono a.key.1 s b.key.1 t a.covers b.covers,fixed] ;
+  } ;
+  graph : (g : Ty) -> R.EntS L.L.ER g -> Ex Graph[g] = split {
+    es-om -> ex Graph[om] empty ;
+    es-arr d v e -> T.bind L.Observation[arr d v] Graph[arr d v] (\ o -> Entry[d,v,o].graph) L.Entry[d,v,e].observation ;
+    es-meet s t hs ht | rs rt -> T.map2 Graph[s] Graph[t] Graph[meet s t] (\ a b -> Merge[s,t,a,b].graph) rs rt } ;
+  observe (t : Ty) : In (S.result F.1).1 t -> Ex Graph[t] = T.bind (L.L.W t) Graph[t]
+    (\ w -> T.map Graph[w.graph] Graph[t]
+      (\ g -> new Graph[t,g.code,g.code-fixed,g.code-inside,g.key,g.arrows,g.inside,
+        le-trans g.key.1 w.graph t g.covers w.below,g.fixed]) (graph w.graph w.entries)) ;
+} ;

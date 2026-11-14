@@ -1,0 +1,27 @@
+-- Present a continuous projection-valued family as a continuous EP functor
+-- of image domains, with a coherent cone into the common ambient domain.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Ops = ScottMapOperations[l] ;
+
+module From (A D : ScottDomain[l].Scott) (B : ScottDependentProduct[l].Over[A,D].Family) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module Images = ScottFinitaryFamily[l].On[A,D,B] ;
+  family : ScottEPDependentProduct[l].Over[A,D].Family =
+    new ScottEPDependentProduct[l].Over[A,D].Family[
+      \ a -> ScottFinitaryImage[l].Image[D,B.projection a].scott,
+      \ a -> ScottFinitaryImage[l].Image[D,B.projection a].pair,
+      \ a b ab -> Images.Arrow[a,b,ab].pair,Images.identity,Images.composition,
+      \ a b ab x -> refl x.1] ;
+  module C = ScottEPDependentProduct[l].Over[A,D].On[family] ;
+  module Cone (I : U l) (x : I -> X.C) (d : ScottOrder[l].On[A.order].Dir I x)
+    (v : C.Cone[I,x,d].L.order.carrier) {
+    module L = Images.Colimit[I,x,d,v] ;
+    module K = C.Cone[I,x,d] ;
+    covers : K.L.order.le v (K.W.sup I (K.part v) L.directed) =
+      Ops.replace D.order v.1 v.1 v.1 (DC[D.order,D.complete].sup I L.part L.directed)
+        (refl v.1) (sym Y.C (DC[D.order,D.complete].sup I L.part L.directed) v.1 L.equation) (D.order.reflexive v.1) ;
+  } ;
+  continuous : C.Continuous = new C.Continuous[
+    \ I x d v -> (Cone[I,x,d,v].L.directed,Cone[I,x,d,v].covers)] ;
+} ;

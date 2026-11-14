@@ -1,0 +1,128 @@
+-- CGW dependent sums for continuous families of finitary subdomains.
+-- All compact-base support arguments are internal to this general theorem.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+
+module Total (A D : ScottDomain[l].Scott) (B : ScottDependentProduct[l].Over[A,D].Family) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module AX = ScottOrder[l].On[A.order] ; module DY = ScottOrder[l].On[D.order] ;
+  module V = DC[A.order,A.complete] ; module W = DC[D.order,D.complete] ;
+  module P = ScottProduct[l].Product[A,D] ; module DD = ScottMaps[l].Between[D,D] ;
+  module FP = ScottFinitary[l].On[D] ;
+  run (a : X.C) (z : Y.C) : Y.C = DD.run (B.projection a).operation z ;
+  Fixed (x : P.C) : U l = Y.LE x.2 (run x.1 x.2) ;
+  carrier : U l+ = (x : P.C) * Fixed x ;
+  le (x y : carrier) : U l = P.LE x.1 y.1 ;
+  ext (x y : carrier) (xy : le x y) (yx : le y x) : Id carrier x y =
+    Sigma-eq P.C (\ z -> Fixed z) x.1 y.1 x.2 y.2 (P.order.antisymmetric x.1 y.1 xy yx)
+      (D.order.proposition y.1.2 (run y.1.1 y.1.2)) ;
+  order : Order = new Order[carrier := carrier,le := le,
+    proposition := \ x y -> P.order.proposition x.1 y.1,
+    reflexive := \ x -> P.order.reflexive x.1,
+    transitive := \ x y z -> P.order.transitive x.1 y.1 z.1,antisymmetric := ext] ;
+  module Q = ScottOrder[l].On[order] ;
+  module Sup (I : U l) (x : I -> carrier) (s : P.O.Supremum I (\ i -> (x i).1)) {
+    fixed : Fixed s.1 = (s.2.2 (s.1.1,run s.1.1 s.1.2)
+      (\ i -> ((s.2.1 i).1,
+        D.order.transitive (x i).1.2 (run (x i).1.1 (x i).1.2) (run s.1.1 s.1.2) (x i).2
+          (D.order.transitive (run (x i).1.1 (x i).1.2) (run s.1.1 (x i).1.2) (run s.1.1 s.1.2)
+            (B.increasing (x i).1.1 s.1.1 (s.2.1 i).1 (x i).1.2)
+            (DD.mono (B.projection s.1.1).operation (x i).1.2 s.1.2 (s.2.1 i).2))))).2 ;
+    value : carrier = (s.1,fixed) ;
+    supremum : Q.Supremum I x = (value,(s.2.1,\ y h -> s.2.2 y.1 h)) ;
+  } ;
+  complete : Complete[order] = new Complete[order,
+    directed := \ I x d -> Sup[I,x,P.complete.directed I (\ i -> (x i).1) d].supremum,
+    bounded := \ I x b h -> Sup[I,x,P.complete.bounded I (\ i -> (x i).1) b.1 h].supremum] ;
+  module C = DC[order,complete] ;
+  index : U l = (a : X.B) * ((b : Y.B) * FP.Fixed (B.projection (X.basic a)).operation (Y.basic b)) ;
+  basic (g : index) : carrier = ((X.basic g.1,Y.basic g.2.1),g.2.2) ;
+  Local (x : carrier) : U l = (g : index) * le (basic g) x ;
+  part (x : carrier) (g : Local x) : carrier = basic g.1 ;
+  Cover (x : carrier) (a : X.B) (b : Y.B) : U l =
+    (g : Local x) * (X.LE (X.basic a) (X.basic g.1.1) * Y.LE (Y.basic b) (Y.basic g.1.2.1)) ;
+
+  module Coverage (x : carrier) (a : X.B) (b : Y.B) (ax : X.LE (X.basic a) x.1.1) (bx : Y.LE (Y.basic b) x.1.2) {
+    values (i : X.BI x.1.1) : Y.C = run (X.basic i.1) x.1.2 ;
+    directed : DY.Dir (X.BI x.1.1) values =
+      ((X.dir x.1.1).1,\ i j -> T.map (AX.Upper (X.BI x.1.1) (X.part x.1.1) i j)
+        (DY.Upper (X.BI x.1.1) values i j)
+        (\ k -> (k.1,(B.increasing (X.basic i.1) (X.basic k.1.1) k.2.1 x.1.2,
+          B.increasing (X.basic j.1) (X.basic k.1.1) k.2.2 x.1.2))) ((X.dir x.1.1).2 i j)) ;
+    covers : Y.LE x.1.2 (W.sup (X.BI x.1.1) values directed) =
+      D.order.transitive x.1.2 (run x.1.1 x.1.2) (W.sup (X.BI x.1.1) values directed) x.2
+        (D.order.transitive (run x.1.1 x.1.2)
+          (run (V.sup (X.BI x.1.1) (X.part x.1.1) (X.dir x.1.1)) x.1.2)
+          (W.sup (X.BI x.1.1) values directed)
+          (B.increasing x.1.1 (V.sup (X.BI x.1.1) (X.part x.1.1) (X.dir x.1.1)) (X.from x.1.1) x.1.2)
+          (B.continuous (X.BI x.1.1) (X.part x.1.1) (X.dir x.1.1) x.1.2
+            (W.sup (X.BI x.1.1) values directed) (W.upper (X.BI x.1.1) values directed))) ;
+    module Finish (i : X.BI x.1.1) (obs : Y.LE (Y.basic b) (values i))
+      (k : AX.Upper (X.BI x.1.1) (X.part x.1.1) (a,ax) i)
+      (w : FP.Witness (B.projection (X.basic k.1.1)).operation (run (X.basic k.1.1) x.1.2) b) {
+      witness : Cover x a b =
+        (((k.1.1,(w.1,w.2.1)),(k.1.2,
+          D.order.transitive (Y.basic w.1) (run (X.basic k.1.1) x.1.2) x.1.2 w.2.2.1
+            ((B.projection (X.basic k.1.1)).deflation x.1.2))), (k.2.1,w.2.2.2)) ;
+    } ;
+    at (i : X.BI x.1.1) (obs : Y.LE (Y.basic b) (values i)) : Ex (Cover x a b) =
+      T.bind (AX.Upper (X.BI x.1.1) (X.part x.1.1) (a,ax) i) (Cover x a b)
+        (\ k -> T.map (FP.Witness (B.projection (X.basic k.1.1)).operation (run (X.basic k.1.1) x.1.2) b)
+          (Cover x a b) (\ w -> Finish[i,obs,k,w].witness)
+          ((B.projection (X.basic k.1.1)).density (run (X.basic k.1.1) x.1.2)
+            ((B.projection (X.basic k.1.1)).idempotence x.1.2) b
+            (D.order.transitive (Y.basic b) (values i) (run (X.basic k.1.1) x.1.2) obs
+              (B.increasing (X.basic i.1) (X.basic k.1.1) k.2.2 x.1.2)))) ((X.dir x.1.1).2 (a,ax) i) ;
+    witness : Ex (Cover x a b) = T.bind ((i : X.BI x.1.1) * Y.LE (Y.basic b) (values i)) (Cover x a b)
+      (\ i -> at i.1 i.2) (D.basis.compact b (X.BI x.1.1) values directed
+        (D.order.transitive (Y.basic b) x.1.2 (W.sup (X.BI x.1.1) values directed) bx covers)) ;
+  } ;
+  inhabited (x : carrier) : Ex (Local x) = T.bind2 (X.BI x.1.1) (Y.BI x.1.2) (Local x)
+    (\ a b -> T.map (Cover x a.1 b.1) (Local x) (\ w -> w.1) Coverage[x,a.1,b.1,a.2,b.2].witness)
+    (X.dir x.1.1).1 (Y.dir x.1.2).1 ;
+  upper (x : carrier) (a b : Local x) : Ex (Q.Upper (Local x) (part x) a b) =
+    T.bind2 (AX.Upper (X.BI x.1.1) (X.part x.1.1) (a.1.1,a.2.1) (b.1.1,b.2.1))
+      (DY.Upper (Y.BI x.1.2) (Y.part x.1.2) (a.1.2.1,a.2.2) (b.1.2.1,b.2.2))
+      (Q.Upper (Local x) (part x) a b)
+      (\ u v -> T.map (Cover x u.1.1 v.1.1) (Q.Upper (Local x) (part x) a b)
+        (\ w -> (w.1,
+          ((A.order.transitive (X.basic a.1.1) (X.basic u.1.1) (X.basic w.1.1.1) u.2.1 w.2.1,
+            D.order.transitive (Y.basic a.1.2.1) (Y.basic v.1.1) (Y.basic w.1.1.2.1) v.2.1 w.2.2),
+           (A.order.transitive (X.basic b.1.1) (X.basic u.1.1) (X.basic w.1.1.1) u.2.2 w.2.1,
+            D.order.transitive (Y.basic b.1.2.1) (Y.basic v.1.1) (Y.basic w.1.1.2.1) v.2.2 w.2.2))))
+        Coverage[x,u.1.1,v.1.1,u.1.2,v.1.2].witness)
+      ((X.dir x.1.1).2 (a.1.1,a.2.1) (b.1.1,b.2.1))
+      ((Y.dir x.1.2).2 (a.1.2.1,a.2.2) (b.1.2.1,b.2.2)) ;
+  density (x y : carrier) (bounds : (g : index) -> le (basic g) x -> le (basic g) y) : le x y =
+    (A.basis.density x.1.1 y.1.1 (\ a ax -> T.rec (Y.BI x.1.2) @l (X.LE (X.basic a) y.1.1)
+      (A.order.proposition (X.basic a) y.1.1)
+      (\ b -> T.rec (Cover x a b.1) @l (X.LE (X.basic a) y.1.1) (A.order.proposition (X.basic a) y.1.1)
+        (\ w -> A.order.transitive (X.basic a) (X.basic w.1.1.1) y.1.1 w.2.1 (bounds w.1.1 w.1.2).1)
+        Coverage[x,a,b.1,ax,b.2].witness) (Y.dir x.1.2).1),
+     D.basis.density x.1.2 y.1.2 (\ b bx -> T.rec (X.BI x.1.1) @l (Y.LE (Y.basic b) y.1.2)
+      (D.order.proposition (Y.basic b) y.1.2)
+      (\ a -> T.rec (Cover x a.1 b) @l (Y.LE (Y.basic b) y.1.2) (D.order.proposition (Y.basic b) y.1.2)
+        (\ w -> D.order.transitive (Y.basic b) (Y.basic w.1.1.2.1) y.1.2 w.2.2 (bounds w.1.1 w.1.2).2)
+        Coverage[x,a.1,b,a.2,bx].witness) (X.dir x.1.1).1)) ;
+  basis : ScottDomain[l].Basis[order,complete] = new ScottDomain[l].Basis[order,complete,
+    index := index,basic := basic,compact := \ g I x d h -> P.compact (g.1,g.2.1) I (\ i -> (x i).1) d h,
+    directed := \ x -> (inhabited x,upper x),density := density] ;
+  bottom : carrier = ((A.bottom,D.bottom),D.bottom-least (run A.bottom D.bottom)) ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order,complete := complete,basis := basis,
+    bottom := bottom,bottom-least := \ x -> (A.bottom-least x.1.1,D.bottom-least x.1.2)] ;
+} ;
+
+module EPFamily (A D : ScottDomain[l].Scott) (B : ScottEPDependentProduct[l].Over[A,D].Family)
+  (cont : ScottEPDependentProduct[l].Over[A,D].On[B].Continuous) {
+  module P = ScottEPDependentProduct[l].Projections[A,D,B,cont] ;
+  module Sum = Total[A,D,P.family] ;
+  domain : ScottDomain[l].Scott = Sum.scott ;
+  -- Recover the element in the actual EP fiber from its ambient image.
+  component (x : Sum.carrier) : (B.fiber x.1.1).order.carrier =
+    (B.inclusion x.1.1).project.1 x.1.2 ;
+  component-equation (x : Sum.carrier) : Id D.order.carrier
+    ((B.inclusion x.1.1).embed.1 (component x)) x.1.2 =
+    D.order.antisymmetric ((B.inclusion x.1.1).embed.1 (component x)) x.1.2
+      ((P.family.projection x.1.1).deflation x.1.2) x.2 ;
+} ;

@@ -1,0 +1,54 @@
+-- Inverse image of fixed compact families is exactly kappa(r P e).
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ; module CF = ScottCUSLClosedFamilies[l] ;
+module FP = ScottCUSLFpProjector[l] ; module FM = ScottCUSLFpMaps[l] ;
+module DM = ScottDomainMaps[l] ; module S = ScottOrder[l] ; module TC = TruncationCombinators[l] ;
+module On (C D : CU.CUSL) (e : CU.pre.hom C D) {
+  module A = CF.On[C] ; module B = CF.On[D] ;
+  module Source = FP.On[C] ; module Target = FP.On[D] ; module Map = FM.Between[C,D,e] ;
+  module I = Map.I ;
+  module Restrict (T : B.Family) {
+    module P = Target.Projector[T] ;
+    raw : Source.M.Map = DM.Triple[A.A.domain,B.A.domain,A.A.domain].compose I.backward
+      (DM.Triple[A.A.domain,B.A.domain,B.A.domain].compose P.map I.forward) ;
+    module Kappa = Source.Interior[raw] ;
+    forward (a : A.X) (h : A.Mem Kappa.family a) : A.Mem (Map.backward T) a =
+      P.recover (I.f a) (B.A.principal-least (I.f a) (P.run (B.A.principal (I.f a)))
+        (subst B.A.Ideal (\ x -> B.A.mem (P.run x) (I.f a)) I.Forward[A.A.principal a].value (B.A.principal (I.f a))
+          (I.principal-action a) h)) ;
+    backward (a : A.X) (h : A.Mem (Map.backward T) a) : A.Mem Kappa.family a =
+      subst B.A.Ideal (\ x -> B.A.mem (P.run x) (I.f a)) (B.A.principal (I.f a)) I.Forward[A.A.principal a].value
+        (sym B.A.Ideal I.Forward[A.A.principal a].value (B.A.principal (I.f a)) (I.principal-action a))
+        (P.fixed-principal (I.f a) h (I.f a) (B.A.principal-in (I.f a))) ;
+    family-equation : Id A.Family Kappa.family (Map.backward T) = A.ext Kappa.family (Map.backward T) (forward,backward) ;
+    equation : Id Source.M.Map Kappa.Q.map Source.Projector[Map.backward T].map =
+      ap A.Family Source.M.Map (\ E -> Source.Projector[E].map) Kappa.family (Map.backward T) family-equation ;
+  } ;
+  module Extend (E : A.Family) {
+    module P = Source.Projector[E] ; module Q = Target.Projector[Map.forward E] ;
+    raw : Target.M.Map = DM.Triple[B.A.domain,A.A.domain,B.A.domain].compose I.forward
+      (DM.Triple[B.A.domain,A.A.domain,A.A.domain].compose P.map I.backward) ;
+    module At (x : B.A.Ideal) {
+      forward (b : B.X) : B.A.mem (Q.run x) b -> B.A.mem (Target.M.run raw x) b =
+        TC.bind (Q.At[x].W b) (I.Forward[P.run I.Backward[x].value].Witness b)
+          (\ w -> TC.map (Map.Forward[E].W w.1) (I.Forward[P.run I.Backward[x].value].Witness b)
+            (\ v -> (v.1,(S.inc (P.At[I.Backward[x].value].W v.1)
+              (v.1,(v.2.1,(B.A.lower x (I.f v.1) w.1 v.2.2.1 w.2.2.1,C.order.reflexive (A.A.val v.1)))),
+              D.order.transitive (B.A.val b) (B.A.val w.1) (B.A.val (I.f v.1)) w.2.2.2 v.2.2.2))) w.2.1) ;
+      backward (b : B.X) : B.A.mem (Target.M.run raw x) b -> B.A.mem (Q.run x) b =
+        TC.bind (I.Forward[P.run I.Backward[x].value].Witness b) (Q.At[x].W b)
+          (\ w -> TC.map (P.At[I.Backward[x].value].W w.1) (Q.At[x].W b)
+            (\ v -> (I.f v.1,(Map.Forward[E].into v.1 v.2.1,(v.2.2.1,
+              D.order.transitive (B.A.val b) (B.A.val (I.f w.1)) (B.A.val (I.f v.1)) w.2.2 (I.f-mono w.1 v.1 v.2.2.2))))) w.2.1) ;
+      equation : Id B.A.Ideal (Q.run x) (Target.M.run raw x) = B.A.ext (Q.run x) (Target.M.run raw x) forward backward ;
+    } ;
+    equation : Id Target.M.Map Q.map raw = Target.M.ext Q.map raw
+      (\ a -> subst B.A.Ideal (\ y -> B.A.Incl (Q.run (B.A.principal a)) y)
+        (Q.run (B.A.principal a)) (Target.M.run raw (B.A.principal a)) At[B.A.principal a].equation
+        (B.A.incl-refl (Q.run (B.A.principal a))))
+      (\ a -> subst B.A.Ideal (\ y -> B.A.Incl y (Q.run (B.A.principal a)))
+        (Q.run (B.A.principal a)) (Target.M.run raw (B.A.principal a)) At[B.A.principal a].equation
+        (B.A.incl-refl (Q.run (B.A.principal a)))) ;
+  } ;
+} ;

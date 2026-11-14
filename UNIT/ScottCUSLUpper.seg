@@ -1,0 +1,95 @@
+-- The upper cone above an element of a CUSL, with that element as bottom.
+-- A map sending bottom to a can be strict when viewed as landing here.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ;
+module S = ScottOrder[l] ;
+module R = Replacement[l,l+] ;
+module T = TruncationCombinators[l+] ;
+
+module On (C : CU.CUSL) (a : C.order.carrier) {
+  Carrier : U l+ = (x : C.order.carrier) * C.order.le a x ;
+  val (x : Carrier) : C.order.carrier = x.1 ;
+  le (x y : Carrier) : U l = C.order.le x.1 y.1 ;
+  proposition (x y : Carrier) : isProp (le x y) =
+    C.order.proposition x.1 y.1 ;
+  reflexive (x : Carrier) : le x x = C.order.reflexive x.1 ;
+  transitive (x y z : Carrier) : le x y -> le y z -> le x z =
+    C.order.transitive x.1 y.1 z.1 ;
+  antisymmetric (x y : Carrier) (h : le x y) (k : le y x) :
+    Id Carrier x y =
+    Sigma-eq C.order.carrier (\ z -> C.order.le a z)
+      x.1 y.1 x.2 y.2
+      (C.order.antisymmetric x.1 y.1 h k)
+      (C.order.proposition a y.1) ;
+  order : S.Order = new S.Order[
+    carrier := Carrier,le := le,
+    proposition := proposition,reflexive := reflexive,
+    transitive := transitive,antisymmetric := antisymmetric] ;
+  bottom : Carrier = (a,C.order.reflexive a) ;
+  bottom-least (x : Carrier) : le bottom x = x.2 ;
+
+  compatible-witness (x y : Carrier) :
+    CU.CompatibleWitness order x y ->
+    CU.CompatibleWitness C.order x.1 y.1 =
+    \ w -> (w.1.1,(w.2.1,w.2.2)) ;
+  compatible (x y : Carrier)
+    (h : CU.Compatible order x y) :
+    CU.Compatible C.order x.1 y.1 =
+    T.map (CU.CompatibleWitness order x y)
+      (CU.CompatibleWitness C.order x.1 y.1)
+      (compatible-witness x y) h ;
+  value (x y : Carrier) (h : CU.Compatible order x y) :
+    Carrier =
+    (CU.On[C].join x.1 y.1 (compatible x y h),
+      C.order.transitive a x.1
+        (CU.On[C].join x.1 y.1 (compatible x y h))
+        x.2 (CU.On[C].left x.1 y.1 (compatible x y h))) ;
+  bounds (x y : Carrier) (h : CU.Compatible order x y) :
+    (i : Bool) -> le (CU.pair order x y i) (value x y h) = split {
+    true -> CU.On[C].left x.1 y.1 (compatible x y h) ;
+    false -> CU.On[C].right x.1 y.1 (compatible x y h) } ;
+  least (x y : Carrier) (h : CU.Compatible order x y)
+    (z : Carrier)
+    (b : (i : Bool) -> le (CU.pair order x y i) z) :
+    le (value x y h) z =
+    CU.On[C].least x.1 y.1 (compatible x y h)
+      z.1 (b true) (b false) ;
+  join (x y : Carrier) (h : CU.Compatible order x y) :
+    S.On[order].Supremum Bool (CU.pair order x y) =
+    (value x y h,(bounds x y h,least x y h)) ;
+
+  module Small (w : R.Small C.order.carrier) {
+    Index : U l = (x : w.1) * C.order.le a (w.2.1 x) ;
+    forward (x : Index) : Carrier = (w.2.1 x.1,x.2) ;
+    back-proof (x : Carrier) :
+      C.order.le a (w.2.1 (w.2.2.sec x.1)) =
+      subst C.order.carrier (\ z -> C.order.le a z)
+        x.1 (w.2.1 (w.2.2.sec x.1))
+        (sym C.order.carrier
+          (w.2.1 (w.2.2.sec x.1)) x.1
+          (w.2.2.sec-eq x.1)) x.2 ;
+    backward (x : Carrier) : Index =
+      (w.2.2.sec x.1,back-proof x) ;
+    section (x : Carrier) : Id Carrier (forward (backward x)) x =
+      Sigma-eq C.order.carrier (\ z -> C.order.le a z)
+        (w.2.1 (w.2.2.sec x.1)) x.1
+        (back-proof x) x.2 (w.2.2.sec-eq x.1)
+        (C.order.proposition a x.1) ;
+    retraction (x : Index) : Id Index (backward (forward x)) x =
+      Sigma-eq w.1 (\ z -> C.order.le a (w.2.1 z))
+        (w.2.2.sec (w.2.1 x.1)) x.1
+        (back-proof (forward x)) x.2
+        (sec-ret w.1 C.order.carrier w.2.1 w.2.2 x.1)
+        (C.order.proposition a (w.2.1 x.1)) ;
+    result : R.Small Carrier =
+      (Index,(forward,qinv Index Carrier forward backward
+        section retraction)) ;
+  } ;
+  small : CU.SmallCarrier order =
+    T.map (R.Small C.order.carrier) (R.Small Carrier)
+      (\ w -> Small[w].result) C.small ;
+  cusl : CU.CUSL = new CU.CUSL[
+    order := order,bottom := bottom,bottom-least := bottom-least,
+    join := join,small := small] ;
+} ;

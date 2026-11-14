@@ -1,0 +1,60 @@
+-- The spaces [Fix(P_a) -> Fix(U)] form a continuous EP family over a.
+-- Their embeddings in [D -> D] send f to U o f o P_a.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ; module EP = ScottEmbeddingProjection[l] ; module Ops = ScottMapOperations[l] ;
+
+module Family (A D : ScottDomain[l].Scott) (P : ScottDependentProduct[l].Over[A,D].Family)
+  (u : ScottFinitary[l].On[D].Finitary) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module DD = ScottMaps[l].Between[D,D] ; module End = ScottExponential[l].Exponential[D,D] ;
+  module V = DC[D.order,D.complete] ; module UImage = ScottFinitaryImage[l].Image[D,u] ;
+  module At (a : X.C) {
+    module Input = ScottFinitaryImage[l].Image[D,P.projection a] ;
+    module Action = ScottExponentialEPAction[l].Action[Input.scott,UImage.scott,D,D,Input.pair,UImage.pair] ;
+    domain : ScottDomain[l].Scott = Action.X.scott ;
+    pair : EP.Between[domain,End.scott].Pair = Action.pair ;
+    module Projection = EP.Projection[domain,End.scott,pair] ;
+    finitary : ScottFinitary[l].On[End.scott].Finitary = Projection.finitary ;
+    module Image = ScottFinitaryImage[l].Image[End.scott,finitary] ;
+    represent (f : domain.order.carrier) : Image.carrier =
+      (Action.E.run Action.embed f,Projection.fixed-output f) ;
+    recover (f : Image.carrier) : domain.order.carrier = Action.R.run Action.project f.1 ;
+    section (f : Image.carrier) : Id Image.carrier (represent (recover f)) f =
+      Image.ext (represent (recover f)) f (finitary.deflation f.1) f.2 ;
+    retraction (f : domain.order.carrier) : Id domain.order.carrier (recover (represent f)) f =
+      Action.pair.retract f ;
+    equivalence : Equiv domain.order.carrier Image.carrier =
+      (represent,qinv domain.order.carrier Image.carrier represent recover section retraction) ;
+    represent-mono (f g : domain.order.carrier) (h : domain.order.le f g) :
+      Image.le (represent f) (represent g) = Action.E.mono Action.embed f g h ;
+    represent-reflect (f g : domain.order.carrier) (h : Image.le (represent f) (represent g)) :
+      domain.order.le f g = EP.Laws[domain,End.scott,pair].reflect f g h ;
+  } ;
+  run (a : X.C) (g : DD.Map) : DD.Map =
+    Ops.Compose[D,D,D,u.operation,Ops.Compose[D,D,D,g,(P.projection a).operation].map].map ;
+  module Point (I : U l) (a : I -> X.C) (d : ScottOrder[l].On[A.order].Dir I a)
+    (g h : DD.Map) (bounds : (i : I) -> DD.LE (run (a i) g) h) (z : Y.C) {
+    part (i : I) : Y.C = DD.run (P.projection (a i)).operation z ;
+    directed : ScottOrder[l].On[D.order].Dir I part =
+      (d.1,\ i j -> T.map (ScottOrder[l].On[A.order].Upper I a i j)
+        (ScottOrder[l].On[D.order].Upper I part i j)
+        (\ k -> (k.1,(P.increasing (a i) (a k.1) k.2.1 z,P.increasing (a j) (a k.1) k.2.2 z))) (d.2 i j)) ;
+    input : Y.LE (DD.run (P.projection (DC[A.order,A.complete].sup I a d)).operation z) (V.sup I part directed) =
+      P.continuous I a d z (V.sup I part directed) (V.upper I part directed) ;
+    module C = Ops.Compose[D,D,D,u.operation,g] ;
+    inclusion : Y.LE (DD.run (run (DC[A.order,A.complete].sup I a d) g) z) (DD.run h z) =
+      D.order.transitive (C.value (DD.run (P.projection (DC[A.order,A.complete].sup I a d)).operation z))
+        (C.value (V.sup I part directed)) (DD.run h z) (C.monotone _ _ input)
+        (C.continuous I part directed (DD.run h z) (\ i -> DD.pointwise (run (a i) g) h (bounds i) z)) ;
+  } ;
+  family : ScottDependentProduct[l].Over[A,End.scott].Family =
+    new ScottDependentProduct[l].Over[A,End.scott].Family[\ a -> At[a].finitary,
+      \ a b ab g -> DD.small (run a g) (run b g) (\ z -> DD.mono u.operation
+        (DD.run g (DD.run (P.projection a).operation z)) (DD.run g (DD.run (P.projection b).operation z))
+        (DD.mono g _ _ (P.increasing a b ab z))),
+      \ I a d g h bounds b -> Point[I,a,d,g,h,bounds,Y.basic b].inclusion] ;
+  module Images = ScottFinitaryEPFamily[l].From[A,End.scott,family] ;
+  module Sum = ScottDependentSum[l].Total[A,End.scott,family] ;
+  domain : ScottDomain[l].Scott = Sum.scott ;
+} ;

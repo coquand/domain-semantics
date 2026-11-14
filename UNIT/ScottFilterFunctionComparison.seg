@@ -1,0 +1,46 @@
+-- The arrow-generated function component is the Scott exponential,
+-- including its order, not only its underlying carrier.
+level l ;
+open Base ; open Prelude[l+] ;
+module S = ScottOrder[l] ;
+module SO = ScottDomainObjects[l] ;
+module D = Domain[l] ;
+module A = Abstraction[l] ;
+module SF = ScottFilter[l] ;
+module M = ScottMaps[l].Between[SF.scott,SF.scott] ;
+module EQ = EquivalenceLemmas[l+] ;
+
+order : S.Order = new S.Order[
+  carrier := A.FD,
+  le := \ f g -> D.Below f.1 g.1,
+  proposition := \ f g ->
+    SF.order.proposition f.1 g.1,
+  reflexive := \ f -> SF.order.reflexive f.1,
+  transitive := \ f g h p q ->
+    SF.order.transitive f.1 g.1 h.1 p q,
+  antisymmetric := \ f g p q ->
+    A.function-ext f g (p,q)] ;
+
+forward (f : A.FD) : SF.function-scott.order.carrier =
+  SF.to-map (A.apply f) ;
+backward (f : SF.function-scott.order.carrier) : A.FD =
+  A.abstract (SF.from-map f) ;
+equivalence : Equiv A.FD SF.function-scott.order.carrier =
+  EQ.then A.FD Continuous[l].Map M.Map
+    A.function-space SF.map-equivalence ;
+forward-mono (f g : A.FD) (h : order.le f g) :
+  SF.function-scott.order.le (forward f) (forward g) =
+  \ a -> Application[l].mono f.1 g.1
+    (D.principal a) (D.principal a) h
+    (SF.order.reflexive (D.principal a)) ;
+forward-reflect (f g : A.FD)
+  (h : SF.function-scott.order.le (forward f) (forward g)) :
+  order.le f g =
+  ScottDomainCategories[l].le-replace order
+    (A.abstract (A.apply f)) f
+    (A.abstract (A.apply g)) g
+    (A.eta f) (A.eta g)
+    (A.MonotoneLambda[A.apply f,A.apply g,
+      \ x -> M.pointwise (forward f) (forward g) h x].inclusion) ;
+order-iso : SO.OrderIso order SF.function-scott.order =
+  (equivalence,(forward-mono,forward-reflect)) ;

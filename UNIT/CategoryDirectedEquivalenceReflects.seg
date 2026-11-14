@@ -1,0 +1,37 @@
+-- A fully faithful functor of an equivalence reflects directed colimits.
+level k l j ;
+open Base ;
+module CAT = Category[k,l] ; module CE = CategoryEquivalence[k,l] ;
+module DC = CategoryDirectedColimits[k,l,j] ; module H = Paths[l] ;
+module On (C D : CAT.Precategory) (e : CE.PreEquivalence[C,D]) {
+  module HC = CategoryPreEquivalenceTransport[k,l].On[C,D,e] ;
+  module A = CategoryArrows[k,l].Arrows[C] ; module B = CategoryArrows[k,l].Arrows[D] ;
+  module For (S : DC.Diagram[C]) (L : C.ob) (leg : (i : S.index) -> C.hom (S.stage i) L)
+    (law : DC.Coherent C S L leg)
+    (c : DC.Colimit[D,DC.Mapped[C,D,e.forward,S,L,leg,law].diagram,
+      e.forward.object L,DC.Mapped[C,D,e.forward,S,L,leg,law].legs]) {
+    module Image = DC.Mapped[C,D,e.forward,S,L,leg,law] ;
+    module Target (Y : C.ob) (q : (i : S.index) -> C.hom (S.stage i) Y) (coherent : DC.Coherent C S Y q) {
+      module Q = DC.Mapped[C,D,e.forward,S,Y,q,coherent] ;
+      image : D.hom (e.forward.object L) (e.forward.object Y) = c.mediator (e.forward.object Y) Q.legs Q.coherent ;
+      mediator : C.hom L Y = HC.hom-inverse L Y image ;
+      equation : Id (D.hom (e.forward.object L) (e.forward.object Y)) (e.forward.arrow L Y mediator) image = HC.forward-inverse L Y image ;
+      factor (i : S.index) : Id (C.hom (S.stage i) Y) (A.cmp mediator (leg i)) (q i) =
+        HC.forward-faithful (S.stage i) Y (A.cmp mediator (leg i)) (q i)
+          (H.transH (e.forward.composition (S.stage i) L Y (leg i) mediator)
+            (H.transH (B.right equation (Image.legs i)) (c.factor (e.forward.object Y) Q.legs Q.coherent i))) ;
+      module Unique (f : C.hom L Y) (f-law : (i : S.index) -> Id (C.hom (S.stage i) Y) (A.cmp f (leg i)) (q i)) {
+        image-law (i : S.index) : Id (D.hom (Image.diagram.stage i) (e.forward.object Y))
+          (B.cmp (e.forward.arrow L Y f) (Image.legs i)) (Q.legs i) =
+          H.transH (H.symH (e.forward.composition (S.stage i) L Y (leg i) f))
+            (H.apH (e.forward.arrow (S.stage i) Y) (f-law i)) ;
+        result : Id (C.hom L Y) f mediator = HC.forward-faithful L Y f mediator
+          (H.transH (c.unique (e.forward.object Y) Q.legs Q.coherent (e.forward.arrow L Y f) image-law)
+            (H.symH equation)) ;
+      } ;
+    } ;
+    colimit : DC.Colimit[C,S,L,leg] = new DC.Colimit[C,S,L,leg,
+      \ Y q h -> Target[Y,q,h].mediator,\ Y q h -> Target[Y,q,h].factor,
+      \ Y q h f f-law -> Target[Y,q,h].Unique[f,f-law].result] ;
+  } ;
+} ;

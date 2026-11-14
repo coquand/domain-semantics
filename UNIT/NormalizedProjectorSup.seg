@@ -1,0 +1,64 @@
+-- Directed suprema retain finitariness and normalization.
+-- The mixed normalization indices are replaced by a common upper index.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open BinaryMaps[l] ; open Finitary[l] ;
+open DirectedApprox[l] ; open ProjectorInvariant[l] ;
+module T = TruncationCombinators[l] ; module PO = ProjectorOperator[l] ;
+
+module Sup (N : Net) (q : N.index -> Binary)
+  (monotone : (i j : N.index) -> N.le i j -> PO.LE (q i) (q j))
+  (families : (i : N.index) -> NormalizedFamily[q i]) {
+  module S = BinarySup[l].Sup[N,q,monotone] ;
+  I : U l = N.index ;
+  below (a x : D) : Domain[l].Below (S.operation a x) x =
+    S.least a x x (\ i -> ((families i).finitary a).deflation x) ;
+  module At (a : D) {
+    f : Map = S.binary.at a ;
+    module DF = FinitaryTools[l].Deflation[f,below a] ;
+    fixed (i : I) (k : K) (h : Fixed ((q i).at a) (principal k)) : Fixed f (principal k) =
+      (below a (principal k),sub-trans (principal k).1 (value (q i) a (principal k)).1
+        (S.operation a (principal k)).1 h.2 (S.upper i a (principal k))) ;
+    at-index (x : D) (t : Ty) (i : I) (h : In (value (q i) a x) t) : Ex (FixedBasis f x t) =
+      T.map (FixedBasis ((q i).at a) (value (q i) a x) t) (FixedBasis f x t)
+        (\ w -> (w.1,(fixed i w.1 w.2.1,(((families i).finitary a).deflation x w.1.1 w.2.2.1,w.2.2.2))))
+        (((families i).finitary a).density (value (q i) a x) (((families i).finitary a).idempotence x) t h) ;
+    cover (x : D) (t : Ty) : In (run f x) t -> Ex (FixedBasis f x t) =
+      T.bind ((i : I) * In (value (q i) a x) t) (FixedBasis f x t) (\ w -> at-index x t w.1 w.2) ;
+    finitary : Finitary[l].Finitary[f] = DF.Covered[cover].finitary ;
+  } ;
+  module Normalize (a x : D) {
+    projected-type : D = S.operation universe a ;
+    y : D = S.operation a x ;
+    finish (n m : I) (t : Ty) (h : In (value (q n) (value (q m) universe a) x) t)
+      (i : I) (ni : N.le n i) (mi : N.le m i) : In y t =
+      S.upper i a x t (((families i).normalization a x).1 t
+        ((q i).monotone (value (q m) universe a) (value (q i) universe a)
+          (monotone m i mi universe a) x t
+          (monotone n i ni (value (q m) universe a) x t h))) ;
+    mixed (n m : I) (t : Ty) (h : In (value (q n) (value (q m) universe a) x) t) : In y t =
+      ex-elim ((i : I) * (N.le n i * N.le m i)) (In y t) (fprop y.1 t)
+        (\ i -> finish n m t h i.1 i.2.1 i.2.2) (N.upper n m) ;
+    at-index (n : I) : Domain[l].Below (value (q n) projected-type x) y = \ t h ->
+      ex-elim ((k : K) * (In projected-type k.1 * In (value (q n) (principal k) x) t)) (In y t) (fprop y.1 t)
+        (\ k -> ex-elim ((m : I) * In (value (q m) universe a) k.1.1) (In y t) (fprop y.1 t)
+          (\ m -> mixed n m.1 t ((q n).monotone (principal k.1) (value (q m.1) universe a)
+            (prin-sub k.1.1 (value (q m.1) universe a).1 m.2) x t k.2.2)) k.2.1)
+        ((q n).finite projected-type x t h) ;
+    forward : Domain[l].Below (S.operation projected-type x) y = S.least projected-type x y at-index ;
+    backward : Domain[l].Below y (S.operation projected-type x) = S.least a x (S.operation projected-type x)
+      (\ i -> sub-trans (value (q i) a x).1 (value (q i) (value (q i) universe a) x).1 (S.operation projected-type x).1
+        ((families i).normalization a x).2
+        (sub-trans (value (q i) (value (q i) universe a) x).1 (S.operation (value (q i) universe a) x).1
+          (S.operation projected-type x).1 (S.upper i (value (q i) universe a) x)
+          (S.binary.monotone (value (q i) universe a) projected-type (S.upper i universe a) x))) ;
+    equation : Equal (S.operation projected-type x) y = (forward,backward) ;
+  } ;
+  family : NormalizedFamily[S.binary] = new NormalizedFamily[S.binary,\ a -> At[a].finitary,
+    \ a x -> Normalize[a,x].equation] ;
+} ;
+
+-- The combined finitariness and normalization invariant is admissible.
+-- No downward-closure assertion is made for projections.
+admissible : BinaryAdmissible[l].Admissible (\ q -> NormalizedFamily[q]) =
+  \ N q monotone families -> Sup[N,q,monotone,families].family ;

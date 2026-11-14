@@ -1,0 +1,80 @@
+-- The existing coalesced-sum presentation carries exactly the filter
+-- domain order; its explicit component order agrees with that order.
+level l ;
+open Base ; open Prelude[l+] ;
+module S = ScottOrder[l] ;
+module SO = ScottDomainObjects[l] ;
+module CR = ScottDomainCategories[l] ;
+module D = Domain[l] ;
+module SF = ScottFilter[l] ;
+module Coalesced = Sum[l] ;
+module Eq = Equation[l] ;
+module EO = EquationOrder[l] ;
+
+le (s t : Coalesced.RHS) : U l =
+  D.Below (Coalesced.encode s) (Coalesced.encode t) ;
+antisymmetric (s t : Coalesced.RHS) (h : le s t) (k : le t s) :
+  Id Coalesced.RHS s t =
+  trans Coalesced.RHS s (Coalesced.decode (Coalesced.encode s)) t
+    (sym Coalesced.RHS (Coalesced.decode (Coalesced.encode s)) s
+      (Eq.Components[s].equation))
+    (trans Coalesced.RHS (Coalesced.decode (Coalesced.encode s))
+      (Coalesced.decode (Coalesced.encode t)) t
+      (ap D.D Coalesced.RHS Coalesced.decode
+        (Coalesced.encode s) (Coalesced.encode t)
+        (SF.order.antisymmetric
+          (Coalesced.encode s) (Coalesced.encode t) h k))
+      (Eq.Components[t].equation)) ;
+order : S.Order = new S.Order[
+  carrier := Coalesced.RHS,le := le,
+  proposition := \ s t -> SF.order.proposition
+    (Coalesced.encode s) (Coalesced.encode t),
+  reflexive := \ s -> SF.order.reflexive (Coalesced.encode s),
+  transitive := \ s t u h k -> SF.order.transitive
+    (Coalesced.encode s) (Coalesced.encode t) (Coalesced.encode u) h k,
+  antisymmetric := antisymmetric] ;
+
+forward (x : D.D) : Coalesced.RHS = Coalesced.decode x ;
+backward (s : Coalesced.RHS) : D.D = Coalesced.encode s ;
+forward-mono (x y : D.D) (h : SF.order.le x y) :
+  order.le (forward x) (forward y) =
+  CR.le-replace SF.order
+    x (Coalesced.encode (Coalesced.decode x))
+    y (Coalesced.encode (Coalesced.decode y))
+    (sym D.D (Coalesced.encode (Coalesced.decode x)) x
+      (Eq.Reconstruct[x].equation))
+    (sym D.D (Coalesced.encode (Coalesced.decode y)) y
+      (Eq.Reconstruct[y].equation)) h ;
+forward-reflect (x y : D.D)
+  (h : order.le (forward x) (forward y)) :
+  SF.order.le x y =
+  CR.le-replace SF.order
+    (Coalesced.encode (Coalesced.decode x)) x
+    (Coalesced.encode (Coalesced.decode y)) y
+    (Eq.Reconstruct[x].equation)
+    (Eq.Reconstruct[y].equation) h ;
+order-iso : SO.OrderIso SF.order order =
+  (Eq.domain-equation,(forward-mono,forward-reflect)) ;
+
+explicit-to-order (s t : Coalesced.RHS)
+  (h : EO.Order s t) : order.le s t =
+  EO.EncodeMono[s,t,h].inclusion ;
+module ExplicitFromOrder (s t : Coalesced.RHS)
+  (h : order.le s t) {
+  initial : EO.Order
+    (Coalesced.decode (Coalesced.encode s))
+    (Coalesced.decode (Coalesced.encode t)) =
+    EO.decode-mono (Coalesced.encode s) (Coalesced.encode t) h ;
+  right : EO.Order (Coalesced.decode (Coalesced.encode s)) t =
+    subst Coalesced.RHS
+      (\ v -> EO.Order (Coalesced.decode (Coalesced.encode s)) v)
+      (Coalesced.decode (Coalesced.encode t)) t
+      (Eq.Components[t].equation) initial ;
+  result : EO.Order s t =
+    subst Coalesced.RHS (\ u -> EO.Order u t)
+      (Coalesced.decode (Coalesced.encode s)) s
+      (Eq.Components[s].equation) right ;
+} ;
+order-to-explicit (s t : Coalesced.RHS)
+  (h : order.le s t) : EO.Order s t =
+  ExplicitFromOrder[s,t,h].result ;

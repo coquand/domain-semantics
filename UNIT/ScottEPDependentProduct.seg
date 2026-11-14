@@ -1,0 +1,166 @@
+-- Dependent products from an EP-valued functor with coherent embeddings
+-- into one ambient Scott domain. Continuity is CGW's directed-cone
+-- criterion: the supremum of embedding/projection composites is identity.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module EP = ScottEmbeddingProjection[l] ; module Ops = ScottMapOperations[l] ;
+
+module Over (A D : ScottDomain[l].Scott) {
+  module X = ScottDomain[l].On[A] ; module V = DC[A.order,A.complete] ;
+  record Family {
+    fiber : X.C -> ScottDomain[l].Scott ;
+    inclusion (a : X.C) : EP.Between[fiber a,D].Pair ;
+    arrow (a b : X.C) (ab : X.LE a b) : EP.Between[fiber a,fiber b].Pair ;
+    identity (a : X.C) (v : (fiber a).order.carrier) :
+      Id (fiber a).order.carrier ((arrow a a (A.order.reflexive a)).embed.1 v) v ;
+    composition (a b c : X.C) (ab : X.LE a b) (bc : X.LE b c) (v : (fiber a).order.carrier) :
+      Id (fiber c).order.carrier ((arrow b c bc).embed.1 ((arrow a b ab).embed.1 v))
+        ((arrow a c (A.order.transitive a b c ab bc)).embed.1 v) ;
+    coherent (a b : X.C) (ab : X.LE a b) (v : (fiber a).order.carrier) :
+      Id D.order.carrier ((inclusion b).embed.1 ((arrow a b ab).embed.1 v)) ((inclusion a).embed.1 v) ;
+  } ;
+  module On (B : Family) {
+    module Cone (I : U l) (x : I -> X.C) (d : ScottOrder[l].On[A.order].Dir I x) {
+      limit : X.C = V.sup I x d ;
+      L : ScottDomain[l].Scott = B.fiber limit ;
+      module W = DC[L.order,L.complete] ;
+      part (v : L.order.carrier) (i : I) : L.order.carrier =
+        (B.arrow (x i) limit (V.upper I x d i)).embed.1
+          ((B.arrow (x i) limit (V.upper I x d i)).project.1 v) ;
+    } ;
+    record Continuous {
+      cone (I : U l) (x : I -> X.C) (d : ScottOrder[l].On[A.order].Dir I x)
+        (v : Cone[I,x,d].L.order.carrier) :
+        (h : ScottOrder[l].On[Cone[I,x,d].L.order].Dir I (Cone[I,x,d].part v)) *
+          Cone[I,x,d].L.order.le v (Cone[I,x,d].W.sup I (Cone[I,x,d].part v) h) ;
+    } ;
+  } ;
+} ;
+
+module Projections (A D : ScottDomain[l].Scott) (B : Over[A,D].Family) (cont : Over[A,D].On[B].Continuous) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module DD = ScottMaps[l].Between[D,D] ; module V = DC[A.order,A.complete] ;
+  module C = Over[A,D].On[B] ;
+  projection (a : X.C) : ScottFinitary[l].On[D].Finitary = EP.Projection[B.fiber a,D,B.inclusion a].finitary ;
+  run (a : X.C) (z : Y.C) : Y.C = (B.inclusion a).embed.1 ((B.inclusion a).project.1 z) ;
+  module Increasing (a b : X.C) (ab : X.LE a b) (z : Y.C) {
+    v : (B.fiber a).order.carrier = (B.inclusion a).project.1 z ;
+    w : (B.fiber b).order.carrier = (B.arrow a b ab).embed.1 v ;
+    e : Id Y.C ((B.inclusion b).embed.1 w) (run a z) = B.coherent a b ab v ;
+    bound : D.order.le ((B.inclusion b).embed.1 w) z =
+      Ops.replace D.order (run a z) ((B.inclusion b).embed.1 w) z z
+        (sym Y.C ((B.inclusion b).embed.1 w) (run a z) e) (refl z) ((B.inclusion a).below z) ;
+    inclusion : D.order.le (run a z) (run b z) =
+      Ops.replace D.order ((B.inclusion b).embed.1 w) (run a z) (run b z) (run b z) e (refl (run b z))
+        (ScottMaps[l].Between[B.fiber b,D].mono (B.inclusion b).embed w ((B.inclusion b).project.1 z)
+          (EP.Laws[B.fiber b,D,B.inclusion b].upper w z bound)) ;
+  } ;
+  module Preserve (I : U l) (x : I -> X.C) (d : ScottOrder[l].On[A.order].Dir I x) (z y : Y.C)
+    (bounds : (i : I) -> Y.LE (run (x i) z) y) {
+    module L = C.Cone[I,x,d] ;
+    module LD = ScottMaps[l].Between[L.L,D] ;
+    v : L.L.order.carrier = (B.inclusion L.limit).project.1 z ;
+    cone : (h : ScottOrder[l].On[L.L.order].Dir I (L.part v)) * L.L.order.le v (L.W.sup I (L.part v) h) =
+      cont.cone I x d v ;
+    module At (i : I) {
+      w : (B.fiber (x i)).order.carrier = (B.arrow (x i) L.limit (V.upper I x d i)).project.1 v ;
+      module ID = ScottMaps[l].Between[B.fiber (x i),D] ;
+      e : Id Y.C ((B.inclusion L.limit).embed.1 (L.part v i)) ((B.inclusion (x i)).embed.1 w) =
+        B.coherent (x i) L.limit (V.upper I x d i) w ;
+      below : Y.LE ((B.inclusion (x i)).embed.1 w) z =
+        Ops.replace D.order ((B.inclusion L.limit).embed.1 (L.part v i)) ((B.inclusion (x i)).embed.1 w)
+          z z e (refl z)
+          (D.order.transitive ((B.inclusion L.limit).embed.1 (L.part v i)) (run L.limit z) z
+            (LD.mono (B.inclusion L.limit).embed (L.part v i) v
+              ((B.arrow (x i) L.limit (V.upper I x d i)).below v)) ((B.inclusion L.limit).below z)) ;
+      bound : Y.LE ((B.inclusion L.limit).embed.1 (L.part v i)) y =
+        Ops.replace D.order ((B.inclusion (x i)).embed.1 w) ((B.inclusion L.limit).embed.1 (L.part v i))
+          y y (sym Y.C ((B.inclusion L.limit).embed.1 (L.part v i)) ((B.inclusion (x i)).embed.1 w) e) (refl y)
+          (D.order.transitive ((B.inclusion (x i)).embed.1 w) (run (x i) z) y
+            (ID.mono (B.inclusion (x i)).embed w ((B.inclusion (x i)).project.1 z)
+              (EP.Laws[B.fiber (x i),D,B.inclusion (x i)].upper w z below)) (bounds i)) ;
+    } ;
+    inclusion : Y.LE (run L.limit z) y =
+      D.order.transitive (run L.limit z) ((B.inclusion L.limit).embed.1 (L.W.sup I (L.part v) cone.1)) y
+        (LD.mono (B.inclusion L.limit).embed v (L.W.sup I (L.part v) cone.1) cone.2)
+        (LD.continuous (B.inclusion L.limit).embed I (L.part v) cone.1 y (\ i -> At[i].bound)) ;
+  } ;
+  family : ScottDependentProduct[l].Over[A,D].Family = new ScottDependentProduct[l].Over[A,D].Family[
+    projection,\ a b ab z -> Increasing[a,b,ab,z].inclusion,\ I x d z y h -> Preserve[I,x,d,z,y,h].inclusion] ;
+} ;
+
+-- The dependent product is a Scott domain before any embedding of A into D.
+module Sections (A D : ScottDomain[l].Scott) (B : Over[A,D].Family) (cont : Over[A,D].On[B].Continuous) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module M = ScottMaps[l].Between[A,D] ; module V = DC[A.order,A.complete] ;
+  module P = Projections[A,D,B,cont] ;
+  module Pi = ScottDependentProduct[l].Product[A,D,P.family] ;
+  domain : ScottDomain[l].Scott = Pi.scott ;
+  component (s : Pi.carrier) (a : X.C) : (B.fiber a).order.carrier =
+    (B.inclusion a).project.1 (M.run s.1 a) ;
+  component-equation (s : Pi.carrier) (a : X.C) :
+    Id Y.C ((B.inclusion a).embed.1 (component s a)) (M.run s.1 a) =
+    ScottFinitary[l].On[D].Laws[P.projection a].fixed-equation (M.run s.1 a) (s.2 a) ;
+  component-monotone (s : Pi.carrier) (a b : X.C) (ab : X.LE a b) :
+    (B.fiber b).order.le ((B.arrow a b ab).embed.1 (component s a)) (component s b) =
+    EP.Laws[B.fiber b,D,B.inclusion b].reflect ((B.arrow a b ab).embed.1 (component s a)) (component s b)
+      (Ops.replace D.order (M.run s.1 a) ((B.inclusion b).embed.1 ((B.arrow a b ab).embed.1 (component s a)))
+        (M.run s.1 b) ((B.inclusion b).embed.1 (component s b))
+        (sym Y.C ((B.inclusion b).embed.1 ((B.arrow a b ab).embed.1 (component s a))) (M.run s.1 a)
+          (trans Y.C ((B.inclusion b).embed.1 ((B.arrow a b ab).embed.1 (component s a)))
+            ((B.inclusion a).embed.1 (component s a)) (M.run s.1 a) (B.coherent a b ab (component s a)) (component-equation s a)))
+        (sym Y.C ((B.inclusion b).embed.1 (component s b)) (M.run s.1 b) (component-equation s b))
+        (M.mono s.1 a b ab)) ;
+  -- The components satisfy CGW's continuity equation (2), not only
+  -- fiberwise membership and monotonicity.
+  module ComponentCone (s : Pi.carrier) (I : U l) (x : I -> X.C) (d : ScottOrder[l].On[A.order].Dir I x) {
+    limit : X.C = V.sup I x d ;
+    L : ScottDomain[l].Scott = B.fiber limit ;
+    module LD = ScottMaps[l].Between[L,D] ; module W = DC[L.order,L.complete] ;
+    part (i : I) : L.order.carrier = (B.arrow (x i) limit (V.upper I x d i)).embed.1 (component s (x i)) ;
+    point (i : I) : Id Y.C ((B.inclusion limit).embed.1 (part i)) (M.run s.1 (x i)) =
+      trans Y.C ((B.inclusion limit).embed.1 (part i)) ((B.inclusion (x i)).embed.1 (component s (x i)))
+        (M.run s.1 (x i)) (B.coherent (x i) limit (V.upper I x d i) (component s (x i))) (component-equation s (x i)) ;
+    monotone (i j : I) (ij : X.LE (x i) (x j)) : L.order.le (part i) (part j) =
+      EP.Laws[L,D,B.inclusion limit].reflect (part i) (part j)
+        (Ops.replace D.order (M.run s.1 (x i)) ((B.inclusion limit).embed.1 (part i))
+          (M.run s.1 (x j)) ((B.inclusion limit).embed.1 (part j))
+          (sym Y.C ((B.inclusion limit).embed.1 (part i)) (M.run s.1 (x i)) (point i))
+          (sym Y.C ((B.inclusion limit).embed.1 (part j)) (M.run s.1 (x j)) (point j)) (M.mono s.1 (x i) (x j) ij)) ;
+    directed : ScottOrder[l].On[L.order].Dir I part =
+      (d.1,\ i j -> TruncationCombinators[l].map (ScottOrder[l].On[A.order].Upper I x i j)
+        (ScottOrder[l].On[L.order].Upper I part i j)
+        (\ k -> (k.1,(monotone i k.1 k.2.1,monotone j k.1 k.2.2))) (d.2 i j)) ;
+    upper (i : I) : L.order.le (part i) (component s limit) =
+      EP.Laws[L,D,B.inclusion limit].reflect (part i) (component s limit)
+        (Ops.replace D.order (M.run s.1 (x i)) ((B.inclusion limit).embed.1 (part i))
+          (M.run s.1 limit) ((B.inclusion limit).embed.1 (component s limit))
+          (sym Y.C ((B.inclusion limit).embed.1 (part i)) (M.run s.1 (x i)) (point i))
+          (sym Y.C ((B.inclusion limit).embed.1 (component s limit)) (M.run s.1 limit) (component-equation s limit))
+          (M.mono s.1 (x i) limit (V.upper I x d i))) ;
+    covers : L.order.le (component s limit) (W.sup I part directed) =
+      EP.Laws[L,D,B.inclusion limit].reflect (component s limit) (W.sup I part directed)
+        (Ops.replace D.order (M.run s.1 limit) ((B.inclusion limit).embed.1 (component s limit))
+          ((B.inclusion limit).embed.1 (W.sup I part directed)) ((B.inclusion limit).embed.1 (W.sup I part directed))
+          (sym Y.C ((B.inclusion limit).embed.1 (component s limit)) (M.run s.1 limit) (component-equation s limit))
+          (refl ((B.inclusion limit).embed.1 (W.sup I part directed)))
+          (M.continuous s.1 I x d ((B.inclusion limit).embed.1 (W.sup I part directed))
+            (\ i -> Ops.replace D.order ((B.inclusion limit).embed.1 (part i)) (M.run s.1 (x i))
+              ((B.inclusion limit).embed.1 (W.sup I part directed)) ((B.inclusion limit).embed.1 (W.sup I part directed))
+              (point i) (refl ((B.inclusion limit).embed.1 (W.sup I part directed)))
+              (LD.mono (B.inclusion limit).embed (part i) (W.sup I part directed) (W.upper I part directed i))))) ;
+    equation : Id L.order.carrier (W.sup I part directed) (component s limit) =
+      L.order.antisymmetric (W.sup I part directed) (component s limit) (W.least I part directed (component s limit) upper) covers ;
+  } ;
+} ;
+
+-- The general closure theorem, with an EP-valued family as its input.
+module Product (A D : ScottDomain[l].Scott) (B : Over[A,D].Family) (cont : Over[A,D].On[B].Continuous)
+  (input : EP.Between[A,D].Pair)
+  (functions : EP.Between[ScottExponential[l].Exponential[D,D].scott,D].Pair) {
+  module P = Projections[A,D,B,cont] ;
+  module Pi = ScottDependentProductEmbedding[l].InAmbient[A,D,P.family,input,functions] ;
+  domain : ScottDomain[l].Scott = Pi.E.S.scott ;
+  pair : EP.Between[domain,D].Pair = Pi.pair ;
+  finitary : ScottFinitary[l].On[D].Finitary = Pi.finitary ;
+} ;

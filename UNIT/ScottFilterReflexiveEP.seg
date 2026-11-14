@@ -1,0 +1,43 @@
+-- Application and abstraction form a continuous EP pair [D -> D] -> D.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open Abstraction[l] ;
+module SF = ScottFilter[l] ; module DD = ScottMaps[l].Between[SF.scott,SF.scott] ;
+module End = ScottExponential[l].Exponential[SF.scott,SF.scott] ;
+module E = ScottMaps[l].Between[End.scott,SF.scott] ;
+module R = ScottMaps[l].Between[SF.scott,End.scott] ;
+module MC = ScottOrder[l].DC[DD.order,DD.complete] ;
+module DA = DirectedApprox[l] ; module T = TruncationCombinators[l] ;
+module AP = Application[l] ;
+
+encode (g : DD.Map) : D = (abstract (SF.from-map g)).1 ;
+decode (x : D) : DD.Map = SF.to-map (AP.map x) ;
+module Encoding (I : U l) (g : I -> DD.Map) (d : DD.MO.Dir I g) {
+  net : DA.Net = new DA.Net[I,\ i j -> DD.LE (g i) (g j),
+    \ i -> DD.order.reflexive (g i),\ i j k -> DD.order.transitive (g i) (g j) (g k),d.1,d.2] ;
+  module O = DA.On[net] ;
+  maps : O.MapNet = new O.MapNet[\ i -> SF.from-map (g i),SF.from-map (MC.sup I g d),
+    \ i j h x -> DD.pointwise (g i) (g j) h x,
+    \ i x -> DD.pointwise (g i) (MC.sup I g d) (MC.upper I g d i) x,\ x t h -> h] ;
+  module L = O.AbstractNet[maps] ;
+  continuous (z : D) (bounds : (i : I) -> Domain[l].Below (encode (g i)) z) :
+    Domain[l].Below (encode (MC.sup I g d)) z = \ t h ->
+    ex-elim ((i : I) * In (encode (g i)) t) (In z t) (fprop z.1 t)
+      (\ w -> bounds w.1 t w.2) (L.cover t h) ;
+} ;
+embed : E.Map = (encode,
+  (\ f g h -> MonotoneLambda[SF.from-map f,SF.from-map g,DD.pointwise f g h].inclusion,
+   \ I g d z h -> Encoding[I,g,d].continuous z h)) ;
+project : R.Map = (decode,
+  (\ x y h a -> AP.mono x y (principal a) (principal a) h (sub-refl (principal a).1),
+   \ I x d g h a -> (SF.to-map ApplicationParameter[l].At[principal a].map).2.2 I x d
+     (DD.run g (principal a)) (\ i -> h i a))) ;
+retract (g : DD.Map) : Id DD.Map (decode (encode g)) g =
+  DD.ext (decode (encode g)) g
+    (\ a -> Beta[SF.from-map g,principal a].forward)
+    (\ a -> Beta[SF.from-map g,principal a].backward) ;
+below (x : D) : Domain[l].Below (encode (decode x)) x =
+  sub-trans (encode (decode x)).1 (abstract (AP.map x)).1.1 x.1
+    MonotoneLambda[SF.from-map (decode x),AP.map x,\ z -> sub-refl (AP.eval x z).1].inclusion Lower[x].forward ;
+pair : ScottEmbeddingProjection[l].Between[End.scott,SF.scott].Pair =
+  new ScottEmbeddingProjection[l].Between[End.scott,SF.scott].Pair[embed,project,retract,below] ;

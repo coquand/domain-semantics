@@ -1,0 +1,64 @@
+-- Phi preserves normalization, independently of the semantic projector.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open Abstraction[l] ; open BinaryMaps[l] ;
+module PO = ProjectorOperator[l] ; module OC = OperatorContinuity[l] ;
+module FM = ProjectorFamilyMaps[l] ; module AP = Application[l] ;
+
+Normalized (q : Binary) : U l+ = (a x : D) -> Equal (value q (value q universe a) x) (value q a x) ;
+
+module Preserve (q : Binary) (below : (a x : D) -> Domain[l].Below (value q a x) x)
+  (idem : (a x : D) -> Equal (value q a (value q a x)) (value q a x)) (norm : Normalized q) {
+  module DF = ProjectorDeflation[l].On[q,below] ;
+  module At (A X : D) {
+    module Univ = PO.At[q,universe,A] ;
+    module C = Equation[l].Components[Univ.presentation] ;
+    module L = PO.At[q,A,X] ; module R = PO.At[q,Univ.result,X] ;
+    universe-head (h : Parts[l].UHead A) : Parts[l].UHead Univ.result = C.u-in (prin-in univ,h) ;
+    module Function (h : Parts[l].PHead A) {
+      head : Parts[l].PHead Univ.result = C.p-in (prin-in univ,h) ;
+      module Pair = C.Pair[head,(prin-in univ,h)] ;
+      module Old = Parts[l].PiParts[A,h] ; module New = Parts[l].PiParts[Univ.result,head] ;
+      module Point (z : D) {
+        v : D = value q Old.domain z ;
+        w : D = value q New.domain z ;
+        input : Domain[l].Below v w = sub-trans v.1 (value q (value q universe Old.domain) z).1 w.1
+          (norm Old.domain z).2
+          (q.monotone (value q universe Old.domain) New.domain Pair.dback z) ;
+        repeated : Domain[l].Below v (value q Old.domain w) =
+          sub-trans v.1 (value q Old.domain v).1 (value q Old.domain w).1 (idem Old.domain z).2
+            ((q.at Old.domain).2.1 v w input) ;
+        family : Domain[l].Below (value q universe (AP.eval Old.family.1 v)) (AP.eval New.family.1 w) =
+          sub-trans (value q universe (AP.eval Old.family.1 v)).1
+            (value q universe (AP.eval Old.family.1 (value q Old.domain w))).1 (AP.eval New.family.1 w).1
+            ((q.at universe).2.1 (AP.eval Old.family.1 v) (AP.eval Old.family.1 (value q Old.domain w))
+              (AP.mono Old.family.1 Old.family.1 v (value q Old.domain w) (sub-refl Old.family.1.1) repeated))
+            (sub-trans (value q universe (AP.eval Old.family.1 (value q Old.domain w))).1
+              (AP.eval (FM.universe-family q Old.domain Old.family).1 w).1 (AP.eval New.family.1 w).1
+              Beta[FM.family-map q Old.domain (constant universe) Old.family.1,w].backward
+              (AP.mono (FM.universe-family q Old.domain Old.family).1 New.family.1 w w Pair.fback (sub-refl w.1))) ;
+        inclusion : Domain[l].Below (run (FM.family-map q Old.domain (apply Old.family) X) z)
+          (run (FM.family-map q New.domain (apply New.family) X) z) =
+          sub-trans (value q (AP.eval Old.family.1 v) (AP.eval X v)).1
+            (value q (value q universe (AP.eval Old.family.1 v)) (AP.eval X v)).1
+            (value q (AP.eval New.family.1 w) (AP.eval X w)).1
+            (norm (AP.eval Old.family.1 v) (AP.eval X v)).2
+            (BinaryMaps[l].mono q (value q universe (AP.eval Old.family.1 v)) (AP.eval New.family.1 w)
+              (AP.eval X v) (AP.eval X w) family (AP.mono X X v w (sub-refl X.1) input)) ;
+      } ;
+      inclusion : Domain[l].Below (L.function h).1 R.result =
+        sub-trans (L.function h).1.1 (R.function head).1.1 R.result.1
+          MonotoneLambda[FM.family-map q Old.domain (apply Old.family) X,
+            FM.family-map q New.domain (apply New.family) X,\ z -> Point[z].inclusion].inclusion
+          (R.function-in head) ;
+    } ;
+    forward : Domain[l].Below R.result L.result =
+      (OC.Phi q).monotone Univ.result A (DF.at universe A) X ;
+    backward : Domain[l].Below L.result R.result = L.least R.result
+      (\ ha hx -> R.u-in (universe-head ha) hx)
+      (\ ha hx -> R.pi-in (universe-head ha) hx)
+      (\ h -> Function[h].inclusion) ;
+    equation : Equal R.result L.result = (forward,backward) ;
+  } ;
+  normalized : Normalized (OC.Phi q) = \ a x -> At[a,x].equation ;
+} ;

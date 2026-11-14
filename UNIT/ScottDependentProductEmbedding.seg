@@ -1,0 +1,108 @@
+-- Dependent products of finitary subdomains embed in the endomap domain,
+-- and hence in any reflexive ambient domain containing that endomap domain.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module Ops = ScottMapOperations[l] ; module EP = ScottEmbeddingProjection[l] ;
+
+module Diagonal (A D : ScottDomain[l].Scott) (B : ScottDependentProduct[l].Over[A,D].Family)
+  (h : ScottMaps[l].Between[A,D].Map) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module M = ScottMaps[l].Between[A,D] ; module DD = ScottMaps[l].Between[D,D] ;
+  module O = ScottOrder[l].On[A.order] ;
+  value (a : X.C) : Y.C = DD.run (B.projection a).operation (M.run h a) ;
+  monotone : M.Monotone value = \ a b ab ->
+    D.order.transitive (value a) (DD.run (B.projection b).operation (M.run h a)) (value b)
+      (B.increasing a b ab (M.run h a))
+      (DD.mono (B.projection b).operation (M.run h a) (M.run h b) (M.mono h a b ab)) ;
+  module Preserve (I : U l) (x : I -> X.C) (d : O.Dir I x) (z : Y.C)
+    (bounds : (i : I) -> Y.LE (value (x i)) z) {
+    mixed (i j : I) : Y.LE (DD.run (B.projection (x i)).operation (M.run h (x j))) z =
+      T.rec (O.Upper I x i j) @l
+        (Y.LE (DD.run (B.projection (x i)).operation (M.run h (x j))) z)
+        (D.order.proposition (DD.run (B.projection (x i)).operation (M.run h (x j))) z)
+        (\ k -> D.order.transitive (DD.run (B.projection (x i)).operation (M.run h (x j)))
+          (DD.run (B.projection (x k.1)).operation (M.run h (x j))) z
+          (B.increasing (x i) (x k.1) k.2.1 (M.run h (x j)))
+          (D.order.transitive (DD.run (B.projection (x k.1)).operation (M.run h (x j)))
+            (value (x k.1)) z
+            (DD.mono (B.projection (x k.1)).operation (M.run h (x j)) (M.run h (x k.1))
+              (M.mono h (x j) (x k.1) k.2.2)) (bounds k.1))) (d.2 i j) ;
+    at-index (i : I) : Y.LE (DD.run (B.projection (x i)).operation (M.run h (M.C.sup I x d))) z =
+      Ops.Compose[A,D,D,(B.projection (x i)).operation,h].continuous I x d z (mixed i) ;
+    inclusion : Y.LE (value (M.C.sup I x d)) z =
+      B.continuous I x d (M.run h (M.C.sup I x d)) z at-index ;
+  } ;
+  map : M.Map = (value,(monotone,\ I x d z h -> Preserve[I,x,d,z,h].inclusion)) ;
+} ;
+
+module Embedding (A D : ScottDomain[l].Scott) (B : ScottDependentProduct[l].Over[A,D].Family)
+  (input : EP.Between[A,D].Pair) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module AD = ScottMaps[l].Between[A,D] ; module DA = ScottMaps[l].Between[D,A] ;
+  module DD = ScottMaps[l].Between[D,D] ;
+  module End = ScottExponential[l].Exponential[D,D] ;
+  module S = ScottDependentProduct[l].Product[A,D,B] ;
+  module V = DC[D.order,D.complete] ;
+  module SE = ScottMaps[l].Between[S.scott,End.scott] ;
+  module ES = ScottMaps[l].Between[End.scott,S.scott] ;
+  module FP = ScottFinitary[l].On[D] ;
+  extend (s : S.carrier) : DD.Map = Ops.Compose[D,A,D,s.1,input.project].map ;
+  embed : SE.Map = (extend,
+    (\ s t st b -> AD.pointwise s.1 t.1 st (DA.run input.project (Y.basic b)),
+     \ I s d g bounds b -> V.least I (\ i -> AD.run (s i).1 (DA.run input.project (Y.basic b)))
+       (AD.evaluated-dir I (\ i -> (s i).1) d (DA.run input.project (Y.basic b)))
+       (DD.run g (Y.basic b)) (\ i -> bounds i b))) ;
+  module Restrict (g : DD.Map) {
+    argument : AD.Map = Ops.Compose[A,D,D,g,input.embed].map ;
+    module Value = Diagonal[A,D,B,argument] ;
+    value : S.carrier = (Value.map,\ a -> (B.projection a).idempotence (AD.run argument a)) ;
+  } ;
+  restrict (g : DD.Map) : S.carrier = Restrict[g].value ;
+  project : ES.Map = (restrict,
+    (\ f g fg a -> DD.mono (B.projection (X.basic a)).operation
+      (DD.run f (AD.run input.embed (X.basic a))) (DD.run g (AD.run input.embed (X.basic a)))
+      (DD.pointwise f g fg (AD.run input.embed (X.basic a))),
+     \ I g d s bounds a -> DD.continuous (B.projection (X.basic a)).operation I
+       (\ i -> DD.run (g i) (AD.run input.embed (X.basic a)))
+       (DD.evaluated-dir I g d (AD.run input.embed (X.basic a))) (AD.run s.1 (X.basic a))
+       (\ i -> bounds i a))) ;
+  module Retract (s : S.carrier) {
+    value : S.carrier = restrict (extend s) ;
+    point (a : X.C) : Id Y.C (AD.run value.1 a) (AD.run s.1 a) =
+      trans Y.C (AD.run value.1 a) (S.run a (AD.run s.1 a)) (AD.run s.1 a)
+        (ap X.C Y.C (\ b -> S.run a (AD.run s.1 b))
+          (DA.run input.project (AD.run input.embed a)) a (input.retract a))
+        (FP.Laws[B.projection a].fixed-equation (AD.run s.1 a) (s.2 a)) ;
+    equation : Id S.carrier value s = S.ext value s
+      (AD.small value.1 s.1 (\ a -> Ops.replace D.order (AD.run value.1 a) (AD.run value.1 a)
+        (AD.run value.1 a) (AD.run s.1 a) (refl (AD.run value.1 a)) (point a) (D.order.reflexive (AD.run value.1 a))))
+      (AD.small s.1 value.1 (\ a -> Ops.replace D.order (AD.run value.1 a) (AD.run s.1 a)
+        (AD.run value.1 a) (AD.run value.1 a) (point a) (refl (AD.run value.1 a)) (D.order.reflexive (AD.run value.1 a)))) ;
+  } ;
+  retract (s : S.carrier) : Id S.carrier (restrict (extend s)) s = Retract[s].equation ;
+  below (g : DD.Map) : DD.LE (extend (restrict g)) g = \ b ->
+    D.order.transitive (DD.run (extend (restrict g)) (Y.basic b))
+      (DD.run g (AD.run input.embed (DA.run input.project (Y.basic b)))) (DD.run g (Y.basic b))
+      ((B.projection (DA.run input.project (Y.basic b))).deflation
+        (DD.run g (AD.run input.embed (DA.run input.project (Y.basic b)))))
+      (DD.mono g (AD.run input.embed (DA.run input.project (Y.basic b))) (Y.basic b) (input.below (Y.basic b))) ;
+  pair : EP.Between[S.scott,End.scott].Pair = new EP.Between[S.scott,End.scott].Pair[embed,project,retract,below] ;
+  embed-computes (s : S.carrier) (z : Y.C) : Id Y.C (DD.run (extend s) z)
+    (AD.run s.1 (DA.run input.project z)) = refl (DD.run (extend s) z) ;
+  project-computes (g : DD.Map) (a : X.C) : Id Y.C (AD.run (restrict g).1 a)
+    (S.run a (DD.run g (AD.run input.embed a))) = refl (AD.run (restrict g).1 a) ;
+  computes (g : DD.Map) (z : Y.C) : Id Y.C (DD.run (extend (restrict g)) z)
+    (S.run (DA.run input.project z) (DD.run g (AD.run input.embed (DA.run input.project z)))) =
+    refl (DD.run (extend (restrict g)) z) ;
+  finitary : ScottFinitary[l].On[End.scott].Finitary = EP.Projection[S.scott,End.scott,pair].finitary ;
+} ;
+
+module InAmbient (A D : ScottDomain[l].Scott) (B : ScottDependentProduct[l].Over[A,D].Family)
+  (input : EP.Between[A,D].Pair)
+  (functions : EP.Between[ScottExponential[l].Exponential[D,D].scott,D].Pair) {
+  module E = Embedding[A,D,B,input] ;
+  module C = EP.Compose[E.S.scott,E.End.scott,D,E.pair,functions] ;
+  pair : EP.Between[E.S.scott,D].Pair = C.pair ;
+  finitary : ScottFinitary[l].On[D].Finitary = EP.Projection[E.S.scott,D,pair].finitary ;
+} ;

@@ -1,0 +1,9 @@
+-- Domain-only dependent function operations used by Phi.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ;
+open Domain[l] ; open Continuous[l] ; open Abstraction[l] ; open BinaryMaps[l] ;
+module AP = Application[l] ;
+family-map (q : Binary) (A : D) (H : Map) (F : D) : Map =
+  Diagonal[q,Maps[l].compose H (q.at A),Maps[l].compose (AP.map F) (q.at A)].map ;
+universe-family (q : Binary) (A : D) (B : FD) : FD =
+  abstract (family-map q A (constant universe) B.1) ;

@@ -1,0 +1,36 @@
+-- EP conjugation does not in general preserve projection idempotence.
+-- These finite chains also give a counterexample in classical Scott domains.
+-- The checked statements below concern their order, EP, and projector laws.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ;
+data Large : U l = c0 | c1 | c2 | c3 ;
+data Small : U l = d0 | d1 | d3 ;
+rank : Large -> Nat = split { c0 -> zero ; c1 -> suc zero ; c2 -> suc (suc zero) ; c3 -> suc (suc (suc zero)) } ;
+LE (x y : Large) : U l = LeN (rank x) (rank y) ;
+embed : Small -> Large = split { d0 -> c0 ; d1 -> c1 ; d3 -> c3 } ;
+project : Large -> Small = split { c0 -> d0 ; c1 -> d1 ; c2 -> d1 ; c3 -> d3 } ;
+SLE (x y : Small) : U l = LE (embed x) (embed y) ;
+p : Large -> Large = split { c0 -> c0 ; c1 -> c0 ; c2 -> c2 ; c3 -> c2 } ;
+embedding-monotone (x y : Small) (h : SLE x y) : LE (embed x) (embed y) = h ;
+projection-monotone : (x y : Large) -> LE x y -> SLE (project x) (project y) = split {
+  c0 -> \ y h -> tt ;
+  c1 -> split { c0 -> \ h -> h ; c1 -> \ h -> tt ; c2 -> \ h -> tt ; c3 -> \ h -> tt } ;
+  c2 -> split { c0 -> \ h -> h ; c1 -> \ h -> tt ; c2 -> \ h -> tt ; c3 -> \ h -> tt } ;
+  c3 -> split { c0 -> \ h -> h ; c1 -> \ h -> h ; c2 -> \ h -> h ; c3 -> \ h -> tt } } ;
+retract : (x : Small) -> Id Small (project (embed x)) x = split {
+  d0 -> refl d0 ; d1 -> refl d1 ; d3 -> refl d3 } ;
+ep-below : (x : Large) -> LE (embed (project x)) x = split {
+  c0 -> tt ; c1 -> tt ; c2 -> tt ; c3 -> tt } ;
+p-monotone : (x y : Large) -> LE x y -> LE (p x) (p y) = split {
+  c0 -> \ y h -> tt ; c1 -> \ y h -> tt ;
+  c2 -> split { c0 -> \ h -> h ; c1 -> \ h -> h ; c2 -> \ h -> tt ; c3 -> \ h -> tt } ;
+  c3 -> split { c0 -> \ h -> h ; c1 -> \ h -> h ; c2 -> \ h -> tt ; c3 -> \ h -> tt } } ;
+p-below : (x : Large) -> LE (p x) x = split { c0 -> tt ; c1 -> tt ; c2 -> tt ; c3 -> tt } ;
+p-idempotent : (x : Large) -> Id Large (p (p x)) (p x) = split {
+  c0 -> refl c0 ; c1 -> refl c0 ; c2 -> refl c2 ; c3 -> refl c2 } ;
+restricted (x : Small) : Small = project (p (embed x)) ;
+once : Id Small (restricted d3) d1 = refl d1 ;
+twice : Id Small (restricted (restricted d3)) d0 = refl d0 ;
+zero-code : Small -> U l = split { d0 -> Top ; d1 -> Empty ; d3 -> Empty } ;
+not-idempotent (h : Id Small (restricted (restricted d3)) (restricted d3)) : Empty =
+  subst Small zero-code d0 d1 h tt ;

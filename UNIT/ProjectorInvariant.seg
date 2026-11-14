@@ -1,0 +1,75 @@
+-- Phi preserves normalized, continuous finitary-projector families.
+-- General dependent products and sums supply compact fixed-point density.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+open BinaryMaps[l] ; open Finitary[l] ;
+module T = TruncationCombinators[l] ; module PO = ProjectorOperator[l] ;
+module OC = OperatorContinuity[l] ;
+
+record NormalizedFamily {
+  binary : Binary ;
+  finitary (a : D) : Finitary[l].Finitary[binary.at a] ;
+  normalization : ProjectorNormalization[l].Normalized binary ;
+} ;
+
+module Preserve (q : Binary) (fp : (a : D) -> Finitary[l].Finitary[q.at a])
+  (norm : ProjectorNormalization[l].Normalized q) {
+  module DF = ProjectorDeflation[l].On[q,\ a x -> (fp a).deflation x] ;
+  module At (A : D) {
+    f : Map = (OC.Phi q).at A ;
+    module Fixed = FinitaryTools[l].Deflation[f,DF.at A] ;
+    module Input (X : D) {
+      module P = PO.At[q,A,X] ;
+      Witness (t : Ty) : U l = FixedBasis f X t ;
+      universe-fixed (ha : Parts[l].UHead A) : Finitary[l].Fixed f universe =
+        (DF.at A universe,prin-sub univ (run f universe).1
+          (PO.At[q,A,universe].u-in ha (prin-in univ) univ (prin-in univ))) ;
+      module Product (ha : Parts[l].UHead A) (hx : Parts[l].PHead X) {
+        module C = Parts[l].PiParts[X,hx] ;
+        module Total = StructuralUniverseProductProjector[l].On[q,fp,norm,C.domain,C.family] ;
+        module Finish (t d g : Ty) (le : Le (pi d g) t) (b : Total.Graph[d,g]) {
+          module K = CompactProduct[l].Pair[b.code,b.key,b.arrows] ;
+          fixed : Finitary[l].Fixed f (principal K.k) =
+            CompactProduct[l].Fixed[q,fp,A,ha,b.code,b.key,b.arrows,b.code-fixed,b.fixed].fixed ;
+          inside : In X K.k.1 = Parts[l].pi-combine X b.code.1 b.key.1
+            ((fp universe).deflation C.domain b.code.1 b.code-inside) b.inside ;
+          covers : Le K.k.1 t = le-trans K.k.1 (pi d g) t
+            (le-pi b.code.1 d b.key.1 g b.code-covers b.covers) le ;
+          witness : Witness t = (K.k,(fixed,(inside,covers))) ;
+        } ;
+        cover (t d g : Ty) (hd : In (P.pi-domain hx) d) (hg : In (P.pi-family hx).1 g)
+          (le : Le (pi d g) t) : Ex (Witness t) =
+          T.map Total.Graph[d,g] (Witness t) (\ b -> Finish[t,d,g,le,b].witness) (Total.observe d g hd hg) ;
+      } ;
+      module Function (h : Parts[l].PHead A) {
+        module C = Parts[l].PiParts[A,h] ;
+        module S = SectionProjector[l].On[q,fp,C.domain,apply C.family] ;
+        witness (t : Ty) (g : FixedBasis S.map (S.result X).1 t) : Witness t =
+          (g.1,((DF.at A (principal g.1),
+            sub-trans (principal g.1).1 (S.result (principal g.1)).1.1 (run f (principal g.1)).1
+              g.2.1.2 (PO.At[q,A,principal g.1].function-in h)),
+            (S.finitary.deflation X g.1.1 g.2.2.1,g.2.2.2))) ;
+        cover (t : Ty) (obs : In (P.function h).1 t) : Ex (Witness t) =
+          T.map (FixedBasis S.map (S.result X).1 t) (Witness t) (witness t)
+            (S.finitary.density (S.result X).1 (S.finitary.idempotence X) t obs) ;
+      } ;
+      guarded (t : Ty) : P.G.G.W t -> Ex (Witness t) = split {
+        inl le -> ex (Witness t) (Fixed.weaken X om t le (Fixed.empty X)) ;
+        inr w -> Function[w.1].cover t w.2 } ;
+      witness : (t : Ty) -> P.E.W t -> Ex (Witness t) = split {
+        wbot t le -> ex (Witness t) (Fixed.weaken X om t le (Fixed.empty X)) ;
+        wu t h le -> ex (Witness t) (universeK,(universe-fixed h.1,(h.2,le))) ;
+        wp t h d g hd hg le -> Product[h.1,h.2].cover t d g hd hg le ;
+        wf t h -> T.bind (P.G.G.W t) (Witness t) (guarded t) h } ;
+      cover (t : Ty) : In P.result t -> Ex (Witness t) = T.bind (P.E.W t) (Witness t) (witness t) ;
+    } ;
+    finitary : Finitary[l].Finitary[f] = Fixed.Covered[\ x -> Input[x].cover].finitary ;
+  } ;
+  normalization : ProjectorNormalization[l].Normalized (OC.Phi q) =
+    ProjectorNormalization[l].Preserve[q,\ a x -> (fp a).deflation x,\ a x -> (fp a).idempotence x,norm].normalized ;
+  family : NormalizedFamily[OC.Phi q] = new NormalizedFamily[OC.Phi q,\ a -> At[a].finitary,normalization] ;
+} ;
+
+preserves (q : NormalizedFamily) : NormalizedFamily[OC.Phi q.binary] =
+  Preserve[q.binary,q.finitary,q.normalization].family ;

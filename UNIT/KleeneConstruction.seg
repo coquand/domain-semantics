@@ -1,0 +1,56 @@
+-- Define the projector FIRST as the least fixed point of its clauses.
+-- The construction through leastness does not use MIN typing.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open BinaryMaps[l] ; open DirectedApprox[l] ;
+module PO = ProjectorOperator[l] ; module OC = OperatorContinuity[l] ;
+module TC = TruncationCombinators[l] ; module P = Prelude[l+] ;
+
+bottom-binary : Binary = new Binary[\ a -> constant bottom,
+  \ a b h x -> sub-refl bottom.1,
+  \ a x t h -> ex ((k : K) * (In a k.1 * In bottom t)) (bottomK,(fom a.1,h))] ;
+iterate : Nat -> Binary = split { zero -> bottom-binary ; suc n | r -> OC.Phi r } ;
+increasing : (n : Nat) -> PO.LE (iterate n) (iterate (suc n)) = split {
+  zero -> \ a x -> bottom-least (value (iterate (suc zero)) a x) ;
+  suc n | r -> OC.monotone (iterate n) (iterate (suc n)) r } ;
+monotone : (m n : Nat) -> LeN m n -> PO.LE (iterate m) (iterate n) = split {
+  zero -> \ n h a x -> bottom-least (value (iterate n) a x) ;
+  suc m | r -> split {
+    zero -> \ h -> P.absurd (PO.LE (iterate (suc m)) (iterate zero)) h ;
+    suc n -> \ h -> OC.monotone (iterate m) (iterate n) (r n h) } } ;
+net : Net = new Net[Nat,LeN,leN-refl,leN-trans,ex Nat zero,
+  \ m n -> ex ((k : Nat) * (LeN m k * LeN n k)) (max m n,(leN-max-l m n,leN-max-r m n))] ;
+module S = BinarySup[l].Sup[net,iterate,monotone] ;
+candidate : Binary = S.binary ;
+p (a x : D) : D = value candidate a x ;
+pre-fixed (a x : D) : Domain[l].Below (value (OC.Phi candidate) a x) (p a x) = \ t h ->
+  ex-elim (OperatorContinuity[l].Approximate[net,S.approx,On[net].constant a,On[net].constant x].Witness t)
+    (In (p a x) t) (fprop (p a x).1 t) (\ w -> S.upper (suc w.1) a x t w.2)
+    (OperatorContinuity[l].Approximate[net,S.approx,On[net].constant a,On[net].constant x].cover t h) ;
+below-image : (n : Nat) -> PO.LE (iterate n) (OC.Phi candidate) = split {
+  zero -> \ a x -> bottom-least (value (OC.Phi candidate) a x) ;
+  suc n -> OC.monotone (iterate n) candidate (S.upper n) } ;
+post-fixed (a x : D) : Domain[l].Below (p a x) (value (OC.Phi candidate) a x) =
+  S.least a x (value (OC.Phi candidate) a x) (\ n -> below-image n a x) ;
+equation (a x : D) : Id D (value (OC.Phi candidate) a x) (p a x) =
+  Domain[l].ext (value (OC.Phi candidate) a x) (p a x) (pre-fixed a x,post-fixed a x) ;
+
+-- LCF-style induction: applications supply admissibility, the bottom
+-- case, and preservation by Phi. Natural-number induction stays here.
+module Induction (Q : Binary -> U l+)
+  (admissible : BinaryAdmissible[l].Admissible Q)
+  (base : Q bottom-binary)
+  (step : (q : Binary) -> Q q -> Q (OC.Phi q)) {
+  stages : (n : Nat) -> Q (iterate n) = split {
+    zero -> base ;
+    suc n | ih -> step (iterate n) ih } ;
+  result : Q candidate = admissible net iterate monotone stages ;
+} ;
+
+module Below (q : Binary) (prefixed : PO.LE (OC.Phi q) q) {
+  stages : (n : Nat) -> PO.LE (iterate n) q = split {
+    zero -> \ a x -> bottom-least (value q a x) ;
+    suc n | r -> \ a x -> sub-trans (value (iterate (suc n)) a x).1 (value (OC.Phi q) a x).1 (value q a x).1
+      (OC.monotone (iterate n) q r a x) (prefixed a x) } ;
+  least : PO.LE candidate q = \ a x -> S.least a x (value q a x) (\ n -> stages n a x) ;
+} ;

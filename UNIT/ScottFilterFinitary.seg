@@ -1,0 +1,35 @@
+-- Translate finitary projections between the generic Scott interface and
+-- the original filter-domain interface. Operations are unchanged.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ;
+module SF = ScottFilter[l] ; module FP = ScottFinitary[l].On[SF.scott] ;
+module T = TruncationCombinators[l] ;
+
+from-filter (p : Finitary[l].Finitary) : FP.Finitary[SF.to-map p.operation] =
+  new FP.Finitary[SF.to-map p.operation,p.deflation,\ x -> (p.idempotence x).2,
+    \ x fixed a h -> T.map (Finitary[l].FixedBasis p.operation x a.1)
+      (FP.Witness (SF.to-map p.operation) x a)
+      (\ w -> (w.1,(w.2.1.2,(prin-sub w.1.1 x.1 w.2.2.1,prin-anti w.1.1 a.1 w.2.2.2))))
+      (p.density x (p.deflation x,fixed) a.1 (h a.1 (prin-in a.1)))] ;
+
+module ToFilter (p : FP.Finitary) {
+  f : Map = SF.from-map p.operation ;
+  module Density (x : D) (fixed : Finitary[l].Fixed f x) (t : Ty) {
+    finish (k : Domain[l].PW x.1 t)
+      (w : FP.Witness p.operation x (k.1,(k.2.1,consistent x k.1 k.2.2.1))) :
+      Ex (Finitary[l].FixedBasis f x t) =
+      T.map (Le w.1.1 k.1) (Finitary[l].FixedBasis f x t)
+        (\ le -> (w.1,((p.deflation (principal w.1),w.2.1),
+          (w.2.2.1 w.1.1 (prin-in w.1.1),le-trans w.1.1 k.1 t le k.2.2.2))))
+        (w.2.2.2 k.1 (prin-in k.1)) ;
+    at (k : Domain[l].PW x.1 t) : Ex (Finitary[l].FixedBasis f x t) =
+      T.bind (FP.Witness p.operation x (k.1,(k.2.1,consistent x k.1 k.2.2.1)))
+        (Finitary[l].FixedBasis f x t) (finish k)
+        (p.density x fixed.2 (k.1,(k.2.1,consistent x k.1 k.2.2.1)) (prin-sub k.1 x.1 k.2.2.1)) ;
+    density (h : In x t) : Ex (Finitary[l].FixedBasis f x t) =
+      T.bind (Domain[l].PW x.1 t) (Finitary[l].FixedBasis f x t) at (x.2.2 t h) ;
+  } ;
+  finitary : Finitary[l].Finitary[f] = new Finitary[l].Finitary[f,p.deflation,
+    \ x -> (p.deflation (run f x),p.idempotence x),\ x fixed t -> Density[x,fixed,t].density] ;
+} ;

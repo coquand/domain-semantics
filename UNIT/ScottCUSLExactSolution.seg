@@ -1,0 +1,24 @@
+-- The exact three-branch CUSL solution and its transported Scott-domain
+-- embedding-projection solution.
+level l ;
+open Base ;
+module CU = ScottCUSL[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module K = CategoryInitialChain[l++,l+] ;
+module Sol = CategoryInitialSolution[l] ;
+module F = ScottCUSLExactFunctor[l] ;
+module P = ScottCUSLExactPreservation[l] ;
+module C = ScottCUSLExactChain[l] ;
+module T = ScottCUSLSolutionTransport[l].On[F.functor,P.omega] ;
+
+cusl : CU.CUSL = C.candidate ;
+cusl-equation : Id CU.CUSL cusl (F.object cusl) =
+  C.equation ;
+ep-functor : K.Endofunctor[EP.pre] = T.functor ;
+ep-preservation : K.OmegaContinuous[EP.pre,ep-functor] =
+  T.preservation ;
+ep-solution : Sol.InitialSolution[EP.category,ep-functor] =
+  T.solution ;
+ep-equation : Id EP.pre.ob ep-solution.object
+  (ep-functor.object ep-solution.object) =
+  T.equation ;

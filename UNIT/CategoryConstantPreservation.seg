@@ -1,0 +1,72 @@
+-- A constant endofunctor preserves countable-chain colimits.
+level k l ;
+open Base ;
+module C = Category[k,l] ;
+module K = CategoryInitialChain[k,l] ;
+module H = Paths[l] ;
+
+all-to-zero (X : U l) (q : Nat -> X)
+  (step : (n : Nat) -> Id X (q (suc n)) (q n)) :
+  (n : Nat) -> Id X (q n) (q zero) = split {
+  zero -> refl (q zero) ;
+  suc n | r -> H.transH (step n) r } ;
+
+module On (D : C.Precategory) (Z : D.ob) {
+  object (X : D.ob) : D.ob = Z ;
+  arrow (X Y : D.ob) (f : D.hom X Y) : D.hom Z Z =
+    D.idn Z ;
+  identity (X : D.ob) :
+    Id (D.hom Z Z) (arrow X X (D.idn X)) (D.idn Z) =
+    refl (D.idn Z) ;
+  composition (X Y W : D.ob)
+    (f : D.hom X Y) (g : D.hom Y W) :
+    Id (D.hom Z Z)
+      (arrow X W (D.comp X Y W g f))
+      (D.comp Z Z Z (arrow Y W g) (arrow X Y f)) =
+    H.symH (D.unit-l Z Z (D.idn Z)) ;
+  functor : K.Endofunctor[D] =
+    new K.Endofunctor[D,
+      object := object,arrow := arrow,
+      identity := identity,composition := composition] ;
+
+  module Preserve (S : K.Chain[D]) (L : D.ob)
+    (leg : (n : Nat) -> D.hom (S.stage n) L)
+    (leg-law : (n : Nat) ->
+      Id (D.hom (S.stage n) L)
+        (D.comp (S.stage n) (S.stage (suc n)) L
+          (leg (suc n)) (S.link n)) (leg n))
+    (c : K.Colimit[D,S,L,leg]) {
+    module M = K.Mapped[D,functor,S,L,leg,leg-law] ;
+    module Target (Y : D.ob)
+      (q : (n : Nat) -> D.hom Z Y)
+      (coherent : (n : Nat) ->
+        Id (D.hom Z Y)
+          (D.comp Z Z Y (q (suc n)) (D.idn Z)) (q n)) {
+      step (n : Nat) : Id (D.hom Z Y) (q (suc n)) (q n) =
+        H.transH (H.symH (D.unit-r Z Y (q (suc n))))
+          (coherent n) ;
+      equal (n : Nat) : Id (D.hom Z Y) (q n) (q zero) =
+        all-to-zero (D.hom Z Y) q step n ;
+      mediator : D.hom Z Y = q zero ;
+      factor (n : Nat) : Id (D.hom Z Y)
+        (D.comp Z Z Y mediator (D.idn Z)) (q n) =
+        H.transH (D.unit-r Z Y mediator)
+          (H.symH (equal n)) ;
+      unique (f : D.hom Z Y)
+        (f-law : (n : Nat) -> Id (D.hom Z Y)
+          (D.comp Z Z Y f (D.idn Z)) (q n)) :
+        Id (D.hom Z Y) f mediator =
+        H.transH (H.symH (D.unit-r Z Y f)) (f-law zero) ;
+    } ;
+    preserved : K.Colimit[D,M.chain,Z,M.leg] =
+      new K.Colimit[D,M.chain,Z,M.leg,
+        mediator := \ Y q h -> Target[Y,q,h].mediator,
+        factor := \ Y q h n -> Target[Y,q,h].factor n,
+        unique := \ Y q h f f-law ->
+          Target[Y,q,h].unique f f-law] ;
+  } ;
+  omega : K.OmegaContinuous[D,functor] =
+    new K.OmegaContinuous[D,functor,
+      preserve := \ S L leg law c ->
+        Preserve[S,L,leg,law,c].preserved] ;
+} ;

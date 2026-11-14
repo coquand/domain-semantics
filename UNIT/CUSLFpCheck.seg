@@ -1,0 +1,60 @@
+-- The general CUSL construction of Fp, without filter or typing modules.
+import Base ;
+import Prelude ;
+import Lib ;
+import Paths ;
+import Axioms ;
+import FunExtUA ;
+import Replacement ;
+module Theory
+ (ua : [l] Axioms[l].Univalence)
+ (images : [l] [k] Replacement[l,k].Images)
+ (surjections : [l] [k] [j] (Replacement[l,k].Surjectivity (images @l @k)) @j) {
+ fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
+ propUA : [l] Axioms[l].PropUnivalence = <l> Axioms[l].UnivalenceLemmas[ua @l].prop-univ ;
+ import Truncation ;
+ import TruncationCombinators ;
+ import ScottOrder ;
+ import ScottDomain ;
+ import ScottDomainObjects ;
+ import ScottDomainMaps ;
+ import ScottMaps ;
+ import EquivalenceLemmas ;
+ import Category ;
+ import CategoryArrows ;
+ import CategoryEquivalence ;
+ import CategoryEquivalenceTransport ;
+ import CategoryPreEquivalenceTransport ;
+ import ScottDomainCategories ;
+ import ScottSmallness ;
+ import ScottCUSL ;
+ import ScottCUSLIdeals ;
+ import ScottCUSLCompacts ;
+ import ScottCUSLIdealMaps ;
+ import ScottCUSLEquivalence ;
+ import CategoryInitialChain ;
+ import ScottMapOperations ;
+ import ScottFinitary ;
+ import ScottEmbeddingProjection ;
+ import ScottFinitaryImage ;
+ import ScottCUSLClosedFamilies ;
+ import ScottCUSLFpMaps ;
+ import ScottCUSLFpFunctor ;
+ import ScottCUSLFpProjector ;
+ import ScottEPImageTools ;
+ import ScottCUSLFpDirected ;
+ import CategoryDirectedColimits ;
+ import CategoryDirectedEquivalencePreserves ;
+ import CategoryDirectedEquivalenceReflects ;
+ import ScottCUSLCoveredColimit ;
+ import ScottCUSLSubfamily ;
+ import ScottCUSLDirectedUnion ;
+ import ScottCUSLFpContinuity ;
+ import ScottCUSLFpRestriction ;
+ import ScottFpFunctor ;
+ import ScottFpContinuity ;
+ import ScottFpAdjunction ;
+ import ScottFinitaryConjugation ;
+ import ScottFpRepresentation ;
+ import ScottFpAdjunctionContinuity ;
+} ;

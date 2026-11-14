@@ -1,0 +1,90 @@
+-- Every existing directed CUSL colimit has compact stage coverage.
+-- First form the union of the stage images inside its proposed vertex.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ; module CF = ScottCUSLClosedFamilies[l] ; module FM = ScottCUSLFpMaps[l] ;
+module DC = ScottCUSLCoveredColimit[l] ; module EX = ScottCUSLFpDirected[l] ;
+module Sub = ScottCUSLSubfamily[l] ; module S = ScottOrder[l] ;
+module TC = TruncationCombinators[l] ; module TH = TruncationCombinators[l+] ;
+
+module Union (D : DC.Diagram) (L : CU.CUSL) (leg : (i : D.index) -> CU.pre.hom (D.stage i) L)
+  (law : DC.Coherent D L leg) {
+  module P = CF.On[L] ;
+  module E = EX.Exhaustion[D.index,D.stage,L,leg,D.rel,D.inhabited,D.upper,D.link,law] ;
+  family : P.Family = P.Union[D.index,E.part P.top,E.directed P.top].value ;
+  module Subdomain = Sub.On[L,family] ;
+  module At (i : D.index) {
+    module M = FM.Between[D.stage i,L,leg i] ;
+    source (a : (D.stage i).order.carrier) : M.A.X = M.A.A.at a ;
+    key (a : (D.stage i).order.carrier) : P.X = P.A.at ((leg i).1 a) ;
+    eq (a : (D.stage i).order.carrier) : P.EqX (M.f (source a)) (key a) =
+      P.equal (M.f (source a)) (key a)
+        (trans L.order.carrier (P.A.val (M.f (source a))) ((leg i).1 (M.A.A.val (source a))) (P.A.val (key a))
+          (M.I.f-val (source a))
+          (trans L.order.carrier ((leg i).1 (M.A.A.val (source a))) ((leg i).1 a) (P.A.val (key a))
+            (ap (D.stage i).order.carrier L.order.carrier (leg i).1 (M.A.A.val (source a)) a (M.A.A.at-val a))
+            (sym L.order.carrier (P.A.val (key a)) ((leg i).1 a) (P.A.at-val ((leg i).1 a))))) ;
+    observation (a : (D.stage i).order.carrier) : P.Mem (E.part P.top i) (key a) =
+      S.inc (M.Forward[M.backward P.top].W (key a)) (source a,(tt,eq a)) ;
+    member (a : (D.stage i).order.carrier) : P.Mem family (key a) =
+      S.inc (P.Union[D.index,E.part P.top,E.directed P.top].W (key a)) (i,observation a) ;
+    module F = Subdomain.Factor[D.stage i,leg i,member] ;
+  } ;
+  legs (i : D.index) : CU.pre.hom (D.stage i) Subdomain.cusl = At[i].F.embedding ;
+  coherent : DC.Coherent D Subdomain.cusl legs = \ i j h ->
+    CU.Between[D.stage i,Subdomain.cusl].equal (CU.pre.comp (D.stage i) (D.stage j) Subdomain.cusl (legs j) (D.link i j h)) (legs i)
+      (\ a -> Subdomain.carrier-path ((legs j).1 ((D.link i j h).1 a)) ((legs i).1 a)
+        (trans L.order.carrier (Subdomain.val ((legs j).1 ((D.link i j h).1 a))) ((leg j).1 ((D.link i j h).1 a)) (Subdomain.val ((legs i).1 a))
+          (At[j].F.point ((D.link i j h).1 a))
+          (trans L.order.carrier ((leg j).1 ((D.link i j h).1 a)) ((leg i).1 a) (Subdomain.val ((legs i).1 a))
+            (ap (CU.pre.hom (D.stage i) L) L.order.carrier (\ e -> e.1 a)
+              (CU.pre.comp (D.stage i) (D.stage j) L (leg j) (D.link i j h)) (leg i) (law i j h))
+            (sym L.order.carrier (Subdomain.val ((legs i).1 a)) ((leg i).1 a) (At[i].F.point a))))) ;
+  module Representation (x : Subdomain.Carrier) (i : D.index) (w : At[i].M.Forward[At[i].M.backward P.top].W x.1) {
+    a : (D.stage i).order.carrier = At[i].M.A.A.val w.1 ;
+    equation : Id Subdomain.Carrier ((legs i).1 a) x = Subdomain.carrier-path ((legs i).1 a) x
+      (trans L.order.carrier (Subdomain.val ((legs i).1 a)) ((leg i).1 a) (Subdomain.val x) (At[i].F.point a)
+        (trans L.order.carrier ((leg i).1 a) (P.A.val (At[i].M.f w.1)) (Subdomain.val x)
+          (sym L.order.carrier (P.A.val (At[i].M.f w.1)) ((leg i).1 a) (At[i].M.I.f-val w.1))
+          (L.order.antisymmetric (P.A.val (At[i].M.f w.1)) (Subdomain.val x) w.2.2.1 w.2.2.2))) ;
+  } ;
+  covered : DC.Coverage D Subdomain.cusl legs = \ x ->
+    TC.rec (P.Union[D.index,E.part P.top,E.directed P.top].W x.1) @l+
+      (Truncation[l+].Trunc[(i : D.index) * ((a : (D.stage i).order.carrier) * Id Subdomain.Carrier ((legs i).1 a) x)].carrier)
+      (Truncation[l+].Trunc[(i : D.index) * ((a : (D.stage i).order.carrier) * Id Subdomain.Carrier ((legs i).1 a) x)].proposition)
+      (\ w -> TC.rec (At[w.1].M.Forward[At[w.1].M.backward P.top].W x.1) @l+
+        (Truncation[l+].Trunc[(i : D.index) * ((a : (D.stage i).order.carrier) * Id Subdomain.Carrier ((legs i).1 a) x)].carrier)
+        (Truncation[l+].Trunc[(i : D.index) * ((a : (D.stage i).order.carrier) * Id Subdomain.Carrier ((legs i).1 a) x)].proposition)
+        (\ v -> Truncation[l+].Trunc[(i : D.index) * ((a : (D.stage i).order.carrier) * Id Subdomain.Carrier ((legs i).1 a) x)].inc
+          (w.1,(Representation[x,w.1,v].a,Representation[x,w.1,v].equation))) w.2) x.2 ;
+  colimit : DC.GD.Colimit[CU.pre,D,Subdomain.cusl,legs] = DC.On[D,Subdomain.cusl,legs,coherent,covered].colimit ;
+} ;
+
+module Coverage (D : DC.Diagram) (L : CU.CUSL) (leg : (i : D.index) -> CU.pre.hom (D.stage i) L)
+  (law : DC.Coherent D L leg) (c : DC.GD.Colimit[CU.pre,D,L,leg]) {
+  module V = Union[D,L,leg,law] ;
+  u : CU.pre.hom L V.Subdomain.cusl = c.mediator V.Subdomain.cusl V.legs V.coherent ;
+  j : CU.pre.hom V.Subdomain.cusl L = V.Subdomain.inclusion ;
+  factor (i : D.index) : Id (CU.pre.hom (D.stage i) L)
+    (CU.pre.comp (D.stage i) L L (CU.pre.comp L V.Subdomain.cusl L j u) (leg i)) (leg i) =
+    CU.Between[D.stage i,L].equal (CU.pre.comp (D.stage i) L L (CU.pre.comp L V.Subdomain.cusl L j u) (leg i)) (leg i)
+      (\ a -> trans L.order.carrier (j.1 (u.1 ((leg i).1 a))) (j.1 ((V.legs i).1 a)) ((leg i).1 a)
+        (ap V.Subdomain.Carrier L.order.carrier j.1 (u.1 ((leg i).1 a)) ((V.legs i).1 a)
+          (ap (CU.pre.hom (D.stage i) V.Subdomain.cusl) V.Subdomain.Carrier (\ e -> e.1 a)
+            (CU.pre.comp (D.stage i) L V.Subdomain.cusl u (leg i)) (V.legs i) (c.factor V.Subdomain.cusl V.legs V.coherent i)))
+        (V.At[i].F.point a)) ;
+  identity : Id (CU.pre.hom L L) (CU.pre.comp L V.Subdomain.cusl L j u) (CU.pre.idn L) =
+    trans (CU.pre.hom L L) (CU.pre.comp L V.Subdomain.cusl L j u) (c.mediator L leg law) (CU.pre.idn L)
+      (c.unique L leg law (CU.pre.comp L V.Subdomain.cusl L j u) factor)
+      (sym (CU.pre.hom L L) (CU.pre.idn L) (c.mediator L leg law)
+        (c.unique L leg law (CU.pre.idn L) (\ i -> CU.pre.unit-l (D.stage i) L (leg i)))) ;
+  point (x : L.order.carrier) : Id L.order.carrier (j.1 (u.1 x)) x =
+    ap (CU.pre.hom L L) L.order.carrier (\ e -> e.1 x) (CU.pre.comp L V.Subdomain.cusl L j u) (CU.pre.idn L) identity ;
+  covered : DC.Coverage D L leg = \ x ->
+    TH.map ((i : D.index) * ((a : (D.stage i).order.carrier) * Id V.Subdomain.Carrier ((V.legs i).1 a) (u.1 x)))
+      ((i : D.index) * ((a : (D.stage i).order.carrier) * Id L.order.carrier ((leg i).1 a) x))
+      (\ w -> (w.1,(w.2.1,trans L.order.carrier ((leg w.1).1 w.2.1) (j.1 ((V.legs w.1).1 w.2.1)) x
+        (sym L.order.carrier (j.1 ((V.legs w.1).1 w.2.1)) ((leg w.1).1 w.2.1) (V.At[w.1].F.point w.2.1))
+        (trans L.order.carrier (j.1 ((V.legs w.1).1 w.2.1)) (j.1 (u.1 x)) x
+          (ap V.Subdomain.Carrier L.order.carrier j.1 ((V.legs w.1).1 w.2.1) (u.1 x) w.2.2) (point x))))) (V.covered (u.1 x)) ;
+} ;

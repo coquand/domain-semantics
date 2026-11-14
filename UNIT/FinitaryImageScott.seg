@@ -1,0 +1,54 @@
+-- Package the compact-fixed-point image as a presented Scott domain,
+-- with its continuous embedding and projection into the ambient domain.
+level l ;
+open Base ; open Prelude[l] ; open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ;
+module T = TruncationCombinators[l] ;
+module SO = ScottOrder[l] ;
+
+module On (p : Finitary[l].Finitary) {
+  module I = FixedImage[l].Image[p] ;
+  order : SO.Order = new SO.Order[carrier := I.carrier,le := I.LE,
+    proposition := \ x y -> sub-prop x.1.1 y.1.1,
+    reflexive := \ x -> sub-refl x.1.1,
+    transitive := \ x y z -> sub-trans x.1.1 y.1.1 z.1.1,
+    antisymmetric := \ x y h k -> I.ext x y (h,k)] ;
+  complete : SO.Complete[order] = new SO.Complete[order,
+    directed := \ J x d -> (I.Sup[J,x,d].value,(I.Sup[J,x,d].upper,I.Sup[J,x,d].least)),
+    bounded := \ J x b h -> (I.BoundedSup[J,x,b,h].value,(I.BoundedSup[J,x,b,h].upper,I.BoundedSup[J,x,b,h].least))] ;
+  B : U l = (k : K) * I.Fixed (principal k) ;
+  basic (b : B) : I.carrier = (principal b.1,b.2) ;
+  Local (x : I.carrier) : U l = (b : B) * I.LE (basic b) x ;
+  part (x : I.carrier) (b : Local x) : I.carrier = basic b.1 ;
+  convert (x : I.carrier) (a : I.Basis[x].index) : Local x = ((a.1,a.2.1),I.Basis[x].bounded a) ;
+  unconvert (x : I.carrier) (a : Local x) : I.Basis[x].index = (a.1.1,(a.1.2,a.2 a.1.1.1 (prin-in a.1.1.1))) ;
+  directed (x : I.carrier) : SO.On[order].Dir (Local x) (part x) =
+    (T.map I.Basis[x].index (Local x) (convert x) I.Basis[x].directed.1,
+     \ a b -> T.map
+      (Directed[l].Upper I.Basis[x].index (\ i -> (I.Basis[x].part i).1.1) (unconvert x a) (unconvert x b))
+      (SO.On[order].Upper (Local x) (part x) a b)
+      (\ w -> (convert x w.1,w.2)) (I.Basis[x].directed.2 (unconvert x a) (unconvert x b))) ;
+  density (x y : I.carrier) (h : (b : B) -> I.LE (basic b) x -> I.LE (basic b) y) : I.LE x y = \ t ht ->
+    ex-elim (Finitary[l].FixedBasis I.f x.1 t) (In y.1 t) (fprop y.1.1 t)
+      (\ w -> fup y.1.1 w.1.1 t w.2.2.2 (h (w.1,w.2.1) (prin-sub w.1.1 x.1.1 w.2.2.1) w.1.1 (prin-in w.1.1)))
+      (p.density x.1 x.2 t ht) ;
+  basis : ScottDomain[l].Basis[order,complete] = new ScottDomain[l].Basis[order,complete,
+    index := B,basic := basic,compact := \ b -> I.principal-compact b.1 b.2,directed := directed,density := density] ;
+  bottom : I.carrier = (Domain[l].bottom,Finitary[l].Compacts[p].at-bottom) ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order,complete := complete,basis := basis,
+    bottom := bottom,bottom-least := \ x -> Domain[l].bottom-least x.1] ;
+  module E = ScottMaps[l].Between[scott,ScottFilter[l].scott] ;
+  module R = ScottMaps[l].Between[ScottFilter[l].scott,scott] ;
+  embed : E.Map = (\ x -> x.1,(\ x y xy -> xy,\ J x d z h ->
+    sub-trans (run I.f Domain[l].Sup[J,\ i -> (x i).1,d].value).1
+      Domain[l].Sup[J,\ i -> (x i).1,d].value.1 z.1
+      (p.deflation Domain[l].Sup[J,\ i -> (x i).1,d].value)
+      (Domain[l].Sup[J,\ i -> (x i).1,d].least z h))) ;
+  project : R.Map = (\ x -> (run I.f x,p.idempotence x),
+    (I.f.2.1,\ J x d z h ->
+      sub-trans (run I.f Domain[l].Sup[J,x,d].value).1 Continuous[l].Preserve[I.f,J,x,d].T.value.1 z.1.1
+        Continuous[l].Preserve[I.f,J,x,d].forward (Continuous[l].Preserve[I.f,J,x,d].T.least z.1 h))) ;
+  retract (x : I.carrier) : Id I.carrier (R.run project (E.run embed x)) x =
+    I.ext (R.run project (E.run embed x)) x x.2 ;
+  below (x : D) : Domain[l].Below (E.run embed (R.run project x)) x = p.deflation x ;
+  computes (x : D) : Id D (E.run embed (R.run project x)) (run p.operation x) = refl (run p.operation x) ;
+} ;

@@ -1,0 +1,49 @@
+-- The right adjoint to Fp(D) -> [D -> D], used in CGW section 7.2.
+-- An arbitrary endomap is sent to the greatest finitary projector below
+-- it, using its compact postfixed points. It need not itself be a projector.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open CompactFamilies[l] ;
+module T = TruncationCombinators[l] ;
+
+LE (f g : Map) : U l+ = (x : D) -> Domain[l].Below (run f x) (run g x) ;
+
+module At (f : Map) {
+  member (k : K) : U l = In (run f (principal k)) k.1 ;
+  at-bottom : member bottomK = fom (run f bottom).1 ;
+  at-join (a b : K) (c : Cons (meet a.1 b.1)) (ha : member a) (hb : member b) : member (joinK a b c) =
+    fmeet (run f (principal (joinK a b c))).1 a.1 b.1
+      (f.2.1 (principal a) (principal (joinK a b c))
+        (prin-anti (meet a.1 b.1) a.1 (le-meet-l a.1 b.1)) a.1 ha)
+      (f.2.1 (principal b) (principal (joinK a b c))
+        (prin-anti (meet a.1 b.1) b.1 (le-meet-r a.1 b.1)) b.1 hb) ;
+  at-equiv (a b : K) (e : EqK a b) (h : member a) : member b =
+    f.2.1 (principal a) (principal b) (prin-anti b.1 a.1 e.2) b.1
+      (fup (run f (principal a)).1 a.1 b.1 e.1 h) ;
+  family : Family = (member,(\ k -> fprop (run f (principal k)).1 k.1,(at-bottom,(at-join,at-equiv)))) ;
+  operation : Map = Projector[l].map family ;
+  finitary : Finitary[l].Finitary[operation] = Finitary[l].of-family family ;
+  below : LE operation f = \ x t ->
+    ex-elim (Projector[l].At[family,x].W t) (In (run f x) t) (fprop (run f x).1 t)
+      (\ w -> fup (run f x).1 w.1.1 t w.2.2.2
+        (f.2.1 (principal w.1) x (prin-sub w.1.1 x.1 w.2.2.1) w.1.1 w.2.1)) ;
+  greatest (p : Finitary[l].Finitary) (h : LE p.operation f) : LE p.operation operation = \ x t obs ->
+    T.map (Finitary[l].FixedBasis p.operation (run p.operation x) t) (Projector[l].At[family,x].W t)
+      (\ w -> (w.1,(h (principal w.1) w.1.1 (w.2.1.2 w.1.1 (prin-in w.1.1)),
+        (p.deflation x w.1.1 w.2.2.1,w.2.2.2))))
+      (p.density (run p.operation x) (p.idempotence x) t obs) ;
+} ;
+
+monotone (f g : Map) (h : LE f g) : LE At[f].operation At[g].operation =
+  \ x -> Projector[l].mono At[f].family At[g].family x x (\ k -> h (principal k) k.1) (sub-refl x.1) ;
+
+retract (p : Finitary[l].Finitary) : Id Map At[p.operation].operation p.operation =
+  Continuous[l].ext At[p.operation].operation p.operation
+    (\ x -> (At[p.operation].below x,At[p.operation].greatest p (\ z -> sub-refl (run p.operation z).1) x)) ;
+
+-- The concrete EP retraction on the compact-family presentation of Fp(D).
+family-retract (E : Family) : Id Family At[Projector[l].map E].family E =
+  CompactFamilies[l].ext At[Projector[l].map E].family E
+    (\ k h -> Projector[l].fixed-compact E k
+      (Projector[l].At[E,principal k].below,prin-sub k.1 (Projector[l].project E (principal k)).1 h),
+     \ k h -> (Projector[l].compact-fixed E k h).2 k.1 (prin-in k.1)) ;

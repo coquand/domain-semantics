@@ -1,0 +1,2192 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=28mm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\UU}{\mathcal U}
+\newcommand{\K}{\mathsf K}
+\newcommand{\B}{\mathsf B}
+\newcommand{\Cont}[2]{[#1\mathbin{\Rightarrow}#2]}
+\newcommand{\step}[2]{(#1\mathbin{\Rightarrow}_{\!s}#2)}
+\newcommand{\ev}[1]{\mathopen{[\![}#1\mathclose{]\!]}}
+\newcommand{\lub}{\bigvee}
+\newcommand{\N}{\mathbb N}
+\newcommand{\TyRel}{\mathsf{Ty}}
+\newcommand{\ElemRel}{\mathsf{Elem}}
+\newcommand{\trunc}[1]{\left\lVert #1\right\rVert}
+\newcommand{\appl}{\mathbin{\cdot}}
+\DeclareMathOperator{\lfp}{lfp}
+
+\title{Scott Domains and Continuous Function Spaces\\
+  \large Small compact bases and an independent logical relation}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Scott-continuous maps between Scott domains with small compact bases form
+a Scott domain: directed and bounded suprema are pointwise, and its compact
+elements are exactly bounded finite joins of compact step functions. We
+give a constructive proof that keeps the smallness condition explicit and
+uses neither decidable order nor choice. We then use least fixed points
+and a tower of finite-stage projectors on the Scott filter domain to construct
+an independent logical relation. Its typed laws and fundamental lemma
+cover dependent products, annotated abstraction and function
+extensionality, and yield mere syntactic product inversion. An appendix
+develops the
+embedding--projection category, its equivalence with conditional upper
+semilattices, and initial algebras for endofunctors preserving countable
+chain colimits.
+\end{abstract}
+
+The function-space theorem is proved first because its compact basis and
+pointwise completeness underlie the later Scott filter construction.
+The fixed-point and projector-stage results then supply the semantic
+projector used in the logical relation. The appendix records the
+separate categorical theory of embedding--projection pairs.
+
+\section{Scott domains and small bases}\label{sec:bases}
+
+We reason constructively. Fix a universe $\UU$ of \emph{small} types and a
+larger universe $\UU^+$. Carriers of domains may belong to $\UU^+$, whereas
+orders are small proposition-valued relations. Unless otherwise stated,
+all families whose suprema are considered have small index types.
+Existential assertions express mere existence: they do not include a
+chosen witness. These conventions are relevant to the proof; in a
+classical set-theoretic reading one may simply fix a size bound throughout.
+
+\begin{definition}
+Let $D$ be a partially ordered set. An indexed family $(x_i)_{i\in I}$ is
+\emph{directed} if $I$ is inhabited and, for every $i,j\in I$, there exists
+$k\in I$ such that $x_i\leq x_k$ and $x_j\leq x_k$. It is \emph{bounded}
+if there exists $u\in D$ such that $x_i\leq u$ for every $i\in I$.
+
+The order is \emph{directed complete} if every small directed family has a
+supremum, and \emph{bounded complete} if every small bounded family has a
+supremum. An element $a\in D$ is \emph{compact} if, for every small directed
+family,
+\[
+ a\leq\lub_{i\in I}x_i
+ \quad\Longrightarrow\quad
+ \exists i\in I\; a\leq x_i.
+\]
+\end{definition}
+
+\begin{definition}\label{def:scott}
+A \emph{Scott domain with a small compact basis} consists of a partially
+ordered set $D$, a least element $\bot_D$, directed and bounded completeness,
+and a small indexed family of compact elements
+\[
+ \beta_D:\B_D\longrightarrow D
+\]
+such that, for every $x\in D$, the family
+\[
+ \B_D(x)=\{a\in\B_D\mid\beta_D(a)\leq x\}
+\]
+is directed and has supremum $x$.
+\end{definition}
+
+For constructive and predicative domain theory with small bases, see
+de Jong and Escard\'o~\cite{dejong-escardo}. The basis need not be
+injectively indexed. We normally write $a$ for
+$\beta_D(a)$ when an index $a\in\B_D$ is used as a domain element.
+The least-upper-bound part of the basis condition can equivalently be
+written
+\begin{equation}\label{eq:density}
+ \bigl(\forall a\in\B_D\;(a\leq x\Longrightarrow a\leq y)\bigr)
+ \quad\Longrightarrow\quad x\leq y.
+\end{equation}
+Our completeness convention is for small indexed families, not arbitrary
+families indexed by types in $\UU^+$.
+
+\begin{lemma}[Finite common bounds]\label{lem:finite}
+If finitely many compact elements $a_1,\ldots,a_n$ lie below the supremum
+of a directed family $(x_i)_{i\in I}$, then there exists $i\in I$ with
+$a_r\leq x_i$ for every $r$. In particular, if $a_1,\ldots,a_n\leq x$
+in a Scott domain, there exists $a\in\B_D(x)$ above all the $a_r$.
+The statement includes $n=0$.
+\end{lemma}
+\begin{proof}
+For each of the finitely many compact elements, compactness gives a
+family member above it. Directedness combines two such witnesses; finite
+induction combines all of them. For the empty family use inhabitedness
+of $I$. For the second assertion apply the first to the directed basis
+family with supremum $x$. Only finitely many existential witnesses are
+combined, so no choice principle is used.
+\end{proof}
+
+\begin{lemma}\label{lem:compactjoins}
+A bounded finite join of compact elements is compact. Every compact
+element of a Scott domain is equal to some basis element, in the sense
+of mere existence.
+\end{lemma}
+\begin{proof}
+Suppose $a=\lub_{r=1}^n a_r$ and $a\leq\lub_i x_i$, where $(x_i)$ is
+directed. Lemma~\ref{lem:finite} gives one $x_i$ above every $a_r$, hence
+above $a$. This also proves compactness of the empty join $\bot$.
+If $x$ is compact, apply its compactness to
+$x=\lub\B_D(x)$. Some $a\in\B_D(x)$ satisfies $x\leq a$, and
+antisymmetry gives $x=a$.
+\end{proof}
+
+\section{Continuous function spaces}\label{sec:function-space}
+
+The proof proceeds from pointwise completeness to compact steps,
+then to their bounded finite joins and a small basis.
+
+\subsection{Pointwise suprema}
+
+\begin{definition}
+A function $f:D\to E$ is \emph{Scott-continuous} if it is monotone and,
+for every small directed family $(x_i)$,
+\[
+ f\left(\lub_i x_i\right)=\lub_i f(x_i).
+\]
+Write $\Cont D E$ for the set of these functions, ordered pointwise.
+\end{definition}
+
+\begin{lemma}[A small order on functions]\label{lem:smallorder}
+For $f,g\in\Cont D E$,
+\[
+ f\leq g
+ \quad\Longleftrightarrow\quad
+ \forall a\in\B_D\; f(a)\leq g(a).
+\]
+In particular the order on $\Cont D E$ can be expressed by a small
+proposition, even when the carrier of $D$ is large.
+\end{lemma}
+\begin{proof}
+Only the reverse implication needs proof. By continuity and the basis
+property, for every $x$,
+\[
+ f(x)=\lub_{a\in\B_D(x)} f(a)
+ \leq\lub_{a\in\B_D(x)} g(a)=g(x).
+\]
+\end{proof}
+
+\begin{proposition}[Pointwise suprema]\label{prop:pointwise}
+The poset $\Cont D E$ has a least element and all small directed and
+bounded suprema. Its least element is the constant function $\bot_E$,
+and these suprema are computed pointwise.
+\end{proposition}
+\begin{proof}
+Let $(f_i)_{i\in I}$ be a directed or bounded family of continuous maps.
+For every $x$, the corresponding family $(f_i(x))$ is directed or bounded,
+respectively, so define
+\[
+ h(x)=\lub_{i\in I}f_i(x).
+\]
+Monotonicity of $h$ follows from that of every $f_i$ and the universal
+property of the supremum.
+
+To prove continuity, let $(x_j)_{j\in J}$ be directed, with supremum $x$.
+Monotonicity already gives $h(x_j)\leq h(x)$. Suppose that $z$ is any upper
+bound of all the $h(x_j)$. For every $i,j$ we have
+$f_i(x_j)\leq h(x_j)\leq z$. Continuity of $f_i$ gives $f_i(x)\leq z$,
+and therefore $h(x)\leq z$. Thus $h(x)$ is the supremum of the family
+$(h(x_j))$.
+
+The pointwise universal property immediately makes $h$ the supremum of
+the $f_i$ in $\Cont D E$. The constant bottom function is continuous
+and lies below every function. Taking the empty bounded supremum gives
+this same function.
+\end{proof}
+
+\begin{lemma}[Finite input witnesses]\label{lem:witness}
+If $f\in\Cont D E$, $x\in D$, and $b$ is compact in $E$, then
+\[
+ b\leq f(x)
+ \quad\Longrightarrow\quad
+ \exists a\in\B_D(x)\; b\leq f(a).
+\]
+\end{lemma}
+\begin{proof}
+Apply compactness of $b$ to the directed supremum
+$f(x)=\lub_{a\in\B_D(x)}f(a)$.
+\end{proof}
+
+\subsection{Compact step functions}
+
+Let $a$ and $b$ be compact elements of $D$ and $E$, respectively.
+For each $x\in D$, the proposition $a\leq x$ is a small index type.
+The constant $b$ family indexed by this proposition is bounded by $b$.
+We may therefore define
+\begin{equation}\label{eq:step}
+ \step a b(x)=\lub_{p:\,a\leq x} b.
+\end{equation}
+This definition does not decide whether $a\leq x$. If $a\leq x$, its
+value is $b$; if $\neg(a\leq x)$, its value is $\bot_E$. These conditional
+statements do not assert a disjunction between the two cases.
+The subsingleton-supremum presentation of steps is also used by
+de Jong and Escard\'o~\cite{dejong-escardo}.
+
+\begin{proposition}\label{prop:step}
+The function $\step a b$ is continuous and compact in $\Cont D E$.
+For every continuous $f:D\to E$,
+\begin{equation}\label{eq:steptest}
+ \step a b\leq f \quad\Longleftrightarrow\quad b\leq f(a).
+\end{equation}
+\end{proposition}
+\begin{proof}
+Monotonicity follows by enlarging the indexing proposition. To check
+continuity on a directed family $(x_i)$ with supremum $x$, let $z$ bound
+all the values $\step a b(x_i)$. If $a\leq x$, compactness of $a$ gives
+an $i$ with $a\leq x_i$, whence $b\leq\step a b(x_i)\leq z$.
+The supremum property in~\eqref{eq:step} now gives $\step a b(x)\leq z$.
+The opposite inequalities follow by monotonicity.
+
+If $\step a b\leq f$, evaluation at $a$ gives $b\leq f(a)$.
+Conversely, if $b\leq f(a)$, then $a\leq x$ implies $b\leq f(x)$;
+the supremum property gives $\step a b(x)\leq f(x)$.
+
+Finally, suppose $\step a b\leq\lub_i f_i$ for a directed family of
+continuous maps. By~\eqref{eq:steptest} and pointwise computation,
+$b\leq\lub_i f_i(a)$. Compactness of $b$ gives an $i$ with
+$b\leq f_i(a)$, and then $\step a b\leq f_i$.
+\end{proof}
+
+\subsection{Finite approximations}
+
+The function-space argument can be given directly using bounded
+completeness. Fix a continuous map $f:D\to E$. For compact basis elements
+$a_i\in\B_D$ and $b_i\in\B_E$ satisfying $b_i\leq f(a_i)$, put
+\[
+ h=\bigvee_{i=1}^{m}\step{a_i}{b_i}.
+\]
+Each step lies below $f$ by Proposition~\ref{prop:step}. Thus this finite
+family has the common upper bound $f$, and its supremum exists in the
+function space by pointwise bounded completeness. The empty join is the
+constant bottom function. There is no need to decide which entries are
+active at an input, or to construct a function by evaluating a graph.
+
+\begin{lemma}\label{lem:boundedsteps}
+Every bounded finite join of compact steps is compact. Moreover,
+\[
+ \bigvee_{i=1}^{m}\step{a_i}{b_i}\leq g
+ \quad\Longleftrightarrow\quad
+ \bigwedge_{i=1}^{m} b_i\leq g(a_i).
+\]
+\end{lemma}
+\begin{proof}
+The characterization follows from the universal property of a supremum
+and the step-function characterization. For compactness, suppose the
+finite join lies below a directed supremum. Compactness of each step
+gives an index witnessing its inclusion in the directed family. Finitely
+many such witnesses have a common upper index, which then bounds their
+join. The empty case uses inhabitedness of the directed family.
+\end{proof}
+
+\begin{definition}
+For $f:D\to E$ continuous, let $\mathcal A_f$ be the indexed family
+\[
+ \mathcal A_f=
+ \left\{
+   \bigvee_{i=1}^{m}\step{a_i}{b_i}
+   \;\middle|\;
+   a_i\in\B_D,\ b_i\in\B_E,\ b_i\leq f(a_i)
+ \right\}.
+\]
+The indices are finite lists of basis pairs with the displayed
+inequalities; in particular this is a small family.
+\end{definition}
+
+\begin{lemma}\label{lem:stepdensity}
+The family $\mathcal A_f$ is directed and has supremum $f$.
+\end{lemma}
+\begin{proof}
+It contains the empty join. Combining two lists gives their join,
+still bounded by $f$, so it is directed.
+
+Let $h$ be its supremum. Clearly $h\leq f$. For the converse, fix $x\in D$
+and a compact basis element $b\leq f(x)$. Continuity of $f$ and
+algebraicity of $D$ give a compact basis element $a\leq x$ with
+$b\leq f(a)$, by Lemma~\ref{lem:witness}. The singleton step belongs to
+$\mathcal A_f$, and
+\[
+ b\leq\step a b(x)\leq h(x).
+\]
+Algebraicity of $E$ gives $f(x)\leq h(x)$.
+\end{proof}
+
+\subsection{The function-space theorem}
+
+\begin{theorem}\label{thm:exponential}
+If $D$ and $E$ are Scott domains, then $[D\Rightarrow E]$ is a Scott
+domain. Its compact elements are precisely the bounded finite joins of
+steps between compact basis elements.
+\end{theorem}
+\begin{proof}
+The pointwise constructions give bottom, directed completeness and
+bounded completeness. Lemmas~\ref{lem:boundedsteps} and
+\ref{lem:stepdensity} give algebraicity. If $f$ is compact, apply its
+compactness to the directed family $\mathcal A_f$, whose supremum is
+$f$. Some member lies above $f$ and also below $f$, hence equals $f$.
+Conversely, every member of every $\mathcal A_f$ is compact.
+
+To obtain a single small compact basis, index finite lists of basis
+pairs satisfying the following small boundedness condition: every finite
+subfamily whose inputs have a common basis upper bound has outputs with
+a common basis upper bound. Necessity follows by evaluating a bound of
+the corresponding steps at a common input bound. Conversely, for each
+$x$ take the directed supremum of joins of output subfamilies whose
+inputs lie below $x$. Unions make this family directed, and its resulting
+function is the join of the steps by their universal property. Thus the
+lists satisfying the condition present all compact functions, and the
+families $\mathcal A_f$ establish density.
+\end{proof}
+
+\begin{remark}[Local approximation and global smallness]
+The family $\mathcal A_f$ is small for each given $f$. The final part of
+the proof supplies one small basis for the entire function space, as
+required by Definition~\ref{def:scott}.
+\end{remark}
+
+\begin{remark}[Joint boundedness]
+For general Scott domains one must use joint boundedness of finite
+families. Pairwise compatibility alone is insufficient. Classically, the
+proper subsets of $\{1,2,3\}$ form a finite Scott domain under inclusion:
+the three singleton subsets are pairwise bounded but have no common
+upper bound. Taking a one-point input domain gives the corresponding
+counterexample to a pairwise test on steps.
+\end{remark}
+
+\section{Least fixed points}
+
+The following result requires only a pointed dcpo, although it applies
+in particular to every Scott domain and, by
+Theorem~\ref{thm:exponential}, to its continuous function spaces.
+
+\begin{theorem}[Kleene]\label{thm:kleene}
+Let $S$ be a pointed dcpo and $F:S\to S$ a Scott-continuous function.
+Define
+\[
+ p_0=\bot_S,\qquad p_{n+1}=F(p_n),\qquad
+ p=\lub_{n\in\N}p_n.
+\]
+Then $F(p)=p$. Moreover, for every $q\in S$,
+\[
+ F(q)\leq q\quad\Longrightarrow\quad p\leq q.
+\]
+Thus $p=\lfp(F)$ is the least fixed point, and is also below every
+pre-fixed point of $F$.
+\end{theorem}
+\begin{proof}
+Bottom gives $p_0\leq p_1$, and monotonicity of $F$ gives inductively
+$p_n\leq p_{n+1}$. Hence the sequence is directed. Continuity gives
+\[
+ F(p)=\lub_n F(p_n)=\lub_n p_{n+1}=\lub_n p_n=p,
+\]
+where the last equality follows since the shifted chain is cofinal.
+If $F(q)\leq q$, induction gives $p_0\leq q$ and
+$p_{n+1}=F(p_n)\leq F(q)\leq q$. Taking the supremum proves $p\leq q$.
+\end{proof}
+
+In particular, after establishing continuity of a functional
+$\Phi:\Cont D E\to\Cont D E$, one can define its least solution by
+iteration from the constant bottom function. This construction assumes
+no idempotence, deflation or finitariness property of its iterates or of
+its limit. Any such properties must be proved separately.
+
+\begin{theorem}[Admissible fixed-point induction]\label{thm:admissible-induction}
+Let $F:S\to S$ be Scott-continuous on a pointed dcpo. Suppose a
+predicate $\mathcal I$ is closed under small directed suprema, contains
+$\bot$, and is preserved by $F$. Then
+\[
+ \mathcal I(\lfp(F)).
+\]
+No downward closure is required of $\mathcal I$.
+\end{theorem}
+\begin{proof}
+Induction gives $\mathcal I(F^n(\bot))$ for every $n$; admissibility
+gives the conclusion at their supremum. This argument is proved once
+as a general rule. Its applications supply only admissibility, the
+bottom case, and preservation by the defining functional.
+\end{proof}
+
+\path{ScottAdmissible.seg} checks this rule for every presented Scott
+domain. The existing continuous binary-map interface has the same
+rule in \path{KleeneConstruction.seg}, using the directed-supremum
+closure interface of \path{BinaryAdmissible.seg}. Both rules allow
+invariant evidence in the larger universe; neither requires resizing
+it to a small proposition. They are derived theorems, not additional
+axioms.
+
+\section{Finite-stage projectors and projector compatibility}
+
+We now consider the Scott domain $D$ of consistent filters generated by
+finite tokens. The tokens are built from $\bot$, $U$, products
+$\Pi(a,f)$, arrows $a\Rightarrow b$, and compatible intersections.
+Domain elements are ordered by inclusion of their token observations.
+Thus $\bot$ is least, and the intersection of compatible tokens
+represents their join of information.
+There are two different kinds of projector below. The binary semantic
+projector $p(a,x)$ enforces typing; the unary $q_n$ observes a finite
+depth of the domain equation. Only the latter supplies the locality
+needed to construct the logical relation.
+
+The filter domain comes with a fold--unfold isomorphism
+\[
+ \mathsf{unfold}:D\xrightarrow{\;\cong\;}\mathsf H(D),
+ \qquad \mathsf{fold}:\mathsf H(D)\xrightarrow{\;\cong\;}D.
+\]
+Here $\mathsf H(D)$ records a universe-head proposition, an optional
+product pair in $D\times\Cont D D$, and a function component in
+$\Cont D D$. The universe and product heads are disjoint, and either
+positive head forces the function component to bottom. For a
+Scott-continuous map $q:D\to D$ with $q(\bot)=\bot$, let $\mathsf H[q]$
+retain the universe head,
+send a product pair $(a,g)$ to
+$(q(a),q\circ g\circ q)$, and send the function component $f$ to
+$q\circ f\circ q$. This is the projector action of the domain equation.
+
+\begin{proposition}[Finite-stage projector tower]\label{prop:projector-tower}
+Define $q_0$ by
+\[
+ q_0(x)=\lub\{k\in\{\bot,\mathbf u\}\mid k\leq x\},
+\]
+where $\mathbf u\in D$ is the compact element represented by the
+universe token $U$. Define the remaining maps by the domain equation:
+\[
+ q_{n+1}=\mathsf{fold}\circ\mathsf H[q_n]\circ\mathsf{unfold}.
+\]
+These are Scott-continuous deflations and satisfy
+\[
+ q_n^2=q_n,\qquad q_nq_m=q_{\min(n,m)},\qquad
+ q_n\leq q_{n+1}\leq\mathrm{id},\qquad
+ \bigvee_n q_n=\mathrm{id}.
+\]
+Put $D_n=\{x\in D\mid q_n(x)=x\}$, let $e_n:D_n\to D$ be inclusion, and
+let $r_n:D\to D_n$ send $x$ to $q_n(x)$ with its fixed-point proof. Then
+\[
+ r_ne_n=\mathrm{id}_{D_n},\qquad e_nr_n=q_n\leq\mathrm{id}_D.
+\]
+Thus $q_0(x)$ has no positive product or arrow observation; its only
+possible nonbottom compact observation is $\mathbf u$. Every compact
+element is fixed by some $q_n$. On a positive product observation,
+$q_{n+1}$ sends its domain component through $q_n$ and its family
+function $g$ through $g\mapsto q_n\circ g\circ q_n$. It acts on an
+ordinary function component by the same function projection and
+preserves the universe observation. Consequently, components extracted
+from an element of $D_{n+1}$ lie in, or factor through, $D_n$.
+\end{proposition}
+\begin{proof}
+The indexing family defining $q_0(x)$ is inhabited by $\bot$,
+directed, and bounded by $x$; in particular $q_0(\bot)=\bot$.
+The head action preserves bottom, so every successive $q_n$ also
+preserves bottom. For the successor, the displayed
+fold--unfold equation applies $q_n$ to each domain component and
+$g\mapsto q_n\circ g\circ q_n$ to each function component. It defines
+a continuous map on filters independently of finite presentations.
+
+Inductively, continuity, deflation and idempotence follow from the
+corresponding properties of $q_n$; for the function component use
+$q_n^2=q_n$ and monotonicity of application. The same componentwise
+induction proves $q_n\leq q_{n+1}$ and the commuting equation. The
+stage-zero image and the asserted successor support are immediate from
+the defining clauses.
+
+For exhaustivity, take a proper finite token presentation of a compact
+element and proceed by structural induction. The tokens $\bot$ and $U$
+are fixed by $q_0$. For an arrow token $a\Rightarrow b$, choose $n$
+such that the compact elements represented by $a,b$ are fixed by
+$q_n$; the function-component equation makes the arrow fixed by
+$q_{n+1}$. For a product token $\Pi(a,f)$, the family token $f$ is
+built from $\bot$, arrow tokens $a_i\Rightarrow b_i$, and finite
+intersections. Let $F_f$ be the finite step function represented by
+$f$. Choose one $n$ at which the compact elements represented by $a$
+and all $a_i,b_i$ are fixed. Then $q_n\circ F_f\circ q_n=F_f$, so
+the product-component equation fixes
+$\Pi(a,f)$ at stage $n+1$. Finally, if two compatible compact elements
+are fixed at stages $m$ and $n$, their join is fixed at
+$\max(m,n)$: monotonicity puts both below the projection of their
+join, while deflation gives the reverse inequality. Thus every compact
+element is fixed by some $q_n$. Since these elements form a basis,
+$\bigvee_n q_n(x)=x$ for every $x$.
+\end{proof}
+
+These $D_n$ are the fixed-image stages of the displayed fold--unfold
+construction on the filter-domain solution. Their projections have not
+been identified with those of the separate CUSL initial chain.
+
+\subsection{Finitary projections through compact semilattices}
+
+The general construction of $\mathrm{Fp}$ is particularly direct on the
+CUSL side of the Scott--CUSL equivalence
+(Theorem~\ref{thm:cusl-equivalence}). A CUSL is a partially ordered set
+with bottom and joins of compatible pairs. Its ideal completion is a
+Scott domain. The following construction uses its small presentation,
+without requiring decidable compatibility or a resizing axiom.
+
+\begin{theorem}[CUSL representation and the continuous $\mathrm{Fp}$ functor]
+\label{thm:fp-cusl}
+Let $C$ be a CUSL and $D=\operatorname{Idl}(C)$ its ideal completion.
+Finitary projections on $D$ are represented by subsets $S\subseteq C$
+containing bottom and closed under joins of pairs compatible in $C$:
+\[
+ p_S(x)=\lub\{c\in S\mid c\leq x\}.
+\]
+Such subsets are ordered by inclusion. They form an algebraic complete
+lattice whose compact elements are the finitely generated closed
+subsets. Their compact CUSL gives the CUSL presentation of
+$\mathrm{Fp}(D)$.
+
+For a CUSL embedding $e:C\hookrightarrow C'$, direct and inverse image
+\[
+ e_*(S)=e[S],\qquad e^*(T)=e^{-1}[T]
+\]
+form a continuous EP pair. This action satisfies the identity and
+composition laws and preserves every existing colimit of a small
+directed diagram of embeddings. Transport through the Scott--CUSL
+equivalence gives the continuous functor $D\mapsto\mathrm{Fp}(D)$ on
+Scott domains and EP pairs. For an EP pair $(e,r):D\hookrightarrow E$,
+its embedding part is $P\mapsto ePr$.
+\end{theorem}
+\begin{proof}
+For a closed subset $S$ and an ideal $x$, the elements of $S$ below $x$
+are inhabited, directed and bounded. Their downward closure is the
+ideal $p_S(x)$. This operation is continuous, deflationary and
+idempotent. Its compact fixed points are exactly $S$, and they give
+compact fixed-point density. Conversely, a finitary projection is
+recovered from its compact fixed points. Thus the representation covers
+all finitary projector operations, not only a specified subclass.
+The subsets $S$ need not be downward closed: a compact element below a
+fixed point need not itself be fixed.
+
+Joins of closed subsets are obtained by closing their union under
+compatible joins; directed joins are already unions. Closure of a
+finite list of generators is compact. Every closed subset is the
+directed union of these finitely generated subsets, so they form a
+small compact basis. The checked compact-CUSL construction supplies
+smallness of the resulting object.
+
+An embedding preserves and reflects compatibility and preserves
+bottom and compatible joins. Its direct images and inverse images
+therefore remain closed. They satisfy
+\[
+ e^*e_*=\mathrm{id},\qquad e_*e^*(T)=T\cap e[C]\subseteq T.
+\]
+Both operations preserve directed unions. Their identity and
+composition laws follow from those of images and inverse images.
+
+For directed-colimit preservation, every element of the colimit CUSL
+comes from a stage. This coverage is derived from the categorical
+universal property: the union of the stage images inside the vertex
+is itself a CUSL colimit, and uniqueness identifies its inclusion
+with an isomorphism. Consequently every closed subset $T$ of the
+vertex satisfies
+\[
+ T=\lub_i e_{i*}e_i^*(T).
+\]
+If $T$ is compact in the closed-family domain, it lies in one stage
+image. Its preimage there is compact because EP embeddings reflect
+compactness of elements in their images. Hence the mapped cocone also
+has stage coverage, which gives its full universal property.
+This proves preservation for arbitrary small directed index sets,
+not just countable chains. The checked transport of colimits through
+an equivalence gives the Scott-domain result.
+\end{proof}
+
+\begin{corollary}[The finitary-projector adjunction]\label{cor:fp-adjunction}
+For every Scott domain $D$, inclusion
+$i_D:\mathrm{Fp}(D)\hookrightarrow[D\to D]$ has a continuous right
+adjoint $\kappa_D$, characterized by
+\[
+ i_D(P)\leq f\quad\Longleftrightarrow\quad P\leq\kappa_D(f).
+\]
+It satisfies $\kappa_D(i_D(P))=P$ and $i_D(\kappa_D(f))\leq f$;
+thus $(i_D,\kappa_D)$ is an EP pair, as stated in
+CGW~\cite[p.~162]{cgw}. In compact-family notation,
+\[
+ S_f=\{c\in K(D)\mid c\leq f(c)\},\qquad
+ \kappa_D(f)(x)=\lub\{c\in S_f\mid c\leq x\}.
+\]
+The projection part of the functor in Theorem~\ref{thm:fp-cusl}, for
+$(e,r):D\hookrightarrow E$, is
+\[
+ Q\longmapsto\kappa_D(rQe).
+\]
+\end{corollary}
+\begin{proof}
+The compact postfixed points $S_f$ contain bottom and are closed under
+compatible joins. Their induced projector lies below $f$.
+Compact fixed-point density shows that every finitary projector below
+$f$ lies below this one, proving the adjunction and retraction.
+A compact postfixed observation at a directed supremum of endomaps is
+already observed at one index. Hence $\kappa_D$ preserves directed
+suprema. The inclusion does too, since directed unions of closed
+families give pointwise suprema of their projectors.
+The general-domain adjunction is obtained from the ideal-domain one
+by conjugating endomaps through the canonical ideal-completion
+isomorphism. Finally, inverse image of compact fixed-point families
+is exactly the family of compact postfixed points of $rQe$, proving
+the displayed restriction formula.
+\end{proof}
+
+These results are checked independently of the filter domain and its
+typing modules in \path{CUSLFpCheck.seg}. This session includes the
+CUSL construction, the general directed-colimit theorem, its transport
+to Scott domains, the adjunction and both action formulas. Source files
+and individual theorem names are listed in \path{UNIT/README.txt}.
+
+\subsection{The projector defined from the least fixed point}
+
+Define an operator on the Scott domain of continuous binary maps,
+\[
+ \Phi:\Cont{D\times D}{D}\longrightarrow\Cont{D\times D}{D}.
+\]
+For $Q:\Cont{D\times D}{D}$, its value $\Phi(Q)$ is determined by the
+following equations on the positive heads of the domain equation:
+\[
+\begin{aligned}
+ \Phi(Q)(\mathbf u,\mathbf u)
+   &=\mathbf u,\\
+ \Phi(Q)(\mathbf u,\pi(a,f))
+   &=\pi\!\left(Q(\mathbf u,a),
+       z\mapsto Q\bigl(\mathbf u,f\appl Q(a,z)\bigr)\right),\\
+ \Phi(Q)(\pi(a,f),x)
+   &=\bigl(z\mapsto Q\bigl(f\appl Q(a,z),
+                              x\appl Q(a,z)\bigr)\bigr).
+\end{aligned}
+\]
+Here $f\appl y$ and $x\appl y$ denote semantic application, and the
+last line denotes the corresponding function element of $D$.
+All other combinations of basic heads give $\bot$. For arbitrary
+elements, these equations are read through the constructive
+fold--unfold decomposition of $D$: each positive head is
+proposition-valued, and the three cases assemble into a continuous
+binary map without deciding which head is present. This construction
+is Scott-continuous in $Q$.
+Define $p$ as the least fixed point of $\Phi$. By the
+least-fixed-point theorem, it is computed by the Kleene sequence
+\[
+ P_0=\bot,\qquad P_{k+1}=\Phi(P_k),\qquad
+ p=\lfp(\Phi)=\bigvee_{k\in\N}P_k.
+\]
+For any continuous binary operation $Q$, define its stage observation by
+\[
+ \rho_n(Q)(a,x)=r_n\bigl(Q(e_n a,e_n x)\bigr)
+ \qquad(a,x\in D_n).
+\]
+At this point $p$ is a continuous binary operation satisfying
+$\Phi(p)=p$. Its projector laws follow from the closure theorem and invariant below,
+before comparison with inductive compact typing.
+
+The dependent-product construction below follows Coquand, Gunter and
+Winskel~\cite[Proposition~8 and \S7.2]{cgw}.
+
+\begin{theorem}[Dependent products of subdomains]\label{thm:dependent-subdomain}
+Let $A,D$ be Scott domains, and let $B:A\to\mathbf D^{\mathrm{EP}}$
+be continuous, with coherent EP embeddings $B(a)\hookrightarrow D$.
+Then the continuous sections form a Scott domain
+\[
+ \Gamma=\prod_{a\in A}B(a).
+\]
+If $A$ and $[D\to D]$ also embed in $D$ as EP pairs, then $\Gamma$
+is a finitary subdomain of $D$.
+For literal subdomains $A=\operatorname{Fix}(P)$ and
+$B(a)=\operatorname{Fix}(Q_a)$, the intermediate EP pair is
+\[
+ E(s)(z)=s(Pz),\qquad R(g)(a)=Q_a(g(a)),
+\]
+and its projector on $[D\to D]$ is
+\[
+ (ER)(g)(z)=Q_{Pz}(g(Pz)).
+\]
+\end{theorem}
+\begin{proof}
+Represent a section by a continuous ambient-valued function $s:A\to D$
+whose value at $a$ is fixed by the fiber projection $Q_a$.
+The EP cone criterion converts continuity of $B$ into continuity of these
+projections in the base argument. Conversely, a continuous family of
+finitary projections gives a continuous EP family of image domains.
+Both directions are checked using the explicit coherent inclusions and
+the directed supremum of embedding--projection composites.
+
+Directed and bounded joins of sections are pointwise. A compact input
+$u\in A$ and a compact output $w\in D$ fixed by $Q_u$ determine a
+compact section step. When it is active at $a$, monotonicity of the
+family makes $w$ fixed by $Q_a$. Compatible finite joins of such steps
+form a small compact basis. To cover a section observation, continuity
+first gives a compact input witness, and finitariness of the corresponding
+fiber projection gives a compact fixed output witness. This proves
+algebraicity of $\Gamma$, without assuming an abstract section theorem.
+The recovered fiber components also satisfy the monotonicity and
+continuity equations for CGW sections.
+
+The displayed $E$ and $R$ are continuous. Fiber fixedness and $P^2=P$
+give $RE=\mathrm{id}$. For $g:D\to D$,
+\[
+ Q_{Pz}(g(Pz))\leq g(Pz)\leq g(z),
+\]
+so $ER\leq\mathrm{id}$. Composing this EP pair with $[D\to D]\hookrightarrow D$
+embeds the Scott domain $\Gamma$ into $D$. Its induced projection is
+finitary: embeddings preserve compactness, so the compact basis of
+$\Gamma$ gives ambient compact fixed-point density.
+The construction is checked for arbitrary presented Scott domains,
+separately from the filter model and all typing modules.
+\end{proof}
+
+\begin{theorem}[Dependent sums and varying function spaces]\label{thm:sum-subdomain}
+Let $A,C,D$ be Scott domains, let $a\mapsto Q_a$ be a continuous
+family of finitary projections on $D$, and let $A\hookrightarrow C$
+be an EP pair $(e,r)$. Then
+\[
+ \Sigma=\sum_{a\in A}\operatorname{Fix}(Q_a)
+\]
+is a Scott domain, ordered through its ambient components, with an EP
+embedding into $C\times D$. Its induced projection is
+\[
+ (c,z)\longmapsto \bigl(e(rc),Q_{rc}(z)\bigr).
+\]
+If $R$ is a finitary projection on $D$, the varying spaces
+\[
+ V(a)=[\operatorname{Fix}(Q_a)\to\operatorname{Fix}(R)]
+\]
+have coherent embeddings into $[D\to D]$ and form a continuous EP
+family. Their total space is therefore a finitary subdomain of
+$C\times[D\to D]$, with projection
+\[
+ (c,g)\longmapsto
+ \bigl(e(rc),\ z\mapsto R(g(Q_{rc}(z)))\bigr).
+\]
+\end{theorem}
+\begin{proof}
+Represent a point of the first sum by $(a,z)$ with $Q_a(z)=z$.
+Directed and bounded joins are inherited from $A\times D$.
+The compact basis consists of pairs $(u,w)$ where $u$ and $w$ are
+ambient basis elements and $Q_u(w)=w$.
+To prove density, consider compact demands $v\leq a$ and $b\leq z$.
+Continuity of the family, applied to the basis approximation of $a$,
+gives a compact base support $u_0\leq a$ with $b\leq Q_{u_0}(z)$.
+Choose a compact $u\leq a$ above $v$ and $u_0$. Finitariness of $Q_u$
+then gives a compact $w$ fixed by $Q_u$ with
+$b\leq w\leq Q_u(z)\leq z$. Thus $(u,w)$ meets both demands.
+This also gives directedness of the basis below each point.
+This is the coherent-subdomain form of the support argument in
+CGW~\cite[Proposition~7, pp.~132--134]{cgw}.
+
+The embedding and projection are
+$E(a,z)=(e(a),z)$ and $P(c,z)=(rc,Q_{rc}(z))$.
+Joint continuity of $(a,z)\mapsto Q_a(z)$ proves continuity of $P$;
+$PE=\mathrm{id}$ and $EP\leq\mathrm{id}$ follow from the fixed-point
+condition and the given EP laws.
+
+For the second assertion, the ordinary exponential EP action embeds
+$V(a)$ into $[D\to D]$. Its induced finitary projection is
+\[
+ T_a(g)=R\circ g\circ Q_a.
+\]
+The exponential is order isomorphic to $\operatorname{Fix}(T_a)$.
+The family $T_a$ is monotone and preserves directed suprema in $a$,
+by continuity of $Q$, $g$ and $R$. Hence its fixed images form a
+continuous EP family, and the first assertion applies.
+All these constructions, including the compact bases and EP laws, are
+checked for arbitrary presented Scott domains without filter or typing
+modules. Compactness is used within these general domain constructions;
+the application below uses their finitary projections.
+\end{proof}
+
+\begin{remark}[Evaluation over varying domains]\label{rem:varying-evaluation}
+The same continuity mechanism appears in Coquand--Huber~\cite[p.~653
+and Proposition~2, p.~658]{coquand-huber}. In their notation, consider
+\[
+ E=\sum_{a\in\mathrm{Type}}
+ \bigl(\mathrm{El}(a)\times[\mathrm{El}(a)\to\mathrm{Type}]\bigr),
+ \qquad \mathrm{ev}(a,v,f)=f(v).
+\]
+The evaluation map is continuous. Consequently, for compact
+$w_0\leq f(v)$ there is a compact triple $(a_0,v_0,f_0)\leq(a,v,f)$
+in this total space such that
+\[
+ w_0\leq f_0(v_0),\qquad
+ v_0\in\mathrm{El}(a_0),\qquad
+ f_0\in[\mathrm{El}(a_0)\to\mathrm{Type}].
+\]
+Here comparisons between different fibers use their coherent ambient
+embeddings. The crucial point is that the compact argument and compact
+function have the \emph{same} compact base code $a_0$.
+Proposition~2 uses this simultaneous approximation to reduce an
+observation of the codomain $f(v)$ to a finite product-type observation.
+
+Theorem~\ref{thm:sum-subdomain} supplies the corresponding varying
+function-space family and total-space support construction. Adding the
+argument component gives the displayed space $E$. Joint continuity of
+evaluation uses the same directed-diagonal argument as the continuous
+projectors above: for a directed family of ambient representatives,
+\[
+ (\lub_i f_i)(\lub_i v_i)
+   =\lub_{i,j}f_i(v_j)=\lub_k f_k(v_k).
+\]
+The last equality follows by choosing a common upper index for $i,j$.
+Algebraicity of the total space and compactness of $w_0$ then give the
+simultaneous witness. Thus the shared compact-base support principle
+also connects these domain constructions to the logical relation.
+The present Unit development checks the varying function spaces,
+dependent-sum support construction and joint-continuity arguments used
+above; the map $\mathrm{ev}$ on $E$ and its compact-witness corollary
+are not yet packaged as separate checked theorems.
+\end{remark}
+
+\begin{theorem}[Normalized finitary families]\label{thm:normalized-finitary}
+Suppose $Q:D\times D\to D$ is continuous, each $Q(a,-)$ is a finitary
+projection, and
+\[
+ Q(Q(\mathbf u,a),x)=Q(a,x).
+\]
+Then $\Phi(Q)$ has the same properties. They hold for every Kleene
+iterate $P_k$ and for $p$. In particular,
+\[
+ p(p(\mathbf u,a),x)=p(a,x).
+\]
+\end{theorem}
+\begin{proof}
+Apply admissible fixed-point induction, Theorem~\ref{thm:admissible-induction},
+to the combined invariant
+\[
+ \mathcal I(Q)\quad\Longleftrightarrow\quad
+ \bigl(\forall a,\;Q(a,-)\text{ is a finitary projection}\bigr)
+ \;\wedge\;
+ \bigl(\forall a,x,\;Q(Q(\mathbf u,a),x)=Q(a,x)\bigr).
+\]
+The induction hypothesis concerns the whole continuous family, so it
+is available at every parameter occurring in a recursive call.
+
+\emph{Preservation.}
+Put $R=Q(a,-)$ and $S_v=Q(f(v),-)$. The function component is
+\[
+ T(g)(z)=S_{Rz}(g(Rz)).
+\]
+Apply Theorem~\ref{thm:dependent-subdomain} to the Scott domain
+$\operatorname{Fix}(R)$ and the continuous EP family
+$v\mapsto\operatorname{Fix}(S_v)$. The resulting subdomain projector,
+after abstraction into $D$, is exactly the displayed function component.
+The equality is checked in the filter instance of the general theorem.
+This proves finitariness of the function component without normalization.
+
+For the universe/product component put
+$U_Q=\operatorname{Fix}(Q(\mathbf u,-))$ and
+$D_a=\operatorname{Fix}(Q(a,-))$ for $a\in U_Q$.
+Continuity of $Q$ gives a continuous family $a\mapsto D_a$.
+By Theorem~\ref{thm:sum-subdomain}, the total space
+\[
+ \sum_{a\in U_Q}[D_a\to U_Q]
+\]
+is a finitary subdomain of $D\times[D\to D]$.
+Its induced projection is
+\[
+ (a,f)\longmapsto
+ \bigl(Q(\mathbf u,a),\ z\mapsto
+ Q(\mathbf u,f(Q(Q(\mathbf u,a),z)))\bigr).
+\]
+Normalization identifies $Q(Q(\mathbf u,a),z)$ with $Q(a,z)$, so this
+is precisely the universe/product payload operation of $\Phi$.
+The equality is checked after abstraction in the filter model.
+Its compact fixed-point density supplies the code and function
+components simultaneously. Representing a compact function component
+by a finite arrow code and applying the product constructor gives a
+compact product code fixed by $\Phi(Q)(a,-)$.
+The clause proof thus uses the general total-space theorem; it no longer
+recursively assembles a common code from the entries of a finite graph.
+The universe head itself is fixed; absent heads contribute bottom.
+These cases give compact fixed-point coverage for $\Phi(Q)(a,-)$,
+hence idempotence and finitariness.
+
+For normalization, deflation gives one inequality. The reverse follows
+by the observable-head decomposition. The product-type case uses
+$Q(Q(\mathbf u,a),-)=Q(a,-)$ and idempotence of both $Q(a,-)$ and $Q(\mathbf u,-)$;
+these identify its projected input and family in the function clause.
+The universe and bottom cases follow directly from their heads.
+
+\emph{Bottom.} The constant-bottom family satisfies both conditions.
+
+\emph{Admissibility.} Let $(Q_i)$ be a small directed family satisfying
+$\mathcal I$, and put $Q_\infty=\lub_iQ_i$. A compact fixed point of an
+approximant remains fixed at the supremum,
+so compact fixed-point density passes to the supremum. Deflation
+passes pointwise, and compact fixed-point coverage gives idempotence.
+For normalization, continuity
+reduces the nontrivial inequality to mixed indices $n,m$. Choose
+$i\geq n,m$ and use
+\[
+ Q_n(Q_m(\mathbf u,a),x)
+ \leq Q_i(Q_i(\mathbf u,a),x)=Q_i(a,x)\leq Q_\infty(a,x).
+\]
+The reverse inequality follows from the diagonal terms.
+Thus $\mathcal I$ is admissible. The induction rule now gives
+$\mathcal I(p)$. This application contains no induction on the Kleene
+iterates: \path{IndependentKleeneProjector.seg} supplies the three
+obligations and invokes the rule. The independent projector checker
+session checks that application and its preservation and admissibility
+lemmas without the typed projector comparison.
+\end{proof}
+
+\begin{lemma}[One unfolding lowers the comparison stage]\label{lem:fusion}
+For all continuous binary operations $Q,R$,
+\[
+ \rho_0(\Phi(Q))=\rho_0(\Phi(R)).
+\]
+For every $n$,
+\[
+ \rho_n(Q)=\rho_n(R)
+ \quad\Longrightarrow\quad
+ \rho_{n+1}(\Phi(Q))=\rho_{n+1}(\Phi(R)).
+\]
+\end{lemma}
+\begin{proof}
+At stage zero only the universe head can be observed, besides bottom.
+The universe head of $\Phi(Q)(A,X)$ is present exactly when both $A$
+and $X$ have a universe head; this does not depend on $Q$.
+
+For the successor case, use the structural equations of
+Proposition~\ref{prop:projector-tower}. On a product $q_{n+1}$ projects the domain with $q_n$ and the
+family function by $g\mapsto q_n\circ g\circ q_n$. On the function
+component it uses the same function projection, and it preserves the
+universe head.
+
+If $A,X$ belong to stage $n+1$, the domain component of either product
+head belongs to stage $n$. Each family function, and the application
+function of $X$, takes values in stage $n$ and factors through $q_n$.
+Consequently, in the nested calls occurring in $\Phi(Q)$, a function
+applied to $Q(e_n a,e_n z)$ depends only on
+\[
+ r_n Q(e_n a,e_n z)=\rho_n(Q)(a,z).
+\]
+Its output is itself an embedded stage-$n$ value. The outer recursive
+call, after projection by $r_n$, is therefore also determined by
+$\rho_n(Q)$.
+
+For example, the restricted function clause is determined by
+\[
+ z\longmapsto
+ \rho_n(Q)\bigl(B(\rho_n(Q)(a,z)),\,F(\rho_n(Q)(a,z))\bigr),
+\]
+where $a$ is the product's stage-$n$ domain component, $B$ its family,
+and $F$ the stage-$n$ application function of $X$. The product clause
+has the same calculation with the constant universe family. Replacing
+$\rho_n(Q)$ by $\rho_n(R)$ gives equal components and hence equal
+stage-$(n+1)$ results. These arguments use positive head observations;
+no decidability of a head is required.
+\end{proof}
+
+\begin{corollary}[Finite stabilisation]\label{cor:stabilisation}
+For $k,j\geq n+1$,
+\[
+ \rho_n(P_k)=\rho_n(P_j).
+\]
+\end{corollary}
+\begin{proof}
+Induct on $n$. The base is the first assertion of
+Lemma~\ref{lem:fusion}. At the successor, write $k=k'+1$ and $j=j'+1$,
+apply the induction hypothesis to $P_{k'},P_{j'}$, and then apply the
+second assertion of the lemma.
+\end{proof}
+
+Define the stage operation directly from the least fixed point:
+\[
+ p_n(a,x)=r_n\bigl(p(e_n a,e_n x)\bigr),
+ \qquad a,x\in D_n.
+\]
+
+\begin{theorem}[Finite computation of the stage operation]\label{thm:operational}
+For every $a,x\in D_n$,
+\[
+ p_n(a,x)=r_n\bigl(P_{n+1}(e_n a,e_n x)\bigr).
+\]
+\end{theorem}
+\begin{proof}
+Continuity of $r_n$ and pointwise computation of the Kleene supremum give
+\[
+ \rho_n(p)=\bigvee_k\rho_n(P_k).
+\]
+The increasing family on the right is constant from index $n+1$ onwards,
+by Corollary~\ref{cor:stabilisation}, so its supremum is
+$\rho_n(P_{n+1})$, which is the displayed right-hand side.
+\end{proof}
+
+Thus $p_n$ can be computed using only $n+1$ unfoldings of $\Phi$.
+This theorem does not prove that $p_n(a,-)$ is a finitary projection:
+finite stabilisation alone gives neither deflation nor idempotence.
+The checked stage finitariness proof used later identifies $p_n$ with
+the projector generated by bounded inductive compact typing.
+Theorem~\ref{thm:normalized-finitary} supplies independent global
+finitariness, but the stage conclusion requires an additional argument.
+Arbitrary EP conjugation $rPe$ need not be idempotent: on the finite
+chain $0<1<2<3$, take $P=(0,0,2,2)$, embed $\{0,1,3\}$, and project
+$2$ to $1$. Then $rPe$ sends $3$ to $1$ and $1$ to $0$.
+The finite-order laws and this failure are checked in
+\path{EPRestrictionObstruction.seg}. Compatibility with the particular
+rank projections is therefore needed to remove the bounded-typing
+stage proof.
+
+The continuous functor $\mathrm{Fp}$ and its adjunction are now checked
+in general (Theorem~\ref{thm:fp-cusl} and
+Corollary~\ref{cor:fp-adjunction}). Its projection part sends a projector
+$P$ to $\kappa_{D_n}(r_nPe_n)$. This produces a finitary projector,
+but the direct stage formula above uses the raw restriction $r_nPe_n$.
+To obtain an independent proof of that formula's finitariness, one must
+show that these particular restrictions are unchanged by $\kappa_{D_n}$.
+The existing bounded-typing proof establishes stage finitariness;
+the general functor theorem does not replace the required rank
+compatibility argument.
+
+
+The logical-relation construction and fundamental lemma below use only
+the projector-tower properties of Proposition~\ref{prop:projector-tower}.
+
+\section{An independent logical relation}
+
+\subsection{Admissible predicates and the relation clauses}
+
+We now use the Scott filter domain to relate denotations to syntax.
+Write $\mathbf u\in D$ for the universe element,
+$\pi(a,\varphi)$ for the product constructor, and $f\appl x$ for
+application. A family $\varphi$ is a function component of $D$, representing
+a continuous map $D\to D$. The recursive domain equation supplies
+universe observations and product observations. A positive product
+observation
+\[
+ \pi(\bot,\bot)\leq x
+\]
+allows extraction of a domain component $x_{\rm d}$ and a family
+component $x_{\rm f}$. These components are only used under that positive
+hypothesis. No decision whether an arbitrary element has a head is needed.
+The product $\pi(\bot,\bot)$ is a positive compact observation, distinct
+from $\bot$.
+
+Fix a syntactic context $\Delta$. Terms have variables, a universe $U$,
+dependent products $\Pi(A,B)$, annotated abstractions $\lambda A.M$, and
+applications. The body of a product or abstraction has one additional
+variable; $B N$ denotes substitution of $N$ for it. More generally,
+$A\sigma$ is substitution by the simultaneous substitution $\sigma$. Write
+$T\longrightarrow^* V$ for head reduction and
+$\Delta\vdash M=N:A$ for typed definitional equality. When such a
+judgement occurs inside $\trunc{\;\cdot\;}$, it denotes the type of its
+derivations, and the brackets denote propositional truncation.
+
+\subsubsection{Lower admissible predicates}
+
+\begin{definition}
+A small proposition-valued predicate $Q$ on $D$ is \emph{lower admissible}
+if it is downward closed and closed under small directed suprema.
+It is \emph{strict} if $Q(\bot)$ holds. Strictness is a separate condition:
+directed families are inhabited, so admissibility alone does not imply it.
+\end{definition}
+
+\begin{lemma}[Compact reconstruction]\label{lem:reconstruction}
+For every lower admissible predicate $Q$,
+\[
+ Q(x)\quad\Longleftrightarrow\quad
+ \forall k\in\B_D\;(k\leq x\Longrightarrow Q(k)).
+\]
+Conversely, for a small predicate $R$ on the compact basis,
+\[
+ \overline R(x)=\forall k\in\B_D\;(k\leq x\Longrightarrow R(k))
+\]
+is lower admissible. If $R$ respects the basis order, then
+$\overline R(k)\Longleftrightarrow R(k)$ for every basis element $k$.
+\end{lemma}
+\begin{proof}
+Downward closure proves one direction of reconstruction; the directed
+basis of $x$ and admissibility prove the other. For admissibility of
+$\overline R$, a compact observation below a directed supremum lies below
+one member. Its mere witness may be eliminated into the proposition
+$R(k)$. Recovery on a compact uses downward closure and the observation
+of that compact itself.
+\end{proof}
+
+For lower admissible predicates $P,Q$, define preservation by
+\[
+ \operatorname{Arr}(P,Q)(f)
+ \quad\Longleftrightarrow\quad
+ \forall x\in D\;(P(x)\Longrightarrow Q(f\appl x)).
+\]
+Although this formula quantifies over a potentially large domain, it is
+equivalent to the small formula
+\begin{equation}\label{eq:compact-arrow}
+ \forall k\in\B_D\;(P(k)\Longrightarrow Q(f\appl k)).
+\end{equation}
+Indeed, if $P(x)$, then $P(k)$ for every compact $k\leq x$; continuity
+of application and admissibility of $Q$ give the conclusion at $x$.
+For each compact input, application is continuous in $f$. Thus
+\eqref{eq:compact-arrow} is an intersection of lower admissible predicates
+of $f$, and is itself lower admissible. It is contravariant in $P$ and
+covariant in $Q$.
+
+\subsubsection{Type and term predicates}
+
+We seek predicates
+\[
+ \TyRel(x;T,T'),\qquad \ElemRel(x;T,M,M')
+\]
+for all syntactic indices in $\Delta$. Each is to be small, strict and
+lower admissible in $x$. There is no separate semantic classifier
+argument in $\ElemRel$: semantic typing will enter its laws and the
+fundamental lemma.
+
+For candidate term predicates $P$ and $Q$, define the function condition
+$\mathcal F(P,Q)(f;T,M,M')$ as follows. For every reduction
+$T\longrightarrow^*\Pi(A,B)$, every derivation
+$\Delta\vdash N=N':A$, and every $x$ with $P(x;A,N,N')$, require
+\begin{equation}\label{eq:function-outputs}
+\begin{aligned}
+ Q(f\appl x;B N,MN,MN'),\\
+ Q(f\appl x;B N,M'N,M'N'),\\
+ Q(f\appl x;B N,MN,M'N').
+\end{aligned}
+\end{equation}
+All three comparisons use the same left result type $B N$.
+For candidate term predicates $P$ and type predicates $Q$, the family
+condition $\mathcal G(P,Q)(\varphi;A,B,B')$ similarly requires
+\begin{equation}\label{eq:family-outputs}
+\begin{aligned}
+ Q(\varphi\appl x;B N,B N'),\\
+ Q(\varphi\appl x;B' N,B' N'),\\
+ Q(\varphi\appl x;B N,B' N')
+\end{aligned}
+\end{equation}
+whenever $\Delta\vdash N=N':A$ and $P(x;A,N,N')$.
+The compact-input formulation makes both conditions small and lower
+admissible in their semantic argument.
+
+The type condition $\mathcal T(P,Q)(x;T,T')$ has two parts.
+First, a universe observation $\mathbf u\leq x$ implies
+\[
+ \trunc{T\longrightarrow^*U\ \mathbin{\times}\ T'\longrightarrow^*U}.
+\]
+Second, a positive product observation implies the mere existence of
+$A,A',B,B'$ with
+\begin{equation}\label{eq:product-clause}
+\begin{gathered}
+ T\longrightarrow^*\Pi(A,B),\qquad
+ T'\longrightarrow^*\Pi(A',B'),\\
+ \Delta\vdash A=A':U,\qquad
+ \Delta,A\vdash B=B':U,\\
+ Q(x_{\rm d};A,A'),\qquad
+ \mathcal G(P,Q)(x_{\rm f};A,B,B').
+\end{gathered}
+\end{equation}
+The whole tuple in~\eqref{eq:product-clause} is truncated. In particular,
+its component equalities are retained even at the smallest positive
+product observation.
+
+\begin{lemma}[Admissibility of the type condition]\label{lem:type-admissible}
+The condition $\mathcal T(P,Q)$ is lower admissible whenever the
+candidate predicates are lower admissible. It is contravariant in $P$
+and covariant in $Q$. It is strict when the positive predicates are strict.
+\end{lemma}
+\begin{proof}
+Head determinism says that any two evidenced product reducts of the same
+pair $T,T'$ have identical syntactic components. Consequently the product
+condition can equivalently be expressed by a mere existence of evidenced
+heads, together with the component conditions for every such evidenced
+head. This separates head existence from universal component tests.
+
+Each head-existence requirement is an observation implication
+$k\leq x\Longrightarrow E$, for a fixed compact head $k$ and a small
+proposition $E$. Such an implication is lower admissible by compactness.
+The domain component can be tested by observations $\pi(k,\bot)\leq x$;
+the family component by observations $\pi(\bot,k)\leq x$. Compact
+reconstruction identifies these tests with the required predicates on
+the extracted components. Intersections give admissibility of the whole
+condition. Variance follows from that of argument preservation. Bottom
+has neither a universe head nor a positive product head, and the
+remaining strict output conditions are inherited from $Q$.
+\end{proof}
+
+The desired invariant equations are
+\begin{equation}\label{eq:relation-equations}
+\begin{aligned}
+ \TyRel(x;T,T')
+  &\Longleftrightarrow\mathcal T(\ElemRel,\TyRel)(x;T,T'),\\
+ \ElemRel(x;T,M,M')
+  &\Longleftrightarrow\TyRel(x;M,M')\ \wedge\
+    \mathcal F(\ElemRel,\ElemRel)(x;T,M,M').
+\end{aligned}
+\end{equation}
+These equations are mixed in variance. In particular their simultaneous
+diagonal action is not a monotone operator to which Kleene iteration
+can simply be applied.
+
+\subsection{Construction by compatible finite depths}
+
+Use the projectors $q_d$ constructed above. They satisfy
+$q_d\leq q_{d+1}\leq\operatorname{id}$,
+$q_dq_e=q_{\min(d,e)}$, and $\lub_dq_d=\operatorname{id}$.
+Every compact basis element is fixed by some $q_d$.
+Two pairs of predicates \emph{agree at depth $d$} if their type and term
+components are equivalent on every element fixed by $q_d$, for all
+syntactic indices.
+
+For a pair $R=(R^{\rm ty},R^{\rm tm})$, form the new type predicates
+before the new term predicates:
+\begin{equation}\label{eq:advance}
+\begin{aligned}
+ (R^+)^{\rm ty}(x;T,T')
+  &=\mathcal T(R^{\rm tm},R^{\rm ty})(x;T,T'),\\
+ (R^+)^{\rm tm}(x;T,M,M')
+  &=(R^+)^{\rm ty}(x;M,M')\ \wedge\
+    \mathcal F(R^{\rm tm},R^{\rm tm})(x;T,M,M').
+\end{aligned}
+\end{equation}
+Reading the newly formed type component in the second line is essential.
+The original mutual action reads an old type component at the same depth
+and does not directly have the following one-step locality property.
+
+\begin{lemma}[Locality]\label{lem:relation-locality}
+If $R$ and $S$ agree at depth $d$, then $R^+$ and $S^+$ agree at
+depth $d+1$.
+\end{lemma}
+\begin{proof}
+For an element fixed by $q_{d+1}$, every extracted product domain is
+fixed by $q_d$. Its family function, and its application function, have
+depth-$d$ input and output support. Write $h$ for either such function.
+Then
+\[
+ h(x)=h(q_dx),\qquad q_d(h(x))=h(x).
+\]
+Suppose the arrow condition for $R$ is known and an argument is related
+by the negative predicate of $S$. Lower its evidence to $q_dx$.
+Agreement at depth $d$ converts this evidence to the negative predicate
+of $R$. Apply the given arrow condition at $q_dx$, use the first equation
+to identify the output with $h(x)$, and use the second equation to
+convert the positive output predicate from $R$ to $S$.
+
+This proves both directions for functions and families; the domain
+component is handled directly by agreement at depth $d$. Head evidence
+is unchanged. Thus the new type predicates agree at depth $d+1$.
+Using that agreement in the new term clause finishes the proof.
+\end{proof}
+
+Define the initial pair by the universe-observation tests
+\[
+\begin{aligned}
+ R_0^{\rm ty}(x;T,T')&=
+  \bigl(\mathbf u\leq x\Longrightarrow
+    \trunc{T\longrightarrow^*U\mathbin{\times}T'\longrightarrow^*U}\bigr),\\
+ R_0^{\rm tm}(x;T,M,M')&=R_0^{\rm ty}(x;M,M'),
+ \qquad R_{d+1}=R_d^+.
+\end{aligned}
+\]
+At depth zero, every element lies below $\mathbf u$, has no product head,
+and its applications are bottom. Hence $R_0$ agrees at depth zero with
+$R^+$ for every strict $R$. This statement does not require deciding
+whether a depth-zero element is bottom or the universe.
+
+\begin{lemma}[Compatibility and recovery]\label{lem:relation-recovery}
+Each $R_d$ is strict and lower admissible, and
+\[
+ d\leq e,\quad q_dx=x
+ \quad\Longrightarrow\quad R_d(x)\Longleftrightarrow R_e(x).
+\]
+Here and below such formulas apply separately to each component and
+all of its syntactic indices. Define
+\begin{equation}\label{eq:relation-limit}
+ R_\infty(x)=\forall d\in\N\;R_d(q_dx).
+\end{equation}
+Then $R_\infty$ is strict and lower admissible, and
+\[
+ q_dx=x\quad\Longrightarrow\quad
+ R_\infty(x)\Longleftrightarrow R_d(x).
+\]
+\end{lemma}
+\begin{proof}
+The depth-zero observation and Lemma~\ref{lem:relation-locality} prove
+compatibility by induction. Strictness and admissibility are preserved
+at every step. The limit is a small countable intersection of continuous
+pullbacks of lower admissible predicates, so has the same properties.
+
+For recovery, the forward implication uses the $d$th conjunct. Conversely
+suppose $q_dx=x$ and $R_d(x)$. If $d\leq e$, compatibility gives $R_e(x)$,
+which lowers to $R_e(q_ex)$. If $e\leq d$, first lower to $R_d(q_ex)$
+and then use compatibility at the depth-$e$ element $q_ex$.
+Constructive comparison of natural numbers gives every conjunct.
+\end{proof}
+
+\begin{theorem}[Independent invariant]\label{thm:independent-invariant}
+There is a unique strict lower admissible pair $(\TyRel,\ElemRel)$ satisfying
+\eqref{eq:relation-equations}. It is given by~\eqref{eq:relation-limit}.
+\end{theorem}
+\begin{proof}
+Recovery and locality show that $R_\infty$ and $R_\infty^+$ agree at every
+finite depth. Every compact is captured at a finite depth, so they agree
+on all compact observations. Lemma~\ref{lem:reconstruction} gives agreement
+on all domain elements. The type equation then identifies the fresh type
+component in~\eqref{eq:advance} with $R_\infty^{\rm ty}$, yielding both
+original mutual equations.
+
+For uniqueness, a strict solution of the original equations also solves
+the type-before-term equations. The depth-zero observation and locality
+show inductively that it agrees with $R_d$ at depth $d$. Recovery and
+compact reconstruction identify it with $R_\infty$.
+\end{proof}
+
+This is a finite-depth construction with an admissible limit, rather than
+iteration of a monotone diagonal relation operator. It constructs the
+relation without an earlier logical relation or adequacy theorem.
+All existential eliminations have proposition-valued targets. In
+particular, it never replaces $\forall i\,\trunc{W_i}$ by
+$\trunc{\forall i\,W_i}$.
+
+\subsection{Typed laws and restriction of arguments}
+
+Write $v:c$ for the inductive compact typing judgement. For $a\in D$,
+let $T(a)$ be the family generated by compact values $v$ for which
+$v:c$ and $c\leq a$, closed under compatible finite joins and compact
+equivalence. The associated map is
+\[
+ p_{\mathrm{ty}}(a,x)=\bigvee\{v\in T(a)\mid v\leq x\}.
+\]
+It is a finitary projection: it is continuous, lies below the identity,
+is idempotent, and every fixed point is a directed supremum of compact
+fixed points. The operation $p_{\mathrm{ty}}$ defined from $T(a)$
+satisfies the three recursive equations for $\Phi$ and lies below
+every continuous operation satisfying them. Consequently
+$p_{\mathrm{ty}}=p$, the least fixed point defined
+in \S4.1. This comparison is used for typed laws below.
+Finitariness and normalization of both $p$ and all iterates $P_k$
+already follow independently from
+Theorem~\ref{thm:normalized-finitary}.
+
+Filter soundness then identifies semantic typing with fixedness: for
+a semantic type $a$, a value $x$ has type $a$ precisely when $p(a,x)=x$.
+In particular $p(a,x)\leq x$ is in the image of this projection. We
+use the usual filter interpretation $\ev M\rho$, identifying consistent
+regular filters with their reflected domain elements whenever semantic
+typing supplies this identification. The following compact-cover
+property imposes no prescribed stage bound.
+
+\begin{lemma}[Typed compact cover]\label{lem:typed-cover}
+If a compact basis element $k$ satisfies $k\leq p(a,x)$, then there
+merely exist proper compact representatives $v,c$ such that
+\[
+ k\leq v\leq x,\qquad c\leq a,\qquad v:c.
+\]
+\end{lemma}
+\begin{proof}
+The typed generators are closed under compatible finite joins and
+compact equivalence, and include bottom. For a join, join the classifiers
+as well; presupposition and conversion put both values at the common
+classifier, and compatible-join typing gives the resulting generator.
+Thus the generators below $x$ form a directed family with supremum
+$p(a,x)$. Compactness of $k$ gives a generator above it. Replacing its
+value and classifier by equivalent proper representatives preserves
+the inequalities and typing. No bounded-stage interpolation is involved.
+\end{proof}
+
+\begin{lemma}[Typed relation laws]\label{lem:typed-laws}
+The following implications hold for all semantic $a,x$ and syntactic
+indices:
+\begin{align*}
+ \TyRel(p(\mathbf u,a);T,T')
+  &\Longrightarrow\TyRel(p(\mathbf u,a);T',T),\\
+ \TyRel(p(\mathbf u,a);T,V)\ \wedge\
+ \TyRel(p(\mathbf u,a);V,W)
+  &\Longrightarrow\TyRel(p(\mathbf u,a);T,W),\\
+ \ElemRel(p(a,x);T,M,N)
+  &\Longrightarrow\ElemRel(p(a,x);T,N,M),\\
+ \ElemRel(p(a,x);T,M,N)\ \wedge\
+ \ElemRel(p(a,x);T,N,O)
+  &\Longrightarrow\ElemRel(p(a,x);T,M,O),\\
+ \TyRel(p(\mathbf u,a);T,T')\ \wedge\
+ \ElemRel(p(a,x);T,M,N)
+  &\Longrightarrow\ElemRel(p(a,x);T',M,N).
+\end{align*}
+The relation also has head-reduction transport, expansion in both term
+arguments, and left diagonal closure.
+\end{lemma}
+\begin{proof}
+Prove the five typed implications together at finite relation depth,
+with the type implications before the term implications at each
+successor. The semantic projector is eliminated into lower admissible
+predicates using its universe, product and function cases. In the
+function case its action has the form
+\[
+ p(\pi(a,\varphi),f)\appl z
+  =p\bigl(\varphi\appl p(a,z),\,f\appl p(a,z)\bigr).
+\]
+Restrict the tested argument to $p(a,z)$. Idempotence identifies the
+result of testing at $z$ with that of testing at $p(a,z)$, and puts
+the output in the corresponding codomain projector. The depth induction
+hypotheses therefore supply the required argument conversions and output
+symmetry or transitivity. The type clauses supply the head and component
+evidence needed to align the tests.
+
+Passing to the invariant requires a typed cover, not an assumption that
+stage projectors preserve typing. Given a compact observation below
+$p(a,x)$, Lemma~\ref{lem:typed-cover} supplies a compact value $v$
+and classifier $c$ with
+\[
+ k\leq v\leq x,\qquad c\leq a,\qquad v:c.
+\]
+By Proposition~\ref{prop:projector-tower}, the compact values $v$ and $c$
+are each fixed at some stage. Take the maximum of those two stages.
+The value is fixed by $p(c,-)$, and the classifier is universe-typed.
+Recovery transfers the premises to the finite-depth relation at this
+stage; the finite-depth laws apply; recovery transfers the conclusion
+back. Lowering to $k$ and compact reconstruction prove the laws on the
+whole projected element. Type symmetry and transitivity use the same
+argument with the universe projector.
+
+Head transport and term expansion follow from the clauses and head
+determinism. Left diagonal closure is proved first at finite depth and
+then passed to the limit. It does not require semantic typing. Semantic
+soundness transfers the five projected laws to typed filter denotations.
+\end{proof}
+
+\subsubsection{Fitting environments and related substitutions}
+
+An environment fits the empty context automatically. It fits
+$\Gamma,z:A$ if its restriction $\rho$ fits $\Gamma$, the denotation
+$\ev A\rho$ is universe-typed, and its last value is semantically typed
+by $\ev A\rho$. We write $\rho\models\Gamma$.
+
+Let $\sigma,\sigma':\Gamma\to\Delta$ be typed substitutions. Relative
+to a fitting environment $\rho$, say they are \emph{related} if for each
+variable $z$ of $\Gamma$, with its type $A_z$ expressed in $\Gamma$,
+we have derivations
+\[
+ \Delta\vdash\sigma z=\sigma'z:A_z\sigma,\qquad
+ \Delta\vdash\sigma'z=\sigma z:A_z\sigma',
+\]
+and both relations
+\begin{equation}\label{eq:related-substitutions}
+ \ElemRel(\rho z;A_z\sigma,\sigma z,\sigma'z),\qquad
+ \ElemRel(\rho z;A_z\sigma',\sigma z,\sigma'z).
+\end{equation}
+Equivalently, every proper compact observation of each raw environment
+filter satisfies these relations. Typed symmetry allows reversal of
+related substitutions; diagonal closure allows replacing a related pair
+by its left diagonal. These statements hold in a well-formed source
+context and use only the variable typings supplied by fittingness.
+
+\begin{lemma}[Restriction to a fitting extension]\label{lem:argument-restriction}
+Suppose $\rho\models\Gamma$, the substitutions $\sigma,\sigma'$ are
+related, and $\Gamma\vdash A:U$. Suppose the domain induction hypothesis
+provides
+\[
+ \TyRel(a;A\sigma,A\sigma'),\qquad a=\ev A\rho.
+\]
+Given an arbitrary argument test
+\[
+ \Delta\vdash N=N':A\sigma,\qquad
+ \ElemRel(x;A\sigma,N,N'),
+\]
+put $y=p(a,x)$. Then $\rho[z\mapsto y]\models\Gamma,z:A$, and
+$(\sigma,z\mapsto N)$ and $(\sigma',z\mapsto N')$ are related for
+that extended environment.
+\end{lemma}
+\begin{proof}
+The raw semantic projection representing $y$ is typed by $a$, since
+$a$ is universe-typed. Thus the extended environment fits. Since
+$y\leq x$, downward closure gives the argument relation at $A\sigma$.
+The conversion law of Lemma~\ref{lem:typed-laws}, together with the type
+relation at $a$, gives it at $A\sigma'$. More explicitly, the type
+premise lowers to $p(\mathbf u,a)$, and idempotence identifies
+$p(a,y)$ with $y$.
+
+Syntactic cross-substitution applied to $A:U$ gives
+$\Delta\vdash A\sigma=A\sigma':U$. Symmetry and conversion of the
+argument equality give the required equality in the other direction at
+$A\sigma'$. The old variables retain their relations, since substitution
+in a weakened type ignores the newly substituted argument. These are
+exactly the conditions for the two extended substitutions.
+\end{proof}
+
+\subsubsection{Why restricting the argument suffices}
+
+For a body $M$ over $\Gamma,z:A$, let $\Lambda_{A,M,\rho}$ denote the
+semantic binder filter: its finite graph entries have a compact input
+$u$ typed by $\ev A\rho$ and an output observed in
+$\ev M(\rho[z\mapsto u])$. This is the semantic abstraction used both
+for lambda bodies and for product families.
+
+\begin{lemma}[Evaluation through the restriction]\label{lem:binder-factor}
+Let $a=\ev A\rho$ and $y=p(a,x)$. Every observation of
+$\Lambda_{A,M,\rho}\appl x$ is an observation of
+$\ev M(\rho[z\mapsto y])$. Hence, whenever the latter is a typed
+denotation,
+\begin{equation}\label{eq:binder-factor}
+ \Lambda_{A,M,\rho}\appl x\leq\ev M(\rho[z\mapsto y]).
+\end{equation}
+The same implication holds for any function component below the binder.
+\end{lemma}
+\begin{proof}
+For a compact input presentation $u$, consider the auxiliary family
+\[
+ H(u)=\ev M(\rho[z\mapsto p(a,u)]).
+\]
+It is monotone in the information order. At a graph entry whose input
+$u$ is typed by $a$, the principal filter generated by $u$ is fixed by
+$p(a,-)$. Thus that entry's output belongs to $H(u)$.
+
+An application observation selects finitely many entries of a binder
+graph under an input observed in $x$. Induction on the selection,
+using monotonicity for a single entry and filter intersection for a
+combined selection, puts the selected output in $H(u_0)$ at that
+observed input $u_0$. Since $u_0\leq x$, projector monotonicity gives
+$p(a,u_0)\leq p(a,x)$, so the output belongs to the right-hand side
+of~\eqref{eq:binder-factor}. Upward closure in token order handles the
+final observation. The argument is on raw filter witnesses; after
+reflection, truncated witnesses are eliminated only into the desired
+proposition. Compact reconstruction then transfers any lower admissible
+predicate of the body denotation to the application result.
+\end{proof}
+
+There is a second point in the function and family clauses: the induction
+hypothesis must supply three comparisons, all at the same left type.
+Use the fitting extension from Lemma~\ref{lem:argument-restriction} and
+write
+\[
+\begin{gathered}
+ V=B(\sigma,N),\quad Y=\ev M(\rho[z\mapsto y]),\\
+ P=M(\sigma,N),\quad P'=M(\sigma,N'),\quad
+ Q=M'(\sigma',N),\quad Q'=M'(\sigma',N').
+\end{gathered}
+\]
+Here $(\sigma,N)$ extends $\sigma$ by $N$ for the new variable. A self
+induction hypothesis for $M$ at the diagonal base substitution yields
+$\ElemRel(Y;V,P,P')$.
+The cross induction hypothesis for $M,M'$ yields
+\[
+ \ElemRel(Y;V,P,Q'),\qquad \ElemRel(Y;V,P,Q),
+\]
+the second by the diagonal argument test $(N,N)$.
+Typed symmetry and transitivity on $Y$ now give
+\begin{equation}\label{eq:three-body-comparisons}
+ \ElemRel(Y;V,P,P'),\qquad
+ \ElemRel(Y;V,Q,Q'),\qquad
+ \ElemRel(Y;V,P,Q').
+\end{equation}
+This obtains the right self comparison without changing its classifier
+to $B(\sigma',N)$ and without choosing a uniform family of witnesses.
+
+\subsection{The fundamental lemma and product inversion}
+
+\begin{theorem}[Fundamental lemma]\label{thm:fundamental}
+Suppose $\Delta$ is well formed, $\rho\models\Gamma$, and
+$\sigma,\sigma':\Gamma\to\Delta$ are related relative to $\rho$.
+For every derivation $\Gamma\vdash M=N:A$,
+\begin{equation}\label{eq:fundamental}
+\begin{aligned}
+ \ElemRel(\ev M\rho;A\sigma,M\sigma,N\sigma'),\\
+ \ElemRel(\ev M\rho;A\sigma',M\sigma,N\sigma').
+\end{aligned}
+\end{equation}
+For a typing derivation $\Gamma\vdash M:A$, the same conclusions hold
+with $N=M$. They hold on the whole reflected denotation and on every
+compact observation below it.
+\end{theorem}
+\begin{proof}
+Induct simultaneously on typing and equality derivations, with the
+well-formed-context cases contributing no relational assertion.
+The hypotheses are quantified over all fitting environments and related
+substitutions. We give the cases that explain the construction.
+
+\smallskip\noindent\emph{Variables, universe, and structural rules.}
+The variable case is~\eqref{eq:related-substitutions}. The universe case
+uses its own head reduction and the absence of a product reduct of $U$.
+Reflexivity uses the typing hypothesis. Symmetry reverses the related
+substitutions, applies the induction hypothesis, and uses typed symmetry;
+semantic soundness identifies the denotations of the equal terms.
+Transitivity uses the diagonal substitutions and typed transitivity.
+Conversion applies the type induction hypothesis and the conversion law
+in Lemma~\ref{lem:typed-laws}, at each substituted classifier.
+
+\smallskip\noindent\emph{Dependent products.}
+For formation, the premises are $\Gamma\vdash A:U$ and
+$\Gamma,z:A\vdash B:U$. For equality they additionally include
+$\Gamma\vdash A=A':U$ and $\Gamma,z:A\vdash B=B':U$, with the
+specified typings of the bodies. Substitution and cross-substitution
+give the syntactic component equalities
+\[
+ \Delta\vdash A\sigma=A'\sigma':U,\qquad
+ \Delta,z:A\sigma\vdash B(\sigma^+)=B'(\sigma'^+):U.
+\]
+Here $\sigma^+$ denotes the lifted substitution under the binder.
+These equalities come from the premises, not from inversion of a product
+equality. The domain induction hypothesis gives the type relation on
+$\ev A\rho$.
+
+The product denotation has no universe head. Under a positive product
+observation, its extracted domain is below $\ev A\rho$, and its extracted
+family is below $\Lambda_{A,B,\rho}$. For an arbitrary related argument,
+Lemma~\ref{lem:argument-restriction} gives a fitting extension. The body
+induction hypotheses and~\eqref{eq:three-body-comparisons}, with classifier
+$U$, supply the three type comparisons in~\eqref{eq:family-outputs}.
+Lemma~\ref{lem:binder-factor} transfers them to the extracted family.
+Fold the type clause, then the term clause at $U$. Formation is the
+self-equality instance. Since the classifier is $U$, the two substituted
+classifier conclusions coincide.
+
+\smallskip\noindent\emph{Annotated abstraction.}
+For $\lambda A.M:\Pi(A,B)$, its semantic value has only a function
+component, so the type component of the term relation has no positive
+head to test. For a related argument, restrict it as above, use the body
+induction hypothesis and~\eqref{eq:three-body-comparisons}, and transfer
+the outputs by~\eqref{eq:binder-factor}. Syntactic beta reduction and term
+expansion replace the instantiated bodies by applications of the
+substituted abstractions. This proves the three function outputs at
+$\Pi(A,B)\sigma$. Apply the same argument with $\sigma,\sigma'$
+reversed and then typed symmetry on the abstraction denotation to obtain
+the conclusion at $\Pi(A,B)\sigma'$.
+
+\smallskip\noindent\emph{Application and beta.}
+The function relation applied to the argument relation yields the
+application comparison at the left substituted result type.
+Instantiating the codomain induction hypothesis under the binder gives
+the relation between the two substituted result types; typed conversion
+gives the right-type conclusion. This treats ordinary application and
+both congruence rules. For beta, extend the environment by the argument
+denotation and the substitutions by the two substituted arguments.
+The body hypothesis applies there. Semantic beta and substitution
+identify the denotation, while syntactic beta and term expansion give
+the required equality comparison at both result types.
+
+\smallskip\noindent\emph{Typed function extensionality.}
+Suppose the premises include
+\[
+ \Gamma,z:A\vdash f^{\uparrow}z=g^{\uparrow}z:B,
+ \qquad \Gamma\vdash f:\Pi(A,B),\quad
+ \Gamma\vdash g:\Pi(A,B).
+\]
+Semantic typing gives the eta inclusions
+\begin{equation}\label{eq:semantic-eta}
+ \ev f\rho\leq\Lambda_{A,f^{\uparrow}z,\rho},\qquad
+ \ev g\rho\leq\Lambda_{A,g^{\uparrow}z,\rho}.
+\end{equation}
+To see the first, take a typed compact cover of an observation of
+$\ev f\rho$. A non-bottom cover must be a function graph: universe and
+product values cannot have a product classifier. Each graph entry has a
+key typed by $\ev A\rho$ and its output is observed in the application
+of $\ev f\rho$ to that key. Semantic weakening identifies this with the
+corresponding eta body. All entries therefore belong to the binder,
+and the graph covers the original observation. The proof for $g$ is
+the same. This is a consequence of semantic typing and soundness.
+
+The pointwise equality induction hypothesis, together with its symmetry
+and transitivity consequences, supplies the self and cross hypotheses
+for the two eta bodies. Restrict each tested argument to a fitting
+extension, obtain~\eqref{eq:three-body-comparisons}, and use
+\eqref{eq:semantic-eta} and Lemma~\ref{lem:binder-factor} to transfer them
+to applications of $\ev f\rho$. Substitution in $f^{\uparrow}z$ is exactly
+application of $f\sigma$ to the substituted argument. Hence the three
+outputs fold to the required function relation. For the right classifier,
+reverse both the pointwise equality and the substitutions, use typed
+symmetry, and transfer from the denotation of $g$ to that of $f$ by
+semantic soundness of the extensionality rule.
+
+These cases cover every derivation constructor. The proof can be read
+observation by observation on the raw filters. Semantic typing gives
+consistent regular denotations, and Lemma~\ref{lem:reconstruction}
+then supplies the whole-denotation assertions. Conversely, downward
+closure gives every compact-observation conclusion.
+\end{proof}
+
+\begin{corollary}[Mere product inversion]\label{cor:independent-pi}
+From a derivation $\Gamma\vdash\Pi(A,B)=\Pi(A',B'):T$, for any
+classifier $T$, one obtains
+\[
+ \trunc{(\Gamma\vdash A=A':U)\mathbin{\times}
+          (\Gamma,z:A\vdash B=B':U)}.
+\]
+\end{corollary}
+\begin{proof}
+The environment $\rho_\bot$ assigning bottom to every variable fits
+every well-formed context. Prove this by induction on the context:
+soundness makes the next type universe-typed, and bottom is a value of
+that type. The identity substitution is related to itself at $\rho_\bot$
+by strictness of the relation.
+
+The literal product denotation has the compact observation
+$k_\Pi=\pi(\bot,\bot)$: use the bottom observation of its domain and the
+empty family graph. Apply Theorem~\ref{thm:fundamental} at the identity
+substitutions and observe $k_\Pi$. The type component of the term clause
+gives $\TyRel(k_\Pi;\Pi(A,B),\Pi(A',B'))$. Unfolding the positive
+product clause supplies a mere tuple of evidenced heads with their
+component equalities. Literal products are head normal, so head
+determinism identifies those components with $A,B,A',B'$. Mapping this
+truncated tuple to its equalities gives the displayed conclusion.
+\end{proof}
+
+The argument derives product inversion after the fundamental lemma; it
+uses neither syntactic product injectivity nor an earlier adequacy
+theorem as a premise. The conclusion is explicitly truncated. It does
+not assert a chosen pair of derivation trees, or a simultaneous choice
+of witnesses over all compact observations.
+
+\clearpage
+\appendix
+\section{Embedding--projection categories and initial algebras}\label{app:categories}
+
+In this appendix we also use an \emph{unpresented} Scott domain: its small
+compact basis is merely known to exist, rather than selected as object
+data. A presentation supplies such an object by propositional truncation.
+\begin{proposition}[Univalence of Scott-domain objects]
+Let $D$ and $E$ be unpresented Scott domains. The canonical map is an
+equivalence
+\[
+ (D=E)\simeq\{\text{order isomorphisms between $D$ and $E$}\}.
+\]
+\end{proposition}
+\begin{proof}
+Suprema are unique, so completeness contributes no choices for a fixed
+order. Least elements are unique, and the basis-existence condition is a
+proposition. It therefore suffices to compare orders. Fix an order $P$.
+The total space of orders equipped with an order isomorphism from $P$ is
+contractible: univalence makes the type of carrier equivalences from
+$P$ contractible, while propositional univalence and the order laws make
+the relation over each such equivalence unique. The total space for Scott
+domains is a retract of this space equipped with the remaining structure
+in proposition-valued fibres; it is contractible as well. Projecting its
+unique path from $(D,\mathrm{id})$ to $(E,i)$ produces the inverse of the
+canonical map. Path induction and contractibility give both inverse laws.
+\end{proof}
+
+\begin{proposition}[Univalent categories of Scott domains]
+Unpresented Scott domains form a univalent category with Scott-continuous
+maps. They also form a univalent category whose morphisms $D\to E$ are
+embedding--projection pairs of continuous maps
+$e:D\to E$ and $p:E\to D$ satisfying $p\circ e=\mathrm{id}_D$ and
+$e\circ p\leq\mathrm{id}_E$ pointwise. In both categories, categorical
+isomorphisms correspond to order isomorphisms of domains.
+\end{proposition}
+\begin{proof}
+Identity and composition preserve continuity. For pairs, composition is
+$(e_2\circ e_1,p_1\circ p_2)$; monotonicity and the two pair laws give its
+retraction and pointwise inequality. An invertible continuous map has a
+continuous inverse: an order isomorphism preserves and reflects directed
+suprema. Conversely, the underlying map of a categorical isomorphism and
+its inverse give an order isomorphism. For an invertible pair, its
+projection agrees with the inverse of its embedding, so its entire arrow
+is determined by that order isomorphism. Thus the singleton total space
+of categorical isomorphisms from a fixed domain is a retract of the
+proposition-valued total space used in the preceding result. The
+total-space criterion for univalence applies to both precategories.
+\end{proof}
+
+\begin{theorem}[Compact elements and ideal completion]
+\label{thm:cusl-equivalence}
+Let $\mathbf{Dom}_{\triangleleft}$ be the univalent category of unpresented
+Scott domains and continuous embedding--projection pairs. Let
+$\mathbf{CUSL}$ be the univalent category of conditional upper
+semilattices with merely small carrier. Its morphisms preserve bottom and
+compatible binary joins and reflect both order and compatibility. Then
+\[
+  \mathbf{Dom}_{\triangleleft}\simeq\mathbf{CUSL}.
+\]
+The functors are $\K(D)$, the CUSL of compact elements, and
+$\operatorname{Idl}(P)$, the Scott domain of ideals of $P$. There are natural
+isomorphisms
+\[
+  P\cong\K(\operatorname{Idl}(P)),\qquad
+  D\cong\operatorname{Idl}(\K(D)).
+\]
+\end{theorem}
+\begin{proof}[Proof outline]
+For a small presentation of $P$, ideals are inhabited, downward closed,
+directed lower subsets. Inclusion is a small relation. Directed suprema
+are unions; the supremum of a bounded family is the ideal generated by
+its finite joins. Principal ideals are compact and form a small basis.
+An embedding of CUSLs extends to the downward closure of its direct image;
+inverse image supplies the continuous projection. The four embedding
+laws give the retraction and deflation equations.
+
+Conversely, an embedding--projection pair sends compact elements to
+compact elements: its embedding is left adjoint to its projection, and the
+projection preserves directed suprema. The restricted embedding preserves
+compatible joins and reflects compatibility. A small basis presents the
+compact-element carrier via the replacement image; the presentation is
+only asserted to exist, so it does not become object data.
+For a set, univalence makes two small presentations equal. Thus mere
+smallness supplies the small presentation used for ideal completion
+without a choice axiom. Every compact ideal is principal, while each
+domain element is the supremum of the compact elements below it. These
+give the displayed isomorphisms. Their naturality is checked on principal
+ideals and on the projections of embedding--projection pairs, respectively.
+\end{proof}
+
+\subsection{Countable chains of presented domains}
+
+\begin{proposition}[Countable limits of presented embedding--projection chains]
+Let $D_0\to D_1\to\cdots$ be a chain of presented Scott domains and
+continuous embedding--projection pairs $(e_n,p_n)$. The coherent sequences
+\[
+ L=\{(x_n)_n\mid p_n(x_{n+1})=x_n\}
+\]
+form a presented Scott domain. Each $D_n$ embeds into $L$, with projection
+given by the $n$th coordinate, and every $x\in L$ is the directed supremum
+of its stage approximants $e_{n,\infty}(x_n)$. The compact basis consists of
+stage lifts of compact basis elements. This cone is a colimit in the
+embedding--projection category on presented objects: every compatible
+cone to a presented Scott domain has a unique mediating pair.
+\end{proposition}
+\begin{proof}
+Orders and directed suprema of coherent sequences are coordinatewise.
+For bounded suprema, take the supremum at each stage, lift it to $L$,
+and then take the directed supremum of these stage lifts. A stage lift is
+compact when its stage element is compact. Stage approximation and compact
+density at each stage give density in $L$ without countable choice.
+
+For a compatible cone $(u_n,v_n):D_n\to Y$, the mediating projection sends
+$y$ to $(v_n(y))_n$; its embedding sends $(x_n)_n$ to
+$\lub_n u_n(x_n)$. The cone equations make the latter family increasing.
+The retraction and deflation laws follow by checking each stage coordinate
+and using continuity. A second mediating pair agrees on each stage lift,
+so stage exhaustion and continuity make its embedding equal to this one;
+its projection is equal coordinatewise.
+
+\end{proof}
+
+\subsection{Initial algebras and categorical transfer}
+
+\begin{theorem}[Abstract initial-chain theorem]\label{thm:initial-chain}
+Let $\mathcal C$ be a category with an initial object and colimits of
+countable chains. If an endofunctor $F:\mathcal C\to\mathcal C$ preserves
+these colimits, then the colimit $\mu F$ of
+\[
+ 0\longrightarrow F0\longrightarrow F^2 0\longrightarrow\cdots
+\]
+has an initial $F$-algebra structure
+$\mathsf{fold}:F(\mu F)\to\mu F$. The map $\mathsf{fold}$ is an
+isomorphism. If $\mathcal C$ is univalent, the isomorphism induces an
+equality $\mu F=F(\mu F)$.
+\end{theorem}
+\begin{proof}
+Removing the initial object from the chain leaves a chain with the same
+colimit: a cocone over the tail extends uniquely at stage zero. Preservation
+by $F$ makes $F(\mu F)$ another colimit of this tail. The unique mediating
+arrows between these two colimits give fold and unfold; their composites
+are identities by colimit uniqueness.
+
+For an algebra $a:F(Y)\to Y$, define its stage maps recursively by the
+unique arrow $0\to Y$ and $h_{n+1}=a\circ F(h_n)$. The functor laws make
+them a cocone. Its mediator $h:\mu F\to Y$ satisfies
+$h\circ\mathsf{fold}=a\circ F(h)$ because both sides agree on every
+image stage and $F(\mu F)$ is their colimit. Any other algebra morphism
+agrees with the stage maps by induction, hence equals $h$ by colimit
+uniqueness. Since hom types are sets, the algebra equation is a
+proposition, so the type of algebra morphisms is contractible.
+\end{proof}
+
+The theorem is formalized for precategories, with a separate generic
+univalent-category corollary for the object equality.
+
+\begin{theorem}[Countable CUSL colimits and initial algebras]
+\label{thm:cusl-initial}
+The univalent category $\mathbf{CUSL}$ of conditional upper semilattices
+and embeddings has an initial object and colimits of countable chains.
+For any endofunctor $F:\mathbf{CUSL}\to\mathbf{CUSL}$ preserving these
+colimits, there is an initial $F$-algebra
+$\mathsf{fold}:F(\mu F)\to\mu F$. Its structure map is an isomorphism,
+and univalence gives $\mu F=F(\mu F)$. The preservation hypothesis is a
+proposition.
+\end{theorem}
+\begin{proof}
+The one-point CUSL is initial. For a chain of CUSL embeddings, form the
+chain of their presented ideal domains and its coherent-sequence EP limit.
+Take the compact elements of this limit as the colimit CUSL. The unit of
+the CUSL--EP equivalence and the canonical EP cone give the cocone legs.
+For a cocone into $Y$, ideal extension gives an EP cocone into the presented
+ideal domain of $Y$; its universal mediator restricts to a CUSL embedding
+from the compact elements of the limit to $Y$. Naturality of the unit gives
+the factorization equations. Every compact element of the limit is equal
+to the lift of a compact basis element at some stage, so agreement on the
+cocone legs determines the mediator uniquely. The abstract initial-chain
+theorem now supplies the initial algebra and the equality.
+
+For a fixed cocone, two mediators satisfying the universal property agree
+by uniqueness. All remaining laws are equalities in hom sets, so its
+colimit structure is a proposition. Function extensionality then shows
+that preservation of all existing countable-chain colimits is a
+proposition. The small presentations used in ideal completion are
+selected by univalence from mere smallness; no countable choice is used.
+\end{proof}
+
+\begin{theorem}[Categorical structure identity principle]
+\label{thm:category-sip}
+At the object and hom universe levels used here, an equivalence between
+univalent categories $\mathcal C$ and $\mathcal D$ induces an equality
+$\mathcal C=\mathcal D$ of category records. In particular,
+$\mathbf{CUSL}=\mathbf{Dom}_{\triangleleft}$.
+\end{theorem}
+\begin{proof}
+This is the equivalence-to-identity direction of the categorical
+structure identity principle of
+\href{https://arxiv.org/abs/1303.0584}{Ahrens--Kapulkin--Shulman}.
+The two natural reconstruction isomorphisms give mutually inverse
+functions on object types after category univalence converts their
+components to object equalities. Univalence of the object universe then
+identifies the object types. The functor induces an equivalence on each
+hom type: its inverse is obtained by applying the quasi-inverse functor
+and conjugating by the reconstruction isomorphisms. Fiberwise univalence
+identifies the hom families. The functor laws identify identities and
+composition after transport. Because hom types are sets, the remaining
+category laws are propositions; univalence of a fixed precategory is
+also a proposition. The resulting equality of precategories extends to
+equality of category records. The checked construction is
+\texttt{CategorySIPTheorem.On.equality}; it uses only the previously
+stated universe univalence and function extensionality.
+\end{proof}
+
+\begin{corollary}[Unpresented Scott EP initial algebras]
+\label{cor:ep-initial}
+The category of unpresented Scott domains and embedding--projection pairs
+has colimits of countable chains. Every endofunctor of this category that
+preserves these colimits has an initial algebra with an invertible
+structure map and an object equality $X=F(X)$.
+\end{corollary}
+\begin{proof}[Proof using univalence]
+By Theorem~\ref{thm:category-sip}, the CUSL--EP equivalence gives an
+equality of categories. Transport the CUSL countable-chain colimit
+structure along this equality; this is the definition
+\texttt{ScottEPTransport.cocomplete}. The endofunctor $F$ remains an
+endofunctor of EP throughout: only the colimit structure is transported.
+The one-point EP domain is initial, so
+Theorem~\ref{thm:initial-chain} applies. Univalence turns its solution
+isomorphism into equality of objects.
+\end{proof}
+
+\begin{proof}[Proof up to isomorphism using a precategory equivalence]
+The categorical argument needs only an equivalence of precategories
+$I:\mathbf{CUSL}\rightleftarrows\mathbf{Dom}_{\triangleleft}:K$
+with natural reconstruction isomorphisms, together with the CUSL chain
+colimits. It does not need an equality of the two category records.
+For an EP chain $S$, take a colimit $(L,\lambda_n)$ of the chain $KS$.
+The EP colimit vertex is $I L$, with legs
+$I(\lambda_n)\circ\eta_{S_n}:S_n\to I L$, where
+$\eta_{S_n}:S_n\cong IK(S_n)$ is the reconstruction isomorphism.
+Given a cocone $q_n:S_n\to Y$, the arrows $K(q_n)$ have a unique
+mediator $m:L\to K Y$. Compose $I(m)$ with the inverse of
+$\eta_Y:Y\cong IKY$ to obtain a mediator $IL\to Y$.
+Naturality of $\eta$ proves the factorization equations; full
+faithfulness of $I$ proves uniqueness. Thus EP has countable-chain
+colimits as a precategory. Apply Theorem~\ref{thm:initial-chain} to the
+initial EP object and an endofunctor $F$ preserving these colimits.
+Its initial-chain colimit $X$ has inverse EP arrows
+$\mathsf{fold}:F(X)\to X$ and $\mathsf{unfold}:X\to F(X)$, so
+$X\cong F(X)$. Here continuity of $F$ means preservation of
+countable-chain colimits. Function and propositional extensionality suffice for
+the equalities of maps and proof fields in this argument. If objects
+are passed to an isomorphism-class quotient, it also gives
+$[X]=[F(X)]$ there; an equality $X=F(X)$ of domain objects uses the
+univalence step in the preceding proof.
+\end{proof}
+
+\begin{remark}[Scope of the formalization without univalence]
+The precategory transfer is checked abstractly in
+\texttt{CategoryPreEquivalenceColimits}; the initial-chain
+construction is checked for arbitrary precategories in
+\texttt{CategoryInitialChain}.
+
+The current concrete construction of $I$ and of the CUSL colimits is
+inside the development parameterized by univalence. In particular,
+\texttt{ScottCUSLIdeals.Canonical} calls
+\texttt{ScottSmallness.choose} to extract a small presentation from
+mere smallness; that operation uses univalence of the small universe.
+The checked concrete transfer to presented EP also uses this canonical
+completion. Consequently, the abstract second proof is formalized,
+but the full concrete corollary for unpresented Scott EP has not been
+separately checked from only propositional extensionality, function
+extensionality, and quotients. A construction
+of the needed ideal completion from those assumptions alone remains
+to be supplied.
+\end{remark}
+
+\begin{corollary}[Transport of a CUSL domain equation]
+\label{cor:cusl-solution-transport}
+Let $F:\mathbf{CUSL}\to\mathbf{CUSL}$ preserve countable-chain
+colimits. Under the equality
+$\mathbf{CUSL}=\mathbf{Dom}_{\triangleleft}$ of
+Theorem~\ref{thm:category-sip}, transport of $F$ and its initial algebra
+gives an EP endofunctor $F^{\mathrm{EP}}$ with an initial algebra
+$\mathsf{fold}^{\mathrm{EP}}:F^{\mathrm{EP}}(\mu^{\mathrm{EP}}F)
+\to\mu^{\mathrm{EP}}F$. Its fold map is invertible and
+$\mu^{\mathrm{EP}}F=F^{\mathrm{EP}}(\mu^{\mathrm{EP}}F)$.
+\end{corollary}
+\begin{proof}
+Theorem~\ref{thm:cusl-initial} gives a dependent package comprising
+$F$, its colimit-preservation proof, the initial $F$-algebra, invertibility
+of its structure map, and the object equality. Transport this whole
+package along the category equality. The resulting package has exactly
+the stated fields for an EP endofunctor. The checked construction is
+\texttt{ScottCUSLSolutionTransport.On}; its algebra-morphism center and
+uniqueness fields establish initiality after transport.
+\end{proof}
+
+\begin{theorem}[Univalence of the algebra category]
+For any univalent category $\mathcal C$ and endofunctor
+$F:\mathcal C\to\mathcal C$, the category $\operatorname{Alg}(F)$ is
+univalent. Its objects are pairs $(X,a:F(X)\to X)$, and its arrows
+$h:(X,a)\to(Y,b)$ satisfy $h\circ a=b\circ F(h)$.
+\end{theorem}
+\begin{proof}
+An algebra isomorphism gives an isomorphism of underlying objects, hence
+an equality $X=Y$ by univalence of $\mathcal C$. The commuting square
+identifies the transported algebra map with $b$, giving equality of the
+algebras. Path induction and the sethood of hom types show that this
+construction and the canonical map from equalities to isomorphisms are
+inverse. The functor laws give identities and composition of algebra
+arrows. No colimit preservation assumption on $F$ is used.
+\end{proof}
+
+The direct coherent-sequence construction uses \emph{presented} Scott
+domains. Transport by category equality extends countable-chain colimits
+to arbitrary unpresented objects with merely existing compact bases.
+Here ``$\omega$-continuous'' means
+preservation of existing countable-chain colimits. An implication from
+continuity on ordered hom types to this preservation is not asserted.
+The preservation property is a proposition. A separate generic proof
+transports countable-chain colimits directly along a categorical
+equivalence, without using equality of categories; the corollary above
+uses the stronger structure identity theorem.
+
+\clearpage
+\section*{Formal checks and total timing}\phantomsection\label{sec:formal}
+
+The development is checked in Unit with univalence and replacement as
+ambient parameters. Function extensionality is derived from univalence;
+propositional truncation is obtained from the replacement interface.
+No excluded middle, choice or propositional resizing axiom is added.
+The results discussed here are drawn from the following checked developments:
+\begin{enumerate}[leftmargin=*,itemsep=3pt]
+\item Scott domains with small compact bases, including a univalent object
+type with merely existing basis and univalent categories of continuous
+maps and embedding--projection pairs; continuous function spaces,
+compact step approximations, least fixed points, and the abstract
+initial-chain theorem, Theorem~\ref{thm:initial-chain}, and the generic
+univalent category of endofunctor algebras; the equivalence of univalent
+Scott EP and CUSL categories, Theorem~\ref{thm:cusl-equivalence}.
+The CUSL initial-algebra theorem, Theorem~\ref{thm:cusl-initial},
+uses the checked countable-chain colimit construction; the categorical
+structure identity principle, Theorem~\ref{thm:category-sip}, transfers it to
+the unpresented EP corollary, Corollary~\ref{cor:ep-initial}, and directly
+transports each CUSL solution by Corollary~\ref{cor:cusl-solution-transport}.
+\item The Scott filter domain and recursive projector, with independent
+preservation of normalized finitary families and their Kleene limit
+(Theorem~\ref{thm:normalized-finitary}); the finite-stage projectors and their structural laws, finite stabilisation, and comparison
+with bounded compact typing. The existing Unit proof constructs these
+projectors using ranks of finite presentations. It also checks the
+recursive successor equation used in
+Proposition~\ref{prop:projector-tower}. A proof of all the tower laws
+starting solely from that recursive definition has not been separately
+formalised.
+\item The independent strict lower admissible invariant, its equations
+and uniqueness; typed symmetry, transitivity and conversion.
+\item Typed argument restriction; Pi formation and equality, annotated
+lambda and function extensionality; the complete derivation induction.
+\item Whole-denotation adequacy at both substituted types, compact
+recovery, and mere syntactic Pi inversion.
+\end{enumerate}
+The complete induction is \texttt{At.fundamental} in
+\path{IndependentFundamental.seg}; its consequences are in
+\path{IndependentAdequacy.seg} and \path{IndependentInversion.seg}.
+
+On 13 November 2026 the updated \texttt{python3 UNIT/check.py} passed
+the full development (14,856 declarations), the general dependent-product
+and dependent-sum session (1,156), the independent projector session (3,838),
+and the independent logical-relation session (6,338), each with zero failures.
+The general dependent-product session has no filter-domain or typing
+modules in scope. The projector session excludes the semantic projector,
+typed stage comparisons, and the older direct common-code proof. Both import boundaries are audited by the script.
+All 40 dependency hashes remain unchanged. The previously recorded timing
+below concerns the older two-session check.
+
+On 14 November 2026, after adding admissible fixed-point induction and
+using it for the projector invariant, the same script passed all four
+sessions: 14,883, 1,156, 3,849, and 6,349 declarations respectively,
+each with zero failures. All 40 frozen dependency hashes matched.
+
+After the subsequent general CUSL construction of $\mathrm{Fp}$ on
+14 November, the script passed five sessions: the full development
+(15,724 declarations), the independent CUSL $\mathrm{Fp}$ session
+(2,412), the general product/sum session (1,156), the independent
+projector session (3,849), and the independent logical-relation session
+(6,349), each with zero failures. The CUSL session checks the general
+functor, small directed-colimit preservation, adjunction and action
+formulas with the filter and typing modules out of scope. Its import
+boundary is audited by the script. All 40 dependency hashes matched.
+
+All five sessions also pass with a checker built from the published Unit
+revision \texttt{18bb219f}. Reproduction instructions and the full revision
+identifier are in \path{UNIT/README.txt}.
+
+A run on 12 November 2026 of
+\texttt{/usr/bin/time -p python3 UNIT/check.py}, using the recorded local
+macOS arm64 checker, gave the following results. The type-checker is a
+compiled Haskell program. Python only verifies the dependency hashes and
+invokes that program for the two checks; \texttt{time -p} measures the
+complete command.
+\begin{center}
+\begin{tabular}{lrr}
+\hline
+Check & Declarations & Checker CPU time\\
+\hline
+Complete development & 12,187 & 8.56 s\\
+Independent relation and consequences & 4,909 & 1.18 s\\
+\hline
+\end{tabular}
+\end{center}
+The \textbf{total wall-clock time was 10.46 seconds}, including dependency
+verification and both checker processes. The independent run has a
+104-module dependency closure with the old logical relation and the earlier
+proofs of adequacy, syntactic Pi injectivity and subject reduction out of scope. All 40 frozen
+dependency hashes were verified unchanged. The two declaration counts
+overlap; the full count also includes developments outside this account.
+These timings describe this local run, not a machine-independent bound.
+
+For comparison, on 14 November 2026 we also checked the original MIN
+proof of domain-model soundness, logical-relation adequacy,
+$\Pi$-injectivity and subject reduction. Full-source checks took \textbf{0.54 seconds
+wall-clock time in Unit} (1,800 declarations, zero failures; 0.38 seconds
+checker CPU time) and \textbf{26.42 seconds in Agda 2.8.0} (54 modules).
+The Agda command used \texttt{--ignore-interfaces --without-K} on
+\path{MIN/SubjectReduction.agda}; Unit checked the original
+\path{domain/mltt/All.seg}, including both versions of its logical
+relation. These sequential runs concern the two implementations of the
+earlier finite-element proof; the larger Scott-domain development timed
+above also contains the additional constructions described in this note.
+Commands and measurements are recorded in \path{UNIT/MIN_TIMINGS.txt}.
+
+The inversion conclusion remains propositionally truncated. Comparison
+with the old uniform proof-relevant relation and transfer to the stable
+reflexive domain remain separate. The checked projector tower has not
+been identified with the separately constructed CUSL initial-chain
+projections; that comparison requires finite-stage coverage and
+compatibility with application. The classical finite-poset
+counterexample is illustrative and has not been formally checked.
+
+\begin{thebibliography}{9}
+\bibitem{cgw}
+T. Coquand, C. Gunter and G. Winskel,
+\emph{Domain theoretic models of polymorphism},
+Information and Computation 81 (1989), 123--167.
+
+\bibitem{coquand-huber}
+T. Coquand and S. Huber,
+\emph{An adequacy theorem for dependent type theory},
+Theory of Computing Systems 63 (2019), 647--665.
+\href{https://doi.org/10.1007/s00224-018-9879-9}{doi:10.1007/s00224-018-9879-9}.
+
+\bibitem{dejong-escardo}
+T. de Jong and M. H. Escard\'o,
+\emph{Continuous and algebraic domains in univalent foundations},
+Journal of Pure and Applied Algebra 229 (2025), 108072.
+\href{https://doi.org/10.1016/j.jpaa.2025.108072}{doi:10.1016/j.jpaa.2025.108072}.
+\end{thebibliography}
+
+\end{document}

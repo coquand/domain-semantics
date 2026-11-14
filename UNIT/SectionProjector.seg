@@ -1,0 +1,126 @@
+-- CGW's compact-section construction in the ambient filter domain.
+-- Input and output steps use compact fixed points; finite joins give
+-- density. The binary family supplies continuity in its varying index.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+open BinaryMaps[l] ; open Finitary[l] ;
+module T = TruncationCombinators[l] ; module AP = Application[l] ;
+module FM = ProjectorFamilyMaps[l] ; module R = Filter[l] ;
+
+module On (q : Binary) (fp : (a : D) -> Finitary[l].Finitary[q.at a]) (A : D) (H : Map) {
+  below (a x : D) : Domain[l].Below (value q a x) x = (fp a).deflation x ;
+  module DF = ProjectorDeflation[l].On[q,below] ;
+  result (F : D) : FD = abstract (FM.family-map q A H F) ;
+
+  monotone (F G : D) (fg : Domain[l].Below F G) : Domain[l].Below (result F).1 (result G).1 =
+    MonotoneLambda[FM.family-map q A H F,FM.family-map q A H G,
+      \ z -> (q.at (run H (value q A z))).2.1 (AP.eval F (value q A z)) (AP.eval G (value q A z))
+        (AP.mono F G (value q A z) (value q A z) fg (sub-refl (value q A z).1))].inclusion ;
+  module Second (F : D) {
+    module B = DirectedApprox[l].Basis[F] ; module O = DirectedApprox[l].On[B.net] ;
+    maps : O.MapNet = new O.MapNet[\ _ -> H,H,
+      \ i j ij z -> sub-refl (run H z).1,\ i z -> sub-refl (run H z).1,
+      \ z -> (O.constant (run H z)).cover] ;
+    module Family = OperatorApprox[l].OnNet[B.net].Family[O.binary-constant q,O.constant A,maps,B.approx] ;
+    finite (t : Ty) (h : In (result F).1 t) : Ex (Trace (\ x -> (result x).1) F t) =
+      T.map ((i : B.I) * In (Family.L.part i).1 t) (Trace (\ x -> (result x).1) F t)
+        (\ w -> (w.1.1,(w.1.2,w.2))) (Family.L.cover t h) ;
+  } ;
+  map : Map = (\ x -> (result x).1,(monotone,\ F -> Second[F].finite)) ;
+
+  -- A single fixed input/output step is fixed by the section projection.
+  module Step (u w : K) (ui : Fixed (q.at A) (principal u))
+    (wi : Fixed (q.at (run H (principal u))) (principal w)) (F : D)
+    (inside : In F (arr u.1 w.1)) {
+    k : K = (arr u.1 w.1,((u.2.1,(u.2.2,w.2.1)),consistent F (arr u.1 w.1) inside)) ;
+    x : D = principal k ;
+    input : In (value q A (principal u)) u.1 = ui.2 u.1 (prin-in u.1) ;
+    output : In (run (FM.family-map q A H x) (principal u)) w.1 =
+      BinaryMaps[l].mono q (run H (principal u)) (run H (value q A (principal u)))
+        (principal w) (AP.eval x (value q A (principal u)))
+        (H.2.1 (principal u) (value q A (principal u)) ui.2)
+        (prin-sub w.1 (AP.eval x (value q A (principal u))).1
+          (AP.intro x (value q A (principal u)) k.1 u.1 w.1 (prin-in k.1) input (le-refl k.1)))
+        w.1 (wi.2 w.1 (prin-in w.1)) ;
+    fixed : Equal (result x).1 x =
+      (DF.function A H x,prin-sub k.1 (result x).1.1
+        (Lambda[FM.family-map q A H x].entry u.1 w.1
+          (new Lambda[FM.family-map q A H x].Entry[u.1,w.1,u.2.1,u.2.2,w.2.1,output]))) ;
+  } ;
+
+  module At (F : D) {
+    module L = Lambda[FM.family-map q A H F] ;
+    diagonal : Map = Diagonal[q,H,AP.map F].map ;
+    record Observation {
+      target : Ty ;
+      input : K ; output : K ;
+      input-fixed : Fixed (q.at A) (principal input) ;
+      output-fixed : Fixed (q.at (run H (principal input))) (principal output) ;
+      inside : In F (arr input.1 output.1) ;
+      covers : Le (arr input.1 output.1) target ;
+    } ;
+    module Entry (d v : Ty) (e : L.Entry[d,v]) {
+      k : K = (d,(e.good-in,e.cons-in)) ;
+      finish (a : Trace diagonal.1 (value q A (principal k)) v)
+        (u : FixedBasis (q.at A) (value q A (principal k)) a.1.1)
+        (du : Le d u.1.1)
+        (w : FixedBasis (q.at (run H (principal u.1))) (value q (run H (principal u.1)) (AP.eval F (principal u.1))) v) :
+        Observation[arr d v] = new Observation[arr d v,u.1,w.1,u.2.1,w.2.1,
+          Constructors[l].arrow-observation F u.1 w.1.1
+            (below (run H (principal u.1)) (AP.eval F (principal u.1)) w.1.1 w.2.2.1),
+          le-arr u.1.1 d w.1.1 v du w.2.2.2] ;
+      observe-at (a : Trace diagonal.1 (value q A (principal k)) v)
+        (u : FixedBasis (q.at A) (value q A (principal k)) a.1.1) : Ex Observation[arr d v] =
+        T.bind (Le d u.1.1) Observation[arr d v]
+          (\ du -> T.map
+            (FixedBasis (q.at (run H (principal u.1))) (run diagonal (principal u.1)) v)
+            Observation[arr d v] (finish a u du)
+            ((fp (run H (principal u.1))).density (run diagonal (principal u.1))
+              ((fp (run H (principal u.1))).idempotence (AP.eval F (principal u.1))) v
+              (diagonal.2.1 (principal a.1) (principal u.1)
+                (prin-anti u.1.1 a.1.1 u.2.2.2) v a.2.2)))
+          (below A (principal k) u.1.1 u.2.2.1) ;
+      observation : Ex Observation[arr d v] =
+        T.bind (Trace diagonal.1 (value q A (principal k)) v) Observation[arr d v]
+          (\ a -> T.bind (FixedBasis (q.at A) (value q A (principal k)) a.1.1) Observation[arr d v]
+            (observe-at a) ((fp A).density (value q A (principal k)) ((fp A).idempotence (principal k)) a.1.1 a.2.1))
+          (diagonal.2.2 (value q A (principal k)) v e.observed) ;
+    } ;
+    -- The stronger graph witness will also be used by the total-space proof.
+    record Graph {
+      target : Ty ; key : K ; arrows : Arrows key.1 ;
+      inside : In F key.1 ; covers : Le key.1 target ;
+      fixed : Equal (result (principal key)).1 (principal key) ;
+    } ;
+    single (d v : Ty) (o : Observation[arr d v]) : Graph[arr d v] =
+      new Graph[arr d v,Step[o.input,o.output,o.input-fixed,o.output-fixed,F,o.inside].k,
+        tt,o.inside,o.covers,Step[o.input,o.output,o.input-fixed,o.output-fixed,F,o.inside].fixed] ;
+    module FixedGraphs = FinitaryTools[l].Deflation[map,DF.function A H] ;
+    empty : Graph[om] = new Graph[om,bottomK,tt,fom F.1,le-refl om,FixedGraphs.bottom-fixed] ;
+    merge (s t : Ty) (a : Graph[s]) (b : Graph[t]) : Graph[meet s t] =
+      new Graph[meet s t,CompactFamilies[l].joinK a.key b.key c,(a.arrows,b.arrows),h,
+        le-meet-mono a.key.1 s b.key.1 t a.covers b.covers,
+        FixedGraphs.join-fixed a.key b.key c a.fixed b.fixed]
+      where {
+        h : In F (meet a.key.1 b.key.1) = fmeet F.1 a.key.1 b.key.1 a.inside b.inside ;
+        c : Cons (meet a.key.1 b.key.1) = consistent F (meet a.key.1 b.key.1) h ; } ;
+    graph : (g : Ty) -> R.EntS L.ER g -> Ex Graph[g] = split {
+      es-om -> ex Graph[om] empty ;
+      es-arr d v e -> T.map Observation[arr d v] Graph[arr d v] (single d v) Entry[d,v,e].observation ;
+      es-meet s t hs ht | rs rt -> T.map2 Graph[s] Graph[t] Graph[meet s t] (merge s t) rs rt } ;
+    observe (t : Ty) : In (result F).1 t -> Ex Graph[t] = T.bind (L.W t) Graph[t]
+      (\ w -> T.map Graph[w.graph] Graph[t]
+        (\ g -> new Graph[t,g.key,g.arrows,g.inside,le-trans g.key.1 w.graph t g.covers w.below,g.fixed])
+        (graph w.graph w.entries)) ;
+  } ;
+  cover (F : D) (t : Ty) (h : In (result F).1 t) : Ex (FixedBasis map F t) =
+    T.map At[F].Graph[t] (FixedBasis map F t) (\ g -> (g.key,(g.fixed,(g.inside,g.covers)))) (At[F].observe t h) ;
+  -- Finitariness now follows from the general domain-and-EP theorem.
+  -- The concrete graph witnesses above remain useful for product payloads.
+  module General = DependentProductProjector[l].On[q,fp,A,H] ;
+  map-equation : Id Map General.finitary.operation map =
+    Continuous[l].ext General.finitary.operation map General.realizes ;
+  finitary : Finitary[l].Finitary[map] =
+    Prelude[l+].subst Map (\ f -> Finitary[l].Finitary[f]) General.finitary.operation map map-equation General.finitary ;
+} ;

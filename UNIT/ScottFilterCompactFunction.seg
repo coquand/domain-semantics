@@ -1,0 +1,23 @@
+-- A compact in the ordinary exponential has a finite arrow-filter code.
+-- This is only a representation lemma; it does not assemble common codes.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ; open Abstraction[l] ;
+module SF = ScottFilter[l] ; module Functions = ScottFilterReflexiveEP[l] ;
+module EP = ScottEmbeddingProjection[l] ; module T = TruncationCombinators[l] ;
+module SD = ScottDomain[l].On[SF.scott] ; module End = ScottExponential[l].Exponential[SF.scott,SF.scott] ;
+module Projection = EP.Projection[End.scott,SF.scott,Functions.pair] ;
+Representation (g : SF.M.Map) : U l = (k : K) * (Arrows k.1 * Equal (Functions.encode g) (principal k)) ;
+module At (b : End.basis.index) {
+  g : SF.M.Map = End.basis.basic b ; x : D = Functions.encode g ;
+  module Finish (k : K) (eq : Equal x (principal k)) (w : AW x k.1) {
+    key : K = (w.1,(w.2.1,consistent x w.1 w.2.2.2.1)) ;
+    equality : Equal x (principal key) =
+      (sub-trans x.1 (principal k).1 (principal key).1 eq.1 (prin-anti key.1 k.1 w.2.2.2.2),
+       prin-sub key.1 x.1 w.2.2.2.1) ;
+    representation : Representation g = (key,(w.2.2.1,equality)) ;
+  } ;
+  representation : Ex (Representation g) = T.bind ((k : K) * Equal x (principal k)) (Representation g)
+    (\ k -> T.map (AW x k.1.1) (Representation g) (\ w -> Finish[k.1,k.2,w].representation)
+      ((abstract (SF.from-map g)).2 k.1.1 (k.2.2 k.1.1 (prin-in k.1.1))))
+    (SD.compact-basis x (Projection.compact b)) ;
+} ;

@@ -1,0 +1,81 @@
+-- Ideals of the one-point CUSL form a singleton; lifting that ideal
+-- carrier is the poset of small propositions ordered by implication.
+level l ;
+open Base ; open Prelude[l+] ;
+module S = ScottOrder[l] ;
+module SO = ScottDomainObjects[l] ;
+module ID = ScottCUSLIdeals[l] ;
+module O = ID.Canonical[ScottCUSLInitial[l].one].O ;
+module L = Lifting[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+incl (I J : O.Ideal) : O.Incl I J =
+  \ a ha -> O.lower J a O.bot tt (O.contains-bot J) ;
+ideal-prop : isProp O.Ideal =
+  \ I J -> O.ext I J (incl I J) (incl J I) ;
+
+PropOrder (Q R : L.Prop) : U l = Q.1 -> R.1 ;
+prop-order : S.Order = new S.Order[
+  carrier := L.Prop,le := PropOrder,
+  proposition := \ Q R -> H.isProp-Pi Q.1
+    (\ _ -> R.1) (\ _ -> R.2),
+  reflexive := \ Q q -> q,
+  transitive := \ Q R T h k q -> k (h q),
+  antisymmetric := \ Q R h k -> L.prop-path Q R h k] ;
+
+Lift : U l+ = L.Lift O.Ideal ;
+LiftOrder (x y : Lift) : U l =
+  PropOrder x.1 y.1 *
+    ((p : x.1.1) (q : y.1.1) -> O.Incl (x.2 p) (y.2 q)) ;
+lift-order-prop (x y : Lift) : isProp (LiftOrder x y) =
+  isProp-Sigma (PropOrder x.1 y.1)
+    (\ _ -> (p : x.1.1) (q : y.1.1) ->
+      O.Incl (x.2 p) (y.2 q))
+    (prop-order.proposition x.1 y.1)
+    (\ _ -> H.isProp-Pi x.1.1
+      (\ p -> (q : y.1.1) -> O.Incl (x.2 p) (y.2 q))
+      (\ p -> H.isProp-Pi y.1.1
+        (\ q -> O.Incl (x.2 p) (y.2 q))
+        (\ q -> O.incl-prop (x.2 p) (y.2 q)))) ;
+lift-order-refl (x : Lift) : LiftOrder x x =
+  (\ p -> p,\ p q -> incl (x.2 p) (x.2 q)) ;
+lift-order-trans (x y z : Lift)
+  (h : LiftOrder x y) (k : LiftOrder y z) :
+  LiftOrder x z =
+  (\ p -> k.1 (h.1 p),
+    \ p r -> O.incl-trans (x.2 p)
+      (y.2 (h.1 p)) (z.2 r)
+      (h.2 p (h.1 p)) (k.2 (h.1 p) r)) ;
+lift-order-antisym (x y : Lift)
+  (h : LiftOrder x y) (k : LiftOrder y x) :
+  Id Lift x y =
+  L.ext O.Ideal x y h.1 k.1
+    (\ p q -> ideal-prop (x.2 p) (y.2 q)) ;
+lift-order : S.Order = new S.Order[
+  carrier := Lift,le := LiftOrder,
+  proposition := lift-order-prop,
+  reflexive := lift-order-refl,
+  transitive := lift-order-trans,
+  antisymmetric := lift-order-antisym] ;
+
+forward (x : Lift) : L.Prop = x.1 ;
+backward (Q : L.Prop) : Lift =
+  (Q,\ _ -> O.least) ;
+section (Q : L.Prop) :
+  Id L.Prop (forward (backward Q)) Q = refl Q ;
+retraction (x : Lift) :
+  Id Lift (backward (forward x)) x =
+  L.ext O.Ideal (backward (forward x)) x
+    (\ p -> p) (\ p -> p)
+    (\ p q -> ideal-prop O.least (x.2 q)) ;
+equivalence : Equiv Lift L.Prop =
+  (forward,qinv Lift L.Prop forward backward
+    section retraction) ;
+forward-mono (x y : Lift) (h : LiftOrder x y) :
+  PropOrder (forward x) (forward y) = h.1 ;
+forward-reflect (x y : Lift)
+  (h : PropOrder (forward x) (forward y)) :
+  LiftOrder x y =
+  (h,\ p q -> incl (x.2 p) (y.2 q)) ;
+order-iso : SO.OrderIso lift-order prop-order =
+  (equivalence,(forward-mono,forward-reflect)) ;

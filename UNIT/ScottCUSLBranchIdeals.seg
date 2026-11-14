@@ -1,0 +1,508 @@
+-- First part of the ideal-completion comparison for an added branch.
+-- A positive ideal contains only bottom on the left, and its positive
+-- trace is an ideal in the positive component.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ;
+module CU = ScottCUSL[l] ;
+module R = Replacement[l,l+] ;
+module ID = ScottCUSLIdeals[l] ;
+module S = ScottOrder[l] ;
+module TC = TruncationCombinators[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module LiftPath = Lifting[l] ;
+
+module On (C P : CU.CUSL)
+  (c : R.Small C.order.carrier)
+  (p : R.Small P.order.carrier) {
+  module B = ScottCUSLAddBranch[l].On[C,P] ;
+  module BS = B.Small[c,p] ;
+  module CI = ID.On[C,c] ;
+  module PI = ID.On[P,p] ;
+  module BI = ID.On[B.cusl,BS.result] ;
+  PositiveWitness (I : BI.Ideal) : U l =
+    (b : PI.X) * BI.mem I (inr b) ;
+  Positive (I : BI.Ideal) : U l =
+    S.Ex (PositiveWitness I) ;
+  positive-prop (I : BI.Ideal) : isProp (Positive I) =
+    S.prop (PositiveWitness I) ;
+
+  module Collapse (I : BI.Ideal)
+    (a : CI.X) (ha : BI.mem I (inl a))
+    (b : PI.X) (hb : BI.mem I (inr b)) {
+    Witness : U l =
+      (z : BI.X) *
+        (BI.mem I z *
+          (BI.LE (inl a) z * BI.LE (inr b) z)) ;
+    from-index : (z : BI.X) ->
+      BI.LE (inl a) z -> BI.LE (inr b) z ->
+      C.order.le (CI.val a) C.bottom = split {
+      inl z -> \ h k -> efq k ;
+      inr z -> \ h k -> h } ;
+    from-witness (w : Witness) :
+      C.order.le (CI.val a) C.bottom =
+      from-index w.1 w.2.2.1 w.2.2.2 ;
+    result : C.order.le (CI.val a) C.bottom =
+      TC.rec Witness @l (C.order.le (CI.val a) C.bottom)
+        (C.order.proposition (CI.val a) C.bottom)
+        from-witness
+        (BI.upper I (inl a) (inr b) ha hb) ;
+  } ;
+  left-collapse (I : BI.Ideal) (a : CI.X)
+    (ha : BI.mem I (inl a)) (pos : Positive I) :
+    C.order.le (CI.val a) C.bottom =
+    TC.rec (PositiveWitness I) @l
+      (C.order.le (CI.val a) C.bottom)
+      (C.order.proposition (CI.val a) C.bottom)
+      (\ w -> Collapse[I,a,ha,w.1,w.2].result) pos ;
+
+  to-bottom (a : CI.X)
+    (h : C.order.le (CI.val a) C.bottom) :
+    CI.LE a CI.bot =
+    subst C.order.carrier (\ z -> C.order.le (CI.val a) z)
+      C.bottom (CI.val CI.bot)
+      (sym C.order.carrier (CI.val CI.bot) C.bottom
+        (CI.at-val C.bottom)) h ;
+
+  module Left (I : BI.Ideal) {
+    predicate (a : CI.X) : U l = BI.mem I (inl a) ;
+    proposition (a : CI.X) : isProp (predicate a) =
+      BI.mem-prop I (inl a) ;
+    bottom : predicate CI.bot = BI.contains-bot I ;
+    lower : CI.Lower predicate =
+      \ a b h hb -> BI.lower I (inl a) (inl b) h hb ;
+    module Upper (a b : CI.X)
+      (ha : predicate a) (hb : predicate b) {
+      Source : U l =
+        (z : BI.X) *
+          (BI.mem I z *
+            (BI.LE (inl a) z * BI.LE (inl b) z)) ;
+      Target : U l =
+        (z : CI.X) *
+          (predicate z * (CI.LE a z * CI.LE b z)) ;
+      select-index : (z : BI.X) -> BI.mem I z ->
+        BI.LE (inl a) z -> BI.LE (inl b) z -> Target = split {
+        inl z -> \ hz hac hbc -> (z,(hz,(hac,hbc))) ;
+        inr z -> \ hz hac hbc ->
+          (CI.bot,(bottom,(to-bottom a hac,to-bottom b hbc))) } ;
+      select (w : Source) : Target =
+        select-index w.1 w.2.1 w.2.2.1 w.2.2.2 ;
+      result : S.Ex Target =
+        TC.map Source Target select
+          (BI.upper I (inl a) (inl b) ha hb) ;
+    } ;
+    upper : CI.Upper predicate =
+      \ a b ha hb -> Upper[a,b,ha,hb].result ;
+    ideal : CI.Ideal =
+      (predicate,(proposition,(bottom,(lower,upper)))) ;
+  } ;
+  left-bottom-when-positive (I : BI.Ideal)
+    (pos : Positive I) :
+    Id CI.Ideal Left[I].ideal CI.least =
+    CI.ext Left[I].ideal CI.least
+      (\ a ha -> to-bottom a (left-collapse I a ha pos))
+      (CI.least-law Left[I].ideal) ;
+
+  module Right (I : BI.Ideal) (pos : Positive I) {
+    predicate (b : PI.X) : U l = BI.mem I (inr b) ;
+    proposition (b : PI.X) : isProp (predicate b) =
+      BI.mem-prop I (inr b) ;
+    bottom : predicate PI.bot =
+      TC.rec (PositiveWitness I) @l
+        (predicate PI.bot) (proposition PI.bot)
+        (\ w -> BI.lower I (inr PI.bot) (inr w.1)
+          (PI.bot-least w.1) w.2) pos ;
+    lower : PI.Lower predicate =
+      \ a b h hb -> BI.lower I (inr a) (inr b) h hb ;
+    module Upper (a b : PI.X)
+      (ha : predicate a) (hb : predicate b) {
+      Source : U l =
+        (z : BI.X) *
+          (BI.mem I z *
+            (BI.LE (inr a) z * BI.LE (inr b) z)) ;
+      Target : U l =
+        (z : PI.X) *
+          (predicate z * (PI.LE a z * PI.LE b z)) ;
+      select-index : (z : BI.X) -> BI.mem I z ->
+        BI.LE (inr a) z -> BI.LE (inr b) z -> Target = split {
+        inl z -> \ hz ha hb -> efq ha ;
+        inr z -> \ hz ha hb -> (z,(hz,(ha,hb))) } ;
+      select (w : Source) : Target =
+        select-index w.1 w.2.1 w.2.2.1 w.2.2.2 ;
+      result : S.Ex Target =
+        TC.map Source Target select
+          (BI.upper I (inr a) (inr b) ha hb) ;
+    } ;
+    upper : PI.Upper predicate =
+      \ a b ha hb -> Upper[a,b,ha,hb].result ;
+    ideal : PI.Ideal =
+      (predicate,(proposition,(bottom,(lower,upper)))) ;
+  } ;
+
+  left-member-when-positive (I : BI.Ideal)
+    (a : CI.X)
+    (h : C.order.le (CI.val a) C.bottom) :
+    BI.mem I (inl a) =
+    Left[I].lower a CI.bot (to-bottom a h)
+      Left[I].bottom ;
+
+  module PositiveUnique (I J : BI.Ideal)
+    (pos-I : Positive I) (pos-J : Positive J)
+    (same : Id PI.Ideal
+      Right[I,pos-I].ideal Right[J,pos-J].ideal) {
+    forward : (z : BI.X) -> BI.mem I z -> BI.mem J z = split {
+      inl a -> \ ha -> left-member-when-positive J a
+        (left-collapse I a ha pos-I) ;
+      inr b -> \ hb ->
+        subst PI.Ideal (\ Q -> PI.mem Q b)
+          Right[I,pos-I].ideal Right[J,pos-J].ideal
+          same hb } ;
+    backward : (z : BI.X) -> BI.mem J z -> BI.mem I z = split {
+      inl a -> \ ha -> left-member-when-positive I a
+        (left-collapse J a ha pos-J) ;
+      inr b -> \ hb ->
+        subst PI.Ideal (\ Q -> PI.mem Q b)
+          Right[J,pos-J].ideal Right[I,pos-I].ideal
+          (sym PI.Ideal Right[I,pos-I].ideal
+            Right[J,pos-J].ideal same) hb } ;
+    equation : Id BI.Ideal I J = BI.ext I J forward backward ;
+  } ;
+
+  NoPositive (I : BI.Ideal) : U l = Positive I -> Empty ;
+  no-positive-member (I : BI.Ideal) (no : NoPositive I)
+    (b : PI.X) (hb : BI.mem I (inr b)) : Empty =
+    no (S.inc (PositiveWitness I) (b,hb)) ;
+  module NegativeUnique (I J : BI.Ideal)
+    (no-I : NoPositive I) (no-J : NoPositive J)
+    (same : Id CI.Ideal Left[I].ideal Left[J].ideal) {
+    forward : (z : BI.X) -> BI.mem I z -> BI.mem J z = split {
+      inl a -> \ ha ->
+        subst CI.Ideal (\ Q -> CI.mem Q a)
+          Left[I].ideal Left[J].ideal same ha ;
+      inr b -> \ hb -> efq (no-positive-member I no-I b hb) } ;
+    backward : (z : BI.X) -> BI.mem J z -> BI.mem I z = split {
+      inl a -> \ ha ->
+        subst CI.Ideal (\ Q -> CI.mem Q a)
+          Left[J].ideal Left[I].ideal
+          (sym CI.Ideal Left[I].ideal Left[J].ideal same) ha ;
+      inr b -> \ hb -> efq (no-positive-member J no-J b hb) } ;
+    equation : Id BI.Ideal I J = BI.ext I J forward backward ;
+  } ;
+
+  least-left : Id CI.Ideal Left[BI.least].ideal CI.least =
+    CI.ext Left[BI.least].ideal CI.least
+      (\ a h -> h) (\ a h -> h) ;
+  least-no-positive : NoPositive BI.least =
+    \ pos -> TC.rec (PositiveWitness BI.least) @l Empty
+      isProp-Empty (\ w -> w.2) pos ;
+  least-member (I : BI.Ideal) (h : Id BI.Ideal I BI.least)
+    (b : PI.X) (hb : BI.mem I (inr b)) :
+    BI.mem BI.least (inr b) =
+    subst (U l) (\ T -> T)
+      (BI.mem I (inr b)) (BI.mem BI.least (inr b))
+      (ap BI.Ideal (U l) (\ J -> BI.mem J (inr b))
+        I BI.least h) hb ;
+  bottom-to (I : BI.Ideal) (h : Id BI.Ideal I BI.least) :
+    Id CI.Ideal Left[I].ideal CI.least * NoPositive I =
+    (trans CI.Ideal Left[I].ideal Left[BI.least].ideal
+       CI.least
+       (ap BI.Ideal CI.Ideal (\ J -> Left[J].ideal)
+         I BI.least h)
+       least-left,
+     \ pos -> TC.rec (PositiveWitness I) @l Empty
+       isProp-Empty
+       (\ w -> least-member I h w.1 w.2) pos) ;
+  bottom-from (I : BI.Ideal)
+    (h : Id CI.Ideal Left[I].ideal CI.least * NoPositive I) :
+    Id BI.Ideal I BI.least =
+    NegativeUnique[I,BI.least,h.2,least-no-positive,
+      trans CI.Ideal Left[I].ideal CI.least
+        Left[BI.least].ideal h.1
+        (sym CI.Ideal Left[BI.least].ideal CI.least
+          least-left)].equation ;
+
+  Prop : U l+ = (Q : U l) * isProp Q ;
+  Lift (A : U l+) : U l+ =
+    (Q : Prop) * (Q.1 -> A) ;
+  Data : U l+ = CI.Ideal * Lift PI.Ideal ;
+  Compatible (d : Data) : U l+ =
+    d.2.1.1 -> Id CI.Ideal d.1 CI.least ;
+  compatible-prop (d : Data) : isProp (Compatible d) =
+    H.isProp-Pi d.2.1.1
+      (\ _ -> Id CI.Ideal d.1 CI.least)
+      (\ _ -> S.On[CI.order].order-set d.1 CI.least) ;
+  Shape : U l+ = (d : Data) * Compatible d ;
+  decode (I : BI.Ideal) : Shape =
+    ((Left[I].ideal,
+      ((Positive I,positive-prop I),
+        \ pos -> Right[I,pos].ideal)),
+      \ pos -> left-bottom-when-positive I pos) ;
+
+  module Encode (s : Shape) {
+    left : CI.Ideal = s.1.1 ;
+    Q : Prop = s.1.2.1 ;
+    right : Q.1 -> PI.Ideal = s.1.2.2 ;
+    compatible : Q.1 -> Id CI.Ideal left CI.least = s.2 ;
+    predicate : BI.X -> U l = split {
+      inl a -> CI.mem left a ;
+      inr b -> (q : Q.1) * PI.mem (right q) b } ;
+    proposition : (z : BI.X) -> isProp (predicate z) = split {
+      inl a -> CI.mem-prop left a ;
+      inr b -> isProp-Sigma Q.1
+        (\ q -> PI.mem (right q) b) Q.2
+        (\ q -> PI.mem-prop (right q) b) } ;
+    bottom : predicate BI.bot = CI.contains-bot left ;
+    lower : BI.Lower predicate = split {
+      inl a -> split {
+        inl b -> \ h hb -> CI.lower left a b h hb ;
+        inr b -> \ h hb ->
+          CI.lower left a CI.bot (to-bottom a h)
+            (CI.contains-bot left) } ;
+      inr a -> split {
+        inl b -> \ h hb -> efq h ;
+        inr b -> \ h hb ->
+          (hb.1,PI.lower (right hb.1) a b h hb.2) } } ;
+
+    to-original-bottom (a : CI.X)
+      (h : CI.LE a CI.bot) :
+      C.order.le (CI.val a) C.bottom =
+      subst C.order.carrier
+        (\ z -> C.order.le (CI.val a) z)
+        (CI.val CI.bot) C.bottom
+        (CI.at-val C.bottom) h ;
+    left-zero (a : CI.X) (ha : CI.mem left a)
+      (q : Q.1) : C.order.le (CI.val a) C.bottom =
+      to-original-bottom a
+        (subst CI.Ideal (\ J -> CI.mem J a)
+          left CI.least (compatible q) ha) ;
+    right-transfer (b : PI.X) (q r : Q.1)
+      (h : PI.mem (right q) b) : PI.mem (right r) b =
+      subst PI.Ideal (\ J -> PI.mem J b)
+        (right q) (right r)
+        (ap Q.1 PI.Ideal right q r (Q.2 q r)) h ;
+
+    module LeftLeft (a b : CI.X)
+      (ha : predicate (inl a)) (hb : predicate (inl b)) {
+      Source : U l =
+        (z : CI.X) *
+          (CI.mem left z * (CI.LE a z * CI.LE b z)) ;
+      Target : U l =
+        (z : BI.X) *
+          (predicate z * (BI.LE (inl a) z * BI.LE (inl b) z)) ;
+      select (w : Source) : Target =
+        (inl w.1,(w.2.1,w.2.2)) ;
+      result : S.Ex Target =
+        TC.map Source Target select
+          (CI.upper left a b ha hb) ;
+    } ;
+    module RightRight (a b : PI.X)
+      (ha : predicate (inr a)) (hb : predicate (inr b)) {
+      q : Q.1 = ha.1 ;
+      Source : U l =
+        (z : PI.X) *
+          (PI.mem (right q) z * (PI.LE a z * PI.LE b z)) ;
+      Target : U l =
+        (z : BI.X) *
+          (predicate z * (BI.LE (inr a) z * BI.LE (inr b) z)) ;
+      select (w : Source) : Target =
+        (inr w.1,((q,w.2.1),w.2.2)) ;
+      result : S.Ex Target =
+        TC.map Source Target select
+          (PI.upper (right q) a b ha.2
+            (right-transfer b hb.1 q hb.2)) ;
+    } ;
+    left-right (a : CI.X) (b : PI.X)
+      (ha : predicate (inl a)) (hb : predicate (inr b)) :
+      S.Ex ((z : BI.X) *
+        (predicate z * (BI.LE (inl a) z * BI.LE (inr b) z))) =
+      S.inc ((z : BI.X) *
+        (predicate z * (BI.LE (inl a) z * BI.LE (inr b) z)))
+        (inr b,(hb,(left-zero a ha hb.1,
+          P.order.reflexive (PI.val b)))) ;
+    right-left (a : PI.X) (b : CI.X)
+      (ha : predicate (inr a)) (hb : predicate (inl b)) :
+      S.Ex ((z : BI.X) *
+        (predicate z * (BI.LE (inr a) z * BI.LE (inl b) z))) =
+      S.inc ((z : BI.X) *
+        (predicate z * (BI.LE (inr a) z * BI.LE (inl b) z)))
+        (inr a,(ha,(P.order.reflexive (PI.val a),
+          left-zero b hb ha.1))) ;
+    upper : BI.Upper predicate = split {
+      inl a -> split {
+        inl b -> \ ha hb -> LeftLeft[a,b,ha,hb].result ;
+        inr b -> \ ha hb -> left-right a b ha hb } ;
+      inr a -> split {
+        inl b -> \ ha hb -> right-left a b ha hb ;
+        inr b -> \ ha hb -> RightRight[a,b,ha,hb].result } } ;
+    ideal : BI.Ideal =
+      (predicate,(proposition,(bottom,(lower,upper)))) ;
+  } ;
+  encode (s : Shape) : BI.Ideal = Encode[s].ideal ;
+  encode-decode-forward (I : BI.Ideal) :
+    (z : BI.X) -> BI.mem (encode (decode I)) z ->
+      BI.mem I z = split {
+    inl a -> \ h -> h ;
+    inr b -> \ h -> h.2 } ;
+  encode-decode-backward (I : BI.Ideal) :
+    (z : BI.X) -> BI.mem I z ->
+      BI.mem (encode (decode I)) z = split {
+    inl a -> \ h -> h ;
+    inr b -> \ h ->
+      (S.inc (PositiveWitness I) (b,h),h) } ;
+  encode-decode (I : BI.Ideal) :
+    Id BI.Ideal (encode (decode I)) I =
+    BI.ext (encode (decode I)) I
+      (encode-decode-forward I)
+      (encode-decode-backward I) ;
+
+  module Roundtrip (s : Shape) {
+    module E = Encode[s] ;
+    I : BI.Ideal = E.ideal ;
+    left-eq : Id CI.Ideal Left[I].ideal E.left =
+      CI.ext Left[I].ideal E.left
+        (\ a h -> h) (\ a h -> h) ;
+    positive-to-Q (pos : Positive I) : E.Q.1 =
+      TC.rec (PositiveWitness I) @l E.Q.1 E.Q.2
+        (\ w -> w.2.1) pos ;
+    Q-to-positive (q : E.Q.1) : Positive I =
+      S.inc (PositiveWitness I)
+        (PI.bot,(q,PI.contains-bot (E.right q))) ;
+    right-eq (pos : Positive I) (q : E.Q.1) :
+      Id PI.Ideal Right[I,pos].ideal (E.right q) =
+      PI.ext Right[I,pos].ideal (E.right q)
+        (\ b h -> E.right-transfer b h.1 q h.2)
+        (\ b h -> (q,h)) ;
+    lift-eq : Id (Lift PI.Ideal)
+      (decode I).1.2 s.1.2 =
+      LiftPath.ext PI.Ideal (decode I).1.2 s.1.2
+        positive-to-Q Q-to-positive right-eq ;
+    data-eq : Id Data (decode I).1 s.1 =
+      LiftPath.pair-path CI.Ideal (Lift PI.Ideal)
+        Left[I].ideal E.left
+        (decode I).1.2 s.1.2
+        left-eq lift-eq ;
+    equation : Id Shape (decode (encode s)) s =
+      Sigma-eq Data Compatible
+        (decode I).1 s.1 (decode I).2 s.2
+        data-eq (compatible-prop s.1) ;
+  } ;
+  decode-encode (s : Shape) :
+    Id Shape (decode (encode s)) s =
+    Roundtrip[s].equation ;
+  equivalence : Equiv BI.Ideal Shape =
+    (decode,qinv BI.Ideal Shape decode encode
+      decode-encode encode-decode) ;
+
+  ShapeOrder (s t : Shape) : U l =
+    CI.Incl s.1.1 t.1.1 *
+      ((q : s.1.2.1.1) -> t.1.2.1.1) *
+      ((q : s.1.2.1.1) (r : t.1.2.1.1) ->
+        PI.Incl (s.1.2.2 q) (t.1.2.2 r)) ;
+  module EncodeMono (s t : Shape)
+    (h : ShapeOrder s t) {
+    point : (z : BI.X) ->
+      BI.mem (encode s) z -> BI.mem (encode t) z = split {
+      inl a -> \ ha -> h.1 a ha ;
+      inr b -> \ hb ->
+        (h.2.1 hb.1,
+          h.2.2 hb.1 (h.2.1 hb.1) b hb.2) } ;
+    inclusion : BI.Incl (encode s) (encode t) = point ;
+  } ;
+  module EncodeReflect (s t : Shape)
+    (h : BI.Incl (encode s) (encode t)) {
+    left : CI.Incl s.1.1 t.1.1 =
+      \ a ha -> h (inl a) ha ;
+    head (q : s.1.2.1.1) : t.1.2.1.1 =
+      (h (inr PI.bot)
+        (q,PI.contains-bot (s.1.2.2 q))).1 ;
+    right (q : s.1.2.1.1) (r : t.1.2.1.1) :
+      PI.Incl (s.1.2.2 q) (t.1.2.2 r) =
+      \ b hb ->
+        subst PI.Ideal (\ J -> PI.mem J b)
+          (t.1.2.2 (h (inr b) (q,hb)).1)
+          (t.1.2.2 r)
+          (ap t.1.2.1.1 PI.Ideal t.1.2.2
+            (h (inr b) (q,hb)).1 r
+            (t.1.2.1.2 (h (inr b) (q,hb)).1 r))
+          (h (inr b) (q,hb)).2 ;
+    result : ShapeOrder s t = (left,(head,right)) ;
+  } ;
+  decode-mono (I J : BI.Ideal) (h : BI.Incl I J) :
+    ShapeOrder (decode I) (decode J) =
+    (\ a ha -> h (inl a) ha,
+      (\ pos -> TC.map (PositiveWitness I) (PositiveWitness J)
+        (\ w -> (w.1,h (inr w.1) w.2)) pos,
+       \ pos-I pos-J b hb -> h (inr b) hb)) ;
+
+  module OrderProof (s t : Shape) {
+    Head : U l = (q : s.1.2.1.1) -> t.1.2.1.1 ;
+    RightLaw : U l =
+      (q : s.1.2.1.1) (r : t.1.2.1.1) ->
+        PI.Incl (s.1.2.2 q) (t.1.2.2 r) ;
+    head-prop : isProp Head =
+      H.isProp-Pi s.1.2.1.1 (\ _ -> t.1.2.1.1)
+        (\ _ -> t.1.2.1.2) ;
+    right-prop : isProp RightLaw =
+      H.isProp-Pi s.1.2.1.1
+        (\ q -> (r : t.1.2.1.1) ->
+          PI.Incl (s.1.2.2 q) (t.1.2.2 r))
+        (\ q -> H.isProp-Pi t.1.2.1.1
+          (\ r -> PI.Incl (s.1.2.2 q) (t.1.2.2 r))
+          (\ r -> PI.incl-prop (s.1.2.2 q) (t.1.2.2 r))) ;
+    result : isProp (ShapeOrder s t) =
+      isProp-Sigma (CI.Incl s.1.1 t.1.1)
+        (\ _ -> Head * RightLaw)
+        (CI.incl-prop s.1.1 t.1.1)
+        (\ _ -> isProp-Sigma Head (\ _ -> RightLaw)
+          head-prop (\ _ -> right-prop)) ;
+  } ;
+  shape-order-prop (s t : Shape) : isProp (ShapeOrder s t) =
+    OrderProof[s,t].result ;
+  shape-order-refl (s : Shape) : ShapeOrder s s =
+    (CI.incl-refl s.1.1,
+      (\ q -> q,
+       \ q r b h -> Encode[s].right-transfer b q r h)) ;
+  shape-order-trans (s t u : Shape)
+    (h : ShapeOrder s t) (k : ShapeOrder t u) :
+    ShapeOrder s u =
+    (CI.incl-trans s.1.1 t.1.1 u.1.1 h.1 k.1,
+      (\ q -> k.2.1 (h.2.1 q),
+       \ q r b hb -> k.2.2 (h.2.1 q) r b
+         (h.2.2 q (h.2.1 q) b hb))) ;
+  shape-order-antisym (s t : Shape)
+    (h : ShapeOrder s t) (k : ShapeOrder t s) :
+    Id Shape s t =
+    trans Shape s (decode (encode s)) t
+      (sym Shape (decode (encode s)) s (decode-encode s))
+      (trans Shape (decode (encode s))
+        (decode (encode t)) t
+        (ap BI.Ideal Shape decode (encode s) (encode t)
+          (BI.ext (encode s) (encode t)
+            (EncodeMono[s,t,h].inclusion)
+            (EncodeMono[t,s,k].inclusion)))
+        (decode-encode t)) ;
+  shape-order : S.Order = new S.Order[
+    carrier := Shape,le := ShapeOrder,
+    proposition := shape-order-prop,
+    reflexive := shape-order-refl,
+    transitive := shape-order-trans,
+    antisymmetric := shape-order-antisym] ;
+  decode-reflect (I J : BI.Ideal)
+    (h : ShapeOrder (decode I) (decode J)) : BI.Incl I J =
+    ScottDomainCategories[l].le-replace BI.order
+      (encode (decode I)) I
+      (encode (decode J)) J
+      (encode-decode I) (encode-decode J)
+      (EncodeMono[decode I,decode J,h].inclusion) ;
+  order-iso : ScottDomainObjects[l].OrderIso
+    BI.order shape-order =
+    (equivalence,(decode-mono,decode-reflect)) ;
+} ;
+
+module Canonical (C P : CU.CUSL) {
+  module IC = ID.Canonical[C] ;
+  module IP = ID.Canonical[P] ;
+  module Comparison = On[C,P,IC.small,IP.small] ;
+  order-iso : ScottDomainObjects[l].OrderIso
+    Comparison.BI.order Comparison.shape-order =
+    Comparison.order-iso ;
+} ;

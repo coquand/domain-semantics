@@ -1,0 +1,9 @@
+-- The checked CUSL endofunctor for X x [X -> X], the Pi payload of
+-- the exact coalesced-sum domain equation.
+level l ;
+module CU = ScottCUSL[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module Core = ScottEPExactCore[l] ;
+module Transport = ScottCUSLEndofunctorTransport[l].On[Core.functor] ;
+
+functor : K.Endofunctor[CU.pre] = Transport.functor ;

@@ -1,0 +1,88 @@
+-- A closed compact family is a CUSL with the inherited compatibility.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ; module CF = ScottCUSLClosedFamilies[l] ; module S = ScottOrder[l] ;
+module CR = ScottDomainCategories[l] ; module TH = TruncationCombinators[l+] ;
+module R = Replacement[l,l+] ;
+compatible-replace (C : CU.CUSL) (x x' y y' : C.order.carrier)
+  (p : Id C.order.carrier x x') (q : Id C.order.carrier y y') (h : CU.Compatible C.order x y) : CU.Compatible C.order x' y' =
+  TH.map (CU.CompatibleWitness C.order x y) (CU.CompatibleWitness C.order x' y')
+    (\ w -> (w.1,(CR.le-replace C.order x x' w.1 w.1 p (refl w.1) w.2.1,
+      CR.le-replace C.order y y' w.1 w.1 q (refl w.1) w.2.2))) h ;
+module On (C : CU.CUSL) (E : CF.On[C].Family) {
+  module P = CF.On[C] ; module A = P.A ;
+  Carrier : U l = (a : P.X) * P.Mem E a ;
+  val (x : Carrier) : C.order.carrier = A.val x.1 ;
+  le (x y : Carrier) : U l = P.LE x.1 y.1 ;
+  carrier-path (x y : Carrier) (p : Id C.order.carrier (val x) (val y)) : Id Carrier x y =
+    Sigma-eq P.X (\ a -> P.Mem E a) x.1 y.1 x.2 y.2 (P.path x.1 y.1 (P.equal x.1 y.1 p)) (P.member-prop E y.1) ;
+  order : S.Order = new S.Order[Carrier,le,\ x y -> C.order.proposition (val x) (val y),
+    \ x -> C.order.reflexive (val x),\ x y z -> C.order.transitive (val x) (val y) (val z),
+    \ x y h k -> carrier-path x y (C.order.antisymmetric (val x) (val y) h k)] ;
+  bottom : Carrier = (A.bot,P.empty-in E) ;
+  bottom-least (x : Carrier) : le bottom x = A.bot-least x.1 ;
+  ambient (x y : Carrier) (h : CU.Compatible order x y) : CU.Compatible C.order (val x) (val y) =
+    TH.map (CU.CompatibleWitness order x y) (CU.CompatibleWitness C.order (val x) (val y))
+      (\ w -> (val w.1,w.2)) h ;
+  module Join (x y : Carrier) (h : CU.Compatible C.order (val x) (val y)) {
+    small : P.Compat x.1 y.1 = P.small-compatible x.1 y.1 h ;
+    value : Carrier = (P.join x.1 y.1 small,P.join-in E x.1 y.1 small x.2 y.2) ;
+    left : le x value = P.join-left x.1 y.1 small ; right : le y value = P.join-right x.1 y.1 small ;
+    least (z : Carrier) (xz : le x z) (yz : le y z) : le value z = P.join-least x.1 y.1 small z.1 xz yz ;
+  } ;
+  bounds (x y : Carrier) (h : CU.Compatible order x y) : (i : Bool) -> le (CU.pair order x y i) Join[x,y,ambient x y h].value =
+    split { true -> Join[x,y,ambient x y h].left ; false -> Join[x,y,ambient x y h].right } ;
+  join (x y : Carrier) (h : CU.Compatible order x y) : S.On[order].Supremum Bool (CU.pair order x y) =
+    (Join[x,y,ambient x y h].value,(bounds x y h,
+      \ z b -> Join[x,y,ambient x y h].least z (b true) (b false))) ;
+  cusl : CU.CUSL = new CU.CUSL[order,bottom,bottom-least,join,
+    Truncation[l+].Trunc[R.Small Carrier].inc (Carrier,idEquiv Carrier)] ;
+  compatible-reflect (x y : Carrier) (h : CU.Compatible C.order (val x) (val y)) : CU.Compatible order x y =
+    CU.by-bound order x y Join[x,y,h].value Join[x,y,h].left Join[x,y,h].right ;
+  join-law (x y : Carrier) (h : CU.Compatible order x y) :
+    Id C.order.carrier (val (CU.On[cusl].join x y h))
+      (CU.On[C].join (val x) (val y) (CU.Between[cusl,C].image-compatible val (\ _ _ p -> p) x y h)) =
+    trans C.order.carrier (val (CU.On[cusl].join x y h))
+      (CU.On[C].join (val x) (val y) (P.large x.1 y.1 Join[x,y,ambient x y h].small))
+      (CU.On[C].join (val x) (val y) (CU.Between[cusl,C].image-compatible val (\ _ _ p -> p) x y h))
+      (A.at-val (CU.On[C].join (val x) (val y) (P.large x.1 y.1 Join[x,y,ambient x y h].small)))
+      (CU.On[C].join-independent (val x) (val y) (P.large x.1 y.1 Join[x,y,ambient x y h].small)
+        (CU.Between[cusl,C].image-compatible val (\ _ _ p -> p) x y h)) ;
+  inclusion : CU.pre.hom cusl C = (val,(\ _ _ p -> p,(\ _ _ p -> p,(compatible-reflect,(A.at-val C.bottom,join-law))))) ;
+  module Factor (B : CU.CUSL) (e : CU.pre.hom B C) (inside : (a : B.order.carrier) -> P.Mem E (A.at (e.1 a))) {
+    f (a : B.order.carrier) : Carrier = (A.at (e.1 a),inside a) ;
+    point (a : B.order.carrier) : Id C.order.carrier (val (f a)) (e.1 a) = A.at-val (e.1 a) ;
+    mono (a b : B.order.carrier) (h : B.order.le a b) : le (f a) (f b) =
+      CR.le-replace C.order (e.1 a) (val (f a)) (e.1 b) (val (f b))
+        (sym C.order.carrier (val (f a)) (e.1 a) (point a)) (sym C.order.carrier (val (f b)) (e.1 b) (point b))
+        (CU.Between[B,C].mono e a b h) ;
+    reflect (a b : B.order.carrier) (h : le (f a) (f b)) : B.order.le a b =
+      CU.Between[B,C].reflect e a b (CR.le-replace C.order (val (f a)) (e.1 a) (val (f b)) (e.1 b) (point a) (point b) h) ;
+    comp-reflect (a b : B.order.carrier) (h : CU.Compatible order (f a) (f b)) : CU.Compatible B.order a b =
+      CU.Between[B,C].compat-reflect e a b
+        (compatible-replace C (val (f a)) (e.1 a) (val (f b)) (e.1 b) (point a) (point b) (ambient (f a) (f b) h)) ;
+    bot : Id Carrier (f B.bottom) bottom = carrier-path (f B.bottom) bottom
+      (trans C.order.carrier (val (f B.bottom)) (e.1 B.bottom) (val bottom) (point B.bottom)
+        (trans C.order.carrier (e.1 B.bottom) C.bottom (val bottom) (CU.Between[B,C].bottom-law e)
+          (sym C.order.carrier (val bottom) C.bottom (A.at-val C.bottom)))) ;
+    module J (a b : B.order.carrier) (h : CU.Compatible B.order a b) {
+      source : B.order.carrier = CU.On[B].join a b h ;
+      h' : CU.Compatible order (f a) (f b) = CU.Between[B,cusl].image-compatible f mono a b h ;
+      target : Carrier = CU.On[cusl].join (f a) (f b) h' ;
+      eh : CU.Compatible C.order (e.1 a) (e.1 b) = CU.Between[B,C].image-compatible e.1 (CU.Between[B,C].mono e) a b h ;
+      upper : le (f source) target = CR.le-replace C.order (CU.On[C].join (e.1 a) (e.1 b) eh) (val (f source)) (val target) (val target)
+        (sym C.order.carrier (val (f source)) (CU.On[C].join (e.1 a) (e.1 b) eh)
+          (trans C.order.carrier (val (f source)) (e.1 source) (CU.On[C].join (e.1 a) (e.1 b) eh) (point source) (CU.Between[B,C].join-law e a b h)))
+        (refl (val target))
+        (CU.On[C].least (e.1 a) (e.1 b) eh (val target)
+          (CR.le-replace C.order (val (f a)) (e.1 a) (val target) (val target) (point a) (refl (val target)) (CU.On[cusl].left (f a) (f b) h'))
+          (CR.le-replace C.order (val (f b)) (e.1 b) (val target) (val target) (point b) (refl (val target)) (CU.On[cusl].right (f a) (f b) h'))) ;
+      lower : le target (f source) = CU.On[cusl].least (f a) (f b) h' (f source)
+        (mono a source (CU.On[B].left a b h)) (mono b source (CU.On[B].right a b h)) ;
+      equation : Id Carrier (f source) target = order.antisymmetric (f source) target upper lower ;
+    } ;
+    embedding : CU.pre.hom B cusl = (f,(mono,(reflect,(comp-reflect,(bot,\ a b h -> J[a,b,h].equation))))) ;
+    equation : Id (CU.pre.hom B C) (CU.pre.comp B cusl C inclusion embedding) e =
+      CU.Between[B,C].equal (CU.pre.comp B cusl C inclusion embedding) e point ;
+  } ;
+} ;

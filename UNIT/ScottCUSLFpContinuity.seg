@@ -1,0 +1,35 @@
+-- Fp preserves every existing colimit of a small directed embedding diagram.
+-- Coverage is derived from the universal property, not assumed of the input.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ; module DC = ScottCUSLCoveredColimit[l] ;
+module FF = ScottCUSLFpFunctor[l].Compacts ; module EX = ScottCUSLFpDirected[l] ;
+module DU = ScottCUSLDirectedUnion[l] ;
+module Mapped (D : DC.Diagram) (L : CU.CUSL) (leg : (i : D.index) -> CU.pre.hom (D.stage i) L)
+  (law : DC.Coherent D L leg) {
+  diagram : DC.Diagram = new DC.GD.Diagram[CU.pre,D.index,D.rel,D.inhabited,D.upper,
+    \ i -> FF.object (D.stage i),\ i j h -> FF.arrow (D.stage i) (D.stage j) (D.link i j h)] ;
+  legs (i : D.index) : CU.pre.hom (diagram.stage i) (FF.object L) = FF.arrow (D.stage i) L (leg i) ;
+  coherent : DC.Coherent diagram (FF.object L) legs = \ i j h ->
+    trans (CU.pre.hom (FF.object (D.stage i)) (FF.object L))
+      (CU.pre.comp (FF.object (D.stage i)) (FF.object (D.stage j)) (FF.object L) (legs j) (diagram.link i j h))
+      (FF.arrow (D.stage i) L (CU.pre.comp (D.stage i) (D.stage j) L (leg j) (D.link i j h))) (legs i)
+      (sym (CU.pre.hom (FF.object (D.stage i)) (FF.object L))
+        (FF.arrow (D.stage i) L (CU.pre.comp (D.stage i) (D.stage j) L (leg j) (D.link i j h)))
+        (CU.pre.comp (FF.object (D.stage i)) (FF.object (D.stage j)) (FF.object L) (legs j) (diagram.link i j h))
+        (FF.composition (D.stage i) (D.stage j) L (D.link i j h) (leg j)))
+      (ap (CU.pre.hom (D.stage i) L) (CU.pre.hom (FF.object (D.stage i)) (FF.object L))
+        (FF.arrow (D.stage i) L) (CU.pre.comp (D.stage i) (D.stage j) L (leg j) (D.link i j h)) (leg i) (law i j h)) ;
+} ;
+module Preserve (D : DC.Diagram) (L : CU.CUSL) (leg : (i : D.index) -> CU.pre.hom (D.stage i) L)
+  (law : DC.Coherent D L leg) (c : DC.GD.Colimit[CU.pre,D,L,leg]) {
+  module Input = DU.Coverage[D,L,leg,law,c] ;
+  module E = EX.Exhaustion[D.index,D.stage,L,leg,D.rel,D.inhabited,D.upper,D.link,law] ;
+  module Covered = E.Cover[Input.covered] ;
+  module M = Mapped[D,L,leg,law] ;
+  covered : DC.Coverage M.diagram (FF.object L) M.legs = \ x -> Covered.Compact[x].represented ;
+  colimit : DC.GD.Colimit[CU.pre,M.diagram,FF.object L,M.legs] = DC.On[M.diagram,FF.object L,M.legs,M.coherent,covered].colimit ;
+} ;
+preserves (D : DC.Diagram) (L : CU.CUSL) (leg : (i : D.index) -> CU.pre.hom (D.stage i) L)
+  (law : DC.Coherent D L leg) (c : DC.GD.Colimit[CU.pre,D,L,leg]) :
+  DC.GD.Colimit[CU.pre,Mapped[D,L,leg,law].diagram,FF.object L,Mapped[D,L,leg,law].legs] = Preserve[D,L,leg,law,c].colimit ;

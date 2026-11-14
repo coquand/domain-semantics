@@ -206,5 +206,18 @@
       "source": "domain/mltt/Weaken.seg",
       "sha256": "6398a87b43dd6b4e3a8e8f206a412de2bc5c353018de901060f57c00c9e0cfa4"
     }
-  ]
+  ],
+  "compatible_public_checker": {
+    "source_repository": "https://github.com/coquand/unit",
+    "source_revision": "18bb219f040ba1f66c4d57185fedc5b5c4d4617e",
+    "build_command": "cabal build exe:seg",
+    "verified_date": "2026-11-14",
+    "sessions": [
+      "All.seg",
+      "CUSLFpCheck.seg",
+      "IndependentDependentProductCheck.seg",
+      "IndependentProjectorCheck.seg",
+      "IndependentLogicalRelationCheck.seg"
+    ]
+  }
 }

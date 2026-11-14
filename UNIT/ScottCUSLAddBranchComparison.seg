@@ -1,0 +1,190 @@
+-- The canonical comparison from the colimit of a synchronized added-branch
+-- chain to the added branch of the two component colimits.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module B = ScottCUSLAddBranch[l] ;
+module Col = ScottCUSLColimit[l] ;
+module H = Paths[l+] ;
+module Tr = Truncation[l+] ;
+module TruncComb = TruncationCombinators[l+] ;
+
+chain (S T : K.Chain[CU.pre]) : K.Chain[CU.pre] =
+  new K.Chain[CU.pre,
+    stage := \ n -> B.object (S.stage n) (T.stage n),
+    link := \ n -> B.arrow
+      (S.stage n) (T.stage n)
+      (S.stage (suc n)) (T.stage (suc n))
+      (S.link n) (T.link n)] ;
+
+module On (S T : K.Chain[CU.pre]) {
+  module SC = Col.On[S] ;
+  module TC = Col.On[T] ;
+  W : K.Chain[CU.pre] = chain S T ;
+  module WC = Col.On[W] ;
+  target : CU.CUSL = B.object SC.vertex TC.vertex ;
+  q (n : Nat) : CU.pre.hom (W.stage n) target =
+    B.arrow (S.stage n) (T.stage n)
+      SC.vertex TC.vertex (SC.leg n) (TC.leg n) ;
+  module Step (n : Nat) {
+    X : CU.CUSL = S.stage n ;
+    Y : CU.CUSL = T.stage n ;
+    X' : CU.CUSL = S.stage (suc n) ;
+    Y' : CU.CUSL = T.stage (suc n) ;
+    cx : CU.pre.hom X SC.vertex =
+      CU.pre.comp X X' SC.vertex (SC.leg (suc n)) (S.link n) ;
+    cy : CU.pre.hom Y TC.vertex =
+      CU.pre.comp Y Y' TC.vertex (TC.leg (suc n)) (T.link n) ;
+    first : Id (CU.pre.hom (W.stage n) target)
+      (CU.pre.comp (W.stage n) (W.stage (suc n)) target
+        (q (suc n)) (W.link n))
+      (B.arrow X Y SC.vertex TC.vertex cx cy) =
+      H.symH (B.composition X Y X' Y'
+        SC.vertex TC.vertex
+        (S.link n) (T.link n)
+        (SC.leg (suc n)) (TC.leg (suc n))) ;
+    second : Id (CU.pre.hom (W.stage n) target)
+      (B.arrow X Y SC.vertex TC.vertex cx cy)
+      (B.arrow X Y SC.vertex TC.vertex (SC.leg n) cy) =
+      H.apH (\ e -> B.arrow X Y SC.vertex TC.vertex e cy)
+        (SC.law n) ;
+    third : Id (CU.pre.hom (W.stage n) target)
+      (B.arrow X Y SC.vertex TC.vertex (SC.leg n) cy)
+      (q n) =
+      H.apH (\ f -> B.arrow X Y SC.vertex TC.vertex
+        (SC.leg n) f) (TC.law n) ;
+    result : Id (CU.pre.hom (W.stage n) target)
+      (CU.pre.comp (W.stage n) (W.stage (suc n)) target
+        (q (suc n)) (W.link n)) (q n) =
+      H.transH first (H.transH second third) ;
+  } ;
+  coherent (n : Nat) :
+    Id (CU.pre.hom (W.stage n) target)
+      (CU.pre.comp (W.stage n) (W.stage (suc n)) target
+        (q (suc n)) (W.link n)) (q n) =
+    Step[n].result ;
+  comparison : CU.pre.hom WC.vertex target =
+    WC.universal.mediator target q coherent ;
+  equation (n : Nat) :
+    Id (CU.pre.hom (W.stage n) target)
+      (CU.pre.comp (W.stage n) WC.vertex target
+        comparison (WC.leg n)) (q n) =
+    WC.universal.factor target q coherent n ;
+
+  module E = CU.Between[WC.vertex,target] ;
+  Fiber (z : target.order.carrier) : U l+ =
+    (w : WC.vertex.order.carrier) *
+      Id target.order.carrier (comparison.1 w) z ;
+  id-to-le (u v : target.order.carrier)
+    (p : Id target.order.carrier u v) : target.order.le u v =
+    idJ target.order.carrier u
+      (\ z _ -> target.order.le u z)
+      (target.order.reflexive u) v p ;
+  fiber-prop (z : target.order.carrier) : isProp (Fiber z) =
+    \ u v -> Sigma-eq WC.vertex.order.carrier
+      (\ w -> Id target.order.carrier (comparison.1 w) z)
+      u.1 v.1 u.2 v.2
+      (WC.vertex.order.antisymmetric u.1 v.1
+        (E.reflect comparison u.1 v.1
+          (id-to-le (comparison.1 u.1) (comparison.1 v.1)
+            (trans target.order.carrier
+              (comparison.1 u.1) z (comparison.1 v.1)
+              u.2 (sym target.order.carrier
+                (comparison.1 v.1) z v.2))))
+        (E.reflect comparison v.1 u.1
+          (id-to-le (comparison.1 v.1) (comparison.1 u.1)
+            (trans target.order.carrier
+              (comparison.1 v.1) z (comparison.1 u.1)
+              v.2 (sym target.order.carrier
+                (comparison.1 u.1) z u.2)))))
+      (ScottOrder[l].On[target.order].order-set
+        (comparison.1 v.1) z) ;
+
+  module LeftStage (x : SC.vertex.order.carrier)
+    (w : SC.CompactRepresentation[x].Witness) {
+    n : Nat = w.1 ;
+    a : (S.stage n).order.carrier = w.2.1 ;
+    source : WC.vertex.order.carrier =
+      (WC.leg n).1 (inl a) ;
+    first : Id target.order.carrier
+      (comparison.1 source)
+      ((q n).1 (inl a)) =
+      ap (CU.pre.hom (W.stage n) target)
+        target.order.carrier (\ f -> f.1 (inl a))
+        (CU.pre.comp (W.stage n) WC.vertex target
+          comparison (WC.leg n)) (q n)
+        (equation n) ;
+    second : Id target.order.carrier
+      ((q n).1 (inl a)) (inl x) =
+      ap SC.vertex.order.carrier target.order.carrier
+        (\ z -> inl z) ((SC.leg n).1 a) x w.2.2 ;
+    result : Fiber (inl x) =
+      (source,H.transH first second) ;
+  } ;
+  left-covered (x : SC.vertex.order.carrier) : Fiber (inl x) =
+    TruncComb.rec (SC.CompactRepresentation[x].Witness)
+      @l+ (Fiber (inl x)) (fiber-prop (inl x))
+      (\ w -> LeftStage[x,w].result)
+      SC.CompactRepresentation[x].represented ;
+
+  module RightStage (y : TC.vertex.order.carrier)
+    (w : TC.CompactRepresentation[y].Witness) {
+    n : Nat = w.1 ;
+    b : (T.stage n).order.carrier = w.2.1 ;
+    source : WC.vertex.order.carrier =
+      (WC.leg n).1 (inr b) ;
+    first : Id target.order.carrier
+      (comparison.1 source)
+      ((q n).1 (inr b)) =
+      ap (CU.pre.hom (W.stage n) target)
+        target.order.carrier (\ f -> f.1 (inr b))
+        (CU.pre.comp (W.stage n) WC.vertex target
+          comparison (WC.leg n)) (q n)
+        (equation n) ;
+    second : Id target.order.carrier
+      ((q n).1 (inr b)) (inr y) =
+      ap TC.vertex.order.carrier target.order.carrier
+        (\ z -> inr z) ((TC.leg n).1 b) y w.2.2 ;
+    result : Fiber (inr y) =
+      (source,H.transH first second) ;
+  } ;
+  right-covered (y : TC.vertex.order.carrier) : Fiber (inr y) =
+    TruncComb.rec (TC.CompactRepresentation[y].Witness)
+      @l+ (Fiber (inr y)) (fiber-prop (inr y))
+      (\ w -> RightStage[y,w].result)
+      TC.CompactRepresentation[y].represented ;
+  covered : (z : target.order.carrier) -> Fiber z = split {
+    inl x -> left-covered x ;
+    inr y -> right-covered y } ;
+  inverse (z : target.order.carrier) : WC.vertex.order.carrier =
+    (covered z).1 ;
+  section (z : target.order.carrier) :
+    Id target.order.carrier (comparison.1 (inverse z)) z =
+    (covered z).2 ;
+  retraction (w : WC.vertex.order.carrier) :
+    Id WC.vertex.order.carrier (inverse (comparison.1 w)) w =
+    ap (Fiber (comparison.1 w)) WC.vertex.order.carrier
+      (\ v -> v.1)
+      (covered (comparison.1 w)) (w,refl (comparison.1 w))
+      (fiber-prop (comparison.1 w)
+        (covered (comparison.1 w))
+        (w,refl (comparison.1 w))) ;
+  iso : CU.OrderIso WC.vertex target =
+    ((comparison.1,
+      qinv WC.vertex.order.carrier target.order.carrier
+        comparison.1 inverse section retraction),
+      (E.mono comparison,E.reflect comparison)) ;
+  category-iso : CU.pre.Iso WC.vertex target =
+    CU.CategoryUnivalence.from-order WC.vertex target iso ;
+  category-iso-forward :
+    Id (CU.pre.hom WC.vertex target)
+      category-iso.1 comparison =
+    CU.Between[WC.vertex,target].equal
+      category-iso.1 comparison
+      (\ w -> happly WC.vertex.order.carrier
+        (\ _ -> target.order.carrier)
+        category-iso.1.1 comparison.1
+        (CU.CategoryUnivalence.from-order-run
+          WC.vertex target iso) w) ;
+} ;

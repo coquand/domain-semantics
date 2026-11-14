@@ -1,0 +1,140 @@
+-- Cartesian products act on EP pairs in both arguments.
+-- This is the variable product component of the exact domain functor.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ;
+module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+
+module Map (A B C D : ScottDomain[l].Scott)
+  (f : DM.Between[SO.from-presented A,SO.from-presented C].Map)
+  (g : DM.Between[SO.from-presented B,SO.from-presented D].Map) {
+  module P = ScottProduct[l].Product[A,B] ;
+  module Q = ScottProduct[l].Product[C,D] ;
+  module AC = DM.Between[SO.from-presented A,SO.from-presented C] ;
+  module BD = DM.Between[SO.from-presented B,SO.from-presented D] ;
+  module Out = DM.Between[SO.from-presented P.scott,
+    SO.from-presented Q.scott] ;
+  value (w : P.C) : Q.C = (AC.run f w.1,BD.run g w.2) ;
+  monotone : Out.Monotone value = \ u v h ->
+    (AC.mono f u.1 v.1 h.1,BD.mono g u.2 v.2 h.2) ;
+  preserves : Out.Continuous value = \ I x d z h ->
+    (AC.continuous f I (\ i -> (x i).1) (P.left-dir I x d)
+      z.1 (\ i -> (h i).1),
+     BD.continuous g I (\ i -> (x i).2) (P.right-dir I x d)
+       z.2 (\ i -> (h i).2)) ;
+  map : Out.Map = (value,(monotone,preserves)) ;
+} ;
+
+module Action (A B C D : ScottDomain[l].Scott)
+  (q : EP.Between[SO.from-presented A,SO.from-presented C].Pair)
+  (r : EP.Between[SO.from-presented B,SO.from-presented D].Pair) {
+  module P = ScottProduct[l].Product[A,B] ;
+  module Q = ScottProduct[l].Product[C,D] ;
+  module F = Map[A,B,C,D,q.1.1,r.1.1] ;
+  module G = Map[C,D,A,B,q.1.2,r.1.2] ;
+  retract (w : P.C) : Id P.C (G.value (F.value w)) w =
+    FiniteEnumeration[l].pair-eq A.order.carrier B.order.carrier
+      (q.1.2.1 (q.1.1.1 w.1)) w.1
+      (r.1.2.1 (r.1.1.1 w.2)) w.2
+      (q.2.1 w.1) (r.2.1 w.2) ;
+  below (w : Q.C) : Q.LE (F.value (G.value w)) w =
+    (q.2.2 w.1,r.2.2 w.2) ;
+  pair : EP.Between[SO.from-presented P.scott,
+    SO.from-presented Q.scott].Pair =
+    ((F.map,G.map),(retract,below)) ;
+} ;
+
+identity (A B : ScottDomain[l].Scott) :
+  Id (EP.Between[
+    SO.from-presented ScottProduct[l].Product[A,B].scott,
+    SO.from-presented ScottProduct[l].Product[A,B].scott].Pair)
+    (Action[A,B,A,B,EP.identity (SO.from-presented A),
+      EP.identity (SO.from-presented B)].pair)
+    (EP.identity
+      (SO.from-presented ScottProduct[l].Product[A,B].scott)) =
+  EP.Between[
+    SO.from-presented ScottProduct[l].Product[A,B].scott,
+    SO.from-presented ScottProduct[l].Product[A,B].scott].equal
+    (Action[A,B,A,B,EP.identity (SO.from-presented A),
+      EP.identity (SO.from-presented B)].pair)
+    (EP.identity
+      (SO.from-presented ScottProduct[l].Product[A,B].scott))
+    (DM.Between[
+      SO.from-presented ScottProduct[l].Product[A,B].scott,
+      SO.from-presented ScottProduct[l].Product[A,B].scott].equal
+      (Action[A,B,A,B,EP.identity (SO.from-presented A),
+        EP.identity (SO.from-presented B)].pair).1.1
+      (EP.identity
+        (SO.from-presented ScottProduct[l].Product[A,B].scott)).1.1
+      (\ w -> refl w))
+    (DM.Between[
+      SO.from-presented ScottProduct[l].Product[A,B].scott,
+      SO.from-presented ScottProduct[l].Product[A,B].scott].equal
+      (Action[A,B,A,B,EP.identity (SO.from-presented A),
+        EP.identity (SO.from-presented B)].pair).1.2
+      (EP.identity
+        (SO.from-presented ScottProduct[l].Product[A,B].scott)).1.2
+      (\ w -> refl w)) ;
+
+composition (A B C D E F : ScottDomain[l].Scott)
+  (q : EP.Between[SO.from-presented A,SO.from-presented C].Pair)
+  (r : EP.Between[SO.from-presented B,SO.from-presented D].Pair)
+  (s : EP.Between[SO.from-presented C,SO.from-presented E].Pair)
+  (t : EP.Between[SO.from-presented D,SO.from-presented F].Pair) :
+  Id (EP.Between[
+    SO.from-presented ScottProduct[l].Product[A,B].scott,
+    SO.from-presented ScottProduct[l].Product[E,F].scott].Pair)
+    (Action[A,B,E,F,
+      EP.compose (SO.from-presented A) (SO.from-presented C)
+        (SO.from-presented E) s q,
+      EP.compose (SO.from-presented B) (SO.from-presented D)
+        (SO.from-presented F) t r].pair)
+    (EP.compose
+      (SO.from-presented ScottProduct[l].Product[A,B].scott)
+      (SO.from-presented ScottProduct[l].Product[C,D].scott)
+      (SO.from-presented ScottProduct[l].Product[E,F].scott)
+      (Action[C,D,E,F,s,t].pair) (Action[A,B,C,D,q,r].pair)) =
+  EP.Between[
+    SO.from-presented ScottProduct[l].Product[A,B].scott,
+    SO.from-presented ScottProduct[l].Product[E,F].scott].equal
+    (Action[A,B,E,F,
+      EP.compose (SO.from-presented A) (SO.from-presented C)
+        (SO.from-presented E) s q,
+      EP.compose (SO.from-presented B) (SO.from-presented D)
+        (SO.from-presented F) t r].pair)
+    (EP.compose
+      (SO.from-presented ScottProduct[l].Product[A,B].scott)
+      (SO.from-presented ScottProduct[l].Product[C,D].scott)
+      (SO.from-presented ScottProduct[l].Product[E,F].scott)
+      (Action[C,D,E,F,s,t].pair) (Action[A,B,C,D,q,r].pair))
+    (DM.Between[
+      SO.from-presented ScottProduct[l].Product[A,B].scott,
+      SO.from-presented ScottProduct[l].Product[E,F].scott].equal
+      (Action[A,B,E,F,
+        EP.compose (SO.from-presented A) (SO.from-presented C)
+          (SO.from-presented E) s q,
+        EP.compose (SO.from-presented B) (SO.from-presented D)
+          (SO.from-presented F) t r].pair).1.1
+      (EP.compose
+        (SO.from-presented ScottProduct[l].Product[A,B].scott)
+        (SO.from-presented ScottProduct[l].Product[C,D].scott)
+        (SO.from-presented ScottProduct[l].Product[E,F].scott)
+        (Action[C,D,E,F,s,t].pair) (Action[A,B,C,D,q,r].pair)).1.1
+      (\ w -> refl ((s.1.1.1 (q.1.1.1 w.1),
+                     t.1.1.1 (r.1.1.1 w.2)))))
+    (DM.Between[
+      SO.from-presented ScottProduct[l].Product[E,F].scott,
+      SO.from-presented ScottProduct[l].Product[A,B].scott].equal
+      (Action[A,B,E,F,
+        EP.compose (SO.from-presented A) (SO.from-presented C)
+          (SO.from-presented E) s q,
+        EP.compose (SO.from-presented B) (SO.from-presented D)
+          (SO.from-presented F) t r].pair).1.2
+      (EP.compose
+        (SO.from-presented ScottProduct[l].Product[A,B].scott)
+        (SO.from-presented ScottProduct[l].Product[C,D].scott)
+        (SO.from-presented ScottProduct[l].Product[E,F].scott)
+        (Action[C,D,E,F,s,t].pair) (Action[A,B,C,D,q,r].pair)).1.2
+      (\ w -> refl ((q.1.2.1 (s.1.2.1 w.1),
+                     r.1.2.1 (t.1.2.1 w.2))))) ;

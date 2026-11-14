@@ -1,0 +1,59 @@
+-- The old product payload D x FD is the Scott product of the filter
+-- domain and its continuous endomap domain, including its order.
+level l ;
+open Base ; open Prelude[l+] ;
+module S = ScottOrder[l] ;
+module SO = ScottDomainObjects[l] ;
+module D = Domain[l] ;
+module A = Abstraction[l] ;
+module SF = ScottFilter[l] ;
+module F = ScottFilterFunctionComparison[l] ;
+module P = ScottProduct[l].Product[SF.scott,SF.function-scott] ;
+
+Carrier : U l+ = D.D * A.FD ;
+le (x y : Carrier) : U l =
+  D.Below x.1 y.1 * F.order.le x.2 y.2 ;
+order : S.Order = new S.Order[
+  carrier := Carrier,le := le,
+  proposition := \ x y ->
+    isProp-Sigma (D.Below x.1 y.1)
+      (\ _ -> F.order.le x.2 y.2)
+      (SF.order.proposition x.1 y.1)
+      (\ _ -> F.order.proposition x.2 y.2),
+  reflexive := \ x ->
+    (SF.order.reflexive x.1,F.order.reflexive x.2),
+  transitive := \ x y z h k ->
+    (SF.order.transitive x.1 y.1 z.1 h.1 k.1,
+      F.order.transitive x.2 y.2 z.2 h.2 k.2),
+  antisymmetric := \ x y h k ->
+    FiniteEnumeration[l].pair-eq D.D A.FD
+      x.1 y.1 x.2 y.2
+      (SF.order.antisymmetric x.1 y.1 h.1 k.1)
+      (F.order.antisymmetric x.2 y.2 h.2 k.2)] ;
+forward (x : Carrier) : P.order.carrier =
+  (x.1,F.forward x.2) ;
+backward (x : P.order.carrier) : Carrier =
+  (x.1,F.backward x.2) ;
+section (x : P.order.carrier) :
+  Id P.order.carrier (forward (backward x)) x =
+  FiniteEnumeration[l].pair-eq D.D
+    SF.function-scott.order.carrier
+    x.1 x.1 (F.forward (F.backward x.2)) x.2
+    (refl x.1) (F.equivalence.2.sec-eq x.2) ;
+retraction (x : Carrier) :
+  Id Carrier (backward (forward x)) x =
+  FiniteEnumeration[l].pair-eq D.D A.FD
+    x.1 x.1 (F.backward (F.forward x.2)) x.2
+    (refl x.1) (F.equivalence.2.ret-eq x.2) ;
+equivalence : Equiv Carrier P.order.carrier =
+  (forward,qinv Carrier P.order.carrier
+    forward backward section retraction) ;
+forward-mono (x y : Carrier) (h : order.le x y) :
+  P.order.le (forward x) (forward y) =
+  (h.1,F.forward-mono x.2 y.2 h.2) ;
+forward-reflect (x y : Carrier)
+  (h : P.order.le (forward x) (forward y)) :
+  order.le x y =
+  (h.1,F.forward-reflect x.2 y.2 h.2) ;
+order-iso : SO.OrderIso order P.order =
+  (equivalence,(forward-mono,forward-reflect)) ;

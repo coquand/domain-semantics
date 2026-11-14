@@ -27,14 +27,14 @@ module At (n : Nat) (Delta : Ctx n) {
       ProjectorPredicateCases[l].At[universe,X].Predicate[C.Functions[R.tm,R.tm,T,M,M'].predicate,
         C.Functions[R.tm,R.tm,T,M,M'].strict strict.2,
         \ hu hx -> Data[universe,Parts[l].u-arrow universe (prin-in univ)].functions T M M',
-        \ hu hx -> Data[Constructors[l].Pi[ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-domain hx,
-          ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-family hx].value,
-          Parts[l].p-arrow Constructors[l].Pi[ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-domain hx,
-            ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-family hx].value
-            (Constructors[l].Pi[ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-domain hx,
-              ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-family hx].intro om om
-                (fom (ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-domain hx).1)
-                (fom (ProjectorOperator[l].At[BinaryMaps[l].semantic,universe,X].pi-family hx).1.1))].functions T M M',
+        \ hu hx -> Data[Constructors[l].Pi[ProjectorOperator[l].At[BinarySemantic[l].semantic,universe,X].pi-domain hx,
+          ProjectorOperator[l].At[BinarySemantic[l].semantic,universe,X].pi-family hx].value,
+          Parts[l].p-arrow Constructors[l].Pi[ProjectorOperator[l].At[BinarySemantic[l].semantic,universe,X].pi-domain hx,
+            ProjectorOperator[l].At[BinarySemantic[l].semantic,universe,X].pi-family hx].value
+            (Constructors[l].Pi[ProjectorOperator[l].At[BinarySemantic[l].semantic,universe,X].pi-domain hx,
+              ProjectorOperator[l].At[BinarySemantic[l].semantic,universe,X].pi-family hx].intro om om
+                (fom (ProjectorOperator[l].At[BinarySemantic[l].semantic,universe,X].pi-domain hx).1)
+                (fom (ProjectorOperator[l].At[BinarySemantic[l].semantic,universe,X].pi-family hx).1.1))].functions T M M',
         \ hp -> efq (Parts[l].disjoint universe (prin-in univ) hp)].result ;
     module Literal (A : Tm n) (B : Tm (suc n)) (M M' : Tm n) (f : D) {
       Tests (s : Tm n * Tm (suc n)) : U l = (e : C.Argument[s.1]) ->

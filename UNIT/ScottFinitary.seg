@@ -1,0 +1,28 @@
+-- Finitary projections on any presented Scott domain.
+-- Fixedness is the inflation inequality; deflation supplies the reverse.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+
+module On (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ; module M = ScottMaps[l].Between[S,S] ;
+  Fixed (f : M.Map) (x : A.C) : U l = A.LE x (M.run f x) ;
+  Witness (f : M.Map) (x : A.C) (a : A.B) : U l =
+    (b : A.B) * (Fixed f (A.basic b) * (A.LE (A.basic b) x * A.LE (A.basic a) (A.basic b))) ;
+  record Finitary {
+    operation : M.Map ;
+    deflation (x : A.C) : A.LE (M.run operation x) x ;
+    idempotence (x : A.C) : Fixed operation (M.run operation x) ;
+    density (x : A.C) (fixed : Fixed operation x) (a : A.B) :
+      A.LE (A.basic a) x -> Ex (Witness operation x a) ;
+  } ;
+  module Laws (p : Finitary) {
+    run : A.C -> A.C = M.run p.operation ;
+    fixed-equation (x : A.C) (h : Fixed p.operation x) : Id A.C (run x) x =
+      S.order.antisymmetric (run x) x (p.deflation x) h ;
+    greatest (x y : A.C) (h : Fixed p.operation y) (yx : A.LE y x) : A.LE y (run x) =
+      S.order.transitive y (run y) (run x) h (M.mono p.operation y x yx) ;
+    closed (I : U l) (x : I -> A.C) (z : A.C) (s : ScottOrder[l].On[S.order].Lub I x z)
+      (h : (i : I) -> Fixed p.operation (x i)) : Fixed p.operation z =
+      s.2 (run z) (\ i -> greatest z (x i) (h i) (s.1 i)) ;
+  } ;
+} ;

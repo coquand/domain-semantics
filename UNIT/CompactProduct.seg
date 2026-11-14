@@ -1,0 +1,41 @@
+-- Compact product codes and their components, without compact typing.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+open BinaryMaps[l] ; open Finitary[l] ;
+module T = TruncationCombinators[l] ; module PO = ProjectorOperator[l] ;
+module FM = ProjectorFamilyMaps[l] ;
+
+module Pair (a g : K) (arrows : Arrows g.1) {
+  k : K = (pi a.1 g.1,((a.2.1,(g.2.1,arrows)),cons-pi a.1 g.1 a.2.2 g.2.2)) ;
+  x : D = principal k ;
+  head : Parts[l].PHead x = ex (Le k.1 (pi om om)) (le-pi a.1 om g.1 om (le-om a.1) (le-om g.1)) ;
+  module C = Parts[l].PiParts[x,head] ;
+  dforward (t : Ty) : In C.domain t -> In (principal a) t = T.map (Le k.1 (pi t om)) (Le a.1 t)
+    (\ h -> (pi-inj a.1 g.1 t om h).1) ;
+  dback (t : Ty) : In (principal a) t -> In C.domain t = T.map (Le a.1 t) (Le k.1 (pi t om))
+    (\ h -> le-pi a.1 t g.1 om h (le-om g.1)) ;
+  fforward (t : Ty) : In C.family.1 t -> In (principal g) t = T.map (Le k.1 (pi om t)) (Le g.1 t)
+    (\ h -> (pi-inj a.1 g.1 om t h).2) ;
+  fback (t : Ty) : In (principal g) t -> In C.family.1 t = T.map (Le g.1 t) (Le k.1 (pi om t))
+    (\ h -> le-pi a.1 om g.1 t (le-om a.1) h) ;
+} ;
+
+module Fixed (q : Binary) (fp : (a : D) -> Finitary[l].Finitary[q.at a])
+  (A : D) (universe-head : Parts[l].UHead A) (a g : K) (arrows : Arrows g.1)
+  (af : Finitary[l].Fixed (q.at universe) (principal a))
+  (gf : Equal (SectionProjector[l].On[q,fp,principal a,constant universe].result (principal g)).1 (principal g)) {
+  module P = Pair[a,g,arrows] ;
+  module Step = PO.At[q,A,P.x] ;
+  module DF = ProjectorDeflation[l].On[q,\ a x -> (fp a).deflation x] ;
+  domain : In (value q universe P.C.domain) a.1 =
+    (q.at universe).2.1 (principal a) P.C.domain P.dback a.1 (af.2 a.1 (prin-in a.1)) ;
+  family : In (FM.universe-family q P.C.domain P.C.family).1 g.1 =
+    PO.FamilyMono[q,q,OperatorContinuity[l].reflexive q,principal a,P.C.domain,P.dback,
+      constant universe,constant universe,\ z -> sub-refl universe.1,principal g,P.C.family.1,P.fback].inclusion
+      g.1 (gf.2 g.1 (prin-in g.1)) ;
+  fixed : Finitary[l].Fixed ((OperatorContinuity[l].Phi q).at A) P.x =
+    (DF.at A P.x,prin-sub P.k.1 Step.result.1
+      (Step.pi-in universe-head P.head P.k.1
+        (Constructors[l].Pi[Step.pi-domain P.head,Step.pi-family P.head].intro a.1 g.1 domain family))) ;
+} ;

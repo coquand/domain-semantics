@@ -1,0 +1,196 @@
+-- Compact-stage constructor for the exact three-branch equation.
+-- The function branch supplies the shared bottom; the Pi payload and
+-- universe point are added as distinct lifted branches.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module B = ScottCUSLAddBranch[l] ;
+module F = ScottCUSLEndofunctorTransport[l].On[
+  ScottEPEndomaps[l].functor] ;
+module P = ScottCUSLExactCore[l].Transport ;
+one : CU.CUSL = ScottCUSLInitial[l].one ;
+module Inner = ScottCUSLBranchFunctor[l].On[F.functor,P.functor] ;
+module One = CategoryConstantPreservation[l++,l+].On[CU.pre,one] ;
+module Outer = ScottCUSLBranchFunctor[l].On[
+  Inner.functor,One.functor] ;
+
+inner (C : CU.CUSL) : CU.CUSL =
+  B.object (F.object C) (P.object C) ;
+inner-arrow (C D : CU.CUSL) (e : CU.pre.hom C D) :
+  CU.pre.hom (inner C) (inner D) =
+  B.arrow (F.object C) (P.object C)
+    (F.object D) (P.object D)
+    (F.arrow C D e) (P.arrow C D e) ;
+object (C : CU.CUSL) : CU.CUSL = B.object (inner C) one ;
+arrow (C D : CU.CUSL) (e : CU.pre.hom C D) :
+  CU.pre.hom (object C) (object D) =
+  B.arrow (inner C) one (inner D) one
+    (inner-arrow C D e) (CU.pre.idn one) ;
+
+inner-identity-point (C : CU.CUSL) :
+  (x : (inner C).order.carrier) ->
+  Id (inner C).order.carrier
+    ((inner-arrow C C (CU.pre.idn C)).1 x) x = split {
+  inl a -> ap (F.object C).order.carrier (inner C).order.carrier
+    (\ z -> inl z)
+    ((F.arrow C C (CU.pre.idn C)).1 a) a
+    (ap (CU.pre.hom (F.object C) (F.object C))
+      (F.object C).order.carrier (\ h -> h.1 a)
+      (F.arrow C C (CU.pre.idn C))
+      (CU.pre.idn (F.object C)) (F.identity C)) ;
+  inr a -> ap (P.object C).order.carrier (inner C).order.carrier
+    (\ z -> inr z)
+    ((P.arrow C C (CU.pre.idn C)).1 a) a
+    (ap (CU.pre.hom (P.object C) (P.object C))
+      (P.object C).order.carrier (\ h -> h.1 a)
+      (P.arrow C C (CU.pre.idn C))
+      (CU.pre.idn (P.object C)) (P.identity C)) } ;
+inner-identity (C : CU.CUSL) :
+  Id (CU.pre.hom (inner C) (inner C))
+    (inner-arrow C C (CU.pre.idn C))
+    (CU.pre.idn (inner C)) =
+  CU.Between[inner C,inner C].equal
+    (inner-arrow C C (CU.pre.idn C))
+    (CU.pre.idn (inner C)) (inner-identity-point C) ;
+
+inner-composition-point (C D E : CU.CUSL)
+  (f : CU.pre.hom C D) (g : CU.pre.hom D E) :
+  (x : (inner C).order.carrier) ->
+  Id (inner E).order.carrier
+    ((inner-arrow C E (CU.pre.comp C D E g f)).1 x)
+    ((CU.pre.comp (inner C) (inner D) (inner E)
+      (inner-arrow D E g) (inner-arrow C D f)).1 x) = split {
+  inl a -> ap (F.object E).order.carrier (inner E).order.carrier
+    (\ z -> inl z)
+    ((F.arrow C E (CU.pre.comp C D E g f)).1 a)
+    ((CU.pre.comp (F.object C) (F.object D) (F.object E)
+      (F.arrow D E g) (F.arrow C D f)).1 a)
+    (ap (CU.pre.hom (F.object C) (F.object E))
+      (F.object E).order.carrier (\ h -> h.1 a)
+      (F.arrow C E (CU.pre.comp C D E g f))
+      (CU.pre.comp (F.object C) (F.object D) (F.object E)
+        (F.arrow D E g) (F.arrow C D f))
+      (F.composition C D E f g)) ;
+  inr a -> ap (P.object E).order.carrier (inner E).order.carrier
+    (\ z -> inr z)
+    ((P.arrow C E (CU.pre.comp C D E g f)).1 a)
+    ((CU.pre.comp (P.object C) (P.object D) (P.object E)
+      (P.arrow D E g) (P.arrow C D f)).1 a)
+    (ap (CU.pre.hom (P.object C) (P.object E))
+      (P.object E).order.carrier (\ h -> h.1 a)
+      (P.arrow C E (CU.pre.comp C D E g f))
+      (CU.pre.comp (P.object C) (P.object D) (P.object E)
+        (P.arrow D E g) (P.arrow C D f))
+      (P.composition C D E f g)) } ;
+inner-composition (C D E : CU.CUSL)
+  (f : CU.pre.hom C D) (g : CU.pre.hom D E) :
+  Id (CU.pre.hom (inner C) (inner E))
+    (inner-arrow C E (CU.pre.comp C D E g f))
+    (CU.pre.comp (inner C) (inner D) (inner E)
+      (inner-arrow D E g) (inner-arrow C D f)) =
+  CU.Between[inner C,inner E].equal
+    (inner-arrow C E (CU.pre.comp C D E g f))
+    (CU.pre.comp (inner C) (inner D) (inner E)
+      (inner-arrow D E g) (inner-arrow C D f))
+    (inner-composition-point C D E f g) ;
+
+identity-point (C : CU.CUSL) :
+  (x : (object C).order.carrier) ->
+  Id (object C).order.carrier
+    ((arrow C C (CU.pre.idn C)).1 x) x = split {
+  inl a -> ap (inner C).order.carrier (object C).order.carrier
+    (\ z -> inl z)
+    ((inner-arrow C C (CU.pre.idn C)).1 a) a
+    (inner-identity-point C a) ;
+  inr a -> refl (inr a) } ;
+identity (C : CU.CUSL) :
+  Id (CU.pre.hom (object C) (object C))
+    (arrow C C (CU.pre.idn C))
+    (CU.pre.idn (object C)) =
+  CU.Between[object C,object C].equal
+    (arrow C C (CU.pre.idn C))
+    (CU.pre.idn (object C)) (identity-point C) ;
+
+composition-point (C D E : CU.CUSL)
+  (f : CU.pre.hom C D) (g : CU.pre.hom D E) :
+  (x : (object C).order.carrier) ->
+  Id (object E).order.carrier
+    ((arrow C E (CU.pre.comp C D E g f)).1 x)
+    ((CU.pre.comp (object C) (object D) (object E)
+      (arrow D E g) (arrow C D f)).1 x) = split {
+  inl a -> ap (inner E).order.carrier (object E).order.carrier
+    (\ z -> inl z)
+    ((inner-arrow C E (CU.pre.comp C D E g f)).1 a)
+    ((CU.pre.comp (inner C) (inner D) (inner E)
+      (inner-arrow D E g) (inner-arrow C D f)).1 a)
+    (inner-composition-point C D E f g a) ;
+  inr a -> refl (inr a) } ;
+composition (C D E : CU.CUSL)
+  (f : CU.pre.hom C D) (g : CU.pre.hom D E) :
+  Id (CU.pre.hom (object C) (object E))
+    (arrow C E (CU.pre.comp C D E g f))
+    (CU.pre.comp (object C) (object D) (object E)
+      (arrow D E g) (arrow C D f)) =
+  CU.Between[object C,object E].equal
+    (arrow C E (CU.pre.comp C D E g f))
+    (CU.pre.comp (object C) (object D) (object E)
+      (arrow D E g) (arrow C D f))
+    (composition-point C D E f g) ;
+
+functor : K.Endofunctor[CU.pre] =
+  Outer.functor ;
+
+module Heads (C : CU.CUSL) {
+  Func : U l+ = (F.object C).order.carrier ;
+  Payload : U l+ = (P.object C).order.carrier ;
+  Carrier : U l+ = (object C).order.carrier ;
+  function (f : Func) : Carrier = inl (inl f) ;
+  pi (p : Payload) : Carrier = inl (inr p) ;
+  universe : Carrier = inr tt ;
+  bottom : Carrier = (object C).bottom ;
+  inner-elim (R : Carrier -> U l+)
+    (on-function : (f : Func) -> R (function f))
+    (on-pi : (p : Payload) -> R (pi p)) :
+    (x : (inner C).order.carrier) -> R (inl x) = split {
+    inl f -> on-function f ;
+    inr p -> on-pi p } ;
+  head-elim (R : Carrier -> U l+)
+    (on-function : (f : Func) -> R (function f))
+    (on-pi : (p : Payload) -> R (pi p))
+    (on-universe : (u : one.order.carrier) -> R (inr u)) :
+    (x : Carrier) -> R x = split {
+    inl x -> inner-elim R on-function on-pi x ;
+    inr u -> on-universe u } ;
+  pi-payload-injective (p q : Payload)
+    (h : Id Carrier (pi p) (pi q)) : Id Payload p q =
+    FiniteDiscrete[l+].right-inj Func Payload p q
+      (FiniteDiscrete[l+].left-inj
+        (inner C).order.carrier one.order.carrier
+        (inr p) (inr q) h) ;
+  function-below-pi (f : Func) (p : Payload) :
+    ((object C).order.le (function f) (pi p) ->
+      (F.object C).order.le f (F.object C).bottom) *
+    ((F.object C).order.le f (F.object C).bottom ->
+      (object C).order.le (function f) (pi p)) =
+    (\ h -> h,\ h -> h) ;
+  pi-below-universe (p : Payload) :
+    (object C).order.le (pi p) universe -> Empty =
+    \ h -> h ;
+  universe-below-pi (p : Payload) :
+    (object C).order.le universe (pi p) -> Empty =
+    \ h -> h ;
+  disjoint-witness (p : Payload) :
+    (z : Carrier) ->
+    (object C).order.le (pi p) z ->
+    (object C).order.le universe z -> Empty = split {
+    inl v -> \ h k -> k ;
+    inr v -> \ h k -> h } ;
+  pi-universe-incompatible (p : Payload)
+    (h : CU.Compatible (object C).order (pi p) universe) :
+    Empty =
+    TruncationCombinators[l+].rec
+      (CU.CompatibleWitness (object C).order (pi p) universe)
+      @l Empty isProp-Empty
+      (\ w -> disjoint-witness p w.1 w.2.1 w.2.2) h ;
+} ;

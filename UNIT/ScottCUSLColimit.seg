@@ -9,12 +9,14 @@ module KM = ScottCUSLCompacts[l] ;
 module EQ = ScottCUSLEquivalence[l] ;
 module SO = ScottDomainObjects[l] ;
 module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module CR = ScottDomainCategories[l] ;
 module Limit = ScottEPLimit[l] ;
 module Cone = ScottEPLimitCone[l] ;
 module Colimit = ScottEPLimitColimit[l] ;
 module Basis = ScottEPLimitBasis[l] ;
 module SD = ScottDomain[l] ;
 module TC = TruncationCombinators[l] ;
+module TH = TruncationCombinators[l+] ;
 module A = CategoryArrows[l++,l+].Arrows[CU.pre] ;
 module H = Paths[l+] ;
 
@@ -78,6 +80,123 @@ module On (S : K.Chain[CU.pre]) {
   } ;
   law (n : Nat) : Id (CU.pre.hom (S.stage n) vertex)
     (A.cmp (leg (suc n)) (S.link n)) (leg n) = Step[n].result ;
+
+  -- Every compact observation of the colimit comes from one stage.
+  -- This statement uses the stage CUSLs directly, with no rank on a
+  -- syntactic representative of a compact element.
+  module CompactRepresentation (c : KM.On[SO.from-presented LC.D].Carrier) {
+    module V = KM.On[SO.from-presented LC.D] ;
+    module B = Basis.On[presented] ;
+    module DOn = SD.On[LC.D] ;
+    W : U l =
+      (a : B.Basis) *
+        (LC.D.order.le c.1 (B.basic a) *
+         LC.D.order.le (B.basic a) c.1) ;
+    Witness : U l+ =
+      (n : Nat) *
+        ((a : (S.stage n).order.carrier) *
+          Id V.Carrier ((leg n).1 a) c) ;
+    module AtRep (w : W) {
+      n : Nat = w.1.1 ;
+      stage : KM.On[At[n].FX].Carrier =
+        (B.basic-at n w.1.2,
+          (presented.stage n).basis.compact w.1.2) ;
+      image : V.Carrier = At[n].compact-leg.1 stage ;
+      image-path : Id V.Carrier image c =
+        V.carrier-path image c
+          (LC.D.order.antisymmetric image.1 c.1 w.2.2 w.2.1) ;
+      source : (S.stage n).order.carrier = At[n].eta.2.1.1 stage ;
+      stage-path : Id V.Carrier ((leg n).1 source) image =
+        ap (CU.pre.hom (KM.Functor.object At[n].FX) vertex)
+          V.Carrier (\ f -> f.1 stage)
+          (A.cmp (leg n) At[n].eta.2.1)
+          At[n].compact-leg
+          (A.undo-r At[n].compact-leg At[n].eta) ;
+      witness : Witness =
+        (n,(source,
+          H.transH stage-path image-path)) ;
+    } ;
+    represented : Truncation[l+].Trunc[Witness].carrier =
+      TC.rec W @l+
+        (Truncation[l+].Trunc[Witness].carrier)
+        (Truncation[l+].Trunc[Witness].proposition)
+        (\ w -> Truncation[l+].Trunc[Witness].inc
+          AtRep[w].witness)
+        (DOn.compact-basis c.1 c.2) ;
+  } ;
+
+  module CompactObservation
+    (x : LC.D.order.carrier)
+    (c : KM.On[SO.from-presented LC.D].Carrier)
+    (h : LC.D.order.le c.1 x) {
+    module L = Limit.On[presented] ;
+    module C = Limit.Completion[presented] ;
+    stage-hit : ScottOrder[l].Ex
+      ((n : Nat) * L.le c.1 (Limit.approximate presented n x)) =
+      c.2 Nat (\ n -> Limit.approximate presented n x)
+        (C.approx-dir x)
+        (CR.le-replace L.order c.1 c.1 x (C.approx-sup x).1
+          (refl c.1)
+          (sym L.carrier (C.approx-sup x).1 x (C.exhaustion x)) h) ;
+  } ;
+
+  -- To prove a proposition about every compact element, it suffices to
+  -- prove it on the images of all finite stages.
+  module CompactInduction
+    (Q : KM.On[SO.from-presented LC.D].Carrier -> U l+)
+    (qprop : (c : KM.On[SO.from-presented LC.D].Carrier) ->
+      isProp (Q c))
+    (at-stage : (n : Nat) -> (a : (S.stage n).order.carrier) ->
+      Q ((leg n).1 a)) {
+    module V = KM.On[SO.from-presented LC.D] ;
+    module AtWitness (c : V.Carrier)
+      (w : CompactRepresentation[c].Witness) {
+      result : Q c =
+        subst V.Carrier Q ((leg w.1).1 w.2.1) c w.2.2
+          (at-stage w.1 w.2.1) ;
+    } ;
+    result (c : V.Carrier) : Q c =
+      TH.rec (CompactRepresentation[c].Witness) @l+
+        (Q c) (qprop c) (\ w -> AtWitness[c,w].result)
+        CompactRepresentation[c].represented ;
+  } ;
+
+  -- An admissible lower predicate holds at a point exactly when it
+  -- holds at every finite-stage projection. This is the domain-level
+  -- replacement for rank-indexed exhaustion in logical relations.
+  module AdmissibleStageInduction
+    (Q : ScottPredicates[l].On[LC.D].Predicate) {
+    module L = Limit.On[presented] ;
+    module C = Limit.Completion[presented] ;
+    forward (x : L.carrier) (h : Q.holds x) :
+      (n : Nat) -> Q.holds (Limit.approximate presented n x) =
+      \ n -> Q.lower (Limit.approximate presented n x)
+        x (Limit.deflation presented n x) h ;
+    backward (x : L.carrier)
+      (h : (n : Nat) ->
+        Q.holds (Limit.approximate presented n x)) :
+      Q.holds x =
+      Q.lower x (C.approx-sup x).1 (C.exhaustion-to x)
+        (Q.directed Nat
+          (\ n -> Limit.approximate presented n x)
+          (C.approx-dir x) h) ;
+    stage-embed (n : Nat)
+      (a : (presented.stage n).order.carrier) : L.carrier =
+      At[n].ideal-leg.1.1.1 a ;
+    from-stage
+      (h : (n : Nat) ->
+        (a : (presented.stage n).order.carrier) ->
+          Q.holds (stage-embed n a))
+      (x : L.carrier) : Q.holds x =
+      backward x (\ n -> h n (x.1 n)) ;
+    equation (x : L.carrier) :
+      (Q.holds x -> (n : Nat) ->
+        Q.holds (Limit.approximate presented n x)) *
+      (((n : Nat) ->
+        Q.holds (Limit.approximate presented n x)) ->
+        Q.holds x) =
+      (forward x,backward x) ;
+  } ;
 
   module Universal (Y : CU.CUSL)
     (q : (n : Nat) -> CU.pre.hom (S.stage n) Y)
@@ -175,56 +294,37 @@ module On (S : K.Chain[CU.pre]) {
       (t-law : (n : Nat) -> Id (CU.pre.hom (S.stage n) Y)
         (A.cmp t (leg n)) (q n)) {
       module V = KM.On[SO.from-presented LC.D] ;
-      module B = Basis.On[presented] ;
-      module DOn = SD.On[LC.D] ;
-      W (c : V.Carrier) : U l =
-        (a : B.Basis) *
-          (LC.D.order.le c.1 (B.basic a) *
-           LC.D.order.le (B.basic a) c.1) ;
-      module AtRep (c : V.Carrier) (w : W c) {
-        n : Nat = w.1.1 ;
-        stage : KM.On[At[n].FX].Carrier =
-          (B.basic-at n w.1.2,
-            (presented.stage n).basis.compact w.1.2) ;
-        image : V.Carrier = At[n].compact-leg.1 stage ;
-        image-path : Id V.Carrier image c =
-          V.carrier-path image c
-            (LC.D.order.antisymmetric image.1 c.1 w.2.2 w.2.1) ;
-        back : (S.stage n).order.carrier = At[n].eta.2.1.1 stage ;
-        stage-path : Id V.Carrier ((leg n).1 back) image =
-          ap (CU.pre.hom (KM.Functor.object At[n].FX) vertex)
-            V.Carrier (\ f -> f.1 stage)
-            (A.cmp (leg n) At[n].eta.2.1)
-            At[n].compact-leg
-            (A.undo-r At[n].compact-leg At[n].eta) ;
-        t-stage : Id Y.order.carrier (t.1 image) ((q n).1 back) =
-          H.transH
-            (H.apH t.1 (H.symH stage-path))
-            (ap (CU.pre.hom (S.stage n) Y)
-              Y.order.carrier (\ f -> f.1 back)
-              (A.cmp t (leg n)) (q n) (t-law n)) ;
-        m-stage : Id Y.order.carrier (mediator.1 image)
+      module FromStage (c : V.Carrier)
+        (w : CompactRepresentation[c].Witness) {
+        n : Nat = w.1 ;
+        back : (S.stage n).order.carrier = w.2.1 ;
+        stage-path : Id V.Carrier ((leg n).1 back) c = w.2.2 ;
+        t-stage : Id Y.order.carrier (t.1 ((leg n).1 back))
           ((q n).1 back) =
-          H.transH
-            (H.apH mediator.1 (H.symH stage-path))
-            (ap (CU.pre.hom (S.stage n) Y)
-              Y.order.carrier (\ f -> f.1 back)
-              (A.cmp mediator (leg n)) (q n) (factor n)) ;
+          ap (CU.pre.hom (S.stage n) Y)
+            Y.order.carrier (\ f -> f.1 back)
+            (A.cmp t (leg n)) (q n) (t-law n) ;
+        m-stage : Id Y.order.carrier
+          (mediator.1 ((leg n).1 back))
+          ((q n).1 back) =
+          ap (CU.pre.hom (S.stage n) Y)
+            Y.order.carrier (\ f -> f.1 back)
+            (A.cmp mediator (leg n)) (q n) (factor n) ;
         point : Id Y.order.carrier (t.1 c) (mediator.1 c) =
           H.transH
-            (H.apH t.1 (H.symH image-path))
+            (H.apH t.1 (H.symH stage-path))
             (H.transH t-stage
               (H.transH (H.symH m-stage)
-                (H.apH mediator.1 image-path))) ;
+                (H.apH mediator.1 stage-path))) ;
       } ;
       point (c : V.Carrier) :
         Id Y.order.carrier (t.1 c) (mediator.1 c) =
-        TC.rec (W c) @l+
-          (Id Y.order.carrier (t.1 c) (mediator.1 c))
-          (ScottOrder[l].On[Y.order].order-set
-            (t.1 c) (mediator.1 c))
-          (\ w -> AtRep[c,w].point)
-          (DOn.compact-basis c.1 c.2) ;
+        CompactInduction[
+          \ z -> Id Y.order.carrier (t.1 z) (mediator.1 z),
+          \ z -> ScottOrder[l].On[Y.order].order-set
+            (t.1 z) (mediator.1 z),
+          \ n a -> FromStage[(leg n).1 a,
+            (n,(a,refl ((leg n).1 a)))].point].result c ;
       equation : Id (CU.pre.hom vertex Y) t mediator =
         CU.Between[vertex,Y].equal t mediator point ;
     } ;

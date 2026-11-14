@@ -32,6 +32,13 @@ then proves
   r_n(p(e_n a,e_n x)) = p-hat_n(a,x).
 
 OperationalStages.proposition-2-27 is the resulting identity in D_n.
+DirectProjectorStages.p makes the alternative definition
+
+  p_n(a,x) = r_n(p(e_n(a),e_n(x)))
+
+literal in checked Unit code. Its finite-unfolding theorem identifies
+this p_n with OperationalStages.p. The definition itself does not use
+the bounded typing relation.
 StageFusion.eventual and OperationalStages.stabilizes state the stronger
 finite-stabilization result. There are no projector hypotheses on Q,R
 in the one-step fusion lemma. No unrestricted commutation of p with q_n
@@ -45,7 +52,20 @@ StageComparison.agreement separately proves p-hat_n = p_n for the
 bounded-typing definition below. StageComparison.At.finitary transfers
 finitariness to its ambient extension x |-> e_n(p-hat_n(a,r_n x)). This
 comparison still uses the earlier sandwich proof. A direct independent
-proof of all the per-iterate projector invariants is not claimed.
+proof by induction that the newly defined p_n(a,-) is finitary is not
+claimed. The successor theorem must handle the dependent function clause
+
+  z |-> p_n(f(p_n(a,z)), x(p_n(a,z)))
+
+and the universe/Pi clause simultaneously. Idempotence in the latter
+also needs the stage normalization equation
+
+  p_n(p_n(U,a),z) = p_n(a,z).
+
+The existing finite-step-graph basis does not yet supply a checked
+closure theorem for this dependent projector construction. That is the
+remaining proof obligation for the proposed alternative to inductive
+compact typing.
 
 Corrected statement and independent definitions
 ------------------------------------------------

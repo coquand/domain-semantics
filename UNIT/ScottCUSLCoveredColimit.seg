@@ -1,0 +1,162 @@
+-- The universal property of a directed union of CUSL embeddings.
+-- Coverage is mere existence; unique compatible values remove any choice.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ; module S = ScottOrder[l] ;
+module TC = TruncationCombinators[l] ; module TH = TruncationCombinators[l+] ;
+module HF = Axioms[l+].FunExtLemmas[fe @l+] ; module CR = ScottDomainCategories[l] ;
+
+module GD = CategoryDirectedColimits[l++,l+,l] ;
+Diagram : U l++ = GD.Diagram[CU.pre] ;
+Coherent (D : Diagram) (L : CU.CUSL) (leg : (i : D.index) -> CU.pre.hom (D.stage i) L) : U l+ = GD.Coherent CU.pre D L leg ;
+Coverage (D : Diagram) (L : CU.CUSL) (leg : (i : D.index) -> CU.pre.hom (D.stage i) L) : U l+ =
+  (x : L.order.carrier) -> Truncation[l+].Trunc[
+    (i : D.index) * ((a : (D.stage i).order.carrier) * Id L.order.carrier ((leg i).1 a) x)].carrier ;
+Colimit (D : Diagram) (L : CU.CUSL) (leg : (i : D.index) -> CU.pre.hom (D.stage i) L) : U l++ = GD.Colimit[CU.pre,D,L,leg] ;
+module On (D : Diagram) (L : CU.CUSL) (leg : (i : D.index) -> CU.pre.hom (D.stage i) L)
+  (law : Coherent D L leg) (covered : Coverage D L leg) {
+  X : U l+ = L.order.carrier ;
+  Rep (x : X) : U l+ = (i : D.index) * ((a : (D.stage i).order.carrier) * Id X ((leg i).1 a) x) ;
+  point (i j : D.index) (h : D.rel i j) (a : (D.stage i).order.carrier) :
+    Id X ((leg j).1 ((D.link i j h).1 a)) ((leg i).1 a) =
+    ap (CU.pre.hom (D.stage i) L) X (\ e -> e.1 a)
+      (CU.pre.comp (D.stage i) (D.stage j) L (leg j) (D.link i j h)) (leg i) (law i j h) ;
+  module Two (P : X -> X -> U l+) (prop : (x y : X) -> isProp (P x y))
+    (at-stage : (i : D.index) (a b : (D.stage i).order.carrier) -> P ((leg i).1 a) ((leg i).1 b)) {
+    module Witness (x y : X) (u : Rep x) (v : Rep y) (k : D.index) (ik : D.rel u.1 k) (jk : D.rel v.1 k) {
+      a : (D.stage k).order.carrier = (D.link u.1 k ik).1 u.2.1 ;
+      b : (D.stage k).order.carrier = (D.link v.1 k jk).1 v.2.1 ;
+      ex : Id X ((leg k).1 a) x = trans X ((leg k).1 a) ((leg u.1).1 u.2.1) x (point u.1 k ik u.2.1) u.2.2 ;
+      ey : Id X ((leg k).1 b) y = trans X ((leg k).1 b) ((leg v.1).1 v.2.1) y (point v.1 k jk v.2.1) v.2.2 ;
+      value : P x y = subst X (\ z -> P x z) ((leg k).1 b) y ey
+        (subst X (\ z -> P z ((leg k).1 b)) ((leg k).1 a) x ex (at-stage k a b)) ;
+    } ;
+    result (x y : X) : P x y = TH.rec (Rep x) @l+ (P x y) (prop x y)
+      (\ u -> TH.rec (Rep y) @l+ (P x y) (prop x y)
+        (\ v -> TC.rec ((k : D.index) * (D.rel u.1 k * D.rel v.1 k)) @l+ (P x y) (prop x y)
+          (\ w -> Witness[x,y,u,v,w.1,w.2.1,w.2.2].value) (D.upper u.1 v.1)) (covered y)) (covered x) ;
+  } ;
+  module Universal (Y : CU.CUSL) (q : (i : D.index) -> CU.pre.hom (D.stage i) Y) (coherent : Coherent D Y q) {
+    Z : U l+ = Y.order.carrier ; module YO = S.On[Y.order] ;
+    qpoint (i j : D.index) (h : D.rel i j) (a : (D.stage i).order.carrier) :
+      Id Z ((q j).1 ((D.link i j h).1 a)) ((q i).1 a) =
+      ap (CU.pre.hom (D.stage i) Y) Z (\ e -> e.1 a)
+        (CU.pre.comp (D.stage i) (D.stage j) Y (q j) (D.link i j h)) (q i) (coherent i j h) ;
+    module Same (x : X) (u v : Rep x) (k : D.index) (ik : D.rel u.1 k) (jk : D.rel v.1 k) {
+      module TW = Two[\ _ _ -> Top,\ _ _ -> isTop,\ _ _ _ -> tt] ;
+      module W = TW.Witness[x,x,u,v,k,ik,jk] ;
+      equality : Id X ((leg k).1 W.a) ((leg k).1 W.b) = trans X ((leg k).1 W.a) x ((leg k).1 W.b) W.ex (sym X ((leg k).1 W.b) x W.ey) ;
+      source : Id (D.stage k).order.carrier W.a W.b = (D.stage k).order.antisymmetric W.a W.b
+        (CU.Between[D.stage k,L].reflect (leg k) W.a W.b
+          (CR.le-replace L.order ((leg k).1 W.a) ((leg k).1 W.a) ((leg k).1 W.a) ((leg k).1 W.b)
+            (refl ((leg k).1 W.a)) equality (L.order.reflexive ((leg k).1 W.a))))
+        (CU.Between[D.stage k,L].reflect (leg k) W.b W.a
+          (CR.le-replace L.order ((leg k).1 W.a) ((leg k).1 W.b) ((leg k).1 W.a) ((leg k).1 W.a)
+            equality (refl ((leg k).1 W.a)) (L.order.reflexive ((leg k).1 W.a)))) ;
+      value : Id Z ((q u.1).1 u.2.1) ((q v.1).1 v.2.1) =
+        trans Z ((q u.1).1 u.2.1) ((q k).1 W.a) ((q v.1).1 v.2.1)
+          (sym Z ((q k).1 W.a) ((q u.1).1 u.2.1) (qpoint u.1 k ik u.2.1))
+          (trans Z ((q k).1 W.a) ((q k).1 W.b) ((q v.1).1 v.2.1)
+            (ap (D.stage k).order.carrier Z (q k).1 W.a W.b source) (qpoint v.1 k jk v.2.1)) ;
+    } ;
+    same (x : X) (u v : Rep x) : Id Z ((q u.1).1 u.2.1) ((q v.1).1 v.2.1) =
+      TC.rec ((k : D.index) * (D.rel u.1 k * D.rel v.1 k)) @l+
+        (Id Z ((q u.1).1 u.2.1) ((q v.1).1 v.2.1)) (YO.order-set ((q u.1).1 u.2.1) ((q v.1).1 v.2.1))
+        (\ w -> Same[x,u,v,w.1,w.2.1,w.2.2].value) (D.upper u.1 v.1) ;
+    Law (x : X) (y : Z) : U l+ = (w : Rep x) -> Id Z y ((q w.1).1 w.2.1) ;
+    law-prop (x : X) (y : Z) : isProp (Law x y) = HF.isProp-Pi (Rep x) (\ w -> Id Z y ((q w.1).1 w.2.1)) (\ w -> YO.order-set y ((q w.1).1 w.2.1)) ;
+    Value (x : X) : U l+ = (y : Z) * Law x y ;
+    value-prop (x : X) : isProp (Value x) = \ u v -> Sigma-eq Z (\ y -> Law x y) u.1 v.1 u.2 v.2
+      (TH.rec (Rep x) @l+ (Id Z u.1 v.1) (YO.order-set u.1 v.1)
+        (\ w -> trans Z u.1 ((q w.1).1 w.2.1) v.1 (u.2 w) (sym Z v.1 ((q w.1).1 w.2.1) (v.2 w))) (covered x)) (law-prop x v.1) ;
+    chosen (x : X) : Value x = TH.rec (Rep x) @l+ (Value x) (value-prop x)
+      (\ u -> ((q u.1).1 u.2.1,same x u)) (covered x) ;
+    f (x : X) : Z = (chosen x).1 ;
+    computes (i : D.index) (a : (D.stage i).order.carrier) : Id Z (f ((leg i).1 a)) ((q i).1 a) =
+      (chosen ((leg i).1 a)).2 (i,(a,refl ((leg i).1 a))) ;
+    at-mono (i : D.index) (a b : (D.stage i).order.carrier) :
+      L.order.le ((leg i).1 a) ((leg i).1 b) -> Y.order.le (f ((leg i).1 a)) (f ((leg i).1 b)) = \ h ->
+      CR.le-replace Y.order ((q i).1 a) (f ((leg i).1 a)) ((q i).1 b) (f ((leg i).1 b))
+        (sym Z (f ((leg i).1 a)) ((q i).1 a) (computes i a))
+        (sym Z (f ((leg i).1 b)) ((q i).1 b) (computes i b))
+        (CU.Between[D.stage i,Y].mono (q i) a b (CU.Between[D.stage i,L].reflect (leg i) a b h)) ;
+    monotone : CU.Between[L,Y].Monotone f = Two[
+      \ x y -> L.order.le x y -> Y.order.le (f x) (f y),
+      \ x y -> HF.isProp-Pi (L.order.le x y) (\ _ -> Y.order.le (f x) (f y)) (\ _ -> Y.order.proposition (f x) (f y)),at-mono].result ;
+    at-reflect (i : D.index) (a b : (D.stage i).order.carrier) :
+      Y.order.le (f ((leg i).1 a)) (f ((leg i).1 b)) -> L.order.le ((leg i).1 a) ((leg i).1 b) = \ h ->
+      CU.Between[D.stage i,L].mono (leg i) a b
+        (CU.Between[D.stage i,Y].reflect (q i) a b
+          (CR.le-replace Y.order (f ((leg i).1 a)) ((q i).1 a) (f ((leg i).1 b)) ((q i).1 b) (computes i a) (computes i b) h)) ;
+    reflect : CU.Between[L,Y].Reflect f = Two[
+      \ x y -> Y.order.le (f x) (f y) -> L.order.le x y,
+      \ x y -> HF.isProp-Pi (Y.order.le (f x) (f y)) (\ _ -> L.order.le x y) (\ _ -> L.order.proposition x y),at-reflect].result ;
+    at-compatible (i : D.index) (a b : (D.stage i).order.carrier)
+      (h : CU.Compatible Y.order (f ((leg i).1 a)) (f ((leg i).1 b))) : CU.Compatible L.order ((leg i).1 a) ((leg i).1 b) =
+      CU.Between[D.stage i,L].image-compatible (leg i).1 (CU.Between[D.stage i,L].mono (leg i)) a b
+        (CU.Between[D.stage i,Y].compat-reflect (q i) a b
+          (TH.map (CU.CompatibleWitness Y.order (f ((leg i).1 a)) (f ((leg i).1 b)))
+            (CU.CompatibleWitness Y.order ((q i).1 a) ((q i).1 b))
+            (\ w -> (w.1,(CR.le-replace Y.order (f ((leg i).1 a)) ((q i).1 a) w.1 w.1 (computes i a) (refl w.1) w.2.1,
+              CR.le-replace Y.order (f ((leg i).1 b)) ((q i).1 b) w.1 w.1 (computes i b) (refl w.1) w.2.2))) h)) ;
+    compat-reflect : CU.Between[L,Y].CompatReflect f = Two[
+      \ x y -> CU.Compatible Y.order (f x) (f y) -> CU.Compatible L.order x y,
+      \ x y -> HF.isProp-Pi (CU.Compatible Y.order (f x) (f y)) (\ _ -> CU.Compatible L.order x y)
+        (\ _ -> Truncation[l+].Trunc[CU.CompatibleWitness L.order x y].proposition),at-compatible].result ;
+    bottom : Id Z (f L.bottom) Y.bottom = TC.rec D.index @l+ (Id Z (f L.bottom) Y.bottom) (YO.order-set (f L.bottom) Y.bottom)
+      (\ i -> trans Z (f L.bottom) (f ((leg i).1 (D.stage i).bottom)) Y.bottom
+        (ap X Z f L.bottom ((leg i).1 (D.stage i).bottom)
+          (sym X ((leg i).1 (D.stage i).bottom) L.bottom (CU.Between[D.stage i,L].bottom-law (leg i))))
+        (trans Z (f ((leg i).1 (D.stage i).bottom)) ((q i).1 (D.stage i).bottom) Y.bottom
+          (computes i (D.stage i).bottom) (CU.Between[D.stage i,Y].bottom-law (q i)))) D.inhabited ;
+    module Join (i : D.index) (a b : (D.stage i).order.carrier)
+      (h : CU.Compatible L.order ((leg i).1 a) ((leg i).1 b)) {
+      module A = CU.On[D.stage i] ; module B = CU.On[L] ; module V = CU.On[Y] ;
+      x : X = (leg i).1 a ; y : X = (leg i).1 b ;
+      source-h : CU.Compatible (D.stage i).order a b = CU.Between[D.stage i,L].compat-reflect (leg i) a b h ;
+      source : (D.stage i).order.carrier = A.join a b source-h ;
+      j : X = B.join x y h ;
+      target-h : CU.Compatible Y.order (f x) (f y) = CU.Between[L,Y].image-compatible f monotone x y h ;
+      target : Z = V.join (f x) (f y) target-h ;
+      stage-join : Id X ((leg i).1 source) j = trans X ((leg i).1 source)
+        (B.join x y (CU.Between[D.stage i,L].image-compatible (leg i).1 (CU.Between[D.stage i,L].mono (leg i)) a b source-h)) j
+        (CU.Between[D.stage i,L].join-law (leg i) a b source-h)
+        (B.join-independent x y (CU.Between[D.stage i,L].image-compatible (leg i).1 (CU.Between[D.stage i,L].mono (leg i)) a b source-h) h) ;
+      value-point : Id Z (f j) ((q i).1 source) = trans Z (f j) (f ((leg i).1 source)) ((q i).1 source)
+        (ap X Z f j ((leg i).1 source) (sym X ((leg i).1 source) j stage-join)) (computes i source) ;
+      qjoin : Z = V.join ((q i).1 a) ((q i).1 b)
+        (CU.Between[D.stage i,Y].image-compatible (q i).1 (CU.Between[D.stage i,Y].mono (q i)) a b source-h) ;
+      upper : Y.order.le (f j) target = CR.le-replace Y.order qjoin (f j) target target
+        (sym Z (f j) qjoin (trans Z (f j) ((q i).1 source) qjoin value-point (CU.Between[D.stage i,Y].join-law (q i) a b source-h)))
+        (refl target)
+        (V.least ((q i).1 a) ((q i).1 b)
+          (CU.Between[D.stage i,Y].image-compatible (q i).1 (CU.Between[D.stage i,Y].mono (q i)) a b source-h) target
+          (CR.le-replace Y.order (f x) ((q i).1 a) target target (computes i a) (refl target) (V.left (f x) (f y) target-h))
+          (CR.le-replace Y.order (f y) ((q i).1 b) target target (computes i b) (refl target) (V.right (f x) (f y) target-h))) ;
+      lower : Y.order.le target (f j) = V.least (f x) (f y) target-h (f j)
+        (monotone x j (B.left x y h)) (monotone y j (B.right x y h)) ;
+      equation : Id Z (f j) target = Y.order.antisymmetric (f j) target upper lower ;
+    } ;
+    joins : CU.Between[L,Y].PreservesJoin f monotone = Two[
+      \ x y -> (h : CU.Compatible L.order x y) -> Id Z (f (CU.On[L].join x y h))
+        (CU.On[Y].join (f x) (f y) (CU.Between[L,Y].image-compatible f monotone x y h)),
+      \ x y -> HF.isProp-Pi (CU.Compatible L.order x y)
+        (\ h -> Id Z (f (CU.On[L].join x y h)) (CU.On[Y].join (f x) (f y) (CU.Between[L,Y].image-compatible f monotone x y h)))
+        (\ h -> YO.order-set (f (CU.On[L].join x y h)) (CU.On[Y].join (f x) (f y) (CU.Between[L,Y].image-compatible f monotone x y h))),
+      \ i a b h -> Join[i,a,b,h].equation].result ;
+    embedding : CU.pre.hom L Y = (f,(monotone,(reflect,(compat-reflect,(bottom,joins))))) ;
+    factor (i : D.index) : Id (CU.pre.hom (D.stage i) Y) (CU.pre.comp (D.stage i) L Y embedding (leg i)) (q i) =
+      CU.Between[D.stage i,Y].equal (CU.pre.comp (D.stage i) L Y embedding (leg i)) (q i) (computes i) ;
+    unique (g : CU.pre.hom L Y)
+      (eq : (i : D.index) -> Id (CU.pre.hom (D.stage i) Y) (CU.pre.comp (D.stage i) L Y g (leg i)) (q i)) : Id (CU.pre.hom L Y) g embedding =
+      CU.Between[L,Y].equal g embedding (\ x -> TH.rec (Rep x) @l+ (Id Z (g.1 x) (f x)) (YO.order-set (g.1 x) (f x))
+        (\ w -> trans Z (g.1 x) (g.1 ((leg w.1).1 w.2.1)) (f x)
+          (ap X Z g.1 x ((leg w.1).1 w.2.1) (sym X ((leg w.1).1 w.2.1) x w.2.2))
+          (trans Z (g.1 ((leg w.1).1 w.2.1)) ((q w.1).1 w.2.1) (f x)
+            (ap (CU.pre.hom (D.stage w.1) Y) Z (\ e -> e.1 w.2.1)
+              (CU.pre.comp (D.stage w.1) L Y g (leg w.1)) (q w.1) (eq w.1))
+            (sym Z (f x) ((q w.1).1 w.2.1) ((chosen x).2 w)))) (covered x)) ;
+  } ;
+  colimit : GD.Colimit[CU.pre,D,L,leg] = new GD.Colimit[CU.pre,D,L,leg,
+    \ Y q h -> Universal[Y,q,h].embedding,\ Y q h -> Universal[Y,q,h].factor,\ Y q h -> Universal[Y,q,h].unique] ;
+} ;

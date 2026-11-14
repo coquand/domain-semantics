@@ -1,0 +1,25 @@
+-- Admissible induction proves finitariness before comparison with typing.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Lib[l] ; open ExtFilter[l] ;
+open Domain[l] ; open Continuous[l] ; open BinaryMaps[l] ; open Finitary[l] ;
+open ProjectorInvariant[l] ;
+module K = KleeneConstruction[l] ;
+module T = TruncationCombinators[l] ;
+
+module Bottom (a : D) {
+  f : Map = K.bottom-binary.at a ;
+  below (x : D) : Domain[l].Below (run f x) x = bottom-least x ;
+  module DF = FinitaryTools[l].Deflation[f,below] ;
+  cover (x : D) (t : Ty) (h : In bottom t) : Ex (FixedBasis f x t) =
+    T.map (Le om t) (FixedBasis f x t) (\ le -> DF.weaken x om t le (DF.empty x)) h ;
+  finitary : Finitary[l].Finitary[f] = DF.Covered[cover].finitary ;
+} ;
+bottom-family : NormalizedFamily[K.bottom-binary] = new NormalizedFamily[K.bottom-binary,
+  \ a -> Bottom[a].finitary,\ a x -> eqv-refl bottom.1] ;
+module Induction = K.Induction[\ q -> NormalizedFamily[q],
+  NormalizedProjectorSup[l].admissible,bottom-family,
+  \ q h -> ProjectorInvariant[l].Preserve[q,h.finitary,h.normalization].family] ;
+family : NormalizedFamily[K.candidate] = Induction.result ;
+finitary (a : D) : Finitary[l].Finitary[K.candidate.at a] = family.finitary a ;
+normalization (a x : D) : Id D (K.p (K.p universe a) x) (K.p a x) =
+  Domain[l].ext (K.p (K.p universe a) x) (K.p a x) (family.normalization a x) ;

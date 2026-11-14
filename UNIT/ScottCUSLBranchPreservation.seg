@@ -1,0 +1,118 @@
+-- Added branches preserve omega-colimits when both component functors do.
+level l ;
+open Base ;
+module CU = ScottCUSL[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module B = ScottCUSLAddBranch[l] ;
+module BC = ScottCUSLAddBranchComparison[l] ;
+module Col = ScottCUSLColimit[l] ;
+module Compare = CategoryColimitComparison[l++,l+] ;
+module Change = CategoryColimitIso[l++,l+] ;
+module A = CategoryArrows[l++,l+].Arrows[CU.pre] ;
+module H = Paths[l+] ;
+
+module On (F G : K.Endofunctor[CU.pre])
+  (omega-F : K.OmegaContinuous[CU.pre,F])
+  (omega-G : K.OmegaContinuous[CU.pre,G]) {
+  module FG = ScottCUSLBranchFunctor[l].On[F,G] ;
+  module Preserve (S : K.Chain[CU.pre]) (L : CU.CUSL)
+    (leg : (n : Nat) -> CU.pre.hom (S.stage n) L)
+    (leg-law : (n : Nat) ->
+      Id (CU.pre.hom (S.stage n) L)
+        (CU.pre.comp (S.stage n) (S.stage (suc n)) L
+          (leg (suc n)) (S.link n)) (leg n))
+    (c : K.Colimit[CU.pre,S,L,leg]) {
+    module MF = K.Mapped[CU.pre,F,S,L,leg,leg-law] ;
+    module MG = K.Mapped[CU.pre,G,S,L,leg,leg-law] ;
+    module MFG = K.Mapped[CU.pre,FG.functor,S,L,leg,leg-law] ;
+    module X = BC.On[MF.chain,MG.chain] ;
+    preserved-F : K.Colimit[CU.pre,MF.chain,
+      F.object L,MF.leg] =
+      omega-F.preserve S L leg leg-law c ;
+    preserved-G : K.Colimit[CU.pre,MG.chain,
+      G.object L,MG.leg] =
+      omega-G.preserve S L leg leg-law c ;
+    module CF = Compare.On[CU.pre,MF.chain,
+      X.SC.vertex,F.object L,
+      X.SC.leg,X.SC.law,X.SC.universal,
+      MF.leg,MF.law,preserved-F] ;
+    module CG = Compare.On[CU.pre,MG.chain,
+      X.TC.vertex,G.object L,
+      X.TC.leg,X.TC.law,X.TC.universal,
+      MG.leg,MG.law,preserved-G] ;
+    module BI = B.Iso[X.SC.vertex,X.TC.vertex,
+      F.object L,G.object L,CF.iso,CG.iso] ;
+    iso : CU.pre.Iso X.WC.vertex (FG.object L) =
+      A.iso-cmp BI.result X.category-iso ;
+    module Step (n : Nat) {
+      first : Id (CU.pre.hom (X.W.stage n) (FG.object L))
+        (A.cmp iso.1 (X.WC.leg n))
+        (A.cmp BI.forward (A.cmp X.comparison (X.WC.leg n))) =
+        H.transH
+          (A.right (A.left BI.forward X.category-iso-forward)
+            (X.WC.leg n))
+          (H.symH (A.assoc BI.forward X.comparison
+            (X.WC.leg n))) ;
+      second : Id (CU.pre.hom (X.W.stage n) (FG.object L))
+        (A.cmp BI.forward (A.cmp X.comparison (X.WC.leg n)))
+        (A.cmp BI.forward (X.q n)) =
+        A.left BI.forward (X.equation n) ;
+      third : Id (CU.pre.hom (X.W.stage n) (FG.object L))
+        (A.cmp BI.forward (X.q n))
+        (B.arrow (F.object (S.stage n)) (G.object (S.stage n))
+          (F.object L) (G.object L)
+          (A.cmp CF.forward (X.SC.leg n))
+          (A.cmp CG.forward (X.TC.leg n))) =
+        H.symH (B.composition
+          (F.object (S.stage n)) (G.object (S.stage n))
+          X.SC.vertex X.TC.vertex
+          (F.object L) (G.object L)
+          (X.SC.leg n) (X.TC.leg n)
+          CF.forward CG.forward) ;
+      fourth : Id (CU.pre.hom (X.W.stage n) (FG.object L))
+        (B.arrow (F.object (S.stage n)) (G.object (S.stage n))
+          (F.object L) (G.object L)
+          (A.cmp CF.forward (X.SC.leg n))
+          (A.cmp CG.forward (X.TC.leg n)))
+        (B.arrow (F.object (S.stage n)) (G.object (S.stage n))
+          (F.object L) (G.object L)
+          (MF.leg n)
+          (A.cmp CG.forward (X.TC.leg n))) =
+        H.apH (\ e -> B.arrow
+          (F.object (S.stage n)) (G.object (S.stage n))
+          (F.object L) (G.object L) e
+          (A.cmp CG.forward (X.TC.leg n)))
+          (CF.forward-leg n) ;
+      fifth : Id (CU.pre.hom (X.W.stage n) (FG.object L))
+        (B.arrow (F.object (S.stage n)) (G.object (S.stage n))
+          (F.object L) (G.object L)
+          (MF.leg n)
+          (A.cmp CG.forward (X.TC.leg n)))
+        (MFG.leg n) =
+        H.apH (\ f -> B.arrow
+          (F.object (S.stage n)) (G.object (S.stage n))
+          (F.object L) (G.object L) (MF.leg n) f)
+          (CG.forward-leg n) ;
+      forward-leg : Id (CU.pre.hom (X.W.stage n) (FG.object L))
+        (A.cmp iso.1 (X.WC.leg n)) (MFG.leg n) =
+        H.transH first (H.transH second
+          (H.transH third (H.transH fourth fifth))) ;
+      backward-leg : Id (CU.pre.hom (X.W.stage n) X.WC.vertex)
+        (A.cmp iso.2.1 (MFG.leg n)) (X.WC.leg n) =
+        H.transH
+          (A.left iso.2.1 (H.symH forward-leg))
+          (A.undo-l iso (X.WC.leg n)) ;
+    } ;
+    module Z = Change.On[CU.pre,X.W,
+      FG.object L,X.WC.vertex,
+      MFG.leg,MFG.law,
+      X.WC.leg,X.WC.universal,
+      A.iso-inv iso,\ n -> Step[n].backward-leg] ;
+    preserved : K.Colimit[CU.pre,MFG.chain,
+      FG.object L,MFG.leg] = Z.colimit ;
+  } ;
+  omega : K.OmegaContinuous[CU.pre,FG.functor] =
+    new K.OmegaContinuous[CU.pre,FG.functor,
+      preserve := \ S L leg law c ->
+        Preserve[S,L,leg,law,c].preserved] ;
+} ;

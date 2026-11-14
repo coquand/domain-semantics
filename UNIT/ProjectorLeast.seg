@@ -3,13 +3,13 @@
 level l ;
 open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
 open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
-open BinaryMaps[l] ;
+open BinaryMaps[l] ; open BinarySemantic[l] ;
 module AP = Application[l] ; module TC = TruncationCombinators[l] ;
 
 family-map (q : Binary) (A : D) (H : Map) (F : D) : Map =
-  Diagonal[q,Maps[l].compose H (q.at A),Maps[l].compose (AP.map F) (q.at A)].map ;
+  ProjectorFamilyMaps[l].family-map q A H F ;
 universe-family (q : Binary) (A : D) (B : FD) : FD =
-  abstract (family-map q A (constant universe) B.1) ;
+  ProjectorFamilyMaps[l].universe-family q A B ;
 
 record LowerClauses {
   q : Binary ;

@@ -1,0 +1,17 @@
+-- Embedding a finitary image along an EP pair gives e P r, again finitary.
+level l ;
+open Base ; open Prelude[l+] ;
+module EP = ScottEmbeddingProjection[l] ; module FP = ScottFinitary[l] ;
+module Ops = ScottMapOperations[l] ;
+module Pushforward (A D : ScottDomain[l].Scott) (q : EP.Between[A,D].Pair) (p : FP.On[A].Finitary) {
+  module Image = ScottFinitaryImage[l].Image[A,p] ;
+  module Composite = EP.Compose[Image.scott,A,D,Image.pair,q] ;
+  module Projection = EP.Projection[Image.scott,D,Composite.pair] ;
+  module M = ScottMaps[l].Between[D,D] ;
+  operation : M.Map = Ops.Compose[D,A,D,q.embed,Ops.Compose[D,A,A,p.operation,q.project].map].map ;
+  equation : Id M.Map Projection.finitary.operation operation = M.ext Projection.finitary.operation operation
+    (\ a -> D.order.reflexive (M.run operation (D.basis.basic a)))
+    (\ a -> D.order.reflexive (M.run operation (D.basis.basic a))) ;
+  finitary : FP.On[D].Finitary[operation] =
+    subst M.Map (\ f -> FP.On[D].Finitary[f]) Projection.finitary.operation operation equation Projection.finitary ;
+} ;

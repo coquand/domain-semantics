@@ -1,0 +1,17 @@
+-- The alternative definition proposed after Proposition 2.27:
+-- first construct p as the least fixed point of Phi, then restrict it
+-- along the embedding-projection pair for each finite stage.
+-- This module does not use StageTyping or StageCompatibility.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open ExtFilter[l] ;
+open Domain[l] ;
+module S = CorrectedStages[l] ; module K = KleeneProjector[l] ;
+module O = OperationalStages[l] ;
+
+p (n : Nat) (a x : S.Stage[n].carrier) : S.Stage[n].carrier =
+  S.Stage[n].restrict (K.p (S.Stage[n].embed a) (S.Stage[n].embed x)) ;
+
+-- The direct definition has the expected finite computational form.
+finite-unfolding (n : Nat) (a x : S.Stage[n].carrier) :
+  Id S.Stage[n].carrier (p n a x) (O.p n a x) =
+  O.proposition-2-27 n a x ;

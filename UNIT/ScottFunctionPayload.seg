@@ -1,0 +1,13 @@
+-- The total space Sigma(a:A).[Fix(P_a) -> Fix(u)] is a finitary
+-- subdomain of C x [D -> D] whenever A is coherently embedded in C.
+level l ;
+module EP = ScottEmbeddingProjection[l] ;
+module Payload (A C D : ScottDomain[l].Scott)
+  (P : ScottDependentProduct[l].Over[A,D].Family)
+  (u : ScottFinitary[l].On[D].Finitary) (input : EP.Between[A,C].Pair) {
+  module F = ScottVaryingFunctionSpace[l].Family[A,D,P,u] ;
+  module Total = ScottDependentSumEmbedding[l].Embedding[A,C,F.End.scott,F.family,input] ;
+  domain : ScottDomain[l].Scott = F.domain ;
+  pair : EP.Between[domain,Total.P.scott].Pair = Total.pair ;
+  finitary : ScottFinitary[l].On[Total.P.scott].Finitary = Total.finitary ;
+} ;

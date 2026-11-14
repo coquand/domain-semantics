@@ -1,0 +1,19 @@
+-- General dependent products, sums, and varying exponentials,
+-- with no filter-domain or typing modules.
+import Base ; import Prelude ; import Lib ;
+import Axioms ; import FunExtUA ; import Replacement ;
+module Theory
+ (ua : [l] Axioms[l].Univalence)
+ (images : [l] [k] Replacement[l,k].Images)
+ (surjections : [l] [k] [j] (Replacement[l,k].Surjectivity (images @l @k)) @j) {
+ fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
+ propUA : [l] Axioms[l].PropUnivalence = <l> Axioms[l].UnivalenceLemmas[ua @l].prop-univ ;
+ import Truncation ; import TruncationCombinators ;
+ import ScottOrder ; import ScottDomain ; import ScottMaps ;
+ import ScottMapOperations ; import ScottFinitary ;
+ import ScottEmbeddingProjection ; import ScottFinitaryImage ;
+ import ScottFinite ; import ScottMeet ; import FiniteEnumeration ; import ScottProduct ; import ScottExponential ;
+ import ScottDependentProduct ; import ScottFinitaryFamily ;
+ import ScottDependentProductEmbedding ; import ScottEPDependentProduct ;
+ import ScottFinitaryEPFamily ; import ScottDependentSum ; import ScottExponentialEPAction ; import ScottVaryingFunctionSpace ; import ScottDependentSumEmbedding ; import ScottFunctionPayload ;
+} ;

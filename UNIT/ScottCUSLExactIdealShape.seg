@@ -1,0 +1,204 @@
+-- The two nested branch-ideal decompositions of the exact compact
+-- constructor have precisely the head compatibility of the old sum:
+-- U excludes Pi, and either positive head collapses the function ideal.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ;
+module ID = ScottCUSLIdeals[l] ;
+module Exact = ScottCUSLExactFunctor[l] ;
+module Branch = ScottCUSLBranchIdeals[l] ;
+module S = ScottOrder[l] ;
+module SO = ScottDomainObjects[l] ;
+module SC = ScottDomainCategories[l] ;
+module EQL = EquivalenceLemmas[l+] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module LiftPaths = Lifting[l] ;
+
+module On (C : CU.CUSL) {
+  module FS = ID.Canonical[Exact.F.object C] ;
+  module PS = ID.Canonical[Exact.P.object C] ;
+  module US = ID.Canonical[Exact.one] ;
+  module Inner = Branch.On[
+    Exact.F.object C,Exact.P.object C,FS.small,PS.small] ;
+  module Outer = Branch.On[
+    Exact.inner C,Exact.one,Inner.BS.result,US.small] ;
+
+  -- The chosen left ideal in Outer is definitionally the whole inner
+  -- branch ideal; no equivalence of presentations is needed here.
+  inner-of (s : Outer.Shape) : Inner.BI.Ideal = s.1.1 ;
+  function-of (s : Outer.Shape) : Inner.CI.Ideal =
+    Inner.Left[inner-of s].ideal ;
+  Pi (s : Outer.Shape) : U l = Inner.Positive (inner-of s) ;
+  Universe (s : Outer.Shape) : U l = s.1.2.1.1 ;
+
+  pi-forces-function-bottom (s : Outer.Shape) (p : Pi s) :
+    Id Inner.CI.Ideal (function-of s) Inner.CI.least =
+    Inner.left-bottom-when-positive (inner-of s) p ;
+  universe-forces-inner-bottom (s : Outer.Shape)
+    (u : Universe s) :
+    Id Inner.BI.Ideal (inner-of s) Inner.BI.least = s.2 u ;
+  universe-forces-function-bottom (s : Outer.Shape)
+    (u : Universe s) :
+    Id Inner.CI.Ideal (function-of s) Inner.CI.least =
+    (Inner.bottom-to (inner-of s)
+      (universe-forces-inner-bottom s u)).1 ;
+  universe-excludes-pi (s : Outer.Shape)
+    (u : Universe s) (p : Pi s) : Empty =
+    (Inner.bottom-to (inner-of s)
+      (universe-forces-inner-bottom s u)).2 p ;
+
+  module FromIdeal (I : Outer.BI.Ideal) {
+    shape : Outer.Shape = Outer.decode I ;
+    pi-forces-bottom (p : Pi shape) :
+      Id Inner.CI.Ideal (function-of shape) Inner.CI.least =
+      pi-forces-function-bottom shape p ;
+    universe-forces-bottom (u : Universe shape) :
+      Id Inner.CI.Ideal (function-of shape) Inner.CI.least =
+      universe-forces-function-bottom shape u ;
+    disjoint (u : Universe shape) (p : Pi shape) : Empty =
+      universe-excludes-pi shape u p ;
+  } ;
+
+  -- A flat version of the two nested shapes. Its inner component
+  -- already includes the Pi/function compatibility condition.
+  FlatData : U l+ = Inner.Shape * Outer.Lift Outer.PI.Ideal ;
+  FlatCompatible (d : FlatData) : U l+ =
+    ((u : d.2.1.1) ->
+      Id Inner.CI.Ideal d.1.1.1 Inner.CI.least) *
+    ((u : d.2.1.1) (p : d.1.1.2.1.1) -> Empty) ;
+  flat-compatible-prop (d : FlatData) :
+    isProp (FlatCompatible d) =
+    isProp-Sigma
+      ((u : d.2.1.1) ->
+        Id Inner.CI.Ideal d.1.1.1 Inner.CI.least)
+      (\ _ -> (u : d.2.1.1) (p : d.1.1.2.1.1) -> Empty)
+      (H.isProp-Pi d.2.1.1
+        (\ _ -> Id Inner.CI.Ideal d.1.1.1 Inner.CI.least)
+        (\ _ -> S.On[Inner.CI.order].order-set
+          d.1.1.1 Inner.CI.least))
+      (\ _ -> H.isProp-Pi d.2.1.1
+        (\ _ -> (p : d.1.1.2.1.1) -> Empty)
+        (\ _ -> H.isProp-Pi d.1.1.2.1.1
+          (\ _ -> Empty) (\ _ -> isProp-Empty))) ;
+  Flat : U l+ = (d : FlatData) * FlatCompatible d ;
+
+  flatten (s : Outer.Shape) : Flat =
+    ((Inner.decode (inner-of s),s.1.2),
+      (\ u -> universe-forces-function-bottom s u,
+       \ u p -> universe-excludes-pi s u p)) ;
+  module Inflate (t : Flat) {
+    inner-shape : Inner.Shape = t.1.1 ;
+    inner : Inner.BI.Ideal = Inner.encode inner-shape ;
+    function-bottom (u : t.1.2.1.1) :
+      Id Inner.CI.Ideal Inner.Left[inner].ideal Inner.CI.least =
+      trans Inner.CI.Ideal Inner.Left[inner].ideal
+        inner-shape.1.1 Inner.CI.least
+        Inner.Roundtrip[inner-shape].left-eq (t.2.1 u) ;
+    no-pi (u : t.1.2.1.1) : Inner.NoPositive inner =
+      \ p -> t.2.2 u
+        (Inner.Roundtrip[inner-shape].positive-to-Q p) ;
+    compatible (u : t.1.2.1.1) :
+      Id Inner.BI.Ideal inner Inner.BI.least =
+      Inner.bottom-from inner (function-bottom u,no-pi u) ;
+    result : Outer.Shape =
+      ((inner,t.1.2),compatible) ;
+  } ;
+  inflate (t : Flat) : Outer.Shape = Inflate[t].result ;
+
+  flatten-inflate (t : Flat) : Id Flat (flatten (inflate t)) t =
+    Sigma-eq FlatData FlatCompatible
+      (flatten (inflate t)).1 t.1
+      (flatten (inflate t)).2 t.2
+      (LiftPaths.pair-path Inner.Shape (Outer.Lift Outer.PI.Ideal)
+        (Inner.decode (Inner.encode t.1.1)) t.1.1
+        t.1.2 t.1.2
+        (Inner.decode-encode t.1.1) (refl t.1.2))
+      (flat-compatible-prop t.1) ;
+  inflate-flatten (s : Outer.Shape) :
+    Id Outer.Shape (inflate (flatten s)) s =
+    Sigma-eq Outer.Data Outer.Compatible
+      (inflate (flatten s)).1 s.1
+      (inflate (flatten s)).2 s.2
+      (LiftPaths.pair-path Inner.BI.Ideal
+        (Outer.Lift Outer.PI.Ideal)
+        (Inner.encode (Inner.decode (inner-of s)))
+        (inner-of s) s.1.2 s.1.2
+        (Inner.encode-decode (inner-of s)) (refl s.1.2))
+      (Outer.compatible-prop s.1) ;
+  flat-equivalence : Equiv Outer.Shape Flat =
+    (flatten,qinv Outer.Shape Flat flatten inflate
+      flatten-inflate inflate-flatten) ;
+
+  FlatOrder (s t : Flat) : U l =
+    Inner.ShapeOrder s.1.1 t.1.1 *
+      ((u : s.1.2.1.1) -> t.1.2.1.1) *
+      ((u : s.1.2.1.1) (v : t.1.2.1.1) ->
+        Outer.PI.Incl (s.1.2.2 u) (t.1.2.2 v)) ;
+  flat-order-prop (s t : Flat) : isProp (FlatOrder s t) =
+    isProp-Sigma
+      (Inner.ShapeOrder s.1.1 t.1.1)
+      (\ _ -> ((u : s.1.2.1.1) -> t.1.2.1.1) *
+        ((u : s.1.2.1.1) (v : t.1.2.1.1) ->
+          Outer.PI.Incl (s.1.2.2 u) (t.1.2.2 v)))
+      (Inner.shape-order-prop s.1.1 t.1.1)
+      (\ _ -> isProp-Sigma
+        ((u : s.1.2.1.1) -> t.1.2.1.1)
+        (\ _ -> (u : s.1.2.1.1) (v : t.1.2.1.1) ->
+          Outer.PI.Incl (s.1.2.2 u) (t.1.2.2 v))
+        (Outer.OrderProof[inflate s,inflate t].head-prop)
+        (\ _ -> Outer.OrderProof[inflate s,inflate t].right-prop)) ;
+  flat-order-refl (s : Flat) : FlatOrder s s =
+    (Inner.shape-order-refl s.1.1,
+      (\ u -> u,
+       \ u v b h ->
+         Outer.Encode[inflate s].right-transfer b u v h)) ;
+  flat-order-trans (s t u : Flat)
+    (h : FlatOrder s t) (k : FlatOrder t u) :
+    FlatOrder s u =
+    (Inner.shape-order-trans s.1.1 t.1.1 u.1.1 h.1 k.1,
+      (\ p -> k.2.1 (h.2.1 p),
+       \ p r b hb -> k.2.2 (h.2.1 p) r b
+         (h.2.2 p (h.2.1 p) b hb))) ;
+  inflate-mono (s t : Flat) (h : FlatOrder s t) :
+    Outer.ShapeOrder (inflate s) (inflate t) =
+    (Inner.EncodeMono[s.1.1,t.1.1,h.1].inclusion,h.2) ;
+  flatten-mono (s t : Outer.Shape)
+    (h : Outer.ShapeOrder s t) :
+    FlatOrder (flatten s) (flatten t) =
+    (Inner.decode-mono (inner-of s) (inner-of t) h.1,h.2) ;
+  flat-order-antisym (s t : Flat)
+    (h : FlatOrder s t) (k : FlatOrder t s) :
+    Id Flat s t =
+    trans Flat s (flatten (inflate s)) t
+      (sym Flat (flatten (inflate s)) s (flatten-inflate s))
+      (trans Flat (flatten (inflate s))
+        (flatten (inflate t)) t
+        (ap Outer.Shape Flat flatten (inflate s) (inflate t)
+          (Outer.shape-order-antisym
+            (inflate s) (inflate t)
+            (inflate-mono s t h) (inflate-mono t s k)))
+        (flatten-inflate t)) ;
+  flat-order : S.Order = new S.Order[
+    carrier := Flat,le := FlatOrder,
+    proposition := flat-order-prop,
+    reflexive := flat-order-refl,
+    transitive := flat-order-trans,
+    antisymmetric := flat-order-antisym] ;
+  flatten-reflect (s t : Outer.Shape)
+    (h : FlatOrder (flatten s) (flatten t)) :
+    Outer.ShapeOrder s t =
+    SC.le-replace Outer.shape-order
+      (inflate (flatten s)) s
+      (inflate (flatten t)) t
+      (inflate-flatten s) (inflate-flatten t)
+      (inflate-mono (flatten s) (flatten t) h) ;
+  flat-order-iso : SO.OrderIso Outer.shape-order flat-order =
+    (flat-equivalence,(flatten-mono,flatten-reflect)) ;
+  ideal-order-iso : SO.OrderIso Outer.BI.order flat-order =
+    (EQL.then Outer.BI.Ideal Outer.Shape Flat
+       Outer.order-iso.1 flat-order-iso.1,
+     (\ I J h -> flatten-mono (Outer.decode I) (Outer.decode J)
+         (Outer.decode-mono I J h),
+      \ I J h -> Outer.decode-reflect I J
+        (flatten-reflect (Outer.decode I) (Outer.decode J) h))) ;
+} ;

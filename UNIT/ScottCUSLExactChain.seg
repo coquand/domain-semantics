@@ -1,0 +1,85 @@
+-- The initial chain and fixed point of the exact CUSL functor.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module F = ScottCUSLExactFunctor[l] ;
+module IC = ScottCUSLInitialChain[l] ;
+module Col = ScottCUSLColimit[l] ;
+
+chain : K.Chain[CU.pre] = IC.initial-chain F.functor ;
+module Limit = Col.On[chain] ;
+candidate : CU.CUSL = Limit.vertex ;
+stage (n : Nat) : CU.CUSL = chain.stage n ;
+leg (n : Nat) : CU.pre.hom (stage n) candidate =
+  Limit.leg n ;
+stage-zero : Id CU.CUSL (stage zero) ScottCUSLInitial[l].one =
+  refl ScottCUSLInitial[l].one ;
+stage-one : Id CU.CUSL (stage (suc zero))
+  (F.object ScottCUSLInitial[l].one) =
+  refl (F.object ScottCUSLInitial[l].one) ;
+module First = F.Heads[stage zero] ;
+first-pi : (stage (suc zero)).order.carrier =
+  First.pi (F.P.object (stage zero)).bottom ;
+first-universe : (stage (suc zero)).order.carrier =
+  First.universe ;
+first-heads-incompatible :
+  CU.Compatible (stage (suc zero)).order
+    first-pi first-universe -> Empty =
+  First.pi-universe-incompatible
+    (F.P.object (stage zero)).bottom ;
+candidate-pi : candidate.order.carrier =
+  (leg (suc zero)).1 first-pi ;
+candidate-universe : candidate.order.carrier =
+  (leg (suc zero)).1 first-universe ;
+candidate-heads-incompatible :
+  CU.Compatible candidate.order
+    candidate-pi candidate-universe -> Empty =
+  \ h -> first-heads-incompatible
+    (CU.Between[stage (suc zero),candidate].compat-reflect
+      (leg (suc zero)) first-pi first-universe h) ;
+module Compact (c : candidate.order.carrier) {
+  -- Use Limit.CompactRepresentation for compact observations of the
+  -- corresponding EP limit; its carrier is candidate.order.carrier.
+  witness : Truncation[l+].Trunc[
+    Limit.CompactRepresentation[c].Witness].carrier =
+    Limit.CompactRepresentation[c].represented ;
+} ;
+
+module Solved = ScottCUSLFixedPoint[l].On[
+  F.functor,ScottCUSLExactPreservation[l].omega] ;
+fold : CU.pre.hom (F.object candidate) candidate = Solved.fold ;
+unfold : CU.pre.hom candidate (F.object candidate) = Solved.unfold ;
+equation : Id CU.CUSL candidate (F.object candidate) =
+  Solved.equation ;
+
+module Heads = F.Heads[candidate] ;
+pi (p : Heads.Payload) : candidate.order.carrier =
+  fold.1 (Heads.pi p) ;
+universe : candidate.order.carrier =
+  fold.1 Heads.universe ;
+id-to-le (x y : candidate.order.carrier)
+  (h : Id candidate.order.carrier x y) :
+  candidate.order.le x y =
+  idJ candidate.order.carrier x
+    (\ z _ -> candidate.order.le x z)
+    (candidate.order.reflexive x) y h ;
+fold-injective (x y : (F.object candidate).order.carrier)
+  (h : Id candidate.order.carrier (fold.1 x) (fold.1 y)) :
+  Id (F.object candidate).order.carrier x y =
+  (F.object candidate).order.antisymmetric x y
+    (CU.Between[F.object candidate,candidate].reflect fold x y
+      (id-to-le (fold.1 x) (fold.1 y) h))
+    (CU.Between[F.object candidate,candidate].reflect fold y x
+      (id-to-le (fold.1 y) (fold.1 x)
+        (sym candidate.order.carrier (fold.1 x) (fold.1 y) h))) ;
+pi-injective (p q : Heads.Payload)
+  (h : Id candidate.order.carrier (pi p) (pi q)) :
+  Id Heads.Payload p q =
+  Heads.pi-payload-injective p q
+    (fold-injective (Heads.pi p) (Heads.pi q) h) ;
+pi-universe-incompatible (p : Heads.Payload)
+  (h : CU.Compatible candidate.order (pi p) universe) : Empty =
+  Heads.pi-universe-incompatible p
+    (CU.Between[F.object candidate,candidate].compat-reflect
+      fold (Heads.pi p) Heads.universe h) ;

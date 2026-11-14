@@ -1,0 +1,59 @@
+-- Pointwise added branch of two CUSL endofunctors.
+level l ;
+open Base ;
+module CU = ScottCUSL[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module B = ScottCUSLAddBranch[l] ;
+module H = Paths[l+] ;
+
+module On (F G : K.Endofunctor[CU.pre]) {
+  object (C : CU.CUSL) : CU.CUSL =
+    B.object (F.object C) (G.object C) ;
+  arrow (C D : CU.CUSL) (e : CU.pre.hom C D) :
+    CU.pre.hom (object C) (object D) =
+    B.arrow (F.object C) (G.object C)
+      (F.object D) (G.object D)
+      (F.arrow C D e) (G.arrow C D e) ;
+  identity (C : CU.CUSL) :
+    Id (CU.pre.hom (object C) (object C))
+      (arrow C C (CU.pre.idn C))
+      (CU.pre.idn (object C)) =
+    H.transH
+      (H.apH (\ e -> B.arrow (F.object C) (G.object C)
+        (F.object C) (G.object C) e
+        (G.arrow C C (CU.pre.idn C)))
+        (F.identity C))
+      (H.transH
+        (H.apH (\ f -> B.arrow (F.object C) (G.object C)
+          (F.object C) (G.object C)
+          (CU.pre.idn (F.object C)) f)
+          (G.identity C))
+        (B.identity (F.object C) (G.object C))) ;
+  composition (C D E : CU.CUSL)
+    (e : CU.pre.hom C D) (f : CU.pre.hom D E) :
+    Id (CU.pre.hom (object C) (object E))
+      (arrow C E (CU.pre.comp C D E f e))
+      (CU.pre.comp (object C) (object D) (object E)
+        (arrow D E f) (arrow C D e)) =
+    H.transH
+      (H.apH (\ a -> B.arrow (F.object C) (G.object C)
+        (F.object E) (G.object E) a
+        (G.arrow C E (CU.pre.comp C D E f e)))
+        (F.composition C D E e f))
+      (H.transH
+        (H.apH (\ b -> B.arrow (F.object C) (G.object C)
+          (F.object E) (G.object E)
+          (CU.pre.comp (F.object C) (F.object D) (F.object E)
+            (F.arrow D E f) (F.arrow C D e)) b)
+          (G.composition C D E e f))
+        (B.composition
+          (F.object C) (G.object C)
+          (F.object D) (G.object D)
+          (F.object E) (G.object E)
+          (F.arrow C D e) (G.arrow C D e)
+          (F.arrow D E f) (G.arrow D E f))) ;
+  functor : K.Endofunctor[CU.pre] =
+    new K.Endofunctor[CU.pre,
+      object := object,arrow := arrow,
+      identity := identity,composition := composition] ;
+} ;

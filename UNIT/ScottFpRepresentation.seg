@@ -1,0 +1,37 @@
+-- On every presented Scott domain the CUSL object represents all finitary
+-- projector operations, and the general adjunction is an order embedding.
+level l ;
+open Base ; open Prelude[l+] ;
+module SF = ScottFinitary[l] ; module EP = ScottEmbeddingProjection[l] ;
+module Push = ScottFinitaryConjugation[l] ; module CR = ScottDomainCategories[l] ;
+module On (D : ScottDomain[l].Scott) {
+  module G = ScottFpAdjunction[l].On[ScottDomainObjects[l].from-presented D] ;
+  module M = ScottMaps[l].Between[D,D] ;
+  module F = G.F ; module A = G.A ; module P = G.P ;
+  out : EP.Between[A.scott,D].Pair = new EP.Between[A.scott,D].Pair[G.r,G.e,G.section,
+    \ x -> CR.le-replace D.order x (G.r.1 (G.e.1 x)) x x
+      (sym D.order.carrier (G.r.1 (G.e.1 x)) x (G.retract x)) (refl x) (D.order.reflexive x)] ;
+  into : EP.Between[D,A.scott].Pair = new EP.Between[D,A.scott].Pair[G.e,G.r,G.retract,
+    \ z -> CR.le-replace A.order z (G.e.1 (G.r.1 z)) z z
+      (sym A.Ideal (G.e.1 (G.r.1 z)) z (G.section z)) (refl z) (A.order.reflexive z)] ;
+  module Include (E : P.Family) {
+    module Q = Push.Pushforward[A.scott,D,out,F.Projector[E].finitary] ;
+    equation : Id M.Map Q.operation (G.include E) = M.ext Q.operation (G.include E)
+      (\ a -> D.order.reflexive (M.run (G.include E) (D.basis.basic a)))
+      (\ a -> D.order.reflexive (M.run (G.include E) (D.basis.basic a))) ;
+    finitary : SF.On[D].Finitary[G.include E] =
+      subst M.Map (\ f -> SF.On[D].Finitary[f]) Q.operation (G.include E) equation Q.finitary ;
+  } ;
+  module Recover (p : SF.On[D].Finitary) {
+    module Q = Push.Pushforward[D,A.scott,into,p] ;
+    equation : Id F.M.Map Q.operation (G.to-ideals p.operation) = F.M.ext Q.operation (G.to-ideals p.operation)
+      (\ a -> A.order.reflexive (F.M.run (G.to-ideals p.operation) (A.principal a)))
+      (\ a -> A.order.reflexive (F.M.run (G.to-ideals p.operation) (A.principal a))) ;
+    finitary : F.FP.Finitary[G.to-ideals p.operation] = subst F.M.Map (\ f -> F.FP.Finitary[f])
+      Q.operation (G.to-ideals p.operation) equation Q.finitary ;
+    represented : Id G.DD.Map (G.include (G.kappa p.operation)) p.operation =
+      trans G.DD.Map (G.include (G.kappa p.operation)) (G.to-domain (G.to-ideals p.operation)) p.operation
+        (ap F.M.Map G.DD.Map G.to-domain F.Interior[G.to-ideals p.operation].Q.map (G.to-ideals p.operation) (F.retract (new F.FP.Finitary[G.to-ideals p.operation,finitary.deflation,finitary.idempotence,finitary.density])))
+        (G.DD.equal (G.to-domain (G.to-ideals p.operation)) p.operation (G.domain-retract p.operation)) ;
+  } ;
+} ;

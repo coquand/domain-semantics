@@ -1,0 +1,84 @@
+-- The presented variable product X x [X -> X] preserves EP-chain colimits.
+level l ;
+open Base ; open Prelude[l+] ;
+module Pres = ScottPresentedEP[l] ;
+module F = ScottEPExactCore[l] ;
+module SD = ScottDomain[l] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module DM = ScottDomainMaps[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module H = Paths[l+] ;
+
+module Canonical (S : K.Chain[Pres.pre]) {
+  module C = Pres.Chain[S] ;
+  module M = K.Mapped[Pres.pre,F.functor,S,
+    C.vertex,C.leg,C.law] ;
+  module T = Pres.Chain[M.chain] ;
+  module X = ScottEPExactCoreComparison[l].On[C.presented] ;
+  source : SD.Scott = F.object C.vertex ;
+  target : SD.Scott = T.vertex ;
+  comparison : EP.pre.Iso (SO.from-presented source)
+    (SO.from-presented target) = X.categorical ;
+  module Transfer = CategoryColimitIso[l++,l+].On[
+    Pres.pre,M.chain,source,target,
+    M.leg,M.law,T.leg,T.universal,
+    comparison,\ n -> X.At[n].equation] ;
+  preserved : K.Colimit[Pres.pre,M.chain,source,M.leg] =
+    Transfer.colimit ;
+} ;
+
+module Preserve (S : K.Chain[Pres.pre]) (L : SD.Scott)
+  (leg : (n : Nat) -> Pres.pre.hom (S.stage n) L)
+  (leg-law : (n : Nat) -> Id (Pres.pre.hom (S.stage n) L)
+    (Pres.pre.comp (S.stage n) (S.stage (suc n)) L
+      (leg (suc n)) (S.link n)) (leg n))
+  (c : K.Colimit[Pres.pre,S,L,leg]) {
+  module C = Pres.Chain[S] ;
+  module J = CategoryColimitComparison[l++,l+].On[
+    Pres.pre,S,L,C.vertex,leg,leg-law,c,
+    C.leg,C.law,C.universal] ;
+  module M = K.Mapped[Pres.pre,F.functor,S,L,leg,leg-law] ;
+  module N = K.Mapped[Pres.pre,F.functor,S,
+    C.vertex,C.leg,C.law] ;
+  module MapIso = CategoryEndofunctorIso[l++,l+].On[
+    Pres.pre,F.functor] ;
+  mapped-iso : Pres.pre.Iso (F.object L) (F.object C.vertex) =
+    MapIso.map L C.vertex J.iso ;
+  compat (n : Nat) : Id (Pres.pre.hom
+      (F.object (S.stage n)) (F.object C.vertex))
+    (Pres.pre.comp (F.object (S.stage n)) (F.object L)
+      (F.object C.vertex) mapped-iso.1 (M.leg n))
+    (N.leg n) =
+    trans (Pres.pre.hom
+      (F.object (S.stage n)) (F.object C.vertex))
+      (Pres.pre.comp (F.object (S.stage n)) (F.object L)
+        (F.object C.vertex) mapped-iso.1 (M.leg n))
+      (F.action (S.stage n) C.vertex
+        (Pres.pre.comp (S.stage n) L C.vertex J.forward (leg n)))
+      (N.leg n)
+      (sym (Pres.pre.hom
+        (F.object (S.stage n)) (F.object C.vertex))
+        (F.action (S.stage n) C.vertex
+          (Pres.pre.comp (S.stage n) L C.vertex J.forward (leg n)))
+        (Pres.pre.comp (F.object (S.stage n)) (F.object L)
+          (F.object C.vertex) mapped-iso.1 (M.leg n))
+        (F.composition (S.stage n) L C.vertex
+          (leg n) J.forward))
+      (ap (Pres.pre.hom (S.stage n) C.vertex)
+        (Pres.pre.hom (F.object (S.stage n)) (F.object C.vertex))
+        (F.action (S.stage n) C.vertex)
+        (Pres.pre.comp (S.stage n) L C.vertex J.forward (leg n))
+        (C.leg n) (J.forward-leg n)) ;
+  module Transfer = CategoryColimitIso[l++,l+].On[
+    Pres.pre,M.chain,F.object L,F.object C.vertex,
+    M.leg,M.law,N.leg,Canonical[S].preserved,
+    mapped-iso,compat] ;
+  preserved : K.Colimit[Pres.pre,M.chain,F.object L,M.leg] =
+    Transfer.colimit ;
+} ;
+
+omega : K.OmegaContinuous[Pres.pre,F.functor] =
+  new K.OmegaContinuous[Pres.pre,F.functor,
+    preserve := \ S L leg law c ->
+      Preserve[S,L,leg,law,c].preserved] ;

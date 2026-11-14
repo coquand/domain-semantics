@@ -1,0 +1,66 @@
+-- The Fp / endomap adjunction on any Scott domain, via its canonical ideals.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ; module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ; module CR = ScottDomainCategories[l] ;
+module EQ = ScottCUSLEquivalence[l] ; module KM = ScottCUSLCompacts[l].Functor ;
+module CF = ScottCUSLClosedFamilies[l] ; module FP = ScottCUSLFpProjector[l] ;
+module On (D : SO.Domain) {
+  C : ScottCUSL[l].CUSL = KM.object D ;
+  module P = CF.On[C] ; module A = P.A ; module F = FP.On[C] ;
+  module DD = DM.Between[D,D] ; module DA = DM.Between[D,A.domain] ; module AD = DM.Between[A.domain,D] ;
+  module AA = DM.Between[A.domain,A.domain] ;
+  iso : CR.Continuous.pre.Iso D A.domain = EP.embedding-iso D A.domain (EQ.equivalence.unit-target D) ;
+  e : DA.Map = iso.1 ; r : AD.Map = iso.2.1 ;
+  retract (x : D.order.carrier) : Id D.order.carrier (AD.run r (DA.run e x)) x =
+    ap DD.Map D.order.carrier (\ f -> DD.run f x) (DM.Triple[D,A.domain,D].compose r e) DM.End[D].identity iso.2.2.1 ;
+  section (z : A.Ideal) : Id A.Ideal (DA.run e (AD.run r z)) z =
+    ap AA.Map A.Ideal (\ f -> AA.run f z) (DM.Triple[A.domain,D,A.domain].compose e r) DM.End[A.domain].identity iso.2.2.2 ;
+  Below (f g : DD.Map) : U l+ = (x : D.order.carrier) -> D.order.le (DD.run f x) (DD.run g x) ;
+  to-ideals (f : DD.Map) : F.M.Map = DM.Triple[A.domain,D,A.domain].compose e (DM.Triple[A.domain,D,D].compose f r) ;
+  to-domain (g : F.M.Map) : DD.Map = DM.Triple[D,A.domain,D].compose r (DM.Triple[D,A.domain,A.domain].compose g e) ;
+  module IdealRetract (g : F.M.Map) {
+    point (z : A.Ideal) : Id A.Ideal (F.M.run (to-ideals (to-domain g)) z) (F.M.run g z) =
+      trans A.Ideal (F.M.run (to-ideals (to-domain g)) z) (F.M.run g (DA.run e (AD.run r z))) (F.M.run g z)
+        (section (F.M.run g (DA.run e (AD.run r z))))
+        (ap A.Ideal A.Ideal (F.M.run g) (DA.run e (AD.run r z)) z (section z)) ;
+    equation : Id F.M.Map (to-ideals (to-domain g)) g = F.M.ext (to-ideals (to-domain g)) g
+      (\ a -> CR.le-replace A.order (F.M.run (to-ideals (to-domain g)) (A.principal a))
+        (F.M.run (to-ideals (to-domain g)) (A.principal a))
+        (F.M.run (to-ideals (to-domain g)) (A.principal a)) (F.M.run g (A.principal a))
+        (refl (F.M.run (to-ideals (to-domain g)) (A.principal a))) (point (A.principal a))
+        (A.order.reflexive (F.M.run (to-ideals (to-domain g)) (A.principal a))))
+      (\ a -> CR.le-replace A.order (F.M.run (to-ideals (to-domain g)) (A.principal a)) (F.M.run g (A.principal a))
+        (F.M.run (to-ideals (to-domain g)) (A.principal a)) (F.M.run (to-ideals (to-domain g)) (A.principal a))
+        (point (A.principal a)) (refl (F.M.run (to-ideals (to-domain g)) (A.principal a)))
+        (A.order.reflexive (F.M.run (to-ideals (to-domain g)) (A.principal a)))) ;
+  } ;
+  domain-retract (f : DD.Map) (x : D.order.carrier) : Id D.order.carrier
+    (DD.run (to-domain (to-ideals f)) x) (DD.run f x) =
+    trans D.order.carrier (DD.run (to-domain (to-ideals f)) x)
+      (DD.run f (AD.run r (DA.run e x))) (DD.run f x)
+      (retract (DD.run f (AD.run r (DA.run e x))))
+      (ap D.order.carrier D.order.carrier (DD.run f) (AD.run r (DA.run e x)) x (retract x)) ;
+  to-ideals-mono (f g : DD.Map) (h : Below f g) : F.M.LE (to-ideals f) (to-ideals g) = \ a ->
+    DA.mono e (DD.run f (AD.run r (A.principal a))) (DD.run g (AD.run r (A.principal a))) (h (AD.run r (A.principal a))) ;
+  to-domain-mono (f g : F.M.Map) (h : F.M.LE f g) : Below (to-domain f) (to-domain g) = \ x ->
+    AD.mono r (F.M.run f (DA.run e x)) (F.M.run g (DA.run e x)) (F.M.pointwise f g h (DA.run e x)) ;
+  include (E : P.Family) : DD.Map = to-domain F.Projector[E].map ;
+  kappa (f : DD.Map) : P.Family = F.Interior[to-ideals f].family ;
+  module Adjunction (E : P.Family) (f : DD.Map) {
+    forward (h : Below (include E) f) : P.Inc E (kappa f) = (F.Interior[to-ideals f].adjunction E).1
+      (subst F.M.Map (\ g -> F.M.LE g (to-ideals f)) (to-ideals (include E)) F.Projector[E].map
+        IdealRetract[F.Projector[E].map].equation (to-ideals-mono (include E) f h)) ;
+    backward (h : P.Inc E (kappa f)) : Below (include E) f = \ x ->
+      CR.le-replace D.order (DD.run (include E) x) (DD.run (include E) x)
+        (DD.run (to-domain (to-ideals f)) x) (DD.run f x) (refl (DD.run (include E) x)) (domain-retract f x)
+        (to-domain-mono F.Projector[E].map (to-ideals f) ((F.Interior[to-ideals f].adjunction E).2 h) x) ;
+  } ;
+  adjunction (E : P.Family) (f : DD.Map) : (Below (include E) f -> P.Inc E (kappa f)) *
+    (P.Inc E (kappa f) -> Below (include E) f) = (Adjunction[E,f].forward,Adjunction[E,f].backward) ;
+  retraction (E : P.Family) : Id P.Family (kappa (include E)) E =
+    trans P.Family (kappa (include E)) F.Interior[F.Projector[E].map].family E
+      (ap F.M.Map P.Family (\ g -> F.Interior[g].family) (to-ideals (include E)) F.Projector[E].map IdealRetract[F.Projector[E].map].equation)
+      (F.family-retract E) ;
+  below (f : DD.Map) : Below (include (kappa f)) f = Adjunction[kappa f,f].backward (P.irefl (kappa f)) ;
+} ;

@@ -1,0 +1,33 @@
+-- Small directed embedding diagrams and their categorical universal property.
+-- The interface also allows directed graphs; no extra coherence is assumed.
+level k l j ;
+open Base ;
+module CAT = Category[k,l] ; module O = ScottOrder[j] ; module CE = CategoryEquivalence[k,l] ;
+module H = Paths[l] ;
+record Diagram (C : CAT.Precategory) {
+  index : U j ; rel : index -> index -> U j ;
+  inhabited : O.Ex index ; upper (i h : index) : O.Ex ((n : index) * (rel i n * rel h n)) ;
+  stage : index -> C.ob ; link (i h : index) : rel i h -> C.hom (stage i) (stage h) ;
+} ;
+Coherent (C : CAT.Precategory) (D : Diagram[C]) (L : C.ob)
+  (leg : (i : D.index) -> C.hom (D.stage i) L) : U (l \/ j) =
+  (i h : D.index) (p : D.rel i h) -> Id (C.hom (D.stage i) L)
+    (C.comp (D.stage i) (D.stage h) L (leg h) (D.link i h p)) (leg i) ;
+record Colimit (C : CAT.Precategory) (D : Diagram[C]) (L : C.ob)
+  (leg : (i : D.index) -> C.hom (D.stage i) L) {
+  mediator (Y : C.ob) (q : (i : D.index) -> C.hom (D.stage i) Y) (h : Coherent C D Y q) : C.hom L Y ;
+  factor (Y : C.ob) (q : (i : D.index) -> C.hom (D.stage i) Y) (h : Coherent C D Y q) (i : D.index) :
+    Id (C.hom (D.stage i) Y) (C.comp (D.stage i) L Y (mediator Y q h) (leg i)) (q i) ;
+  unique (Y : C.ob) (q : (i : D.index) -> C.hom (D.stage i) Y) (h : Coherent C D Y q)
+    (f : C.hom L Y) (law : (i : D.index) -> Id (C.hom (D.stage i) Y) (C.comp (D.stage i) L Y f (leg i)) (q i)) :
+    Id (C.hom L Y) f (mediator Y q h) ;
+} ;
+module Mapped (C D : CAT.Precategory) (F : CE.Functor[C,D]) (S : Diagram[C])
+  (L : C.ob) (leg : (i : S.index) -> C.hom (S.stage i) L) (law : Coherent C S L leg) {
+  diagram : Diagram[D] = new Diagram[D,S.index,S.rel,S.inhabited,S.upper,
+    \ i -> F.object (S.stage i),\ i h p -> F.arrow (S.stage i) (S.stage h) (S.link i h p)] ;
+  legs (i : S.index) : D.hom (diagram.stage i) (F.object L) = F.arrow (S.stage i) L (leg i) ;
+  coherent : Coherent D diagram (F.object L) legs = \ i h p ->
+    H.transH (H.symH (F.composition (S.stage i) (S.stage h) L (S.link i h p) (leg h)))
+      (H.apH (F.arrow (S.stage i) L) (law i h p)) ;
+} ;

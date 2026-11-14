@@ -1,0 +1,35 @@
+-- Compact fixed-point coverage suffices for finitariness. No typing.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Finitary[l] ;
+module T = TruncationCombinators[l] ;
+
+module Deflation (f : Map) (below : (x : D) -> Domain[l].Below (run f x) x) {
+  bottom-fixed : Fixed f bottom = (below bottom,bottom-least (run f bottom)) ;
+  fixed-in (k : K) (h : Fixed f (principal k)) (x : D) (inside : In x k.1) : In (run f x) k.1 =
+    f.2.1 (principal k) x (prin-sub k.1 x.1 inside) k.1 (h.2 k.1 (prin-in k.1)) ;
+  join-fixed (a b : K) (c : Cons (meet a.1 b.1))
+    (ha : Fixed f (principal a)) (hb : Fixed f (principal b)) : Fixed f (principal (CompactFamilies[l].joinK a b c)) =
+    (below (principal (CompactFamilies[l].joinK a b c)),
+     prin-sub (meet a.1 b.1) (run f (principal (CompactFamilies[l].joinK a b c))).1
+       (fmeet (run f (principal (CompactFamilies[l].joinK a b c))).1 a.1 b.1
+         (fixed-in a ha (principal (CompactFamilies[l].joinK a b c)) (ex (Le (meet a.1 b.1) a.1) (le-meet-l a.1 b.1)))
+         (fixed-in b hb (principal (CompactFamilies[l].joinK a b c)) (ex (Le (meet a.1 b.1) b.1) (le-meet-r a.1 b.1))))) ;
+  empty (x : D) : FixedBasis f x om = (bottomK,(bottom-fixed,(fom x.1,le-refl om))) ;
+  merge (x : D) (s t : Ty) (a : FixedBasis f x s) (b : FixedBasis f x t) : FixedBasis f x (meet s t) =
+    (CompactFamilies[l].joinK a.1 b.1 c,(join-fixed a.1 b.1 c a.2.1 b.2.1,
+      (h,le-meet-mono a.1.1 s b.1.1 t a.2.2.2 b.2.2.2)))
+    where {
+      h : In x (meet a.1.1 b.1.1) = fmeet x.1 a.1.1 b.1.1 a.2.2.1 b.2.2.1 ;
+      c : Cons (meet a.1.1 b.1.1) = consistent x (meet a.1.1 b.1.1) h ; } ;
+  weaken (x : D) (s t : Ty) (le : Le s t) (a : FixedBasis f x s) : FixedBasis f x t =
+    (a.1,(a.2.1,(a.2.2.1,le-trans a.1.1 s t a.2.2.2 le))) ;
+  module Covered (cover : (x : D) (t : Ty) -> In (run f x) t -> Ex (FixedBasis f x t)) {
+    inflate (x : D) : Domain[l].Below (run f x) (run f (run f x)) = \ t h ->
+      ex-elim (FixedBasis f x t) (In (run f (run f x)) t) (fprop (run f (run f x)).1 t)
+        (\ w -> fup (run f (run f x)).1 w.1.1 t w.2.2.2
+          (fixed-in w.1 w.2.1 (run f x) (fixed-in w.1 w.2.1 x w.2.2.1))) (cover x t h) ;
+    finitary : Finitary[l].Finitary[f] = new Finitary[l].Finitary[f,below,\ x -> (below (run f x),inflate x),
+      \ x fixed t h -> cover x t (fixed.2 t h)] ;
+  } ;
+} ;

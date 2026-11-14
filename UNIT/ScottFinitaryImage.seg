@@ -1,0 +1,64 @@
+-- The fixed image of any finitary projection is a Scott domain.
+-- Unlike a rigid image, this needs density, not downward closure.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+
+module Image (S : ScottDomain[l].Scott) (p : ScottFinitary[l].On[S].Finitary) {
+  module A = ScottDomain[l].On[S] ; module M = ScottMaps[l].Between[S,S] ;
+  module R = ScottFinitary[l].On[S] ; module L = R.Laws[p] ;
+  module O = ScottOrder[l].On[S.order] ; module V = DC[S.order,S.complete] ;
+  carrier : U l+ = (x : A.C) * R.Fixed p.operation x ;
+  le (x y : carrier) : U l = A.LE x.1 y.1 ;
+  ext (x y : carrier) (xy : le x y) (yx : le y x) : Id carrier x y =
+    Sigma-eq A.C (\ z -> R.Fixed p.operation z) x.1 y.1 x.2 y.2
+      (S.order.antisymmetric x.1 y.1 xy yx) (S.order.proposition y.1 (L.run y.1)) ;
+  order : Order = new Order[carrier := carrier,le := le,
+    proposition := \ x y -> S.order.proposition x.1 y.1,
+    reflexive := \ x -> S.order.reflexive x.1,
+    transitive := \ x y z -> S.order.transitive x.1 y.1 z.1,antisymmetric := ext] ;
+  module Q = ScottOrder[l].On[order] ;
+  lift-sup (I : U l) (x : I -> carrier) (s : O.Supremum I (\ i -> (x i).1)) : Q.Supremum I x =
+    ((s.1,L.closed I (\ i -> (x i).1) s.1 s.2 (\ i -> (x i).2)),
+      (s.2.1,\ y h -> s.2.2 y.1 h)) ;
+  complete : Complete[order] = new Complete[order,
+    directed := \ I x d -> lift-sup I x (S.complete.directed I (\ i -> (x i).1) d),
+    bounded := \ I x b h -> lift-sup I x (S.complete.bounded I (\ i -> (x i).1) b.1 h)] ;
+  module W = DC[order,complete] ;
+  index : U l = (a : A.B) * R.Fixed p.operation (A.basic a) ;
+  basic (a : index) : carrier = (A.basic a.1,a.2) ;
+  Local (x : carrier) : U l = (a : index) * le (basic a) x ;
+  part (x : carrier) (a : Local x) : carrier = basic a.1 ;
+  include (x : carrier) (w : (a : A.B) * (R.Fixed p.operation (A.basic a) * A.LE (A.basic a) x.1)) : Local x =
+    ((w.1,w.2.1),w.2.2) ;
+  inhabited (x : carrier) : Ex (Local x) = T.bind (A.BI x.1) (Local x)
+    (\ a -> T.map (R.Witness p.operation x.1 a.1) (Local x)
+      (\ w -> ((w.1,w.2.1),w.2.2.1)) (p.density x.1 x.2 a.1 a.2)) (A.dir x.1).1 ;
+  upper (x : carrier) (a b : Local x) : Ex (Q.Upper (Local x) (part x) a b) =
+    T.bind (O.Upper (A.BI x.1) (A.part x.1) (a.1.1,a.2) (b.1.1,b.2))
+      (Q.Upper (Local x) (part x) a b)
+      (\ c -> T.map (R.Witness p.operation x.1 c.1.1) (Q.Upper (Local x) (part x) a b)
+        (\ w -> (((w.1,w.2.1),w.2.2.1),
+          (S.order.transitive (A.basic a.1.1) (A.basic c.1.1) (A.basic w.1) c.2.1 w.2.2.2,
+           S.order.transitive (A.basic b.1.1) (A.basic c.1.1) (A.basic w.1) c.2.2 w.2.2.2)))
+        (p.density x.1 x.2 c.1.1 c.1.2)) ((A.dir x.1).2 (a.1.1,a.2) (b.1.1,b.2)) ;
+  density (x y : carrier) (h : (a : index) -> le (basic a) x -> le (basic a) y) : le x y =
+    S.basis.density x.1 y.1 (\ a ax -> T.rec (R.Witness p.operation x.1 a) @l
+      (A.LE (A.basic a) y.1) (S.order.proposition (A.basic a) y.1)
+      (\ w -> S.order.transitive (A.basic a) (A.basic w.1) y.1 w.2.2.2 (h (w.1,w.2.1) w.2.2.1))
+      (p.density x.1 x.2 a ax)) ;
+  basis : ScottDomain[l].Basis[order,complete] = new ScottDomain[l].Basis[order,complete,
+    index := index,basic := basic,compact := \ a I x d h -> S.basis.compact a.1 I (\ i -> (x i).1) d h,
+    directed := \ x -> (inhabited x,upper x),density := density] ;
+  bottom : carrier = (S.bottom,S.bottom-least (L.run S.bottom)) ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order,complete := complete,basis := basis,
+    bottom := bottom,bottom-least := \ x -> S.bottom-least x.1] ;
+  module E = ScottMaps[l].Between[scott,S] ; module P = ScottMaps[l].Between[S,scott] ;
+  embed : E.Map = (\ x -> x.1,(\ x y h -> h,\ I x d z h -> V.least I (\ i -> (x i).1) d z h)) ;
+  project : P.Map = (\ x -> (L.run x,p.idempotence x),
+    (M.mono p.operation,\ I x d z h -> M.continuous p.operation I x d z.1 h)) ;
+  retract (x : carrier) : Id carrier (P.run project (E.run embed x)) x =
+    ext (P.run project (E.run embed x)) x (p.deflation x.1) x.2 ;
+  pair : ScottEmbeddingProjection[l].Between[scott,S].Pair =
+    new ScottEmbeddingProjection[l].Between[scott,S].Pair[embed,project,retract,p.deflation] ;
+} ;

@@ -1,0 +1,33 @@
+-- Image comparison and reflection of compactness for arbitrary Scott EP pairs.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ; module DM = ScottDomainMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ; module S = ScottOrder[l] ;
+module TC = TruncationCombinators[l] ; module CR = ScottDomainCategories[l] ;
+module On (A D : SO.Domain) (q : EP.Between[A,D].Pair) {
+  module M = DM.Between[A,D] ; module R = DM.Between[D,A] ;
+  module V = S.DC[D.order,D.complete] ; module W = S.DC[A.order,A.complete] ;
+  e : M.Map = q.1.1 ; r : R.Map = q.1.2 ;
+  lower (a : A.order.carrier) (z : D.order.carrier) (h : A.order.le a (R.run r z)) : D.order.le (M.run e a) z =
+    D.order.transitive (M.run e a) (M.run e (R.run r z)) z (M.mono e a (R.run r z) h) (q.2.2 z) ;
+  upper (a : A.order.carrier) (z : D.order.carrier) (h : D.order.le (M.run e a) z) : A.order.le a (R.run r z) =
+    CR.le-replace A.order (R.run r (M.run e a)) a (R.run r z) (R.run r z)
+      (q.2.1 a) (refl (R.run r z)) (R.mono r (M.run e a) z h) ;
+  reflect (a b : A.order.carrier) (h : D.order.le (M.run e a) (M.run e b)) : A.order.le a b =
+    CR.le-replace A.order a a (R.run r (M.run e b)) b (refl a) (q.2.1 b) (upper a (M.run e b) h) ;
+  compact-reflect (a : A.order.carrier) (c : V.Compact (M.run e a)) : W.Compact a = \ I x d h ->
+    TC.map ((i : I) * D.order.le (M.run e a) (M.run e (x i))) ((i : I) * A.order.le a (x i))
+      (\ w -> (w.1,reflect a (x w.1) w.2))
+      (c I (\ i -> M.run e (x i)) (M.image-dir e I x d)
+        (D.order.transitive (M.run e a) (M.run e (W.sup I x d))
+          (V.sup I (\ i -> M.run e (x i)) (M.image-dir e I x d))
+          (M.mono e a (W.sup I x d) h)
+          (M.continuous e I x d (V.sup I (\ i -> M.run e (x i)) (M.image-dir e I x d))
+            (V.upper I (\ i -> M.run e (x i)) (M.image-dir e I x d))))) ;
+} ;
+module Factor (A B D : SO.Domain) (f : EP.Between[A,B].Pair) (g : EP.Between[B,D].Pair) {
+  module GD = DM.Between[B,D] ; module RG = DM.Between[D,B] ;
+  composed : EP.Between[A,D].Pair = EP.compose A B D g f ;
+  below (x : D.order.carrier) : D.order.le (composed.1.1.1 (composed.1.2.1 x)) (g.1.1.1 (g.1.2.1 x)) =
+    GD.mono g.1.1 (f.1.1.1 (f.1.2.1 (g.1.2.1 x))) (g.1.2.1 x) (f.2.2 (g.1.2.1 x)) ;
+} ;

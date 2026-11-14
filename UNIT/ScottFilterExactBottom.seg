@@ -1,0 +1,91 @@
+-- The old bottom function corresponds to the least ideal in the
+-- exact compact function branch.
+level l ;
+open Base ; open Prelude[l+] ;
+module S = ScottOrder[l] ;
+module SO = ScottDomainObjects[l] ;
+module SC = ScottDomainCategories[l] ;
+module F = ScottFilterFunctionComparison[l] ;
+module Components = ScottFilterExactComponents[l] ;
+module FI = ScottFilterFunctionIdealComparison[l] ;
+module Old = Parts[l] ;
+module D = Domain[l] ;
+module A = Abstraction[l] ;
+
+preserves-least (A B : S.Order) (i : SO.OrderIso A B)
+  (a : A.carrier) (b : B.carrier)
+  (least-A : (x : A.carrier) -> A.le a x)
+  (least-B : (y : B.carrier) -> B.le b y) :
+  Id B.carrier (i.1.1 a) b =
+  B.antisymmetric (i.1.1 a) b
+    (SC.le-replace B
+      (i.1.1 a) (i.1.1 a)
+      (i.1.1 (i.1.2.sec b)) b
+      (refl (i.1.1 a)) (i.1.2.sec-eq b)
+      (i.2.1 a (i.1.2.sec b)
+        (least-A (i.1.2.sec b))))
+    (least-B (i.1.1 a)) ;
+
+function-bottom : Id FI.TargetIdeal.O.Ideal
+  (Components.function-component.1.1 Old.bottom-function)
+  FI.TargetIdeal.O.least =
+  preserves-least F.order FI.TargetIdeal.domain.order
+    Components.function-component
+    Old.bottom-function FI.TargetIdeal.O.least
+    (\ f -> D.bottom-least f.1)
+    FI.TargetIdeal.O.least-law ;
+
+old-bottom-to-ideal (f : A.FD)
+  (h : D.Equal f.1 D.bottom) :
+  Id FI.TargetIdeal.O.Ideal
+    (Components.function-component.1.1 f)
+    FI.TargetIdeal.O.least =
+  trans FI.TargetIdeal.O.Ideal
+    (Components.function-component.1.1 f)
+    (Components.function-component.1.1 Old.bottom-function)
+    FI.TargetIdeal.O.least
+    (ap A.FD FI.TargetIdeal.O.Ideal
+      Components.function-component.1.1
+      f Old.bottom-function (A.function-ext f Old.bottom-function h))
+    function-bottom ;
+
+ideal-bottom-to-old-id (f : A.FD)
+  (h : Id FI.TargetIdeal.O.Ideal
+    (Components.function-component.1.1 f)
+    FI.TargetIdeal.O.least) :
+  Id A.FD f Old.bottom-function =
+  trans A.FD f
+    (Components.function-component.1.2.sec
+      (Components.function-component.1.1 f))
+    Old.bottom-function
+    (sym A.FD
+      (Components.function-component.1.2.sec
+        (Components.function-component.1.1 f)) f
+      (Components.function-component.1.2.ret-eq f))
+    (trans A.FD
+      (Components.function-component.1.2.sec
+        (Components.function-component.1.1 f))
+      (Components.function-component.1.2.sec
+        (Components.function-component.1.1 Old.bottom-function))
+      Old.bottom-function
+      (ap FI.TargetIdeal.O.Ideal A.FD
+        Components.function-component.1.2.sec
+        (Components.function-component.1.1 f)
+        (Components.function-component.1.1 Old.bottom-function)
+        (trans FI.TargetIdeal.O.Ideal
+          (Components.function-component.1.1 f)
+          FI.TargetIdeal.O.least
+          (Components.function-component.1.1 Old.bottom-function)
+          h
+          (sym FI.TargetIdeal.O.Ideal
+            (Components.function-component.1.1 Old.bottom-function)
+            FI.TargetIdeal.O.least function-bottom)))
+      (Components.function-component.1.2.ret-eq Old.bottom-function)) ;
+ideal-bottom-to-old (f : A.FD)
+  (h : Id FI.TargetIdeal.O.Ideal
+    (Components.function-component.1.1 f)
+    FI.TargetIdeal.O.least) :
+  D.Equal f.1 D.bottom =
+  ExtFilter[l].id-eqv f.1.1 D.bottom.1
+    (ap A.FD ExtFilter[l].Filt (\ g -> g.1.1)
+      f Old.bottom-function (ideal-bottom-to-old-id f h)) ;

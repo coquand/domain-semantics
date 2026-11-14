@@ -1,0 +1,71 @@
+-- A coherent family of subdomains has a total space embedded in a product.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module Ops = ScottMapOperations[l] ; module EP = ScottEmbeddingProjection[l] ;
+
+module BaseChange (A C D : ScottDomain[l].Scott)
+  (B : ScottDependentProduct[l].Over[A,D].Family) (f : ScottMaps[l].Between[C,A].Map) {
+  module M = ScottMaps[l].Between[C,A] ; module V = DC[A.order,A.complete] ;
+  module DD = ScottMaps[l].Between[D,D] ;
+  module Preserve (I : U l) (x : I -> C.order.carrier) (d : ScottOrder[l].On[C.order].Dir I x)
+    (z y : D.order.carrier) (bounds : (i : I) -> D.order.le (DD.run (B.projection (M.run f (x i))).operation z) y) {
+    values (i : I) : A.order.carrier = M.run f (x i) ;
+    directed : ScottOrder[l].On[A.order].Dir I values = M.image-dir f.1 (M.mono f) I x d ;
+    inclusion : D.order.le (DD.run (B.projection (M.run f (M.C.sup I x d))).operation z) y =
+      D.order.transitive (DD.run (B.projection (M.run f (M.C.sup I x d))).operation z)
+        (DD.run (B.projection (V.sup I values directed)).operation z) y
+        (B.increasing (M.run f (M.C.sup I x d)) (V.sup I values directed)
+          (M.continuous f I x d (V.sup I values directed) (V.upper I values directed)) z)
+        (B.continuous I values directed z y bounds) ;
+  } ;
+  family : ScottDependentProduct[l].Over[C,D].Family =
+    new ScottDependentProduct[l].Over[C,D].Family[\ c -> B.projection (M.run f c),
+      \ c e h -> B.increasing (M.run f c) (M.run f e) (M.mono f c e h),
+      \ I x d z y h -> Preserve[I,x,d,z,y,h].inclusion] ;
+} ;
+
+module Embedding (A C D : ScottDomain[l].Scott)
+  (B : ScottDependentProduct[l].Over[A,D].Family) (input : EP.Between[A,C].Pair) {
+  module S = ScottDependentSum[l].Total[A,D,B] ; module P = ScottProduct[l].Product[C,D] ;
+  module AC = ScottMaps[l].Between[A,C] ; module CA = ScottMaps[l].Between[C,A] ;
+  module DD = ScottMaps[l].Between[D,D] ; module PA = ScottMaps[l].Between[P.scott,A] ;
+  module PD = ScottMaps[l].Between[P.scott,D] ;
+  module E = ScottMaps[l].Between[S.scott,P.scott] ; module R = ScottMaps[l].Between[P.scott,S.scott] ;
+  base : PA.Map = (\ x -> CA.run input.project x.1,
+    (\ x y h -> CA.mono input.project x.1 y.1 h.1,
+     \ I x d a h -> CA.continuous input.project I (\ i -> (x i).1) (P.left-dir I x d) a h)) ;
+  argument : PD.Map = (\ x -> x.2,
+    (\ x y h -> h.2,\ I x d z h -> P.BV.least I (\ i -> (x i).2) (P.right-dir I x d) z h)) ;
+  module Pulled = BaseChange[A,P.scott,D,B,base] ;
+  module Value = ScottDependentProductEmbedding[l].Diagonal[P.scott,D,Pulled.family,argument] ;
+  embed-value (s : S.carrier) : P.C = (AC.run input.embed s.1.1,s.1.2) ;
+  project-value (x : P.C) : S.carrier =
+    ((PA.run base x,PD.run Value.map x),(B.projection (PA.run base x)).idempotence x.2) ;
+  embed : E.Map = (embed-value,
+    (\ s t h -> (AC.mono input.embed s.1.1 t.1.1 h.1,h.2),
+     \ I s d z h ->
+       (AC.continuous input.embed I (\ i -> (s i).1.1) (S.P.left-dir I (\ i -> (s i).1) d) z.1 (\ i -> (h i).1),
+        S.W.least I (\ i -> (s i).1.2) (S.P.right-dir I (\ i -> (s i).1) d) z.2 (\ i -> (h i).2)))) ;
+  project : R.Map = (project-value,
+    (\ x y h -> (PA.mono base x y h,PD.mono Value.map x y h),
+     \ I x d s h -> (PA.continuous base I x d s.1.1 (\ i -> (h i).1),
+       PD.continuous Value.map I x d s.1.2 (\ i -> (h i).2)))) ;
+  module Retract (s : S.carrier) {
+    a : A.order.carrier = PA.run base (embed-value s) ;
+    equation : Id A.order.carrier a s.1.1 = input.retract s.1.1 ;
+    lower : A.order.le a s.1.1 = Ops.replace A.order a a a s.1.1
+      (refl a) equation (A.order.reflexive a) ;
+    upper : A.order.le s.1.1 a = Ops.replace A.order a s.1.1 a a
+      equation (refl a) (A.order.reflexive a) ;
+    fixed : D.order.le s.1.2 (DD.run (B.projection a).operation s.1.2) =
+      D.order.transitive s.1.2 (DD.run (B.projection s.1.1).operation s.1.2)
+        (DD.run (B.projection a).operation s.1.2) s.2 (B.increasing s.1.1 a upper s.1.2) ;
+    result : Id S.carrier (project-value (embed-value s)) s = S.ext (project-value (embed-value s)) s
+      (lower,(B.projection a).deflation s.1.2) (upper,fixed) ;
+  } ;
+  below (x : P.C) : P.LE (embed-value (project-value x)) x =
+    (input.below x.1,(B.projection (PA.run base x)).deflation x.2) ;
+  pair : EP.Between[S.scott,P.scott].Pair =
+    new EP.Between[S.scott,P.scott].Pair[embed,project,\ s -> Retract[s].result,below] ;
+  finitary : ScottFinitary[l].On[P.scott].Finitary = EP.Projection[S.scott,P.scott,pair].finitary ;
+} ;

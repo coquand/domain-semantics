@@ -1,0 +1,87 @@
+-- The variable product X x [X -> X] commutes with an EP-chain limit.
+level l ;
+open Base ; open Prelude[l+] ;
+module SD = ScottDomain[l] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module DM = ScottDomainMaps[l] ;
+module Limit = ScottEPLimit[l] ;
+module Iso = ScottEPOrderIso[l] ;
+module Core = ScottEPExactCore[l] ;
+module H = Paths[l+] ;
+
+module On (S : Limit.Chain) {
+  module X = ScottEPLimitExponential[l].On[S] ;
+  module P = ScottEPLimitBinaryProduct[l].On[S,X.chain] ;
+  module Q = ScottEPProduct[l].Iso[X.D,X.E,X.T,X.order-iso] ;
+  source : SD.Scott = Core.object X.D ;
+  target : SD.Scott = P.V ;
+  comparison : SO.OrderIso source.order target.order =
+    Iso.compose source.order P.P.order target.order Q.iso P.iso ;
+  categorical : EP.pre.Iso (SO.from-presented source)
+    (SO.from-presented target) =
+    EP.from-order (SO.from-presented source)
+      (SO.from-presented target) comparison ;
+  module C = ScottEPLimitCone[l].On[S] ;
+  module V = ScottEPLimitCone[l].On[P.chain] ;
+  mapped-leg (n : Nat) :
+    EP.pre.hom (SO.from-presented (Core.object (S.stage n)))
+      (SO.from-presented source) =
+    Core.action (S.stage n) X.D C.At[n].pair ;
+  mapped-law (n : Nat) :
+    Id (EP.pre.hom (SO.from-presented (Core.object (S.stage n)))
+      (SO.from-presented source))
+      (EP.pre.comp
+        (SO.from-presented (Core.object (S.stage n)))
+        (SO.from-presented (Core.object (S.stage (suc n))))
+        (SO.from-presented source)
+        (mapped-leg (suc n)) (P.chain.link n))
+      (mapped-leg n) =
+    H.transH
+      (H.symH (Core.composition
+        (S.stage n) (S.stage (suc n)) X.D
+        (S.link n) C.At[suc n].pair))
+      (H.apH (Core.action (S.stage n) X.D) (C.cone-law n)) ;
+  module At (n : Nat) {
+    stage : SD.Scott = Core.object (S.stage n) ;
+    left : EP.pre.hom (SO.from-presented stage)
+      (SO.from-presented target) =
+      EP.pre.comp (SO.from-presented stage)
+        (SO.from-presented source) (SO.from-presented target)
+        categorical.1 (mapped-leg n) ;
+    right : EP.pre.hom (SO.from-presented stage)
+      (SO.from-presented target) = V.At[n].pair ;
+    first-point (w : target.order.carrier) :
+      Id (S.stage n).order.carrier
+        (left.1.2.1 w).1 (right.1.2.1 w).1 =
+      refl (w.1 n).1 ;
+    second-point (w : target.order.carrier) :
+      Id (X.chain.stage n).order.carrier
+        (left.1.2.1 w).2 (right.1.2.1 w).2 =
+      ap X.T.order.carrier (X.chain.stage n).order.carrier
+        (\ z -> z.1 n)
+        (X.encode.1 (X.decode.1 (P.decode w).2))
+        (P.decode w).2
+        (X.EncodeDecode[(P.decode w).2].equation) ;
+    projection-point (w : target.order.carrier) :
+      Id stage.order.carrier (left.1.2.1 w)
+        (right.1.2.1 w) =
+      FiniteEnumeration[l].pair-eq
+        (S.stage n).order.carrier
+        (X.chain.stage n).order.carrier
+        (left.1.2.1 w).1 (right.1.2.1 w).1
+        (left.1.2.1 w).2 (right.1.2.1 w).2
+        (first-point w) (second-point w) ;
+    projection-equality :
+      Id (DM.Between[SO.from-presented target,
+        SO.from-presented stage].Map)
+        left.1.2 right.1.2 =
+      DM.Between[SO.from-presented target,
+        SO.from-presented stage].equal
+        left.1.2 right.1.2 projection-point ;
+    equation : Id (EP.pre.hom (SO.from-presented stage)
+        (SO.from-presented target)) left right =
+      ScottEPBasics[l].Determined[stage,target,left,right,
+        projection-equality].equation ;
+  } ;
+} ;

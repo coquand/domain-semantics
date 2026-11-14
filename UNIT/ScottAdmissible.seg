@@ -1,0 +1,25 @@
+-- Admissible fixed-point induction on any presented Scott domain.
+-- Only directed-supremum closure is required, not downward closure.
+-- The invariant may live in U l+; no propositional resizing is needed.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ;
+
+module On (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ;
+  module O = ScottOrder[l].On[S.order] ;
+  module C = ScottOrder[l].DC[S.order,S.complete] ;
+  module M = ScottMaps[l].Between[S,S] ;
+  Admissible (Q : A.C -> U l+) : U l+ =
+    (I : U l) (x : I -> A.C) (d : O.Dir I x) ->
+      ((i : I) -> Q (x i)) -> Q (C.sup I x d) ;
+
+  module FixedPoint (f : M.Map) (Q : A.C -> U l+)
+    (admissible : Admissible Q) (base : Q S.bottom)
+    (step : (x : A.C) -> Q x -> Q (M.run f x)) {
+    module K = ScottFixpoint[l].Kleene[S,f] ;
+    stages : (n : Nat) -> Q (K.iterate n) = split {
+      zero -> base ;
+      suc n | ih -> step (K.iterate n) ih } ;
+    result : Q K.value = admissible Nat K.iterate K.directed stages ;
+  } ;
+} ;

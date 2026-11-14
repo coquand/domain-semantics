@@ -1,0 +1,532 @@
+-- Add a lifted positive branch P to a pointed CUSL C.
+-- The old bottom of C is the shared bottom; every point of P, including
+-- P.bottom, is a distinct positive point.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ;
+module CU = ScottCUSL[l] ;
+module S = ScottOrder[l] ;
+module R = Replacement[l,l+] ;
+module T = TruncationCombinators[l+] ;
+module K = CategoryInitialChain[l++,l+] ;
+
+module On (C P : CU.CUSL) {
+  Carrier : U l+ = Lib[l+].Plus C.order.carrier P.order.carrier ;
+  le : Carrier -> Carrier -> U l = split {
+    inl a -> split {
+      inl b -> C.order.le a b ;
+      inr b -> C.order.le a C.bottom } ;
+    inr a -> split {
+      inl b -> Empty ;
+      inr b -> P.order.le a b } } ;
+  proposition : (x y : Carrier) -> isProp (le x y) = split {
+    inl a -> split {
+      inl b -> C.order.proposition a b ;
+      inr b -> C.order.proposition a C.bottom } ;
+    inr a -> split {
+      inl b -> isProp-Empty ;
+      inr b -> P.order.proposition a b } } ;
+  reflexive : (x : Carrier) -> le x x = split {
+    inl a -> C.order.reflexive a ;
+    inr a -> P.order.reflexive a } ;
+  transitive : (x y z : Carrier) -> le x y -> le y z -> le x z = split {
+    inl a -> split {
+      inl b -> split {
+        inl c -> \ h k -> C.order.transitive a b c h k ;
+        inr c -> \ h k -> C.order.transitive a b C.bottom h k } ;
+      inr b -> split {
+        inl c -> \ h k -> efq k ;
+        inr c -> \ h k -> h } } ;
+    inr a -> split {
+      inl b -> \ z h k -> efq h ;
+      inr b -> split {
+        inl c -> \ h k -> efq k ;
+        inr c -> \ h k -> P.order.transitive a b c h k } } } ;
+  antisymmetric : (x y : Carrier) -> le x y -> le y x ->
+    Id Carrier x y = split {
+    inl a -> split {
+      inl b -> \ h k -> ap C.order.carrier Carrier
+        (\ z -> inl z) a b (C.order.antisymmetric a b h k) ;
+      inr b -> \ h k -> absurd (Id Carrier (inl a) (inr b)) k } ;
+    inr a -> split {
+      inl b -> \ h k -> absurd (Id Carrier (inr a) (inl b)) h ;
+      inr b -> \ h k -> ap P.order.carrier Carrier
+        (\ z -> inr z) a b (P.order.antisymmetric a b h k) } } ;
+  order : S.Order = new S.Order[
+    carrier := Carrier,le := le,
+    proposition := proposition,reflexive := reflexive,
+    transitive := transitive,antisymmetric := antisymmetric] ;
+  bottom : Carrier = inl C.bottom ;
+  bottom-least : (x : Carrier) -> le bottom x = split {
+    inl a -> C.bottom-least a ;
+    inr a -> C.order.reflexive C.bottom } ;
+
+  left-witness (a b : C.order.carrier) :
+    (z : Carrier) -> le (inl a) z -> le (inl b) z ->
+    CU.CompatibleWitness C.order a b = split {
+    inl c -> \ h k -> (c,(h,k)) ;
+    inr c -> \ h k -> (C.bottom,(h,k)) } ;
+  left-compatible (a b : C.order.carrier)
+    (h : CU.Compatible order (inl a) (inl b)) :
+    CU.Compatible C.order a b =
+    T.map (CU.CompatibleWitness order (inl a) (inl b))
+      (CU.CompatibleWitness C.order a b)
+      (\ w -> left-witness a b w.1 w.2.1 w.2.2) h ;
+  cross-witness (a : C.order.carrier) (b : P.order.carrier) :
+    (z : Carrier) -> le (inl a) z -> le (inr b) z ->
+    C.order.le a C.bottom = split {
+    inl c -> \ h k -> efq k ;
+    inr c -> \ h k -> h } ;
+  cross (a : C.order.carrier) (b : P.order.carrier)
+    (h : CU.Compatible order (inl a) (inr b)) :
+    C.order.le a C.bottom =
+    T.rec (CU.CompatibleWitness order (inl a) (inr b)) @l
+      (C.order.le a C.bottom)
+      (C.order.proposition a C.bottom)
+      (\ w -> cross-witness a b w.1 w.2.1 w.2.2) h ;
+  cross-right (a : P.order.carrier) (b : C.order.carrier)
+    (h : CU.Compatible order (inr a) (inl b)) :
+    C.order.le b C.bottom =
+    T.rec (CU.CompatibleWitness order (inr a) (inl b)) @l
+      (C.order.le b C.bottom)
+      (C.order.proposition b C.bottom)
+      (\ w -> cross-witness b a w.1 w.2.2 w.2.1) h ;
+  right-witness (a b : P.order.carrier) :
+    (z : Carrier) -> le (inr a) z -> le (inr b) z ->
+    CU.CompatibleWitness P.order a b = split {
+    inl c -> \ h k -> absurd
+      (CU.CompatibleWitness P.order a b) h ;
+    inr c -> \ h k -> (c,(h,k)) } ;
+  right-compatible (a b : P.order.carrier)
+    (h : CU.Compatible order (inr a) (inr b)) :
+    CU.Compatible P.order a b =
+    T.map (CU.CompatibleWitness order (inr a) (inr b))
+      (CU.CompatibleWitness P.order a b)
+      (\ w -> right-witness a b w.1 w.2.1 w.2.2) h ;
+
+  left-bounds (a b : C.order.carrier)
+    (h : CU.Compatible order (inl a) (inl b)) :
+    (i : Bool) ->
+      le (CU.pair order (inl a) (inl b) i)
+        (inl (CU.On[C].join a b (left-compatible a b h))) = split {
+    true -> CU.On[C].left a b (left-compatible a b h) ;
+    false -> CU.On[C].right a b (left-compatible a b h) } ;
+  left-least (a b : C.order.carrier)
+    (h : CU.Compatible order (inl a) (inl b)) :
+    (z : Carrier) ->
+      ((i : Bool) -> le (CU.pair order (inl a) (inl b) i) z) ->
+      le (inl (CU.On[C].join a b (left-compatible a b h))) z = split {
+    inl c -> \ bound -> CU.On[C].least a b
+      (left-compatible a b h) c (bound true) (bound false) ;
+    inr c -> \ bound -> CU.On[C].least a b
+      (left-compatible a b h) C.bottom
+      (bound true) (bound false) } ;
+  cross-bounds (a : C.order.carrier) (b : P.order.carrier)
+    (h : CU.Compatible order (inl a) (inr b)) :
+    (i : Bool) ->
+      le (CU.pair order (inl a) (inr b) i) (inr b) = split {
+    true -> cross a b h ; false -> P.order.reflexive b } ;
+  cross-right-bounds (a : P.order.carrier) (b : C.order.carrier)
+    (h : CU.Compatible order (inr a) (inl b)) :
+    (i : Bool) ->
+      le (CU.pair order (inr a) (inl b) i) (inr a) = split {
+    true -> P.order.reflexive a ; false -> cross-right a b h } ;
+  right-bounds (a b : P.order.carrier)
+    (h : CU.Compatible order (inr a) (inr b)) :
+    (i : Bool) ->
+      le (CU.pair order (inr a) (inr b) i)
+        (inr (CU.On[P].join a b (right-compatible a b h))) = split {
+    true -> CU.On[P].left a b (right-compatible a b h) ;
+    false -> CU.On[P].right a b (right-compatible a b h) } ;
+  right-least (a b : P.order.carrier)
+    (h : CU.Compatible order (inr a) (inr b)) :
+    (z : Carrier) ->
+      ((i : Bool) -> le (CU.pair order (inr a) (inr b) i) z) ->
+      le (inr (CU.On[P].join a b (right-compatible a b h))) z = split {
+    inl c -> \ bound -> efq (bound true) ;
+    inr c -> \ bound -> CU.On[P].least a b
+      (right-compatible a b h) c (bound true) (bound false) } ;
+  join : (x y : Carrier) -> (h : CU.Compatible order x y) ->
+    S.On[order].Supremum Bool (CU.pair order x y) = split {
+    inl a -> split {
+      inl b -> \ h ->
+        (inl (CU.On[C].join a b (left-compatible a b h)),
+          (left-bounds a b h,left-least a b h)) ;
+      inr b -> \ h ->
+        (inr b,(cross-bounds a b h,\ z bound -> bound false)) } ;
+    inr a -> split {
+      inl b -> \ h ->
+        (inr a,(cross-right-bounds a b h,\ z bound -> bound true)) ;
+      inr b -> \ h ->
+        (inr (CU.On[P].join a b (right-compatible a b h)),
+          (right-bounds a b h,right-least a b h)) } } ;
+
+  module Small (c : R.Small C.order.carrier)
+    (p : R.Small P.order.carrier) {
+    Index : U l = Lib[l].Plus c.1 p.1 ;
+    forward : Index -> Carrier = split {
+      inl a -> inl (c.2.1 a) ;
+      inr b -> inr (p.2.1 b) } ;
+    backward : Carrier -> Index = split {
+      inl a -> inl (c.2.2.sec a) ;
+      inr b -> inr (p.2.2.sec b) } ;
+    section : (x : Carrier) -> Id Carrier (forward (backward x)) x = split {
+      inl a -> ap C.order.carrier Carrier (\ z -> inl z)
+        (c.2.1 (c.2.2.sec a)) a (c.2.2.sec-eq a) ;
+      inr b -> ap P.order.carrier Carrier (\ z -> inr z)
+        (p.2.1 (p.2.2.sec b)) b (p.2.2.sec-eq b) } ;
+    retraction : (x : Index) -> Id Index (backward (forward x)) x = split {
+      inl a -> ap c.1 Index (\ z -> inl z)
+        (c.2.2.sec (c.2.1 a)) a
+        (sec-ret c.1 C.order.carrier c.2.1 c.2.2 a) ;
+      inr b -> ap p.1 Index (\ z -> inr z)
+        (p.2.2.sec (p.2.1 b)) b
+        (sec-ret p.1 P.order.carrier p.2.1 p.2.2 b) } ;
+    result : R.Small Carrier =
+      (Index,(forward,qinv Index Carrier forward backward
+        section retraction)) ;
+  } ;
+  small : CU.SmallCarrier order =
+    T.map2 (R.Small C.order.carrier) (R.Small P.order.carrier)
+      (R.Small Carrier) (\ c p -> Small[c,p].result)
+      C.small P.small ;
+  cusl : CU.CUSL = new CU.CUSL[
+    order := order,bottom := bottom,bottom-least := bottom-least,
+    join := join,small := small] ;
+} ;
+
+module Action (C P D Q : CU.CUSL)
+  (e : CU.pre.hom C D) (f : CU.pre.hom P Q) {
+  module A = On[C,P] ;
+  module B = On[D,Q] ;
+  module CD = CU.Between[C,D] ;
+  module PQ = CU.Between[P,Q] ;
+  module AB = CU.Between[A.cusl,B.cusl] ;
+  value : A.Carrier -> B.Carrier = split {
+    inl a -> inl (e.1 a) ;
+    inr a -> inr (f.1 a) } ;
+  cross-mono (a : C.order.carrier)
+    (h : C.order.le a C.bottom) :
+    D.order.le (e.1 a) D.bottom =
+    subst D.order.carrier (\ z -> D.order.le (e.1 a) z)
+      (e.1 C.bottom) D.bottom (CD.bottom-law e)
+      (CD.mono e a C.bottom h) ;
+  cross-reflect (a : C.order.carrier)
+    (h : D.order.le (e.1 a) D.bottom) :
+    C.order.le a C.bottom =
+    CD.reflect e a C.bottom
+      (subst D.order.carrier (\ z -> D.order.le (e.1 a) z)
+        D.bottom (e.1 C.bottom)
+        (sym D.order.carrier (e.1 C.bottom) D.bottom
+          (CD.bottom-law e)) h) ;
+  monotone : AB.Monotone value = split {
+    inl a -> split {
+      inl b -> \ h -> CD.mono e a b h ;
+      inr b -> \ h -> cross-mono a h } ;
+    inr a -> split {
+      inl b -> \ h -> efq h ;
+      inr b -> \ h -> PQ.mono f a b h } } ;
+  reflect : AB.Reflect value = split {
+    inl a -> split {
+      inl b -> \ h -> CD.reflect e a b h ;
+      inr b -> \ h -> cross-reflect a h } ;
+    inr a -> split {
+      inl b -> \ h -> efq h ;
+      inr b -> \ h -> PQ.reflect f a b h } } ;
+  left-compatible (a b : C.order.carrier)
+    (h : CU.Compatible B.order (inl (e.1 a)) (inl (e.1 b))) :
+    CU.Compatible A.order (inl a) (inl b) =
+    T.map (CU.CompatibleWitness C.order a b)
+      (CU.CompatibleWitness A.order (inl a) (inl b))
+      (\ w -> (inl w.1,(w.2.1,w.2.2)))
+      (CD.compat-reflect e a b
+        (B.left-compatible (e.1 a) (e.1 b) h)) ;
+  right-compatible (a b : P.order.carrier)
+    (h : CU.Compatible B.order (inr (f.1 a)) (inr (f.1 b))) :
+    CU.Compatible A.order (inr a) (inr b) =
+    T.map (CU.CompatibleWitness P.order a b)
+      (CU.CompatibleWitness A.order (inr a) (inr b))
+      (\ w -> (inr w.1,(w.2.1,w.2.2)))
+      (PQ.compat-reflect f a b
+        (B.right-compatible (f.1 a) (f.1 b) h)) ;
+  compat-reflect : AB.CompatReflect value = split {
+    inl a -> split {
+      inl b -> \ h -> left-compatible a b h ;
+      inr b -> \ h -> CU.by-bound A.order
+        (inl a) (inr b) (inr b)
+        (cross-reflect a (B.cross (e.1 a) (f.1 b) h))
+        (P.order.reflexive b) } ;
+    inr a -> split {
+      inl b -> \ h -> CU.by-bound A.order
+        (inr a) (inl b) (inr a)
+        (P.order.reflexive a)
+        (cross-reflect b (B.cross-right (f.1 a) (e.1 b) h)) ;
+      inr b -> \ h -> right-compatible a b h } } ;
+  bottom-law : AB.BottomLaw value =
+    ap D.order.carrier B.Carrier (\ z -> inl z)
+      (e.1 C.bottom) D.bottom (CD.bottom-law e) ;
+  module Left (a b : C.order.carrier)
+    (h : CU.Compatible A.order (inl a) (inl b)) {
+    source : CU.Compatible C.order a b = A.left-compatible a b h ;
+    image : CU.Compatible B.order (inl (e.1 a)) (inl (e.1 b)) =
+      AB.image-compatible value monotone (inl a) (inl b) h ;
+    target : CU.Compatible D.order (e.1 a) (e.1 b) =
+      B.left-compatible (e.1 a) (e.1 b) image ;
+    inner : Id D.order.carrier
+      (e.1 (CU.On[C].join a b source))
+      (CU.On[D].join (e.1 a) (e.1 b) target) =
+      trans D.order.carrier
+        (e.1 (CU.On[C].join a b source))
+        (CU.On[D].join (e.1 a) (e.1 b)
+          (CD.image-compatible e.1 (CD.mono e) a b source))
+        (CU.On[D].join (e.1 a) (e.1 b) target)
+        (CD.join-law e a b source)
+        (CU.On[D].join-independent (e.1 a) (e.1 b)
+          (CD.image-compatible e.1 (CD.mono e) a b source)
+          target) ;
+    result : Id B.Carrier
+      (value (CU.On[A.cusl].join (inl a) (inl b) h))
+      (CU.On[B.cusl].join (value (inl a)) (value (inl b)) image) =
+      ap D.order.carrier B.Carrier (\ z -> inl z)
+        (e.1 (CU.On[C].join a b source))
+        (CU.On[D].join (e.1 a) (e.1 b) target) inner ;
+  } ;
+  module Right (a b : P.order.carrier)
+    (h : CU.Compatible A.order (inr a) (inr b)) {
+    source : CU.Compatible P.order a b = A.right-compatible a b h ;
+    image : CU.Compatible B.order (inr (f.1 a)) (inr (f.1 b)) =
+      AB.image-compatible value monotone (inr a) (inr b) h ;
+    target : CU.Compatible Q.order (f.1 a) (f.1 b) =
+      B.right-compatible (f.1 a) (f.1 b) image ;
+    inner : Id Q.order.carrier
+      (f.1 (CU.On[P].join a b source))
+      (CU.On[Q].join (f.1 a) (f.1 b) target) =
+      trans Q.order.carrier
+        (f.1 (CU.On[P].join a b source))
+        (CU.On[Q].join (f.1 a) (f.1 b)
+          (PQ.image-compatible f.1 (PQ.mono f) a b source))
+        (CU.On[Q].join (f.1 a) (f.1 b) target)
+        (PQ.join-law f a b source)
+        (CU.On[Q].join-independent (f.1 a) (f.1 b)
+          (PQ.image-compatible f.1 (PQ.mono f) a b source)
+          target) ;
+    result : Id B.Carrier
+      (value (CU.On[A.cusl].join (inr a) (inr b) h))
+      (CU.On[B.cusl].join (value (inr a)) (value (inr b)) image) =
+      ap Q.order.carrier B.Carrier (\ z -> inr z)
+        (f.1 (CU.On[P].join a b source))
+        (CU.On[Q].join (f.1 a) (f.1 b) target) inner ;
+  } ;
+  join-law : AB.PreservesJoin value monotone = split {
+    inl a -> split {
+      inl b -> \ h -> Left[a,b,h].result ;
+      inr b -> \ h -> refl (inr (f.1 b)) } ;
+    inr a -> split {
+      inl b -> \ h -> refl (inr (f.1 a)) ;
+      inr b -> \ h -> Right[a,b,h].result } } ;
+  arrow : CU.pre.hom A.cusl B.cusl =
+    (value,(monotone,(reflect,(compat-reflect,
+      (bottom-law,join-law))))) ;
+} ;
+
+module Left (C P : CU.CUSL) {
+  module B = On[C,P] ;
+  module E = CU.Between[C,B.cusl] ;
+  value (x : C.order.carrier) : B.Carrier = inl x ;
+  monotone : E.Monotone value = \ x y h -> h ;
+  reflect : E.Reflect value = \ x y h -> h ;
+  compat-reflect : E.CompatReflect value =
+    \ x y h -> B.left-compatible x y h ;
+  bottom-law : E.BottomLaw value = refl (inl C.bottom) ;
+  module Join (x y : C.order.carrier)
+    (h : CU.Compatible C.order x y) {
+    image : CU.Compatible B.order (inl x) (inl y) =
+      E.image-compatible value monotone x y h ;
+    source : CU.Compatible C.order x y =
+      B.left-compatible x y image ;
+    path : Id C.order.carrier
+      (CU.On[C].join x y h)
+      (CU.On[C].join x y source) =
+      CU.On[C].join-independent x y h source ;
+    result : Id B.Carrier
+      (value (CU.On[C].join x y h))
+      (CU.On[B.cusl].join (value x) (value y) image) =
+      ap C.order.carrier B.Carrier (\ z -> inl z)
+        (CU.On[C].join x y h)
+        (CU.On[C].join x y source) path ;
+  } ;
+  join-law : E.PreservesJoin value monotone =
+    \ x y h -> Join[x,y,h].result ;
+  arrow : CU.pre.hom C B.cusl =
+    (value,(monotone,(reflect,(compat-reflect,
+      (bottom-law,join-law))))) ;
+} ;
+
+-- The positive branch of an embedding out of B(C,P) becomes strict
+-- after restricting its codomain to the upper cone above its bottom image.
+module RightFactor (C P Y : CU.CUSL)
+  (e : CU.pre.hom (On[C,P].cusl) Y) {
+  module B = On[C,P] ;
+  module BY = CU.Between[B.cusl,Y] ;
+  anchor : Y.order.carrier = e.1 (inr P.bottom) ;
+  module Upper = ScottCUSLUpper[l].On[Y,anchor] ;
+  module PU = CU.Between[P,Upper.cusl] ;
+  proof (x : P.order.carrier) :
+    Y.order.le anchor (e.1 (inr x)) =
+    BY.mono e (inr P.bottom) (inr x) (P.bottom-least x) ;
+  value (x : P.order.carrier) : Upper.Carrier =
+    (e.1 (inr x),proof x) ;
+  monotone : PU.Monotone value =
+    \ x y h -> BY.mono e (inr x) (inr y) h ;
+  reflect : PU.Reflect value =
+    \ x y h -> BY.reflect e (inr x) (inr y) h ;
+  compat-reflect : PU.CompatReflect value =
+    \ x y h -> B.right-compatible x y
+      (BY.compat-reflect e (inr x) (inr y)
+      (Upper.compatible (value x) (value y) h)) ;
+  bottom-law : PU.BottomLaw value =
+    Sigma-eq Y.order.carrier (\ z -> Y.order.le anchor z)
+      anchor anchor (proof P.bottom)
+      (Y.order.reflexive anchor) (refl anchor)
+      (Y.order.proposition anchor anchor) ;
+  module Join (x y : P.order.carrier)
+    (h : CU.Compatible P.order x y) {
+    image : CU.Compatible Upper.order (value x) (value y) =
+      PU.image-compatible value monotone x y h ;
+    target : CU.Compatible Y.order
+      (e.1 (inr x)) (e.1 (inr y)) =
+      Upper.compatible (value x) (value y) image ;
+    source-witness (w : CU.CompatibleWitness P.order x y) :
+      CU.CompatibleWitness B.order (inr x) (inr y) =
+      (inr w.1,(w.2.1,w.2.2)) ;
+    source : CU.Compatible B.order (inr x) (inr y) =
+      T.map (CU.CompatibleWitness P.order x y)
+        (CU.CompatibleWitness B.order (inr x) (inr y))
+        source-witness h ;
+    source-compat : CU.Compatible P.order x y =
+      B.right-compatible x y source ;
+    source-path : Id P.order.carrier
+      (CU.On[P].join x y h)
+      (CU.On[P].join x y source-compat) =
+      CU.On[P].join-independent x y h source-compat ;
+    image-source : CU.Compatible Y.order
+      (e.1 (inr x)) (e.1 (inr y)) =
+      BY.image-compatible e.1 (BY.mono e)
+        (inr x) (inr y) source ;
+    first-path : Id Y.order.carrier
+      (e.1 (inr (CU.On[P].join x y h)))
+      (CU.On[Y].join (e.1 (inr x)) (e.1 (inr y)) target) =
+      trans Y.order.carrier
+        (e.1 (inr (CU.On[P].join x y h)))
+        (e.1 (inr (CU.On[P].join x y source-compat)))
+        (CU.On[Y].join (e.1 (inr x)) (e.1 (inr y)) target)
+        (ap P.order.carrier Y.order.carrier
+          (\ z -> e.1 (inr z))
+          (CU.On[P].join x y h)
+          (CU.On[P].join x y source-compat) source-path)
+        (trans Y.order.carrier
+          (e.1 (inr (CU.On[P].join x y source-compat)))
+          (CU.On[Y].join (e.1 (inr x)) (e.1 (inr y)) image-source)
+          (CU.On[Y].join (e.1 (inr x)) (e.1 (inr y)) target)
+          (BY.join-law e (inr x) (inr y) source)
+          (CU.On[Y].join-independent
+            (e.1 (inr x)) (e.1 (inr y))
+            image-source target)) ;
+    result : Id Upper.Carrier
+      (value (CU.On[P].join x y h))
+      (CU.On[Upper.cusl].join (value x) (value y) image) =
+      Sigma-eq Y.order.carrier (\ z -> Y.order.le anchor z)
+        (e.1 (inr (CU.On[P].join x y h)))
+        (CU.On[Y].join (e.1 (inr x)) (e.1 (inr y)) target)
+        (proof (CU.On[P].join x y h))
+        (CU.On[Upper.cusl].join (value x) (value y) image).2
+        first-path
+        (Y.order.proposition anchor
+          (CU.On[Y].join (e.1 (inr x)) (e.1 (inr y)) target)) ;
+  } ;
+  join-law : PU.PreservesJoin value monotone =
+    \ x y h -> Join[x,y,h].result ;
+  arrow : CU.pre.hom P Upper.cusl =
+    (value,(monotone,(reflect,(compat-reflect,
+      (bottom-law,join-law))))) ;
+} ;
+
+object (C P : CU.CUSL) : CU.CUSL = On[C,P].cusl ;
+arrow (C P D Q : CU.CUSL)
+  (e : CU.pre.hom C D) (f : CU.pre.hom P Q) :
+  CU.pre.hom (object C P) (object D Q) =
+  Action[C,P,D,Q,e,f].arrow ;
+identity-point (C P : CU.CUSL) :
+  (x : (object C P).order.carrier) ->
+  Id (object C P).order.carrier
+    ((arrow C P C P (CU.pre.idn C) (CU.pre.idn P)).1 x)
+    ((CU.pre.idn (object C P)).1 x) = split {
+  inl a -> refl (inl a) ; inr b -> refl (inr b) } ;
+identity (C P : CU.CUSL) :
+  Id (CU.pre.hom (object C P) (object C P))
+    (arrow C P C P (CU.pre.idn C) (CU.pre.idn P))
+    (CU.pre.idn (object C P)) =
+  CU.Between[object C P,object C P].equal
+    (arrow C P C P (CU.pre.idn C) (CU.pre.idn P))
+    (CU.pre.idn (object C P)) (identity-point C P) ;
+composition-point (C P D Q E R : CU.CUSL)
+  (e : CU.pre.hom C D) (f : CU.pre.hom P Q)
+  (g : CU.pre.hom D E) (h : CU.pre.hom Q R) :
+  (x : (object C P).order.carrier) ->
+  Id (object E R).order.carrier
+    ((arrow C P E R (CU.pre.comp C D E g e)
+      (CU.pre.comp P Q R h f)).1 x)
+    ((CU.pre.comp (object C P) (object D Q) (object E R)
+      (arrow D Q E R g h) (arrow C P D Q e f)).1 x) = split {
+  inl a -> refl (inl (g.1 (e.1 a))) ;
+  inr b -> refl (inr (h.1 (f.1 b))) } ;
+composition (C P D Q E R : CU.CUSL)
+  (e : CU.pre.hom C D) (f : CU.pre.hom P Q)
+  (g : CU.pre.hom D E) (h : CU.pre.hom Q R) :
+  Id (CU.pre.hom (object C P) (object E R))
+    (arrow C P E R (CU.pre.comp C D E g e)
+      (CU.pre.comp P Q R h f))
+    (CU.pre.comp (object C P) (object D Q) (object E R)
+      (arrow D Q E R g h) (arrow C P D Q e f)) =
+  CU.Between[object C P,object E R].equal
+    (arrow C P E R (CU.pre.comp C D E g e)
+      (CU.pre.comp P Q R h f))
+    (CU.pre.comp (object C P) (object D Q) (object E R)
+      (arrow D Q E R g h) (arrow C P D Q e f))
+    (composition-point C P D Q E R e f g h) ;
+
+module Iso (C P D Q : CU.CUSL)
+  (e : CU.pre.Iso C D) (f : CU.pre.Iso P Q) {
+  module H = Paths[l+] ;
+  forward : CU.pre.hom (object C P) (object D Q) =
+    arrow C P D Q e.1 f.1 ;
+  backward : CU.pre.hom (object D Q) (object C P) =
+    arrow D Q C P e.2.1 f.2.1 ;
+  left : Id (CU.pre.hom (object C P) (object C P))
+    (CU.pre.comp (object C P) (object D Q) (object C P)
+      backward forward) (CU.pre.idn (object C P)) =
+    H.transH
+      (H.symH (composition C P D Q C P
+        e.1 f.1 e.2.1 f.2.1))
+      (H.transH
+        (H.apH (\ g -> arrow C P C P g
+          (CU.pre.comp P Q P f.2.1 f.1)) e.2.2.1)
+        (H.transH
+          (H.apH (\ h -> arrow C P C P (CU.pre.idn C) h)
+            f.2.2.1)
+          (identity C P))) ;
+  right : Id (CU.pre.hom (object D Q) (object D Q))
+    (CU.pre.comp (object D Q) (object C P) (object D Q)
+      forward backward) (CU.pre.idn (object D Q)) =
+    H.transH
+      (H.symH (composition D Q C P D Q
+        e.2.1 f.2.1 e.1 f.1))
+      (H.transH
+        (H.apH (\ g -> arrow D Q D Q g
+          (CU.pre.comp Q P Q f.1 f.2.1)) e.2.2.2)
+        (H.transH
+          (H.apH (\ h -> arrow D Q D Q (CU.pre.idn D) h)
+            f.2.2.2)
+          (identity D Q))) ;
+  result : CU.pre.Iso (object C P) (object D Q) =
+    (forward,(backward,(left,right))) ;
+} ;

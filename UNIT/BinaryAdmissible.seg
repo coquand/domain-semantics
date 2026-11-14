@@ -1,0 +1,10 @@
+-- Admissibility for the continuous binary-map interface used by Phi.
+-- Invariants need not be downward closed or small propositions.
+level l ;
+open Base ; open Prelude[l+] ; open BinaryMaps[l] ; open DirectedApprox[l] ;
+module PO = ProjectorOperator[l] ;
+
+Admissible (Q : Binary -> U l+) : U l+ =
+  (N : Net) (q : N.index -> Binary)
+    (monotone : (i j : N.index) -> N.le i j -> PO.LE (q i) (q j)) ->
+    ((i : N.index) -> Q (q i)) -> Q BinarySup[l].Sup[N,q,monotone].binary ;

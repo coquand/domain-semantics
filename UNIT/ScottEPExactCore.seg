@@ -1,0 +1,92 @@
+-- The variable product X x [X -> X] inside the exact domain equation.
+-- Its EP action uses the embedding in both arguments and the projection
+-- in both arguments of the function space.
+level l ;
+open Base ; open Prelude[l+] ;
+module SD = ScottDomain[l] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module P = ScottEPBinaryProduct[l] ;
+module X = ScottEPExponential[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+
+endomaps (D : SD.Scott) : SD.Scott =
+  ScottExponential[l].Exponential[D,D].scott ;
+object (D : SD.Scott) : SD.Scott =
+  ScottProduct[l].Product[D,endomaps D].scott ;
+action (D E : SD.Scott)
+  (q : EP.Between[SO.from-presented D,SO.from-presented E].Pair) :
+  EP.Between[SO.from-presented (object D),
+    SO.from-presented (object E)].Pair =
+  P.Action[D,endomaps D,E,endomaps E,q,
+    X.Action[D,E,q].pair].pair ;
+
+identity (D : SD.Scott) :
+  Id (EP.Between[SO.from-presented (object D),
+    SO.from-presented (object D)].Pair)
+    (action D D (EP.identity (SO.from-presented D)))
+    (EP.identity (SO.from-presented (object D))) =
+  trans (EP.Between[SO.from-presented (object D),
+      SO.from-presented (object D)].Pair)
+    (action D D (EP.identity (SO.from-presented D)))
+    (P.Action[D,endomaps D,D,endomaps D,
+      EP.identity (SO.from-presented D),
+      EP.identity (SO.from-presented (endomaps D))].pair)
+    (EP.identity (SO.from-presented (object D)))
+    (ap (EP.Between[SO.from-presented (endomaps D),
+        SO.from-presented (endomaps D)].Pair)
+      (EP.Between[SO.from-presented (object D),
+        SO.from-presented (object D)].Pair)
+      (\ r -> P.Action[D,endomaps D,D,endomaps D,
+        EP.identity (SO.from-presented D),r].pair)
+      (X.Action[D,D,EP.identity (SO.from-presented D)].pair)
+      (EP.identity (SO.from-presented (endomaps D)))
+      (X.FunctorLaws.identity D))
+    (P.identity D (endomaps D)) ;
+
+composition (D E F : SD.Scott)
+  (q : EP.Between[SO.from-presented D,SO.from-presented E].Pair)
+  (r : EP.Between[SO.from-presented E,SO.from-presented F].Pair) :
+  Id (EP.Between[SO.from-presented (object D),
+    SO.from-presented (object F)].Pair)
+    (action D F (EP.compose (SO.from-presented D)
+      (SO.from-presented E) (SO.from-presented F) r q))
+    (EP.compose (SO.from-presented (object D))
+      (SO.from-presented (object E)) (SO.from-presented (object F))
+      (action E F r) (action D E q)) =
+  trans (EP.Between[SO.from-presented (object D),
+      SO.from-presented (object F)].Pair)
+    (action D F (EP.compose (SO.from-presented D)
+      (SO.from-presented E) (SO.from-presented F) r q))
+    (P.Action[D,endomaps D,F,endomaps F,
+      EP.compose (SO.from-presented D) (SO.from-presented E)
+        (SO.from-presented F) r q,
+      EP.compose (SO.from-presented (endomaps D))
+        (SO.from-presented (endomaps E))
+        (SO.from-presented (endomaps F))
+        (X.Action[E,F,r].pair) (X.Action[D,E,q].pair)].pair)
+    (EP.compose (SO.from-presented (object D))
+      (SO.from-presented (object E)) (SO.from-presented (object F))
+      (action E F r) (action D E q))
+    (ap (EP.Between[SO.from-presented (endomaps D),
+        SO.from-presented (endomaps F)].Pair)
+      (EP.Between[SO.from-presented (object D),
+        SO.from-presented (object F)].Pair)
+      (\ s -> P.Action[D,endomaps D,F,endomaps F,
+        EP.compose (SO.from-presented D) (SO.from-presented E)
+          (SO.from-presented F) r q,s].pair)
+      (X.Action[D,F,EP.compose (SO.from-presented D)
+        (SO.from-presented E) (SO.from-presented F) r q].pair)
+      (EP.compose (SO.from-presented (endomaps D))
+        (SO.from-presented (endomaps E))
+        (SO.from-presented (endomaps F))
+        (X.Action[E,F,r].pair) (X.Action[D,E,q].pair))
+      (X.FunctorLaws.composition D E F q r))
+    (P.composition D (endomaps D) E (endomaps E)
+      F (endomaps F) q (X.Action[D,E,q].pair)
+      r (X.Action[E,F,r].pair)) ;
+
+functor : K.Endofunctor[ScottPresentedEP[l].pre] =
+  new K.Endofunctor[ScottPresentedEP[l].pre,
+    object := object,arrow := action,
+    identity := identity,composition := composition] ;

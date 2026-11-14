@@ -1,0 +1,29 @@
+-- The CUSL construction transported to arbitrary Scott domains via compacts.
+level l ;
+open Base ; open Prelude[l+] ;
+module SO = ScottDomainObjects[l] ; module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module CU = ScottCUSL[l] ; module KM = ScottCUSLCompacts[l].Functor ;
+module F = ScottCUSLFpFunctor[l].Domains ; module K = CategoryInitialChain[l++,l+] ;
+object (D : SO.Domain) : SO.Domain = F.object (KM.object D) ;
+arrow (D E : SO.Domain) (q : EP.pre.hom D E) : EP.pre.hom (object D) (object E) =
+  F.arrow (KM.object D) (KM.object E) (KM.arrow D E q) ;
+identity (D : SO.Domain) : Id (EP.pre.hom (object D) (object D)) (arrow D D (EP.pre.idn D)) (EP.pre.idn (object D)) =
+  trans (EP.pre.hom (object D) (object D)) (arrow D D (EP.pre.idn D))
+    (F.arrow (KM.object D) (KM.object D) (CU.pre.idn (KM.object D))) (EP.pre.idn (object D))
+    (ap (CU.pre.hom (KM.object D) (KM.object D)) (EP.pre.hom (object D) (object D))
+      (F.arrow (KM.object D) (KM.object D)) (KM.arrow D D (EP.pre.idn D)) (CU.pre.idn (KM.object D)) (KM.identity D))
+    (F.identity (KM.object D)) ;
+composition (D E G : SO.Domain) (q : EP.pre.hom D E) (r : EP.pre.hom E G) :
+  Id (EP.pre.hom (object D) (object G)) (arrow D G (EP.pre.comp D E G r q))
+    (EP.pre.comp (object D) (object E) (object G) (arrow E G r) (arrow D E q)) =
+  trans (EP.pre.hom (object D) (object G)) (arrow D G (EP.pre.comp D E G r q))
+    (F.arrow (KM.object D) (KM.object G)
+      (CU.pre.comp (KM.object D) (KM.object E) (KM.object G) (KM.arrow E G r) (KM.arrow D E q)))
+    (EP.pre.comp (object D) (object E) (object G) (arrow E G r) (arrow D E q))
+    (ap (CU.pre.hom (KM.object D) (KM.object G)) (EP.pre.hom (object D) (object G))
+      (F.arrow (KM.object D) (KM.object G)) (KM.arrow D G (EP.pre.comp D E G r q))
+      (CU.pre.comp (KM.object D) (KM.object E) (KM.object G) (KM.arrow E G r) (KM.arrow D E q)) (KM.composition D E G q r))
+    (F.composition (KM.object D) (KM.object E) (KM.object G) (KM.arrow D E q) (KM.arrow E G r)) ;
+functor : K.Endofunctor[EP.pre] = new K.Endofunctor[EP.pre,object,arrow,identity,composition] ;
+categorical : CategoryEquivalence[l++,l+].Functor[EP.pre,EP.pre] =
+  new CategoryEquivalence[l++,l+].Functor[EP.pre,EP.pre,object,arrow,identity,composition] ;

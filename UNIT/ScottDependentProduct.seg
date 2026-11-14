@@ -1,0 +1,130 @@
+-- CGW dependent products of a continuous family of finitary subdomains.
+-- The base A and the common ambient domain D are arbitrary Scott domains.
+-- Compact sections are finite compatible joins of fixed-output steps.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module F = ScottFinite[l] ;
+
+module Over (A D : ScottDomain[l].Scott) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module O = ScottOrder[l].On[A.order] ; module V = DC[A.order,A.complete] ;
+  module P = ScottFinitary[l].On[D] ; module DD = ScottMaps[l].Between[D,D] ;
+  record Family {
+    projection : X.C -> P.Finitary ;
+    increasing (a b : X.C) (h : X.LE a b) (z : Y.C) :
+      Y.LE (DD.run (projection a).operation z) (DD.run (projection b).operation z) ;
+    continuous (I : U l) (x : I -> X.C) (d : O.Dir I x) (z y : Y.C) :
+      ((i : I) -> Y.LE (DD.run (projection (x i)).operation z) y) ->
+      Y.LE (DD.run (projection (V.sup I x d)).operation z) y ;
+  } ;
+} ;
+
+module Product (A D : ScottDomain[l].Scott) (B : Over[A,D].Family) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module M = ScottMaps[l].Between[A,D] ; module DD = ScottMaps[l].Between[D,D] ;
+  module E = ScottExponential[l].Exponential[A,D] ;
+  module V = DC[D.order,D.complete] ; module MC = DC[M.order,M.complete] ;
+  module FP = ScottFinitary[l].On[D] ;
+  run (a : X.C) (z : Y.C) : Y.C = DD.run (B.projection a).operation z ;
+  Section (s : M.Map) : U l+ = (a : X.C) -> Y.LE (M.run s a) (run a (M.run s a)) ;
+  section-prop (s : M.Map) : isProp (Section s) =
+    H.isProp-Pi X.C (\ a -> Y.LE (M.run s a) (run a (M.run s a)))
+      (\ a -> D.order.proposition (M.run s a) (run a (M.run s a))) ;
+  carrier : U l+ = (s : M.Map) * Section s ;
+  le (s t : carrier) : U l = M.LE s.1 t.1 ;
+  ext (s t : carrier) (st : le s t) (ts : le t s) : Id carrier s t =
+    Sigma-eq M.Map Section s.1 t.1 s.2 t.2 (M.ext s.1 t.1 st ts) (section-prop t.1) ;
+  order : Order = new Order[carrier := carrier,le := le,
+    proposition := \ s t -> M.order.proposition s.1 t.1,
+    reflexive := \ s -> M.order.reflexive s.1,
+    transitive := \ s t u -> M.order.transitive s.1 t.1 u.1,antisymmetric := ext] ;
+  module Q = ScottOrder[l].On[order] ;
+
+  module Pointwise (I : U l) (s : I -> carrier)
+    (sup : (a : X.C) -> ScottOrder[l].On[D.order].Supremum I (\ i -> M.run (s i).1 a)) {
+    module P = M.Pointwise[I,\ i -> (s i).1,sup] ;
+    fixed (a : X.C) : Y.LE (M.run P.map a) (run a (M.run P.map a)) =
+      (sup a).2.2 (run a (M.run P.map a))
+        (\ i -> D.order.transitive (M.run (s i).1 a) (run a (M.run (s i).1 a)) (run a (M.run P.map a))
+          ((s i).2 a) (DD.mono (B.projection a).operation (M.run (s i).1 a) (M.run P.map a) ((sup a).2.1 i))) ;
+    value : carrier = (P.map,fixed) ;
+    supremum : Q.Supremum I s = (value,(P.upper,\ t h -> P.least t.1 h)) ;
+  } ;
+  complete : Complete[order] = new Complete[order,
+    directed := \ I s d -> Pointwise[I,s,\ a -> D.complete.directed I (\ i -> M.run (s i).1 a)
+      (M.evaluated-dir I (\ i -> (s i).1) d a)].supremum,
+    bounded := \ I s b h -> Pointwise[I,s,\ a -> D.complete.bounded I (\ i -> M.run (s i).1 a)
+      (M.run b.1 a) (\ i -> M.pointwise (s i).1 b.1 (h i) a)].supremum] ;
+  module W = DC[order,complete] ;
+  ambient-compact (s : carrier) (c : MC.Compact s.1) : W.Compact s =
+    \ I t d h -> c I (\ i -> (t i).1) d h ;
+
+  Good (g : E.Graph) : U l = (j : F.Ix g.1) ->
+    FP.Fixed (B.projection (X.basic (E.input g j))).operation (Y.basic (E.output g j)) ;
+  graph-section (g : E.Graph) (ok : E.Admissible g) (fixed : Good g) : Section E.Realize[g,ok].map =
+    \ a -> E.At[g,ok,a].least (run a E.At[g,ok,a].value)
+      (\ j ja -> D.order.transitive (Y.basic (E.output g j))
+        (run (X.basic (E.input g j)) (Y.basic (E.output g j))) (run a E.At[g,ok,a].value)
+        (fixed j)
+        (D.order.transitive (run (X.basic (E.input g j)) (Y.basic (E.output g j)))
+          (run a (Y.basic (E.output g j))) (run a E.At[g,ok,a].value)
+          (B.increasing (X.basic (E.input g j)) a ja (Y.basic (E.output g j)))
+          (DD.mono (B.projection a).operation (Y.basic (E.output g j)) E.At[g,ok,a].value
+            (E.At[g,ok,a].entry j ja)))) ;
+  index : U l = (g : E.Basis) * Good g.1 ;
+  basic (g : index) : carrier = (E.basic g.1,graph-section g.1.1 g.1.2 g.2) ;
+  Local (s : carrier) : U l = (g : index) * le (basic g) s ;
+  part (s : carrier) (g : Local s) : carrier = basic g.1 ;
+  ordinary (s : carrier) (g : Local s) : E.Local s.1 = (g.1.1,g.2) ;
+  empty-good : Good E.empty-graph = \ j -> absurd
+    (FP.Fixed (B.projection (X.basic (E.input E.empty-graph j))).operation (Y.basic (E.output E.empty-graph j))) j ;
+  empty (s : carrier) : Local s =
+    ((E.Approximation[s.1].empty.1,empty-good),E.Approximation[s.1].empty.2) ;
+  union-good (g h : E.Graph) (gf : Good g) (hf : Good h) : Good (E.union-graph g h) =
+    F.cases (F.Ix g.1) (F.Ix h.1) (\ j ->
+      FP.Fixed (B.projection (X.basic (E.input (E.union-graph g h) j))).operation
+        (Y.basic (E.output (E.union-graph g h) j))) gf hf ;
+  combine (s : carrier) (g h : Local s) : Local s =
+    (((E.Approximation[s.1].union (ordinary s g) (ordinary s h)).1,
+      union-good g.1.1.1 h.1.1.1 g.1.2 h.1.2),
+      (E.Approximation[s.1].union (ordinary s g) (ordinary s h)).2) ;
+  directed (s : carrier) : Q.Dir (Local s) (part s) =
+    (inc (Local s) (empty s),\ g h -> inc (Q.Upper (Local s) (part s) g h)
+      (combine s g h,(E.Approximation[s.1].left (ordinary s g) (ordinary s h),
+        E.Approximation[s.1].right (ordinary s g) (ordinary s h)))) ;
+
+  module Density (s t : carrier) (bounds : (g : index) -> le (basic g) s -> le (basic g) t) {
+    module Entry (a : X.B) (b : Y.B) (obs : Y.LE (Y.basic b) (M.run s.1 (X.basic a)))
+      (x : X.C) (ax : X.LE (X.basic a) x)
+      (w : FP.Witness (B.projection (X.basic a)).operation (M.run s.1 (X.basic a)) b) {
+      single : index = ((E.one-graph a w.1,E.one-ok a w.1),\ j -> w.2.1) ;
+      below : le (basic single) s = E.step-below a w.1 s.1 w.2.2.1 ;
+      result : Y.LE (Y.basic b) (M.run t.1 x) =
+        D.order.transitive (Y.basic b) (Y.basic w.1) (M.run t.1 x) w.2.2.2
+          (D.order.transitive (Y.basic w.1) (M.run (basic single).1 x) (M.run t.1 x)
+            (E.At[E.one-graph a w.1,E.one-ok a w.1,x].entry tt ax)
+            (M.pointwise (basic single).1 t.1 (bounds single below) x)) ;
+    } ;
+    entry (a : X.B) (b : Y.B) (obs : Y.LE (Y.basic b) (M.run s.1 (X.basic a)))
+      (x : X.C) (ax : X.LE (X.basic a) x) : Y.LE (Y.basic b) (M.run t.1 x) =
+      T.rec (FP.Witness (B.projection (X.basic a)).operation (M.run s.1 (X.basic a)) b) @l
+        (Y.LE (Y.basic b) (M.run t.1 x)) (D.order.proposition (Y.basic b) (M.run t.1 x))
+        (\ w -> Entry[a,b,obs,x,ax,w].result)
+        ((B.projection (X.basic a)).density (M.run s.1 (X.basic a)) (s.2 (X.basic a)) b obs) ;
+    pointwise (x : X.C) : Y.LE (M.run s.1 x) (M.run t.1 x) =
+      D.basis.density (M.run s.1 x) (M.run t.1 x) (\ b bx ->
+        T.rec ((a : X.BI x) * Y.LE (Y.basic b) (M.run s.1 (X.basic a.1))) @l
+          (Y.LE (Y.basic b) (M.run t.1 x)) (D.order.proposition (Y.basic b) (M.run t.1 x))
+          (\ a -> entry a.1.1 b a.2 x a.1.2) (M.Finite[s.1,x].witness b bx)) ;
+    inclusion : le s t = M.small s.1 t.1 pointwise ;
+  } ;
+  basis : ScottDomain[l].Basis[order,complete] = new ScottDomain[l].Basis[order,complete,
+    index := index,basic := basic,
+    compact := \ g -> ambient-compact (basic g) E.Realize[g.1.1,g.1.2].compact,
+    directed := directed,density := \ s t h -> Density[s,t,h].inclusion] ;
+  bottom : carrier = (E.bottom,\ a -> D.bottom-least (run a D.bottom)) ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order,complete := complete,basis := basis,
+    bottom := bottom,bottom-least := \ s -> E.bottom-least s.1] ;
+} ;

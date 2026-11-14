@@ -1,0 +1,42 @@
+-- At the old filter domain, ideal completion of the exact functor's
+-- compact endomap branch is isomorphic to the Scott endomap domain.
+level l ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module Pres = ScottPresentedEP[l] ;
+module SF = ScottFilter[l] ;
+module KM = ScottCUSLCompacts[l] ;
+module ID = ScottCUSLIdeals[l] ;
+module EQ = ScottCUSLEquivalence[l] ;
+module End = ScottEPEndomaps[l] ;
+module F = ScottCUSLExactFunctor[l].F ;
+module MapIso = CategoryEndofunctorIso[l++,l+].On[
+  Pres.pre,End.functor] ;
+module A = CategoryArrows[l++,l+].Arrows[EP.pre] ;
+
+old-domain : SO.Domain = SO.from-presented SF.scott ;
+compacts : ScottCUSL[l].CUSL = KM.Functor.object old-domain ;
+module OldIdeal = ID.Canonical[compacts] ;
+old-counit : EP.pre.Iso old-domain OldIdeal.domain =
+  EQ.Counit[old-domain].category-iso ;
+presented-counit : Pres.pre.Iso SF.scott OldIdeal.O.scott =
+  old-counit ;
+endomap-iso : Pres.pre.Iso
+  (End.object SF.scott) (End.object OldIdeal.O.scott) =
+  MapIso.map SF.scott OldIdeal.O.scott presented-counit ;
+target-domain : SO.Domain = F.domain compacts ;
+endomap-ep-iso : EP.pre.Iso
+  (SO.from-presented SF.function-scott) target-domain =
+  endomap-iso ;
+module TargetIdeal = ID.Canonical[F.object compacts] ;
+target-counit : EP.pre.Iso target-domain TargetIdeal.domain =
+  EQ.Counit[target-domain].category-iso ;
+comparison : EP.pre.Iso
+  (SO.from-presented SF.function-scott)
+  TargetIdeal.domain =
+  A.iso-cmp target-counit endomap-ep-iso ;
+order-iso : SO.DomainIso
+  (SO.from-presented SF.function-scott)
+  TargetIdeal.domain =
+  EP.to-order (SO.from-presented SF.function-scott)
+    TargetIdeal.domain comparison ;

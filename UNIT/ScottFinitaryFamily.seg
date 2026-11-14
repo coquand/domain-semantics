@@ -1,0 +1,54 @@
+-- A continuous family of finitary projections gives an EP-valued family
+-- of image domains. Its directed cones satisfy CGW's colimit criterion.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+
+module On (A D : ScottDomain[l].Scott) (B : ScottDependentProduct[l].Over[A,D].Family) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module DD = ScottMaps[l].Between[D,D] ; module V = DC[D.order,D.complete] ;
+  run (a : X.C) (z : Y.C) : Y.C = DD.run (B.projection a).operation z ;
+  module Image (a : X.C) {
+    module I = ScottFinitaryImage[l].Image[D,B.projection a] ;
+    carrier : U l+ = I.carrier ;
+    ext (x y : carrier) (xy : Y.LE x.1 y.1) (yx : Y.LE y.1 x.1) : Id carrier x y = I.ext x y xy yx ;
+  } ;
+  module Arrow (a b : X.C) (ab : X.LE a b) {
+    module L = ScottFinitaryImage[l].Image[D,B.projection a] ;
+    module R = ScottFinitaryImage[l].Image[D,B.projection b] ;
+    module LR = ScottMaps[l].Between[L.scott,R.scott] ;
+    module RL = ScottMaps[l].Between[R.scott,L.scott] ;
+    embed-fixed (x : L.carrier) : Y.LE x.1 (run b x.1) =
+      D.order.transitive x.1 (run a x.1) (run b x.1) x.2 (B.increasing a b ab x.1) ;
+    embed : LR.Map = (\ x -> (x.1,embed-fixed x),
+      (\ x y h -> h,\ I x d z h -> V.least I (\ i -> (x i).1) d z.1 h)) ;
+    project : RL.Map = (\ x -> (run a x.1,(B.projection a).idempotence x.1),
+      (\ x y h -> DD.mono (B.projection a).operation x.1 y.1 h,
+       \ I x d z h -> DD.continuous (B.projection a).operation I (\ i -> (x i).1) d z.1 h)) ;
+    retract (x : L.carrier) : Id L.carrier (RL.run project (LR.run embed x)) x =
+      L.ext (RL.run project (LR.run embed x)) x ((B.projection a).deflation x.1) x.2 ;
+    pair : ScottEmbeddingProjection[l].Between[L.scott,R.scott].Pair =
+      new ScottEmbeddingProjection[l].Between[L.scott,R.scott].Pair[embed,project,retract,\ x -> (B.projection a).deflation x.1] ;
+  } ;
+  -- These are the image-level identity and composition laws on embeddings.
+  identity (a : X.C) (x : Image[a].carrier) :
+    Id Image[a].carrier (Arrow[a,a,A.order.reflexive a].embed.1 x) x =
+    Image[a].ext (Arrow[a,a,A.order.reflexive a].embed.1 x) x (D.order.reflexive x.1) (D.order.reflexive x.1) ;
+  composition (a b c : X.C) (ab : X.LE a b) (bc : X.LE b c) (x : Image[a].carrier) :
+    Id Image[c].carrier (Arrow[b,c,bc].embed.1 (Arrow[a,b,ab].embed.1 x))
+      (Arrow[a,c,A.order.transitive a b c ab bc].embed.1 x) =
+    Image[c].ext (Arrow[b,c,bc].embed.1 (Arrow[a,b,ab].embed.1 x))
+      (Arrow[a,c,A.order.transitive a b c ab bc].embed.1 x) (D.order.reflexive x.1) (D.order.reflexive x.1) ;
+  module Colimit (I : U l) (a : I -> X.C) (d : ScottOrder[l].On[A.order].Dir I a)
+    (z : Image[DC[A.order,A.complete].sup I a d].carrier) {
+    part (i : I) : Y.C = run (a i) z.1 ;
+    directed : ScottOrder[l].On[D.order].Dir I part =
+      (d.1,\ i j -> T.map (ScottOrder[l].On[A.order].Upper I a i j)
+        (ScottOrder[l].On[D.order].Upper I part i j)
+        (\ k -> (k.1,(B.increasing (a i) (a k.1) k.2.1 z.1,B.increasing (a j) (a k.1) k.2.2 z.1))) (d.2 i j)) ;
+    equation : Id Y.C (V.sup I part directed) z.1 = D.order.antisymmetric (V.sup I part directed) z.1
+      (V.least I part directed z.1 (\ i -> (B.projection (a i)).deflation z.1))
+      (D.order.transitive z.1 (run (DC[A.order,A.complete].sup I a d) z.1) (V.sup I part directed) z.2
+        (B.continuous I a d z.1 (V.sup I part directed) (V.upper I part directed))) ;
+  } ;
+} ;

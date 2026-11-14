@@ -1,0 +1,206 @@
+-- Closed sub-CUSLs represent finitary projections on ideal completion.
+-- Membership is not downward closed. Compatible joins use the ambient CUSL.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ;
+module CU = ScottCUSL[l] ; module S = ScottOrder[l] ;
+module TC = TruncationCombinators[l] ; module TH = TruncationCombinators[l+] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ; module HF = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+ex (A : U l) : A -> S.Ex A = S.inc A ;
+ex-prop (A : U l) : Prelude[l].isProp (S.Ex A) = S.prop A ;
+ex-elim (A P : U l) (p : Prelude[l].isProp P) (f : A -> P) : S.Ex A -> P = TC.rec A @l P p f ;
+module On (C : CU.CUSL) {
+  module Canonical = ScottCUSLIdeals[l].Canonical[C] ; module A = Canonical.O ;
+  X : U l = A.X ; LE : X -> X -> U l = A.LE ;
+  EqX (a b : X) : U l = LE a b * LE b a ;
+  reflX (a : X) : EqX a a = (C.order.reflexive (A.val a),C.order.reflexive (A.val a)) ;
+  equal (a b : X) (p : Id C.order.carrier (A.val a) (A.val b)) : EqX a b =
+    (subst C.order.carrier (\ z -> C.order.le (A.val a) z) (A.val a) (A.val b) p (C.order.reflexive (A.val a)),
+     subst C.order.carrier (\ z -> C.order.le z (A.val a)) (A.val a) (A.val b) p (C.order.reflexive (A.val a))) ;
+  eq-trans (a b c : X) (p : EqX a b) (q : EqX b c) : EqX a c =
+    (C.order.transitive (A.val a) (A.val b) (A.val c) p.1 q.1,
+     C.order.transitive (A.val c) (A.val b) (A.val a) q.2 p.2) ;
+  path (a b : X) (h : EqX a b) : Id X a b =
+    trans X a (A.at (A.val a)) b
+      (sym X (A.at (A.val a)) a (sec-ret X C.order.carrier A.val Canonical.small.2.2 a))
+      (trans X (A.at (A.val a)) (A.at (A.val b)) b
+        (ap C.order.carrier X A.at (A.val a) (A.val b) (C.order.antisymmetric (A.val a) (A.val b) h.1 h.2))
+        (sec-ret X C.order.carrier A.val Canonical.small.2.2 b)) ;
+  Bound (a b : X) : U l = (c : X) * (LE a c * LE b c) ;
+  Compat (a b : X) : U l = S.Ex (Bound a b) ;
+  large (a b : X) (h : Compat a b) : CU.Compatible C.order (A.val a) (A.val b) =
+    TC.rec (Bound a b) @l+ (CU.Compatible C.order (A.val a) (A.val b))
+      (Truncation[l+].Trunc[CU.CompatibleWitness C.order (A.val a) (A.val b)].proposition)
+      (\ w -> CU.by-bound C.order (A.val a) (A.val b) (A.val w.1) w.2.1 w.2.2) h ;
+  small-compatible (a b : X) (h : CU.Compatible C.order (A.val a) (A.val b)) : Compat a b =
+    TH.rec (CU.CompatibleWitness C.order (A.val a) (A.val b)) @l (Compat a b) (S.prop (Bound a b))
+      (\ w -> S.inc (Bound a b) (A.at w.1,
+        (ScottDomainCategories[l].le-replace C.order (A.val a) (A.val a) w.1 (A.val (A.at w.1))
+          (refl (A.val a)) (sym C.order.carrier (A.val (A.at w.1)) w.1 (A.at-val w.1)) w.2.1,
+         ScottDomainCategories[l].le-replace C.order (A.val b) (A.val b) w.1 (A.val (A.at w.1))
+          (refl (A.val b)) (sym C.order.carrier (A.val (A.at w.1)) w.1 (A.at-val w.1)) w.2.2))) h ;
+  join (a b : X) (h : Compat a b) : X = A.join-index a b (large a b h) ;
+  join-left (a b : X) (h : Compat a b) : LE a (join a b h) = A.join-left a b (large a b h) ;
+  join-right (a b : X) (h : Compat a b) : LE b (join a b h) = A.join-right a b (large a b h) ;
+  join-least (a b : X) (h : Compat a b) (c : X) (ac : LE a c) (bc : LE b c) : LE (join a b h) c =
+    ScottDomainCategories[l].le-replace C.order
+      (CU.On[C].join (A.val a) (A.val b) (large a b h)) (A.val (join a b h)) (A.val c) (A.val c)
+      (sym C.order.carrier (A.val (join a b h)) (CU.On[C].join (A.val a) (A.val b) (large a b h))
+        (A.at-val (CU.On[C].join (A.val a) (A.val b) (large a b h)))) (refl (A.val c))
+      (CU.On[C].least (A.val a) (A.val b) (large a b h) (A.val c) ac bc) ;
+  Pred : U l+ = X -> U l ;
+  Closed (m : Pred) : U l+ = ((a : X) -> Prelude[l].isProp (m a)) *
+    (m A.bot * ((a b : X) (h : Compat a b) -> m a -> m b -> m (join a b h))) ;
+  Family : U l+ = (m : Pred) * Closed m ;
+  Mem (E : Family) (a : X) : U l = E.1 a ;
+  member-prop (E : Family) (a : X) : Prelude[l].isProp (Mem E a) = E.2.1 a ;
+  top : Family = (\ _ -> Top,(\ _ -> isTop,(tt,\ _ _ _ _ _ -> tt))) ;
+  empty-in (E : Family) : Mem E A.bot = E.2.2.1 ;
+  join-in (E : Family) (a b : X) (h : Compat a b) : Mem E a -> Mem E b -> Mem E (join a b h) = E.2.2.2 a b h ;
+  equiv-in (E : Family) (a b : X) (h : EqX a b) : Mem E a -> Mem E b = subst X (\ z -> E.1 z) a b (path a b h) ;
+  Incl (E H : Family) : U l = (a : X) -> Mem E a -> Mem H a ;
+  EqualF (E H : Family) : U l = Incl E H * Incl H E ;
+  incl-prop (E H : Family) : Prelude[l].isProp (Incl E H) =
+    F.isProp-Pi X (\ a -> Mem E a -> Mem H a) (\ a -> F.isProp-Pi (Mem E a) (\ _ -> Mem H a) (\ _ -> member-prop H a)) ;
+  closed-prop (m : Pred) : isProp (Closed m) =
+    isProp-Sigma ((a : X) -> Prelude[l].isProp (m a))
+      (\ _ -> m A.bot * ((a b : X) (h : Compat a b) -> m a -> m b -> m (join a b h)))
+      (HF.isProp-Pi X (\ a -> Prelude[l].isProp (m a)) (\ a -> F.isProp-isProp (m a)))
+      (\ p -> isProp-Sigma (m A.bot) (\ _ -> (a b : X) (h : Compat a b) -> m a -> m b -> m (join a b h)) (p A.bot)
+        (\ _ -> F.isProp-Pi X (\ a -> (b : X) (h : Compat a b) -> m a -> m b -> m (join a b h))
+          (\ a -> F.isProp-Pi X (\ b -> (h : Compat a b) -> m a -> m b -> m (join a b h))
+            (\ b -> F.isProp-Pi (Compat a b) (\ h -> m a -> m b -> m (join a b h))
+              (\ h -> F.isProp-Pi (m a) (\ _ -> m b -> m (join a b h))
+                (\ _ -> F.isProp-Pi (m b) (\ _ -> m (join a b h)) (\ _ -> p (join a b h)))))))) ;
+  ext (E H : Family) (h : EqualF E H) : Id Family E H =
+    Sigma-eq Pred Closed E.1 H.1 E.2 H.2
+      (HF.funext X (\ _ -> U l) E.1 H.1 (\ a ->
+        (propUA @l (Mem E a) (Mem H a) (member-prop E a) (member-prop H a)).sec
+          (h.1 a,Prelude[l].qinv (Mem E a) (Mem H a) (h.1 a) (h.2 a)
+            (\ p -> member-prop H a (h.1 a (h.2 a p)) p)
+            (\ p -> member-prop E a (h.2 a (h.1 a p)) p)))) (closed-prop H.1) ;
+Inc (E H : Family) : U l = Incl E H ;
+irefl (E : Family) : Inc E E = \ k h -> h ;
+itrans (E H J : Family) (a : Inc E H) (b : Inc H J) : Inc E J = \ k h -> b k (a k h) ;
+
+data Der (P : X -> U l) : (k : X) -> U l =
+    d-empty : Der P A.bot
+  | d-in (k : X) (h : P k) : Der P k
+  | d-join (a b : X) (c : Compat a b) (ha : Der P a) (hb : Der P b) : Der P (join a b c)
+  | d-equiv (a b : X) (e : EqX a b) (h : Der P a) : Der P b ;
+
+closure (P : X -> U l) : Family =
+  (\ k -> Ex (Der P k),(\ k -> ex-prop (Der P k),
+    (ex (Der P A.bot) d-empty,
+      \ a b c -> TC.map2 (Der P a) (Der P b) (Der P (join a b c)) (\ ha hb -> d-join a b c ha hb)))) ;
+inc (P : X -> U l) (k : X) (h : P k) : Mem (closure P) k = ex (Der P k) (d-in k h) ;
+
+fold (P : X -> U l) (E : Family) (h : (k : X) -> P k -> Mem E k) : (k : X) -> Der P k -> Mem E k = split {
+  d-empty -> empty-in E ;
+  d-in k p -> h k p ;
+  d-join a b c ha hb | ra rb -> join-in E a b c ra rb ;
+  d-equiv a b e ha | ra -> equiv-in E a b e ra } ;
+least (P : X -> U l) (E : Family) (h : (k : X) -> P k -> Mem E k) : Inc (closure P) E =
+  \ k -> ex-elim (Der P k) (Mem E k) (member-prop E k) (fold P E h k) ;
+
+-- Arbitrary small suprema, including the empty one.
+module Supremum (I : U l) (E : I -> Family) {
+  generators (k : X) : U l = (i : I) * Mem (E i) k ;
+  value : Family = closure generators ;
+  upper (i : I) : Inc (E i) value = \ k h -> inc generators k (i,h) ;
+  lub (H : Family) (h : (i : I) -> Inc (E i) H) : Inc value H =
+    least generators H (\ k w -> h w.1 k w.2) ;
+} ;
+
+Upper (I : U l) (E : I -> Family) (i j : I) : U l =
+  (k : I) * (Inc (E i) (E k) * Inc (E j) (E k)) ;
+Dir (I : U l) (E : I -> Family) : U l = Ex I * ((i j : I) -> Ex (Upper I E i j)) ;
+
+module Union (I : U l) (E : I -> Family) (d : Dir I E) {
+  W (k : X) : U l = (i : I) * Mem (E i) k ;
+  at-bottom : Ex (W A.bot) = TC.map I (W A.bot) (\ i -> (i,empty-in (E i))) d.1 ;
+  at-join (a b : X) (c : Compat a b) : Ex (W a) -> Ex (W b) -> Ex (W (join a b c)) =
+    TC.bind2 (W a) (W b) (W (join a b c)) (\ u v ->
+      TC.map (Upper I E u.1 v.1) (W (join a b c))
+        (\ w -> (w.1,join-in (E w.1) a b c (w.2.1 a u.2) (w.2.2 b v.2))) (d.2 u.1 v.1)) ;
+  at-equiv (a b : X) (e : EqX a b) : Ex (W a) -> Ex (W b) =
+    TC.map (W a) (W b) (\ w -> (w.1,equiv-in (E w.1) a b e w.2)) ;
+  value : Family = (\ k -> Ex (W k),(\ k -> ex-prop (W k),(at-bottom,at-join))) ;
+  upper (i : I) : Inc (E i) value = \ k h -> ex (W k) (i,h) ;
+  lub (H : Family) (h : (i : I) -> Inc (E i) H) : Inc value H =
+    \ k -> ex-elim (W k) (Mem H k) (member-prop H k) (\ w -> h w.1 k w.2) ;
+} ;
+
+data Finite : U l = none | single (k : X) | both (a b : Finite) ;
+Occ : Finite -> X -> U l = split {
+  none -> \ k -> Empty ;
+  single k -> \ t -> EqX k t ;
+  both a b | ra rb -> \ k -> Plus (ra k) (rb k) } ;
+finite (a : Finite) : Family = closure (Occ a) ;
+single-in (k : X) : Mem (finite (single k)) k = inc (Occ (single k)) k (reflX k) ;
+left (a b : Finite) : Inc (finite a) (finite (both a b)) =
+  least (Occ a) (finite (both a b)) (\ k h -> inc (Occ (both a b)) k (inl h)) ;
+right (a b : Finite) : Inc (finite b) (finite (both a b)) =
+  least (Occ b) (finite (both a b)) (\ k h -> inc (Occ (both a b)) k (inr h)) ;
+both-into (a b : Finite) (E : Family) (ha : Inc (finite a) E) (hb : Inc (finite b) E)
+  (k : X) : Occ (both a b) k -> Mem E k = split {
+    inl h -> ha k (inc (Occ a) k h) ;
+    inr h -> hb k (inc (Occ b) k h) } ;
+both-least (a b : Finite) (E : Family) (ha : Inc (finite a) E) (hb : Inc (finite b) E) : Inc (finite (both a b)) E =
+  least (Occ (both a b)) E (both-into a b E ha hb) ;
+
+Compact (E : Family) : U l+ = (I : U l) (H : I -> Family) (d : Dir I H) ->
+  Inc E Union[I,H,d].value -> Ex ((i : I) * Inc E (H i)) ;
+
+finite-compact : (a : Finite) -> Compact (finite a) = split {
+  none -> \ I H d h -> TC.map I ((i : I) * Inc (finite none) (H i))
+    (\ i -> (i,least (Occ none) (H i) (\ k e -> efq e))) d.1 ;
+  single k -> \ I H d h -> TC.map (Union[I,H,d].W k)
+    ((i : I) * Inc (finite (single k)) (H i))
+    (\ w -> (w.1,least (Occ (single k)) (H w.1) (\ t e -> equiv-in (H w.1) k t e w.2)))
+    (h k (single-in k)) ;
+  both a b | ra rb -> \ I H d h ->
+    TC.bind2 ((i : I) * Inc (finite a) (H i)) ((i : I) * Inc (finite b) (H i))
+      ((i : I) * Inc (finite (both a b)) (H i))
+      (\ u v -> TC.map (Upper I H u.1 v.1) ((i : I) * Inc (finite (both a b)) (H i))
+        (\ w -> (w.1,both-least a b (H w.1)
+          (itrans (finite a) (H u.1) (H w.1) u.2 w.2.1)
+          (itrans (finite b) (H v.1) (H w.1) v.2 w.2.2))) (d.2 u.1 v.1))
+      (ra I H d (itrans (finite a) (finite (both a b)) Union[I,H,d].value (left a b) h))
+      (rb I H d (itrans (finite b) (finite (both a b)) Union[I,H,d].value (right a b) h)) } ;
+
+module Basis (E : Family) {
+  index : U l = (a : Finite) * Inc (finite a) E ;
+  part (i : index) : Family = finite i.1 ;
+  directed : Dir index part =
+    (ex index (none,least (Occ none) E (\ k e -> efq e)),
+     \ i j -> ex (Upper index part i j)
+       ((both i.1 j.1,both-least i.1 j.1 E i.2 j.2),(left i.1 j.1,right i.1 j.1))) ;
+  forward : Inc Union[index,part,directed].value E = Union[index,part,directed].lub E (\ i -> i.2) ;
+  backward (k : X) (h : Mem E k) : Mem Union[index,part,directed].value k =
+    Union[index,part,directed].upper
+      (single k,least (Occ (single k)) E (\ t e -> equiv-in E k t e h)) k (single-in k) ;
+  equation : Id Family Union[index,part,directed].value E =
+    ext Union[index,part,directed].value E (forward,backward) ;
+} ;
+
+compact-finite (E : Family) (c : Compact E) : Ex ((a : Finite) * EqualF E (finite a)) =
+  TC.map ((i : Basis[E].index) * Inc E (Basis[E].part i)) ((a : Finite) * EqualF E (finite a))
+    (\ w -> (w.1.1,(w.2,w.1.2)))
+    (c Basis[E].index Basis[E].part Basis[E].directed Basis[E].backward) ;
+
+
+  order : S.Order = new S.Order[carrier := Family,le := Inc,proposition := incl-prop,
+    reflexive := irefl,transitive := itrans,antisymmetric := \ E H a b -> ext E H (a,b)] ;
+  complete : S.Complete[order] = new S.Complete[order,
+    directed := \ I E d -> (Union[I,E,d].value,(Union[I,E,d].upper,Union[I,E,d].lub)),
+    bounded := \ I E b h -> (Supremum[I,E].value,(Supremum[I,E].upper,Supremum[I,E].lub))] ;
+  basis : ScottDomain[l].Basis[order,complete] = new ScottDomain[l].Basis[order,complete,
+    index := Finite,basic := finite,compact := finite-compact,directed := \ E -> Basis[E].directed,
+    density := \ E H h k hk -> h (single k) (least (Occ (single k)) E (\ a e -> equiv-in E k a e hk)) k (single-in k)] ;
+  bottom : Family = finite none ;
+  bottom-least (E : Family) : Inc bottom E = least (Occ none) E (\ k e -> efq e) ;
+  scott : ScottDomain[l].Scott = new ScottDomain[l].Scott[order := order,complete := complete,basis := basis,
+    bottom := bottom,bottom-least := bottom-least] ;
+  domain : ScottDomainObjects[l].Domain = ScottDomainObjects[l].from-presented scott ;
+} ;

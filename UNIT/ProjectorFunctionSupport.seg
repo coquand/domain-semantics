@@ -4,7 +4,7 @@ level l ;
 open Base ; open Prelude[l] ; open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
 module SL = SemanticLaws[l] ; module AP = Application[l] ; module P = ScottPredicates[l].On[ScottFilter[l].scott] ;
 module At (A : D) (H : Map) (X : D) {
-  operation : Map = ProjectorLeast[l].family-map BinaryMaps[l].semantic A H X ;
+  operation : Map = ProjectorLeast[l].family-map BinarySemantic[l].semantic A H X ;
   function : FD = abstract operation ;
   argument (z : D) : D = SL.p A z ;
   classifier (z : D) : D = run H (argument z) ;

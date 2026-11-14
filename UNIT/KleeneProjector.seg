@@ -6,40 +6,23 @@ open Continuous[l] ; open BinaryMaps[l] ; open DirectedApprox[l] ;
 module PO = ProjectorOperator[l] ; module OC = OperatorContinuity[l] ;
 module TC = TruncationCombinators[l] ; module P = Prelude[l+] ;
 
-bottom-binary : Binary = new Binary[\ a -> constant bottom,
-  \ a b h x -> sub-refl bottom.1,
-  \ a x t h -> ex ((k : K) * (In a k.1 * In bottom t)) (bottomK,(fom a.1,h))] ;
-iterate : Nat -> Binary = split { zero -> bottom-binary ; suc n | r -> OC.Phi r } ;
-increasing : (n : Nat) -> PO.LE (iterate n) (iterate (suc n)) = split {
-  zero -> \ a x -> bottom-least (value (iterate (suc zero)) a x) ;
-  suc n | r -> OC.monotone (iterate n) (iterate (suc n)) r } ;
-monotone : (m n : Nat) -> LeN m n -> PO.LE (iterate m) (iterate n) = split {
-  zero -> \ n h a x -> bottom-least (value (iterate n) a x) ;
-  suc m | r -> split {
-    zero -> \ h -> P.absurd (PO.LE (iterate (suc m)) (iterate zero)) h ;
-    suc n -> \ h -> OC.monotone (iterate m) (iterate n) (r n h) } } ;
-net : Net = new Net[Nat,LeN,leN-refl,leN-trans,ex Nat zero,
-  \ m n -> ex ((k : Nat) * (LeN m k * LeN n k)) (max m n,(leN-max-l m n,leN-max-r m n))] ;
-module S = BinarySup[l].Sup[net,iterate,monotone] ;
-candidate : Binary = S.binary ;
-p (a x : D) : D = value candidate a x ;
-pre-fixed (a x : D) : Domain[l].Below (value (OC.Phi candidate) a x) (p a x) = \ t h ->
-  ex-elim (OperatorContinuity[l].Approximate[net,S.approx,On[net].constant a,On[net].constant x].Witness t)
-    (In (p a x) t) (fprop (p a x).1 t) (\ w -> S.upper (suc w.1) a x t w.2)
-    (OperatorContinuity[l].Approximate[net,S.approx,On[net].constant a,On[net].constant x].cover t h) ;
-below-image : (n : Nat) -> PO.LE (iterate n) (OC.Phi candidate) = split {
-  zero -> \ a x -> bottom-least (value (OC.Phi candidate) a x) ;
-  suc n -> OC.monotone (iterate n) candidate (S.upper n) } ;
-post-fixed (a x : D) : Domain[l].Below (p a x) (value (OC.Phi candidate) a x) =
-  S.least a x (value (OC.Phi candidate) a x) (\ n -> below-image n a x) ;
-equation (a x : D) : Id D (value (OC.Phi candidate) a x) (p a x) =
-  Domain[l].ext (value (OC.Phi candidate) a x) (p a x) (pre-fixed a x,post-fixed a x) ;
+open BinarySemantic[l] ;
+module K = KleeneConstruction[l] ;
+bottom-binary : Binary = K.bottom-binary ;
+iterate : Nat -> Binary = K.iterate ;
+increasing : (n : Nat) -> PO.LE (iterate n) (iterate (suc n)) = K.increasing ;
+monotone : (m n : Nat) -> LeN m n -> PO.LE (iterate m) (iterate n) = K.monotone ;
+net : Net = K.net ;
+module S = K.S ;
+candidate : Binary = K.candidate ;
+p (a x : D) : D = K.p a x ;
+pre-fixed : PO.LE (OC.Phi candidate) candidate = K.pre-fixed ;
+below-image : (n : Nat) -> PO.LE (iterate n) (OC.Phi candidate) = K.below-image ;
+post-fixed : PO.LE candidate (OC.Phi candidate) = K.post-fixed ;
+equation (a x : D) : Id D (value (OC.Phi candidate) a x) (p a x) = K.equation a x ;
 module Below (q : Binary) (prefixed : PO.LE (OC.Phi q) q) {
-  stages : (n : Nat) -> PO.LE (iterate n) q = split {
-    zero -> \ a x -> bottom-least (value q a x) ;
-    suc n | r -> \ a x -> sub-trans (value (iterate (suc n)) a x).1 (value (OC.Phi q) a x).1 (value q a x).1
-      (OC.monotone (iterate n) q r a x) (prefixed a x) } ;
-  least : PO.LE candidate q = \ a x -> S.least a x (value q a x) (\ n -> stages n a x) ;
+  stages : (n : Nat) -> PO.LE (iterate n) q = K.Below[q,prefixed].stages ;
+  least : PO.LE candidate q = K.Below[q,prefixed].least ;
 } ;
 
 -- Recover the lower clauses from being a pre-fixed point of Phi.
@@ -118,12 +101,8 @@ solution : ProjectorFixedPoint[l].LeastRecursive = new ProjectorFixedPoint[l].Le
   candidate,Clauses[candidate,pre-fixed].laws,
   \ q h a x -> sub-trans (p a x).1 (SemanticLaws[l].p a x).1 (value q a x).1
     (below-semantic a x) (ProjectorLeast[l].Least[q,h].least a x)] ;
+-- These laws are proved on the Kleene sequence before the typed comparison.
 finitary (a : D) : (f : Finitary[l].Finitary) * Id Map f.operation (candidate.at a) =
-  ProjectorFixedPoint[l].finitary-after-least solution a ;
+  (IndependentKleeneProjector[l].finitary a,refl (candidate.at a)) ;
 normalization (a x : D) : Id D (p (p universe a) x) (p a x) =
-  P.trans D (p (p universe a) x) (SemanticLaws[l].p (p universe a) x) (p a x)
-    (identification (p universe a) x)
-    (P.trans D (SemanticLaws[l].p (p universe a) x) (SemanticLaws[l].p (SemanticLaws[l].p universe a) x) (p a x)
-      (P.ap D D (\ z -> SemanticLaws[l].p z x) (p universe a) (SemanticLaws[l].p universe a) (identification universe a))
-      (P.trans D (SemanticLaws[l].p (SemanticLaws[l].p universe a) x) (SemanticLaws[l].p a x) (p a x)
-        (SemanticLaws[l].Normalize[a].equation x) (P.sym D (p a x) (SemanticLaws[l].p a x) (identification a x)))) ;
+  IndependentKleeneProjector[l].normalization a x ;

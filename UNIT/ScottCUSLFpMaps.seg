@@ -1,0 +1,86 @@
+-- Direct image and inverse image of closed compact families form an EP pair.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ; module CF = ScottCUSLClosedFamilies[l] ;
+module S = ScottOrder[l] ; module TC = TruncationCombinators[l] ; module TH = TruncationCombinators[l+] ;
+module DM = ScottDomainMaps[l] ; module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module K = CategoryInitialChain[l++,l+] ; module KM = ScottCUSLCompacts[l].Functor ;
+
+module Between (C D : CU.CUSL) (e : CU.Between[C,D].Embedding) {
+  module A = CF.On[C] ; module B = CF.On[D] ; module I = ScottCUSLIdealMaps[l].Between[C,D,e] ;
+  module M = DM.Between[A.domain,B.domain] ; module R = DM.Between[B.domain,A.domain] ;
+  f : A.X -> B.X = I.f ;
+  bot : B.EqX (f A.A.bot) B.A.bot = (I.f-bottom,B.A.bot-least (f A.A.bot)) ;
+  reflected (a b : A.X) (h : B.Compat (f a) (f b)) : A.Compat a b =
+    A.small-compatible a b (I.E.compat-reflect e (A.A.val a) (A.A.val b)
+      (TH.map (CU.CompatibleWitness D.order (B.A.val (f a)) (B.A.val (f b)))
+        (CU.CompatibleWitness D.order (I.E.run e (A.A.val a)) (I.E.run e (A.A.val b)))
+        (\ w -> (w.1,
+          (ScottDomainCategories[l].le-replace D.order (B.A.val (f a)) (I.E.run e (A.A.val a)) w.1 w.1
+            (I.f-val a) (refl w.1) w.2.1,
+           ScottDomainCategories[l].le-replace D.order (B.A.val (f b)) (I.E.run e (A.A.val b)) w.1 w.1
+            (I.f-val b) (refl w.1) w.2.2)))
+        (B.large (f a) (f b) h))) ;
+  compatible (a b : A.X) (h : A.Compat a b) : B.Compat (f a) (f b) =
+    TC.map (A.Bound a b) (B.Bound (f a) (f b))
+      (\ w -> (f w.1,(I.f-mono a w.1 w.2.1,I.f-mono b w.1 w.2.2))) h ;
+  join-equation (a b : A.X) (h : A.Compat a b) :
+    B.EqX (f (A.join a b h)) (B.join (f a) (f b) (compatible a b h)) =
+    (I.JoinUpper[a,b,B.join (f a) (f b) (compatible a b h),A.large a b h,
+      B.join-left (f a) (f b) (compatible a b h),B.join-right (f a) (f b) (compatible a b h)].result,
+     B.join-least (f a) (f b) (compatible a b h) (f (A.join a b h))
+       (I.f-mono a (A.join a b h) (A.join-left a b h)) (I.f-mono b (A.join a b h) (A.join-right a b h))) ;
+  module Backward (T : B.Family) {
+    predicate (a : A.X) : U l = B.Mem T (f a) ;
+    bottom : predicate A.A.bot = B.equiv-in T B.A.bot (f A.A.bot) (bot.2,bot.1) (B.empty-in T) ;
+    joined (a b : A.X) (h : A.Compat a b) (ha : predicate a) (hb : predicate b) : predicate (A.join a b h) =
+      B.equiv-in T (B.join (f a) (f b) (compatible a b h)) (f (A.join a b h))
+        ((join-equation a b h).2,(join-equation a b h).1)
+        (B.join-in T (f a) (f b) (compatible a b h) ha hb) ;
+    value : A.Family = (predicate,(\ a -> B.member-prop T (f a),(bottom,joined))) ;
+  } ;
+  module Forward (E : A.Family) {
+    W (b : B.X) : U l = (a : A.X) * (A.Mem E a * B.EqX (f a) b) ;
+    predicate (b : B.X) : U l = S.Ex (W b) ;
+    bottom : predicate B.A.bot = S.inc (W B.A.bot) (A.A.bot,(A.empty-in E,bot)) ;
+    module Join (a b : B.X) (h : B.Compat a b) (u : W a) (v : W b) {
+      target : B.X = B.join a b h ;
+      up : B.LE (f u.1) target = D.order.transitive (B.A.val (f u.1)) (B.A.val a) (B.A.val target) u.2.2.1 (B.join-left a b h) ;
+      vp : B.LE (f v.1) target = D.order.transitive (B.A.val (f v.1)) (B.A.val b) (B.A.val target) v.2.2.1 (B.join-right a b h) ;
+      source-h : A.Compat u.1 v.1 = reflected u.1 v.1 (S.inc (B.Bound (f u.1) (f v.1)) (target,(up,vp))) ;
+      source : A.X = A.join u.1 v.1 source-h ;
+      equality : B.EqX (f source) target =
+        (I.JoinUpper[u.1,v.1,target,A.large u.1 v.1 source-h,up,vp].result,
+         B.join-least a b h (f source)
+           (D.order.transitive (B.A.val a) (B.A.val (f u.1)) (B.A.val (f source)) u.2.2.2
+             (I.f-mono u.1 source (A.join-left u.1 v.1 source-h)))
+           (D.order.transitive (B.A.val b) (B.A.val (f v.1)) (B.A.val (f source)) v.2.2.2
+             (I.f-mono v.1 source (A.join-right u.1 v.1 source-h)))) ;
+      witness : W target = (source,(A.join-in E u.1 v.1 source-h u.2.1 v.2.1,equality)) ;
+    } ;
+    joined (a b : B.X) (h : B.Compat a b) : predicate a -> predicate b -> predicate (B.join a b h) =
+      TC.map2 (W a) (W b) (W (B.join a b h)) (\ u v -> Join[a,b,h,u,v].witness) ;
+    value : B.Family = (predicate,(\ b -> S.prop (W b),(bottom,joined))) ;
+    into (a : A.X) (h : A.Mem E a) : B.Mem value (f a) = S.inc (W (f a)) (a,(h,B.reflX (f a))) ;
+  } ;
+  forward (E : A.Family) : B.Family = Forward[E].value ;
+  backward (T : B.Family) : A.Family = Backward[T].value ;
+  forward-mono (E H : A.Family) (h : A.Inc E H) : B.Inc (forward E) (forward H) = \ b ->
+    TC.map (Forward[E].W b) (Forward[H].W b) (\ w -> (w.1,(h w.1 w.2.1,w.2.2))) ;
+  backward-mono (T V : B.Family) (h : B.Inc T V) : A.Inc (backward T) (backward V) = \ a -> h (f a) ;
+  below (T : B.Family) : B.Inc (forward (backward T)) T = \ b ->
+    TC.rec (Forward[backward T].W b) @l (B.Mem T b) (B.member-prop T b)
+      (\ w -> B.equiv-in T (f w.1) b w.2.2 w.2.1) ;
+  retract (E : A.Family) : Id A.Family (backward (forward E)) E =
+    A.ext (backward (forward E)) E
+      (\ a -> TC.rec (Forward[E].W (f a)) @l (A.Mem E a) (A.member-prop E a)
+        (\ w -> A.equiv-in E w.1 a (I.f-reflect w.1 a w.2.2.1,I.f-reflect a w.1 w.2.2.2) w.2.1),
+       Forward[E].into) ;
+  embed : M.Map = (forward,(forward-mono,\ J E d T h b ->
+    TC.rec (Forward[A.Union[J,E,d].value].W b) @l (B.Mem T b) (B.member-prop T b)
+      (\ w -> TC.rec (A.Union[J,E,d].W w.1) @l (B.Mem T b) (B.member-prop T b)
+        (\ i -> h i.1 b (S.inc (Forward[E i.1].W b) (w.1,(i.2,w.2.2)))) w.2.1))) ;
+  project : R.Map = (backward,(backward-mono,\ J T d E h a ->
+    TC.rec (B.Union[J,T,d].W (f a)) @l (A.Mem E a) (A.member-prop E a) (\ i -> h i.1 a i.2))) ;
+  pair : EP.Between[A.domain,B.domain].Pair = ((embed,project),(retract,below)) ;
+} ;

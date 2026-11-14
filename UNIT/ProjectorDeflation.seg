@@ -1,0 +1,29 @@
+-- The deflation calculation for Phi uses only pointwise deflation.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open Abstraction[l] ; open BinaryMaps[l] ;
+module PO = ProjectorOperator[l] ; module FM = ProjectorFamilyMaps[l] ;
+module AP = Application[l] ;
+
+module On (q : Binary) (below : (a x : D) -> Domain[l].Below (value q a x) x) {
+  family (a : D) (H : Map) (F : D) (z : D) :
+    Domain[l].Below (run (FM.family-map q a H F) z) (AP.eval F z) =
+    sub-trans (run (FM.family-map q a H F) z).1 (AP.eval F (value q a z)).1 (AP.eval F z).1
+      (below (run H (value q a z)) (AP.eval F (value q a z)))
+      (AP.mono F F (value q a z) z (sub-refl F.1) (below a z)) ;
+  function (a : D) (H : Map) (F : D) :
+    Domain[l].Below (abstract (FM.family-map q a H F)).1 F =
+    sub-trans (abstract (FM.family-map q a H F)).1.1 (abstract (AP.map F)).1.1 F.1
+      MonotoneLambda[FM.family-map q a H F,AP.map F,family a H F].inclusion Lower[F].forward ;
+  at (a x : D) : Domain[l].Below PO.At[q,a,x].result x = PO.At[q,a,x].least x
+    (\ ha hx -> prin-sub univ x.1 hx)
+    (\ ha hx -> sub-trans
+      Constructors[l].Pi[PO.At[q,a,x].pi-domain hx,PO.At[q,a,x].pi-family hx].value.1
+      Constructors[l].PiBelow[x,hx].P.value.1 x.1
+      Constructors[l].PiMono[PO.At[q,a,x].pi-domain hx,Parts[l].PiParts[x,hx].domain,
+        PO.At[q,a,x].pi-family hx,Parts[l].PiParts[x,hx].family,
+        below universe Parts[l].PiParts[x,hx].domain,
+        function Parts[l].PiParts[x,hx].domain (constant universe) Parts[l].PiParts[x,hx].family.1].inclusion
+      Constructors[l].PiBelow[x,hx].inclusion)
+    (\ ha -> function Parts[l].PiParts[a,ha].domain (apply Parts[l].PiParts[a,ha].family) x) ;
+} ;

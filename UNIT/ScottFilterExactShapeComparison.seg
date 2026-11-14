@@ -1,0 +1,248 @@
+-- Compare the flat ideal shape of the exact CUSL constructor with the
+-- existing constructive coalesced-sum presentation of the filter domain.
+level l ;
+open Base ; open Prelude[l+] ;
+module S = ScottOrder[l] ;
+module SO = ScottDomainObjects[l] ;
+module SC = ScottDomainCategories[l] ;
+module Lift = Lifting[l] ;
+module SumOld = Sum[l] ;
+module EO = EquationOrder[l] ;
+module OrderedOld = ScottFilterSumOrder[l] ;
+module Components = ScottFilterExactComponents[l] ;
+module Bottom = ScottFilterExactBottom[l] ;
+module Singleton = ScottCUSLSingletonIdeals[l] ;
+module Old = ScottFilterFunctionIdealComparison[l] ;
+module New = ScottCUSLExactIdealShape[l].On[Old.compacts] ;
+module D = Domain[l] ;
+module A = Abstraction[l] ;
+module EQL = EquivalenceLemmas[l+] ;
+
+old-function (s : New.Flat) : A.FD =
+  Components.function-component.1.2.sec s.1.1.1.1 ;
+old-pi (s : New.Flat) : Lift.Lift (D.D * A.FD) =
+  (s.1.1.1.2.1,\ p ->
+    Components.product-component.1.2.sec (s.1.1.1.2.2 p)) ;
+old-universe (s : New.Flat) : Lift.Prop =
+  Singleton.forward s.1.2 ;
+new-to-old-bottom (I : New.Inner.CI.Ideal)
+  (h : Id New.Inner.CI.Ideal I New.Inner.CI.least) :
+  D.Equal (Components.function-component.1.2.sec I).1 D.bottom =
+  Bottom.ideal-bottom-to-old
+    (Components.function-component.1.2.sec I)
+    (trans New.Inner.CI.Ideal
+      (Components.function-component.1.1
+        (Components.function-component.1.2.sec I))
+      I New.Inner.CI.least
+      (Components.function-component.1.2.sec-eq I) h) ;
+
+forward (s : New.Flat) : SumOld.RHS =
+  ((old-universe s,(old-pi s,old-function s)),
+    (\ u p -> s.2.2 u p,
+      (\ u -> new-to-old-bottom s.1.1.1.1 (s.2.1 u),
+       \ p -> new-to-old-bottom s.1.1.1.1 (s.1.1.2 p)))) ;
+
+new-function (s : SumOld.RHS) : New.Inner.CI.Ideal =
+  Components.function-component.1.1 s.1.2.2 ;
+new-pi (s : SumOld.RHS) :
+  New.Inner.Lift New.Inner.PI.Ideal =
+  (s.1.2.1.1,\ p ->
+    Components.product-component.1.1 (s.1.2.1.2 p)) ;
+new-universe (s : SumOld.RHS) :
+  New.Outer.Lift New.Outer.PI.Ideal =
+  Singleton.backward s.1.1 ;
+backward (s : SumOld.RHS) : New.Flat =
+  ((((new-function s,new-pi s),
+      \ p -> Bottom.old-bottom-to-ideal s.1.2.2 (s.2.2.2 p)),
+     new-universe s),
+    (\ u -> Bottom.old-bottom-to-ideal s.1.2.2 (s.2.2.1 u),
+     \ u p -> s.2.1 u p)) ;
+
+module OldRoundtrip (s : SumOld.RHS) {
+  pi-eq : Id (Lift.Lift (D.D * A.FD))
+    (old-pi (backward s)) s.1.2.1 =
+    Lift.ext (D.D * A.FD) (old-pi (backward s)) s.1.2.1
+      (\ p -> p) (\ p -> p)
+      (\ p q ->
+        trans (D.D * A.FD)
+          (Components.product-component.1.2.sec
+            (Components.product-component.1.1 (s.1.2.1.2 p)))
+          (s.1.2.1.2 p) (s.1.2.1.2 q)
+          (Components.product-component.1.2.ret-eq
+            (s.1.2.1.2 p))
+          (ap s.1.2.1.1.1 (D.D * A.FD) s.1.2.1.2
+            p q (s.1.2.1.1.2 p q))) ;
+  function-eq : Id A.FD
+    (old-function (backward s)) s.1.2.2 =
+    Components.function-component.1.2.ret-eq s.1.2.2 ;
+  data-eq : Id SumOld.Data (forward (backward s)).1 s.1 =
+    Lift.pair-path Lift.Prop (Lift.Lift (D.D * A.FD) * A.FD)
+      (forward (backward s)).1.1 s.1.1
+      (forward (backward s)).1.2 s.1.2
+      (Singleton.section s.1.1)
+      (Lift.pair-path (Lift.Lift (D.D * A.FD)) A.FD
+        (old-pi (backward s)) s.1.2.1
+        (old-function (backward s)) s.1.2.2
+        pi-eq function-eq) ;
+  result : Id SumOld.RHS (forward (backward s)) s =
+    Sigma-eq SumOld.Data (\ d -> SumOld.Compatible d)
+      (forward (backward s)).1 s.1
+      (forward (backward s)).2 s.2
+      data-eq (SumOld.compatible-prop s.1) ;
+} ;
+forward-backward (s : SumOld.RHS) :
+  Id SumOld.RHS (forward (backward s)) s =
+  OldRoundtrip[s].result ;
+
+module NewRoundtrip (s : New.Flat) {
+  function-eq : Id New.Inner.CI.Ideal
+    (new-function (forward s)) s.1.1.1.1 =
+    Components.function-component.1.2.sec-eq s.1.1.1.1 ;
+  pi-eq : Id (New.Inner.Lift New.Inner.PI.Ideal)
+    (new-pi (forward s)) s.1.1.1.2 =
+    Lift.ext New.Inner.PI.Ideal
+      (new-pi (forward s)) s.1.1.1.2
+      (\ p -> p) (\ p -> p)
+      (\ p q ->
+        trans New.Inner.PI.Ideal
+          (Components.product-component.1.1
+            (Components.product-component.1.2.sec
+              (s.1.1.1.2.2 p)))
+          (s.1.1.1.2.2 p) (s.1.1.1.2.2 q)
+          (Components.product-component.1.2.sec-eq
+            (s.1.1.1.2.2 p))
+          (ap s.1.1.1.2.1.1 New.Inner.PI.Ideal
+            s.1.1.1.2.2 p q
+            (s.1.1.1.2.1.2 p q))) ;
+  inner-data-eq : Id New.Inner.Data
+    (backward (forward s)).1.1.1 s.1.1.1 =
+    Lift.pair-path New.Inner.CI.Ideal
+      (New.Inner.Lift New.Inner.PI.Ideal)
+      (new-function (forward s)) s.1.1.1.1
+      (new-pi (forward s)) s.1.1.1.2
+      function-eq pi-eq ;
+  inner-eq : Id New.Inner.Shape
+    (backward (forward s)).1.1 s.1.1 =
+    Sigma-eq New.Inner.Data New.Inner.Compatible
+      (backward (forward s)).1.1.1 s.1.1.1
+      (backward (forward s)).1.1.2 s.1.1.2
+      inner-data-eq (New.Inner.compatible-prop s.1.1.1) ;
+  universe-eq : Id (New.Outer.Lift New.Outer.PI.Ideal)
+    (new-universe (forward s)) s.1.2 =
+    Singleton.retraction s.1.2 ;
+  data-eq : Id New.FlatData (backward (forward s)).1 s.1 =
+    Lift.pair-path New.Inner.Shape
+      (New.Outer.Lift New.Outer.PI.Ideal)
+      (backward (forward s)).1.1 s.1.1
+      (new-universe (forward s)) s.1.2
+      inner-eq universe-eq ;
+  result : Id New.Flat (backward (forward s)) s =
+    Sigma-eq New.FlatData New.FlatCompatible
+      (backward (forward s)).1 s.1
+      (backward (forward s)).2 s.2
+      data-eq (New.flat-compatible-prop s.1) ;
+} ;
+backward-forward (s : New.Flat) :
+  Id New.Flat (backward (forward s)) s =
+  NewRoundtrip[s].result ;
+equivalence : Equiv New.Flat SumOld.RHS =
+  (forward,qinv New.Flat SumOld.RHS forward backward
+    forward-backward backward-forward) ;
+
+inverse-mono (A B : S.Order) (i : SO.OrderIso A B)
+  (x y : B.carrier) (h : B.le x y) :
+  A.le (i.1.2.sec x) (i.1.2.sec y) =
+  i.2.2 (i.1.2.sec x) (i.1.2.sec y)
+    (SC.le-replace B x (i.1.1 (i.1.2.sec x))
+      y (i.1.1 (i.1.2.sec y))
+      (sym B.carrier (i.1.1 (i.1.2.sec x)) x
+        (i.1.2.sec-eq x))
+      (sym B.carrier (i.1.1 (i.1.2.sec y)) y
+        (i.1.2.sec-eq y)) h) ;
+
+forward-explicit (s t : New.Flat)
+  (h : New.FlatOrder s t) :
+  EO.Order (forward s) (forward t) =
+  (h.2.1,
+    (h.1.2.1,
+      (\ p q -> inverse-mono
+        ScottFilterProductComparison[l].order
+        ScottFilterProductIdealComparison[l].TargetIdeal.domain.order
+        Components.product-component
+        (s.1.1.1.2.2 p) (t.1.1.1.2.2 q)
+        (h.1.2.2 p q),
+       inverse-mono
+         ScottFilterFunctionComparison[l].order
+         Old.TargetIdeal.domain.order
+         Components.function-component
+         s.1.1.1.1 t.1.1.1.1 h.1.1))) ;
+backward-explicit (s t : SumOld.RHS)
+  (h : EO.Order s t) :
+  New.FlatOrder (backward s) (backward t) =
+  ((Components.function-component.2.1
+      s.1.2.2 t.1.2.2 h.2.2.2,
+    (h.2.1,
+     \ p q -> Components.product-component.2.1
+       (s.1.2.1.2 p) (t.1.2.1.2 q)
+       (h.2.2.1 p q))),
+   (h.1,\ u v -> Singleton.incl
+     ((new-universe s).2 u) ((new-universe t).2 v))) ;
+forward-mono (s t : New.Flat)
+  (h : New.FlatOrder s t) :
+  OrderedOld.order.le (forward s) (forward t) =
+  OrderedOld.explicit-to-order (forward s) (forward t)
+    (forward-explicit s t h) ;
+forward-reflect (s t : New.Flat)
+  (h : OrderedOld.order.le (forward s) (forward t)) :
+  New.FlatOrder s t =
+  SC.le-replace New.flat-order
+    (backward (forward s)) s
+    (backward (forward t)) t
+    (backward-forward s) (backward-forward t)
+    (backward-explicit (forward s) (forward t)
+      (OrderedOld.order-to-explicit (forward s) (forward t) h)) ;
+order-iso : SO.OrderIso New.flat-order OrderedOld.order =
+  (equivalence,(forward-mono,forward-reflect)) ;
+
+ideal-order-iso : SO.OrderIso
+  New.Outer.BI.order OrderedOld.order =
+  (EQL.then New.Outer.BI.Ideal New.Flat SumOld.RHS
+     New.ideal-order-iso.1 order-iso.1,
+   (\ I J h -> forward-mono
+       (New.ideal-order-iso.1.1 I)
+       (New.ideal-order-iso.1.1 J)
+       (New.ideal-order-iso.2.1 I J h),
+    \ I J h -> New.ideal-order-iso.2.2 I J
+      (forward-reflect
+        (New.ideal-order-iso.1.1 I)
+        (New.ideal-order-iso.1.1 J) h))) ;
+
+inverse-ideal-iso : SO.OrderIso
+  OrderedOld.order New.Outer.BI.order =
+  ((ideal-order-iso.1.2.sec,
+    qinv SumOld.RHS New.Outer.BI.Ideal
+      ideal-order-iso.1.2.sec ideal-order-iso.1.1
+      ideal-order-iso.1.2.ret-eq
+      ideal-order-iso.1.2.sec-eq),
+   (\ s t h -> inverse-mono
+       New.Outer.BI.order OrderedOld.order
+       ideal-order-iso s t h,
+    \ s t h -> SC.le-replace OrderedOld.order
+      (ideal-order-iso.1.1 (ideal-order-iso.1.2.sec s)) s
+      (ideal-order-iso.1.1 (ideal-order-iso.1.2.sec t)) t
+      (ideal-order-iso.1.2.sec-eq s)
+      (ideal-order-iso.1.2.sec-eq t)
+      (ideal-order-iso.2.1
+        (ideal-order-iso.1.2.sec s)
+        (ideal-order-iso.1.2.sec t) h))) ;
+
+old-domain-iso : SO.DomainIso
+  Old.old-domain New.Outer.BI.domain =
+  ScottEPOrderIso[l].compose
+    ScottFilter[l].order OrderedOld.order New.Outer.BI.order
+    OrderedOld.order-iso inverse-ideal-iso ;
+old-domain-ep-iso :
+  ScottDomainCategories[l].EmbeddingProjection.pre.Iso
+    Old.old-domain New.Outer.BI.domain =
+  ScottDomainCategories[l].EmbeddingProjection.from-order
+    Old.old-domain New.Outer.BI.domain old-domain-iso ;

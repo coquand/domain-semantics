@@ -1,0 +1,80 @@
+-- Compact witnesses for the universe clause, obtained from the generic
+-- Sigma / varying-function-space theorem, without recursion on graphs.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open Consistency[l] ;
+open ExtFilter[l] ; open Domain[l] ; open Continuous[l] ; open Abstraction[l] ;
+open BinaryMaps[l] ; open Finitary[l] ;
+module T = TruncationCombinators[l] ; module PO = ProjectorOperator[l] ;
+module OC = OperatorContinuity[l] ; module Functions = ScottFilterReflexiveEP[l] ;
+module SF = ScottFilter[l] ; module CF = ScottFilterCompactFunction[l] ;
+
+module On (q : Binary) (fp : (a : D) -> Finitary[l].Finitary[q.at a])
+  (norm : ProjectorNormalization[l].Normalized q) (A : D) (F : FD) {
+  module General = UniversePayloadProjector[l].On[q,fp,norm] ;
+  module P = General.P ; module FP = General.FP ; module End = Functions.End ;
+  module DD = General.DD ;
+  raw : P.C = (A,Functions.decode F.1) ;
+  projected : P.C = General.result A raw.2 ;
+  UQ : D = value q universe A ;
+  record Graph {
+    domain-target : Ty ; target : Ty ;
+    code : K ; code-fixed : Fixed (q.at universe) (principal code) ; code-inside : In UQ code.1 ; code-covers : Le code.1 domain-target ;
+    key : K ; arrows : Arrows key.1 ; inside : In F.1 key.1 ; covers : Le key.1 target ;
+    fixed : Equal (SectionProjector[l].On[q,fp,principal code,constant universe].result (principal key)).1 (principal key) ;
+  } ;
+  module Witness (d t : Ty) (c : K) (ct : Le c.1 d) (b : End.basis.index) (bt : In (Functions.encode (End.basis.basic b)) t)
+    (w : FP.Witness General.finitary.operation projected (c,b))
+    (r : CF.Representation (End.basis.basic w.1.2)) {
+    code : K = w.1.1 ; key : K = r.1 ; g : DD.Map = End.basis.basic w.1.2 ;
+    module CS = SectionProjector[l].On[q,fp,principal code,constant universe] ;
+    code-fixed : Fixed (q.at universe) (principal code) = ((fp universe).deflation (principal code),w.2.1.1) ;
+    code-inside : In UQ code.1 = w.2.2.1.1 code.1 (prin-in code.1) ;
+    inside : In F.1 key.1 = Functions.below F.1 key.1
+      (Functions.embed.2.1 g raw.2
+        (DD.order.transitive g projected.2 raw.2 w.2.2.1.2 (General.finitary.deflation raw).2)
+        key.1 (r.2.2.2 key.1 (prin-in key.1))) ;
+    lower : Domain[l].Below (principal key) (CS.result (principal key)).1 =
+      sub-trans (principal key).1 (Functions.encode g).1 (CS.result (principal key)).1.1 r.2.2.2
+        (sub-trans (Functions.encode g).1 (Functions.encode (General.result (principal code) g).2).1
+          (CS.result (principal key)).1.1
+          (Functions.embed.2.1 g (General.result (principal code) g).2 w.2.1.2)
+          (sub-trans (Functions.encode (General.result (principal code) g).2).1
+            (abstract (General.Formula[principal code,g].intended)).1.1 (CS.result (principal key)).1.1
+            General.Formula[principal code,g].encoded.1
+            PO.FamilyMono[q,q,OC.reflexive q,principal code,principal code,sub-refl (principal code).1,
+              constant universe,constant universe,\ z -> sub-refl universe.1,
+              Functions.encode g,principal key,r.2.2.1].inclusion)) ;
+    fixed : Equal (CS.result (principal key)).1 (principal key) =
+      (CS.DF.function (principal code) (constant universe) (principal key),lower) ;
+    observation : In (principal key) t = r.2.2.1 t
+      (Functions.embed.2.1 (End.basis.basic b) g w.2.2.2.2 t bt) ;
+    code-observation : In (principal code) d =
+      fup (principal code).1 c.1 d ct (w.2.2.2.1 c.1 (prin-in c.1)) ;
+    graph : Ex Graph[d,t] = T.map2 (Le code.1 d) (Le key.1 t) Graph[d,t]
+      (\ cd le -> new Graph[d,t,code,code-fixed,code-inside,cd,key,r.2.1,inside,le,fixed]) code-observation observation ;
+  } ;
+  at (d t : Ty) (c : K) (ct : Le c.1 d) (ch : Domain[l].Below (principal c) UQ) (b : End.basis.index) (below : DD.LE (End.basis.basic b) projected.2)
+    (obs : In (Functions.encode (End.basis.basic b)) t) : Ex Graph[d,t] =
+    T.bind (FP.Witness General.finitary.operation projected (c,b)) Graph[d,t]
+      (\ w -> T.bind (CF.Representation (End.basis.basic w.1.2)) Graph[d,t]
+        (\ r -> Witness[d,t,c,ct,b,obs,w,r].graph) CF.At[w.1.2].representation)
+      (General.finitary.density projected (General.finitary.idempotence raw) (c,b)
+        (ch,below)) ;
+  compact-observation (d t : Ty) (c : K) (ct : Le c.1 d) (ch : Domain[l].Below (principal c) UQ) (k : Domain[l].PW (Functions.encode projected.2).1 t) : Ex Graph[d,t] =
+    T.bind ((b : ScottDomain[l].On[End.scott].BI projected.2) *
+      Domain[l].Below (principal (k.1,(k.2.1,consistent (Functions.encode projected.2) k.1 k.2.2.1)))
+        (Functions.encode (End.basis.basic b.1))) Graph[d,t]
+      (\ b -> at d t c ct ch b.1.1 b.1.2 (fup (Functions.encode (End.basis.basic b.1.1)).1 k.1 t k.2.2.2
+        (b.2 k.1 (prin-in k.1))))
+      (Functions.E.Finite[Functions.embed,projected.2].witness
+        (k.1,(k.2.1,consistent (Functions.encode projected.2) k.1 k.2.2.1))
+        (prin-sub k.1 (Functions.encode projected.2).1 k.2.2.1)) ;
+  observe (d t : Ty) (hd : In UQ d)
+    (obs : In (ProjectorFamilyMaps[l].universe-family q A F).1 t) : Ex Graph[d,t] =
+    T.bind (Domain[l].PW UQ.1 d) Graph[d,t]
+      (\ c -> T.bind (Domain[l].PW (Functions.encode projected.2).1 t) Graph[d,t]
+        (compact-observation d t (c.1,(c.2.1,consistent UQ c.1 c.2.2.1)) c.2.2.2
+          (prin-sub c.1 UQ.1 c.2.2.1))
+        ((Functions.encode projected.2).2.2 t (General.FilterFormula[A,F].equality.2 t obs)))
+      (UQ.2.2 d hd) ;
+} ;

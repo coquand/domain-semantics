@@ -1,0 +1,21 @@
+-- Omega-continuity of the exact three-branch CUSL constructor.
+level l ;
+module CU = ScottCUSL[l] ;
+module K = CategoryInitialChain[l++,l+] ;
+module E = ScottCUSLExactFunctor[l] ;
+module T = ScottCUSLEndofunctorPreservation[l].On[
+  ScottEPEndomaps[l].functor,
+  ScottEPEndomapsPreservation[l].omega] ;
+module V = ScottCUSLEndofunctorPreservation[l].On[
+  ScottEPExactCore[l].functor,
+  ScottEPExactCorePreservation[l].omega] ;
+
+endomap : K.OmegaContinuous[CU.pre,E.F.functor] =
+  T.continuous ;
+pi-payload : K.OmegaContinuous[CU.pre,E.P.functor] =
+  V.continuous ;
+module Inner = ScottCUSLBranchPreservation[l].On[
+  E.F.functor,E.P.functor,endomap,pi-payload] ;
+module Outer = ScottCUSLBranchPreservation[l].On[
+  E.Inner.functor,E.One.functor,Inner.omega,E.One.omega] ;
+omega : K.OmegaContinuous[CU.pre,E.functor] = Outer.omega ;

@@ -33,36 +33,42 @@ This `MIN/` development is the current, complete one. (The repository also
 contains an element-level identity type, and a self-contained formalisation of
 Colson's ultimate-obstination theorem; see the end.)
 
-## Scott domains and an independent logical relation (`UNIT/`)
+## Scott domains and definitional inversion (`UNIT/`)
 
-The [Scott-domain account (PDF)](UNIT/scott-domains.pdf), with
-[LaTeX source](UNIT/scott-domains.tex), presents continuous function spaces,
-compact approximations, projectors, and an independently constructed logical
-relation. The mathematical presentation comes first; the formal-check summary
-and timings are at the end. The comparison with bounded stage typing is in
-Appendix A.
+The [revised Scott-domain note (PDF)](UNIT/scott-domains-revised.pdf), with
+[LaTeX source](UNIT/scott-domains-revised.tex), presents continuous function
+spaces, dependent products and sums, finitary projectors, and an independent
+logical relation proving adequacy and definitional inversion.
+The mathematical presentation comes first; the formal-check summary and
+recorded timings are at the end.
 
-The Unit development proves the full fundamental lemma, including Pi
-formation and equality, annotated lambda, and typed function extensionality,
-without using old adequacy or syntactic Pi injectivity. It then derives
-whole-denotation adequacy and **Pi inversion as a propositionally truncated
-pair of component equality derivations**.
-It also includes a [Scott domain object with merely existing small basis](UNIT/ScottDomainObjects.seg),
-so different chosen basis presentations of one underlying domain give the
-same object. An order isomorphism induces equality of these objects; the
-canonical map from equality to order isomorphism is now a checked equivalence.
+Theorem 4.2 represents finitary projectors by their compact fixed points.
+The [independent CUSL session](UNIT/CUSLFpCheck.seg) follows this change of
+representation through [closed compact families](UNIT/ScottCUSLClosedFamilies.seg)
+to the continuous `Fp` functor, including preservation of small directed
+colimits and transport to Scott domains.
+
+The full fundamental lemma includes Pi formation and equality, annotated
+lambda, and typed function extensionality, without using the old adequacy
+or syntactic Pi-injectivity proofs. It yields whole-denotation adequacy and
+Pi inversion as a propositionally truncated pair of component equality
+derivations.
 
 - [Complete derivation induction](UNIT/IndependentFundamental.seg)
 - [Whole-denotation adequacy](UNIT/IndependentAdequacy.seg) and
   [independent Pi inversion](UNIT/IndependentInversion.seg)
+- [General `Fp` functor](UNIT/ScottCUSLFpFunctor.seg) and
+  [directed-colimit preservation](UNIT/ScottCUSLFpContinuity.seg)
 - [Development guide](UNIT/README.txt) and
   [logical-relation proof account](UNIT/LOGICAL_RELATION_PROGRAM.md)
 
-The full check covers **9,460 declarations**; the separate independent check
-covers **4,909 declarations**, with the old relation and adequacy proofs out
-of scope. Both pass, and all 40 frozen dependency hashes are verified. The
-recorded complete run took **3.54 seconds wall-clock time**. This development
-uses univalence and replacement as explicit ambient parameters.
+`python3 UNIT/check.py` checks five sessions: the full development
+(15,724 declarations), general CUSL `Fp` construction (2,412), general
+dependent products and sums (1,156), independent projector proof (3,849),
+and independent logical relation (6,349). All pass with zero failures,
+and all 40 frozen dependency hashes match. The separate sessions audit
+which earlier proof modules are excluded. The development uses univalence
+and replacement as explicit ambient parameters.
 
 With the compiled Haskell Unit checker available, run:
 
@@ -70,9 +76,9 @@ With the compiled Haskell Unit checker available, run:
 python3 UNIT/check.py /path/to/seg
 ```
 
-Python only verifies dependency hashes and launches the Haskell checker;
-it does no type-checking. The checker binary is not bundled. The guide
-explains the recorded local checker and the `UNIT_CHECKER` alternative.
+Python verifies dependency hashes and launches the Haskell checker; it does
+no type-checking. The checker binary is not bundled. The development guide
+explains the recorded checker and the `UNIT_CHECKER` alternative.
 
 ## Main results — where they are proved
 

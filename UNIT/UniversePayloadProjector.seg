@@ -1,0 +1,70 @@
+-- The universe payload projector comes from a general dependent sum
+-- of varying function spaces. Normalization identifies its formula.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open Abstraction[l] ; open BinaryMaps[l] ;
+module SF = ScottFilter[l] ; module SFP = ScottFilterFinitary[l] ;
+module FM = ProjectorFamilyMaps[l] ; module Functions = ScottFilterReflexiveEP[l] ;
+module Ops = ScottMapOperations[l] ;
+
+module On (q : Binary) (fp : (a : D) -> Finitary[l].Finitary[q.at a])
+  (norm : ProjectorNormalization[l].Normalized q) {
+  at (a : D) : Finitary[l].Finitary[q.at a] = new Finitary[l].Finitary[
+    q.at a,(fp a).deflation,(fp a).idempotence,(fp a).density] ;
+  module Codes = ScottFinitaryImage[l].Image[SF.scott,SFP.from-filter (at universe)] ;
+  module AD = ScottMaps[l].Between[Codes.scott,SF.scott] ;
+  module DD = ScottMaps[l].Between[SF.scott,SF.scott] ;
+  first (z : D) : Map = (\ a -> value q a z,(\ a b h -> q.monotone a b h z,\ a -> q.finite a z)) ;
+  module InType (z : D) {
+    map : AD.Map = Ops.Compose[Codes.scott,SF.scott,SF.scott,SF.to-map (first z),Codes.embed].map ;
+  } ;
+  family : ScottDependentProduct[l].Over[Codes.scott,SF.scott].Family =
+    new ScottDependentProduct[l].Over[Codes.scott,SF.scott].Family[
+      \ a -> SFP.from-filter (at a.1),\ a b h z -> q.monotone a.1 b.1 h z,
+      \ I a d z y h -> (InType[z].map).2.2 I a d y h] ;
+  module Construction = ScottFunctionPayload[l].Payload[
+    Codes.scott,SF.scott,SF.scott,family,SFP.from-filter (at universe),Codes.pair] ;
+  module P = Construction.Total.P ; module FP = ScottFinitary[l].On[P.scott] ;
+  module M = ScottMaps[l].Between[P.scott,P.scott] ;
+  finitary : FP.Finitary = Construction.finitary ;
+  result (A : D) (g : DD.Map) : P.C = M.run finitary.operation (A,g) ;
+  module Formula (A : D) (g : DD.Map) {
+    raw : Map = SF.from-map (result A g).2 ;
+    intended : Map = FM.family-map q A (constant universe) (Functions.encode g) ;
+    -- Beta removes the encoding of g; normalization removes q(U,A)
+    -- from the input projector. Both directions are explicit.
+    forward (z : D) : Domain[l].Below (run raw z) (run intended z) =
+      (q.at universe).2.1
+        (DD.run g (value q (value q universe A) z))
+        (run (apply (abstract (SF.from-map g))) (value q A z))
+        (sub-trans (DD.run g (value q (value q universe A) z)).1 (DD.run g (value q A z)).1
+          (run (apply (abstract (SF.from-map g))) (value q A z)).1
+          (DD.mono g (value q (value q universe A) z) (value q A z) (norm A z).1)
+          (Beta[SF.from-map g,value q A z].backward)) ;
+    backward (z : D) : Domain[l].Below (run intended z) (run raw z) =
+      (q.at universe).2.1
+        (run (apply (abstract (SF.from-map g))) (value q A z))
+        (DD.run g (value q (value q universe A) z))
+        (sub-trans (run (apply (abstract (SF.from-map g))) (value q A z)).1 (DD.run g (value q A z)).1
+          (DD.run g (value q (value q universe A) z)).1
+          (Beta[SF.from-map g,value q A z].forward)
+          (DD.mono g (value q A z) (value q (value q universe A) z) (norm A z).2)) ;
+    encoded : Equal (Functions.encode (result A g).2) (abstract intended).1 =
+      (MonotoneLambda[raw,intended,forward].inclusion,MonotoneLambda[intended,raw,backward].inclusion) ;
+  } ;
+  module FilterFormula (A : D) (F : FD) {
+    raw : Map = SF.from-map (result A (Functions.decode F.1)).2 ;
+    intended : Map = FM.family-map q A (constant universe) F.1 ;
+    forward (z : D) : Domain[l].Below (run raw z) (run intended z) =
+      (q.at universe).2.1
+        (run (apply F) (value q (value q universe A) z)) (run (apply F) (value q A z))
+        ((apply F).2.1 (value q (value q universe A) z) (value q A z) (norm A z).1) ;
+    backward (z : D) : Domain[l].Below (run intended z) (run raw z) =
+      (q.at universe).2.1
+        (run (apply F) (value q A z)) (run (apply F) (value q (value q universe A) z))
+        ((apply F).2.1 (value q A z) (value q (value q universe A) z) (norm A z).2) ;
+    equality : Equal (Functions.encode (result A (Functions.decode F.1)).2)
+      (FM.universe-family q A F).1 =
+      (MonotoneLambda[raw,intended,forward].inclusion,MonotoneLambda[intended,raw,backward].inclusion) ;
+  } ;
+} ;

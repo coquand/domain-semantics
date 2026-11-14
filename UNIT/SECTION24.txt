@@ -1,36 +1,110 @@
 Section 2.4: the fixed-point alternative
 ======================================
 
-Status (2026-11-11)
+Status (2026-11-14)
 ------------------
 
-The recursive equations are now checked in Unit for the actual domain D,
-without well-typedness assumptions on their arguments. Leastness among
-continuous binary maps satisfying the recursive lower clauses is checked.
-Every such least solution is proved to have finitary-projector operations,
-by identification with the compact-family construction. The full check
-has 4,562 declarations and no failures.
+The general dependent-product subdomain theorem is now checked.
+ScottEPDependentProduct.Sections constructs the Scott domain Pi(A,B) for
+an EP-valued family with coherent embeddings into one Scott domain D;
+continuity uses CGW's directed-cone criterion. Its Product module then
+constructs the EP pair Pi(A,B) -> D from A -> D and [D -> D] -> D.
+ScottDependentProductEmbedding provides the continuous E,R maps, the
+retraction and deflation laws, and the exact composite formula.
+ScottFinitaryImage and ScottFinitaryFamily package generic image domains
+and their continuous EP action. DependentProductProjector instantiates the
+general theorem and identifies the operation with Phi's function clause.
+SectionProjector.finitary and ProjectorInvariant's function case now use it.
+ScottDependentSum constructs the total space of a continuous family of
+finitary subdomains, and ScottDependentSumEmbedding embeds it in C x D
+when the base embeds in C. ScottVaryingFunctionSpace constructs the
+continuous family [Fix(Q_a) -> Fix(R)], with induced projector R o g o Q_a.
+Its At.equivalence identifies each fixed image with the actual exponential.
+ScottFunctionPayload combines these results for the total varying-function
+space. All are checked by IndependentDependentProductCheck with no filter,
+MIN, or typing modules in scope. These are the common-ambient forms of
+CGW's product and sum theorems, proved with explicit compact bases and EP
+maps; unrestricted or higher parameterized categorical forms are not assumed.
 
-The explicit guarded functional Phi, its joint directed continuity and
-its particular Kleene sequence are now checked. KleeneProjector constructs
-p from the iterates starting at bottom, proves the fixed-point equation
-and leastness, and only then identifies it with the typed compact-family
-projector. Finitariness and normalization are transferred by that
-identification. The separate invariant proof for every individual iterate
-described below remains informal.
+Phi independently preserves normalized continuous finitary families.
+UniversePayloadProjector applies the general sum theorem over the code
+domain Fix(q(U,-)), with fibers [Fix(q(a,-)) -> Fix(q(U,-))]. Normalization
+identifies its payload projector with Phi's formula. The new
+StructuralUniverseProductProjector transports simultaneous compact code
+and function witnesses to the Pi constructor. ProjectorInvariant uses this
+route, with no recursion assembling common codes from individual graph
+entries. The older UniverseProductProjector remains checked for comparison.
+SectionProjector's function component uses the general product theorem
+and requires no normalization.
+ProjectorNormalization proves preservation of (N) independently.
+NormalizedProjectorSup proves directed closure with common upper indices.
+IndependentKleeneProjector now applies admissible fixed-point induction
+to the combined invariant: bottom, preservation by Phi, and directed
+closure. BinaryAdmissible defines admissibility without downward closure;
+KleeneConstruction.Induction contains the natural-number induction once
+and for all. The projector proof itself only supplies the three obligations.
+ScottAdmissible supplies the general Scott-domain version of the rule.
+KleeneProjector.finitary and
+.normalization now use these laws, not typed identification.
 
-The corrected rank-stage version of 2.27 now also has a DIRECT fixed-point
-proof in OperationalStages. StageFusion proves that one unfolding lowers
-the comparison stage, so stage-n observations stabilize at P_(n+1).
-This uses neither StageInterpolation nor KleeneProjector.identification.
-The earlier StageCompatibility theorem uses bounded MIN typing and the
-two-sided interpolation lemma; StageComparison relates the constructions
-and transfers finitariness. Thus the direct compatibility proof is complete,
-while the independent per-iterate finitariness/normalization invariant
-proof below remains informal. The unamended printed conventions still have the checked
-StageBaseObstruction. PROPOSITION227.txt gives both statements and their
-precise scope. Kleene iteration numbers below measure unfoldings of Phi,
-not domain-stage rank.
+BinarySemantic and ProjectorFamilyMaps separate the typed binary and the
+domain-only dependent-function operation. KleeneConstruction contains the
+untyped fixed-point construction; KleeneProjector retains the later typed
+comparison. IndependentProjectorCheck checks the invariant and limit in a
+scope excluding SemanticProjector, SemanticLaws, ProjectorFixedPoint,
+ProjectorLeast, KleeneProjector, all typed stage comparisons, and the older
+UniverseProductProjector.
+FinitaryImageScott also packages compact-fixed-point images as presented
+Scott domains, with their continuous embedding and projection.
+
+The direct stage formula and finite stabilization remain checked, but the
+stage finitariness transfer still uses StageComparison's bounded typing.
+The handoff's generic EP restriction claim is false. On the finite chain
+0<1<2<3, let P=(0,0,2,2). Embed {0,1,3} and project 2 to 1. Then r P e
+sends 3 to 1 and 1 to 0, and is not idempotent. Both P and the EP laws
+are valid; in classical finite Scott domains P is finitary. The finite-order
+laws and non-idempotence are checked in EPRestrictionObstruction. No new
+independent stage-finitariness theorem is claimed. Additional compatibility
+with the particular rank projections is required.
+
+A direct PDF review clarifies the categorical restriction issue. CGW p. 162
+states that Fp(D) embeds into [D -> D] as an EP pair. Its right adjoint
+kappa_D takes the greatest finitary projector below an endomap; it is not
+the identity on all endomaps. FinitaryInterior constructs this right adjoint
+and proves its universal property and retraction. FinitaryInteriorContinuity
+proves preservation of directed map nets. Combining this with the endomap
+EP action on p. 129 gives P |-> kappa_D(r P e) as the Fp projection part.
+This last formula is a deduction, not an explicit statement in CGW.
+The counterexample refutes raw conjugation, not the actual Fp action.
+For the desired direct stages it remains to prove raw conjugation equals
+its finitary interior.
+
+The general Fp action is now formalized independently on the CUSL side.
+ScottCUSLClosedFamilies constructs the lattice of join-closed compact
+subsets and its finite-generator basis. ScottCUSLFpMaps and
+ScottCUSLFpFunctor construct the direct/inverse image EP pair and prove
+identity and composition. ScottCUSLFpProjector proves the ideal-domain
+adjunction and continuity. ScottCUSLFpContinuity proves preservation of
+every existing colimit of a small directed embedding diagram; source
+coverage is derived from its universal property, not supplied as an extra
+hypothesis. ScottFpFunctor and ScottFpContinuity transport the theorem to
+Scott domains. ScottFpAdjunction, ScottFpAdjunctionContinuity and
+ScottFpRepresentation give the general adjunction and identify all finitary
+operations; ScottCUSLFpRestriction checks e P r and kappa(r P e).
+CUSLFpCheck checks these results with no filter or typing modules in scope.
+This establishes the general functor theorem but does not identify a raw
+rank restriction with its corrected inverse-image action.
+
+Proposition 7's colimit step on p. 134 is the source of the common compact
+code obligation. Proposition 8's steps on p. 136 give the section basis.
+The general product and sum theorems now discharge these obligations.
+Finite elements occur in their basis proofs and in compact filter-code
+representation, rather than in a separate common-code recursion for Phi.
+The parameterized section construction in section 3.4 (pp. 140–143) was
+also read; it is relevant to a future abstract categorical presentation.
+
+The explanations below describe the now-checked invariant. Their theorem
+names in section 5 also retain the older, separate typed comparison.
 
 1. Define the recursive functional
 ---------------------------------
@@ -163,7 +237,7 @@ Taking suprema gives p(p(U,A),x) <= p(A,x). Conversely each
 P_n(A,x) = P_n(P_n(U,A),x) is below p(p(U,A),x). This also explains why
 there is no illicit interchange of an unbounded witness with a fixed stage.
 
-This establishes informally the proposed order of construction: first
+This now establishes, in the independent checked modules, the order of construction: first
 define p by a least fixed point, then prove it is finitary. It bypasses
 2.26--2.27; it does not prove those statements about the paper's stages.
 
@@ -190,7 +264,7 @@ ProjectorZero.bottom-input / bottom-type / pi-universe / pi-pi
   The recursive constructor equations and the remaining zero cases.
   The Pi and function clauses apply to arbitrary A and continuous B.
 
-BinaryMaps.semantic / Diagonal.map
+BinarySemantic.semantic / BinaryMaps.Diagonal.map
   Continuity in both arguments, and the common-compact-witness argument
   for diagonal compositions of a continuous binary map.
 
@@ -210,12 +284,10 @@ ProjectorFixedPoint.finitary-after-least
   Any least recursive solution has a finitary-projector structure whose
   operation equals it. This proof uses the universal property to identify
   it with the compact-family solution. Thus a separately constructed Kleene
-  least solution can inherit finitariness without formalizing Section 3's
-  compact-step induction a second time.
+  least solution can also inherit finitariness from this typed comparison.
+  This remains separate from the independent compact-step proof now checked.
 
-This second finitariness proof is now fully checked in KleeneProjector:
-construct the least fixed point, identify it with the typed compact-family
-projector, then transfer its structure. Its declarations equation,
-Below.least, identification, solution, finitary and normalization provide
-these conclusions. OperatorContinuity and BinarySup supply the continuity
-and directed-completeness arguments used in the construction.
+The typed identification remains a checked comparison theorem. It is no
+longer used by KleeneProjector.finitary or .normalization: both delegate
+to IndependentKleeneProjector. The standalone independent projector check
+makes the named typed modules unavailable to that construction.

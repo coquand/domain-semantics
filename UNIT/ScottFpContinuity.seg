@@ -1,0 +1,27 @@
+-- Transport of the full small-directed-colimit theorem to Scott EP domains.
+level l ;
+open Base ;
+module CU = ScottCUSL[l] ; module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module EQ = ScottCUSLEquivalence[l] ; module CE = CategoryEquivalence[l++,l+] ;
+module DC = CategoryDirectedColimits[l++,l+,l] ; module F = ScottFpFunctor[l] ;
+module CFP = ScottCUSLFpContinuity[l] ;
+equivalence : CE.PreEquivalence[CU.pre,EP.pre] = new CE.PreEquivalence[CU.pre,EP.pre,
+  EQ.equivalence.forward,EQ.equivalence.backward,EQ.equivalence.unit-source,EQ.equivalence.source-natural,
+  EQ.equivalence.unit-target,EQ.equivalence.target-natural] ;
+reverse : CE.PreEquivalence[EP.pre,CU.pre] = CE.reverse CU.pre EP.pre equivalence ;
+module To = CategoryDirectedEquivalencePreserves[l++,l+,l].On[EP.pre,CU.pre,reverse] ;
+module Back = CategoryDirectedEquivalenceReflects[l++,l+,l].On[EP.pre,CU.pre,reverse] ;
+module Preserve (S : DC.Diagram[EP.pre]) (L : EP.pre.ob)
+  (leg : (i : S.index) -> EP.pre.hom (S.stage i) L) (law : DC.Coherent EP.pre S L leg)
+  (c : DC.Colimit[EP.pre,S,L,leg]) {
+  module C = To.For[S,L,leg,law,c] ;
+  module M = DC.Mapped[EP.pre,EP.pre,F.categorical,S,L,leg,law] ;
+  module P = CFP.Preserve[C.chain,C.vertex,C.image-leg,C.image-law,C.preserved] ;
+  colimit : DC.Colimit[EP.pre,M.diagram,F.object L,M.legs] =
+    Back.For[M.diagram,F.object L,M.legs,M.coherent,P.colimit].colimit ;
+} ;
+preserves (S : DC.Diagram[EP.pre]) (L : EP.pre.ob)
+  (leg : (i : S.index) -> EP.pre.hom (S.stage i) L) (law : DC.Coherent EP.pre S L leg)
+  (c : DC.Colimit[EP.pre,S,L,leg]) :
+  DC.Colimit[EP.pre,DC.Mapped[EP.pre,EP.pre,F.categorical,S,L,leg,law].diagram,
+    F.object L,DC.Mapped[EP.pre,EP.pre,F.categorical,S,L,leg,law].legs] = Preserve[S,L,leg,law,c].colimit ;

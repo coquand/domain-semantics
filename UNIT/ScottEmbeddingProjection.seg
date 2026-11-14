@@ -1,0 +1,106 @@
+-- Explicit EP pairs on presented Scott domains and their finitary images.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module T = TruncationCombinators[l] ;
+module Ops = ScottMapOperations[l] ;
+
+module Between (A D : ScottDomain[l].Scott) {
+  module AD = ScottMaps[l].Between[A,D] ; module DA = ScottMaps[l].Between[D,A] ;
+  record Pair {
+    embed : AD.Map ; project : DA.Map ;
+    retract (a : A.order.carrier) : Id A.order.carrier (DA.run project (AD.run embed a)) a ;
+    below (x : D.order.carrier) : D.order.le (AD.run embed (DA.run project x)) x ;
+  } ;
+} ;
+
+module Laws (A D : ScottDomain[l].Scott) (e : Between[A,D].Pair) {
+  module AD = ScottMaps[l].Between[A,D] ; module DA = ScottMaps[l].Between[D,A] ;
+  lower (a : A.order.carrier) (z : D.order.carrier)
+    (h : A.order.le a (DA.run e.project z)) : D.order.le (AD.run e.embed a) z =
+    D.order.transitive (AD.run e.embed a) (AD.run e.embed (DA.run e.project z)) z
+      (AD.mono e.embed a (DA.run e.project z) h) (e.below z) ;
+  upper (a : A.order.carrier) (z : D.order.carrier)
+    (h : D.order.le (AD.run e.embed a) z) : A.order.le a (DA.run e.project z) =
+    Ops.replace A.order (DA.run e.project (AD.run e.embed a)) a
+      (DA.run e.project z) (DA.run e.project z) (e.retract a) (refl (DA.run e.project z))
+      (DA.mono e.project (AD.run e.embed a) z h) ;
+  reflect (a b : A.order.carrier) (h : D.order.le (AD.run e.embed a) (AD.run e.embed b)) : A.order.le a b =
+    Ops.replace A.order a a (DA.run e.project (AD.run e.embed b)) b (refl a) (e.retract b)
+      (upper a (AD.run e.embed b) h) ;
+} ;
+
+module Compose (A B C : ScottDomain[l].Scott) (e : Between[A,B].Pair) (f : Between[B,C].Pair) {
+  module AB = ScottMaps[l].Between[A,B] ; module BA = ScottMaps[l].Between[B,A] ;
+  module BC = ScottMaps[l].Between[B,C] ; module CB = ScottMaps[l].Between[C,B] ;
+  module EE = Ops.Compose[A,B,C,f.embed,e.embed] ;
+  module RR = Ops.Compose[C,B,A,e.project,f.project] ;
+  retract (a : A.order.carrier) : Id A.order.carrier (RR.value (EE.value a)) a =
+    trans A.order.carrier (RR.value (EE.value a)) (BA.run e.project (AB.run e.embed a)) a
+      (ap B.order.carrier A.order.carrier (BA.run e.project)
+        (CB.run f.project (BC.run f.embed (AB.run e.embed a))) (AB.run e.embed a) (f.retract (AB.run e.embed a)))
+      (e.retract a) ;
+  below (x : C.order.carrier) : C.order.le (EE.value (RR.value x)) x =
+    C.order.transitive (EE.value (RR.value x)) (BC.run f.embed (CB.run f.project x)) x
+      (BC.mono f.embed (AB.run e.embed (BA.run e.project (CB.run f.project x))) (CB.run f.project x)
+        (e.below (CB.run f.project x))) (f.below x) ;
+  pair : Between[A,C].Pair = new Between[A,C].Pair[EE.map,RR.map,retract,below] ;
+} ;
+
+module Projection (A D : ScottDomain[l].Scott) (e : Between[A,D].Pair) {
+  module X = ScottDomain[l].On[A] ; module Y = ScottDomain[l].On[D] ;
+  module AD = ScottMaps[l].Between[A,D] ; module DA = ScottMaps[l].Between[D,A] ;
+  module DD = ScottMaps[l].Between[D,D] ; module O = ScottOrder[l].On[D.order] ;
+  module V = DC[D.order,D.complete] ; module W = DC[A.order,A.complete] ;
+  module P = Ops.Compose[D,A,D,e.embed,e.project] ;
+  module FP = ScottFinitary[l].On[D] ;
+  fixed-output (a : X.C) : FP.Fixed P.map (AD.run e.embed a) =
+    Ops.replace D.order (AD.run e.embed a) (AD.run e.embed a)
+      (AD.run e.embed a) (P.value (AD.run e.embed a)) (refl (AD.run e.embed a))
+      (sym Y.C (P.value (AD.run e.embed a)) (AD.run e.embed a)
+        (ap X.C Y.C (AD.run e.embed) (DA.run e.project (AD.run e.embed a)) a (e.retract a)))
+      (D.order.reflexive (AD.run e.embed a)) ;
+  compact (a : X.B) : V.Compact (AD.run e.embed (X.basic a)) = \ I x d h ->
+    T.map ((i : I) * X.LE (X.basic a) (DA.run e.project (x i)))
+      ((i : I) * Y.LE (AD.run e.embed (X.basic a)) (x i))
+      (\ w -> (w.1,D.order.transitive (AD.run e.embed (X.basic a))
+        (AD.run e.embed (DA.run e.project (x w.1))) (x w.1)
+        (AD.mono e.embed (X.basic a) (DA.run e.project (x w.1)) w.2) (e.below (x w.1))))
+      (A.basis.compact a I (\ i -> DA.run e.project (x i))
+        (DA.image-dir e.project.1 (DA.mono e.project) I x d)
+        (A.order.transitive (X.basic a) (DA.run e.project (V.sup I x d))
+          (W.sup I (\ i -> DA.run e.project (x i)) (DA.image-dir e.project.1 (DA.mono e.project) I x d))
+          (Ops.replace A.order (DA.run e.project (AD.run e.embed (X.basic a))) (X.basic a)
+            (DA.run e.project (V.sup I x d)) (DA.run e.project (V.sup I x d))
+            (e.retract (X.basic a)) (refl (DA.run e.project (V.sup I x d)))
+            (DA.mono e.project (AD.run e.embed (X.basic a)) (V.sup I x d) h))
+          (DA.continuous e.project I x d
+            (W.sup I (\ i -> DA.run e.project (x i)) (DA.image-dir e.project.1 (DA.mono e.project) I x d))
+            (W.upper I (\ i -> DA.run e.project (x i)) (DA.image-dir e.project.1 (DA.mono e.project) I x d))))) ;
+  module Density (x : Y.C) (fixed : FP.Fixed P.map x) (b : Y.B) (h : Y.LE (Y.basic b) x) {
+    module Finish (a : X.BI (DA.run e.project x)) (above : Y.LE (Y.basic b) (AD.run e.embed (X.basic a.1)))
+      (c : Y.B) (ec : Y.LE (AD.run e.embed (X.basic a.1)) (Y.basic c))
+      (ce : Y.LE (Y.basic c) (AD.run e.embed (X.basic a.1))) {
+      ex : Y.LE (AD.run e.embed (X.basic a.1)) x =
+        D.order.transitive (AD.run e.embed (X.basic a.1)) (P.value x) x
+          (AD.mono e.embed (X.basic a.1) (DA.run e.project x) a.2) (e.below x) ;
+      cf : FP.Fixed P.map (Y.basic c) =
+        D.order.transitive (Y.basic c) (AD.run e.embed (X.basic a.1)) (P.value (Y.basic c)) ce
+          (D.order.transitive (AD.run e.embed (X.basic a.1)) (P.value (AD.run e.embed (X.basic a.1)))
+            (P.value (Y.basic c)) (fixed-output (X.basic a.1)) (DD.mono P.map (AD.run e.embed (X.basic a.1)) (Y.basic c) ec)) ;
+      witness : FP.Witness P.map x b =
+        (c,(cf,(D.order.transitive (Y.basic c) (AD.run e.embed (X.basic a.1)) x ce ex,
+          D.order.transitive (Y.basic b) (AD.run e.embed (X.basic a.1)) (Y.basic c) above ec))) ;
+    } ;
+    witness : Ex (FP.Witness P.map x b) =
+      T.bind ((a : X.BI (DA.run e.project x)) * Y.LE (Y.basic b) (AD.run e.embed (X.basic a.1)))
+        (FP.Witness P.map x b)
+        (\ a -> T.map ((c : Y.B) * (Y.LE (AD.run e.embed (X.basic a.1.1)) (Y.basic c) *
+          Y.LE (Y.basic c) (AD.run e.embed (X.basic a.1.1)))) (FP.Witness P.map x b)
+          (\ c -> Finish[a.1,a.2,c.1,c.2.1,c.2.2].witness)
+          (Y.compact-basis (AD.run e.embed (X.basic a.1.1)) (compact a.1.1)))
+        (AD.Finite[e.embed,DA.run e.project x].witness b
+          (D.order.transitive (Y.basic b) x (P.value x) h fixed)) ;
+  } ;
+  finitary : FP.Finitary[P.map] = new FP.Finitary[P.map,e.below,
+    \ x -> fixed-output (DA.run e.project x),\ x h b hb -> Density[x,h,b,hb].witness] ;
+} ;

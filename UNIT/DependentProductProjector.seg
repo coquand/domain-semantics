@@ -1,0 +1,40 @@
+-- Instantiate the general dependent-product subdomain theorem for Phi.
+-- The input is Fix(q(A,-)); the fiber over v is Fix(q(H(v),-)).
+-- No normalization or typed projector theorem is used.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open Abstraction[l] ; open BinaryMaps[l] ;
+module SF = ScottFilter[l] ; module SFP = ScottFilterFinitary[l] ;
+module FM = ProjectorFamilyMaps[l] ; module Functions = ScottFilterReflexiveEP[l] ;
+module Ops = ScottMapOperations[l] ;
+
+module On (q : Binary) (fp : (a : D) -> Finitary[l].Finitary[q.at a]) (A : D) (H : Map) {
+  at (a : D) : Finitary[l].Finitary[q.at a] = new Finitary[l].Finitary[
+    q.at a,(fp a).deflation,(fp a).idempotence,(fp a).density] ;
+  module Input = ScottFinitaryImage[l].Image[SF.scott,SFP.from-filter (at A)] ;
+  module AD = ScottMaps[l].Between[Input.scott,SF.scott] ;
+  module DD = ScottMaps[l].Between[SF.scott,SF.scott] ;
+  module FP = ScottFinitary[l].On[SF.scott] ;
+  first (z : D) : Map = (\ a -> value q a z,(\ a b h -> q.monotone a b h z,\ a -> q.finite a z)) ;
+  module InType (z : D) {
+    ambient : DD.Map = SF.to-map (Maps[l].compose (first z) H) ;
+    map : AD.Map = Ops.Compose[Input.scott,SF.scott,SF.scott,ambient,Input.embed].map ;
+  } ;
+  family : ScottDependentProduct[l].Over[Input.scott,SF.scott].Family =
+    new ScottDependentProduct[l].Over[Input.scott,SF.scott].Family[
+      \ a -> SFP.from-filter (at (run H a.1)),
+      \ a b h z -> q.monotone (run H a.1) (run H b.1) (H.2.1 a.1 b.1 h) z,
+      \ I a d z y h -> (InType[z].map).2.2 I a d y h] ;
+  module Images = ScottFinitaryEPFamily[l].From[Input.scott,SF.scott,family] ;
+  module Closure = ScottEPDependentProduct[l].Product[
+    Input.scott,SF.scott,Images.family,Images.continuous,Input.pair,Functions.pair] ;
+  module Product = Closure.Pi ;
+  domain : ScottDomain[l].Scott = Product.E.S.scott ;
+  embedding : ScottEmbeddingProjection[l].Between[domain,SF.scott].Pair = Product.pair ;
+  finitary : Finitary[l].Finitary = SFP.ToFilter[Product.finitary].finitary ;
+  operation (F : D) : Map = SF.from-map (Product.E.extend (Product.E.restrict (Functions.decode F))) ;
+  -- This is the exact ER formula from CGW, after abstraction into D.
+  realizes (F : D) : Equal (run finitary.operation F) (abstract (FM.family-map q A H F)).1 =
+    (MonotoneLambda[operation F,FM.family-map q A H F,\ z -> sub-refl (run (operation F) z).1].inclusion,
+     MonotoneLambda[FM.family-map q A H F,operation F,\ z -> sub-refl (run (operation F) z).1].inclusion) ;
+} ;

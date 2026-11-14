@@ -3,7 +3,7 @@
 -- the compact-family construction; it is not a field of LeastRecursive.
 level l ;
 open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
-open Continuous[l] ; open BinaryMaps[l] ; open ProjectorLeast[l] ;
+open Continuous[l] ; open BinaryMaps[l] ; open ProjectorLeast[l] ; open BinarySemantic[l] ;
 
 BelowBinary (q r : Binary) : U l+ = (A X : D) -> Domain[l].Below (value q A X) (value r A X) ;
 

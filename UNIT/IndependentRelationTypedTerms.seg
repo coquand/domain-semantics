@@ -10,17 +10,17 @@ module At (n : Nat) (Delta : Ctx n) {
   module Assemble (R : O.Relations) (strict : O.Strict R) (A X : D) (T M M' : Tm n)
     (types : Parts[l].UHead A -> ((L.advance R).ty M M').holds (SL.p universe X))
     (functions : (hp : Parts[l].PHead A) -> C.Functions[R.tm,R.tm,T,M,M'].predicate.holds
-      (ProjectorOperator[l].At[BinaryMaps[l].semantic,A,X].function hp).1) {
+      (ProjectorOperator[l].At[BinarySemantic[l].semantic,A,X].function hp).1) {
     module Clauses = IndependentRelationClauseLaws[l].At[n,Delta].With[R,strict] ;
     Q : ScottPredicates[l].On[ScottFilter[l].scott].Predicate = (L.advance R).tm T M M' ;
     data-term (ha : Parts[l].UHead A) : Q.holds (SL.p universe X) = (types ha,Clauses.universe-functions X T M M') ;
     result : Q.holds (SL.p A X) = ProjectorPredicateCases[l].At[A,X].Predicate[Q,(L.advance-strict R strict).2 T M M',
       \ ha hx -> Q.lower universe (SL.p universe X)
         (prin-sub univ (SL.p universe X).1 (SL.universe-in X univ hx tp-UU)) (data-term ha),
-      \ ha hx -> Q.lower Constructors[l].Pi[ProjectorOperator[l].At[BinaryMaps[l].semantic,A,X].pi-domain hx,
-        ProjectorOperator[l].At[BinaryMaps[l].semantic,A,X].pi-family hx].value (SL.p universe X)
+      \ ha hx -> Q.lower Constructors[l].Pi[ProjectorOperator[l].At[BinarySemantic[l].semantic,A,X].pi-domain hx,
+        ProjectorOperator[l].At[BinarySemantic[l].semantic,A,X].pi-family hx].value (SL.p universe X)
         (ProjectorPredicateCases[l].At[universe,X].pi-inclusion (prin-in univ) hx) (data-term ha),
-      \ ha -> (Clauses.function-type (ProjectorOperator[l].At[BinaryMaps[l].semantic,A,X].function ha) M M',functions ha)].result ;
+      \ ha -> (Clauses.function-type (ProjectorOperator[l].At[BinarySemantic[l].semantic,A,X].function ha) M M',functions ha)].result ;
   } ;
   module Symmetric (R : O.Relations) (strict : O.Strict R) (symmetric : Laws.TermSymmetry R) (transitive : Laws.TermTransitivity R)
     (diagonal : IndependentRelationDiagonal[l].At[n,Delta].TermDiagonal R.tm) (type-symmetric : Laws.TypeSymmetry (L.advance R))

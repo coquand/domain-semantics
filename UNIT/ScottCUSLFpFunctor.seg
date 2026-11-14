@@ -1,0 +1,99 @@
+-- Fp on CUSL embeddings, represented by finitely generated closed families.
+-- The family domain has a small compact basis, so its compact CUSL is small.
+level l ;
+open Base ; open Prelude[l+] ;
+module CU = ScottCUSL[l] ; module CF = ScottCUSLClosedFamilies[l] ; module FM = ScottCUSLFpMaps[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ; module DM = ScottDomainMaps[l] ;
+module KM = ScottCUSLCompacts[l].Functor ; module K = CategoryInitialChain[l++,l+] ;
+module S = ScottOrder[l] ; module TC = TruncationCombinators[l] ;
+
+module Identity (C : CU.CUSL) {
+  module A = CF.On[C] ; module M = FM.Between[C,C,CU.identity C] ;
+  index (a : A.X) : A.EqX (M.f a) a = A.equal (M.f a) a (M.I.f-val a) ;
+  equation (E : A.Family) : Id A.Family (M.forward E) E =
+    A.ext (M.forward E) E
+      (\ b -> TC.rec (M.Forward[E].W b) @l (A.Mem E b) (A.member-prop E b)
+        (\ w -> A.equiv-in E w.1 b (A.eq-trans w.1 (M.f w.1) b
+          ((index w.1).2,(index w.1).1) w.2.2) w.2.1),
+       \ b h -> S.inc (M.Forward[E].W b) (b,(h,index b))) ;
+  pair : Id EP.Between[A.domain,A.domain].Pair M.pair (EP.pre.idn A.domain) =
+    EP.Between[A.domain,A.domain].equal M.pair (EP.pre.idn A.domain)
+      (DM.Between[A.domain,A.domain].equal M.pair.1.1 (EP.pre.idn A.domain).1.1 equation)
+      (DM.Between[A.domain,A.domain].equal M.pair.1.2 (EP.pre.idn A.domain).1.2
+        (\ T -> A.ext (M.backward T) T
+          (\ a -> A.equiv-in T (M.f a) a (index a),
+           \ a -> A.equiv-in T a (M.f a) ((index a).2,(index a).1)))) ;
+} ;
+
+module Composition (C D E : CU.CUSL) (e : CU.pre.hom C D) (f : CU.pre.hom D E) {
+  module A = CF.On[C] ; module B = CF.On[D] ; module V = CF.On[E] ;
+  module P = FM.Between[C,D,e] ; module Q = FM.Between[D,E,f] ;
+  module R = FM.Between[C,E,CU.pre.comp C D E f e] ;
+  index (a : A.X) : V.EqX (R.f a) (Q.f (P.f a)) =
+    V.equal (R.f a) (Q.f (P.f a))
+      (trans E.order.carrier (V.A.val (R.f a)) (f.1 (e.1 (A.A.val a))) (V.A.val (Q.f (P.f a)))
+        (R.I.f-val a)
+        (trans E.order.carrier (f.1 (e.1 (A.A.val a))) (f.1 (B.A.val (P.f a))) (V.A.val (Q.f (P.f a)))
+          (ap D.order.carrier E.order.carrier f.1 (e.1 (A.A.val a)) (B.A.val (P.f a))
+            (sym D.order.carrier (B.A.val (P.f a)) (e.1 (A.A.val a)) (P.I.f-val a)))
+          (sym E.order.carrier (V.A.val (Q.f (P.f a))) (f.1 (B.A.val (P.f a))) (Q.I.f-val (P.f a))))) ;
+  module At (T : A.Family) {
+    forward (b : V.X) : V.Mem (R.forward T) b -> V.Mem (Q.forward (P.forward T)) b =
+      TC.map (R.Forward[T].W b) (Q.Forward[P.forward T].W b)
+        (\ w -> (P.f w.1,(P.Forward[T].into w.1 w.2.1,
+          V.eq-trans (Q.f (P.f w.1)) (R.f w.1) b ((index w.1).2,(index w.1).1) w.2.2))) ;
+    backward (b : V.X) : V.Mem (Q.forward (P.forward T)) b -> V.Mem (R.forward T) b =
+      TC.bind (Q.Forward[P.forward T].W b) (R.Forward[T].W b)
+        (\ w -> TC.map (P.Forward[T].W w.1) (R.Forward[T].W b)
+          (\ v -> (v.1,(v.2.1,V.eq-trans (R.f v.1) (Q.f (P.f v.1)) b (index v.1)
+            (V.eq-trans (Q.f (P.f v.1)) (Q.f w.1) b
+              (Q.I.f-mono (P.f v.1) w.1 v.2.2.1,Q.I.f-mono w.1 (P.f v.1) v.2.2.2) w.2.2)))) w.2.1) ;
+    equation : Id V.Family (R.forward T) (Q.forward (P.forward T)) =
+      V.ext (R.forward T) (Q.forward (P.forward T)) (forward,backward) ;
+  } ;
+  pair : Id EP.Between[A.domain,V.domain].Pair R.pair
+    (EP.pre.comp A.domain B.domain V.domain Q.pair P.pair) =
+    EP.Between[A.domain,V.domain].equal R.pair (EP.pre.comp A.domain B.domain V.domain Q.pair P.pair)
+      (DM.Between[A.domain,V.domain].equal R.pair.1.1
+        (EP.pre.comp A.domain B.domain V.domain Q.pair P.pair).1.1 (\ T -> At[T].equation))
+      (DM.Between[V.domain,A.domain].equal R.pair.1.2
+        (EP.pre.comp A.domain B.domain V.domain Q.pair P.pair).1.2
+        (\ T -> A.ext (R.backward T) (P.backward (Q.backward T))
+          (\ a -> V.equiv-in T (R.f a) (Q.f (P.f a)) (index a),
+           \ a -> V.equiv-in T (Q.f (P.f a)) (R.f a) ((index a).2,(index a).1)))) ;
+} ;
+
+module Domains {
+  object (C : CU.CUSL) : ScottDomainObjects[l].Domain = CF.On[C].domain ;
+  arrow (C D : CU.CUSL) (e : CU.pre.hom C D) : EP.pre.hom (object C) (object D) = FM.Between[C,D,e].pair ;
+  identity (C : CU.CUSL) : Id (EP.pre.hom (object C) (object C)) (arrow C C (CU.pre.idn C)) (EP.pre.idn (object C)) = Identity[C].pair ;
+  composition (C D E : CU.CUSL) (e : CU.pre.hom C D) (f : CU.pre.hom D E) :
+    Id (EP.pre.hom (object C) (object E)) (arrow C E (CU.pre.comp C D E f e))
+      (EP.pre.comp (object C) (object D) (object E) (arrow D E f) (arrow C D e)) = Composition[C,D,E,e,f].pair ;
+  functor : CategoryEquivalence[l++,l+].Functor[CU.pre,EP.pre] =
+    new CategoryEquivalence[l++,l+].Functor[CU.pre,EP.pre,object,arrow,identity,composition] ;
+} ;
+module Compacts {
+  object (C : CU.CUSL) : CU.CUSL = KM.object (Domains.object C) ;
+  arrow (C D : CU.CUSL) (e : CU.pre.hom C D) : CU.pre.hom (object C) (object D) = KM.arrow (Domains.object C) (Domains.object D) (Domains.arrow C D e) ;
+  identity (C : CU.CUSL) : Id (CU.pre.hom (object C) (object C)) (arrow C C (CU.pre.idn C)) (CU.pre.idn (object C)) =
+    trans (CU.pre.hom (object C) (object C)) (arrow C C (CU.pre.idn C))
+      (KM.arrow (Domains.object C) (Domains.object C) (EP.pre.idn (Domains.object C))) (CU.pre.idn (object C))
+      (ap (EP.pre.hom (Domains.object C) (Domains.object C)) (CU.pre.hom (object C) (object C))
+        (KM.arrow (Domains.object C) (Domains.object C)) (Domains.arrow C C (CU.pre.idn C)) (EP.pre.idn (Domains.object C)) (Domains.identity C))
+      (KM.identity (Domains.object C)) ;
+  composition (C D E : CU.CUSL) (e : CU.pre.hom C D) (f : CU.pre.hom D E) :
+    Id (CU.pre.hom (object C) (object E)) (arrow C E (CU.pre.comp C D E f e))
+      (CU.pre.comp (object C) (object D) (object E) (arrow D E f) (arrow C D e)) =
+    trans (CU.pre.hom (object C) (object E)) (arrow C E (CU.pre.comp C D E f e))
+      (KM.arrow (Domains.object C) (Domains.object E)
+        (EP.pre.comp (Domains.object C) (Domains.object D) (Domains.object E) (Domains.arrow D E f) (Domains.arrow C D e)))
+      (CU.pre.comp (object C) (object D) (object E) (arrow D E f) (arrow C D e))
+      (ap (EP.pre.hom (Domains.object C) (Domains.object E)) (CU.pre.hom (object C) (object E))
+        (KM.arrow (Domains.object C) (Domains.object E))
+        (Domains.arrow C E (CU.pre.comp C D E f e))
+        (EP.pre.comp (Domains.object C) (Domains.object D) (Domains.object E) (Domains.arrow D E f) (Domains.arrow C D e))
+        (Domains.composition C D E e f))
+      (KM.composition (Domains.object C) (Domains.object D) (Domains.object E) (Domains.arrow C D e) (Domains.arrow D E f)) ;
+  functor : K.Endofunctor[CU.pre] = new K.Endofunctor[CU.pre,object,arrow,identity,composition] ;
+} ;

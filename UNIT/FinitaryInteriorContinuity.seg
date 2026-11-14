@@ -1,0 +1,23 @@
+-- The right adjoint Fp(D) <- [D -> D] preserves directed suprema.
+-- Compact postfixedness is observed at one index of a directed map net.
+level l ;
+open Base ; open Prelude[l] ; open Types[l] ; open ExtFilter[l] ; open Domain[l] ;
+open Continuous[l] ; open CompactFamilies[l] ; open DirectedApprox[l] ;
+module T = TruncationCombinators[l] ; module F = FinitaryInterior[l] ;
+module P = ProjectorDomain[l] ;
+
+module DirectedSup (N : Net) (f : On[N].MapNet) {
+  I : U l = N.index ;
+  family (i : I) : Family = F.At[f.part i].family ;
+  monotone (i j : I) (ij : N.le i j) : Incl (family i) (family j) =
+    \ k -> f.mono i j ij (principal k) k.1 ;
+  directed : P.Dir I family =
+    (N.inhabited,\ i j -> T.map ((k : I) * (N.le i k * N.le j k)) (P.Upper I family i j)
+      (\ w -> (w.1,(monotone i w.1 w.2.1,monotone j w.1 w.2.2))) (N.upper i j)) ;
+  module S = P.Union[I,family,directed] ;
+  forward : Incl F.At[f.limit].family S.value = \ k -> f.cover (principal k) k.1 ;
+  backward : Incl S.value F.At[f.limit].family =
+    S.lub F.At[f.limit].family (\ i k -> f.bound i (principal k) k.1) ;
+  equation : Id Family F.At[f.limit].family S.value =
+    CompactFamilies[l].ext F.At[f.limit].family S.value (forward,backward) ;
+} ;

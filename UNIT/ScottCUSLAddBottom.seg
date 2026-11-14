@@ -1,0 +1,236 @@
+-- Add a fresh compact bottom below every element of a CUSL.
+-- This is the compact-basis construction for a domain-theoretic lift.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ;
+module CU = ScottCUSL[l] ;
+module S = ScottOrder[l] ;
+module R = Replacement[l,l+] ;
+module T = TruncationCombinators[l+] ;
+module K = CategoryInitialChain[l++,l+] ;
+
+module On (C : CU.CUSL) {
+  Carrier : U l+ = Lib[l+].Plus Top C.order.carrier ;
+  le : Carrier -> Carrier -> U l = split {
+    inl u -> \ y -> Top ;
+    inr a -> split { inl u -> Empty ; inr b -> C.order.le a b } } ;
+  proposition : (x y : Carrier) -> isProp (le x y) = split {
+    inl u -> \ y -> isTop ;
+    inr a -> split {
+      inl u -> isProp-Empty ;
+      inr b -> C.order.proposition a b } } ;
+  reflexive : (x : Carrier) -> le x x = split {
+    inl u -> tt ; inr a -> C.order.reflexive a } ;
+  transitive : (x y z : Carrier) -> le x y -> le y z -> le x z = split {
+    inl u -> \ y z h k -> tt ;
+    inr a -> split {
+      inl u -> \ z h k -> efq h ;
+      inr b -> split {
+        inl u -> \ h k -> efq k ;
+        inr c -> \ h k -> C.order.transitive a b c h k } } } ;
+  antisymmetric : (x y : Carrier) -> le x y -> le y x ->
+    Id Carrier x y = split {
+    inl u -> split {
+      inl v -> \ h k -> ap Top Carrier (\ w -> inl w) u v
+        (isTop u v) ;
+      inr b -> \ h k -> absurd
+        (Id Carrier (inl u) (inr b)) k } ;
+    inr a -> split {
+      inl v -> \ h k -> absurd
+        (Id Carrier (inr a) (inl v)) h ;
+      inr b -> \ h k -> ap C.order.carrier Carrier
+        (\ w -> inr w) a b (C.order.antisymmetric a b h k) } } ;
+  order : S.Order = new S.Order[
+    carrier := Carrier,le := le,
+    proposition := proposition,reflexive := reflexive,
+    transitive := transitive,antisymmetric := antisymmetric] ;
+  bottom : Carrier = inl tt ;
+  bottom-least (x : Carrier) : le bottom x = tt ;
+
+  compatible-witness (a b : C.order.carrier) :
+    (z : Carrier) -> le (inr a) z -> le (inr b) z ->
+    CU.CompatibleWitness C.order a b = split {
+    inl u -> \ h k -> absurd
+      (CU.CompatibleWitness C.order a b) h ;
+    inr c -> \ h k -> (c,(h,k)) } ;
+  compatible (a b : C.order.carrier)
+    (h : CU.Compatible order (inr a) (inr b)) :
+    CU.Compatible C.order a b =
+    T.map (CU.CompatibleWitness order (inr a) (inr b))
+      (CU.CompatibleWitness C.order a b)
+      (\ w -> compatible-witness a b w.1 w.2.1 w.2.2) h ;
+  some-least (a b : C.order.carrier)
+    (h : CU.Compatible order (inr a) (inr b)) :
+    (z : Carrier) ->
+      ((i : Bool) -> le (CU.pair order (inr a) (inr b) i) z) ->
+      le (inr (CU.On[C].join a b (compatible a b h))) z = split {
+    inl u -> \ bound -> efq (bound true) ;
+    inr c -> \ bound -> CU.On[C].least a b (compatible a b h) c
+      (bound true) (bound false) } ;
+  bottom-right-bounds (u : Top) (b : C.order.carrier) :
+    (i : Bool) ->
+      le (CU.pair order (inl u) (inr b) i) (inr b) = split {
+    true -> tt ; false -> C.order.reflexive b } ;
+  bottom-bottom-bounds (u v : Top) :
+    (i : Bool) ->
+      le (CU.pair order (inl u) (inl v) i) bottom = split {
+    true -> tt ; false -> tt } ;
+  left-bottom-bounds (a : C.order.carrier) (v : Top) :
+    (i : Bool) ->
+      le (CU.pair order (inr a) (inl v) i) (inr a) = split {
+    true -> C.order.reflexive a ; false -> tt } ;
+  some-bounds (a b : C.order.carrier)
+    (h : CU.Compatible order (inr a) (inr b)) :
+    (i : Bool) ->
+      le (CU.pair order (inr a) (inr b) i)
+        (inr (CU.On[C].join a b (compatible a b h))) = split {
+    true -> CU.On[C].left a b (compatible a b h) ;
+    false -> CU.On[C].right a b (compatible a b h) } ;
+  join : (x y : Carrier) -> (h : CU.Compatible order x y) ->
+    S.On[order].Supremum Bool (CU.pair order x y) = split {
+    inl u -> split {
+      inl v -> \ h ->
+        (bottom,(bottom-bottom-bounds u v,\ z bound -> bound true)) ;
+      inr b -> \ h -> (inr b,
+        (bottom-right-bounds u b,
+         \ z bound -> bound false)) } ;
+    inr a -> split {
+      inl v -> \ h -> (inr a,
+        (left-bottom-bounds a v,
+         \ z bound -> bound true)) ;
+      inr b -> \ h ->
+        ((inr (CU.On[C].join a b (compatible a b h))),
+          (some-bounds a b h,some-least a b h)) } } ;
+
+  module Small (w : R.Small C.order.carrier) {
+    Index : U l = Lib[l].Plus Top w.1 ;
+    forward : Index -> Carrier = split {
+      inl u -> inl u ; inr a -> inr (w.2.1 a) } ;
+    backward : Carrier -> Index = split {
+      inl u -> inl u ; inr a -> inr (w.2.2.sec a) } ;
+    section : (x : Carrier) -> Id Carrier (forward (backward x)) x = split {
+      inl u -> refl (inl u) ;
+      inr a -> ap C.order.carrier Carrier (\ z -> inr z)
+        (w.2.1 (w.2.2.sec a)) a (w.2.2.sec-eq a) } ;
+    retraction : (x : Index) -> Id Index (backward (forward x)) x = split {
+      inl u -> refl (inl u) ;
+      inr a -> ap w.1 Index (\ z -> inr z)
+        (w.2.2.sec (w.2.1 a)) a
+        (sec-ret w.1 C.order.carrier w.2.1 w.2.2 a) } ;
+    result : R.Small Carrier =
+      (Index,(forward,qinv Index Carrier forward backward
+        section retraction)) ;
+  } ;
+  small : CU.SmallCarrier order =
+    T.map (R.Small C.order.carrier) (R.Small Carrier)
+      (\ w -> Small[w].result) C.small ;
+  cusl : CU.CUSL = new CU.CUSL[
+    order := order,bottom := bottom,bottom-least := bottom-least,
+    join := join,small := small] ;
+} ;
+
+module Action (C D : CU.CUSL) (e : CU.pre.hom C D) {
+  module A = On[C] ;
+  module B = On[D] ;
+  module E = CU.Between[C,D] ;
+  module AB = CU.Between[A.cusl,B.cusl] ;
+  value : A.Carrier -> B.Carrier = split {
+    inl u -> inl u ; inr a -> inr (e.1 a) } ;
+  monotone : AB.Monotone value = split {
+    inl u -> \ y h -> tt ;
+    inr a -> split {
+      inl v -> \ h -> efq h ;
+      inr b -> \ h -> E.mono e a b h } } ;
+  reflect : AB.Reflect value = split {
+    inl u -> \ y h -> tt ;
+    inr a -> split {
+      inl v -> \ h -> efq h ;
+      inr b -> \ h -> E.reflect e a b h } } ;
+  compat-reflect : AB.CompatReflect value = split {
+    inl u -> \ y h ->
+      CU.by-bound A.order (inl u) y y tt (A.reflexive y) ;
+    inr a -> split {
+      inl v -> \ h -> CU.by-bound A.order
+        (inr a) (inl v) (inr a) (A.reflexive (inr a)) tt ;
+      inr b -> \ h -> T.map
+        (CU.CompatibleWitness C.order a b)
+        (CU.CompatibleWitness A.order (inr a) (inr b))
+        (\ w -> (inr w.1,(w.2.1,w.2.2)))
+        (E.compat-reflect e a b
+          (B.compatible (e.1 a) (e.1 b) h)) } } ;
+  bottom-law : AB.BottomLaw value = refl B.bottom ;
+  module Both (a b : C.order.carrier)
+    (h : CU.Compatible A.order (inr a) (inr b)) {
+    source : CU.Compatible C.order a b = A.compatible a b h ;
+    image : CU.Compatible B.order (inr (e.1 a)) (inr (e.1 b)) =
+      AB.image-compatible value monotone (inr a) (inr b) h ;
+    target : CU.Compatible D.order (e.1 a) (e.1 b) =
+      B.compatible (e.1 a) (e.1 b) image ;
+    inner : Id D.order.carrier
+      (e.1 (CU.On[C].join a b source))
+      (CU.On[D].join (e.1 a) (e.1 b) target) =
+      trans D.order.carrier
+        (e.1 (CU.On[C].join a b source))
+        (CU.On[D].join (e.1 a) (e.1 b)
+          (E.image-compatible e.1 (E.mono e) a b source))
+        (CU.On[D].join (e.1 a) (e.1 b) target)
+        (E.join-law e a b source)
+        (CU.On[D].join-independent (e.1 a) (e.1 b)
+          (E.image-compatible e.1 (E.mono e) a b source)
+          target) ;
+    result : Id B.Carrier
+      (value (CU.On[A.cusl].join (inr a) (inr b) h))
+      (CU.On[B.cusl].join (value (inr a)) (value (inr b)) image) =
+      ap D.order.carrier B.Carrier (\ z -> inr z)
+        (e.1 (CU.On[C].join a b source))
+        (CU.On[D].join (e.1 a) (e.1 b) target) inner ;
+  } ;
+  join-law : AB.PreservesJoin value monotone = split {
+    inl u -> split {
+      inl v -> \ h -> refl B.bottom ;
+      inr b -> \ h -> refl (inr (e.1 b)) } ;
+    inr a -> split {
+      inl v -> \ h -> refl (inr (e.1 a)) ;
+      inr b -> \ h -> Both[a,b,h].result } } ;
+  arrow : CU.pre.hom A.cusl B.cusl =
+    (value,(monotone,(reflect,(compat-reflect,
+      (bottom-law,join-law))))) ;
+} ;
+
+object (C : CU.CUSL) : CU.CUSL = On[C].cusl ;
+arrow (C D : CU.CUSL) (e : CU.pre.hom C D) :
+  CU.pre.hom (object C) (object D) = Action[C,D,e].arrow ;
+identity-point (C : CU.CUSL) : (x : (object C).order.carrier) ->
+  Id (object C).order.carrier
+    ((arrow C C (CU.pre.idn C)).1 x)
+    ((CU.pre.idn (object C)).1 x) = split {
+  inl u -> refl (inl u) ; inr a -> refl (inr a) } ;
+identity (C : CU.CUSL) :
+  Id (CU.pre.hom (object C) (object C))
+    (arrow C C (CU.pre.idn C)) (CU.pre.idn (object C)) =
+  CU.Between[object C,object C].equal
+    (arrow C C (CU.pre.idn C)) (CU.pre.idn (object C))
+    (identity-point C) ;
+composition-point (C D E : CU.CUSL)
+  (f : CU.pre.hom C D) (g : CU.pre.hom D E) :
+  (x : (object C).order.carrier) ->
+  Id (object E).order.carrier
+    ((arrow C E (CU.pre.comp C D E g f)).1 x)
+    ((CU.pre.comp (object C) (object D) (object E)
+      (arrow D E g) (arrow C D f)).1 x) = split {
+  inl u -> refl (inl u) ;
+  inr a -> refl (inr (g.1 (f.1 a))) } ;
+composition (C D E : CU.CUSL)
+  (f : CU.pre.hom C D) (g : CU.pre.hom D E) :
+  Id (CU.pre.hom (object C) (object E))
+    (arrow C E (CU.pre.comp C D E g f))
+    (CU.pre.comp (object C) (object D) (object E)
+      (arrow D E g) (arrow C D f)) =
+  CU.Between[object C,object E].equal
+    (arrow C E (CU.pre.comp C D E g f))
+    (CU.pre.comp (object C) (object D) (object E)
+      (arrow D E g) (arrow C D f))
+    (composition-point C D E f g) ;
+functor : K.Endofunctor[CU.pre] =
+  new K.Endofunctor[CU.pre,
+    object := object,arrow := arrow,
+    identity := identity,composition := composition] ;

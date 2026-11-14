@@ -1,0 +1,34 @@
+-- The endomap exponential as a presented EP endofunctor.
+level l ;
+module SD = ScottDomain[l] ;
+module SO = ScottDomainObjects[l] ;
+module EP = ScottDomainCategories[l].EmbeddingProjection ;
+module K = CategoryInitialChain[l++,l+] ;
+object (D : SD.Scott) : SD.Scott =
+  ScottExponential[l].Exponential[D,D].scott ;
+arrow (D E : SD.Scott)
+  (q : EP.Between[SO.from-presented D,SO.from-presented E].Pair) :
+  EP.Between[SO.from-presented (object D),
+    SO.from-presented (object E)].Pair =
+  ScottEPExponential[l].Action[D,E,q].pair ;
+identity (D : SD.Scott) :
+  Id (EP.Between[SO.from-presented (object D),
+    SO.from-presented (object D)].Pair)
+    (arrow D D (EP.identity (SO.from-presented D)))
+    (EP.identity (SO.from-presented (object D))) =
+  ScottEPExponential[l].FunctorLaws.identity D ;
+composition (D E F : SD.Scott)
+  (q : EP.Between[SO.from-presented D,SO.from-presented E].Pair)
+  (r : EP.Between[SO.from-presented E,SO.from-presented F].Pair) :
+  Id (EP.Between[SO.from-presented (object D),
+    SO.from-presented (object F)].Pair)
+    (arrow D F (EP.compose (SO.from-presented D)
+      (SO.from-presented E) (SO.from-presented F) r q))
+    (EP.compose (SO.from-presented (object D))
+      (SO.from-presented (object E)) (SO.from-presented (object F))
+      (arrow E F r) (arrow D E q)) =
+  ScottEPExponential[l].FunctorLaws.composition D E F q r ;
+functor : K.Endofunctor[ScottPresentedEP[l].pre] =
+  new K.Endofunctor[ScottPresentedEP[l].pre,
+    object := object,arrow := arrow,
+    identity := identity,composition := composition] ;

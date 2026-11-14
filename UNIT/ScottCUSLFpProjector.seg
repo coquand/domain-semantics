@@ -1,0 +1,133 @@
+-- Closed compact families are exactly finitary projections on ideal domains.
+-- The right adjoint uses compact postfixed points and is continuous.
+level l ;
+open Base ; open Prelude[l+] ;
+module CF = ScottCUSLClosedFamilies[l] ; module CU = ScottCUSL[l] ;
+module S = ScottOrder[l] ; module TC = TruncationCombinators[l] ;
+
+module On (C : CU.CUSL) {
+  module P = CF.On[C] ; module A = P.A ;
+  module M = ScottMaps[l].Between[A.scott,A.scott] ;
+  module FP = ScottFinitary[l].On[A.scott] ;
+  module Projector (E : P.Family) {
+    module At (x : A.Ideal) {
+      W (a : A.X) : U l = (k : A.X) * (P.Mem E k * (A.mem x k * A.LE a k)) ;
+      member (a : A.X) : U l = S.Ex (W a) ;
+      bottom : member A.bot = S.inc (W A.bot) (A.bot,(P.empty-in E,(A.contains-bot x,A.bot-least A.bot))) ;
+      lower (a b : A.X) (ab : A.LE a b) : member b -> member a =
+        TC.map (W b) (W a) (\ w -> (w.1,(w.2.1,(w.2.2.1,C.order.transitive (A.val a) (A.val b) (A.val w.1) ab w.2.2.2)))) ;
+      module Upper (a b : A.X) (u : W a) (v : W b) {
+        h : P.Compat u.1 v.1 = P.small-compatible u.1 v.1 (A.compatible-in x u.1 v.1 u.2.2.1 v.2.2.1) ;
+        key : A.X = P.join u.1 v.1 h ;
+        inside : W key = (key,(P.join-in E u.1 v.1 h u.2.1 v.2.1,
+          (A.join-member x u.1 v.1 u.2.2.1 v.2.2.1 (P.large u.1 v.1 h),C.order.reflexive (A.val key)))) ;
+        witness : (k : A.X) * (member k * (A.LE a k * A.LE b k)) =
+          (key,(S.inc (W key) inside,
+            (C.order.transitive (A.val a) (A.val u.1) (A.val key) u.2.2.2 (P.join-left u.1 v.1 h),
+             C.order.transitive (A.val b) (A.val v.1) (A.val key) v.2.2.2 (P.join-right u.1 v.1 h)))) ;
+      } ;
+      upper (a b : A.X) : member a -> member b -> S.Ex ((k : A.X) * (member k * (A.LE a k * A.LE b k))) =
+        TC.map2 (W a) (W b) ((k : A.X) * (member k * (A.LE a k * A.LE b k))) (\ u v -> Upper[a,b,u,v].witness) ;
+      value : A.Ideal = (member,(\ a -> S.prop (W a),(bottom,(lower,upper)))) ;
+    } ;
+    run (x : A.Ideal) : A.Ideal = At[x].value ;
+    monotone (x y : A.Ideal) (h : A.Incl x y) : A.Incl (run x) (run y) = \ a ->
+      TC.map (At[x].W a) (At[y].W a) (\ w -> (w.1,(w.2.1,(h w.1 w.2.2.1,w.2.2.2)))) ;
+    continuous : M.Continuous run = \ I x d y h a ->
+      TC.rec (At[A.DirectedSup[I,x,d].value].W a) @l (A.mem y a) (A.mem-prop y a)
+        (\ w -> TC.rec (A.DirectedSup[I,x,d].Member w.1) @l (A.mem y a) (A.mem-prop y a)
+          (\ i -> h i.1 a (S.inc (At[x i.1].W a) (w.1,(w.2.1,(i.2,w.2.2.2))))) w.2.2.1) ;
+    map : M.Map = (run,(monotone,continuous)) ;
+    deflation (x : A.Ideal) : A.Incl (run x) x = \ a ->
+      TC.rec (At[x].W a) @l (A.mem x a) (A.mem-prop x a) (\ w -> A.lower x a w.1 w.2.2.2 w.2.2.1) ;
+    idempotence (x : A.Ideal) : A.Incl (run x) (run (run x)) = \ a ->
+      TC.map (At[x].W a) (At[run x].W a)
+        (\ w -> (w.1,(w.2.1,(S.inc (At[x].W w.1) (w.1,(w.2.1,(w.2.2.1,C.order.reflexive (A.val w.1)))),w.2.2.2)))) ;
+    fixed-principal (k : A.X) (h : P.Mem E k) : FP.Fixed map (A.principal k) = \ a ak ->
+      S.inc (At[A.principal k].W a) (k,(h,(A.principal-in k,ak))) ;
+    density (x : A.Ideal) (fixed : FP.Fixed map x) (a : A.X) (h : A.Incl (A.principal a) x) : S.Ex (FP.Witness map x a) =
+      TC.map (At[x].W a) (FP.Witness map x a)
+        (\ w -> (w.1,(fixed-principal w.1 w.2.1,(A.principal-least w.1 x w.2.2.1,
+          \ b ba -> C.order.transitive (A.val b) (A.val a) (A.val w.1) ba w.2.2.2))))
+        (fixed a (h a (A.principal-in a))) ;
+    finitary : FP.Finitary = new FP.Finitary[map,deflation,idempotence,density] ;
+    recover (k : A.X) (h : FP.Fixed map (A.principal k)) : P.Mem E k =
+      TC.rec (At[A.principal k].W k) @l (P.Mem E k) (P.member-prop E k)
+        (\ w -> P.equiv-in E w.1 k (w.2.2.1,w.2.2.2) w.2.1) (h k (A.principal-in k)) ;
+  } ;
+  module Interior (f : M.Map) {
+    member (k : A.X) : U l = A.mem (M.run f (A.principal k)) k ;
+    bottom : member A.bot = A.contains-bot (M.run f (A.principal A.bot)) ;
+    joined (a b : A.X) (h : P.Compat a b) (ha : member a) (hb : member b) : member (P.join a b h) =
+      A.join-member (M.run f (A.principal (P.join a b h))) a b
+        (M.mono f (A.principal a) (A.principal (P.join a b h))
+          (\ k ka -> C.order.transitive (A.val k) (A.val a) (A.val (P.join a b h)) ka (P.join-left a b h)) a ha)
+        (M.mono f (A.principal b) (A.principal (P.join a b h))
+          (\ k kb -> C.order.transitive (A.val k) (A.val b) (A.val (P.join a b h)) kb (P.join-right a b h)) b hb)
+        (P.large a b h) ;
+    family : P.Family = (member,(\ k -> A.mem-prop (M.run f (A.principal k)) k,(bottom,joined))) ;
+    module Q = Projector[family] ;
+    below : M.LE Q.map f = \ k a ->
+      TC.rec (Q.At[A.principal k].W a) @l (A.mem (M.run f (A.principal k)) a)
+        (A.mem-prop (M.run f (A.principal k)) a)
+        (\ w -> A.lower (M.run f (A.principal k)) a w.1 w.2.2.2
+          (M.mono f (A.principal w.1) (A.principal k) (A.principal-least w.1 (A.principal k) w.2.2.1) w.1 w.2.1)) ;
+    greatest (p : FP.Finitary) (h : M.LE p.operation f) : M.LE p.operation Q.map = \ a k hk ->
+      TC.rec (FP.Witness p.operation (M.run p.operation (A.principal a)) k) @l
+        (A.mem (Q.run (A.principal a)) k) (A.mem-prop (Q.run (A.principal a)) k)
+        (\ w -> S.inc (Q.At[A.principal a].W k)
+          (w.1,(h w.1 w.1 (w.2.1 w.1 (A.principal-in w.1)),
+            ((p.deflation (A.principal a)) w.1 (w.2.2.1 w.1 (A.principal-in w.1)),
+             w.2.2.2 k (A.principal-in k)))))
+        (p.density (M.run p.operation (A.principal a)) (p.idempotence (A.principal a)) k
+          (A.principal-least k (M.run p.operation (A.principal a)) hk)) ;
+    adjunction (E : P.Family) : (M.LE Projector[E].map f -> P.Inc E family) *
+      (P.Inc E family -> M.LE Projector[E].map f) =
+      (\ h k hk -> h k k (Projector[E].fixed-principal k hk k (A.principal-in k)),
+       \ h k a ->
+         TC.rec (Projector[E].At[A.principal k].W a) @l (A.mem (M.run f (A.principal k)) a)
+           (A.mem-prop (M.run f (A.principal k)) a)
+           (\ w -> A.lower (M.run f (A.principal k)) a w.1 w.2.2.2
+             (M.mono f (A.principal w.1) (A.principal k) (A.principal-least w.1 (A.principal k) w.2.2.1) w.1 (h w.1 w.2.1)))) ;
+  } ;
+  family-retract (E : P.Family) : Id P.Family Interior[Projector[E].map].family E =
+    P.ext Interior[Projector[E].map].family E
+      (\ k h -> Projector[E].recover k (A.principal-least k (Projector[E].run (A.principal k)) h),
+       \ k h -> Projector[E].fixed-principal k h k (A.principal-in k)) ;
+  retract (p : FP.Finitary) : Id M.Map Interior[p.operation].Q.map p.operation =
+    M.ext Interior[p.operation].Q.map p.operation Interior[p.operation].below
+      (Interior[p.operation].greatest p (M.order.reflexive p.operation)) ;
+  module Directed (I : U l) (f : I -> M.Map) (d : M.MO.Dir I f) {
+    family (i : I) : P.Family = Interior[f i].family ;
+    directed : S.On[P.order].Dir I family =
+      (d.1,\ i j -> TC.map (M.MO.Upper I f i j) (S.On[P.order].Upper I family i j)
+        (\ w -> (w.1,(\ k -> w.2.1 k k,\ k -> w.2.2 k k))) (d.2 i j)) ;
+    limit : M.Map = S.DC[M.order,M.complete].sup I f d ;
+    equation : Id P.Family Interior[limit].family P.Union[I,family,directed].value =
+      P.ext Interior[limit].family P.Union[I,family,directed].value (\ k h -> h,\ k h -> h) ;
+  } ;
+
+  maps-mono (E H : P.Family) (h : P.Inc E H) : M.LE Projector[E].map Projector[H].map = \ a b ->
+    TC.map (Projector[E].At[A.principal a].W b) (Projector[H].At[A.principal a].W b)
+      (\ w -> (w.1,(h w.1 w.2.1,w.2.2))) ;
+  module MapDirected (I : U l) (E : I -> P.Family) (d : S.On[P.order].Dir I E) {
+    maps (i : I) : M.Map = Projector[E i].map ;
+    directed : M.MO.Dir I maps = (d.1,\ i j -> TC.map (S.On[P.order].Upper I E i j) (M.MO.Upper I maps i j)
+      (\ w -> (w.1,(maps-mono (E i) (E w.1) w.2.1,maps-mono (E j) (E w.1) w.2.2))) (d.2 i j)) ;
+    limit : M.Map = S.DC[M.order,M.complete].sup I maps directed ;
+    module At (x : A.Ideal) {
+      module Q = Projector[P.Union[I,E,d].value] ;
+      forward (a : A.X) : A.mem (Q.run x) a -> A.mem (M.run limit x) a =
+        TC.bind (Q.At[x].W a) (A.DirectedSup[I,\ i -> M.run (maps i) x,M.evaluated-dir I maps directed x].Member a)
+          (\ w -> TC.map (P.Union[I,E,d].W w.1)
+            (A.DirectedSup[I,\ i -> M.run (maps i) x,M.evaluated-dir I maps directed x].Member a)
+            (\ v -> (v.1,S.inc (Projector[E v.1].At[x].W a) (w.1,(v.2,w.2.2)))) w.2.1) ;
+      backward (a : A.X) : A.mem (M.run limit x) a -> A.mem (Q.run x) a =
+        TC.bind (A.DirectedSup[I,\ i -> M.run (maps i) x,M.evaluated-dir I maps directed x].Member a) (Q.At[x].W a)
+          (\ w -> TC.map (Projector[E w.1].At[x].W a) (Q.At[x].W a)
+            (\ v -> (v.1,(S.inc (P.Union[I,E,d].W v.1) (w.1,v.2.1),v.2.2))) w.2) ;
+    } ;
+    equation : Id M.Map Projector[P.Union[I,E,d].value].map limit = M.ext Projector[P.Union[I,E,d].value].map limit
+      (\ a -> At[A.principal a].forward) (\ a -> At[A.principal a].backward) ;
+  } ;
+} ;
