@@ -2,6 +2,10 @@ Scott domains and definitional inversion in Unit
 ===============================================
 
 Start with scott-domains-revised.pdf (source: scott-domains-revised.tex).
+ScottCUSLEquivalence.seg checks the equivalence between Scott domains with
+embedding-projection pairs and conditional upper semilattices (CUSLs).
+IndependentKleeneProjector.seg proves the recursive projector invariant by
+admissible fixed-point induction; ScottAdmissible.seg gives the general rule.
 Theorem 4.2 represents finitary projectors by compact fixed-point families;
 CUSLFpCheck.seg checks this representation independently of the filter and
 typing modules. ScottCUSLClosedFamilies.seg implements the closed families,

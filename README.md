@@ -36,11 +36,17 @@ Colson's ultimate-obstination theorem; see the end.)
 ## Scott domains and definitional inversion (`UNIT/`)
 
 The [revised Scott-domain note (PDF)](UNIT/scott-domains-revised.pdf), with
-[LaTeX source](UNIT/scott-domains-revised.tex), presents continuous function
-spaces, dependent products and sums, finitary projectors, and an independent
+[LaTeX source](UNIT/scott-domains-revised.tex), presents the equivalence of Scott domains with embedding–projection pairs
+and conditional upper semilattices (CUSLs), continuous function spaces,
+dependent products and sums, finitary projectors, and an independent
 logical relation proving adequacy and definitional inversion.
 The mathematical presentation comes first; the formal-check summary and
 recorded timings are at the end.
+
+The [Scott EP–CUSL equivalence](UNIT/ScottCUSLEquivalence.seg) is checked as
+an equivalence of univalent categories. The recursive projector proof uses
+[admissible fixed-point induction](UNIT/IndependentKleeneProjector.seg),
+with a [general induction rule](UNIT/ScottAdmissible.seg) for Scott domains.
 
 Theorem 4.2 represents finitary projectors by their compact fixed points.
 The [independent CUSL session](UNIT/CUSLFpCheck.seg) follows this change of
