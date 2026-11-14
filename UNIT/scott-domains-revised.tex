@@ -31,7 +31,7 @@
 \DeclareMathOperator{\lfp}{lfp}
 
 \title{Scott Domains and Continuous Function Spaces\\
-  \large Small compact bases and an independent logical relation}
+  \large Small compact bases and a finite-depth logical relation}
 \author{}
 \date{}
 
@@ -45,8 +45,8 @@ elements are exactly bounded finite joins of compact step functions. We
 give a constructive proof that keeps the smallness condition explicit and
 uses neither decidable order nor choice. We then use least fixed points
 and a tower of finite-stage projectors on the Scott filter domain to construct
-an independent logical relation. Its typed laws and fundamental lemma
-cover dependent products, annotated abstraction and function
+a logical relation by compatible finite-depth approximations. Its typed
+laws and fundamental lemma cover dependent products, annotated abstraction and function
 extensionality, and yield mere syntactic product inversion. An appendix
 develops the
 embedding--projection category, its equivalence with conditional upper
@@ -1048,7 +1048,16 @@ compatibility argument.
 The logical-relation construction and fundamental lemma below use only
 the projector-tower properties of Proposition~\ref{prop:projector-tower}.
 
-\section{An independent logical relation}
+\section{A logical relation constructed by finite depth}
+
+We construct the relation directly from syntax, reduction and typed
+definitional equality, using the Scott filter domain, its operations and
+the finite-depth projector tower of \S4. The existence proof does not use
+a previously constructed logical relation or a previously proved adequacy
+theorem. This is the sense in which the construction is independent of
+the earlier logical-relation proof in the formal development; it still
+depends on the domain and projector-tower results stated above. Adequacy
+is proved later from the new relation and its fundamental lemma.
 
 \subsection{Admissible predicates and the relation clauses}
 
@@ -1317,7 +1326,7 @@ and then use compatibility at the depth-$e$ element $q_ex$.
 Constructive comparison of natural numbers gives every conjunct.
 \end{proof}
 
-\begin{theorem}[Independent invariant]\label{thm:independent-invariant}
+\begin{theorem}[Existence and uniqueness of the invariant]\label{thm:independent-invariant}
 There is a unique strict lower admissible pair $(\TyRel,\ElemRel)$ satisfying
 \eqref{eq:relation-equations}. It is given by~\eqref{eq:relation-limit}.
 \end{theorem}
