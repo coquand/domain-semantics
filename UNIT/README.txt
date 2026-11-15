@@ -24,6 +24,14 @@ inductive semantic projector and its comparison theorem out of scope.
 The later IndependentRelationRawLaws bridge to the original filter-based
 soundness proof still uses that comparison and the old typing judgement.
 
+BoundedWitnessSearch proves a general recovery principle: an exhaustive
+bounded procedure Nat -> A + 1 gives ||A|| -> A, without numbering or
+comparing elements of A. WitnessSearchCheck checks this independently
+(216 declarations). WITNESS_RECOVERY.txt explains how goal-directed bounded
+proof search could supply the object-theory instance. That procedure and
+its completeness proof remain to be implemented; Pi-inversion is still
+propositionally truncated in the Scott development.
+
 Run from DOMAIN:
 
     python3 UNIT/check.py
@@ -44,8 +52,10 @@ common-code proof out of scope,
 StructuralTypedLawsCheck.seg (5,118 declarations, zero failures)
 with the inductive semantic projector, its comparison theorem, and the
 raw soundness bridge out of scope,
-and IndependentLogicalRelationCheck.seg (6,410 declarations, zero failures)
-with the old relation and adequacy out of scope, each in a separate process.
+IndependentLogicalRelationCheck.seg (6,410 declarations, zero failures)
+with the old relation and adequacy out of scope,
+and WitnessSearchCheck.seg (216 declarations, zero failures) with no domain
+or object-theory modules in scope, each in a separate process.
 The import boundaries and absence of inductive compact typing references
 in the new cover and typed-law files are audited by check.py. Typing.seg
 remains imported by the foundational library for order-equivalence helpers.
@@ -55,7 +65,7 @@ binary itself is not bundled.
 Reproduce with a published Unit checker
 -------------------------------------
 
-All six sessions also pass with the checker built from published Unit
+All seven sessions also pass with the checker built from published Unit
 revision 18bb219f040ba1f66c4d57185fedc5b5c4d4617e:
 
     git clone https://github.com/coquand/unit.git

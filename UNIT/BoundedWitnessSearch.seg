@@ -1,0 +1,94 @@
+-- Recover a witness from mere existence using a bounded proof procedure.
+-- Natural numbers are search budgets, not codes for witnesses.
+-- No equality decision, sethood, or encoding of the witness type is needed.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ;
+module H = Axioms[l].FunExtLemmas[fe @l] ;
+module T = TruncationCombinators[l] ;
+Dec (P : U l) : U l = Plus P (P -> Empty) ;
+
+-- Evidence that the first n tests fail, represented by a finite prefix.
+Before : Nat -> (Nat -> U l) -> U l = split {
+ zero -> \ P -> Top ;
+ suc n | ih -> \ P -> (P zero -> Empty) * ih (\ k -> P (suc k)) } ;
+before-prop : (n : Nat) (P : Nat -> U l) -> isProp (Before n P) = split {
+ zero -> \ P -> isTop ;
+ suc n | ih -> \ P -> isProp-Sigma (P zero -> Empty)
+  (\ _ -> Before n (\ k -> P (suc k)))
+  (H.isProp-Pi (P zero) (\ _ -> Empty) (\ _ -> isProp-Empty))
+  (\ _ -> ih (\ k -> P (suc k))) } ;
+excludes-last : (n : Nat) (P : Nat -> U l) -> Before (suc n) P -> P n -> Empty = split {
+ zero -> \ P b p -> b.1 p ;
+ suc n | ih -> \ P b p -> ih (\ k -> P (suc k)) b.2 p } ;
+
+-- The uniqueness proof only compares finite failure prefixes.
+same : (n : Nat) (P : Nat -> U l) -> P n -> Before n P ->
+ (m : Nat) -> P m -> Before m P -> Id Nat n m = split {
+ zero -> \ P p b -> split {
+  zero -> \ q c -> refl zero ;
+  suc m -> \ q c -> efq (c.1 p) } ;
+ suc n | ih -> \ P p b -> split {
+  zero -> \ q c -> efq (b.1 q) ;
+  suc m -> \ q c -> ap Nat Nat (\ k -> suc k) n m
+   (ih (\ k -> P (suc k)) p b.2 m q c.2) } } ;
+module Least (P : Nat -> U l) (prop : (n : Nat) -> isProp (P n)) {
+ Evidence (n : Nat) : U l = P n * Before n P ;
+ Carrier : U l = (n : Nat) * Evidence n ;
+ evidence-prop (n : Nat) : isProp (Evidence n) =
+  isProp-Sigma (P n) (\ _ -> Before n P) (prop n) (\ _ -> before-prop n P) ;
+ proposition : isProp Carrier = \ u v ->
+  Sigma-eq Nat Evidence u.1 v.1 u.2 v.2
+   (same u.1 P u.2.1 u.2.2 v.1 v.2.1 v.2.2) (evidence-prop v.1) ;
+} ;
+
+-- Search a finite prefix. Its negative result concerns only that prefix.
+Search (n : Nat) (P : Nat -> U l) : U l =
+ Plus ((k : Nat) * (P k * Before k P)) (Before (suc n) P) ;
+shift (n : Nat) (P : Nat -> U l) (no : P zero -> Empty) :
+ Search n (\ k -> P (suc k)) -> Search (suc n) P = split {
+ inl w -> inl (suc w.1,(w.2.1,(no,w.2.2))) ;
+ inr b -> inr (no,b) } ;
+start (n : Nat) (P : Nat -> U l) (tail : Search n (\ k -> P (suc k))) :
+ Dec (P zero) -> Search (suc n) P = split {
+ inl p -> inl (zero,(p,tt)) ;
+ inr no -> shift n P no tail } ;
+first (P : Nat -> U l) : Dec (P zero) -> Search zero P = split {
+ inl p -> inl (zero,(p,tt)) ; inr no -> inr (no,tt) } ;
+search : (n : Nat) (P : Nat -> U l) -> ((k : Nat) -> Dec (P k)) -> Search n P = split {
+ zero -> \ P test -> first P (test zero) ;
+ suc n | ih -> \ P test -> start n P
+  (ih (\ k -> P (suc k)) (\ k -> test (suc k))) (test zero) } ;
+
+module RecoverLeast (P : Nat -> U l) (prop : (n : Nat) -> isProp (P n))
+ (test : (n : Nat) -> Dec (P n)) {
+ module L = Least[P,prop] ;
+ finish (n : Nat) (p : P n) : Search n P -> L.Carrier = split {
+  inl w -> w ; inr b -> efq (excludes-last n P b p) } ;
+ bounded (n : Nat) (p : P n) : L.Carrier = finish n p (search n P test) ;
+ from-mere : Truncation[l].Trunc[(n : Nat) * P n].carrier -> L.Carrier =
+  T.rec ((n : Nat) * P n) @l L.Carrier L.proposition (\ w -> bounded w.1 w.2) ;
+} ;
+
+module Procedure (A : U l) {
+ Result : U l = Plus A Top ;
+ Succeeds : Result -> U l = split { inl a -> Top ; inr t -> Empty } ;
+ success-prop : (r : Result) -> isProp (Succeeds r) = split {
+  inl a -> isTop ; inr t -> isProp-Empty } ;
+ success-dec : (r : Result) -> Dec (Succeeds r) = split {
+  inl a -> inl tt ; inr t -> inr (\ e -> e) } ;
+ read : (r : Result) -> Succeeds r -> A = split {
+  inl a -> \ h -> a ; inr t -> \ h -> efq h } ;
+ record Bounded {
+  run : Nat -> Result ;
+  complete (a : A) : Truncation[l].Trunc[(n : Nat) * Succeeds (run n)].carrier ;
+ } ;
+ module Extract (S : Bounded) {
+  P (n : Nat) : U l = Succeeds (S.run n) ;
+  module R = RecoverLeast[P,\ n -> success-prop (S.run n),\ n -> success-dec (S.run n)] ;
+  from-witness (a : A) : R.L.Carrier = R.from-mere (S.complete a) ;
+  canonical : Truncation[l].Trunc[A].carrier -> R.L.Carrier =
+   T.rec A @l R.L.Carrier R.L.proposition from-witness ;
+  recover (a : Truncation[l].Trunc[A].carrier) : A =
+   read (S.run (canonical a).1) (canonical a).2.1 ;
+ } ;
+} ;

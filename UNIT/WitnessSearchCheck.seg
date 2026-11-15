@@ -1,0 +1,11 @@
+-- General constructive recovery from a bounded procedure, without coding
+-- or enumerating the witnesses. Independent of domains and object typing.
+import Base ; import Prelude ; import Lib ; import Axioms ; import FunExtUA ; import Replacement ;
+module Theory
+ (ua : [l] Axioms[l].Univalence)
+ (images : [l] [k] Replacement[l,k].Images)
+ (surjections : [l] [k] [j] (Replacement[l,k].Surjectivity (images @l @k)) @j) {
+ fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
+ import Truncation ; import TruncationCombinators ;
+ import BoundedWitnessSearch ;
+} ;

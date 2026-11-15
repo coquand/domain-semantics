@@ -75,14 +75,20 @@ derivations.
 - [Development guide](UNIT/README.txt) and
   [logical-relation proof account](UNIT/LOGICAL_RELATION_PROGRAM.md)
 
-`python3 UNIT/check.py` checks six sessions: the full development
+`python3 UNIT/check.py` checks seven sessions: the full development
 (15,785 declarations), general CUSL `Fp` construction (2,412), general
 dependent products and sums (1,156), independent projector proof (3,916),
-structural typed laws (5,118), and independent logical relation (6,410).
+structural typed laws (5,118), independent logical relation (6,410), and
+the general bounded-witness extraction principle (216).
 All pass with zero failures,
 and all 40 frozen dependency hashes match. The separate sessions audit
 which earlier proof modules are excluded. The development uses univalence
 and replacement as explicit ambient parameters.
+
+The [bounded proof-search design](UNIT/WITNESS_RECOVERY.txt) explains a route
+from mere derivations to actual derivations using the least successful
+search budget. The general extraction principle is checked; its
+object-theory proof procedure and completeness proof remain to be built.
 
 With the compiled Haskell Unit checker available, run:
 

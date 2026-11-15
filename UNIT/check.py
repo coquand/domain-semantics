@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check dependencies, all declarations, and the five independent sessions.
+"""Check dependencies, all declarations, and the six independent sessions.
 
 Usage: python3 UNIT/check.py [path/to/seg]
 UNIT_CHECKER is also accepted; otherwise use the recorded local checker.
@@ -68,6 +68,14 @@ def main():
     }
     if forbidden:
         sys.exit(f"Structural typed-law check imports forbidden modules: {sorted(forbidden)}")
+    witness_imports = set(re.findall(
+        r"\bimport\s+(\w+)\s*;", (root / "WitnessSearchCheck.seg").read_text()))
+    allowed_witness_imports = {
+        "Base", "Prelude", "Lib", "Axioms", "FunExtUA", "Replacement",
+        "Truncation", "TruncationCombinators", "BoundedWitnessSearch",
+    }
+    if witness_imports - allowed_witness_imports:
+        sys.exit(f"Witness search check imports unrelated modules: {sorted(witness_imports - allowed_witness_imports)}")
     # Typing.seg also contains order-equivalence helpers used by the basis
     # library. The new projector/typed-law proofs must not use its typing
     # family, constructors or elimination lemmas, even though it is in scope.
@@ -86,7 +94,7 @@ def main():
     print(f"Checker: {checker} ({'recorded build' if recorded else 'different build'})", flush=True)
     for source in ("All.seg", "CUSLFpCheck.seg", "IndependentDependentProductCheck.seg",
                    "IndependentProjectorCheck.seg", "StructuralTypedLawsCheck.seg",
-                   "IndependentLogicalRelationCheck.seg"):
+                   "IndependentLogicalRelationCheck.seg", "WitnessSearchCheck.seg"):
         try:
             result = subprocess.run([str(checker), source], cwd=root,
                                     text=True, capture_output=True, timeout=60)
