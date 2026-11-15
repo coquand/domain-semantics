@@ -1,0 +1,146 @@
+-- Decidable equality of the finite object syntax and judgement indices.
+-- This checks raw syntax, never object-theory conversion or provability.
+level l ; open Base ; open Prelude[l] ; open Lib[l] ; open Syntax[l] ;
+Dec (A : U l) : U l = Plus A (A -> Empty) ;
+map-dec (A B : U l) (f : A -> B) (g : B -> A) : Dec A -> Dec B = split {
+ inl a -> inl (f a) ; inr no -> inr (\ b -> no (g b)) } ;
+pair-dec (A B : U l) : Dec A -> Dec B -> Dec (A * B) = split {
+ inl a -> split { inl b -> inl (a,b) ; inr no -> inr (\ p -> no p.2) } ;
+ inr no -> \ db -> inr (\ p -> no p.1) } ;
+cong2 (A B C : U l) (f : A -> B -> C) (a a' : A) (b b' : B)
+ (p : Id A a a') (q : Id B b b') : Id C (f a b) (f a' b') =
+ trans C (f a b) (f a' b) (f a' b')
+  (ap A C (\ x -> f x b) a a' p) (ap B C (f a') b b' q) ;
+cong3 (A B C D : U l) (f : A -> B -> C -> D) (a a' : A) (b b' : B) (c c' : C)
+ (p : Id A a a') (q : Id B b b') (r : Id C c c') : Id D (f a b c) (f a' b' c') =
+ trans D (f a b c) (f a' b' c) (f a' b' c')
+  (cong2 A B D (\ x y -> f x y c) a a' b b' p q) (ap C D (f a' b') c c' r) ;
+cong4 (A B C D E : U l) (f : A -> B -> C -> D -> E)
+ (a a' : A) (b b' : B) (c c' : C) (d d' : D)
+ (p : Id A a a') (q : Id B b b') (r : Id C c c') (t : Id D d d') : Id E (f a b c d) (f a' b' c' d') =
+ trans E (f a b c d) (f a' b' c' d) (f a' b' c' d')
+  (cong3 A B C E (\ x y z -> f x y z d) a a' b b' c c' p q r) (ap D E (f a' b' c') d d' t) ;
+empty-opt (A : U l) : Opt A = none ;
+none-code (A : U l) : Opt A -> U l = split { none -> Top ; some a -> Empty } ;
+some-code (A : U l) (a : A) : Opt A -> U l = split { none -> Empty ; some b -> Id A a b } ;
+none-some (A : U l) (a : A) (p : Id (Opt A) none (some a)) : Empty =
+ subst (Opt A) (none-code A) none (some a) p tt ;
+some-inj (A : U l) (a b : A) (p : Id (Opt A) (some a) (some b)) : Id A a b =
+ subst (Opt A) (some-code A a) (some a) (some b) p (refl a) ;
+opt-dec (A : U l) (eq : (a b : A) -> Dec (Id A a b)) :
+ (x y : Opt A) -> Dec (Id (Opt A) x y) = split {
+ none -> split { none -> inl (refl (empty-opt A)) ; some b -> inr (none-some A b) } ;
+ some a -> split {
+  none -> inr (\ p -> none-some A a (sym (Opt A) (some a) none p)) ;
+  some b -> map-dec (Id A a b) (Id (Opt A) (some a) (some b))
+   (ap A (Opt A) (\ x -> some x) a b) (some-inj A a b) (eq a b) } } ;
+fin-dec : (n : Nat) (i j : Fin n) -> Dec (Id (Fin n) i j) = split {
+ zero -> \ i j -> efq i ; suc n | ih -> opt-dec (Fin n) ih } ;
+nat-choice (a b : Nat) : Plus (IsT (eqN a b)) (IsF (eqN a b)) -> Dec (Id Nat a b) = split {
+ inl h -> inl (eqN-sound a b h) ; inr h -> inr (eqN-ne a b h) } ;
+nat-dec (a b : Nat) : Dec (Id Nat a b) = nat-choice a b (bool-dec (eqN a b)) ;
+different (A : U l) (tag : A -> Nat) (a b : A) (h : IsF (eqN (tag a) (tag b))) : Id A a b -> Empty =
+ \ p -> eqN-ne (tag a) (tag b) h (ap A Nat tag a b p) ;
+tm-tag : (n : Nat) -> Tm n -> Nat = split {
+ var n i -> zero ; uu n -> suc zero ; pp n A B -> suc (suc zero) ;
+ lam n A M -> suc (suc (suc zero)) ; app n f a -> suc (suc (suc (suc zero))) } ;
+tm-index : (n : Nat) -> Tm n -> Opt (Fin n) = split {
+ var n i -> some i ; uu n -> none ; pp n A B -> none ; lam n A M -> none ; app n f a -> none } ;
+tm-left : (n : Nat) -> Tm n -> Tm n = split {
+ var n i -> uu n ; uu n -> uu n ; pp n A B -> A ; lam n A M -> A ; app n f a -> f } ;
+tm-right : (n : Nat) -> Tm n -> Tm n = split {
+ var n i -> uu n ; uu n -> uu n ; pp n A B -> uu n ; lam n A M -> uu n ; app n f a -> a } ;
+tm-body : (n : Nat) -> Tm n -> Tm (suc n) = split {
+ var n i -> uu (suc n) ; uu n -> uu (suc n) ; pp n A B -> B ; lam n A M -> M ; app n f a -> uu (suc n) } ;
+data View (n : Nat) : U l = vvar (i : Fin n) | vu | vp (A : Tm n) (B : Tm (suc n)) | vl (A : Tm n) (M : Tm (suc n)) | va (f a : Tm n) ;
+view : (n : Nat) -> Tm n -> View n = split {
+ var n i -> vvar i ; uu n -> vu ; pp n A B -> vp A B ; lam n A M -> vl A M ; app n f a -> va f a } ;
+unview (n : Nat) : View n -> Tm n = split {
+ vvar i -> var n i ; vu -> uu n ; vp A B -> pp n A B ; vl A M -> lam n A M ; va f a -> app n f a } ;
+view-beta : (n : Nat) (x : Tm n) -> Id (Tm n) (unview n (view n x)) x = split {
+ var n i -> refl (var n i) ; uu n -> refl (uu n) ; pp n A B -> refl (pp n A B) ;
+ lam n A M -> refl (lam n A M) ; app n f a -> refl (app n f a) } ;
+recover-view (n : Nat) (x y : Tm n) : Dec (Id (Tm n) x (unview n (view n y))) -> Dec (Id (Tm n) x y) =
+ map-dec (Id (Tm n) x (unview n (view n y))) (Id (Tm n) x y)
+  (\ p -> trans (Tm n) x (unview n (view n y)) y p (view-beta n y))
+  (\ p -> trans (Tm n) x y (unview n (view n y)) p (sym (Tm n) (unview n (view n y)) y (view-beta n y))) ;
+compare-var (n : Nat) (i : Fin n)  : (w : View n) -> Dec (Id (Tm n) (var n i) (unview n w)) = split {
+ vvar j -> map-dec (Id (Fin n) i j) (Id (Tm n) (var n i) (var n j))
+   (ap (Fin n) (Tm n) (\ x -> var n x) i j)
+   (\ p -> some-inj (Fin n) i j (ap (Tm n) (Opt (Fin n)) (tm-index n) (var n i) (var n j) p)) (fin-dec n i j) ;
+ vu  -> inr (different (Tm n) (tm-tag n) (var n i) (uu n) tt) ;
+ vp C D -> inr (different (Tm n) (tm-tag n) (var n i) (pp n C D) tt) ;
+ vl C N -> inr (different (Tm n) (tm-tag n) (var n i) (lam n C N) tt) ;
+ va g b -> inr (different (Tm n) (tm-tag n) (var n i) (app n g b) tt) } ;
+compare-uu (n : Nat)  : (w : View n) -> Dec (Id (Tm n) (uu n) (unview n w)) = split {
+ vvar j -> inr (different (Tm n) (tm-tag n) (uu n) (var n j) tt) ;
+ vu  -> inl (refl (uu n)) ;
+ vp C D -> inr (different (Tm n) (tm-tag n) (uu n) (pp n C D) tt) ;
+ vl C N -> inr (different (Tm n) (tm-tag n) (uu n) (lam n C N) tt) ;
+ va g b -> inr (different (Tm n) (tm-tag n) (uu n) (app n g b) tt) } ;
+compare-pp (n : Nat) (A : Tm n) (B : Tm (suc n)) (da : (z : Tm n) -> Dec (Id (Tm n) A z)) (db : (z : Tm (suc n)) -> Dec (Id (Tm (suc n)) B z)) : (w : View n) -> Dec (Id (Tm n) (pp n A B) (unview n w)) = split {
+ vvar j -> inr (different (Tm n) (tm-tag n) (pp n A B) (var n j) tt) ;
+ vu  -> inr (different (Tm n) (tm-tag n) (pp n A B) (uu n) tt) ;
+ vp C D -> map-dec (Id (Tm n) A C * Id (Tm (suc n)) B D) (Id (Tm n) (pp n A B) (pp n C D))
+   (\ p -> cong2 (Tm n) (Tm (suc n)) (Tm n) (\ x y -> pp n x y) A C B D p.1 p.2)
+   (\ p -> (ap (Tm n) (Tm n) (tm-left n) (pp n A B) (pp n C D) p,
+     ap (Tm n) (Tm (suc n)) (tm-body n) (pp n A B) (pp n C D) p))
+   (pair-dec (Id (Tm n) A C) (Id (Tm (suc n)) B D) (da C) (db D)) ;
+ vl C N -> inr (different (Tm n) (tm-tag n) (pp n A B) (lam n C N) tt) ;
+ va g b -> inr (different (Tm n) (tm-tag n) (pp n A B) (app n g b) tt) } ;
+compare-lam (n : Nat) (A : Tm n) (M : Tm (suc n)) (da : (z : Tm n) -> Dec (Id (Tm n) A z)) (db : (z : Tm (suc n)) -> Dec (Id (Tm (suc n)) M z)) : (w : View n) -> Dec (Id (Tm n) (lam n A M) (unview n w)) = split {
+ vvar j -> inr (different (Tm n) (tm-tag n) (lam n A M) (var n j) tt) ;
+ vu  -> inr (different (Tm n) (tm-tag n) (lam n A M) (uu n) tt) ;
+ vp C D -> inr (different (Tm n) (tm-tag n) (lam n A M) (pp n C D) tt) ;
+ vl C N -> map-dec (Id (Tm n) A C * Id (Tm (suc n)) M N) (Id (Tm n) (lam n A M) (lam n C N))
+   (\ p -> cong2 (Tm n) (Tm (suc n)) (Tm n) (\ x y -> lam n x y) A C M N p.1 p.2)
+   (\ p -> (ap (Tm n) (Tm n) (tm-left n) (lam n A M) (lam n C N) p,
+     ap (Tm n) (Tm (suc n)) (tm-body n) (lam n A M) (lam n C N) p))
+   (pair-dec (Id (Tm n) A C) (Id (Tm (suc n)) M N) (da C) (db N)) ;
+ va g b -> inr (different (Tm n) (tm-tag n) (lam n A M) (app n g b) tt) } ;
+compare-app (n : Nat) (f a : Tm n) (da : (z : Tm n) -> Dec (Id (Tm n) f z)) (db : (z : Tm n) -> Dec (Id (Tm n) a z)) : (w : View n) -> Dec (Id (Tm n) (app n f a) (unview n w)) = split {
+ vvar j -> inr (different (Tm n) (tm-tag n) (app n f a) (var n j) tt) ;
+ vu  -> inr (different (Tm n) (tm-tag n) (app n f a) (uu n) tt) ;
+ vp C D -> inr (different (Tm n) (tm-tag n) (app n f a) (pp n C D) tt) ;
+ vl C N -> inr (different (Tm n) (tm-tag n) (app n f a) (lam n C N) tt) ;
+ va g b -> map-dec (Id (Tm n) f g * Id (Tm n) a b) (Id (Tm n) (app n f a) (app n g b))
+   (\ p -> cong2 (Tm n) (Tm n) (Tm n) (\ x y -> app n x y) f g a b p.1 p.2)
+   (\ p -> (ap (Tm n) (Tm n) (tm-left n) (app n f a) (app n g b) p,
+     ap (Tm n) (Tm n) (tm-right n) (app n f a) (app n g b) p))
+   (pair-dec (Id (Tm n) f g) (Id (Tm n) a b) (da g) (db b)) } ;
+tm-dec : (n : Nat) (x y : Tm n) -> Dec (Id (Tm n) x y) = split {
+ var n i -> \ y -> recover-view n (var n i) y (compare-var n i (view n y)) ;
+ uu n  -> \ y -> recover-view n (uu n) y (compare-uu n  (view n y)) ;
+ pp n A B | da db -> \ y -> recover-view n (pp n A B) y (compare-pp n A B da db (view n y)) ;
+ lam n A M | da db -> \ y -> recover-view n (lam n A M) y (compare-lam n A M da db (view n y)) ;
+ app n f a | da db -> \ y -> recover-view n (app n f a) y (compare-app n f a da db (view n y)) } ;
+ctx-dec : (n : Nat) (G H : Ctx n) -> Dec (Id (Ctx n) G H) = split {
+ zero -> \ G H -> inl (isTop G H) ;
+ suc n | ih -> \ G H -> map-dec (Id (Ctx n) G.1 H.1 * Id (Tm n) G.2 H.2) (Id (Ctx (suc n)) G H)
+  (\ p -> cong2 (Ctx n) (Tm n) (Ctx (suc n)) (\ x y -> (x,y)) G.1 H.1 G.2 H.2 p.1 p.2)
+  (\ p -> (ap (Ctx (suc n)) (Ctx n) (\ x -> x.1) G H p,ap (Ctx (suc n)) (Tm n) (\ x -> x.2) G H p))
+  (pair-dec (Id (Ctx n) G.1 H.1) (Id (Tm n) G.2 H.2) (ih G.1 H.1) (tm-dec n G.2 H.2)) } ;
+j-tag (n : Nat) : Jf n -> Nat = split { jwf G -> zero ; jty G M A -> suc zero ; jeq G M N A -> suc (suc zero) } ;
+j-context (n : Nat) : Jf n -> Ctx n = split { jwf G -> G ; jty G M A -> G ; jeq G M N A -> G } ;
+j-subject (n : Nat) : Jf n -> Tm n = split { jwf G -> uu n ; jty G M A -> M ; jeq G M N A -> M } ;
+j-other (n : Nat) : Jf n -> Tm n = split { jwf G -> uu n ; jty G M A -> M ; jeq G M N A -> N } ;
+j-type (n : Nat) : Jf n -> Tm n = split { jwf G -> uu n ; jty G M A -> A ; jeq G M N A -> A } ;
+j-dec (n : Nat) : (J K : Jf n) -> Dec (Id (Jf n) J K) = split {
+ jwf G -> split {
+  jwf H -> map-dec (Id (Ctx n) G H) (Id (Jf n) (jwf G) (jwf H))
+   (\ p -> ap (Ctx n) (Jf n) (\ x -> jwf x) G H p)
+   (\ p -> ap (Jf n) (Ctx n) (j-context n) (jwf G) (jwf H) p) (ctx-dec n G H) ;
+  jty H X B -> inr (different (Jf n) (j-tag n) (jwf G) (jty H X B) tt) ;
+  jeq H P Q B -> inr (different (Jf n) (j-tag n) (jwf G) (jeq H P Q B) tt) } ;
+ jty G M A -> split {
+  jwf H -> inr (different (Jf n) (j-tag n) (jty G M A) (jwf H) tt) ;
+  jty H X B -> map-dec ((Id (Ctx n) G H * (Id (Tm n) M X * Id (Tm n) A B))) (Id (Jf n) (jty G M A) (jty H X B))
+   (\ p -> cong3 (Ctx n) (Tm n) (Tm n) (Jf n) (\ G M A -> jty G M A) G H M X A B p.1 p.2.1 p.2.2)
+   (\ p -> (ap (Jf n) (Ctx n) (j-context n) (jty G M A) (jty H X B) p,(ap (Jf n) (Tm n) (j-subject n) (jty G M A) (jty H X B) p,ap (Jf n) (Tm n) (j-type n) (jty G M A) (jty H X B) p))) (pair-dec (Id (Ctx n) G H) ((Id (Tm n) M X * Id (Tm n) A B)) (ctx-dec n G H) (pair-dec (Id (Tm n) M X) (Id (Tm n) A B) (tm-dec n M X) (tm-dec n A B))) ;
+  jeq H P Q B -> inr (different (Jf n) (j-tag n) (jty G M A) (jeq H P Q B) tt) } ;
+ jeq G M N A -> split {
+  jwf H -> inr (different (Jf n) (j-tag n) (jeq G M N A) (jwf H) tt) ;
+  jty H X B -> inr (different (Jf n) (j-tag n) (jeq G M N A) (jty H X B) tt) ;
+  jeq H P Q B -> map-dec ((Id (Ctx n) G H * (Id (Tm n) M P * (Id (Tm n) N Q * Id (Tm n) A B)))) (Id (Jf n) (jeq G M N A) (jeq H P Q B))
+   (\ p -> cong4 (Ctx n) (Tm n) (Tm n) (Tm n) (Jf n) (\ G M N A -> jeq G M N A) G H M P N Q A B p.1 p.2.1 p.2.2.1 p.2.2.2)
+   (\ p -> (ap (Jf n) (Ctx n) (j-context n) (jeq G M N A) (jeq H P Q B) p,(ap (Jf n) (Tm n) (j-subject n) (jeq G M N A) (jeq H P Q B) p,(ap (Jf n) (Tm n) (j-other n) (jeq G M N A) (jeq H P Q B) p,ap (Jf n) (Tm n) (j-type n) (jeq G M N A) (jeq H P Q B) p)))) (pair-dec (Id (Ctx n) G H) ((Id (Tm n) M P * (Id (Tm n) N Q * Id (Tm n) A B))) (ctx-dec n G H) (pair-dec (Id (Tm n) M P) ((Id (Tm n) N Q * Id (Tm n) A B)) (tm-dec n M P) (pair-dec (Id (Tm n) N Q) (Id (Tm n) A B) (tm-dec n N Q) (tm-dec n A B)))) } } ;

@@ -64,31 +64,36 @@ filter-model soundness proof still uses that judgement.
 The full fundamental lemma includes Pi formation and equality, annotated
 lambda, and typed function extensionality, without using the old adequacy
 or syntactic Pi-injectivity proofs. It yields whole-denotation adequacy and
-Pi inversion as a propositionally truncated pair of component equality
-derivations.
+mere Pi inversion. A separate constructor enumeration recovers actual
+component equality derivations and gives subject reduction for head steps
+and their finite sequences.
 
 - [Complete derivation induction](UNIT/IndependentFundamental.seg)
 - [Whole-denotation adequacy](UNIT/IndependentAdequacy.seg) and
   [independent Pi inversion](UNIT/IndependentInversion.seg)
+- [Recovery of actual derivations](UNIT/DerivationRecovery.seg),
+  [Pi inversion with actual derivations](UNIT/IndependentProofRelevant.seg),
+  and [head subject reduction](UNIT/IndependentSubjectReduction.seg)
 - [General `Fp` functor](UNIT/ScottCUSLFpFunctor.seg) and
   [directed-colimit preservation](UNIT/ScottCUSLFpContinuity.seg)
 - [Development guide](UNIT/README.txt) and
   [logical-relation proof account](UNIT/LOGICAL_RELATION_PROGRAM.md)
 
-`python3 UNIT/check.py` checks seven sessions: the full development
-(15,785 declarations), general CUSL `Fp` construction (2,412), general
+`python3 UNIT/check.py` checks eight sessions: the full development
+(16,157 declarations), general CUSL `Fp` construction (2,412), general
 dependent products and sums (1,156), independent projector proof (3,916),
-structural typed laws (5,118), independent logical relation (6,410), and
-the general bounded-witness extraction principle (216).
+structural typed laws (5,118), independent logical relation and actual
+syntactic consequences (6,782), the general witness extraction principle
+(216), and the complete derivation-enumeration instance (541).
 All pass with zero failures,
 and all 40 frozen dependency hashes match. The separate sessions audit
 which earlier proof modules are excluded. The development uses univalence
 and replacement as explicit ambient parameters.
 
-The [bounded proof-search design](UNIT/WITNESS_RECOVERY.txt) explains a route
-from mere derivations to actual derivations using the least successful
-search budget. The general extraction principle is checked; its
-object-theory proof procedure and completeness proof remain to be built.
+The [derivation-recovery account](UNIT/WITNESS_RECOVERY.txt) explains the
+finite constructor enumeration and the least-successful-stage argument.
+The extractor and its completeness proof are checked without adding a
+choice principle.
 
 With the compiled Haskell Unit checker available, run:
 

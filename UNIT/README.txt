@@ -12,8 +12,8 @@ typing modules. ScottCUSLClosedFamilies.seg implements the closed families,
 and ScottCUSLFpContinuity.seg proves directed-colimit preservation.
 
 This constructs the MLTT domain, its finitary projectors, and a bridge to
-the existing Unit MIN soundness and adequacy proofs. All.seg checks 15,785
-declarations, with 0 failures, using the recorded checker (2026-11-14).
+the existing Unit MIN soundness and adequacy proofs. All.seg checks 16,157
+declarations, with 0 failures, using the recorded checker (2026-11-15).
 
 Semantic typing is projector fixedness: StructuralProjectorLaws.HasType x a
 means p(a,x) = x. NormalizedCompactCover proves compact coverage directly
@@ -27,10 +27,13 @@ soundness proof still uses that comparison and the old typing judgement.
 BoundedWitnessSearch proves a general recovery principle: an exhaustive
 bounded procedure Nat -> A + 1 gives ||A|| -> A, without numbering or
 comparing elements of A. WitnessSearchCheck checks this independently
-(216 declarations). WITNESS_RECOVERY.txt explains how goal-directed bounded
-proof search could supply the object-theory instance. That procedure and
-its completeness proof remain to be implemented; Pi-inversion is still
-propositionally truncated in the Scott development.
+(216 declarations). DerivationRecovery supplies the complete object-theory
+instance using a finite closure of the existing constructors; its
+completeness proof is an induction on derivations. DerivationSearchCheck
+checks it with no model or earlier inversion proofs (541 declarations).
+IndependentProofRelevant recovers actual Pi-inversion derivations from the
+new logical relation. IndependentSubjectReduction proves head subject
+reduction using them. WITNESS_RECOVERY.txt explains this construction.
 
 Run from DOMAIN:
 
@@ -52,10 +55,13 @@ common-code proof out of scope,
 StructuralTypedLawsCheck.seg (5,118 declarations, zero failures)
 with the inductive semantic projector, its comparison theorem, and the
 raw soundness bridge out of scope,
-IndependentLogicalRelationCheck.seg (6,410 declarations, zero failures)
-with the old relation and adequacy out of scope,
-and WitnessSearchCheck.seg (216 declarations, zero failures) with no domain
-or object-theory modules in scope, each in a separate process.
+IndependentLogicalRelationCheck.seg (6,782 declarations, zero failures)
+with the old relation, adequacy, Pi-inversion and subject-reduction proofs
+out of scope,
+WitnessSearchCheck.seg (216 declarations, zero failures) with no domain
+or object-theory modules in scope,
+and DerivationSearchCheck.seg (541 declarations, zero failures) with no
+domain model or earlier inversion proofs, each in a separate process.
 The import boundaries and absence of inductive compact typing references
 in the new cover and typed-law files are audited by check.py. Typing.seg
 remains imported by the foundational library for order-equivalence helpers.
@@ -65,7 +71,7 @@ binary itself is not bundled.
 Reproduce with a published Unit checker
 -------------------------------------
 
-All seven sessions also pass with the checker built from published Unit
+All eight sessions also pass with the checker built from published Unit
 revision 18bb219f040ba1f66c4d57185fedc5b5c4d4617e:
 
     git clone https://github.com/coquand/unit.git

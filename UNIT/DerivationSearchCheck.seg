@@ -1,0 +1,13 @@
+-- Enumerate the syntax/derivation constructors and recover actual derivations.
+-- No domain model, logical relation or previous inversion theorem is in scope.
+import Base ; import Prelude ; import Lib ; import Syntax ; import Axioms ; import FunExtUA ; import Replacement ;
+module Theory
+ (ua : [l] Axioms[l].Univalence)
+ (images : [l] [k] Replacement[l,k].Images)
+ (surjections : [l] [k] [j] (Replacement[l,k].Surjectivity (images @l @k)) @j) {
+ fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
+ import Truncation ; import TruncationCombinators ;
+ import BoundedWitnessSearch ; import SyntaxDecision ; import DerivationSorts ;
+ import ConstructorEnumeration ; import DerivationSignature ; import DerivationEnumeration ;
+ import ConstructorWitnessSearch ; import DerivationRecovery ; import DerivationEnumerationChecks ;
+} ;

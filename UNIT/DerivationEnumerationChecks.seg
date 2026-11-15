@@ -1,0 +1,14 @@
+-- Executable checks of acceptance, rejection, and the first finite stage.
+level l ; open Base ; open Prelude[l] ; open Syntax[l] ;
+open ConstructorEnumeration[l] ; open DerivationSorts[l] ;
+module EmptyContext = DerivationRecovery[l].At[zero,jwf tt] ;
+first-stage : EmptyContext.Search.P.Succeeds (EmptyContext.Complete.run zero) = tt ;
+awaits-context : State =
+ (argument (proof (zero,jwf tt)) (\ h -> result (proof (zero,jty tt (uu zero) (uu zero)))),
+  \ h -> ty-U zero tt h) ;
+accepts-context : Id (Opt State) (apply awaits-context (object (proof (zero,jwf tt)) wf-emp))
+ (some (object (proof (zero,jty tt (uu zero) (uu zero))) (ty-U zero tt wf-emp))) =
+ refl (some (object (proof (zero,jty tt (uu zero) (uu zero))) (ty-U zero tt wf-emp))) ;
+rejects-wrong-judgement : Id (Opt State)
+ (apply awaits-context (object (proof (zero,jty tt (uu zero) (uu zero))) (ty-U zero tt wf-emp)))
+ (SyntaxDecision[l].empty-opt State) = refl (SyntaxDecision[l].empty-opt State) ;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check dependencies, all declarations, and the six independent sessions.
+"""Check dependencies, all declarations, and the independent sessions.
 
 Usage: python3 UNIT/check.py [path/to/seg]
 UNIT_CHECKER is also accepted; otherwise use the recorded local checker.
@@ -76,6 +76,23 @@ def main():
     }
     if witness_imports - allowed_witness_imports:
         sys.exit(f"Witness search check imports unrelated modules: {sorted(witness_imports - allowed_witness_imports)}")
+    derivation_imports = set(re.findall(
+        r"\bimport\s+(\w+)\s*;", (root / "DerivationSearchCheck.seg").read_text()))
+    allowed_derivation_imports = allowed_witness_imports | {
+        "Syntax", "SyntaxDecision", "DerivationSorts", "ConstructorEnumeration",
+        "DerivationSignature", "DerivationEnumeration", "ConstructorWitnessSearch",
+        "DerivationRecovery", "DerivationEnumerationChecks",
+    }
+    if derivation_imports - allowed_derivation_imports:
+        sys.exit(f"Derivation recovery imports unrelated proof modules: {sorted(derivation_imports - allowed_derivation_imports)}")
+    relation_imports = set(re.findall(
+        r"\bimport\s+(\w+)\s*;", (root / "IndependentLogicalRelationCheck.seg").read_text()))
+    forbidden = relation_imports & {
+        "RelC", "LawsC", "AdeqBase", "AdeqPi", "AdeqLam", "AdeqApp",
+        "AdeqFun", "Adequacy", "Consequences", "SubjRed",
+    }
+    if forbidden:
+        sys.exit(f"New inversion/subject-reduction check imports old proofs: {sorted(forbidden)}")
     # Typing.seg also contains order-equivalence helpers used by the basis
     # library. The new projector/typed-law proofs must not use its typing
     # family, constructors or elimination lemmas, even though it is in scope.
@@ -94,7 +111,8 @@ def main():
     print(f"Checker: {checker} ({'recorded build' if recorded else 'different build'})", flush=True)
     for source in ("All.seg", "CUSLFpCheck.seg", "IndependentDependentProductCheck.seg",
                    "IndependentProjectorCheck.seg", "StructuralTypedLawsCheck.seg",
-                   "IndependentLogicalRelationCheck.seg", "WitnessSearchCheck.seg"):
+                   "IndependentLogicalRelationCheck.seg", "WitnessSearchCheck.seg",
+                   "DerivationSearchCheck.seg"):
         try:
             result = subprocess.run([str(checker), source], cwd=root,
                                     text=True, capture_output=True, timeout=60)

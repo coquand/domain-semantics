@@ -1,5 +1,17 @@
 # A domain-theoretic programme for the logical relation
 
+Update, 15 November 2026: the direct projector-based typed laws and compact
+coverage are checked. [DerivationRecovery](DerivationRecovery.seg) now
+recovers actual object derivations from mere existence by finite constructor
+enumeration, with its own completeness proof. The new logical relation
+therefore supplies [actual Pi-inversion](IndependentProofRelevant.seg) and
+[head subject reduction](IndependentSubjectReduction.seg). All eight
+`check.py` sessions pass, including the independent derivation-recovery
+check (541 declarations); the full development checks 16,157 declarations.
+The [revised note](scott-domains-revised.pdf) and
+[recovery account](WITNESS_RECOVERY.txt) describe the current construction.
+The programme and dated checkpoints below retain the earlier proof history.
+
 This programme concerns the ordinary Scott filter model of `paper1.pdf`,
 not the newly constructed stable reflexive domain. The aim is to explain
 the logical relation through compact observation, admissibility and the
@@ -552,9 +564,12 @@ The bottom environment fits every well-formed context, and its identity
 substitution is independently related by strictness. The literal Pi
 semantics contains `Pi(bottom,bottom)` there. Applying the fundamental
 lemma and independent head inversion to that observation gives the mere
-pair of component equality derivations. This does not remove propositional
-truncation from the conclusion. No old adequacy or syntactic Pi injectivity
-is used in any of these proofs.
+pair of component equality derivations. That function retains propositional
+truncation. The subsequent `IndependentProofRelevant` construction now
+removes it using the independently checked `DerivationRecovery.recover`;
+`IndependentSubjectReduction` derives head subject reduction from the
+resulting actual inversion derivations. No old adequacy or syntactic Pi
+injectivity is used in these proofs.
 
 ## Validation and implementation status
 

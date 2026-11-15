@@ -1,0 +1,22 @@
+-- Remove the truncation from the new logical relation's Pi-inversion result.
+-- Recovery uses only the independent enumeration of object derivations.
+level l ; open Base ; open Prelude[l] ; open Lib[l] ; open Syntax[l] ;
+module T = TruncationCombinators[l] ; module R = DerivationRecovery[l] ;
+module Products (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (V : Tm n)
+ (d : Der n (jeq G (pp n A B) (pp n A' B') V)) {
+ Dom : U l = Der n (jeq G A A' (uu n)) ;
+ Cod : U l = Der (suc n) (jeq (ext n G A) B B' (uu (suc n))) ;
+ mere : Truncation[l].Trunc[Dom * Cod].carrier = IndependentInversion[l].pi-injectivity n G A A' B B' V d ;
+ domain : Dom = R.recover n (jeq G A A' (uu n)) (T.map (Dom * Cod) Dom (\ p -> p.1) mere) ;
+ codomain : Cod = R.recover (suc n) (jeq (ext n G A) B B' (uu (suc n)))
+  (T.map (Dom * Cod) Cod (\ p -> p.2) mere) ;
+ components : Dom * Cod = (domain,codomain) ;
+} ;
+pi-injectivity-at (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (V : Tm n)
+ (d : Der n (jeq G (pp n A B) (pp n A' B') V)) :
+ Der n (jeq G A A' (uu n)) * Der (suc n) (jeq (ext n G A) B B' (uu (suc n))) =
+ Products[n,G,A,A',B,B',V,d].components ;
+pi-injectivity (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n))
+ (d : Der n (jeq G (pp n A B) (pp n A' B') (uu n))) :
+ Der n (jeq G A A' (uu n)) * Der (suc n) (jeq (ext n G A) B B' (uu (suc n))) =
+ pi-injectivity-at n G A A' B B' (uu n) d ;

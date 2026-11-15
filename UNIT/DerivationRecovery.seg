@@ -1,0 +1,10 @@
+-- Actual derivations from mere existence, with no extra search assumption.
+-- The finite constructor closure and its completeness proof supply the procedure.
+level l ; open Base ; open Prelude[l] ; open Syntax[l] ;
+open DerivationSorts[l] ;
+module At (n : Nat) (J : Jf n) {
+ module Search = ConstructorWitnessSearch[l].At[proof (n,J)] ;
+ module Complete = Search.Complete[DerivationEnumeration[l].known-derivation n J] ;
+ recover : Truncation[l].Trunc[Der n J].carrier -> Der n J = Complete.recover ;
+} ;
+recover (n : Nat) (J : Jf n) : Truncation[l].Trunc[Der n J].carrier -> Der n J = At[n,J].recover ;

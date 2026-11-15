@@ -1,0 +1,80 @@
+-- Runtime sorts for constructor applications. Equality is purely syntactic.
+level l ; open Base ; open Prelude[l] ; open Lib[l] ; open Syntax[l] ;
+module D = SyntaxDecision[l] ;
+flag (A : U l) : D.Dec A -> Bool = split { inl a -> true ; inr no -> false } ;
+flag-sound (A : U l) : (d : D.Dec A) -> IsT (flag A d) -> A = split {
+ inl a -> \ h -> a ; inr no -> \ h -> efq h } ;
+flag-complete (A : U l) : (d : D.Dec A) -> A -> IsT (flag A d) = split {
+ inl a -> \ h -> tt ; inr no -> \ h -> efq (no h) } ;
+true-prop : (b : Bool) -> isProp (IsT b) = split { true -> isTop ; false -> isProp-Empty } ;
+module Discrete (A : U l) (eq : (a b : A) -> D.Dec (Id A a b)) {
+ Code (a b : A) : U l = IsT (flag (Id A a b) (eq a b)) ;
+ code-prop (a b : A) : isProp (Code a b) = true-prop (flag (Id A a b) (eq a b)) ;
+ code-refl (a : A) : Code a a = flag-complete (Id A a a) (eq a a) (refl a) ;
+ code-path (a b : A) : Code a b -> Id A a b = flag-sound (Id A a b) (eq a b) ;
+ set (a : A) : (b : A) -> isProp (Id A a b) = Hedberg[A,a,Code a,code-prop a,code-refl a,code-path a].hedberg ;
+} ;
+module SigmaDecision (A : U l) (B : A -> U l) (sa : isSet A)
+ (da : (a b : A) -> D.Dec (Id A a b)) (db : (a : A) (b c : B a) -> D.Dec (Id (B a) b c)) {
+ C : U l = (a : A) * B a ;
+ module Pair (u v : C) (p : Id A u.1 v.1) {
+  F : U l = Id (B v.1) (subst A B u.1 v.1 p u.2) v.2 ;
+  forward : F -> Id C u v = Sigma-path A B u.1 v.1 u.2 v.2 p ;
+  backward (e : Id C u v) : F =
+   trans (B v.1) (subst A B u.1 v.1 p u.2) (subst A B u.1 v.1 (sPath A B u v e).1 u.2) v.2
+    (ap (Id A u.1 v.1) (B v.1) (\ q -> subst A B u.1 v.1 q u.2)
+     p (sPath A B u v e).1 (sa u.1 v.1 p (sPath A B u v e).1)) (sPath A B u v e).2 ;
+  decision : D.Dec (Id C u v) = D.map-dec F (Id C u v) forward backward
+   (db v.1 (subst A B u.1 v.1 p u.2) v.2) ;
+ } ;
+ decide (u v : C) : D.Dec (Id A u.1 v.1) -> D.Dec (Id C u v) = split {
+  inl p -> Pair[u,v,p].decision ; inr no -> inr (\ p -> no (ap C A (\ w -> w.1) u v p)) } ;
+ equality (u v : C) : D.Dec (Id C u v) = decide u v (da u.1 v.1) ;
+} ;
+Goal : U l = (n : Nat) * Jf n ;
+module NG = Discrete[Nat,D.nat-dec] ;
+module G = SigmaDecision[Nat,\ n -> Jf n,NG.set,D.nat-dec,D.j-dec] ;
+data Sort : U l = natural | variable (n : Nat) | term (n : Nat) | context (n : Nat) | proof (g : Goal) ;
+El : Sort -> U l = split {
+ natural -> Nat ; variable n -> Fin n ; term n -> Tm n ; context n -> Ctx n ; proof g -> Der g.1 g.2 } ;
+sort-tag : Sort -> Nat = split {
+ natural -> zero ; variable n -> suc zero ; term n -> suc (suc zero) ;
+ context n -> suc (suc (suc zero)) ; proof g -> suc (suc (suc (suc zero))) } ;
+number : Sort -> Nat = split { natural -> zero ; variable n -> n ; term n -> n ; context n -> n ; proof g -> g.1 } ;
+goal : Sort -> Goal = split { natural -> (zero,jwf tt) ; variable n -> (zero,jwf tt) ; term n -> (zero,jwf tt) ; context n -> (zero,jwf tt) ; proof g -> g } ;
+sort-dec : (s t : Sort) -> D.Dec (Id Sort s t) = split {
+ natural  -> split {
+  natural  -> inl (refl natural) ;
+  variable m -> inr (D.different Sort sort-tag natural (variable m) tt) ;
+  term m -> inr (D.different Sort sort-tag natural (term m) tt) ;
+  context m -> inr (D.different Sort sort-tag natural (context m) tt) ;
+  proof h -> inr (D.different Sort sort-tag natural (proof h) tt) } ;
+ variable n -> split {
+  natural  -> inr (D.different Sort sort-tag (variable n) natural tt) ;
+  variable m -> D.map-dec (Id Nat n m) (Id Sort (variable n) (variable m)) (ap Nat Sort (\ x -> variable x) n m)
+   (ap Sort Nat number (variable n) (variable m)) (D.nat-dec n m) ;
+  term m -> inr (D.different Sort sort-tag (variable n) (term m) tt) ;
+  context m -> inr (D.different Sort sort-tag (variable n) (context m) tt) ;
+  proof h -> inr (D.different Sort sort-tag (variable n) (proof h) tt) } ;
+ term n -> split {
+  natural  -> inr (D.different Sort sort-tag (term n) natural tt) ;
+  variable m -> inr (D.different Sort sort-tag (term n) (variable m) tt) ;
+  term m -> D.map-dec (Id Nat n m) (Id Sort (term n) (term m)) (ap Nat Sort (\ x -> term x) n m)
+   (ap Sort Nat number (term n) (term m)) (D.nat-dec n m) ;
+  context m -> inr (D.different Sort sort-tag (term n) (context m) tt) ;
+  proof h -> inr (D.different Sort sort-tag (term n) (proof h) tt) } ;
+ context n -> split {
+  natural  -> inr (D.different Sort sort-tag (context n) natural tt) ;
+  variable m -> inr (D.different Sort sort-tag (context n) (variable m) tt) ;
+  term m -> inr (D.different Sort sort-tag (context n) (term m) tt) ;
+  context m -> D.map-dec (Id Nat n m) (Id Sort (context n) (context m)) (ap Nat Sort (\ x -> context x) n m)
+   (ap Sort Nat number (context n) (context m)) (D.nat-dec n m) ;
+  proof h -> inr (D.different Sort sort-tag (context n) (proof h) tt) } ;
+ proof g -> split {
+  natural  -> inr (D.different Sort sort-tag (proof g) natural tt) ;
+  variable m -> inr (D.different Sort sort-tag (proof g) (variable m) tt) ;
+  term m -> inr (D.different Sort sort-tag (proof g) (term m) tt) ;
+  context m -> inr (D.different Sort sort-tag (proof g) (context m) tt) ;
+  proof h -> D.map-dec (Id Goal g h) (Id Sort (proof g) (proof h)) (ap Goal Sort (\ x -> proof x) g h)
+   (ap Sort Goal goal (proof g) (proof h)) (G.equality g h) } } ;
+module SD = Discrete[Sort,sort-dec] ;

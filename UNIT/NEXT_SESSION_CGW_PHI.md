@@ -2,6 +2,25 @@
 
 ## Checked progress (2026-11-14)
 
+Update, 2026-11-15: DerivationRecovery.recover now proves
+`||Der(n,J)|| -> Der(n,J)` without an extra search hypothesis. The runtime
+sorts have decidable syntactic equality; ConstructorEnumeration forms a
+finite closure of accepted applications of the existing constructors.
+DerivationSignature registers the actual constructors, and
+DerivationEnumeration proves every derivation appears by induction.
+ConstructorWitnessSearch instantiates BoundedWitnessSearch with that
+complete finite-stage scan. DerivationSearchCheck checks this separately
+(541 declarations), with no model or earlier inversion theorem in scope.
+IndependentProofRelevant removes truncation from the new Pi-inversion
+conclusion. IndependentSubjectReduction proves subject reduction for
+Red1 and Reds using that inversion result. The independent logical-relation
+check excludes the original Consequences/SubjRed and old adequacy modules.
+All eight check.py sessions pass: 16,157; 2,412; 1,156; 3,916; 5,118;
+6,782; 216; 541 declarations, each with zero failures. All 40 hashes match.
+WITNESS_RECOVERY.txt describes the completed construction. The revised
+note now includes actual derivation recovery, Pi-inversion and head
+subject reduction; the raw soundness bridge described below is unchanged.
+
 Semantic typing is now fixedness, `StructuralProjectorLaws.HasType x a`:
 `p(a,x) = x`. `NormalizedCompactCover.On.observe` proves the direct
 compact-cover lemma for any continuous normalized finitary-projector

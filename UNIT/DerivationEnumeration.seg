@@ -1,0 +1,57 @@
+-- Every actual syntax value and derivation occurs in a finite constructor closure.
+-- Completeness is an induction on the original derivation, not a rule checker.
+level l ; open Base ; open Prelude[l] ; open Lib[l] ; open Syntax[l] ;
+open ConstructorEnumeration[l] ; open DerivationSorts[l] ;
+module C = DerivationSignature[l] ; module E = C.E ;
+known-nat : (n : Nat) -> E.Known (object natural n) = split {
+ zero -> C.nat-zero-known ;
+ suc n | ih -> E.complete C.nat-suc-type C.nat-suc-value C.nat-suc-known ((n,(ih,tt))) } ;
+known-fin : (n : Nat) (i : Fin n) -> E.Known (object (variable n) i) = split {
+ zero -> \ i -> efq i ;
+ suc n | ih -> split {
+  none -> E.complete C.fin-zero-type C.fin-zero-value C.fin-zero-known ((n,(known-nat n,tt))) ;
+  some i -> E.complete C.fin-suc-type C.fin-suc-value C.fin-suc-known ((n,(known-nat n,(i,(ih i,tt))))) } } ;
+known-term : (n : Nat) (t : Tm n) -> E.Known (object (term n) t) = split {
+ var n i -> E.complete C.term-var-type C.term-var-value C.term-var-known ((n,(known-nat n,(i,(known-fin n i,tt))))) ;
+ uu n -> E.complete C.term-U-type C.term-U-value C.term-U-known ((n,(known-nat n,tt))) ;
+ pp n A B | ra rb -> E.complete C.term-Pi-type C.term-Pi-value C.term-Pi-known ((n,(known-nat n,(A,(ra,(B,(rb,tt))))))) ;
+ lam n A M | ra rm -> E.complete C.term-lam-type C.term-lam-value C.term-lam-known ((n,(known-nat n,(A,(ra,(M,(rm,tt))))))) ;
+ app n M N | rm rn -> E.complete C.term-app-type C.term-app-value C.term-app-known ((n,(known-nat n,(M,(rm,(N,(rn,tt))))))) } ;
+known-context : (n : Nat) (G : Ctx n) -> E.Known (object (context n) G) = split {
+ zero -> \ G -> subst Top (\ x -> E.Known (object (context zero) x)) tt G (isTop tt G) C.ctx-empty-known ;
+ suc n | ih -> \ G -> E.complete C.ctx-ext-type C.ctx-ext-value C.ctx-ext-known ((n,(known-nat n,(G.1,(ih G.1,(G.2,(known-term n G.2,tt))))))) } ;
+known-derivation : (n : Nat) (J : Jf n) (d : Der n J) -> E.Known (object (proof (n,J)) d) = split {
+ wf-emp ->
+  C.rule-wf-emp-known ;
+ wf-ext n G A h | rh ->
+  E.complete C.rule-wf-ext-type C.rule-wf-ext-value C.rule-wf-ext-known ((n,(known-nat n,(G,(known-context n G,(A,(known-term n A,(h,(rh,tt))))))))) ;
+ ty-var n G i h | rh ->
+  E.complete C.rule-ty-var-type C.rule-ty-var-value C.rule-ty-var-known ((n,(known-nat n,(G,(known-context n G,(i,(known-fin n i,(h,(rh,tt))))))))) ;
+ ty-conv n G M A B h1 h2 h3 | rh1 rh2 rh3 ->
+  E.complete C.rule-ty-conv-type C.rule-ty-conv-value C.rule-ty-conv-known ((n,(known-nat n,(G,(known-context n G,(M,(known-term n M,(A,(known-term n A,(B,(known-term n B,(h1,(rh1,(h2,(rh2,(h3,(rh3,tt))))))))))))))))) ;
+ ty-U n G h | rh ->
+  E.complete C.rule-ty-U-type C.rule-ty-U-value C.rule-ty-U-known ((n,(known-nat n,(G,(known-context n G,(h,(rh,tt))))))) ;
+ ty-Pi n G A B h1 h2 | rh1 rh2 ->
+  E.complete C.rule-ty-Pi-type C.rule-ty-Pi-value C.rule-ty-Pi-known ((n,(known-nat n,(G,(known-context n G,(A,(known-term n A,(B,(known-term (suc n) B,(h1,(rh1,(h2,(rh2,tt))))))))))))) ;
+ ty-Lam n G A B M h1 h2 h3 | rh1 rh2 rh3 ->
+  E.complete C.rule-ty-Lam-type C.rule-ty-Lam-value C.rule-ty-Lam-known ((n,(known-nat n,(G,(known-context n G,(A,(known-term n A,(B,(known-term (suc n) B,(M,(known-term (suc n) M,(h1,(rh1,(h2,(rh2,(h3,(rh3,tt))))))))))))))))) ;
+ ty-App n G A B f a h1 h2 h3 h4 | rh1 rh2 rh3 rh4 ->
+  E.complete C.rule-ty-App-type C.rule-ty-App-value C.rule-ty-App-known ((n,(known-nat n,(G,(known-context n G,(A,(known-term n A,(B,(known-term (suc n) B,(f,(known-term n f,(a,(known-term n a,(h1,(rh1,(h2,(rh2,(h3,(rh3,(h4,(rh4,tt))))))))))))))))))))) ;
+ eq-refl n G M A h | rh ->
+  E.complete C.rule-eq-refl-type C.rule-eq-refl-value C.rule-eq-refl-known ((n,(known-nat n,(G,(known-context n G,(M,(known-term n M,(A,(known-term n A,(h,(rh,tt))))))))))) ;
+ eq-sym n G M N A h | rh ->
+  E.complete C.rule-eq-sym-type C.rule-eq-sym-value C.rule-eq-sym-known ((n,(known-nat n,(G,(known-context n G,(M,(known-term n M,(N,(known-term n N,(A,(known-term n A,(h,(rh,tt))))))))))))) ;
+ eq-trans n G M N P A h1 h2 | rh1 rh2 ->
+  E.complete C.rule-eq-trans-type C.rule-eq-trans-value C.rule-eq-trans-known ((n,(known-nat n,(G,(known-context n G,(M,(known-term n M,(N,(known-term n N,(P,(known-term n P,(A,(known-term n A,(h1,(rh1,(h2,(rh2,tt))))))))))))))))) ;
+ eq-conv n G M N A B h1 h2 h3 | rh1 rh2 rh3 ->
+  E.complete C.rule-eq-conv-type C.rule-eq-conv-value C.rule-eq-conv-known ((n,(known-nat n,(G,(known-context n G,(M,(known-term n M,(N,(known-term n N,(A,(known-term n A,(B,(known-term n B,(h1,(rh1,(h2,(rh2,(h3,(rh3,tt))))))))))))))))))) ;
+ eq-beta n G A B M a h1 h2 h3 h4 | rh1 rh2 rh3 rh4 ->
+  E.complete C.rule-eq-beta-type C.rule-eq-beta-value C.rule-eq-beta-known ((n,(known-nat n,(G,(known-context n G,(A,(known-term n A,(B,(known-term (suc n) B,(M,(known-term (suc n) M,(a,(known-term n a,(h1,(rh1,(h2,(rh2,(h3,(rh3,(h4,(rh4,tt))))))))))))))))))))) ;
+ eq-Pi n G A A' B B' h1 h2 h3 h4 h5 | rh1 rh2 rh3 rh4 rh5 ->
+  E.complete C.rule-eq-Pi-type C.rule-eq-Pi-value C.rule-eq-Pi-known ((n,(known-nat n,(G,(known-context n G,(A,(known-term n A,(A',(known-term n A',(B,(known-term (suc n) B,(B',(known-term (suc n) B',(h1,(rh1,(h2,(rh2,(h3,(rh3,(h4,(rh4,(h5,(rh5,tt))))))))))))))))))))))) ;
+ eq-funext n G A B f g h1 h2 h3 h4 | rh1 rh2 rh3 rh4 ->
+  E.complete C.rule-eq-funext-type C.rule-eq-funext-value C.rule-eq-funext-known ((n,(known-nat n,(G,(known-context n G,(A,(known-term n A,(B,(known-term (suc n) B,(f,(known-term n f,(g,(known-term n g,(h1,(rh1,(h2,(rh2,(h3,(rh3,(h4,(rh4,tt))))))))))))))))))))) ;
+ eq-app-fun n G A B f f' a h1 h2 h3 h4 | rh1 rh2 rh3 rh4 ->
+  E.complete C.rule-eq-app-fun-type C.rule-eq-app-fun-value C.rule-eq-app-fun-known ((n,(known-nat n,(G,(known-context n G,(A,(known-term n A,(B,(known-term (suc n) B,(f,(known-term n f,(f',(known-term n f',(a,(known-term n a,(h1,(rh1,(h2,(rh2,(h3,(rh3,(h4,(rh4,tt))))))))))))))))))))))) ;
+ eq-app-arg n G A B f a a' h1 h2 h3 h4 | rh1 rh2 rh3 rh4 ->
+  E.complete C.rule-eq-app-arg-type C.rule-eq-app-arg-value C.rule-eq-app-arg-known ((n,(known-nat n,(G,(known-context n G,(A,(known-term n A,(B,(known-term (suc n) B,(f,(known-term n f,(a,(known-term n a,(a',(known-term n a',(h1,(rh1,(h2,(rh2,(h3,(rh3,(h4,(rh4,tt))))))))))))))))))))))) } ;

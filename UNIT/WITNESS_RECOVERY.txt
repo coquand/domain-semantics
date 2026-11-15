@@ -1,132 +1,119 @@
-Recovering derivations by bounded proof search
-=============================================
+Recovering actual derivations from mere existence
+================================================
 
-The natural interface
----------------------
+The checked function
+--------------------
 
-Use an exhaustive bounded proof procedure. There is no need to number
-derivations, decide equality of derivations, or encode them into naturals.
+DerivationRecovery.recover constructs, for every object-theory judgement J,
 
-For a type A, the checked interface Procedure.Bounded in
-BoundedWitnessSearch.seg has two fields:
+    || Der(J) || -> Der(J).
+
+The constructor enumeration and its completeness proof supply the search
+procedure. There is no additional search assumption. DerivationSearchCheck
+checks this construction with no domain model, logical relation, old
+adequacy, or earlier Pi-inversion theorem in scope (541 declarations).
+
+IndependentProofRelevant applies it to the mere Pi-inversion conclusion
+of IndependentInversion, producing actual component equality derivations.
+IndependentSubjectReduction uses that result to prove subject reduction
+for the existing head-reduction relations Red1 and Reds. Its syntactic
+induction follows the frozen SubjRed proof, with the inversion premise
+supplied by the new logical relation. The independent logical-relation
+session excludes the original Consequences and SubjRed modules.
+
+Finite constructor closure
+--------------------------
+
+The simplest implemented enumeration uses the original constructors as
+values. It does not duplicate the object theory's inference rules in a
+separate certificate checker.
+
+SyntaxDecision decides equality of raw variables, terms, contexts and
+judgements. DerivationSorts uses it to compare these runtime sorts:
+
+    Nat, Fin(n), Tm(n), Ctx(n), Der(n,J).
+
+ConstructorEnumeration represents a partially applied dependent function
+by its remaining argument telescope and its actual value. An application
+checks the argument's runtime sort and, when it matches, applies that
+function. The result contains the original typed value. A derivation
+value is therefore already an inhabitant of Der(n,J). Object-theory
+conversion is represented by its explicit derivation constructor;
+comparison of runtime sorts does not decide object-theory convertibility.
+
+DerivationSignature registers the constructors for natural numbers,
+variables, terms, contexts and all 17 derivation rules. Their values are
+the existing Syntax constructors. Let E(0) be this finite list, and let
+
+    E(n+1) = E(n) plus all accepted applications of two members of E(n).
+
+Each stage is a finite list. A known member remains present at every
+later successor stage. Two given stages can be raised to a common stage,
+so any two enumerated values can be applied there.
+
+DerivationEnumeration proves, by induction, that every natural, variable,
+term and context occurs. Its induction on Der then proves that every
+actual derivation occurs: the rule constructor is already a constant,
+and the induction hypotheses provide its premise derivations. Applying
+that constructor to its parameters and premises assembles the original
+value. No equality decision on derivations or partially applied functions
+is required.
+
+ConstructorWitnessSearch scans a finite stage for a value of the requested
+sort. Its output has type
+
+    run(n,J) : Der(J) + 1.
+
+An actual derivation supplies a stage at which the scan succeeds. This is
+the closed object-theory instance needed by the general extraction theorem.
+Finite stages may be very large; this route prioritizes a short correctness
+and completeness proof over efficient proof search.
+
+Why truncation elimination is legitimate
+---------------------------------------
+
+The general interface Procedure.Bounded in BoundedWitnessSearch has fields
 
     run      : Nat -> A + 1
-    complete : A -> || sum n, Succeeds (run n) ||
+    complete : A -> || sum n, Succeeds (run n) ||.
 
-Here Succeeds (inl a) = Top and Succeeds (inr tt) = Empty. The second
-outcome means that this run has found no witness. It makes no assertion
-that A is empty. An implementation for derivations will use n as a bound
-on the finite proof search.
+Succeeds (inl a) = Top and Succeeds (inr tt) = Empty. The second outcome
+only reports failure to find a witness at that stage. No equality decision,
+sethood, or encoding of A is assumed. The procedure need not recover the
+supplied witness or return coherent values at different stages.
 
-Completeness need not recover the supplied element a, and the result of
-run n need not be monotone or coherent as n increases. All that is needed
-is eventual success whenever an actual witness exists. An explicit size
-bound and a proof of success at that bound imply the stated completeness
-field, but the interface only asks for the resulting mere existence.
-
-Procedure.Extract.recover constructs
-
-    || A || -> A
-
-for every instance of this interface. A need not be a set.
-
-Why the extraction is legitimate
---------------------------------
-
-The success of a particular run is a decidable proposition: inspect its
-sum tag, without comparing the returned values. Let P(n) be that success
-proposition. The type
+Let P(n) be the success proposition. The type
 
     sum n, P(n) * Before(n,P)
 
-of first successful budgets is a proposition. Before(n,P) is the finite
-prefix of failed tests, defined structurally:
+of least successful stages is a proposition. The finite failure prefix is
 
     Before(0,P)     = Top
     Before(n+1,P)   = not P(0) * Before(n, k |-> P(k+1)).
 
-Two such budgets agree: at zero, a positive test contradicts a nonempty
-failure prefix; at successors, remove their first failed tests and apply
-induction. The remaining evidence is proposition-valued. This proof uses
-no ordering of derivations, and not even the arithmetic order on Nat.
+Two least stages agree: a successful zero test contradicts a nonempty
+failure prefix; at successors remove the first failed tests and apply
+induction. All the remaining fields are propositions.
 
-An actual success at n permits a finite search through budgets 0,...,n.
-The negative result of that finite search contradicts the given success,
-so it returns the first successful budget. Because the target is a
-proposition, both mere existence of a successful budget and mere
-inhabitation of A can be eliminated into it. Finally inspect run at the
-chosen budget and return its successful value.
+An actual success at n bounds a finite search through 0,...,n. Its negative
+outcome contradicts that success. Both mere existence of a successful
+stage and mere existence of A can therefore be eliminated into the
+proposition of least successful stages. Finally read the successful value
+at the chosen stage. This defines Procedure.Extract.recover : ||A|| -> A.
 
-The successful budget is canonical relative to run. The returned witness
-need not be the derivation originally used to prove inhabitation.
+The selected stage is canonical relative to run. The returned derivation
+need not be the one originally used to prove inhabitation. All truncation
+eliminations still have proposition-valued targets; no choice axiom is used.
 
-Application to the object theory
---------------------------------
+Checks
+------
 
-For J = (Gamma |- M : A), use A = Syntax.Der n J. A goal-directed proof
-procedure should construct derivations with the existing rule constructors.
-It does not need a separate checker for complete derivation certificates.
-
-At a finite term bound k, form a finite list of applicable rule instances
-for the current judgement. An instance specifies finitely many premise
-judgements and a constructor that assembles their derivations. Terms with
-bounded syntax depth in a fixed finite context form a finite family.
-Rule tags are finite. Root syntax determines many of the parameters;
-the remaining intermediate terms can be drawn from that finite family.
-The required syntactic comparisons are decidable.
-
-For example, an instance of conversion with conclusion Gamma |- M : A
-chooses an intermediate type B from this finite family. Its premises are
-
-    Gamma |- M : B
-    Gamma |- B = A : U
-    Gamma |- A : U.
-
-The constructor is Syntax.ty-conv. A transitivity instance similarly
-chooses an intermediate term and has two equality premises. Equality
-proofs are built with the explicit equality constructors; the procedure
-does not ask an oracle whether two terms are definitionally equal.
-
-Keep a height bound h separate from the term bound k in the implementation:
-
-    prove(0,k,J)       = not found
-    prove(h+1,k,J)     = inspect the finite rule instances for J;
-                        call prove(h,k,...) on each instance's premises;
-                        return the first instance whose premises succeed.
-
-Zero-premise rules can succeed at the first successor height. The public
-procedure can take run(n,J) = prove(n,n,J). Finite exploration is confined
-to rule instances and their premise goals. The output is built as a
-derivation, rather than decoded from a global derivation number.
-
-Soundness is built into the output type: every successful branch applies
-an actual inference constructor to actual premise derivations. Prove
-completeness by induction on an input derivation, with independent bounds
-on its height and on every syntactic annotation in the tree. The induction
-hypothesis should quantify over all larger bounds. At the root, the actual
-rule instance occurs among the finite candidates; the hypotheses ensure
-that its premises succeed. Some earlier candidate might also succeed,
-which is sufficient.
-
-A height bound alone is insufficient: even a single conversion or
-transitivity node may contain an arbitrarily large intermediate term.
-The term bound must include all annotations and terms in all premise and
-conclusion judgements. Context lengths grow by at most the height along a
-branch; for each goal, variables range over its finite context.
-
-Checked boundary and next step
-------------------------------
-
-WitnessSearchCheck.seg checks the general extraction theorem with no
-object-theory or domain modules in scope: 216 declarations, zero failures.
-It is included as a separate session in python3 UNIT/check.py. The frozen
-dependencies are unchanged.
-
-The object-theory bounded proof procedure, its finite rule-instance
-families, and its completeness proof have not been implemented here.
-Consequently the Scott development's Pi-inversion conclusion remains
-propositionally truncated. Once that procedure is constructed, instantiate
-Procedure.Extract separately at each component judgement and apply it to
-the existing mere derivations. The same step applies to mere subject
-reduction. This prototype establishes the extraction principle, not those
-untruncated object-theory conclusions.
+python3 UNIT/check.py runs eight sessions and verifies the 40 frozen hashes.
+WitnessSearchCheck checks the general principle (216 declarations).
+DerivationSearchCheck checks its complete constructor-enumeration instance
+(541), including executable acceptance/rejection checks and success for
+the empty-context judgement at the initial stage.
+IndependentLogicalRelationCheck checks the new logical relation, extraction,
+actual Pi-inversion, and head subject reduction (6,782), with the old
+relation, adequacy, Pi-inversion and subject-reduction proofs out of scope.
+All sessions report zero failures.

@@ -6,6 +6,7 @@
 \usepackage{microtype}
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
+\usepackage{xurl}
 
 \newtheorem{theorem}{Theorem}[section]
 \newtheorem{lemma}[theorem]{Lemma}
@@ -47,7 +48,9 @@ uses neither decidable order nor choice. We then use least fixed points
 and a tower of finite-stage projectors on the Scott filter domain to construct
 a logical relation by compatible finite-depth approximations. Its typed
 laws and fundamental lemma cover dependent products, annotated abstraction and function
-extensionality, and yield mere syntactic product inversion. An appendix
+extensionality, and yield syntactic product inversion and head subject reduction.
+A separate enumeration of the object theory's constructors recovers actual
+derivations from their mere existence. An appendix
 develops the
 embedding--projection category, its equivalence with conditional upper
 semilattices, and initial algebras for endofunctors preserving countable
@@ -1754,11 +1757,92 @@ determinism identifies those components with $A,B,A',B'$. Mapping this
 truncated tuple to its equalities gives the displayed conclusion.
 \end{proof}
 
-The argument derives product inversion after the fundamental lemma; it
-uses neither syntactic product injectivity nor an earlier adequacy
-theorem as a premise. The conclusion is explicitly truncated. It does
-not assert a chosen pair of derivation trees, or a simultaneous choice
-of witnesses over all compact observations.
+The domain argument derives mere product inversion after the fundamental
+lemma, without using syntactic product injectivity or an earlier adequacy
+theorem as a premise. The following separate construction removes the
+truncation for derivations of the object theory.
+
+\subsection{Recovering actual derivations}
+
+\begin{theorem}[Recovery of derivations]\label{thm:derivation-recovery}
+For every syntactic judgement $J$ of the object theory, there is a function
+\[
+ \trunc{\operatorname{Der}(J)}\longrightarrow\operatorname{Der}(J).
+\]
+No choice principle is added.
+\end{theorem}
+\begin{proof}
+Start with the finite list of constructors for natural numbers, variables,
+terms, contexts and derivations. Retain partially applied constructors as
+well as their completed values. Let $E_0$ be this list of constants and
+form $E_{n+1}$ by adjoining every accepted application of two members of
+$E_n$, retaining $E_n$ itself. Each list is finite. The runtime sorts are
+natural numbers, variables in a given finite context, scoped terms,
+contexts, and derivations of a given judgement. Their descriptions have
+decidable equality, using only equality of raw syntax. Application checks the next
+argument's sort and then applies the original constructor function.
+Thus every accepted derivation value is already an element of
+$\operatorname{Der}(J)$.
+
+Induction on natural numbers, variables, terms and contexts shows that
+their values occur at finite stages. Induction on a derivation then shows
+that it too occurs: its constructor is in $E_0$, and finitely many accepted
+applications assemble its parameters and premise derivations. Any two
+stages have a common later stage, so all the arguments can be assembled
+together. No equality test on derivations is needed.
+
+For fixed $J$, scan $E_n$ for a value of sort $\operatorname{Der}(J)$.
+This defines a total procedure
+\[
+ s_J:\N\longrightarrow\operatorname{Der}(J)+1
+\]
+whose left result contains a derivation. Every actual derivation supplies
+a stage at which this procedure succeeds. Its success at a given stage
+is a decidable proposition, determined by the sum tag.
+
+The type of least successful stages is a proposition: two different
+least stages contradict one another's earlier failed tests. An actual
+successful stage supplies a finite search bound for finding the least one.
+Consequently both mere existence of a successful stage and mere existence
+of a derivation may be eliminated into that proposition. At its unique
+stage, the successful result of $s_J$ supplies the required derivation.
+All truncation eliminations therefore have proposition-valued targets.
+\end{proof}
+
+See \path{DerivationRecovery.seg} for the checked extractor and
+\path{WITNESS_RECOVERY.txt} for its correspondence with the supporting code.
+The construction uses no domain model or earlier inversion theorem.
+It prioritizes a short completeness proof; its finite stages can be very
+large.
+
+\begin{corollary}[Product inversion]\label{cor:actual-pi}
+From a derivation $\Gamma\vdash\Pi(A,B)=\Pi(A',B'):T$, for any
+classifier $T$, one obtains actual derivations of
+\[
+ \Gamma\vdash A=A':U,\qquad \Gamma,z:A\vdash B=B':U.
+\]
+\end{corollary}
+\begin{proof}
+Map the truncated pair of Corollary~\ref{cor:independent-pi} to each
+component and apply Theorem~\ref{thm:derivation-recovery} to the resulting
+mere derivations. This is checked in \path{IndependentProofRelevant.seg}.
+\end{proof}
+
+\begin{corollary}[Subject reduction]\label{cor:subject-reduction}
+Given a derivation of $\Gamma\vdash M:A$ and a head-reduction step
+$M\longrightarrow M'$, one obtains a derivation of $\Gamma\vdash M':A$.
+The same holds for a finite sequence of head-reduction steps.
+\end{corollary}
+\begin{proof}
+Induct on the typing derivation. Conversion uses the induction hypothesis
+at the original classifier. An application whose function reduces uses
+the function's induction hypothesis. For a beta step, generation for the
+abstraction yields a body derivation and an equality between its annotated
+product type and the application's product type. Apply
+Corollary~\ref{cor:actual-pi} to align their domain and codomain, then use
+the syntactic substitution lemma. The other typing cases have no head
+step. Iterate for a finite reduction sequence.
+\end{proof}
 
 \clearpage
 \appendix
@@ -2122,11 +2206,15 @@ compact fixed-point coverage, and typed symmetry, transitivity and conversion.
 \item Typed argument restriction; Pi formation and equality, annotated
 lambda and function extensionality; the complete derivation induction.
 \item Whole-denotation adequacy at both substituted types, compact
-recovery, and mere syntactic Pi inversion.
+recovery, and mere syntactic Pi inversion; recovery of actual object-theory
+derivations by finite constructor enumeration, actual Pi inversion, and
+subject reduction for head steps and their finite sequences.
 \end{enumerate}
 The complete induction is \texttt{At.fundamental} in
 \path{IndependentFundamental.seg}; its consequences are in
 \path{IndependentAdequacy.seg} and \path{IndependentInversion.seg}.
+The actual derivations and subject reduction are in
+\path{IndependentProofRelevant.seg} and \path{IndependentSubjectReduction.seg}.
 
 On 13 November 2026 the updated \texttt{python3 UNIT/check.py} passed
 the full development (14,856 declarations), the general dependent-product
@@ -2167,7 +2255,22 @@ its constructors, or its elimination lemmas. The foundational library
 still imports \path{Typing.seg}, which also contains order-equivalence
 helpers; its typing declarations are not used in these new proofs.
 
-All six sessions also pass with a checker built from the published Unit
+On 15 November 2026, the completed constructor enumeration and derivation
+recovery passed an independent session with 541 declarations. Its imports
+contain no domain model, logical relation, earlier adequacy, or inversion
+theorem. Executable checks accept a valid context premise, reject a
+derivation of the wrong judgement, and find the empty-context judgement
+at the initial stage. The full check now passes eight sessions:
+the whole development (16,157 declarations), CUSL $\mathrm{Fp}$ (2,412),
+general products/sums (1,156), the independent projector and direct cover
+(3,916), structural typed laws (5,118), the new logical relation with actual
+Pi inversion and head subject reduction (6,782), the general witness
+extraction principle (216), and the complete enumeration instance (541).
+All report zero failures, and all 40 frozen dependency hashes match.
+The script audits the absence of the old relation, adequacy, Pi-inversion,
+and subject-reduction modules from the independent consequence session.
+
+All eight sessions also pass with a checker built from the published Unit
 revision \texttt{18bb219f}. Reproduction instructions and the full revision
 identifier are in \path{UNIT/README.txt}.
 
@@ -2208,8 +2311,10 @@ earlier finite-element proof; the larger Scott-domain development timed
 above also contains the additional constructions described in this note.
 Commands and measurements are recorded in \path{UNIT/MIN_TIMINGS.txt}.
 
-The inversion conclusion remains propositionally truncated. Comparison
-with the old uniform proof-relevant relation and transfer to the stable
+The logical-relation clauses retain propositional truncation; the
+syntactic consequences now recover actual derivations by
+Theorem~\ref{thm:derivation-recovery}. Comparison with the old uniform
+proof-relevant relation and transfer to the stable
 reflexive domain remain separate. The checked projector tower has not
 been identified with the separately constructed CUSL initial-chain
 projections; that comparison requires finite-stage coverage and

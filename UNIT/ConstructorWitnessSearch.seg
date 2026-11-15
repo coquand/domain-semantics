@@ -1,0 +1,34 @@
+-- Search the finite constructor closures for one specified runtime sort.
+level l ; open Base ; open Prelude[l] ; open Lib[l] ; open Syntax[l] ;
+open ConstructorEnumeration[l] ; open DerivationSorts[l] ;
+module T = TruncationCombinators[l] ; module E = DerivationSignature[l].E ;
+module At (s : Sort) {
+ A : U l = El s ; module P = BoundedWitnessSearch[l].Procedure[A] ;
+ convert : Opt A -> P.Result = split { none -> inr tt ; some a -> inl a } ;
+ attempt (v : State) : P.Result = convert (get s v) ;
+ self-success (a : A) : P.Succeeds (attempt (object s a)) =
+  subst (Opt A) (\ r -> P.Succeeds (convert r)) (some a) (get s (object s a))
+   (sym (Opt A) (get s (object s a)) (some a) (get-self s a)) tt ;
+ prefer : P.Result -> P.Result -> P.Result = split { inl a -> \ rest -> inl a ; inr t -> \ rest -> rest } ;
+ prefer-left : (r t : P.Result) -> P.Succeeds r -> P.Succeeds (prefer r t) = split {
+  inl a -> \ t h -> tt ; inr e -> \ t h -> efq h } ;
+ prefer-right : (r t : P.Result) -> P.Succeeds t -> P.Succeeds (prefer r t) = split {
+  inl a -> \ t h -> tt ; inr e -> \ t h -> h } ;
+ find : List State -> P.Result = split {
+  nil -> inr tt ; cons v xs | ih -> prefer (attempt v) ih } ;
+ find-complete : (xs : List State) (v : State) -> In State v xs -> P.Succeeds (attempt v) -> P.Succeeds (find xs) = split {
+  nil -> \ v h good -> efq h ;
+  cons a xs | ih -> \ v -> split {
+   inl p -> \ good -> prefer-left (attempt a) (find xs)
+    (subst State (\ w -> P.Succeeds (attempt w)) v a p good) ;
+   inr h -> \ good -> prefer-right (attempt a) (find xs) (ih v h good) } } ;
+ module Complete (cover : (a : A) -> E.Known (object s a)) {
+  run (n : Nat) : P.Result = find (E.stage n) ;
+  complete (a : A) : Truncation[l].Trunc[(n : Nat) * P.Succeeds (run n)].carrier =
+   Truncation[l].Trunc[(n : Nat) * P.Succeeds (run n)].inc
+    ((cover a).1,find-complete (E.stage (cover a).1) (object s a) (cover a).2 (self-success a)) ;
+  procedure : P.Bounded = new P.Bounded[run,complete] ;
+  module Extract = P.Extract[procedure] ;
+  recover : Truncation[l].Trunc[A].carrier -> A = Extract.recover ;
+ } ;
+} ;

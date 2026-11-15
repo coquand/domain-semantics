@@ -1,0 +1,103 @@
+-- Finite closure under checked applications of dependent constructors.
+-- Each state is intrinsically typed; rejected applications produce no value.
+level l ; open Base ; open Prelude[l] ; open Lib[l] ; open Syntax[l] ;
+module S = DerivationSorts[l] ; module D = SyntaxDecision[l] ;
+
+data List (A : U l) : U l = nil | cons (a : A) (xs : List A) ;
+append (A : U l) : List A -> List A -> List A = split {
+ nil -> \ ys -> ys ; cons a xs | ih -> \ ys -> cons a (ih ys) } ;
+bind (A B : U l) : List A -> (A -> List B) -> List B = split {
+ nil -> \ f -> nil ; cons a xs | ih -> \ f -> append B (f a) (ih f) } ;
+In (A : U l) (x : A) : List A -> U l = split {
+ nil -> Empty ; cons a xs | ih -> Plus (Id A x a) ih } ;
+module Lists (A : U l) {
+ left : (xs : List A) (x : A) -> In A x xs -> (ys : List A) -> In A x (append A xs ys) = split {
+  nil -> \ x h ys -> efq h ;
+  cons a xs | ih -> \ x -> split {
+   inl p -> \ ys -> inl p ; inr h -> \ ys -> inr (ih x h ys) } } ;
+ right : (xs : List A) (x : A) (ys : List A) -> In A x ys -> In A x (append A xs ys) = split {
+  nil -> \ x ys h -> h ; cons a xs | ih -> \ x ys h -> inr (ih x ys h) } ;
+} ;
+bind-in (A B : U l) : (xs : List A) (x : A) -> In A x xs -> (f : A -> List B) ->
+  (y : B) -> In B y (f x) -> In B y (bind A B xs f) = split {
+  nil -> \ x h f y p -> efq h ;
+  cons a xs | ih -> \ x -> split {
+   inl e -> \ f y p -> Lists[B].left (f a) y
+    (subst A (\ z -> In B y (f z)) x a e p) (bind A B xs f) ;
+   inr h -> \ f y p -> Lists[B].right (f a) y (bind A B xs f) (ih x h f y p) } } ;
+
+data Telescope : U l = result (s : S.Sort) | argument (s : S.Sort) (rest : S.El s -> Telescope) ;
+Value : Telescope -> U l = split {
+ result s -> S.El s ; argument s rest | ih -> (a : S.El s) -> ih a } ;
+State : U l = (t : Telescope) * Value t ;
+object (s : S.Sort) (x : S.El s) : State = (result s,x) ;
+cast (s t : S.Sort) (x : S.El t) : D.Dec (Id S.Sort t s) -> Opt (S.El s) = split {
+ inl p -> some (subst S.Sort S.El t s p x) ; inr no -> none } ;
+cast-self (s : S.Sort) (x : S.El s) : (d : D.Dec (Id S.Sort s s)) ->
+ Id (Opt (S.El s)) (cast s s x d) (some x) = split {
+ inl p -> ap (Id S.Sort s s) (Opt (S.El s)) (\ q -> some (subst S.Sort S.El s s q x))
+  p (refl s) (S.SD.set s s p (refl s)) ;
+ inr no -> efq (no (refl s)) } ;
+read (s : S.Sort) : (t : Telescope) -> Value t -> Opt (S.El s) = split {
+ result t -> \ x -> cast s t x (S.sort-dec t s) ; argument t rest -> \ f -> none } ;
+get (s : S.Sort) (v : State) : Opt (S.El s) = read s v.1 v.2 ;
+get-self (s : S.Sort) (x : S.El s) : Id (Opt (S.El s)) (get s (object s x)) (some x) =
+ cast-self s x (S.sort-dec s s) ;
+put (s : S.Sort) (rest : S.El s -> Telescope) (f : (a : S.El s) -> Value (rest a)) :
+ Opt (S.El s) -> Opt State = split { none -> none ; some a -> some (rest a,f a) } ;
+apply-at : (t : Telescope) -> Value t -> State -> Opt State = split {
+ result s -> \ x v -> none ; argument s rest -> \ f v -> put s rest f (get s v) } ;
+apply (f a : State) : Opt State = apply-at f.1 f.2 a ;
+apply-correct (s : S.Sort) (rest : S.El s -> Telescope) (f : (a : S.El s) -> Value (rest a)) (a : S.El s) :
+ Id (Opt State) (apply (argument s rest,f) (object s a)) (some (rest a,f a)) =
+ ap (Opt (S.El s)) (Opt State) (put s rest f) (get s (object s a)) (some a) (get-self s a) ;
+single : Opt State -> List State = split { none -> nil ; some s -> cons s nil } ;
+
+module Closure (constants : List State) {
+ next (xs : List State) : List State = append State xs
+  (bind State State xs (\ f -> bind State State xs (\ a -> single (apply f a)))) ;
+ stage : Nat -> List State = split { zero -> constants ; suc n | ih -> next ih } ;
+ Known (s : State) : U l = (n : Nat) * In State s (stage n) ;
+ constant (s : State) (h : In State s constants) : Known s = (zero,h) ;
+ step (n : Nat) (s : State) (h : In State s (stage n)) : In State s (stage (suc n)) =
+  Lists[State].left (stage n) s h (bind State State (stage n) (\ f -> bind State State (stage n) (\ a -> single (apply f a)))) ;
+ raise : (k n : Nat) (s : State) -> In State s (stage n) -> In State s (stage (add k n)) = split {
+  zero -> \ n s h -> h ; suc k | ih -> \ n s h -> step (add k n) s (ih n s h) } ;
+ add-zero : (n : Nat) -> Id Nat (add n zero) n = split {
+  zero -> refl zero ; suc n | ih -> ap Nat Nat (\ x -> suc x) (add n zero) n ih } ;
+ add-suc : (n m : Nat) -> Id Nat (add n (suc m)) (suc (add n m)) = split {
+  zero -> \ m -> refl (suc m) ; suc n | ih -> \ m ->
+   ap Nat Nat (\ x -> suc x) (add n (suc m)) (suc (add n m)) (ih m) } ;
+ add-comm : (n m : Nat) -> Id Nat (add n m) (add m n) = split {
+  zero -> \ m -> sym Nat (add m zero) m (add-zero m) ;
+  suc n | ih -> \ m -> trans Nat (suc (add n m)) (suc (add m n)) (add m (suc n))
+   (ap Nat Nat (\ x -> suc x) (add n m) (add m n) (ih m))
+   (sym Nat (add m (suc n)) (suc (add m n)) (add-suc m n)) } ;
+ combined (f a v : State) (hf : Known f) (ha : Known a)
+  (ok : Id (Opt State) (apply f a) (some v)) : Known v =
+  (suc (add hf.1 ha.1),Lists[State].right (stage (add hf.1 ha.1)) v
+   (bind State State (stage (add hf.1 ha.1)) (\ g -> bind State State (stage (add hf.1 ha.1)) (\ b -> single (apply g b))))
+   (bind-in State State (stage (add hf.1 ha.1)) f
+    (subst Nat (\ n -> In State f (stage n)) (add ha.1 hf.1) (add hf.1 ha.1)
+     (add-comm ha.1 hf.1) (raise ha.1 hf.1 f hf.2))
+    (\ g -> bind State State (stage (add hf.1 ha.1)) (\ b -> single (apply g b))) v
+    (bind-in State State (stage (add hf.1 ha.1)) a (raise hf.1 ha.1 a ha.2)
+     (\ b -> single (apply f b)) v
+     (subst (Opt State) (\ z -> In State v (single z)) (some v) (apply f a)
+      (sym (Opt State) (apply f a) (some v) ok) (inl (refl v)))))) ;
+ applied (s : S.Sort) (rest : S.El s -> Telescope) (f : (a : S.El s) -> Value (rest a)) (a : S.El s)
+  (hf : Known (argument s rest,f)) (ha : Known (object s a)) : Known (rest a,f a) =
+  combined (argument s rest,f) (object s a) (rest a,f a) hf ha (apply-correct s rest f a) ;
+ -- Supply constructor arguments together with their enumeration witnesses.
+ Arguments : Telescope -> U l = split {
+  result s -> Top ;
+  argument s rest | ih -> (a : S.El s) * (Known (object s a) * ih a) } ;
+ evaluate : (t : Telescope) -> Value t -> Arguments t -> State = split {
+  result s -> \ v a -> object s v ;
+  argument s rest | ih -> \ f a -> ih a.1 (f a.1) a.2.2 } ;
+ complete : (t : Telescope) (v : Value t) -> Known (t,v) ->
+  (a : Arguments t) -> Known (evaluate t v a) = split {
+  result s -> \ v h a -> h ;
+  argument s rest | ih -> \ f h a ->
+   ih a.1 (f a.1) (applied s rest f a.1 h a.2.1) a.2.2 } ;
+} ;
