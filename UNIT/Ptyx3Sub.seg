@@ -1,0 +1,157 @@
+-- Subobjects and images of type-3 ptykes (catemb.pdf one level up; the
+-- type-3 analogue of PtyxSub).
+--
+--   * mono3: morphisms of type-3 ptykes are monomorphisms;
+--   * a subobject of X is a predicate S on the points of X which is a
+--     proposition, preserved by every X(a) and reflected by every X(a);
+--     SubPtyx3 makes it a type-3 ptyx with a cartesian inclusion;
+--   * Image3: the image of a morphism S : Y -> X is a subobject
+--     (reflection along a ptyx morphism is Ptyx3Pull.pull3), and S is an
+--     isomorphism onto it followed by the inclusion;
+--   * intersections and unions of subobjects.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DP = DilPtyx[l] ;
+module PM = PtyxMor[l] ;
+module PF = PtyxFinite[l] ;
+module PS = PtyxSub[l] ;
+module P3 = Ptyx3[l] ;
+module P3P = Ptyx3Pull[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+mono3 (X Y Z : P3.Ptyx3) (T : P3.Mor3 Y Z) (S S' : P3.Mor3 X Y)
+  (e : P3.MorEq3 X Z (P3.compP3 X Y Z S T) (P3.compP3 X Y Z S' T)) : P3.MorEq3 X Y S S' =
+  \ P y -> DP.map-inj (Y.G P) (Z.G P) (T.1 P) ((S.1 P).1 y) ((S'.1 P).1 y) (e P y) ;
+
+----------------------------------------------------------------------
+-- subobjects
+
+Pred3 (X : P3.Ptyx3) : U l+ = (P : DP.Ptyx) -> (X.G P).car -> U l ;
+SProp3 (X : P3.Ptyx3) (S : Pred3 X) : U l+ = (P : DP.Ptyx) (y : (X.G P).car) -> PL.isProp (S P y) ;
+Fwd3 (X : P3.Ptyx3) (S : Pred3 X) : U l+ =
+  (P Q : DP.Ptyx) (a : PM.Mor P Q) (y : (X.G P).car) -> S P y -> S Q ((X.arr P Q a).1 y) ;
+Bwd3 (X : P3.Ptyx3) (S : Pred3 X) : U l+ =
+  (P Q : DP.Ptyx) (a : PM.Mor P Q) (y : (X.G P).car) -> S Q ((X.arr P Q a).1 y) -> S P y ;
+
+module SubPtyx3 (X : P3.Ptyx3) (S : Pred3 X) (sp : SProp3 X S) (fw : Fwd3 X S) (bw : Bwd3 X S) {
+  Car (P : DP.Ptyx) : U l = (y : (X.G P).car) * S P y ;
+  peq (P : DP.Ptyx) (p q : Car P) (e : Id (X.G P).car p.1 q.1) : Id (Car P) p q =
+    PL.Sigma-eq (X.G P).car (S P) p.1 q.1 p.2 q.2 e (sp P q.1) ;
+  G (P : DP.Ptyx) : DP.LO = new DP.LO[car := Car P, cmp := \ p q -> (X.G P).cmp p.1 q.1,
+    ceq := \ p q h -> peq P p q ((X.G P).ceq p.1 q.1 h),
+    crefl := \ p -> (X.G P).crefl p.1, cflip := \ p q -> (X.G P).cflip p.1 q.1,
+    ctrans := \ p q r -> (X.G P).ctrans p.1 q.1 r.1] ;
+  arr (P Q : DP.Ptyx) (a : PM.Mor P Q) : DP.Map (G P) (G Q) =
+    (\ p -> ((X.arr P Q a).1 p.1,fw P Q a p.1 p.2),\ p q -> (X.arr P Q a).2 p.1 q.1) ;
+  arr-id (P : DP.Ptyx) (p : Car P) : Id (Car P) ((arr P P (PM.idP P)).1 p) p =
+    peq P ((arr P P (PM.idP P)).1 p) p (X.arr-id P p.1) ;
+  arr-comp (P Q R : DP.Ptyx) (S0 : PM.Mor P Q) (T : PM.Mor Q R) (p : Car P) :
+      Id (Car R) ((arr Q R T).1 ((arr P Q S0).1 p)) ((arr P R (PM.compP P Q R S0 T)).1 p) =
+    peq R ((arr Q R T).1 ((arr P Q S0).1 p)) ((arr P R (PM.compP P Q R S0 T)).1 p) (X.arr-comp P Q R S0 T p.1) ;
+  -- a support in X of the underlying point is a support in the subobject
+  module Lift (P : DP.Ptyx) (p : Car P) (s : P3.Sub P) (u : P3.Supp3 X P p.1 s) {
+    module SO = P3.SubOf[P,s] ;
+    h : S SO.ptyx u.1 =
+      bw SO.ptyx P SO.inc u.1
+        (PL.subst (X.G P).car (S P) p.1 ((X.arr SO.ptyx P SO.inc).1 u.1) (PL.sym (X.G P).car ((X.arr SO.ptyx P SO.inc).1 u.1) p.1 u.2) p.2) ;
+    result : (z : Car SO.ptyx) * Id (Car P) ((arr SO.ptyx P SO.inc).1 z) p =
+      ((u.1,h),peq P ((arr SO.ptyx P SO.inc).1 (u.1,h)) p u.2) ;
+  } ;
+  lift (P : DP.Ptyx) (p : Car P) (s : P3.Sub P) (u : P3.Supp3 X P p.1 s) :
+      (z : Car (P3.SubOf[P,s].ptyx)) * Id (Car P) ((arr (P3.SubOf[P,s].ptyx) P (P3.SubOf[P,s].inc)).1 z) p =
+    Lift[P,p,s,u].result ;
+  drop (P : DP.Ptyx) (p : Car P) (s : P3.Sub P)
+    (u : (z : Car (P3.SubOf[P,s].ptyx)) * Id (Car P) ((arr (P3.SubOf[P,s].ptyx) P (P3.SubOf[P,s].inc)).1 z) p) :
+      P3.Supp3 X P p.1 s =
+    (u.1.1,PL.ap (Car P) (X.G P).car (\ q -> q.1) ((arr (P3.SubOf[P,s].ptyx) P (P3.SubOf[P,s].inc)).1 u.1) p u.2) ;
+  support (P : DP.Ptyx) (p : Car P) : Ex ((g : P3.Gens P) *
+      ((z : Car (P3.SubOf[P,P3.FG[P,g].sub].ptyx)) *
+        Id (Car P) ((arr (P3.SubOf[P,P3.FG[P,g].sub].ptyx) P (P3.SubOf[P,P3.FG[P,g].sub].inc)).1 z) p)) =
+    TC.map ((g : P3.Gens P) * P3.Supp3 X P p.1 (P3.FG[P,g].sub))
+      ((g : P3.Gens P) * ((z : Car (P3.SubOf[P,P3.FG[P,g].sub].ptyx)) *
+        Id (Car P) ((arr (P3.SubOf[P,P3.FG[P,g].sub].ptyx) P (P3.SubOf[P,P3.FG[P,g].sub].inc)).1 z) p))
+      (\ w -> (w.1,lift P p (P3.FG[P,w.1].sub) w.2)) (X.support P p.1) ;
+  meet (P : DP.Ptyx) (p : Car P) (s s' : P3.Sub P)
+    (u : (z : Car (P3.SubOf[P,s].ptyx)) * Id (Car P) ((arr (P3.SubOf[P,s].ptyx) P (P3.SubOf[P,s].inc)).1 z) p)
+    (u' : (z : Car (P3.SubOf[P,s'].ptyx)) * Id (Car P) ((arr (P3.SubOf[P,s'].ptyx) P (P3.SubOf[P,s'].inc)).1 z) p) :
+      (z : Car (P3.SubOf[P,P3.meetSub P s s'].ptyx)) *
+        Id (Car P) ((arr (P3.SubOf[P,P3.meetSub P s s'].ptyx) P (P3.SubOf[P,P3.meetSub P s s'].inc)).1 z) p =
+    lift P p (P3.meetSub P s s') (X.meet P p.1 s s' (drop P p s u) (drop P p s' u')) ;
+  ptyx3 : P3.Ptyx3 = new P3.Ptyx3[G := G, arr := arr, arr-id := arr-id, arr-comp := arr-comp, support := support, meet := meet] ;
+  -- the inclusion is a (cartesian) morphism
+  inc : P3.Mor3 ptyx3 X =
+    (\ P -> (\ p -> p.1,\ p q -> refl ((X.G P).cmp p.1 q.1)),
+     (\ P Q a p -> refl ((X.arr P Q a).1 p.1),\ P p s u -> lift P p s u)) ;
+} ;
+
+----------------------------------------------------------------------
+-- the image of a morphism
+
+module Image3 (Y X : P3.Ptyx3) (a : P3.Mor3 Y X) {
+  Fib (P : DP.Ptyx) (y : (X.G P).car) : U l = (x : (Y.G P).car) * Id (X.G P).car ((a.1 P).1 x) y ;
+  fib-prop (P : DP.Ptyx) (y : (X.G P).car) : PL.isProp (Fib P y) = \ u v ->
+    PL.Sigma-eq (Y.G P).car (\ x -> Id (X.G P).car ((a.1 P).1 x) y) u.1 v.1 u.2 v.2
+      (DP.map-inj (Y.G P) (X.G P) (a.1 P) u.1 v.1
+        (PL.trans (X.G P).car ((a.1 P).1 u.1) y ((a.1 P).1 v.1) u.2 (PL.sym (X.G P).car ((a.1 P).1 v.1) y v.2)))
+      (PF.lo-set (X.G P) ((a.1 P).1 v.1) y) ;
+  S (P : DP.Ptyx) (y : (X.G P).car) : U l = Ex (Fib P y) ;
+  fw : Fwd3 X S = \ P Q T y ->
+    TC.map (Fib P y) (Fib Q ((X.arr P Q T).1 y))
+      (\ u -> ((Y.arr P Q T).1 u.1,
+        PL.trans (X.G Q).car ((a.1 Q).1 ((Y.arr P Q T).1 u.1)) ((X.arr P Q T).1 ((a.1 P).1 u.1)) ((X.arr P Q T).1 y)
+          (PL.sym (X.G Q).car ((X.arr P Q T).1 ((a.1 P).1 u.1)) ((a.1 Q).1 ((Y.arr P Q T).1 u.1)) (a.2.1 P Q T u.1))
+          (PL.ap (X.G P).car (X.G Q).car (X.arr P Q T).1 ((a.1 P).1 u.1) y u.2))) ;
+  -- reflection along T is the pull-back property of a
+  module Bw (P Q : DP.Ptyx) (T : PM.Mor P Q) (y : (X.G P).car) (u : Fib Q ((X.arr P Q T).1 y)) {
+    pb : (p : (Y.G P).car) * Id (Y.G Q).car ((Y.arr P Q T).1 p) u.1 =
+      P3P.pull3 Y X a P Q T u.1 y (PL.sym (X.G Q).car ((a.1 Q).1 u.1) ((X.arr P Q T).1 y) u.2) ;
+    result : Fib P y =
+      (pb.1,DP.map-inj (X.G P) (X.G Q) (X.arr P Q T) ((a.1 P).1 pb.1) y
+        (PL.trans (X.G Q).car ((X.arr P Q T).1 ((a.1 P).1 pb.1)) ((a.1 Q).1 ((Y.arr P Q T).1 pb.1)) ((X.arr P Q T).1 y)
+          (a.2.1 P Q T pb.1)
+          (PL.trans (X.G Q).car ((a.1 Q).1 ((Y.arr P Q T).1 pb.1)) ((a.1 Q).1 u.1) ((X.arr P Q T).1 y)
+            (PL.ap (Y.G Q).car (X.G Q).car (a.1 Q).1 ((Y.arr P Q T).1 pb.1) u.1 pb.2)
+            u.2))) ;
+  } ;
+  bw : Bwd3 X S = \ P Q T y -> TC.map (Fib Q ((X.arr P Q T).1 y)) (Fib P y) (\ u -> Bw[P,Q,T,y,u].result) ;
+  module SP = SubPtyx3[X,S,\ P y -> prop (Fib P y),fw,bw] ;
+  im : P3.Ptyx3 = SP.ptyx3 ;
+  -- a = inc . m with m an isomorphism Y ~ im
+  mf (P : DP.Ptyx) (x : (Y.G P).car) : SP.Car P = ((a.1 P).1 x,inc (Fib P ((a.1 P).1 x)) (x,refl ((a.1 P).1 x))) ;
+  m : P3.Mor3 Y im =
+    (\ P -> (mf P,\ x x' -> (a.1 P).2 x x'),
+     (\ P Q T x -> SP.peq Q ((SP.arr P Q T).1 (mf P x)) (mf Q ((Y.arr P Q T).1 x)) (a.2.1 P Q T x),
+      \ P x s u -> a.2.2 P x s (SP.drop P (mf P x) s u))) ;
+  tri : P3.MorEq3 Y X (P3.compP3 Y im X m SP.inc) a = \ P x -> refl ((a.1 P).1 x) ;
+  get (P : DP.Ptyx) (p : SP.Car P) : Fib P p.1 = TC.rec (Fib P p.1) @l (Fib P p.1) (fib-prop P p.1) (\ u -> u) p.2 ;
+  minv (P : DP.Ptyx) (p : SP.Car P) : (Y.G P).car = (get P p).1 ;
+  m-minv (P : DP.Ptyx) (p : SP.Car P) : Id (SP.Car P) (mf P (minv P p)) p = SP.peq P (mf P (minv P p)) p (get P p).2 ;
+  minv-m (P : DP.Ptyx) (x : (Y.G P).car) : Id (Y.G P).car (minv P (mf P x)) x =
+    DP.map-inj (Y.G P) (X.G P) (a.1 P) (minv P (mf P x)) x (get P (mf P x)).2 ;
+} ;
+
+----------------------------------------------------------------------
+-- intersections and unions of subobjects
+
+module Inter3 (X : P3.Ptyx3) (S : Pred3 X) (sp : SProp3 X S) (fw : Fwd3 X S) (bw : Bwd3 X S)
+  (S' : Pred3 X) (sp' : SProp3 X S') (fw' : Fwd3 X S') (bw' : Bwd3 X S') {
+  I : Pred3 X = \ P y -> S P y * S' P y ;
+  ip : SProp3 X I = \ P y -> PL.isProp-Sigma (S P y) (\ _ -> S' P y) (sp P y) (\ _ -> sp' P y) ;
+  ifw : Fwd3 X I = \ P Q T y h -> (fw P Q T y h.1,fw' P Q T y h.2) ;
+  ibw : Bwd3 X I = \ P Q T y h -> (bw P Q T y h.1,bw' P Q T y h.2) ;
+} ;
+
+module Union3 (X : P3.Ptyx3) (S : Pred3 X) (fw : Fwd3 X S) (bw : Bwd3 X S)
+  (S' : Pred3 X) (fw' : Fwd3 X S') (bw' : Bwd3 X S') {
+  J : Pred3 X = \ P y -> Ex (W.Or (S P y) (S' P y)) ;
+  jp : SProp3 X J = \ P y -> prop (W.Or (S P y) (S' P y)) ;
+  jfw : Fwd3 X J = \ P Q T y ->
+    TC.map (W.Or (S P y) (S' P y)) (W.Or (S Q ((X.arr P Q T).1 y)) (S' Q ((X.arr P Q T).1 y)))
+      (PS.orMap (S P y) (S' P y) (S Q ((X.arr P Q T).1 y)) (S' Q ((X.arr P Q T).1 y)) (fw P Q T y) (fw' P Q T y)) ;
+  jbw : Bwd3 X J = \ P Q T y ->
+    TC.map (W.Or (S Q ((X.arr P Q T).1 y)) (S' Q ((X.arr P Q T).1 y))) (W.Or (S P y) (S' P y))
+      (PS.orMap (S Q ((X.arr P Q T).1 y)) (S' Q ((X.arr P Q T).1 y)) (S P y) (S' P y) (bw P Q T y) (bw' P Q T y)) ;
+} ;

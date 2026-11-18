@@ -1,0 +1,191 @@
+-- Ptykes from finite data, parts C and E: the germ construction
+-- extends its finite data, and every ptyx is (iso to) the germ
+-- construction on its restriction to finite dilators.
+--
+--   * Fin: on a finite dilator A (bounded by K0), from : F^(A) -> FP(A),
+--     [K, u] |-> FP(A|K -> A) u, is well defined (invariant under
+--     pushing), strictly increasing, with inverse to z = [K0, FP(j) z]
+--     where j : A ~ A|K0 (PtyxGermPtyx.FullIso);
+--   * FinNat: from is natural in A;
+--   * restrict P: the finite ptyx underlying a ptyx;
+--   * Recover: P and hat (restrict P) are isomorphic ptykes (mutually
+--     inverse ptyx morphisms), by PtyxFinite.Ext/ExtMor/Iso.
+-- Together with PtyxGermPtyx.hat: ptykes = finite ptykes (on objects),
+-- and with PtyxPull.Corr on morphisms.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PM = PtyxMor[l] ;
+module PF = PtyxFinite[l] ;
+module PG = PtyxGerm[l] ;
+module PA = PtyxGermArr[l] ;
+module PP = PtyxGermPtyx[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+module Fin (FP : PG.FinPtyx) (A : DF.FinDil) {
+  module GA = PG.Germ[FP,A.1] ;
+  FA : DP.LO = FP.F A ;
+  val (g : GA.G) : FA.car = (FP.arr (GA.T g.1) A (PF.TrInc A.1 g.1)).1 g.2 ;
+  val-push (g : GA.G) (L : W.N) (h : PG.LeN g.1 L) : Id FA.car (val (L,GA.push g L h)) (val g) =
+    PL.trans FA.car (val (L,GA.push g L h))
+      ((FP.arr (GA.T g.1) A (CD.compM (PF.Tr A.1 g.1) (PF.Tr A.1 L) A.1 (GA.up g.1 L h) (PF.TrInc A.1 L))).1 g.2) (val g)
+      (FP.arr-comp (GA.T g.1) (GA.T L) A (GA.up g.1 L h) (PF.TrInc A.1 L) g.2)
+      (PL.ap (CD.Mor (PF.Tr A.1 g.1) A.1) FA.car (\ M -> (FP.arr (GA.T g.1) A M).1 g.2)
+        (CD.compM (PF.Tr A.1 g.1) (PF.Tr A.1 L) A.1 (GA.up g.1 L h) (PF.TrInc A.1 L)) (PF.TrInc A.1 g.1) (GA.up-tri g.1 L h)) ;
+  cmp-val (g g' : GA.G) : Id W.O3 (FA.cmp (val g) (val g')) (GA.cmpG g g') =
+    W.trans W.O3 (FA.cmp (val g) (val g'))
+      (FA.cmp (val (W.plus g.1 g'.1,GA.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (val (W.plus g.1 g'.1,GA.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))))
+      (GA.cmpG g g')
+      (W.ap2 FA.car FA.car W.O3 FA.cmp (val g) (val (W.plus g.1 g'.1,GA.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+        (val g') (val (W.plus g.1 g'.1,GA.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+        (PL.sym FA.car (val (W.plus g.1 g'.1,GA.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (val g) (val-push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+        (PL.sym FA.car (val (W.plus g.1 g'.1,GA.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) (val g') (val-push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))))
+      ((FP.arr (GA.T (W.plus g.1 g'.1)) A (PF.TrInc A.1 (W.plus g.1 g'.1))).2
+        (GA.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (GA.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) ;
+
+  -- from, by unique choice
+  Cv (x : GA.Car) (q : FA.car) : U l = (r : GA.Rep x.1) * Id FA.car (val r.1) q ;
+  Cf (x : GA.Car) : U l = (q : FA.car) * Ex (Cv x q) ;
+  Cf-prop (x : GA.Car) : PL.isProp (Cf x) = \ c c' ->
+    PL.Sigma-eq FA.car (\ q -> Ex (Cv x q)) c.1 c'.1 c.2 c'.2
+      (TC.rec (Cv x c.1) @l (Id FA.car c.1 c'.1) (PF.lo-set FA c.1 c'.1)
+        (\ u -> TC.rec (Cv x c'.1) @l (Id FA.car c.1 c'.1) (PF.lo-set FA c.1 c'.1)
+          (\ v -> PL.trans FA.car c.1 (val u.1.1) c'.1 (PL.sym FA.car (val u.1.1) c.1 u.2)
+            (PL.trans FA.car (val u.1.1) (val v.1.1) c'.1
+              (FA.ceq (val u.1.1) (val v.1.1)
+                (W.trans W.O3 (FA.cmp (val u.1.1) (val v.1.1)) (GA.cmpG u.1.1 v.1.1) eq (cmp-val u.1.1 v.1.1) (GA.rep-eq x.1 u.1 v.1)))
+              v.2))
+          c'.2)
+        c.2)
+      (prop (Cv x c'.1)) ;
+  fpick (x : GA.Car) (r : GA.Rep x.1) : Cf x = (val r.1,inc (Cv x (val r.1)) (r,refl (val r.1))) ;
+  fget (x : GA.Car) : Cf x = TC.rec (GA.Rep x.1) @l (Cf x) (Cf-prop x) (fpick x) x.2 ;
+  from (x : GA.Car) : FA.car = (fget x).1 ;
+  fspec (x : GA.Car) (r : GA.Rep x.1) : Id FA.car (from x) (val r.1) =
+    PL.ap (Cf x) FA.car (\ c -> c.1) (fget x) (fpick x r) (Cf-prop x (fget x) (fpick x r)) ;
+  from-cl (g : GA.G) : Id FA.car (from (GA.cl g)) (val g) = fspec (GA.cl g) (g,refl (GA.cls g)) ;
+  from-mono (x y : GA.Car) : Id W.O3 (FA.cmp (from x) (from y)) (GA.cmpC x y) =
+    TC.rec (GA.Rep x.1) @l (Id W.O3 (FA.cmp (from x) (from y)) (GA.cmpC x y)) (PF.o3-set (FA.cmp (from x) (from y)) (GA.cmpC x y))
+      (\ r -> TC.rec (GA.Rep y.1) @l (Id W.O3 (FA.cmp (from x) (from y)) (GA.cmpC x y)) (PF.o3-set (FA.cmp (from x) (from y)) (GA.cmpC x y))
+        (\ r' -> W.trans W.O3 (FA.cmp (from x) (from y)) (FA.cmp (val r.1) (val r'.1)) (GA.cmpC x y)
+          (W.ap2 FA.car FA.car W.O3 FA.cmp (from x) (val r.1) (from y) (val r'.1) (fspec x r) (fspec y r'))
+          (W.trans W.O3 (FA.cmp (val r.1) (val r'.1)) (GA.cmpG r.1 r'.1) (GA.cmpC x y) (cmp-val r.1 r'.1)
+            (W.sym W.O3 (GA.cmpC x y) (GA.cmpG r.1 r'.1) (GA.spec x y r r'))))
+        y.2) x.2 ;
+  fromM : DP.Map GA.lo FA = (from,from-mono) ;
+
+  -- to, through A ~ A|K0
+  K0 : W.N = A.2.1 ;
+  module FI = PP.FullIso[A.1,K0,A.2.2] ;
+  to (z : FA.car) : GA.Car = GA.cl (K0,(FP.arr A (GA.T K0) FI.j).1 z) ;
+  from-to (z : FA.car) : Id FA.car (from (to z)) z =
+    PL.trans FA.car (from (to z)) (val (K0,(FP.arr A (GA.T K0) FI.j).1 z)) z (from-cl (K0,(FP.arr A (GA.T K0) FI.j).1 z))
+      (PL.trans FA.car (val (K0,(FP.arr A (GA.T K0) FI.j).1 z)) ((FP.arr A A (CD.compM A.1 (PF.Tr A.1 K0) A.1 FI.j (PF.TrInc A.1 K0))).1 z) z
+        (FP.arr-comp A (GA.T K0) A FI.j (PF.TrInc A.1 K0) z)
+        (PL.trans FA.car ((FP.arr A A (CD.compM A.1 (PF.Tr A.1 K0) A.1 FI.j (PF.TrInc A.1 K0))).1 z) ((FP.arr A A (CD.idM A.1)).1 z) z
+          (PL.ap (CD.Mor A.1 A.1) FA.car (\ M -> (FP.arr A A M).1 z) (CD.compM A.1 (PF.Tr A.1 K0) A.1 FI.j (PF.TrInc A.1 K0)) (CD.idM A.1) FI.j-tri)
+          (FP.arr-id A z))) ;
+  to-from (x : GA.Car) : Id GA.Car (to (from x)) x = DP.map-inj GA.lo FA fromM (to (from x)) x (from-to (from x)) ;
+  to-mono (z z' : FA.car) : Id W.O3 (GA.cmpC (to z) (to z')) (FA.cmp z z') =
+    W.trans W.O3 (GA.cmpC (to z) (to z')) (FA.cmp (from (to z)) (from (to z'))) (FA.cmp z z')
+      (W.sym W.O3 (FA.cmp (from (to z)) (from (to z'))) (GA.cmpC (to z) (to z')) (from-mono (to z) (to z')))
+      (W.ap2 FA.car FA.car W.O3 FA.cmp (from (to z)) z (from (to z')) z' (from-to z) (from-to z')) ;
+  toM : DP.Map FA GA.lo = (to,to-mono) ;
+} ;
+
+-- from is natural on finite dilators
+module FinNat (FP : PG.FinPtyx) (A B : DF.FinDil) (T : CD.Mor A.1 B.1) {
+  module FA = Fin[FP,A] ;
+  module FB = Fin[FP,B] ;
+  module AR = PA.Arr[FP,A.1,B.1,T] ;
+  module Rp (x : FA.GA.Car) (r : FA.GA.Rep x.1) {
+    K : W.N = r.1.1 ;
+    u : (FA.GA.Fo K).car = r.1.2 ;
+    eq : Id (FP.F B).car (FB.from (AR.f x)) ((FP.arr A B T).1 (FA.from x)) =
+      PL.trans (FP.F B).car (FB.from (AR.f x)) (FB.from (FB.GA.cl (AR.gmap r.1))) ((FP.arr A B T).1 (FA.from x))
+        (PL.ap FB.GA.Car (FP.F B).car FB.from (AR.f x) (FB.GA.cl (AR.gmap r.1)) (AR.fspec x r))
+        (PL.trans (FP.F B).car (FB.from (FB.GA.cl (AR.gmap r.1))) (FB.val (AR.gmap r.1)) ((FP.arr A B T).1 (FA.from x))
+          (FB.from-cl (AR.gmap r.1))
+          (PL.trans (FP.F B).car (FB.val (AR.gmap r.1))
+            ((FP.arr (FA.GA.T K) B (CD.compM (PF.Tr A.1 K) (PF.Tr B.1 K) B.1 (AR.tf K) (PF.TrInc B.1 K))).1 u)
+            ((FP.arr A B T).1 (FA.from x))
+            (FP.arr-comp (FA.GA.T K) (FB.GA.T K) B (AR.tf K) (PF.TrInc B.1 K) u)
+            (PL.trans (FP.F B).car
+              ((FP.arr (FA.GA.T K) B (CD.compM (PF.Tr A.1 K) (PF.Tr B.1 K) B.1 (AR.tf K) (PF.TrInc B.1 K))).1 u)
+              ((FP.arr (FA.GA.T K) B (CD.compM (PF.Tr A.1 K) A.1 B.1 (PF.TrInc A.1 K) T)).1 u)
+              ((FP.arr A B T).1 (FA.from x))
+              (PL.ap (CD.Mor (PF.Tr A.1 K) B.1) (FP.F B).car (\ M -> (FP.arr (FA.GA.T K) B M).1 u)
+                (CD.compM (PF.Tr A.1 K) (PF.Tr B.1 K) B.1 (AR.tf K) (PF.TrInc B.1 K)) (CD.compM (PF.Tr A.1 K) A.1 B.1 (PF.TrInc A.1 K) T)
+                (AR.tf-tri K))
+              (PL.trans (FP.F B).car
+                ((FP.arr (FA.GA.T K) B (CD.compM (PF.Tr A.1 K) A.1 B.1 (PF.TrInc A.1 K) T)).1 u)
+                ((FP.arr A B T).1 (FA.val r.1)) ((FP.arr A B T).1 (FA.from x))
+                (PL.sym (FP.F B).car ((FP.arr A B T).1 (FA.val r.1))
+                  ((FP.arr (FA.GA.T K) B (CD.compM (PF.Tr A.1 K) A.1 B.1 (PF.TrInc A.1 K) T)).1 u)
+                  (FP.arr-comp (FA.GA.T K) A B (PF.TrInc A.1 K) T u))
+                (PL.ap (FP.F A).car (FP.F B).car (FP.arr A B T).1 (FA.val r.1) (FA.from x)
+                  (PL.sym (FP.F A).car (FA.from x) (FA.val r.1) (FA.fspec x r))))))) ;
+  } ;
+  nat (x : FA.GA.Car) : Id (FP.F B).car (FB.from (AR.f x)) ((FP.arr A B T).1 (FA.from x)) =
+    TC.rec (FA.GA.Rep x.1) @l (Id (FP.F B).car (FB.from (AR.f x)) ((FP.arr A B T).1 (FA.from x)))
+      (PF.lo-set (FP.F B) (FB.from (AR.f x)) ((FP.arr A B T).1 (FA.from x)))
+      (\ r -> Rp[x,r].eq) x.2 ;
+  -- and so is to
+  nat-to (z : (FP.F A).car) : Id FB.GA.Car (AR.f (FA.to z)) (FB.to ((FP.arr A B T).1 z)) =
+    DP.map-inj FB.GA.lo (FP.F B) FB.fromM (AR.f (FA.to z)) (FB.to ((FP.arr A B T).1 z))
+      (PL.trans (FP.F B).car (FB.from (AR.f (FA.to z))) ((FP.arr A B T).1 z) (FB.from (FB.to ((FP.arr A B T).1 z)))
+        (PL.trans (FP.F B).car (FB.from (AR.f (FA.to z))) ((FP.arr A B T).1 (FA.from (FA.to z))) ((FP.arr A B T).1 z)
+          (nat (FA.to z))
+          (PL.ap (FP.F A).car (FP.F B).car (FP.arr A B T).1 (FA.from (FA.to z)) z (FA.from-to z)))
+        (PL.sym (FP.F B).car (FB.from (FB.to ((FP.arr A B T).1 z))) ((FP.arr A B T).1 z) (FB.from-to ((FP.arr A B T).1 z)))) ;
+} ;
+
+----------------------------------------------------------------------
+-- the finite part of a ptyx, and recovery
+
+restrict (P : DP.Ptyx) : PG.FinPtyx = new PG.FinPtyx[
+  F := \ A -> P.F A.1,
+  arr := \ A B T -> P.arr A.1 B.1 T,
+  arr-id := \ A y -> P.arr-id A.1 y,
+  arr-comp := \ A B C S T y -> P.arr-comp A.1 B.1 C.1 S T y,
+  meet := \ A y c c' s s' -> P.meet A.1 y c c' s s'] ;
+
+-- natural isomorphisms on finite dilators have pull-back squares
+iso-fincart (P Q : DP.Ptyx) (a : (A : DF.FinDil) -> DP.Map (P.F A.1) (Q.F A.1))
+  (a' : (A : DF.FinDil) -> DP.Map (Q.F A.1) (P.F A.1))
+  (na' : (A B : DF.FinDil) (T : CD.Mor A.1 B.1) (y : (Q.F A.1).car) ->
+     Id (P.F B.1).car ((P.arr A.1 B.1 T).1 ((a' A).1 y)) ((a' B).1 ((Q.arr A.1 B.1 T).1 y)))
+  (inv : (A : DF.FinDil) (y : (P.F A.1).car) -> Id (P.F A.1).car ((a' A).1 ((a A).1 y)) y) : PF.FinCart P Q a =
+  \ A B T y q e -> ((a' A).1 q,
+    PL.trans (P.F B.1).car ((P.arr A.1 B.1 T).1 ((a' A).1 q)) ((a' B).1 ((Q.arr A.1 B.1 T).1 q)) y (na' A B T q)
+      (PL.trans (P.F B.1).car ((a' B).1 ((Q.arr A.1 B.1 T).1 q)) ((a' B).1 ((a B).1 y)) y
+        (PL.ap (Q.F B.1).car (P.F B.1).car (a' B).1 ((Q.arr A.1 B.1 T).1 q) ((a B).1 y) e)
+        (inv B y))) ;
+
+module Recover (P : DP.Ptyx) {
+  FP : PG.FinPtyx = restrict P ;
+  H : DP.Ptyx = PP.hat FP ;
+  a (A : DF.FinDil) : DP.Map (H.F A.1) (P.F A.1) = Fin[FP,A].fromM ;
+  na (A B : DF.FinDil) (T : CD.Mor A.1 B.1) (y : (H.F A.1).car) :
+      Id (P.F B.1).car ((P.arr A.1 B.1 T).1 ((a A).1 y)) ((a B).1 ((H.arr A.1 B.1 T).1 y)) =
+    PL.sym (P.F B.1).car ((a B).1 ((H.arr A.1 B.1 T).1 y)) ((P.arr A.1 B.1 T).1 ((a A).1 y)) (FinNat[FP,A,B,T].nat y) ;
+  a' (A : DF.FinDil) : DP.Map (P.F A.1) (H.F A.1) = Fin[FP,A].toM ;
+  na' (A B : DF.FinDil) (T : CD.Mor A.1 B.1) (y : (P.F A.1).car) :
+      Id (H.F B.1).car ((H.arr A.1 B.1 T).1 ((a' A).1 y)) ((a' B).1 ((P.arr A.1 B.1 T).1 y)) =
+    FinNat[FP,A,B,T].nat-to y ;
+  inv (A : DF.FinDil) (y : (H.F A.1).car) : Id (H.F A.1).car ((a' A).1 ((a A).1 y)) y = Fin[FP,A].to-from y ;
+  inv' (A : DF.FinDil) (y : (P.F A.1).car) : Id (P.F A.1).car ((a A).1 ((a' A).1 y)) y = Fin[FP,A].from-to y ;
+  -- mutually inverse morphisms of ptykes H -> P -> H
+  module M1 = PF.ExtMor[H,P,a,na,iso-fincart H P a a' na' inv] ;
+  module M2 = PF.ExtMor[P,H,a',na',iso-fincart P H a' a na inv'] ;
+  to-P : PM.Mor H P = M1.mor ;
+  to-H : PM.Mor P H = M2.mor ;
+  module I1 = PF.Iso[H,P,a,na,a',na',inv] ;
+  module I2 = PF.Iso[P,H,a',na',a,na,inv'] ;
+  left : PM.MorEq H H (PM.compP H P H to-P to-H) (PM.idP H) = \ D y -> I1.retract D y ;
+  right : PM.MorEq P P (PM.compP P H P to-H to-P) (PM.idP P) = \ D y -> I2.retract D y ;
+} ;

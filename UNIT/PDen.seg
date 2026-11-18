@@ -1,0 +1,208 @@
+-- Denotations of a predilator (PDil) at a decidable linear order X, and
+-- well-foundedness statements for Freund's class (PLAN-CATEMB-LO.md,
+-- item 4 of routes (a)/(b)).
+--
+-- D(X) = pairs (a, z): a sorted list in X (a strictly increasing map
+-- [n] -> X), z a point of F(n) with full support (a trace point).  Two
+-- denotations are compared in F(len c) for any common refinement c of
+-- their lists (independent of c: functoriality and injectivity of
+-- sorted lists, as in Dilator.LinOrd.DenOrd); equality: equal images
+-- have equal supports, hence equal words (supp (F(u) z) = u for a trace
+-- point z), hence equal points (F(u) injective).
+-- Then WFPresP (D is a dilator, Pi^1_2) and the Bachmann-Howard
+-- principle BHPP over PDil: Freund's class of predilators, now including
+-- infinite values (omega + X, ...).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PDl = PDil[l] ;
+module DW = DilWO[l] ;
+module PL = Prelude[l] ;
+
+module PDen (D : PDl.PDil) (X : DP.LO) {
+  module LX = W.LinOrd[X.car,X.cmp,X.ceq,X.cflip,X.ctrans] ;
+  module OD = PDl.On[D] ;
+  L : U l = W.List X.car ;
+
+  -- a point at level lenL a sent along u : [lenL a] -> [lenL c]
+  atW (a c : L) (u : W.Wd) (ou : Id W.N (W.ones u) (LX.lenL a)) (lu : Id W.N (W.len u) (LX.lenL c)) (z : (D.F (LX.lenL a)).car) :
+      (D.F (LX.lenL c)).car = (D.mp (LX.lenL a) (LX.lenL c) u ou lu).1 z ;
+  atO (a c : L) (u : W.Wd) (ov : LX.Over c u a) (z : (D.F (LX.lenL a)).car) : (D.F (LX.lenL c)).car =
+    atW a c u (LX.onesOver c u a ov) ov.1 z ;
+  -- refining c along e : c -> m
+  atComp (a c m : L) (e : W.Wd) (oe : LX.Over m e c) (u : W.Wd) (ov : LX.Over c u a) (z : (D.F (LX.lenL a)).car) :
+      Id (D.F (LX.lenL m)).car (atO a m (W.compW e u) (LX.overComp m e c oe u a ov) z)
+        ((D.mp (LX.lenL c) (LX.lenL m) e (LX.onesOver m e c oe) oe.1).1 (atO a c u ov z)) =
+    PL.sym (D.F (LX.lenL m)).car ((D.mp (LX.lenL c) (LX.lenL m) e (LX.onesOver m e c oe) oe.1).1 (atO a c u ov z))
+      (atO a m (W.compW e u) (LX.overComp m e c oe u a ov) z)
+      (PL.trans (D.F (LX.lenL m)).car ((D.mp (LX.lenL c) (LX.lenL m) e (LX.onesOver m e c oe) oe.1).1 (atO a c u ov z))
+        ((D.mp (LX.lenL a) (LX.lenL m) (W.compW e u)
+          (PDl.oc (LX.lenL a) (LX.lenL c) e u (LX.onesOver m e c oe) (LX.onesOver c u a ov) ov.1)
+          (PDl.lc (LX.lenL m) e u oe.1)).1 z)
+        (atO a m (W.compW e u) (LX.overComp m e c oe u a ov) z)
+        (D.mp-comp (LX.lenL a) (LX.lenL c) (LX.lenL m) e u (LX.onesOver m e c oe) oe.1 (LX.onesOver c u a ov) ov.1 z)
+        (OD.mp-irr (LX.lenL a) (LX.lenL m) (W.compW e u)
+          (PDl.oc (LX.lenL a) (LX.lenL c) e u (LX.onesOver m e c oe) (LX.onesOver c u a ov) ov.1)
+          (LX.onesOver m (W.compW e u) a (LX.overComp m e c oe u a ov))
+          (PDl.lc (LX.lenL m) e u oe.1) (LX.overComp m e c oe u a ov).1 z)) ;
+
+  -- comparison through a common refinement c
+  cmpC (a a' c : L) (u u' : W.Wd) (ov : LX.Over c u a) (ov' : LX.Over c u' a') (z : (D.F (LX.lenL a)).car) (z' : (D.F (LX.lenL a')).car) : W.O3 =
+    (D.F (LX.lenL c)).cmp (atO a c u ov z) (atO a' c u' ov' z') ;
+  cmpC-comp (a a' c m : L) (e : W.Wd) (oe : LX.Over m e c) (u u' : W.Wd) (ov : LX.Over c u a) (ov' : LX.Over c u' a')
+    (z : (D.F (LX.lenL a)).car) (z' : (D.F (LX.lenL a')).car) :
+      Id W.O3 (cmpC a a' m (W.compW e u) (W.compW e u') (LX.overComp m e c oe u a ov) (LX.overComp m e c oe u' a' ov') z z')
+        (cmpC a a' c u u' ov ov' z z') =
+    W.trans W.O3 (cmpC a a' m (W.compW e u) (W.compW e u') (LX.overComp m e c oe u a ov) (LX.overComp m e c oe u' a' ov') z z')
+      ((D.F (LX.lenL m)).cmp ((D.mp (LX.lenL c) (LX.lenL m) e (LX.onesOver m e c oe) oe.1).1 (atO a c u ov z))
+        ((D.mp (LX.lenL c) (LX.lenL m) e (LX.onesOver m e c oe) oe.1).1 (atO a' c u' ov' z')))
+      (cmpC a a' c u u' ov ov' z z')
+      (W.ap2 (D.F (LX.lenL m)).car (D.F (LX.lenL m)).car W.O3 (D.F (LX.lenL m)).cmp
+        (atO a m (W.compW e u) (LX.overComp m e c oe u a ov) z) ((D.mp (LX.lenL c) (LX.lenL m) e (LX.onesOver m e c oe) oe.1).1 (atO a c u ov z))
+        (atO a' m (W.compW e u') (LX.overComp m e c oe u' a' ov') z') ((D.mp (LX.lenL c) (LX.lenL m) e (LX.onesOver m e c oe) oe.1).1 (atO a' c u' ov' z'))
+        (atComp a c m e oe u ov z) (atComp a' c m e oe u' ov' z'))
+      ((D.mp (LX.lenL c) (LX.lenL m) e (LX.onesOver m e c oe) oe.1).2 (atO a c u ov z) (atO a' c u' ov' z')) ;
+  -- two refinements of the same list over a sorted m give the same point
+  atU (a m : L) (hm : Id W.Bool (LX.sortedB m) true) (v v' : W.Wd) (o : LX.Over m v a) (o' : LX.Over m v' a) (z : (D.F (LX.lenL a)).car) :
+      Id (D.F (LX.lenL m)).car (atO a m v o z) (atO a m v' o' z) =
+    OD.mp-wd (LX.lenL a) (LX.lenL m) v v' (LX.overUnique m hm v v' a o o') (LX.onesOver m v a o) o.1 (LX.onesOver m v' a o') o'.1 z ;
+  -- independence of the common refinement
+  indepM (a a' : L) (z : (D.F (LX.lenL a)).car) (z' : (D.F (LX.lenL a')).car)
+    (c1 : L) (v1 v1' : W.Wd) (o1 : LX.Over c1 v1 a) (o1' : LX.Over c1 v1' a')
+    (c2 : L) (v2 v2' : W.Wd) (o2 : LX.Over c2 v2 a) (o2' : LX.Over c2 v2' a')
+    (m : LX.Cv) (k : LX.Cov c1 c2 m) :
+      Id W.O3 (cmpC a a' c1 v1 v1' o1 o1' z z') (cmpC a a' c2 v2 v2' o2 o2' z z') =
+    W.trans W.O3 (cmpC a a' c1 v1 v1' o1 o1' z z')
+      (cmpC a a' m.1 (W.compW m.2.1 v1) (W.compW m.2.1 v1')
+        (LX.overComp m.1 m.2.1 c1 (LX.mOver1 c1 c2 m k) v1 a o1) (LX.overComp m.1 m.2.1 c1 (LX.mOver1 c1 c2 m k) v1' a' o1') z z')
+      (cmpC a a' c2 v2 v2' o2 o2' z z')
+      (W.sym W.O3 (cmpC a a' m.1 (W.compW m.2.1 v1) (W.compW m.2.1 v1')
+          (LX.overComp m.1 m.2.1 c1 (LX.mOver1 c1 c2 m k) v1 a o1) (LX.overComp m.1 m.2.1 c1 (LX.mOver1 c1 c2 m k) v1' a' o1') z z')
+        (cmpC a a' c1 v1 v1' o1 o1' z z')
+        (cmpC-comp a a' c1 m.1 m.2.1 (LX.mOver1 c1 c2 m k) v1 v1' o1 o1' z z'))
+      (W.trans W.O3
+        (cmpC a a' m.1 (W.compW m.2.1 v1) (W.compW m.2.1 v1')
+          (LX.overComp m.1 m.2.1 c1 (LX.mOver1 c1 c2 m k) v1 a o1) (LX.overComp m.1 m.2.1 c1 (LX.mOver1 c1 c2 m k) v1' a' o1') z z')
+        (cmpC a a' m.1 (W.compW m.2.2 v2) (W.compW m.2.2 v2')
+          (LX.overComp m.1 m.2.2 c2 (LX.mOver2 c1 c2 m k) v2 a o2) (LX.overComp m.1 m.2.2 c2 (LX.mOver2 c1 c2 m k) v2' a' o2') z z')
+        (cmpC a a' c2 v2 v2' o2 o2' z z')
+        (W.ap2 (D.F (LX.lenL m.1)).car (D.F (LX.lenL m.1)).car W.O3 (D.F (LX.lenL m.1)).cmp
+          (atO a m.1 (W.compW m.2.1 v1) (LX.overComp m.1 m.2.1 c1 (LX.mOver1 c1 c2 m k) v1 a o1) z)
+          (atO a m.1 (W.compW m.2.2 v2) (LX.overComp m.1 m.2.2 c2 (LX.mOver2 c1 c2 m k) v2 a o2) z)
+          (atO a' m.1 (W.compW m.2.1 v1') (LX.overComp m.1 m.2.1 c1 (LX.mOver1 c1 c2 m k) v1' a' o1') z')
+          (atO a' m.1 (W.compW m.2.2 v2') (LX.overComp m.1 m.2.2 c2 (LX.mOver2 c1 c2 m k) v2' a' o2') z')
+          (atU a m.1 k.2.2.2.2.1 (W.compW m.2.1 v1) (W.compW m.2.2 v2)
+            (LX.overComp m.1 m.2.1 c1 (LX.mOver1 c1 c2 m k) v1 a o1) (LX.overComp m.1 m.2.2 c2 (LX.mOver2 c1 c2 m k) v2 a o2) z)
+          (atU a' m.1 k.2.2.2.2.1 (W.compW m.2.1 v1') (W.compW m.2.2 v2')
+            (LX.overComp m.1 m.2.1 c1 (LX.mOver1 c1 c2 m k) v1' a' o1') (LX.overComp m.1 m.2.2 c2 (LX.mOver2 c1 c2 m k) v2' a' o2') z'))
+        (cmpC-comp a a' c2 m.1 m.2.2 (LX.mOver2 c1 c2 m k) v2 v2' o2 o2' z z')) ;
+
+  -- denotations
+  TX (a : L) (z : (D.F (LX.lenL a)).car) : U l =
+    Id W.Bool (LX.sortedB a) true * Id W.Wd (D.supp (LX.lenL a) z) (W.idW (LX.lenL a)) ;
+  tx-prop (a : L) (z : (D.F (LX.lenL a)).car) (t t' : TX a z) : Id (TX a z) t t' =
+    W.prodEq (Id W.Bool (LX.sortedB a) true) (Id W.Wd (D.supp (LX.lenL a) z) (W.idW (LX.lenL a))) t t'
+      (W.HB.uip (LX.sortedB a) true t.1 t'.1) (W.HW.uip (D.supp (LX.lenL a) z) (W.idW (LX.lenL a)) t.2 t'.2) ;
+  Den : U l = (a : L) * ((z : (D.F (LX.lenL a)).car) * TX a z) ;
+  mOK (d d' : Den) : LX.Cov d.1 d'.1 (LX.merge d.1 d'.1) = LX.mergeOK d.1 d'.1 d.2.2.1 d'.2.2.1 ;
+  cmpDen (d d' : Den) : W.O3 =
+    cmpC d.1 d'.1 (LX.merge d.1 d'.1).1 (LX.merge d.1 d'.1).2.1 (LX.merge d.1 d'.1).2.2
+      (LX.mOver1 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) (LX.mOver2 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) d.2.1 d'.2.1 ;
+  den-indep (d d' : Den) (c : L) (v v' : W.Wd) (sc : Id W.Bool (LX.sortedB c) true) (ov : LX.Over c v d.1) (ov' : LX.Over c v' d'.1) :
+      Id W.O3 (cmpC d.1 d'.1 c v v' ov ov' d.2.1 d'.2.1) (cmpDen d d') =
+    indepM d.1 d'.1 d.2.1 d'.2.1 c v v' ov ov'
+      (LX.merge d.1 d'.1).1 (LX.merge d.1 d'.1).2.1 (LX.merge d.1 d'.1).2.2
+      (LX.mOver1 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) (LX.mOver2 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d'))
+      (LX.merge c (LX.merge d.1 d'.1).1) (LX.mergeOK c (LX.merge d.1 d'.1).1 sc (mOK d d').2.2.2.2.1) ;
+
+  den-flip (d d' : Den) : Id W.O3 (cmpDen d' d) (W.flip (cmpDen d d')) =
+    W.trans W.O3 (cmpDen d' d)
+      (cmpC d'.1 d.1 (LX.merge d.1 d'.1).1 (LX.merge d.1 d'.1).2.2 (LX.merge d.1 d'.1).2.1
+        (LX.mOver2 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) (LX.mOver1 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) d'.2.1 d.2.1)
+      (W.flip (cmpDen d d'))
+      (W.sym W.O3 (cmpC d'.1 d.1 (LX.merge d.1 d'.1).1 (LX.merge d.1 d'.1).2.2 (LX.merge d.1 d'.1).2.1
+          (LX.mOver2 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) (LX.mOver1 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) d'.2.1 d.2.1)
+        (cmpDen d' d)
+        (den-indep d' d (LX.merge d.1 d'.1).1 (LX.merge d.1 d'.1).2.2 (LX.merge d.1 d'.1).2.1 (mOK d d').2.2.2.2.1
+          (LX.mOver2 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) (LX.mOver1 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d'))))
+      ((D.F (LX.lenL (LX.merge d.1 d'.1).1)).cflip
+        (atO d.1 (LX.merge d.1 d'.1).1 (LX.merge d.1 d'.1).2.1 (LX.mOver1 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) d.2.1)
+        (atO d'.1 (LX.merge d.1 d'.1).1 (LX.merge d.1 d'.1).2.2 (LX.mOver2 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) d'.2.1)) ;
+
+  transC (d1 d2 d3 : Den) (c : L) (v1 v2 v3 : W.Wd) (sc : Id W.Bool (LX.sortedB c) true)
+    (o1 : LX.Over c v1 d1.1) (o2 : LX.Over c v2 d2.1) (o3 : LX.Over c v3 d3.1)
+    (h12 : Id W.O3 (cmpDen d1 d2) lt) (h23 : Id W.O3 (cmpDen d2 d3) lt) : Id W.O3 (cmpDen d1 d3) lt =
+    W.trans W.O3 (cmpDen d1 d3) (cmpC d1.1 d3.1 c v1 v3 o1 o3 d1.2.1 d3.2.1) lt
+      (W.sym W.O3 (cmpC d1.1 d3.1 c v1 v3 o1 o3 d1.2.1 d3.2.1) (cmpDen d1 d3) (den-indep d1 d3 c v1 v3 sc o1 o3))
+      ((D.F (LX.lenL c)).ctrans (atO d1.1 c v1 o1 d1.2.1) (atO d2.1 c v2 o2 d2.2.1) (atO d3.1 c v3 o3 d3.2.1)
+        (W.trans W.O3 (cmpC d1.1 d2.1 c v1 v2 o1 o2 d1.2.1 d2.2.1) (cmpDen d1 d2) lt (den-indep d1 d2 c v1 v2 sc o1 o2) h12)
+        (W.trans W.O3 (cmpC d2.1 d3.1 c v2 v3 o2 o3 d2.2.1 d3.2.1) (cmpDen d2 d3) lt (den-indep d2 d3 c v2 v3 sc o2 o3) h23)) ;
+  transM (d1 d2 d3 : Den) (m12 : LX.Cv) (k12 : LX.Cov d1.1 d2.1 m12) (m : LX.Cv) (k : LX.Cov m12.1 d3.1 m)
+    (h12 : Id W.O3 (cmpDen d1 d2) lt) (h23 : Id W.O3 (cmpDen d2 d3) lt) : Id W.O3 (cmpDen d1 d3) lt =
+    transC d1 d2 d3 m.1 (W.compW m.2.1 m12.2.1) (W.compW m.2.1 m12.2.2) m.2.2 k.2.2.2.2.1
+      (LX.overComp m.1 m.2.1 m12.1 (LX.mOver1 m12.1 d3.1 m k) m12.2.1 d1.1 (LX.mOver1 d1.1 d2.1 m12 k12))
+      (LX.overComp m.1 m.2.1 m12.1 (LX.mOver1 m12.1 d3.1 m k) m12.2.2 d2.1 (LX.mOver2 d1.1 d2.1 m12 k12))
+      (LX.mOver2 m12.1 d3.1 m k) h12 h23 ;
+  den-trans (d1 d2 d3 : Den) (h12 : Id W.O3 (cmpDen d1 d2) lt) (h23 : Id W.O3 (cmpDen d2 d3) lt) : Id W.O3 (cmpDen d1 d3) lt =
+    transM d1 d2 d3 (LX.merge d1.1 d2.1) (mOK d1 d2) (LX.merge (LX.merge d1.1 d2.1).1 d3.1)
+      (LX.mergeOK (LX.merge d1.1 d2.1).1 d3.1 (mOK d1 d2).2.2.2.2.1 d3.2.2.1) h12 h23 ;
+  den-refl (d : Den) : Id W.O3 (cmpDen d d) eq = W.flip-fix (cmpDen d d) (den-flip d d) ;
+
+  -- equality: equal images have equal supports, hence equal words and points
+  -- the support of a trace point sent along u is u
+  suppAt (a c : L) (u : W.Wd) (ov : LX.Over c u a) (z : (D.F (LX.lenL a)).car) (t : Id W.Wd (D.supp (LX.lenL a) z) (W.idW (LX.lenL a))) :
+      Id W.Wd (D.supp (LX.lenL c) (atO a c u ov z)) u =
+    W.trans W.Wd (D.supp (LX.lenL c) (atO a c u ov z)) (W.compW u (D.supp (LX.lenL a) z)) u
+      (D.supp-nat (LX.lenL a) (LX.lenL c) u (LX.onesOver c u a ov) ov.1 z)
+      (W.trans W.Wd (W.compW u (D.supp (LX.lenL a) z)) (W.compW u (W.idW (LX.lenL a))) u
+        (W.ap W.Wd W.Wd (W.compW u) (D.supp (LX.lenL a) z) (W.idW (LX.lenL a)) t)
+        (W.subst W.N (\ j -> Id W.Wd (W.compW u (W.idW j)) u) (W.ones u) (LX.lenL a) (LX.onesOver c u a ov) (W.comp-id u))) ;
+  module EqC (d d' : Den) (c : L) (u u' : W.Wd) (ov : LX.Over c u d.1) (ov' : LX.Over c u' d'.1)
+    (E : Id (D.F (LX.lenL c)).car (atO d.1 c u ov d.2.1) (atO d'.1 c u' ov' d'.2.1)) {
+    uu : Id W.Wd u u' =
+      W.trans W.Wd u (D.supp (LX.lenL c) (atO d.1 c u ov d.2.1)) u'
+        (W.sym W.Wd (D.supp (LX.lenL c) (atO d.1 c u ov d.2.1)) u (suppAt d.1 c u ov d.2.1 d.2.2.2))
+        (W.trans W.Wd (D.supp (LX.lenL c) (atO d.1 c u ov d.2.1)) (D.supp (LX.lenL c) (atO d'.1 c u' ov' d'.2.1)) u'
+          (W.ap (D.F (LX.lenL c)).car W.Wd (D.supp (LX.lenL c)) (atO d.1 c u ov d.2.1) (atO d'.1 c u' ov' d'.2.1) E)
+          (suppAt d'.1 c u' ov' d'.2.1 d'.2.2.2)) ;
+    aa : Id L d.1 d'.1 =
+      PL.trans L d.1 (LX.compL c u) d'.1 (PL.sym L (LX.compL c u) d.1 ov.2)
+        (PL.trans L (LX.compL c u) (LX.compL c u') d'.1 (PL.ap W.Wd L (LX.compL c) u u' uu) ov'.2) ;
+    Mot (a2 : L) (e : Id L d.1 a2) : U l =
+      (z2 : (D.F (LX.lenL a2)).car) (t2 : TX a2 z2) (u2 : W.Wd) (ov2 : LX.Over c u2 a2) (uu2 : Id W.Wd u u2)
+      (E2 : Id (D.F (LX.lenL c)).car (atO d.1 c u ov d.2.1) (atO a2 c u2 ov2 z2)) -> Id Den d (a2,(z2,t2)) ;
+    base : Mot d.1 (refl d.1) = \ z2 t2 u2 ov2 uu2 E2 ->
+      PL.ap ((z : (D.F (LX.lenL d.1)).car) * TX d.1 z) Den (\ p -> (d.1,p)) d.2 (z2,t2)
+        (PL.Sigma-eq (D.F (LX.lenL d.1)).car (TX d.1) d.2.1 z2 d.2.2 t2
+          (DP.map-inj (D.F (LX.lenL d.1)) (D.F (LX.lenL c)) (D.mp (LX.lenL d.1) (LX.lenL c) u (LX.onesOver c u d.1 ov) ov.1) d.2.1 z2
+            (PL.trans (D.F (LX.lenL c)).car (atO d.1 c u ov d.2.1) (atO d.1 c u2 ov2 z2) (atO d.1 c u ov z2) E2
+              (OD.mp-wd (LX.lenL d.1) (LX.lenL c) u2 u (W.sym W.Wd u u2 uu2) (LX.onesOver c u2 d.1 ov2) ov2.1 (LX.onesOver c u d.1 ov) ov.1 z2)))
+          (tx-prop d.1 z2)) ;
+    result : Id Den d d' = idJ L d.1 Mot base d'.1 aa d'.2.1 d'.2.2 u' ov' uu E ;
+  } ;
+  den-eq (d d' : Den) (h : Id W.O3 (cmpDen d d') eq) : Id Den d d' =
+    EqC[d,d',(LX.merge d.1 d'.1).1,(LX.merge d.1 d'.1).2.1,(LX.merge d.1 d'.1).2.2,
+      LX.mOver1 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d'),LX.mOver2 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d'),
+      (D.F (LX.lenL (LX.merge d.1 d'.1).1)).ceq
+        (atO d.1 (LX.merge d.1 d'.1).1 (LX.merge d.1 d'.1).2.1 (LX.mOver1 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) d.2.1)
+        (atO d'.1 (LX.merge d.1 d'.1).1 (LX.merge d.1 d'.1).2.2 (LX.mOver2 d.1 d'.1 (LX.merge d.1 d'.1) (mOK d d')) d'.2.1) h].result ;
+
+  lo : DP.LO = new DP.LO[car := Den, cmp := cmpDen, ceq := den-eq, crefl := den-refl, cflip := den-flip, ctrans := den-trans] ;
+  supp (s : Den) : L = s.1 ;
+} ;
+
+----------------------------------------------------------------------
+-- well-foundedness and the Bachmann-Howard principle over PDil
+
+WFPresP (D : PDl.PDil) : U l+ = (X : DP.LO) -> DW.WF X -> DW.WF (PDen[D,X].lo) ;
+
+module BHP (D : PDl.PDil) (X : DP.LO) {
+  DX : DP.LO = PDen[D,X].lo ;
+  Collapse : U l =
+    (theta : DX.car -> X.car) *
+    (((s : DX.car) -> DW.AllBelow X (theta s) s.1) *
+     ((s t : DX.car) -> DW.LtB DX s t -> DW.AllBelow X (theta t) s.1 -> DW.LtB X (theta s) (theta t))) ;
+} ;
+-- Freund's principle for predilators with arbitrary decidable values
+BHPP : U l+ = (D : PDl.PDil) -> WFPresP D -> (X : DP.LO) * (DW.WF X * BHP[D,X].Collapse) ;

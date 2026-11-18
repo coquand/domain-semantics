@@ -1,0 +1,216 @@
+-- Every morphism of dilators is an isomorphism onto a subdilator
+-- (catemb.pdf, linear-order case; PLAN-CATEMB-LO.md, step 2/5).
+--
+--   * Lift: if M : G -> E has its images inside those of T : A -> E
+--     (M(n) <= T(n) as subsets), then M factors uniquely through T
+--     (DilFinite/PtyxFinite.Factor is the case T = inclusion of E|c);
+--   * mono: morphisms are monomorphisms (words are injective);
+--   * Image: for T : A -> B let c be the image of the trace,
+--     c k z = "z in Im T(k)".  Then Im T(n) = B|c(n) for every n: one
+--     inclusion by naturality, the other because T preserves least
+--     supports (CatDil.Cart, PtyxDen.SuppEq).  So T = inc . iso with
+--     iso : A ~ B|c.
+-- Hence Dil is a category of embeddings in the sense of catemb: up to
+-- isomorphism the morphisms into B are the inclusions B|c -> B.
+level l ;
+open Base ; open Prelude[l+] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module PDn = PtyxDen[l] ;
+module PL = Prelude[l] ;
+
+----------------------------------------------------------------------
+-- factorisation through a morphism
+
+module Lift (G A E : CD.Dil) (M : CD.Mor G E) (T : CD.Mor A E) (hle : (n : W.N) -> W.Le (M.1 n) (T.1 n)) {
+  t (n : W.N) : W.Wd = W.restrict (T.1 n) (M.1 n) ;
+  hlen (n : W.N) : Id W.N (W.len (M.1 n)) (W.len (T.1 n)) =
+    W.trans W.N (W.len (M.1 n)) (E.1 n) (W.len (T.1 n)) (M.2.1 n) (W.sym W.N (W.len (T.1 n)) (E.1 n) (T.2.1 n)) ;
+  rc (n : W.N) : Id W.Wd (W.compW (T.1 n) (t n)) (M.1 n) = W.restrict-comp (T.1 n) (M.1 n) (hlen n) (hle n) ;
+  oT (n : W.N) : Id W.N (W.ones (T.1 n)) (W.len (t n)) =
+    W.sym W.N (W.len (t n)) (W.ones (T.1 n)) (W.len-restrict (T.1 n) (M.1 n)) ;
+  tlen (n : W.N) : Id W.N (W.len (t n)) (A.1 n) =
+    W.trans W.N (W.len (t n)) (W.ones (T.1 n)) (A.1 n) (W.len-restrict (T.1 n) (M.1 n)) (T.2.2.1 n) ;
+  tones (n : W.N) : Id W.N (W.ones (t n)) (G.1 n) =
+    W.trans W.N (W.ones (t n)) (W.ones (M.1 n)) (G.1 n)
+      (W.trans W.N (W.ones (t n)) (W.ones (W.compW (T.1 n) (t n))) (W.ones (M.1 n))
+        (W.sym W.N (W.ones (W.compW (T.1 n) (t n))) (W.ones (t n)) (W.ones-comp (T.1 n) (t n) (oT n)))
+        (W.ap W.Wd W.N W.ones (W.compW (T.1 n) (t n)) (M.1 n) (rc n)))
+      (M.2.2.1 n) ;
+  module Nat (w : W.Wd) {
+    m : W.N = W.ones w ;
+    n : W.N = W.len w ;
+    X : W.Wd = W.compW (CD.D1 A w) (t m) ;
+    Y : W.Wd = W.compW (t n) (CD.D1 G w) ;
+    hX : Id W.N (W.len X) (W.ones (T.1 n)) =
+      W.trans W.N (W.len X) (W.len (CD.D1 A w)) (W.ones (T.1 n)) (W.len-comp (CD.D1 A w) (t m))
+        (W.trans W.N (W.len (CD.D1 A w)) (A.1 n) (W.ones (T.1 n)) (CD.dlen A w) (W.sym W.N (W.ones (T.1 n)) (A.1 n) (T.2.2.1 n))) ;
+    hY : Id W.N (W.len Y) (W.ones (T.1 n)) =
+      W.trans W.N (W.len Y) (W.len (t n)) (W.ones (T.1 n)) (W.len-comp (t n) (CD.D1 G w))
+        (W.sym W.N (W.ones (T.1 n)) (W.len (t n)) (oT n)) ;
+    target : W.Wd = W.compW (CD.D1 E w) (M.1 m) ;
+    h1 : Id W.N (W.ones (T.1 n)) (W.len (CD.D1 A w)) =
+      W.trans W.N (W.ones (T.1 n)) (A.1 n) (W.len (CD.D1 A w)) (T.2.2.1 n) (W.sym W.N (W.len (CD.D1 A w)) (A.1 n) (CD.dlen A w)) ;
+    h2 : Id W.N (W.ones (CD.D1 A w)) (W.len (t m)) =
+      W.trans W.N (W.ones (CD.D1 A w)) (A.1 m) (W.len (t m)) (CD.dones A w) (W.sym W.N (W.len (t m)) (A.1 m) (tlen m)) ;
+    h3 : Id W.N (W.ones (CD.D1 E w)) (W.len (T.1 m)) =
+      W.trans W.N (W.ones (CD.D1 E w)) (E.1 m) (W.len (T.1 m)) (CD.dones E w) (W.sym W.N (W.len (T.1 m)) (E.1 m) (T.2.1 m)) ;
+    h6 : Id W.N (W.ones (t n)) (W.len (CD.D1 G w)) =
+      W.trans W.N (W.ones (t n)) (G.1 n) (W.len (CD.D1 G w)) (tones n) (W.sym W.N (W.len (CD.D1 G w)) (G.1 n) (CD.dlen G w)) ;
+    -- T(n) . A(w) . t(m) = E(w) . T(m) . t(m) = E(w) . M(m)
+    eX : Id W.Wd (W.compW (T.1 n) X) target =
+      W.trans W.Wd (W.compW (T.1 n) X) (W.compW (W.compW (T.1 n) (CD.D1 A w)) (t m)) target
+        (W.sym W.Wd (W.compW (W.compW (T.1 n) (CD.D1 A w)) (t m)) (W.compW (T.1 n) X) (CD.comp-assoc (T.1 n) (CD.D1 A w) (t m) h1 h2))
+        (W.trans W.Wd (W.compW (W.compW (T.1 n) (CD.D1 A w)) (t m)) (W.compW (W.compW (CD.D1 E w) (T.1 m)) (t m)) target
+          (W.ap W.Wd W.Wd (\ u -> W.compW u (t m)) (W.compW (T.1 n) (CD.D1 A w)) (W.compW (CD.D1 E w) (T.1 m))
+            (W.sym W.Wd (W.compW (CD.D1 E w) (T.1 m)) (W.compW (T.1 n) (CD.D1 A w)) (T.2.2.2 w)))
+          (W.trans W.Wd (W.compW (W.compW (CD.D1 E w) (T.1 m)) (t m)) (W.compW (CD.D1 E w) (W.compW (T.1 m) (t m))) target
+            (CD.comp-assoc (CD.D1 E w) (T.1 m) (t m) h3 (oT m))
+            (W.ap W.Wd W.Wd (W.compW (CD.D1 E w)) (W.compW (T.1 m) (t m)) (M.1 m) (rc m)))) ;
+    -- T(n) . t(n) . G(w) = M(n) . G(w) = E(w) . M(m)
+    eY : Id W.Wd (W.compW (T.1 n) Y) target =
+      W.trans W.Wd (W.compW (T.1 n) Y) (W.compW (W.compW (T.1 n) (t n)) (CD.D1 G w)) target
+        (W.sym W.Wd (W.compW (W.compW (T.1 n) (t n)) (CD.D1 G w)) (W.compW (T.1 n) Y) (CD.comp-assoc (T.1 n) (t n) (CD.D1 G w) (oT n) h6))
+        (W.trans W.Wd (W.compW (W.compW (T.1 n) (t n)) (CD.D1 G w)) (W.compW (M.1 n) (CD.D1 G w)) target
+          (W.ap W.Wd W.Wd (\ u -> W.compW u (CD.D1 G w)) (W.compW (T.1 n) (t n)) (M.1 n) (rc n))
+          (W.sym W.Wd target (W.compW (M.1 n) (CD.D1 G w)) (M.2.2.2 w))) ;
+    eq : Id W.Wd X Y = W.comp-cancel (T.1 n) X Y hX hY
+      (W.trans W.Wd (W.compW (T.1 n) X) target (W.compW (T.1 n) Y) eX (W.sym W.Wd (W.compW (T.1 n) Y) target eY)) ;
+  } ;
+  mor : CD.Mor G A = (t,(tlen,(tones,\ w -> Nat[w].eq))) ;
+  tri : Id (CD.Mor G E) (CD.compM G A E mor T) M = CD.mor-ext G E (CD.compM G A E mor T) M rc ;
+} ;
+
+-- morphisms are monomorphisms
+mono (G A E : CD.Dil) (T : CD.Mor A E) (S S' : CD.Mor G A)
+  (e : Id (CD.Mor G E) (CD.compM G A E S T) (CD.compM G A E S' T)) : Id (CD.Mor G A) S S' =
+  CD.mor-ext G A S S' (\ n -> W.comp-cancel (T.1 n) (S.1 n) (S'.1 n)
+    (W.trans W.N (W.len (S.1 n)) (A.1 n) (W.ones (T.1 n)) (S.2.1 n) (W.sym W.N (W.ones (T.1 n)) (A.1 n) (T.2.2.1 n)))
+    (W.trans W.N (W.len (S'.1 n)) (A.1 n) (W.ones (T.1 n)) (S'.2.1 n) (W.sym W.N (W.ones (T.1 n)) (A.1 n) (T.2.2.1 n)))
+    (PL.ap (CD.Mor G E) W.Wd (\ N0 -> N0.1 n) (CD.compM G A E S T) (CD.compM G A E S' T) e)) ;
+
+----------------------------------------------------------------------
+-- the image of a morphism is a subdilator
+
+module Image (A B : CD.Dil) (T : CD.Mor A B) {
+  c (k z : W.N) : W.Bool = W.at (T.1 k) z ;
+  module S = DF.On[B].Sub[c] ;
+  module R = S.R ;
+  module NT = W.Nat[A.1,A.2.1,A.2.2.1,A.2.2.2.1,A.2.2.2.2.1,A.2.2.2.2.2.1,A.2.2.2.2.2.2,
+    B.1,B.2.1,B.2.2.1,B.2.2.2.1,B.2.2.2.2.1,B.2.2.2.2.2.1,B.2.2.2.2.2.2,T.1,T.2.1,T.2.2.1,T.2.2.2] ;
+
+  -- Im T(n) is inside B|c(n): the least support of T(b) is that of b
+  module Fwd (n y : W.N) (hy : Id W.Bool (W.at (T.1 n) y) true) {
+    b : W.N = W.rank (T.1 n) y ;
+    hb : Id W.Bool (W.ltN b (A.1 n)) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN b j) true) (W.ones (T.1 n)) (A.1 n) (T.2.2.1 n) (W.rank-lt (T.1 n) y hy) ;
+    yb : Id W.N (W.sel (T.1 n) b) y = W.sel-rank (T.1 n) y hy ;
+    hyB : Id W.Bool (W.ltN y (B.1 n)) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN y j) true) (W.len (T.1 n)) (B.1 n) (T.2.1 n) (W.at-lt (T.1 n) y hy) ;
+    module Q = PDn.SuppEq[A,B,T,n,b,hb] ;
+    sA : W.Wd = Q.QD.Sup[n,b].supp ;
+    ss : Id W.N (W.len sA) n * Id W.Bool (W.at (CD.D1 A sA) b) true = Q.QD.Point[n,b,Q.xP.2].supp-supp ;
+    k : W.N = W.ones sA ;
+    a : W.N = W.rank (CD.D1 A sA) b ;
+    hak : Id W.Bool (W.ltN a (A.1 k)) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN a j) true) (W.ones (CD.D1 A sA)) (A.1 k) (CD.dones A sA)
+        (W.rank-lt (CD.D1 A sA) b ss.2) ;
+    hao : Id W.Bool (W.ltN a (W.ones (T.1 k))) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN a j) true) (A.1 k) (W.ones (T.1 k)) (W.sym W.N (W.ones (T.1 k)) (A.1 k) (T.2.2.1 k)) hak ;
+    x0 : W.N = W.sel (T.1 k) a ;
+    hx0 : Id W.Bool (W.ltN x0 (W.ones (CD.D1 B sA))) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN x0 j) true) (W.len (T.1 k)) (W.ones (CD.D1 B sA))
+        (W.trans W.N (W.len (T.1 k)) (B.1 k) (W.ones (CD.D1 B sA)) (T.2.1 k) (W.sym W.N (W.ones (CD.D1 B sA)) (B.1 k) (CD.dones B sA)))
+        (W.sel-lt (T.1 k) a hao) ;
+    -- y = B(sA)(T(k)(a))
+    ey : Id W.N y (W.sel (CD.D1 B sA) x0) =
+      W.trans W.N y (W.sel (T.1 n) b) (W.sel (CD.D1 B sA) x0) (W.sym W.N (W.sel (T.1 n) b) y yb)
+        (W.trans W.N (W.sel (T.1 n) b) (W.sel (T.1 n) (W.sel (CD.D1 A sA) a)) (W.sel (CD.D1 B sA) x0)
+          (W.ap W.N W.N (W.sel (T.1 n)) b (W.sel (CD.D1 A sA) a) (W.sym W.N (W.sel (CD.D1 A sA) a) b (W.sel-rank (CD.D1 A sA) b ss.2)))
+          (NT.natn n sA ss.1 a)) ;
+    -- the least support of y is sA
+    eS : Id W.Wd R.PD.Sup[n,y].supp sA =
+      W.trans W.Wd R.PD.Sup[n,y].supp R.PD.Sup[n,W.sel (T.1 n) b].supp sA
+        (W.ap W.N W.Wd (\ u -> R.PD.Sup[n,u].supp) y (W.sel (T.1 n) b) (W.sym W.N (W.sel (T.1 n) b) y yb))
+        Q.supp-eq ;
+    Pred (u : W.Wd) : U l = Id W.Bool (c (W.ones u) (W.rank (CD.D1 B u) y)) true ;
+    pA : Pred sA =
+      W.subst W.N (\ j -> Id W.Bool (c k j) true) x0 (W.rank (CD.D1 B sA) y)
+        (W.sym W.N (W.rank (CD.D1 B sA) y) x0
+          (W.trans W.N (W.rank (CD.D1 B sA) y) (W.rank (CD.D1 B sA) (W.sel (CD.D1 B sA) x0)) x0
+            (W.ap W.N W.N (W.rank (CD.D1 B sA)) y (W.sel (CD.D1 B sA) x0) ey)
+            (W.rank-sel (CD.D1 B sA) x0 hx0)))
+        (W.at-sel (T.1 k) a hao) ;
+    htr : Id W.Bool (R.trc n y) true = W.subst W.Wd Pred sA R.PD.Sup[n,y].supp (W.sym W.Wd R.PD.Sup[n,y].supp sA eS) pA ;
+    result : Id W.Bool (W.at (R.chi n) y) true = W.trans W.Bool (W.at (R.chi n) y) (R.trc n y) true (S.member n y hyB) htr ;
+  } ;
+  le-fwd (n : W.N) : W.Le (T.1 n) (R.chi n) = \ y hy -> Fwd[n,y,hy].result ;
+
+  -- B|c(n) is inside Im T(n): by naturality along the least support
+  module Bwd (n y : W.N) (h : Id W.Bool (W.at (R.chi n) y) true) {
+    hyB : Id W.Bool (W.ltN y (B.1 n)) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN y j) true) (W.len (R.chi n)) (B.1 n) (R.len-chi n) (W.at-lt (R.chi n) y h) ;
+    htr : Id W.Bool (R.trc n y) true =
+      W.trans W.Bool (R.trc n y) (W.at (R.chi n) y) true (W.sym W.Bool (W.at (R.chi n) y) (R.trc n y) (S.member n y hyB)) h ;
+    s : W.Wd = R.PD.Sup[n,y].supp ;
+    ss : Id W.N (W.len s) n * Id W.Bool (W.at (CD.D1 B s) y) true = R.PD.Point[n,y,R.PD.hzOf n y hyB].supp-supp ;
+    k : W.N = W.ones s ;
+    x0 : W.N = W.rank (CD.D1 B s) y ;
+    hx0 : Id W.Bool (W.at (T.1 k) x0) true = htr ;
+    a : W.N = W.rank (T.1 k) x0 ;
+    hao : Id W.Bool (W.ltN a (W.ones (T.1 k))) true = W.rank-lt (T.1 k) x0 hx0 ;
+    ha : Id W.Bool (W.ltN a (W.ones (CD.D1 A s))) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN a j) true) (W.ones (T.1 k)) (W.ones (CD.D1 A s))
+        (W.trans W.N (W.ones (T.1 k)) (A.1 k) (W.ones (CD.D1 A s)) (T.2.2.1 k) (W.sym W.N (W.ones (CD.D1 A s)) (A.1 k) (CD.dones A s)))
+        hao ;
+    b : W.N = W.sel (CD.D1 A s) a ;
+    hb : Id W.Bool (W.ltN b (W.ones (T.1 n))) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN b j) true) (W.len (CD.D1 A s)) (W.ones (T.1 n))
+        (W.trans W.N (W.len (CD.D1 A s)) (A.1 (W.len s)) (W.ones (T.1 n)) (CD.dlen A s)
+          (W.trans W.N (A.1 (W.len s)) (A.1 n) (W.ones (T.1 n)) (W.ap W.N W.N A.1 (W.len s) n ss.1)
+            (W.sym W.N (W.ones (T.1 n)) (A.1 n) (T.2.2.1 n))))
+        (W.sel-lt (CD.D1 A s) a ha) ;
+    -- T(n)(A(s)(a)) = B(s)(T(k)(a)) = B(s)(x0) = y
+    eb : Id W.N (W.sel (T.1 n) b) y =
+      W.trans W.N (W.sel (T.1 n) b) (W.sel (CD.D1 B s) (W.sel (T.1 k) a)) y
+        (NT.natn n s ss.1 a)
+        (W.trans W.N (W.sel (CD.D1 B s) (W.sel (T.1 k) a)) (W.sel (CD.D1 B s) x0) y
+          (W.ap W.N W.N (W.sel (CD.D1 B s)) (W.sel (T.1 k) a) x0 (W.sel-rank (T.1 k) x0 hx0))
+          (W.sel-rank (CD.D1 B s) y ss.2)) ;
+    result : Id W.Bool (W.at (T.1 n) y) true =
+      W.subst W.N (\ j -> Id W.Bool (W.at (T.1 n) j) true) (W.sel (T.1 n) b) y eb (W.at-sel (T.1 n) b hb) ;
+  } ;
+  le-bwd (n : W.N) : W.Le (R.chi n) (T.1 n) = \ y h -> Bwd[n,y,h].result ;
+
+  -- T = inc . iso, inc = T . inv
+  module I = Lift[A,S.dil,B,T,S.inc,le-fwd] ;
+  module J = Lift[S.dil,A,B,S.inc,T,le-bwd] ;
+  iso : CD.Mor A S.dil = I.mor ;
+  iso-tri : Id (CD.Mor A B) (CD.compM A S.dil B iso S.inc) T = I.tri ;
+  inv : CD.Mor S.dil A = J.mor ;
+  inv-tri : Id (CD.Mor S.dil B) (CD.compM S.dil A B inv T) S.inc = J.tri ;
+
+  -- iso and inv are inverse
+  iso-inv : Id (CD.Mor A A) (CD.compM A S.dil A iso inv) (CD.idM A) =
+    mono A A B T (CD.compM A S.dil A iso inv) (CD.idM A)
+      (PL.trans (CD.Mor A B) (CD.compM A A B (CD.compM A S.dil A iso inv) T) (CD.compM A S.dil B iso (CD.compM S.dil A B inv T))
+        (CD.compM A A B (CD.idM A) T)
+        (CD.assoc A S.dil A B iso inv T)
+        (PL.trans (CD.Mor A B) (CD.compM A S.dil B iso (CD.compM S.dil A B inv T)) T (CD.compM A A B (CD.idM A) T)
+          (PL.trans (CD.Mor A B) (CD.compM A S.dil B iso (CD.compM S.dil A B inv T)) (CD.compM A S.dil B iso S.inc) T
+            (PL.ap (CD.Mor S.dil B) (CD.Mor A B) (CD.compM A S.dil B iso) (CD.compM S.dil A B inv T) S.inc inv-tri)
+            iso-tri)
+          (PL.sym (CD.Mor A B) (CD.compM A A B (CD.idM A) T) T (CD.id-right A B T)))) ;
+  inv-iso : Id (CD.Mor S.dil S.dil) (CD.compM S.dil A S.dil inv iso) (CD.idM S.dil) =
+    mono S.dil S.dil B S.inc (CD.compM S.dil A S.dil inv iso) (CD.idM S.dil)
+      (PL.trans (CD.Mor S.dil B) (CD.compM S.dil S.dil B (CD.compM S.dil A S.dil inv iso) S.inc)
+        (CD.compM S.dil A B inv (CD.compM A S.dil B iso S.inc)) (CD.compM S.dil S.dil B (CD.idM S.dil) S.inc)
+        (CD.assoc S.dil A S.dil B inv iso S.inc)
+        (PL.trans (CD.Mor S.dil B) (CD.compM S.dil A B inv (CD.compM A S.dil B iso S.inc)) S.inc
+          (CD.compM S.dil S.dil B (CD.idM S.dil) S.inc)
+          (PL.trans (CD.Mor S.dil B) (CD.compM S.dil A B inv (CD.compM A S.dil B iso S.inc)) (CD.compM S.dil A B inv T) S.inc
+            (PL.ap (CD.Mor A B) (CD.Mor S.dil B) (CD.compM S.dil A B inv) (CD.compM A S.dil B iso S.inc) T iso-tri)
+            inv-tri)
+          (PL.sym (CD.Mor S.dil B) (CD.compM S.dil S.dil B (CD.idM S.dil) S.inc) S.inc (CD.id-right S.dil B S.inc)))) ;
+} ;

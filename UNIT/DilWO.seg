@@ -1,0 +1,55 @@
+-- Well-foundedness for dilators and the Bachmann-Howard principle
+-- (PLAN-CATEMB-LO.md, side track on Pi^1_2 axioms).
+--
+--   * WF X: accessibility (Dilator.Acc) for a decidable linear order;
+--   * WFPres D: D(X) (PtyxDen.Den, the denotations) is well-founded
+--     whenever X is: the Pi^1_2 statement "D is a dilator".  It is
+--     Dilator.IsDil restated for DilPtyx.LO (wfpres);
+--   * pol-wfpres: proved, not assumed, for all polynomial pre-dilators
+--     built from Id, 1, +, . and 2^D (Dilator.polDil); in particular
+--     X well-founded => 2^X well-founded (two-wfpres);
+--   * BH-collapse (Freund): theta : D(X) -> X with
+--       (i)  a < theta s for a in supp s,
+--       (ii) theta s < theta t if s < t and supp s < theta t,
+--     where supp (a, z) is the list a (explicit in the denotation, no
+--     least-support search needed).  BHP: every dilator has a
+--     well-founded BH-collapse.  Stated as a type (a hypothesis), not
+--     assumed anywhere.  Classically, over ATR0, BHP is equivalent to
+--     Pi^1_1-CA0 for Freund's class of (coded) predilators; whether the
+--     restriction to our finite-valued one-argument predilators, with Acc
+--     as well-foundedness, keeps that strength is NOT established here.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DP = DilPtyx[l] ;
+module PDn = PtyxDen[l] ;
+module PL = Prelude[l] ;
+
+LtB (X : DP.LO) (x y : X.car) : U l = Id W.Bool (W.ltO X.car X.cmp x y) true ;
+WF (X : DP.LO) : U l = W.Acc[X.car,W.ltO X.car X.cmp].WF ;
+
+-- D is a dilator (Pi^1_2)
+WFPres (D : CD.Dil) : U l+ = (X : DP.LO) -> WF X -> WF (PDn.Den[X].F D) ;
+wfpres (D : CD.Dil) (h : W.IsDil D) : WFPres D = \ X wx -> h X.car X.cmp X.ceq X.cflip X.ctrans wx ;
+pol-wfpres (p : W.Pol) : WFPres (W.interp p) = wfpres (W.interp p) (W.polDil p) ;
+two-wfpres : WFPres (W.interp (pExp pId)) = pol-wfpres (pExp pId) ;
+
+----------------------------------------------------------------------
+-- Bachmann-Howard collapses
+
+-- every element of the list is below x
+AllBelow (X : DP.LO) (x : X.car) : W.List X.car -> U l = split {
+  nilL -> W.Unit ;
+  consL a l | r -> LtB X a x * r } ;
+module BH (D : CD.Dil) (X : DP.LO) {
+  DX : DP.LO = PDn.Den[X].F D ;
+  supp (s : DX.car) : W.List X.car = s.1 ;
+  Collapse : U l =
+    (theta : DX.car -> X.car) *
+    (((s : DX.car) -> AllBelow X (theta s) (supp s)) *
+     ((s t : DX.car) -> LtB DX s t -> AllBelow X (theta t) (supp s) -> LtB X (theta s) (theta t))) ;
+} ;
+
+-- the Bachmann-Howard principle: every dilator has a well-founded collapse
+BHP : U l+ = (D : CD.Dil) -> WFPres D -> (X : DP.LO) * (WF X * BH[D,X].Collapse) ;

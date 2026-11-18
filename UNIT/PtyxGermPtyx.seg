@@ -1,0 +1,442 @@
+-- Ptykes from finite data, part D: the germ construction is a ptyx.
+--
+--   * TraceMap: a morphism T : A -> B maps the trace point (k, a) of b to
+--     the trace point (k, T(k) a) of T(n) b.  So a subset c of the trace
+--     of B pulls back to pre T c, and T(n) b is in B|c iff b is in
+--     A|(pre T c).  (Subsets of the trace of D are NOT subsets of the
+--     trace of D|L as they stand: the coordinates differ.)
+--   * FullIso: a K-bounded dilator is iso to its truncation at K.
+--   * support: the class of (K, z) is supported by D|K (through
+--     D|K ~ (D|K)|K).
+--   * meet: if y is supported by D|c and D|c', push representatives to a
+--     common level L, use the intersection axiom of the finite ptyx in
+--     the finite dilator D|L for the pulled-back subsets, and transport
+--     the result to (D|(c ^ c'))|L by DilImage.Lift (image chase in D).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module PDn = PtyxDen[l] ;
+module DI = DilImage[l] ;
+module PG = PtyxGerm[l] ;
+module PA = PtyxGermArr[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+----------------------------------------------------------------------
+-- words
+
+at-comp-l (u : W.Wd) (y : W.N) (v : W.Wd) (h : Id W.Bool (W.at (W.compW u v) y) true) : Id W.Bool (W.at u y) true =
+  W.andB-l (W.at u y) (W.at v (W.rank u y))
+    (W.trans W.Bool (W.andB (W.at u y) (W.at v (W.rank u y))) (W.at (W.compW u v) y) true
+      (W.sym W.Bool (W.at (W.compW u v) y) (W.andB (W.at u y) (W.at v (W.rank u y))) (W.at-comp u y v)) h) ;
+at-comp-r (u : W.Wd) (y : W.N) (v : W.Wd) (h : Id W.Bool (W.at (W.compW u v) y) true) : Id W.Bool (W.at v (W.rank u y)) true =
+  W.andB-r (W.at u y) (W.at v (W.rank u y))
+    (W.trans W.Bool (W.andB (W.at u y) (W.at v (W.rank u y))) (W.at (W.compW u v) y) true
+      (W.sym W.Bool (W.at (W.compW u v) y) (W.andB (W.at u y) (W.at v (W.rank u y))) (W.at-comp u y v)) h) ;
+in-comp (u v : W.Wd) (h : Id W.N (W.ones u) (W.len v)) (e : W.N) (he : Id W.Bool (W.at v e) true) :
+    Id W.Bool (W.at (W.compW u v) (W.sel u e)) true =
+  W.subst W.N (\ j -> Id W.Bool (W.at (W.compW u v) j) true) (W.sel (W.compW u v) (W.rank v e)) (W.sel u e)
+    (W.trans W.N (W.sel (W.compW u v) (W.rank v e)) (W.sel u (W.sel v (W.rank v e))) (W.sel u e)
+      (W.sel-comp u v (W.rank v e) h)
+      (W.ap W.N W.N (W.sel u) (W.sel v (W.rank v e)) e (W.sel-rank v e he)))
+    (W.at-sel (W.compW u v) (W.rank v e)
+      (W.subst W.N (\ j -> Id W.Bool (W.ltN (W.rank v e) j) true) (W.ones v) (W.ones (W.compW u v))
+        (W.sym W.N (W.ones (W.compW u v)) (W.ones v) (W.ones-comp u v h)) (W.rank-lt v e he))) ;
+
+----------------------------------------------------------------------
+-- traces along a morphism
+
+pre (A B : CD.Dil) (T : CD.Mor A B) (c : DP.SubSet) : DP.SubSet = \ k a -> c k (W.sel (T.1 k) a) ;
+
+module TraceMap (A B : CD.Dil) (T : CD.Mor A B) (c : DP.SubSet) (n b : W.N) (hb : Id W.Bool (W.ltN b (A.1 n)) true) {
+  module RB = DF.On[B].Sub[c].R ;
+  module RA = DF.On[A].Sub[pre A B T c].R ;
+  module Q = PDn.SuppEq[A,B,T,n,b,hb] ;
+  sA : W.Wd = Q.QD.Sup[n,b].supp ;
+  ss : Id W.N (W.len sA) n * Id W.Bool (W.at (CD.D1 A sA) b) true = Q.QD.Point[n,b,Q.xP.2].supp-supp ;
+  k : W.N = W.ones sA ;
+  a : W.N = W.rank (CD.D1 A sA) b ;
+  hao : Id W.Bool (W.ltN a (W.ones (T.1 k))) true =
+    W.subst W.N (\ j -> Id W.Bool (W.ltN a j) true) (W.ones (CD.D1 A sA)) (W.ones (T.1 k))
+      (W.trans W.N (W.ones (CD.D1 A sA)) (A.1 k) (W.ones (T.1 k)) (CD.dones A sA) (W.sym W.N (W.ones (T.1 k)) (A.1 k) (T.2.2.1 k)))
+      (W.rank-lt (CD.D1 A sA) b ss.2) ;
+  x0 : W.N = W.sel (T.1 k) a ;
+  hx0 : Id W.Bool (W.ltN x0 (W.ones (CD.D1 B sA))) true =
+    W.subst W.N (\ j -> Id W.Bool (W.ltN x0 j) true) (W.len (T.1 k)) (W.ones (CD.D1 B sA))
+      (W.trans W.N (W.len (T.1 k)) (B.1 k) (W.ones (CD.D1 B sA)) (T.2.1 k) (W.sym W.N (W.ones (CD.D1 B sA)) (B.1 k) (CD.dones B sA)))
+      (W.sel-lt (T.1 k) a hao) ;
+  y : W.N = W.sel (T.1 n) b ;
+  ey : Id W.N y (W.sel (CD.D1 B sA) x0) =
+    W.trans W.N y (W.sel (T.1 n) (W.sel (CD.D1 A sA) a)) (W.sel (CD.D1 B sA) x0)
+      (W.ap W.N W.N (W.sel (T.1 n)) b (W.sel (CD.D1 A sA) a) (W.sym W.N (W.sel (CD.D1 A sA) a) b (W.sel-rank (CD.D1 A sA) b ss.2)))
+      (Q.NT.natn n sA ss.1 a) ;
+  er : Id W.N (W.rank (CD.D1 B sA) y) x0 =
+    W.trans W.N (W.rank (CD.D1 B sA) y) (W.rank (CD.D1 B sA) (W.sel (CD.D1 B sA) x0)) x0
+      (W.ap W.N W.N (W.rank (CD.D1 B sA)) y (W.sel (CD.D1 B sA) x0) ey)
+      (W.rank-sel (CD.D1 B sA) x0 hx0) ;
+  Pr (u : W.Wd) : U l = Id W.Bool (c (W.ones u) (W.rank (CD.D1 B u) y)) (c k x0) ;
+  pA : Pr sA = W.ap W.N W.Bool (c k) (W.rank (CD.D1 B sA) y) x0 er ;
+  -- the trace test of T(n) b for c is that of b for pre T c
+  result : Id W.Bool (RB.trc n y) (RA.trc n b) =
+    W.subst W.Wd Pr sA RB.PD.Sup[n,y].supp (W.sym W.Wd RB.PD.Sup[n,y].supp sA Q.supp-eq) pA ;
+} ;
+
+-- x in A|(pre i c) gives i(x) in D|c
+module SubIm (A D : CD.Dil) (i : CD.Mor A D) (c : DP.SubSet) (n x : W.N)
+  (hx : Id W.Bool (W.at (DF.On[A].Sub[pre A D i c].R.chi n) x) true) {
+  module SA = DF.On[A].Sub[pre A D i c] ;
+  module SD = DF.On[D].Sub[c] ;
+  hxA : Id W.Bool (W.ltN x (A.1 n)) true =
+    W.subst W.N (\ j -> Id W.Bool (W.ltN x j) true) (W.len (SA.R.chi n)) (A.1 n) (SA.R.len-chi n) (W.at-lt (SA.R.chi n) x hx) ;
+  hix : Id W.Bool (W.ltN (W.sel (i.1 n) x) (D.1 n)) true =
+    W.subst W.N (\ j -> Id W.Bool (W.ltN (W.sel (i.1 n) x) j) true) (W.len (i.1 n)) (D.1 n) (i.2.1 n)
+      (W.sel-lt (i.1 n) x (W.subst W.N (\ j -> Id W.Bool (W.ltN x j) true) (A.1 n) (W.ones (i.1 n))
+        (W.sym W.N (W.ones (i.1 n)) (A.1 n) (i.2.2.1 n)) hxA)) ;
+  result : Id W.Bool (W.at (SD.R.chi n) (W.sel (i.1 n) x)) true =
+    W.trans W.Bool (W.at (SD.R.chi n) (W.sel (i.1 n) x)) (SD.R.trc n (W.sel (i.1 n) x)) true
+      (SD.member n (W.sel (i.1 n) x) hix)
+      (W.trans W.Bool (SD.R.trc n (W.sel (i.1 n) x)) (SA.R.trc n x) true
+        TraceMap[A,D,i,c,n,x,hxA].result
+        (W.trans W.Bool (SA.R.trc n x) (W.at (SA.R.chi n) x) true (W.sym W.Bool (W.at (SA.R.chi n) x) (SA.R.trc n x) (SA.member n x hxA)) hx)) ;
+} ;
+
+-- if M . i factors through D|c then M lands in A|(pre i c)
+module LeSub (G A D : CD.Dil) (M : CD.Mor G A) (i : CD.Mor A D) (c : DP.SubSet)
+  (N : CD.Mor G (DF.On[D].Sub[c].dil))
+  (e : Id (CD.Mor G D) (CD.compM G A D M i) (CD.compM G (DF.On[D].Sub[c].dil) D N (DF.On[D].Sub[c].inc))) {
+  module SA = DF.On[A].Sub[pre A D i c] ;
+  module SD = DF.On[D].Sub[c] ;
+  module Pt (n y : W.N) (h : Id W.Bool (W.at (M.1 n) y) true) {
+    b : W.N = W.rank (M.1 n) y ;
+    yb : Id W.N (W.sel (M.1 n) b) y = W.sel-rank (M.1 n) y h ;
+    hbG : Id W.Bool (W.ltN b (G.1 n)) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN b j) true) (W.ones (M.1 n)) (G.1 n) (M.2.2.1 n) (W.rank-lt (M.1 n) y h) ;
+    hy : Id W.Bool (W.ltN y (A.1 n)) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN y j) true) (W.len (M.1 n)) (A.1 n) (M.2.1 n) (W.at-lt (M.1 n) y h) ;
+    weq : Id W.Wd (W.compW (i.1 n) (M.1 n)) (W.compW (SD.R.chi n) (N.1 n)) =
+      PL.ap (CD.Mor G D) W.Wd (\ X -> X.1 n) (CD.compM G A D M i) (CD.compM G SD.dil D N SD.inc) e ;
+    iy : Id W.N (W.sel (i.1 n) y) (W.sel (SD.R.chi n) (W.sel (N.1 n) b)) =
+      W.trans W.N (W.sel (i.1 n) y) (W.sel (i.1 n) (W.sel (M.1 n) b)) (W.sel (SD.R.chi n) (W.sel (N.1 n) b))
+        (W.ap W.N W.N (W.sel (i.1 n)) y (W.sel (M.1 n) b) (W.sym W.N (W.sel (M.1 n) b) y yb))
+        (W.trans W.N (W.sel (i.1 n) (W.sel (M.1 n) b)) (W.sel (W.compW (i.1 n) (M.1 n)) b) (W.sel (SD.R.chi n) (W.sel (N.1 n) b))
+          (W.sym W.N (W.sel (W.compW (i.1 n) (M.1 n)) b) (W.sel (i.1 n) (W.sel (M.1 n) b))
+            (W.sel-comp (i.1 n) (M.1 n) b (W.trans W.N (W.ones (i.1 n)) (A.1 n) (W.len (M.1 n)) (i.2.2.1 n) (W.sym W.N (W.len (M.1 n)) (A.1 n) (M.2.1 n)))))
+          (W.trans W.N (W.sel (W.compW (i.1 n) (M.1 n)) b) (W.sel (W.compW (SD.R.chi n) (N.1 n)) b) (W.sel (SD.R.chi n) (W.sel (N.1 n) b))
+            (W.ap W.Wd W.N (\ u -> W.sel u b) (W.compW (i.1 n) (M.1 n)) (W.compW (SD.R.chi n) (N.1 n)) weq)
+            (W.sel-comp (SD.R.chi n) (N.1 n) b (W.sym W.N (W.len (N.1 n)) (SD.R.F0 n) (N.2.1 n))))) ;
+    hNb : Id W.Bool (W.ltN (W.sel (N.1 n) b) (W.ones (SD.R.chi n))) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN (W.sel (N.1 n) b) j) true) (W.len (N.1 n)) (SD.R.F0 n) (N.2.1 n)
+        (W.sel-lt (N.1 n) b (W.subst W.N (\ j -> Id W.Bool (W.ltN b j) true) (G.1 n) (W.ones (N.1 n))
+          (W.sym W.N (W.ones (N.1 n)) (G.1 n) (N.2.2.1 n)) hbG)) ;
+    hin : Id W.Bool (W.at (SD.R.chi n) (W.sel (i.1 n) y)) true =
+      W.subst W.N (\ j -> Id W.Bool (W.at (SD.R.chi n) j) true) (W.sel (SD.R.chi n) (W.sel (N.1 n) b)) (W.sel (i.1 n) y)
+        (W.sym W.N (W.sel (i.1 n) y) (W.sel (SD.R.chi n) (W.sel (N.1 n) b)) iy)
+        (W.at-sel (SD.R.chi n) (W.sel (N.1 n) b) hNb) ;
+    hiy : Id W.Bool (W.ltN (W.sel (i.1 n) y) (D.1 n)) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN (W.sel (i.1 n) y) j) true) (W.len (i.1 n)) (D.1 n) (i.2.1 n)
+        (W.sel-lt (i.1 n) y (W.subst W.N (\ j -> Id W.Bool (W.ltN y j) true) (A.1 n) (W.ones (i.1 n))
+          (W.sym W.N (W.ones (i.1 n)) (A.1 n) (i.2.2.1 n)) hy)) ;
+    result : Id W.Bool (W.at (SA.R.chi n) y) true =
+      W.trans W.Bool (W.at (SA.R.chi n) y) (SA.R.trc n y) true (SA.member n y hy)
+        (W.trans W.Bool (SA.R.trc n y) (SD.R.trc n (W.sel (i.1 n) y)) true
+          (W.sym W.Bool (SD.R.trc n (W.sel (i.1 n) y)) (SA.R.trc n y) TraceMap[A,D,i,c,n,y,hy].result)
+          (W.trans W.Bool (SD.R.trc n (W.sel (i.1 n) y)) (W.at (SD.R.chi n) (W.sel (i.1 n) y)) true
+            (W.sym W.Bool (W.at (SD.R.chi n) (W.sel (i.1 n) y)) (SD.R.trc n (W.sel (i.1 n) y)) (SD.member n (W.sel (i.1 n) y) hiy))
+            hin)) ;
+  } ;
+  le (n : W.N) : W.Le (M.1 n) (SA.R.chi n) = \ y h -> Pt[n,y,h].result ;
+} ;
+
+----------------------------------------------------------------------
+-- a K-bounded dilator is iso to its truncation at K
+
+module FullIso (A : CD.Dil) (K : W.N) (hb : DF.Bounded A K) {
+  module S = DF.On[A].Sub[DF.On[A].lev K] ;
+  module Pt (n y : W.N) (h : Id W.Bool (W.at (W.idW (A.1 n)) y) true) {
+    hy : Id W.Bool (W.ltN y (A.1 n)) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN y j) true) (W.len (W.idW (A.1 n))) (A.1 n) (W.len-idW (A.1 n)) (W.at-lt (W.idW (A.1 n)) y h) ;
+    fx : S.R.PD.Den n = S.R.PD.fwd n (y,S.R.PD.hzOf n y hy) ;
+    result : Id W.Bool (W.at (S.R.chi n) y) true =
+      W.trans W.Bool (W.at (S.R.chi n) y) (S.R.trc n y) true (S.member n y hy) (hb (W.ones S.R.PD.Sup[n,y].supp) fx.2.1 fx.2.2.2) ;
+  } ;
+  full (n : W.N) : W.Le ((CD.idM A).1 n) (S.R.chi n) = \ y h -> Pt[n,y,h].result ;
+  module L = DI.Lift[A,S.dil,A,CD.idM A,S.inc,full] ;
+  j : CD.Mor A S.dil = L.mor ;
+  j-tri : Id (CD.Mor A A) (CD.compM A S.dil A j S.inc) (CD.idM A) = L.tri ;
+  inc-j : Id (CD.Mor S.dil S.dil) (CD.compM S.dil A S.dil S.inc j) (CD.idM S.dil) =
+    DI.mono S.dil S.dil A S.inc (CD.compM S.dil A S.dil S.inc j) (CD.idM S.dil)
+      (PL.trans (CD.Mor S.dil A) (CD.compM S.dil S.dil A (CD.compM S.dil A S.dil S.inc j) S.inc)
+        (CD.compM S.dil A A S.inc (CD.compM A S.dil A j S.inc)) (CD.compM S.dil S.dil A (CD.idM S.dil) S.inc)
+        (CD.assoc S.dil A S.dil A S.inc j S.inc)
+        (PL.trans (CD.Mor S.dil A) (CD.compM S.dil A A S.inc (CD.compM A S.dil A j S.inc)) S.inc
+          (CD.compM S.dil S.dil A (CD.idM S.dil) S.inc)
+          (PL.trans (CD.Mor S.dil A) (CD.compM S.dil A A S.inc (CD.compM A S.dil A j S.inc)) (CD.compM S.dil A A S.inc (CD.idM A)) S.inc
+            (PL.ap (CD.Mor A A) (CD.Mor S.dil A) (CD.compM S.dil A A S.inc) (CD.compM A S.dil A j S.inc) (CD.idM A) j-tri)
+            (CD.id-left S.dil A S.inc))
+          (PL.sym (CD.Mor S.dil A) (CD.compM S.dil S.dil A (CD.idM S.dil) S.inc) S.inc (CD.id-right S.dil A S.inc)))) ;
+} ;
+
+----------------------------------------------------------------------
+-- a germ and its pushes have the same class
+
+module Push (FP : PG.FinPtyx) (D : CD.Dil) {
+  module GD = PG.Germ[FP,D] ;
+  up-id (L : W.N) (h : PG.LeN L L) : Id (CD.Mor (PF.Tr D L) (PF.Tr D L)) (GD.up L L h) (CD.idM (PF.Tr D L)) =
+    GD.uniq L L (GD.up L L h) (CD.idM (PF.Tr D L)) (GD.up-tri L L h) (CD.id-right (PF.Tr D L) D (PF.TrInc D L)) ;
+  push-self (L : W.N) (p : (GD.Fo L).car) (h : PG.LeN L L) : Id (GD.Fo L).car (GD.push (L,p) L h) p =
+    PL.trans (GD.Fo L).car (GD.push (L,p) L h) ((FP.arr (GD.T L) (GD.T L) (CD.idM (PF.Tr D L))).1 p) p
+      (PL.ap (CD.Mor (PF.Tr D L) (PF.Tr D L)) (GD.Fo L).car (\ S -> (FP.arr (GD.T L) (GD.T L) S).1 p) (GD.up L L h) (CD.idM (PF.Tr D L)) (up-id L h))
+      (FP.arr-id (GD.T L) p) ;
+  cl-push (g : GD.G) (L : W.N) (h : PG.LeN g.1 L) : Id GD.Car (GD.cl g) (GD.cl (L,GD.push g L h)) =
+    GD.car-eq (GD.cl g) (GD.cl (L,GD.push g L h))
+      (GD.cls-eq g (L,GD.push g L h)
+        (W.trans W.O3 (GD.cmpG g (L,GD.push g L h)) (GD.cmpAt g (L,GD.push g L h) L h (PG.le-refl L)) eq
+          (GD.cmpG-at g (L,GD.push g L h) L h (PG.le-refl L))
+          (W.trans W.O3 (GD.cmpAt g (L,GD.push g L h) L h (PG.le-refl L)) ((GD.Fo L).cmp (GD.push g L h) (GD.push g L h)) eq
+            (W.ap (GD.Fo L).car W.O3 ((GD.Fo L).cmp (GD.push g L h)) (GD.push (L,GD.push g L h) L (PG.le-refl L)) (GD.push g L h)
+              (push-self L (GD.push g L h) (PG.le-refl L)))
+            ((GD.Fo L).crefl (GD.push g L h))))) ;
+} ;
+
+----------------------------------------------------------------------
+-- supports
+
+SuppH (FP : PG.FinPtyx) (D : CD.Dil) (y : PG.Germ[FP,D].Car) (c : DP.SubSet) : U l =
+  (z : PG.Germ[FP,DF.On[D].Sub[c].dil].Car) * Id PG.Germ[FP,D].Car (PA.Arr[FP,DF.On[D].Sub[c].dil,D,DF.On[D].Sub[c].inc].f z) y ;
+supph-prop (FP : PG.FinPtyx) (D : CD.Dil) (y : PG.Germ[FP,D].Car) (c : DP.SubSet) : PL.isProp (SuppH FP D y c) = \ p q ->
+  PL.Sigma-eq PG.Germ[FP,DF.On[D].Sub[c].dil].Car
+    (\ z -> Id PG.Germ[FP,D].Car (PA.Arr[FP,DF.On[D].Sub[c].dil,D,DF.On[D].Sub[c].inc].f z) y) p.1 q.1 p.2 q.2
+    (DP.map-inj PG.Germ[FP,DF.On[D].Sub[c].dil].lo PG.Germ[FP,D].lo PA.Arr[FP,DF.On[D].Sub[c].dil,D,DF.On[D].Sub[c].inc].map p.1 q.1
+      (PL.trans PG.Germ[FP,D].Car (PA.Arr[FP,DF.On[D].Sub[c].dil,D,DF.On[D].Sub[c].inc].f p.1) y
+        (PA.Arr[FP,DF.On[D].Sub[c].dil,D,DF.On[D].Sub[c].inc].f q.1) p.2
+        (PL.sym PG.Germ[FP,D].Car (PA.Arr[FP,DF.On[D].Sub[c].dil,D,DF.On[D].Sub[c].inc].f q.1) y q.2)))
+    (PG.Germ[FP,D].car-set (PA.Arr[FP,DF.On[D].Sub[c].dil,D,DF.On[D].Sub[c].inc].f q.1) y) ;
+
+-- continuity: the class of (K, z) is supported by D|K
+module Support (FP : PG.FinPtyx) (D : CD.Dil) (y : PG.Germ[FP,D].Car) {
+  module GD = PG.Germ[FP,D] ;
+  Target : U l = (K : W.N) * ((z : PG.Germ[FP,PF.Tr D K].Car) * Id GD.Car (PA.Arr[FP,PF.Tr D K,D,PF.TrInc D K].f z) y) ;
+  module Wit (g : GD.G) (e : Id GD.Car (GD.cl g) y) {
+    K : W.N = g.1 ;
+    B : CD.Dil = PF.Tr D K ;
+    FB : DF.FinDil = GD.T K ;
+    module GB = PG.Germ[FP,B] ;
+    module FI = FullIso[B,K,FB.2.2] ;
+    module AR = PA.Arr[FP,B,D,PF.TrInc D K] ;
+    w : (GB.Fo K).car = (FP.arr FB (GB.T K) FI.j).1 g.2 ;
+    s : GB.Car = GB.cl (K,w) ;
+    e1 : Id (CD.Mor B B) (CD.compM B (PF.Tr B K) B FI.j (AR.tf K)) (CD.idM B) =
+      DI.mono B B D (PF.TrInc D K) (CD.compM B (PF.Tr B K) B FI.j (AR.tf K)) (CD.idM B)
+        (PL.trans (CD.Mor B D) (CD.compM B B D (CD.compM B (PF.Tr B K) B FI.j (AR.tf K)) (PF.TrInc D K))
+          (CD.compM B (PF.Tr B K) D FI.j (CD.compM (PF.Tr B K) B D (AR.tf K) (PF.TrInc D K)))
+          (CD.compM B B D (CD.idM B) (PF.TrInc D K))
+          (CD.assoc B (PF.Tr B K) B D FI.j (AR.tf K) (PF.TrInc D K))
+          (PL.trans (CD.Mor B D) (CD.compM B (PF.Tr B K) D FI.j (CD.compM (PF.Tr B K) B D (AR.tf K) (PF.TrInc D K)))
+            (CD.compM B (PF.Tr B K) D FI.j (CD.compM (PF.Tr B K) B D (PF.TrInc B K) (PF.TrInc D K)))
+            (CD.compM B B D (CD.idM B) (PF.TrInc D K))
+            (PL.ap (CD.Mor (PF.Tr B K) D) (CD.Mor B D) (CD.compM B (PF.Tr B K) D FI.j)
+              (CD.compM (PF.Tr B K) B D (AR.tf K) (PF.TrInc D K)) (CD.compM (PF.Tr B K) B D (PF.TrInc B K) (PF.TrInc D K)) (AR.tf-tri K))
+            (PL.trans (CD.Mor B D) (CD.compM B (PF.Tr B K) D FI.j (CD.compM (PF.Tr B K) B D (PF.TrInc B K) (PF.TrInc D K)))
+              (CD.compM B B D (CD.compM B (PF.Tr B K) B FI.j (PF.TrInc B K)) (PF.TrInc D K))
+              (CD.compM B B D (CD.idM B) (PF.TrInc D K))
+              (PL.sym (CD.Mor B D) (CD.compM B B D (CD.compM B (PF.Tr B K) B FI.j (PF.TrInc B K)) (PF.TrInc D K))
+                (CD.compM B (PF.Tr B K) D FI.j (CD.compM (PF.Tr B K) B D (PF.TrInc B K) (PF.TrInc D K)))
+                (CD.assoc B (PF.Tr B K) B D FI.j (PF.TrInc B K) (PF.TrInc D K)))
+              (PL.ap (CD.Mor B B) (CD.Mor B D) (\ M -> CD.compM B B D M (PF.TrInc D K))
+                (CD.compM B (PF.Tr B K) B FI.j (PF.TrInc B K)) (CD.idM B) FI.j-tri)))) ;
+    e2 : Id GD.G (AR.gmap (K,w)) g =
+      PL.ap (GD.Fo K).car GD.G (\ u -> (K,u)) (AR.gmap (K,w)).2 g.2
+        (PL.trans (GD.Fo K).car (AR.gmap (K,w)).2 ((FP.arr FB FB (CD.compM B (PF.Tr B K) B FI.j (AR.tf K))).1 g.2) g.2
+          (FP.arr-comp FB (GB.T K) FB FI.j (AR.tf K) g.2)
+          (PL.trans (GD.Fo K).car ((FP.arr FB FB (CD.compM B (PF.Tr B K) B FI.j (AR.tf K))).1 g.2) ((FP.arr FB FB (CD.idM B)).1 g.2) g.2
+            (PL.ap (CD.Mor B B) (GD.Fo K).car (\ M -> (FP.arr FB FB M).1 g.2) (CD.compM B (PF.Tr B K) B FI.j (AR.tf K)) (CD.idM B) e1)
+            (FP.arr-id FB g.2))) ;
+    eq : Id GD.Car (AR.f s) y =
+      PL.trans GD.Car (AR.f s) (GD.cl (AR.gmap (K,w))) y (AR.f-cl (K,w))
+        (PL.trans GD.Car (GD.cl (AR.gmap (K,w))) (GD.cl g) y (PL.ap GD.G GD.Car GD.cl (AR.gmap (K,w)) g e2) e) ;
+    result : Target = (K,(s,eq)) ;
+  } ;
+  result : Ex Target =
+    TC.rec ((g : GD.G) * Id GD.Car (GD.cl g) y) @l (Ex Target) (prop Target)
+      (\ p -> inc Target Wit[p.1,p.2].result) (GD.surj y) ;
+} ;
+
+----------------------------------------------------------------------
+-- stability: supports are closed under intersection
+
+module MeetW (FP : PG.FinPtyx) (D : CD.Dil) (y : PG.Germ[FP,D].Car) (c c' : DP.SubSet)
+  (s : SuppH FP D y c) (s' : SuppH FP D y c')
+  (r : PG.Germ[FP,DF.On[D].Sub[c].dil].Rep s.1.1) (r' : PG.Germ[FP,DF.On[D].Sub[c'].dil].Rep s'.1.1) {
+  module GD = PG.Germ[FP,D] ;
+  module Sc = DF.On[D].Sub[c] ;
+  module Sc' = DF.On[D].Sub[c'] ;
+  module Gc = PG.Germ[FP,Sc.dil] ;
+  module Gc' = PG.Germ[FP,Sc'.dil] ;
+  module Ac = PA.Arr[FP,Sc.dil,D,Sc.inc] ;
+  module Ac' = PA.Arr[FP,Sc'.dil,D,Sc'.inc] ;
+  module PD = Push[FP,D] ;
+  g1 : GD.G = Ac.gmap r.1 ;
+  g2 : GD.G = Ac'.gmap r'.1 ;
+  ey1 : Id GD.Car (GD.cl g1) y =
+    PL.trans GD.Car (GD.cl g1) (Ac.f (Gc.cl r.1)) y (PL.sym GD.Car (Ac.f (Gc.cl r.1)) (GD.cl g1) (Ac.f-cl r.1))
+      (PL.trans GD.Car (Ac.f (Gc.cl r.1)) (Ac.f s.1) y (PL.ap Gc.Car GD.Car Ac.f (Gc.cl r.1) s.1 (Gc.cl-rep s.1 r)) s.2) ;
+  ey2 : Id GD.Car (GD.cl g2) y =
+    PL.trans GD.Car (GD.cl g2) (Ac'.f (Gc'.cl r'.1)) y (PL.sym GD.Car (Ac'.f (Gc'.cl r'.1)) (GD.cl g2) (Ac'.f-cl r'.1))
+      (PL.trans GD.Car (Ac'.f (Gc'.cl r'.1)) (Ac'.f s'.1) y (PL.ap Gc'.Car GD.Car Ac'.f (Gc'.cl r'.1) s'.1 (Gc'.cl-rep s'.1 r')) s'.2) ;
+  K1 : W.N = r.1.1 ;
+  K2 : W.N = r'.1.1 ;
+  L : W.N = W.plus K1 K2 ;
+  h1 : PG.LeN K1 L = PG.leL K1 K2 ;
+  h2 : PG.LeN K2 L = PG.leR K1 K2 ;
+  a : (GD.Fo L).car = GD.push g1 L h1 ;
+  a' : (GD.Fo L).car = GD.push g2 L h2 ;
+  aa : Id (GD.Fo L).car a a' =
+    (GD.Fo L).ceq a a'
+      (W.trans W.O3 ((GD.Fo L).cmp a a') (GD.cmpG g1 g2) eq
+        (W.sym W.O3 (GD.cmpG g1 g2) ((GD.Fo L).cmp a a') (GD.cmpG-at g1 g2 L h1 h2))
+        (GD.cls-inv g1 g2 (PL.ap GD.Car (GD.G -> W.Bool) (\ x -> x.1) (GD.cl g1) (GD.cl g2)
+          (PL.trans GD.Car (GD.cl g1) y (GD.cl g2) ey1 (PL.sym GD.Car (GD.cl g2) y ey2))))) ;
+
+  A : CD.Dil = PF.Tr D L ;
+  FA : DF.FinDil = GD.T L ;
+  i : CD.Mor A D = PF.TrInc D L ;
+  cA : DP.SubSet = pre A D i c ;
+  c'A : DP.SubSet = pre A D i c' ;
+  module SA = DF.On[A].Sub[cA] ;
+  module SA' = DF.On[A].Sub[c'A] ;
+
+  -- a is supported by A|cA
+  X1 : CD.Dil = PF.Tr Sc.dil K1 ;
+  M1 : CD.Mor X1 A = CD.compM X1 (PF.Tr D K1) A (Ac.tf K1) (GD.up K1 L h1) ;
+  eM1 : Id (CD.Mor X1 D) (CD.compM X1 A D M1 i) (CD.compM X1 Sc.dil D (PF.TrInc Sc.dil K1) Sc.inc) =
+    PL.trans (CD.Mor X1 D) (CD.compM X1 A D M1 i) (CD.compM X1 (PF.Tr D K1) D (Ac.tf K1) (CD.compM (PF.Tr D K1) A D (GD.up K1 L h1) i))
+      (CD.compM X1 Sc.dil D (PF.TrInc Sc.dil K1) Sc.inc)
+      (CD.assoc X1 (PF.Tr D K1) A D (Ac.tf K1) (GD.up K1 L h1) i)
+      (PL.trans (CD.Mor X1 D) (CD.compM X1 (PF.Tr D K1) D (Ac.tf K1) (CD.compM (PF.Tr D K1) A D (GD.up K1 L h1) i))
+        (CD.compM X1 (PF.Tr D K1) D (Ac.tf K1) (PF.TrInc D K1)) (CD.compM X1 Sc.dil D (PF.TrInc Sc.dil K1) Sc.inc)
+        (PL.ap (CD.Mor (PF.Tr D K1) D) (CD.Mor X1 D) (CD.compM X1 (PF.Tr D K1) D (Ac.tf K1))
+          (CD.compM (PF.Tr D K1) A D (GD.up K1 L h1) i) (PF.TrInc D K1) (GD.up-tri K1 L h1))
+        (Ac.tf-tri K1)) ;
+  module L1 = DI.Lift[X1,SA.dil,A,M1,SA.inc,LeSub[X1,A,D,M1,i,c,PF.TrInc Sc.dil K1,eM1].le] ;
+  z1 : (FP.F (PG.subFin FA cA)).car = (FP.arr (Gc.T K1) (PG.subFin FA cA) L1.mor).1 r.1.2 ;
+  ez1 : Id (GD.Fo L).car ((FP.arr (PG.subFin FA cA) FA SA.inc).1 z1) a =
+    PL.trans (GD.Fo L).car ((FP.arr (PG.subFin FA cA) FA SA.inc).1 z1) ((FP.arr (Gc.T K1) FA (CD.compM X1 SA.dil A L1.mor SA.inc)).1 r.1.2) a
+      (FP.arr-comp (Gc.T K1) (PG.subFin FA cA) FA L1.mor SA.inc r.1.2)
+      (PL.trans (GD.Fo L).car ((FP.arr (Gc.T K1) FA (CD.compM X1 SA.dil A L1.mor SA.inc)).1 r.1.2) ((FP.arr (Gc.T K1) FA M1).1 r.1.2) a
+        (PL.ap (CD.Mor X1 A) (GD.Fo L).car (\ M -> (FP.arr (Gc.T K1) FA M).1 r.1.2) (CD.compM X1 SA.dil A L1.mor SA.inc) M1 L1.tri)
+        (PL.sym (GD.Fo L).car a ((FP.arr (Gc.T K1) FA M1).1 r.1.2)
+          (FP.arr-comp (Gc.T K1) (GD.T K1) FA (Ac.tf K1) (GD.up K1 L h1) r.1.2))) ;
+
+  -- a' (= a) is supported by A|c'A
+  X2 : CD.Dil = PF.Tr Sc'.dil K2 ;
+  M2 : CD.Mor X2 A = CD.compM X2 (PF.Tr D K2) A (Ac'.tf K2) (GD.up K2 L h2) ;
+  eM2 : Id (CD.Mor X2 D) (CD.compM X2 A D M2 i) (CD.compM X2 Sc'.dil D (PF.TrInc Sc'.dil K2) Sc'.inc) =
+    PL.trans (CD.Mor X2 D) (CD.compM X2 A D M2 i) (CD.compM X2 (PF.Tr D K2) D (Ac'.tf K2) (CD.compM (PF.Tr D K2) A D (GD.up K2 L h2) i))
+      (CD.compM X2 Sc'.dil D (PF.TrInc Sc'.dil K2) Sc'.inc)
+      (CD.assoc X2 (PF.Tr D K2) A D (Ac'.tf K2) (GD.up K2 L h2) i)
+      (PL.trans (CD.Mor X2 D) (CD.compM X2 (PF.Tr D K2) D (Ac'.tf K2) (CD.compM (PF.Tr D K2) A D (GD.up K2 L h2) i))
+        (CD.compM X2 (PF.Tr D K2) D (Ac'.tf K2) (PF.TrInc D K2)) (CD.compM X2 Sc'.dil D (PF.TrInc Sc'.dil K2) Sc'.inc)
+        (PL.ap (CD.Mor (PF.Tr D K2) D) (CD.Mor X2 D) (CD.compM X2 (PF.Tr D K2) D (Ac'.tf K2))
+          (CD.compM (PF.Tr D K2) A D (GD.up K2 L h2) i) (PF.TrInc D K2) (GD.up-tri K2 L h2))
+        (Ac'.tf-tri K2)) ;
+  module L2 = DI.Lift[X2,SA'.dil,A,M2,SA'.inc,LeSub[X2,A,D,M2,i,c',PF.TrInc Sc'.dil K2,eM2].le] ;
+  z2 : (FP.F (PG.subFin FA c'A)).car = (FP.arr (Gc'.T K2) (PG.subFin FA c'A) L2.mor).1 r'.1.2 ;
+  ez2 : Id (GD.Fo L).car ((FP.arr (PG.subFin FA c'A) FA SA'.inc).1 z2) a =
+    PL.trans (GD.Fo L).car ((FP.arr (PG.subFin FA c'A) FA SA'.inc).1 z2) a' a
+      (PL.trans (GD.Fo L).car ((FP.arr (PG.subFin FA c'A) FA SA'.inc).1 z2) ((FP.arr (Gc'.T K2) FA (CD.compM X2 SA'.dil A L2.mor SA'.inc)).1 r'.1.2) a'
+        (FP.arr-comp (Gc'.T K2) (PG.subFin FA c'A) FA L2.mor SA'.inc r'.1.2)
+        (PL.trans (GD.Fo L).car ((FP.arr (Gc'.T K2) FA (CD.compM X2 SA'.dil A L2.mor SA'.inc)).1 r'.1.2) ((FP.arr (Gc'.T K2) FA M2).1 r'.1.2) a'
+          (PL.ap (CD.Mor X2 A) (GD.Fo L).car (\ M -> (FP.arr (Gc'.T K2) FA M).1 r'.1.2) (CD.compM X2 SA'.dil A L2.mor SA'.inc) M2 L2.tri)
+          (PL.sym (GD.Fo L).car a' ((FP.arr (Gc'.T K2) FA M2).1 r'.1.2)
+            (FP.arr-comp (Gc'.T K2) (GD.T K2) FA (Ac'.tf K2) (GD.up K2 L h2) r'.1.2))))
+      (PL.sym (GD.Fo L).car a a' aa) ;
+
+  -- the intersection axiom in the finite dilator D|L
+  mw : (w : (FP.F (PG.subFin FA (DF.On[A].meet cA c'A))).car) *
+      Id (GD.Fo L).car ((FP.arr (PG.subFin FA (DF.On[A].meet cA c'A)) FA (DF.On[A].Sub[DF.On[A].meet cA c'A].inc)).1 w) a =
+    FP.meet FA a cA c'A (z1,ez1) (z2,ez2) ;
+
+  -- transport to (D|(c ^ c'))|L
+  cm : DP.SubSet = DF.On[D].meet c c' ;
+  module SE = DF.On[D].Sub[cm] ;
+  E : CD.Dil = SE.dil ;
+  module GE = PG.Germ[FP,E] ;
+  module AE = PA.Arr[FP,E,D,SE.inc] ;
+  module SB = DF.On[A].Sub[DF.On[A].meet cA c'A] ;
+  B : DF.FinDil = PG.subFin FA (DF.On[A].meet cA c'A) ;
+  IEL : CD.Mor (PF.Tr E L) E = PF.TrInc E L ;
+  module LeP (n y0 : W.N) (h : Id W.Bool (W.at (W.compW (i.1 n) (SB.R.chi n)) y0) true) {
+    hi : Id W.Bool (W.at (i.1 n) y0) true = at-comp-l (i.1 n) y0 (SB.R.chi n) h ;
+    xx : W.N = W.rank (i.1 n) y0 ;
+    ex : Id W.N (W.sel (i.1 n) xx) y0 = W.sel-rank (i.1 n) y0 hi ;
+    hxx : Id W.Bool (W.at (SB.R.chi n) xx) true = at-comp-r (i.1 n) y0 (SB.R.chi n) h ;
+    hE : Id W.Bool (W.at (SE.R.chi n) y0) true =
+      W.subst W.N (\ j -> Id W.Bool (W.at (SE.R.chi n) j) true) (W.sel (i.1 n) xx) y0 ex SubIm[A,D,i,cm,n,xx,hxx].result ;
+    ee0 : W.N = W.rank (SE.R.chi n) y0 ;
+    ee : Id W.N (W.sel (SE.R.chi n) ee0) y0 = W.sel-rank (SE.R.chi n) y0 hE ;
+    heE : Id W.Bool (W.ltN ee0 (E.1 n)) true = W.rank-lt (SE.R.chi n) y0 hE ;
+    module SEL = DF.On[E].Sub[DF.On[E].lev L] ;
+    module SDL = DF.On[D].Sub[DF.On[D].lev L] ;
+    hy0 : Id W.Bool (W.ltN y0 (D.1 n)) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN y0 j) true) (W.len (i.1 n)) (D.1 n) (i.2.1 n) (W.at-lt (i.1 n) y0 hi) ;
+    trD : Id W.Bool (SDL.R.trc n y0) true =
+      W.trans W.Bool (SDL.R.trc n y0) (W.at (i.1 n) y0) true (W.sym W.Bool (W.at (i.1 n) y0) (SDL.R.trc n y0) (SDL.member n y0 hy0)) hi ;
+    trE : Id W.Bool (SEL.R.trc n ee0) true =
+      W.trans W.Bool (SEL.R.trc n ee0) (SDL.R.trc n (W.sel (SE.R.chi n) ee0)) true
+        (W.sym W.Bool (SDL.R.trc n (W.sel (SE.R.chi n) ee0)) (SEL.R.trc n ee0) TraceMap[E,D,SE.inc,DF.On[D].lev L,n,ee0,heE].result)
+        (W.subst W.N (\ j -> Id W.Bool (SDL.R.trc n j) true) y0 (W.sel (SE.R.chi n) ee0) (W.sym W.N (W.sel (SE.R.chi n) ee0) y0 ee) trD) ;
+    hL : Id W.Bool (W.at (SEL.R.chi n) ee0) true =
+      W.trans W.Bool (W.at (SEL.R.chi n) ee0) (SEL.R.trc n ee0) true (SEL.member n ee0 heE) trE ;
+    result : Id W.Bool (W.at (W.compW (SE.R.chi n) (SEL.R.chi n)) y0) true =
+      W.subst W.N (\ j -> Id W.Bool (W.at (W.compW (SE.R.chi n) (SEL.R.chi n)) j) true) (W.sel (SE.R.chi n) ee0) y0 ee
+        (in-comp (SE.R.chi n) (SEL.R.chi n) (W.sym W.N (W.len (SEL.R.chi n)) (E.1 n) (SEL.R.len-chi n)) ee0 hL) ;
+  } ;
+  module LP = DI.Lift[B.1,PF.Tr E L,D,CD.compM B.1 A D SB.inc i,CD.compM (PF.Tr E L) E D IEL SE.inc,\ n y0 h -> LeP[n,y0,h].result] ;
+  psi : CD.Mor B.1 (PF.Tr E L) = LP.mor ;
+  epsi : Id (CD.Mor B.1 A) (CD.compM B.1 (PF.Tr E L) A psi (AE.tf L)) SB.inc =
+    DI.mono B.1 A D i (CD.compM B.1 (PF.Tr E L) A psi (AE.tf L)) SB.inc
+      (PL.trans (CD.Mor B.1 D) (CD.compM B.1 A D (CD.compM B.1 (PF.Tr E L) A psi (AE.tf L)) i)
+        (CD.compM B.1 (PF.Tr E L) D psi (CD.compM (PF.Tr E L) A D (AE.tf L) i)) (CD.compM B.1 A D SB.inc i)
+        (CD.assoc B.1 (PF.Tr E L) A D psi (AE.tf L) i)
+        (PL.trans (CD.Mor B.1 D) (CD.compM B.1 (PF.Tr E L) D psi (CD.compM (PF.Tr E L) A D (AE.tf L) i))
+          (CD.compM B.1 (PF.Tr E L) D psi (CD.compM (PF.Tr E L) E D IEL SE.inc)) (CD.compM B.1 A D SB.inc i)
+          (PL.ap (CD.Mor (PF.Tr E L) D) (CD.Mor B.1 D) (CD.compM B.1 (PF.Tr E L) D psi)
+            (CD.compM (PF.Tr E L) A D (AE.tf L) i) (CD.compM (PF.Tr E L) E D IEL SE.inc) (AE.tf-tri L))
+          LP.tri)) ;
+  wpsi : (GE.Fo L).car = (FP.arr B (GE.T L) psi).1 mw.1 ;
+  s2 : GE.Car = GE.cl (L,wpsi) ;
+  gpath : Id GD.G (AE.gmap (L,wpsi)) (L,a) =
+    PL.ap (GD.Fo L).car GD.G (\ u -> (L,u)) (AE.gmap (L,wpsi)).2 a
+      (PL.trans (GD.Fo L).car (AE.gmap (L,wpsi)).2 ((FP.arr B FA (CD.compM B.1 (PF.Tr E L) A psi (AE.tf L))).1 mw.1) a
+        (FP.arr-comp B (GE.T L) FA psi (AE.tf L) mw.1)
+        (PL.trans (GD.Fo L).car ((FP.arr B FA (CD.compM B.1 (PF.Tr E L) A psi (AE.tf L))).1 mw.1) ((FP.arr B FA SB.inc).1 mw.1) a
+          (PL.ap (CD.Mor B.1 A) (GD.Fo L).car (\ M -> (FP.arr B FA M).1 mw.1) (CD.compM B.1 (PF.Tr E L) A psi (AE.tf L)) SB.inc epsi)
+          mw.2)) ;
+  eq : Id GD.Car (AE.f s2) y =
+    PL.trans GD.Car (AE.f s2) (GD.cl (AE.gmap (L,wpsi))) y (AE.f-cl (L,wpsi))
+      (PL.trans GD.Car (GD.cl (AE.gmap (L,wpsi))) (GD.cl (L,a)) y (PL.ap GD.G GD.Car GD.cl (AE.gmap (L,wpsi)) (L,a) gpath)
+        (PL.trans GD.Car (GD.cl (L,a)) (GD.cl g1) y (PL.sym GD.Car (GD.cl g1) (GD.cl (L,a)) (PD.cl-push g1 L h1)) ey1)) ;
+  result : SuppH FP D y cm = (s2,eq) ;
+} ;
+
+meetH (FP : PG.FinPtyx) (D : CD.Dil) (y : PG.Germ[FP,D].Car) (c c' : DP.SubSet)
+  (s : SuppH FP D y c) (s' : SuppH FP D y c') : SuppH FP D y (DF.On[D].meet c c') =
+  TC.rec (PG.Germ[FP,DF.On[D].Sub[c].dil].Rep s.1.1) @l (SuppH FP D y (DF.On[D].meet c c')) (supph-prop FP D y (DF.On[D].meet c c'))
+    (\ r -> TC.rec (PG.Germ[FP,DF.On[D].Sub[c'].dil].Rep s'.1.1) @l (SuppH FP D y (DF.On[D].meet c c')) (supph-prop FP D y (DF.On[D].meet c c'))
+      (\ r' -> MeetW[FP,D,y,c,c',s,s',r,r'].result) s'.1.2)
+    s.1.2 ;
+
+----------------------------------------------------------------------
+-- the ptyx generated by a finite ptyx
+
+hat (FP : PG.FinPtyx) : DP.Ptyx = new DP.Ptyx[
+  F := \ D -> PG.Germ[FP,D].lo,
+  arr := \ D E T -> PA.Arr[FP,D,E,T].map,
+  arr-id := \ D y -> PA.ArrId[FP,D].eq y,
+  arr-comp := \ D E G S T y -> PA.ArrComp[FP,D,E,G,S,T].eq y,
+  support := \ D y -> Support[FP,D,y].result,
+  meet := \ D y c c' s s' -> meetH FP D y c c' s s'] ;

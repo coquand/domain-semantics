@@ -1,0 +1,262 @@
+-- Directed colimits of type-3 ptykes (catemb.pdf one level up; the
+-- type-3 analogue of PtyxColim, obtained from it by replacing dilators,
+-- subdilators D|c and truncations D|K by ptykes, subptykes and finitely
+-- generated subptykes).
+--
+-- A directed system of type-3 ptykes indexed by N: P i, morphisms
+-- e i j : P i -> P j for i <= j, coherent pointwise.  The colimit is
+-- computed pointwise with LOColim: colim(D) = colim_i P_i(D), for every
+-- ptyx D.  It is a type-3 ptyx:
+--   * continuity: a germ (i, x) is supported where x is, in P_i
+--     (a finitely generated subptyx);
+--   * stability: push representatives of two supports to a common level
+--     L and use the intersection axiom of P_L.
+-- The injections iota i are cartesian morphisms of type-3 ptykes, and
+-- the colimit has the universal property among cocones (mor, fac, uniq).
+-- So Ptyx3 has directed colimits of N-chains: with Ptyx3Sub and
+-- Ptyx3Gen, the catemb structure (subobjects, images, pull-backs, finite
+-- generation, directed colimits) holds at type 3.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PM = PtyxMor[l] ;
+module PF = PtyxFinite[l] ;
+module PG = PtyxGerm[l] ;
+module LC = LOColim[l] ;
+module P3 = Ptyx3[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module FE = Axioms[l].FunExtLemmas[fe @l] ;
+
+module Sys (P : W.N -> P3.Ptyx3) (e : (i j : W.N) -> PG.LeN i j -> P3.Mor3 (P i) (P j))
+  (e-id : (i : W.N) (h : PG.LeN i i) (D : DP.Ptyx) (x : ((P i).G D).car) -> Id ((P i).G D).car (((e i i h).1 D).1 x) x)
+  (e-comp : (i j k : W.N) (h : PG.LeN i j) (h' : PG.LeN j k) (D : DP.Ptyx) (x : ((P i).G D).car) ->
+     Id ((P k).G D).car (((e j k h').1 D).1 (((e i j h).1 D).1 x)) (((e i k (PG.le-trans i j k h h')).1 D).1 x)) {
+
+  module Cl (D : DP.Ptyx) {
+    Fo (i : W.N) : DP.LO = (P i).G D ;
+    up (i j : W.N) (h : PG.LeN i j) : DP.Map (Fo i) (Fo j) = (e i j h).1 D ;
+    uid (i : W.N) (h : PG.LeN i i) (x : (Fo i).car) : Id (Fo i).car ((up i i h).1 x) x = e-id i h D x ;
+    ucomp (i j k : W.N) (h : PG.LeN i j) (h' : PG.LeN j k) (x : (Fo i).car) :
+        Id (Fo k).car ((up j k h').1 ((up i j h).1 x)) ((up i k (PG.le-trans i j k h h')).1 x) = e-comp i j k h h' D x ;
+    module X = LC.Colim[Fo,up,uid,ucomp] ;
+  } ;
+
+  module Am (D E : DP.Ptyx) (T : PM.Mor D E) {
+    fc (i j : W.N) (h : PG.LeN i j) (x : ((P i).G D).car) :
+        Id ((P j).G E).car (((e i j h).1 E).1 (((P i).arr D E T).1 x)) (((P j).arr D E T).1 (((e i j h).1 D).1 x)) =
+      PL.sym ((P j).G E).car (((P j).arr D E T).1 (((e i j h).1 D).1 x)) (((e i j h).1 E).1 (((P i).arr D E T).1 x))
+        ((e i j h).2.1 D E T x) ;
+    module I = LC.Ind[Cl[D].Fo,Cl[D].up,Cl[D].uid,Cl[D].ucomp,Cl[E].Fo,Cl[E].up,Cl[E].uid,Cl[E].ucomp,\ i -> (P i).arr D E T,fc] ;
+  } ;
+
+  F (D : DP.Ptyx) : DP.LO = Cl[D].X.lo ;
+  arr (D E : DP.Ptyx) (T : PM.Mor D E) : DP.Map (F D) (F E) = Am[D,E,T].I.map ;
+
+  arr-id (D : DP.Ptyx) (y : Cl[D].X.Car) : Id Cl[D].X.Car (Am[D,D,PM.idP D].I.fm y) y =
+    Cl[D].X.ind (\ y0 -> Id Cl[D].X.Car (Am[D,D,PM.idP D].I.fm y0) y0) (\ y0 -> Cl[D].X.car-set (Am[D,D,PM.idP D].I.fm y0) y0)
+      (\ g -> PL.trans Cl[D].X.Car (Am[D,D,PM.idP D].I.fm (Cl[D].X.cl g)) (Cl[D].X.cl (Am[D,D,PM.idP D].I.gmap g)) (Cl[D].X.cl g)
+        (Am[D,D,PM.idP D].I.fm-cl g)
+        (PL.ap Cl[D].X.G Cl[D].X.Car Cl[D].X.cl (Am[D,D,PM.idP D].I.gmap g) g
+          (PL.ap ((P g.1).G D).car Cl[D].X.G (\ u -> (g.1,u)) (((P g.1).arr D D (PM.idP D)).1 g.2) g.2 ((P g.1).arr-id D g.2))))
+      y ;
+  arr-comp (D E G : DP.Ptyx) (S : PM.Mor D E) (T : PM.Mor E G) (y : Cl[D].X.Car) :
+      Id Cl[G].X.Car (Am[E,G,T].I.fm (Am[D,E,S].I.fm y)) (Am[D,G,PM.compP D E G S T].I.fm y) =
+    Cl[D].X.ind (\ y0 -> Id Cl[G].X.Car (Am[E,G,T].I.fm (Am[D,E,S].I.fm y0)) (Am[D,G,PM.compP D E G S T].I.fm y0))
+      (\ y0 -> Cl[G].X.car-set (Am[E,G,T].I.fm (Am[D,E,S].I.fm y0)) (Am[D,G,PM.compP D E G S T].I.fm y0))
+      (\ g -> PL.trans Cl[G].X.Car (Am[E,G,T].I.fm (Am[D,E,S].I.fm (Cl[D].X.cl g))) (Am[E,G,T].I.fm (Cl[E].X.cl (Am[D,E,S].I.gmap g)))
+        (Am[D,G,PM.compP D E G S T].I.fm (Cl[D].X.cl g))
+        (PL.ap Cl[E].X.Car Cl[G].X.Car Am[E,G,T].I.fm (Am[D,E,S].I.fm (Cl[D].X.cl g)) (Cl[E].X.cl (Am[D,E,S].I.gmap g)) (Am[D,E,S].I.fm-cl g))
+        (PL.trans Cl[G].X.Car (Am[E,G,T].I.fm (Cl[E].X.cl (Am[D,E,S].I.gmap g))) (Cl[G].X.cl (Am[D,G,PM.compP D E G S T].I.gmap g))
+          (Am[D,G,PM.compP D E G S T].I.fm (Cl[D].X.cl g))
+          (PL.trans Cl[G].X.Car (Am[E,G,T].I.fm (Cl[E].X.cl (Am[D,E,S].I.gmap g))) (Cl[G].X.cl (Am[E,G,T].I.gmap (Am[D,E,S].I.gmap g)))
+            (Cl[G].X.cl (Am[D,G,PM.compP D E G S T].I.gmap g))
+            (Am[E,G,T].I.fm-cl (Am[D,E,S].I.gmap g))
+            (PL.ap Cl[G].X.G Cl[G].X.Car Cl[G].X.cl (Am[E,G,T].I.gmap (Am[D,E,S].I.gmap g)) (Am[D,G,PM.compP D E G S T].I.gmap g)
+              (PL.ap ((P g.1).G G).car Cl[G].X.G (\ u -> (g.1,u))
+                (((P g.1).arr E G T).1 (((P g.1).arr D E S).1 g.2)) (((P g.1).arr D G (PM.compP D E G S T)).1 g.2)
+                ((P g.1).arr-comp D E G S T g.2))))
+          (PL.sym Cl[G].X.Car (Am[D,G,PM.compP D E G S T].I.fm (Cl[D].X.cl g)) (Cl[G].X.cl (Am[D,G,PM.compP D E G S T].I.gmap g))
+            (Am[D,G,PM.compP D E G S T].I.fm-cl g))))
+      y ;
+
+  ----------------------------------------------------------------------
+  -- supports
+
+  SuppC (D : DP.Ptyx) (y : Cl[D].X.Car) (c : P3.Sub D) : U l =
+    (z : Cl[P3.SubOf[D,c].ptyx].X.Car) * Id Cl[D].X.Car (Am[P3.SubOf[D,c].ptyx,D,P3.SubOf[D,c].inc].I.fm z) y ;
+  suppc-prop (D : DP.Ptyx) (y : Cl[D].X.Car) (c : P3.Sub D) : PL.isProp (SuppC D y c) = \ p q ->
+    PL.Sigma-eq Cl[P3.SubOf[D,c].ptyx].X.Car
+      (\ z -> Id Cl[D].X.Car (Am[P3.SubOf[D,c].ptyx,D,P3.SubOf[D,c].inc].I.fm z) y) p.1 q.1 p.2 q.2
+      (DP.map-inj (F (P3.SubOf[D,c].ptyx)) (F D) (arr (P3.SubOf[D,c].ptyx) D (P3.SubOf[D,c].inc)) p.1 q.1
+        (PL.trans Cl[D].X.Car (Am[P3.SubOf[D,c].ptyx,D,P3.SubOf[D,c].inc].I.fm p.1) y
+          (Am[P3.SubOf[D,c].ptyx,D,P3.SubOf[D,c].inc].I.fm q.1) p.2
+          (PL.sym Cl[D].X.Car (Am[P3.SubOf[D,c].ptyx,D,P3.SubOf[D,c].inc].I.fm q.1) y q.2)))
+      (Cl[D].X.car-set (Am[P3.SubOf[D,c].ptyx,D,P3.SubOf[D,c].inc].I.fm q.1) y) ;
+  -- (i, z) over D|c gives a support of (i, P_i(inc) z)
+  sc (D : DP.Ptyx) (c : P3.Sub D) (i : W.N) (z : ((P i).G (P3.SubOf[D,c].ptyx)).car) (x : ((P i).G D).car)
+    (ez : Id ((P i).G D).car (((P i).arr (P3.SubOf[D,c].ptyx) D (P3.SubOf[D,c].inc)).1 z) x) : SuppC D (Cl[D].X.cl (i,x)) c =
+    (Cl[P3.SubOf[D,c].ptyx].X.cl (i,z),
+     PL.trans Cl[D].X.Car (Am[P3.SubOf[D,c].ptyx,D,P3.SubOf[D,c].inc].I.fm (Cl[P3.SubOf[D,c].ptyx].X.cl (i,z)))
+       (Cl[D].X.cl (Am[P3.SubOf[D,c].ptyx,D,P3.SubOf[D,c].inc].I.gmap (i,z))) (Cl[D].X.cl (i,x))
+       (Am[P3.SubOf[D,c].ptyx,D,P3.SubOf[D,c].inc].I.fm-cl (i,z))
+       (PL.ap Cl[D].X.G Cl[D].X.Car Cl[D].X.cl (Am[P3.SubOf[D,c].ptyx,D,P3.SubOf[D,c].inc].I.gmap (i,z)) (i,x)
+         (PL.ap ((P i).G D).car Cl[D].X.G (\ u -> (i,u)) (((P i).arr (P3.SubOf[D,c].ptyx) D (P3.SubOf[D,c].inc)).1 z) x ez))) ;
+  -- a support of (i, x) comes from a germ over D|c
+  module Rep (D : DP.Ptyx) (y : Cl[D].X.Car) (c : P3.Sub D) (s : SuppC D y c)
+    (r : Cl[P3.SubOf[D,c].ptyx].X.Rep s.1.1) {
+    module Sc = P3.SubOf[D,c] ;
+    j : W.N = r.1.1 ;
+    z : ((P j).G Sc.ptyx).car = r.1.2 ;
+    g : Cl[D].X.G = (j,((P j).arr Sc.ptyx D Sc.inc).1 z) ;
+    ey : Id Cl[D].X.Car (Cl[D].X.cl g) y =
+      PL.trans Cl[D].X.Car (Cl[D].X.cl g) (Am[Sc.ptyx,D,Sc.inc].I.fm (Cl[Sc.ptyx].X.cl r.1)) y
+        (PL.sym Cl[D].X.Car (Am[Sc.ptyx,D,Sc.inc].I.fm (Cl[Sc.ptyx].X.cl r.1)) (Cl[D].X.cl g) (Am[Sc.ptyx,D,Sc.inc].I.fm-cl r.1))
+        (PL.trans Cl[D].X.Car (Am[Sc.ptyx,D,Sc.inc].I.fm (Cl[Sc.ptyx].X.cl r.1)) (Am[Sc.ptyx,D,Sc.inc].I.fm s.1) y
+          (PL.ap Cl[Sc.ptyx].X.Car Cl[D].X.Car Am[Sc.ptyx,D,Sc.inc].I.fm (Cl[Sc.ptyx].X.cl r.1) s.1 (Cl[Sc.ptyx].X.cl-rep s.1 r))
+          s.2) ;
+    -- pushed to level L, the point is supported by D|c in P_L
+    pushed (L : W.N) (h : PG.LeN j L) : P3.Supp3 (P L) D (Cl[D].X.push g L h) c =
+      (((e j L h).1 Sc.ptyx).1 z,(e j L h).2.1 Sc.ptyx D Sc.inc z) ;
+  } ;
+
+  -- continuity
+  Target (D : DP.Ptyx) (y : Cl[D].X.Car) : U l =
+    (g : P3.Gens D) * ((z : Cl[P3.SubOf[D,P3.FG[D,g].sub].ptyx].X.Car) *
+      Id Cl[D].X.Car (Am[P3.SubOf[D,P3.FG[D,g].sub].ptyx,D,P3.SubOf[D,P3.FG[D,g].sub].inc].I.fm z) y) ;
+  support (D : DP.Ptyx) (y : Cl[D].X.Car) : Ex (Target D y) =
+    Cl[D].X.ind (\ y0 -> Ex (Target D y0)) (\ y0 -> prop (Target D y0))
+      (\ g -> TC.map ((g' : P3.Gens D) * P3.Supp3 (P g.1) D g.2 (P3.FG[D,g'].sub)) (Target D (Cl[D].X.cl g))
+        (\ w -> (w.1,sc D (P3.FG[D,w.1].sub) g.1 w.2.1 g.2 w.2.2)) ((P g.1).support D g.2))
+      y ;
+
+  -- stability
+  module MW (D : DP.Ptyx) (y : Cl[D].X.Car) (c c' : P3.Sub D) (s : SuppC D y c) (s' : SuppC D y c')
+    (r : Cl[P3.SubOf[D,c].ptyx].X.Rep s.1.1) (r' : Cl[P3.SubOf[D,c'].ptyx].X.Rep s'.1.1) {
+    module R1 = Rep[D,y,c,s,r] ;
+    module R2 = Rep[D,y,c',s',r'] ;
+    L : W.N = W.plus R1.j R2.j ;
+    h1 : PG.LeN R1.j L = PG.leL R1.j R2.j ;
+    h2 : PG.LeN R2.j L = PG.leR R1.j R2.j ;
+    a : ((P L).G D).car = Cl[D].X.push R1.g L h1 ;
+    aa : Id ((P L).G D).car (Cl[D].X.push R2.g L h2) a =
+      Cl[D].X.eq-at R2.g R1.g L h2 h1 (PL.trans Cl[D].X.Car (Cl[D].X.cl R2.g) y (Cl[D].X.cl R1.g) R2.ey (PL.sym Cl[D].X.Car (Cl[D].X.cl R1.g) y R1.ey)) ;
+    s2' : P3.Supp3 (P L) D a c' =
+      ((R2.pushed L h2).1,PL.trans ((P L).G D).car
+        (((P L).arr (P3.SubOf[D,c'].ptyx) D (P3.SubOf[D,c'].inc)).1 (R2.pushed L h2).1) (Cl[D].X.push R2.g L h2) a
+        (R2.pushed L h2).2 aa) ;
+    mw : P3.Supp3 (P L) D a (P3.meetSub D c c') = (P L).meet D a c c' (R1.pushed L h1) s2' ;
+    result : SuppC D y (P3.meetSub D c c') =
+      PL.subst Cl[D].X.Car (\ y0 -> SuppC D y0 (P3.meetSub D c c')) (Cl[D].X.cl (L,a)) y
+        (PL.trans Cl[D].X.Car (Cl[D].X.cl (L,a)) (Cl[D].X.cl R1.g) y
+          (PL.sym Cl[D].X.Car (Cl[D].X.cl R1.g) (Cl[D].X.cl (L,a)) (Cl[D].X.cl-push R1.g L h1)) R1.ey)
+        (sc D (P3.meetSub D c c') L mw.1 a mw.2) ;
+  } ;
+  meet (D : DP.Ptyx) (y : Cl[D].X.Car) (c c' : P3.Sub D) (s : SuppC D y c) (s' : SuppC D y c') : SuppC D y (P3.meetSub D c c') =
+    TC.rec (Cl[P3.SubOf[D,c].ptyx].X.Rep s.1.1) @l (SuppC D y (P3.meetSub D c c')) (suppc-prop D y (P3.meetSub D c c'))
+      (\ r -> TC.rec (Cl[P3.SubOf[D,c'].ptyx].X.Rep s'.1.1) @l (SuppC D y (P3.meetSub D c c')) (suppc-prop D y (P3.meetSub D c c'))
+        (\ r' -> MW[D,y,c,c',s,s',r,r'].result) s'.1.2)
+      s.1.2 ;
+
+  colim : P3.Ptyx3 = new P3.Ptyx3[G := F, arr := arr, arr-id := arr-id, arr-comp := arr-comp, support := support, meet := meet] ;
+
+  ----------------------------------------------------------------------
+  -- the cocone
+
+  module Cart (i : W.N) (D : DP.Ptyx) (x : ((P i).G D).car) (c : P3.Sub D) (s : SuppC D (Cl[D].X.cl (i,x)) c)
+    (r : Cl[P3.SubOf[D,c].ptyx].X.Rep s.1.1) {
+    module R = Rep[D,Cl[D].X.cl (i,x),c,s,r] ;
+    L : W.N = W.plus i R.j ;
+    h1 : PG.LeN i L = PG.leL i R.j ;
+    h2 : PG.LeN R.j L = PG.leR i R.j ;
+    ex : Id ((P L).G D).car (Cl[D].X.push R.g L h2) (((e i L h1).1 D).1 x) =
+      Cl[D].X.eq-at R.g (i,x) L h2 h1 R.ey ;
+    sL : P3.Supp3 (P L) D (((e i L h1).1 D).1 x) c =
+      ((R.pushed L h2).1,PL.trans ((P L).G D).car
+        (((P L).arr (P3.SubOf[D,c].ptyx) D (P3.SubOf[D,c].inc)).1 (R.pushed L h2).1) (Cl[D].X.push R.g L h2) (((e i L h1).1 D).1 x)
+        (R.pushed L h2).2 ex) ;
+    result : P3.Supp3 (P i) D x c = (e i L h1).2.2 D x c sL ;
+  } ;
+  iota (i : W.N) : P3.Mor3 (P i) colim =
+    (\ D -> Cl[D].X.iota i,
+     (\ D E T x -> Am[D,E,T].I.fm-cl (i,x),
+      \ D x c s -> TC.rec (Cl[P3.SubOf[D,c].ptyx].X.Rep s.1.1) @l (P3.Supp3 (P i) D x c) (P3.Supports3[P i,D].supp-prop x c)
+        (\ r -> Cart[i,D,x,c,s,r].result) s.1.2)) ;
+  iota-e (i j : W.N) (h : PG.LeN i j) : P3.MorEq3 (P i) colim (P3.compP3 (P i) (P j) colim (e i j h) (iota j)) (iota i) =
+    \ D x -> PL.sym Cl[D].X.Car (Cl[D].X.cl (i,x)) (Cl[D].X.cl (j,((e i j h).1 D).1 x)) (Cl[D].X.cl-push (i,x) j h) ;
+
+  ----------------------------------------------------------------------
+  -- the universal property
+
+  module Univ (Q : P3.Ptyx3) (f : (i : W.N) -> P3.Mor3 (P i) Q)
+    (fco : (i j : W.N) (h : PG.LeN i j) (D : DP.Ptyx) (x : ((P i).G D).car) ->
+       Id (Q.G D).car (((f j).1 D).1 (((e i j h).1 D).1 x)) (((f i).1 D).1 x)) {
+    fg (D : DP.Ptyx) (g : Cl[D].X.G) : (Q.G D).car = ((f g.1).1 D).1 g.2 ;
+    fi (D : DP.Ptyx) (g g' : Cl[D].X.G) (q : Id W.O3 (Cl[D].X.cmpG g g') eq) : Id (Q.G D).car (fg D g) (fg D g') =
+      PL.trans (Q.G D).car (fg D g) (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (fg D g')
+        (PL.sym (Q.G D).car (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (fg D g)
+          (fco g.1 (W.plus g.1 g'.1) (PG.leL g.1 g'.1) D g.2))
+        (PL.trans (Q.G D).car (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+          (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) (fg D g')
+          (PL.ap ((P (W.plus g.1 g'.1)).G D).car (Q.G D).car ((f (W.plus g.1 g'.1)).1 D).1
+            (Cl[D].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (Cl[D].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))
+            (Cl[D].X.eq-at g g' (W.plus g.1 g'.1) (PG.leL g.1 g'.1) (PG.leR g.1 g'.1)
+              (Cl[D].X.car-eq (Cl[D].X.cl g) (Cl[D].X.cl g') (Cl[D].X.cls-eq g g' q))))
+          (fco g'.1 (W.plus g.1 g'.1) (PG.leR g.1 g'.1) D g'.2)) ;
+    module Dh (D : DP.Ptyx) { module Y = Cl[D].X.Desc[(Q.G D).car,\ a b -> PF.lo-set (Q.G D) a b,fg D,fi D] ; } ;
+    hm (D : DP.Ptyx) (y : Cl[D].X.Car) : (Q.G D).car = Dh[D].Y.h y ;
+    hm-cl (D : DP.Ptyx) (g : Cl[D].X.G) : Id (Q.G D).car (hm D (Cl[D].X.cl g)) (fg D g) = Dh[D].Y.h-cl g ;
+    mono (D : DP.Ptyx) (x y : Cl[D].X.Car) : Id W.O3 ((Q.G D).cmp (hm D x) (hm D y)) (Cl[D].X.cmpC x y) =
+      Cl[D].X.ind2 (\ x0 y0 -> Id W.O3 ((Q.G D).cmp (hm D x0) (hm D y0)) (Cl[D].X.cmpC x0 y0))
+        (\ x0 y0 -> PF.o3-set ((Q.G D).cmp (hm D x0) (hm D y0)) (Cl[D].X.cmpC x0 y0))
+        (\ g g' -> W.trans W.O3 ((Q.G D).cmp (hm D (Cl[D].X.cl g)) (hm D (Cl[D].X.cl g')))
+          ((Q.G D).cmp (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+            (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))))
+          (Cl[D].X.cmpC (Cl[D].X.cl g) (Cl[D].X.cl g'))
+          (W.ap2 (Q.G D).car (Q.G D).car W.O3 (Q.G D).cmp
+            (hm D (Cl[D].X.cl g)) (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+            (hm D (Cl[D].X.cl g')) (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+            (PL.trans (Q.G D).car (hm D (Cl[D].X.cl g)) (fg D g) (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+              (hm-cl D g) (PL.sym (Q.G D).car (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (fg D g)
+                (fco g.1 (W.plus g.1 g'.1) (PG.leL g.1 g'.1) D g.2)))
+            (PL.trans (Q.G D).car (hm D (Cl[D].X.cl g')) (fg D g') (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+              (hm-cl D g') (PL.sym (Q.G D).car (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) (fg D g')
+                (fco g'.1 (W.plus g.1 g'.1) (PG.leR g.1 g'.1) D g'.2))))
+          (W.trans W.O3
+            ((Q.G D).cmp (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+              (((f (W.plus g.1 g'.1)).1 D).1 (Cl[D].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))))
+            (Cl[D].X.cmpG g g') (Cl[D].X.cmpC (Cl[D].X.cl g) (Cl[D].X.cl g'))
+            (((f (W.plus g.1 g'.1)).1 D).2 (Cl[D].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (Cl[D].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+            (W.sym W.O3 (Cl[D].X.cmpC (Cl[D].X.cl g) (Cl[D].X.cl g')) (Cl[D].X.cmpG g g') (Cl[D].X.cmp-cl g g'))))
+        x y ;
+    nat : P3.Natural3 colim Q (\ D -> (hm D,mono D)) = \ D E T y ->
+      Cl[D].X.ind (\ y0 -> Id (Q.G E).car ((Q.arr D E T).1 (hm D y0)) (hm E (Am[D,E,T].I.fm y0)))
+        (\ y0 -> PF.lo-set (Q.G E) ((Q.arr D E T).1 (hm D y0)) (hm E (Am[D,E,T].I.fm y0)))
+        (\ g -> PL.trans (Q.G E).car ((Q.arr D E T).1 (hm D (Cl[D].X.cl g))) ((Q.arr D E T).1 (fg D g)) (hm E (Am[D,E,T].I.fm (Cl[D].X.cl g)))
+          (PL.ap (Q.G D).car (Q.G E).car (Q.arr D E T).1 (hm D (Cl[D].X.cl g)) (fg D g) (hm-cl D g))
+          (PL.trans (Q.G E).car ((Q.arr D E T).1 (fg D g)) (fg E (Am[D,E,T].I.gmap g)) (hm E (Am[D,E,T].I.fm (Cl[D].X.cl g)))
+            ((f g.1).2.1 D E T g.2)
+            (PL.trans (Q.G E).car (fg E (Am[D,E,T].I.gmap g)) (hm E (Cl[E].X.cl (Am[D,E,T].I.gmap g))) (hm E (Am[D,E,T].I.fm (Cl[D].X.cl g)))
+              (PL.sym (Q.G E).car (hm E (Cl[E].X.cl (Am[D,E,T].I.gmap g))) (fg E (Am[D,E,T].I.gmap g)) (hm-cl E (Am[D,E,T].I.gmap g)))
+              (PL.ap Cl[E].X.Car (Q.G E).car (hm E) (Cl[E].X.cl (Am[D,E,T].I.gmap g)) (Am[D,E,T].I.fm (Cl[D].X.cl g))
+                (PL.sym Cl[E].X.Car (Am[D,E,T].I.fm (Cl[D].X.cl g)) (Cl[E].X.cl (Am[D,E,T].I.gmap g)) (Am[D,E,T].I.fm-cl g))))))
+        y ;
+    cart : P3.Cartesian3 colim Q (\ D -> (hm D,mono D)) = \ D y c ->
+      Cl[D].X.ind (\ y0 -> P3.Supp3 Q D (hm D y0) c -> SuppC D y0 c)
+        (\ y0 -> FE.isProp-Pi (P3.Supp3 Q D (hm D y0) c) (\ _ -> SuppC D y0 c) (\ _ -> suppc-prop D y0 c))
+        (\ g s -> sc D c g.1 ((f g.1).2.2 D g.2 c (s.1,PL.trans (Q.G D).car
+            ((Q.arr (P3.SubOf[D,c].ptyx) D (P3.SubOf[D,c].inc)).1 s.1) (hm D (Cl[D].X.cl g)) (fg D g) s.2 (hm-cl D g))).1
+          g.2 ((f g.1).2.2 D g.2 c (s.1,PL.trans (Q.G D).car
+            ((Q.arr (P3.SubOf[D,c].ptyx) D (P3.SubOf[D,c].inc)).1 s.1) (hm D (Cl[D].X.cl g)) (fg D g) s.2 (hm-cl D g))).2)
+        y ;
+    mor : P3.Mor3 colim Q = (\ D -> (hm D,mono D),(nat,cart)) ;
+    fac (i : W.N) : P3.MorEq3 (P i) Q (P3.compP3 (P i) colim Q (iota i) mor) (f i) = \ D x -> hm-cl D (i,x) ;
+    uniq (g' : P3.Mor3 colim Q) (hg : (i : W.N) (D : DP.Ptyx) (x : ((P i).G D).car) -> Id (Q.G D).car ((g'.1 D).1 (Cl[D].X.cl (i,x))) (((f i).1 D).1 x)) :
+        P3.MorEq3 colim Q g' mor = \ D y ->
+      Cl[D].X.ind (\ y0 -> Id (Q.G D).car ((g'.1 D).1 y0) (hm D y0)) (\ y0 -> PF.lo-set (Q.G D) ((g'.1 D).1 y0) (hm D y0))
+        (\ g -> PL.trans (Q.G D).car ((g'.1 D).1 (Cl[D].X.cl g)) (fg D g) (hm D (Cl[D].X.cl g)) (hg g.1 D g.2)
+          (PL.sym (Q.G D).car (hm D (Cl[D].X.cl g)) (fg D g) (hm-cl D g)))
+        y ;
+  } ;
+} ;

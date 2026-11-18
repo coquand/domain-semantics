@@ -1,0 +1,191 @@
+-- Route (a) of PLAN-CATEMB-LO.md: directed colimits of finite-valued
+-- dilators are predilators in the sense of PDil (route (b)).
+--
+-- A directed system Dc i (i in N) of finite-valued pre-dilators
+-- (CatDil.Dil) with morphisms e i j (i <= j), e i i = id and
+-- e j k . e i j = e i k, gives at each level n the directed system of
+-- finite orders Dc i (n); its colimit (LOColim) is F(n).  F(w) is
+-- induced level-wise (morphisms are natural).  The support of a germ
+-- (i, x) is the least support of x in Dc i: it does not depend on the
+-- representative because morphisms of dilators preserve least supports
+-- (PtyxDen.SuppEq).  The support condition (hence normal forms) is
+-- obtained by unique choice: F(w) is injective.
+-- Infinite-valued dilators such as omega + X arise this way.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DP = DilPtyx[l] ;
+module DE = DilPtyxEval[l] ;
+module PM = PtyxMor[l] ;
+module PDn = PtyxDen[l] ;
+module PG = PtyxGerm[l] ;
+module LC = LOColim[l] ;
+module PDl = PDil[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+module Chain (Dc : W.N -> CD.Dil) (e : (i j : W.N) -> PG.LeN i j -> CD.Mor (Dc i) (Dc j))
+  (e-id : (i : W.N) (h : PG.LeN i i) -> Id (CD.Mor (Dc i) (Dc i)) (e i i h) (CD.idM (Dc i)))
+  (e-comp : (i j k : W.N) (h : PG.LeN i j) (h' : PG.LeN j k) ->
+     Id (CD.Mor (Dc i) (Dc k)) (CD.compM (Dc i) (Dc j) (Dc k) (e i j h) (e j k h')) (e i k (PG.le-trans i j k h h'))) {
+
+  -- the colimit at level n
+  module Lv (n : W.N) {
+    Fo (i : W.N) : DP.LO = DE.Eval[n].F (Dc i) ;
+    up (i j : W.N) (h : PG.LeN i j) : DP.Map (Fo i) (Fo j) = DE.Eval[n].arr (Dc i) (Dc j) (e i j h) ;
+    uid (i : W.N) (h : PG.LeN i i) (x : (Fo i).car) : Id (Fo i).car ((up i i h).1 x) x =
+      PL.trans (Fo i).car ((up i i h).1 x) ((DE.Eval[n].arr (Dc i) (Dc i) (CD.idM (Dc i))).1 x) x
+        (PL.ap (CD.Mor (Dc i) (Dc i)) (Fo i).car (\ M -> (DE.Eval[n].arr (Dc i) (Dc i) M).1 x) (e i i h) (CD.idM (Dc i)) (e-id i h))
+        (DE.Eval[n].arr-id (Dc i) x) ;
+    ucomp (i j k : W.N) (h : PG.LeN i j) (h' : PG.LeN j k) (x : (Fo i).car) :
+        Id (Fo k).car ((up j k h').1 ((up i j h).1 x)) ((up i k (PG.le-trans i j k h h')).1 x) =
+      PL.trans (Fo k).car ((up j k h').1 ((up i j h).1 x))
+        ((DE.Eval[n].arr (Dc i) (Dc k) (CD.compM (Dc i) (Dc j) (Dc k) (e i j h) (e j k h'))).1 x)
+        ((up i k (PG.le-trans i j k h h')).1 x)
+        (DE.Eval[n].arr-comp (Dc i) (Dc j) (Dc k) (e i j h) (e j k h') x)
+        (PL.ap (CD.Mor (Dc i) (Dc k)) (Fo k).car (\ M -> (DE.Eval[n].arr (Dc i) (Dc k) M).1 x)
+          (CD.compM (Dc i) (Dc j) (Dc k) (e i j h) (e j k h')) (e i k (PG.le-trans i j k h h')) (e-comp i j k h h')) ;
+    module X = LC.Colim[Fo,up,uid,ucomp] ;
+    -- the least support of a germ
+    sf (g : X.G) : W.Wd = PDl.FinPD[Dc g.1].supp n g.2 ;
+    inv-push (g : X.G) (L : W.N) (h : PG.LeN g.1 L) : Id W.Wd (sf (L,X.push g L h)) (sf g) =
+      PDn.SuppEq[Dc g.1,Dc L,e g.1 L h,n,g.2.1,g.2.2].supp-eq ;
+    sf-inv (g g' : X.G) (q : Id W.O3 (X.cmpG g g') eq) : Id W.Wd (sf g) (sf g') =
+      W.trans W.Wd (sf g) (sf (W.plus g.1 g'.1,X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (sf g')
+        (W.sym W.Wd (sf (W.plus g.1 g'.1,X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (sf g) (inv-push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+        (W.trans W.Wd (sf (W.plus g.1 g'.1,X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+          (sf (W.plus g.1 g'.1,X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) (sf g')
+          (PL.ap (Fo (W.plus g.1 g'.1)).car W.Wd (\ u -> sf (W.plus g.1 g'.1,u))
+            (X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))
+            (X.eq-at g g' (W.plus g.1 g'.1) (PG.leL g.1 g'.1) (PG.leR g.1 g'.1) (X.car-eq (X.cl g) (X.cl g') (X.cls-eq g g' q))))
+          (inv-push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) ;
+    module Sd = X.Desc[W.Wd,\ a b -> W.HW.uip a b,sf,sf-inv] ;
+  } ;
+  F (n : W.N) : DP.LO = Lv[n].X.lo ;
+
+  -- the action of a word
+  module Act (m n : W.N) (w : W.Wd) (ho : Id W.N (W.ones w) m) (hl : Id W.N (W.len w) n) {
+    f (i : W.N) : DP.Map (Lv[m].Fo i) (Lv[n].Fo i) = PM.actMap (Dc i) w m n ho hl ;
+    module NTm (i j : W.N) (h : PG.LeN i j) {
+      module NT = W.Nat[(Dc i).1,(Dc i).2.1,(Dc i).2.2.1,(Dc i).2.2.2.1,(Dc i).2.2.2.2.1,(Dc i).2.2.2.2.2.1,(Dc i).2.2.2.2.2.2,
+        (Dc j).1,(Dc j).2.1,(Dc j).2.2.1,(Dc j).2.2.2.1,(Dc j).2.2.2.2.1,(Dc j).2.2.2.2.2.1,(Dc j).2.2.2.2.2.2,
+        (e i j h).1,(e i j h).2.1,(e i j h).2.2.1,(e i j h).2.2.2] ;
+    } ;
+    fc (i j : W.N) (h : PG.LeN i j) (x : (Lv[m].Fo i).car) :
+        Id (Lv[n].Fo j).car ((Lv[n].up i j h).1 ((f i).1 x)) ((f j).1 ((Lv[m].up i j h).1 x)) =
+      DE.Eval[n].pt-eq (Dc j) ((Lv[n].up i j h).1 ((f i).1 x)) ((f j).1 ((Lv[m].up i j h).1 x))
+        (W.trans W.N (W.sel ((e i j h).1 n) (W.sel (CD.D1 (Dc i) w) x.1))
+          (W.sel (CD.D1 (Dc j) w) (W.sel ((e i j h).1 (W.ones w)) x.1))
+          (W.sel (CD.D1 (Dc j) w) (W.sel ((e i j h).1 m) x.1))
+          (NTm[i,j,h].NT.natn n w hl x.1)
+          (W.ap W.N W.N (\ k -> W.sel (CD.D1 (Dc j) w) (W.sel ((e i j h).1 k) x.1)) (W.ones w) m ho)) ;
+    module I = LC.Ind[Lv[m].Fo,Lv[m].up,Lv[m].uid,Lv[m].ucomp,Lv[n].Fo,Lv[n].up,Lv[n].uid,Lv[n].ucomp,f,fc] ;
+  } ;
+  mp (m n : W.N) (w : W.Wd) (ho : Id W.N (W.ones w) m) (hl : Id W.N (W.len w) n) : DP.Map (F m) (F n) = Act[m,n,w,ho,hl].I.map ;
+
+  mp-id (n : W.N) (y : (F n).car) : Id (F n).car ((mp n n (W.idW n) (W.ones-idW n) (W.len-idW n)).1 y) y =
+    Lv[n].X.ind (\ y0 -> Id Lv[n].X.Car ((mp n n (W.idW n) (W.ones-idW n) (W.len-idW n)).1 y0) y0)
+      (\ y0 -> Lv[n].X.car-set ((mp n n (W.idW n) (W.ones-idW n) (W.len-idW n)).1 y0) y0)
+      (\ g -> PL.trans Lv[n].X.Car ((mp n n (W.idW n) (W.ones-idW n) (W.len-idW n)).1 (Lv[n].X.cl g))
+        (Lv[n].X.cl (Act[n,n,W.idW n,W.ones-idW n,W.len-idW n].I.gmap g)) (Lv[n].X.cl g)
+        (Act[n,n,W.idW n,W.ones-idW n,W.len-idW n].I.fm-cl g)
+        (PL.ap Lv[n].X.G Lv[n].X.Car Lv[n].X.cl (Act[n,n,W.idW n,W.ones-idW n,W.len-idW n].I.gmap g) g
+          (PL.ap (Lv[n].Fo g.1).car Lv[n].X.G (\ u -> (g.1,u)) (Act[n,n,W.idW n,W.ones-idW n,W.len-idW n].I.gmap g).2 g.2
+            (PDl.FinPD[Dc g.1].mp-id n g.2))))
+      y ;
+
+  mp-comp (k m n : W.N) (v w : W.Wd) (hv : Id W.N (W.ones v) m) (hv' : Id W.N (W.len v) n)
+    (hw : Id W.N (W.ones w) k) (hw' : Id W.N (W.len w) m) (y : (F k).car) :
+      Id (F n).car ((mp m n v hv hv').1 ((mp k m w hw hw').1 y))
+        ((mp k n (W.compW v w) (PDl.oc k m v w hv hw hw') (PDl.lc n v w hv')).1 y) =
+    Lv[k].X.ind (\ y0 -> Id Lv[n].X.Car ((mp m n v hv hv').1 ((mp k m w hw hw').1 y0))
+        ((mp k n (W.compW v w) (PDl.oc k m v w hv hw hw') (PDl.lc n v w hv')).1 y0))
+      (\ y0 -> Lv[n].X.car-set ((mp m n v hv hv').1 ((mp k m w hw hw').1 y0))
+        ((mp k n (W.compW v w) (PDl.oc k m v w hv hw hw') (PDl.lc n v w hv')).1 y0))
+      (\ g -> PL.trans Lv[n].X.Car ((mp m n v hv hv').1 ((mp k m w hw hw').1 (Lv[k].X.cl g)))
+        ((mp m n v hv hv').1 (Lv[m].X.cl (Act[k,m,w,hw,hw'].I.gmap g)))
+        ((mp k n (W.compW v w) (PDl.oc k m v w hv hw hw') (PDl.lc n v w hv')).1 (Lv[k].X.cl g))
+        (PL.ap Lv[m].X.Car Lv[n].X.Car (mp m n v hv hv').1 ((mp k m w hw hw').1 (Lv[k].X.cl g)) (Lv[m].X.cl (Act[k,m,w,hw,hw'].I.gmap g))
+          (Act[k,m,w,hw,hw'].I.fm-cl g))
+        (PL.trans Lv[n].X.Car ((mp m n v hv hv').1 (Lv[m].X.cl (Act[k,m,w,hw,hw'].I.gmap g)))
+          (Lv[n].X.cl (Act[k,n,W.compW v w,PDl.oc k m v w hv hw hw',PDl.lc n v w hv'].I.gmap g))
+          ((mp k n (W.compW v w) (PDl.oc k m v w hv hw hw') (PDl.lc n v w hv')).1 (Lv[k].X.cl g))
+          (PL.trans Lv[n].X.Car ((mp m n v hv hv').1 (Lv[m].X.cl (Act[k,m,w,hw,hw'].I.gmap g)))
+            (Lv[n].X.cl (Act[m,n,v,hv,hv'].I.gmap (Act[k,m,w,hw,hw'].I.gmap g)))
+            (Lv[n].X.cl (Act[k,n,W.compW v w,PDl.oc k m v w hv hw hw',PDl.lc n v w hv'].I.gmap g))
+            (Act[m,n,v,hv,hv'].I.fm-cl (Act[k,m,w,hw,hw'].I.gmap g))
+            (PL.ap Lv[n].X.G Lv[n].X.Car Lv[n].X.cl (Act[m,n,v,hv,hv'].I.gmap (Act[k,m,w,hw,hw'].I.gmap g))
+              (Act[k,n,W.compW v w,PDl.oc k m v w hv hw hw',PDl.lc n v w hv'].I.gmap g)
+              (PL.ap (Lv[n].Fo g.1).car Lv[n].X.G (\ u -> (g.1,u))
+                (Act[m,n,v,hv,hv'].I.gmap (Act[k,m,w,hw,hw'].I.gmap g)).2
+                (Act[k,n,W.compW v w,PDl.oc k m v w hv hw hw',PDl.lc n v w hv'].I.gmap g).2
+                (PDl.FinPD[Dc g.1].mp-comp k m n v w hv hv' hw hw' g.2))))
+          (PL.sym Lv[n].X.Car ((mp k n (W.compW v w) (PDl.oc k m v w hv hw hw') (PDl.lc n v w hv')).1 (Lv[k].X.cl g))
+            (Lv[n].X.cl (Act[k,n,W.compW v w,PDl.oc k m v w hv hw hw',PDl.lc n v w hv'].I.gmap g))
+            (Act[k,n,W.compW v w,PDl.oc k m v w hv hw hw',PDl.lc n v w hv'].I.fm-cl g))))
+      y ;
+
+  -- supports
+  supp (n : W.N) (y : (F n).car) : W.Wd = Lv[n].Sd.h y ;
+  supp-len (n : W.N) (y : (F n).car) : Id W.N (W.len (supp n y)) n =
+    Lv[n].X.ind (\ y0 -> Id W.N (W.len (supp n y0)) n) (\ y0 -> W.HN.uip (W.len (supp n y0)) n)
+      (\ g -> W.trans W.N (W.len (supp n (Lv[n].X.cl g))) (W.len (Lv[n].sf g)) n
+        (W.ap W.Wd W.N W.len (supp n (Lv[n].X.cl g)) (Lv[n].sf g) (Lv[n].Sd.h-cl g))
+        (PDl.FinPD[Dc g.1].supp-len n g.2))
+      y ;
+  supp-nat (m n : W.N) (w : W.Wd) (ho : Id W.N (W.ones w) m) (hl : Id W.N (W.len w) n) (y : (F m).car) :
+      Id W.Wd (supp n ((mp m n w ho hl).1 y)) (W.compW w (supp m y)) =
+    Lv[m].X.ind (\ y0 -> Id W.Wd (supp n ((mp m n w ho hl).1 y0)) (W.compW w (supp m y0)))
+      (\ y0 -> W.HW.uip (supp n ((mp m n w ho hl).1 y0)) (W.compW w (supp m y0)))
+      (\ g -> W.trans W.Wd (supp n ((mp m n w ho hl).1 (Lv[m].X.cl g))) (supp n (Lv[n].X.cl (Act[m,n,w,ho,hl].I.gmap g)))
+        (W.compW w (supp m (Lv[m].X.cl g)))
+        (W.ap Lv[n].X.Car W.Wd (supp n) ((mp m n w ho hl).1 (Lv[m].X.cl g)) (Lv[n].X.cl (Act[m,n,w,ho,hl].I.gmap g))
+          (Act[m,n,w,ho,hl].I.fm-cl g))
+        (W.trans W.Wd (supp n (Lv[n].X.cl (Act[m,n,w,ho,hl].I.gmap g))) (Lv[n].sf (Act[m,n,w,ho,hl].I.gmap g))
+          (W.compW w (supp m (Lv[m].X.cl g)))
+          (Lv[n].Sd.h-cl (Act[m,n,w,ho,hl].I.gmap g))
+          (W.trans W.Wd (Lv[n].sf (Act[m,n,w,ho,hl].I.gmap g)) (W.compW w (Lv[m].sf g)) (W.compW w (supp m (Lv[m].X.cl g)))
+            (PDl.FinPD[Dc g.1].supp-nat m n w ho hl g.2)
+            (W.ap W.Wd W.Wd (W.compW w) (Lv[m].sf g) (supp m (Lv[m].X.cl g))
+              (W.sym W.Wd (supp m (Lv[m].X.cl g)) (Lv[m].sf g) (Lv[m].Sd.h-cl g))))))
+      y ;
+
+  -- the support condition, by unique choice (F(w) is injective)
+  module Hit (n : W.N) (y : (F n).car) (w : W.Wd) (hl : Id W.N (W.len w) n) (le : W.Le (supp n y) w) {
+    mw : DP.Map (F (W.ones w)) (F n) = mp (W.ones w) n w (refl (W.ones w)) hl ;
+    Q : U l = (q : (F (W.ones w)).car) * Id (F n).car (mw.1 q) y ;
+    qp : PL.isProp Q = \ a b ->
+      PL.Sigma-eq (F (W.ones w)).car (\ q -> Id (F n).car (mw.1 q) y) a.1 b.1 a.2 b.2
+        (DP.map-inj (F (W.ones w)) (F n) mw a.1 b.1 (PL.trans (F n).car (mw.1 a.1) y (mw.1 b.1) a.2 (PL.sym (F n).car (mw.1 b.1) y b.2)))
+        (Lv[n].X.car-set (mw.1 b.1) y) ;
+    module R (r : Lv[n].X.Rep y.1) {
+      i : W.N = r.1.1 ;
+      x : (Lv[n].Fo i).car = r.1.2 ;
+      ey : Id Lv[n].X.Car (Lv[n].X.cl r.1) y = Lv[n].X.cl-rep y r ;
+      es : Id W.Wd (supp n y) (Lv[n].sf r.1) =
+        W.trans W.Wd (supp n y) (supp n (Lv[n].X.cl r.1)) (Lv[n].sf r.1)
+          (W.ap Lv[n].X.Car W.Wd (supp n) y (Lv[n].X.cl r.1) (PL.sym Lv[n].X.Car (Lv[n].X.cl r.1) y ey))
+          (Lv[n].Sd.h-cl r.1) ;
+      le' : W.Le (PDl.FinPD[Dc i].supp n x) w = W.subst W.Wd (\ u -> W.Le u w) (supp n y) (Lv[n].sf r.1) es le ;
+      module H = PDl.On[PDl.FinPD[Dc i].pdil].Hit[n,x,w,hl,le'] ;
+      q : (F (W.ones w)).car = Lv[W.ones w].X.cl (i,H.y) ;
+      eq : Id (F n).car (mw.1 q) y =
+        PL.trans Lv[n].X.Car (mw.1 q) (Lv[n].X.cl (Act[W.ones w,n,w,refl (W.ones w),hl].I.gmap (i,H.y))) y
+          (Act[W.ones w,n,w,refl (W.ones w),hl].I.fm-cl (i,H.y))
+          (PL.trans Lv[n].X.Car (Lv[n].X.cl (Act[W.ones w,n,w,refl (W.ones w),hl].I.gmap (i,H.y))) (Lv[n].X.cl r.1) y
+            (PL.ap Lv[n].X.G Lv[n].X.Car Lv[n].X.cl (Act[W.ones w,n,w,refl (W.ones w),hl].I.gmap (i,H.y)) r.1
+              (PL.ap (Lv[n].Fo i).car Lv[n].X.G (\ u -> (i,u)) (Act[W.ones w,n,w,refl (W.ones w),hl].I.gmap (i,H.y)).2 x H.eq))
+            ey) ;
+      res : Q = (q,eq) ;
+    } ;
+    result : Q = TC.rec (Lv[n].X.Rep y.1) @l Q qp (\ r -> R[r].res) y.2 ;
+  } ;
+  nf (n : W.N) (y : (F n).car) : (F (W.ones (supp n y))).car = Hit[n,y,supp n y,supp-len n y,W.Le-refl (supp n y)].result.1 ;
+  nf-eq (n : W.N) (y : (F n).car) :
+      Id (F n).car ((mp (W.ones (supp n y)) n (supp n y) (refl (W.ones (supp n y))) (supp-len n y)).1 (nf n y)) y =
+    Hit[n,y,supp n y,supp-len n y,W.Le-refl (supp n y)].result.2 ;
+
+  pdil : PDl.PDil = new PDl.PDil[F := F, mp := mp, mp-id := mp-id, mp-comp := mp-comp, supp := supp, supp-len := supp-len,
+    nf := nf, nf-eq := nf-eq, supp-nat := supp-nat] ;
+} ;

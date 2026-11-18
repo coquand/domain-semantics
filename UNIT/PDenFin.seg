@@ -1,0 +1,37 @@
+-- Validation of PDen (PLAN-CATEMB-LO.md, routes (a)/(b)): for a
+-- finite-valued pre-dilator D, the denotations of the PDil  FinPD D  at X
+-- are those of Dilator's DenOrd (PtyxDen.Den), with the SAME comparison
+-- (both compare D(u) z and D(u') z' through the merge of the lists): an
+-- isomorphism of linear orders, componentwise by refl.  Hence the
+-- well-foundedness theorems proved for Dilator.IsDil transfer:
+-- WFPresP holds for every polynomial pre-dilator (Id, 1, +, ., 2^D).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DP = DilPtyx[l] ;
+module PDn = PtyxDen[l] ;
+module PDl = PDil[l] ;
+module PDN = PDen[l] ;
+module DW = DilWO[l] ;
+
+module Iso (D : CD.Dil) (X : DP.LO) {
+  module N = PDN.PDen[PDl.FinPD[D].pdil,X] ;
+  module O = PDn.Den[X].DO[D].O ;
+  f (d : N.Den) : O.DenX = (d.1,(d.2.1.1,(d.2.2.1,(d.2.1.2,d.2.2.2)))) ;
+  g (d : O.DenX) : N.Den = (d.1,((d.2.1,d.2.2.2.1),(d.2.2.1,d.2.2.2.2))) ;
+  fg (d : O.DenX) : Id O.DenX (f (g d)) d = refl d ;
+  gf (d : N.Den) : Id N.Den (g (f d)) d = refl d ;
+  -- the two comparisons are the same
+  cmp-eq (d d' : N.Den) : Id W.O3 (O.cmpDen (f d) (f d')) (N.cmpDen d d') = refl (N.cmpDen d d') ;
+  fM : DP.Map N.lo (PDn.Den[X].F D) = (f,cmp-eq) ;
+  gM : DP.Map (PDn.Den[X].F D) N.lo = (g,\ d d' -> refl (O.cmpDen d d')) ;
+} ;
+
+-- a finite-valued dilator (IsDil) is a dilator in the sense of PDen
+fin-wfpres (D : CD.Dil) (h : W.IsDil D) : PDN.WFPresP PDl.FinPD[D].pdil = \ X wx ->
+  W.Pull[Iso[D,X].N.Den,W.ltO Iso[D,X].N.Den Iso[D,X].N.cmpDen,Iso[D,X].O.DenX,W.ltO Iso[D,X].O.DenX Iso[D,X].O.cmpDen,
+    Iso[D,X].f,\ x y q -> q].pullWF (h X.car X.cmp X.ceq X.cflip X.ctrans wx) ;
+
+-- every polynomial pre-dilator (Id, 1, +, ., 2^D) is a dilator in this sense
+pol-wfpresP (p : W.Pol) : PDN.WFPresP PDl.FinPD[W.interp p].pdil = fin-wfpres (W.interp p) (W.polDil p) ;

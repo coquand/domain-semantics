@@ -1,0 +1,141 @@
+-- Predilators with arbitrary (decidable, possibly infinite) linear orders
+-- as values: route (b) of PLAN-CATEMB-LO.md (Freund's notion of
+-- predilator, over the finite ordinals with strictly increasing maps =
+-- words).
+--
+--   F n        a decidable linear order (not necessarily finite),
+--   mp w       F(ones w) -> F(len w) strictly increasing, functorial,
+--   supp n x   a subset of [n] (a word of length n),
+--   nf n x     a point of F(|supp x|) with F(supp x)(nf x) = x,
+--   supp-nat   supp (F(w) x) = w . supp x.
+--
+-- Naturality of supports makes them least (supp-least) and gives the
+-- support condition of Freund ("x in the image of F(w) as soon as supp x
+-- is inside w", hit), i.e. pull-backs.  The finite-valued pre-dilators of
+-- dilator.seg (CatDil.Dil) are examples (FinPD), with the least supports
+-- of Dilator.PreDil.Sup; infinite ones (omega + X, omega^X) are not in
+-- CatDil.Dil but are PDil's.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DP = DilPtyx[l] ;
+module DE = DilPtyxEval[l] ;
+module PM = PtyxMor[l] ;
+module PGP = PtyxGermPtyx[l] ;
+module PL = Prelude[l] ;
+
+-- the side conditions of a composite
+oc (k m : W.N) (v w : W.Wd) (hv : Id W.N (W.ones v) m) (hw : Id W.N (W.ones w) k) (hw' : Id W.N (W.len w) m) :
+    Id W.N (W.ones (W.compW v w)) k =
+  W.trans W.N (W.ones (W.compW v w)) (W.ones w) k (W.ones-comp v w (W.trans W.N (W.ones v) m (W.len w) hv (W.sym W.N (W.len w) m hw'))) hw ;
+lc (n : W.N) (v w : W.Wd) (hv' : Id W.N (W.len v) n) : Id W.N (W.len (W.compW v w)) n =
+  W.trans W.N (W.len (W.compW v w)) (W.len v) n (W.len-comp v w) hv' ;
+
+record PDil {
+  F : W.N -> DP.LO ;
+  mp : (m n : W.N) (w : W.Wd) -> Id W.N (W.ones w) m -> Id W.N (W.len w) n -> DP.Map (F m) (F n) ;
+  mp-id : (n : W.N) (x : (F n).car) -> Id (F n).car ((mp n n (W.idW n) (W.ones-idW n) (W.len-idW n)).1 x) x ;
+  mp-comp : (k m n : W.N) (v w : W.Wd) (hv : Id W.N (W.ones v) m) (hv' : Id W.N (W.len v) n)
+    (hw : Id W.N (W.ones w) k) (hw' : Id W.N (W.len w) m) (x : (F k).car) ->
+    Id (F n).car ((mp m n v hv hv').1 ((mp k m w hw hw').1 x)) ((mp k n (W.compW v w) (oc k m v w hv hw hw') (lc n v w hv')).1 x) ;
+  supp : (n : W.N) -> (F n).car -> W.Wd ;
+  supp-len : (n : W.N) (x : (F n).car) -> Id W.N (W.len (supp n x)) n ;
+  nf : (n : W.N) (x : (F n).car) -> (F (W.ones (supp n x))).car ;
+  nf-eq : (n : W.N) (x : (F n).car) ->
+    Id (F n).car ((mp (W.ones (supp n x)) n (supp n x) (refl (W.ones (supp n x))) (supp-len n x)).1 (nf n x)) x ;
+  supp-nat : (m n : W.N) (w : W.Wd) (ho : Id W.N (W.ones w) m) (hl : Id W.N (W.len w) n) (x : (F m).car) ->
+    Id W.Wd (supp n ((mp m n w ho hl).1 x)) (W.compW w (supp m x)) ;
+} ;
+
+----------------------------------------------------------------------
+-- derived properties
+
+module On (D : PDil) {
+  -- the action does not depend on the proofs of the side conditions
+  mp-irr (m n : W.N) (w : W.Wd) (ho ho' : Id W.N (W.ones w) m) (hl hl' : Id W.N (W.len w) n) (x : (D.F m).car) :
+      Id (D.F n).car ((D.mp m n w ho hl).1 x) ((D.mp m n w ho' hl').1 x) =
+    W.ap2 (Id W.N (W.ones w) m) (Id W.N (W.len w) n) (D.F n).car (\ p q -> (D.mp m n w p q).1 x) ho ho' hl hl'
+      (W.HN.uip (W.ones w) m ho ho') (W.HN.uip (W.len w) n hl hl') ;
+  -- nor on the word up to equality
+  mp-wd (m n : W.N) (w w' : W.Wd) (e : Id W.Wd w w') (ho : Id W.N (W.ones w) m) (hl : Id W.N (W.len w) n)
+    (ho' : Id W.N (W.ones w') m) (hl' : Id W.N (W.len w') n) (x : (D.F m).car) :
+      Id (D.F n).car ((D.mp m n w ho hl).1 x) ((D.mp m n w' ho' hl').1 x) =
+    W.subst W.Wd (\ u -> (p : Id W.N (W.ones u) m) (q : Id W.N (W.len u) n) -> Id (D.F n).car ((D.mp m n w ho hl).1 x) ((D.mp m n u p q).1 x))
+      w w' e (\ p q -> mp-irr m n w ho p hl q x) ho' hl' ;
+  -- supports are least
+  supp-least (m n : W.N) (w : W.Wd) (ho : Id W.N (W.ones w) m) (hl : Id W.N (W.len w) n) (x : (D.F m).car) :
+      W.Le (D.supp n ((D.mp m n w ho hl).1 x)) w =
+    \ y h -> PGP.at-comp-l w y (D.supp m x)
+      (W.subst W.Wd (\ u -> Id W.Bool (W.at u y) true) (D.supp n ((D.mp m n w ho hl).1 x)) (W.compW w (D.supp m x))
+        (D.supp-nat m n w ho hl x) h) ;
+  -- the support condition: if supp x is inside w then x is in the image of F(w)
+  module Hit (n : W.N) (x : (D.F n).car) (w : W.Wd) (hl : Id W.N (W.len w) n) (le : W.Le (D.supp n x) w) {
+    s : W.Wd = D.supp n x ;
+    r : W.Wd = W.restrict w s ;
+    hls : Id W.N (W.len s) (W.len w) = W.trans W.N (W.len s) n (W.len w) (D.supp-len n x) (W.sym W.N (W.len w) n hl) ;
+    rc : Id W.Wd (W.compW w r) s = W.restrict-comp w s hls le ;
+    hr : Id W.N (W.len r) (W.ones w) = W.len-restrict w s ;
+    -- ones r = ones s
+    hro : Id W.N (W.ones r) (W.ones s) =
+      W.trans W.N (W.ones r) (W.ones (W.compW w r)) (W.ones s)
+        (W.sym W.N (W.ones (W.compW w r)) (W.ones r) (W.ones-comp w r (W.sym W.N (W.len r) (W.ones w) hr)))
+        (W.ap W.Wd W.N W.ones (W.compW w r) s rc) ;
+    y : (D.F (W.ones w)).car = (D.mp (W.ones s) (W.ones w) r hro hr).1 (D.nf n x) ;
+    eq : Id (D.F n).car ((D.mp (W.ones w) n w (refl (W.ones w)) hl).1 y) x =
+      PL.trans (D.F n).car ((D.mp (W.ones w) n w (refl (W.ones w)) hl).1 y)
+        ((D.mp (W.ones s) n (W.compW w r) (oc (W.ones s) (W.ones w) w r (refl (W.ones w)) hro hr) (lc n w r hl)).1 (D.nf n x)) x
+        (D.mp-comp (W.ones s) (W.ones w) n w r (refl (W.ones w)) hl hro hr (D.nf n x))
+        (PL.trans (D.F n).car
+          ((D.mp (W.ones s) n (W.compW w r) (oc (W.ones s) (W.ones w) w r (refl (W.ones w)) hro hr) (lc n w r hl)).1 (D.nf n x))
+          ((D.mp (W.ones s) n s (refl (W.ones s)) (D.supp-len n x)).1 (D.nf n x)) x
+          (mp-wd (W.ones s) n (W.compW w r) s rc (oc (W.ones s) (W.ones w) w r (refl (W.ones w)) hro hr) (lc n w r hl)
+            (refl (W.ones s)) (D.supp-len n x) (D.nf n x))
+          (D.nf-eq n x)) ;
+  } ;
+} ;
+
+----------------------------------------------------------------------
+-- the finite-valued pre-dilators of dilator.seg
+
+module FinPD (D : CD.Dil) {
+  module P = W.PreDil[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2] ;
+  Fo (n : W.N) : DP.LO = DE.Eval[n].F D ;
+  mp (m n : W.N) (w : W.Wd) (ho : Id W.N (W.ones w) m) (hl : Id W.N (W.len w) n) : DP.Map (Fo m) (Fo n) = PM.actMap D w m n ho hl ;
+  mp-id (n : W.N) (x : (Fo n).car) : Id (Fo n).car ((mp n n (W.idW n) (W.ones-idW n) (W.len-idW n)).1 x) x =
+    DE.Eval[n].pt-eq D ((mp n n (W.idW n) (W.ones-idW n) (W.len-idW n)).1 x) x (PM.act-id D n x.1 x.2) ;
+  mp-comp (k m n : W.N) (v w : W.Wd) (hv : Id W.N (W.ones v) m) (hv' : Id W.N (W.len v) n)
+    (hw : Id W.N (W.ones w) k) (hw' : Id W.N (W.len w) m) (x : (Fo k).car) :
+      Id (Fo n).car ((mp m n v hv hv').1 ((mp k m w hw hw').1 x)) ((mp k n (W.compW v w) (oc k m v w hv hw hw') (lc n v w hv')).1 x) =
+    DE.Eval[n].pt-eq D ((mp m n v hv hv').1 ((mp k m w hw hw').1 x)) ((mp k n (W.compW v w) (oc k m v w hv hw hw') (lc n v w hv')).1 x)
+      (W.sym W.N (PM.act D (W.compW v w) x.1) (PM.act D v (PM.act D w x.1))
+        (PM.act-comp D v w (W.trans W.N (W.ones v) m (W.len w) hv (W.sym W.N (W.len w) m hw')) x.1)) ;
+  supp (n : W.N) (x : (Fo n).car) : W.Wd = P.Sup[n,x.1].supp ;
+  ss (n : W.N) (x : (Fo n).car) : Id W.N (W.len (supp n x)) n * Id W.Bool (W.at (CD.D1 D (supp n x)) x.1) true =
+    P.Point[n,x.1,P.hzOf n x.1 x.2].supp-supp ;
+  supp-len (n : W.N) (x : (Fo n).car) : Id W.N (W.len (supp n x)) n = (ss n x).1 ;
+  nf (n : W.N) (x : (Fo n).car) : (Fo (W.ones (supp n x))).car =
+    (W.rank (CD.D1 D (supp n x)) x.1,
+     W.subst W.N (\ j -> Id W.Bool (W.ltN (W.rank (CD.D1 D (supp n x)) x.1) j) true) (W.ones (CD.D1 D (supp n x))) (D.1 (W.ones (supp n x)))
+       (CD.dones D (supp n x)) (W.rank-lt (CD.D1 D (supp n x)) x.1 (ss n x).2)) ;
+  nf-eq (n : W.N) (x : (Fo n).car) :
+      Id (Fo n).car ((mp (W.ones (supp n x)) n (supp n x) (refl (W.ones (supp n x))) (supp-len n x)).1 (nf n x)) x =
+    DE.Eval[n].pt-eq D ((mp (W.ones (supp n x)) n (supp n x) (refl (W.ones (supp n x))) (supp-len n x)).1 (nf n x)) x
+      (W.sel-rank (CD.D1 D (supp n x)) x.1 (ss n x).2) ;
+  -- naturality of least supports (Dilator.Restr.Inv: D(w) moves the normal form along w)
+  module SN (w : W.Wd) (x : W.N) (hx : Id W.Bool (W.ltN x (D.1 (W.ones w))) true) {
+    module RI = W.Restr[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2,\ k z -> true].Inv[w,x,hx] ;
+    eq : Id W.Wd P.Sup[W.len w,W.sel (CD.D1 D w) x].supp (W.compW w P.Sup[W.ones w,x].supp) =
+      W.trans W.Wd P.Sup[W.len w,W.sel (CD.D1 D w) x].supp P.Sup[W.len w,W.sel (CD.D1 D (W.compW w RI.dx.1)) RI.dx.2.1].supp
+        (W.compW w P.Sup[W.ones w,x].supp)
+        (W.ap W.N W.Wd (\ k -> P.Sup[W.len w,k].supp) (W.sel (CD.D1 D w) x) (W.sel (CD.D1 D (W.compW w RI.dx.1)) RI.dx.2.1) RI.ye)
+        (P.fwd-bwd-w (W.len w) RI.e) ;
+  } ;
+  supp-nat (m n : W.N) (w : W.Wd) (ho : Id W.N (W.ones w) m) (hl : Id W.N (W.len w) n) (x : (Fo m).car) :
+      Id W.Wd (supp n ((mp m n w ho hl).1 x)) (W.compW w (supp m x)) =
+    W.subst W.N (\ k -> Id W.Wd P.Sup[k,W.sel (CD.D1 D w) x.1].supp (W.compW w P.Sup[m,x.1].supp)) (W.len w) n hl
+      (W.subst W.N (\ k -> Id W.Wd P.Sup[W.len w,W.sel (CD.D1 D w) x.1].supp (W.compW w P.Sup[k,x.1].supp)) (W.ones w) m ho
+        SN[w,x.1,W.subst W.N (\ k -> Id W.Bool (W.ltN x.1 (D.1 k)) true) m (W.ones w) (W.sym W.N (W.ones w) m ho) x.2].eq) ;
+  pdil : PDil = new PDil[F := Fo, mp := mp, mp-id := mp-id, mp-comp := mp-comp, supp := supp, supp-len := supp-len,
+    nf := nf, nf-eq := nf-eq, supp-nat := supp-nat] ;
+} ;

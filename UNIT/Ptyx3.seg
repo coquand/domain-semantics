@@ -1,0 +1,274 @@
+-- Ptykes of type 3: stable continuous functors Ptyx -> LO (catemb.pdf,
+-- linear-order case, one type level up; PLAN-CATEMB-LO.md "next type
+-- level").  Ptyx is a category of embeddings (PtyxSub, PtyxGen,
+-- PtyxColim): its subobjects are the subptykes (predicates preserved and
+-- reflected by every P(T)), and its finite objects are the finitely
+-- generated subptykes (finite unions of PtyxGen.Gen over finite
+-- dilators).  So, exactly as for DilPtyx.Ptyx one level down:
+--   * continuity: y in G(P) merely comes from a finitely generated
+--     subptyx of P;
+--   * stability: if y comes from the subptykes S and S', it comes from
+--     S /\ S' (supports are closed under binary intersection).
+-- No least supports, no decidability of supports.
+--
+-- Contents: Sub (subptykes, bundled), mor-eq (morphisms of ptykes are
+-- equal when pointwise equal: Natural and Cartesian are propositions),
+-- Gens/FG (finitely generated subptykes), record Ptyx3, Supports3 (mono,
+-- inter, exists, unique: the supports of y form a filter), Eval3[D]
+-- (P |-> P(D)), morphisms Mor3 (natural + cartesian), idP3/compP3, and
+-- EvalMor3: a dilator morphism T : D -> E gives Eval3[D] -> Eval3[E]
+-- (cartesian because subptykes are reflected along P(T)).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PM = PtyxMor[l] ;
+module PF = PtyxFinite[l] ;
+module PS = PtyxSub[l] ;
+module PGn = PtyxGen[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module FE = Axioms[l].FunExtLemmas[fe @l] ;
+
+----------------------------------------------------------------------
+-- extensionality for maps of linear orders and morphisms of ptykes
+
+map-eq (A B : DP.LO) (f g : DP.Map A B) (e : (x : A.car) -> Id B.car (f.1 x) (g.1 x)) : Id (DP.Map A B) f g =
+  PL.Sigma-eq (A.car -> B.car) (\ h -> (x y : A.car) -> Id W.O3 (B.cmp (h x) (h y)) (A.cmp x y)) f.1 g.1 f.2 g.2
+    (FE.funext A.car (\ x -> B.car) f.1 g.1 e)
+    (FE.isProp-Pi A.car (\ x -> (y : A.car) -> Id W.O3 (B.cmp (g.1 x) (g.1 y)) (A.cmp x y))
+      (\ x -> FE.isProp-Pi A.car (\ y -> Id W.O3 (B.cmp (g.1 x) (g.1 y)) (A.cmp x y))
+        (\ y -> PF.o3-set (B.cmp (g.1 x) (g.1 y)) (A.cmp x y)))) ;
+
+nat-prop (P Q : DP.Ptyx) (a : PM.Fam P Q) : PL.isProp (PM.Natural P Q a) =
+  FE.isProp-Pi CD.Dil (\ D -> (E : CD.Dil) (T : CD.Mor D E) (y : (P.F D).car) ->
+      Id (Q.F E).car ((Q.arr D E T).1 ((a D).1 y)) ((a E).1 ((P.arr D E T).1 y)))
+    (\ D -> FE.isProp-Pi CD.Dil (\ E -> (T : CD.Mor D E) (y : (P.F D).car) ->
+        Id (Q.F E).car ((Q.arr D E T).1 ((a D).1 y)) ((a E).1 ((P.arr D E T).1 y)))
+      (\ E -> FE.isProp-Pi (CD.Mor D E) (\ T -> (y : (P.F D).car) ->
+          Id (Q.F E).car ((Q.arr D E T).1 ((a D).1 y)) ((a E).1 ((P.arr D E T).1 y)))
+        (\ T -> FE.isProp-Pi (P.F D).car (\ y -> Id (Q.F E).car ((Q.arr D E T).1 ((a D).1 y)) ((a E).1 ((P.arr D E T).1 y)))
+          (\ y -> PF.lo-set (Q.F E) ((Q.arr D E T).1 ((a D).1 y)) ((a E).1 ((P.arr D E T).1 y)))))) ;
+
+cart-prop (P Q : DP.Ptyx) (a : PM.Fam P Q) : PL.isProp (PM.Cartesian P Q a) =
+  FE.isProp-Pi CD.Dil (\ D -> (y : (P.F D).car) (c : DP.SubSet) -> PM.Supp Q D ((a D).1 y) c -> PM.Supp P D y c)
+    (\ D -> FE.isProp-Pi (P.F D).car (\ y -> (c : DP.SubSet) -> PM.Supp Q D ((a D).1 y) c -> PM.Supp P D y c)
+      (\ y -> FE.isProp-Pi DP.SubSet (\ c -> PM.Supp Q D ((a D).1 y) c -> PM.Supp P D y c)
+        (\ c -> FE.isProp-Pi (PM.Supp Q D ((a D).1 y) c) (\ s -> PM.Supp P D y c)
+          (\ s -> PF.supp-prop P D y c)))) ;
+
+mor-eq (P Q : DP.Ptyx) (S T : PM.Mor P Q) (e : PM.MorEq P Q S T) : Id (PM.Mor P Q) S T =
+  PL.Sigma-eq (PM.Fam P Q) (\ a -> PM.Natural P Q a * PM.Cartesian P Q a) S.1 T.1 S.2 T.2
+    (FE.funext CD.Dil (\ D -> DP.Map (P.F D) (Q.F D)) S.1 T.1 (\ D -> map-eq (P.F D) (Q.F D) (S.1 D) (T.1 D) (e D)))
+    (PL.isProp-Sigma (PM.Natural P Q T.1) (\ n -> PM.Cartesian P Q T.1) (nat-prop P Q T.1) (\ n -> cart-prop P Q T.1)) ;
+
+----------------------------------------------------------------------
+-- subptykes, bundled
+
+Sub (P : DP.Ptyx) : U l+ = (S : PS.Pred P) * (PS.SProp P S * (PS.Fwd P S * PS.Bwd P S)) ;
+
+module SubOf (P : DP.Ptyx) (s : Sub P) {
+  module SP = PS.SubPtyx[P,s.1,s.2.1,s.2.2.1,s.2.2.2] ;
+  ptyx : DP.Ptyx = SP.ptyx ;
+  inc : PM.Mor ptyx P = SP.inc ;
+} ;
+
+module MeetSub (P : DP.Ptyx) (s s' : Sub P) {
+  module I = PS.Inter[P,s.1,s.2.1,s.2.2.1,s.2.2.2,s'.1,s'.2.1,s'.2.2.1,s'.2.2.2] ;
+  sub : Sub P = (I.I,(I.ip,(I.ifw,I.ibw))) ;
+} ;
+meetSub (P : DP.Ptyx) (s s' : Sub P) : Sub P = MeetSub[P,s,s'].sub ;
+
+LeSub (P : DP.Ptyx) (s s' : Sub P) : U l+ = (D : CD.Dil) (x : (P.F D).car) -> s.1 D x -> s'.1 D x ;
+
+-- the inclusion of subptykes s <= s', over P
+module Incl (P : DP.Ptyx) (s s' : Sub P) (le : LeSub P s s') {
+  module A = SubOf[P,s] ;
+  module B = SubOf[P,s'] ;
+  f (D : CD.Dil) (p : A.SP.Car D) : B.SP.Car D = (p.1,le D p.1 p.2) ;
+  mor : PM.Mor A.ptyx B.ptyx =
+    (\ D -> (f D,\ p q -> refl ((P.F D).cmp p.1 q.1)),
+     (\ D E T p -> B.SP.peq E ((B.SP.arr D E T).1 (f D p)) (f E ((A.SP.arr D E T).1 p)) (refl ((P.arr D E T).1 p.1)),
+      \ D p c sB -> A.SP.lift D p c (B.SP.drop D (f D p) c sB))) ;
+  tri : Id (PM.Mor A.ptyx P) (PM.compP A.ptyx B.ptyx P mor B.inc) A.inc =
+    mor-eq A.ptyx P (PM.compP A.ptyx B.ptyx P mor B.inc) A.inc (\ D p -> refl p.1) ;
+} ;
+
+----------------------------------------------------------------------
+-- finitely generated subptykes: finite unions of Gen over finite dilators
+
+Gens (P : DP.Ptyx) : U l =
+  (n : W.N) * ((i : W.N) -> Id W.Bool (W.ltN i n) true -> (A : DF.FinDil) * (P.F A.1).car) ;
+
+module FG (P : DP.Ptyx) (g : Gens P) {
+  Hit (D : CD.Dil) (x : (P.F D).car) : U l =
+    (i : W.N) * ((h : Id W.Bool (W.ltN i g.1) true) * PGn.Gen[P,(g.2 i h).1.1,(g.2 i h).2].S D x) ;
+  S : PS.Pred P = \ D x -> Ex (Hit D x) ;
+  sp : PS.SProp P S = \ D x -> prop (Hit D x) ;
+  fw : PS.Fwd P S = \ D E T x ->
+    TC.map (Hit D x) (Hit E ((P.arr D E T).1 x))
+      (\ u -> (u.1,(u.2.1,PGn.Gen[P,(g.2 u.1 u.2.1).1.1,(g.2 u.1 u.2.1).2].fw D E T x u.2.2))) ;
+  bw : PS.Bwd P S = \ D E T x ->
+    TC.map (Hit E ((P.arr D E T).1 x)) (Hit D x)
+      (\ u -> (u.1,(u.2.1,PGn.Gen[P,(g.2 u.1 u.2.1).1.1,(g.2 u.1 u.2.1).2].bw D E T x u.2.2))) ;
+  sub : Sub P = (S,(sp,(fw,bw))) ;
+} ;
+
+----------------------------------------------------------------------
+-- ptykes of type 3
+
+record Ptyx3 {
+  G : DP.Ptyx -> DP.LO ;
+  arr : (P Q : DP.Ptyx) -> PM.Mor P Q -> DP.Map (G P) (G Q) ;
+  arr-id : (P : DP.Ptyx) (y : (G P).car) -> Id (G P).car ((arr P P (PM.idP P)).1 y) y ;
+  arr-comp : (P Q R : DP.Ptyx) (S : PM.Mor P Q) (T : PM.Mor Q R) (y : (G P).car) ->
+    Id (G R).car ((arr Q R T).1 ((arr P Q S).1 y)) ((arr P R (PM.compP P Q R S T)).1 y) ;
+  -- continuity: some finitely generated subptyx supports y
+  support : (P : DP.Ptyx) (y : (G P).car) -> Ex ((g : Gens P) *
+    ((z : (G (SubOf[P,FG[P,g].sub].ptyx)).car) *
+      Id (G P).car ((arr (SubOf[P,FG[P,g].sub].ptyx) P (SubOf[P,FG[P,g].sub].inc)).1 z) y)) ;
+  -- stability: supports are closed under binary intersection
+  meet : (P : DP.Ptyx) (y : (G P).car) (s s' : Sub P) ->
+    ((z : (G (SubOf[P,s].ptyx)).car) * Id (G P).car ((arr (SubOf[P,s].ptyx) P (SubOf[P,s].inc)).1 z) y) ->
+    ((z : (G (SubOf[P,s'].ptyx)).car) * Id (G P).car ((arr (SubOf[P,s'].ptyx) P (SubOf[P,s'].inc)).1 z) y) ->
+    ((z : (G (SubOf[P,meetSub P s s'].ptyx)).car) *
+      Id (G P).car ((arr (SubOf[P,meetSub P s s'].ptyx) P (SubOf[P,meetSub P s s'].inc)).1 z) y) ;
+} ;
+
+Supp3 (X : Ptyx3) (P : DP.Ptyx) (y : (X.G P).car) (s : Sub P) : U l =
+  (z : (X.G (SubOf[P,s].ptyx)).car) * Id (X.G P).car ((X.arr (SubOf[P,s].ptyx) P (SubOf[P,s].inc)).1 z) y ;
+
+module Supports3 (X : Ptyx3) (P : DP.Ptyx) {
+  -- upward closure, by functoriality
+  module Mono (y : (X.G P).car) (s s' : Sub P) (le : LeSub P s s') (u : Supp3 X P y s) {
+    module Q = Incl[P,s,s',le] ;
+    z' : (X.G Q.B.ptyx).car = (X.arr Q.A.ptyx Q.B.ptyx Q.mor).1 u.1 ;
+    eq : Id (X.G P).car ((X.arr Q.B.ptyx P Q.B.inc).1 z') y =
+      PL.trans (X.G P).car ((X.arr Q.B.ptyx P Q.B.inc).1 z')
+        ((X.arr Q.A.ptyx P (PM.compP Q.A.ptyx Q.B.ptyx P Q.mor Q.B.inc)).1 u.1) y
+        (X.arr-comp Q.A.ptyx Q.B.ptyx P Q.mor Q.B.inc u.1)
+        (PL.trans (X.G P).car ((X.arr Q.A.ptyx P (PM.compP Q.A.ptyx Q.B.ptyx P Q.mor Q.B.inc)).1 u.1)
+          ((X.arr Q.A.ptyx P Q.A.inc).1 u.1) y
+          (PL.ap (PM.Mor Q.A.ptyx P) (X.G P).car (\ T -> (X.arr Q.A.ptyx P T).1 u.1)
+            (PM.compP Q.A.ptyx Q.B.ptyx P Q.mor Q.B.inc) Q.A.inc Q.tri)
+          u.2) ;
+    result : Supp3 X P y s' = (z',eq) ;
+  } ;
+  mono (y : (X.G P).car) (s s' : Sub P) (le : LeSub P s s') (u : Supp3 X P y s) : Supp3 X P y s' =
+    Mono[y,s,s',le,u].result ;
+  inter (y : (X.G P).car) (s s' : Sub P) (u : Supp3 X P y s) (u' : Supp3 X P y s') : Supp3 X P y (meetSub P s s') =
+    X.meet P y s s' u u' ;
+  exists (y : (X.G P).car) : Ex ((g : Gens P) * Supp3 X P y (FG[P,g].sub)) = X.support P y ;
+  -- a support is unique as a point: arr of an inclusion is injective
+  unique (y : (X.G P).car) (s : Sub P) (u u' : Supp3 X P y s) : Id (X.G (SubOf[P,s].ptyx)).car u.1 u'.1 =
+    DP.map-inj (X.G (SubOf[P,s].ptyx)) (X.G P) (X.arr (SubOf[P,s].ptyx) P (SubOf[P,s].inc)) u.1 u'.1
+      (PL.trans (X.G P).car ((X.arr (SubOf[P,s].ptyx) P (SubOf[P,s].inc)).1 u.1) y
+        ((X.arr (SubOf[P,s].ptyx) P (SubOf[P,s].inc)).1 u'.1) u.2
+        (PL.sym (X.G P).car ((X.arr (SubOf[P,s].ptyx) P (SubOf[P,s].inc)).1 u'.1) y u'.2)) ;
+  supp-prop (y : (X.G P).car) (s : Sub P) : PL.isProp (Supp3 X P y s) = \ u u' ->
+    PL.Sigma-eq (X.G (SubOf[P,s].ptyx)).car
+      (\ z -> Id (X.G P).car ((X.arr (SubOf[P,s].ptyx) P (SubOf[P,s].inc)).1 z) y) u.1 u'.1 u.2 u'.2
+      (unique y s u u')
+      (PF.lo-set (X.G P) ((X.arr (SubOf[P,s].ptyx) P (SubOf[P,s].inc)).1 u'.1) y) ;
+} ;
+
+----------------------------------------------------------------------
+-- the evaluation ptyx of type 3:  P |-> P(D)
+-- support: PtyxGen.cover (one generator over a truncation);
+-- stability: x lies in the subptyx S iff it is supported by S.
+
+module Eval3 (D : CD.Dil) {
+  G (P : DP.Ptyx) : DP.LO = P.F D ;
+  arr (P Q : DP.Ptyx) (a : PM.Mor P Q) : DP.Map (G P) (G Q) = a.1 D ;
+  arr-id (P : DP.Ptyx) (y : (G P).car) : Id (G P).car ((arr P P (PM.idP P)).1 y) y = refl y ;
+  arr-comp (P Q R : DP.Ptyx) (S : PM.Mor P Q) (T : PM.Mor Q R) (y : (G P).car) :
+      Id (G R).car ((arr Q R T).1 ((arr P Q S).1 y)) ((arr P R (PM.compP P Q R S T)).1 y) =
+    refl ((T.1 D).1 ((S.1 D).1 y)) ;
+  -- the hit of a cover witness
+  module One (P : DP.Ptyx) (x : (P.F D).car) (w : (A : DF.FinDil) * ((y : (P.F A.1).car) * PGn.Gen[P,A.1,y].S D x)) {
+    g : Gens P = (W.one,\ i h -> (w.1,w.2.1)) ;
+    module H = FG[P,g] ;
+    z : SubOf[P,H.sub].SP.Car D = (x,inc (H.Hit D x) (zero,(refl true,w.2.2))) ;
+    result : (g : Gens P) * ((z : (G (SubOf[P,FG[P,g].sub].ptyx)).car) *
+        Id (G P).car ((arr (SubOf[P,FG[P,g].sub].ptyx) P (SubOf[P,FG[P,g].sub].inc)).1 z) x) =
+      (g,(z,refl x)) ;
+  } ;
+  support (P : DP.Ptyx) (x : (G P).car) : Ex ((g : Gens P) *
+      ((z : (G (SubOf[P,FG[P,g].sub].ptyx)).car) *
+        Id (G P).car ((arr (SubOf[P,FG[P,g].sub].ptyx) P (SubOf[P,FG[P,g].sub].inc)).1 z) x)) =
+    TC.map ((A : DF.FinDil) * ((y : (P.F A.1).car) * PGn.Gen[P,A.1,y].S D x))
+      ((g : Gens P) * ((z : (G (SubOf[P,FG[P,g].sub].ptyx)).car) *
+        Id (G P).car ((arr (SubOf[P,FG[P,g].sub].ptyx) P (SubOf[P,FG[P,g].sub].inc)).1 z) x))
+      (\ w -> One[P,x,w].result) (PGn.cover P D x) ;
+  -- a support by s gives membership in s
+  mem (P : DP.Ptyx) (x : (G P).car) (s : Sub P)
+    (u : (z : (G (SubOf[P,s].ptyx)).car) * Id (G P).car ((arr (SubOf[P,s].ptyx) P (SubOf[P,s].inc)).1 z) x) : s.1 D x =
+    PL.subst (P.F D).car (s.1 D) u.1.1 x u.2 u.1.2 ;
+  meet (P : DP.Ptyx) (x : (G P).car) (s s' : Sub P)
+    (u : (z : (G (SubOf[P,s].ptyx)).car) * Id (G P).car ((arr (SubOf[P,s].ptyx) P (SubOf[P,s].inc)).1 z) x)
+    (u' : (z : (G (SubOf[P,s'].ptyx)).car) * Id (G P).car ((arr (SubOf[P,s'].ptyx) P (SubOf[P,s'].inc)).1 z) x) :
+      (z : (G (SubOf[P,meetSub P s s'].ptyx)).car) *
+        Id (G P).car ((arr (SubOf[P,meetSub P s s'].ptyx) P (SubOf[P,meetSub P s s'].inc)).1 z) x =
+    ((x,(mem P x s u,mem P x s' u')),refl x) ;
+  ptyx3 : Ptyx3 = new Ptyx3[G := G, arr := arr, arr-id := arr-id, arr-comp := arr-comp,
+    support := support, meet := meet] ;
+} ;
+
+----------------------------------------------------------------------
+-- morphisms of ptykes of type 3
+
+Fam3 (X Y : Ptyx3) : U l+ = (P : DP.Ptyx) -> DP.Map (X.G P) (Y.G P) ;
+Natural3 (X Y : Ptyx3) (a : Fam3 X Y) : U l+ =
+  (P Q : DP.Ptyx) (T : PM.Mor P Q) (y : (X.G P).car) ->
+    Id (Y.G Q).car ((Y.arr P Q T).1 ((a P).1 y)) ((a Q).1 ((X.arr P Q T).1 y)) ;
+Cartesian3 (X Y : Ptyx3) (a : Fam3 X Y) : U l+ =
+  (P : DP.Ptyx) (y : (X.G P).car) (s : Sub P) -> Supp3 Y P ((a P).1 y) s -> Supp3 X P y s ;
+Mor3 (X Y : Ptyx3) : U l+ = (a : Fam3 X Y) * (Natural3 X Y a * Cartesian3 X Y a) ;
+MorEq3 (X Y : Ptyx3) (S T : Mor3 X Y) : U l+ = (P : DP.Ptyx) (y : (X.G P).car) -> Id (Y.G P).car ((S.1 P).1 y) ((T.1 P).1 y) ;
+
+idP3 (X : Ptyx3) : Mor3 X X =
+  (\ P -> PM.idMap (X.G P),(\ P Q T y -> refl ((X.arr P Q T).1 y),\ P y s u -> u)) ;
+
+module Comp3 (X Y Z : Ptyx3) (S : Mor3 X Y) (T : Mor3 Y Z) {
+  a : Fam3 X Z = \ P -> PM.compMap (X.G P) (Y.G P) (Z.G P) (S.1 P) (T.1 P) ;
+  nat : Natural3 X Z a = \ P Q M y ->
+    PL.trans (Z.G Q).car ((Z.arr P Q M).1 ((T.1 P).1 ((S.1 P).1 y))) ((T.1 Q).1 ((Y.arr P Q M).1 ((S.1 P).1 y)))
+      ((T.1 Q).1 ((S.1 Q).1 ((X.arr P Q M).1 y)))
+      (T.2.1 P Q M ((S.1 P).1 y))
+      (PL.ap (Y.G Q).car (Z.G Q).car (T.1 Q).1 ((Y.arr P Q M).1 ((S.1 P).1 y)) ((S.1 Q).1 ((X.arr P Q M).1 y))
+        (S.2.1 P Q M y)) ;
+  cart : Cartesian3 X Z a = \ P y s u -> S.2.2 P y s (T.2.2 P ((S.1 P).1 y) s u) ;
+  mor : Mor3 X Z = (a,(nat,cart)) ;
+} ;
+compP3 (X Y Z : Ptyx3) (S : Mor3 X Y) (T : Mor3 Y Z) : Mor3 X Z = Comp3[X,Y,Z,S,T].mor ;
+
+id-left3 (X Y : Ptyx3) (S : Mor3 X Y) : MorEq3 X Y (compP3 X Y Y S (idP3 Y)) S = \ P y -> refl ((S.1 P).1 y) ;
+id-right3 (X Y : Ptyx3) (S : Mor3 X Y) : MorEq3 X Y (compP3 X X Y (idP3 X) S) S = \ P y -> refl ((S.1 P).1 y) ;
+assoc3 (X Y Z V : Ptyx3) (S : Mor3 X Y) (T : Mor3 Y Z) (M : Mor3 Z V) :
+    MorEq3 X V (compP3 X Z V (compP3 X Y Z S T) M) (compP3 X Y V S (compP3 Y Z V T M)) =
+  \ P y -> refl ((M.1 P).1 ((T.1 P).1 ((S.1 P).1 y))) ;
+
+----------------------------------------------------------------------
+-- dilators act on evaluation ptykes of type 3:  T : D -> E gives
+-- Eval3[D] -> Eval3[E], y |-> P(T) y.  Natural by naturality of ptyx
+-- morphisms; cartesian because subptykes are reflected along P(T).
+
+module EvalMor3 (D E : CD.Dil) (T : CD.Mor D E) {
+  module X = Eval3[D] ;
+  module Y = Eval3[E] ;
+  a : Fam3 X.ptyx3 Y.ptyx3 = \ P -> P.arr D E T ;
+  nat : Natural3 X.ptyx3 Y.ptyx3 a = \ P Q M y ->
+    PL.sym (Q.F E).car ((Q.arr D E T).1 ((M.1 D).1 y)) ((M.1 E).1 ((P.arr D E T).1 y)) (M.2.1 D E T y) ;
+  cart : Cartesian3 X.ptyx3 Y.ptyx3 a = \ P y s u ->
+    ((y,s.2.2.2 D E T y (Y.mem P ((P.arr D E T).1 y) s u)),refl y) ;
+  mor : Mor3 X.ptyx3 Y.ptyx3 = (a,(nat,cart)) ;
+} ;
+evalMor3-id (D : CD.Dil) : MorEq3 (Eval3[D].ptyx3) (Eval3[D].ptyx3) (EvalMor3[D,D,CD.idM D].mor) (idP3 (Eval3[D].ptyx3)) =
+  \ P y -> P.arr-id D y ;
+evalMor3-comp (D E H : CD.Dil) (S : CD.Mor D E) (T : CD.Mor E H) :
+    MorEq3 (Eval3[D].ptyx3) (Eval3[H].ptyx3)
+      (compP3 (Eval3[D].ptyx3) (Eval3[E].ptyx3) (Eval3[H].ptyx3) (EvalMor3[D,E,S].mor) (EvalMor3[E,H,T].mor))
+      (EvalMor3[D,H,CD.compM D E H S T].mor) =
+  \ P y -> P.arr-comp D E H S T y ;

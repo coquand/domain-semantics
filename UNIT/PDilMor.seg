@@ -1,0 +1,167 @@
+-- Morphisms of predilators (PDil) and the universal property of the
+-- colimit of a chain of finite-valued dilators (PLAN-CATEMB-LO.md,
+-- routes (a)/(b)).
+--
+--   Mor D E: a natural family of strictly increasing maps preserving
+--   supports (the latter is Freund's automatic property; required here);
+--   idP, compP, MorEq and the category laws (pointwise, refl);
+--   finMor T: a morphism of finite-valued dilators is a PDil morphism
+--   (CatDil morphisms preserve least supports, PtyxDen.SuppEq);
+--   Cocone (for PDilChain.Chain): iota i : Dc i -> colim, compatible with
+--   the system; Univ: every compatible cocone factors uniquely.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DP = DilPtyx[l] ;
+module DE = DilPtyxEval[l] ;
+module PM = PtyxMor[l] ;
+module PF = PtyxFinite[l] ;
+module PDn = PtyxDen[l] ;
+module PG = PtyxGerm[l] ;
+module PDl = PDil[l] ;
+module PC = PDilChain[l] ;
+module PL = Prelude[l] ;
+module FE = Axioms[l].FunExtLemmas[fe @l] ;
+
+Fam (D E : PDl.PDil) : U l = (n : W.N) -> DP.Map (D.F n) (E.F n) ;
+Natural (D E : PDl.PDil) (t : Fam D E) : U l =
+  (m n : W.N) (w : W.Wd) (ho : Id W.N (W.ones w) m) (hl : Id W.N (W.len w) n) (x : (D.F m).car) ->
+    Id (E.F n).car ((E.mp m n w ho hl).1 ((t m).1 x)) ((t n).1 ((D.mp m n w ho hl).1 x)) ;
+SuppPres (D E : PDl.PDil) (t : Fam D E) : U l =
+  (n : W.N) (x : (D.F n).car) -> Id W.Wd (E.supp n ((t n).1 x)) (D.supp n x) ;
+Mor (D E : PDl.PDil) : U l = (t : Fam D E) * (Natural D E t * SuppPres D E t) ;
+
+idP (D : PDl.PDil) : Mor D D =
+  (\ n -> PM.idMap (D.F n),(\ m n w ho hl x -> refl ((D.mp m n w ho hl).1 x),\ n x -> refl (D.supp n x))) ;
+compP (D E G : PDl.PDil) (S : Mor D E) (T : Mor E G) : Mor D G =
+  (\ n -> PM.compMap (D.F n) (E.F n) (G.F n) (S.1 n) (T.1 n),
+   (\ m n w ho hl x ->
+      PL.trans (G.F n).car ((G.mp m n w ho hl).1 ((T.1 m).1 ((S.1 m).1 x))) ((T.1 n).1 ((E.mp m n w ho hl).1 ((S.1 m).1 x)))
+        ((T.1 n).1 ((S.1 n).1 ((D.mp m n w ho hl).1 x)))
+        (T.2.1 m n w ho hl ((S.1 m).1 x))
+        (PL.ap (E.F n).car (G.F n).car (T.1 n).1 ((E.mp m n w ho hl).1 ((S.1 m).1 x)) ((S.1 n).1 ((D.mp m n w ho hl).1 x))
+          (S.2.1 m n w ho hl x)),
+    \ n x -> W.trans W.Wd (G.supp n ((T.1 n).1 ((S.1 n).1 x))) (E.supp n ((S.1 n).1 x)) (D.supp n x)
+      (T.2.2 n ((S.1 n).1 x)) (S.2.2 n x))) ;
+MorEq (D E : PDl.PDil) (S T : Mor D E) : U l = (n : W.N) (x : (D.F n).car) -> Id (E.F n).car ((S.1 n).1 x) ((T.1 n).1 x) ;
+id-left (D E : PDl.PDil) (S : Mor D E) : MorEq D E (compP D E E S (idP E)) S = \ n x -> refl ((S.1 n).1 x) ;
+id-right (D E : PDl.PDil) (S : Mor D E) : MorEq D E (compP D D E (idP D) S) S = \ n x -> refl ((S.1 n).1 x) ;
+assoc (D E G H : PDl.PDil) (S : Mor D E) (T : Mor E G) (R : Mor G H) :
+    MorEq D H (compP D G H (compP D E G S T) R) (compP D E H S (compP E G H T R)) = \ n x -> refl ((R.1 n).1 ((T.1 n).1 ((S.1 n).1 x))) ;
+
+----------------------------------------------------------------------
+-- morphisms of finite-valued dilators
+
+module FinMor (D E : CD.Dil) (T : CD.Mor D E) {
+  module FD = PDl.FinPD[D] ;
+  module FE0 = PDl.FinPD[E] ;
+  module NT = W.Nat[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2,
+    E.1,E.2.1,E.2.2.1,E.2.2.2.1,E.2.2.2.2.1,E.2.2.2.2.2.1,E.2.2.2.2.2.2,T.1,T.2.1,T.2.2.1,T.2.2.2] ;
+  t : Fam FD.pdil FE0.pdil = \ n -> DE.Eval[n].arr D E T ;
+  nat : Natural FD.pdil FE0.pdil t = \ m n w ho hl x ->
+    DE.Eval[n].pt-eq E ((FE0.mp m n w ho hl).1 ((t m).1 x)) ((t n).1 ((FD.mp m n w ho hl).1 x))
+      (W.sym W.N (W.sel (T.1 n) (W.sel (CD.D1 D w) x.1)) (W.sel (CD.D1 E w) (W.sel (T.1 m) x.1))
+        (W.trans W.N (W.sel (T.1 n) (W.sel (CD.D1 D w) x.1)) (W.sel (CD.D1 E w) (W.sel (T.1 (W.ones w)) x.1))
+          (W.sel (CD.D1 E w) (W.sel (T.1 m) x.1))
+          (NT.natn n w hl x.1)
+          (W.ap W.N W.N (\ k -> W.sel (CD.D1 E w) (W.sel (T.1 k) x.1)) (W.ones w) m ho))) ;
+  sp : SuppPres FD.pdil FE0.pdil t = \ n x -> PDn.SuppEq[D,E,T,n,x.1,x.2].supp-eq ;
+  mor : Mor FD.pdil FE0.pdil = (t,(nat,sp)) ;
+} ;
+finMor (D E : CD.Dil) (T : CD.Mor D E) : Mor PDl.FinPD[D].pdil PDl.FinPD[E].pdil = FinMor[D,E,T].mor ;
+
+----------------------------------------------------------------------
+-- the colimit of a chain: cocone and universal property
+
+module Cocone (Dc : W.N -> CD.Dil) (e : (i j : W.N) -> PG.LeN i j -> CD.Mor (Dc i) (Dc j))
+  (e-id : (i : W.N) (h : PG.LeN i i) -> Id (CD.Mor (Dc i) (Dc i)) (e i i h) (CD.idM (Dc i)))
+  (e-comp : (i j k : W.N) (h : PG.LeN i j) (h' : PG.LeN j k) ->
+     Id (CD.Mor (Dc i) (Dc k)) (CD.compM (Dc i) (Dc j) (Dc k) (e i j h) (e j k h')) (e i k (PG.le-trans i j k h h'))) {
+  module C = PC.Chain[Dc,e,e-id,e-comp] ;
+  Pi (i : W.N) : PDl.PDil = PDl.FinPD[Dc i].pdil ;
+  iota (i : W.N) : Mor (Pi i) C.pdil =
+    (\ n -> C.Lv[n].X.iota i,
+     (\ m n w ho hl x -> C.Act[m,n,w,ho,hl].I.fm-cl (i,x),
+      \ n x -> C.Lv[n].Sd.h-cl (i,x))) ;
+  iota-e (i j : W.N) (h : PG.LeN i j) : MorEq (Pi i) C.pdil (compP (Pi i) (Pi j) C.pdil (finMor (Dc i) (Dc j) (e i j h)) (iota j)) (iota i) =
+    \ n x -> PL.sym C.Lv[n].X.Car (C.Lv[n].X.cl (i,x)) (C.Lv[n].X.cl (j,((DE.Eval[n].arr (Dc i) (Dc j) (e i j h)).1 x)))
+      (C.Lv[n].X.cl-push (i,x) j h) ;
+
+  module Univ (Q : PDl.PDil) (f : (i : W.N) -> Mor (Pi i) Q)
+    (fco : (i j : W.N) (h : PG.LeN i j) (n : W.N) (x : (DE.Eval[n].F (Dc i)).car) ->
+       Id (Q.F n).car (((f j).1 n).1 ((DE.Eval[n].arr (Dc i) (Dc j) (e i j h)).1 x)) (((f i).1 n).1 x)) {
+    fg (n : W.N) (g : C.Lv[n].X.G) : (Q.F n).car = ((f g.1).1 n).1 g.2 ;
+    fi (n : W.N) (g g' : C.Lv[n].X.G) (q : Id W.O3 (C.Lv[n].X.cmpG g g') eq) : Id (Q.F n).car (fg n g) (fg n g') =
+      PL.trans (Q.F n).car (fg n g) (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (fg n g')
+        (PL.sym (Q.F n).car (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (fg n g)
+          (fco g.1 (W.plus g.1 g'.1) (PG.leL g.1 g'.1) n g.2))
+        (PL.trans (Q.F n).car (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+          (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) (fg n g')
+          (PL.ap (C.Lv[n].Fo (W.plus g.1 g'.1)).car (Q.F n).car ((f (W.plus g.1 g'.1)).1 n).1
+            (C.Lv[n].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (C.Lv[n].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))
+            (C.Lv[n].X.eq-at g g' (W.plus g.1 g'.1) (PG.leL g.1 g'.1) (PG.leR g.1 g'.1)
+              (C.Lv[n].X.car-eq (C.Lv[n].X.cl g) (C.Lv[n].X.cl g') (C.Lv[n].X.cls-eq g g' q))))
+          (fco g'.1 (W.plus g.1 g'.1) (PG.leR g.1 g'.1) n g'.2)) ;
+    module Dh (n : W.N) { module Y = C.Lv[n].X.Desc[(Q.F n).car,\ a b -> PF.lo-set (Q.F n) a b,fg n,fi n] ; } ;
+    hm (n : W.N) (y : (C.F n).car) : (Q.F n).car = Dh[n].Y.h y ;
+    hm-cl (n : W.N) (g : C.Lv[n].X.G) : Id (Q.F n).car (hm n (C.Lv[n].X.cl g)) (fg n g) = Dh[n].Y.h-cl g ;
+    mono (n : W.N) (x y : (C.F n).car) : Id W.O3 ((Q.F n).cmp (hm n x) (hm n y)) ((C.F n).cmp x y) =
+      C.Lv[n].X.ind2 (\ x0 y0 -> Id W.O3 ((Q.F n).cmp (hm n x0) (hm n y0)) (C.Lv[n].X.cmpC x0 y0))
+        (\ x0 y0 -> PF.o3-set ((Q.F n).cmp (hm n x0) (hm n y0)) (C.Lv[n].X.cmpC x0 y0))
+        (\ g g' -> W.trans W.O3 ((Q.F n).cmp (hm n (C.Lv[n].X.cl g)) (hm n (C.Lv[n].X.cl g')))
+          ((Q.F n).cmp (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+            (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))))
+          (C.Lv[n].X.cmpC (C.Lv[n].X.cl g) (C.Lv[n].X.cl g'))
+          (W.ap2 (Q.F n).car (Q.F n).car W.O3 (Q.F n).cmp
+            (hm n (C.Lv[n].X.cl g)) (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+            (hm n (C.Lv[n].X.cl g')) (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+            (PL.trans (Q.F n).car (hm n (C.Lv[n].X.cl g)) (fg n g) (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+              (hm-cl n g) (PL.sym (Q.F n).car (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (fg n g)
+                (fco g.1 (W.plus g.1 g'.1) (PG.leL g.1 g'.1) n g.2)))
+            (PL.trans (Q.F n).car (hm n (C.Lv[n].X.cl g')) (fg n g') (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+              (hm-cl n g') (PL.sym (Q.F n).car (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) (fg n g')
+                (fco g'.1 (W.plus g.1 g'.1) (PG.leR g.1 g'.1) n g'.2))))
+          (W.trans W.O3
+            ((Q.F n).cmp (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+              (((f (W.plus g.1 g'.1)).1 n).1 (C.Lv[n].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))))
+            (C.Lv[n].X.cmpG g g') (C.Lv[n].X.cmpC (C.Lv[n].X.cl g) (C.Lv[n].X.cl g'))
+            (((f (W.plus g.1 g'.1)).1 n).2 (C.Lv[n].X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (C.Lv[n].X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+            (W.sym W.O3 (C.Lv[n].X.cmpC (C.Lv[n].X.cl g) (C.Lv[n].X.cl g')) (C.Lv[n].X.cmpG g g') (C.Lv[n].X.cmp-cl g g'))))
+        x y ;
+    t : Fam C.pdil Q = \ n -> (hm n,mono n) ;
+    nat : Natural C.pdil Q t = \ m n w ho hl y ->
+      C.Lv[m].X.ind (\ y0 -> Id (Q.F n).car ((Q.mp m n w ho hl).1 (hm m y0)) (hm n ((C.mp m n w ho hl).1 y0)))
+        (\ y0 -> PF.lo-set (Q.F n) ((Q.mp m n w ho hl).1 (hm m y0)) (hm n ((C.mp m n w ho hl).1 y0)))
+        (\ g -> PL.trans (Q.F n).car ((Q.mp m n w ho hl).1 (hm m (C.Lv[m].X.cl g))) ((Q.mp m n w ho hl).1 (fg m g))
+          (hm n ((C.mp m n w ho hl).1 (C.Lv[m].X.cl g)))
+          (PL.ap (Q.F m).car (Q.F n).car (Q.mp m n w ho hl).1 (hm m (C.Lv[m].X.cl g)) (fg m g) (hm-cl m g))
+          (PL.trans (Q.F n).car ((Q.mp m n w ho hl).1 (fg m g)) (fg n (C.Act[m,n,w,ho,hl].I.gmap g))
+            (hm n ((C.mp m n w ho hl).1 (C.Lv[m].X.cl g)))
+            ((f g.1).2.1 m n w ho hl g.2)
+            (PL.trans (Q.F n).car (fg n (C.Act[m,n,w,ho,hl].I.gmap g)) (hm n (C.Lv[n].X.cl (C.Act[m,n,w,ho,hl].I.gmap g)))
+              (hm n ((C.mp m n w ho hl).1 (C.Lv[m].X.cl g)))
+              (PL.sym (Q.F n).car (hm n (C.Lv[n].X.cl (C.Act[m,n,w,ho,hl].I.gmap g))) (fg n (C.Act[m,n,w,ho,hl].I.gmap g))
+                (hm-cl n (C.Act[m,n,w,ho,hl].I.gmap g)))
+              (PL.ap C.Lv[n].X.Car (Q.F n).car (hm n) (C.Lv[n].X.cl (C.Act[m,n,w,ho,hl].I.gmap g)) ((C.mp m n w ho hl).1 (C.Lv[m].X.cl g))
+                (PL.sym C.Lv[n].X.Car ((C.mp m n w ho hl).1 (C.Lv[m].X.cl g)) (C.Lv[n].X.cl (C.Act[m,n,w,ho,hl].I.gmap g))
+                  (C.Act[m,n,w,ho,hl].I.fm-cl g))))))
+        y ;
+    sp : SuppPres C.pdil Q t = \ n y ->
+      C.Lv[n].X.ind (\ y0 -> Id W.Wd (Q.supp n (hm n y0)) (C.supp n y0)) (\ y0 -> W.HW.uip (Q.supp n (hm n y0)) (C.supp n y0))
+        (\ g -> W.trans W.Wd (Q.supp n (hm n (C.Lv[n].X.cl g))) (Q.supp n (fg n g)) (C.supp n (C.Lv[n].X.cl g))
+          (W.ap (Q.F n).car W.Wd (Q.supp n) (hm n (C.Lv[n].X.cl g)) (fg n g) (hm-cl n g))
+          (W.trans W.Wd (Q.supp n (fg n g)) (C.Lv[n].sf g) (C.supp n (C.Lv[n].X.cl g))
+            ((f g.1).2.2 n g.2)
+            (W.sym W.Wd (C.supp n (C.Lv[n].X.cl g)) (C.Lv[n].sf g) (C.Lv[n].Sd.h-cl g))))
+        y ;
+    mor : Mor C.pdil Q = (t,(nat,sp)) ;
+    fac (i : W.N) : MorEq (Pi i) Q (compP (Pi i) C.pdil Q (iota i) mor) (f i) = \ n x -> hm-cl n (i,x) ;
+    uniq (g' : Mor C.pdil Q) (hg : (i n : W.N) (x : (DE.Eval[n].F (Dc i)).car) -> Id (Q.F n).car ((g'.1 n).1 (C.Lv[n].X.cl (i,x))) (((f i).1 n).1 x)) :
+        MorEq C.pdil Q g' mor = \ n y ->
+      C.Lv[n].X.ind (\ y0 -> Id (Q.F n).car ((g'.1 n).1 y0) (hm n y0)) (\ y0 -> PF.lo-set (Q.F n) ((g'.1 n).1 y0) (hm n y0))
+        (\ g -> PL.trans (Q.F n).car ((g'.1 n).1 (C.Lv[n].X.cl g)) (fg n g) (hm n (C.Lv[n].X.cl g)) (hg g.1 n g.2)
+          (PL.sym (Q.F n).car (hm n (C.Lv[n].X.cl g)) (fg n g) (hm-cl n g)))
+        y ;
+  } ;
+} ;

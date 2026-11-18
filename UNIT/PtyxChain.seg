@@ -1,0 +1,150 @@
+-- Ptykes evaluated at chain-presented predilators (PLAN-CATEMB-LO.md,
+-- item 5, routes (a)/(b)).
+--
+-- A ptyx P is determined by its values on finite-valued dilators; on the
+-- colimit of a chain Dc i of finite-valued dilators it is evaluated as
+-- colim_i P(Dc i) (Ext: LOColim along P(e i j)).  Consistency checks:
+--   * eval-ext: for P = (D |-> D(n)) this is, literally, the value at n
+--     of the colimit predilator PDilChain.Chain (refl);
+--   * DenIso: for P = (D |-> D(X)) the colimit of the denotations
+--     colim_i Dc i (X) is isomorphic (map: strictly increasing and onto)
+--     to the denotations PDen[colim, X] of the colimit predilator.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DP = DilPtyx[l] ;
+module DE = DilPtyxEval[l] ;
+module PF = PtyxFinite[l] ;
+module PDn = PtyxDen[l] ;
+module PG = PtyxGerm[l] ;
+module LC = LOColim[l] ;
+module PC = PDilChain[l] ;
+module PDN = PDen[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+module Ext (P : DP.Ptyx) (Dc : W.N -> CD.Dil) (e : (i j : W.N) -> PG.LeN i j -> CD.Mor (Dc i) (Dc j))
+  (e-id : (i : W.N) (h : PG.LeN i i) -> Id (CD.Mor (Dc i) (Dc i)) (e i i h) (CD.idM (Dc i)))
+  (e-comp : (i j k : W.N) (h : PG.LeN i j) (h' : PG.LeN j k) ->
+     Id (CD.Mor (Dc i) (Dc k)) (CD.compM (Dc i) (Dc j) (Dc k) (e i j h) (e j k h')) (e i k (PG.le-trans i j k h h'))) {
+  Fo (i : W.N) : DP.LO = P.F (Dc i) ;
+  up (i j : W.N) (h : PG.LeN i j) : DP.Map (Fo i) (Fo j) = P.arr (Dc i) (Dc j) (e i j h) ;
+  uid (i : W.N) (h : PG.LeN i i) (x : (Fo i).car) : Id (Fo i).car ((up i i h).1 x) x =
+    PL.trans (Fo i).car ((up i i h).1 x) ((P.arr (Dc i) (Dc i) (CD.idM (Dc i))).1 x) x
+      (PL.ap (CD.Mor (Dc i) (Dc i)) (Fo i).car (\ M -> (P.arr (Dc i) (Dc i) M).1 x) (e i i h) (CD.idM (Dc i)) (e-id i h))
+      (P.arr-id (Dc i) x) ;
+  ucomp (i j k : W.N) (h : PG.LeN i j) (h' : PG.LeN j k) (x : (Fo i).car) :
+      Id (Fo k).car ((up j k h').1 ((up i j h).1 x)) ((up i k (PG.le-trans i j k h h')).1 x) =
+    PL.trans (Fo k).car ((up j k h').1 ((up i j h).1 x))
+      ((P.arr (Dc i) (Dc k) (CD.compM (Dc i) (Dc j) (Dc k) (e i j h) (e j k h'))).1 x)
+      ((up i k (PG.le-trans i j k h h')).1 x)
+      (P.arr-comp (Dc i) (Dc j) (Dc k) (e i j h) (e j k h') x)
+      (PL.ap (CD.Mor (Dc i) (Dc k)) (Fo k).car (\ M -> (P.arr (Dc i) (Dc k) M).1 x)
+        (CD.compM (Dc i) (Dc j) (Dc k) (e i j h) (e j k h')) (e i k (PG.le-trans i j k h h')) (e-comp i j k h h')) ;
+  module X = LC.Colim[Fo,up,uid,ucomp] ;
+  val : DP.LO = X.lo ;
+} ;
+
+module Checks (Dc : W.N -> CD.Dil) (e : (i j : W.N) -> PG.LeN i j -> CD.Mor (Dc i) (Dc j))
+  (e-id : (i : W.N) (h : PG.LeN i i) -> Id (CD.Mor (Dc i) (Dc i)) (e i i h) (CD.idM (Dc i)))
+  (e-comp : (i j k : W.N) (h : PG.LeN i j) (h' : PG.LeN j k) ->
+     Id (CD.Mor (Dc i) (Dc k)) (CD.compM (Dc i) (Dc j) (Dc k) (e i j h) (e j k h')) (e i k (PG.le-trans i j k h h'))) {
+  module C = PC.Chain[Dc,e,e-id,e-comp] ;
+
+  -- the evaluation ptyx extends to the value of the colimit predilator
+  eval-ext (n : W.N) : Id DP.LO Ext[DE.Eval[n].ptyx,Dc,e,e-id,e-comp].val (C.F n) = refl (C.F n) ;
+
+  -- denotations of the colimit = colimit of the denotations
+  module DenIso (X : DP.LO) {
+    module EX = Ext[PDn.Den[X].ptyx,Dc,e,e-id,e-comp] ;
+    module N = PDN.PDen[C.pdil,X] ;
+    module LX = PDn.Den[X].LX ;
+    nn (g : EX.X.G) : W.N = LX.lenL g.2.1 ;
+    zpt (g : EX.X.G) : (C.Lv[nn g].Fo g.1).car = (g.2.2.1,g.2.2.2.2.1) ;
+    ycl (g : EX.X.G) : (C.F (nn g)).car = C.Lv[nn g].X.cl (g.1,zpt g) ;
+    tsupp (g : EX.X.G) : Id W.Wd (C.supp (nn g) (ycl g)) (W.idW (nn g)) =
+      W.trans W.Wd (C.supp (nn g) (ycl g)) (C.Lv[nn g].sf (g.1,zpt g)) (W.idW (nn g)) (C.Lv[nn g].Sd.h-cl (g.1,zpt g)) g.2.2.2.2.2 ;
+    h0 (g : EX.X.G) : N.Den = (g.2.1,(ycl g,(g.2.2.2.1,tsupp g))) ;
+    neq (a : N.L) (y y' : (C.F (LX.lenL a)).car) (t : N.TX a y) (t' : N.TX a y') (q : Id (C.F (LX.lenL a)).car y y') :
+        Id N.Den (a,(y,t)) (a,(y',t')) =
+      PL.ap ((z : (C.F (LX.lenL a)).car) * N.TX a z) N.Den (\ p -> (a,p)) (y,t) (y',t')
+        (PL.Sigma-eq (C.F (LX.lenL a)).car (N.TX a) y y' t t' q (N.tx-prop a y')) ;
+    -- pushing a germ does not change its image
+    push-inv (g : EX.X.G) (L : W.N) (h : PG.LeN g.1 L) : Id N.Den (h0 (L,EX.X.push g L h)) (h0 g) =
+      neq g.2.1 (ycl (L,EX.X.push g L h)) (ycl g) (h0 (L,EX.X.push g L h)).2.2 (h0 g).2.2
+        (PL.trans (C.F (nn g)).car (ycl (L,EX.X.push g L h)) (C.Lv[nn g].X.cl (L,C.Lv[nn g].X.push (g.1,zpt g) L h)) (ycl g)
+          (PL.ap (C.Lv[nn g].Fo L).car (C.F (nn g)).car (\ p -> C.Lv[nn g].X.cl (L,p)) (zpt (L,EX.X.push g L h)) (C.Lv[nn g].X.push (g.1,zpt g) L h)
+            (DE.Eval[nn g].pt-eq (Dc L) (zpt (L,EX.X.push g L h)) (C.Lv[nn g].X.push (g.1,zpt g) L h) (refl (zpt (L,EX.X.push g L h)).1)))
+          (PL.sym (C.F (nn g)).car (ycl g) (C.Lv[nn g].X.cl (L,C.Lv[nn g].X.push (g.1,zpt g) L h)) (C.Lv[nn g].X.cl-push (g.1,zpt g) L h))) ;
+    inv (g g' : EX.X.G) (q : Id W.O3 (EX.X.cmpG g g') eq) : Id N.Den (h0 g) (h0 g') =
+      PL.trans N.Den (h0 g) (h0 (W.plus g.1 g'.1,EX.X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (h0 g')
+        (PL.sym N.Den (h0 (W.plus g.1 g'.1,EX.X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (h0 g) (push-inv g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+        (PL.trans N.Den (h0 (W.plus g.1 g'.1,EX.X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+          (h0 (W.plus g.1 g'.1,EX.X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) (h0 g')
+          (PL.ap (EX.Fo (W.plus g.1 g'.1)).car N.Den (\ d -> h0 (W.plus g.1 g'.1,d))
+            (EX.X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (EX.X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))
+            (EX.X.eq-at g g' (W.plus g.1 g'.1) (PG.leL g.1 g'.1) (PG.leR g.1 g'.1) (EX.X.car-eq (EX.X.cl g) (EX.X.cl g') (EX.X.cls-eq g g' q))))
+          (push-inv g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) ;
+    module Dh = EX.X.Desc[N.Den,PF.lo-set N.lo,h0,inv] ;
+    hm (x : EX.X.Car) : N.Den = Dh.h x ;
+    -- at a common level the comparison is that of Dc L (X)
+    module SameL (L : W.N) (d d' : (EX.Fo L).car) {
+      a : N.L = d.1 ;
+      a' : N.L = d'.1 ;
+      m : LX.Cv = LX.merge a a' ;
+      k : W.N = LX.lenL m.1 ;
+      ov : LX.Over m.1 m.2.1 a = LX.mOver1 a a' m (N.mOK (h0 (L,d)) (h0 (L,d'))) ;
+      ov' : LX.Over m.1 m.2.2 a' = LX.mOver2 a a' m (N.mOK (h0 (L,d)) (h0 (L,d'))) ;
+      module A1 = C.Act[LX.lenL a,k,m.2.1,LX.onesOver m.1 m.2.1 a ov,ov.1] ;
+      module A2 = C.Act[LX.lenL a',k,m.2.2,LX.onesOver m.1 m.2.2 a' ov',ov'.1] ;
+      eq : Id W.O3 (N.cmpDen (h0 (L,d)) (h0 (L,d'))) (PDn.Den[X].DO[Dc L].O.cmpDen d d') =
+        W.trans W.O3 (N.cmpDen (h0 (L,d)) (h0 (L,d')))
+          ((C.F k).cmp (C.Lv[k].X.cl (A1.I.gmap (L,zpt (L,d)))) (C.Lv[k].X.cl (A2.I.gmap (L,zpt (L,d')))))
+          (PDn.Den[X].DO[Dc L].O.cmpDen d d')
+          (W.ap2 (C.F k).car (C.F k).car W.O3 (C.F k).cmp
+            (A1.I.fm (ycl (L,d))) (C.Lv[k].X.cl (A1.I.gmap (L,zpt (L,d))))
+            (A2.I.fm (ycl (L,d'))) (C.Lv[k].X.cl (A2.I.gmap (L,zpt (L,d'))))
+            (A1.I.fm-cl (L,zpt (L,d))) (A2.I.fm-cl (L,zpt (L,d'))))
+          ((C.Lv[k].X.iota L).2 (A1.I.gmap (L,zpt (L,d))).2 (A2.I.gmap (L,zpt (L,d'))).2) ;
+    } ;
+    mono (x y : EX.X.Car) : Id W.O3 (N.cmpDen (hm x) (hm y)) (EX.X.cmpC x y) =
+      EX.X.ind2 (\ x0 y0 -> Id W.O3 (N.cmpDen (hm x0) (hm y0)) (EX.X.cmpC x0 y0))
+        (\ x0 y0 -> PF.o3-set (N.cmpDen (hm x0) (hm y0)) (EX.X.cmpC x0 y0))
+        (\ g g' -> W.trans W.O3 (N.cmpDen (hm (EX.X.cl g)) (hm (EX.X.cl g')))
+          (N.cmpDen (h0 (W.plus g.1 g'.1,EX.X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (h0 (W.plus g.1 g'.1,EX.X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))))
+          (EX.X.cmpC (EX.X.cl g) (EX.X.cl g'))
+          (W.ap2 N.Den N.Den W.O3 N.cmpDen (hm (EX.X.cl g)) (h0 (W.plus g.1 g'.1,EX.X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+            (hm (EX.X.cl g')) (h0 (W.plus g.1 g'.1,EX.X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+            (PL.trans N.Den (hm (EX.X.cl g)) (h0 g) (h0 (W.plus g.1 g'.1,EX.X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+              (Dh.h-cl g) (PL.sym N.Den (h0 (W.plus g.1 g'.1,EX.X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (h0 g)
+                (push-inv g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))))
+            (PL.trans N.Den (hm (EX.X.cl g')) (h0 g') (h0 (W.plus g.1 g'.1,EX.X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+              (Dh.h-cl g') (PL.sym N.Den (h0 (W.plus g.1 g'.1,EX.X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) (h0 g')
+                (push-inv g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))))
+          (W.trans W.O3
+            (N.cmpDen (h0 (W.plus g.1 g'.1,EX.X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1))) (h0 (W.plus g.1 g'.1,EX.X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))))
+            (EX.X.cmpG g g') (EX.X.cmpC (EX.X.cl g) (EX.X.cl g'))
+            SameL[W.plus g.1 g'.1,EX.X.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1),EX.X.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)].eq
+            (W.sym W.O3 (EX.X.cmpC (EX.X.cl g) (EX.X.cl g')) (EX.X.cmpG g g') (EX.X.cmp-cl g g'))))
+        x y ;
+    map : DP.Map EX.val N.lo = (hm,mono) ;
+    -- and onto
+    module Onto (y : N.Den) (p : (g : C.Lv[LX.lenL y.1].X.G) * Id (C.F (LX.lenL y.1)).car (C.Lv[LX.lenL y.1].X.cl g) y.2.1) {
+      n : W.N = LX.lenL y.1 ;
+      g : C.Lv[n].X.G = p.1 ;
+      t2 : Id W.Wd (C.Lv[n].sf g) (W.idW n) =
+        W.trans W.Wd (C.Lv[n].sf g) (C.supp n (C.Lv[n].X.cl g)) (W.idW n)
+          (W.sym W.Wd (C.supp n (C.Lv[n].X.cl g)) (C.Lv[n].sf g) (C.Lv[n].Sd.h-cl g))
+          (W.trans W.Wd (C.supp n (C.Lv[n].X.cl g)) (C.supp n y.2.1) (W.idW n)
+            (W.ap (C.F n).car W.Wd (C.supp n) (C.Lv[n].X.cl g) y.2.1 p.2) y.2.2.2) ;
+      g0 : EX.X.G = (g.1,(y.1,(g.2.1,(y.2.2.1,(g.2.2,t2))))) ;
+      eq : Id N.Den (hm (EX.X.cl g0)) y =
+        PL.trans N.Den (hm (EX.X.cl g0)) (h0 g0) y (Dh.h-cl g0) (neq y.1 (ycl g0) y.2.1 (h0 g0).2.2 y.2.2 p.2) ;
+      res : (x : EX.X.Car) * Id N.Den (hm x) y = (EX.X.cl g0,eq) ;
+    } ;
+    onto (y : N.Den) : Ex ((x : EX.X.Car) * Id N.Den (hm x) y) =
+      TC.map ((g : C.Lv[LX.lenL y.1].X.G) * Id (C.F (LX.lenL y.1)).car (C.Lv[LX.lenL y.1].X.cl g) y.2.1)
+        ((x : EX.X.Car) * Id N.Den (hm x) y) (\ p -> Onto[y,p].res) (C.Lv[LX.lenL y.1].X.surj y.2.1) ;
+  } ;
+} ;

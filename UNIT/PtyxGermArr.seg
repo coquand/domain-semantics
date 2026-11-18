@@ -1,0 +1,211 @@
+-- Ptykes from finite data, part B: the action on morphisms.
+--
+-- T : D -> E restricts to T_K : D|K -> E|K (PtyxFinite.TruncFactor), and
+-- these commute with the inclusions D|K -> D|L (DilImage.mono: all
+-- morphisms into E|L over E are equal).  So T acts on germs,
+-- (K, z) |-> (K, FP(T_K) z), preserving the comparison of germs; it
+-- descends to the quotient by unique choice.  Functor laws by the same
+-- uniqueness of morphisms between truncations.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module DI = DilImage[l] ;
+module PG = PtyxGerm[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+module Arr (FP : PG.FinPtyx) (D E : CD.Dil) (Tm : CD.Mor D E) {
+  module GD = PG.Germ[FP,D] ;
+  module GE = PG.Germ[FP,E] ;
+  tf (K : W.N) : CD.Mor (PF.Tr D K) (PF.Tr E K) = PF.TruncFactor[D,E,Tm,K].mor ;
+  tf-tri (K : W.N) : Id (CD.Mor (PF.Tr D K) E) (CD.compM (PF.Tr D K) (PF.Tr E K) E (tf K) (PF.TrInc E K))
+      (CD.compM (PF.Tr D K) D E (PF.TrInc D K) Tm) = PF.TruncFactor[D,E,Tm,K].tri ;
+
+  -- T_L . (D|K -> D|L) = (E|K -> E|L) . T_K
+  module Sq (K L : W.N) (h : PG.LeN K L) {
+    A : CD.Dil = PF.Tr D K ;
+    B : CD.Dil = PF.Tr D L ;
+    A' : CD.Dil = PF.Tr E K ;
+    B' : CD.Dil = PF.Tr E L ;
+    uD : CD.Mor A B = GD.up K L h ;
+    uE : CD.Mor A' B' = GE.up K L h ;
+    IEL : CD.Mor B' E = PF.TrInc E L ;
+    IEK : CD.Mor A' E = PF.TrInc E K ;
+    IDL : CD.Mor B D = PF.TrInc D L ;
+    IDK : CD.Mor A D = PF.TrInc D K ;
+    lhs : CD.Mor A B' = CD.compM A B B' uD (tf L) ;
+    rhs : CD.Mor A B' = CD.compM A A' B' (tf K) uE ;
+    target : CD.Mor A E = CD.compM A D E IDK Tm ;
+    eL : Id (CD.Mor A E) (CD.compM A B' E lhs IEL) target =
+      PL.trans (CD.Mor A E) (CD.compM A B' E lhs IEL) (CD.compM A B E uD (CD.compM B B' E (tf L) IEL)) target
+        (CD.assoc A B B' E uD (tf L) IEL)
+        (PL.trans (CD.Mor A E) (CD.compM A B E uD (CD.compM B B' E (tf L) IEL)) (CD.compM A B E uD (CD.compM B D E IDL Tm)) target
+          (PL.ap (CD.Mor B E) (CD.Mor A E) (CD.compM A B E uD) (CD.compM B B' E (tf L) IEL) (CD.compM B D E IDL Tm) (tf-tri L))
+          (PL.trans (CD.Mor A E) (CD.compM A B E uD (CD.compM B D E IDL Tm)) (CD.compM A D E (CD.compM A B D uD IDL) Tm) target
+            (PL.sym (CD.Mor A E) (CD.compM A D E (CD.compM A B D uD IDL) Tm) (CD.compM A B E uD (CD.compM B D E IDL Tm))
+              (CD.assoc A B D E uD IDL Tm))
+            (PL.ap (CD.Mor A D) (CD.Mor A E) (\ S -> CD.compM A D E S Tm) (CD.compM A B D uD IDL) IDK (GD.up-tri K L h)))) ;
+    eR : Id (CD.Mor A E) (CD.compM A B' E rhs IEL) target =
+      PL.trans (CD.Mor A E) (CD.compM A B' E rhs IEL) (CD.compM A A' E (tf K) (CD.compM A' B' E uE IEL)) target
+        (CD.assoc A A' B' E (tf K) uE IEL)
+        (PL.trans (CD.Mor A E) (CD.compM A A' E (tf K) (CD.compM A' B' E uE IEL)) (CD.compM A A' E (tf K) IEK) target
+          (PL.ap (CD.Mor A' E) (CD.Mor A E) (CD.compM A A' E (tf K)) (CD.compM A' B' E uE IEL) IEK (GE.up-tri K L h))
+          (tf-tri K)) ;
+    eq : Id (CD.Mor A B') lhs rhs =
+      DI.mono A B' E IEL lhs rhs
+        (PL.trans (CD.Mor A E) (CD.compM A B' E lhs IEL) target (CD.compM A B' E rhs IEL) eL
+          (PL.sym (CD.Mor A E) (CD.compM A B' E rhs IEL) target eR)) ;
+  } ;
+
+  -- action on germs
+  gmap (g : GD.G) : GE.G = (g.1,(FP.arr (GD.T g.1) (GE.T g.1) (tf g.1)).1 g.2) ;
+  push-map (g : GD.G) (L : W.N) (h : PG.LeN g.1 L) :
+      Id (GE.Fo L).car (GE.push (gmap g) L h) ((FP.arr (GD.T L) (GE.T L) (tf L)).1 (GD.push g L h)) =
+    PL.trans (GE.Fo L).car (GE.push (gmap g) L h)
+      ((FP.arr (GD.T g.1) (GE.T L) (CD.compM (PF.Tr D g.1) (PF.Tr E g.1) (PF.Tr E L) (tf g.1) (GE.up g.1 L h))).1 g.2)
+      ((FP.arr (GD.T L) (GE.T L) (tf L)).1 (GD.push g L h))
+      (FP.arr-comp (GD.T g.1) (GE.T g.1) (GE.T L) (tf g.1) (GE.up g.1 L h) g.2)
+      (PL.trans (GE.Fo L).car
+        ((FP.arr (GD.T g.1) (GE.T L) (CD.compM (PF.Tr D g.1) (PF.Tr E g.1) (PF.Tr E L) (tf g.1) (GE.up g.1 L h))).1 g.2)
+        ((FP.arr (GD.T g.1) (GE.T L) (CD.compM (PF.Tr D g.1) (PF.Tr D L) (PF.Tr E L) (GD.up g.1 L h) (tf L))).1 g.2)
+        ((FP.arr (GD.T L) (GE.T L) (tf L)).1 (GD.push g L h))
+        (PL.ap (CD.Mor (PF.Tr D g.1) (PF.Tr E L)) (GE.Fo L).car (\ S -> (FP.arr (GD.T g.1) (GE.T L) S).1 g.2)
+          (CD.compM (PF.Tr D g.1) (PF.Tr E g.1) (PF.Tr E L) (tf g.1) (GE.up g.1 L h))
+          (CD.compM (PF.Tr D g.1) (PF.Tr D L) (PF.Tr E L) (GD.up g.1 L h) (tf L))
+          (PL.sym (CD.Mor (PF.Tr D g.1) (PF.Tr E L)) (CD.compM (PF.Tr D g.1) (PF.Tr D L) (PF.Tr E L) (GD.up g.1 L h) (tf L))
+            (CD.compM (PF.Tr D g.1) (PF.Tr E g.1) (PF.Tr E L) (tf g.1) (GE.up g.1 L h)) Sq[g.1,L,h].eq))
+        (PL.sym (GE.Fo L).car ((FP.arr (GD.T L) (GE.T L) (tf L)).1 (GD.push g L h))
+          ((FP.arr (GD.T g.1) (GE.T L) (CD.compM (PF.Tr D g.1) (PF.Tr D L) (PF.Tr E L) (GD.up g.1 L h) (tf L))).1 g.2)
+          (FP.arr-comp (GD.T g.1) (GD.T L) (GE.T L) (GD.up g.1 L h) (tf L) g.2))) ;
+  cmpG-map (g g' : GD.G) : Id W.O3 (GE.cmpG (gmap g) (gmap g')) (GD.cmpG g g') =
+    W.trans W.O3 (GE.cmpG (gmap g) (gmap g'))
+      ((GE.Fo (W.plus g.1 g'.1)).cmp
+        ((FP.arr (GD.T (W.plus g.1 g'.1)) (GE.T (W.plus g.1 g'.1)) (tf (W.plus g.1 g'.1))).1 (GD.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+        ((FP.arr (GD.T (W.plus g.1 g'.1)) (GE.T (W.plus g.1 g'.1)) (tf (W.plus g.1 g'.1))).1 (GD.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))))
+      (GD.cmpG g g')
+      (W.ap2 (GE.Fo (W.plus g.1 g'.1)).car (GE.Fo (W.plus g.1 g'.1)).car W.O3 (GE.Fo (W.plus g.1 g'.1)).cmp
+        (GE.push (gmap g) (W.plus g.1 g'.1) (PG.leL g.1 g'.1))
+        ((FP.arr (GD.T (W.plus g.1 g'.1)) (GE.T (W.plus g.1 g'.1)) (tf (W.plus g.1 g'.1))).1 (GD.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+        (GE.push (gmap g') (W.plus g.1 g'.1) (PG.leR g.1 g'.1))
+        ((FP.arr (GD.T (W.plus g.1 g'.1)) (GE.T (W.plus g.1 g'.1)) (tf (W.plus g.1 g'.1))).1 (GD.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+        (push-map g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (push-map g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+      ((FP.arr (GD.T (W.plus g.1 g'.1)) (GE.T (W.plus g.1 g'.1)) (tf (W.plus g.1 g'.1))).2
+        (GD.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (GD.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) ;
+  cl-map (g g' : GD.G) (e : Id W.O3 (GD.cmpG g g') eq) : Id GE.Car (GE.cl (gmap g)) (GE.cl (gmap g')) =
+    GE.car-eq (GE.cl (gmap g)) (GE.cl (gmap g'))
+      (GE.cls-eq (gmap g) (gmap g') (W.trans W.O3 (GE.cmpG (gmap g) (gmap g')) (GD.cmpG g g') eq (cmpG-map g g') e)) ;
+
+  -- action on the quotient, by unique choice
+  Cd (x : GD.Car) (q : GE.Car) : U l = (r : GD.Rep x.1) * Id GE.Car (GE.cl (gmap r.1)) q ;
+  Cf (x : GD.Car) : U l = (q : GE.Car) * Ex (Cd x q) ;
+  Cf-prop (x : GD.Car) : PL.isProp (Cf x) = \ c c' ->
+    PL.Sigma-eq GE.Car (\ q -> Ex (Cd x q)) c.1 c'.1 c.2 c'.2
+      (TC.rec (Cd x c.1) @l (Id GE.Car c.1 c'.1) (GE.car-set c.1 c'.1)
+        (\ u -> TC.rec (Cd x c'.1) @l (Id GE.Car c.1 c'.1) (GE.car-set c.1 c'.1)
+          (\ v -> PL.trans GE.Car c.1 (GE.cl (gmap u.1.1)) c'.1 (PL.sym GE.Car (GE.cl (gmap u.1.1)) c.1 u.2)
+            (PL.trans GE.Car (GE.cl (gmap u.1.1)) (GE.cl (gmap v.1.1)) c'.1 (cl-map u.1.1 v.1.1 (GD.rep-eq x.1 u.1 v.1)) v.2))
+          c'.2)
+        c.2)
+      (prop (Cd x c'.1)) ;
+  fpick (x : GD.Car) (r : GD.Rep x.1) : Cf x = (GE.cl (gmap r.1),inc (Cd x (GE.cl (gmap r.1))) (r,refl (GE.cl (gmap r.1)))) ;
+  fget (x : GD.Car) : Cf x = TC.rec (GD.Rep x.1) @l (Cf x) (Cf-prop x) (fpick x) x.2 ;
+  f (x : GD.Car) : GE.Car = (fget x).1 ;
+  fspec (x : GD.Car) (r : GD.Rep x.1) : Id GE.Car (f x) (GE.cl (gmap r.1)) =
+    PL.ap (Cf x) GE.Car (\ c -> c.1) (fget x) (fpick x r) (Cf-prop x (fget x) (fpick x r)) ;
+  f-cl (g : GD.G) : Id GE.Car (f (GD.cl g)) (GE.cl (gmap g)) = fspec (GD.cl g) (g,refl (GD.cls g)) ;
+  mono (x y : GD.Car) : Id W.O3 (GE.cmpC (f x) (f y)) (GD.cmpC x y) =
+    TC.rec (GD.Rep x.1) @l (Id W.O3 (GE.cmpC (f x) (f y)) (GD.cmpC x y)) (PF.o3-set (GE.cmpC (f x) (f y)) (GD.cmpC x y))
+      (\ r -> TC.rec (GD.Rep y.1) @l (Id W.O3 (GE.cmpC (f x) (f y)) (GD.cmpC x y)) (PF.o3-set (GE.cmpC (f x) (f y)) (GD.cmpC x y))
+        (\ r' -> W.trans W.O3 (GE.cmpC (f x) (f y)) (GE.cmpC (GE.cl (gmap r.1)) (GE.cl (gmap r'.1))) (GD.cmpC x y)
+          (W.ap2 GE.Car GE.Car W.O3 GE.cmpC (f x) (GE.cl (gmap r.1)) (f y) (GE.cl (gmap r'.1)) (fspec x r) (fspec y r'))
+          (W.trans W.O3 (GE.cmpC (GE.cl (gmap r.1)) (GE.cl (gmap r'.1))) (GE.cmpG (gmap r.1) (gmap r'.1)) (GD.cmpC x y)
+            (GE.cmp-cl (gmap r.1) (gmap r'.1))
+            (W.trans W.O3 (GE.cmpG (gmap r.1) (gmap r'.1)) (GD.cmpG r.1 r'.1) (GD.cmpC x y)
+              (cmpG-map r.1 r'.1)
+              (W.sym W.O3 (GD.cmpC x y) (GD.cmpG r.1 r'.1) (GD.spec x y r r')))))
+        y.2) x.2 ;
+  map : DP.Map GD.lo GE.lo = (f,mono) ;
+} ;
+
+----------------------------------------------------------------------
+-- functor laws
+
+module ArrId (FP : PG.FinPtyx) (D : CD.Dil) {
+  module A = Arr[FP,D,D,CD.idM D] ;
+  tf-id (K : W.N) : Id (CD.Mor (PF.Tr D K) (PF.Tr D K)) (A.tf K) (CD.idM (PF.Tr D K)) =
+    DI.mono (PF.Tr D K) (PF.Tr D K) D (PF.TrInc D K) (A.tf K) (CD.idM (PF.Tr D K))
+      (PL.trans (CD.Mor (PF.Tr D K) D) (CD.compM (PF.Tr D K) (PF.Tr D K) D (A.tf K) (PF.TrInc D K))
+        (CD.compM (PF.Tr D K) D D (PF.TrInc D K) (CD.idM D))
+        (CD.compM (PF.Tr D K) (PF.Tr D K) D (CD.idM (PF.Tr D K)) (PF.TrInc D K))
+        (A.tf-tri K)
+        (PL.trans (CD.Mor (PF.Tr D K) D) (CD.compM (PF.Tr D K) D D (PF.TrInc D K) (CD.idM D)) (PF.TrInc D K)
+          (CD.compM (PF.Tr D K) (PF.Tr D K) D (CD.idM (PF.Tr D K)) (PF.TrInc D K))
+          (CD.id-left (PF.Tr D K) D (PF.TrInc D K))
+          (PL.sym (CD.Mor (PF.Tr D K) D) (CD.compM (PF.Tr D K) (PF.Tr D K) D (CD.idM (PF.Tr D K)) (PF.TrInc D K)) (PF.TrInc D K)
+            (CD.id-right (PF.Tr D K) D (PF.TrInc D K))))) ;
+  gid (g : A.GD.G) : Id A.GD.G (A.gmap g) g =
+    PL.ap (A.GD.Fo g.1).car A.GD.G (\ u -> (g.1,u)) (A.gmap g).2 g.2
+      (PL.trans (A.GD.Fo g.1).car (A.gmap g).2 ((FP.arr (A.GD.T g.1) (A.GD.T g.1) (CD.idM (PF.Tr D g.1))).1 g.2) g.2
+        (PL.ap (CD.Mor (PF.Tr D g.1) (PF.Tr D g.1)) (A.GD.Fo g.1).car (\ S -> (FP.arr (A.GD.T g.1) (A.GD.T g.1) S).1 g.2)
+          (A.tf g.1) (CD.idM (PF.Tr D g.1)) (tf-id g.1))
+        (FP.arr-id (A.GD.T g.1) g.2)) ;
+  eq (x : A.GD.Car) : Id A.GD.Car (A.f x) x =
+    TC.rec (A.GD.Rep x.1) @l (Id A.GD.Car (A.f x) x) (A.GD.car-set (A.f x) x)
+      (\ r -> PL.trans A.GD.Car (A.f x) (A.GD.cl (A.gmap r.1)) x (A.fspec x r)
+        (PL.trans A.GD.Car (A.GD.cl (A.gmap r.1)) (A.GD.cl r.1) x
+          (PL.ap A.GD.G A.GD.Car A.GD.cl (A.gmap r.1) r.1 (gid r.1))
+          (A.GD.cl-rep x r)))
+      x.2 ;
+} ;
+
+module ArrComp (FP : PG.FinPtyx) (D E H : CD.Dil) (S : CD.Mor D E) (T : CD.Mor E H) {
+  module A1 = Arr[FP,D,E,S] ;
+  module A2 = Arr[FP,E,H,T] ;
+  module A3 = Arr[FP,D,H,CD.compM D E H S T] ;
+  module K0 (K : W.N) {
+    X : CD.Dil = PF.Tr D K ;
+    Y : CD.Dil = PF.Tr E K ;
+    Z : CD.Dil = PF.Tr H K ;
+    IH : CD.Mor Z H = PF.TrInc H K ;
+    IE : CD.Mor Y E = PF.TrInc E K ;
+    ID : CD.Mor X D = PF.TrInc D K ;
+    c12 : CD.Mor X Z = CD.compM X Y Z (A1.tf K) (A2.tf K) ;
+    target : CD.Mor X H = CD.compM X D H ID (CD.compM D E H S T) ;
+    e : Id (CD.Mor X H) (CD.compM X Z H c12 IH) target =
+      PL.trans (CD.Mor X H) (CD.compM X Z H c12 IH) (CD.compM X Y H (A1.tf K) (CD.compM Y Z H (A2.tf K) IH)) target
+        (CD.assoc X Y Z H (A1.tf K) (A2.tf K) IH)
+        (PL.trans (CD.Mor X H) (CD.compM X Y H (A1.tf K) (CD.compM Y Z H (A2.tf K) IH)) (CD.compM X Y H (A1.tf K) (CD.compM Y E H IE T)) target
+          (PL.ap (CD.Mor Y H) (CD.Mor X H) (CD.compM X Y H (A1.tf K)) (CD.compM Y Z H (A2.tf K) IH) (CD.compM Y E H IE T) (A2.tf-tri K))
+          (PL.trans (CD.Mor X H) (CD.compM X Y H (A1.tf K) (CD.compM Y E H IE T)) (CD.compM X E H (CD.compM X Y E (A1.tf K) IE) T) target
+            (PL.sym (CD.Mor X H) (CD.compM X E H (CD.compM X Y E (A1.tf K) IE) T) (CD.compM X Y H (A1.tf K) (CD.compM Y E H IE T))
+              (CD.assoc X Y E H (A1.tf K) IE T))
+            (PL.trans (CD.Mor X H) (CD.compM X E H (CD.compM X Y E (A1.tf K) IE) T) (CD.compM X E H (CD.compM X D E ID S) T) target
+              (PL.ap (CD.Mor X E) (CD.Mor X H) (\ M -> CD.compM X E H M T) (CD.compM X Y E (A1.tf K) IE) (CD.compM X D E ID S) (A1.tf-tri K))
+              (CD.assoc X D E H ID S T)))) ;
+    eq : Id (CD.Mor X Z) c12 (A3.tf K) =
+      DI.mono X Z H IH c12 (A3.tf K)
+        (PL.trans (CD.Mor X H) (CD.compM X Z H c12 IH) target (CD.compM X Z H (A3.tf K) IH) e
+          (PL.sym (CD.Mor X H) (CD.compM X Z H (A3.tf K) IH) target (A3.tf-tri K))) ;
+  } ;
+  gcomp (g : A1.GD.G) : Id A3.GE.G (A2.gmap (A1.gmap g)) (A3.gmap g) =
+    PL.ap (A3.GE.Fo g.1).car A3.GE.G (\ u -> (g.1,u)) (A2.gmap (A1.gmap g)).2 (A3.gmap g).2
+      (PL.trans (A3.GE.Fo g.1).car (A2.gmap (A1.gmap g)).2
+        ((FP.arr (A1.GD.T g.1) (A3.GE.T g.1) (K0[g.1].c12)).1 g.2) (A3.gmap g).2
+        (FP.arr-comp (A1.GD.T g.1) (A1.GE.T g.1) (A3.GE.T g.1) (A1.tf g.1) (A2.tf g.1) g.2)
+        (PL.ap (CD.Mor (PF.Tr D g.1) (PF.Tr H g.1)) (A3.GE.Fo g.1).car (\ M -> (FP.arr (A1.GD.T g.1) (A3.GE.T g.1) M).1 g.2)
+          K0[g.1].c12 (A3.tf g.1) K0[g.1].eq)) ;
+  eq (x : A1.GD.Car) : Id A3.GE.Car (A2.f (A1.f x)) (A3.f x) =
+    TC.rec (A1.GD.Rep x.1) @l (Id A3.GE.Car (A2.f (A1.f x)) (A3.f x)) (A3.GE.car-set (A2.f (A1.f x)) (A3.f x))
+      (\ r -> PL.trans A3.GE.Car (A2.f (A1.f x)) (A2.f (A1.GE.cl (A1.gmap r.1))) (A3.f x)
+        (PL.ap A1.GE.Car A3.GE.Car A2.f (A1.f x) (A1.GE.cl (A1.gmap r.1)) (A1.fspec x r))
+        (PL.trans A3.GE.Car (A2.f (A1.GE.cl (A1.gmap r.1))) (A3.GE.cl (A2.gmap (A1.gmap r.1))) (A3.f x)
+          (A2.f-cl (A1.gmap r.1))
+          (PL.trans A3.GE.Car (A3.GE.cl (A2.gmap (A1.gmap r.1))) (A3.GE.cl (A3.gmap r.1)) (A3.f x)
+            (PL.ap A3.GE.G A3.GE.Car A3.GE.cl (A2.gmap (A1.gmap r.1)) (A3.gmap r.1) (gcomp r.1))
+            (PL.sym A3.GE.Car (A3.f x) (A3.GE.cl (A3.gmap r.1)) (A3.fspec x r)))))
+      x.2 ;
+} ;

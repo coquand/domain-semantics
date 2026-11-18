@@ -1,0 +1,294 @@
+-- Colimits of linear orders along a directed system indexed by N
+-- (the germ construction of PtyxGerm, abstracted): points are germs
+-- (K, x in Fo K), compared at a common level; the colimit is the
+-- quotient by "comparison = eq" (Bool-valued classes + mere
+-- representative, a set by funext).  Descent of invariant maps into a
+-- set by unique choice (Desc), induction on classes for propositions
+-- (ind, ind2), and the map of colimits induced by a map of systems (Ind).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module PG = PtyxGerm[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module FE = Axioms[l].FunExtLemmas[fe @l] ;
+
+module Colim (Fo : W.N -> DP.LO) (up : (K L : W.N) -> PG.LeN K L -> DP.Map (Fo K) (Fo L))
+  (up-id : (K : W.N) (h : PG.LeN K K) (x : (Fo K).car) -> Id (Fo K).car ((up K K h).1 x) x)
+  (up-comp : (K L M : W.N) (h : PG.LeN K L) (h' : PG.LeN L M) (x : (Fo K).car) ->
+     Id (Fo M).car ((up L M h').1 ((up K L h).1 x)) ((up K M (PG.le-trans K L M h h')).1 x)) {
+  G : U l = (K : W.N) * (Fo K).car ;
+  push (g : G) (L : W.N) (h : PG.LeN g.1 L) : (Fo L).car = (up g.1 L h).1 g.2 ;
+  push-irr (g : G) (L : W.N) (h h' : PG.LeN g.1 L) : Id (Fo L).car (push g L h) (push g L h') =
+    PL.ap (PG.LeN g.1 L) (Fo L).car (push g L) h h' (PG.le-irr g.1 L h h') ;
+  push-push (g : G) (L M : W.N) (h : PG.LeN g.1 L) (h' : PG.LeN L M) :
+      Id (Fo M).car (push (L,push g L h) M h') (push g M (PG.le-trans g.1 L M h h')) = up-comp g.1 L M h h' g.2 ;
+
+  -- comparison at a common level, independent of the level
+  cmpAt (g g' : G) (L : W.N) (h : PG.LeN g.1 L) (h' : PG.LeN g'.1 L) : W.O3 = (Fo L).cmp (push g L h) (push g' L h') ;
+  cmpAt-irr (g g' : G) (L : W.N) (h k : PG.LeN g.1 L) (h' k' : PG.LeN g'.1 L) : Id W.O3 (cmpAt g g' L h h') (cmpAt g g' L k k') =
+    W.ap2 (Fo L).car (Fo L).car W.O3 (Fo L).cmp (push g L h) (push g L k) (push g' L h') (push g' L k')
+      (push-irr g L h k) (push-irr g' L h' k') ;
+  cmpAt-up (g g' : G) (L M : W.N) (h : PG.LeN g.1 L) (h' : PG.LeN g'.1 L) (hM : PG.LeN L M) :
+      Id W.O3 (cmpAt g g' M (PG.le-trans g.1 L M h hM) (PG.le-trans g'.1 L M h' hM)) (cmpAt g g' L h h') =
+    W.trans W.O3 (cmpAt g g' M (PG.le-trans g.1 L M h hM) (PG.le-trans g'.1 L M h' hM))
+      ((Fo M).cmp (push (L,push g L h) M hM) (push (L,push g' L h') M hM)) (cmpAt g g' L h h')
+      (W.ap2 (Fo M).car (Fo M).car W.O3 (Fo M).cmp
+        (push g M (PG.le-trans g.1 L M h hM)) (push (L,push g L h) M hM)
+        (push g' M (PG.le-trans g'.1 L M h' hM)) (push (L,push g' L h') M hM)
+        (PL.sym (Fo M).car (push (L,push g L h) M hM) (push g M (PG.le-trans g.1 L M h hM)) (push-push g L M h hM))
+        (PL.sym (Fo M).car (push (L,push g' L h') M hM) (push g' M (PG.le-trans g'.1 L M h' hM)) (push-push g' L M h' hM)))
+      ((up L M hM).2 (push g L h) (push g' L h')) ;
+  cmpAt-indep (g g' : G) (L L' : W.N) (h : PG.LeN g.1 L) (h' : PG.LeN g'.1 L) (k : PG.LeN g.1 L') (k' : PG.LeN g'.1 L') :
+      Id W.O3 (cmpAt g g' L h h') (cmpAt g g' L' k k') =
+    W.trans W.O3 (cmpAt g g' L h h')
+      (cmpAt g g' (W.plus L L') (PG.le-trans g.1 L (W.plus L L') h (PG.leL L L')) (PG.le-trans g'.1 L (W.plus L L') h' (PG.leL L L')))
+      (cmpAt g g' L' k k')
+      (W.sym W.O3 (cmpAt g g' (W.plus L L') (PG.le-trans g.1 L (W.plus L L') h (PG.leL L L')) (PG.le-trans g'.1 L (W.plus L L') h' (PG.leL L L')))
+        (cmpAt g g' L h h') (cmpAt-up g g' L (W.plus L L') h h' (PG.leL L L')))
+      (W.trans W.O3
+        (cmpAt g g' (W.plus L L') (PG.le-trans g.1 L (W.plus L L') h (PG.leL L L')) (PG.le-trans g'.1 L (W.plus L L') h' (PG.leL L L')))
+        (cmpAt g g' (W.plus L L') (PG.le-trans g.1 L' (W.plus L L') k (PG.leR L L')) (PG.le-trans g'.1 L' (W.plus L L') k' (PG.leR L L')))
+        (cmpAt g g' L' k k')
+        (cmpAt-irr g g' (W.plus L L') (PG.le-trans g.1 L (W.plus L L') h (PG.leL L L')) (PG.le-trans g.1 L' (W.plus L L') k (PG.leR L L'))
+          (PG.le-trans g'.1 L (W.plus L L') h' (PG.leL L L')) (PG.le-trans g'.1 L' (W.plus L L') k' (PG.leR L L')))
+        (cmpAt-up g g' L' (W.plus L L') k k' (PG.leR L L'))) ;
+
+  cmpG (g g' : G) : W.O3 = cmpAt g g' (W.plus g.1 g'.1) (PG.leL g.1 g'.1) (PG.leR g.1 g'.1) ;
+  cmpG-at (g g' : G) (L : W.N) (h : PG.LeN g.1 L) (h' : PG.LeN g'.1 L) : Id W.O3 (cmpG g g') (cmpAt g g' L h h') =
+    cmpAt-indep g g' (W.plus g.1 g'.1) L (PG.leL g.1 g'.1) (PG.leR g.1 g'.1) h h' ;
+
+  -- the comparison of germs is a linear preorder
+  cmpG-refl (g : G) : Id W.O3 (cmpG g g) eq =
+    W.trans W.O3 (cmpG g g) (cmpAt g g g.1 (PG.le-refl g.1) (PG.le-refl g.1)) eq
+      (cmpG-at g g g.1 (PG.le-refl g.1) (PG.le-refl g.1)) ((Fo g.1).crefl (push g g.1 (PG.le-refl g.1))) ;
+  cmpG-flip (g g' : G) : Id W.O3 (cmpG g' g) (W.flip (cmpG g g')) =
+    W.trans W.O3 (cmpG g' g) (cmpAt g' g (W.plus g.1 g'.1) (PG.leR g.1 g'.1) (PG.leL g.1 g'.1)) (W.flip (cmpG g g'))
+      (cmpG-at g' g (W.plus g.1 g'.1) (PG.leR g.1 g'.1) (PG.leL g.1 g'.1))
+      ((Fo (W.plus g.1 g'.1)).cflip (push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) ;
+  module Three (g g' g'' : G) {
+    L : W.N = W.plus (W.plus g.1 g'.1) g''.1 ;
+    h1 : PG.LeN g.1 L = PG.le-trans g.1 (W.plus g.1 g'.1) L (PG.leL g.1 g'.1) (PG.leL (W.plus g.1 g'.1) g''.1) ;
+    h2 : PG.LeN g'.1 L = PG.le-trans g'.1 (W.plus g.1 g'.1) L (PG.leR g.1 g'.1) (PG.leL (W.plus g.1 g'.1) g''.1) ;
+    h3 : PG.LeN g''.1 L = PG.leR (W.plus g.1 g'.1) g''.1 ;
+    p1 : (Fo L).car = push g L h1 ;
+    p2 : (Fo L).car = push g' L h2 ;
+    p3 : (Fo L).car = push g'' L h3 ;
+    e12 : Id W.O3 (cmpG g g') ((Fo L).cmp p1 p2) = cmpG-at g g' L h1 h2 ;
+    e23 : Id W.O3 (cmpG g' g'') ((Fo L).cmp p2 p3) = cmpG-at g' g'' L h2 h3 ;
+    e13 : Id W.O3 (cmpG g g'') ((Fo L).cmp p1 p3) = cmpG-at g g'' L h1 h3 ;
+  } ;
+  cmpG-trans (g g' g'' : G) (a : Id W.O3 (cmpG g g') lt) (b : Id W.O3 (cmpG g' g'') lt) : Id W.O3 (cmpG g g'') lt =
+    W.trans W.O3 (cmpG g g'') ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p1 Three[g,g',g''].p3) lt Three[g,g',g''].e13
+      ((Fo Three[g,g',g''].L).ctrans Three[g,g',g''].p1 Three[g,g',g''].p2 Three[g,g',g''].p3
+        (W.trans W.O3 ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p1 Three[g,g',g''].p2) (cmpG g g') lt
+          (W.sym W.O3 (cmpG g g') ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p1 Three[g,g',g''].p2) Three[g,g',g''].e12) a)
+        (W.trans W.O3 ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p2 Three[g,g',g''].p3) (cmpG g' g'') lt
+          (W.sym W.O3 (cmpG g' g'') ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p2 Three[g,g',g''].p3) Three[g,g',g''].e23) b)) ;
+  -- equivalent germs compare in the same way
+  cmpG-eqv (g g' g'' : G) (e : Id W.O3 (cmpG g g') eq) : Id W.O3 (cmpG g g'') (cmpG g' g'') =
+    W.trans W.O3 (cmpG g g'') ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p1 Three[g,g',g''].p3) (cmpG g' g'')
+      Three[g,g',g''].e13
+      (W.trans W.O3 ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p1 Three[g,g',g''].p3)
+        ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p2 Three[g,g',g''].p3) (cmpG g' g'')
+        (W.ap (Fo Three[g,g',g''].L).car W.O3 (\ u -> (Fo Three[g,g',g''].L).cmp u Three[g,g',g''].p3)
+          Three[g,g',g''].p1 Three[g,g',g''].p2
+          ((Fo Three[g,g',g''].L).ceq Three[g,g',g''].p1 Three[g,g',g''].p2
+            (W.trans W.O3 ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p1 Three[g,g',g''].p2) (cmpG g g') eq
+              (W.sym W.O3 (cmpG g g') ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p1 Three[g,g',g''].p2) Three[g,g',g''].e12) e)))
+        (W.sym W.O3 (cmpG g' g'') ((Fo Three[g,g',g''].L).cmp Three[g,g',g''].p2 Three[g,g',g''].p3) Three[g,g',g''].e23)) ;
+  cmpG-eqv-r (g g' g'' : G) (e : Id W.O3 (cmpG g g') eq) : Id W.O3 (cmpG g'' g) (cmpG g'' g') =
+    W.trans W.O3 (cmpG g'' g) (W.flip (cmpG g g'')) (cmpG g'' g') (cmpG-flip g g'')
+      (W.trans W.O3 (W.flip (cmpG g g'')) (W.flip (cmpG g' g'')) (cmpG g'' g')
+        (W.ap W.O3 W.O3 W.flip (cmpG g g'') (cmpG g' g'') (cmpG-eqv g g' g'' e))
+        (W.sym W.O3 (cmpG g'' g') (W.flip (cmpG g' g'')) (cmpG-flip g' g''))) ;
+
+  ----------------------------------------------------------------------
+  -- the quotient
+
+  cls (g : G) (g' : G) : W.Bool = PF.eqB (cmpG g g') ;
+  Rep (p : G -> W.Bool) : U l = (g : G) * Id (G -> W.Bool) (cls g) p ;
+  Car : U l = (p : G -> W.Bool) * Ex (Rep p) ;
+  cl (g : G) : Car = (cls g,inc (Rep (cls g)) (g,refl (cls g))) ;
+
+  cls-eq (g g' : G) (e : Id W.O3 (cmpG g g') eq) : Id (G -> W.Bool) (cls g) (cls g') =
+    FE.funext G (\ _ -> W.Bool) (cls g) (cls g') (\ h -> W.ap W.O3 W.Bool PF.eqB (cmpG g h) (cmpG g' h) (cmpG-eqv g g' h e)) ;
+  cls-inv (g g' : G) (e : Id (G -> W.Bool) (cls g) (cls g')) : Id W.O3 (cmpG g g') eq =
+    PF.eqB-sound (cmpG g g')
+      (W.trans W.Bool (cls g g') (cls g' g') true
+        (PL.ap (G -> W.Bool) W.Bool (\ f -> f g') (cls g) (cls g') e)
+        (W.ap W.O3 W.Bool PF.eqB (cmpG g' g') eq (cmpG-refl g'))) ;
+
+  bool-set : PL.isSet W.Bool = \ a b -> W.HB.uip a b ;
+  car-eq (x y : Car) (e : Id (G -> W.Bool) x.1 y.1) : Id Car x y =
+    PL.Sigma-eq (G -> W.Bool) (\ p -> Ex (Rep p)) x.1 y.1 x.2 y.2 e (prop (Rep y.1)) ;
+  car-set : PL.isSet Car =
+    PL.isSet-Sigma (G -> W.Bool) (\ p -> Ex (Rep p)) (FE.isSet-Pi G (\ _ -> W.Bool) (\ _ -> bool-set))
+      (\ p -> PL.prop-to-set (Ex (Rep p)) (prop (Rep p))) ;
+  cl-rep (x : Car) (r : Rep x.1) : Id Car (cl r.1) x = car-eq (cl r.1) x r.2 ;
+
+  -- two representatives of the same class are equivalent
+  rep-eq (p : G -> W.Bool) (r s : Rep p) : Id W.O3 (cmpG r.1 s.1) eq =
+    cls-inv r.1 s.1 (PL.trans (G -> W.Bool) (cls r.1) p (cls s.1) r.2 (PL.sym (G -> W.Bool) (cls s.1) p s.2)) ;
+  reps (x y : Car) (r s : Rep x.1) (r' s' : Rep y.1) : Id W.O3 (cmpG r.1 r'.1) (cmpG s.1 s'.1) =
+    W.trans W.O3 (cmpG r.1 r'.1) (cmpG s.1 r'.1) (cmpG s.1 s'.1)
+      (cmpG-eqv r.1 s.1 r'.1 (rep-eq x.1 r s))
+      (cmpG-eqv-r r'.1 s'.1 s.1 (rep-eq y.1 r' s')) ;
+
+  -- the comparison on the quotient, by unique choice
+  Cand (x y : Car) (o : W.O3) : U l = (r : Rep x.1) * ((r' : Rep y.1) * Id W.O3 (cmpG r.1 r'.1) o) ;
+  C (x y : Car) : U l = (o : W.O3) * Ex (Cand x y o) ;
+  C-prop (x y : Car) : PL.isProp (C x y) = \ c c' ->
+    PL.Sigma-eq W.O3 (\ o -> Ex (Cand x y o)) c.1 c'.1 c.2 c'.2
+      (TC.rec (Cand x y c.1) @l (Id W.O3 c.1 c'.1) (PF.o3-set c.1 c'.1)
+        (\ u -> TC.rec (Cand x y c'.1) @l (Id W.O3 c.1 c'.1) (PF.o3-set c.1 c'.1)
+          (\ v -> W.trans W.O3 c.1 (cmpG u.1.1 u.2.1.1) c'.1 (W.sym W.O3 (cmpG u.1.1 u.2.1.1) c.1 u.2.2)
+            (W.trans W.O3 (cmpG u.1.1 u.2.1.1) (cmpG v.1.1 v.2.1.1) c'.1 (reps x y u.1 v.1 u.2.1 v.2.1) v.2.2))
+          c'.2)
+        c.2)
+      (prop (Cand x y c'.1)) ;
+  pick (x y : Car) (r : Rep x.1) (r' : Rep y.1) : C x y =
+    (cmpG r.1 r'.1,inc (Cand x y (cmpG r.1 r'.1)) (r,(r',refl (cmpG r.1 r'.1)))) ;
+  get (x y : Car) : C x y =
+    TC.rec (Rep x.1) @l (C x y) (C-prop x y)
+      (\ r -> TC.rec (Rep y.1) @l (C x y) (C-prop x y) (\ r' -> pick x y r r') y.2) x.2 ;
+  cmpC (x y : Car) : W.O3 = (get x y).1 ;
+  spec (x y : Car) (r : Rep x.1) (r' : Rep y.1) : Id W.O3 (cmpC x y) (cmpG r.1 r'.1) =
+    PL.ap (C x y) W.O3 (\ c -> c.1) (get x y) (pick x y r r') (C-prop x y (get x y) (pick x y r r')) ;
+
+  -- linear order laws
+  crefl (x : Car) : Id W.O3 (cmpC x x) eq =
+    TC.rec (Rep x.1) @l (Id W.O3 (cmpC x x) eq) (PF.o3-set (cmpC x x) eq)
+      (\ r -> W.trans W.O3 (cmpC x x) (cmpG r.1 r.1) eq (spec x x r r) (cmpG-refl r.1)) x.2 ;
+  cflip (x y : Car) : Id W.O3 (cmpC y x) (W.flip (cmpC x y)) =
+    TC.rec (Rep x.1) @l (Id W.O3 (cmpC y x) (W.flip (cmpC x y))) (PF.o3-set (cmpC y x) (W.flip (cmpC x y)))
+      (\ r -> TC.rec (Rep y.1) @l (Id W.O3 (cmpC y x) (W.flip (cmpC x y))) (PF.o3-set (cmpC y x) (W.flip (cmpC x y)))
+        (\ r' -> W.trans W.O3 (cmpC y x) (cmpG r'.1 r.1) (W.flip (cmpC x y)) (spec y x r' r)
+          (W.trans W.O3 (cmpG r'.1 r.1) (W.flip (cmpG r.1 r'.1)) (W.flip (cmpC x y)) (cmpG-flip r.1 r'.1)
+            (W.ap W.O3 W.O3 W.flip (cmpG r.1 r'.1) (cmpC x y) (W.sym W.O3 (cmpC x y) (cmpG r.1 r'.1) (spec x y r r')))))
+        y.2) x.2 ;
+  ctrans (x y z : Car) (a : Id W.O3 (cmpC x y) lt) (b : Id W.O3 (cmpC y z) lt) : Id W.O3 (cmpC x z) lt =
+    TC.rec (Rep x.1) @l (Id W.O3 (cmpC x z) lt) (PF.o3-set (cmpC x z) lt)
+      (\ r -> TC.rec (Rep y.1) @l (Id W.O3 (cmpC x z) lt) (PF.o3-set (cmpC x z) lt)
+        (\ r' -> TC.rec (Rep z.1) @l (Id W.O3 (cmpC x z) lt) (PF.o3-set (cmpC x z) lt)
+          (\ r'' -> W.trans W.O3 (cmpC x z) (cmpG r.1 r''.1) lt (spec x z r r'')
+            (cmpG-trans r.1 r'.1 r''.1
+              (W.trans W.O3 (cmpG r.1 r'.1) (cmpC x y) lt (W.sym W.O3 (cmpC x y) (cmpG r.1 r'.1) (spec x y r r')) a)
+              (W.trans W.O3 (cmpG r'.1 r''.1) (cmpC y z) lt (W.sym W.O3 (cmpC y z) (cmpG r'.1 r''.1) (spec y z r' r'')) b)))
+          z.2) y.2) x.2 ;
+  ceq (x y : Car) (e : Id W.O3 (cmpC x y) eq) : Id Car x y =
+    TC.rec (Rep x.1) @l (Id Car x y) (car-set x y)
+      (\ r -> TC.rec (Rep y.1) @l (Id Car x y) (car-set x y)
+        (\ r' -> car-eq x y
+          (PL.trans (G -> W.Bool) x.1 (cls r.1) y.1 (PL.sym (G -> W.Bool) (cls r.1) x.1 r.2)
+            (PL.trans (G -> W.Bool) (cls r.1) (cls r'.1) y.1
+              (cls-eq r.1 r'.1 (W.trans W.O3 (cmpG r.1 r'.1) (cmpC x y) eq (W.sym W.O3 (cmpC x y) (cmpG r.1 r'.1) (spec x y r r')) e))
+              r'.2)))
+        y.2) x.2 ;
+  lo : DP.LO = new DP.LO[car := Car, cmp := cmpC, ceq := ceq, crefl := crefl, cflip := cflip, ctrans := ctrans] ;
+
+  -- the comparison of classes is that of germs
+  cmp-cl (g g' : G) : Id W.O3 (cmpC (cl g) (cl g')) (cmpG g g') =
+    spec (cl g) (cl g') (g,refl (cls g)) (g',refl (cls g')) ;
+  -- every point is merely the class of a germ
+  surj (x : Car) : Ex ((g : G) * Id Car (cl g) x) =
+    TC.map (Rep x.1) ((g : G) * Id Car (cl g) x) (\ r -> (r.1,cl-rep x r)) x.2 ;
+  -- the inclusion of the K-th stage
+  iota (K : W.N) : DP.Map (Fo K) lo =
+    (\ z -> cl (K,z),\ z z' ->
+      W.trans W.O3 (cmpC (cl (K,z)) (cl (K,z'))) (cmpG (K,z) (K,z')) ((Fo K).cmp z z')
+        (cmp-cl (K,z) (K,z'))
+        (W.trans W.O3 (cmpG (K,z) (K,z')) (cmpAt (K,z) (K,z') K (PG.le-refl K) (PG.le-refl K)) ((Fo K).cmp z z')
+          (cmpG-at (K,z) (K,z') K (PG.le-refl K) (PG.le-refl K))
+          ((up K K (PG.le-refl K)).2 z z'))) ;
+  -- a germ and its pushes have the same class
+  cl-push (g : G) (L : W.N) (h : PG.LeN g.1 L) : Id Car (cl g) (cl (L,push g L h)) =
+    car-eq (cl g) (cl (L,push g L h))
+      (cls-eq g (L,push g L h)
+        (W.trans W.O3 (cmpG g (L,push g L h)) (cmpAt g (L,push g L h) L h (PG.le-refl L)) eq
+          (cmpG-at g (L,push g L h) L h (PG.le-refl L))
+          (W.trans W.O3 (cmpAt g (L,push g L h) L h (PG.le-refl L)) ((Fo L).cmp (push g L h) (push g L h)) eq
+            (W.ap (Fo L).car W.O3 ((Fo L).cmp (push g L h)) (push (L,push g L h) L (PG.le-refl L)) (push g L h)
+              (up-id L (PG.le-refl L) (push g L h)))
+            ((Fo L).crefl (push g L h))))) ;
+  -- equivalent germs are equal at a common level
+  eq-at (g g' : G) (L : W.N) (h : PG.LeN g.1 L) (h' : PG.LeN g'.1 L) (e : Id Car (cl g) (cl g')) :
+      Id (Fo L).car (push g L h) (push g' L h') =
+    (Fo L).ceq (push g L h) (push g' L h')
+      (W.trans W.O3 ((Fo L).cmp (push g L h) (push g' L h')) (cmpG g g') eq
+        (W.sym W.O3 (cmpG g g') ((Fo L).cmp (push g L h) (push g' L h')) (cmpG-at g g' L h h'))
+        (cls-inv g g' (PL.ap Car (G -> W.Bool) (\ x -> x.1) (cl g) (cl g') e))) ;
+  -- induction on classes, for propositions
+  ind (Pp : Car -> U l) (pp : (x : Car) -> PL.isProp (Pp x)) (b : (g : G) -> Pp (cl g)) (x : Car) : Pp x =
+    TC.rec (Rep x.1) @l (Pp x) (pp x) (\ r -> PL.subst Car Pp (cl r.1) x (cl-rep x r) (b r.1)) x.2 ;
+  ind2 (Pp : Car -> Car -> U l) (pp : (x y : Car) -> PL.isProp (Pp x y)) (b : (g g' : G) -> Pp (cl g) (cl g')) (x y : Car) : Pp x y =
+    ind (\ x0 -> (y0 : Car) -> Pp x0 y0) (\ x0 -> FE.isProp-Pi Car (\ y0 -> Pp x0 y0) (\ y0 -> pp x0 y0))
+      (\ g -> ind (\ y0 -> Pp (cl g) y0) (\ y0 -> pp (cl g) y0) (\ g' -> b g g')) x y ;
+  -- descent of an invariant map into a set
+  module Desc (X : U l) (xs : PL.isSet X) (f : G -> X) (fi : (g g' : G) -> Id W.O3 (cmpG g g') eq -> Id X (f g) (f g')) {
+    DCd (x : Car) (q : X) : U l = (r : Rep x.1) * Id X (f r.1) q ;
+    DCf (x : Car) : U l = (q : X) * Ex (DCd x q) ;
+    DCf-prop (x : Car) : PL.isProp (DCf x) = \ c c' ->
+      PL.Sigma-eq X (\ q -> Ex (DCd x q)) c.1 c'.1 c.2 c'.2
+        (TC.rec (DCd x c.1) @l (Id X c.1 c'.1) (xs c.1 c'.1)
+          (\ u -> TC.rec (DCd x c'.1) @l (Id X c.1 c'.1) (xs c.1 c'.1)
+            (\ v -> PL.trans X c.1 (f u.1.1) c'.1 (PL.sym X (f u.1.1) c.1 u.2)
+              (PL.trans X (f u.1.1) (f v.1.1) c'.1 (fi u.1.1 v.1.1 (rep-eq x.1 u.1 v.1)) v.2))
+            c'.2)
+          c.2)
+        (prop (DCd x c'.1)) ;
+    dpick (x : Car) (r : Rep x.1) : DCf x = (f r.1,inc (DCd x (f r.1)) (r,refl (f r.1))) ;
+    dget (x : Car) : DCf x = TC.rec (Rep x.1) @l (DCf x) (DCf-prop x) (dpick x) x.2 ;
+    h (x : Car) : X = (dget x).1 ;
+    hspec (x : Car) (r : Rep x.1) : Id X (h x) (f r.1) =
+      PL.ap (DCf x) X (\ c -> c.1) (dget x) (dpick x r) (DCf-prop x (dget x) (dpick x r)) ;
+    h-cl (g : G) : Id X (h (cl g)) (f g) = hspec (cl g) (g,refl (cls g)) ;
+  } ;
+} ;
+
+----------------------------------------------------------------------
+-- the map of colimits induced by a map of systems
+
+module Ind (Fo : W.N -> DP.LO) (up : (K L : W.N) -> PG.LeN K L -> DP.Map (Fo K) (Fo L))
+  (up-id : (K : W.N) (h : PG.LeN K K) (x : (Fo K).car) -> Id (Fo K).car ((up K K h).1 x) x)
+  (up-comp : (K L M : W.N) (h : PG.LeN K L) (h' : PG.LeN L M) (x : (Fo K).car) ->
+     Id (Fo M).car ((up L M h').1 ((up K L h).1 x)) ((up K M (PG.le-trans K L M h h')).1 x))
+  (Fo' : W.N -> DP.LO) (up' : (K L : W.N) -> PG.LeN K L -> DP.Map (Fo' K) (Fo' L))
+  (up-id' : (K : W.N) (h : PG.LeN K K) (x : (Fo' K).car) -> Id (Fo' K).car ((up' K K h).1 x) x)
+  (up-comp' : (K L M : W.N) (h : PG.LeN K L) (h' : PG.LeN L M) (x : (Fo' K).car) ->
+     Id (Fo' M).car ((up' L M h').1 ((up' K L h).1 x)) ((up' K M (PG.le-trans K L M h h')).1 x))
+  (f : (K : W.N) -> DP.Map (Fo K) (Fo' K))
+  (fc : (K L : W.N) (h : PG.LeN K L) (x : (Fo K).car) -> Id (Fo' L).car ((up' K L h).1 ((f K).1 x)) ((f L).1 ((up K L h).1 x))) {
+  module C = Colim[Fo,up,up-id,up-comp] ;
+  module C' = Colim[Fo',up',up-id',up-comp'] ;
+  gmap (g : C.G) : C'.G = (g.1,(f g.1).1 g.2) ;
+  cmpG-map (g g' : C.G) : Id W.O3 (C'.cmpG (gmap g) (gmap g')) (C.cmpG g g') =
+    W.trans W.O3 (C'.cmpG (gmap g) (gmap g'))
+      ((Fo' (W.plus g.1 g'.1)).cmp ((f (W.plus g.1 g'.1)).1 (C.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+        ((f (W.plus g.1 g'.1)).1 (C.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))))
+      (C.cmpG g g')
+      (W.ap2 (Fo' (W.plus g.1 g'.1)).car (Fo' (W.plus g.1 g'.1)).car W.O3 (Fo' (W.plus g.1 g'.1)).cmp
+        (C'.push (gmap g) (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) ((f (W.plus g.1 g'.1)).1 (C.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)))
+        (C'.push (gmap g') (W.plus g.1 g'.1) (PG.leR g.1 g'.1)) ((f (W.plus g.1 g'.1)).1 (C.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1)))
+        (fc g.1 (W.plus g.1 g'.1) (PG.leL g.1 g'.1) g.2) (fc g'.1 (W.plus g.1 g'.1) (PG.leR g.1 g'.1) g'.2))
+      ((f (W.plus g.1 g'.1)).2 (C.push g (W.plus g.1 g'.1) (PG.leL g.1 g'.1)) (C.push g' (W.plus g.1 g'.1) (PG.leR g.1 g'.1))) ;
+  cl-map (g g' : C.G) (e : Id W.O3 (C.cmpG g g') eq) : Id C'.Car (C'.cl (gmap g)) (C'.cl (gmap g')) =
+    C'.car-eq (C'.cl (gmap g)) (C'.cl (gmap g'))
+      (C'.cls-eq (gmap g) (gmap g') (W.trans W.O3 (C'.cmpG (gmap g) (gmap g')) (C.cmpG g g') eq (cmpG-map g g') e)) ;
+  module Dm = C.Desc[C'.Car,C'.car-set,\ g -> C'.cl (gmap g),cl-map] ;
+  fm (x : C.Car) : C'.Car = Dm.h x ;
+  fm-cl (g : C.G) : Id C'.Car (fm (C.cl g)) (C'.cl (gmap g)) = Dm.h-cl g ;
+  mono (x y : C.Car) : Id W.O3 (C'.cmpC (fm x) (fm y)) (C.cmpC x y) =
+    C.ind2 (\ x0 y0 -> Id W.O3 (C'.cmpC (fm x0) (fm y0)) (C.cmpC x0 y0))
+      (\ x0 y0 -> PF.o3-set (C'.cmpC (fm x0) (fm y0)) (C.cmpC x0 y0))
+      (\ g g' -> W.trans W.O3 (C'.cmpC (fm (C.cl g)) (fm (C.cl g'))) (C'.cmpC (C'.cl (gmap g)) (C'.cl (gmap g'))) (C.cmpC (C.cl g) (C.cl g'))
+        (W.ap2 C'.Car C'.Car W.O3 C'.cmpC (fm (C.cl g)) (C'.cl (gmap g)) (fm (C.cl g')) (C'.cl (gmap g')) (fm-cl g) (fm-cl g'))
+        (W.trans W.O3 (C'.cmpC (C'.cl (gmap g)) (C'.cl (gmap g'))) (C'.cmpG (gmap g) (gmap g')) (C.cmpC (C.cl g) (C.cl g'))
+          (C'.cmp-cl (gmap g) (gmap g'))
+          (W.trans W.O3 (C'.cmpG (gmap g) (gmap g')) (C.cmpG g g') (C.cmpC (C.cl g) (C.cl g'))
+            (cmpG-map g g') (W.sym W.O3 (C.cmpC (C.cl g) (C.cl g')) (C.cmpG g g') (C.cmp-cl g g')))))
+      x y ;
+  map : DP.Map C.lo C'.lo = (fm,mono) ;
+} ;

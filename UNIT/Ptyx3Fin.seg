@@ -1,0 +1,178 @@
+-- Type-3 ptykes and finitely generated subptykes (catemb.pdf one level
+-- up; PLAN-CATEMB-LO.md "next type level").
+--
+-- Size: Ptyx is large (a functor Dil -> LO), so an existential over
+-- ptykes cannot be truncated into U l (Replacement only gives images of
+-- small types).  Everything existential at type 3 is therefore indexed by
+-- SMALL data: a finitely generated subptyx of A is given by a list of
+-- generators Gens A (finite dilators and points).  This file provides
+--   * Det3: natural families of type-3 ptykes that agree on all finitely
+--     generated subptykes agree everywhere (continuity + naturality);
+--   * Coreg: a morphism landing in a subptyx factors through it;
+--   * PushFG: for any ptyx morphism U : R -> A and generators g of R, the
+--     finitely generated subptyx FG g of R is isomorphic, over U, to the
+--     finitely generated subptyx of A on the pushed generators U(g)
+--     (k, kinv, k-kinv, kinv-k, k-tri, kinv-tri).  Pushing uses only
+--     naturality; pulling back uses PtyxPull.pull (cartesianness of U).
+--     This lets a finitely generated subptyx of a subptyx of A be seen as
+--     a finitely generated subptyx of A, so origins over A stay small.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PM = PtyxMor[l] ;
+module PF = PtyxFinite[l] ;
+module PU = PtyxPull[l] ;
+module PGn = PtyxGen[l] ;
+module P3 = Ptyx3[l] ;
+module P3P = Ptyx3Pull[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+----------------------------------------------------------------------
+-- determination by the finitely generated subptykes
+
+module Det3 (X Y : P3.Ptyx3) (a b : P3.Fam3 X Y) (na : P3.Natural3 X Y a) (nb : P3.Natural3 X Y b)
+  (h : (P : DP.Ptyx) (g : P3.Gens P) (z : (X.G (P3.SubOf[P,P3.FG[P,g].sub].ptyx)).car) ->
+    Id (Y.G (P3.SubOf[P,P3.FG[P,g].sub].ptyx)).car
+      ((a (P3.SubOf[P,P3.FG[P,g].sub].ptyx)).1 z) ((b (P3.SubOf[P,P3.FG[P,g].sub].ptyx)).1 z)) {
+  module Step (P : DP.Ptyx) (y : (X.G P).car) (w : (g : P3.Gens P) * P3.Supp3 X P y (P3.FG[P,g].sub)) {
+    module SO = P3.SubOf[P,P3.FG[P,w.1].sub] ;
+    z : (X.G SO.ptyx).car = w.2.1 ;
+    i : PM.Mor SO.ptyx P = SO.inc ;
+    xz : (X.G P).car = (X.arr SO.ptyx P i).1 z ;
+    result : Id (Y.G P).car ((a P).1 y) ((b P).1 y) =
+      PL.trans (Y.G P).car ((a P).1 y) ((a P).1 xz) ((b P).1 y)
+        (PL.ap (X.G P).car (Y.G P).car (a P).1 y xz (PL.sym (X.G P).car xz y w.2.2))
+        (PL.trans (Y.G P).car ((a P).1 xz) ((Y.arr SO.ptyx P i).1 ((a SO.ptyx).1 z)) ((b P).1 y)
+          (PL.sym (Y.G P).car ((Y.arr SO.ptyx P i).1 ((a SO.ptyx).1 z)) ((a P).1 xz) (na SO.ptyx P i z))
+          (PL.trans (Y.G P).car ((Y.arr SO.ptyx P i).1 ((a SO.ptyx).1 z)) ((Y.arr SO.ptyx P i).1 ((b SO.ptyx).1 z)) ((b P).1 y)
+            (PL.ap (Y.G SO.ptyx).car (Y.G P).car (Y.arr SO.ptyx P i).1 ((a SO.ptyx).1 z) ((b SO.ptyx).1 z) (h P w.1 z))
+            (PL.trans (Y.G P).car ((Y.arr SO.ptyx P i).1 ((b SO.ptyx).1 z)) ((b P).1 xz) ((b P).1 y)
+              (nb SO.ptyx P i z)
+              (PL.ap (X.G P).car (Y.G P).car (b P).1 xz y w.2.2)))) ;
+  } ;
+  eq (P : DP.Ptyx) (y : (X.G P).car) : Id (Y.G P).car ((a P).1 y) ((b P).1 y) =
+    TC.rec ((g : P3.Gens P) * P3.Supp3 X P y (P3.FG[P,g].sub)) @l (Id (Y.G P).car ((a P).1 y) ((b P).1 y))
+      (PF.lo-set (Y.G P) ((a P).1 y) ((b P).1 y)) (\ w -> Step[P,y,w].result) (X.support P y) ;
+} ;
+
+det3 (X Y : P3.Ptyx3) (S T : P3.Mor3 X Y)
+  (h : (P : DP.Ptyx) (g : P3.Gens P) (z : (X.G (P3.SubOf[P,P3.FG[P,g].sub].ptyx)).car) ->
+    Id (Y.G (P3.SubOf[P,P3.FG[P,g].sub].ptyx)).car
+      ((S.1 (P3.SubOf[P,P3.FG[P,g].sub].ptyx)).1 z) ((T.1 (P3.SubOf[P,P3.FG[P,g].sub].ptyx)).1 z)) :
+    P3.MorEq3 X Y S T =
+  \ P y -> Det3[X,Y,S.1,T.1,S.2.1,T.2.1,h].eq P y ;
+
+----------------------------------------------------------------------
+-- corestriction to a subptyx
+
+module Coreg (Q R : DP.Ptyx) (M : PM.Mor Q R) (s : P3.Sub R) (h : (D : CD.Dil) (x : (Q.F D).car) -> s.1 D ((M.1 D).1 x)) {
+  module SO = P3.SubOf[R,s] ;
+  f (D : CD.Dil) (x : (Q.F D).car) : SO.SP.Car D = ((M.1 D).1 x,h D x) ;
+  mor : PM.Mor Q SO.ptyx =
+    (\ D -> (f D,\ x x' -> (M.1 D).2 x x'),
+     (\ D E T x -> SO.SP.peq E ((SO.SP.arr D E T).1 (f D x)) (f E ((Q.arr D E T).1 x)) (M.2.1 D E T x),
+      \ D x c u -> M.2.2 D x c (SO.SP.drop D (f D x) c u))) ;
+  tri : Id (PM.Mor Q R) (PM.compP Q SO.ptyx R mor SO.inc) M =
+    P3.mor-eq Q R (PM.compP Q SO.ptyx R mor SO.inc) M (\ D x -> refl ((M.1 D).1 x)) ;
+} ;
+
+----------------------------------------------------------------------
+-- pushing finitely generated subptykes along a morphism
+
+module PushFG (R A : DP.Ptyx) (U0 : PM.Mor R A) (g : P3.Gens R) {
+  pg : P3.Gens A = (g.1,\ i h -> ((g.2 i h).1,(U0.1 (g.2 i h).1.1).1 (g.2 i h).2)) ;
+  module HR = P3.FG[R,g] ;
+  module HA = P3.FG[A,pg] ;
+  u (D : CD.Dil) (x : (R.F D).car) : (A.F D).car = (U0.1 D).1 x ;
+
+  module FwO (i : W.N) (h : Id W.Bool (W.ltN i g.1) true) (D : CD.Dil) (x : (R.F D).car)
+    (o : PGn.Gen[R,(g.2 i h).1.1,(g.2 i h).2].Origin D x) {
+    Ai : CD.Dil = (g.2 i h).1.1 ;
+    yi : (R.F Ai).car = (g.2 i h).2 ;
+    B : CD.Dil = o.1 ;
+    y' : (R.F B).car = o.2.1 ;
+    V : CD.Mor B Ai = o.2.2.1 ;
+    T : CD.Mor B D = o.2.2.2.2.1 ;
+    e1 : Id (A.F Ai).car ((A.arr B Ai V).1 (u B y')) (u Ai yi) =
+      PL.trans (A.F Ai).car ((A.arr B Ai V).1 (u B y')) (u Ai ((R.arr B Ai V).1 y')) (u Ai yi)
+        (U0.2.1 B Ai V y') (PL.ap (R.F Ai).car (A.F Ai).car (u Ai) ((R.arr B Ai V).1 y') yi o.2.2.2.1) ;
+    e2 : Id (A.F D).car ((A.arr B D T).1 (u B y')) (u D x) =
+      PL.trans (A.F D).car ((A.arr B D T).1 (u B y')) (u D ((R.arr B D T).1 y')) (u D x)
+        (U0.2.1 B D T y') (PL.ap (R.F D).car (A.F D).car (u D) ((R.arr B D T).1 y') x o.2.2.2.2.2) ;
+    result : PGn.Gen[A,Ai,u Ai yi].Origin D (u D x) = (B,(u B y',(V,(e1,(T,e2))))) ;
+  } ;
+  fwd (D : CD.Dil) (x : (R.F D).car) (v : HR.S D x) : HA.S D (u D x) =
+    TC.map (HR.Hit D x) (HA.Hit D (u D x))
+      (\ w -> (w.1,(w.2.1,
+        TC.map (PGn.Gen[R,(g.2 w.1 w.2.1).1.1,(g.2 w.1 w.2.1).2].Origin D x)
+          (PGn.Gen[A,(g.2 w.1 w.2.1).1.1,u (g.2 w.1 w.2.1).1.1 (g.2 w.1 w.2.1).2].Origin D (u D x))
+          (\ o -> FwO[w.1,w.2.1,D,x,o].result) w.2.2))) v ;
+
+  module BwO (i : W.N) (h : Id W.Bool (W.ltN i g.1) true) (D : CD.Dil) (x' : (A.F D).car)
+    (o : PGn.Gen[A,(g.2 i h).1.1,u (g.2 i h).1.1 (g.2 i h).2].Origin D x') {
+    Ai : CD.Dil = (g.2 i h).1.1 ;
+    yi : (R.F Ai).car = (g.2 i h).2 ;
+    B : CD.Dil = o.1 ;
+    y' : (A.F B).car = o.2.1 ;
+    V : CD.Mor B Ai = o.2.2.1 ;
+    T : CD.Mor B D = o.2.2.2.2.1 ;
+    pb : (p : (R.F B).car) * Id (R.F Ai).car ((R.arr B Ai V).1 p) yi = PU.pull R A U0 B Ai V yi y' o.2.2.2.1 ;
+    p : (R.F B).car = pb.1 ;
+    up : Id (A.F B).car (u B p) y' =
+      DP.map-inj (A.F B) (A.F Ai) (A.arr B Ai V) (u B p) y'
+        (PL.trans (A.F Ai).car ((A.arr B Ai V).1 (u B p)) (u Ai ((R.arr B Ai V).1 p)) ((A.arr B Ai V).1 y')
+          (U0.2.1 B Ai V p)
+          (PL.trans (A.F Ai).car (u Ai ((R.arr B Ai V).1 p)) (u Ai yi) ((A.arr B Ai V).1 y')
+            (PL.ap (R.F Ai).car (A.F Ai).car (u Ai) ((R.arr B Ai V).1 p) yi pb.2)
+            (PL.sym (A.F Ai).car ((A.arr B Ai V).1 y') (u Ai yi) o.2.2.2.1))) ;
+    xr : (R.F D).car = (R.arr B D T).1 p ;
+    xe : Id (A.F D).car (u D xr) x' =
+      PL.trans (A.F D).car (u D xr) ((A.arr B D T).1 (u B p)) x'
+        (PL.sym (A.F D).car ((A.arr B D T).1 (u B p)) (u D xr) (U0.2.1 B D T p))
+        (PL.trans (A.F D).car ((A.arr B D T).1 (u B p)) ((A.arr B D T).1 y') x'
+          (PL.ap (A.F B).car (A.F D).car (A.arr B D T).1 (u B p) y' up)
+          o.2.2.2.2.2) ;
+    origin (x : (R.F D).car) (ex : Id (A.F D).car (u D x) x') : PGn.Gen[R,Ai,yi].Origin D x =
+      (B,(p,(V,(pb.2,(T,DP.map-inj (R.F D) (A.F D) (U0.1 D) xr x
+        (PL.trans (A.F D).car (u D xr) x' (u D x) xe (PL.sym (A.F D).car (u D x) x' ex))))))) ;
+  } ;
+  bwd (D : CD.Dil) (x : (R.F D).car) (v : HA.S D (u D x)) : HR.S D x =
+    TC.map (HA.Hit D (u D x)) (HR.Hit D x)
+      (\ w -> (w.1,(w.2.1,
+        TC.map (PGn.Gen[A,(g.2 w.1 w.2.1).1.1,u (g.2 w.1 w.2.1).1.1 (g.2 w.1 w.2.1).2].Origin D (u D x))
+          (PGn.Gen[R,(g.2 w.1 w.2.1).1.1,(g.2 w.1 w.2.1).2].Origin D x)
+          (\ o -> BwO[w.1,w.2.1,D,u D x,o].origin x (refl (u D x))) w.2.2))) v ;
+
+  -- every point of FG pg lies in the image of U0
+  module II = P3P.Inv[R,A,U0] ;
+  inIm (D : CD.Dil) (x' : (A.F D).car) (v : HA.S D x') : II.Im.S D x' =
+    TC.bind (HA.Hit D x') (II.Im.Fib D x')
+      (\ w -> TC.map (PGn.Gen[A,(g.2 w.1 w.2.1).1.1,u (g.2 w.1 w.2.1).1.1 (g.2 w.1 w.2.1).2].Origin D x') (II.Im.Fib D x')
+        (\ o -> (BwO[w.1,w.2.1,D,x',o].xr,BwO[w.1,w.2.1,D,x',o].xe)) w.2.2) v ;
+
+  module SR = P3.SubOf[R,HR.sub] ;
+  module SA = P3.SubOf[A,HA.sub] ;
+  module KC = Coreg[SR.ptyx,A,PM.compP SR.ptyx R A SR.inc U0,HA.sub,\ D p -> fwd D p.1 p.2] ;
+  k : PM.Mor SR.ptyx SA.ptyx = KC.mor ;
+  module J = P3.Incl[A,HA.sub,II.s,inIm] ;
+  back : PM.Mor SA.ptyx R = PM.compP SA.ptyx II.im R J.mor II.mor ;
+  hb (D : CD.Dil) (p : SA.SP.Car D) : HR.S D ((back.1 D).1 p) =
+    bwd D ((back.1 D).1 p)
+      (PL.subst (A.F D).car (HA.S D) p.1 (u D ((back.1 D).1 p))
+        (PL.sym (A.F D).car (u D ((back.1 D).1 p)) p.1 (II.ge D (J.f D p))) p.2) ;
+  module KI = Coreg[SA.ptyx,R,back,HR.sub,hb] ;
+  kinv : PM.Mor SA.ptyx SR.ptyx = KI.mor ;
+  -- the four laws
+  k-kinv : PM.MorEq SR.ptyx SR.ptyx (PM.compP SR.ptyx SA.ptyx SR.ptyx k kinv) (PM.idP SR.ptyx) = \ D p ->
+    SR.SP.peq D ((kinv.1 D).1 ((k.1 D).1 p)) p
+      (DP.map-inj (R.F D) (A.F D) (U0.1 D) ((back.1 D).1 ((k.1 D).1 p)) p.1 (II.ge D (J.f D ((k.1 D).1 p)))) ;
+  kinv-k : PM.MorEq SA.ptyx SA.ptyx (PM.compP SA.ptyx SR.ptyx SA.ptyx kinv k) (PM.idP SA.ptyx) = \ D p ->
+    SA.SP.peq D ((k.1 D).1 ((kinv.1 D).1 p)) p (II.ge D (J.f D p)) ;
+  k-tri : Id (PM.Mor SR.ptyx A) (PM.compP SR.ptyx SA.ptyx A k SA.inc) (PM.compP SR.ptyx R A SR.inc U0) = KC.tri ;
+  kinv-tri : PM.MorEq SA.ptyx A (PM.compP SA.ptyx SR.ptyx A kinv (PM.compP SR.ptyx R A SR.inc U0)) SA.inc = \ D p ->
+    II.ge D (J.f D p) ;
+} ;

@@ -1,0 +1,307 @@
+-- The ptyx A o (D + Id) (Girard, Proof Theory and Logical Complexity,
+-- 12.1.40): E |-> A(D + E), T |-> A(id_D + T).
+--
+--   sumDil D E      the sum of pre-dilators (Dilator.SumDil);
+--   idPlus T        id_D + T : D + E -> D + E' (words id ++ T(n)),
+--                   functorial (idPlus-id, idPlus-comp);
+--   Through         a point of A over H whose image map lands inside the
+--                   image of M : G -> X comes from A(G) (DilImage.Lift);
+--   Shift[A,D]      the ptyx.  Continuity: (D+E)|K lies inside D + E|K,
+--                   because the right injection E -> D + E preserves
+--                   trace levels (TraceMap).  Stability: the image of
+--                   id_D + inc_c is all of D plus E|c, so the intersection
+--                   of the images for c and c' lies in the image for c ^ c'.
+--   shift-mono      A o (D + Id) is monotone when A is.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PM = PtyxMor[l] ;
+module PF = PtyxFinite[l] ;
+module DI = DilImage[l] ;
+module PGP = PtyxGermPtyx[l] ;
+module OP = OmegaPlus[l] ;
+module PMo = PtyxMono[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+----------------------------------------------------------------------
+-- sums of pre-dilators and id + T
+
+module SDm (D E : CD.Dil) {
+  module S = W.SumDil[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2,
+    E.1,E.2.1,E.2.2.1,E.2.2.2.1,E.2.2.2.2.1,E.2.2.2.2.2.1,E.2.2.2.2.2.2] ;
+  module SI = W.SumInc[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2,
+    E.1,E.2.1,E.2.2.1,E.2.2.2.1,E.2.2.2.2.1,E.2.2.2.2.2.1,E.2.2.2.2.2.2] ;
+  dil : CD.Dil = (S.S0,(S.S1,(S.slen,(S.sones,(S.sid,(S.scomp,S.smeet)))))) ;
+  inrM : CD.Mor E dil = (SI.inr,(SI.inr-len,(SI.inr-ones,SI.inr-nat))) ;
+} ;
+sumDil (D E : CD.Dil) : CD.Dil = SDm[D,E].dil ;
+
+module IdPlus (D E E' : CD.Dil) (T : CD.Mor E E') {
+  module A = SDm[D,E] ;
+  module B = SDm[D,E'] ;
+  t (n : W.N) : W.Wd = W.app (W.idW (D.1 n)) (T.1 n) ;
+  tlen (n : W.N) : Id W.N (W.len (t n)) (W.plus (D.1 n) (E'.1 n)) =
+    W.trans W.N (W.len (t n)) (W.plus (W.len (W.idW (D.1 n))) (W.len (T.1 n))) (W.plus (D.1 n) (E'.1 n)) (W.len-app (W.idW (D.1 n)) (T.1 n))
+      (W.ap2 W.N W.N W.N W.plus (W.len (W.idW (D.1 n))) (D.1 n) (W.len (T.1 n)) (E'.1 n) (W.len-idW (D.1 n)) (T.2.1 n)) ;
+  tones (n : W.N) : Id W.N (W.ones (t n)) (W.plus (D.1 n) (E.1 n)) =
+    W.trans W.N (W.ones (t n)) (W.plus (W.ones (W.idW (D.1 n))) (W.ones (T.1 n))) (W.plus (D.1 n) (E.1 n)) (W.ones-app (W.idW (D.1 n)) (T.1 n))
+      (W.ap2 W.N W.N W.N W.plus (W.ones (W.idW (D.1 n))) (D.1 n) (W.ones (T.1 n)) (E.1 n) (W.ones-idW (D.1 n)) (T.2.2.1 n)) ;
+  nat (w : W.Wd) : Id W.Wd (W.compW (B.S.S1 w) (t (W.ones w))) (W.compW (t (W.len w)) (A.S.S1 w)) =
+    W.trans W.Wd (W.compW (B.S.S1 w) (t (W.ones w))) (W.app (CD.D1 D w) (W.compW (CD.D1 E' w) (T.1 (W.ones w))))
+      (W.compW (t (W.len w)) (A.S.S1 w))
+      (W.trans W.Wd (W.compW (B.S.S1 w) (t (W.ones w)))
+        (W.app (W.compW (CD.D1 D w) (W.idW (D.1 (W.ones w)))) (W.compW (CD.D1 E' w) (T.1 (W.ones w))))
+        (W.app (CD.D1 D w) (W.compW (CD.D1 E' w) (T.1 (W.ones w))))
+        (W.comp-app (CD.D1 D w) (W.idW (D.1 (W.ones w)))
+          (W.trans W.N (W.ones (CD.D1 D w)) (D.1 (W.ones w)) (W.len (W.idW (D.1 (W.ones w)))) (CD.dones D w)
+            (W.sym W.N (W.len (W.idW (D.1 (W.ones w)))) (D.1 (W.ones w)) (W.len-idW (D.1 (W.ones w)))))
+          (CD.D1 E' w) (T.1 (W.ones w)))
+        (W.ap W.Wd W.Wd (\ u -> W.app u (W.compW (CD.D1 E' w) (T.1 (W.ones w)))) (W.compW (CD.D1 D w) (W.idW (D.1 (W.ones w)))) (CD.D1 D w)
+          (A.SI.cidR w)))
+      (W.trans W.Wd (W.app (CD.D1 D w) (W.compW (CD.D1 E' w) (T.1 (W.ones w)))) (W.app (CD.D1 D w) (W.compW (T.1 (W.len w)) (CD.D1 E w)))
+        (W.compW (t (W.len w)) (A.S.S1 w))
+        (W.ap W.Wd W.Wd (W.app (CD.D1 D w)) (W.compW (CD.D1 E' w) (T.1 (W.ones w))) (W.compW (T.1 (W.len w)) (CD.D1 E w)) (T.2.2.2 w))
+        (W.sym W.Wd (W.compW (t (W.len w)) (A.S.S1 w)) (W.app (CD.D1 D w) (W.compW (T.1 (W.len w)) (CD.D1 E w)))
+          (W.trans W.Wd (W.compW (t (W.len w)) (A.S.S1 w))
+            (W.app (W.compW (W.idW (D.1 (W.len w))) (CD.D1 D w)) (W.compW (T.1 (W.len w)) (CD.D1 E w)))
+            (W.app (CD.D1 D w) (W.compW (T.1 (W.len w)) (CD.D1 E w)))
+            (W.comp-app (W.idW (D.1 (W.len w))) (CD.D1 D w)
+              (W.trans W.N (W.ones (W.idW (D.1 (W.len w)))) (D.1 (W.len w)) (W.len (CD.D1 D w)) (W.ones-idW (D.1 (W.len w)))
+                (W.sym W.N (W.len (CD.D1 D w)) (D.1 (W.len w)) (CD.dlen D w)))
+              (T.1 (W.len w)) (CD.D1 E w))
+            (W.ap W.Wd W.Wd (\ u -> W.app u (W.compW (T.1 (W.len w)) (CD.D1 E w))) (W.compW (W.idW (D.1 (W.len w))) (CD.D1 D w)) (CD.D1 D w)
+              (A.SI.cidL w))))) ;
+  mor : CD.Mor A.dil B.dil = (t,(tlen,(tones,nat))) ;
+} ;
+idPlus (D E E' : CD.Dil) (T : CD.Mor E E') : CD.Mor (sumDil D E) (sumDil D E') = IdPlus[D,E,E',T].mor ;
+
+idPlus-id (D E : CD.Dil) : Id (CD.Mor (sumDil D E) (sumDil D E)) (idPlus D E E (CD.idM E)) (CD.idM (sumDil D E)) =
+  CD.mor-ext (sumDil D E) (sumDil D E) (idPlus D E E (CD.idM E)) (CD.idM (sumDil D E)) (\ n ->
+    W.sym W.Wd (W.idW (W.plus (D.1 n) (E.1 n))) (W.app (W.idW (D.1 n)) (W.idW (E.1 n))) (W.idW-plus (D.1 n) (E.1 n))) ;
+idPlus-comp (D E E' E'' : CD.Dil) (S : CD.Mor E E') (T : CD.Mor E' E'') :
+    Id (CD.Mor (sumDil D E) (sumDil D E'')) (CD.compM (sumDil D E) (sumDil D E') (sumDil D E'') (idPlus D E E' S) (idPlus D E' E'' T))
+      (idPlus D E E'' (CD.compM E E' E'' S T)) =
+  CD.mor-ext (sumDil D E) (sumDil D E'') (CD.compM (sumDil D E) (sumDil D E') (sumDil D E'') (idPlus D E E' S) (idPlus D E' E'' T))
+    (idPlus D E E'' (CD.compM E E' E'' S T)) (\ n ->
+    W.trans W.Wd (W.compW (W.app (W.idW (D.1 n)) (T.1 n)) (W.app (W.idW (D.1 n)) (S.1 n)))
+      (W.app (W.compW (W.idW (D.1 n)) (W.idW (D.1 n))) (W.compW (T.1 n) (S.1 n))) (W.app (W.idW (D.1 n)) (W.compW (T.1 n) (S.1 n)))
+      (W.comp-app (W.idW (D.1 n)) (W.idW (D.1 n))
+        (W.trans W.N (W.ones (W.idW (D.1 n))) (D.1 n) (W.len (W.idW (D.1 n))) (W.ones-idW (D.1 n)) (W.sym W.N (W.len (W.idW (D.1 n))) (D.1 n) (W.len-idW (D.1 n))))
+        (T.1 n) (S.1 n))
+      (W.ap W.Wd W.Wd (\ u -> W.app u (W.compW (T.1 n) (S.1 n))) (W.compW (W.idW (D.1 n)) (W.idW (D.1 n))) (W.idW (D.1 n)) (OP.idid (D.1 n)))) ;
+
+----------------------------------------------------------------------
+-- words id_k ++ w
+
+appL (k : W.N) (w : W.Wd) (x : W.N) (hx : Id W.Bool (W.ltN x k) true) : Id W.Bool (W.at (W.app (W.idW k) w) x) true =
+  W.trans W.Bool (W.at (W.app (W.idW k) w) x) (W.at (W.idW k) x) true
+    (W.at-app-l (W.idW k) x w (W.subst W.N (\ j -> Id W.Bool (W.ltN x j) true) k (W.len (W.idW k)) (W.sym W.N (W.len (W.idW k)) k (W.len-idW k)) hx))
+    (W.at-idW k x hx) ;
+appR (k : W.N) (w : W.Wd) (y : W.N) : Id W.Bool (W.at (W.app (W.idW k) w) (W.plus k y)) (W.at w y) =
+  W.subst W.N (\ j -> Id W.Bool (W.at (W.app (W.idW k) w) (W.plus j y)) (W.at w y)) (W.len (W.idW k)) k (W.len-idW k) (W.at-app-r (W.idW k) w y) ;
+
+-- transport of a point of A along an image inclusion
+module Through (A : DP.Ptyx) (H G X : CD.Dil) (N : CD.Mor H X) (M : CD.Mor G X) (le : (n : W.N) -> W.Le (N.1 n) (M.1 n))
+  (z0 : (A.F H).car) {
+  module L = DI.Lift[H,G,X,N,M,le] ;
+  w : (A.F G).car = (A.arr H G L.mor).1 z0 ;
+  eq : Id (A.F X).car ((A.arr G X M).1 w) ((A.arr H X N).1 z0) =
+    PL.trans (A.F X).car ((A.arr G X M).1 w) ((A.arr H X (CD.compM H G X L.mor M)).1 z0) ((A.arr H X N).1 z0)
+      (A.arr-comp H G X L.mor M z0)
+      (PL.ap (CD.Mor H X) (A.F X).car (\ M0 -> (A.arr H X M0).1 z0) (CD.compM H G X L.mor M) N L.tri) ;
+} ;
+
+----------------------------------------------------------------------
+-- the ptyx A o (D + Id)
+
+module Shift (A : DP.Ptyx) (D : CD.Dil) {
+  F (E : CD.Dil) : DP.LO = A.F (sumDil D E) ;
+  arr (E E' : CD.Dil) (T : CD.Mor E E') : DP.Map (F E) (F E') = A.arr (sumDil D E) (sumDil D E') (idPlus D E E' T) ;
+  arr-id (E : CD.Dil) (y : (F E).car) : Id (F E).car ((arr E E (CD.idM E)).1 y) y =
+    PL.trans (F E).car ((arr E E (CD.idM E)).1 y) ((A.arr (sumDil D E) (sumDil D E) (CD.idM (sumDil D E))).1 y) y
+      (PL.ap (CD.Mor (sumDil D E) (sumDil D E)) (F E).car (\ M -> (A.arr (sumDil D E) (sumDil D E) M).1 y)
+        (idPlus D E E (CD.idM E)) (CD.idM (sumDil D E)) (idPlus-id D E))
+      (A.arr-id (sumDil D E) y) ;
+  arr-comp (E E' E'' : CD.Dil) (S : CD.Mor E E') (T : CD.Mor E' E'') (y : (F E).car) :
+      Id (F E'').car ((arr E' E'' T).1 ((arr E E' S).1 y)) ((arr E E'' (CD.compM E E' E'' S T)).1 y) =
+    PL.trans (F E'').car ((arr E' E'' T).1 ((arr E E' S).1 y))
+      ((A.arr (sumDil D E) (sumDil D E'') (CD.compM (sumDil D E) (sumDil D E') (sumDil D E'') (idPlus D E E' S) (idPlus D E' E'' T))).1 y)
+      ((arr E E'' (CD.compM E E' E'' S T)).1 y)
+      (A.arr-comp (sumDil D E) (sumDil D E') (sumDil D E'') (idPlus D E E' S) (idPlus D E' E'' T) y)
+      (PL.ap (CD.Mor (sumDil D E) (sumDil D E'')) (F E'').car (\ M -> (A.arr (sumDil D E) (sumDil D E'') M).1 y)
+        (CD.compM (sumDil D E) (sumDil D E') (sumDil D E'') (idPlus D E E' S) (idPlus D E' E'' T))
+        (idPlus D E E'' (CD.compM E E' E'' S T)) (idPlus-comp D E E' E'' S T)) ;
+
+  Supp (E : CD.Dil) (y : (F E).car) (c : DP.SubSet) : U l =
+    (z : (F (DF.On[E].Sub[c].dil)).car) * Id (F E).car ((arr (DF.On[E].Sub[c].dil) E (DF.On[E].Sub[c].inc)).1 z) y ;
+
+  -- continuity: (D+E)|K lies inside D + E|K
+  module LeK (E : CD.Dil) (K : W.N) (n x : W.N) (h : Id W.Bool (W.at (DF.On[sumDil D E].Sub[DF.On[sumDil D E].lev K].R.chi n) x) true) {
+    module SS = DF.On[sumDil D E].Sub[DF.On[sumDil D E].lev K] ;
+    module SE = DF.On[E].Sub[DF.On[E].lev K] ;
+    hx : Id W.Bool (W.ltN x (W.plus (D.1 n) (E.1 n))) true =
+      W.subst W.N (\ j -> Id W.Bool (W.ltN x j) true) (W.len (SS.R.chi n)) (W.plus (D.1 n) (E.1 n)) (SS.R.len-chi n) (W.at-lt (SS.R.chi n) x h) ;
+    module R (y : W.N) (e : Id W.N x (W.plus (D.1 n) y)) {
+      hy : Id W.Bool (W.ltN y (E.1 n)) true =
+        W.trans W.Bool (W.ltN y (E.1 n)) (W.ltN (W.plus (D.1 n) y) (W.plus (D.1 n) (E.1 n))) true
+          (W.sym W.Bool (W.ltN (W.plus (D.1 n) y) (W.plus (D.1 n) (E.1 n))) (W.ltN y (E.1 n)) (W.ltN-plus (D.1 n) y (E.1 n)))
+          (W.subst W.N (\ j -> Id W.Bool (W.ltN j (W.plus (D.1 n) (E.1 n))) true) x (W.plus (D.1 n) y) e hx) ;
+      ex : Id W.N (W.sel (SDm[D,E].inrM.1 n) y) x =
+        W.trans W.N (W.sel (SDm[D,E].inrM.1 n) y) (W.plus (D.1 n) y) x (SDm[D,E].SI.selR n y hy) (W.sym W.N x (W.plus (D.1 n) y) e) ;
+      trS : Id W.Bool (SS.R.trc n x) true =
+        W.trans W.Bool (SS.R.trc n x) (W.at (SS.R.chi n) x) true (W.sym W.Bool (W.at (SS.R.chi n) x) (SS.R.trc n x) (SS.member n x hx)) h ;
+      trE : Id W.Bool (SE.R.trc n y) true =
+        W.trans W.Bool (SE.R.trc n y) (SS.R.trc n (W.sel (SDm[D,E].inrM.1 n) y)) true
+          (W.sym W.Bool (SS.R.trc n (W.sel (SDm[D,E].inrM.1 n) y)) (SE.R.trc n y)
+            PGP.TraceMap[E,sumDil D E,SDm[D,E].inrM,DF.On[sumDil D E].lev K,n,y,hy].result)
+          (W.subst W.N (\ j -> Id W.Bool (SS.R.trc n j) true) x (W.sel (SDm[D,E].inrM.1 n) y) (W.sym W.N (W.sel (SDm[D,E].inrM.1 n) y) x ex) trS) ;
+      result : Id W.Bool (W.at (W.app (W.idW (D.1 n)) (SE.R.chi n)) x) true =
+        W.subst W.N (\ j -> Id W.Bool (W.at (W.app (W.idW (D.1 n)) (SE.R.chi n)) j) true) (W.plus (D.1 n) y) x (W.sym W.N x (W.plus (D.1 n) y) e)
+          (W.trans W.Bool (W.at (W.app (W.idW (D.1 n)) (SE.R.chi n)) (W.plus (D.1 n) y)) (W.at (SE.R.chi n) y) true
+            (appR (D.1 n) (SE.R.chi n) y)
+            (W.trans W.Bool (W.at (SE.R.chi n) y) (SE.R.trc n y) true (SE.member n y hy) trE)) ;
+    } ;
+    cases : W.Or (Id W.Bool (W.ltN x (D.1 n)) true) ((y : W.N) * Id W.N x (W.plus (D.1 n) y)) ->
+        Id W.Bool (W.at (W.app (W.idW (D.1 n)) (SE.R.chi n)) x) true = split {
+      inl hl -> appL (D.1 n) (SE.R.chi n) x hl ;
+      inr p -> R[p.1,p.2].result } ;
+    result : Id W.Bool (W.at (W.app (W.idW (D.1 n)) (SE.R.chi n)) x) true = cases (W.cut (D.1 n) x) ;
+  } ;
+  Target (E : CD.Dil) (y : (F E).car) : U l = (K : W.N) * Supp E y (DF.On[E].lev K) ;
+  support (E : CD.Dil) (y : (F E).car) : Ex (Target E y) =
+    TC.map (PF.Wit A (sumDil D E) y) (Target E y)
+      (\ wt -> (wt.1,
+        (Through[A,PF.Tr (sumDil D E) wt.1,sumDil D (PF.Tr E wt.1),sumDil D E,PF.TrInc (sumDil D E) wt.1,
+           idPlus D (PF.Tr E wt.1) E (PF.TrInc E wt.1),\ n x h -> LeK[E,wt.1,n,x,h].result,wt.2.1].w,
+         PL.trans (F E).car
+           ((arr (PF.Tr E wt.1) E (PF.TrInc E wt.1)).1 Through[A,PF.Tr (sumDil D E) wt.1,sumDil D (PF.Tr E wt.1),sumDil D E,PF.TrInc (sumDil D E) wt.1,
+              idPlus D (PF.Tr E wt.1) E (PF.TrInc E wt.1),\ n x h -> LeK[E,wt.1,n,x,h].result,wt.2.1].w)
+           ((A.arr (PF.Tr (sumDil D E) wt.1) (sumDil D E) (PF.TrInc (sumDil D E) wt.1)).1 wt.2.1) y
+           Through[A,PF.Tr (sumDil D E) wt.1,sumDil D (PF.Tr E wt.1),sumDil D E,PF.TrInc (sumDil D E) wt.1,
+              idPlus D (PF.Tr E wt.1) E (PF.TrInc E wt.1),\ n x h -> LeK[E,wt.1,n,x,h].result,wt.2.1].eq
+           wt.2.2)))
+      (A.support (sumDil D E) y) ;
+
+  -- stability
+  module MeetS (E : CD.Dil) (y : (F E).car) (c c' : DP.SubSet) (s : Supp E y c) (s' : Supp E y c') {
+    module Sc = DF.On[E].Sub[c] ;
+    module Sc' = DF.On[E].Sub[c'] ;
+    cm : DP.SubSet = DF.On[E].meet c c' ;
+    module Sm = DF.On[E].Sub[cm] ;
+    X : CD.Dil = sumDil D E ;
+    Mc : CD.Mor (sumDil D Sc.dil) X = idPlus D Sc.dil E Sc.inc ;
+    Mc' : CD.Mor (sumDil D Sc'.dil) X = idPlus D Sc'.dil E Sc'.inc ;
+    Mm : CD.Mor (sumDil D Sm.dil) X = idPlus D Sm.dil E Sm.inc ;
+    module I1 = DI.Image[sumDil D Sc.dil,X,Mc] ;
+    module I2 = DI.Image[sumDil D Sc'.dil,X,Mc'] ;
+    -- a point y = A(M) z is supported by the image of M
+    sI (G : CD.Dil) (M : CD.Mor G X) (z : (A.F G).car) (e : Id (A.F X).car ((A.arr G X M).1 z) y) : PM.Supp A X y DI.Image[G,X,M].c =
+      ((A.arr G DI.Image[G,X,M].S.dil DI.Image[G,X,M].iso).1 z,
+       PL.trans (A.F X).car ((A.arr DI.Image[G,X,M].S.dil X DI.Image[G,X,M].S.inc).1 ((A.arr G DI.Image[G,X,M].S.dil DI.Image[G,X,M].iso).1 z))
+         ((A.arr G X M).1 z) y
+         (PL.trans (A.F X).car ((A.arr DI.Image[G,X,M].S.dil X DI.Image[G,X,M].S.inc).1 ((A.arr G DI.Image[G,X,M].S.dil DI.Image[G,X,M].iso).1 z))
+           ((A.arr G X (CD.compM G DI.Image[G,X,M].S.dil X DI.Image[G,X,M].iso DI.Image[G,X,M].S.inc)).1 z) ((A.arr G X M).1 z)
+           (A.arr-comp G DI.Image[G,X,M].S.dil X DI.Image[G,X,M].iso DI.Image[G,X,M].S.inc z)
+           (PL.ap (CD.Mor G X) (A.F X).car (\ M0 -> (A.arr G X M0).1 z)
+             (CD.compM G DI.Image[G,X,M].S.dil X DI.Image[G,X,M].iso DI.Image[G,X,M].S.inc) M DI.Image[G,X,M].iso-tri))
+         e) ;
+    sm : PM.Supp A X y (DF.On[X].meet I1.c I2.c) = A.meet X y I1.c I2.c (sI (sumDil D Sc.dil) Mc s.1 s.2) (sI (sumDil D Sc'.dil) Mc' s'.1 s'.2) ;
+    module SX = DF.On[X].Sub[DF.On[X].meet I1.c I2.c] ;
+    module Le (n x : W.N) (h : Id W.Bool (W.at (SX.R.chi n) x) true) {
+      hx : Id W.Bool (W.ltN x (X.1 n)) true =
+        W.subst W.N (\ j -> Id W.Bool (W.ltN x j) true) (W.len (SX.R.chi n)) (X.1 n) (SX.R.len-chi n) (W.at-lt (SX.R.chi n) x h) ;
+      trm : Id W.Bool (SX.R.trc n x) true =
+        W.trans W.Bool (SX.R.trc n x) (W.at (SX.R.chi n) x) true (W.sym W.Bool (W.at (SX.R.chi n) x) (SX.R.trc n x) (SX.member n x hx)) h ;
+      h1 : Id W.Bool (W.at (Mc.1 n) x) true =
+        I1.le-bwd n x (W.trans W.Bool (W.at (I1.R.chi n) x) (I1.R.trc n x) true (I1.S.member n x hx) (W.andB-l (I1.R.trc n x) (I2.R.trc n x) trm)) ;
+      h2 : Id W.Bool (W.at (Mc'.1 n) x) true =
+        I2.le-bwd n x (W.trans W.Bool (W.at (I2.R.chi n) x) (I2.R.trc n x) true (I2.S.member n x hx) (W.andB-r (I1.R.trc n x) (I2.R.trc n x) trm)) ;
+      module R (y0 : W.N) (e : Id W.N x (W.plus (D.1 n) y0)) {
+        g1 : Id W.Bool (W.at (Sc.R.chi n) y0) true =
+          W.trans W.Bool (W.at (Sc.R.chi n) y0) (W.at (W.app (W.idW (D.1 n)) (Sc.R.chi n)) (W.plus (D.1 n) y0)) true
+            (W.sym W.Bool (W.at (W.app (W.idW (D.1 n)) (Sc.R.chi n)) (W.plus (D.1 n) y0)) (W.at (Sc.R.chi n) y0) (appR (D.1 n) (Sc.R.chi n) y0))
+            (W.subst W.N (\ j -> Id W.Bool (W.at (Mc.1 n) j) true) x (W.plus (D.1 n) y0) e h1) ;
+        g2 : Id W.Bool (W.at (Sc'.R.chi n) y0) true =
+          W.trans W.Bool (W.at (Sc'.R.chi n) y0) (W.at (W.app (W.idW (D.1 n)) (Sc'.R.chi n)) (W.plus (D.1 n) y0)) true
+            (W.sym W.Bool (W.at (W.app (W.idW (D.1 n)) (Sc'.R.chi n)) (W.plus (D.1 n) y0)) (W.at (Sc'.R.chi n) y0) (appR (D.1 n) (Sc'.R.chi n) y0))
+            (W.subst W.N (\ j -> Id W.Bool (W.at (Mc'.1 n) j) true) x (W.plus (D.1 n) y0) e h2) ;
+        hy : Id W.Bool (W.ltN y0 (E.1 n)) true =
+          W.subst W.N (\ j -> Id W.Bool (W.ltN y0 j) true) (W.len (Sc.R.chi n)) (E.1 n) (Sc.R.len-chi n) (W.at-lt (Sc.R.chi n) y0 g1) ;
+        gm : Id W.Bool (W.at (Sm.R.chi n) y0) true =
+          W.trans W.Bool (W.at (Sm.R.chi n) y0) (W.andB (W.at (Sc.R.chi n) y0) (W.at (Sc'.R.chi n) y0)) true
+            (DF.On[E].inter c c' n y0 hy)
+            (W.andB-intro (W.at (Sc.R.chi n) y0) (W.at (Sc'.R.chi n) y0) g1 g2) ;
+        result : Id W.Bool (W.at (Mm.1 n) x) true =
+          W.subst W.N (\ j -> Id W.Bool (W.at (Mm.1 n) j) true) (W.plus (D.1 n) y0) x (W.sym W.N x (W.plus (D.1 n) y0) e)
+            (W.trans W.Bool (W.at (W.app (W.idW (D.1 n)) (Sm.R.chi n)) (W.plus (D.1 n) y0)) (W.at (Sm.R.chi n) y0) true
+              (appR (D.1 n) (Sm.R.chi n) y0) gm) ;
+      } ;
+      cases : W.Or (Id W.Bool (W.ltN x (D.1 n)) true) ((y0 : W.N) * Id W.N x (W.plus (D.1 n) y0)) -> Id W.Bool (W.at (Mm.1 n) x) true = split {
+        inl hl -> appL (D.1 n) (Sm.R.chi n) x hl ;
+        inr p -> R[p.1,p.2].result } ;
+      result : Id W.Bool (W.at (Mm.1 n) x) true = cases (W.cut (D.1 n) x) ;
+    } ;
+    module Th = Through[A,SX.dil,sumDil D Sm.dil,X,SX.inc,Mm,\ n x h -> Le[n,x,h].result,sm.1] ;
+    result : Supp E y cm = (Th.w,PL.trans (F E).car ((A.arr (sumDil D Sm.dil) X Mm).1 Th.w) ((A.arr SX.dil X SX.inc).1 sm.1) y Th.eq sm.2) ;
+  } ;
+  meet (E : CD.Dil) (y : (F E).car) (c c' : DP.SubSet) (s : Supp E y c) (s' : Supp E y c') : Supp E y (DF.On[E].meet c c') =
+    MeetS[E,y,c,c',s,s'].result ;
+
+  ptyx : DP.Ptyx = new DP.Ptyx[F := F, arr := arr, arr-id := arr-id, arr-comp := arr-comp, support := support, meet := meet] ;
+} ;
+shift (A : DP.Ptyx) (D : CD.Dil) : DP.Ptyx = Shift[A,D].ptyx ;
+
+----------------------------------------------------------------------
+-- monotonicity: id + T <= id + T' when T <= T'
+
+leN-plus (k a b : W.N) (h : PMo.leN a b) : PMo.leN (W.plus k a) (W.plus k b) =
+  W.trans W.Bool (W.ltN (W.plus k a) (suc (W.plus k b))) (W.ltN (W.plus k a) (W.plus k (suc b))) true
+    (W.ap W.N W.Bool (W.ltN (W.plus k a)) (suc (W.plus k b)) (W.plus k (suc b)) (W.sym W.N (W.plus k (suc b)) (suc (W.plus k b)) (W.plus-sucR k b)))
+    (W.trans W.Bool (W.ltN (W.plus k a) (W.plus k (suc b))) (W.ltN a (suc b)) true (W.ltN-plus k a (suc b)) h) ;
+module PlusLe (D E E' : CD.Dil) (T T' : CD.Mor E E') (le : PMo.MorLe E E' T T') (n z : W.N)
+  (hz : Id W.Bool (W.ltN z (W.plus (D.1 n) (E.1 n))) true) {
+  module R (y : W.N) (e : Id W.N z (W.plus (D.1 n) y)) {
+    hy : Id W.Bool (W.ltN y (E.1 n)) true =
+      W.trans W.Bool (W.ltN y (E.1 n)) (W.ltN (W.plus (D.1 n) y) (W.plus (D.1 n) (E.1 n))) true
+        (W.sym W.Bool (W.ltN (W.plus (D.1 n) y) (W.plus (D.1 n) (E.1 n))) (W.ltN y (E.1 n)) (W.ltN-plus (D.1 n) y (E.1 n)))
+        (W.subst W.N (\ j -> Id W.Bool (W.ltN j (W.plus (D.1 n) (E.1 n))) true) z (W.plus (D.1 n) y) e hz) ;
+    sr (M : CD.Mor E E') : Id W.N (W.sel (W.app (W.idW (D.1 n)) (M.1 n)) (W.plus (D.1 n) y)) (W.plus (D.1 n) (W.sel (M.1 n) y)) =
+      W.subst W.N (\ j -> Id W.N (W.sel (W.app (W.idW (D.1 n)) (M.1 n)) (W.plus j y)) (W.plus (D.1 n) (W.sel (M.1 n) y)))
+        (W.ones (W.idW (D.1 n))) (D.1 n) (W.ones-idW (D.1 n))
+        (W.subst W.N (\ j -> Id W.N (W.sel (W.app (W.idW (D.1 n)) (M.1 n)) (W.plus (W.ones (W.idW (D.1 n))) y)) (W.plus j (W.sel (M.1 n) y)))
+          (W.len (W.idW (D.1 n))) (D.1 n) (W.len-idW (D.1 n)) (W.sel-app-r (W.idW (D.1 n)) (M.1 n) y)) ;
+    result : PMo.leN (W.sel (W.app (W.idW (D.1 n)) (T.1 n)) z) (W.sel (W.app (W.idW (D.1 n)) (T'.1 n)) z) =
+      W.subst W.N (\ j -> PMo.leN (W.sel (W.app (W.idW (D.1 n)) (T.1 n)) j) (W.sel (W.app (W.idW (D.1 n)) (T'.1 n)) j)) (W.plus (D.1 n) y) z
+        (W.sym W.N z (W.plus (D.1 n) y) e)
+        (W.subst W.N (\ j -> PMo.leN j (W.sel (W.app (W.idW (D.1 n)) (T'.1 n)) (W.plus (D.1 n) y)))
+          (W.plus (D.1 n) (W.sel (T.1 n) y)) (W.sel (W.app (W.idW (D.1 n)) (T.1 n)) (W.plus (D.1 n) y))
+          (W.sym W.N (W.sel (W.app (W.idW (D.1 n)) (T.1 n)) (W.plus (D.1 n) y)) (W.plus (D.1 n) (W.sel (T.1 n) y)) (sr T))
+          (W.subst W.N (\ j -> PMo.leN (W.plus (D.1 n) (W.sel (T.1 n) y)) j)
+            (W.plus (D.1 n) (W.sel (T'.1 n) y)) (W.sel (W.app (W.idW (D.1 n)) (T'.1 n)) (W.plus (D.1 n) y))
+            (W.sym W.N (W.sel (W.app (W.idW (D.1 n)) (T'.1 n)) (W.plus (D.1 n) y)) (W.plus (D.1 n) (W.sel (T'.1 n) y)) (sr T'))
+            (leN-plus (D.1 n) (W.sel (T.1 n) y) (W.sel (T'.1 n) y) (le n y hy)))) ;
+  } ;
+  -- below D(n): both are the identity
+  selL (M : CD.Mor E E') (hl : Id W.Bool (W.ltN z (D.1 n)) true) : Id W.N (W.sel (W.app (W.idW (D.1 n)) (M.1 n)) z) z =
+    W.trans W.N (W.sel (W.app (W.idW (D.1 n)) (M.1 n)) z) (W.sel (W.idW (D.1 n)) z) z
+      (W.sel-app-l (W.idW (D.1 n)) z (M.1 n) (W.subst W.N (\ j -> Id W.Bool (W.ltN z j) true) (D.1 n) (W.ones (W.idW (D.1 n)))
+        (W.sym W.N (W.ones (W.idW (D.1 n))) (D.1 n) (W.ones-idW (D.1 n))) hl))
+      (W.sel-idW (D.1 n) z hl) ;
+  cases : W.Or (Id W.Bool (W.ltN z (D.1 n)) true) ((y : W.N) * Id W.N z (W.plus (D.1 n) y)) ->
+      PMo.leN (W.sel (W.app (W.idW (D.1 n)) (T.1 n)) z) (W.sel (W.app (W.idW (D.1 n)) (T'.1 n)) z) = split {
+    inl hl -> W.subst W.N (\ j -> PMo.leN j (W.sel (W.app (W.idW (D.1 n)) (T'.1 n)) z)) z (W.sel (W.app (W.idW (D.1 n)) (T.1 n)) z)
+      (W.sym W.N (W.sel (W.app (W.idW (D.1 n)) (T.1 n)) z) z (selL T hl))
+      (W.subst W.N (\ j -> PMo.leN z j) z (W.sel (W.app (W.idW (D.1 n)) (T'.1 n)) z)
+        (W.sym W.N (W.sel (W.app (W.idW (D.1 n)) (T'.1 n)) z) z (selL T' hl)) (W.ltN-suc z)) ;
+    inr p -> R[p.1,p.2].result } ;
+  result : PMo.leN (W.sel (W.app (W.idW (D.1 n)) (T.1 n)) z) (W.sel (W.app (W.idW (D.1 n)) (T'.1 n)) z) = cases (W.cut (D.1 n) z) ;
+} ;
+plus-le (D E E' : CD.Dil) (T T' : CD.Mor E E') (le : PMo.MorLe E E' T T') :
+    PMo.MorLe (sumDil D E) (sumDil D E') (idPlus D E E' T) (idPlus D E E' T') =
+  \ n z hz -> PlusLe[D,E,E',T,T',le,n,z,hz].result ;
+shift-mono (A : DP.Ptyx) (hA : PMo.MonoP A) (D : CD.Dil) : PMo.MonoP (shift A D) =
+  \ E E0 T T' le y -> hA (sumDil D E) (sumDil D E0) (idPlus D E0 E T) (idPlus D E0 E T') (plus-le D E0 E T T' le) y ;

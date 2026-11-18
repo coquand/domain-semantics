@@ -1,0 +1,173 @@
+-- omega + X as a directed colimit of finite-valued dilators (test of
+-- PDilChain, route (a) of PLAN-CATEMB-LO.md).
+--
+--   KP k     the finite-valued dilator X |-> k + X  (D(n) = k + n,
+--            D(w) = id_k ++ w);
+--   E a b    the embedding a + X -> b + X for a <= b: the first a
+--            constants go to the first a constants, X is shifted
+--            (word  front a b ++ id, front a b = a ones, b - a zeros);
+--   e-id, e-comp: the system is coherent (word lemmas on front).
+--   omega: N maps strictly increasingly into F(0) of the colimit: the
+--   colimit of the chain takes infinite values (F(0) = omega), which no
+--   CatDil.Dil does.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DP = DilPtyx[l] ;
+module PG = PtyxGerm[l] ;
+module PC = PDilChain[l] ;
+module PL = Prelude[l] ;
+
+----------------------------------------------------------------------
+-- the word front a b: a ones followed by b - a zeros
+
+front : W.N -> W.N -> W.Wd = split {
+  zero -> \ b -> W.zeros b ;
+  suc a | r -> split { zero -> nil ; suc b -> i (r b) } } ;
+
+len-front : (a b : W.N) -> PG.LeN a b -> Id W.N (W.len (front a b)) b = split {
+  zero -> \ b h -> W.len-zeros b ;
+  suc a | r -> split {
+    zero -> \ h -> W.ltN-zero-abs (Id W.N (W.len (front (suc a) zero)) zero) a h ;
+    suc b -> \ h -> W.ap W.N W.N (\ k -> suc k) (W.len (front a b)) b (r b h) } } ;
+
+ones-front : (a b : W.N) -> PG.LeN a b -> Id W.N (W.ones (front a b)) a = split {
+  zero -> \ b h -> W.ones-zeros b ;
+  suc a | r -> split {
+    zero -> \ h -> W.ltN-zero-abs (Id W.N (W.ones (front (suc a) zero)) (suc a)) a h ;
+    suc b -> \ h -> W.ap W.N W.N (\ k -> suc k) (W.ones (front a b)) a (r b h) } } ;
+
+front-id : (a : W.N) -> Id W.Wd (front a a) (W.idW a) = split {
+  zero -> refl nil ;
+  suc a | r -> W.ap W.Wd W.Wd (\ w -> i w) (front a a) (W.idW a) r } ;
+
+sel-front : (a b : W.N) -> PG.LeN a b -> (z : W.N) -> Id W.Bool (W.ltN z a) true -> Id W.N (W.sel (front a b) z) z = split {
+  zero -> \ b h z hz -> W.ltN-zero-abs (Id W.N (W.sel (front zero b) z) z) z hz ;
+  suc a | r -> split {
+    zero -> \ h z hz -> W.ltN-zero-abs (Id W.N (W.sel (front (suc a) zero) z) z) a h ;
+    suc b -> \ h -> split {
+      zero -> \ hz -> refl zero ;
+      suc z -> \ hz -> W.ap W.N W.N (\ k -> suc k) (W.sel (front a b) z) z (r b h z hz) } } } ;
+
+front-comp : (a b c : W.N) -> PG.LeN a b -> PG.LeN b c -> Id W.Wd (W.compW (front b c) (front a b)) (front a c) = split {
+  zero -> \ b c h h' ->
+    W.trans W.Wd (W.compW (front b c) (W.zeros b)) (W.zeros (W.len (front b c))) (W.zeros c)
+      (W.comp-into-zeros (front b c) b)
+      (W.ap W.N W.Wd W.zeros (W.len (front b c)) c (len-front b c h')) ;
+  suc a | r -> split {
+    zero -> \ c h h' -> W.ltN-zero-abs (Id W.Wd (W.compW (front zero c) (front (suc a) zero)) (front (suc a) c)) a h ;
+    suc b -> split {
+      zero -> \ h h' -> W.ltN-zero-abs (Id W.Wd (W.compW (front (suc b) zero) (front (suc a) (suc b))) (front (suc a) zero)) b h' ;
+      suc c -> \ h h' -> W.ap W.Wd W.Wd (\ w -> i w) (W.compW (front b c) (front a b)) (front a c) (r b c h h') } } } ;
+
+----------------------------------------------------------------------
+-- the dilators k + X
+
+idid (k : W.N) : Id W.Wd (W.compW (W.idW k) (W.idW k)) (W.idW k) =
+  W.subst W.N (\ j -> Id W.Wd (W.compW (W.idW j) (W.idW k)) (W.idW k)) (W.len (W.idW k)) k (W.len-idW k) (W.idW-comp (W.idW k)) ;
+and-idW : (k : W.N) -> Id W.Wd (W.andW (W.idW k) (W.idW k)) (W.idW k) = split {
+  zero -> refl nil ;
+  suc k | r -> W.ap W.Wd W.Wd (\ w -> i w) (W.andW (W.idW k) (W.idW k)) (W.idW k) r } ;
+
+module KPm (k : W.N) {
+  d1 (w : W.Wd) : W.Wd = W.app (W.idW k) w ;
+  dlen (w : W.Wd) : Id W.N (W.len (d1 w)) (W.plus k (W.len w)) =
+    W.trans W.N (W.len (d1 w)) (W.plus (W.len (W.idW k)) (W.len w)) (W.plus k (W.len w)) (W.len-app (W.idW k) w)
+      (W.ap W.N W.N (\ a -> W.plus a (W.len w)) (W.len (W.idW k)) k (W.len-idW k)) ;
+  dones (w : W.Wd) : Id W.N (W.ones (d1 w)) (W.plus k (W.ones w)) =
+    W.trans W.N (W.ones (d1 w)) (W.plus (W.ones (W.idW k)) (W.ones w)) (W.plus k (W.ones w)) (W.ones-app (W.idW k) w)
+      (W.ap W.N W.N (\ a -> W.plus a (W.ones w)) (W.ones (W.idW k)) k (W.ones-idW k)) ;
+  did (n : W.N) : Id W.Wd (d1 (W.idW n)) (W.idW (W.plus k n)) = W.sym W.Wd (W.idW (W.plus k n)) (d1 (W.idW n)) (W.idW-plus k n) ;
+  dcomp (v w : W.Wd) (h : Id W.N (W.ones v) (W.len w)) : Id W.Wd (d1 (W.compW v w)) (W.compW (d1 v) (d1 w)) =
+    W.sym W.Wd (W.compW (d1 v) (d1 w)) (d1 (W.compW v w))
+      (W.trans W.Wd (W.compW (d1 v) (d1 w)) (W.app (W.compW (W.idW k) (W.idW k)) (W.compW v w)) (d1 (W.compW v w))
+        (W.comp-app (W.idW k) (W.idW k) (W.trans W.N (W.ones (W.idW k)) k (W.len (W.idW k)) (W.ones-idW k) (W.sym W.N (W.len (W.idW k)) k (W.len-idW k))) v w)
+        (W.ap W.Wd W.Wd (\ u -> W.app u (W.compW v w)) (W.compW (W.idW k) (W.idW k)) (W.idW k) (idid k))) ;
+  dmeet (v w : W.Wd) (h : Id W.N (W.len v) (W.len w)) : Id W.Wd (d1 (W.andW v w)) (W.andW (d1 v) (d1 w)) =
+    W.sym W.Wd (W.andW (d1 v) (d1 w)) (d1 (W.andW v w))
+      (W.trans W.Wd (W.andW (d1 v) (d1 w)) (W.app (W.andW (W.idW k) (W.idW k)) (W.andW v w)) (d1 (W.andW v w))
+        (W.and-app (W.idW k) (W.idW k) (refl (W.len (W.idW k))) v w)
+        (W.ap W.Wd W.Wd (\ u -> W.app u (W.andW v w)) (W.andW (W.idW k) (W.idW k)) (W.idW k) (and-idW k))) ;
+  dil : CD.Dil = (\ n -> W.plus k n,(d1,(dlen,(dones,(did,(dcomp,dmeet)))))) ;
+} ;
+KP (k : W.N) : CD.Dil = KPm[k].dil ;
+
+-- the embeddings a + X -> b + X
+module Em (a b : W.N) (h : PG.LeN a b) {
+  t (n : W.N) : W.Wd = W.app (front a b) (W.idW n) ;
+  tlen (n : W.N) : Id W.N (W.len (t n)) (W.plus b n) =
+    W.trans W.N (W.len (t n)) (W.plus (W.len (front a b)) (W.len (W.idW n))) (W.plus b n) (W.len-app (front a b) (W.idW n))
+      (W.ap2 W.N W.N W.N W.plus (W.len (front a b)) b (W.len (W.idW n)) n (len-front a b h) (W.len-idW n)) ;
+  tones (n : W.N) : Id W.N (W.ones (t n)) (W.plus a n) =
+    W.trans W.N (W.ones (t n)) (W.plus (W.ones (front a b)) (W.ones (W.idW n))) (W.plus a n) (W.ones-app (front a b) (W.idW n))
+      (W.ap2 W.N W.N W.N W.plus (W.ones (front a b)) a (W.ones (W.idW n)) n (ones-front a b h) (W.ones-idW n)) ;
+  idf : Id W.Wd (W.compW (W.idW b) (front a b)) (front a b) =
+    W.subst W.N (\ j -> Id W.Wd (W.compW (W.idW j) (front a b)) (front a b)) (W.len (front a b)) b (len-front a b h) (W.idW-comp (front a b)) ;
+  fid : Id W.Wd (W.compW (front a b) (W.idW a)) (front a b) =
+    W.subst W.N (\ j -> Id W.Wd (W.compW (front a b) (W.idW j)) (front a b)) (W.ones (front a b)) a (ones-front a b h) (W.comp-id (front a b)) ;
+  nat (w : W.Wd) : Id W.Wd (W.compW (W.app (W.idW b) w) (t (W.ones w))) (W.compW (t (W.len w)) (W.app (W.idW a) w)) =
+    W.trans W.Wd (W.compW (W.app (W.idW b) w) (t (W.ones w))) (W.app (front a b) w) (W.compW (t (W.len w)) (W.app (W.idW a) w))
+      (W.trans W.Wd (W.compW (W.app (W.idW b) w) (t (W.ones w))) (W.app (W.compW (W.idW b) (front a b)) (W.compW w (W.idW (W.ones w))))
+        (W.app (front a b) w)
+        (W.comp-app (W.idW b) (front a b) (W.trans W.N (W.ones (W.idW b)) b (W.len (front a b)) (W.ones-idW b) (W.sym W.N (W.len (front a b)) b (len-front a b h)))
+          w (W.idW (W.ones w)))
+        (W.ap2 W.Wd W.Wd W.Wd W.app (W.compW (W.idW b) (front a b)) (front a b) (W.compW w (W.idW (W.ones w))) w idf (W.comp-id w)))
+      (W.sym W.Wd (W.compW (t (W.len w)) (W.app (W.idW a) w)) (W.app (front a b) w)
+        (W.trans W.Wd (W.compW (t (W.len w)) (W.app (W.idW a) w)) (W.app (W.compW (front a b) (W.idW a)) (W.compW (W.idW (W.len w)) w))
+          (W.app (front a b) w)
+          (W.comp-app (front a b) (W.idW a) (W.trans W.N (W.ones (front a b)) a (W.len (W.idW a)) (ones-front a b h) (W.sym W.N (W.len (W.idW a)) a (W.len-idW a)))
+            (W.idW (W.len w)) w)
+          (W.ap2 W.Wd W.Wd W.Wd W.app (W.compW (front a b) (W.idW a)) (front a b) (W.compW (W.idW (W.len w)) w) w fid (W.idW-comp w)))) ;
+  mor : CD.Mor (KP a) (KP b) = (t,(tlen,(tones,nat))) ;
+} ;
+E (a b : W.N) (h : PG.LeN a b) : CD.Mor (KP a) (KP b) = Em[a,b,h].mor ;
+
+e-id (a : W.N) (h : PG.LeN a a) : Id (CD.Mor (KP a) (KP a)) (E a a h) (CD.idM (KP a)) =
+  CD.mor-ext (KP a) (KP a) (E a a h) (CD.idM (KP a)) (\ n ->
+    W.trans W.Wd (W.app (front a a) (W.idW n)) (W.app (W.idW a) (W.idW n)) (W.idW (W.plus a n))
+      (W.ap W.Wd W.Wd (\ u -> W.app u (W.idW n)) (front a a) (W.idW a) (front-id a))
+      (W.sym W.Wd (W.idW (W.plus a n)) (W.app (W.idW a) (W.idW n)) (W.idW-plus a n))) ;
+
+e-comp (a b c : W.N) (h : PG.LeN a b) (h' : PG.LeN b c) :
+    Id (CD.Mor (KP a) (KP c)) (CD.compM (KP a) (KP b) (KP c) (E a b h) (E b c h')) (E a c (PG.le-trans a b c h h')) =
+  CD.mor-ext (KP a) (KP c) (CD.compM (KP a) (KP b) (KP c) (E a b h) (E b c h')) (E a c (PG.le-trans a b c h h')) (\ n ->
+    W.trans W.Wd (W.compW (W.app (front b c) (W.idW n)) (W.app (front a b) (W.idW n)))
+      (W.app (W.compW (front b c) (front a b)) (W.compW (W.idW n) (W.idW n))) (W.app (front a c) (W.idW n))
+      (W.comp-app (front b c) (front a b) (W.trans W.N (W.ones (front b c)) b (W.len (front a b)) (ones-front b c h') (W.sym W.N (W.len (front a b)) b (len-front a b h)))
+        (W.idW n) (W.idW n))
+      (W.ap2 W.Wd W.Wd W.Wd W.app (W.compW (front b c) (front a b)) (front a c) (W.compW (W.idW n) (W.idW n)) (W.idW n)
+        (front-comp a b c h h') (idid n))) ;
+
+----------------------------------------------------------------------
+-- the colimit, and a copy of omega in its value at 0
+
+module C = PC.Chain[KP,E,e-id,e-comp] ;
+omegaPlus : PDil[l].PDil = C.pdil ;
+
+Nlo : DP.LO = new DP.LO[car := W.N, cmp := W.cmpN, ceq := W.cmpN-eq, crefl := W.cmpN-refl, cflip := W.cmpN-flip, ctrans := W.cmpN-trans] ;
+
+pt (k : W.N) : (C.Lv[zero].Fo (suc k)).car =
+  (k,W.subst W.N (\ j -> Id W.Bool (W.ltN k (suc j)) true) k (W.plus k zero) (W.sym W.N (W.plus k zero) k (W.plus-zero k)) (W.ltN-suc k)) ;
+g (k : W.N) : C.Lv[zero].X.G = (suc k,pt k) ;
+om (k : W.N) : (C.F zero).car = C.Lv[zero].X.cl (g k) ;
+
+-- the push of the k-th constant is the k-th constant
+pushk (k L : W.N) (h : PG.LeN (suc k) L) : Id W.N (C.Lv[zero].X.push (g k) L h).1 k =
+  W.trans W.N (W.sel (W.app (front (suc k) L) (W.idW zero)) k) (W.sel (front (suc k) L) k) k
+    (W.sel-app-l (front (suc k) L) k (W.idW zero)
+      (W.subst W.N (\ j -> Id W.Bool (W.ltN k j) true) (suc k) (W.ones (front (suc k) L))
+        (W.sym W.N (W.ones (front (suc k) L)) (suc k) (ones-front (suc k) L h)) (W.ltN-suc k)))
+    (sel-front (suc k) L h k (W.ltN-suc k)) ;
+
+om-mono (k k' : W.N) : Id W.O3 ((C.F zero).cmp (om k) (om k')) (W.cmpN k k') =
+  W.trans W.O3 ((C.F zero).cmp (om k) (om k')) (C.Lv[zero].X.cmpG (g k) (g k')) (W.cmpN k k')
+    (C.Lv[zero].X.cmp-cl (g k) (g k'))
+    (W.ap2 W.N W.N W.O3 W.cmpN
+      (C.Lv[zero].X.push (g k) (W.plus (suc k) (suc k')) (PG.leL (suc k) (suc k'))).1 k
+      (C.Lv[zero].X.push (g k') (W.plus (suc k) (suc k')) (PG.leR (suc k) (suc k'))).1 k'
+      (pushk k (W.plus (suc k) (suc k')) (PG.leL (suc k) (suc k')))
+      (pushk k' (W.plus (suc k) (suc k')) (PG.leR (suc k) (suc k')))) ;
+
+-- N embeds strictly increasingly into the value at 0 of omega + X
+omega : DP.Map Nlo (C.F zero) = (om,om-mono) ;

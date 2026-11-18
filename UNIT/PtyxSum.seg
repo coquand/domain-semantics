@@ -1,0 +1,135 @@
+-- Sums of ptykes (Girard, Proof Theory and Logical Complexity, 12.1.21):
+-- (P + Q)(D) = P(D) + Q(D) (ordered sum), (P + Q)(T) = P(T) + Q(T).
+-- Supports and stability componentwise; the injections are cartesian
+-- morphisms; sums of morphisms; the sum of monotone ptykes is monotone.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PM = PtyxMor[l] ;
+module PF = PtyxFinite[l] ;
+module PMo = PtyxMono[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+----------------------------------------------------------------------
+-- ordered sums of linear orders
+
+module SumLO (A B : DP.LO) {
+  C : U l = W.Or A.car B.car ;
+  cmp : C -> C -> W.O3 = split {
+    inl x -> split { inl y -> A.cmp x y ; inr y -> lt } ;
+    inr x -> split { inl y -> gt ; inr y -> B.cmp x y } } ;
+  getL (d : A.car) : C -> A.car = split { inl x -> x ; inr y -> d } ;
+  getR (d : B.car) : C -> B.car = split { inl x -> d ; inr y -> y } ;
+  isL : C -> W.Bool = split { inl x -> true ; inr y -> false } ;
+  inl-inj (x y : A.car) (e : Id C (inl x) (inl y)) : Id A.car x y = PL.ap C A.car (getL x) (inl x) (inl y) e ;
+  inr-inj (x y : B.car) (e : Id C (inr x) (inr y)) : Id B.car x y = PL.ap C B.car (getR x) (inr x) (inr y) e ;
+  lr (X : U l) (x : A.car) (y : B.car) (e : Id C (inl x) (inr y)) : X = W.absurdB X (W.sym W.Bool true false (PL.ap C W.Bool isL (inl x) (inr y) e)) ;
+  rl (X : U l) (y : B.car) (x : A.car) (e : Id C (inr y) (inl x)) : X = W.absurdB X (PL.ap C W.Bool isL (inr y) (inl x) e) ;
+  -- O3 discrimination
+  ltEq (X : U l) (e : Id W.O3 lt eq) : X = W.absurdB X (PL.ap W.O3 W.Bool W.isEq lt eq e) ;
+  gtEq (X : U l) (e : Id W.O3 gt eq) : X = W.absurdB X (PL.ap W.O3 W.Bool W.isEq gt eq e) ;
+  gtLt (X : U l) (e : Id W.O3 gt lt) : X = W.absurdB X (PL.ap W.O3 W.Bool W.isLt gt lt e) ;
+  ceq : (x y : C) -> Id W.O3 (cmp x y) eq -> Id C x y = split {
+    inl x -> split { inl y -> \ h -> PL.ap A.car C (\ u -> inl u) x y (A.ceq x y h) ; inr y -> \ h -> ltEq (Id C (inl x) (inr y)) h } ;
+    inr x -> split { inl y -> \ h -> gtEq (Id C (inr x) (inl y)) h ; inr y -> \ h -> PL.ap B.car C (\ u -> inr u) x y (B.ceq x y h) } } ;
+  crefl : (x : C) -> Id W.O3 (cmp x x) eq = split { inl x -> A.crefl x ; inr x -> B.crefl x } ;
+  cflip : (x y : C) -> Id W.O3 (cmp y x) (W.flip (cmp x y)) = split {
+    inl x -> split { inl y -> A.cflip x y ; inr y -> refl gt } ;
+    inr x -> split { inl y -> refl lt ; inr y -> B.cflip x y } } ;
+  ctrans : (x y z : C) -> Id W.O3 (cmp x y) lt -> Id W.O3 (cmp y z) lt -> Id W.O3 (cmp x z) lt = split {
+    inl x -> split {
+      inl y -> split { inl z -> A.ctrans x y z ; inr z -> \ h h' -> refl lt } ;
+      inr y -> split { inl z -> \ h h' -> gtLt (Id W.O3 (A.cmp x z) lt) h' ; inr z -> \ h h' -> refl lt } } ;
+    inr x -> split {
+      inl y -> \ z h h' -> gtLt (Id W.O3 (cmp (inr x) z) lt) h ;
+      inr y -> split { inl z -> \ h h' -> gtLt (Id W.O3 gt lt) h' ; inr z -> B.ctrans x y z } } } ;
+  lo : DP.LO = new DP.LO[car := C, cmp := cmp, ceq := ceq, crefl := crefl, cflip := cflip, ctrans := ctrans] ;
+} ;
+
+module SumMap (A B A' B' : DP.LO) (f : DP.Map A A') (g : DP.Map B B') {
+  module S = SumLO[A,B] ;
+  module S' = SumLO[A',B'] ;
+  h : S.C -> S'.C = split { inl x -> inl (f.1 x) ; inr y -> inr (g.1 y) } ;
+  mono : (x y : S.C) -> Id W.O3 (S'.cmp (h x) (h y)) (S.cmp x y) = split {
+    inl x -> split { inl y -> f.2 x y ; inr y -> refl lt } ;
+    inr x -> split { inl y -> refl gt ; inr y -> g.2 x y } } ;
+  map : DP.Map S.lo S'.lo = (h,mono) ;
+} ;
+
+----------------------------------------------------------------------
+-- the sum of two ptykes
+
+module Sum (P Q : DP.Ptyx) {
+  module S (D : CD.Dil) { module X = SumLO[P.F D,Q.F D] ; } ;
+  F (D : CD.Dil) : DP.LO = S[D].X.lo ;
+  arr (D E : CD.Dil) (T : CD.Mor D E) : DP.Map (F D) (F E) = SumMap[P.F D,Q.F D,P.F E,Q.F E,P.arr D E T,Q.arr D E T].map ;
+  arr-id (D : CD.Dil) : (y : S[D].X.C) -> Id S[D].X.C ((arr D D (CD.idM D)).1 y) y = split {
+    inl x -> PL.ap (P.F D).car S[D].X.C (\ u -> inl u) ((P.arr D D (CD.idM D)).1 x) x (P.arr-id D x) ;
+    inr x -> PL.ap (Q.F D).car S[D].X.C (\ u -> inr u) ((Q.arr D D (CD.idM D)).1 x) x (Q.arr-id D x) } ;
+  arr-comp (D E G : CD.Dil) (S0 : CD.Mor D E) (T : CD.Mor E G) :
+      (y : S[D].X.C) -> Id S[G].X.C ((arr E G T).1 ((arr D E S0).1 y)) ((arr D G (CD.compM D E G S0 T)).1 y) = split {
+    inl x -> PL.ap (P.F G).car S[G].X.C (\ u -> inl u) ((P.arr E G T).1 ((P.arr D E S0).1 x)) ((P.arr D G (CD.compM D E G S0 T)).1 x)
+      (P.arr-comp D E G S0 T x) ;
+    inr x -> PL.ap (Q.F G).car S[G].X.C (\ u -> inr u) ((Q.arr E G T).1 ((Q.arr D E S0).1 x)) ((Q.arr D G (CD.compM D E G S0 T)).1 x)
+      (Q.arr-comp D E G S0 T x) } ;
+
+  -- supports
+  Supp (D : CD.Dil) (y : S[D].X.C) (c : DP.SubSet) : U l =
+    (z : S[DF.On[D].Sub[c].dil].X.C) * Id S[D].X.C ((arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) y ;
+  -- a support of inl x is a support of x in P
+  projL (D : CD.Dil) (x : (P.F D).car) (c : DP.SubSet) :
+      (z : S[DF.On[D].Sub[c].dil].X.C) -> Id S[D].X.C ((arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) (inl x) ->
+      PM.Supp P D x c = split {
+    inl z -> \ e -> (z,S[D].X.inl-inj ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) x e) ;
+    inr z -> \ e -> S[D].X.rl (PM.Supp P D x c) ((Q.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) x e } ;
+  projR (D : CD.Dil) (x : (Q.F D).car) (c : DP.SubSet) :
+      (z : S[DF.On[D].Sub[c].dil].X.C) -> Id S[D].X.C ((arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) (inr x) ->
+      PM.Supp Q D x c = split {
+    inl z -> \ e -> S[D].X.lr (PM.Supp Q D x c) ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) x e ;
+    inr z -> \ e -> (z,S[D].X.inr-inj ((Q.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) x e) } ;
+  injL (D : CD.Dil) (x : (P.F D).car) (c : DP.SubSet) (s : PM.Supp P D x c) : Supp D (inl x) c =
+    (inl s.1,PL.ap (P.F D).car S[D].X.C (\ u -> inl u) ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 s.1) x s.2) ;
+  injR (D : CD.Dil) (x : (Q.F D).car) (c : DP.SubSet) (s : PM.Supp Q D x c) : Supp D (inr x) c =
+    (inr s.1,PL.ap (Q.F D).car S[D].X.C (\ u -> inr u) ((Q.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 s.1) x s.2) ;
+
+  support (D : CD.Dil) : (y : S[D].X.C) -> Ex ((K : W.N) * Supp D y (DF.On[D].lev K)) = split {
+    inl x -> TC.map (PF.Wit P D x) ((K : W.N) * Supp D (inl x) (DF.On[D].lev K)) (\ w -> (w.1,injL D x (DF.On[D].lev w.1) w.2)) (P.support D x) ;
+    inr x -> TC.map (PF.Wit Q D x) ((K : W.N) * Supp D (inr x) (DF.On[D].lev K)) (\ w -> (w.1,injR D x (DF.On[D].lev w.1) w.2)) (Q.support D x) } ;
+  meet (D : CD.Dil) : (y : S[D].X.C) (c c' : DP.SubSet) -> Supp D y c -> Supp D y c' -> Supp D y (DF.On[D].meet c c') = split {
+    inl x -> \ c c' s s' -> injL D x (DF.On[D].meet c c') (P.meet D x c c' (projL D x c s.1 s.2) (projL D x c' s'.1 s'.2)) ;
+    inr x -> \ c c' s s' -> injR D x (DF.On[D].meet c c') (Q.meet D x c c' (projR D x c s.1 s.2) (projR D x c' s'.1 s'.2)) } ;
+
+  ptyx : DP.Ptyx = new DP.Ptyx[F := F, arr := arr, arr-id := arr-id, arr-comp := arr-comp, support := support, meet := meet] ;
+
+  -- the injections
+  inL : PM.Mor P ptyx =
+    (\ D -> (\ x -> inl x,\ x y -> refl ((P.F D).cmp x y)),
+     (\ D E T x -> refl (inl ((P.arr D E T).1 x)),\ D x c s -> projL D x c s.1 s.2)) ;
+  inR : PM.Mor Q ptyx =
+    (\ D -> (\ x -> inr x,\ x y -> refl ((Q.F D).cmp x y)),
+     (\ D E T x -> refl (inr ((Q.arr D E T).1 x)),\ D x c s -> projR D x c s.1 s.2)) ;
+
+  -- the sum of monotone ptykes is monotone
+  mono (E : CD.Dil) (hP : PMo.MonoAt P E) (hQ : PMo.MonoAt Q E) : PMo.MonoAt ptyx E = \ D T T' le -> split {
+    inl x -> hP D T T' le x ;
+    inr x -> hQ D T T' le x } ;
+} ;
+sum (P Q : DP.Ptyx) : DP.Ptyx = Sum[P,Q].ptyx ;
+
+-- sums of morphisms
+module SumMor (P P' Q Q' : DP.Ptyx) (S : PM.Mor P P') (T : PM.Mor Q Q') {
+  module A = Sum[P,Q] ;
+  module B = Sum[P',Q'] ;
+  f (D : CD.Dil) : DP.Map (A.F D) (B.F D) = SumMap[P.F D,Q.F D,P'.F D,Q'.F D,S.1 D,T.1 D].map ;
+  nat (D E : CD.Dil) (M : CD.Mor D E) : (y : A.S[D].X.C) -> Id B.S[E].X.C ((B.arr D E M).1 ((f D).1 y)) ((f E).1 ((A.arr D E M).1 y)) = split {
+    inl x -> PL.ap (P'.F E).car B.S[E].X.C (\ u -> inl u) ((P'.arr D E M).1 ((S.1 D).1 x)) ((S.1 E).1 ((P.arr D E M).1 x)) (S.2.1 D E M x) ;
+    inr x -> PL.ap (Q'.F E).car B.S[E].X.C (\ u -> inr u) ((Q'.arr D E M).1 ((T.1 D).1 x)) ((T.1 E).1 ((Q.arr D E M).1 x)) (T.2.1 D E M x) } ;
+  cart (D : CD.Dil) : (y : A.S[D].X.C) (c : DP.SubSet) -> B.Supp D ((f D).1 y) c -> A.Supp D y c = split {
+    inl x -> \ c s -> A.injL D x c (S.2.2 D x c (B.projL D ((S.1 D).1 x) c s.1 s.2)) ;
+    inr x -> \ c s -> A.injR D x c (T.2.2 D x c (B.projR D ((T.1 D).1 x) c s.1 s.2)) } ;
+  mor : PM.Mor A.ptyx B.ptyx = (f,(nat,cart)) ;
+} ;

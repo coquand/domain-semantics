@@ -1,0 +1,249 @@
+-- Ptykes preserve the ordering of morphisms: Girard's condition (iii) of
+-- a preptyx (Proof Theory and Logical Complexity, 12.1.22, 12.1.25,
+-- 12.1.30).
+--
+-- For well-ordered values Girard derives (iii) from 12.1.23 (V Vm = W V T
+-- with an infinite-valued D'', and W inflationary on a well-order).  For
+-- our algebraic ptykes (values: decidable linear orders) it is not
+-- derivable (x |-> x - 1 on Z is increasing, not inflationary): it is a
+-- property to be checked.  The same holds one type down: Dilator.PDS has
+-- no monotonicity (separation.seg takes Mono as a hypothesis); here
+-- MonoDil.
+--
+--   MorLe T Vm       T <= Vm pointwise (12.1.22);
+--   MonoAt P E      P(T) <= P(Vm) for T <= Vm with target E; MonoP P;
+--   eval-mono, den-mono: the evaluation ptykes are monotone;
+--   twice-mono: D |-> D(D(n)) is monotone at every monotone E;
+--   mono-reflect: monotonicity is reflected along ptyx morphisms (hence
+--   subptykes, images); colim-mono: directed colimits; hat-mono: the
+--   germ construction from monotone finite data; restrict-mono.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module DE = DilPtyxEval[l] ;
+module PM = PtyxMor[l] ;
+module PDn = PtyxDen[l] ;
+module PTw = PtyxTwice[l] ;
+module PF = PtyxFinite[l] ;
+module PG = PtyxGerm[l] ;
+module PA = PtyxGermArr[l] ;
+module PGP = PtyxGermPtyx[l] ;
+module PGF = PtyxGermFin[l] ;
+module PCo = PtyxColim[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+----------------------------------------------------------------------
+-- orders on N and on linear orders
+
+notGt : W.O3 -> W.Bool = split { lt -> true ; eq -> true ; gt -> false } ;
+leN (a b : W.N) : U l = Id W.Bool (W.ltN a (suc b)) true ;
+leN-notGt : (a b : W.N) -> leN a b -> Id W.Bool (notGt (W.cmpN a b)) true = split {
+  zero -> split { zero -> \ h -> refl true ; suc b -> \ h -> refl true } ;
+  suc a | r -> split {
+    zero -> \ h -> W.ltN-zero-abs (Id W.Bool (notGt (W.cmpN (suc a) zero)) true) a h ;
+    suc b -> \ h -> r b h } } ;
+notGt-leN : (a b : W.N) -> Id W.Bool (notGt (W.cmpN a b)) true -> leN a b = split {
+  zero -> \ b h -> refl true ;
+  suc a | r -> split {
+    zero -> \ h -> W.absurdB (leN (suc a) zero) h ;
+    suc b -> \ h -> r b h } } ;
+leN-trans (a b c : W.N) (h : leN a b) (h' : leN b c) : leN a c = W.ltN-le-lt a b (suc c) h h' ;
+-- a word preserves and reflects <=
+sel-leN (f : W.Wd) (m m' : W.N) (hm : Id W.Bool (W.ltN m (W.ones f)) true) (hm' : Id W.Bool (W.ltN m' (W.ones f)) true)
+  (le : leN m m') : leN (W.sel f m) (W.sel f m') =
+  notGt-leN (W.sel f m) (W.sel f m')
+    (W.trans W.Bool (notGt (W.cmpN (W.sel f m) (W.sel f m'))) (notGt (W.cmpN m m')) true
+      (W.ap W.O3 W.Bool notGt (W.cmpN (W.sel f m) (W.sel f m')) (W.cmpN m m') (W.sel-mono f m m' hm hm'))
+      (leN-notGt m m' le)) ;
+sel-leN-r (f : W.Wd) (m m' : W.N) (hm : Id W.Bool (W.ltN m (W.ones f)) true) (hm' : Id W.Bool (W.ltN m' (W.ones f)) true)
+  (le : leN (W.sel f m) (W.sel f m')) : leN m m' =
+  notGt-leN m m'
+    (W.trans W.Bool (notGt (W.cmpN m m')) (notGt (W.cmpN (W.sel f m) (W.sel f m'))) true
+      (W.ap W.O3 W.Bool notGt (W.cmpN m m') (W.cmpN (W.sel f m) (W.sel f m'))
+        (W.sym W.O3 (W.cmpN (W.sel f m) (W.sel f m')) (W.cmpN m m') (W.sel-mono f m m' hm hm')))
+      (leN-notGt (W.sel f m) (W.sel f m') le)) ;
+
+LeO (A : DP.LO) (x y : A.car) : U l = Id W.Bool (notGt (A.cmp x y)) true ;
+
+----------------------------------------------------------------------
+-- ordering of morphisms, monotone ptykes and dilators
+
+MorLe (D E : CD.Dil) (T Vm : CD.Mor D E) : U l =
+  (n z : W.N) -> Id W.Bool (W.ltN z (D.1 n)) true -> leN (W.sel (T.1 n) z) (W.sel (Vm.1 n) z) ;
+MonoAt (P : DP.Ptyx) (E : CD.Dil) : U l+ =
+  (D : CD.Dil) (T Vm : CD.Mor D E) -> MorLe D E T Vm -> (y : (P.F D).car) -> LeO (P.F E) ((P.arr D E T).1 y) ((P.arr D E Vm).1 y) ;
+MonoP (P : DP.Ptyx) : U l+ = (E : CD.Dil) -> MonoAt P E ;
+-- a pre-dilator preserves the ordering of words
+MonoDil (E : CD.Dil) : U l =
+  (v w : W.Wd) -> Id W.N (W.len v) (W.len w) -> Id W.N (W.ones v) (W.ones w) ->
+  ((z : W.N) -> Id W.Bool (W.ltN z (W.ones v)) true -> leN (W.sel v z) (W.sel w z)) ->
+  (x : W.N) -> Id W.Bool (W.ltN x (E.1 (W.ones v))) true -> leN (W.sel (CD.D1 E v) x) (W.sel (CD.D1 E w) x) ;
+
+----------------------------------------------------------------------
+-- examples
+
+eval-mono (n : W.N) : MonoP DE.Eval[n].ptyx = \ E D T Vm le y -> leN-notGt (W.sel (T.1 n) y.1) (W.sel (Vm.1 n) y.1) (le n y.1 y.2) ;
+
+module DenMono (X : DP.LO) (E D : CD.Dil) (T Vm : CD.Mor D E) (le : MorLe D E T Vm) (d : PDn.Den[X].Pt D) {
+  module O = PDn.Den[X].DO[E].O ;
+  module LX = PDn.Den[X].LX ;
+  k : W.N = LX.lenL d.1 ;
+  p : O.DenX = (PDn.Den[X].arr D E T).1 d ;
+  q : O.DenX = (PDn.Den[X].arr D E Vm).1 d ;
+  ov : LX.Over d.1 (W.idW k) d.1 = (W.len-idW k,LX.compL-id d.1) ;
+  sid (x : W.N) (hx : Id W.Bool (W.ltN x (E.1 k)) true) : Id W.N (W.sel (CD.D1 E (W.idW k)) x) x =
+    W.trans W.N (W.sel (CD.D1 E (W.idW k)) x) (W.sel (W.idW (E.1 k)) x) x
+      (W.ap W.Wd W.N (\ u -> W.sel u x) (CD.D1 E (W.idW k)) (W.idW (E.1 k)) (E.2.2.2.2.1 k))
+      (W.sel-idW (E.1 k) x hx) ;
+  cmp-eq : Id W.O3 (O.cmpDen p q) (W.cmpN p.2.1 q.2.1) =
+    W.trans W.O3 (O.cmpDen p q) (O.cmpVia (W.idW k) p.2.1 (W.idW k) q.2.1) (W.cmpN p.2.1 q.2.1)
+      (W.sym W.O3 (O.cmpVia (W.idW k) p.2.1 (W.idW k) q.2.1) (O.cmpDen p q) (O.den-indep p q d.1 (W.idW k) (W.idW k) d.2.2.1 ov ov))
+      (W.ap2 W.N W.N W.O3 W.cmpN (W.sel (CD.D1 E (W.idW k)) p.2.1) p.2.1 (W.sel (CD.D1 E (W.idW k)) q.2.1) q.2.1
+        (sid p.2.1 p.2.2.2.1) (sid q.2.1 q.2.2.2.1)) ;
+  result : LeO (PDn.Den[X].F E) p q =
+    W.trans W.Bool (notGt (O.cmpDen p q)) (notGt (W.cmpN p.2.1 q.2.1)) true
+      (W.ap W.O3 W.Bool notGt (O.cmpDen p q) (W.cmpN p.2.1 q.2.1) cmp-eq)
+      (leN-notGt p.2.1 q.2.1 (le k d.2.1 d.2.2.2.1)) ;
+} ;
+den-mono (X : DP.LO) : MonoP PDn.Den[X].ptyx = \ E D T Vm le d -> DenMono[X,E,D,T,Vm,le,d].result ;
+
+module TwiceMono (n : W.N) (E : CD.Dil) (hE : MonoDil E) (D : CD.Dil) (T Vm : CD.Mor D E) (le : MorLe D E T Vm) (y : PTw.Twice[n].Pt D) {
+  a1 : W.N = W.sel (T.1 (D.1 n)) y.1 ;
+  a2 : W.N = W.sel (Vm.1 (D.1 n)) y.1 ;
+  ha1 : Id W.Bool (W.ltN a1 (E.1 (D.1 n))) true = ((DE.Eval[D.1 n].arr D E T).1 y).2 ;
+  ha2 : Id W.Bool (W.ltN a2 (E.1 (D.1 n))) true = ((DE.Eval[D.1 n].arr D E Vm).1 y).2 ;
+  oT : Id W.N (W.ones (CD.D1 E (T.1 n))) (E.1 (D.1 n)) =
+    W.trans W.N (W.ones (CD.D1 E (T.1 n))) (E.1 (W.ones (T.1 n))) (E.1 (D.1 n)) (CD.dones E (T.1 n))
+      (W.ap W.N W.N E.1 (W.ones (T.1 n)) (D.1 n) (T.2.2.1 n)) ;
+  inO (a : W.N) (h : Id W.Bool (W.ltN a (E.1 (D.1 n))) true) : Id W.Bool (W.ltN a (W.ones (CD.D1 E (T.1 n)))) true =
+    W.subst W.N (\ j -> Id W.Bool (W.ltN a j) true) (E.1 (D.1 n)) (W.ones (CD.D1 E (T.1 n))) (W.sym W.N (W.ones (CD.D1 E (T.1 n))) (E.1 (D.1 n)) oT) h ;
+  s1 : leN (W.sel (CD.D1 E (T.1 n)) a1) (W.sel (CD.D1 E (T.1 n)) a2) =
+    sel-leN (CD.D1 E (T.1 n)) a1 a2 (inO a1 ha1) (inO a2 ha2) (le (D.1 n) y.1 y.2) ;
+  s2 : leN (W.sel (CD.D1 E (T.1 n)) a2) (W.sel (CD.D1 E (Vm.1 n)) a2) =
+    hE (T.1 n) (Vm.1 n) (W.trans W.N (W.len (T.1 n)) (E.1 n) (W.len (Vm.1 n)) (T.2.1 n) (W.sym W.N (W.len (Vm.1 n)) (E.1 n) (Vm.2.1 n)))
+      (W.trans W.N (W.ones (T.1 n)) (D.1 n) (W.ones (Vm.1 n)) (T.2.2.1 n) (W.sym W.N (W.ones (Vm.1 n)) (D.1 n) (Vm.2.2.1 n)))
+      (\ z hz -> le n z (W.subst W.N (\ j -> Id W.Bool (W.ltN z j) true) (W.ones (T.1 n)) (D.1 n) (T.2.2.1 n) hz))
+      a2 (W.subst W.N (\ j -> Id W.Bool (W.ltN a2 (E.1 j)) true) (D.1 n) (W.ones (T.1 n)) (W.sym W.N (W.ones (T.1 n)) (D.1 n) (T.2.2.1 n)) ha2) ;
+  result : LeO (PTw.Twice[n].F E) ((PTw.Twice[n].arr D E T).1 y) ((PTw.Twice[n].arr D E Vm).1 y) =
+    leN-notGt (W.sel (CD.D1 E (T.1 n)) a1) (W.sel (CD.D1 E (Vm.1 n)) a2)
+      (leN-trans (W.sel (CD.D1 E (T.1 n)) a1) (W.sel (CD.D1 E (T.1 n)) a2) (W.sel (CD.D1 E (Vm.1 n)) a2) s1 s2) ;
+} ;
+twice-mono (n : W.N) (E : CD.Dil) (hE : MonoDil E) : MonoAt PTw.Twice[n].ptyx E =
+  \ D T Vm le y -> TwiceMono[n,E,hE,D,T,Vm,le,y].result ;
+
+----------------------------------------------------------------------
+-- closure properties
+
+-- reflected along a morphism of ptykes (hence subptykes and images)
+mono-reflect (P Q : DP.Ptyx) (a : PM.Mor P Q) (E : CD.Dil) (hQ : MonoAt Q E) : MonoAt P E = \ D T Vm le y ->
+  W.trans W.Bool (notGt ((P.F E).cmp ((P.arr D E T).1 y) ((P.arr D E Vm).1 y)))
+    (notGt ((Q.F E).cmp ((Q.arr D E T).1 ((a.1 D).1 y)) ((Q.arr D E Vm).1 ((a.1 D).1 y)))) true
+    (W.ap W.O3 W.Bool notGt ((P.F E).cmp ((P.arr D E T).1 y) ((P.arr D E Vm).1 y))
+      ((Q.F E).cmp ((Q.arr D E T).1 ((a.1 D).1 y)) ((Q.arr D E Vm).1 ((a.1 D).1 y)))
+      (W.trans W.O3 ((P.F E).cmp ((P.arr D E T).1 y) ((P.arr D E Vm).1 y))
+        ((Q.F E).cmp ((a.1 E).1 ((P.arr D E T).1 y)) ((a.1 E).1 ((P.arr D E Vm).1 y)))
+        ((Q.F E).cmp ((Q.arr D E T).1 ((a.1 D).1 y)) ((Q.arr D E Vm).1 ((a.1 D).1 y)))
+        (W.sym W.O3 ((Q.F E).cmp ((a.1 E).1 ((P.arr D E T).1 y)) ((a.1 E).1 ((P.arr D E Vm).1 y)))
+          ((P.F E).cmp ((P.arr D E T).1 y) ((P.arr D E Vm).1 y)) ((a.1 E).2 ((P.arr D E T).1 y) ((P.arr D E Vm).1 y)))
+        (W.ap2 (Q.F E).car (Q.F E).car W.O3 (Q.F E).cmp
+          ((a.1 E).1 ((P.arr D E T).1 y)) ((Q.arr D E T).1 ((a.1 D).1 y))
+          ((a.1 E).1 ((P.arr D E Vm).1 y)) ((Q.arr D E Vm).1 ((a.1 D).1 y))
+          (PL.sym (Q.F E).car ((Q.arr D E T).1 ((a.1 D).1 y)) ((a.1 E).1 ((P.arr D E T).1 y)) (a.2.1 D E T y))
+          (PL.sym (Q.F E).car ((Q.arr D E Vm).1 ((a.1 D).1 y)) ((a.1 E).1 ((P.arr D E Vm).1 y)) (a.2.1 D E Vm y)))))
+    (hQ D T Vm le ((a.1 D).1 y)) ;
+
+-- directed colimits of monotone ptykes
+module ColimMono (P : W.N -> DP.Ptyx) (e : (i j : W.N) -> PG.LeN i j -> PM.Mor (P i) (P j))
+  (e-id : (i : W.N) (h : PG.LeN i i) (D : CD.Dil) (x : ((P i).F D).car) -> Id ((P i).F D).car (((e i i h).1 D).1 x) x)
+  (e-comp : (i j k : W.N) (h : PG.LeN i j) (h' : PG.LeN j k) (D : CD.Dil) (x : ((P i).F D).car) ->
+     Id ((P k).F D).car (((e j k h').1 D).1 (((e i j h).1 D).1 x)) (((e i k (PG.le-trans i j k h h')).1 D).1 x))
+  (E : CD.Dil) (hP : (i : W.N) -> MonoAt (P i) E) {
+  module S = PCo.Sys[P,e,e-id,e-comp] ;
+  mono : MonoAt S.colim E = \ D T Vm le y ->
+    S.Cl[D].X.ind (\ y0 -> LeO (S.F E) ((S.arr D E T).1 y0) ((S.arr D E Vm).1 y0))
+      (\ y0 -> W.HB.uip (notGt ((S.F E).cmp ((S.arr D E T).1 y0) ((S.arr D E Vm).1 y0))) true)
+      (\ g -> W.trans W.Bool (notGt ((S.F E).cmp ((S.arr D E T).1 (S.Cl[D].X.cl g)) ((S.arr D E Vm).1 (S.Cl[D].X.cl g))))
+        (notGt (((P g.1).F E).cmp (((P g.1).arr D E T).1 g.2) (((P g.1).arr D E Vm).1 g.2))) true
+        (W.ap W.O3 W.Bool notGt ((S.F E).cmp ((S.arr D E T).1 (S.Cl[D].X.cl g)) ((S.arr D E Vm).1 (S.Cl[D].X.cl g)))
+          (((P g.1).F E).cmp (((P g.1).arr D E T).1 g.2) (((P g.1).arr D E Vm).1 g.2))
+          (W.trans W.O3 ((S.F E).cmp ((S.arr D E T).1 (S.Cl[D].X.cl g)) ((S.arr D E Vm).1 (S.Cl[D].X.cl g)))
+            ((S.F E).cmp (S.Cl[E].X.cl (g.1,((P g.1).arr D E T).1 g.2)) (S.Cl[E].X.cl (g.1,((P g.1).arr D E Vm).1 g.2)))
+            (((P g.1).F E).cmp (((P g.1).arr D E T).1 g.2) (((P g.1).arr D E Vm).1 g.2))
+            (W.ap2 S.Cl[E].X.Car S.Cl[E].X.Car W.O3 (S.F E).cmp
+              ((S.arr D E T).1 (S.Cl[D].X.cl g)) (S.Cl[E].X.cl (g.1,((P g.1).arr D E T).1 g.2))
+              ((S.arr D E Vm).1 (S.Cl[D].X.cl g)) (S.Cl[E].X.cl (g.1,((P g.1).arr D E Vm).1 g.2))
+              (S.Am[D,E,T].I.fm-cl g) (S.Am[D,E,Vm].I.fm-cl g))
+            ((S.Cl[E].X.iota g.1).2 (((P g.1).arr D E T).1 g.2) (((P g.1).arr D E Vm).1 g.2))))
+        (hP g.1 D T Vm le g.2))
+      y ;
+} ;
+
+-- the germ construction from monotone finite data
+MonoFin (FP : PG.FinPtyx) : U l+ =
+  (A B : DF.FinDil) (T Vm : CD.Mor A.1 B.1) -> MorLe A.1 B.1 T Vm -> (y : (FP.F A).car) ->
+    LeO (FP.F B) ((FP.arr A B T).1 y) ((FP.arr A B Vm).1 y) ;
+
+-- the restriction T_K : D|K -> E|K is monotone in T
+module TfLe (D E : CD.Dil) (T Vm : CD.Mor D E) (le : MorLe D E T Vm) (K : W.N) {
+  module A1 = PF.TruncFactor[D,E,T,K] ;
+  module A2 = PF.TruncFactor[D,E,Vm,K] ;
+  IE : CD.Mor (PF.Tr E K) E = PF.TrInc E K ;
+  ID : CD.Mor (PF.Tr D K) D = PF.TrInc D K ;
+  -- sel IE (sel T_K x) = sel T (sel ID x)
+  pt (M : CD.Mor D E) (tfM : CD.Mor (PF.Tr D K) (PF.Tr E K))
+    (tri : Id (CD.Mor (PF.Tr D K) E) (CD.compM (PF.Tr D K) (PF.Tr E K) E tfM IE) (CD.compM (PF.Tr D K) D E ID M))
+    (n x : W.N) : Id W.N (W.sel (IE.1 n) (W.sel (tfM.1 n) x)) (W.sel (M.1 n) (W.sel (ID.1 n) x)) =
+    W.trans W.N (W.sel (IE.1 n) (W.sel (tfM.1 n) x)) (W.sel (W.compW (IE.1 n) (tfM.1 n)) x) (W.sel (M.1 n) (W.sel (ID.1 n) x))
+      (W.sym W.N (W.sel (W.compW (IE.1 n) (tfM.1 n)) x) (W.sel (IE.1 n) (W.sel (tfM.1 n) x))
+        (W.sel-comp (IE.1 n) (tfM.1 n) x (CD.Comp[PF.Tr D K,PF.Tr E K,E,tfM,IE].match n)))
+      (W.trans W.N (W.sel (W.compW (IE.1 n) (tfM.1 n)) x) (W.sel (W.compW (M.1 n) (ID.1 n)) x) (W.sel (M.1 n) (W.sel (ID.1 n) x))
+        (W.ap W.Wd W.N (\ u -> W.sel u x) (W.compW (IE.1 n) (tfM.1 n)) (W.compW (M.1 n) (ID.1 n))
+          (PL.ap (CD.Mor (PF.Tr D K) E) W.Wd (\ X0 -> X0.1 n) (CD.compM (PF.Tr D K) (PF.Tr E K) E tfM IE) (CD.compM (PF.Tr D K) D E ID M) tri))
+        (W.sel-comp (M.1 n) (ID.1 n) x (CD.Comp[PF.Tr D K,D,E,ID,M].match n))) ;
+  inIE (M : CD.Mor (PF.Tr D K) (PF.Tr E K)) (n x : W.N) (hx : Id W.Bool (W.ltN x ((PF.Tr D K).1 n)) true) :
+      Id W.Bool (W.ltN (W.sel (M.1 n) x) (W.ones (IE.1 n))) true =
+    W.subst W.N (\ j -> Id W.Bool (W.ltN (W.sel (M.1 n) x) j) true) (W.len (M.1 n)) (W.ones (IE.1 n))
+      (W.trans W.N (W.len (M.1 n)) ((PF.Tr E K).1 n) (W.ones (IE.1 n)) (M.2.1 n) (W.sym W.N (W.ones (IE.1 n)) ((PF.Tr E K).1 n) (IE.2.2.1 n)))
+      (W.sel-lt (M.1 n) x (W.subst W.N (\ j -> Id W.Bool (W.ltN x j) true) ((PF.Tr D K).1 n) (W.ones (M.1 n))
+        (W.sym W.N (W.ones (M.1 n)) ((PF.Tr D K).1 n) (M.2.2.1 n)) hx)) ;
+  hID (n x : W.N) (hx : Id W.Bool (W.ltN x ((PF.Tr D K).1 n)) true) : Id W.Bool (W.ltN (W.sel (ID.1 n) x) (D.1 n)) true =
+    W.subst W.N (\ j -> Id W.Bool (W.ltN (W.sel (ID.1 n) x) j) true) (W.len (ID.1 n)) (D.1 n) (ID.2.1 n)
+      (W.sel-lt (ID.1 n) x (W.subst W.N (\ j -> Id W.Bool (W.ltN x j) true) ((PF.Tr D K).1 n) (W.ones (ID.1 n))
+        (W.sym W.N (W.ones (ID.1 n)) ((PF.Tr D K).1 n) (ID.2.2.1 n)) hx)) ;
+  result : MorLe (PF.Tr D K) (PF.Tr E K) A1.mor A2.mor = \ n x hx ->
+    sel-leN-r (IE.1 n) (W.sel (A1.mor.1 n) x) (W.sel (A2.mor.1 n) x) (inIE A1.mor n x hx) (inIE A2.mor n x hx)
+      (W.subst W.N (\ j -> leN j (W.sel (IE.1 n) (W.sel (A2.mor.1 n) x))) (W.sel (T.1 n) (W.sel (ID.1 n) x)) (W.sel (IE.1 n) (W.sel (A1.mor.1 n) x))
+        (W.sym W.N (W.sel (IE.1 n) (W.sel (A1.mor.1 n) x)) (W.sel (T.1 n) (W.sel (ID.1 n) x)) (pt T A1.mor A1.tri n x))
+        (W.subst W.N (\ j -> leN (W.sel (T.1 n) (W.sel (ID.1 n) x)) j) (W.sel (Vm.1 n) (W.sel (ID.1 n) x)) (W.sel (IE.1 n) (W.sel (A2.mor.1 n) x))
+          (W.sym W.N (W.sel (IE.1 n) (W.sel (A2.mor.1 n) x)) (W.sel (Vm.1 n) (W.sel (ID.1 n) x)) (pt Vm A2.mor A2.tri n x))
+          (le n (W.sel (ID.1 n) x) (hID n x hx)))) ;
+} ;
+
+module HatMono (FP : PG.FinPtyx) (hFP : MonoFin FP) (E D : CD.Dil) (T Vm : CD.Mor D E) (le : MorLe D E T Vm) {
+  module GD = PG.Germ[FP,D] ;
+  module GE = PG.Germ[FP,E] ;
+  module AT = PA.Arr[FP,D,E,T] ;
+  module AU = PA.Arr[FP,D,E,Vm] ;
+  Goal (y : GD.Car) : U l = LeO GE.lo (AT.f y) (AU.f y) ;
+  base (g : GD.G) : Goal (GD.cl g) =
+    W.trans W.Bool (notGt (GE.cmpC (AT.f (GD.cl g)) (AU.f (GD.cl g))))
+      (notGt ((GE.Fo g.1).cmp ((FP.arr (GD.T g.1) (GE.T g.1) (AT.tf g.1)).1 g.2) ((FP.arr (GD.T g.1) (GE.T g.1) (AU.tf g.1)).1 g.2))) true
+      (W.ap W.O3 W.Bool notGt (GE.cmpC (AT.f (GD.cl g)) (AU.f (GD.cl g)))
+        ((GE.Fo g.1).cmp ((FP.arr (GD.T g.1) (GE.T g.1) (AT.tf g.1)).1 g.2) ((FP.arr (GD.T g.1) (GE.T g.1) (AU.tf g.1)).1 g.2))
+        (W.trans W.O3 (GE.cmpC (AT.f (GD.cl g)) (AU.f (GD.cl g))) (GE.cmpC (GE.cl (AT.gmap g)) (GE.cl (AU.gmap g)))
+          ((GE.Fo g.1).cmp ((FP.arr (GD.T g.1) (GE.T g.1) (AT.tf g.1)).1 g.2) ((FP.arr (GD.T g.1) (GE.T g.1) (AU.tf g.1)).1 g.2))
+          (W.ap2 GE.Car GE.Car W.O3 GE.cmpC (AT.f (GD.cl g)) (GE.cl (AT.gmap g)) (AU.f (GD.cl g)) (GE.cl (AU.gmap g)) (AT.f-cl g) (AU.f-cl g))
+          ((GE.iota g.1).2 ((FP.arr (GD.T g.1) (GE.T g.1) (AT.tf g.1)).1 g.2) ((FP.arr (GD.T g.1) (GE.T g.1) (AU.tf g.1)).1 g.2))))
+      (hFP (GD.T g.1) (GE.T g.1) (AT.tf g.1) (AU.tf g.1) TfLe[D,E,T,Vm,le,g.1].result g.2) ;
+  result (y : GD.Car) : Goal y =
+    TC.rec ((g : GD.G) * Id GD.Car (GD.cl g) y) @l (Goal y) (W.HB.uip (notGt (GE.cmpC (AT.f y) (AU.f y))) true)
+      (\ p -> PL.subst GD.Car Goal (GD.cl p.1) y p.2 (base p.1)) (GD.surj y) ;
+} ;
+hat-mono (FP : PG.FinPtyx) (hFP : MonoFin FP) : MonoP (PGP.hat FP) = \ E D T Vm le y -> HatMono[FP,hFP,E,D,T,Vm,le].result y ;
+
+-- the finite part of a monotone ptyx is monotone
+restrict-mono (P : DP.Ptyx) (hP : MonoP P) : MonoFin (PGF.restrict P) = \ A B T Vm le y -> hP B.1 A.1 T Vm le y ;

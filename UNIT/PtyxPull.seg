@@ -1,0 +1,65 @@
+-- Morphisms of ptykes are pull-backs along ALL morphisms of dilators
+-- (catemb.pdf, linear-order case; PLAN-CATEMB-LO.md step 5), and they
+-- correspond exactly to their restrictions to finite dilators.
+--
+-- PtyxMor.Cartesian only asks for pull-backs along inclusions D|c -> D.
+-- Since every morphism T : A -> B is iso to the inclusion of its image
+-- B|c (DilImage.Image), the naturality square of a morphism S : P -> Q
+-- along T is a pull-back: if Q(T) q = S_B y then y = P(T) p for some p.
+-- In particular the restriction of S to finite dilators satisfies
+-- PtyxFinite.FinCart, and ExtMor applied to it gives back S.  So
+--
+--   Mor P Q  ~  natural families on FinDil whose squares are pull-backs.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PM = PtyxMor[l] ;
+module PF = PtyxFinite[l] ;
+module DI = DilImage[l] ;
+module PL = Prelude[l] ;
+
+module Pull (P Q : DP.Ptyx) (Sm : PM.Mor P Q) (A B : CD.Dil) (T : CD.Mor A B) (y : (P.F B).car) (q : (Q.F A).car)
+  (e : Id (Q.F B).car ((Q.arr A B T).1 q) ((Sm.1 B).1 y)) {
+  module Im = DI.Image[A,B,T] ;
+  Sd : CD.Dil = Im.S.dil ;
+  -- S_B y is supported by the image of T ...
+  q' : (Q.F Sd).car = (Q.arr A Sd Im.iso).1 q ;
+  qe : Id (Q.F B).car ((Q.arr Sd B Im.S.inc).1 q') ((Sm.1 B).1 y) =
+    PL.trans (Q.F B).car ((Q.arr Sd B Im.S.inc).1 q') ((Q.arr A B (CD.compM A Sd B Im.iso Im.S.inc)).1 q) ((Sm.1 B).1 y)
+      (Q.arr-comp A Sd B Im.iso Im.S.inc q)
+      (PL.trans (Q.F B).car ((Q.arr A B (CD.compM A Sd B Im.iso Im.S.inc)).1 q) ((Q.arr A B T).1 q) ((Sm.1 B).1 y)
+        (PL.ap (CD.Mor A B) (Q.F B).car (\ M -> (Q.arr A B M).1 q) (CD.compM A Sd B Im.iso Im.S.inc) T Im.iso-tri)
+        e) ;
+  -- ... so y is (S is cartesian) ...
+  sp : PM.Supp P B y Im.c = Sm.2.2 B y Im.c (q',qe) ;
+  -- ... and y comes from A through the inverse of the iso
+  p : (P.F A).car = (P.arr Sd A Im.inv).1 sp.1 ;
+  pe : Id (P.F B).car ((P.arr A B T).1 p) y =
+    PL.trans (P.F B).car ((P.arr A B T).1 p) ((P.arr Sd B (CD.compM Sd A B Im.inv T)).1 sp.1) y
+      (P.arr-comp Sd A B Im.inv T sp.1)
+      (PL.trans (P.F B).car ((P.arr Sd B (CD.compM Sd A B Im.inv T)).1 sp.1) ((P.arr Sd B Im.S.inc).1 sp.1) y
+        (PL.ap (CD.Mor Sd B) (P.F B).car (\ M -> (P.arr Sd B M).1 sp.1) (CD.compM Sd A B Im.inv T) Im.S.inc Im.inv-tri)
+        sp.2) ;
+  result : (p0 : (P.F A).car) * Id (P.F B).car ((P.arr A B T).1 p0) y = (p,pe) ;
+} ;
+pull (P Q : DP.Ptyx) (Sm : PM.Mor P Q) (A B : CD.Dil) (T : CD.Mor A B) (y : (P.F B).car) (q : (Q.F A).car)
+  (e : Id (Q.F B).car ((Q.arr A B T).1 q) ((Sm.1 B).1 y)) : (p : (P.F A).car) * Id (P.F B).car ((P.arr A B T).1 p) y =
+  Pull[P,Q,Sm,A,B,T,y,q,e].result ;
+
+-- the restriction of a morphism to the finite dilators has pull-back
+-- squares
+fin-cart (P Q : DP.Ptyx) (Sm : PM.Mor P Q) : PF.FinCart P Q (\ A -> Sm.1 A.1) =
+  \ A B T y q e -> pull P Q Sm A.1 B.1 T y q e ;
+
+-- restriction followed by extension is the identity
+module Corr (P Q : DP.Ptyx) (Sm : PM.Mor P Q) {
+  a (A : DF.FinDil) : DP.Map (P.F A.1) (Q.F A.1) = Sm.1 A.1 ;
+  na (A B : DF.FinDil) (T : CD.Mor A.1 B.1) (y : (P.F A.1).car) :
+      Id (Q.F B.1).car ((Q.arr A.1 B.1 T).1 ((a A).1 y)) ((a B).1 ((P.arr A.1 B.1 T).1 y)) =
+    Sm.2.1 A.1 B.1 T y ;
+  module X = PF.ExtMor[P,Q,a,na,fin-cart P Q Sm] ;
+  back : PM.MorEq P Q X.mor Sm = \ D y -> X.X.unique Sm.1 Sm.2.1 (\ A z -> refl ((Sm.1 A.1).1 z)) D y ;
+} ;
