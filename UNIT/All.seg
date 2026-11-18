@@ -9,6 +9,7 @@ import Reduction ; import RelC ; import LawsC ; import AdeqBase ;
 import AdeqPi ; import AdeqLam ; import AdeqApp ; import AdeqFun ;
 import Adequacy ; import Consequences ; import SubjRed ;
 import ProjPi ; import ProjLam ; import ProjBot ; import Infinite ; import EtaU ;
+import Dilator ;
 import Paths ; import Axioms ; import FunExtUA ; import Replacement ;
 module Theory
  (ua : [l] Axioms[l].Univalence)
@@ -86,6 +87,9 @@ module Theory
  import ScottCUSLInitialChain ;
  import CompactIdeals ;
  import BooleanDI ;
+ import DIConstructive ; import DIEvents ; import DIEventsBool ;
+ import DilatorSub ; import DIFinSubsets ; import DilatorSubCDI ; import DilatorMorphisms ; import DIClosure ;
+ import Coherence ; import CoherenceFun ; import CoherenceTrace ; import CoherenceOmega ; import CoherenceEmb ; import CoherenceTower ; import CoherenceFix ; import CoherenceFixFun ; import CatDil ; import DilFinite ; import DilPtyx ; import DilPtyxEval ; import PtyxMor ; import PtyxTwice ; import PtyxDen ; import PtyxFinite ;
  import StableComposition ; import PrincipalProjection ;
  import StableProduct ;
  import StablePatches ;

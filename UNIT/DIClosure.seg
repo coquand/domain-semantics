@@ -1,0 +1,326 @@
+-- Constructive dI-domains with compact meets (CDIM), and their closure
+-- under products and rigid images.
+--
+-- CDIM = CDI (DIConstructive) + the meet of two compact elements is
+-- compact.  This holds classically in every dI-domain (everything below a
+-- compact is compact), for every event completion (principal ideals meet
+-- in a principal ideal), hence for Omega and Omega^X.  It makes the order
+-- between compact elements decidable (Decide): x <= y iff x ^ y = x, and
+-- below x the compact elements are finitely many and decidably distinct.
+-- That decidability is what the stable function space needs (DI.txt,
+-- obligation 1).
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+module TL = TruncationCombinators[l+] ;
+module FD = FiniteDiscrete[l] ;
+module DC0 = DIConstructive[l] ;
+
+dec-prop (P : U l) (pP : Prelude[l].isProp P) : (u v : FD.Dec P) -> Id (FD.Dec P) u v = split {
+  inl p -> split {
+    inl q -> Prelude[l].ap P (FD.Dec P) (\ z -> inl z) p q (pP p q) ;
+    inr n -> absurd (Id (FD.Dec P) (inl p) (inr n)) (n p) } ;
+  inr n -> split {
+    inl q -> absurd (Id (FD.Dec P) (inr n) (inl q)) (n q) ;
+    inr m -> Prelude[l].ap (P -> Empty) (FD.Dec P) (\ z -> inr z) n m
+      (Axioms[l].FunExtLemmas[fe @l].isProp-Pi P (\ _ -> Empty) (\ _ -> Prelude[l].isProp-Empty) n m) } } ;
+
+-- compactness is invariant under equivalence in the order
+module Compacts (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ; open A ;
+  module V = DC[P,S.complete] ;
+  equiv (x y : C) (yx : LE y x) (xy : LE x y) (c : V.Compact x) : V.Compact y = \ I z d h ->
+    T.map ((i : I) * LE x (z i)) ((i : I) * LE y (z i)) (\ w -> (w.1,P.transitive y x (z w.1) yx w.2))
+      (c I z d (P.transitive x y (V.sup I z d) xy h)) ;
+  mere-equiv (x y : C) (e : Ex (LE y x * LE x y)) (c : V.Compact x) : V.Compact y = \ I z d h ->
+    T.rec (LE y x * LE x y) @l (Ex ((i : I) * LE y (z i))) (prop ((i : I) * LE y (z i)))
+      (\ w -> equiv x y w.1 w.2 c I z d h) e ;
+} ;
+
+record CDIM {
+  cdi : DC0.CDI ;
+  compact-meet : (x y : cdi.scott.order.carrier) ->
+    DC[cdi.scott.order,cdi.scott.complete].Compact x -> DC[cdi.scott.order,cdi.scott.complete].Compact y ->
+    DC[cdi.scott.order,cdi.scott.complete].Compact (ScottMeet[l].On[cdi.scott].meet x y) ;
+} ;
+
+----------------------------------------------------------------------
+-- the order between compact elements is decidable
+
+module Decide (D : CDIM) {
+  module A = ScottDomain[l].On[D.cdi.scott] ; open A ;
+  module V = DC[P,D.cdi.scott.complete] ;
+  module N = ScottMeet[l].On[D.cdi.scott] ;
+  module K = DC0.Properties[D.cdi.scott] ;
+  module With (x y : C) (cx : V.Compact x) (cy : V.Compact y) (F : K.CompactIdeal[x]) {
+    m : C = N.meet x y ;
+    Pos (z : C) : U l = (i : Ix F.shape) * (LE z (F.point i) * LE (F.point i) z) ;
+    compare (u : Pos m) (v : Pos x) : FD.Dec (LE x y) =
+      FD.map-decision (Id (Ix F.shape) u.1 v.1) (LE x y)
+        (\ e -> P.transitive x m y
+          (P.transitive x (F.point v.1) m v.2.1
+            (subst (Ix F.shape) (\ i -> LE (F.point i) m) u.1 v.1 e u.2.2)) (N.right x y))
+        (\ xy -> F.distinct u.1 v.1
+          (P.transitive (F.point u.1) m (F.point v.1) u.2.2
+            (P.transitive m x (F.point v.1) (N.left x y) v.2.1))
+          (P.transitive (F.point v.1) x (F.point u.1) v.2.2
+            (P.transitive x m (F.point u.1) (N.greatest x y x (P.reflexive x) xy) u.2.1)))
+        (FD.equality F.shape u.1 v.1) ;
+    decision : FD.Dec (LE x y) =
+      T.rec (Pos m) @l (FD.Dec (LE x y)) (dec-prop (LE x y) (P.proposition x y))
+        (\ u -> T.rec (Pos x) @l (FD.Dec (LE x y)) (dec-prop (LE x y) (P.proposition x y))
+          (\ v -> compare u v) (F.covers x cx (P.reflexive x)))
+        (F.covers m (D.compact-meet x y cx cy) (N.left x y)) ;
+  } ;
+  le-dec (x y : C) (cx : V.Compact x) (cy : V.Compact y) : FD.Dec (LE x y) =
+    TL.rec (K.CompactIdeal[x]) @l (FD.Dec (LE x y)) (dec-prop (LE x y) (P.proposition x y))
+      (\ F -> With[x,y,cx,cy,F].decision) (D.cdi.compact-ideals x cx) ;
+} ;
+
+----------------------------------------------------------------------
+-- instances
+
+-- every (literal) dI-domain: everything below a compact is compact
+module Literal (D : DIDomain[l].DI) {
+  cdim : CDIM = new CDIM[cdi := DC0.FromDI[D].cdi,
+    compact-meet := \ x y cx cy -> CompactIdeals[l].On[D.scott].below-compact x cx (D.finite-ideals x cx)
+      (ScottMeet[l].On[D.scott].meet x y) (ScottMeet[l].On[D.scott].left x y)] ;
+} ;
+
+-- every event completion: the meet of principal ideals is principal
+module Events (E : DIEvents[l].Events) {
+  module C = DIEvents[l].Completion[E] ;
+  module I = C.I ;
+  module N = ScottMeet[l].On[I.scott] ;
+  module A = ScottDomain[l].On[I.scott] ;
+  module Q = Compacts[I.scott] ;
+  meet-principal (a b : C.X) : I.Incl (N.meet (I.principal a) (I.principal b)) (I.principal (C.meet a b)) =
+    \ c hc -> C.into-r c (E.meet (I.val a) (I.val b))
+      (E.meet-greatest (I.val a) (I.val b) (I.val c)
+        (N.left (I.principal a) (I.principal b) c hc) (N.right (I.principal a) (I.principal b) c hc)) ;
+  principal-meet (a b : C.X) : I.Incl (I.principal (C.meet a b)) (N.meet (I.principal a) (I.principal b)) =
+    N.greatest (I.principal a) (I.principal b) (I.principal (C.meet a b))
+      (C.principal-mono (C.meet a b) a (C.meet-left a b)) (C.principal-mono (C.meet a b) b (C.meet-right a b)) ;
+  module Meet (x y : C.Ideal) (a : C.X) (xa : I.Incl x (I.principal a)) (ax : I.Incl (I.principal a) x)
+    (b : C.X) (yb : I.Incl y (I.principal b)) (by : I.Incl (I.principal b) y) {
+    m : C.Ideal = N.meet x y ;
+    p : C.Ideal = I.principal (C.meet a b) ;
+    mp : I.Incl m p = I.incl-trans m (N.meet (I.principal a) (I.principal b)) p
+      (N.monotone x y (I.principal a) (I.principal b) xa yb) (meet-principal a b) ;
+    pm : I.Incl p m = I.incl-trans p (N.meet (I.principal a) (I.principal b)) m
+      (principal-meet a b) (N.monotone (I.principal a) (I.principal b) x y ax by) ;
+  } ;
+  compact-meet (x y : C.Ideal) (cx : DC[I.order,I.complete].Compact x) (cy : DC[I.order,I.complete].Compact y) :
+      DC[I.order,I.complete].Compact (N.meet x y) =
+    \ J z d h -> T.rec ((a : C.X) * (I.Incl x (I.principal a) * I.Incl (I.principal a) x)) @l
+      (Ex ((j : J) * I.Incl (N.meet x y) (z j))) (prop ((j : J) * I.Incl (N.meet x y) (z j)))
+      (\ wa -> T.rec ((b : C.X) * (I.Incl y (I.principal b) * I.Incl (I.principal b) y)) @l
+        (Ex ((j : J) * I.Incl (N.meet x y) (z j))) (prop ((j : J) * I.Incl (N.meet x y) (z j)))
+        (\ wb -> Q.equiv (I.principal (C.meet wa.1 wb.1)) (N.meet x y)
+          Meet[x,y,wa.1,wa.2.1,wa.2.2,wb.1,wb.2.1,wb.2.2].mp Meet[x,y,wa.1,wa.2.1,wa.2.2,wb.1,wb.2.1,wb.2.2].pm
+          (I.basis.compact (C.meet wa.1 wb.1)) J z d h)
+        (A.compact-basis y cy))
+      (A.compact-basis x cx) ;
+  cdim : CDIM = new CDIM[cdi := C.cdi, compact-meet := compact-meet] ;
+} ;
+
+omega : CDIM = Events[DIEventsBool[l].events].cdim ;
+omega-power (X : U l) (dec : (s t : X) -> FD.Dec (Id X s t)) : CDIM =
+  Events[DIFinSubsets[l].On[X,dec].events].cdim ;
+
+----------------------------------------------------------------------
+-- products
+
+pshape : Shape -> Shape -> Shape = split {
+  none -> \ t -> none ; leaf -> \ t -> t ; fork s1 s2 | r1 r2 -> \ t -> fork (r1 t) (r2 t) } ;
+ppr : (s t : Shape) -> Ix (pshape s t) -> Ix s * Ix t = split {
+  none -> \ t k -> absurd (Empty * Ix t) k ;
+  leaf -> \ t k -> (tt,k) ;
+  fork s1 s2 | r1 r2 -> \ t -> cases (Ix (pshape s1 t)) (Ix (pshape s2 t)) (\ _ -> Ix (fork s1 s2) * Ix t)
+    (\ k -> (inl (r1 t k).1,(r1 t k).2)) (\ k -> (inr (r2 t k).1,(r2 t k).2)) } ;
+pin : (s t : Shape) -> Ix s -> Ix t -> Ix (pshape s t) = split {
+  none -> \ t i j -> absurd (Ix (pshape none t)) i ;
+  leaf -> \ t i j -> j ;
+  fork s1 s2 | r1 r2 -> \ t -> cases (Ix s1) (Ix s2) (\ _ -> Ix t -> Ix (pshape (fork s1 s2) t))
+    (\ i j -> inl (r1 t i j)) (\ i j -> inr (r2 t i j)) } ;
+ppr-pin : (s t : Shape) (i : Ix s) (j : Ix t) -> Id (Ix s * Ix t) (ppr s t (pin s t i j)) (i,j) = split {
+  none -> \ t i j -> absurd (Id (Empty * Ix t) (ppr none t (pin none t i j)) (i,j)) i ;
+  leaf -> \ t i j -> FiniteEnumeration[l].pair-eq Top (Ix t) tt i j j (isTop tt i) (refl j) ;
+  fork s1 s2 | r1 r2 -> \ t -> cases (Ix s1) (Ix s2)
+    (\ i -> (j : Ix t) -> Id (Ix (fork s1 s2) * Ix t) (ppr (fork s1 s2) t (pin (fork s1 s2) t i j)) (i,j))
+    (\ i j -> ap (Ix s1 * Ix t) (Ix (fork s1 s2) * Ix t) (\ q -> (inl q.1,q.2)) (ppr s1 t (pin s1 t i j)) (i,j) (r1 t i j))
+    (\ i j -> ap (Ix s2 * Ix t) (Ix (fork s1 s2) * Ix t) (\ q -> (inr q.1,q.2)) (ppr s2 t (pin s2 t i j)) (i,j) (r2 t i j)) } ;
+pin-ppr : (s t : Shape) (k : Ix (pshape s t)) -> Id (Ix (pshape s t)) (pin s t (ppr s t k).1 (ppr s t k).2) k = split {
+  none -> \ t k -> absurd (Id Empty (pin none t (ppr none t k).1 (ppr none t k).2) k) k ;
+  leaf -> \ t k -> refl k ;
+  fork s1 s2 | r1 r2 -> \ t -> cases (Ix (pshape s1 t)) (Ix (pshape s2 t))
+    (\ k -> Id (Ix (pshape (fork s1 s2) t)) (pin (fork s1 s2) t (ppr (fork s1 s2) t k).1 (ppr (fork s1 s2) t k).2) k)
+    (\ k -> ap (Ix (pshape s1 t)) (Ix (pshape (fork s1 s2) t)) (\ q -> inl q) (pin s1 t (ppr s1 t k).1 (ppr s1 t k).2) k (r1 t k))
+    (\ k -> ap (Ix (pshape s2 t)) (Ix (pshape (fork s1 s2) t)) (\ q -> inr q) (pin s2 t (ppr s2 t k).1 (ppr s2 t k).2) k (r2 t k)) } ;
+
+module Product (D E : CDIM) {
+  module P = ScottProduct[l].Product[D.cdi.scott,E.cdi.scott] ;
+  module A = ScottDomain[l].On[D.cdi.scott] ; module B = ScottDomain[l].On[E.cdi.scott] ;
+  module AV = DC[D.cdi.scott.order,D.cdi.scott.complete] ; module BV = DC[E.cdi.scott.order,E.cdi.scott.complete] ;
+  module AP = DIDomain[l].Properties[D.cdi.scott.order] ; module BP = DIDomain[l].Properties[E.cdi.scott.order] ;
+  module DP = DIDomain[l].Properties[P.order] ;
+  module AK = DC0.Properties[D.cdi.scott] ; module BK = DC0.Properties[E.cdi.scott] ;
+  module PK = DC0.Properties[P.scott] ;
+  module AN = ScottMeet[l].On[D.cdi.scott] ; module BN = ScottMeet[l].On[E.cdi.scott] ;
+  module PN = ScottMeet[l].On[P.scott] ;
+  -- distributivity, componentwise (as in DIProduct)
+  left-lub (x y u : P.C) (h : P.O.Lub Bool (DP.pair x y) u) : P.AO.Lub Bool (AP.pair x.1 y.1) u.1 =
+    (DistributiveJoins[l].bool (\ i -> A.LE (AP.pair x.1 y.1 i) u.1) (h.1 true).1 (h.1 false).1,
+     \ z hz -> (h.2 (z,u.2) (DistributiveJoins[l].bool (\ i -> P.LE (DP.pair x y i) (z,u.2))
+       (hz true,(h.1 true).2) (hz false,(h.1 false).2))).1) ;
+  right-lub (x y u : P.C) (h : P.O.Lub Bool (DP.pair x y) u) : P.BO.Lub Bool (BP.pair x.2 y.2) u.2 =
+    (DistributiveJoins[l].bool (\ i -> B.LE (BP.pair x.2 y.2 i) u.2) (h.1 true).2 (h.1 false).2,
+     \ z hz -> (h.2 (u.1,z) (DistributiveJoins[l].bool (\ i -> P.LE (DP.pair x y i) (u.1,z))
+       ((h.1 true).1,hz true) ((h.1 false).1,hz false))).2) ;
+  left-inf (x y m : P.C) (h : DP.Infimum x y m) : AP.Infimum x.1 y.1 m.1 =
+    (h.1.1,(h.2.1.1,\ z zx zy -> (h.2.2 (z,E.cdi.scott.bottom) (zx,E.cdi.scott.bottom-least x.2) (zy,E.cdi.scott.bottom-least y.2)).1)) ;
+  right-inf (x y m : P.C) (h : DP.Infimum x y m) : BP.Infimum x.2 y.2 m.2 =
+    (h.1.2,(h.2.1.2,\ z zx zy -> (h.2.2 (D.cdi.scott.bottom,z) (D.cdi.scott.bottom-least x.1,zx) (D.cdi.scott.bottom-least y.1,zy)).2)) ;
+  distributive : DP.Distributive = \ x y z u m n v w ju im iny iv jw ->
+    FiniteEnumeration[l].pair-eq A.C B.C m.1 w.1 m.2 w.2
+      (D.cdi.distributive x.1 y.1 z.1 u.1 m.1 n.1 v.1 w.1 (left-lub y z u ju) (left-inf x u m im) (left-inf x y n iny) (left-inf x z v iv) (left-lub n v w jw))
+      (E.cdi.distributive x.2 y.2 z.2 u.2 m.2 n.2 v.2 w.2 (right-lub y z u ju) (right-inf x u m im) (right-inf x y n iny) (right-inf x z v iv) (right-lub n v w jw)) ;
+
+  -- compact pairs are pairs of compact elements
+  module Left (x : P.C) (c : P.V.Compact x) (I : U l) (y : I -> A.C) (d : P.AO.Dir I y) (h : A.LE x.1 (AV.sup I y d)) {
+    fam (i : I) : P.C = (y i,x.2) ;
+    dfam : P.O.Dir I fam = (d.1,\ i j -> T.map (P.AO.Upper I y i j) (P.O.Upper I fam i j)
+      (\ w -> (w.1,((w.2.1,E.cdi.scott.order.reflexive x.2),(w.2.2,E.cdi.scott.order.reflexive x.2)))) (d.2 i j)) ;
+    above : P.LE x (P.V.sup I fam dfam) =
+      (D.cdi.scott.order.transitive x.1 (AV.sup I y d) (P.V.sup I fam dfam).1 h
+        (AV.least I y d (P.V.sup I fam dfam).1 (\ i -> (P.V.upper I fam dfam i).1)),
+       T.rec I @l (B.LE x.2 (P.V.sup I fam dfam).2) (E.cdi.scott.order.proposition x.2 (P.V.sup I fam dfam).2)
+         (\ i -> (P.V.upper I fam dfam i).2) d.1) ;
+    result : Ex ((i : I) * A.LE x.1 (y i)) =
+      T.map ((i : I) * P.LE x (fam i)) ((i : I) * A.LE x.1 (y i)) (\ w -> (w.1,w.2.1)) (c I fam dfam above) ;
+  } ;
+  module Right (x : P.C) (c : P.V.Compact x) (I : U l) (y : I -> B.C) (d : P.BO.Dir I y) (h : B.LE x.2 (BV.sup I y d)) {
+    fam (i : I) : P.C = (x.1,y i) ;
+    dfam : P.O.Dir I fam = (d.1,\ i j -> T.map (P.BO.Upper I y i j) (P.O.Upper I fam i j)
+      (\ w -> (w.1,((D.cdi.scott.order.reflexive x.1,w.2.1),(D.cdi.scott.order.reflexive x.1,w.2.2)))) (d.2 i j)) ;
+    above : P.LE x (P.V.sup I fam dfam) =
+      (T.rec I @l (A.LE x.1 (P.V.sup I fam dfam).1) (D.cdi.scott.order.proposition x.1 (P.V.sup I fam dfam).1)
+         (\ i -> (P.V.upper I fam dfam i).1) d.1,
+       E.cdi.scott.order.transitive x.2 (BV.sup I y d) (P.V.sup I fam dfam).2 h
+        (BV.least I y d (P.V.sup I fam dfam).2 (\ i -> (P.V.upper I fam dfam i).2))) ;
+    result : Ex ((i : I) * B.LE x.2 (y i)) =
+      T.map ((i : I) * P.LE x (fam i)) ((i : I) * B.LE x.2 (y i)) (\ w -> (w.1,w.2.2)) (c I fam dfam above) ;
+  } ;
+  compact-left (x : P.C) (c : P.V.Compact x) : AV.Compact x.1 = \ I y d h -> Left[x,c,I,y,d,h].result ;
+  compact-right (x : P.C) (c : P.V.Compact x) : BV.Compact x.2 = \ I y d h -> Right[x,c,I,y,d,h].result ;
+  compact-pair (x : P.C) (c1 : AV.Compact x.1) (c2 : BV.Compact x.2) : P.V.Compact x = \ I y d h ->
+    T.bind2 ((i : I) * A.LE x.1 (y i).1) ((j : I) * B.LE x.2 (y j).2) ((k : I) * P.LE x (y k))
+      (\ u v -> T.map (P.O.Upper I y u.1 v.1) ((k : I) * P.LE x (y k))
+        (\ w -> (w.1,(D.cdi.scott.order.transitive x.1 (y u.1).1 (y w.1).1 u.2 w.2.1.1,
+          E.cdi.scott.order.transitive x.2 (y v.1).2 (y w.1).2 v.2 w.2.2.2))) (d.2 u.1 v.1))
+      (c1 I (\ i -> (y i).1) (P.left-dir I y d) h.1) (c2 I (\ i -> (y i).2) (P.right-dir I y d) h.2) ;
+
+  -- compact ideals: pairs of points, already duplicate-free
+  module Ideal (a : P.C) (ca : P.V.Compact a) (F : AK.CompactIdeal[a.1]) (G : BK.CompactIdeal[a.2]) {
+    sh : Shape = pshape F.shape G.shape ;
+    point (k : Ix sh) : P.C = (F.point (ppr F.shape G.shape k).1,G.point (ppr F.shape G.shape k).2) ;
+    Near (x : P.C) (q : Ix F.shape * Ix G.shape) : U l =
+      P.LE x (F.point q.1,G.point q.2) * P.LE (F.point q.1,G.point q.2) x ;
+    covers (x : P.C) (cx : P.V.Compact x) (xa : P.LE x a) : Ex ((k : Ix sh) * (P.LE x (point k) * P.LE (point k) x)) =
+      T.bind2 ((i : Ix F.shape) * (A.LE x.1 (F.point i) * A.LE (F.point i) x.1))
+        ((j : Ix G.shape) * (B.LE x.2 (G.point j) * B.LE (G.point j) x.2))
+        ((k : Ix sh) * (P.LE x (point k) * P.LE (point k) x))
+        (\ u v -> inc ((k : Ix sh) * (P.LE x (point k) * P.LE (point k) x))
+          (pin F.shape G.shape u.1 v.1,
+           Prelude[l].subst (Ix F.shape * Ix G.shape) (Near x) (u.1,v.1) (ppr F.shape G.shape (pin F.shape G.shape u.1 v.1))
+             (Prelude[l].sym (Ix F.shape * Ix G.shape) (ppr F.shape G.shape (pin F.shape G.shape u.1 v.1)) (u.1,v.1)
+               (ppr-pin F.shape G.shape u.1 v.1))
+             ((u.2.1,v.2.1),(u.2.2,v.2.2))))
+        (F.covers x.1 (compact-left x cx) xa.1) (G.covers x.2 (compact-right x cx) xa.2) ;
+    distinct (k k' : Ix sh) (h1 : P.LE (point k) (point k')) (h2 : P.LE (point k') (point k)) : Id (Ix sh) k k' =
+      trans (Ix sh) k (pin F.shape G.shape (ppr F.shape G.shape k).1 (ppr F.shape G.shape k).2) k'
+        (sym (Ix sh) (pin F.shape G.shape (ppr F.shape G.shape k).1 (ppr F.shape G.shape k).2) k (pin-ppr F.shape G.shape k))
+        (trans (Ix sh) (pin F.shape G.shape (ppr F.shape G.shape k).1 (ppr F.shape G.shape k).2)
+          (pin F.shape G.shape (ppr F.shape G.shape k').1 (ppr F.shape G.shape k').2) k'
+          (ap (Ix F.shape * Ix G.shape) (Ix sh) (\ q -> pin F.shape G.shape q.1 q.2)
+            (ppr F.shape G.shape k) (ppr F.shape G.shape k')
+            (FiniteEnumeration[l].pair-eq (Ix F.shape) (Ix G.shape)
+              (ppr F.shape G.shape k).1 (ppr F.shape G.shape k').1 (ppr F.shape G.shape k).2 (ppr F.shape G.shape k').2
+              (F.distinct (ppr F.shape G.shape k).1 (ppr F.shape G.shape k').1 h1.1 h2.1)
+              (G.distinct (ppr F.shape G.shape k).2 (ppr F.shape G.shape k').2 h1.2 h2.2)))
+          (pin-ppr F.shape G.shape k')) ;
+    ideal : PK.CompactIdeal[a] = new PK.CompactIdeal[a, shape := sh, point := point,
+      compact := \ k -> compact-pair (point k) (F.compact (ppr F.shape G.shape k).1) (G.compact (ppr F.shape G.shape k).2),
+      below := \ k -> (F.below (ppr F.shape G.shape k).1,G.below (ppr F.shape G.shape k).2),
+      covers := covers, distinct := distinct] ;
+  } ;
+  compact-ideals (a : P.C) (ca : P.V.Compact a) : ScottOrder[l+].Ex (PK.CompactIdeal[a]) =
+    TL.map2 (AK.CompactIdeal[a.1]) (BK.CompactIdeal[a.2]) (PK.CompactIdeal[a])
+      (\ F G -> Ideal[a,ca,F,G].ideal)
+      (D.cdi.compact-ideals a.1 (compact-left a ca)) (E.cdi.compact-ideals a.2 (compact-right a ca)) ;
+
+  -- meets are componentwise
+  compact-meet (x y : P.C) (cx : P.V.Compact x) (cy : P.V.Compact y) : P.V.Compact (PN.meet x y) =
+    Compacts[P.scott].equiv (AN.meet x.1 y.1,BN.meet x.2 y.2) (PN.meet x y)
+      (AN.greatest x.1 y.1 (PN.meet x y).1 (PN.left x y).1 (PN.right x y).1,
+       BN.greatest x.2 y.2 (PN.meet x y).2 (PN.left x y).2 (PN.right x y).2)
+      (PN.greatest x y (AN.meet x.1 y.1,BN.meet x.2 y.2) (AN.left x.1 y.1,BN.left x.2 y.2) (AN.right x.1 y.1,BN.right x.2 y.2))
+      (compact-pair (AN.meet x.1 y.1,BN.meet x.2 y.2)
+        (D.compact-meet x.1 y.1 (compact-left x cx) (compact-left y cy))
+        (E.compact-meet x.2 y.2 (compact-right x cx) (compact-right y cy))) ;
+  cdim : CDIM = new CDIM[cdi := new DC0.CDI[scott := P.scott, distributive := distributive,
+    compact-ideals := compact-ideals], compact-meet := compact-meet] ;
+} ;
+
+----------------------------------------------------------------------
+-- rigid images
+
+module Image (D : CDIM) (p : RigidProjector[l].On[D.cdi.scott].Rigid) {
+  S : ScottDomain[l].Scott = D.cdi.scott ;
+  module A = ScottDomain[l].On[S] ; open A ;
+  module R = RigidProjector[l].On[S] ;
+  module F = RigidImage[l].Image[S,p] ;
+  module O = ScottOrder[l].On[P] ;
+  module Q = ScottOrder[l].On[F.order] ;
+  module AP = DIDomain[l].Properties[P] ;
+  module FP = DIDomain[l].Properties[F.order] ;
+  module AK = DC0.Properties[S] ; module FK = DC0.Properties[F.scott] ;
+  module AN = ScottMeet[l].On[S] ; module FN = ScottMeet[l].On[F.scott] ;
+  -- distributivity (as in DIImage)
+  ambient-lub (I : U l) (x : I -> F.carrier) (z : F.carrier) (h : Q.Lub I x z) : O.Lub I (\ i -> (x i).1) z.1 =
+    (h.1,\ b hb -> P.transitive z.1 (R.run p b) b
+      (h.2 (R.run p b,R.output-fixed p b) (\ i -> R.greatest p b (x i).1 (x i).2 (hb i))) (p.deflation b)) ;
+  ambient-inf (x y m : F.carrier) (h : FP.Infimum x y m) : AP.Infimum x.1 y.1 m.1 =
+    (h.1,(h.2.1,\ z zx zy -> h.2.2 (z,R.downward p z x.1 zx x.2) zx zy)) ;
+  pair-value (x y : F.carrier) : (i : Bool) -> Id C ((FP.pair x y i).1) (AP.pair x.1 y.1 i) =
+    split { true -> refl x.1 ; false -> refl y.1 } ;
+  pair-lub (x y z : F.carrier) (h : Q.Lub Bool (FP.pair x y) z) : O.Lub Bool (AP.pair x.1 y.1) z.1 =
+    (\ i -> subst C (\ t -> LE t z.1) ((FP.pair x y i).1) (AP.pair x.1 y.1 i) (pair-value x y i) (h.1 i),
+     \ b hb -> (ambient-lub Bool (FP.pair x y) z h).2 b
+       (\ i -> subst C (\ t -> LE t b) (AP.pair x.1 y.1 i) ((FP.pair x y i).1)
+         (sym C ((FP.pair x y i).1) (AP.pair x.1 y.1 i) (pair-value x y i)) (hb i))) ;
+  distributive : FP.Distributive = \ x y z u m n v w ju hm hn hv jw ->
+    Sigma-eq C (\ t -> R.Fixed p t) m.1 w.1 m.2 w.2
+      (D.cdi.distributive x.1 y.1 z.1 u.1 m.1 n.1 v.1 w.1
+        (pair-lub y z u ju) (ambient-inf x u m hm) (ambient-inf x y n hn)
+        (ambient-inf x z v hv) (pair-lub n v w jw)) (R.fixed-prop p w.1) ;
+  -- the compact ideals are the ambient ones (fixed points are downward closed)
+  lift (a : F.carrier) (G : AK.CompactIdeal[a.1]) : FK.CompactIdeal[a] =
+    new FK.CompactIdeal[a, shape := G.shape,
+      point := \ i -> (G.point i,R.downward p (G.point i) a.1 (G.below i) a.2),
+      compact := \ i -> F.ambient-to-image (G.point i,R.downward p (G.point i) a.1 (G.below i) a.2) (G.compact i),
+      below := G.below, covers := \ x cx h -> G.covers x.1 (F.image-to-ambient x cx) h,
+      distinct := G.distinct] ;
+  compact-ideals (a : F.carrier) (c : DC[F.order,F.complete].Compact a) : ScottOrder[l+].Ex (FK.CompactIdeal[a]) =
+    TL.map (AK.CompactIdeal[a.1]) (FK.CompactIdeal[a]) (lift a) (D.cdi.compact-ideals a.1 (F.image-to-ambient a c)) ;
+  -- meets of fixed points are fixed, and are the ambient meets
+  compact-meet (x y : F.carrier) (cx : DC[F.order,F.complete].Compact x) (cy : DC[F.order,F.complete].Compact y) :
+      DC[F.order,F.complete].Compact (FN.meet x y) =
+    Compacts[F.scott].equiv (AN.meet x.1 y.1,R.downward p (AN.meet x.1 y.1) x.1 (AN.left x.1 y.1) x.2) (FN.meet x y)
+      (AN.greatest x.1 y.1 (FN.meet x y).1 (FN.left x y) (FN.right x y))
+      (FN.greatest x y (AN.meet x.1 y.1,R.downward p (AN.meet x.1 y.1) x.1 (AN.left x.1 y.1) x.2) (AN.left x.1 y.1) (AN.right x.1 y.1))
+      (F.ambient-to-image (AN.meet x.1 y.1,R.downward p (AN.meet x.1 y.1) x.1 (AN.left x.1 y.1) x.2)
+        (D.compact-meet x.1 y.1 (F.image-to-ambient x cx) (F.image-to-ambient y cy))) ;
+  cdim : CDIM = new CDIM[cdi := new DC0.CDI[scott := F.scott, distributive := distributive,
+    compact-ideals := compact-ideals], compact-meet := compact-meet] ;
+} ;

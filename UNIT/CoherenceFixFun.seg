@@ -1,0 +1,136 @@
+-- The stable function space S |-> S => S is a continuous functor on
+-- coherence spaces with embeddings (CoherenceFix.Functor), so the
+-- general fixed-point theorem applies; with the seed Omega -> Omega => Omega
+-- it gives again D_inf ~ [D_inf => D_inf] (cf. CoherenceTower.DInf).
+--
+-- Continuity: a token (A,y) of T => T, for a jointly onto compatible
+-- cocone i_k : S k -> T, merely comes from one level: a cover of the
+-- finite clique A and y give finitely many levels (finite choice), a
+-- common bound K, and every member of A lifts along the chain to level K
+-- (one transport along a path add d k = K).
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module TC = TruncationCombinators[l] ;
+module FD = FiniteDiscrete[l] ;
+module FS = DIFinSubsets[l] ;
+module CO = Coherence[l] ;
+module CF = CoherenceFun[l] ;
+module CE = CoherenceEmb[l] ;
+module NT = CoherenceTower[l] ;
+module FX = CoherenceFix[l] ;
+module PL = Prelude[l] ;
+
+-- arithmetic
+add-zero : (m : Nat) -> Id Nat (add m zero) m = split {
+  zero -> refl zero ; suc m | r -> PL.ap Nat Nat (\ z -> suc z) (add m zero) m r } ;
+add-suc : (d n : Nat) -> Id Nat (add d (suc n)) (suc (add d n)) = split {
+  zero -> \ n -> refl (suc n) ;
+  suc d | r -> \ n -> PL.ap Nat Nat (\ z -> suc z) (add d (suc n)) (suc (add d n)) (r n) } ;
+le-dist : (n K : Nat) -> IsT (leb n K) -> (d : Nat) * Id Nat (add d n) K = split {
+  zero -> \ K h -> (K,add-zero K) ;
+  suc n | r -> split {
+    zero -> \ h -> absurd ((d : Nat) * Id Nat (add d (suc n)) zero) h ;
+    suc K -> \ h -> ((r K h).1,PL.trans Nat (add (r K h).1 (suc n)) (suc (add (r K h).1 n)) (suc K)
+      (add-suc (r K h).1 n) (PL.ap Nat Nat (\ z -> suc z) (add (r K h).1 n) K (r K h).2)) } } ;
+
+-- finite choice
+fin-choice : (sh : Shape) (P : Ix sh -> U l) -> ((j : Ix sh) -> Ex (P j)) -> Ex ((j : Ix sh) -> P j) = split {
+  none -> \ P f -> inc ((j : Empty) -> P j) (\ j -> absurd (P j) j) ;
+  leaf -> \ P f -> TC.map (P tt) ((j : Top) -> P j) (\ p -> unit (\ j -> P j) p) (f tt) ;
+  fork s t | rs rt -> \ P f -> TC.map2 ((j : Ix s) -> P (inl j)) ((j : Ix t) -> P (inr j)) ((j : Ix (fork s t)) -> P j)
+    (\ a b -> cases (Ix s) (Ix t) (\ j -> P j) a b)
+    (rs (\ j -> P (inl j)) (\ j -> f (inl j))) (rt (\ j -> P (inr j)) (\ j -> f (inr j))) } ;
+
+----------------------------------------------------------------------
+-- the functor
+
+arr-id (S : CO.Space) (E : CE.Emb[S,S]) (hid : (s : S.web) -> Id S.web (E.map s) s) (u : (CF.Fun[S,S]).web) :
+    Id (CF.Fun[S,S]).web ((CE.FunEmb[S,S,S,S,E,E].emb).map u) u =
+  CF.pair-eq (CO.On[S]).Carrier S.web (CE.Images[S,S,E].img u.1) u.1 (E.map u.2) u.2
+    (NT.ImgChar[S,S,E].char u.1 u.1 (\ s k -> (s,(k,hid s)))
+      (\ s k -> PL.subst S.web (\ z -> IsT (u.1.1.1 z)) s (E.map s) (PL.sym S.web (E.map s) s (hid s)) k))
+    (hid u.2) ;
+arr-comp (S S' S'' : CO.Space) (E : CE.Emb[S,S']) (E' : CE.Emb[S',S'']) (E'' : CE.Emb[S,S''])
+    (c : (s : S.web) -> Id S''.web (E'.map (E.map s)) (E''.map s)) (u : (CF.Fun[S,S]).web) :
+    Id (CF.Fun[S'',S'']).web ((CE.FunEmb[S',S'',S',S'',E',E'].emb).map ((CE.FunEmb[S,S',S,S',E,E].emb).map u))
+      ((CE.FunEmb[S,S'',S,S'',E'',E''].emb).map u) =
+  CF.pair-eq (CO.On[S'']).Carrier S''.web
+    (CE.Images[S',S'',E'].img (CE.Images[S,S',E].img u.1)) (CE.Images[S,S'',E''].img u.1)
+    (E'.map (E.map u.2)) (E''.map u.2)
+    (NT.ImgComp[S,S',S'',E,E',E'',c].comp u.1) (c u.2) ;
+
+module Cont (S : Nat -> CO.Space) (e : (k : Nat) -> CE.Emb[S k,S (suc k)]) (T : CO.Space) (i : (k : Nat) -> CE.Emb[S k,T])
+  (cp : FX.Compat S e T i) (on : FX.Onto S T i) {
+  W (k : Nat) : U l = (S k).web ;
+  liftC : (d : Nat) (k : Nat) -> CE.Emb[S k,S (add d k)] = split {
+    zero -> \ k -> NT.idE (S k) ;
+    suc d | r -> \ k -> NT.Compose[S k,S (add d k),S (suc (add d k)),r k,e (add d k)].emb } ;
+  liftC-i : (d : Nat) (k : Nat) (s : W k) -> Id T.web ((i (add d k)).map ((liftC d k).map s)) ((i k).map s) = split {
+    zero -> \ k s -> refl ((i k).map s) ;
+    suc d | r -> \ k s -> PL.trans T.web ((i (suc (add d k))).map ((e (add d k)).map ((liftC d k).map s)))
+      ((i (add d k)).map ((liftC d k).map s)) ((i k).map s) (cp (add d k) ((liftC d k).map s)) (r k s) } ;
+  move (a b : Nat) (p : Id Nat a b) (u : W a) : W b = PL.subst Nat W a b p u ;
+  move-i (a b : Nat) (p : Id Nat a b) (u : W a) : Id T.web ((i b).map (move a b p u)) ((i a).map u) =
+    idJ Nat a (\ b p -> Id T.web ((i b).map (move a b p u)) ((i a).map u)) (refl ((i a).map u)) b p ;
+  at (k K : Nat) (h : IsT (leb k K)) (s : W k) : W K =
+    move (add (le-dist k K h).1 k) K (le-dist k K h).2 ((liftC (le-dist k K h).1 k).map s) ;
+  at-i (k K : Nat) (h : IsT (leb k K)) (s : W k) : Id T.web ((i K).map (at k K h s)) ((i k).map s) =
+    PL.trans T.web ((i K).map (at k K h s)) ((i (add (le-dist k K h).1 k)).map ((liftC (le-dist k K h).1 k).map s)) ((i k).map s)
+      (move-i (add (le-dist k K h).1 k) K (le-dist k K h).2 ((liftC (le-dist k K h).1 k).map s))
+      (liftC-i (le-dist k K h).1 k s) ;
+
+  module FT = CF.Fun[T,T] ;
+  module AT = FT.A ;
+  InAt (t : T.web) : U l = (k : Nat) * ((s : W k) * Id T.web ((i k).map s) t) ;
+  Goal (v : FT.web) : U l = (k : Nat) * ((u : (CF.Fun[S k,S k]).web) * Id FT.web ((CE.FunEmb[S k,T,S k,T,i k,i k].emb).map u) v) ;
+  module Point (v : FT.web) (c : AT.P.Cover v.1.1.1) (ws : (j : Ix c.1) -> InAt (c.2.1 j)) (wy : InAt v.2) {
+    A : AT.Carrier = v.1 ;
+    f (j : Ix c.1) : Nat = (ws j).1 ;
+    K : Nat = max wy.1 (NT.maxS c.1 f) ;
+    lev (j : Ix c.1) : IsT (leb (f j) K) =
+      NT.leb-trans (f j) (NT.maxS c.1 f) K (NT.maxS-bound c.1 f j) (NT.leb-max-r wy.1 (NT.maxS c.1 f)) ;
+    module IK = CE.Images[S K,T,i K] ;
+    fib (z : T.web) (hz : IsT (A.1.1 z)) : IK.Fib z =
+      (at (f (c.2.2 z hz).1) K (lev (c.2.2 z hz).1) (ws (c.2.2 z hz).1).2.1,
+       PL.trans T.web ((i K).map (at (f (c.2.2 z hz).1) K (lev (c.2.2 z hz).1) (ws (c.2.2 z hz).1).2.1))
+         ((i (f (c.2.2 z hz).1)).map (ws (c.2.2 z hz).1).2.1) z
+         (at-i (f (c.2.2 z hz).1) K (lev (c.2.2 z hz).1) (ws (c.2.2 z hz).1).2.1)
+         (PL.trans T.web ((i (f (c.2.2 z hz).1)).map (ws (c.2.2 z hz).1).2.1) (c.2.1 (c.2.2 z hz).1) z
+           (ws (c.2.2 z hz).1).2.2 (c.2.2 z hz).2)) ;
+    inim : IK.InIm A = \ z hz -> FS.decB-complete (IK.Fib z) ((i K).pre z) (fib z hz) ;
+    hy : IsT (leb wy.1 K) = NT.leb-max-l wy.1 (NT.maxS c.1 f) ;
+    yK : W K = at wy.1 K hy wy.2.1 ;
+    result : Goal v = (K,((IK.inv A,yK),
+      CF.pair-eq AT.Carrier T.web (IK.img (IK.inv A)) A ((i K).map yK) v.2 (IK.img-inv A inim)
+        (PL.trans T.web ((i K).map yK) ((i wy.1).map wy.2.1) v.2 (at-i wy.1 K hy wy.2.1) wy.2.2))) ;
+  } ;
+  goal (v : FT.web) : Ex (Goal v) =
+    TC.bind (AT.P.Cover v.1.1.1) (Goal v) (\ c ->
+      TC.bind2 ((j : Ix c.1) -> InAt (c.2.1 j)) (InAt v.2) (Goal v)
+        (\ ws wy -> inc (Goal v) Point[v,c,ws,wy].result)
+        (fin-choice c.1 (\ j -> InAt (c.2.1 j)) (\ j -> on (c.2.1 j))) (on v.2))
+      v.1.1.2 ;
+} ;
+
+arrow : FX.Functor = new FX.Functor[obj := \ S -> CF.Fun[S,S].space,
+  arr := \ S S' E -> CE.FunEmb[S,S',S,S',E,E].emb,
+  arr-id := arr-id, arr-comp := arr-comp,
+  cont := \ S e T i cp on v -> Cont[S,e,T,i,cp,on].goal v] ;
+
+----------------------------------------------------------------------
+-- D_inf as an instance
+
+module DInf {
+  module X = FX.Fix[arrow,CoherenceOmega[l].omega,CE.Base0.emb] ;
+  module CT = CoherenceTrace[l].On[X.tok-space,X.tok-space] ;
+  Point : U l+ = CT.PtA ;
+  to (x : Point) : CT.StableMap = CT.app-map (X.P.fwd x) ;
+  from (g : CT.StableMap) : Point = X.P.back (CT.trace g) ;
+  equivalence : Equiv Point CT.StableMap = (to,qinv Point CT.StableMap to from
+    (\ g -> trans CT.StableMap (to (from g)) (CT.app-map (CT.trace g)) g
+      (ap CT.Tr CT.StableMap CT.app-map (X.P.fwd (X.P.back (CT.trace g))) (CT.trace g) (X.P.fwd-back (CT.trace g)))
+      (CT.equivalence.2.sec-eq g))
+    (\ x -> trans Point (from (to x)) (X.P.back (X.P.fwd x)) x
+      (ap CT.Tr Point X.P.back (CT.trace (CT.app-map (X.P.fwd x))) (X.P.fwd x) (CT.equivalence.2.ret-eq (X.P.fwd x)))
+      (X.P.back-fwd x))) ;
+} ;

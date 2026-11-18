@@ -1,0 +1,64 @@
+-- The two-element event poset 0 < 1 and its ideal completion, the domain
+-- of small propositions (ideals of {0 < 1} are {0} u {1 | Q}).  It is a
+-- constructive dI-domain with a compact element above bottom, WITHOUT any
+-- classical parameter (compare BooleanDI, which needs excluded middle to
+-- make the two-element chain itself complete).  For this domain the
+-- literal I-axiom of DIDomain is equivalent to small excluded middle:
+--   literal   : Classical -> DI         (DIConstructive.ToDI)
+--   classical : literal axiom at the top -> Classical   (CompactIdeals)
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module CU = ScottCUSL[l] ;
+module B = BooleanDI[l] ;
+module R = Replacement[l,l+] ;
+
+-- joins and meets by cases on the first argument
+or : Bool -> Bool -> Bool = split { true -> \ y -> true ; false -> \ y -> y } ;
+and : Bool -> Bool -> Bool = split { true -> \ y -> y ; false -> \ y -> false } ;
+or-lub : (x y : Bool) -> On[B.order].Lub Bool (CU.pair B.order x y) (or x y) = split {
+  true -> \ y -> (DistributiveJoins[l].bool (\ i -> B.LE (CU.pair B.order true y i) true)
+      (B.reflexive true) (B.top y),
+    \ z hz -> hz true) ;
+  false -> \ y -> (DistributiveJoins[l].bool (\ i -> B.LE (CU.pair B.order false y i) y)
+      (B.bottom y) (B.reflexive y),
+    \ z hz -> hz false) } ;
+and-left : (x y : Bool) -> B.LE (and x y) x = split {
+  true -> \ y -> B.top y ; false -> \ y -> B.reflexive false } ;
+and-right : (x y : Bool) -> B.LE (and x y) y = split {
+  true -> \ y -> B.reflexive y ; false -> \ y -> B.bottom y } ;
+and-greatest : (x y z : Bool) -> B.LE z x -> B.LE z y -> B.LE z (and x y) = split {
+  true -> \ y z zx zy -> zy ; false -> \ y z zx zy -> zx } ;
+
+cusl : CU.CUSL = new CU.CUSL[
+  order := B.order,
+  bottom := false,
+  bottom-least := B.bottom,
+  join := \ x y h -> (or x y,or-lub x y),
+  small := Truncation[l+].Trunc[R.Small Bool].inc (Bool,idEquiv Bool)] ;
+
+-- a <= y v z implies a <= (a ^ y) v (a ^ z): for a = 1 both sides are y v z
+distributive : (a y z : Bool) (h : CU.Compatible B.order y z) -> B.LE a (or y z) ->
+    B.LE a (or (and a y) (and a z)) = split {
+  true -> \ y z h k -> k ;
+  false -> \ y z h k -> B.bottom (or false (and false z)) } ;
+
+events : DIEvents[l].Events = new DIEvents[l].Events[
+  cusl := cusl, meet := and, meet-left := and-left, meet-right := and-right,
+  meet-greatest := and-greatest,
+  distributive := distributive,
+  finite := \ a -> ScottOrder[l+].inc (B.DP.FiniteIdeal[a]) (B.ideal a)] ;
+
+module E = DIEvents[l].Completion[events] ;
+omega : DIConstructive[l].CDI = E.cdi ;
+
+-- the top element, principal at 1, is compact and not bottom
+top : E.Ideal = E.I.principal (E.I.at true) ;
+top-compact : DC[E.I.order,E.I.complete].Compact top = E.I.basis.compact (E.I.at true) ;
+nonbottom (h : E.I.Incl top E.I.least) : Empty =
+  E.out2 true false (h (E.I.at true) (E.I.principal-in (E.I.at true))) tt ;
+
+-- the literal I-axiom for this domain is small excluded middle
+literal (em : CompactIdeals[l].On[E.I.scott].Classical) : DIDomain[l].DI =
+  DIConstructive[l].ToDI[omega,em].di ;
+classical (F : DIDomain[l].Properties[E.I.order].FiniteIdeal[top]) : CompactIdeals[l].On[E.I.scott].Classical =
+  CompactIdeals[l].On[E.I.scott].Local[top,top-compact,F].excluded-middle nonbottom ;

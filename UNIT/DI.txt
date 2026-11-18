@@ -163,10 +163,158 @@ Completed and included in All.seg:
       p_n(app(v,p_n(x))) = i_n(v_(n+1)(x_n)).
     These are tower-stage results, not Scott-filter rank identifications.
 
+  DIConstructive / DIEvents / DIEventsBool (18 November 2026):
+    CDI: the I-axiom restricted to COMPACT elements below a compact
+    (the points are compact; only compact x <= a must be covered).
+    FromDI: DI -> CDI constructively. ToDI: CDI -> DI given small
+    excluded middle (everything below a compact is then compact).
+    Events (catemb.pdf, Definition 3.9, poset case): a CUSL with binary
+    meets, distributive as  a <= y v z ==> a <= (a^y) v (a^z),  and mere
+    finite discrete presentations of principal lower sets. Its ideal
+    completion (ScottCUSLIdeals) is a CDI: distributivity of ideals and
+    the compact presentation are proved with no classical principle.
+    The two-element event poset 0 < 1 gives Omega, the domain of small
+    propositions: a CDI with a compact nonbottom top and NO classical
+    parameter. For Omega, the literal I-axiom at the top is equivalent
+    to small excluded middle (literal / classical).
+
+  DIFinSubsets / DilatorSub / DilatorSubCDI / DilatorMorphisms
+  (18 November 2026, categorical layer of catemb.pdf for dilators):
+    DIFinSubsets: for X with decidable equality, finite subsets of X
+    form an event poset; its completion is a CDI and is order isomorphic
+    to Omega^X (all proposition-valued subsets).
+    DilatorSub: for a pre-dilator D (dilator.seg's PreDil), cartesian
+    subfunctors of D (proposition-valued, invariant under the action of
+    strictly increasing maps) are equivalent to subsets of the trace,
+    preserving inclusion (catemb Lemma 3.14 for finite ordinals). Uses
+    dilator.seg's normal form fwd/bwd and Restr.Inv.
+    DilatorSubCDI: hence Sub(D) is order isomorphic to a CDI; its
+    compact elements are the finite subsets of the trace.
+    DilatorMorphisms: a natural transformation T : D -> E gives an
+    injective map tau of traces; the inverse image of a subfunctor along
+    T is a subfunctor and corresponds to precomposition with tau (refl);
+    direct image along tau is left adjoint, star . shriek = id (rigid
+    embedding-projection pair: catemb Prop. 3.13 in this case).
+    Dilator.seg is imported from ~/CANONICITY/unit/dilators/dilator.seg
+    by the symlink UNIT/Dilator.seg (top-level import in All.seg, since
+    a module parameter of dilator.seg is named ua). It is NOT in the
+    frozen vendor manifest.
+
+  DIClosure (18 November 2026): CDIM = CDI + the meet of two compacts
+    is compact. Decide: the order between compacts is then decidable.
+    Instances: every literal DI, every event completion, Omega, Omega^X.
+    Closed under binary products and rigid images (proved).
+
+  Coherence / CoherenceFun / CoherenceTrace / CoherenceOmega
+  (18 November 2026, trace presentation of the stable function space):
+    Coherence: a Space = web with decidable equality + Bool-valued
+    reflexive symmetric coherence. Finite cliques (finite subsets of
+    DIFinSubsets that are cliques) form an event poset; completion is a
+    CDI and a CDIM. Points: ideals of the completion ~ proposition-valued
+    cliques (Points.equivalence), with point-ext.
+    CoherenceFun: S => T has web (finite clique a of S) x (token of T),
+    (a,e) coh (a',e') iff a u a' clique -> e coh e' and (e = e' -> a = a').
+    Inclusion, equality and cliqueness of finite cliques are decidable
+    (Decisions), so S => T is again a Space (Fun.space), hence a CDIM.
+    CoherenceTrace: points of S => T  ~  StableMap S T, where a stable map
+    g is monotone and has LEAST FINITE SUPPORTS: e in g(x) gives a finite
+    clique a <= x, e in g(a), below every finite b <= x with e in g(b).
+    The least support is unique, so Stable g is a proposition and no
+    truncation is used. app f x = {e | (a,e) in f, a <= x} (witness
+    unique); trace g = {(a,e) | a least support of e in g(a)};
+    equivalence : Equiv Tr StableMap.
+    CoherenceOmega: Omega = one-token space. For a proposition P,
+    x |-> P v x is monotone; a least support of tt in g(top) decides P
+    (Obstruction.Or.Decide), so "every such map is an element"
+    implies small excluded middle (Obstruction.excluded-middle). This is
+    the formal version of the obstruction in obligation 1, and shows the
+    trace function space avoids it by construction.
+    CoherenceEmb: Emb[S,S'] = injective web map with decidable fibres,
+    preserving and reflecting coherence. Images: direct image img and
+    inverse image inv of finite cliques (inverse cover via bindS/bindPt/
+    bindHit through the decidable fibres), inv (img a) = a, and
+    img (inv a') = a' when a' lies in the image (InIm, decidable).
+    FunEmb: Emb[S,S'] -> Emb[T,T'] -> Emb[S=>T, S'=>T']. Base0.emb :
+    Omega -> Omega => Omega, tt |-> (empty,tt). Tower: space n
+    (space 0 = Omega, space (n+1) = space n => space n) and
+    emb n : Emb[space n, space (n+1)].
+  CoherenceTower (18 November 2026): the constructive reflexive domain.
+    up n m h : Emb[space n, space m] for h : leb n m, structural
+    (up (n+1) (m+1) = FunEmb (up n m)); up-id, up-comp (no transport).
+    Tok = (n : Nat) * (t : W n) * New n t, New (n+1) t = t not in the
+    image of up n (n+1). tok-space : Space: equality and coherence are
+    decided by lifting to a common level (EqLift, Common; the only
+    transport along a Nat path is EqLevel). norm k : W k -> Tok and
+    iota k : Emb[space k, tok-space]. psi : Tok -> Tok => Tok,
+    psi (0,tt) = (empty,(0,tt)), psi (n+1,(a,t)) = (iota n [a], iota n t);
+    reflexive : Emb[tok-space, Fun[tok-space,tok-space].space] and onto
+    (fibres are propositions by Hedberg, so a mere level bound for a
+    finite clique suffices). DInf.equivalence : Equiv Point StableMap,
+    with DInf.domain a CDIM and DInf.points : ideals ~ points.
+    So D_inf ~ [D_inf => D_inf] (stable maps with least supports),
+    nontrivial (Omega embeds), WITHOUT any classical principle.
+  CoherenceFix / CoherenceFixFun (18 November 2026): catemb's colimit
+    construction for functors on Spaces with embeddings. record Functor
+    {obj; arr; arr-id, arr-comp (pointwise); cont: a compatible jointly
+    onto cocone of a chain is sent to a jointly onto family}. Fix[F,S0,e0]
+    (seed e0 : S0 -> F S0): colimit tok-space, fixpoint : Emb[tok, F tok]
+    onto, points : Equiv (points of F tok) (points of tok), domain : CDIM.
+    Same proof as CoherenceTower with up (n+1) (m+1) = F.arr (up n m).
+    CoherenceFixFun: arrow (S |-> S => S) is such a Functor (continuity:
+    finite choice over a cover, common level, chain lifting by distance
+    with one Nat transport); DInf.equivalence re-derived as an instance.
+  CatDil (18 November 2026): catemb in the linear-order case, step 1
+    (plan: PLAN-CATEMB-LO.md).  The category Dil of pre-dilators
+    (Dilator.PDS) and natural transformations: identity, composition,
+    category laws (mor-ext by uip of N and Wd).  Every morphism is
+    cartesian: Cart.supp-eq (least supports preserved), Cart.reflect
+    (naturality squares are pull-backs).
+  DilFinite (18 November 2026), step 2: subdilators D|c of decidable
+    trace subsets with inclusion morphisms; truncations D|K are finite
+    dilators (trace levels <= K); every dilator is their directed union;
+    intersections of subdilators.  So Dil is a category of embeddings
+    with finite objects the finite dilators (catemb, linear-order case).
+  DilPtyx / DilPtyxEval (18 November 2026), step 4: ptykes of type 2
+    into decidable linear orders.  No least support is required (not
+    available constructively, cf. nominal sets): Ptyx = functor Dil -> LO
+    with a mere finite (truncation) support for each point and supports
+    closed under binary intersection; Supports: the supports of a point
+    form a filter (upward closure by functoriality via Up : D|c -> D|c').
+    Example: Eval[n].ptyx, D |-> D(n).
+
 Remaining obligations:
-  1. A nontrivial seed without a classical parameter is NOT supplied.
-     BooleanDI makes the necessary classical input explicit for its
-     compact nonbottom top. The old Scott filter model has not been
+  1. A nontrivial seed without a classical parameter is NOT supplied
+     for the literal DI interface (BooleanDI, and DIEventsBool.classical
+     show why it cannot be). DIEventsBool.omega is such a seed for CDI,
+     but the closure theorems (DIProduct, DIImage, StableFiniteIdeals,
+     RigidLimitDI) and hence the reflexive tower are stated for DI.
+     Porting them to CDI: products and rigid images DONE (DIClosure).
+     Stable function space: DONE for coherence spaces by traces
+     (CoherenceFun, CoherenceTrace; see above). Reflexive tower DONE
+     (CoherenceEmb, CoherenceTower: DInf.equivalence), and in general for
+     continuous functors (CoherenceFix). Still OPEN on
+     this route: trace inclusion = stable order on StableMap; currying,
+     evaluation and composition for traced spaces (cartesian closure);
+     relating DInf to the DI-based RigidLimitDI tower; then obligations
+     2-3 (interpretation of syntax) over DInf.
+     OBSTRUCTION for the stable function space (informal, not yet
+     formalised): for a proposition P, f(x) = P v x is a stable map
+     Omega -> Omega; any k below f in stable order with k(top) = top has
+     k(bot) = k(top) ^ P = P. Algebraicity (density of the finite-graph
+     basis) gives such a compact k, whose value at bot is a finite join
+     of compacts of Omega, hence decidable: so density of the stable
+     function space Omega => Omega implies small excluded middle. Hence
+     no constructive reflexive tower over Omega through StableExponential;
+     a constructive version must use a different function space, e.g.
+     the ideal completion of the finite stable maps (approximable maps,
+     information systems), which needs a decidable stable order between
+     finite step maps (Berry traces). Earlier remark:
+     StableFiniteIdeals covers every g <= f through the outputs
+     meet(g(a_j),b_j), which are not compact in general (in Omega,
+     meet(Q,top) = Q). The likely fix is to add decidability of the
+     order on compacts to CDI (true for event posets with decidable
+     order, and for Omega) so that compact stable maps have compact
+     values at compact inputs. The old Scott filter model has not been
      shown to satisfy the literal finite-discrete dI axioms.
   2. Complete soundness for all Syntax.Der judgements, especially Pi
      congruence and typed function extensionality, remains to be proved
@@ -177,16 +325,24 @@ Remaining obligations:
      approximation and the one-step application equation are now proved,
      but do not identify these different constructions. Finiteness of
      the Boolean tower's whole stage carriers has not been formalised.
-  4. A constructive event presentation and its relationship to literal
-     classical dI-domains remain open. Finite discrete compact lower
-     ideals with a nonbottom compact force small excluded middle.
+  4. DONE for posets (DIEvents, DIConstructive): event presentation,
+     its completion is a CDI, and CDI = DI under small excluded middle.
+     Categorical version, for pre-dilators (finite ordinals with
+     strictly increasing maps): Sub(D) ~ Omega^(Tr D), a CDI, and
+     morphisms act by rigid e-p pairs (DilatorSub*, DilatorMorphisms).
+     Open: that every natural transformation is cartesian and the
+     direct-image subfunctor; pullbacks of pre-dilators; general
+     (non-finite-valued) dilators, D(n) a linear order; categories of
+     events in general (catemb Def. 3.9) and Theorem 3.15 abstractly;
+     the next type (ptykes) as stable functors on finite pre-dilators.
 
 The pointwise formula B_x(f(x)) is not the rigid section projection in
 stable order. The construction takes the greatest stable subfunction
 that is a section. See the two-element counterexample in the LaTeX.
 
 Validation: python3 UNIT/check.py
-  7,745 declarations, 0 failures; 40 frozen dependencies verified.
+  All.seg 19,551 declarations, 0 failures (18 November 2026, after
+  DilPtyx, DilPtyxEval, PtyxMor, PtyxTwice, PtyxDen, PtyxFinite); 40 frozen dependencies verified.
   This combined count includes the separate Scott-model logical-relation
   extension described in LOGICAL_RELATION_PROGRAM.md.
 Global assumptions remain univalence and the existing replacement

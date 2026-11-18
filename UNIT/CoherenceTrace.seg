@@ -1,0 +1,170 @@
+-- Traces are exactly the constructively stable maps.
+--
+-- Points of S => T (CoherenceFun) correspond bijectively to maps g from
+-- points of S to points of T that are monotone and have least finite
+-- supports: whenever e in g(x), there is a finite clique a <= x with
+-- e in g(a) that is below every finite b <= x with e in g(b).  The least
+-- support is unique, so no truncation is involved: this is Berry's
+-- stability in its "minimal data" form, and the bijection is
+--   app f x = { e | (a,e) in f, a <= x }      (the witness a is unique)
+--   trace g = { (a,e) | a is the least support of e in g(a) }.
+-- The map P v x on Omega (DI.txt, obligation 1) is monotone and stable
+-- in the meet-preserving sense but has no least support constructively,
+-- so it is not an element: no excluded middle is needed anywhere.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module B = BooleanDI[l] ;
+module FS = DIFinSubsets[l] ;
+module CO = Coherence[l] ;
+module PL = Prelude[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+module On (S T : CO.Space) {
+  module FN = CoherenceFun[l].Fun[S,T] ;
+  module A = FN.A ;
+  module Bt = CO.On[T] ;
+  module PA = A.Points ;
+  module PB = Bt.Points ;
+  module PF = FN.Fn.Points ;
+  W : U l = S.web ;
+  V : U l = T.web ;
+  PtA : U l+ = PA.Point ;
+  PtB : U l+ = PB.Point ;
+  Tr : U l+ = PF.Point ;
+
+  -- finite cliques as points
+  pt (a : A.Carrier) : PtA = ((\ t -> IsT (a.1.1 t),\ t -> B.holds-prop (a.1.1 t)),\ s t hs ht -> a.2 s t hs ht) ;
+  Sub (a : A.Carrier) (x : PtA) : U l = (t : W) -> IsT (a.1.1 t) -> x.1.1 t ;
+  sub-prop (a : A.Carrier) (x : PtA) : PL.isProp (Sub a x) =
+    F.isProp-Pi W (\ t -> IsT (a.1.1 t) -> x.1.1 t) (\ t -> F.isProp-Pi (IsT (a.1.1 t)) (\ _ -> x.1.1 t) (\ _ -> x.1.2 t)) ;
+  sub-refl (a : A.Carrier) : Sub a (pt a) = \ t h -> h ;
+  sub-le (a : A.Carrier) (x y : PtA) (ax : Sub a x) (xy : PA.PointLe x y) : Sub a y = \ t h -> xy t (ax t h) ;
+  le-sub (b a : A.Carrier) (x : PtA) (ba : Sub b (pt a)) (ax : Sub a x) : Sub b x = \ t h -> ax t (ba t h) ;
+
+  ----------------------------------------------------------------------
+  -- application of a trace
+
+  module App (f : Tr) (x : PtA) {
+    Wit (e : V) : U l = (a : A.Carrier) * (f.1.1 (a,e) * Sub a x) ;
+    inside (a a' : A.Carrier) (ha : Sub a x) (ha' : Sub a' x) (t : W) (h : IsT ((FN.union a a').1 t)) : x.1.1 t =
+      cases (IsT (a.1.1 t)) (IsT (a'.1.1 t)) (\ _ -> x.1.1 t) (ha t) (ha' t) (FS.or-split (a.1.1 t) (a'.1.1 t) h) ;
+    union-clique (a a' : A.Carrier) (ha : Sub a x) (ha' : Sub a' x) : A.Clique (FN.union a a').1 =
+      \ s t hs ht -> x.2 s t (inside a a' ha ha' s hs) (inside a a' ha ha' t ht) ;
+    pair-coh (e e' : V) (w : Wit e) (w' : Wit e') : IsT (T.coh e e') * (Id V e e' -> Id A.Carrier w.1 w'.1) =
+      FN.coh-sound (w.1,e) (w'.1,e') (f.2 (w.1,e) (w'.1,e') w.2.1 w'.2.1) (union-clique w.1 w'.1 w.2.2 w'.2.2) ;
+    unique (e : V) (w w' : Wit e) : Id A.Carrier w.1 w'.1 = (pair-coh e e w w').2 (refl e) ;
+    wit-prop (e : V) : PL.isProp (Wit e) = \ w w' ->
+      PL.Sigma-eq A.Carrier (\ a -> f.1.1 (a,e) * Sub a x) w.1 w'.1 w.2 w'.2 (unique e w w')
+        (PL.isProp-Sigma (f.1.1 (w'.1,e)) (\ _ -> Sub w'.1 x) (f.1.2 (w'.1,e)) (\ _ -> sub-prop w'.1 x)) ;
+    point : PtB = ((Wit,wit-prop),\ e e' w w' -> (pair-coh e e' w w').1) ;
+  } ;
+  app (f : Tr) (x : PtA) : PtB = App[f,x].point ;
+
+  ----------------------------------------------------------------------
+  -- constructively stable maps
+
+  Mono (g : PtA -> PtB) : U l+ = (x y : PtA) -> PA.PointLe x y -> PB.PointLe (g x) (g y) ;
+  Least (g : PtA -> PtB) (x : PtA) (e : V) (a : A.Carrier) : U l =
+    Sub a x * ((g (pt a)).1.1 e * ((b : A.Carrier) -> Sub b x -> (g (pt b)).1.1 e -> A.LEC a b)) ;
+  Stable (g : PtA -> PtB) : U l+ = (x : PtA) (e : V) -> (g x).1.1 e -> (a : A.Carrier) * Least g x e a ;
+  StableMap : U l+ = (g : PtA -> PtB) * (Mono g * Stable g) ;
+
+  least-prop (g : PtA -> PtB) (x : PtA) (e : V) (a : A.Carrier) : PL.isProp (Least g x e a) =
+    PL.isProp-Sigma (Sub a x) (\ _ -> (g (pt a)).1.1 e * ((b : A.Carrier) -> Sub b x -> (g (pt b)).1.1 e -> A.LEC a b))
+      (sub-prop a x) (\ _ -> PL.isProp-Sigma ((g (pt a)).1.1 e) (\ _ -> (b : A.Carrier) -> Sub b x -> (g (pt b)).1.1 e -> A.LEC a b)
+        ((g (pt a)).1.2 e) (\ _ -> F.isProp-Pi A.Carrier (\ b -> Sub b x -> (g (pt b)).1.1 e -> A.LEC a b)
+          (\ b -> F.isProp-Pi (Sub b x) (\ _ -> (g (pt b)).1.1 e -> A.LEC a b)
+            (\ _ -> F.isProp-Pi ((g (pt b)).1.1 e) (\ _ -> A.LEC a b) (\ _ -> A.P.le-prop a.1.1 b.1.1))))) ;
+  least-unique (g : PtA -> PtB) (x : PtA) (e : V) (a a' : A.Carrier) (la : Least g x e a) (la' : Least g x e a') :
+      Id A.Carrier a a' =
+    A.ext a a' (la.2.2 a' la'.1 la'.2.1) (la'.2.2 a la.1 la.2.1) ;
+  mono-prop (g : PtA -> PtB) : isProp (Mono g) =
+    H.isProp-Pi PtA (\ x -> (y : PtA) -> PA.PointLe x y -> PB.PointLe (g x) (g y)) (\ x ->
+      H.isProp-Pi PtA (\ y -> PA.PointLe x y -> PB.PointLe (g x) (g y)) (\ y ->
+        H.isProp-Pi (PA.PointLe x y) (\ _ -> PB.PointLe (g x) (g y)) (\ _ -> PB.point-le-prop (g x) (g y)))) ;
+  stable-prop (g : PtA -> PtB) : isProp (Stable g) =
+    H.isProp-Pi PtA (\ x -> (e : V) -> (g x).1.1 e -> (a : A.Carrier) * Least g x e a) (\ x ->
+      H.isProp-Pi V (\ e -> (g x).1.1 e -> (a : A.Carrier) * Least g x e a) (\ e ->
+        H.isProp-Pi ((g x).1.1 e) (\ _ -> (a : A.Carrier) * Least g x e a) (\ _ -> \ s s' ->
+          PL.Sigma-eq A.Carrier (Least g x e) s.1 s'.1 s.2 s'.2 (least-unique g x e s.1 s'.1 s.2 s'.2)
+            (least-prop g x e s'.1)))) ;
+  map-eq (g g' : StableMap) (h : (x : PtA) -> Id PtB (g.1 x) (g'.1 x)) : Id StableMap g g' =
+    Sigma-eq (PtA -> PtB) (\ k -> Mono k * Stable k) g.1 g'.1 g.2 g'.2 (H.funext PtA (\ _ -> PtB) g.1 g'.1 h)
+      (isProp-Sigma (Mono g'.1) (\ _ -> Stable g'.1) (mono-prop g'.1) (\ _ -> stable-prop g'.1)) ;
+
+  -- application is stable
+  app-mono (f : Tr) : Mono (app f) = \ x y xy e w -> (w.1,(w.2.1,sub-le w.1 x y w.2.2 xy)) ;
+  app-least (f : Tr) (x : PtA) (e : V) (w : App[f,x].Wit e) : Least (app f) x e w.1 =
+    (w.2.2,((w.1,(w.2.1,sub-refl w.1)),\ b bx wb ->
+      PL.subst A.Carrier (\ c -> A.LEC c b) wb.1 w.1
+        (App[f,x].unique e (wb.1,(wb.2.1,le-sub wb.1 b x wb.2.2 bx)) w) wb.2.2)) ;
+  app-stable (f : Tr) : Stable (app f) = \ x e w -> (w.1,app-least f x e w) ;
+  app-map (f : Tr) : StableMap = (app f,(app-mono f,app-stable f)) ;
+
+  ----------------------------------------------------------------------
+  -- the trace of a stable map
+
+  module Trace (g : StableMap) {
+    G (x : PtA) (e : V) : U l = (g.1 x).1.1 e ;
+    Min (u : FN.web) : U l = Least g.1 (pt u.1) u.2 u.1 ;
+    min-prop (u : FN.web) : PL.isProp (Min u) = least-prop g.1 (pt u.1) u.2 u.1 ;
+    module Coh (u v : FN.web) (mu : Min u) (mv : Min v) (cl : A.Clique (FN.union u.1 v.1).1) {
+      c : A.Carrier = (FN.union u.1 v.1,cl) ;
+      uc : A.LEC u.1 c = \ t h -> FS.or-l (u.1.1.1 t) (v.1.1.1 t) h ;
+      vc : A.LEC v.1 c = \ t h -> FS.or-r (u.1.1.1 t) (v.1.1.1 t) h ;
+      gu : G (pt c) u.2 = g.2.1 (pt u.1) (pt c) uc u.2 mu.2.1 ;
+      gv : G (pt c) v.2 = g.2.1 (pt v.1) (pt c) vc v.2 mv.2.1 ;
+      coh : IsT (T.coh u.2 v.2) = (g.1 (pt c)).2 u.2 v.2 gu gv ;
+      module Same (p : Id V u.2 v.2) {
+        dl : (d : A.Carrier) * Least g.1 (pt c) u.2 d = g.2.2 (pt c) u.2 gu ;
+        d : A.Carrier = dl.1 ;
+        gdv : G (pt d) v.2 = PL.subst V (G (pt d)) u.2 v.2 p dl.2.2.1 ;
+        gvu : G (pt v.1) u.2 = PL.subst V (G (pt v.1)) v.2 u.2 (PL.sym V u.2 v.2 p) mv.2.1 ;
+        du : A.LEC d u.1 = dl.2.2.2 u.1 uc mu.2.1 ;
+        dv : A.LEC d v.1 = dl.2.2.2 v.1 vc gvu ;
+        ud : A.LEC u.1 d = mu.2.2 d du dl.2.2.1 ;
+        vd : A.LEC v.1 d = mv.2.2 d dv gdv ;
+        eq : Id A.Carrier u.1 v.1 = A.ext u.1 v.1 (\ t h -> dv t (ud t h)) (\ t h -> du t (vd t h)) ;
+      } ;
+      result : IsT (T.coh u.2 v.2) * (Id V u.2 v.2 -> Id A.Carrier u.1 v.1) = (coh,\ p -> Same[p].eq) ;
+    } ;
+    coherent : PF.Coherent (Min,min-prop) = \ u v mu mv ->
+      FN.coh-complete u v (\ cl -> Coh[u,v,mu,mv,cl].result) ;
+    trace : Tr = ((Min,min-prop),coherent) ;
+  } ;
+  trace (g : StableMap) : Tr = Trace[g].trace ;
+
+  ----------------------------------------------------------------------
+  -- the two constructions are inverse
+
+  module AppTrace (g : StableMap) (x : PtA) {
+    to (e : V) (w : App[trace g,x].Wit e) : (g.1 x).1.1 e = g.2.1 (pt w.1) x w.2.2 e w.2.1.2.1 ;
+    module From (e : V) (h : (g.1 x).1.1 e) {
+      dl : (d : A.Carrier) * Least g.1 x e d = g.2.2 x e h ;
+      d : A.Carrier = dl.1 ;
+      result : App[trace g,x].Wit e =
+        (d,((sub-refl d,(dl.2.2.1,\ b bd gb -> dl.2.2.2 b (le-sub b d x bd dl.2.1) gb)),dl.2.1)) ;
+    } ;
+    equation : Id PtB (app (trace g) x) (g.1 x) =
+      PB.point-ext (app (trace g) x) (g.1 x) to (\ e h -> From[e,h].result) ;
+  } ;
+  module TraceApp (f : Tr) {
+    module To (u : FN.web) (m : Trace[app-map f].Min u) {
+      w : App[f,pt u.1].Wit u.2 = m.2.1 ;
+      up : A.LEC u.1 w.1 = m.2.2 w.1 w.2.2 (w.1,(w.2.1,sub-refl w.1)) ;
+      eq : Id A.Carrier w.1 u.1 = A.ext w.1 u.1 w.2.2 up ;
+      result : f.1.1 u = PL.subst A.Carrier (\ c -> f.1.1 (c,u.2)) w.1 u.1 eq w.2.1 ;
+    } ;
+    from (u : FN.web) (h : f.1.1 u) : Trace[app-map f].Min u =
+      (sub-refl u.1,((u.1,(h,sub-refl u.1)),\ b ba wb ->
+        PL.subst A.Carrier (\ c -> A.LEC c b) wb.1 u.1
+          (App[f,pt u.1].unique u.2 (wb.1,(wb.2.1,le-sub wb.1 b (pt u.1) wb.2.2 ba)) (u.1,(h,sub-refl u.1))) wb.2.2)) ;
+    equation : Id Tr (trace (app-map f)) f =
+      PF.point-ext (trace (app-map f)) f (\ u m -> To[u,m].result) from ;
+  } ;
+
+  equivalence : Equiv Tr StableMap = (app-map,qinv Tr StableMap app-map trace
+    (\ g -> map-eq (app-map (trace g)) g (\ x -> AppTrace[g,x].equation))
+    (\ f -> TraceApp[f].equation)) ;
+} ;

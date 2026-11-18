@@ -1,0 +1,273 @@
+-- The finite subsets of a type with decidable equality form a poset of
+-- events (DIEvents), so their ideal completion is a constructive
+-- dI-domain.  Below it is identified with the domain of all
+-- proposition-valued subsets (Omega^X), so Omega^X is a constructive
+-- dI-domain; for X = 1 this is DIEventsBool.omega.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+module TL = TruncationCombinators[l+] ;
+module CU = ScottCUSL[l] ;
+module R = Replacement[l,l+] ;
+module B = BooleanDI[l] ;
+module EB = DIEventsBool[l] ;
+module FE = FiniteEnumeration[l] ;
+module FR = FiniteRange[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+-- booleans
+or-split : (u v : Bool) -> IsT (EB.or u v) -> Plus (IsT u) (IsT v) = split {
+  true -> \ v h -> inl tt ; false -> \ v h -> inr h } ;
+or-l : (u v : Bool) -> IsT u -> IsT (EB.or u v) = split {
+  true -> \ v h -> tt ; false -> \ v h -> absurd (IsT (EB.or false v)) h } ;
+or-r : (u v : Bool) -> IsT v -> IsT (EB.or u v) = split {
+  true -> \ v h -> tt ; false -> \ v h -> h } ;
+and-intro : (u v : Bool) -> IsT u -> IsT v -> IsT (EB.and u v) = split {
+  true -> \ v hu hv -> hv ; false -> \ v hu hv -> hu } ;
+dec-imp : (u v : Bool) -> FR.Dec (IsT u -> IsT v) = split {
+  true -> split { true -> inl (\ h -> h) ; false -> inr (\ k -> k tt) } ;
+  false -> \ v -> inl (\ h -> absurd (IsT v) h) } ;
+decB (P : U l) : FR.Dec P -> Bool = split { inl p -> true ; inr n -> false } ;
+decB-sound (P : U l) : (d : FR.Dec P) -> IsT (decB P d) -> P = split {
+  inl p -> \ h -> p ; inr n -> \ h -> absurd P h } ;
+decB-complete (P : U l) : (d : FR.Dec P) -> P -> IsT (decB P d) = split {
+  inl p -> \ h -> tt ; inr n -> \ h -> n h } ;
+anyB : (s : Shape) -> (Ix s -> Bool) -> Bool = split {
+  none -> \ f -> false ; leaf -> \ f -> f tt ;
+  fork s t | rs rt -> \ f -> EB.or (rs (\ i -> f (inl i))) (rt (\ i -> f (inr i))) } ;
+anyB-sound : (s : Shape) (f : Ix s -> Bool) -> IsT (anyB s f) -> (i : Ix s) * IsT (f i) = split {
+  none -> \ f h -> absurd ((i : Empty) * IsT (f i)) h ;
+  leaf -> \ f h -> (tt,h) ;
+  fork s t | rs rt -> \ f h -> cases (IsT (anyB s (\ i -> f (inl i)))) (IsT (anyB t (\ i -> f (inr i))))
+    (\ _ -> (i : Ix (fork s t)) * IsT (f i))
+    (\ k -> (inl (rs (\ i -> f (inl i)) k).1,(rs (\ i -> f (inl i)) k).2))
+    (\ k -> (inr (rt (\ i -> f (inr i)) k).1,(rt (\ i -> f (inr i)) k).2))
+    (or-split (anyB s (\ i -> f (inl i))) (anyB t (\ i -> f (inr i))) h) } ;
+anyB-complete : (s : Shape) (f : Ix s -> Bool) (i : Ix s) -> IsT (f i) -> IsT (anyB s f) = split {
+  none -> \ f i h -> absurd (IsT false) i ;
+  leaf -> \ f -> unit (\ i -> IsT (f i) -> IsT (f tt)) (\ h -> h) ;
+  fork s t | rs rt -> \ f -> cases (Ix s) (Ix t) (\ i -> IsT (f i) -> IsT (anyB (fork s t) f))
+    (\ i h -> or-l (anyB s (\ j -> f (inl j))) (anyB t (\ j -> f (inr j))) (rs (\ j -> f (inl j)) i h))
+    (\ i h -> or-r (anyB s (\ j -> f (inl j))) (anyB t (\ j -> f (inr j))) (rt (\ j -> f (inr j)) i h)) } ;
+bool-point : Ix (fork leaf leaf) -> Bool = cases Top Top (\ _ -> Bool) (\ _ -> false) (\ _ -> true) ;
+bool-covers : (x : Bool) -> ScottOrder[l+].Ex ((i : Ix (fork leaf leaf)) * Id Bool x (bool-point i)) = split {
+  false -> ScottOrder[l+].inc ((i : Ix (fork leaf leaf)) * Id Bool false (bool-point i)) (inl tt,refl false) ;
+  true -> ScottOrder[l+].inc ((i : Ix (fork leaf leaf)) * Id Bool true (bool-point i)) (inr tt,refl true) } ;
+bool-enum : FE.Enumeration[Bool] = new FE.Enumeration[Bool, shape := fork leaf leaf,
+  point := bool-point, covers := bool-covers] ;
+
+bool-cases : (b : Bool) -> Plus (IsT b) (IsT b -> Empty) = split {
+  true -> inl tt ; false -> inr (\ h -> h) } ;
+propext (A B : U l) (pA : Prelude[l].isProp A) (pB : Prelude[l].isProp B) (f : A -> B) (g : B -> A) :
+    Id (U l) A B =
+  (propUA @l A B pA pB).sec (f, Prelude[l].qinv A B f g (\ b -> pB (f (g b)) b) (\ a -> pA (g (f a)) a)) ;
+
+module On (X : U l) (dec : (s t : X) -> FR.Dec (Id X s t)) {
+  eqB (s t : X) : Bool = decB (Id X s t) (dec s t) ;
+  eqB-sound (s t : X) (h : IsT (eqB s t)) : Id X s t = decB-sound (Id X s t) (dec s t) h ;
+  eqB-complete (s t : X) (h : Id X s t) : IsT (eqB s t) = decB-complete (Id X s t) (dec s t) h ;
+
+  Pred : U l = X -> Bool ;
+  Le (a b : Pred) : U l = (t : X) -> IsT (a t) -> IsT (b t) ;
+  le-prop (a b : Pred) : Prelude[l].isProp (Le a b) =
+    F.isProp-Pi X (\ t -> IsT (a t) -> IsT (b t)) (\ t -> F.isProp-Pi (IsT (a t)) (\ _ -> IsT (b t)) (\ _ -> B.holds-prop (b t))) ;
+  Cover (a : Pred) : U l = (sh : Shape) * ((e : Ix sh -> X) * ((t : X) -> IsT (a t) -> (i : Ix sh) * Id X (e i) t)) ;
+  Carrier : U l = (a : Pred) * Ex (Cover a) ;
+  ext (a b : Carrier) (ab : Le a.1 b.1) (ba : Le b.1 a.1) : Id Carrier a b =
+    Sigma-eq Pred (\ p -> Ex (Cover p)) a.1 b.1 a.2 b.2
+      (F.funext X (\ _ -> Bool) a.1 b.1 (\ t -> B.antisymmetric (a.1 t) (b.1 t) (ab t) (ba t)))
+      (prop (Cover b.1)) ;
+  order : Order = new Order[carrier := Carrier, le := \ a b -> Le a.1 b.1,
+    proposition := \ a b -> le-prop a.1 b.1, reflexive := \ a t h -> h,
+    transitive := \ a b c ab bc t h -> bc t (ab t h), antisymmetric := ext] ;
+  LEC (a b : Carrier) : U l = Le a.1 b.1 ;
+
+  -- the operations
+  bot : Carrier = (\ _ -> false,inc (Cover (\ _ -> false)) (none,(\ i -> absurd X i,\ t h -> absurd ((i : Empty) * Id X (absurd X i) t) h))) ;
+  join-cover (a b : Pred) (ca : Cover a) (cb : Cover b) : Cover (\ t -> EB.or (a t) (b t)) =
+    (fork ca.1 cb.1,(join X ca.1 cb.1 ca.2.1 cb.2.1,\ t h -> cases (IsT (a t)) (IsT (b t))
+      (\ _ -> (i : Ix (fork ca.1 cb.1)) * Id X (join X ca.1 cb.1 ca.2.1 cb.2.1 i) t)
+      (\ k -> (inl (ca.2.2 t k).1,(ca.2.2 t k).2)) (\ k -> (inr (cb.2.2 t k).1,(cb.2.2 t k).2))
+      (or-split (a t) (b t) h))) ;
+  join (a b : Carrier) : Carrier = (\ t -> EB.or (a.1 t) (b.1 t),
+    T.bind2 (Cover a.1) (Cover b.1) (Cover (\ t -> EB.or (a.1 t) (b.1 t)))
+      (\ ca cb -> inc (Cover (\ t -> EB.or (a.1 t) (b.1 t))) (join-cover a.1 b.1 ca cb)) a.2 b.2) ;
+  join-lub (a b : Carrier) : On[order].Lub Bool (CU.pair order a b) (join a b) =
+    (DistributiveJoins[l].bool (\ i -> LEC (CU.pair order a b i) (join a b))
+      (\ t h -> or-l (a.1 t) (b.1 t) h) (\ t h -> or-r (a.1 t) (b.1 t) h),
+     \ z hz t h -> cases (IsT (a.1 t)) (IsT (b.1 t)) (\ _ -> IsT (z.1 t))
+       (\ k -> hz true t k) (\ k -> hz false t k) (or-split (a.1 t) (b.1 t) h)) ;
+  meet (a b : Carrier) : Carrier = (\ t -> EB.and (a.1 t) (b.1 t),
+    T.map (Cover a.1) (Cover (\ t -> EB.and (a.1 t) (b.1 t)))
+      (\ c -> (c.1,(c.2.1,\ t h -> c.2.2 t (EB.and-left (a.1 t) (b.1 t) h)))) a.2) ;
+  cusl : CU.CUSL = new CU.CUSL[order := order, bottom := bot,
+    bottom-least := \ x t h -> absurd (IsT (x.1 t)) h,
+    join := \ x y h -> (join x y,join-lub x y),
+    small := Truncation[l+].Trunc[R.Small Carrier].inc (Carrier,idEquiv Carrier)] ;
+  distributive (a y z : Carrier) (h : CU.Compatible order y z) (k : LEC a (join y z)) :
+      LEC a (join (meet a y) (meet a z)) = \ t ha ->
+    cases (IsT (y.1 t)) (IsT (z.1 t)) (\ _ -> IsT (EB.or (EB.and (a.1 t) (y.1 t)) (EB.and (a.1 t) (z.1 t))))
+      (\ hy -> or-l (EB.and (a.1 t) (y.1 t)) (EB.and (a.1 t) (z.1 t)) (and-intro (a.1 t) (y.1 t) ha hy))
+      (\ hz -> or-r (EB.and (a.1 t) (y.1 t)) (EB.and (a.1 t) (z.1 t)) (and-intro (a.1 t) (z.1 t) ha hz))
+      (or-split (y.1 t) (z.1 t) (k t ha)) ;
+
+  -- the subsets of a finite set a, given by a cover e : Ix sh -> X
+  module Below (a : Carrier) (c : Cover a.1) {
+    sh : Shape = c.1 ;
+    e : Ix sh -> X = c.2.1 ;
+    module E = FE.Tuples ;
+    enum : FE.Enumeration[Ix sh -> Bool] = E.enumeration sh (\ _ -> Bool) (\ _ -> bool-enum) ;
+    member (v : Ix sh -> Bool) (t : X) : Bool = anyB sh (\ i -> EB.and (v i) (eqB (e i) t)) ;
+    part (v : Ix sh -> Bool) : Carrier = (\ t -> EB.and (a.1 t) (member v t),
+      inc (Cover (\ t -> EB.and (a.1 t) (member v t)))
+        (sh,(e,\ t h -> c.2.2 t (EB.and-left (a.1 t) (member v t) h)))) ;
+    bound (v : Ix sh -> Bool) : LEC (part v) a = \ t h -> EB.and-left (a.1 t) (member v t) h ;
+    -- comparison of subsets of a, by the finitely many elements e i
+    Agree (x y : Carrier) (i : Ix sh) : U l = (IsT (x.1 (e i)) -> IsT (y.1 (e i))) * (IsT (y.1 (e i)) -> IsT (x.1 (e i))) ;
+    move (x : Carrier) (i : Ix sh) (t : X) (p : Id X (e i) t) (h : IsT (x.1 (e i))) : IsT (x.1 t) =
+      Prelude[l].subst X (\ s -> IsT (x.1 s)) (e i) t p h ;
+    back (x : Carrier) (i : Ix sh) (t : X) (p : Id X (e i) t) (h : IsT (x.1 t)) : IsT (x.1 (e i)) =
+      Prelude[l].subst X (\ s -> IsT (x.1 s)) t (e i) (Prelude[l].sym X (e i) t p) h ;
+    from-tests (x y : Carrier) (xa : LEC x a) (ya : LEC y a) (r : (i : Ix sh) -> Agree x y i) : LEC x y * LEC y x =
+      (\ t h -> move y (c.2.2 t (xa t h)).1 t (c.2.2 t (xa t h)).2
+          ((r (c.2.2 t (xa t h)).1).1 (back x (c.2.2 t (xa t h)).1 t (c.2.2 t (xa t h)).2 h)),
+       \ t h -> move x (c.2.2 t (ya t h)).1 t (c.2.2 t (ya t h)).2
+          ((r (c.2.2 t (ya t h)).1).2 (back y (c.2.2 t (ya t h)).1 t (c.2.2 t (ya t h)).2 h))) ;
+    decide (x y : Carrier) (xa : LEC x a) (ya : LEC y a) : FR.Dec (LEC x y * LEC y x) =
+      FiniteDiscrete[l].map-decision ((i : Ix sh) -> Agree x y i) (LEC x y * LEC y x)
+        (from-tests x y xa ya) (\ p i -> (p.1 (e i),p.2 (e i)))
+        (FR.all sh (Agree x y) (\ i -> FR.both (IsT (x.1 (e i)) -> IsT (y.1 (e i))) (IsT (y.1 (e i)) -> IsT (x.1 (e i)))
+          (dec-imp (x.1 (e i)) (y.1 (e i))) (dec-imp (y.1 (e i)) (x.1 (e i))))) ;
+    -- a subset x of a is the part given by its characteristic vector
+    module Of (x : Carrier) (xa : LEC x a) {
+      v : Ix sh -> Bool = \ i -> x.1 (e i) ;
+      up : LEC x (part v) = \ t h -> and-intro (a.1 t) (member v t) (xa t h)
+        (anyB-complete sh (\ i -> EB.and (v i) (eqB (e i) t)) (c.2.2 t (xa t h)).1
+          (and-intro (v (c.2.2 t (xa t h)).1) (eqB (e (c.2.2 t (xa t h)).1) t)
+            (back x (c.2.2 t (xa t h)).1 t (c.2.2 t (xa t h)).2 h)
+            (eqB-complete (e (c.2.2 t (xa t h)).1) t (c.2.2 t (xa t h)).2))) ;
+      down : LEC (part v) x = \ t h ->
+        move x (anyB-sound sh (\ i -> EB.and (v i) (eqB (e i) t)) (EB.and-right (a.1 t) (member v t) h)).1 t
+          (eqB-sound (e (anyB-sound sh (\ i -> EB.and (v i) (eqB (e i) t)) (EB.and-right (a.1 t) (member v t) h)).1) t
+            (EB.and-right (v (anyB-sound sh (\ i -> EB.and (v i) (eqB (e i) t)) (EB.and-right (a.1 t) (member v t) h)).1)
+              (eqB (e (anyB-sound sh (\ i -> EB.and (v i) (eqB (e i) t)) (EB.and-right (a.1 t) (member v t) h)).1) t)
+              (anyB-sound sh (\ i -> EB.and (v i) (eqB (e i) t)) (EB.and-right (a.1 t) (member v t) h)).2))
+          (EB.and-left (v (anyB-sound sh (\ i -> EB.and (v i) (eqB (e i) t)) (EB.and-right (a.1 t) (member v t) h)).1)
+            (eqB (e (anyB-sound sh (\ i -> EB.and (v i) (eqB (e i) t)) (EB.and-right (a.1 t) (member v t) h)).1) t)
+            (anyB-sound sh (\ i -> EB.and (v i) (eqB (e i) t)) (EB.and-right (a.1 t) (member v t) h)).2) ;
+    } ;
+    covers (x : Carrier) (xa : LEC x a) : Ex ((j : Ix enum.shape) * (LEC x (part (enum.point j)) * LEC (part (enum.point j)) x)) =
+      TL.rec ((j : Ix enum.shape) * Id (Ix sh -> Bool) Of[x,xa].v (enum.point j)) @l
+        (Ex ((j : Ix enum.shape) * (LEC x (part (enum.point j)) * LEC (part (enum.point j)) x)))
+        (prop ((j : Ix enum.shape) * (LEC x (part (enum.point j)) * LEC (part (enum.point j)) x)))
+        (\ w -> inc ((j : Ix enum.shape) * (LEC x (part (enum.point j)) * LEC (part (enum.point j)) x))
+          (w.1,subst (Ix sh -> Bool) (\ u -> LEC x (part u) * LEC (part u) x) Of[x,xa].v (enum.point w.1) w.2
+            (Of[x,xa].up,Of[x,xa].down)))
+        (enum.covers Of[x,xa].v) ;
+    ideal : DIDomain[l].Properties[order].FiniteIdeal[a] =
+      FR.Ideal[order,a,decide].Present[enum.shape,\ j -> part (enum.point j),\ j -> bound (enum.point j),covers].ideal ;
+  } ;
+  finite (a : Carrier) : ScottOrder[l+].Ex (DIDomain[l].Properties[order].FiniteIdeal[a]) =
+    T.rec (Cover a.1) @l+ (ScottOrder[l+].Ex (DIDomain[l].Properties[order].FiniteIdeal[a]))
+      (ScottOrder[l+].prop (DIDomain[l].Properties[order].FiniteIdeal[a]))
+      (\ c -> ScottOrder[l+].inc (DIDomain[l].Properties[order].FiniteIdeal[a]) Below[a,c].ideal) a.2 ;
+
+  events : DIEvents[l].Events = new DIEvents[l].Events[
+    cusl := cusl, meet := meet,
+    meet-left := \ x y t h -> EB.and-left (x.1 t) (y.1 t) h,
+    meet-right := \ x y t h -> EB.and-right (x.1 t) (y.1 t) h,
+    meet-greatest := \ x y z zx zy t h -> and-intro (x.1 t) (y.1 t) (zx t h) (zy t h),
+    distributive := distributive, finite := finite] ;
+  module C = DIEvents[l].Completion[events] ;
+  cdi : DIConstructive[l].CDI = C.cdi ;
+  ----------------------------------------------------------------------
+  -- the completion is the domain of all proposition-valued subsets of X
+
+  module Omega {
+    module I = C.I ;
+    Idx : U l = I.X ;
+    val (a : Idx) : Carrier = I.val a ;
+    at (p : Carrier) : Idx = I.at p ;
+    out (p : Carrier) (t : X) (h : IsT ((val (at p)).1 t)) : IsT (p.1 t) =
+      Prelude[l].subst Carrier (\ c -> IsT (c.1 t)) (val (at p)) p (C.at-val p) h ;
+    into (p : Carrier) (t : X) (h : IsT (p.1 t)) : IsT ((val (at p)).1 t) =
+      Prelude[l].subst Carrier (\ c -> IsT (c.1 t)) p (val (at p)) (Prelude[l].sym Carrier (val (at p)) p (C.at-val p)) h ;
+    singleton (t : X) : Carrier = (\ s -> eqB t s,
+      inc (Cover (\ s -> eqB t s)) (leaf,(\ _ -> t,\ s h -> (tt,eqB-sound t s h)))) ;
+    PredP : U l+ = (P : X -> U l) * ((t : X) -> Prelude[l].isProp (P t)) ;
+    to-pred (J : C.Ideal) : PredP = (\ t -> I.mem J (at (singleton t)),\ t -> I.mem-prop J (at (singleton t))) ;
+
+    module From (P : PredP) {
+      m (a : Idx) : U l = (t : X) -> IsT ((val a).1 t) -> P.1 t ;
+      m-prop (a : Idx) : Prelude[l].isProp (m a) =
+        F.isProp-Pi X (\ t -> IsT ((val a).1 t) -> P.1 t)
+          (\ t -> F.isProp-Pi (IsT ((val a).1 t)) (\ _ -> P.1 t) (\ _ -> P.2 t)) ;
+      m-bot : m I.bot = \ t h -> absurd (P.1 t) (out bot t h) ;
+      m-lower (a b : Idx) (ab : I.LE a b) (mb : m b) : m a = \ t h -> mb t (ab t h) ;
+      m-upper (a b : Idx) (ma : m a) (mb : m b) : Ex ((c : Idx) * (m c * (I.LE a c * I.LE b c))) =
+        inc ((c : Idx) * (m c * (I.LE a c * I.LE b c)))
+          (at (join (val a) (val b)),
+           (\ t h -> cases (IsT ((val a).1 t)) (IsT ((val b).1 t)) (\ _ -> P.1 t) (ma t) (mb t)
+              (or-split ((val a).1 t) ((val b).1 t) (out (join (val a) (val b)) t h)),
+            (C.into-r a (join (val a) (val b)) (\ t h -> or-l ((val a).1 t) ((val b).1 t) h),
+             C.into-r b (join (val a) (val b)) (\ t h -> or-r ((val a).1 t) ((val b).1 t) h)))) ;
+      ideal : C.Ideal = (m,(m-prop,(m-bot,(m-lower,m-upper)))) ;
+    } ;
+    from-pred (P : PredP) : C.Ideal = From[P].ideal ;
+
+    module PredTrip (P : PredP) {
+      to (t : X) (h : From[P].m (at (singleton t))) : P.1 t =
+        h t (into (singleton t) t (eqB-complete t t (refl t))) ;
+      from (t : X) (p : P.1 t) : From[P].m (at (singleton t)) = \ s h ->
+        Prelude[l].subst X P.1 t s (eqB-sound t s (out (singleton t) s h)) p ;
+      equation : Id PredP (to-pred (from-pred P)) P =
+        Sigma-eq (X -> U l) (\ Q -> (t : X) -> Prelude[l].isProp (Q t)) (to-pred (from-pred P)).1 P.1
+          (to-pred (from-pred P)).2 P.2
+          (H.funext X (\ _ -> U l) (to-pred (from-pred P)).1 P.1 (\ t ->
+            propext (From[P].m (at (singleton t))) (P.1 t) (From[P].m-prop (at (singleton t))) (P.2 t) (to t) (from t)))
+          (H.isProp-Pi X (\ t -> Prelude[l].isProp (P.1 t)) (\ t -> F.isProp-isProp (P.1 t))) ;
+    } ;
+
+    module IdealTrip (J : C.Ideal) {
+      Q : PredP = to-pred J ;
+      sub-from (a : Idx) (h : I.mem J a) : From[Q].m a = \ t ht ->
+        I.lower J (at (singleton t)) a
+          (C.into-l (singleton t) a (\ s hs -> Prelude[l].subst X (\ u -> IsT ((val a).1 u)) t s (eqB-sound t s hs) ht)) h ;
+      Mem : U l = (b : Idx) * I.mem J b ;
+      fam (w : Mem) : Carrier = val w.1 ;
+      dir : On[order].Dir Mem fam =
+        (inc Mem (I.bot,I.contains-bot J),
+         \ u v -> T.map ((c : Idx) * (I.mem J c * (I.LE u.1 c * I.LE v.1 c))) (On[order].Upper Mem fam u v)
+           (\ w -> ((w.1,w.2.1),(w.2.2.1,w.2.2.2))) (I.upper J u.1 v.1 u.2 v.2)) ;
+      module Fin (a : Idx) (h : From[Q].m a) (c : Cover (val a).1) {
+        sh : Shape = c.1 ;
+        e : Ix sh -> X = c.2.1 ;
+        Rel (i : Ix sh) (w : Mem) : U l = IsT ((val a).1 (e i)) -> IsT ((fam w).1 (e i)) ;
+        step (i : Ix sh) : Ex ((w : Mem) * Rel i w) =
+          cases (IsT ((val a).1 (e i))) (IsT ((val a).1 (e i)) -> Empty) (\ _ -> Ex ((w : Mem) * Rel i w))
+            (\ yes -> inc ((w : Mem) * Rel i w) ((at (singleton (e i)),h (e i) yes),
+              \ _ -> into (singleton (e i)) (e i) (eqB-complete (e i) (e i) (refl (e i)))))
+            (\ no -> T.map Mem ((w : Mem) * Rel i w) (\ w -> (w,\ y -> absurd (IsT ((fam w).1 (e i))) (no y))) dir.1)
+            (bool-cases ((val a).1 (e i))) ;
+        common : Ex ((w : Mem) * ((i : Ix sh) -> Rel i w)) =
+          Directed[order,Mem,fam,dir].collect sh Rel (\ i w k wk r y -> wk (e i) (r y)) step ;
+        below (w : Mem) (r : (i : Ix sh) -> Rel i w) : I.LE a w.1 = \ t ht ->
+          Prelude[l].subst X (\ u -> IsT ((val w.1).1 u)) (e (c.2.2 t ht).1) t (c.2.2 t ht).2
+            (r (c.2.2 t ht).1 (Prelude[l].subst X (\ u -> IsT ((val a).1 u)) t (e (c.2.2 t ht).1)
+              (Prelude[l].sym X (e (c.2.2 t ht).1) t (c.2.2 t ht).2) ht)) ;
+        mem : I.mem J a = T.rec ((w : Mem) * ((i : Ix sh) -> Rel i w)) @l (I.mem J a) (I.mem-prop J a)
+          (\ w -> I.lower J a w.1.1 (below w.1 w.2) w.1.2) common ;
+      } ;
+      from-sub (a : Idx) (h : From[Q].m a) : I.mem J a =
+        T.rec (Cover (val a).1) @l (I.mem J a) (I.mem-prop J a) (\ c -> Fin[a,h,c].mem) (val a).2 ;
+      equation : Id C.Ideal (from-pred (to-pred J)) J = I.ext (from-pred Q) J from-sub sub-from ;
+    } ;
+
+    equivalence : Equiv C.Ideal PredP = (to-pred,qinv C.Ideal PredP to-pred from-pred
+      (\ P -> PredTrip[P].equation) (\ J -> IdealTrip[J].equation)) ;
+    PredLe (P P' : PredP) : U l = (t : X) -> P.1 t -> P'.1 t ;
+    to-mono (J J' : C.Ideal) (h : I.Incl J J') : PredLe (to-pred J) (to-pred J') = \ t -> h (at (singleton t)) ;
+    from-mono (P P' : PredP) (h : PredLe P P') : I.Incl (from-pred P) (from-pred P') = \ a m t ht -> h t (m t ht) ;
+  } ;
+} ;

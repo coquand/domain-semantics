@@ -1,0 +1,184 @@
+-- The category Dil of (finite-valued) pre-dilators and natural
+-- transformations (catemb.pdf in the case of linear orders, step 1 of
+-- PLAN-CATEMB-LO.md).  Objects: Dilator.PDS.  A morphism D -> E is a
+-- family of strictly increasing maps t n : [D n] -> [E n] (words) natural
+-- in n.  Identity, composition, and the category laws; equality of
+-- morphisms is pointwise equality of the words (the side conditions are
+-- equations in N and Wd, which have unique identity proofs).
+level l ;
+open Base ; open Prelude[l+] ;
+module W = Dilator[l] ;
+module PL = Prelude[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+
+-- associativity of composition of words
+comp-assoc (u v w : W.Wd) (h1 : Id W.N (W.ones u) (W.len v)) (h2 : Id W.N (W.ones v) (W.len w)) :
+    Id W.Wd (W.compW (W.compW u v) w) (W.compW u (W.compW v w)) =
+  W.sel-ext (W.compW (W.compW u v) w) (W.compW u (W.compW v w))
+    (W.trans W.N (W.len (W.compW (W.compW u v) w)) (W.len (W.compW u v)) (W.len (W.compW u (W.compW v w)))
+      (W.len-comp (W.compW u v) w)
+      (W.trans W.N (W.len (W.compW u v)) (W.len u) (W.len (W.compW u (W.compW v w)))
+        (W.len-comp u v) (W.sym W.N (W.len (W.compW u (W.compW v w))) (W.len u) (W.len-comp u (W.compW v w)))))
+    (W.trans W.N (W.ones (W.compW (W.compW u v) w)) (W.ones w) (W.ones (W.compW u (W.compW v w)))
+      (W.ones-comp (W.compW u v) w (W.trans W.N (W.ones (W.compW u v)) (W.ones v) (W.len w) (W.ones-comp u v h1) h2))
+      (W.sym W.N (W.ones (W.compW u (W.compW v w))) (W.ones w)
+        (W.trans W.N (W.ones (W.compW u (W.compW v w))) (W.ones (W.compW v w)) (W.ones w)
+          (W.ones-comp u (W.compW v w) (W.trans W.N (W.ones u) (W.len v) (W.len (W.compW v w)) h1
+            (W.sym W.N (W.len (W.compW v w)) (W.len v) (W.len-comp v w))))
+          (W.ones-comp v w h2))))
+    (\ z hz -> W.trans W.N (W.sel (W.compW (W.compW u v) w) z) (W.sel (W.compW u v) (W.sel w z))
+       (W.sel (W.compW u (W.compW v w)) z)
+       (W.sel-comp (W.compW u v) w z (W.trans W.N (W.ones (W.compW u v)) (W.ones v) (W.len w) (W.ones-comp u v h1) h2))
+       (W.trans W.N (W.sel (W.compW u v) (W.sel w z)) (W.sel u (W.sel v (W.sel w z))) (W.sel (W.compW u (W.compW v w)) z)
+         (W.sel-comp u v (W.sel w z) h1)
+         (W.sym W.N (W.sel (W.compW u (W.compW v w)) z) (W.sel u (W.sel v (W.sel w z)))
+           (W.trans W.N (W.sel (W.compW u (W.compW v w)) z) (W.sel u (W.sel (W.compW v w) z)) (W.sel u (W.sel v (W.sel w z)))
+             (W.sel-comp u (W.compW v w) z (W.trans W.N (W.ones u) (W.len v) (W.len (W.compW v w)) h1
+               (W.sym W.N (W.len (W.compW v w)) (W.len v) (W.len-comp v w))))
+             (W.ap W.N W.N (W.sel u) (W.sel (W.compW v w) z) (W.sel v (W.sel w z)) (W.sel-comp v w z h2)))))) ;
+
+----------------------------------------------------------------------
+-- objects and morphisms
+
+Dil : U l = W.PDS ;
+D0 (D : Dil) : W.N -> W.N = D.1 ;
+D1 (D : Dil) : W.Wd -> W.Wd = D.2.1 ;
+dlen (D : Dil) (w : W.Wd) : Id W.N (W.len (D1 D w)) (D0 D (W.len w)) = D.2.2.1 w ;
+dones (D : Dil) (w : W.Wd) : Id W.N (W.ones (D1 D w)) (D0 D (W.ones w)) = D.2.2.2.1 w ;
+
+Laws (D E : Dil) (t : W.N -> W.Wd) : U l =
+  ((n : W.N) -> Id W.N (W.len (t n)) (D0 E n)) * (((n : W.N) -> Id W.N (W.ones (t n)) (D0 D n)) *
+  ((w : W.Wd) -> Id W.Wd (W.compW (D1 E w) (t (W.ones w))) (W.compW (t (W.len w)) (D1 D w)))) ;
+Mor (D E : Dil) : U l = (t : W.N -> W.Wd) * Laws D E t ;
+
+laws-prop (D E : Dil) (t : W.N -> W.Wd) : PL.isProp (Laws D E t) =
+  PL.isProp-Sigma ((n : W.N) -> Id W.N (W.len (t n)) (D0 E n))
+    (\ _ -> ((n : W.N) -> Id W.N (W.ones (t n)) (D0 D n)) *
+      ((w : W.Wd) -> Id W.Wd (W.compW (D1 E w) (t (W.ones w))) (W.compW (t (W.len w)) (D1 D w))))
+    (F.isProp-Pi W.N (\ n -> Id W.N (W.len (t n)) (D0 E n)) (\ n -> W.HN.uip (W.len (t n)) (D0 E n)))
+    (\ _ -> PL.isProp-Sigma ((n : W.N) -> Id W.N (W.ones (t n)) (D0 D n))
+      (\ _ -> (w : W.Wd) -> Id W.Wd (W.compW (D1 E w) (t (W.ones w))) (W.compW (t (W.len w)) (D1 D w)))
+      (F.isProp-Pi W.N (\ n -> Id W.N (W.ones (t n)) (D0 D n)) (\ n -> W.HN.uip (W.ones (t n)) (D0 D n)))
+      (\ _ -> F.isProp-Pi W.Wd (\ w -> Id W.Wd (W.compW (D1 E w) (t (W.ones w))) (W.compW (t (W.len w)) (D1 D w)))
+        (\ w -> W.HW.uip (W.compW (D1 E w) (t (W.ones w))) (W.compW (t (W.len w)) (D1 D w))))) ;
+mor-ext (D E : Dil) (S T : Mor D E) (h : (n : W.N) -> Id W.Wd (S.1 n) (T.1 n)) : Id (Mor D E) S T =
+  PL.Sigma-eq (W.N -> W.Wd) (Laws D E) S.1 T.1 S.2 T.2 (F.funext W.N (\ _ -> W.Wd) S.1 T.1 h) (laws-prop D E T.1) ;
+
+-- identity
+id-nat (D : Dil) (w : W.Wd) :
+    Id W.Wd (W.compW (D1 D w) (W.idW (D0 D (W.ones w)))) (W.compW (W.idW (D0 D (W.len w))) (D1 D w)) =
+  W.trans W.Wd (W.compW (D1 D w) (W.idW (D0 D (W.ones w)))) (D1 D w) (W.compW (W.idW (D0 D (W.len w))) (D1 D w))
+    (W.subst W.N (\ k -> Id W.Wd (W.compW (D1 D w) (W.idW k)) (D1 D w)) (W.ones (D1 D w)) (D0 D (W.ones w)) (dones D w)
+      (W.comp-id (D1 D w)))
+    (W.sym W.Wd (W.compW (W.idW (D0 D (W.len w))) (D1 D w)) (D1 D w)
+      (W.subst W.N (\ k -> Id W.Wd (W.compW (W.idW k) (D1 D w)) (D1 D w)) (W.len (D1 D w)) (D0 D (W.len w)) (dlen D w)
+        (W.idW-comp (D1 D w)))) ;
+idM (D : Dil) : Mor D D = (\ n -> W.idW (D0 D n),(\ n -> W.len-idW (D0 D n),(\ n -> W.ones-idW (D0 D n),id-nat D))) ;
+
+-- composition: (T . S) n = T n . S n
+module Comp (D E G : Dil) (S : Mor D E) (T : Mor E G) {
+  t (n : W.N) : W.Wd = W.compW (T.1 n) (S.1 n) ;
+  match (n : W.N) : Id W.N (W.ones (T.1 n)) (W.len (S.1 n)) =
+    W.trans W.N (W.ones (T.1 n)) (D0 E n) (W.len (S.1 n)) (T.2.2.1 n) (W.sym W.N (W.len (S.1 n)) (D0 E n) (S.2.1 n)) ;
+  tlen (n : W.N) : Id W.N (W.len (t n)) (D0 G n) =
+    W.trans W.N (W.len (t n)) (W.len (T.1 n)) (D0 G n) (W.len-comp (T.1 n) (S.1 n)) (T.2.1 n) ;
+  tones (n : W.N) : Id W.N (W.ones (t n)) (D0 D n) =
+    W.trans W.N (W.ones (t n)) (W.ones (S.1 n)) (D0 D n) (W.ones-comp (T.1 n) (S.1 n) (match n)) (S.2.2.1 n) ;
+  module Nat (w : W.Wd) {
+    m : W.N = W.ones w ;
+    n : W.N = W.len w ;
+    gE : Id W.N (W.ones (D1 G w)) (W.len (T.1 m)) =
+      W.trans W.N (W.ones (D1 G w)) (D0 G m) (W.len (T.1 m)) (dones G w) (W.sym W.N (W.len (T.1 m)) (D0 G m) (T.2.1 m)) ;
+    eE : Id W.N (W.ones (D1 E w)) (W.len (S.1 m)) =
+      W.trans W.N (W.ones (D1 E w)) (D0 E m) (W.len (S.1 m)) (dones E w) (W.sym W.N (W.len (S.1 m)) (D0 E m) (S.2.1 m)) ;
+    tE : Id W.N (W.ones (T.1 n)) (W.len (D1 E w)) =
+      W.trans W.N (W.ones (T.1 n)) (D0 E n) (W.len (D1 E w)) (T.2.2.1 n) (W.sym W.N (W.len (D1 E w)) (D0 E n) (dlen E w)) ;
+    sD : Id W.N (W.ones (S.1 n)) (W.len (D1 D w)) =
+      W.trans W.N (W.ones (S.1 n)) (D0 D n) (W.len (D1 D w)) (S.2.2.1 n) (W.sym W.N (W.len (D1 D w)) (D0 D n) (dlen D w)) ;
+    -- G(w) . T m . S m = T n . E(w) . S m = T n . S n . D(w)
+    eq : Id W.Wd (W.compW (D1 G w) (t m)) (W.compW (t n) (D1 D w)) =
+      W.trans W.Wd (W.compW (D1 G w) (t m)) (W.compW (W.compW (D1 G w) (T.1 m)) (S.1 m)) (W.compW (t n) (D1 D w))
+        (W.sym W.Wd (W.compW (W.compW (D1 G w) (T.1 m)) (S.1 m)) (W.compW (D1 G w) (t m)) (comp-assoc (D1 G w) (T.1 m) (S.1 m) gE (match m)))
+        (W.trans W.Wd (W.compW (W.compW (D1 G w) (T.1 m)) (S.1 m)) (W.compW (W.compW (T.1 n) (D1 E w)) (S.1 m)) (W.compW (t n) (D1 D w))
+          (W.ap W.Wd W.Wd (\ u -> W.compW u (S.1 m)) (W.compW (D1 G w) (T.1 m)) (W.compW (T.1 n) (D1 E w)) (T.2.2.2 w))
+          (W.trans W.Wd (W.compW (W.compW (T.1 n) (D1 E w)) (S.1 m)) (W.compW (T.1 n) (W.compW (D1 E w) (S.1 m))) (W.compW (t n) (D1 D w))
+            (comp-assoc (T.1 n) (D1 E w) (S.1 m) tE eE)
+            (W.trans W.Wd (W.compW (T.1 n) (W.compW (D1 E w) (S.1 m))) (W.compW (T.1 n) (W.compW (S.1 n) (D1 D w))) (W.compW (t n) (D1 D w))
+              (W.ap W.Wd W.Wd (W.compW (T.1 n)) (W.compW (D1 E w) (S.1 m)) (W.compW (S.1 n) (D1 D w)) (S.2.2.2 w))
+              (W.sym W.Wd (W.compW (t n) (D1 D w)) (W.compW (T.1 n) (W.compW (S.1 n) (D1 D w)))
+                (comp-assoc (T.1 n) (S.1 n) (D1 D w) (match n) sD))))) ;
+  } ;
+  mor : Mor D G = (t,(tlen,(tones,\ w -> Nat[w].eq))) ;
+} ;
+compM (D E G : Dil) (S : Mor D E) (T : Mor E G) : Mor D G = Comp[D,E,G,S,T].mor ;
+
+-- the category laws
+id-left (D E : Dil) (S : Mor D E) : Id (Mor D E) (compM D E E S (idM E)) S =
+  mor-ext D E (compM D E E S (idM E)) S (\ n ->
+    W.subst W.N (\ k -> Id W.Wd (W.compW (W.idW k) (S.1 n)) (S.1 n)) (W.len (S.1 n)) (D0 E n) (S.2.1 n) (W.idW-comp (S.1 n))) ;
+id-right (D E : Dil) (S : Mor D E) : Id (Mor D E) (compM D D E (idM D) S) S =
+  mor-ext D E (compM D D E (idM D) S) S (\ n ->
+    W.subst W.N (\ k -> Id W.Wd (W.compW (S.1 n) (W.idW k)) (S.1 n)) (W.ones (S.1 n)) (D0 D n) (S.2.2.1 n) (W.comp-id (S.1 n))) ;
+assoc (D E G H : Dil) (S : Mor D E) (T : Mor E G) (R : Mor G H) :
+    Id (Mor D H) (compM D G H (compM D E G S T) R) (compM D E H S (compM E G H T R)) =
+  mor-ext D H (compM D G H (compM D E G S T) R) (compM D E H S (compM E G H T R)) (\ n ->
+    W.sym W.Wd (W.compW (W.compW (R.1 n) (T.1 n)) (S.1 n)) (W.compW (R.1 n) (W.compW (T.1 n) (S.1 n)))
+      (comp-assoc (R.1 n) (T.1 n) (S.1 n) (Comp[E,G,H,T,R].match n) (Comp[D,E,G,S,T].match n))) ;
+
+----------------------------------------------------------------------
+-- morphisms are cartesian: they preserve least supports, so a point is
+-- in the image of D(w) iff its image under T is in the image of E(w)
+-- (the naturality squares are pull-backs)
+
+dcomp (D : Dil) (v w : W.Wd) (h : Id W.N (W.ones v) (W.len w)) : Id W.Wd (D1 D (W.compW v w)) (W.compW (D1 D v) (D1 D w)) =
+  D.2.2.2.2.2.1 v w h ;
+
+-- a point is in the image of every u above its least support
+module Up (D : Dil) (p x : W.N) (hx : Id W.Bool (W.at (D1 D (W.idW p)) x) true) (u : W.Wd) (hu : Id W.N (W.len u) p)
+  (le : W.Le (W.PreDil[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2].Sup[p,x].supp) u) {
+  module P = W.PreDil[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2] ;
+  s : W.Wd = P.Sup[p,x].supp ;
+  ss : P.Point[p,x,hx].Supp s = P.Point[p,x,hx].supp-supp ;
+  r : W.Wd = W.restrict u s ;
+  rc : Id W.Wd (W.compW u r) s = W.restrict-comp u s (W.trans W.N (W.len s) p (W.len u) ss.1 (W.sym W.N (W.len u) p hu)) le ;
+  lr : Id W.N (W.ones u) (W.len r) = W.sym W.N (W.len r) (W.ones u) (W.len-restrict u s) ;
+  h1 : Id W.Bool (W.at (D1 D (W.compW u r)) x) true =
+    W.subst W.Wd (\ v -> Id W.Bool (W.at (D1 D v) x) true) s (W.compW u r) (W.sym W.Wd (W.compW u r) s rc) ss.2 ;
+  h2 : Id W.Bool (W.at (W.compW (D1 D u) (D1 D r)) x) true =
+    W.subst W.Wd (\ v -> Id W.Bool (W.at v x) true) (D1 D (W.compW u r)) (W.compW (D1 D u) (D1 D r)) (dcomp D u r lr) h1 ;
+  result : Id W.Bool (W.at (D1 D u) x) true =
+    W.andB-l (W.at (D1 D u) x) (W.at (D1 D r) (W.rank (D1 D u) x))
+      (W.trans W.Bool (W.andB (W.at (D1 D u) x) (W.at (D1 D r) (W.rank (D1 D u) x))) (W.at (W.compW (D1 D u) (D1 D r)) x) true
+        (W.sym W.Bool (W.at (W.compW (D1 D u) (D1 D r)) x) (W.andB (W.at (D1 D u) x) (W.at (D1 D r) (W.rank (D1 D u) x)))
+          (W.at-comp (D1 D u) x (D1 D r)))
+        h2) ;
+} ;
+
+module Cart (D E : Dil) (T : Mor D E) (w : W.Wd) (x : W.N) (hx : Id W.Bool (W.ltN x (D0 D (W.len w))) true) {
+  p : W.N = W.len w ;
+  module NT = W.Nat[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2,
+    E.1,E.2.1,E.2.2.1,E.2.2.2.1,E.2.2.2.2.1,E.2.2.2.2.2.1,E.2.2.2.2.2.2,T.1,T.2.1,T.2.2.1,T.2.2.2] ;
+  module QD = NT.PD ;
+  module QE = NT.PE ;
+  xP : QD.Pt p = (x,QD.hzOf p x hx) ;
+  y : W.N = W.sel (T.1 p) x ;
+  yP : QE.Pt p = (y,QE.hzOf p y (NT.ltT p x hx)) ;
+  dx : QD.Den p = QD.fwd p xP ;
+  eq1 : Id W.N y (QE.bwd p (NT.denT p dx)).1 =
+    W.sym W.N (QE.bwd p (NT.denT p dx)).1 y
+      (W.trans W.N (QE.bwd p (NT.denT p dx)).1 (W.sel (T.1 p) (QD.bwd p dx).1) y (NT.denT-ok p dx)
+        (W.ap W.N W.N (W.sel (T.1 p)) (QD.bwd p dx).1 x (QD.bwd-fwd p xP))) ;
+  eP : Id (QE.Pt p) yP (QE.bwd p (NT.denT p dx)) =
+    PL.Sigma-eq W.N (\ z -> Id W.Bool (W.at (D1 E (W.idW p)) z) true) y (QE.bwd p (NT.denT p dx)).1
+      yP.2 (QE.bwd p (NT.denT p dx)).2 eq1 (W.HB.uip (W.at (D1 E (W.idW p)) (QE.bwd p (NT.denT p dx)).1) true) ;
+  -- the least support of T(x) is the least support of x
+  supp-eq : Id W.Wd QE.Sup[p,y].supp QD.Sup[p,x].supp =
+    W.trans W.Wd QE.Sup[p,y].supp (QE.fwd p (QE.bwd p (NT.denT p dx))).1 QD.Sup[p,x].supp
+      (W.ap (QE.Pt p) W.Wd (\ q -> (QE.fwd p q).1) yP (QE.bwd p (NT.denT p dx)) eP)
+      (QE.fwd-bwd-w p (NT.denT p dx)) ;
+  -- the pull-back property
+  reflect (h : Id W.Bool (W.at (D1 E w) y) true) : Id W.Bool (W.at (D1 D w) x) true =
+    Up[D,p,x,xP.2,w,refl p,
+      W.subst W.Wd (\ v -> W.Le v w) QE.Sup[p,y].supp QD.Sup[p,x].supp supp-eq
+        (QE.Point[p,y,yP.2].supp-min w (refl p,h))].result ;
+} ;

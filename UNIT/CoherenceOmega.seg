@@ -1,0 +1,54 @@
+-- Omega as a coherence space, and the obstruction of DI.txt (obligation 1)
+-- in the trace setting.
+--
+-- Omega is the coherence space with one token.  For a proposition P the
+-- map  x |-> P v x  is monotone on points of Omega (and preserves binary
+-- meets), but it has least finite supports (CoherenceTrace.Stable) iff P
+-- is decidable.  So the traced function space Omega => Omega contains it
+-- exactly when P is decided, and asking every such map to be an element
+-- is small excluded middle.  Traces exclude it by construction.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module TC = TruncationCombinators[l] ;
+module FD = FiniteDiscrete[l] ;
+module FS = DIFinSubsets[l] ;
+module CO = Coherence[l] ;
+module PL = Prelude[l] ;
+
+top-dec : (s t : Top) -> FD.Dec (Id Top s t) = split { tt -> split { tt -> inl (refl tt) } } ;
+omega : CO.Space = new CO.Space[web := Top, dec := top-dec, coh := \ s t -> true,
+  coh-refl := \ t -> tt, coh-sym := \ s t h -> h] ;
+
+top-eq : (t : Top) -> Id Top tt t = split { tt -> refl tt } ;
+
+module Obstruction {
+  module CT = CoherenceTrace[l].On[omega,omega] ;
+  module A = CT.A ;
+  full : A.Carrier = ((\ _ -> true,inc (A.P.Cover (\ _ -> true)) (leaf,(\ _ -> tt,\ t h -> (tt,top-eq t)))),
+    \ s t hs ht -> tt) ;
+  top : CT.PtA = CT.pt full ;
+
+  module Or (P : U l) (pP : PL.isProp P) {
+    G (x : CT.PtA) (t : Top) : U l = Ex (Plus P (x.1.1 t)) ;
+    g (x : CT.PtA) : CT.PtB = ((G x,\ t -> prop (Plus P (x.1.1 t))),\ s t hs ht -> tt) ;
+    mono : CT.Mono g = \ x y xy t ->
+      TC.map (Plus P (x.1.1 t)) (Plus P (y.1.1 t))
+        (\ w -> cases P (x.1.1 t) (\ _ -> Plus P (y.1.1 t)) (\ p -> inl p) (\ q -> inr (xy t q)) w) ;
+    -- a least support of tt in g(top) decides P
+    module Decide (st : CT.Stable g) {
+      dl : (a : A.Carrier) * CT.Least g top tt a = st top tt (inc (Plus P Top) (inr tt)) ;
+      a : A.Carrier = dl.1 ;
+      from-p (p : P) : A.LEC a A.bot = dl.2.2.2 A.bot (\ t h -> absurd (top.1.1 t) h) (inc (Plus P (IsT false)) (inl p)) ;
+      yes (h : IsT (a.1.1 tt)) : FD.Dec P = inr (\ p -> from-p p tt h) ;
+      no (n : IsT (a.1.1 tt) -> Empty) : FD.Dec P = inl
+        (TC.rec (Plus P (IsT (a.1.1 tt))) @l P pP
+          (\ w -> cases P (IsT (a.1.1 tt)) (\ _ -> P) (\ p -> p) (\ q -> absurd P (n q)) w) dl.2.2.1) ;
+      decision : FD.Dec P =
+        cases (IsT (a.1.1 tt)) (IsT (a.1.1 tt) -> Empty) (\ _ -> FD.Dec P) yes no (FS.bool-cases (a.1.1 tt)) ;
+    } ;
+  } ;
+  -- if every map  x |-> P v x  is an element of Omega => Omega (has least
+  -- supports), then every proposition is decidable
+  excluded-middle (h : (P : U l) (pP : PL.isProp P) -> CT.Stable (Or[P,pP].g))
+    (P : U l) (pP : PL.isProp P) : FD.Dec P = Or[P,pP].Decide[h P pP].decision ;
+} ;

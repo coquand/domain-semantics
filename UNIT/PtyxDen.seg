@@ -1,0 +1,162 @@
+-- The ptyx  D |-> D(X)  for a decidable linear order X (catemb.pdf,
+-- linear-order case, step 5 of PLAN-CATEMB-LO.md); D(omega) is X = N.
+-- Values are linear orders that need not be finite: D(X) is the order
+-- of denotations (a, z), a a finite increasing list in X, z a trace
+-- point of D at level |a| (Dilator.LinOrd.DenOrd, Girard 8.3).
+--
+-- A morphism T : D -> E acts on the trace part: (a, z) |-> (a, T(|a|) z),
+-- which preserves traces (Dilator.Nat.trT) and the order (naturality of T
+-- along the words of the merge).  A denotation (a, z) is supported by
+-- D|c iff its trace point (|a|, z) is in c: stability is then just
+-- conjunction, and continuity holds at level |a|.  The point of the
+-- example: supports of a ptyx with infinite values are still finite
+-- subdilators, and are given by the trace.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PM = PtyxMor[l] ;
+module PL = Prelude[l] ;
+
+-- the least support is preserved by a morphism (CatDil.Cart, at any level p)
+module SuppEq (D E : CD.Dil) (T : CD.Mor D E) (p x : W.N) (hx : Id W.Bool (W.ltN x (CD.D0 D p)) true) {
+  module NT = W.Nat[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2,
+    E.1,E.2.1,E.2.2.1,E.2.2.2.1,E.2.2.2.2.1,E.2.2.2.2.2.1,E.2.2.2.2.2.2,T.1,T.2.1,T.2.2.1,T.2.2.2] ;
+  module QD = NT.PD ;
+  module QE = NT.PE ;
+  xP : QD.Pt p = (x,QD.hzOf p x hx) ;
+  y : W.N = W.sel (T.1 p) x ;
+  yP : QE.Pt p = (y,QE.hzOf p y (NT.ltT p x hx)) ;
+  dx : QD.Den p = QD.fwd p xP ;
+  eq1 : Id W.N y (QE.bwd p (NT.denT p dx)).1 =
+    W.sym W.N (QE.bwd p (NT.denT p dx)).1 y
+      (W.trans W.N (QE.bwd p (NT.denT p dx)).1 (W.sel (T.1 p) (QD.bwd p dx).1) y (NT.denT-ok p dx)
+        (W.ap W.N W.N (W.sel (T.1 p)) (QD.bwd p dx).1 x (QD.bwd-fwd p xP))) ;
+  eP : Id (QE.Pt p) yP (QE.bwd p (NT.denT p dx)) =
+    PL.Sigma-eq W.N (\ z -> Id W.Bool (W.at (CD.D1 E (W.idW p)) z) true) y (QE.bwd p (NT.denT p dx)).1
+      yP.2 (QE.bwd p (NT.denT p dx)).2 eq1 (W.HB.uip (W.at (CD.D1 E (W.idW p)) (QE.bwd p (NT.denT p dx)).1) true) ;
+  supp-eq : Id W.Wd QE.Sup[p,y].supp QD.Sup[p,x].supp =
+    W.trans W.Wd QE.Sup[p,y].supp (QE.fwd p (QE.bwd p (NT.denT p dx))).1 QD.Sup[p,x].supp
+      (W.ap (QE.Pt p) W.Wd (\ q -> (QE.fwd p q).1) yP (QE.bwd p (NT.denT p dx)) eP)
+      (QE.fwd-bwd-w p (NT.denT p dx)) ;
+} ;
+
+module Den (X : DP.LO) {
+  module LX = W.LinOrd[X.car,X.cmp,X.ceq,X.cflip,X.ctrans] ;
+  L : U l = W.List X.car ;
+  module DO (D : CD.Dil) {
+    module O = LX.DenOrd[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2] ;
+  } ;
+  Pt (D : CD.Dil) : U l = DO[D].O.DenX ;
+  F (D : CD.Dil) : DP.LO = new DP.LO[car := Pt D, cmp := DO[D].O.cmpDen, ceq := DO[D].O.den-eq,
+    crefl := DO[D].O.den-refl, cflip := DO[D].O.den-flip, ctrans := DO[D].O.den-trans] ;
+  deq (D : CD.Dil) (d d' : Pt D) (e1 : Id L d.1 d'.1) (e2 : Id W.N d.2.1 d'.2.1) : Id (Pt D) d d' =
+    DO[D].O.denXEq d.1 d.2.1 d.2.2 d'.1 e1 d'.2.1 e2 d'.2.2 ;
+
+  module Act (D E : CD.Dil) (T : CD.Mor D E) {
+    module NT = W.Nat[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2,
+      E.1,E.2.1,E.2.2.1,E.2.2.2.1,E.2.2.2.2.1,E.2.2.2.2.2.1,E.2.2.2.2.2.2,T.1,T.2.1,T.2.2.1,T.2.2.2] ;
+    f (d : Pt D) : Pt E = (d.1,(W.sel (T.1 (LX.lenL d.1)) d.2.1,(d.2.2.1,NT.trT (LX.lenL d.1) d.2.1 d.2.2.2))) ;
+    -- one side of the comparison: E(v) . T(|a|) = T(k) . D(v)
+    module Side (k : W.N) (v : W.Wd) (a : L) (z : W.N) (ho : Id W.N (W.ones v) (LX.lenL a)) (hl : Id W.N (W.len v) k)
+      (hz : Id W.Bool (W.ltN z (D.1 (LX.lenL a))) true) {
+      eq : Id W.N (W.sel (CD.D1 E v) (W.sel (T.1 (LX.lenL a)) z)) (W.sel (T.1 k) (PM.act D v z)) =
+        W.trans W.N (W.sel (CD.D1 E v) (W.sel (T.1 (LX.lenL a)) z)) (W.sel (CD.D1 E v) (W.sel (T.1 (W.ones v)) z))
+          (W.sel (T.1 k) (PM.act D v z))
+          (W.ap W.N W.N (\ j -> W.sel (CD.D1 E v) (W.sel (T.1 j) z)) (LX.lenL a) (W.ones v) (W.sym W.N (W.ones v) (LX.lenL a) ho))
+          (W.trans W.N (W.sel (CD.D1 E v) (W.sel (T.1 (W.ones v)) z)) (W.sel (T.1 (W.len v)) (PM.act D v z))
+            (W.sel (T.1 k) (PM.act D v z))
+            (W.sym W.N (W.sel (T.1 (W.len v)) (PM.act D v z)) (W.sel (CD.D1 E v) (W.sel (T.1 (W.ones v)) z)) (NT.nat-sel v z))
+            (W.ap W.N W.N (\ j -> W.sel (T.1 j) (PM.act D v z)) (W.len v) k hl)) ;
+      bd : Id W.Bool (W.ltN (PM.act D v z) (W.ones (T.1 k))) true =
+        W.subst W.N (\ j -> Id W.Bool (W.ltN (PM.act D v z) j) true) (D.1 k) (W.ones (T.1 k)) (W.sym W.N (W.ones (T.1 k)) (D.1 k) (T.2.2.1 k))
+          (W.subst W.N (\ j -> Id W.Bool (W.ltN (PM.act D v z) (D.1 j)) true) (W.len v) k hl
+            (PM.act-lt D v z (W.subst W.N (\ j -> Id W.Bool (W.ltN z (D.1 j)) true) (LX.lenL a) (W.ones v)
+              (W.sym W.N (W.ones v) (LX.lenL a) ho) hz))) ;
+    } ;
+    module Ord (d d' : Pt D) {
+      mg : LX.Cv = LX.merge d.1 d'.1 ;
+      kv : LX.Cov d.1 d'.1 mg = LX.mergeOK d.1 d'.1 d.2.2.1 d'.2.2.1 ;
+      ov1 : LX.Over mg.1 mg.2.1 d.1 = LX.mOver1 d.1 d'.1 mg kv ;
+      ov2 : LX.Over mg.1 mg.2.2 d'.1 = LX.mOver2 d.1 d'.1 mg kv ;
+      k : W.N = LX.lenL mg.1 ;
+      module S1 = Side[k,mg.2.1,d.1,d.2.1,LX.onesOver mg.1 mg.2.1 d.1 ov1,ov1.1,d.2.2.2.1] ;
+      module S2 = Side[k,mg.2.2,d'.1,d'.2.1,LX.onesOver mg.1 mg.2.2 d'.1 ov2,ov2.1,d'.2.2.2.1] ;
+      ord : Id W.O3 (DO[E].O.cmpDen (f d) (f d')) (DO[D].O.cmpDen d d') =
+        W.trans W.O3 (DO[E].O.cmpDen (f d) (f d'))
+          (W.cmpN (W.sel (T.1 k) (PM.act D mg.2.1 d.2.1)) (W.sel (T.1 k) (PM.act D mg.2.2 d'.2.1)))
+          (DO[D].O.cmpDen d d')
+          (W.ap2 W.N W.N W.O3 W.cmpN
+            (W.sel (CD.D1 E mg.2.1) (W.sel (T.1 (LX.lenL d.1)) d.2.1)) (W.sel (T.1 k) (PM.act D mg.2.1 d.2.1))
+            (W.sel (CD.D1 E mg.2.2) (W.sel (T.1 (LX.lenL d'.1)) d'.2.1)) (W.sel (T.1 k) (PM.act D mg.2.2 d'.2.1))
+            S1.eq S2.eq)
+          (W.sel-mono (T.1 k) (PM.act D mg.2.1 d.2.1) (PM.act D mg.2.2 d'.2.1) S1.bd S2.bd) ;
+    } ;
+    map : DP.Map (F D) (F E) = (f,\ d d' -> Ord[d,d'].ord) ;
+  } ;
+  arr (D E : CD.Dil) (T : CD.Mor D E) : DP.Map (F D) (F E) = Act[D,E,T].map ;
+  arr-id (D : CD.Dil) (d : Pt D) : Id (Pt D) ((arr D D (CD.idM D)).1 d) d =
+    deq D ((arr D D (CD.idM D)).1 d) d (refl d.1) (W.sel-idW (D.1 (LX.lenL d.1)) d.2.1 d.2.2.2.1) ;
+  arr-comp (D E G : CD.Dil) (S : CD.Mor D E) (T : CD.Mor E G) (d : Pt D) :
+      Id (Pt G) ((arr E G T).1 ((arr D E S).1 d)) ((arr D G (CD.compM D E G S T)).1 d) =
+    deq G ((arr E G T).1 ((arr D E S).1 d)) ((arr D G (CD.compM D E G S T)).1 d) (refl d.1)
+      (W.sym W.N (W.sel (W.compW (T.1 (LX.lenL d.1)) (S.1 (LX.lenL d.1))) d.2.1)
+        (W.sel (T.1 (LX.lenL d.1)) (W.sel (S.1 (LX.lenL d.1)) d.2.1))
+        (W.sel-comp (T.1 (LX.lenL d.1)) (S.1 (LX.lenL d.1)) d.2.1 (CD.Comp[D,E,G,S,T].match (LX.lenL d.1)))) ;
+
+  ----------------------------------------------------------------------
+  -- supports: (a, z) is supported by D|c iff c |a| z
+
+  module SP (D : CD.Dil) (c : DP.SubSet) {
+    module S = DF.On[D].Sub[c] ;
+    Supp (d : Pt D) : U l = (e : Pt S.dil) * Id (Pt D) ((arr S.dil D S.inc).1 e) d ;
+    module Hit (d : Pt D) (h : Id W.Bool (c (LX.lenL d.1) d.2.1) true) {
+      m : W.N = LX.lenL d.1 ;
+      z : W.N = d.2.1 ;
+      tp : DO[D].O.TP m z = d.2.2.2 ;
+      trc-eq : Id W.Bool (S.R.trc m z) (c m z) =
+        W.trans W.Bool (S.R.trc m z) (c (W.ones (W.idW m)) (W.rank (CD.D1 D (W.idW m)) z)) (c m z)
+          (W.ap W.Wd W.Bool (\ u -> c (W.ones u) (W.rank (CD.D1 D u) z)) S.R.PD.Sup[m,z].supp (W.idW m) tp.2)
+          (W.ap2 W.N W.N W.Bool c (W.ones (W.idW m)) m (W.rank (CD.D1 D (W.idW m)) z) z
+            (W.ones-idW m) (S.R.PD.rkid m z tp.1)) ;
+      hat : Id W.Bool (W.at (S.R.chi m) z) true =
+        W.trans W.Bool (W.at (S.R.chi m) z) (S.R.trc m z) true (S.member m z tp.1)
+          (W.trans W.Bool (S.R.trc m z) (c m z) true trc-eq h) ;
+      z' : W.N = W.rank (S.R.chi m) z ;
+      lt' : Id W.Bool (W.ltN z' (S.R.F0 m)) true = W.rank-lt (S.R.chi m) z hat ;
+      se : Id W.N (W.sel (S.R.chi m) z') z = W.sel-rank (S.R.chi m) z hat ;
+      module Q = SuppEq[S.dil,D,S.inc,m,z',lt'] ;
+      tr' : Id W.Wd Q.QD.Sup[m,z'].supp (W.idW m) =
+        W.trans W.Wd Q.QD.Sup[m,z'].supp Q.QE.Sup[m,W.sel (S.R.chi m) z'].supp (W.idW m)
+          (W.sym W.Wd Q.QE.Sup[m,W.sel (S.R.chi m) z'].supp Q.QD.Sup[m,z'].supp Q.supp-eq)
+          (W.trans W.Wd Q.QE.Sup[m,W.sel (S.R.chi m) z'].supp Q.QE.Sup[m,z].supp (W.idW m)
+            (W.ap W.N W.Wd (\ y -> Q.QE.Sup[m,y].supp) (W.sel (S.R.chi m) z') z se)
+            tp.2) ;
+      e : Pt S.dil = (d.1,(z',(d.2.2.1,(lt',tr')))) ;
+      supp : Supp d = (e,deq D ((arr S.dil D S.inc).1 e) d (refl d.1) se) ;
+    } ;
+    back (d : Pt D) (s : Supp d) : Id W.Bool (c (LX.lenL d.1) d.2.1) true =
+      W.subst (Pt D) (\ q -> Id W.Bool (c (LX.lenL q.1) q.2.1) true) ((arr S.dil D S.inc).1 s.1) d s.2
+        (S.R.trIn (LX.lenL s.1.1) s.1.2.1 s.1.2.2.2) ;
+  } ;
+
+  meet (D : CD.Dil) (d : Pt D) (c c' : DP.SubSet) (s : SP[D,c].Supp d) (s' : SP[D,c'].Supp d) :
+      SP[D,DF.On[D].meet c c'].Supp d =
+    SP[D,DF.On[D].meet c c'].Hit[d,
+      W.ap2 W.Bool W.Bool W.Bool W.andB (c (LX.lenL d.1) d.2.1) true (c' (LX.lenL d.1) d.2.1) true
+        (SP[D,c].back d s) (SP[D,c'].back d s')].supp ;
+  support (D : CD.Dil) (d : Pt D) : Ex ((K : W.N) * SP[D,DF.On[D].lev K].Supp d) =
+    inc ((K : W.N) * SP[D,DF.On[D].lev K].Supp d)
+      (LX.lenL d.1,SP[D,DF.On[D].lev (LX.lenL d.1)].Hit[d,W.ltN-suc (LX.lenL d.1)].supp) ;
+
+  ptyx : DP.Ptyx = new DP.Ptyx[F := F, arr := arr, arr-id := arr-id, arr-comp := arr-comp,
+    support := support, meet := meet] ;
+} ;
+
+-- D |-> D(omega)
+omega : DP.LO = new DP.LO[car := W.N, cmp := W.cmpN, ceq := W.cmpN-eq, crefl := W.cmpN-refl,
+  cflip := W.cmpN-flip, ctrans := W.cmpN-trans] ;
+module DOmega = Den[omega] ;
+ptyxOmega : DP.Ptyx = DOmega.ptyx ;

@@ -1,0 +1,154 @@
+-- Morphisms of ptykes (catemb.pdf, linear-order case, step 5 of
+-- PLAN-CATEMB-LO.md).  A morphism P -> Q is a family of strictly
+-- increasing maps a D : P(D) -> Q(D), natural in D, and CARTESIAN: if
+-- a D y is supported by D|c then so is y.  The converse holds by
+-- naturality, so a morphism preserves and reflects supports (the
+-- naturality squares along inclusions of subdilators are pull-backs).
+-- Identity, composition and the category laws (pointwise, by refl).
+--
+-- Example: the evaluation ptykes form a functor from finite ordinals to
+-- Ptyx: a word w : [ones w] -> [len w] gives Eval[ones w] -> Eval[len w],
+-- D |-> D(w).  Cartesian because D(w) preserves traces (Dilator.Restr.Inv).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module DE = DilPtyxEval[l] ;
+module PL = Prelude[l] ;
+
+----------------------------------------------------------------------
+-- maps of linear orders
+
+idMap (A : DP.LO) : DP.Map A A = (\ x -> x,\ x y -> refl (A.cmp x y)) ;
+compMap (A B C : DP.LO) (f : DP.Map A B) (g : DP.Map B C) : DP.Map A C =
+  (\ x -> g.1 (f.1 x),\ x y -> W.trans W.O3 (C.cmp (g.1 (f.1 x)) (g.1 (f.1 y))) (B.cmp (f.1 x) (f.1 y)) (A.cmp x y)
+    (g.2 (f.1 x) (f.1 y)) (f.2 x y)) ;
+
+----------------------------------------------------------------------
+-- morphisms
+
+Supp (P : DP.Ptyx) (D : CD.Dil) (y : (P.F D).car) (c : DP.SubSet) : U l = DP.Supports[P,D].Supp y c ;
+
+Fam (P Q : DP.Ptyx) : U l = (D : CD.Dil) -> DP.Map (P.F D) (Q.F D) ;
+Natural (P Q : DP.Ptyx) (a : Fam P Q) : U l =
+  (D E : CD.Dil) (T : CD.Mor D E) (y : (P.F D).car) ->
+    Id (Q.F E).car ((Q.arr D E T).1 ((a D).1 y)) ((a E).1 ((P.arr D E T).1 y)) ;
+Cartesian (P Q : DP.Ptyx) (a : Fam P Q) : U l =
+  (D : CD.Dil) (y : (P.F D).car) (c : DP.SubSet) -> Supp Q D ((a D).1 y) c -> Supp P D y c ;
+Mor (P Q : DP.Ptyx) : U l = (a : Fam P Q) * (Natural P Q a * Cartesian P Q a) ;
+
+-- a morphism preserves supports (by naturality), and reflects them
+-- (cartesian)
+preserve (P Q : DP.Ptyx) (S : Mor P Q) (D : CD.Dil) (y : (P.F D).car) (c : DP.SubSet) (s : Supp P D y c) :
+    Supp Q D ((S.1 D).1 y) c =
+  ((S.1 (DF.On[D].Sub[c].dil)).1 s.1,
+   PL.trans (Q.F D).car ((Q.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 ((S.1 (DF.On[D].Sub[c].dil)).1 s.1))
+     ((S.1 D).1 ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 s.1)) ((S.1 D).1 y)
+     (S.2.1 (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc) s.1)
+     (PL.ap (P.F D).car (Q.F D).car (S.1 D).1 ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 s.1) y s.2)) ;
+reflect (P Q : DP.Ptyx) (S : Mor P Q) (D : CD.Dil) (y : (P.F D).car) (c : DP.SubSet) (s : Supp Q D ((S.1 D).1 y) c) :
+    Supp P D y c = S.2.2 D y c s ;
+
+-- identity and composition
+idP (P : DP.Ptyx) : Mor P P =
+  (\ D -> idMap (P.F D),(\ D E T y -> refl ((P.arr D E T).1 y),\ D y c s -> s)) ;
+
+module Comp (P Q R : DP.Ptyx) (S : Mor P Q) (T : Mor Q R) {
+  a : Fam P R = \ D -> compMap (P.F D) (Q.F D) (R.F D) (S.1 D) (T.1 D) ;
+  nat : Natural P R a = \ D E M y ->
+    PL.trans (R.F E).car ((R.arr D E M).1 ((T.1 D).1 ((S.1 D).1 y))) ((T.1 E).1 ((Q.arr D E M).1 ((S.1 D).1 y)))
+      ((T.1 E).1 ((S.1 E).1 ((P.arr D E M).1 y)))
+      (T.2.1 D E M ((S.1 D).1 y))
+      (PL.ap (Q.F E).car (R.F E).car (T.1 E).1 ((Q.arr D E M).1 ((S.1 D).1 y)) ((S.1 E).1 ((P.arr D E M).1 y))
+        (S.2.1 D E M y)) ;
+  cart : Cartesian P R a = \ D y c s -> S.2.2 D y c (T.2.2 D ((S.1 D).1 y) c s) ;
+  mor : Mor P R = (a,(nat,cart)) ;
+} ;
+compP (P Q R : DP.Ptyx) (S : Mor P Q) (T : Mor Q R) : Mor P R = Comp[P,Q,R,S,T].mor ;
+
+-- equality of morphisms: pointwise equality of the maps
+MorEq (P Q : DP.Ptyx) (S T : Mor P Q) : U l = (D : CD.Dil) (y : (P.F D).car) -> Id (Q.F D).car ((S.1 D).1 y) ((T.1 D).1 y) ;
+id-left (P Q : DP.Ptyx) (S : Mor P Q) : MorEq P Q (compP P Q Q S (idP Q)) S = \ D y -> refl ((S.1 D).1 y) ;
+id-right (P Q : DP.Ptyx) (S : Mor P Q) : MorEq P Q (compP P P Q (idP P) S) S = \ D y -> refl ((S.1 D).1 y) ;
+assoc (P Q R G : DP.Ptyx) (S : Mor P Q) (T : Mor Q R) (M : Mor R G) :
+    MorEq P G (compP P R G (compP P Q R S T) M) (compP P Q G S (compP Q R G T M)) =
+  \ D y -> refl ((M.1 D).1 ((T.1 D).1 ((S.1 D).1 y))) ;
+
+----------------------------------------------------------------------
+-- the functor from finite ordinals: w : [ones w] -> [len w] acts on the
+-- evaluation ptykes by D |-> D(w)
+
+act (D : CD.Dil) (w : W.Wd) (x : W.N) : W.N = W.sel (CD.D1 D w) x ;
+
+act-lt (D : CD.Dil) (w : W.Wd) (x : W.N) (h : Id W.Bool (W.ltN x (D.1 (W.ones w))) true) :
+    Id W.Bool (W.ltN (act D w x) (D.1 (W.len w))) true =
+  W.subst W.N (\ k -> Id W.Bool (W.ltN (act D w x) k) true) (W.len (CD.D1 D w)) (D.1 (W.len w)) (CD.dlen D w)
+    (W.sel-lt (CD.D1 D w) x
+      (W.subst W.N (\ k -> Id W.Bool (W.ltN x k) true) (D.1 (W.ones w)) (W.ones (CD.D1 D w))
+        (W.sym W.N (W.ones (CD.D1 D w)) (D.1 (W.ones w)) (CD.dones D w)) h)) ;
+
+-- functoriality of act
+act-id (D : CD.Dil) (n x : W.N) (h : Id W.Bool (W.ltN x (D.1 n)) true) : Id W.N (act D (W.idW n) x) x =
+  W.trans W.N (act D (W.idW n) x) (W.sel (W.idW (D.1 n)) x) x
+    (W.ap W.Wd W.N (\ u -> W.sel u x) (CD.D1 D (W.idW n)) (W.idW (D.1 n)) (D.2.2.2.2.1 n))
+    (W.sel-idW (D.1 n) x h) ;
+act-comp (D : CD.Dil) (v w : W.Wd) (h : Id W.N (W.ones v) (W.len w)) (x : W.N) :
+    Id W.N (act D (W.compW v w) x) (act D v (act D w x)) =
+  W.trans W.N (act D (W.compW v w) x) (W.sel (W.compW (CD.D1 D v) (CD.D1 D w)) x) (act D v (act D w x))
+    (W.ap W.Wd W.N (\ u -> W.sel u x) (CD.D1 D (W.compW v w)) (W.compW (CD.D1 D v) (CD.D1 D w)) (CD.dcomp D v w h))
+    (W.sel-comp (CD.D1 D v) (CD.D1 D w) x
+      (W.trans W.N (W.ones (CD.D1 D v)) (D.1 (W.ones v)) (W.len (CD.D1 D w)) (CD.dones D v)
+        (W.trans W.N (D.1 (W.ones v)) (D.1 (W.len w)) (W.len (CD.D1 D w)) (W.ap W.N W.N D.1 (W.ones v) (W.len w) h)
+          (W.sym W.N (W.len (CD.D1 D w)) (D.1 (W.len w)) (CD.dlen D w))))) ;
+
+-- D(w) as a map D(k) -> D(k') of linear orders, for ones w = k, len w = k'
+module ActMap (D : CD.Dil) (w : W.Wd) (k k' : W.N) (ho : Id W.N (W.ones w) k) (hl : Id W.N (W.len w) k') {
+  module A = DE.Eval[k] ;
+  module B = DE.Eval[k'] ;
+  inOnes (x : A.Pt D) : Id W.Bool (W.ltN x.1 (W.ones (CD.D1 D w))) true =
+    W.subst W.N (\ j -> Id W.Bool (W.ltN x.1 j) true) (D.1 k) (W.ones (CD.D1 D w))
+      (W.sym W.N (W.ones (CD.D1 D w)) (D.1 k)
+        (W.trans W.N (W.ones (CD.D1 D w)) (D.1 (W.ones w)) (D.1 k) (CD.dones D w) (W.ap W.N W.N D.1 (W.ones w) k ho))) x.2 ;
+  lt (x : A.Pt D) : Id W.Bool (W.ltN (act D w x.1) (D.1 k')) true =
+    W.subst W.N (\ j -> Id W.Bool (W.ltN (act D w x.1) j) true) (W.len (CD.D1 D w)) (D.1 k')
+      (W.trans W.N (W.len (CD.D1 D w)) (D.1 (W.len w)) (D.1 k') (CD.dlen D w) (W.ap W.N W.N D.1 (W.len w) k' hl))
+      (W.sel-lt (CD.D1 D w) x.1 (inOnes x)) ;
+  f (x : A.Pt D) : B.Pt D = (act D w x.1,lt x) ;
+  map : DP.Map (A.F D) (B.F D) = (f,\ x y -> W.sel-mono (CD.D1 D w) x.1 y.1 (inOnes x) (inOnes y)) ;
+} ;
+actMap (D : CD.Dil) (w : W.Wd) (k k' : W.N) (ho : Id W.N (W.ones w) k) (hl : Id W.N (W.len w) k') :
+    DP.Map (DE.Eval[k].F D) (DE.Eval[k'].F D) = ActMap[D,w,k,k',ho,hl].map ;
+
+module EvalMor (w : W.Wd) {
+  m : W.N = W.ones w ;
+  n : W.N = W.len w ;
+  module A = DE.Eval[m] ;
+  module B = DE.Eval[n] ;
+  inOnes (D : CD.Dil) (x : A.Pt D) : Id W.Bool (W.ltN x.1 (W.ones (CD.D1 D w))) true =
+    W.subst W.N (\ k -> Id W.Bool (W.ltN x.1 k) true) (D.1 m) (W.ones (CD.D1 D w))
+      (W.sym W.N (W.ones (CD.D1 D w)) (D.1 m) (CD.dones D w)) x.2 ;
+  f (D : CD.Dil) (x : A.Pt D) : B.Pt D = (act D w x.1,act-lt D w x.1 x.2) ;
+  map (D : CD.Dil) : DP.Map (A.F D) (B.F D) =
+    (f D,\ x y -> W.sel-mono (CD.D1 D w) x.1 y.1 (inOnes D x) (inOnes D y)) ;
+  -- naturality: T(n) . D(w) = E(w) . T(m)
+  nat : Natural A.ptyx B.ptyx map = \ D E T x ->
+    B.pt-eq E ((B.arr D E T).1 (f D x)) (f E ((A.arr D E T).1 x)) (A.Act[D,E,T].NT.nat-sel w x.1) ;
+  -- cartesian: D(w) preserves traces, so D(w)(x) in D|c iff x in D|c
+  module Cart (D : CD.Dil) (x : A.Pt D) (c : DP.SubSet) (s : Supp B.ptyx D (f D x) c) {
+    module S = DF.On[D].Sub[c] ;
+    hin : Id W.Bool (W.at (S.R.chi n) (act D w x.1)) true = B.back D c (f D x) s ;
+    htr : Id W.Bool (S.R.trc m x.1) true =
+      W.trans W.Bool (S.R.trc m x.1) (S.R.trc n (act D w x.1)) true
+        (W.sym W.Bool (S.R.trc n (act D w x.1)) (S.R.trc m x.1) S.R.Inv[w,x.1,x.2].inv)
+        (W.trans W.Bool (S.R.trc n (act D w x.1)) (W.at (S.R.chi n) (act D w x.1)) true
+          (W.sym W.Bool (W.at (S.R.chi n) (act D w x.1)) (S.R.trc n (act D w x.1)) (S.member n (act D w x.1) (act-lt D w x.1 x.2)))
+          hin) ;
+    hx : Id W.Bool (W.at (S.R.chi m) x.1) true =
+      W.trans W.Bool (W.at (S.R.chi m) x.1) (S.R.trc m x.1) true (S.member m x.1 x.2) htr ;
+    result : Supp A.ptyx D x c = A.Hit[D,c,x,hx].supp ;
+  } ;
+  cart : Cartesian A.ptyx B.ptyx map = \ D x c s -> Cart[D,x,c,s].result ;
+  mor : Mor A.ptyx B.ptyx = (map,(nat,cart)) ;
+} ;

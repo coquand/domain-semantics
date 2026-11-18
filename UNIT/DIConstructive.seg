@@ -1,0 +1,100 @@
+-- Constructive dI-domains: the I-axiom stated for compact elements only.
+--
+-- The literal axiom of DIDomain covers EVERY x below a compact a, and
+-- CompactIdeals derives small excluded middle from it as soon as some
+-- compact is not bottom.  Here only compact x below a must be covered
+-- by the finite discrete presentation (catemb.pdf, Definition 3.9: a dI
+-- domain is the completion of a poset of events whose principal ideals
+-- are finite distributive lattices).
+--   from-di  : DI -> CDI, constructively;
+--   to-di    : CDI -> DI, given excluded middle for small propositions.
+-- So the two notions agree classically, and DI is CDI plus the fact that
+-- every element below a compact is compact.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+module TL = TruncationCombinators[l+] ;
+
+module Properties (S : ScottDomain[l].Scott) {
+  module A = ScottDomain[l].On[S] ;
+  module V = DC[S.order,S.complete] ;
+  record CompactIdeal {
+    top : A.C ;
+    shape : Shape ;
+    point : Ix shape -> A.C ;
+    compact : (i : Ix shape) -> V.Compact (point i) ;
+    below : (i : Ix shape) -> A.LE (point i) top ;
+    covers : (x : A.C) -> V.Compact x -> A.LE x top ->
+      Ex ((i : Ix shape) * (A.LE x (point i) * A.LE (point i) x)) ;
+    distinct : (i j : Ix shape) -> A.LE (point i) (point j) -> A.LE (point j) (point i) ->
+      Id (Ix shape) i j ;
+  } ;
+} ;
+
+record CDI {
+  scott : ScottDomain[l].Scott ;
+  distributive : DIDomain[l].Properties[scott.order].Distributive ;
+  compact-ideals : (a : scott.order.carrier) -> DC[scott.order,scott.complete].Compact a ->
+    ScottOrder[l+].Ex (Properties[scott].CompactIdeal[a]) ;
+} ;
+
+-- the literal axiom gives the compact one: the points are compact
+-- because everything below a compact is (CompactIdeals.below-compact)
+module FromDI (D : DIDomain[l].DI) {
+  module K = Properties[D.scott] ;
+  module DP = DIDomain[l].Properties[D.scott.order] ;
+  module CI = CompactIdeals[l].On[D.scott] ;
+  restrict (a : D.scott.order.carrier) (c : DC[D.scott.order,D.scott.complete].Compact a)
+    (F : DP.FiniteIdeal[a]) : K.CompactIdeal[a] =
+    new K.CompactIdeal[a, shape := F.shape, point := F.point,
+      compact := \ i -> CI.below-compact a c (D.finite-ideals a c) (F.point i) (F.below i),
+      below := F.below, covers := \ x xc h -> F.covers x h, distinct := F.distinct] ;
+  cdi : CDI = new CDI[scott := D.scott, distributive := D.distributive,
+    compact-ideals := \ a c -> TL.map (DP.FiniteIdeal[a]) (K.CompactIdeal[a]) (restrict a c)
+      (D.finite-ideals a c)] ;
+} ;
+
+-- with excluded middle, everything below a compact is compact, so the
+-- compact presentation covers all of the lower set
+module ToDI (D : CDI) (em : CompactIdeals[l].On[D.scott].Classical) {
+  module A = ScottDomain[l].On[D.scott] ; open A ;
+  module K = Properties[D.scott] ;
+  module V = DC[P,D.scott.complete] ;
+  module DP = DIDomain[l].Properties[P] ;
+  module Below (a : C) (F : K.CompactIdeal[a]) (x : C) (xa : LE x a) {
+    -- R j i: if the j-th point is below x, it is below the i-th element
+    module Into (I : U l) (y : I -> C) (d : ScottOrder[l].On[P].Dir I y) (h : LE x (V.sup I y d)) {
+      R (j : Ix F.shape) (i : I) : U l = LE (F.point j) x -> LE (F.point j) (y i) ;
+      step (j : Ix F.shape) : Ex ((i : I) * R j i) =
+        cases (LE (F.point j) x) (LE (F.point j) x -> Empty) (\ _ -> Ex ((i : I) * R j i))
+          (\ yes -> T.map ((i : I) * LE (F.point j) (y i)) ((i : I) * R j i)
+            (\ w -> (w.1,\ _ -> w.2))
+            (F.compact j I y d (P.transitive (F.point j) x (V.sup I y d) yes h)))
+          (\ no -> T.map I ((i : I) * R j i) (\ i -> (i,\ p -> absurd (LE (F.point j) (y i)) (no p))) d.1)
+          (em (LE (F.point j) x) (P.proposition (F.point j) x)) ;
+      common : Ex ((i : I) * ((j : Ix F.shape) -> R j i)) =
+        Directed[P,I,y,d].collect F.shape R
+          (\ j i k ik r p -> P.transitive (F.point j) (y i) (y k) (r p) ik) step ;
+      -- x is below y i: test with the basis, each basic element below x
+      -- is one of the points
+      bound (i : I) (r : (j : Ix F.shape) -> R j i) : LE x (y i) =
+        D.scott.basis.density x (y i) (\ b bx ->
+          T.rec ((j : Ix F.shape) * (LE (basic b) (F.point j) * LE (F.point j) (basic b))) @l
+            (LE (basic b) (y i)) (P.proposition (basic b) (y i))
+            (\ w -> P.transitive (basic b) (F.point w.1) (y i) w.2.1
+              (r w.1 (P.transitive (F.point w.1) (basic b) x w.2.2 bx)))
+            (F.covers (basic b) (D.scott.basis.compact b)
+              (P.transitive (basic b) x a bx xa))) ;
+      result : Ex ((i : I) * LE x (y i)) =
+        T.map ((i : I) * ((j : Ix F.shape) -> R j i)) ((i : I) * LE x (y i))
+          (\ w -> (w.1,bound w.1 w.2)) common ;
+    } ;
+    compact : V.Compact x = \ I y d h -> Into[I,y,d,h].result ;
+  } ;
+  literal (a : C) (F : K.CompactIdeal[a]) : DP.FiniteIdeal[a] =
+    new DP.FiniteIdeal[a, shape := F.shape, point := F.point, below := F.below,
+      covers := \ x h -> F.covers x (Below[a,F,x,h].compact) h, distinct := F.distinct] ;
+  di : DIDomain[l].DI = new DIDomain[l].DI[scott := D.scott, distributive := D.distributive,
+    finite-ideals := \ a c -> TL.map (K.CompactIdeal[a]) (DP.FiniteIdeal[a]) (literal a)
+      (D.compact-ideals a c)] ;
+} ;

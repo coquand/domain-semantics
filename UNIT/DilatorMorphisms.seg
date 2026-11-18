@@ -1,0 +1,103 @@
+-- Morphisms of pre-dilators act on subfunctors through the traces
+-- (catemb.pdf, Proposition 3.13 and the exponential of Theorem 3.15, for
+-- the category of finite ordinals with strictly increasing maps).
+--
+-- A natural transformation T : D -> E (dilator.seg, Nat) maps the trace
+-- of D injectively into the trace of E,  tau (m, z) = (m, T(m)(z))
+-- (Girard 8.2.5 (ii)).  The inverse image of a subfunctor H of E along T
+-- is a subfunctor of D, and under Sub ~ (Trace -> Prop) (DilatorSub) it is
+-- precomposition with tau, BY DEFINITION (pre-restrict is refl).  On the
+-- trace side, the direct image along tau is left adjoint to
+-- precomposition, and precomposition after direct image is the identity
+-- (tau is injective): an embedding-projection pair which is rigid,
+-- Sub(T)^L -| Sub(T)^R with Sub(T)^R . Sub(T)^L = id.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module T = TruncationCombinators[l] ;
+
+module Mor (D0 : W.N -> W.N) (D1 : W.Wd -> W.Wd)
+  (dlen : (w : W.Wd) -> Id W.N (W.len (D1 w)) (D0 (W.len w)))
+  (dones : (w : W.Wd) -> Id W.N (W.ones (D1 w)) (D0 (W.ones w)))
+  (did : (n : W.N) -> Id W.Wd (D1 (W.idW n)) (W.idW (D0 n)))
+  (dcomp : (v w : W.Wd) -> Id W.N (W.ones v) (W.len w) -> Id W.Wd (D1 (W.compW v w)) (W.compW (D1 v) (D1 w)))
+  (dmeet : (v w : W.Wd) -> Id W.N (W.len v) (W.len w) -> Id W.Wd (D1 (W.andW v w)) (W.andW (D1 v) (D1 w)))
+  (E0 : W.N -> W.N) (E1 : W.Wd -> W.Wd)
+  (elen : (w : W.Wd) -> Id W.N (W.len (E1 w)) (E0 (W.len w)))
+  (eones : (w : W.Wd) -> Id W.N (W.ones (E1 w)) (E0 (W.ones w)))
+  (eid : (n : W.N) -> Id W.Wd (E1 (W.idW n)) (W.idW (E0 n)))
+  (ecomp : (v w : W.Wd) -> Id W.N (W.ones v) (W.len w) -> Id W.Wd (E1 (W.compW v w)) (W.compW (E1 v) (E1 w)))
+  (emeet : (v w : W.Wd) -> Id W.N (W.len v) (W.len w) -> Id W.Wd (E1 (W.andW v w)) (W.andW (E1 v) (E1 w)))
+  (t : W.N -> W.Wd) (tlen : (n : W.N) -> Id W.N (W.len (t n)) (E0 n))
+  (tones : (n : W.N) -> Id W.N (W.ones (t n)) (D0 n))
+  (tnat : (w : W.Wd) -> Id W.Wd (W.compW (E1 w) (t (W.ones w))) (W.compW (t (W.len w)) (D1 w))) {
+  module SD = DilatorSub[l].SubDil[D0,D1,dlen,dones,did,dcomp,dmeet] ;
+  module SE = DilatorSub[l].SubDil[E0,E1,elen,eones,eid,ecomp,emeet] ;
+  module NT = W.Nat[D0,D1,dlen,dones,did,dcomp,dmeet,E0,E1,elen,eones,eid,ecomp,emeet,t,tlen,tones,tnat] ;
+
+  -- T on points and on traces
+  app (p : SD.Pt) : SE.Pt = (p.1,(W.sel (t p.1) p.2.1,NT.ltT p.1 p.2.1 p.2.2)) ;
+  tau (x : SD.Trace) : SE.Trace = (x.1,(W.sel (t x.1) x.2.1,NT.trT x.1 x.2.1 x.2.2)) ;
+  point-tau (x : SD.Trace) : Id SE.Pt (SE.point (tau x)) (app (SD.point x)) = refl (app (SD.point x)) ;
+
+  -- tau is injective
+  ones-lt (m z : W.N) (h : SD.Lt m z) : Id W.Bool (W.ltN z (W.ones (t m))) true =
+    W.subst W.N (\ k -> Id W.Bool (W.ltN z k) true) (D0 m) (W.ones (t m)) (W.sym W.N (W.ones (t m)) (D0 m) (tones m)) h ;
+  module Inj (x y : SD.Trace) (e : Id SE.Trace (tau x) (tau y)) {
+    e1 : Id W.N x.1 y.1 = Prelude[l].ap SE.Trace W.N (\ s -> s.1) (tau x) (tau y) e ;
+    e2 : Id W.N (W.sel (t x.1) x.2.1) (W.sel (t y.1) y.2.1) =
+      Prelude[l].ap SE.Trace W.N (\ s -> s.2.1) (tau x) (tau y) e ;
+    -- move x to the level of y
+    hx : SD.Lt y.1 x.2.1 = W.subst W.N (\ k -> SD.Lt k x.2.1) x.1 y.1 e1 x.2.2.1 ;
+    e2' : Id W.N (W.sel (t y.1) x.2.1) (W.sel (t y.1) y.2.1) =
+      W.trans W.N (W.sel (t y.1) x.2.1) (W.sel (t x.1) x.2.1) (W.sel (t y.1) y.2.1)
+        (W.ap W.N W.N (\ k -> W.sel (t k) x.2.1) y.1 x.1 (W.sym W.N x.1 y.1 e1)) e2 ;
+    ez : Id W.N x.2.1 y.2.1 = W.sel-inj (t y.1) x.2.1 y.2.1 (ones-lt y.1 x.2.1 hx) (ones-lt y.1 y.2.1 y.2.2.1) e2' ;
+    equation : Id SD.Trace x y = SD.tr-eq x.1 x.2.1 x.2.2 y.1 y.2.1 y.2.2 e1 ez ;
+  } ;
+  tau-inj (x y : SD.Trace) (e : Id SE.Trace (tau x) (tau y)) : Id SD.Trace x y = Inj[x,y,e].equation ;
+
+  ----------------------------------------------------------------------
+  -- the inverse image of a subfunctor
+
+  module Pre (H : SE.Sub) {
+    module Square (w : W.Wd) (x : W.N) (hx : SD.Lt (W.ones w) x) {
+      y : W.N = W.sel (t (W.ones w)) x ;
+      hy : SE.Lt (W.ones w) y = NT.ltT (W.ones w) x hx ;
+      -- T(D(w)(x)) = E(w)(T(x))
+      eq : Id SE.Pt (app (SD.act w x hx)) (SE.act w y hy) =
+        SE.pt-eq (W.len w) (W.sel (t (W.len w)) (W.sel (D1 w) x)) (app (SD.act w x hx)).2.2
+          (W.len w) (W.sel (E1 w) y) (SE.act-lt w y hy) (refl (W.len w)) (NT.nat-sel w x) ;
+      cart : (H.1 (app (SD.act w x hx)) -> H.1 (app (W.ones w,(x,hx)))) *
+             (H.1 (app (W.ones w,(x,hx))) -> H.1 (app (SD.act w x hx))) =
+        (\ h -> (H.2.2 w y hy).1 (Prelude[l].subst SE.Pt H.1 (app (SD.act w x hx)) (SE.act w y hy) eq h),
+         \ h -> Prelude[l].subst SE.Pt H.1 (SE.act w y hy) (app (SD.act w x hx))
+           (Prelude[l].sym SE.Pt (app (SD.act w x hx)) (SE.act w y hy) eq) ((H.2.2 w y hy).2 h)) ;
+    } ;
+    sub : SD.Sub = (\ p -> H.1 (app p),(\ p -> H.2.1 (app p),\ w x hx -> Square[w,x,hx].cart)) ;
+  } ;
+  pre (H : SE.Sub) : SD.Sub = Pre[H].sub ;
+  pre-mono (H H' : SE.Sub) (h : SE.Incl H H') : SD.Incl (pre H) (pre H') = \ p -> h (app p) ;
+
+  ----------------------------------------------------------------------
+  -- on the trace side: precomposition with tau and direct image
+
+  star (S : SE.TrSub) : SD.TrSub = (\ x -> S.1 (tau x),\ x -> S.2 (tau x)) ;
+  -- restricting the inverse image is precomposition with tau
+  pre-restrict (H : SE.Sub) : Id SD.TrSub (SD.restrict (pre H)) (star (SE.restrict H)) =
+    refl (SD.restrict (pre H)) ;
+  Image (S : SD.TrSub) (y : SE.Trace) : U l = (x : SD.Trace) * (Id SE.Trace (tau x) y * S.1 x) ;
+  shriek (S : SD.TrSub) : SE.TrSub = (\ y -> Ex (Image S y),\ y -> prop (Image S y)) ;
+  -- shriek -| star
+  unit (S : SD.TrSub) : SD.TrIncl S (star (shriek S)) = \ x s -> inc (Image S (tau x)) (x,(refl (tau x),s)) ;
+  counit (S' : SE.TrSub) : SE.TrIncl (shriek (star S')) S' = \ y ->
+    T.rec (Image (star S') y) @l (S'.1 y) (S'.2 y)
+      (\ w -> Prelude[l].subst SE.Trace S'.1 (tau w.1) y w.2.1 w.2.2) ;
+  -- star . shriek = id, since tau is injective
+  retract (S : SD.TrSub) : SD.TrIncl (star (shriek S)) S = \ x ->
+    T.rec (Image S (tau x)) @l (S.1 x) (S.2 x)
+      (\ w -> Prelude[l].subst SD.Trace S.1 w.1 x (tau-inj w.1 x w.2.1) w.2.2) ;
+  shriek-mono (S S' : SD.TrSub) (h : SD.TrIncl S S') : SE.TrIncl (shriek S) (shriek S') = \ y ->
+    T.map (Image S y) (Image S' y) (\ w -> (w.1,(w.2.1,h w.1 w.2.2))) ;
+  star-mono (S S' : SE.TrSub) (h : SE.TrIncl S S') : SD.TrIncl (star S) (star S') = \ x -> h (tau x) ;
+} ;

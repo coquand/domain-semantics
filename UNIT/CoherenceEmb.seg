@@ -1,0 +1,267 @@
+-- Rigid embeddings of coherence spaces, functoriality of the stable
+-- function space on them, and the tower of webs W(n+1) = W(n) => W(n).
+--
+-- An embedding S -> S' is an injective map of webs, with decidable
+-- fibres, preserving and reflecting coherence.  Direct and inverse
+-- images of finite cliques are finite cliques (inverse image: the cover
+-- is pulled back through the decidable fibres, Shapes below), and they
+-- are inverse on cliques inside the image.  Hence an embedding of S and
+-- one of T give an embedding of S => T into S' => T'.  Starting with
+-- tt |-> (empty,tt) : Omega -> Omega => Omega this gives the chain of
+-- embeddings whose union is the reflexive web (next step).
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module TC = TruncationCombinators[l] ;
+module FD = FiniteDiscrete[l] ;
+module FR = FiniteRange[l] ;
+module FS = DIFinSubsets[l] ;
+module CO = Coherence[l] ;
+module CF = CoherenceFun[l] ;
+module PL = Prelude[l] ;
+
+----------------------------------------------------------------------
+-- substituting shapes into the leaves of a shape
+
+bindS : (sh : Shape) -> (Ix sh -> Shape) -> Shape = split {
+  none -> \ f -> none ; leaf -> \ f -> f tt ;
+  fork s t | rs rt -> \ f -> fork (rs (\ i -> f (inl i))) (rt (\ i -> f (inr i))) } ;
+bindPt (X : U l) : (sh : Shape) (f : Ix sh -> Shape) (g : (i : Ix sh) -> Ix (f i) -> X) -> Ix (bindS sh f) -> X = split {
+  none -> \ f g k -> absurd X k ;
+  leaf -> \ f g k -> g tt k ;
+  fork s t | rs rt -> \ f g -> cases (Ix (bindS s (\ i -> f (inl i)))) (Ix (bindS t (\ i -> f (inr i)))) (\ _ -> X)
+    (rs (\ i -> f (inl i)) (\ i -> g (inl i))) (rt (\ i -> f (inr i)) (\ i -> g (inr i))) } ;
+bindHit (X : U l) : (sh : Shape) (f : Ix sh -> Shape) (g : (i : Ix sh) -> Ix (f i) -> X) (i : Ix sh) (j : Ix (f i)) ->
+    (k : Ix (bindS sh f)) * Id X (bindPt X sh f g k) (g i j) = split {
+  none -> \ f g i j -> absurd ((k : Empty) * Id X (bindPt X none f g k) (g i j)) i ;
+  leaf -> \ f g -> unit (\ i -> (j : Ix (f i)) -> (k : Ix (f tt)) * Id X (g tt k) (g i j)) (\ j -> (j,refl (g tt j))) ;
+  fork s t | rs rt -> \ f g -> cases (Ix s) (Ix t)
+    (\ i -> (j : Ix (f i)) -> (k : Ix (bindS (fork s t) f)) * Id X (bindPt X (fork s t) f g k) (g i j))
+    (\ i j -> (inl (rs (\ i -> f (inl i)) (\ i -> g (inl i)) i j).1,(rs (\ i -> f (inl i)) (\ i -> g (inl i)) i j).2))
+    (\ i j -> (inr (rt (\ i -> f (inr i)) (\ i -> g (inr i)) i j).1,(rt (\ i -> f (inr i)) (\ i -> g (inr i)) i j).2)) } ;
+
+----------------------------------------------------------------------
+-- embeddings
+
+record Emb {
+  S : CO.Space ;
+  S' : CO.Space ;
+  map : S.web -> S'.web ;
+  pre : (t : S'.web) -> FD.Dec ((s : S.web) * Id S'.web (map s) t) ;
+  inj : (s s' : S.web) -> Id S'.web (map s) (map s') -> Id S.web s s' ;
+  pres : (s t : S.web) -> IsT (S.coh s t) -> IsT (S'.coh (map s) (map t)) ;
+  reflects : (s t : S.web) -> IsT (S'.coh (map s) (map t)) -> IsT (S.coh s t) ;
+} ;
+
+module Images (S S' : CO.Space) (E : Emb[S,S']) {
+  module A = CO.On[S] ;
+  module A' = CO.On[S'] ;
+  W : U l = S.web ;
+  W' : U l = S'.web ;
+  Fib (t : W') : U l = (s : W) * Id W' (E.map s) t ;
+
+  -- direct image
+  imgB (a : W -> Bool) (t : W') : FD.Dec (Fib t) -> Bool = split { inl w -> a w.1 ; inr n -> false } ;
+  img-sound (a : W -> Bool) (t : W') : (d : FD.Dec (Fib t)) -> IsT (imgB a t d) ->
+      (s : W) * (IsT (a s) * Id W' (E.map s) t) = split {
+    inl w -> \ h -> (w.1,(h,w.2)) ;
+    inr n -> \ h -> absurd ((s : W) * (IsT (a s) * Id W' (E.map s) t)) h } ;
+  img-complete (a : W -> Bool) (s : W) : (d : FD.Dec (Fib (E.map s))) -> IsT (a s) -> IsT (imgB a (E.map s) d) = split {
+    inl w -> \ h -> PL.subst W (\ u -> IsT (a u)) s w.1 (E.inj s w.1 (PL.sym W' (E.map w.1) (E.map s) w.2)) h ;
+    inr n -> \ h -> n (s,refl (E.map s)) } ;
+  -- membership in the image of the cover
+  module ImgCover (a : A.Carrier) (c : A.P.Cover a.1.1) {
+    pred (t : W') : Bool = imgB a.1.1 t (E.pre t) ;
+    point (i : Ix c.1) : W' = E.map (c.2.1 i) ;
+    hit (t : W') (h : IsT (pred t)) : (i : Ix c.1) * Id W' (point i) t =
+      ((c.2.2 (img-sound a.1.1 t (E.pre t) h).1 (img-sound a.1.1 t (E.pre t) h).2.1).1,
+       PL.trans W' (point (c.2.2 (img-sound a.1.1 t (E.pre t) h).1 (img-sound a.1.1 t (E.pre t) h).2.1).1)
+         (E.map (img-sound a.1.1 t (E.pre t) h).1) t
+         (PL.ap W W' E.map (c.2.1 (c.2.2 (img-sound a.1.1 t (E.pre t) h).1 (img-sound a.1.1 t (E.pre t) h).2.1).1)
+           (img-sound a.1.1 t (E.pre t) h).1 (c.2.2 (img-sound a.1.1 t (E.pre t) h).1 (img-sound a.1.1 t (E.pre t) h).2.1).2)
+         (img-sound a.1.1 t (E.pre t) h).2.2) ;
+    cover : A'.P.Cover pred = (c.1,(point,hit)) ;
+  } ;
+  img-pred (a : A.Carrier) (t : W') : Bool = imgB a.1.1 t (E.pre t) ;
+  img-clique (a : A.Carrier) : A'.Clique (img-pred a) = \ s t hs ht ->
+    PL.subst W' (\ u -> IsT (S'.coh u t)) (E.map (img-sound a.1.1 s (E.pre s) hs).1) s (img-sound a.1.1 s (E.pre s) hs).2.2
+      (PL.subst W' (\ u -> IsT (S'.coh (E.map (img-sound a.1.1 s (E.pre s) hs).1) u)) (E.map (img-sound a.1.1 t (E.pre t) ht).1) t
+        (img-sound a.1.1 t (E.pre t) ht).2.2
+        (E.pres (img-sound a.1.1 s (E.pre s) hs).1 (img-sound a.1.1 t (E.pre t) ht).1
+          (a.2 (img-sound a.1.1 s (E.pre s) hs).1 (img-sound a.1.1 t (E.pre t) ht).1
+            (img-sound a.1.1 s (E.pre s) hs).2.1 (img-sound a.1.1 t (E.pre t) ht).2.1))) ;
+  img (a : A.Carrier) : A'.Carrier =
+    ((img-pred a,TC.map (A.P.Cover a.1.1) (A'.P.Cover (img-pred a)) (\ c -> ImgCover[a,c].cover) a.1.2),img-clique a) ;
+  img-mem (a : A.Carrier) (s : W) (h : IsT (a.1.1 s)) : IsT ((img a).1.1 (E.map s)) =
+    img-complete a.1.1 s (E.pre (E.map s)) h ;
+  img-back (a : A.Carrier) (s : W) (h : IsT ((img a).1.1 (E.map s))) : IsT (a.1.1 s) =
+    PL.subst W (\ u -> IsT (a.1.1 u)) (img-sound a.1.1 (E.map s) (E.pre (E.map s)) h).1 s
+      (E.inj (img-sound a.1.1 (E.map s) (E.pre (E.map s)) h).1 s (img-sound a.1.1 (E.map s) (E.pre (E.map s)) h).2.2)
+      (img-sound a.1.1 (E.map s) (E.pre (E.map s)) h).2.1 ;
+  img-sound' (a : A.Carrier) (t : W') (h : IsT ((img a).1.1 t)) : (s : W) * (IsT (a.1.1 s) * Id W' (E.map s) t) =
+    img-sound a.1.1 t (E.pre t) h ;
+  img-mono (a b : A.Carrier) (ab : A.LEC a b) : A'.LEC (img a) (img b) = \ t h ->
+    PL.subst W' (\ u -> IsT ((img b).1.1 u)) (E.map (img-sound' a t h).1) t (img-sound' a t h).2.2
+      (img-mem b (img-sound' a t h).1 (ab (img-sound' a t h).1 (img-sound' a t h).2.1)) ;
+
+  -- inverse image
+  opt (t : W') : FD.Dec (Fib t) -> Shape = split { inl w -> leaf ; inr n -> none } ;
+  optPt (t : W') : (d : FD.Dec (Fib t)) -> Ix (opt t d) -> W = split { inl w -> \ _ -> w.1 ; inr n -> \ i -> absurd W i } ;
+  opt-hit (t : W') (s : W) (p : Id W' (E.map s) t) : (d : FD.Dec (Fib t)) -> (j : Ix (opt t d)) * Id W (optPt t d j) s = split {
+    inl w -> (tt,E.inj w.1 s (PL.trans W' (E.map w.1) t (E.map s) w.2 (PL.sym W' (E.map s) t p))) ;
+    inr n -> absurd ((j : Empty) * Id W (absurd W j) s) (n (s,p)) } ;
+  module InvCover (a : A'.Carrier) (c : A'.P.Cover a.1.1) {
+    pred (s : W) : Bool = a.1.1 (E.map s) ;
+    f (i : Ix c.1) : Shape = opt (c.2.1 i) (E.pre (c.2.1 i)) ;
+    g (i : Ix c.1) (j : Ix (f i)) : W = optPt (c.2.1 i) (E.pre (c.2.1 i)) j ;
+    sh : Shape = bindS c.1 f ;
+    point (k : Ix sh) : W = bindPt W c.1 f g k ;
+    hit (s : W) (h : IsT (pred s)) : (k : Ix sh) * Id W (point k) s =
+      ((bindHit W c.1 f g (c.2.2 (E.map s) h).1
+         (opt-hit (c.2.1 (c.2.2 (E.map s) h).1) s (PL.sym W' (c.2.1 (c.2.2 (E.map s) h).1) (E.map s) (c.2.2 (E.map s) h).2)
+           (E.pre (c.2.1 (c.2.2 (E.map s) h).1))).1).1,
+       PL.trans W (point (bindHit W c.1 f g (c.2.2 (E.map s) h).1
+           (opt-hit (c.2.1 (c.2.2 (E.map s) h).1) s (PL.sym W' (c.2.1 (c.2.2 (E.map s) h).1) (E.map s) (c.2.2 (E.map s) h).2)
+             (E.pre (c.2.1 (c.2.2 (E.map s) h).1))).1).1)
+         (g (c.2.2 (E.map s) h).1
+           (opt-hit (c.2.1 (c.2.2 (E.map s) h).1) s (PL.sym W' (c.2.1 (c.2.2 (E.map s) h).1) (E.map s) (c.2.2 (E.map s) h).2)
+             (E.pre (c.2.1 (c.2.2 (E.map s) h).1))).1) s
+         (bindHit W c.1 f g (c.2.2 (E.map s) h).1
+           (opt-hit (c.2.1 (c.2.2 (E.map s) h).1) s (PL.sym W' (c.2.1 (c.2.2 (E.map s) h).1) (E.map s) (c.2.2 (E.map s) h).2)
+             (E.pre (c.2.1 (c.2.2 (E.map s) h).1))).1).2
+         (opt-hit (c.2.1 (c.2.2 (E.map s) h).1) s (PL.sym W' (c.2.1 (c.2.2 (E.map s) h).1) (E.map s) (c.2.2 (E.map s) h).2)
+           (E.pre (c.2.1 (c.2.2 (E.map s) h).1))).2) ;
+    cover : A.P.Cover pred = (sh,(point,hit)) ;
+  } ;
+  inv-pred (a : A'.Carrier) (s : W) : Bool = a.1.1 (E.map s) ;
+  inv (a : A'.Carrier) : A.Carrier =
+    ((inv-pred a,TC.map (A'.P.Cover a.1.1) (A.P.Cover (inv-pred a)) (\ c -> InvCover[a,c].cover) a.1.2),
+     \ s t hs ht -> E.reflects s t (a.2 (E.map s) (E.map t) hs ht)) ;
+
+  -- the image of a clique, and cliques inside the image
+  inB (t : W') : Bool = FS.decB (Fib t) (E.pre t) ;
+  InIm (a : A'.Carrier) : U l = (t : W') -> IsT (a.1.1 t) -> IsT (inB t) ;
+  in-fib (t : W') (h : IsT (inB t)) : Fib t = FS.decB-sound (Fib t) (E.pre t) h ;
+  inv-img (a : A.Carrier) : Id A.Carrier (inv (img a)) a =
+    A.ext (inv (img a)) a (\ s h -> img-back a s h) (\ s h -> img-mem a s h) ;
+  img-inv (a : A'.Carrier) (h : InIm a) : Id A'.Carrier (img (inv a)) a =
+    A'.ext (img (inv a)) a
+      (\ t k -> PL.subst W' (\ u -> IsT (a.1.1 u)) (E.map (img-sound' (inv a) t k).1) t (img-sound' (inv a) t k).2.2
+         (img-sound' (inv a) t k).2.1)
+      (\ t k -> PL.subst W' (\ u -> IsT ((img (inv a)).1.1 u)) (E.map (in-fib t (h t k)).1) t (in-fib t (h t k)).2
+         (img-mem (inv a) (in-fib t (h t k)).1
+           (PL.subst W' (\ u -> IsT (a.1.1 u)) t (E.map (in-fib t (h t k)).1)
+             (PL.sym W' (E.map (in-fib t (h t k)).1) t (in-fib t (h t k)).2) k))) ;
+  img-in (a : A.Carrier) : InIm (img a) = \ t k ->
+    FS.decB-complete (Fib t) (E.pre t) ((img-sound' a t k).1,(img-sound' a t k).2.2) ;
+  module InImDec (a : A'.Carrier) (c : A'.P.Cover a.1.1) {
+    e : Ix c.1 -> W' = c.2.1 ;
+    Test (i : Ix c.1) : U l = IsT (a.1.1 (e i)) -> IsT (inB (e i)) ;
+    from (r : (i : Ix c.1) -> Test i) : InIm a = \ t h ->
+      PL.subst W' (\ u -> IsT (inB u)) (e (c.2.2 t h).1) t (c.2.2 t h).2
+        (r (c.2.2 t h).1 (PL.subst W' (\ u -> IsT (a.1.1 u)) t (e (c.2.2 t h).1) (PL.sym W' (e (c.2.2 t h).1) t (c.2.2 t h).2) h)) ;
+    decision : FD.Dec (InIm a) =
+      FD.map-decision ((i : Ix c.1) -> Test i) (InIm a) from (\ h i -> h (e i))
+        (FR.all c.1 Test (\ i -> FS.dec-imp (a.1.1 (e i)) (inB (e i)))) ;
+  } ;
+  inim-prop (a : A'.Carrier) : PL.isProp (InIm a) =
+    A'.P.le-prop a.1.1 inB ;
+  inim-dec (a : A'.Carrier) : FD.Dec (InIm a) =
+    TC.rec (A'.P.Cover a.1.1) @l (FD.Dec (InIm a)) (DIClosure[l].dec-prop (InIm a) (inim-prop a))
+      (\ c -> InImDec[a,c].decision) a.1.2 ;
+  -- unions
+  union-img (a b : A.Carrier) (t : W') (h : IsT ((A'.P.join (img a).1 (img b).1).1 t)) :
+      (s : W) * (IsT ((A.P.join a.1 b.1).1 s) * Id W' (E.map s) t) =
+    cases (IsT ((img a).1.1 t)) (IsT ((img b).1.1 t))
+      (\ _ -> (s : W) * (IsT ((A.P.join a.1 b.1).1 s) * Id W' (E.map s) t))
+      (\ k -> ((img-sound' a t k).1,(FS.or-l (a.1.1 (img-sound' a t k).1) (b.1.1 (img-sound' a t k).1) (img-sound' a t k).2.1,
+         (img-sound' a t k).2.2)))
+      (\ k -> ((img-sound' b t k).1,(FS.or-r (a.1.1 (img-sound' b t k).1) (b.1.1 (img-sound' b t k).1) (img-sound' b t k).2.1,
+         (img-sound' b t k).2.2)))
+      (FS.or-split ((img a).1.1 t) ((img b).1.1 t) h) ;
+} ;
+
+----------------------------------------------------------------------
+-- the function space is functorial on embeddings
+
+module FunEmb (S S' T T' : CO.Space) (E : Emb[S,S']) (E2 : Emb[T,T']) {
+  module I = Images[S,S',E] ;
+  module F1 = CF.Fun[S,T] ;
+  module F2 = CF.Fun[S',T'] ;
+  module A = I.A ;
+  module A' = I.A' ;
+  map (u : F1.web) : F2.web = (I.img u.1,E2.map u.2) ;
+  Fib2 (v : F2.web) : U l = (u : F1.web) * Id F2.web (map u) v ;
+  fst2 (z : F2.web) : A'.Carrier = z.1 ;
+  snd2 (z : F2.web) : T'.web = z.2 ;
+  not-in (v : F2.web) (n : I.InIm v.1 -> Empty) (f : Fib2 v) : Empty =
+    n (PL.subst A'.Carrier I.InIm (I.img f.1.1) v.1 (PL.ap F2.web A'.Carrier fst2 (map f.1) v f.2) (I.img-in f.1.1)) ;
+  not-in2 (v : F2.web) (n : ((t : T.web) * Id T'.web (E2.map t) v.2) -> Empty) (f : Fib2 v) : Empty =
+    n (f.1.2,PL.ap F2.web T'.web snd2 (map f.1) v f.2) ;
+  both (v : F2.web) (h : I.InIm v.1) (w : (t : T.web) * Id T'.web (E2.map t) v.2) : Fib2 v =
+    ((I.inv v.1,w.1),CF.pair-eq A'.Carrier T'.web (I.img (I.inv v.1)) v.1 (E2.map w.1) v.2 (I.img-inv v.1 h) w.2) ;
+  pre (v : F2.web) : FD.Dec (Fib2 v) =
+    cases (I.InIm v.1) (I.InIm v.1 -> Empty) (\ _ -> FD.Dec (Fib2 v))
+      (\ h -> cases ((t : T.web) * Id T'.web (E2.map t) v.2) (((t : T.web) * Id T'.web (E2.map t) v.2) -> Empty)
+        (\ _ -> FD.Dec (Fib2 v)) (\ w -> inl (both v h w)) (\ n -> inr (not-in2 v n)) (E2.pre v.2))
+      (\ n -> inr (not-in v n)) (I.inim-dec v.1) ;
+  inj1 (a a' : A.Carrier) (p : Id A'.Carrier (I.img a) (I.img a')) : Id A.Carrier a a' =
+    PL.trans A.Carrier a (I.inv (I.img a)) a' (PL.sym A.Carrier (I.inv (I.img a)) a (I.inv-img a))
+      (PL.trans A.Carrier (I.inv (I.img a)) (I.inv (I.img a')) a' (PL.ap A'.Carrier A.Carrier I.inv (I.img a) (I.img a') p)
+        (I.inv-img a')) ;
+  inj (u u' : F1.web) (p : Id F2.web (map u) (map u')) : Id F1.web u u' =
+    CF.pair-eq A.Carrier T.web u.1 u'.1 u.2 u'.2 (inj1 u.1 u'.1 (PL.ap F2.web A'.Carrier fst2 (map u) (map u') p))
+      (E2.inj u.2 u'.2 (PL.ap F2.web T'.web snd2 (map u) (map u') p)) ;
+  mem-union (a b : A.Carrier) (s : S.web) (h : IsT ((A.P.join a.1 b.1).1 s)) :
+      IsT ((A'.P.join (I.img a).1 (I.img b).1).1 (E.map s)) =
+    cases (IsT (a.1.1 s)) (IsT (b.1.1 s)) (\ _ -> IsT ((A'.P.join (I.img a).1 (I.img b).1).1 (E.map s)))
+      (\ k -> FS.or-l ((I.img a).1.1 (E.map s)) ((I.img b).1.1 (E.map s)) (I.img-mem a s k))
+      (\ k -> FS.or-r ((I.img a).1.1 (E.map s)) ((I.img b).1.1 (E.map s)) (I.img-mem b s k))
+      (FS.or-split (a.1.1 s) (b.1.1 s) h) ;
+  -- cliques of unions correspond
+  clique-back (a b : A.Carrier) (cl : A'.Clique (A'.P.join (I.img a).1 (I.img b).1).1) : A.Clique (A.P.join a.1 b.1).1 =
+    \ s t hs ht -> E.reflects s t (cl (E.map s) (E.map t) (mem-union a b s hs) (mem-union a b t ht)) ;
+  clique-fwd (a b : A.Carrier) (cl : A.Clique (A.P.join a.1 b.1).1) : A'.Clique (A'.P.join (I.img a).1 (I.img b).1).1 =
+    \ s t hs ht ->
+      PL.subst S'.web (\ z -> IsT (S'.coh z t)) (E.map (I.union-img a b s hs).1) s (I.union-img a b s hs).2.2
+        (PL.subst S'.web (\ z -> IsT (S'.coh (E.map (I.union-img a b s hs).1) z)) (E.map (I.union-img a b t ht).1) t
+          (I.union-img a b t ht).2.2
+          (E.pres (I.union-img a b s hs).1 (I.union-img a b t ht).1
+            (cl (I.union-img a b s hs).1 (I.union-img a b t ht).1 (I.union-img a b s hs).2.1 (I.union-img a b t ht).2.1))) ;
+  pres (u v : F1.web) (h : IsT (F1.coh u v)) : IsT (F2.coh (map u) (map v)) =
+    F2.coh-complete (map u) (map v) (\ cl ->
+      (E2.pres u.2 v.2 (F1.coh-sound u v h (clique-back u.1 v.1 cl)).1,
+       \ q -> PL.ap A.Carrier A'.Carrier I.img u.1 v.1 ((F1.coh-sound u v h (clique-back u.1 v.1 cl)).2 (E2.inj u.2 v.2 q)))) ;
+  reflects (u v : F1.web) (h : IsT (F2.coh (map u) (map v))) : IsT (F1.coh u v) =
+    F1.coh-complete u v (\ cl ->
+      (E2.reflects u.2 v.2 (F2.coh-sound (map u) (map v) h (clique-fwd u.1 v.1 cl)).1,
+       \ q -> inj1 u.1 v.1 ((F2.coh-sound (map u) (map v) h (clique-fwd u.1 v.1 cl)).2
+         (PL.ap T.web T'.web E2.map u.2 v.2 q)))) ;
+  emb : Emb[F1.space,F2.space] = new Emb[F1.space,F2.space,map := map,pre := pre,inj := inj,pres := pres,reflects := reflects] ;
+} ;
+
+----------------------------------------------------------------------
+-- the tower of webs
+
+module Base0 {
+  module F = CF.Fun[CoherenceOmega[l].omega,CoherenceOmega[l].omega] ;
+  module A = F.A ;
+  module D = CF.Decisions[CoherenceOmega[l].omega] ;
+  map (t : Top) : F.web = (A.bot,t) ;
+  Fib (v : F.web) : U l = (s : Top) * Id F.web (map s) v ;
+  pre (v : F.web) : FD.Dec (Fib v) =
+    FD.map-decision (A.LEC v.1 A.bot) (Fib v)
+      (\ h -> (v.2,CF.pair-eq A.Carrier Top A.bot v.1 v.2 v.2 (A.ext A.bot v.1 (\ t k -> absurd (IsT (v.1.1.1 t)) k) h) (refl v.2)))
+      (\ f -> PL.subst F.web (\ z -> A.LEC z.1 A.bot) (map f.1) v f.2 (\ t k -> k))
+      (D.le-dec v.1 A.bot) ;
+  inj (s s' : Top) (p : Id F.web (map s) (map s')) : Id Top s s' =
+    PL.trans Top s tt s' (PL.sym Top tt s (CoherenceOmega[l].top-eq s)) (CoherenceOmega[l].top-eq s') ;
+  emb : Emb[CoherenceOmega[l].omega,F.space] = new Emb[CoherenceOmega[l].omega,F.space,map := map,pre := pre,inj := inj,
+    pres := \ s t h -> F.coh-complete (map s) (map t) (\ cl -> (tt,\ q -> refl A.bot)),
+    reflects := \ s t h -> tt] ;
+} ;
+
+arrow (S : CO.Space) : CO.Space = CF.Fun[S,S].space ;
+space : Nat -> CO.Space = split { zero -> CoherenceOmega[l].omega ; suc n | r -> arrow r } ;
+emb : (n : Nat) -> Emb[space n,space (suc n)] = split {
+  zero -> Base0.emb ;
+  suc n | r -> FunEmb[space n,space (suc n),space n,space (suc n),r,r].emb } ;

@@ -1,0 +1,63 @@
+-- The subfunctors of a pre-dilator form a constructive dI-domain
+-- (catemb.pdf, Lemma 3.14 and Theorem 2.2, stable case, for the category
+-- of finite ordinals with strictly increasing maps).
+--
+--   Sub(D)  ~  (Trace -> Prop)          (DilatorSub)
+--           ~  Idl(finite subsets of the trace)   (DIFinSubsets.Omega)
+-- and the latter is a constructive dI-domain (DIFinSubsets.cdi), the
+-- correspondence preserving and reflecting inclusion.  The compact
+-- elements are the finite subsets of the trace, i.e. the finite
+-- subdilators; dilator.seg (Restr) builds the corresponding restricted
+-- pre-dilators.
+level l ;
+open Base ; open Prelude[l+] ;
+module W = Dilator[l] ;
+module FR = FiniteRange[l] ;
+
+-- decisions of dilator.seg as decisions of Base
+from-or (P : U l) : W.Or P (P -> W.Empty) -> FR.Dec P = split {
+  inl p -> inl p ; inr n -> inr (\ p -> W.absurdE Empty (n p)) } ;
+
+module Sub (D0 : W.N -> W.N) (D1 : W.Wd -> W.Wd)
+  (dlen : (w : W.Wd) -> Id W.N (W.len (D1 w)) (D0 (W.len w)))
+  (dones : (w : W.Wd) -> Id W.N (W.ones (D1 w)) (D0 (W.ones w)))
+  (did : (n : W.N) -> Id W.Wd (D1 (W.idW n)) (W.idW (D0 n)))
+  (dcomp : (v w : W.Wd) -> Id W.N (W.ones v) (W.len w) -> Id W.Wd (D1 (W.compW v w)) (W.compW (D1 v) (D1 w)))
+  (dmeet : (v w : W.Wd) -> Id W.N (W.len v) (W.len w) -> Id W.Wd (D1 (W.andW v w)) (W.andW (D1 v) (D1 w))) {
+  module S = DilatorSub[l].SubDil[D0,D1,dlen,dones,did,dcomp,dmeet] ;
+
+  -- the trace has decidable equality
+  module Dec (t t' : S.Trace) {
+    second (e1 : Id W.N t.1 t'.1) : FR.Dec (Id S.Trace t t') =
+      ScottFinite[l].cases (Id W.N t.2.1 t'.2.1) (Id W.N t.2.1 t'.2.1 -> Empty) (\ _ -> FR.Dec (Id S.Trace t t'))
+        (\ e2 -> inl (S.tr-eq t.1 t.2.1 t.2.2 t'.1 t'.2.1 t'.2.2 e1 e2))
+        (\ n -> inr (\ p -> n (Prelude[l].ap S.Trace W.N (\ s -> s.2.1) t t' p)))
+        (from-or (Id W.N t.2.1 t'.2.1) (W.decN t.2.1 t'.2.1)) ;
+    decision : FR.Dec (Id S.Trace t t') =
+      ScottFinite[l].cases (Id W.N t.1 t'.1) (Id W.N t.1 t'.1 -> Empty) (\ _ -> FR.Dec (Id S.Trace t t'))
+        second
+        (\ n -> inr (\ p -> n (Prelude[l].ap S.Trace W.N (\ s -> s.1) t t' p)))
+        (from-or (Id W.N t.1 t'.1) (W.decN t.1 t'.1)) ;
+  } ;
+  module O = DIFinSubsets[l].On[S.Trace,\ t t' -> Dec[t,t'].decision] ;
+  module M = O.Omega ;
+
+  -- the constructive dI-domain and the order isomorphism with Sub(D)
+  cdi : DIConstructive[l].CDI = O.cdi ;
+  Ideal : U l+ = O.C.Ideal ;
+  to (G : S.Sub) : Ideal = M.from-pred (S.restrict G) ;
+  from (J : Ideal) : S.Sub = S.extend (M.to-pred J) ;
+  to-from (J : Ideal) : Id Ideal (to (from J)) J =
+    trans Ideal (M.from-pred (S.restrict (S.extend (M.to-pred J)))) (M.from-pred (M.to-pred J)) J
+      (ap S.TrSub Ideal M.from-pred (S.restrict (S.extend (M.to-pred J))) (M.to-pred J) (S.restrict-extend (M.to-pred J)))
+      (M.IdealTrip[J].equation) ;
+  from-to (G : S.Sub) : Id S.Sub (from (to G)) G =
+    trans S.Sub (S.extend (M.to-pred (M.from-pred (S.restrict G)))) (S.extend (S.restrict G)) G
+      (ap S.TrSub S.Sub S.extend (M.to-pred (M.from-pred (S.restrict G))) (S.restrict G) (M.PredTrip[S.restrict G].equation))
+      (S.extend-restrict G) ;
+  equivalence : Equiv S.Sub Ideal = (to,qinv S.Sub Ideal to from to-from from-to) ;
+  to-mono (G G' : S.Sub) (h : S.Incl G G') : M.I.Incl (to G) (to G') =
+    M.from-mono (S.restrict G) (S.restrict G') (S.incl-restrict G G' h) ;
+  from-mono (J J' : Ideal) (h : M.I.Incl J J') : S.Incl (from J) (from J') =
+    S.incl-extend (M.to-pred J) (M.to-pred J') (M.to-mono J J' h) ;
+} ;

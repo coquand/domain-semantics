@@ -1,0 +1,227 @@
+-- Coherence spaces with decidable data, as posets of events.
+--
+-- A coherence space is a web with decidable equality and a decidable
+-- (Bool-valued) coherence relation.  Its finite cliques, ordered by
+-- inclusion, form an event poset (DIEvents): the subposet of the finite
+-- subsets (DIFinSubsets) cut out by a proposition closed downwards.  So
+-- the ideal completion is a constructive dI-domain with compact meets
+-- (DIClosure.CDIM).  This is the first step of the trace presentation of
+-- the stable function space (NEXT_SESSION_EVENT_STRUCTURES.md).
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+module TL = TruncationCombinators[l+] ;
+module CU = ScottCUSL[l] ;
+module R = Replacement[l,l+] ;
+module B = BooleanDI[l] ;
+module EB = DIEventsBool[l] ;
+module FS = DIFinSubsets[l] ;
+module FD = FiniteDiscrete[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+record Space {
+  web : U l ;
+  dec : (s t : web) -> FD.Dec (Id web s t) ;
+  coh : web -> web -> Bool ;
+  coh-refl : (t : web) -> IsT (coh t t) ;
+  coh-sym : (s t : web) -> IsT (coh s t) -> IsT (coh t s) ;
+} ;
+
+module On (S : Space) {
+  module P = FS.On[S.web,S.dec] ;
+  W : U l = S.web ;
+  Clique (a : P.Pred) : U l = (s t : W) -> IsT (a s) -> IsT (a t) -> IsT (S.coh s t) ;
+  clique-prop (a : P.Pred) : Prelude[l].isProp (Clique a) =
+    F.isProp-Pi W (\ s -> (t : W) -> IsT (a s) -> IsT (a t) -> IsT (S.coh s t)) (\ s ->
+      F.isProp-Pi W (\ t -> IsT (a s) -> IsT (a t) -> IsT (S.coh s t)) (\ t ->
+        F.isProp-Pi (IsT (a s)) (\ _ -> IsT (a t) -> IsT (S.coh s t)) (\ _ ->
+          F.isProp-Pi (IsT (a t)) (\ _ -> IsT (S.coh s t)) (\ _ -> B.holds-prop (S.coh s t))))) ;
+  clique-lower (a b : P.Pred) (ab : P.Le a b) (cb : Clique b) : Clique a =
+    \ s t hs ht -> cb s t (ab s hs) (ab t ht) ;
+
+  Carrier : U l = (a : P.Carrier) * Clique a.1 ;
+  LEC (a b : Carrier) : U l = P.LEC a.1 b.1 ;
+  ext (a b : Carrier) (ab : LEC a b) (ba : LEC b a) : Id Carrier a b =
+    Sigma-eq P.Carrier (\ p -> Clique p.1) a.1 b.1 a.2 b.2 (P.ext a.1 b.1 ab ba) (clique-prop b.1.1) ;
+  order : Order = new Order[carrier := Carrier, le := LEC,
+    proposition := \ a b -> P.le-prop a.1.1 b.1.1, reflexive := \ a t h -> h,
+    transitive := \ a b c ab bc t h -> bc t (ab t h), antisymmetric := ext] ;
+
+  -- the operations
+  bot : Carrier = (P.bot,\ s t hs ht -> absurd (IsT (S.coh s t)) hs) ;
+  union-clique (y z c : Carrier) (yc : LEC y c) (zc : LEC z c) : Clique (\ t -> EB.or (y.1.1 t) (z.1.1 t)) =
+    clique-lower (\ t -> EB.or (y.1.1 t) (z.1.1 t)) c.1.1
+      (\ t h -> cases (IsT (y.1.1 t)) (IsT (z.1.1 t)) (\ _ -> IsT (c.1.1 t)) (yc t) (zc t)
+        (FS.or-split (y.1.1 t) (z.1.1 t) h)) c.2 ;
+  join (y z : Carrier) (h : CU.Compatible order y z) : Carrier =
+    (P.join y.1 z.1,TL.rec (CU.CompatibleWitness order y z) @l (Clique (\ t -> EB.or (y.1.1 t) (z.1.1 t)))
+      (clique-prop (\ t -> EB.or (y.1.1 t) (z.1.1 t))) (\ w -> union-clique y z w.1 w.2.1 w.2.2) h) ;
+  join-lub (a b : Carrier) (h : CU.Compatible order a b) : On[order].Lub Bool (CU.pair order a b) (join a b h) =
+    (DistributiveJoins[l].bool (\ i -> LEC (CU.pair order a b i) (join a b h))
+      (\ t k -> FS.or-l (a.1.1 t) (b.1.1 t) k) (\ t k -> FS.or-r (a.1.1 t) (b.1.1 t) k),
+     \ z hz t k -> cases (IsT (a.1.1 t)) (IsT (b.1.1 t)) (\ _ -> IsT (z.1.1 t))
+       (\ k -> hz true t k) (\ k -> hz false t k) (FS.or-split (a.1.1 t) (b.1.1 t) k)) ;
+  meet (a b : Carrier) : Carrier = (P.meet a.1 b.1,
+    clique-lower (\ t -> EB.and (a.1.1 t) (b.1.1 t)) a.1.1 (\ t h -> EB.and-left (a.1.1 t) (b.1.1 t) h) a.2) ;
+  cusl : CU.CUSL = new CU.CUSL[order := order, bottom := bot,
+    bottom-least := \ x t h -> absurd (IsT (x.1.1 t)) h,
+    join := \ x y h -> (join x y h,join-lub x y h),
+    small := Truncation[l+].Trunc[R.Small Carrier].inc (Carrier,idEquiv Carrier)] ;
+  distributive (a y z : Carrier) (h : CU.Compatible order y z) (k : LEC a (join y z h)) :
+      LEC a (join (meet a y) (meet a z)
+        (CU.by-bound order (meet a y) (meet a z) a (\ t h -> EB.and-left (a.1.1 t) (y.1.1 t) h)
+          (\ t h -> EB.and-left (a.1.1 t) (z.1.1 t) h))) = \ t ha ->
+    cases (IsT (y.1.1 t)) (IsT (z.1.1 t)) (\ _ -> IsT (EB.or (EB.and (a.1.1 t) (y.1.1 t)) (EB.and (a.1.1 t) (z.1.1 t))))
+      (\ hy -> FS.or-l (EB.and (a.1.1 t) (y.1.1 t)) (EB.and (a.1.1 t) (z.1.1 t)) (FS.and-intro (a.1.1 t) (y.1.1 t) ha hy))
+      (\ hz -> FS.or-r (EB.and (a.1.1 t) (y.1.1 t)) (EB.and (a.1.1 t) (z.1.1 t)) (FS.and-intro (a.1.1 t) (z.1.1 t) ha hz))
+      (FS.or-split (y.1.1 t) (z.1.1 t) (k t ha)) ;
+
+  -- the cliques below a finite clique: all its subsets
+  restrict (a : Carrier) (G : DIDomain[l].Properties[P.order].FiniteIdeal[a.1]) :
+      DIDomain[l].Properties[order].FiniteIdeal[a] =
+    new DIDomain[l].Properties[order].FiniteIdeal[a, shape := G.shape,
+      point := \ i -> (G.point i,clique-lower (G.point i).1 a.1.1 (G.below i) a.2),
+      below := G.below, covers := \ x xa -> G.covers x.1 xa, distinct := G.distinct] ;
+  finite (a : Carrier) : ScottOrder[l+].Ex (DIDomain[l].Properties[order].FiniteIdeal[a]) =
+    TL.map (DIDomain[l].Properties[P.order].FiniteIdeal[a.1]) (DIDomain[l].Properties[order].FiniteIdeal[a])
+      (restrict a) (P.finite a.1) ;
+
+  events : DIEvents[l].Events = new DIEvents[l].Events[
+    cusl := cusl, meet := meet,
+    meet-left := \ x y t h -> EB.and-left (x.1.1 t) (y.1.1 t) h,
+    meet-right := \ x y t h -> EB.and-right (x.1.1 t) (y.1.1 t) h,
+    meet-greatest := \ x y z zx zy t h -> FS.and-intro (x.1.1 t) (y.1.1 t) (zx t h) (zy t h),
+    distributive := distributive, finite := finite] ;
+  module C = DIEvents[l].Completion[events] ;
+  cdi : DIConstructive[l].CDI = C.cdi ;
+  cdim : DIClosure[l].CDIM = DIClosure[l].Events[events].cdim ;
+
+  ----------------------------------------------------------------------
+  -- the points of the completion are the proposition-valued cliques
+
+  module Points {
+    module I = C.I ;
+    Idx : U l = I.X ;
+    val (a : Idx) : Carrier = I.val a ;
+    at (p : Carrier) : Idx = I.at p ;
+    out (p : Carrier) (t : W) (h : IsT ((val (at p)).1.1 t)) : IsT (p.1.1 t) =
+      Prelude[l].subst Carrier (\ c -> IsT (c.1.1 t)) (val (at p)) p (C.at-val p) h ;
+    into (p : Carrier) (t : W) (h : IsT (p.1.1 t)) : IsT ((val (at p)).1.1 t) =
+      Prelude[l].subst Carrier (\ c -> IsT (c.1.1 t)) p (val (at p)) (Prelude[l].sym Carrier (val (at p)) p (C.at-val p)) h ;
+    sing-clique (t : W) : Clique (P.Omega.singleton t).1 = \ s s' hs hs' ->
+      Prelude[l].subst W (\ u -> IsT (S.coh u s')) t s (P.eqB-sound t s hs)
+        (Prelude[l].subst W (\ u -> IsT (S.coh t u)) t s' (P.eqB-sound t s' hs') (S.coh-refl t)) ;
+    singleton (t : W) : Carrier = (P.Omega.singleton t,sing-clique t) ;
+    self (t : W) : IsT ((val (at (singleton t))).1.1 t) = into (singleton t) t (P.eqB-complete t t (refl t)) ;
+
+    PredP : U l+ = P.Omega.PredP ;
+    Coherent (Q : PredP) : U l = (s t : W) -> Q.1 s -> Q.1 t -> IsT (S.coh s t) ;
+    coherent-prop (Q : PredP) : Prelude[l].isProp (Coherent Q) =
+      F.isProp-Pi W (\ s -> (t : W) -> Q.1 s -> Q.1 t -> IsT (S.coh s t)) (\ s ->
+        F.isProp-Pi W (\ t -> Q.1 s -> Q.1 t -> IsT (S.coh s t)) (\ t ->
+          F.isProp-Pi (Q.1 s) (\ _ -> Q.1 t -> IsT (S.coh s t)) (\ _ ->
+            F.isProp-Pi (Q.1 t) (\ _ -> IsT (S.coh s t)) (\ _ -> B.holds-prop (S.coh s t))))) ;
+    Point : U l+ = (Q : PredP) * Coherent Q ;
+
+    -- from ideals to points
+    module To (J : C.Ideal) {
+      Q : PredP = (\ t -> I.mem J (at (singleton t)),\ t -> I.mem-prop J (at (singleton t))) ;
+      Up (s t : W) : U l = (c : Idx) * (I.mem J c * (I.LE (at (singleton s)) c * I.LE (at (singleton t)) c)) ;
+      coherent : Coherent Q = \ s t hs ht ->
+        T.rec (Up s t) @l (IsT (S.coh s t)) (B.holds-prop (S.coh s t))
+          (\ w -> (val w.1).2 s t (w.2.2.1 s (self s)) (w.2.2.2 t (self t)))
+          (I.upper J (at (singleton s)) (at (singleton t)) hs ht) ;
+      point : Point = (Q,coherent) ;
+    } ;
+    to-point (J : C.Ideal) : Point = To[J].point ;
+
+    -- from points to ideals
+    module From (Q : Point) {
+      m (a : Idx) : U l = (t : W) -> IsT ((val a).1.1 t) -> Q.1.1 t ;
+      m-prop (a : Idx) : Prelude[l].isProp (m a) =
+        F.isProp-Pi W (\ t -> IsT ((val a).1.1 t) -> Q.1.1 t)
+          (\ t -> F.isProp-Pi (IsT ((val a).1.1 t)) (\ _ -> Q.1.1 t) (\ _ -> Q.1.2 t)) ;
+      m-bot : m I.bot = \ t h -> absurd (Q.1.1 t) (out bot t h) ;
+      m-lower (a b : Idx) (ab : I.LE a b) (mb : m b) : m a = \ t h -> mb t (ab t h) ;
+      module Up (a b : Idx) (ma : m a) (mb : m b) {
+        pj : P.Carrier = P.join (val a).1 (val b).1 ;
+        inside (t : W) (h : IsT (pj.1 t)) : Q.1.1 t =
+          cases (IsT ((val a).1.1 t)) (IsT ((val b).1.1 t)) (\ _ -> Q.1.1 t) (ma t) (mb t)
+            (FS.or-split ((val a).1.1 t) ((val b).1.1 t) h) ;
+        u : Carrier = (pj,\ s t hs ht -> Q.2 s t (inside s hs) (inside t ht)) ;
+        result : (c : Idx) * (m c * (I.LE a c * I.LE b c)) =
+          (at u,(\ t h -> inside t (out u t h),
+            (C.into-r a u (\ t h -> FS.or-l ((val a).1.1 t) ((val b).1.1 t) h),
+             C.into-r b u (\ t h -> FS.or-r ((val a).1.1 t) ((val b).1.1 t) h)))) ;
+      } ;
+      m-upper (a b : Idx) (ma : m a) (mb : m b) : Ex ((c : Idx) * (m c * (I.LE a c * I.LE b c))) =
+        inc ((c : Idx) * (m c * (I.LE a c * I.LE b c))) Up[a,b,ma,mb].result ;
+      ideal : C.Ideal = (m,(m-prop,(m-bot,(m-lower,m-upper)))) ;
+    } ;
+    from-point (Q : Point) : C.Ideal = From[Q].ideal ;
+
+    module PointTrip (Q : Point) {
+      to (t : W) (h : From[Q].m (at (singleton t))) : Q.1.1 t = h t (self t) ;
+      from (t : W) (p : Q.1.1 t) : From[Q].m (at (singleton t)) = \ s h ->
+        Prelude[l].subst W Q.1.1 t s (P.eqB-sound t s (out (singleton t) s h)) p ;
+      pred-eq : Id PredP (to-point (from-point Q)).1 Q.1 =
+        Sigma-eq (W -> U l) (\ R -> (t : W) -> Prelude[l].isProp (R t)) (to-point (from-point Q)).1.1 Q.1.1
+          (to-point (from-point Q)).1.2 Q.1.2
+          (H.funext W (\ _ -> U l) (to-point (from-point Q)).1.1 Q.1.1 (\ t ->
+            FS.propext (From[Q].m (at (singleton t))) (Q.1.1 t) (From[Q].m-prop (at (singleton t))) (Q.1.2 t) (to t) (from t)))
+          (H.isProp-Pi W (\ t -> Prelude[l].isProp (Q.1.1 t)) (\ t -> F.isProp-isProp (Q.1.1 t))) ;
+      equation : Id Point (to-point (from-point Q)) Q =
+        Sigma-eq PredP (\ R -> Coherent R) (to-point (from-point Q)).1 Q.1 (to-point (from-point Q)).2 Q.2
+          pred-eq (coherent-prop Q.1) ;
+    } ;
+
+    module IdealTrip (J : C.Ideal) {
+      Q : Point = to-point J ;
+      sub-from (a : Idx) (h : I.mem J a) : From[Q].m a = \ t ht ->
+        I.lower J (at (singleton t)) a
+          (C.into-l (singleton t) a (\ s hs -> Prelude[l].subst W (\ u -> IsT ((val a).1.1 u)) t s (P.eqB-sound t s hs) ht)) h ;
+      Mem : U l = (b : Idx) * I.mem J b ;
+      fam (w : Mem) : Carrier = val w.1 ;
+      dir : On[order].Dir Mem fam =
+        (inc Mem (I.bot,I.contains-bot J),
+         \ u v -> T.map ((c : Idx) * (I.mem J c * (I.LE u.1 c * I.LE v.1 c))) (On[order].Upper Mem fam u v)
+           (\ w -> ((w.1,w.2.1),(w.2.2.1,w.2.2.2))) (I.upper J u.1 v.1 u.2 v.2)) ;
+      module Fin (a : Idx) (h : From[Q].m a) (c : P.Cover (val a).1.1) {
+        sh : Shape = c.1 ;
+        e : Ix sh -> W = c.2.1 ;
+        Rel (i : Ix sh) (w : Mem) : U l = IsT ((val a).1.1 (e i)) -> IsT ((fam w).1.1 (e i)) ;
+        step (i : Ix sh) : Ex ((w : Mem) * Rel i w) =
+          cases (IsT ((val a).1.1 (e i))) (IsT ((val a).1.1 (e i)) -> Empty) (\ _ -> Ex ((w : Mem) * Rel i w))
+            (\ yes -> inc ((w : Mem) * Rel i w) ((at (singleton (e i)),h (e i) yes),\ _ -> self (e i)))
+            (\ no -> T.map Mem ((w : Mem) * Rel i w) (\ w -> (w,\ y -> absurd (IsT ((fam w).1.1 (e i))) (no y))) dir.1)
+            (FS.bool-cases ((val a).1.1 (e i))) ;
+        common : Ex ((w : Mem) * ((i : Ix sh) -> Rel i w)) =
+          Directed[order,Mem,fam,dir].collect sh Rel (\ i w k wk r y -> wk (e i) (r y)) step ;
+        below (w : Mem) (r : (i : Ix sh) -> Rel i w) : I.LE a w.1 = \ t ht ->
+          Prelude[l].subst W (\ u -> IsT ((val w.1).1.1 u)) (e (c.2.2 t ht).1) t (c.2.2 t ht).2
+            (r (c.2.2 t ht).1 (Prelude[l].subst W (\ u -> IsT ((val a).1.1 u)) t (e (c.2.2 t ht).1)
+              (Prelude[l].sym W (e (c.2.2 t ht).1) t (c.2.2 t ht).2) ht)) ;
+        mem : I.mem J a = T.rec ((w : Mem) * ((i : Ix sh) -> Rel i w)) @l (I.mem J a) (I.mem-prop J a)
+          (\ w -> I.lower J a w.1.1 (below w.1 w.2) w.1.2) common ;
+      } ;
+      from-sub (a : Idx) (h : From[Q].m a) : I.mem J a =
+        T.rec (P.Cover (val a).1.1) @l (I.mem J a) (I.mem-prop J a) (\ c -> Fin[a,h,c].mem) (val a).1.2 ;
+      equation : Id C.Ideal (from-point (to-point J)) J = I.ext (from-point Q) J from-sub sub-from ;
+    } ;
+
+    equivalence : Equiv C.Ideal Point = (to-point,qinv C.Ideal Point to-point from-point
+      (\ Q -> PointTrip[Q].equation) (\ J -> IdealTrip[J].equation)) ;
+    PointLe (Q Q' : Point) : U l = (t : W) -> Q.1.1 t -> Q'.1.1 t ;
+    point-le-prop (Q Q' : Point) : Prelude[l].isProp (PointLe Q Q') =
+      F.isProp-Pi W (\ t -> Q.1.1 t -> Q'.1.1 t) (\ t -> F.isProp-Pi (Q.1.1 t) (\ _ -> Q'.1.1 t) (\ _ -> Q'.1.2 t)) ;
+    point-ext (Q Q' : Point) (h : PointLe Q Q') (h' : PointLe Q' Q) : Id Point Q Q' =
+      Sigma-eq PredP (\ R -> Coherent R) Q.1 Q'.1 Q.2 Q'.2
+        (Sigma-eq (W -> U l) (\ R -> (t : W) -> Prelude[l].isProp (R t)) Q.1.1 Q'.1.1 Q.1.2 Q'.1.2
+          (H.funext W (\ _ -> U l) Q.1.1 Q'.1.1 (\ t -> FS.propext (Q.1.1 t) (Q'.1.1 t) (Q.1.2 t) (Q'.1.2 t) (h t) (h' t)))
+          (H.isProp-Pi W (\ t -> Prelude[l].isProp (Q'.1.1 t)) (\ t -> F.isProp-isProp (Q'.1.1 t))))
+        (coherent-prop Q'.1) ;
+    to-mono (J J' : C.Ideal) (h : I.Incl J J') : PointLe (to-point J) (to-point J') = \ t -> h (at (singleton t)) ;
+    from-mono (Q Q' : Point) (h : PointLe Q Q') : I.Incl (from-point Q) (from-point Q') = \ a m t ht -> h t (m t ht) ;
+  } ;
+} ;

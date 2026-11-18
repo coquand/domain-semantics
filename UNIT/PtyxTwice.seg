@@ -1,0 +1,186 @@
+-- The ptyx  D |-> D(D(n))  (catemb.pdf, linear-order case, step 5 of
+-- PLAN-CATEMB-LO.md): the first ptyx that is not an evaluation.
+--
+-- On a morphism T : D -> E it acts by E(T(n)) . T(D(n)).  A point x of
+-- D(D(n)) is supported by D|c iff x is in the image of the word
+--     im c = D(chi n) . chi(F n)      (chi = inclusion D|c -> D, F = D|c)
+-- and by the pull-back property of Dilator.Restr this image is the
+-- intersection of the image of D(chi n) with D|c(D(n)).  So x is
+-- supported by D|c iff (1) the least support of x in D(D(n)) lies
+-- inside D|c(n), and (2) the trace of x lies in c.  Both conditions are
+-- closed under intersection of c's (stability), and both hold for the
+-- truncation at level D(n) + n (continuity).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module DE = DilPtyxEval[l] ;
+module PM = PtyxMor[l] ;
+module PL = Prelude[l] ;
+
+module Twice (n : W.N) {
+  Pt (D : CD.Dil) : U l = DE.Eval[D.1 n].Pt D ;
+  F (D : CD.Dil) : DP.LO = DE.Eval[D.1 n].F D ;
+  pe (D : CD.Dil) (x y : Pt D) (e : Id W.N x.1 y.1) : Id (Pt D) x y = DE.Eval[D.1 n].pt-eq D x y e ;
+
+  arr (D E : CD.Dil) (T : CD.Mor D E) : DP.Map (F D) (F E) =
+    PM.compMap (F D) (DE.Eval[D.1 n].F E) (F E) (DE.Eval[D.1 n].arr D E T)
+      (PM.actMap E (T.1 n) (D.1 n) (E.1 n) (T.2.2.1 n) (T.2.1 n)) ;
+
+  arr-id (D : CD.Dil) (y : Pt D) : Id (Pt D) ((arr D D (CD.idM D)).1 y) y =
+    pe D ((arr D D (CD.idM D)).1 y) y
+      (W.trans W.N (PM.act D (W.idW (D.1 n)) (W.sel (W.idW (D.1 (D.1 n))) y.1)) (PM.act D (W.idW (D.1 n)) y.1) y.1
+        (W.ap W.N W.N (PM.act D (W.idW (D.1 n))) (W.sel (W.idW (D.1 (D.1 n))) y.1) y.1 (W.sel-idW (D.1 (D.1 n)) y.1 y.2))
+        (PM.act-id D (D.1 n) y.1 y.2)) ;
+
+  module ArrComp (D E G : CD.Dil) (S : CD.Mor D E) (T : CD.Mor E G) (y : Pt D) {
+    module NT = DE.Eval[n].Act[E,G,T].NT ;
+    a : W.N = W.sel (S.1 (D.1 n)) y.1 ;
+    -- naturality of T at the word S(n)
+    mid : Id W.N (W.sel (T.1 (E.1 n)) (PM.act E (S.1 n) a)) (PM.act G (S.1 n) (W.sel (T.1 (D.1 n)) a)) =
+      W.trans W.N (W.sel (T.1 (E.1 n)) (PM.act E (S.1 n) a)) (W.sel (T.1 (W.len (S.1 n))) (PM.act E (S.1 n) a))
+        (PM.act G (S.1 n) (W.sel (T.1 (D.1 n)) a))
+        (W.ap W.N W.N (\ k -> W.sel (T.1 k) (PM.act E (S.1 n) a)) (E.1 n) (W.len (S.1 n)) (W.sym W.N (W.len (S.1 n)) (E.1 n) (S.2.1 n)))
+        (W.trans W.N (W.sel (T.1 (W.len (S.1 n))) (PM.act E (S.1 n) a)) (PM.act G (S.1 n) (W.sel (T.1 (W.ones (S.1 n))) a))
+          (PM.act G (S.1 n) (W.sel (T.1 (D.1 n)) a))
+          (NT.nat-sel (S.1 n) a)
+          (W.ap W.N W.N (\ k -> PM.act G (S.1 n) (W.sel (T.1 k) a)) (W.ones (S.1 n)) (D.1 n) (S.2.2.1 n))) ;
+    lhs : W.N = PM.act G (T.1 n) (W.sel (T.1 (E.1 n)) (PM.act E (S.1 n) a)) ;
+    rhs : W.N = PM.act G (W.compW (T.1 n) (S.1 n)) (W.sel (W.compW (T.1 (D.1 n)) (S.1 (D.1 n))) y.1) ;
+    eq : Id W.N lhs rhs =
+      W.trans W.N lhs (PM.act G (T.1 n) (PM.act G (S.1 n) (W.sel (T.1 (D.1 n)) a))) rhs
+        (W.ap W.N W.N (PM.act G (T.1 n)) (W.sel (T.1 (E.1 n)) (PM.act E (S.1 n) a)) (PM.act G (S.1 n) (W.sel (T.1 (D.1 n)) a)) mid)
+        (W.trans W.N (PM.act G (T.1 n) (PM.act G (S.1 n) (W.sel (T.1 (D.1 n)) a)))
+          (PM.act G (W.compW (T.1 n) (S.1 n)) (W.sel (T.1 (D.1 n)) a)) rhs
+          (W.sym W.N (PM.act G (W.compW (T.1 n) (S.1 n)) (W.sel (T.1 (D.1 n)) a))
+            (PM.act G (T.1 n) (PM.act G (S.1 n) (W.sel (T.1 (D.1 n)) a)))
+            (PM.act-comp G (T.1 n) (S.1 n) (CD.Comp[D,E,G,S,T].match n) (W.sel (T.1 (D.1 n)) a)))
+          (W.ap W.N W.N (PM.act G (W.compW (T.1 n) (S.1 n))) (W.sel (T.1 (D.1 n)) a)
+            (W.sel (W.compW (T.1 (D.1 n)) (S.1 (D.1 n))) y.1)
+            (W.sym W.N (W.sel (W.compW (T.1 (D.1 n)) (S.1 (D.1 n))) y.1) (W.sel (T.1 (D.1 n)) a)
+              (W.sel-comp (T.1 (D.1 n)) (S.1 (D.1 n)) y.1 (CD.Comp[D,E,G,S,T].match (D.1 n)))))) ;
+  } ;
+  arr-comp (D E G : CD.Dil) (S : CD.Mor D E) (T : CD.Mor E G) (y : Pt D) :
+      Id (Pt G) ((arr E G T).1 ((arr D E S).1 y)) ((arr D G (CD.compM D E G S T)).1 y) =
+    pe G ((arr E G T).1 ((arr D E S).1 y)) ((arr D G (CD.compM D E G S T)).1 y) ArrComp[D,E,G,S,T,y].eq ;
+
+  ----------------------------------------------------------------------
+  -- supports
+
+  -- the least support of a point x of D(D(n)) lies in any u with x in Im D(u)
+  module Least (D : CD.Dil) (x : Pt D) {
+    p : W.N = D.1 n ;
+    module P = DF.On[D].P ;
+    hz : Id W.Bool (W.at (CD.D1 D (W.idW p)) x.1) true = P.hzOf p x.1 x.2 ;
+    s : W.Wd = P.Sup[p,x.1].supp ;
+    bound (y : W.N) (hy : Id W.Bool (W.at s y) true) : Id W.Bool (W.ltN y p) true =
+      W.subst W.N (\ k -> Id W.Bool (W.ltN y k) true) (W.len s) p P.Point[p,x.1,hz].supp-supp.1 (W.at-lt s y hy) ;
+    inside (u : W.Wd) (hu : Id W.N (W.len u) p) (h : Id W.Bool (W.at (CD.D1 D u) x.1) true) : W.Le s u =
+      P.Point[p,x.1,hz].supp-min u (hu,h) ;
+    up (u : W.Wd) (hu : Id W.N (W.len u) p) (le : W.Le s u) : Id W.Bool (W.at (CD.D1 D u) x.1) true =
+      CD.Up[D,p,x.1,hz,u,hu,le].result ;
+  } ;
+
+  module SP (D : CD.Dil) (c : DP.SubSet) {
+    module S = DF.On[D].Sub[c] ;
+    w : W.Wd = S.R.chi n ;
+    im : W.Wd = W.compW (CD.D1 D w) (S.R.chi (S.R.F0 n)) ;
+    mt : Id W.N (W.ones (CD.D1 D w)) (W.len (S.R.chi (S.R.F0 n))) =
+      W.trans W.N (W.ones (CD.D1 D w)) (D.1 (S.R.F0 n)) (W.len (S.R.chi (S.R.F0 n))) (CD.dones D w)
+        (W.sym W.N (W.len (S.R.chi (S.R.F0 n))) (D.1 (S.R.F0 n)) (S.R.len-chi (S.R.F0 n))) ;
+    sel-im (z : W.N) : Id W.N (W.sel im z) (PM.act D w (W.sel (S.R.chi (S.R.F0 n)) z)) =
+      W.sel-comp (CD.D1 D w) (S.R.chi (S.R.F0 n)) z mt ;
+    ones-im : Id W.N (W.ones im) (W.ones (S.R.chi (S.R.F0 n))) = W.ones-comp (CD.D1 D w) (S.R.chi (S.R.F0 n)) mt ;
+    Supp (x : Pt D) : U l = (z : Pt S.dil) * Id (Pt D) ((arr S.dil D S.inc).1 z) x ;
+
+    module Hit (x : Pt D) (h : Id W.Bool (W.at im x.1) true) {
+      z : Pt S.dil = (W.rank im x.1,
+        W.subst W.N (\ k -> Id W.Bool (W.ltN (W.rank im x.1) k) true) (W.ones im) (W.ones (S.R.chi (S.R.F0 n))) ones-im
+          (W.rank-lt im x.1 h)) ;
+      supp : Supp x = (z,pe D ((arr S.dil D S.inc).1 z) x
+        (W.trans W.N (PM.act D w (W.sel (S.R.chi (S.R.F0 n)) z.1)) (W.sel im z.1) x.1
+          (W.sym W.N (W.sel im z.1) (PM.act D w (W.sel (S.R.chi (S.R.F0 n)) z.1)) (sel-im z.1))
+          (W.sel-rank im x.1 h))) ;
+    } ;
+    back (x : Pt D) (s : Supp x) : Id W.Bool (W.at im x.1) true =
+      W.subst W.N (\ k -> Id W.Bool (W.at im k) true) (W.sel im s.1.1) x.1
+        (W.trans W.N (W.sel im s.1.1) (PM.act D w (W.sel (S.R.chi (S.R.F0 n)) s.1.1)) x.1 (sel-im s.1.1)
+          (PL.ap (Pt D) W.N (\ q -> q.1) ((arr S.dil D S.inc).1 s.1) x s.2))
+        (W.at-sel im s.1.1
+          (W.subst W.N (\ k -> Id W.Bool (W.ltN s.1.1 k) true) (W.ones (S.R.chi (S.R.F0 n))) (W.ones im)
+            (W.sym W.N (W.ones im) (W.ones (S.R.chi (S.R.F0 n))) ones-im) s.1.2)) ;
+
+    -- the image of im is the intersection (pull-back of Dilator.Restr)
+    chi-len (y : W.N) : Id W.Bool (W.at (S.R.chi (W.len w)) y) (W.at (S.R.chi (D.1 n)) y) =
+      W.ap W.N W.Bool (\ k -> W.at (S.R.chi k) y) (W.len w) (D.1 n) (S.R.len-chi n) ;
+    decomp (y : W.N) : Id W.Bool (W.at im y) (W.andB (W.at (CD.D1 D w) y) (W.at (S.R.chi (W.len w)) y)) =
+      W.trans W.Bool (W.at im y) (W.at (W.andW (CD.D1 D w) (S.R.chi (W.len w))) y)
+        (W.andB (W.at (CD.D1 D w) y) (W.at (S.R.chi (W.len w)) y))
+        (W.ap W.Wd W.Bool (\ u -> W.at u y) im (W.andW (CD.D1 D w) (S.R.chi (W.len w))) (S.R.pb w))
+        (W.at-and (CD.D1 D w) y (S.R.chi (W.len w))) ;
+    out1 (y : W.N) (h : Id W.Bool (W.at im y) true) : Id W.Bool (W.at (CD.D1 D w) y) true =
+      W.andB-l (W.at (CD.D1 D w) y) (W.at (S.R.chi (W.len w)) y)
+        (W.trans W.Bool (W.andB (W.at (CD.D1 D w) y) (W.at (S.R.chi (W.len w)) y)) (W.at im y) true
+          (W.sym W.Bool (W.at im y) (W.andB (W.at (CD.D1 D w) y) (W.at (S.R.chi (W.len w)) y)) (decomp y)) h) ;
+    out2 (y : W.N) (h : Id W.Bool (W.at im y) true) : Id W.Bool (W.at (S.R.chi (D.1 n)) y) true =
+      W.trans W.Bool (W.at (S.R.chi (D.1 n)) y) (W.at (S.R.chi (W.len w)) y) true
+        (W.sym W.Bool (W.at (S.R.chi (W.len w)) y) (W.at (S.R.chi (D.1 n)) y) (chi-len y))
+        (W.andB-r (W.at (CD.D1 D w) y) (W.at (S.R.chi (W.len w)) y)
+          (W.trans W.Bool (W.andB (W.at (CD.D1 D w) y) (W.at (S.R.chi (W.len w)) y)) (W.at im y) true
+            (W.sym W.Bool (W.at im y) (W.andB (W.at (CD.D1 D w) y) (W.at (S.R.chi (W.len w)) y)) (decomp y)) h)) ;
+    into (y : W.N) (h1 : Id W.Bool (W.at (CD.D1 D w) y) true) (h2 : Id W.Bool (W.at (S.R.chi (D.1 n)) y) true) :
+        Id W.Bool (W.at im y) true =
+      W.trans W.Bool (W.at im y) (W.andB (W.at (CD.D1 D w) y) (W.at (S.R.chi (W.len w)) y)) true (decomp y)
+        (W.ap2 W.Bool W.Bool W.Bool W.andB (W.at (CD.D1 D w) y) true (W.at (S.R.chi (W.len w)) y) true h1
+          (W.trans W.Bool (W.at (S.R.chi (W.len w)) y) (W.at (S.R.chi (D.1 n)) y) true (chi-len y) h2)) ;
+  } ;
+
+  -- stability: supports are closed under binary intersection
+  module Meet (D : CD.Dil) (x : Pt D) (c c' : DP.SubSet) (s : SP[D,c].Supp x) (s' : SP[D,c'].Supp x) {
+    module A = SP[D,c] ;
+    module B = SP[D,c'] ;
+    module M = SP[D,DF.On[D].meet c c'] ;
+    module L = Least[D,x] ;
+    h : Id W.Bool (W.at A.im x.1) true = A.back x s ;
+    h' : Id W.Bool (W.at B.im x.1) true = B.back x s' ;
+    both (k y : W.N) (hy : Id W.Bool (W.ltN y (D.1 k)) true)
+      (a : Id W.Bool (W.at (A.S.R.chi k) y) true) (b : Id W.Bool (W.at (B.S.R.chi k) y) true) :
+        Id W.Bool (W.at (M.S.R.chi k) y) true =
+      W.trans W.Bool (W.at (M.S.R.chi k) y) (W.andB (W.at (A.S.R.chi k) y) (W.at (B.S.R.chi k) y)) true
+        (DF.On[D].inter c c' k y hy)
+        (W.ap2 W.Bool W.Bool W.Bool W.andB (W.at (A.S.R.chi k) y) true (W.at (B.S.R.chi k) y) true a b) ;
+    -- (2) the trace condition
+    b2 : Id W.Bool (W.at (M.S.R.chi (D.1 n)) x.1) true = both (D.1 n) x.1 x.2 (A.out2 x.1 h) (B.out2 x.1 h') ;
+    -- (1) the least support lies in D|c(n) and in D|c'(n)
+    le : W.Le L.s M.w = \ y hy ->
+      both n y (L.bound y hy)
+        (L.inside A.w (A.S.R.len-chi n) (A.out1 x.1 h) y hy)
+        (L.inside B.w (B.S.R.len-chi n) (B.out1 x.1 h') y hy) ;
+    b1 : Id W.Bool (W.at (CD.D1 D M.w) x.1) true = L.up M.w (M.S.R.len-chi n) le ;
+    result : M.Supp x = M.Hit[x,M.into x.1 b1 b2].supp ;
+  } ;
+  meet (D : CD.Dil) (x : Pt D) (c c' : DP.SubSet) (s : SP[D,c].Supp x) (s' : SP[D,c'].Supp x) :
+      SP[D,DF.On[D].meet c c'].Supp x = Meet[D,x,c,c',s,s'].result ;
+
+  -- continuity: the truncation at level D(n) + n supports x
+  module Cont (D : CD.Dil) (x : Pt D) {
+    K : W.N = W.plus (D.1 n) n ;
+    module T = SP[D,DF.On[D].lev K] ;
+    module L = Least[D,x] ;
+    hn : Id W.Bool (W.ltN n (suc K)) true = W.le-plus n (D.1 n) ;
+    hp : Id W.Bool (W.ltN (D.1 n) (suc K)) true =
+      W.subst W.N (\ k -> Id W.Bool (W.ltN (D.1 n) (suc k)) true) (W.plus n (D.1 n)) K (W.plus-comm n (D.1 n))
+        (W.le-plus (D.1 n) n) ;
+    b2 : Id W.Bool (W.at (T.S.R.chi (D.1 n)) x.1) true = DF.On[D].Trunc[K].covers (D.1 n) x.1 hp x.2 ;
+    le : W.Le L.s T.w = \ y hy -> DF.On[D].Trunc[K].covers n y hn (L.bound y hy) ;
+    b1 : Id W.Bool (W.at (CD.D1 D T.w) x.1) true = L.up T.w (T.S.R.len-chi n) le ;
+    result : T.Supp x = T.Hit[x,T.into x.1 b1 b2].supp ;
+  } ;
+  support (D : CD.Dil) (x : Pt D) : Ex ((K : W.N) * SP[D,DF.On[D].lev K].Supp x) =
+    inc ((K : W.N) * SP[D,DF.On[D].lev K].Supp x) (Cont[D,x].K,Cont[D,x].result) ;
+
+  ptyx : DP.Ptyx = new DP.Ptyx[F := F, arr := arr, arr-id := arr-id, arr-comp := arr-comp,
+    support := support, meet := meet] ;
+} ;

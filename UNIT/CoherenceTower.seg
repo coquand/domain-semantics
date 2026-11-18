@@ -1,0 +1,510 @@
+-- The colimit of the tower of webs (CoherenceEmb) and its identification
+-- with its own stable function space.
+--
+-- Lifting between levels is structural: up (n+1) (m+1) = FunEmb (up n m),
+-- guarded by leb n m, so no transport along equations of natural numbers
+-- is needed except for one lemma (equal levels).
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module TC = TruncationCombinators[l] ;
+module FD = FiniteDiscrete[l] ;
+module FS = DIFinSubsets[l] ;
+module CO = Coherence[l] ;
+module CF = CoherenceFun[l] ;
+module CE = CoherenceEmb[l] ;
+module PL = Prelude[l] ;
+
+----------------------------------------------------------------------
+-- identity and composition of embeddings
+
+idE (S : CO.Space) : CE.Emb[S,S] = new CE.Emb[S,S,map := \ s -> s,
+  pre := \ t -> inl (t,refl t), inj := \ s s' p -> p, pres := \ s t h -> h, reflects := \ s t h -> h] ;
+
+module Compose (S S' S'' : CO.Space) (E : CE.Emb[S,S']) (E' : CE.Emb[S',S'']) {
+  map (s : S.web) : S''.web = E'.map (E.map s) ;
+  Fib (t : S''.web) : U l = (s : S.web) * Id S''.web (map s) t ;
+  Fib' (t : S''.web) : U l = (s : S'.web) * Id S''.web (E'.map s) t ;
+  FibE (s' : S'.web) : U l = (s : S.web) * Id S'.web (E.map s) s' ;
+  pre2 (t : S''.web) (w : Fib' t) : FD.Dec (FibE w.1) -> FD.Dec (Fib t) = split {
+    inl v -> inl (v.1,PL.trans S''.web (map v.1) (E'.map w.1) t (PL.ap S'.web S''.web E'.map (E.map v.1) w.1 v.2) w.2) ;
+    inr n -> inr (\ f -> n (f.1,E'.inj (E.map f.1) w.1 (PL.trans S''.web (map f.1) t (E'.map w.1) f.2 (PL.sym S''.web (E'.map w.1) t w.2)))) } ;
+  pre1 (t : S''.web) : FD.Dec (Fib' t) -> FD.Dec (Fib t) = split {
+    inl w -> pre2 t w (E.pre w.1) ;
+    inr n -> inr (\ f -> n (E.map f.1,f.2)) } ;
+  emb : CE.Emb[S,S''] = new CE.Emb[S,S'',map := map, pre := \ t -> pre1 t (E'.pre t),
+    inj := \ s s' p -> E.inj s s' (E'.inj (E.map s) (E.map s') p),
+    pres := \ s t h -> E'.pres (E.map s) (E.map t) (E.pres s t h),
+    reflects := \ s t h -> E.reflects s t (E'.reflects (E.map s) (E.map t) h)] ;
+} ;
+
+----------------------------------------------------------------------
+-- lifting between levels
+
+W (n : Nat) : U l = (CE.space n).web ;
+coh (n : Nat) (s t : W n) : Bool = (CE.space n).coh s t ;
+
+up0 : (m : Nat) -> CE.Emb[CE.space zero,CE.space m] = split {
+  zero -> idE (CE.space zero) ;
+  suc m | r -> Compose[CE.space zero,CE.space (suc zero),CE.space (suc m),CE.Base0.emb,
+    CE.FunEmb[CE.space zero,CE.space m,CE.space zero,CE.space m,r,r].emb].emb } ;
+
+up : (n m : Nat) -> IsT (leb n m) -> CE.Emb[CE.space n,CE.space m] = split {
+  zero -> \ m h -> up0 m ;
+  suc n | r -> split {
+    zero -> \ h -> absurd (CE.Emb[CE.space (suc n),CE.space zero]) h ;
+    suc m -> \ h -> CE.FunEmb[CE.space n,CE.space m,CE.space n,CE.space m,r m h,r m h].emb } } ;
+
+----------------------------------------------------------------------
+-- order of natural numbers
+
+leb-refl : (n : Nat) -> IsT (leb n n) = split { zero -> tt ; suc n | r -> r } ;
+leb-suc : (n : Nat) -> IsT (leb n (suc n)) = split { zero -> tt ; suc n | r -> r } ;
+leb-trans : (n m k : Nat) -> IsT (leb n m) -> IsT (leb m k) -> IsT (leb n k) = split {
+  zero -> \ m k h1 h2 -> tt ;
+  suc n | r -> split {
+    zero -> \ k h1 h2 -> absurd (IsT (leb (suc n) k)) h1 ;
+    suc m -> split {
+      zero -> \ h1 h2 -> absurd (IsT (leb (suc n) zero)) h2 ;
+      suc k -> \ h1 h2 -> r m k h1 h2 } } } ;
+leb-antisym : (n m : Nat) -> IsT (leb n m) -> IsT (leb m n) -> Id Nat n m = split {
+  zero -> split { zero -> \ h h' -> refl zero ; suc m -> \ h h' -> absurd (Id Nat zero (suc m)) h' } ;
+  suc n | r -> split {
+    zero -> \ h h' -> absurd (Id Nat (suc n) zero) h ;
+    suc m -> \ h h' -> PL.ap Nat Nat (\ z -> suc z) n m (r m h h') } } ;
+leb-flip : (n m : Nat) -> (IsT (leb n m) -> Empty) -> IsT (leb m n) = split {
+  zero -> \ m nh -> absurd (IsT (leb m zero)) (nh tt) ;
+  suc n | r -> split { zero -> \ nh -> tt ; suc m -> \ nh -> r m nh } } ;
+leb-pred : (n j : Nat) -> IsT (leb n (suc j)) -> (IsT (leb (suc j) n) -> Empty) -> IsT (leb n j) = split {
+  zero -> \ j h nh -> tt ;
+  suc n | r -> split {
+    zero -> \ h nh -> absurd (IsT (leb (suc n) zero)) (nh tt) ;
+    suc j -> \ h nh -> r j h nh } } ;
+leb-max-l : (n m : Nat) -> IsT (leb n (max n m)) = split {
+  zero -> \ m -> tt ;
+  suc n | r -> split { zero -> leb-refl n ; suc m -> r m } } ;
+leb-max-r : (n m : Nat) -> IsT (leb m (max n m)) = split {
+  zero -> \ m -> leb-refl m ;
+  suc n | r -> split { zero -> tt ; suc m -> r m } } ;
+
+----------------------------------------------------------------------
+-- direct images are determined by their members
+
+module ImgChar (S S' : CO.Space) (E : CE.Emb[S,S']) {
+  module I = CE.Images[S,S',E] ;
+  char (a : I.A.Carrier) (b : I.A'.Carrier)
+    (h1 : (t : S'.web) -> IsT (b.1.1 t) -> (s : S.web) * (IsT (a.1.1 s) * Id S'.web (E.map s) t))
+    (h2 : (s : S.web) -> IsT (a.1.1 s) -> IsT (b.1.1 (E.map s))) : Id I.A'.Carrier (I.img a) b =
+    I.A'.ext (I.img a) b
+      (\ t k -> PL.subst S'.web (\ u -> IsT (b.1.1 u)) (E.map (I.img-sound' a t k).1) t (I.img-sound' a t k).2.2
+        (h2 (I.img-sound' a t k).1 (I.img-sound' a t k).2.1))
+      (\ t k -> PL.subst S'.web (\ u -> IsT ((I.img a).1.1 u)) (E.map (h1 t k).1) t (h1 t k).2.2
+        (I.img-mem a (h1 t k).1 (h1 t k).2.1)) ;
+  img-bot : Id I.A'.Carrier (I.img I.A.bot) I.A'.bot =
+    char I.A.bot I.A'.bot (\ t k -> absurd ((s : S.web) * (IsT false * Id S'.web (E.map s) t)) k) (\ s k -> k) ;
+} ;
+
+----------------------------------------------------------------------
+-- up n n is the identity, and up composes
+
+Car (n : Nat) : U l = (CO.On[CE.space n]).Carrier ;
+
+up-id : (n : Nat) (h : IsT (leb n n)) (t : W n) -> Id (W n) ((up n n h).map t) t = split {
+  zero -> \ h t -> refl t ;
+  suc n | r -> \ h t -> CF.pair-eq (Car n) (W n) (CE.Images[CE.space n,CE.space n,up n n h].img t.1) t.1
+    ((up n n h).map t.2) t.2
+    (ImgChar[CE.space n,CE.space n,up n n h].char t.1 t.1 (\ s k -> (s,(k,r h s)))
+      (\ s k -> PL.subst (W n) (\ u -> IsT (t.1.1.1 u)) s ((up n n h).map s) (PL.sym (W n) ((up n n h).map s) s (r h s)) k))
+    (r h t.2) } ;
+
+module ImgComp (S S' S'' : CO.Space) (E : CE.Emb[S,S']) (E' : CE.Emb[S',S'']) (E'' : CE.Emb[S,S''])
+  (c : (s : S.web) -> Id S''.web (E'.map (E.map s)) (E''.map s)) {
+  module I = CE.Images[S,S',E] ;
+  module I' = CE.Images[S',S'',E'] ;
+  module I'' = CE.Images[S,S'',E''] ;
+  comp (a : I.A.Carrier) : Id I''.A'.Carrier (I'.img (I.img a)) (I''.img a) =
+    ImgChar[S',S'',E'].char (I.img a) (I''.img a)
+      (\ t k -> (E.map (I''.img-sound' a t k).1,(I.img-mem a (I''.img-sound' a t k).1 (I''.img-sound' a t k).2.1,
+        PL.trans S''.web (E'.map (E.map (I''.img-sound' a t k).1)) (E''.map (I''.img-sound' a t k).1) t
+          (c (I''.img-sound' a t k).1) (I''.img-sound' a t k).2.2)))
+      (\ s' k -> PL.subst S''.web (\ u -> IsT ((I''.img a).1.1 u)) (E''.map (I.img-sound' a s' k).1) (E'.map s')
+        (PL.trans S''.web (E''.map (I.img-sound' a s' k).1) (E'.map (E.map (I.img-sound' a s' k).1)) (E'.map s')
+          (PL.sym S''.web (E'.map (E.map (I.img-sound' a s' k).1)) (E''.map (I.img-sound' a s' k).1) (c (I.img-sound' a s' k).1))
+          (PL.ap S'.web S''.web E'.map (E.map (I.img-sound' a s' k).1) s' (I.img-sound' a s' k).2.2))
+        (I''.img-mem a (I.img-sound' a s' k).1 (I.img-sound' a s' k).2.1)) ;
+} ;
+
+bot0 : Car zero = (CO.On[CE.space zero]).bot ;
+up0-comp : (m k : Nat) (h2 : IsT (leb m k)) (t : W zero) -> Id (W k) ((up m k h2).map ((up0 m).map t)) ((up0 k).map t) = split {
+  zero -> \ k h2 t -> refl ((up0 k).map t) ;
+  suc m | r -> split {
+    zero -> \ h2 t -> absurd (Id (W zero) ((up (suc m) zero h2).map ((up0 (suc m)).map t)) ((up0 zero).map t)) h2 ;
+    suc k -> \ h2 t -> CF.pair-eq (Car k) (W k)
+      (CE.Images[CE.space m,CE.space k,up m k h2].img (CE.Images[CE.space zero,CE.space m,up0 m].img bot0))
+      (CE.Images[CE.space zero,CE.space k,up0 k].img bot0)
+      ((up m k h2).map ((up0 m).map t)) ((up0 k).map t)
+      (PL.trans (Car k) (CE.Images[CE.space m,CE.space k,up m k h2].img (CE.Images[CE.space zero,CE.space m,up0 m].img bot0))
+        (CE.Images[CE.space m,CE.space k,up m k h2].img (CO.On[CE.space m]).bot)
+        (CE.Images[CE.space zero,CE.space k,up0 k].img bot0)
+        (PL.ap (Car m) (Car k) (CE.Images[CE.space m,CE.space k,up m k h2].img)
+          (CE.Images[CE.space zero,CE.space m,up0 m].img bot0) (CO.On[CE.space m]).bot
+          ImgChar[CE.space zero,CE.space m,up0 m].img-bot)
+        (PL.trans (Car k) (CE.Images[CE.space m,CE.space k,up m k h2].img (CO.On[CE.space m]).bot)
+          (CO.On[CE.space k]).bot (CE.Images[CE.space zero,CE.space k,up0 k].img bot0)
+          ImgChar[CE.space m,CE.space k,up m k h2].img-bot
+          (PL.sym (Car k) (CE.Images[CE.space zero,CE.space k,up0 k].img bot0) (CO.On[CE.space k]).bot
+            ImgChar[CE.space zero,CE.space k,up0 k].img-bot)))
+      (r k h2 t) } } ;
+
+up-comp : (n m k : Nat) (h1 : IsT (leb n m)) (h2 : IsT (leb m k)) (h3 : IsT (leb n k)) (t : W n) ->
+    Id (W k) ((up m k h2).map ((up n m h1).map t)) ((up n k h3).map t) = split {
+  zero -> \ m k h1 h2 h3 t -> up0-comp m k h2 t ;
+  suc n | r -> split {
+    zero -> \ k h1 h2 h3 t -> absurd (Id (W k) ((up zero k h2).map ((up (suc n) zero h1).map t)) ((up (suc n) k h3).map t)) h1 ;
+    suc m -> split {
+      zero -> \ h1 h2 h3 t -> absurd (Id (W zero) ((up (suc m) zero h2).map ((up (suc n) (suc m) h1).map t)) ((up (suc n) zero h3).map t)) h2 ;
+      suc k -> \ h1 h2 h3 t -> CF.pair-eq (Car k) (W k)
+        (CE.Images[CE.space m,CE.space k,up m k h2].img (CE.Images[CE.space n,CE.space m,up n m h1].img t.1))
+        (CE.Images[CE.space n,CE.space k,up n k h3].img t.1)
+        ((up m k h2).map ((up n m h1).map t.2)) ((up n k h3).map t.2)
+        (ImgComp[CE.space n,CE.space m,CE.space k,up n m h1,up m k h2,up n k h3,\ s -> r m k h1 h2 h3 s].comp t.1)
+        (r m k h1 h2 h3 t.2) } } } ;
+
+----------------------------------------------------------------------
+-- normal forms: tokens not coming from the level below
+
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+step (k : Nat) : CE.Emb[CE.space k,CE.space (suc k)] = up k (suc k) (leb-suc k) ;
+FibU (k : Nat) (t : W (suc k)) : U l = (s : W k) * Id (W (suc k)) ((step k).map s) t ;
+New : (n : Nat) -> W n -> U l = split { zero -> \ t -> Top ; suc k -> \ t -> FibU k t -> Empty } ;
+new-prop : (n : Nat) (t : W n) -> PL.isProp (New n t) = split {
+  zero -> \ t -> isTop ;
+  suc k -> \ t -> F.isProp-Pi (FibU k t) (\ _ -> Empty) (\ _ -> PL.isProp-Empty) } ;
+Tok : U l = (n : Nat) * ((t : W n) * New n t) ;
+liftT (x : Tok) (k : Nat) (h : IsT (leb x.1 k)) : W k = (up x.1 k h).map x.2.1 ;
+up-irr (n k : Nat) (h h' : IsT (leb n k)) (t : W n) : Id (W k) ((up n k h).map t) ((up n k h').map t) =
+  PL.ap (IsT (leb n k)) (W k) (\ z -> (up n k z).map t) h h' (BooleanDI[l].holds-prop (leb n k) h h') ;
+
+-- a new token is not the lift of a token of strictly lower level
+strict : (m n : Nat) (h : IsT (leb n m)) (nh : IsT (leb m n) -> Empty) (t : W n) (s : W m) (ns : New m s)
+    (e : Id (W m) ((up n m h).map t) s) -> Empty = split {
+  zero -> \ n h nh t s ns e -> nh tt ;
+  suc j -> \ n h nh t s ns e -> ns ((up n j (leb-pred n j h nh)).map t,
+    PL.trans (W (suc j)) ((step j).map ((up n j (leb-pred n j h nh)).map t)) ((up n (suc j) h).map t) s
+      (up-comp n j (suc j) (leb-pred n j h nh) (leb-suc j) h t) e) } ;
+
+-- tokens of equal level that agree are equal (the one transport)
+module EqLevel (n : Nat) (t : W n) (nt : New n t) {
+  Mot (m : Nat) (p : Id Nat n m) : U l = (h : IsT (leb n m)) (s : W m) (ns : New m s)
+    (e : Id (W m) ((up n m h).map t) s) -> Id Tok (n,(t,nt)) (m,(s,ns)) ;
+  base : Mot n (refl n) = \ h s ns e ->
+    PL.ap ((u : W n) * New n u) Tok (\ z -> (n,z)) (t,nt) (s,ns)
+      (PL.Sigma-eq (W n) (New n) t s nt ns
+        (PL.trans (W n) t ((up n n h).map t) s (PL.sym (W n) ((up n n h).map t) t (up-id n h t)) e) (new-prop n s)) ;
+  result (m : Nat) (h : IsT (leb n m)) (h' : IsT (leb m n)) (s : W m) (ns : New m s)
+    (e : Id (W m) ((up n m h).map t) s) : Id Tok (n,(t,nt)) (m,(s,ns)) =
+    idJ Nat n Mot base m (leb-antisym n m h h') h s ns e ;
+} ;
+
+-- equality of tokens is equality of lifts to any common level
+module EqLift (x y : Tok) (k : Nat) (hx : IsT (leb x.1 k)) (hy : IsT (leb y.1 k))
+  (e : Id (W k) (liftT x k hx) (liftT y k hy)) {
+  low (h : IsT (leb x.1 y.1)) : Id (W y.1) ((up x.1 y.1 h).map x.2.1) y.2.1 =
+    (up y.1 k hy).inj ((up x.1 y.1 h).map x.2.1) y.2.1
+      (PL.trans (W k) ((up y.1 k hy).map ((up x.1 y.1 h).map x.2.1)) (liftT x k hx) (liftT y k hy)
+        (up-comp x.1 y.1 k h hy hx x.2.1) e) ;
+  high (h : IsT (leb y.1 x.1)) : Id (W x.1) ((up y.1 x.1 h).map y.2.1) x.2.1 =
+    (up x.1 k hx).inj ((up y.1 x.1 h).map y.2.1) x.2.1
+      (PL.trans (W k) ((up x.1 k hx).map ((up y.1 x.1 h).map y.2.1)) (liftT y k hy) (liftT x k hx)
+        (up-comp y.1 x.1 k h hx hy y.2.1) (PL.sym (W k) (liftT x k hx) (liftT y k hy) e)) ;
+  yes (h : IsT (leb x.1 y.1)) : Id Tok x y =
+    cases (IsT (leb y.1 x.1)) (IsT (leb y.1 x.1) -> Empty) (\ _ -> Id Tok x y)
+      (\ h' -> EqLevel[x.1,x.2.1,x.2.2].result y.1 h h' y.2.1 y.2.2 (low h))
+      (\ nh' -> absurd (Id Tok x y) (strict y.1 x.1 h nh' x.2.1 y.2.1 y.2.2 (low h)))
+      (FS.bool-cases (leb y.1 x.1)) ;
+  result : Id Tok x y =
+    cases (IsT (leb x.1 y.1)) (IsT (leb x.1 y.1) -> Empty) (\ _ -> Id Tok x y) yes
+      (\ nh -> absurd (Id Tok x y) (strict x.1 y.1 (leb-flip x.1 y.1 nh) nh y.2.1 x.2.1 x.2.2 (high (leb-flip x.1 y.1 nh))))
+      (FS.bool-cases (leb x.1 y.1)) ;
+} ;
+lift-eq (x y : Tok) (q : Id Tok x y) (k : Nat) (hx : IsT (leb x.1 k)) (hy : IsT (leb y.1 k)) :
+    Id (W k) (liftT x k hx) (liftT y k hy) =
+  idJ Tok x (\ z q -> (hz : IsT (leb z.1 k)) -> Id (W k) (liftT x k hx) (liftT z k hz))
+    (\ hz -> up-irr x.1 k hx hz x.2.1) y q hy ;
+level-eq (x y : Tok) (q : Id Tok x y) : Id Nat x.1 y.1 = PL.ap Tok Nat (\ z -> z.1) x y q ;
+
+module TokDec (x y : Tok) {
+  m : Nat = max x.1 y.1 ;
+  hx : IsT (leb x.1 m) = leb-max-l x.1 y.1 ;
+  hy : IsT (leb y.1 m) = leb-max-r x.1 y.1 ;
+  decision : FD.Dec (Id Tok x y) =
+    FD.map-decision (Id (W m) (liftT x m hx) (liftT y m hy)) (Id Tok x y)
+      (\ e -> EqLift[x,y,m,hx,hy,e].result) (\ q -> lift-eq x y q m hx hy)
+      ((CE.space m).dec (liftT x m hx) (liftT y m hy)) ;
+} ;
+tok-dec (x y : Tok) : FD.Dec (Id Tok x y) = TokDec[x,y].decision ;
+
+----------------------------------------------------------------------
+-- coherence of tokens, through any common level
+
+cohD (n m : Nat) (t : W n) (s : W m) : FD.Dec (IsT (leb n m)) -> Bool = split {
+  inl h -> coh m ((up n m h).map t) s ;
+  inr nh -> coh n t ((up m n (leb-flip n m nh)).map s) } ;
+cohT (x y : Tok) : Bool = cohD x.1 y.1 x.2.1 y.2.1 (FS.bool-cases (leb x.1 y.1)) ;
+
+module Common (n m k : Nat) (t : W n) (s : W m) (hn : IsT (leb n k)) (hm : IsT (leb m k)) {
+  At : U l = IsT (coh k ((up n k hn).map t) ((up m k hm).map s)) ;
+  to : (d : FD.Dec (IsT (leb n m))) -> IsT (cohD n m t s d) -> At = split {
+    inl h -> \ c -> PL.subst (W k) (\ u -> IsT (coh k u ((up m k hm).map s)))
+      ((up m k hm).map ((up n m h).map t)) ((up n k hn).map t) (up-comp n m k h hm hn t)
+      ((up m k hm).pres ((up n m h).map t) s c) ;
+    inr nh -> \ c -> PL.subst (W k) (\ u -> IsT (coh k ((up n k hn).map t) u))
+      ((up n k hn).map ((up m n (leb-flip n m nh)).map s)) ((up m k hm).map s) (up-comp m n k (leb-flip n m nh) hn hm s)
+      ((up n k hn).pres t ((up m n (leb-flip n m nh)).map s) c) } ;
+  from : (d : FD.Dec (IsT (leb n m))) -> At -> IsT (cohD n m t s d) = split {
+    inl h -> \ c -> (up m k hm).reflects ((up n m h).map t) s
+      (PL.subst (W k) (\ u -> IsT (coh k u ((up m k hm).map s)))
+        ((up n k hn).map t) ((up m k hm).map ((up n m h).map t))
+        (PL.sym (W k) ((up m k hm).map ((up n m h).map t)) ((up n k hn).map t) (up-comp n m k h hm hn t)) c) ;
+    inr nh -> \ c -> (up n k hn).reflects t ((up m n (leb-flip n m nh)).map s)
+      (PL.subst (W k) (\ u -> IsT (coh k ((up n k hn).map t) u))
+        ((up m k hm).map s) ((up n k hn).map ((up m n (leb-flip n m nh)).map s))
+        (PL.sym (W k) ((up n k hn).map ((up m n (leb-flip n m nh)).map s)) ((up m k hm).map s)
+          (up-comp m n k (leb-flip n m nh) hn hm s)) c) } ;
+} ;
+coh-at (x y : Tok) (k : Nat) (hx : IsT (leb x.1 k)) (hy : IsT (leb y.1 k)) (c : IsT (cohT x y)) :
+    IsT (coh k (liftT x k hx) (liftT y k hy)) =
+  Common[x.1,y.1,k,x.2.1,y.2.1,hx,hy].to (FS.bool-cases (leb x.1 y.1)) c ;
+at-coh (x y : Tok) (k : Nat) (hx : IsT (leb x.1 k)) (hy : IsT (leb y.1 k)) (c : IsT (coh k (liftT x k hx) (liftT y k hy))) :
+    IsT (cohT x y) =
+  Common[x.1,y.1,k,x.2.1,y.2.1,hx,hy].from (FS.bool-cases (leb x.1 y.1)) c ;
+
+tok-coh-refl (x : Tok) : IsT (cohT x x) =
+  at-coh x x x.1 (leb-refl x.1) (leb-refl x.1) ((CE.space x.1).coh-refl (liftT x x.1 (leb-refl x.1))) ;
+tok-coh-sym (x y : Tok) (c : IsT (cohT x y)) : IsT (cohT y x) =
+  at-coh y x (max x.1 y.1) (leb-max-r x.1 y.1) (leb-max-l x.1 y.1)
+    ((CE.space (max x.1 y.1)).coh-sym (liftT x (max x.1 y.1) (leb-max-l x.1 y.1)) (liftT y (max x.1 y.1) (leb-max-r x.1 y.1))
+      (coh-at x y (max x.1 y.1) (leb-max-l x.1 y.1) (leb-max-r x.1 y.1) c)) ;
+tok-space : CO.Space = new CO.Space[web := Tok, dec := tok-dec, coh := cohT,
+  coh-refl := tok-coh-refl, coh-sym := tok-coh-sym] ;
+
+----------------------------------------------------------------------
+-- normalisation and the embeddings of the levels
+
+normD (k : Nat) (r : W k -> Tok) (t : W (suc k)) : FD.Dec (FibU k t) -> Tok = split {
+  inl w -> r w.1 ; inr no -> (suc k,(t,no)) } ;
+norm : (k : Nat) -> W k -> Tok = split {
+  zero -> \ t -> (zero,(t,tt)) ;
+  suc k | r -> \ t -> normD k r t ((step k).pre t) } ;
+
+Lifts (k : Nat) (t : W k) (x : Tok) : U l = (h : IsT (leb x.1 k)) * Id (W k) (liftT x k h) t ;
+normD-lift (k : Nat) (t : W (suc k)) (ih : (s : W k) -> Lifts k s (norm k s)) :
+    (d : FD.Dec (FibU k t)) -> Lifts (suc k) t (normD k (norm k) t d) = split {
+  inl w -> (leb-trans (norm k w.1).1 k (suc k) (ih w.1).1 (leb-suc k),
+    PL.trans (W (suc k)) (liftT (norm k w.1) (suc k) (leb-trans (norm k w.1).1 k (suc k) (ih w.1).1 (leb-suc k)))
+      ((step k).map (liftT (norm k w.1) k (ih w.1).1)) t
+      (PL.sym (W (suc k)) ((step k).map (liftT (norm k w.1) k (ih w.1).1))
+        (liftT (norm k w.1) (suc k) (leb-trans (norm k w.1).1 k (suc k) (ih w.1).1 (leb-suc k)))
+        (up-comp (norm k w.1).1 k (suc k) (ih w.1).1 (leb-suc k) (leb-trans (norm k w.1).1 k (suc k) (ih w.1).1 (leb-suc k))
+          (norm k w.1).2.1))
+      (PL.trans (W (suc k)) ((step k).map (liftT (norm k w.1) k (ih w.1).1)) ((step k).map w.1) t
+        (PL.ap (W k) (W (suc k)) (step k).map (liftT (norm k w.1) k (ih w.1).1) w.1 (ih w.1).2) w.2)) ;
+  inr no -> (leb-refl k,up-id (suc k) (leb-refl k) t) } ;
+norm-lift : (k : Nat) (t : W k) -> Lifts k t (norm k t) = split {
+  zero -> \ t -> (tt,refl t) ;
+  suc k | r -> \ t -> normD-lift k t r ((step k).pre t) } ;
+
+norm-new (x : Tok) : Id Tok (norm x.1 x.2.1) x =
+  EqLift[norm x.1 x.2.1,x,x.1,(norm-lift x.1 x.2.1).1,leb-refl x.1,
+    PL.trans (W x.1) (liftT (norm x.1 x.2.1) x.1 (norm-lift x.1 x.2.1).1) x.2.1 (liftT x x.1 (leb-refl x.1))
+      (norm-lift x.1 x.2.1).2 (PL.sym (W x.1) (liftT x x.1 (leb-refl x.1)) x.2.1 (up-id x.1 (leb-refl x.1) x.2.1))].result ;
+norm-up (n k : Nat) (h : IsT (leb n k)) (s : W n) : Id Tok (norm k ((up n k h).map s)) (norm n s) =
+  EqLift[norm k ((up n k h).map s),norm n s,k,(norm-lift k ((up n k h).map s)).1,
+    leb-trans (norm n s).1 n k (norm-lift n s).1 h,
+    PL.trans (W k) (liftT (norm k ((up n k h).map s)) k (norm-lift k ((up n k h).map s)).1) ((up n k h).map s)
+      (liftT (norm n s) k (leb-trans (norm n s).1 n k (norm-lift n s).1 h))
+      (norm-lift k ((up n k h).map s)).2
+      (PL.trans (W k) ((up n k h).map s) ((up n k h).map (liftT (norm n s) n (norm-lift n s).1))
+        (liftT (norm n s) k (leb-trans (norm n s).1 n k (norm-lift n s).1 h))
+        (PL.ap (W n) (W k) (up n k h).map s (liftT (norm n s) n (norm-lift n s).1)
+          (PL.sym (W n) (liftT (norm n s) n (norm-lift n s).1) s (norm-lift n s).2))
+        (up-comp (norm n s).1 n k (norm-lift n s).1 h (leb-trans (norm n s).1 n k (norm-lift n s).1 h) (norm n s).2.1))].result ;
+
+module Iota (k : Nat) {
+  Fib (y : Tok) : U l = (s : W k) * Id Tok (norm k s) y ;
+  hit (y : Tok) (h : IsT (leb y.1 k)) : Fib y =
+    (liftT y k h,PL.trans Tok (norm k (liftT y k h)) (norm y.1 y.2.1) y (norm-up y.1 k h y.2.1) (norm-new y)) ;
+  pre (y : Tok) : FD.Dec (Fib y) =
+    cases (IsT (leb y.1 k)) (IsT (leb y.1 k) -> Empty) (\ _ -> FD.Dec (Fib y))
+      (\ h -> inl (hit y h))
+      (\ nh -> inr (\ f -> nh (PL.subst Nat (\ z -> IsT (leb z k)) (norm k f.1).1 y.1 (level-eq (norm k f.1) y f.2)
+        (norm-lift k f.1).1)))
+      (FS.bool-cases (leb y.1 k)) ;
+  back (s : W k) : Id (W k) s (liftT (norm k s) k (norm-lift k s).1) =
+    PL.sym (W k) (liftT (norm k s) k (norm-lift k s).1) s (norm-lift k s).2 ;
+  inj (s s' : W k) (p : Id Tok (norm k s) (norm k s')) : Id (W k) s s' =
+    PL.trans (W k) s (liftT (norm k s) k (norm-lift k s).1) s' (back s)
+      (PL.trans (W k) (liftT (norm k s) k (norm-lift k s).1) (liftT (norm k s') k (norm-lift k s').1) s'
+        (lift-eq (norm k s) (norm k s') p k (norm-lift k s).1 (norm-lift k s').1) (norm-lift k s').2) ;
+  pres (s t : W k) (c : IsT (coh k s t)) : IsT (cohT (norm k s) (norm k t)) =
+    at-coh (norm k s) (norm k t) k (norm-lift k s).1 (norm-lift k t).1
+      (PL.subst (W k) (\ u -> IsT (coh k u (liftT (norm k t) k (norm-lift k t).1))) s
+        (liftT (norm k s) k (norm-lift k s).1) (back s)
+        (PL.subst (W k) (\ u -> IsT (coh k s u)) t (liftT (norm k t) k (norm-lift k t).1) (back t) c)) ;
+  reflects (s t : W k) (c : IsT (cohT (norm k s) (norm k t))) : IsT (coh k s t) =
+    PL.subst (W k) (\ u -> IsT (coh k u t)) (liftT (norm k s) k (norm-lift k s).1) s (norm-lift k s).2
+      (PL.subst (W k) (\ u -> IsT (coh k (liftT (norm k s) k (norm-lift k s).1) u)) (liftT (norm k t) k (norm-lift k t).1) t
+        (norm-lift k t).2 (coh-at (norm k s) (norm k t) k (norm-lift k s).1 (norm-lift k t).1 c)) ;
+  emb : CE.Emb[CE.space k,tok-space] = new CE.Emb[CE.space k,tok-space,map := norm k,pre := pre,inj := inj,
+    pres := pres,reflects := reflects] ;
+} ;
+iota (k : Nat) : CE.Emb[CE.space k,tok-space] = Iota[k].emb ;
+
+----------------------------------------------------------------------
+-- the colimit web is isomorphic to its own function space
+
+dec-set (A : U l) (dec : (x y : A) -> FD.Dec (Id A x y)) : PL.isSet A = \ x ->
+  PL.Hedberg[A,x,\ y -> IsT (FS.decB (Id A x y) (dec x y)),\ y -> BooleanDI[l].holds-prop (FS.decB (Id A x y) (dec x y)),
+    FS.decB-complete (Id A x x) (dec x x) (refl x),\ y h -> FS.decB-sound (Id A x y) (dec x y) h].hedberg ;
+maxS : (sh : Shape) -> (Ix sh -> Nat) -> Nat = split {
+  none -> \ f -> zero ; leaf -> \ f -> f tt ;
+  fork s t | rs rt -> \ f -> max (rs (\ i -> f (inl i))) (rt (\ i -> f (inr i))) } ;
+maxS-bound : (sh : Shape) (f : Ix sh -> Nat) (i : Ix sh) -> IsT (leb (f i) (maxS sh f)) = split {
+  none -> \ f i -> absurd (IsT (leb (f i) zero)) i ;
+  leaf -> \ f -> unit (\ i -> IsT (leb (f i) (f tt))) (leb-refl (f tt)) ;
+  fork s t | rs rt -> \ f -> cases (Ix s) (Ix t) (\ i -> IsT (leb (f i) (maxS (fork s t) f)))
+    (\ i -> leb-trans (f (inl i)) (maxS s (\ j -> f (inl j))) (maxS (fork s t) f) (rs (\ j -> f (inl j)) i)
+      (leb-max-l (maxS s (\ j -> f (inl j))) (maxS t (\ j -> f (inr j)))))
+    (\ i -> leb-trans (f (inr i)) (maxS t (\ j -> f (inr j))) (maxS (fork s t) f) (rt (\ j -> f (inr j)) i)
+      (leb-max-r (maxS s (\ j -> f (inl j))) (maxS t (\ j -> f (inr j))))) } ;
+
+module FT = CF.Fun[tok-space,tok-space] ;
+module AT = FT.A ;
+G (k : Nat) : CE.Emb[CE.space (suc k),FT.space] = CE.FunEmb[CE.space k,tok-space,CE.space k,tok-space,iota k,iota k].emb ;
+psiN : (n : Nat) -> W n -> FT.web = split {
+  zero -> \ t -> (AT.bot,(zero,(t,tt))) ;
+  suc n -> \ t -> (CE.Images[CE.space n,tok-space,iota n].img t.1,norm n t.2) } ;
+psi (x : Tok) : FT.web = psiN x.1 x.2.1 ;
+psiN-lift : (n : Nat) (t : W n) (k : Nat) (h : IsT (leb n (suc k))) -> Id FT.web (psiN n t) ((G k).map ((up n (suc k) h).map t)) = split {
+  zero -> \ t k h -> CF.pair-eq AT.Carrier Tok AT.bot
+    (CE.Images[CE.space k,tok-space,iota k].img (CE.Images[CE.space zero,CE.space k,up0 k].img bot0))
+    (zero,(t,tt)) (norm k ((up0 k).map t))
+    (PL.sym AT.Carrier (CE.Images[CE.space k,tok-space,iota k].img (CE.Images[CE.space zero,CE.space k,up0 k].img bot0)) AT.bot
+      (PL.trans AT.Carrier (CE.Images[CE.space k,tok-space,iota k].img (CE.Images[CE.space zero,CE.space k,up0 k].img bot0))
+        (CE.Images[CE.space k,tok-space,iota k].img (CO.On[CE.space k]).bot) AT.bot
+        (PL.ap (Car k) AT.Carrier (CE.Images[CE.space k,tok-space,iota k].img)
+          (CE.Images[CE.space zero,CE.space k,up0 k].img bot0) (CO.On[CE.space k]).bot ImgChar[CE.space zero,CE.space k,up0 k].img-bot)
+        ImgChar[CE.space k,tok-space,iota k].img-bot))
+    (PL.sym Tok (norm k ((up0 k).map t)) (zero,(t,tt)) (norm-up zero k tt t)) ;
+  suc n -> \ t k h -> CF.pair-eq AT.Carrier Tok (CE.Images[CE.space n,tok-space,iota n].img t.1)
+    (CE.Images[CE.space k,tok-space,iota k].img (CE.Images[CE.space n,CE.space k,up n k h].img t.1))
+    (norm n t.2) (norm k ((up n k h).map t.2))
+    (PL.sym AT.Carrier (CE.Images[CE.space k,tok-space,iota k].img (CE.Images[CE.space n,CE.space k,up n k h].img t.1))
+      (CE.Images[CE.space n,tok-space,iota n].img t.1)
+      (ImgComp[CE.space n,CE.space k,tok-space,up n k h,iota k,iota n,\ s -> norm-up n k h s].comp t.1))
+    (PL.sym Tok (norm k ((up n k h).map t.2)) (norm n t.2) (norm-up n k h t.2)) } ;
+
+module Two (x y : Tok) {
+  k : Nat = max x.1 y.1 ;
+  hx : IsT (leb x.1 (suc k)) = leb-trans x.1 k (suc k) (leb-max-l x.1 y.1) (leb-suc k) ;
+  hy : IsT (leb y.1 (suc k)) = leb-trans y.1 k (suc k) (leb-max-r x.1 y.1) (leb-suc k) ;
+  lx : W (suc k) = liftT x (suc k) hx ;
+  ly : W (suc k) = liftT y (suc k) hy ;
+  ex : Id FT.web (psi x) ((G k).map lx) = psiN-lift x.1 x.2.1 k hx ;
+  ey : Id FT.web (psi y) ((G k).map ly) = psiN-lift y.1 y.2.1 k hy ;
+  inj (p : Id FT.web (psi x) (psi y)) : Id Tok x y =
+    EqLift[x,y,suc k,hx,hy,(G k).inj lx ly
+      (PL.trans FT.web ((G k).map lx) (psi x) ((G k).map ly) (PL.sym FT.web (psi x) ((G k).map lx) ex)
+        (PL.trans FT.web (psi x) (psi y) ((G k).map ly) p ey))].result ;
+  pres (c : IsT (cohT x y)) : IsT (FT.coh (psi x) (psi y)) =
+    PL.subst FT.web (\ u -> IsT (FT.coh u (psi y))) ((G k).map lx) (psi x) (PL.sym FT.web (psi x) ((G k).map lx) ex)
+      (PL.subst FT.web (\ u -> IsT (FT.coh ((G k).map lx) u)) ((G k).map ly) (psi y) (PL.sym FT.web (psi y) ((G k).map ly) ey)
+        ((G k).pres lx ly (coh-at x y (suc k) hx hy c))) ;
+  reflects (c : IsT (FT.coh (psi x) (psi y))) : IsT (cohT x y) =
+    at-coh x y (suc k) hx hy ((G k).reflects lx ly
+      (PL.subst FT.web (\ u -> IsT (FT.coh u ((G k).map ly))) (psi x) ((G k).map lx) ex
+        (PL.subst FT.web (\ u -> IsT (FT.coh (psi x) u)) (psi y) ((G k).map ly) ey c))) ;
+} ;
+
+module Surj (v : FT.web) {
+  A : AT.Carrier = v.1 ;
+  y : Tok = v.2 ;
+  Fib : U l = (x : Tok) * Id FT.web (psi x) v ;
+  module With (c : AT.P.Cover A.1.1) {
+    f (i : Ix c.1) : Nat = (c.2.1 i).1 ;
+    k : Nat = max y.1 (maxS c.1 f) ;
+    hy : IsT (leb y.1 k) = leb-max-l y.1 (maxS c.1 f) ;
+    bound (z : Tok) (hz : IsT (A.1.1 z)) : IsT (leb z.1 k) =
+      leb-trans z.1 (maxS c.1 f) k
+        (PL.subst Nat (\ m -> IsT (leb m (maxS c.1 f))) (f (c.2.2 z hz).1) z.1 (level-eq (c.2.1 (c.2.2 z hz).1) z (c.2.2 z hz).2)
+          (maxS-bound c.1 f (c.2.2 z hz).1))
+        (leb-max-r y.1 (maxS c.1 f)) ;
+    module IK = CE.Images[CE.space k,tok-space,iota k] ;
+    inim : IK.InIm A = \ z hz -> FS.decB-complete (IK.Fib z) ((iota k).pre z) (Iota[k].hit z (bound z hz)) ;
+    u : W (suc k) = (IK.inv A,liftT y k hy) ;
+    x : Tok = norm (suc k) u ;
+    gu : Id FT.web ((G k).map u) v =
+      CF.pair-eq AT.Carrier Tok (IK.img (IK.inv A)) A (norm k (liftT y k hy)) y (IK.img-inv A inim)
+        (PL.trans Tok (norm k (liftT y k hy)) (norm y.1 y.2.1) y (norm-up y.1 k hy y.2.1) (norm-new y)) ;
+    eq : Id FT.web (psi x) v =
+      PL.trans FT.web (psi x) ((G k).map (liftT x (suc k) (norm-lift (suc k) u).1)) v
+        (psiN-lift x.1 x.2.1 k (norm-lift (suc k) u).1)
+        (PL.trans FT.web ((G k).map (liftT x (suc k) (norm-lift (suc k) u).1)) ((G k).map u) v
+          (PL.ap (W (suc k)) FT.web (G k).map (liftT x (suc k) (norm-lift (suc k) u).1) u (norm-lift (suc k) u).2) gu) ;
+    result : Fib = (x,eq) ;
+  } ;
+  fib-prop : PL.isProp Fib = \ p p' ->
+    PL.Sigma-eq Tok (\ x -> Id FT.web (psi x) v) p.1 p'.1 p.2 p'.2
+      (Two[p.1,p'.1].inj (PL.trans FT.web (psi p.1) v (psi p'.1) p.2 (PL.sym FT.web (psi p'.1) v p'.2)))
+      (dec-set FT.web FT.dec (psi p'.1) v) ;
+  fib : Fib = TC.rec (AT.P.Cover A.1.1) @l Fib fib-prop (\ c -> With[c].result) A.1.2 ;
+} ;
+
+-- the reflexive web: an embedding which is onto
+reflexive : CE.Emb[tok-space,FT.space] = new CE.Emb[tok-space,FT.space,map := psi,
+  pre := \ v -> inl Surj[v].fib, inj := \ x y p -> Two[x,y].inj p,
+  pres := \ x y c -> Two[x,y].pres c, reflects := \ x y c -> Two[x,y].reflects c] ;
+onto (v : FT.web) : (x : Tok) * Id FT.web (psi x) v = Surj[v].fib ;
+
+----------------------------------------------------------------------
+-- points along an onto embedding, and the reflexive domain
+
+module PointsIso (S S' : CO.Space) (E : CE.Emb[S,S']) (on : (t : S'.web) -> (s : S.web) * Id S'.web (E.map s) t) {
+  module PS = CO.On[S].Points ;
+  module PS' = CO.On[S'].Points ;
+  back (Q : PS'.Point) : PS.Point =
+    ((\ s -> Q.1.1 (E.map s),\ s -> Q.1.2 (E.map s)),\ s t hs ht -> E.reflects s t (Q.2 (E.map s) (E.map t) hs ht)) ;
+  fwd (Q : PS.Point) : PS'.Point =
+    ((\ t -> Q.1.1 (on t).1,\ t -> Q.1.2 (on t).1),\ t t' h h' ->
+      PL.subst S'.web (\ z -> IsT (S'.coh z t')) (E.map (on t).1) t (on t).2
+        (PL.subst S'.web (\ z -> IsT (S'.coh (E.map (on t).1) z)) (E.map (on t').1) t' (on t').2
+          (E.pres (on t).1 (on t').1 (Q.2 (on t).1 (on t').1 h h')))) ;
+  back-mono (Q R : PS'.Point) (h : PS'.PointLe Q R) : PS.PointLe (back Q) (back R) = \ s -> h (E.map s) ;
+  fwd-mono (Q R : PS.Point) (h : PS.PointLe Q R) : PS'.PointLe (fwd Q) (fwd R) = \ t -> h (on t).1 ;
+  fwd-back (Q : PS'.Point) : Id PS'.Point (fwd (back Q)) Q =
+    PS'.point-ext (fwd (back Q)) Q
+      (\ t k -> PL.subst S'.web Q.1.1 (E.map (on t).1) t (on t).2 k)
+      (\ t k -> PL.subst S'.web Q.1.1 t (E.map (on t).1) (PL.sym S'.web (E.map (on t).1) t (on t).2) k) ;
+  back-fwd (Q : PS.Point) : Id PS.Point (back (fwd Q)) Q =
+    PS.point-ext (back (fwd Q)) Q
+      (\ s k -> PL.subst S.web Q.1.1 (on (E.map s)).1 s (E.inj (on (E.map s)).1 s (on (E.map s)).2) k)
+      (\ s k -> PL.subst S.web Q.1.1 s (on (E.map s)).1
+        (PL.sym S.web (on (E.map s)).1 s (E.inj (on (E.map s)).1 s (on (E.map s)).2)) k) ;
+} ;
+
+-- D_inf: its points are exactly its stable endomaps (with least supports)
+module DInf {
+  module P = PointsIso[tok-space,FT.space,reflexive,onto] ;
+  module CT = CoherenceTrace[l].On[tok-space,tok-space] ;
+  Point : U l+ = CT.PtA ;
+  domain : DIClosure[l].CDIM = (CO.On[tok-space]).cdim ;
+  points : Equiv (CO.On[tok-space]).C.Ideal Point = (CO.On[tok-space]).Points.equivalence ;
+  to (x : Point) : CT.StableMap = CT.app-map (P.fwd x) ;
+  from (g : CT.StableMap) : Point = P.back (CT.trace g) ;
+  equivalence : Equiv Point CT.StableMap = (to,qinv Point CT.StableMap to from
+    (\ g -> trans CT.StableMap (to (from g)) (CT.app-map (CT.trace g)) g
+      (ap CT.Tr CT.StableMap CT.app-map (P.fwd (P.back (CT.trace g))) (CT.trace g) (P.fwd-back (CT.trace g)))
+      (CT.equivalence.2.sec-eq g))
+    (\ x -> trans Point (from (to x)) (P.back (P.fwd x)) x
+      (ap CT.Tr Point P.back (CT.trace (CT.app-map (P.fwd x))) (P.fwd x) (CT.equivalence.2.ret-eq (P.fwd x)))
+      (P.back-fwd x))) ;
+} ;

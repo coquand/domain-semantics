@@ -1,0 +1,73 @@
+-- The evaluation ptyx  D |-> D(n)  (a test that DilPtyx.Ptyx is inhabited
+-- by the basic examples).  Points of D(n) are numbers x < D0 n; a morphism
+-- acts by sel.  Support: x lies in D|n (DilFinite.union).  Stability: if x
+-- lies in D|c and in D|c', it lies in D|(c ^ c') (DilFinite.inter).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+
+module Eval (n : W.N) {
+  Pt (D : CD.Dil) : U l = (x : W.N) * Id W.Bool (W.ltN x (D.1 n)) true ;
+  pt-eq (D : CD.Dil) (x y : Pt D) (e : Id W.N x.1 y.1) : Id (Pt D) x y =
+    PL.Sigma-eq W.N (\ z -> Id W.Bool (W.ltN z (D.1 n)) true) x.1 y.1 x.2 y.2 e (W.HB.uip (W.ltN y.1 (D.1 n)) true) ;
+  F (D : CD.Dil) : DP.LO = new DP.LO[car := Pt D, cmp := \ x y -> W.cmpN x.1 y.1,
+    ceq := \ x y h -> pt-eq D x y (W.cmpN-eq x.1 y.1 h),
+    crefl := \ x -> W.cmpN-refl x.1,
+    cflip := \ x y -> W.cmpN-flip x.1 y.1,
+    ctrans := \ x y z -> W.cmpN-trans x.1 y.1 z.1] ;
+  module Act (D E : CD.Dil) (T : CD.Mor D E) {
+    module NT = W.Nat[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2,
+      E.1,E.2.1,E.2.2.1,E.2.2.2.1,E.2.2.2.2.1,E.2.2.2.2.2.1,E.2.2.2.2.2.2,T.1,T.2.1,T.2.2.1,T.2.2.2] ;
+    inOnes (x : Pt D) : Id W.Bool (W.ltN x.1 (W.ones (T.1 n))) true =
+      W.subst W.N (\ k -> Id W.Bool (W.ltN x.1 k) true) (D.1 n) (W.ones (T.1 n)) (W.sym W.N (W.ones (T.1 n)) (D.1 n) (T.2.2.1 n)) x.2 ;
+    f (x : Pt D) : Pt E = (W.sel (T.1 n) x.1,NT.ltT n x.1 x.2) ;
+    map : DP.Map (F D) (F E) = (f,\ x y -> W.sel-mono (T.1 n) x.1 y.1 (inOnes x) (inOnes y)) ;
+  } ;
+  arr (D E : CD.Dil) (T : CD.Mor D E) : DP.Map (F D) (F E) = Act[D,E,T].map ;
+  arr-id (D : CD.Dil) (y : Pt D) : Id (Pt D) ((arr D D (CD.idM D)).1 y) y =
+    pt-eq D ((arr D D (CD.idM D)).1 y) y (W.sel-idW (D.1 n) y.1 y.2) ;
+  arr-comp (D E G : CD.Dil) (S : CD.Mor D E) (T : CD.Mor E G) (y : Pt D) :
+      Id (Pt G) ((arr E G T).1 ((arr D E S).1 y)) ((arr D G (CD.compM D E G S T)).1 y) =
+    pt-eq G ((arr E G T).1 ((arr D E S).1 y)) ((arr D G (CD.compM D E G S T)).1 y)
+      (W.sym W.N (W.sel (W.compW (T.1 n) (S.1 n)) y.1) (W.sel (T.1 n) (W.sel (S.1 n) y.1))
+        (W.sel-comp (T.1 n) (S.1 n) y.1 (CD.Comp[D,E,G,S,T].match n))) ;
+
+  -- a point x in the image of chi is the image of rank chi x
+  module Hit (D : CD.Dil) (c : DP.SubSet) (x : Pt D) (h : Id W.Bool (W.at (DF.On[D].Sub[c].R.chi n) x.1) true) {
+    module S = DF.On[D].Sub[c] ;
+    z : Pt S.dil = (W.rank (S.R.chi n) x.1,W.rank-lt (S.R.chi n) x.1 h) ;
+    eq : Id (Pt D) ((arr S.dil D S.inc).1 z) x = pt-eq D ((arr S.dil D S.inc).1 z) x (W.sel-rank (S.R.chi n) x.1 h) ;
+    supp : (z : Pt S.dil) * Id (Pt D) ((arr S.dil D S.inc).1 z) x = (z,eq) ;
+  } ;
+  -- and conversely a supported point is in the image of chi
+  back (D : CD.Dil) (c : DP.SubSet) (x : Pt D)
+    (s : (z : Pt (DF.On[D].Sub[c].dil)) * Id (Pt D) ((arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) x) :
+      Id W.Bool (W.at (DF.On[D].Sub[c].R.chi n) x.1) true =
+    W.subst W.N (\ k -> Id W.Bool (W.at (DF.On[D].Sub[c].R.chi n) k) true)
+      (W.sel (DF.On[D].Sub[c].R.chi n) s.1.1) x.1
+      (PL.ap (Pt D) W.N (\ p -> p.1) ((arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 s.1) x s.2)
+      (W.at-sel (DF.On[D].Sub[c].R.chi n) s.1.1 s.1.2) ;
+
+  support (D : CD.Dil) (x : Pt D) : Ex ((K : W.N) * ((z : Pt (DF.On[D].Trunc[K].dil)) *
+      Id (Pt D) ((arr (DF.On[D].Trunc[K].dil) D (DF.On[D].Trunc[K].inc)).1 z) x)) =
+    inc ((K : W.N) * ((z : Pt (DF.On[D].Trunc[K].dil)) * Id (Pt D) ((arr (DF.On[D].Trunc[K].dil) D (DF.On[D].Trunc[K].inc)).1 z) x))
+      (n,Hit[D,DF.On[D].lev n,x,DF.On[D].union n x.1 x.2].supp) ;
+  meet (D : CD.Dil) (x : Pt D) (c c' : DP.SubSet)
+    (s : (z : Pt (DF.On[D].Sub[c].dil)) * Id (Pt D) ((arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) x)
+    (s' : (z : Pt (DF.On[D].Sub[c'].dil)) * Id (Pt D) ((arr (DF.On[D].Sub[c'].dil) D (DF.On[D].Sub[c'].inc)).1 z) x) :
+      (z : Pt (DF.On[D].Sub[DF.On[D].meet c c'].dil)) *
+        Id (Pt D) ((arr (DF.On[D].Sub[DF.On[D].meet c c'].dil) D (DF.On[D].Sub[DF.On[D].meet c c'].inc)).1 z) x =
+    Hit[D,DF.On[D].meet c c',x,
+      W.trans W.Bool (W.at (DF.On[D].Sub[DF.On[D].meet c c'].R.chi n) x.1)
+        (W.andB (W.at (DF.On[D].Sub[c].R.chi n) x.1) (W.at (DF.On[D].Sub[c'].R.chi n) x.1)) true
+        (DF.On[D].inter c c' n x.1 x.2)
+        (W.ap2 W.Bool W.Bool W.Bool W.andB (W.at (DF.On[D].Sub[c].R.chi n) x.1) true
+          (W.at (DF.On[D].Sub[c'].R.chi n) x.1) true (back D c x s) (back D c' x s'))].supp ;
+
+  ptyx : DP.Ptyx = new DP.Ptyx[F := F, arr := arr, arr-id := arr-id, arr-comp := arr-comp,
+    support := support, meet := meet] ;
+} ;

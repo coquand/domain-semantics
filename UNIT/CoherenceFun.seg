@@ -1,0 +1,105 @@
+-- The stable function space of coherence spaces, by traces.
+--
+-- For coherence spaces S, T (Coherence.Space: decidable equality and
+-- coherence), the web of S => T consists of pairs (a,e) with a a finite
+-- clique of S and e a token of T, and
+--   (a,e) coh (a',e')  iff  a u a' clique  ->  e coh e'  and  (e = e' -> a = a').
+-- Everything is decidable, so S => T is again a Space, hence (Coherence)
+-- its completion is a constructive dI-domain with compact meets.  Its
+-- points (proposition-valued cliques of pairs) are the traces.
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module TC = TruncationCombinators[l] ;
+module B = BooleanDI[l] ;
+module EB = DIEventsBool[l] ;
+module FS = DIFinSubsets[l] ;
+module FD = FiniteDiscrete[l] ;
+module FR = FiniteRange[l] ;
+module CO = Coherence[l] ;
+module PL = Prelude[l] ;
+
+dec-arrow (P Q : U l) (dp : FD.Dec P) (dq : FD.Dec Q) : FD.Dec (P -> Q) =
+  cases P (P -> Empty) (\ _ -> FD.Dec (P -> Q))
+    (\ p -> cases Q (Q -> Empty) (\ _ -> FD.Dec (P -> Q)) (\ q -> inl (\ _ -> q)) (\ nq -> inr (\ f -> nq (f p))) dq)
+    (\ np -> inl (\ p -> absurd Q (np p))) dp ;
+pair-eq (A C : U l) (a a' : A) (c c' : C) (p : Id A a a') (q : Id C c c') : Id (A * C) (a,c) (a',c') =
+  idJ A a (\ z _ -> Id (A * C) (a,c) (z,c')) (PL.ap C (A * C) (\ y -> (a,y)) c c' q) a' p ;
+pair-dec (A C : U l) (da : (a a' : A) -> FD.Dec (Id A a a')) (dc : (c c' : C) -> FD.Dec (Id C c c'))
+    (u v : A * C) : FD.Dec (Id (A * C) u v) =
+  cases (Id A u.1 v.1) (Id A u.1 v.1 -> Empty) (\ _ -> FD.Dec (Id (A * C) u v))
+    (\ p -> cases (Id C u.2 v.2) (Id C u.2 v.2 -> Empty) (\ _ -> FD.Dec (Id (A * C) u v))
+      (\ q -> inl (pair-eq A C u.1 v.1 u.2 v.2 p q))
+      (\ nq -> inr (\ e -> nq (PL.ap (A * C) C (\ w -> w.2) u v e))) (dc u.2 v.2))
+    (\ np -> inr (\ e -> np (PL.ap (A * C) A (\ w -> w.1) u v e))) (da u.1 v.1) ;
+
+-- decisions on finite cliques
+module Decisions (S : CO.Space) {
+  module A = CO.On[S] ;
+  W : U l = S.web ;
+  module Le (a b : A.Carrier) (c : A.P.Cover a.1.1) {
+    e : Ix c.1 -> W = c.2.1 ;
+    Test (i : Ix c.1) : U l = IsT (a.1.1 (e i)) -> IsT (b.1.1 (e i)) ;
+    from (r : (i : Ix c.1) -> Test i) : A.LEC a b = \ t h ->
+      PL.subst W (\ u -> IsT (b.1.1 u)) (e (c.2.2 t h).1) t (c.2.2 t h).2
+        (r (c.2.2 t h).1 (PL.subst W (\ u -> IsT (a.1.1 u)) t (e (c.2.2 t h).1) (PL.sym W (e (c.2.2 t h).1) t (c.2.2 t h).2) h)) ;
+    decision : FD.Dec (A.LEC a b) =
+      FD.map-decision ((i : Ix c.1) -> Test i) (A.LEC a b) from (\ h i -> h (e i))
+        (FR.all c.1 Test (\ i -> FS.dec-imp (a.1.1 (e i)) (b.1.1 (e i)))) ;
+  } ;
+  le-dec (a b : A.Carrier) : FD.Dec (A.LEC a b) =
+    TC.rec (A.P.Cover a.1.1) @l (FD.Dec (A.LEC a b)) (DIClosure[l].dec-prop (A.LEC a b) (A.P.le-prop a.1.1 b.1.1))
+      (\ c -> Le[a,b,c].decision) a.1.2 ;
+  eq-dec (a b : A.Carrier) : FD.Dec (Id A.Carrier a b) =
+    FD.map-decision (A.LEC a b * A.LEC b a) (Id A.Carrier a b) (\ p -> A.ext a b p.1 p.2)
+      (\ q -> PL.subst A.Carrier (\ x -> A.LEC a x * A.LEC x a) a b q (\ t h -> h,\ t h -> h))
+      (FR.both (A.LEC a b) (A.LEC b a) (le-dec a b) (le-dec b a)) ;
+  module Cl (a : A.P.Carrier) (c : A.P.Cover a.1) {
+    e : Ix c.1 -> W = c.2.1 ;
+    Test (i j : Ix c.1) : U l = IsT (a.1 (e i)) -> IsT (a.1 (e j)) -> IsT (S.coh (e i) (e j)) ;
+    back (t : W) (h : IsT (a.1 t)) : IsT (a.1 (e (c.2.2 t h).1)) =
+      PL.subst W (\ u -> IsT (a.1 u)) t (e (c.2.2 t h).1) (PL.sym W (e (c.2.2 t h).1) t (c.2.2 t h).2) h ;
+    from (r : (i j : Ix c.1) -> Test i j) : A.Clique a.1 = \ s t hs ht ->
+      PL.subst W (\ u -> IsT (S.coh u t)) (e (c.2.2 s hs).1) s (c.2.2 s hs).2
+        (PL.subst W (\ u -> IsT (S.coh (e (c.2.2 s hs).1) u)) (e (c.2.2 t ht).1) t (c.2.2 t ht).2
+          (r (c.2.2 s hs).1 (c.2.2 t ht).1 (back s hs) (back t ht))) ;
+    decision : FD.Dec (A.Clique a.1) =
+      FD.map-decision ((i j : Ix c.1) -> Test i j) (A.Clique a.1) from (\ cl i j -> cl (e i) (e j))
+        (FR.all c.1 (\ i -> (j : Ix c.1) -> Test i j) (\ i -> FR.all c.1 (Test i) (\ j ->
+          dec-arrow (IsT (a.1 (e i))) (IsT (a.1 (e j)) -> IsT (S.coh (e i) (e j))) (FS.bool-cases (a.1 (e i)))
+            (dec-arrow (IsT (a.1 (e j))) (IsT (S.coh (e i) (e j))) (FS.bool-cases (a.1 (e j))) (FS.bool-cases (S.coh (e i) (e j))))))) ;
+  } ;
+  clique-dec (a : A.P.Carrier) : FD.Dec (A.Clique a.1) =
+    TC.rec (A.P.Cover a.1) @l (FD.Dec (A.Clique a.1)) (DIClosure[l].dec-prop (A.Clique a.1) (A.clique-prop a.1))
+      (\ c -> Cl[a,c].decision) a.2 ;
+} ;
+
+----------------------------------------------------------------------
+-- the function space
+
+module Fun (S T : CO.Space) {
+  module A = CO.On[S] ;
+  module DA = Decisions[S] ;
+  web : U l = A.Carrier * T.web ;
+  dec : (u v : web) -> FD.Dec (Id web u v) = pair-dec A.Carrier T.web DA.eq-dec T.dec ;
+  union (a b : A.Carrier) : A.P.Carrier = A.P.join a.1 b.1 ;
+  Coh (u v : web) : U l = A.Clique (union u.1 v.1).1 ->
+    IsT (T.coh u.2 v.2) * (Id T.web u.2 v.2 -> Id A.Carrier u.1 v.1) ;
+  coh-dec (u v : web) : FD.Dec (Coh u v) =
+    dec-arrow (A.Clique (union u.1 v.1).1) (IsT (T.coh u.2 v.2) * (Id T.web u.2 v.2 -> Id A.Carrier u.1 v.1))
+      (DA.clique-dec (union u.1 v.1))
+      (FR.both (IsT (T.coh u.2 v.2)) (Id T.web u.2 v.2 -> Id A.Carrier u.1 v.1) (FS.bool-cases (T.coh u.2 v.2))
+        (dec-arrow (Id T.web u.2 v.2) (Id A.Carrier u.1 v.1) (T.dec u.2 v.2) (DA.eq-dec u.1 v.1))) ;
+  coh (u v : web) : Bool = FS.decB (Coh u v) (coh-dec u v) ;
+  coh-sound (u v : web) (h : IsT (coh u v)) : Coh u v = FS.decB-sound (Coh u v) (coh-dec u v) h ;
+  coh-complete (u v : web) (h : Coh u v) : IsT (coh u v) = FS.decB-complete (Coh u v) (coh-dec u v) h ;
+  coh-refl (u : web) : IsT (coh u u) = coh-complete u u (\ _ -> (T.coh-refl u.2,\ _ -> refl u.1)) ;
+  swap (a b : A.Carrier) (h : A.Clique (union a b).1) : A.Clique (union b a).1 =
+    A.clique-lower (union b a).1 (union a b).1 (\ t k -> cases (IsT (b.1.1 t)) (IsT (a.1.1 t)) (\ _ -> IsT ((union a b).1 t))
+      (\ x -> FS.or-r (a.1.1 t) (b.1.1 t) x) (\ x -> FS.or-l (a.1.1 t) (b.1.1 t) x) (FS.or-split (b.1.1 t) (a.1.1 t) k)) h ;
+  coh-sym (u v : web) (h : IsT (coh u v)) : IsT (coh v u) = coh-complete v u (\ cl ->
+    (T.coh-sym u.2 v.2 (coh-sound u v h (swap v.1 u.1 cl)).1,
+     \ q -> PL.sym A.Carrier u.1 v.1 ((coh-sound u v h (swap v.1 u.1 cl)).2 (PL.sym T.web v.2 u.2 q)))) ;
+  space : CO.Space = new CO.Space[web := web, dec := dec, coh := coh, coh-refl := coh-refl, coh-sym := coh-sym] ;
+  module Fn = CO.On[space] ;
+  cdim : DIClosure[l].CDIM = Fn.cdim ;
+} ;

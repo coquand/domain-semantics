@@ -1,0 +1,232 @@
+-- Posets of events (catemb.pdf, Definition 3.9, poset case) and their
+-- ideal completions, which are constructive dI-domains (DIConstructive).
+--
+-- An event poset is a conditional upper semilattice with binary meets,
+-- distributive in the form  a <= y v z  ==>  a <= (a ^ y) v (a ^ z),
+-- whose principal lower sets have mere finite discrete presentations.
+-- Its ideal completion (ScottCUSLIdeals) is a Scott domain; we prove it
+-- distributive and that the compact elements below a compact form a
+-- finite discrete family.  No classical principle is used: the literal
+-- I-axiom of DIDomain would also cover the non-compact ideals below a
+-- principal one, which is what forces excluded middle (CompactIdeals).
+level l ;
+open Base ; open Prelude[l+] ; open Lib[l] ; open ScottOrder[l] ; open ScottFinite[l] ;
+module T = TruncationCombinators[l] ;
+module TL = TruncationCombinators[l+] ;
+module CU = ScottCUSL[l] ;
+
+record Events {
+  cusl : CU.CUSL ;
+  meet : cusl.order.carrier -> cusl.order.carrier -> cusl.order.carrier ;
+  meet-left : (x y : cusl.order.carrier) -> cusl.order.le (meet x y) x ;
+  meet-right : (x y : cusl.order.carrier) -> cusl.order.le (meet x y) y ;
+  meet-greatest : (x y z : cusl.order.carrier) -> cusl.order.le z x -> cusl.order.le z y ->
+    cusl.order.le z (meet x y) ;
+  distributive : (a y z : cusl.order.carrier) (h : CU.Compatible cusl.order y z) ->
+    cusl.order.le a (CU.On[cusl].join y z h) ->
+    cusl.order.le a (CU.On[cusl].join (meet a y) (meet a z)
+      (CU.by-bound cusl.order (meet a y) (meet a z) a (meet-left a y) (meet-left a z))) ;
+  finite : (a : cusl.order.carrier) ->
+    ScottOrder[l+].Ex (DIDomain[l].Properties[cusl.order].FiniteIdeal[a]) ;
+} ;
+
+module Completion (E : Events) {
+  Car : U l+ = E.cusl.order.carrier ;
+  le : Car -> Car -> U l = E.cusl.order.le ;
+  module J = CU.On[E.cusl] ;
+  small : Replacement[l,l+].Small Car = ScottCUSLIdeals[l].Canonical[E.cusl].small ;
+  module I = ScottCUSLIdeals[l].On[E.cusl,small] ;
+  X : U l = I.X ;
+  LE (a b : X) : U l = I.LE a b ;
+  Ideal : U l+ = I.Ideal ;
+  module DP = DIDomain[l].Properties[I.order] ;
+  module K = DIConstructive[l].Properties[I.scott] ;
+  module A = ScottDomain[l].On[I.scott] ;
+  bool2 (P : Bool -> U l+) (a : P true) (b : P false) : (i : Bool) -> P i =
+    DistributiveJoins[l].bool P a b ;
+
+  -- moving between Car and its small copy X
+  at-val (p : Car) : Id Car (I.val (I.at p)) p = I.at-val p ;
+  into-l (p : Car) (b : X) (h : le p (I.val b)) : LE (I.at p) b =
+    subst Car (\ z -> le z (I.val b)) p (I.val (I.at p)) (sym Car (I.val (I.at p)) p (at-val p)) h ;
+  into-r (a : X) (p : Car) (h : le (I.val a) p) : LE a (I.at p) =
+    subst Car (\ z -> le (I.val a) z) p (I.val (I.at p)) (sym Car (I.val (I.at p)) p (at-val p)) h ;
+  out-l (p : Car) (b : X) (h : LE (I.at p) b) : le p (I.val b) =
+    subst Car (\ z -> le z (I.val b)) (I.val (I.at p)) p (at-val p) h ;
+  out-r (a : X) (p : Car) (h : LE a (I.at p)) : le (I.val a) p =
+    subst Car (\ z -> le (I.val a) z) (I.val (I.at p)) p (at-val p) h ;
+  out2 (p q : Car) (h : LE (I.at p) (I.at q)) : le p q =
+    subst Car (\ z -> le z q) (I.val (I.at p)) p (at-val p) (out-r (I.at p) q h) ;
+  trans (a b c : X) (h : LE a b) (k : LE b c) : LE a c =
+    E.cusl.order.transitive (I.val a) (I.val b) (I.val c) h k ;
+
+  -- the join of two compatible indices is least
+  join-least (p q : X) (h : CU.Compatible E.cusl.order (I.val p) (I.val q)) (r : X)
+    (pr : LE p r) (qr : LE q r) : LE (I.join-index p q h) r =
+    into-l (J.join (I.val p) (I.val q) h) r (J.least (I.val p) (I.val q) h (I.val r) pr qr) ;
+  -- the meet, on indices
+  meet (a p : X) : X = I.at (E.meet (I.val a) (I.val p)) ;
+  meet-left (a p : X) : LE (meet a p) a = into-l (E.meet (I.val a) (I.val p)) a (E.meet-left (I.val a) (I.val p)) ;
+  meet-right (a p : X) : LE (meet a p) p = into-l (E.meet (I.val a) (I.val p)) p (E.meet-right (I.val a) (I.val p)) ;
+  principal-mono (a b : X) (h : LE a b) : I.Incl (I.principal a) (I.principal b) =
+    \ c ca -> trans c a b ca h ;
+
+  ----------------------------------------------------------------------
+  -- distributivity of the completion
+
+  module Distributive (x y z u m n v w : Ideal) (ju : ScottOrder[l].On[I.order].Lub Bool (DP.pair y z) u)
+    (im : DP.Infimum x u m) (iny : DP.Infimum x y n) (iv : DP.Infimum x z v)
+    (jw : ScottOrder[l].On[I.order].Lub Bool (DP.pair n v) w) {
+    yu : I.Incl y u = ju.1 true ;
+    zu : I.Incl z u = ju.1 false ;
+    nw : I.Incl n w = jw.1 true ;
+    vw : I.Incl v w = jw.1 false ;
+    w-m : I.Incl w m = im.2.2 w
+      (jw.2 x (bool2 (\ i -> I.Incl (DP.pair n v i) x) iny.1 iv.1))
+      (jw.2 u (bool2 (\ i -> I.Incl (DP.pair n v i) u)
+        (I.incl-trans n y u iny.2.1 yu) (I.incl-trans v z u iv.2.1 zu))) ;
+
+    -- the elements of u are below a least upper bound of an element of
+    -- y and one of z (stated without the large compatibility predicate)
+    Least (p q r : X) : U l = (t : X) -> LE p t -> LE q t -> LE r t ;
+    Split (a : X) : U l = (p : X) * (q : X) * (I.mem y p * (I.mem z q *
+      ((r : X) * (LE p r * (LE q r * (LE a r * Least p q r)))))) ;
+    sp (a : X) (s : Split a) : X = s.1 ;
+    sq (a : X) (s : Split a) : X = s.2.1 ;
+    sy (a : X) (s : Split a) : I.mem y (sp a s) = s.2.2.1 ;
+    sz (a : X) (s : Split a) : I.mem z (sq a s) = s.2.2.2.1 ;
+    sr (a : X) (s : Split a) : X = s.2.2.2.2.1 ;
+    spr (a : X) (s : Split a) : LE (sp a s) (sr a s) = s.2.2.2.2.2.1 ;
+    sqr (a : X) (s : Split a) : LE (sq a s) (sr a s) = s.2.2.2.2.2.2.1 ;
+    sar (a : X) (s : Split a) : LE a (sr a s) = s.2.2.2.2.2.2.2.1 ;
+    sleast (a : X) (s : Split a) : Least (sp a s) (sq a s) (sr a s) = s.2.2.2.2.2.2.2.2 ;
+    Gen (a : X) : U l = Ex (Split a) ;
+    compat (p q : X) (hp : I.mem y p) (hq : I.mem z q) : CU.Compatible E.cusl.order (I.val p) (I.val q) =
+      I.compatible-in u p q (yu p hp) (zu q hq) ;
+    join-split (a p q : X) (hp : I.mem y p) (hq : I.mem z q)
+      (h : CU.Compatible E.cusl.order (I.val p) (I.val q)) (ac : LE a (I.join-index p q h)) : Split a =
+      (p,(q,(hp,(hq,(I.join-index p q h,(I.join-left p q h,(I.join-right p q h,(ac,
+        \ t pt qt -> join-least p q h t pt qt)))))))) ;
+    gen-bot : Gen I.bot = inc (Split I.bot) (join-split I.bot I.bot I.bot (I.contains-bot y) (I.contains-bot z)
+      (compat I.bot I.bot (I.contains-bot y) (I.contains-bot z))
+      (I.bot-least (I.join-index I.bot I.bot (compat I.bot I.bot (I.contains-bot y) (I.contains-bot z))))) ;
+    gen-lower (a b : X) (ab : LE a b) : Gen b -> Gen a =
+      T.map (Split b) (Split a) (\ s -> (sp b s,(sq b s,(sy b s,(sz b s,(sr b s,(spr b s,(sqr b s,
+        (trans a b (sr b s) ab (sar b s),sleast b s))))))))) ;
+    -- two splittings have a common one above
+    module Above (a b : X) (sa : Split a) (sb : Split b)
+      (p : X) (hp : I.mem y p) (ap : LE (sp a sa) p) (bp : LE (sp b sb) p)
+      (q : X) (hq : I.mem z q) (aq : LE (sq a sa) q) (bq : LE (sq b sb) q) {
+      h : CU.Compatible E.cusl.order (I.val p) (I.val q) = compat p q hp hq ;
+      c : X = I.join-index p q h ;
+      up (t : X) (st : Split t) (tp : LE (sp t st) p) (tq : LE (sq t st) q) : LE t c =
+        trans t (sr t st) c (sar t st)
+          (sleast t st c (trans (sp t st) p c tp (I.join-left p q h)) (trans (sq t st) q c tq (I.join-right p q h))) ;
+      result : (d : X) * (Gen d * (LE a d * LE b d)) =
+        (c,(inc (Split c) (join-split c p q hp hq h (E.cusl.order.reflexive (I.val c))),
+          (up a sa ap aq,up b sb bp bq))) ;
+    } ;
+    gen-upper (a b : X) (ga : Gen a) (gb : Gen b) : Ex ((d : X) * (Gen d * (LE a d * LE b d))) =
+      T.bind2 (Split a) (Split b) ((d : X) * (Gen d * (LE a d * LE b d)))
+        (\ sa sb -> T.bind2 ((p : X) * (I.mem y p * (LE (sp a sa) p * LE (sp b sb) p)))
+          ((q : X) * (I.mem z q * (LE (sq a sa) q * LE (sq b sb) q)))
+          ((d : X) * (Gen d * (LE a d * LE b d)))
+          (\ wp wq -> inc ((d : X) * (Gen d * (LE a d * LE b d)))
+            (Above[a,b,sa,sb,wp.1,wp.2.1,wp.2.2.1,wp.2.2.2,wq.1,wq.2.1,wq.2.2.1,wq.2.2.2].result))
+          (I.upper y (sp a sa) (sp b sb) (sy a sa) (sy b sb))
+          (I.upper z (sq a sa) (sq b sb) (sz a sa) (sz b sb))) ga gb ;
+    gen : Ideal = (Gen,(\ a -> prop (Split a),(gen-bot,(gen-lower,gen-upper)))) ;
+    y-gen : I.Incl y gen = \ p hp -> inc (Split p) (join-split p p I.bot hp (I.contains-bot z)
+      (compat p I.bot hp (I.contains-bot z)) (I.join-left p I.bot (compat p I.bot hp (I.contains-bot z)))) ;
+    z-gen : I.Incl z gen = \ q hq -> inc (Split q) (join-split q I.bot q (I.contains-bot y) hq
+      (compat I.bot q (I.contains-bot y) hq) (I.join-right I.bot q (compat I.bot q (I.contains-bot y) hq))) ;
+    u-gen : I.Incl u gen = ju.2 gen (bool2 (\ i -> I.Incl (DP.pair y z i) gen) y-gen z-gen) ;
+
+    -- an element of m splits along x ^ y and x ^ z
+    module Member (a : X) (ha : I.mem m a) (s : Split a) {
+      p : X = sp a s ;
+      q : X = sq a s ;
+      h : CU.Compatible E.cusl.order (I.val p) (I.val q) =
+        CU.by-bound E.cusl.order (I.val p) (I.val q) (I.val (sr a s)) (spr a s) (sqr a s) ;
+      a-j : LE a (I.join-index p q h) = trans a (sr a s) (I.join-index p q h) (sar a s)
+        (sleast a s (I.join-index p q h) (I.join-left p q h) (I.join-right p q h)) ;
+      ax : I.mem x a = im.1 a ha ;
+      mp : X = meet a p ;
+      mq : X = meet a q ;
+      in-x (t : X) (ta : LE t a) : I.Incl (I.principal t) x = I.principal-least t x (I.lower x t a ta ax) ;
+      mp-n : I.mem n mp = iny.2.2 (I.principal mp) (in-x mp (meet-left a p))
+        (I.principal-least mp y (I.lower y mp p (meet-right a p) (sy a s))) mp (I.principal-in mp) ;
+      mq-v : I.mem v mq = iv.2.2 (I.principal mq) (in-x mq (meet-left a q))
+        (I.principal-least mq z (I.lower z mq q (meet-right a q) (sz a s))) mq (I.principal-in mq) ;
+      -- distributivity of the events: a <= (a ^ p) v (a ^ q)
+      splitting : le (I.val a) (J.join (E.meet (I.val a) (I.val p)) (E.meet (I.val a) (I.val q))
+          (CU.by-bound E.cusl.order (E.meet (I.val a) (I.val p)) (E.meet (I.val a) (I.val q)) (I.val a)
+            (E.meet-left (I.val a) (I.val p)) (E.meet-left (I.val a) (I.val q)))) =
+        E.distributive (I.val a) (I.val p) (I.val q) h (out-r a (J.join (I.val p) (I.val q) h) a-j) ;
+      below (r : X) (pr : LE mp r) (qr : LE mq r) : LE a r =
+        E.cusl.order.transitive (I.val a) (J.join (E.meet (I.val a) (I.val p)) (E.meet (I.val a) (I.val q))
+            (CU.by-bound E.cusl.order (E.meet (I.val a) (I.val p)) (E.meet (I.val a) (I.val q)) (I.val a)
+              (E.meet-left (I.val a) (I.val p)) (E.meet-left (I.val a) (I.val q)))) (I.val r)
+          splitting
+          (J.least (E.meet (I.val a) (I.val p)) (E.meet (I.val a) (I.val q))
+            (CU.by-bound E.cusl.order (E.meet (I.val a) (I.val p)) (E.meet (I.val a) (I.val q)) (I.val a)
+              (E.meet-left (I.val a) (I.val p)) (E.meet-left (I.val a) (I.val q))) (I.val r)
+            (out-l (E.meet (I.val a) (I.val p)) r pr) (out-l (E.meet (I.val a) (I.val q)) r qr)) ;
+      in-w : I.mem w a = T.rec ((r : X) * (I.mem w r * (LE mp r * LE mq r))) @l (I.mem w a) (I.mem-prop w a)
+        (\ t -> I.lower w a t.1 (below t.1 t.2.2.1 t.2.2.2) t.2.1)
+        (I.upper w mp mq (nw mp mp-n) (vw mq mq-v)) ;
+    } ;
+    m-w : I.Incl m w = \ a ha -> T.rec (Split a) @l (I.mem w a) (I.mem-prop w a)
+      (\ s -> Member[a,ha,s].in-w) (u-gen a (im.2.1 a ha)) ;
+    equation : Id Ideal m w = I.ext m w m-w w-m ;
+  } ;
+  distributive : DP.Distributive = \ x y z u m n v w ju im iny iv jw ->
+    Distributive[x,y,z,u,m,n,v,w,ju,im,iny,iv,jw].equation ;
+
+  ----------------------------------------------------------------------
+  -- the compact ideals below a principal ideal
+
+  module Below (a : X) (F : DIDomain[l].Properties[E.cusl.order].FiniteIdeal[I.val a]) {
+    idx (i : Ix F.shape) : X = I.at (F.point i) ;
+    point (i : Ix F.shape) : Ideal = I.principal (idx i) ;
+    below (i : Ix F.shape) : I.Incl (point i) (I.principal a) =
+      principal-mono (idx i) a (into-l (F.point i) a (F.below i)) ;
+    -- a compact ideal below the principal ideal of a is one of the points
+    module Cover (k : Ideal) (ka : I.Incl k (I.principal a))
+      (b : X) (kb : I.Incl k (I.principal b)) (bk : I.Incl (I.principal b) k)
+      (i : Ix F.shape) (bi : le (I.val b) (F.point i)) (ib : le (F.point i) (I.val b)) {
+      result : I.Incl k (point i) * I.Incl (point i) k =
+        (I.incl-trans k (I.principal b) (point i) kb (principal-mono b (idx i) (into-r b (F.point i) bi)),
+         I.incl-trans (point i) (I.principal b) k (principal-mono (idx i) b (into-l (F.point i) b ib)) bk) ;
+    } ;
+    covers (k : Ideal) (kc : DC[I.order,I.complete].Compact k) (ka : I.Incl k (I.principal a)) :
+      Ex ((i : Ix F.shape) * (I.Incl k (point i) * I.Incl (point i) k)) =
+      T.bind ((b : X) * (I.Incl k (I.principal b) * I.Incl (I.principal b) k))
+        ((i : Ix F.shape) * (I.Incl k (point i) * I.Incl (point i) k))
+        (\ w -> T.map ((i : Ix F.shape) * (le (I.val w.1) (F.point i) * le (F.point i) (I.val w.1)))
+          ((i : Ix F.shape) * (I.Incl k (point i) * I.Incl (point i) k))
+          (\ v -> (v.1,Cover[k,ka,w.1,w.2.1,w.2.2,v.1,v.2.1,v.2.2].result))
+          (F.covers (I.val w.1) (ka w.1 (w.2.2 w.1 (I.principal-in w.1)))))
+        (A.compact-basis k kc) ;
+    distinct (i j : Ix F.shape) (ij : I.Incl (point i) (point j)) (ji : I.Incl (point j) (point i)) :
+      Id (Ix F.shape) i j =
+      F.distinct i j (out2 (F.point i) (F.point j) (ij (idx i) (I.principal-in (idx i))))
+        (out2 (F.point j) (F.point i) (ji (idx j) (I.principal-in (idx j)))) ;
+    ideal : K.CompactIdeal[I.principal a] = new K.CompactIdeal[I.principal a, shape := F.shape,
+      point := point, compact := \ i -> I.basis.compact (idx i), below := below,
+      covers := covers, distinct := distinct] ;
+  } ;
+  principal-ideal (a : X) : ScottOrder[l+].Ex (K.CompactIdeal[I.principal a]) =
+    TL.map (DIDomain[l].Properties[E.cusl.order].FiniteIdeal[I.val a]) (K.CompactIdeal[I.principal a])
+      (\ F -> Below[a,F].ideal) (E.finite (I.val a)) ;
+  compact-ideals (k : Ideal) (kc : DC[I.order,I.complete].Compact k) : ScottOrder[l+].Ex (K.CompactIdeal[k]) =
+    T.rec ((b : X) * (I.Incl k (I.principal b) * I.Incl (I.principal b) k)) @l+
+      (ScottOrder[l+].Ex (K.CompactIdeal[k])) (ScottOrder[l+].prop (K.CompactIdeal[k]))
+      (\ w -> TL.map (K.CompactIdeal[I.principal w.1]) (K.CompactIdeal[k])
+        (\ G -> subst Ideal (\ t -> K.CompactIdeal[t]) (I.principal w.1) k (I.ext (I.principal w.1) k w.2.2 w.2.1) G)
+        (principal-ideal w.1))
+      (A.compact-basis k kc) ;
+
+  cdi : DIConstructive[l].CDI = new DIConstructive[l].CDI[scott := I.scott,
+    distributive := distributive, compact-ideals := compact-ideals] ;
+} ;

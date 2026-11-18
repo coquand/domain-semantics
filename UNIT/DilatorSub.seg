@@ -1,0 +1,186 @@
+-- Subfunctors of a pre-dilator are the subsets of its trace
+-- (catemb.pdf, Lemma 3.14, for the category of finite ordinals with
+-- strictly increasing maps; Girard, ch. 8).
+--
+-- A pre-dilator D is given as in dilator.seg (CANONICITY/unit/dilators,
+-- imported as Dilator): D0 on objects, D1 on words.  A point of D is a
+-- pair (n, x) with x < D0 n; the word w : [m] -> [n] acts on points by
+-- x |-> sel (D1 w) x.  A cartesian subfunctor is a proposition-valued
+-- predicate G on points which is invariant under the action:
+--     G (n, D(w)(x)) <-> G (m, x).
+-- (Invariance in both directions is naturality of the inclusion plus the
+-- pull-back square, i.e. the morphism G -> D is a cartesian natural
+-- transformation.)  The trace is the set of pairs (k, z) such that the
+-- least support of z in D(k) is the identity.
+--
+--   Theorem.  Sub(D) ~ (Trace -> Prop):  G |-> G restricted to the trace,
+--             S |-> (x |-> S (trace component of the normal form of x)).
+--
+-- This uses the normal form of dilator.seg (PreDil.fwd / bwd) and the
+-- invariance of trace components (Restr.Inv).  Restr also builds, from a
+-- DECIDABLE subset of the trace, the restricted pre-dilator; those are
+-- the compact elements of Sub(D).
+level l ;
+open Base ; open Prelude[l+] ;
+module W = Dilator[l] ;
+module F = Axioms[l].FunExtLemmas[fe @l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+propext (A B : U l) (pA : Prelude[l].isProp A) (pB : Prelude[l].isProp B) (f : A -> B) (g : B -> A) :
+    Id (U l) A B =
+  (propUA @l A B pA pB).sec (f, Prelude[l].qinv A B f g (\ b -> pB (f (g b)) b) (\ a -> pA (g (f a)) a)) ;
+
+module SubDil (D0 : W.N -> W.N) (D1 : W.Wd -> W.Wd)
+  (dlen : (w : W.Wd) -> Id W.N (W.len (D1 w)) (D0 (W.len w)))
+  (dones : (w : W.Wd) -> Id W.N (W.ones (D1 w)) (D0 (W.ones w)))
+  (did : (n : W.N) -> Id W.Wd (D1 (W.idW n)) (W.idW (D0 n)))
+  (dcomp : (v w : W.Wd) -> Id W.N (W.ones v) (W.len w) -> Id W.Wd (D1 (W.compW v w)) (W.compW (D1 v) (D1 w)))
+  (dmeet : (v w : W.Wd) -> Id W.N (W.len v) (W.len w) -> Id W.Wd (D1 (W.andW v w)) (W.andW (D1 v) (D1 w))) {
+  module PD = W.PreDil[D0,D1,dlen,dones,did,dcomp,dmeet] ;
+  -- Restr with the trivial subset, only to use Inv (which does not depend on it)
+  module RS = W.Restr[D0,D1,dlen,dones,did,dcomp,dmeet,\ k z -> true] ;
+
+  Lt (n x : W.N) : U l = Id W.Bool (W.ltN x (D0 n)) true ;
+  -- points of D
+  Pt : U l = (n : W.N) * ((x : W.N) * Lt n x) ;
+  pt-eq (n x : W.N) (h : Lt n x) (n' x' : W.N) (h' : Lt n' x') (e1 : Id W.N n n') (e2 : Id W.N x x') :
+      Id Pt (n,(x,h)) (n',(x',h')) =
+    idJ W.N n (\ n2 e -> (x2 : W.N) (h2 : Lt n2 x2) -> Id W.N x x2 -> Id Pt (n,(x,h)) (n2,(x2,h2)))
+      (\ x2 h2 e' -> W.ap ((y : W.N) * Lt n y) Pt (\ u -> (n,u)) (x,h) (x2,h2)
+        (W.pairEq W.N (\ y -> Lt n y) (\ y u v -> W.HB.uip (W.ltN y (D0 n)) true u v) x h x2 e' h2))
+      n' e1 x' h' e2 ;
+
+  -- the action of w : [m] -> [n] on the points of D(m)
+  act-lt (w : W.Wd) (x : W.N) (hx : Lt (W.ones w) x) : Lt (W.len w) (W.sel (D1 w) x) =
+    W.subst W.N (\ k -> Id W.Bool (W.ltN (W.sel (D1 w) x) k) true) (W.len (D1 w)) (D0 (W.len w)) (dlen w)
+      (W.at-lt (D1 w) (W.sel (D1 w) x) (W.at-sel (D1 w) x (PD.ltD w x hx))) ;
+  act (w : W.Wd) (x : W.N) (hx : Lt (W.ones w) x) : Pt = (W.len w,(W.sel (D1 w) x,act-lt w x hx)) ;
+
+  -- the trace
+  TPr (k z : W.N) : U l = Lt k z * Id W.Wd PD.Sup[k,z].supp (W.idW k) ;
+  Trace : U l = (k : W.N) * ((z : W.N) * TPr k z) ;
+  tpr-prop (k z : W.N) (u v : TPr k z) : Id (TPr k z) u v =
+    W.prodEq (Lt k z) (Id W.Wd PD.Sup[k,z].supp (W.idW k)) u v
+      (W.HB.uip (W.ltN z (D0 k)) true u.1 v.1) (W.HW.uip PD.Sup[k,z].supp (W.idW k) u.2 v.2) ;
+  tr-eq (k z : W.N) (t : TPr k z) (k' z' : W.N) (t' : TPr k' z') (e1 : Id W.N k k') (e2 : Id W.N z z') :
+      Id Trace (k,(z,t)) (k',(z',t')) =
+    idJ W.N k (\ k2 e -> (z2 : W.N) (t2 : TPr k2 z2) -> Id W.N z z2 -> Id Trace (k,(z,t)) (k2,(z2,t2)))
+      (\ z2 t2 e' -> W.ap ((y : W.N) * TPr k y) Trace (\ u -> (k,u)) (z,t) (z2,t2)
+        (W.pairEq W.N (\ y -> TPr k y) (\ y u v -> tpr-prop k y u v) z t z2 e' t2))
+      k' e1 z' t' e2 ;
+  -- a trace element as a point
+  point (t : Trace) : Pt = (t.1,(t.2.1,t.2.2.1)) ;
+
+  -- the trace component of the normal form of a point
+  K (n x : W.N) : W.N = W.ones PD.Sup[n,x].supp ;
+  Z (n x : W.N) : W.N = W.rank (D1 PD.Sup[n,x].supp) x ;
+  den (p : Pt) : PD.Den p.1 = PD.fwd p.1 (p.2.1,PD.hzOf p.1 p.2.1 p.2.2) ;
+  key (p : Pt) : Trace = (W.ones (den p).1,((den p).2.1,(den p).2.2.2)) ;
+
+  -- D(w) preserves the trace component (dilator.seg, Restr.Inv)
+  module Inv (w : W.Wd) (x : W.N) (hx : Lt (W.ones w) x) {
+    module I = RS.Inv[w,x,hx] ;
+    kz : Id W.N (K (W.len w) (W.sel (D1 w) x)) (K (W.ones w) x) =
+      W.trans W.N (K (W.len w) (W.sel (D1 w) x)) (K (W.len w) (PD.bwdx (W.len w) I.e)) (K (W.ones w) x)
+        (W.ap W.N W.N (K (W.len w)) (W.sel (D1 w) x) (PD.bwdx (W.len w) I.e) I.ye)
+        (W.trans W.N (K (W.len w) (PD.bwdx (W.len w) I.e)) (W.ones (W.compW w I.dx.1)) (K (W.ones w) x)
+          (W.ap W.Wd W.N W.ones (PD.fwd (W.len w) (PD.bwd (W.len w) I.e)).1 (W.compW w I.dx.1) (PD.fwd-bwd-w (W.len w) I.e))
+          I.hos) ;
+    zz : Id W.N (Z (W.len w) (W.sel (D1 w) x)) (Z (W.ones w) x) =
+      W.trans W.N (Z (W.len w) (W.sel (D1 w) x)) (Z (W.len w) (PD.bwdx (W.len w) I.e)) (Z (W.ones w) x)
+        (W.ap W.N W.N (Z (W.len w)) (W.sel (D1 w) x) (PD.bwdx (W.len w) I.e) I.ye)
+        (PD.fwd-bwd-z (W.len w) I.e) ;
+    key-eq : Id Trace (key (act w x hx)) (key (W.ones w,(x,hx))) =
+      tr-eq (key (act w x hx)).1 (key (act w x hx)).2.1 (key (act w x hx)).2.2
+        (key (W.ones w,(x,hx))).1 (key (W.ones w,(x,hx))).2.1 (key (W.ones w,(x,hx))).2.2 kz zz ;
+  } ;
+
+  -- on the trace, the normal form is trivial
+  key-point (t : Trace) : Id Trace (key (point t)) t =
+    tr-eq (key (point t)).1 (key (point t)).2.1 (key (point t)).2.2 t.1 t.2.1 t.2.2
+      (W.trans W.N (K t.1 t.2.1) (W.ones (W.idW t.1)) t.1
+        (W.ap W.Wd W.N W.ones PD.Sup[t.1,t.2.1].supp (W.idW t.1) t.2.2.2) (W.ones-idW t.1))
+      (W.trans W.N (Z t.1 t.2.1) (W.rank (D1 (W.idW t.1)) t.2.1) t.2.1
+        (W.ap W.Wd W.N (\ u -> W.rank (D1 u) t.2.1) PD.Sup[t.1,t.2.1].supp (W.idW t.1) t.2.2.2)
+        (PD.rkid t.1 t.2.1 t.2.2.1)) ;
+
+  -- every point is the image of its trace component under its least support
+  module Normal (p : Pt) {
+    s : W.Wd = PD.Sup[p.1,p.2.1].supp ;
+    hz : Lt (W.ones s) (key p).2.1 = (key p).2.2.1 ;
+    eq : Id Pt (act s (key p).2.1 hz) p =
+      pt-eq (W.len s) (W.sel (D1 s) (key p).2.1) (act-lt s (key p).2.1 hz) p.1 p.2.1 p.2.2
+        (PD.Point[p.1,p.2.1,PD.hzOf p.1 p.2.1 p.2.2].supp-supp.1)
+        (PD.bwd-fwd p.1 (p.2.1,PD.hzOf p.1 p.2.1 p.2.2)) ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- subfunctors and subsets of the trace
+
+  Cart (G : Pt -> U l) : U l =
+    (w : W.Wd) (x : W.N) (hx : Lt (W.ones w) x) ->
+      (G (act w x hx) -> G (W.ones w,(x,hx))) * (G (W.ones w,(x,hx)) -> G (act w x hx)) ;
+  Props (G : Pt -> U l) : U l = (p : Pt) -> Prelude[l].isProp (G p) ;
+  cart-prop (G : Pt -> U l) (g : Props G) : Prelude[l].isProp (Cart G) =
+    F.isProp-Pi W.Wd (\ w -> (x : W.N) (hx : Lt (W.ones w) x) ->
+        (G (act w x hx) -> G (W.ones w,(x,hx))) * (G (W.ones w,(x,hx)) -> G (act w x hx)))
+      (\ w -> F.isProp-Pi W.N (\ x -> (hx : Lt (W.ones w) x) ->
+          (G (act w x hx) -> G (W.ones w,(x,hx))) * (G (W.ones w,(x,hx)) -> G (act w x hx)))
+        (\ x -> F.isProp-Pi (Lt (W.ones w) x) (\ hx ->
+            (G (act w x hx) -> G (W.ones w,(x,hx))) * (G (W.ones w,(x,hx)) -> G (act w x hx)))
+          (\ hx -> Prelude[l].isProp-Sigma (G (act w x hx) -> G (W.ones w,(x,hx)))
+            (\ _ -> G (W.ones w,(x,hx)) -> G (act w x hx))
+            (F.isProp-Pi (G (act w x hx)) (\ _ -> G (W.ones w,(x,hx))) (\ _ -> g (W.ones w,(x,hx))))
+            (\ _ -> F.isProp-Pi (G (W.ones w,(x,hx))) (\ _ -> G (act w x hx)) (\ _ -> g (act w x hx)))))) ;
+  props-prop (G : Pt -> U l) : isProp (Props G) =
+    H.isProp-Pi Pt (\ p -> Prelude[l].isProp (G p)) (\ p -> Axioms[l].FunExtLemmas[fe @l].isProp-isProp (G p)) ;
+
+  Sub : U l+ = (G : Pt -> U l) * (Props G * Cart G) ;
+  TrSub : U l+ = (S : Trace -> U l) * ((t : Trace) -> Prelude[l].isProp (S t)) ;
+
+  restrict (G : Sub) : TrSub = (\ t -> G.1 (point t),\ t -> G.2.1 (point t)) ;
+
+  module Extend (S : TrSub) {
+    G (p : Pt) : U l = S.1 (key p) ;
+    cart : Cart G = \ w x hx ->
+      (Prelude[l].subst Trace S.1 (key (act w x hx)) (key (W.ones w,(x,hx))) Inv[w,x,hx].key-eq,
+       Prelude[l].subst Trace S.1 (key (W.ones w,(x,hx))) (key (act w x hx))
+         (Prelude[l].sym Trace (key (act w x hx)) (key (W.ones w,(x,hx))) Inv[w,x,hx].key-eq)) ;
+    sub : Sub = (G,(\ p -> S.2 (key p),cart)) ;
+  } ;
+  extend (S : TrSub) : Sub = Extend[S].sub ;
+
+  -- the two round trips
+  restrict-extend (S : TrSub) : Id TrSub (restrict (extend S)) S =
+    Sigma-eq (Trace -> U l) (\ T -> (t : Trace) -> Prelude[l].isProp (T t))
+      (restrict (extend S)).1 S.1 (restrict (extend S)).2 S.2
+      (H.funext Trace (\ _ -> U l) (restrict (extend S)).1 S.1
+        (\ t -> ap Trace (U l) S.1 (key (point t)) t (key-point t)))
+      (H.isProp-Pi Trace (\ t -> Prelude[l].isProp (S.1 t)) (\ t -> Axioms[l].FunExtLemmas[fe @l].isProp-isProp (S.1 t))) ;
+
+  module Back (G : Sub) {
+    -- G at the trace component of p is G at p, by invariance along the support
+    to (p : Pt) (h : G.1 (point (key p))) : G.1 p =
+      Prelude[l].subst Pt G.1 (act Normal[p].s (key p).2.1 Normal[p].hz) p Normal[p].eq
+        ((G.2.2 Normal[p].s (key p).2.1 Normal[p].hz).2 h) ;
+    from (p : Pt) (h : G.1 p) : G.1 (point (key p)) =
+      (G.2.2 Normal[p].s (key p).2.1 Normal[p].hz).1
+        (Prelude[l].subst Pt G.1 p (act Normal[p].s (key p).2.1 Normal[p].hz)
+          (Prelude[l].sym Pt (act Normal[p].s (key p).2.1 Normal[p].hz) p Normal[p].eq) h) ;
+    pred-eq : Id (Pt -> U l) (extend (restrict G)).1 G.1 =
+      H.funext Pt (\ _ -> U l) (extend (restrict G)).1 G.1
+        (\ p -> propext (G.1 (point (key p))) (G.1 p) (G.2.1 (point (key p))) (G.2.1 p) (to p) (from p)) ;
+    equation : Id Sub (extend (restrict G)) G =
+      Sigma-eq (Pt -> U l) (\ T -> Props T * Cart T) (extend (restrict G)).1 G.1 (extend (restrict G)).2 G.2
+        pred-eq
+        (isProp-Sigma (Props G.1) (\ _ -> Cart G.1) (props-prop G.1) (\ g -> cart-prop G.1 g)) ;
+  } ;
+  extend-restrict (G : Sub) : Id Sub (extend (restrict G)) G = Back[G].equation ;
+
+  -- the correspondence is an equivalence, and it preserves and reflects inclusion
+  equivalence : Equiv Sub TrSub = (restrict, qinv Sub TrSub restrict extend restrict-extend extend-restrict) ;
+  Incl (G G' : Sub) : U l = (p : Pt) -> G.1 p -> G'.1 p ;
+  TrIncl (S S' : TrSub) : U l = (t : Trace) -> S.1 t -> S'.1 t ;
+  incl-restrict (G G' : Sub) (h : Incl G G') : TrIncl (restrict G) (restrict G') = \ t -> h (point t) ;
+  incl-extend (S S' : TrSub) (h : TrIncl S S') : Incl (extend S) (extend S') = \ p -> h (key p) ;
+} ;

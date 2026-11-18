@@ -1,0 +1,440 @@
+-- A ptyx is determined by its finite part (catemb.pdf, linear-order case,
+-- step 5 of PLAN-CATEMB-LO.md), WITHOUT least supports and without any
+-- decidability of supports.
+--
+--   * the values of a ptyx are sets (decidable comparison, Hedberg), so
+--     an equation between points is a proposition and can be proved
+--     from a MERE support (Ptyx.support);
+--   * Det: two natural families P -> Q that agree on all truncations D|K
+--     agree everywhere;
+--   * Factor: a morphism A -> E whose images lie in E|c factors through
+--     E|c; a morphism out of D|K factors through E|K (supports of points
+--     are preserved, CatDil.Cart);
+--   * Ext: a natural family on finite dilators extends (uniquely, by Det)
+--     to a natural family on all dilators.  The value at y is obtained by
+--     unique choice: it is Q(inc)(a z) for any z in P(D|K) over y, and
+--     this does not depend on (K, z) by naturality along D|K -> D|K''
+--     and injectivity of P(inc).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module DP = DilPtyx[l] ;
+module PM = PtyxMor[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+----------------------------------------------------------------------
+-- the values of a ptyx are sets
+
+eqB : W.O3 -> W.Bool = split { lt -> false ; eq -> true ; gt -> false } ;
+eqB-sound : (o : W.O3) -> Id W.Bool (eqB o) true -> Id W.O3 o eq = split {
+  lt -> \ h -> W.absurdB (Id W.O3 lt eq) h ;
+  eq -> \ h -> refl eq ;
+  gt -> \ h -> W.absurdB (Id W.O3 gt eq) h } ;
+
+module LOSet (A : DP.LO) (x : A.car) {
+  R (y : A.car) : U l = Id W.Bool (eqB (A.cmp x y)) true ;
+  r : R x = W.ap W.O3 W.Bool eqB (A.cmp x x) eq (A.crefl x) ;
+  f (y : A.car) (h : R y) : Id A.car x y = A.ceq x y (eqB-sound (A.cmp x y) h) ;
+  isprop (y : A.car) : PL.isProp (Id A.car x y) =
+    PL.Hedberg[A.car,x,R,\ y -> W.HB.uip (eqB (A.cmp x y)) true,r,f].hedberg y ;
+} ;
+lo-set (A : DP.LO) (x y : A.car) : PL.isProp (Id A.car x y) = LOSet[A,x].isprop y ;
+
+-- O3 is a set
+eqO : W.O3 -> W.O3 -> W.Bool = split {
+  lt -> split { lt -> true ; eq -> false ; gt -> false } ;
+  eq -> split { lt -> false ; eq -> true ; gt -> false } ;
+  gt -> split { lt -> false ; eq -> false ; gt -> true } } ;
+eqO-refl : (o : W.O3) -> Id W.Bool (eqO o o) true = split { lt -> refl true ; eq -> refl true ; gt -> refl true } ;
+eqO-sound : (o o' : W.O3) -> Id W.Bool (eqO o o') true -> Id W.O3 o o' = split {
+  lt -> split { lt -> \ h -> refl lt ; eq -> \ h -> W.absurdB (Id W.O3 lt eq) h ; gt -> \ h -> W.absurdB (Id W.O3 lt gt) h } ;
+  eq -> split { lt -> \ h -> W.absurdB (Id W.O3 eq lt) h ; eq -> \ h -> refl eq ; gt -> \ h -> W.absurdB (Id W.O3 eq gt) h } ;
+  gt -> split { lt -> \ h -> W.absurdB (Id W.O3 gt lt) h ; eq -> \ h -> W.absurdB (Id W.O3 gt eq) h ; gt -> \ h -> refl gt } } ;
+o3-set (o o' : W.O3) : PL.isProp (Id W.O3 o o') =
+  PL.Hedberg[W.O3,o,\ o2 -> Id W.Bool (eqO o o2) true,\ o2 -> W.HB.uip (eqO o o2) true,eqO-refl o,eqO-sound o].hedberg o' ;
+
+----------------------------------------------------------------------
+-- determination by the truncations
+
+Tr (D : CD.Dil) (K : W.N) : CD.Dil = DF.On[D].Trunc[K].dil ;
+TrInc (D : CD.Dil) (K : W.N) : CD.Mor (Tr D K) D = DF.On[D].Trunc[K].inc ;
+Wit (P : DP.Ptyx) (D : CD.Dil) (y : (P.F D).car) : U l =
+  (K : W.N) * ((z : (P.F (Tr D K)).car) * Id (P.F D).car ((P.arr (Tr D K) D (TrInc D K)).1 z) y) ;
+
+module Det (P Q : DP.Ptyx) (a b : PM.Fam P Q) (na : PM.Natural P Q a) (nb : PM.Natural P Q b)
+  (ag : (D : CD.Dil) (K : W.N) (z : (P.F (Tr D K)).car) -> Id (Q.F (Tr D K)).car ((a (Tr D K)).1 z) ((b (Tr D K)).1 z)) {
+  module Case (D : CD.Dil) (y : (P.F D).car) (w : Wit P D y) {
+    T : CD.Dil = Tr D w.1 ;
+    i : CD.Mor T D = TrInc D w.1 ;
+    z : (P.F T).car = w.2.1 ;
+    y0 : (P.F D).car = (P.arr T D i).1 z ;
+    eq : Id (Q.F D).car ((a D).1 y) ((b D).1 y) =
+      PL.trans (Q.F D).car ((a D).1 y) ((a D).1 y0) ((b D).1 y)
+        (PL.ap (P.F D).car (Q.F D).car (a D).1 y y0 (PL.sym (P.F D).car y0 y w.2.2))
+        (PL.trans (Q.F D).car ((a D).1 y0) ((Q.arr T D i).1 ((a T).1 z)) ((b D).1 y)
+          (PL.sym (Q.F D).car ((Q.arr T D i).1 ((a T).1 z)) ((a D).1 y0) (na T D i z))
+          (PL.trans (Q.F D).car ((Q.arr T D i).1 ((a T).1 z)) ((Q.arr T D i).1 ((b T).1 z)) ((b D).1 y)
+            (PL.ap (Q.F T).car (Q.F D).car (Q.arr T D i).1 ((a T).1 z) ((b T).1 z) (ag D w.1 z))
+            (PL.trans (Q.F D).car ((Q.arr T D i).1 ((b T).1 z)) ((b D).1 y0) ((b D).1 y)
+              (nb T D i z)
+              (PL.ap (P.F D).car (Q.F D).car (b D).1 y0 y w.2.2)))) ;
+  } ;
+  eq (D : CD.Dil) (y : (P.F D).car) : Id (Q.F D).car ((a D).1 y) ((b D).1 y) =
+    TC.rec (Wit P D y) @l (Id (Q.F D).car ((a D).1 y) ((b D).1 y)) (lo-set (Q.F D) ((a D).1 y) ((b D).1 y))
+      (\ w -> Case[D,y,w].eq) (P.support D y) ;
+} ;
+-- two morphisms of ptykes that agree on the truncations are equal
+det (P Q : DP.Ptyx) (S T : PM.Mor P Q)
+  (ag : (D : CD.Dil) (K : W.N) (z : (P.F (Tr D K)).car) -> Id (Q.F (Tr D K)).car ((S.1 (Tr D K)).1 z) ((T.1 (Tr D K)).1 z)) :
+    PM.MorEq P Q S T = Det[P,Q,S.1,T.1,S.2.1,T.2.1,ag].eq ;
+
+----------------------------------------------------------------------
+-- factorisation through a subdilator
+
+module Factor (A E : CD.Dil) (T : CD.Mor A E) (c : DP.SubSet)
+  (hle : (n : W.N) -> W.Le (T.1 n) (DF.On[E].Sub[c].R.chi n)) {
+  module S = DF.On[E].Sub[c] ;
+  module R = S.R ;
+  t (n : W.N) : W.Wd = W.restrict (R.chi n) (T.1 n) ;
+  hlen (n : W.N) : Id W.N (W.len (T.1 n)) (W.len (R.chi n)) =
+    W.trans W.N (W.len (T.1 n)) (E.1 n) (W.len (R.chi n)) (T.2.1 n) (W.sym W.N (W.len (R.chi n)) (E.1 n) (R.len-chi n)) ;
+  rc (n : W.N) : Id W.Wd (W.compW (R.chi n) (t n)) (T.1 n) = W.restrict-comp (R.chi n) (T.1 n) (hlen n) (hle n) ;
+  tlen (n : W.N) : Id W.N (W.len (t n)) (R.F0 n) = W.len-restrict (R.chi n) (T.1 n) ;
+  tones (n : W.N) : Id W.N (W.ones (t n)) (A.1 n) =
+    W.trans W.N (W.ones (t n)) (W.ones (T.1 n)) (A.1 n)
+      (W.trans W.N (W.ones (t n)) (W.ones (W.compW (R.chi n) (t n))) (W.ones (T.1 n))
+        (W.sym W.N (W.ones (W.compW (R.chi n) (t n))) (W.ones (t n))
+          (W.ones-comp (R.chi n) (t n) (W.sym W.N (W.len (t n)) (R.F0 n) (tlen n))))
+        (W.ap W.Wd W.N W.ones (W.compW (R.chi n) (t n)) (T.1 n) (rc n)))
+      (T.2.2.1 n) ;
+  module Nat (w : W.Wd) {
+    m : W.N = W.ones w ;
+    n : W.N = W.len w ;
+    X : W.Wd = W.compW (R.F1 w) (t m) ;
+    Y : W.Wd = W.compW (t n) (CD.D1 A w) ;
+    hX : Id W.N (W.len X) (W.ones (R.chi n)) =
+      W.trans W.N (W.len X) (W.len (R.F1 w)) (W.ones (R.chi n)) (W.len-comp (R.F1 w) (t m)) (R.flen w) ;
+    hY : Id W.N (W.len Y) (W.ones (R.chi n)) =
+      W.trans W.N (W.len Y) (W.len (t n)) (W.ones (R.chi n)) (W.len-comp (t n) (CD.D1 A w)) (tlen n) ;
+    target : W.Wd = W.compW (CD.D1 E w) (T.1 m) ;
+    eX : Id W.Wd (W.compW (R.chi n) X) target =
+      W.trans W.Wd (W.compW (R.chi n) X) (W.compW (W.compW (R.chi n) (R.F1 w)) (t m)) target
+        (W.sym W.Wd (W.compW (W.compW (R.chi n) (R.F1 w)) (t m)) (W.compW (R.chi n) X)
+          (CD.comp-assoc (R.chi n) (R.F1 w) (t m) (W.sym W.N (W.len (R.F1 w)) (R.F0 n) (R.flen w))
+            (W.trans W.N (W.ones (R.F1 w)) (R.F0 m) (W.len (t m)) (R.fones w) (W.sym W.N (W.len (t m)) (R.F0 m) (tlen m)))))
+        (W.trans W.Wd (W.compW (W.compW (R.chi n) (R.F1 w)) (t m)) (W.compW (W.compW (CD.D1 E w) (R.chi m)) (t m)) target
+          (W.ap W.Wd W.Wd (\ u -> W.compW u (t m)) (W.compW (R.chi n) (R.F1 w)) (W.compW (CD.D1 E w) (R.chi m)) (R.chr w))
+          (W.trans W.Wd (W.compW (W.compW (CD.D1 E w) (R.chi m)) (t m)) (W.compW (CD.D1 E w) (W.compW (R.chi m) (t m))) target
+            (CD.comp-assoc (CD.D1 E w) (R.chi m) (t m) (R.oD w) (W.sym W.N (W.len (t m)) (R.F0 m) (tlen m)))
+            (W.ap W.Wd W.Wd (W.compW (CD.D1 E w)) (W.compW (R.chi m) (t m)) (T.1 m) (rc m)))) ;
+    eY : Id W.Wd (W.compW (R.chi n) Y) target =
+      W.trans W.Wd (W.compW (R.chi n) Y) (W.compW (W.compW (R.chi n) (t n)) (CD.D1 A w)) target
+        (W.sym W.Wd (W.compW (W.compW (R.chi n) (t n)) (CD.D1 A w)) (W.compW (R.chi n) Y)
+          (CD.comp-assoc (R.chi n) (t n) (CD.D1 A w) (W.sym W.N (W.len (t n)) (R.F0 n) (tlen n))
+            (W.trans W.N (W.ones (t n)) (A.1 n) (W.len (CD.D1 A w)) (tones n) (W.sym W.N (W.len (CD.D1 A w)) (A.1 n) (CD.dlen A w)))))
+        (W.trans W.Wd (W.compW (W.compW (R.chi n) (t n)) (CD.D1 A w)) (W.compW (T.1 n) (CD.D1 A w)) target
+          (W.ap W.Wd W.Wd (\ u -> W.compW u (CD.D1 A w)) (W.compW (R.chi n) (t n)) (T.1 n) (rc n))
+          (W.sym W.Wd target (W.compW (T.1 n) (CD.D1 A w)) (T.2.2.2 w))) ;
+    eq : Id W.Wd X Y = W.comp-cancel (R.chi n) X Y hX hY
+      (W.trans W.Wd (W.compW (R.chi n) X) target (W.compW (R.chi n) Y) eX (W.sym W.Wd (W.compW (R.chi n) Y) target eY)) ;
+  } ;
+  mor : CD.Mor A S.dil = (t,(tlen,(tones,\ w -> Nat[w].eq))) ;
+  tri : Id (CD.Mor A E) (CD.compM A S.dil E mor S.inc) T = CD.mor-ext A E (CD.compM A S.dil E mor S.inc) T rc ;
+} ;
+
+-- T : D -> E restricts to D|K -> E|K
+module TruncFactor (D E : CD.Dil) (T : CD.Mor D E) (K : W.N) {
+  A : CD.Dil = Tr D K ;
+  T' : CD.Mor A E = CD.compM A D E (TrInc D K) T ;
+  module RE = DF.On[E].Sub[DF.On[E].lev K].R ;
+  module Pt (n y : W.N) (hy : Id W.Bool (W.at (T'.1 n) y) true) {
+    x : W.N = W.rank (T'.1 n) y ;
+    hx : Id W.Bool (W.ltN x (A.1 n)) true =
+      W.subst W.N (\ k -> Id W.Bool (W.ltN x k) true) (W.ones (T'.1 n)) (A.1 n) (T'.2.2.1 n) (W.rank-lt (T'.1 n) y hy) ;
+    module Q = PtyxDen[l].SuppEq[A,E,T',n,x,hx] ;
+    fx : Q.QD.Den n = Q.QD.fwd n Q.xP ;
+    bnd : Id W.Bool (W.ltN (W.ones Q.QD.Sup[n,x].supp) (suc K)) true =
+      DF.On[D].Trunc[K].bounded (W.ones Q.QD.Sup[n,x].supp) fx.2.1 fx.2.2.2 ;
+    h1 : Id W.Bool (W.ltN (W.ones Q.QE.Sup[n,W.sel (T'.1 n) x].supp) (suc K)) true =
+      W.subst W.Wd (\ u -> Id W.Bool (W.ltN (W.ones u) (suc K)) true) Q.QD.Sup[n,x].supp Q.QE.Sup[n,W.sel (T'.1 n) x].supp
+        (W.sym W.Wd Q.QE.Sup[n,W.sel (T'.1 n) x].supp Q.QD.Sup[n,x].supp Q.supp-eq) bnd ;
+    h2 : Id W.Bool (W.ltN (W.ones Q.QE.Sup[n,y].supp) (suc K)) true =
+      W.subst W.N (\ k -> Id W.Bool (W.ltN (W.ones Q.QE.Sup[n,k].supp) (suc K)) true) (W.sel (T'.1 n) x) y
+        (W.sel-rank (T'.1 n) y hy) h1 ;
+    hyE : Id W.Bool (W.ltN y (E.1 n)) true =
+      W.subst W.N (\ k -> Id W.Bool (W.ltN y k) true) (W.len (T'.1 n)) (E.1 n) (T'.2.1 n) (W.at-lt (T'.1 n) y hy) ;
+    result : Id W.Bool (W.at (RE.chi n) y) true =
+      W.trans W.Bool (W.at (RE.chi n) y) (RE.trc n y) true (DF.On[E].Sub[DF.On[E].lev K].member n y hyE) h2 ;
+  } ;
+  module F = Factor[A,E,T',DF.On[E].lev K,\ n y hy -> Pt[n,y,hy].result] ;
+  mor : CD.Mor A (Tr E K) = F.mor ;
+  tri : Id (CD.Mor A E) (CD.compM A (Tr E K) E mor (TrInc E K)) T' = F.tri ;
+} ;
+
+----------------------------------------------------------------------
+-- extension from the finite dilators
+
+module Ext (P Q : DP.Ptyx) (a : (A : DF.FinDil) -> DP.Map (P.F A.1) (Q.F A.1))
+  (na : (A B : DF.FinDil) (T : CD.Mor A.1 B.1) (y : (P.F A.1).car) ->
+     Id (Q.F B.1).car ((Q.arr A.1 B.1 T).1 ((a A).1 y)) ((a B).1 ((P.arr A.1 B.1 T).1 y))) {
+  aT (D : CD.Dil) (K : W.N) : DP.Map (P.F (Tr D K)) (Q.F (Tr D K)) = a (DF.finite D K) ;
+  val (D : CD.Dil) (y : (P.F D).car) (w : Wit P D y) : (Q.F D).car = (Q.arr (Tr D w.1) D (TrInc D w.1)).1 ((aT D w.1).1 w.2.1) ;
+
+  -- pushing a witness up to a higher truncation does not change the value
+  module Push (D : CD.Dil) (y : (P.F D).car) (w : Wit P D y) (K : W.N) (hK : Id W.Bool (W.ltN w.1 (suc K)) true) {
+    le : DP.LeS (DF.On[D].lev w.1) (DF.On[D].lev K) = \ k z h -> W.ltN-le-lt k w.1 (suc K) h hK ;
+    module UP = DP.Up[D,DF.On[D].lev w.1,DF.On[D].lev K,le] ;
+    w2 : Wit P D y = (K,DP.Supports[P,D].mono y (DF.On[D].lev w.1) (DF.On[D].lev K) le w.2) ;
+    z : (P.F (Tr D w.1)).car = w.2.1 ;
+    az : (Q.F (Tr D w.1)).car = (aT D w.1).1 z ;
+    veq : Id (Q.F D).car (val D y w) (val D y w2) =
+      PL.trans (Q.F D).car (val D y w) ((Q.arr (Tr D w.1) D (CD.compM (Tr D w.1) (Tr D K) D UP.mor (TrInc D K))).1 az) (val D y w2)
+        (PL.ap (CD.Mor (Tr D w.1) D) (Q.F D).car (\ M -> (Q.arr (Tr D w.1) D M).1 az)
+          (TrInc D w.1) (CD.compM (Tr D w.1) (Tr D K) D UP.mor (TrInc D K))
+          (PL.sym (CD.Mor (Tr D w.1) D) (CD.compM (Tr D w.1) (Tr D K) D UP.mor (TrInc D K)) (TrInc D w.1) UP.tri))
+        (PL.trans (Q.F D).car ((Q.arr (Tr D w.1) D (CD.compM (Tr D w.1) (Tr D K) D UP.mor (TrInc D K))).1 az)
+          ((Q.arr (Tr D K) D (TrInc D K)).1 ((Q.arr (Tr D w.1) (Tr D K) UP.mor).1 az)) (val D y w2)
+          (PL.sym (Q.F D).car ((Q.arr (Tr D K) D (TrInc D K)).1 ((Q.arr (Tr D w.1) (Tr D K) UP.mor).1 az))
+            ((Q.arr (Tr D w.1) D (CD.compM (Tr D w.1) (Tr D K) D UP.mor (TrInc D K))).1 az)
+            (Q.arr-comp (Tr D w.1) (Tr D K) D UP.mor (TrInc D K) az))
+          (PL.ap (Q.F (Tr D K)).car (Q.F D).car (Q.arr (Tr D K) D (TrInc D K)).1
+            ((Q.arr (Tr D w.1) (Tr D K) UP.mor).1 az) ((aT D K).1 ((P.arr (Tr D w.1) (Tr D K) UP.mor).1 z))
+            (na (DF.finite D w.1) (DF.finite D K) UP.mor z))) ;
+  } ;
+
+  -- two witnesses give the same value
+  module Coh (D : CD.Dil) (y : (P.F D).car) (w w' : Wit P D y) {
+    K : W.N = W.plus w.1 w'.1 ;
+    hK : Id W.Bool (W.ltN w.1 (suc K)) true =
+      W.subst W.N (\ k -> Id W.Bool (W.ltN w.1 (suc k)) true) (W.plus w'.1 w.1) K (W.plus-comm w'.1 w.1) (W.le-plus w.1 w'.1) ;
+    hK' : Id W.Bool (W.ltN w'.1 (suc K)) true = W.le-plus w'.1 w.1 ;
+    module A = Push[D,y,w,K,hK] ;
+    module B = Push[D,y,w',K,hK'] ;
+    zeq : Id (P.F (Tr D K)).car A.w2.2.1 B.w2.2.1 =
+      DP.map-inj (P.F (Tr D K)) (P.F D) (P.arr (Tr D K) D (TrInc D K)) A.w2.2.1 B.w2.2.1
+        (PL.trans (P.F D).car ((P.arr (Tr D K) D (TrInc D K)).1 A.w2.2.1) y ((P.arr (Tr D K) D (TrInc D K)).1 B.w2.2.1)
+          A.w2.2.2 (PL.sym (P.F D).car ((P.arr (Tr D K) D (TrInc D K)).1 B.w2.2.1) y B.w2.2.2)) ;
+    eq : Id (Q.F D).car (val D y w) (val D y w') =
+      PL.trans (Q.F D).car (val D y w) (val D y A.w2) (val D y w') A.veq
+        (PL.trans (Q.F D).car (val D y A.w2) (val D y B.w2) (val D y w')
+          (PL.ap (P.F (Tr D K)).car (Q.F D).car (\ u -> (Q.arr (Tr D K) D (TrInc D K)).1 ((aT D K).1 u)) A.w2.2.1 B.w2.2.1 zeq)
+          (PL.sym (Q.F D).car (val D y w') (val D y B.w2) B.veq)) ;
+  } ;
+
+  -- unique choice
+  Cand (D : CD.Dil) (y : (P.F D).car) (q : (Q.F D).car) : U l = (w : Wit P D y) * Id (Q.F D).car (val D y w) q ;
+  C (D : CD.Dil) (y : (P.F D).car) : U l = (q : (Q.F D).car) * Ex (Cand D y q) ;
+  C-prop (D : CD.Dil) (y : (P.F D).car) : PL.isProp (C D y) = \ c c' ->
+    PL.Sigma-eq (Q.F D).car (\ q -> Ex (Cand D y q)) c.1 c'.1 c.2 c'.2
+      (TC.rec (Cand D y c.1) @l (Id (Q.F D).car c.1 c'.1) (lo-set (Q.F D) c.1 c'.1)
+        (\ p -> TC.rec (Cand D y c'.1) @l (Id (Q.F D).car c.1 c'.1) (lo-set (Q.F D) c.1 c'.1)
+          (\ p' -> PL.trans (Q.F D).car c.1 (val D y p.1) c'.1 (PL.sym (Q.F D).car (val D y p.1) c.1 p.2)
+            (PL.trans (Q.F D).car (val D y p.1) (val D y p'.1) c'.1 Coh[D,y,p.1,p'.1].eq p'.2))
+          c'.2)
+        c.2)
+      (prop (Cand D y c'.1)) ;
+  pick (D : CD.Dil) (y : (P.F D).car) (w : Wit P D y) : C D y = (val D y w,inc (Cand D y (val D y w)) (w,refl (val D y w))) ;
+  get (D : CD.Dil) (y : (P.F D).car) : C D y = TC.rec (Wit P D y) @l (C D y) (C-prop D y) (pick D y) (P.support D y) ;
+  f (D : CD.Dil) (y : (P.F D).car) : (Q.F D).car = (get D y).1 ;
+  spec (D : CD.Dil) (y : (P.F D).car) (w : Wit P D y) : Id (Q.F D).car (f D y) (val D y w) =
+    PL.ap (C D y) (Q.F D).car (\ c -> c.1) (get D y) (pick D y w) (C-prop D y (get D y) (pick D y w)) ;
+
+  -- f is strictly increasing
+  module Mono (D : CD.Dil) (x y : (P.F D).car) (w : Wit P D x) (w' : Wit P D y) {
+    K : W.N = W.plus w.1 w'.1 ;
+    hK : Id W.Bool (W.ltN w.1 (suc K)) true =
+      W.subst W.N (\ k -> Id W.Bool (W.ltN w.1 (suc k)) true) (W.plus w'.1 w.1) K (W.plus-comm w'.1 w.1) (W.le-plus w.1 w'.1) ;
+    module A = Push[D,x,w,K,hK] ;
+    module B = Push[D,y,w',K,W.le-plus w'.1 w.1] ;
+    i : DP.Map (P.F (Tr D K)) (P.F D) = P.arr (Tr D K) D (TrInc D K) ;
+    j : DP.Map (Q.F (Tr D K)) (Q.F D) = Q.arr (Tr D K) D (TrInc D K) ;
+    u : (P.F (Tr D K)).car = A.w2.2.1 ;
+    v : (P.F (Tr D K)).car = B.w2.2.1 ;
+    eq : Id W.O3 ((Q.F D).cmp (f D x) (f D y)) ((P.F D).cmp x y) =
+      W.trans W.O3 ((Q.F D).cmp (f D x) (f D y)) ((Q.F D).cmp (j.1 ((aT D K).1 u)) (j.1 ((aT D K).1 v))) ((P.F D).cmp x y)
+        (W.ap2 (Q.F D).car (Q.F D).car W.O3 (Q.F D).cmp (f D x) (j.1 ((aT D K).1 u)) (f D y) (j.1 ((aT D K).1 v))
+          (spec D x A.w2) (spec D y B.w2))
+        (W.trans W.O3 ((Q.F D).cmp (j.1 ((aT D K).1 u)) (j.1 ((aT D K).1 v))) ((Q.F (Tr D K)).cmp ((aT D K).1 u) ((aT D K).1 v))
+          ((P.F D).cmp x y)
+          (j.2 ((aT D K).1 u) ((aT D K).1 v))
+          (W.trans W.O3 ((Q.F (Tr D K)).cmp ((aT D K).1 u) ((aT D K).1 v)) ((P.F (Tr D K)).cmp u v) ((P.F D).cmp x y)
+            ((aT D K).2 u v)
+            (W.trans W.O3 ((P.F (Tr D K)).cmp u v) ((P.F D).cmp (i.1 u) (i.1 v)) ((P.F D).cmp x y)
+              (W.sym W.O3 ((P.F D).cmp (i.1 u) (i.1 v)) ((P.F (Tr D K)).cmp u v) (i.2 u v))
+              (W.ap2 (P.F D).car (P.F D).car W.O3 (P.F D).cmp (i.1 u) x (i.1 v) y A.w2.2.2 B.w2.2.2)))) ;
+  } ;
+  mono (D : CD.Dil) (x y : (P.F D).car) : Id W.O3 ((Q.F D).cmp (f D x) (f D y)) ((P.F D).cmp x y) =
+    TC.rec (Wit P D x) @l (Id W.O3 ((Q.F D).cmp (f D x) (f D y)) ((P.F D).cmp x y))
+      (o3-set ((Q.F D).cmp (f D x) (f D y)) ((P.F D).cmp x y))
+      (\ w -> TC.rec (Wit P D y) @l (Id W.O3 ((Q.F D).cmp (f D x) (f D y)) ((P.F D).cmp x y))
+        (o3-set ((Q.F D).cmp (f D x) (f D y)) ((P.F D).cmp x y))
+        (\ w' -> Mono[D,x,y,w,w'].eq) (P.support D y))
+      (P.support D x) ;
+  b : PM.Fam P Q = \ D -> (f D,mono D) ;
+
+  -- naturality, via the factorisation D|K -> E|K
+  module NatC (D E : CD.Dil) (T : CD.Mor D E) (y : (P.F D).car) (w : Wit P D y) {
+    K : W.N = w.1 ;
+    z : (P.F (Tr D K)).car = w.2.1 ;
+    module FT = TruncFactor[D,E,T,K] ;
+    az : (Q.F (Tr D K)).car = (aT D K).1 z ;
+    M1 : CD.Mor (Tr D K) E = CD.compM (Tr D K) D E (TrInc D K) T ;
+    M2 : CD.Mor (Tr D K) E = CD.compM (Tr D K) (Tr E K) E FT.mor (TrInc E K) ;
+    tri : Id (CD.Mor (Tr D K) E) M2 M1 = FT.tri ;
+    pz : (P.F (Tr E K)).car = (P.arr (Tr D K) (Tr E K) FT.mor).1 z ;
+    eqE : Id (P.F E).car ((P.arr (Tr E K) E (TrInc E K)).1 pz) ((P.arr D E T).1 y) =
+      PL.trans (P.F E).car ((P.arr (Tr E K) E (TrInc E K)).1 pz) ((P.arr (Tr D K) E M2).1 z) ((P.arr D E T).1 y)
+        (P.arr-comp (Tr D K) (Tr E K) E FT.mor (TrInc E K) z)
+        (PL.trans (P.F E).car ((P.arr (Tr D K) E M2).1 z) ((P.arr (Tr D K) E M1).1 z) ((P.arr D E T).1 y)
+          (PL.ap (CD.Mor (Tr D K) E) (P.F E).car (\ M -> (P.arr (Tr D K) E M).1 z) M2 M1 tri)
+          (PL.trans (P.F E).car ((P.arr (Tr D K) E M1).1 z) ((P.arr D E T).1 ((P.arr (Tr D K) D (TrInc D K)).1 z))
+            ((P.arr D E T).1 y)
+            (PL.sym (P.F E).car ((P.arr D E T).1 ((P.arr (Tr D K) D (TrInc D K)).1 z)) ((P.arr (Tr D K) E M1).1 z)
+              (P.arr-comp (Tr D K) D E (TrInc D K) T z))
+            (PL.ap (P.F D).car (P.F E).car (P.arr D E T).1 ((P.arr (Tr D K) D (TrInc D K)).1 z) y w.2.2))) ;
+    wE : Wit P E ((P.arr D E T).1 y) = (K,(pz,eqE)) ;
+    eq : Id (Q.F E).car ((Q.arr D E T).1 (f D y)) (f E ((P.arr D E T).1 y)) =
+      PL.trans (Q.F E).car ((Q.arr D E T).1 (f D y)) ((Q.arr D E T).1 (val D y w)) (f E ((P.arr D E T).1 y))
+        (PL.ap (Q.F D).car (Q.F E).car (Q.arr D E T).1 (f D y) (val D y w) (spec D y w))
+        (PL.trans (Q.F E).car ((Q.arr D E T).1 (val D y w)) ((Q.arr (Tr D K) E M1).1 az) (f E ((P.arr D E T).1 y))
+          (Q.arr-comp (Tr D K) D E (TrInc D K) T az)
+          (PL.trans (Q.F E).car ((Q.arr (Tr D K) E M1).1 az) ((Q.arr (Tr D K) E M2).1 az) (f E ((P.arr D E T).1 y))
+            (PL.ap (CD.Mor (Tr D K) E) (Q.F E).car (\ M -> (Q.arr (Tr D K) E M).1 az) M1 M2
+              (PL.sym (CD.Mor (Tr D K) E) M2 M1 tri))
+            (PL.trans (Q.F E).car ((Q.arr (Tr D K) E M2).1 az)
+              ((Q.arr (Tr E K) E (TrInc E K)).1 ((Q.arr (Tr D K) (Tr E K) FT.mor).1 az)) (f E ((P.arr D E T).1 y))
+              (PL.sym (Q.F E).car ((Q.arr (Tr E K) E (TrInc E K)).1 ((Q.arr (Tr D K) (Tr E K) FT.mor).1 az))
+                ((Q.arr (Tr D K) E M2).1 az) (Q.arr-comp (Tr D K) (Tr E K) E FT.mor (TrInc E K) az))
+              (PL.trans (Q.F E).car ((Q.arr (Tr E K) E (TrInc E K)).1 ((Q.arr (Tr D K) (Tr E K) FT.mor).1 az))
+                (val E ((P.arr D E T).1 y) wE) (f E ((P.arr D E T).1 y))
+                (PL.ap (Q.F (Tr E K)).car (Q.F E).car (Q.arr (Tr E K) E (TrInc E K)).1
+                  ((Q.arr (Tr D K) (Tr E K) FT.mor).1 az) ((aT E K).1 pz)
+                  (na (DF.finite D K) (DF.finite E K) FT.mor z))
+                (PL.sym (Q.F E).car (f E ((P.arr D E T).1 y)) (val E ((P.arr D E T).1 y) wE) (spec E ((P.arr D E T).1 y) wE)))))) ;
+  } ;
+  nat : PM.Natural P Q b = \ D E T y ->
+    TC.rec (Wit P D y) @l (Id (Q.F E).car ((Q.arr D E T).1 (f D y)) (f E ((P.arr D E T).1 y)))
+      (lo-set (Q.F E) ((Q.arr D E T).1 (f D y)) (f E ((P.arr D E T).1 y)))
+      (\ w -> NatC[D,E,T,y,w].eq) (P.support D y) ;
+
+  -- b extends a: on a finite dilator it is a
+  ext-eq (A : DF.FinDil) (y : (P.F A.1).car) : Id (Q.F A.1).car (f A.1 y) ((a A).1 y) =
+    TC.rec (Wit P A.1 y) @l (Id (Q.F A.1).car (f A.1 y) ((a A).1 y)) (lo-set (Q.F A.1) (f A.1 y) ((a A).1 y))
+      (\ w -> PL.trans (Q.F A.1).car (f A.1 y) (val A.1 y w) ((a A).1 y) (spec A.1 y w)
+        (PL.trans (Q.F A.1).car (val A.1 y w) ((a A).1 ((P.arr (Tr A.1 w.1) A.1 (TrInc A.1 w.1)).1 w.2.1)) ((a A).1 y)
+          (na (DF.finite A.1 w.1) A (TrInc A.1 w.1) w.2.1)
+          (PL.ap (P.F A.1).car (Q.F A.1).car (a A).1 ((P.arr (Tr A.1 w.1) A.1 (TrInc A.1 w.1)).1 w.2.1) y w.2.2)))
+      (P.support A.1 y) ;
+
+  -- and is the unique natural extension
+  unique (b' : PM.Fam P Q) (nb' : PM.Natural P Q b')
+    (ext' : (A : DF.FinDil) (y : (P.F A.1).car) -> Id (Q.F A.1).car ((b' A.1).1 y) ((a A).1 y))
+    (D : CD.Dil) (y : (P.F D).car) : Id (Q.F D).car (f D y) ((b' D).1 y) =
+    Det[P,Q,b,b',nat,nb',\ D0 K z -> PL.trans (Q.F (Tr D0 K)).car (f (Tr D0 K) z) ((a (DF.finite D0 K)).1 z) ((b' (Tr D0 K)).1 z)
+      (ext-eq (DF.finite D0 K) z)
+      (PL.sym (Q.F (Tr D0 K)).car ((b' (Tr D0 K)).1 z) ((a (DF.finite D0 K)).1 z) (ext' (DF.finite D0 K) z))].eq D y ;
+} ;
+
+----------------------------------------------------------------------
+-- cartesian extension: supports are propositions, so a support of y can
+-- be extracted from a mere witness
+
+supp-prop (P : DP.Ptyx) (D : CD.Dil) (y : (P.F D).car) (c : DP.SubSet) : PL.isProp (PM.Supp P D y c) = \ s s' ->
+  PL.Sigma-eq (P.F (DF.On[D].Sub[c].dil)).car
+    (\ z -> Id (P.F D).car ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) y) s.1 s'.1 s.2 s'.2
+    (DP.Supports[P,D].unique y c s s')
+    (lo-set (P.F D) ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 s'.1) y) ;
+
+-- the naturality squares of a on finite dilators are pull-backs
+FinCart (P Q : DP.Ptyx) (a : (A : DF.FinDil) -> DP.Map (P.F A.1) (Q.F A.1)) : U l =
+  (A B : DF.FinDil) (T : CD.Mor A.1 B.1) (y : (P.F B.1).car) (q : (Q.F A.1).car)
+  (e : Id (Q.F B.1).car ((Q.arr A.1 B.1 T).1 q) ((a B).1 y)) ->
+    (p : (P.F A.1).car) * Id (P.F B.1).car ((P.arr A.1 B.1 T).1 p) y ;
+
+module ExtMor (P Q : DP.Ptyx) (a : (A : DF.FinDil) -> DP.Map (P.F A.1) (Q.F A.1))
+  (na : (A B : DF.FinDil) (T : CD.Mor A.1 B.1) (y : (P.F A.1).car) ->
+     Id (Q.F B.1).car ((Q.arr A.1 B.1 T).1 ((a A).1 y)) ((a B).1 ((P.arr A.1 B.1 T).1 y)))
+  (ca : FinCart P Q a) {
+  module X = Ext[P,Q,a,na] ;
+  module CartC (D : CD.Dil) (y : (P.F D).car) (c : DP.SubSet) (s : PM.Supp Q D (X.f D y) c) (w : Wit P D y) {
+    K : W.N = w.1 ;
+    z : (P.F (Tr D K)).car = w.2.1 ;
+    x : (Q.F D).car = X.val D y w ;
+    sx : PM.Supp Q D x c =
+      (s.1,PL.trans (Q.F D).car ((Q.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 s.1) (X.f D y) x s.2 (X.spec D y w)) ;
+    sK : PM.Supp Q D x (DF.On[D].lev K) = ((X.aT D K).1 z,refl x) ;
+    c' : DP.SubSet = DF.On[D].meet c (DF.On[D].lev K) ;
+    sm : PM.Supp Q D x c' = Q.meet D x c (DF.On[D].lev K) sx sK ;
+    le : DP.LeS c' (DF.On[D].lev K) = \ k z0 h -> W.andB-r (c k z0) (DF.On[D].lev K k z0) h ;
+    module UP = DP.Up[D,c',DF.On[D].lev K,le] ;
+    Ac : DF.FinDil = (UP.S.dil,(K,\ m t tp -> W.andB-r (c m (W.sel (UP.S.R.chi m) t)) (W.ltN m (suc K)) (UP.S.trace-in m t tp))) ;
+    jK : DP.Map (Q.F (Tr D K)) (Q.F D) = Q.arr (Tr D K) D (TrInc D K) ;
+    q : (Q.F UP.S.dil).car = sm.1 ;
+    qe : Id (Q.F (Tr D K)).car ((Q.arr UP.S.dil (Tr D K) UP.mor).1 q) ((X.aT D K).1 z) =
+      DP.map-inj (Q.F (Tr D K)) (Q.F D) jK ((Q.arr UP.S.dil (Tr D K) UP.mor).1 q) ((X.aT D K).1 z)
+        (PL.trans (Q.F D).car (jK.1 ((Q.arr UP.S.dil (Tr D K) UP.mor).1 q))
+          ((Q.arr UP.S.dil D (CD.compM UP.S.dil (Tr D K) D UP.mor (TrInc D K))).1 q) x
+          (Q.arr-comp UP.S.dil (Tr D K) D UP.mor (TrInc D K) q)
+          (PL.trans (Q.F D).car ((Q.arr UP.S.dil D (CD.compM UP.S.dil (Tr D K) D UP.mor (TrInc D K))).1 q)
+            ((Q.arr UP.S.dil D UP.S.inc).1 q) x
+            (PL.ap (CD.Mor UP.S.dil D) (Q.F D).car (\ M -> (Q.arr UP.S.dil D M).1 q)
+              (CD.compM UP.S.dil (Tr D K) D UP.mor (TrInc D K)) UP.S.inc UP.tri)
+            sm.2)) ;
+    pr : (p : (P.F UP.S.dil).car) * Id (P.F (Tr D K)).car ((P.arr UP.S.dil (Tr D K) UP.mor).1 p) z =
+      ca Ac (DF.finite D K) UP.mor z q qe ;
+    py : Id (P.F D).car ((P.arr UP.S.dil D UP.S.inc).1 pr.1) y =
+      PL.trans (P.F D).car ((P.arr UP.S.dil D UP.S.inc).1 pr.1)
+        ((P.arr UP.S.dil D (CD.compM UP.S.dil (Tr D K) D UP.mor (TrInc D K))).1 pr.1) y
+        (PL.ap (CD.Mor UP.S.dil D) (P.F D).car (\ M -> (P.arr UP.S.dil D M).1 pr.1)
+          UP.S.inc (CD.compM UP.S.dil (Tr D K) D UP.mor (TrInc D K))
+          (PL.sym (CD.Mor UP.S.dil D) (CD.compM UP.S.dil (Tr D K) D UP.mor (TrInc D K)) UP.S.inc UP.tri))
+        (PL.trans (P.F D).car ((P.arr UP.S.dil D (CD.compM UP.S.dil (Tr D K) D UP.mor (TrInc D K))).1 pr.1)
+          ((P.arr (Tr D K) D (TrInc D K)).1 ((P.arr UP.S.dil (Tr D K) UP.mor).1 pr.1)) y
+          (PL.sym (P.F D).car ((P.arr (Tr D K) D (TrInc D K)).1 ((P.arr UP.S.dil (Tr D K) UP.mor).1 pr.1))
+            ((P.arr UP.S.dil D (CD.compM UP.S.dil (Tr D K) D UP.mor (TrInc D K))).1 pr.1)
+            (P.arr-comp UP.S.dil (Tr D K) D UP.mor (TrInc D K) pr.1))
+          (PL.trans (P.F D).car ((P.arr (Tr D K) D (TrInc D K)).1 ((P.arr UP.S.dil (Tr D K) UP.mor).1 pr.1))
+            ((P.arr (Tr D K) D (TrInc D K)).1 z) y
+            (PL.ap (P.F (Tr D K)).car (P.F D).car (P.arr (Tr D K) D (TrInc D K)).1
+              ((P.arr UP.S.dil (Tr D K) UP.mor).1 pr.1) z pr.2)
+            w.2.2)) ;
+    result : PM.Supp P D y c =
+      DP.Supports[P,D].mono y c' c (\ k z0 h -> W.andB-l (c k z0) (DF.On[D].lev K k z0) h) (pr.1,py) ;
+  } ;
+  cart : PM.Cartesian P Q X.b = \ D y c s ->
+    TC.rec (Wit P D y) @l (PM.Supp P D y c) (supp-prop P D y c) (\ w -> CartC[D,y,c,s,w].result) (P.support D y) ;
+  mor : PM.Mor P Q = (X.b,(X.nat,cart)) ;
+} ;
+
+----------------------------------------------------------------------
+-- ptykes isomorphic on the finite dilators are isomorphic
+
+module Iso (P Q : DP.Ptyx)
+  (a : (A : DF.FinDil) -> DP.Map (P.F A.1) (Q.F A.1))
+  (na : (A B : DF.FinDil) (T : CD.Mor A.1 B.1) (y : (P.F A.1).car) ->
+     Id (Q.F B.1).car ((Q.arr A.1 B.1 T).1 ((a A).1 y)) ((a B).1 ((P.arr A.1 B.1 T).1 y)))
+  (a' : (A : DF.FinDil) -> DP.Map (Q.F A.1) (P.F A.1))
+  (na' : (A B : DF.FinDil) (T : CD.Mor A.1 B.1) (y : (Q.F A.1).car) ->
+     Id (P.F B.1).car ((P.arr A.1 B.1 T).1 ((a' A).1 y)) ((a' B).1 ((Q.arr A.1 B.1 T).1 y)))
+  (inv : (A : DF.FinDil) (y : (P.F A.1).car) -> Id (P.F A.1).car ((a' A).1 ((a A).1 y)) y) {
+  module X = Ext[P,Q,a,na] ;
+  module Y = Ext[Q,P,a',na'] ;
+  c : PM.Fam P P = \ D -> PM.compMap (P.F D) (Q.F D) (P.F D) (X.b D) (Y.b D) ;
+  nc : PM.Natural P P c = \ D E T y ->
+    PL.trans (P.F E).car ((P.arr D E T).1 (Y.f D (X.f D y))) (Y.f E ((Q.arr D E T).1 (X.f D y))) (Y.f E (X.f E ((P.arr D E T).1 y)))
+      (Y.nat D E T (X.f D y))
+      (PL.ap (Q.F E).car (P.F E).car (Y.f E) ((Q.arr D E T).1 (X.f D y)) (X.f E ((P.arr D E T).1 y)) (X.nat D E T y)) ;
+  ni : PM.Natural P P (\ D -> PM.idMap (P.F D)) = (PM.idP P).2.1 ;
+  ag (D : CD.Dil) (K : W.N) (z : (P.F (Tr D K)).car) : Id (P.F (Tr D K)).car (Y.f (Tr D K) (X.f (Tr D K) z)) z =
+    PL.trans (P.F (Tr D K)).car (Y.f (Tr D K) (X.f (Tr D K) z)) (Y.f (Tr D K) ((a (DF.finite D K)).1 z)) z
+      (PL.ap (Q.F (Tr D K)).car (P.F (Tr D K)).car (Y.f (Tr D K)) (X.f (Tr D K) z) ((a (DF.finite D K)).1 z) (X.ext-eq (DF.finite D K) z))
+      (PL.trans (P.F (Tr D K)).car (Y.f (Tr D K) ((a (DF.finite D K)).1 z)) ((a' (DF.finite D K)).1 ((a (DF.finite D K)).1 z)) z
+        (Y.ext-eq (DF.finite D K) ((a (DF.finite D K)).1 z))
+        (inv (DF.finite D K) z)) ;
+  -- the extension of a' is a left inverse of the extension of a, everywhere
+  retract (D : CD.Dil) (y : (P.F D).car) : Id (P.F D).car (Y.f D (X.f D y)) y =
+    Det[P,P,c,\ D0 -> PM.idMap (P.F D0),nc,ni,ag].eq D y ;
+} ;

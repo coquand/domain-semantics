@@ -1,0 +1,148 @@
+-- Ptykes of type 2 into linear orders, with supports as a filter
+-- (catemb.pdf, linear-order case; PLAN-CATEMB-LO.md step 4).
+--
+-- Constructively a point y of F(D) has no least support given as a
+-- function of y (as for nominal sets, or Eilenberg-Zilber for simplicial
+-- sets without decidable degeneracies).  What is required instead:
+--   * continuity: y merely comes from a finite subdilator D|K;
+--   * stability: if y comes from D|c and from D|c', it comes from
+--     D|(c ^ c')  (supports are closed under binary intersection).
+-- Functoriality gives upward closure (D|c -> D|c' for c <= c'), so the
+-- supports of y form a filter.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module DF = DilFinite[l] ;
+module PL = Prelude[l] ;
+
+SubSet : U l = W.N -> W.N -> W.Bool ;
+LeS (c c' : SubSet) : U l = (k z : W.N) -> Id W.Bool (c k z) true -> Id W.Bool (c' k z) true ;
+
+----------------------------------------------------------------------
+-- the inclusion D|c -> D|c' for c <= c'
+
+module Up (D : CD.Dil) (c c' : SubSet) (le : LeS c c') {
+  module S = DF.On[D].Sub[c] ;
+  module S' = DF.On[D].Sub[c'] ;
+  module R = S.R ;
+  module R' = S'.R ;
+  hy (n y : W.N) (h : Id W.Bool (W.at (R.chi n) y) true) : Id W.Bool (W.ltN y (D.1 n)) true =
+    W.subst W.N (\ k -> Id W.Bool (W.ltN y k) true) (W.len (R.chi n)) (D.1 n) (R.len-chi n) (W.at-lt (R.chi n) y h) ;
+  chi-le (n : W.N) : W.Le (R.chi n) (R'.chi n) = \ y h ->
+    W.trans W.Bool (W.at (R'.chi n) y) (R'.trc n y) true (S'.member n y (hy n y h))
+      (le (W.ones R.PD.Sup[n,y].supp) (W.rank (D.2.1 R.PD.Sup[n,y].supp) y)
+        (W.trans W.Bool (R.trc n y) (W.at (R.chi n) y) true
+          (W.sym W.Bool (W.at (R.chi n) y) (R.trc n y) (S.member n y (hy n y h))) h)) ;
+  t (n : W.N) : W.Wd = W.restrict (R'.chi n) (R.chi n) ;
+  rc (n : W.N) : Id W.Wd (W.compW (R'.chi n) (t n)) (R.chi n) =
+    W.restrict-comp (R'.chi n) (R.chi n)
+      (W.trans W.N (W.len (R.chi n)) (D.1 n) (W.len (R'.chi n)) (R.len-chi n) (W.sym W.N (W.len (R'.chi n)) (D.1 n) (R'.len-chi n)))
+      (chi-le n) ;
+  tlen (n : W.N) : Id W.N (W.len (t n)) (R'.F0 n) = W.len-restrict (R'.chi n) (R.chi n) ;
+  tones (n : W.N) : Id W.N (W.ones (t n)) (R.F0 n) =
+    W.sym W.N (W.ones (R.chi n)) (W.ones (t n))
+      (W.trans W.N (W.ones (R.chi n)) (W.ones (W.compW (R'.chi n) (t n))) (W.ones (t n))
+        (W.ap W.Wd W.N W.ones (R.chi n) (W.compW (R'.chi n) (t n)) (W.sym W.Wd (W.compW (R'.chi n) (t n)) (R.chi n) (rc n)))
+        (W.ones-comp (R'.chi n) (t n) (W.sym W.N (W.len (t n)) (R'.F0 n) (tlen n)))) ;
+  module Nat (w : W.Wd) {
+    m : W.N = W.ones w ;
+    n : W.N = W.len w ;
+    X : W.Wd = W.compW (R'.F1 w) (t m) ;
+    Y : W.Wd = W.compW (t n) (R.F1 w) ;
+    hX : Id W.N (W.len X) (W.ones (R'.chi n)) =
+      W.trans W.N (W.len X) (W.len (R'.F1 w)) (W.ones (R'.chi n)) (W.len-comp (R'.F1 w) (t m)) (R'.flen w) ;
+    hY : Id W.N (W.len Y) (W.ones (R'.chi n)) =
+      W.trans W.N (W.len Y) (W.len (t n)) (W.ones (R'.chi n)) (W.len-comp (t n) (R.F1 w)) (tlen n) ;
+    target : W.Wd = W.compW (D.2.1 w) (R.chi m) ;
+    eX : Id W.Wd (W.compW (R'.chi n) X) target =
+      W.trans W.Wd (W.compW (R'.chi n) X) (W.compW (W.compW (R'.chi n) (R'.F1 w)) (t m)) target
+        (W.sym W.Wd (W.compW (W.compW (R'.chi n) (R'.F1 w)) (t m)) (W.compW (R'.chi n) X)
+          (CD.comp-assoc (R'.chi n) (R'.F1 w) (t m) (W.sym W.N (W.len (R'.F1 w)) (R'.F0 n) (R'.flen w))
+            (W.trans W.N (W.ones (R'.F1 w)) (R'.F0 m) (W.len (t m)) (R'.fones w) (W.sym W.N (W.len (t m)) (R'.F0 m) (tlen m)))))
+        (W.trans W.Wd (W.compW (W.compW (R'.chi n) (R'.F1 w)) (t m)) (W.compW (W.compW (D.2.1 w) (R'.chi m)) (t m)) target
+          (W.ap W.Wd W.Wd (\ u -> W.compW u (t m)) (W.compW (R'.chi n) (R'.F1 w)) (W.compW (D.2.1 w) (R'.chi m)) (R'.chr w))
+          (W.trans W.Wd (W.compW (W.compW (D.2.1 w) (R'.chi m)) (t m)) (W.compW (D.2.1 w) (W.compW (R'.chi m) (t m))) target
+            (CD.comp-assoc (D.2.1 w) (R'.chi m) (t m) (R'.oD w) (W.sym W.N (W.len (t m)) (R'.F0 m) (tlen m)))
+            (W.ap W.Wd W.Wd (W.compW (D.2.1 w)) (W.compW (R'.chi m) (t m)) (R.chi m) (rc m)))) ;
+    eY : Id W.Wd (W.compW (R'.chi n) Y) target =
+      W.trans W.Wd (W.compW (R'.chi n) Y) (W.compW (W.compW (R'.chi n) (t n)) (R.F1 w)) target
+        (W.sym W.Wd (W.compW (W.compW (R'.chi n) (t n)) (R.F1 w)) (W.compW (R'.chi n) Y)
+          (CD.comp-assoc (R'.chi n) (t n) (R.F1 w) (W.sym W.N (W.len (t n)) (R'.F0 n) (tlen n))
+            (W.trans W.N (W.ones (t n)) (R.F0 n) (W.len (R.F1 w)) (tones n) (W.sym W.N (W.len (R.F1 w)) (R.F0 n) (R.flen w)))))
+        (W.trans W.Wd (W.compW (W.compW (R'.chi n) (t n)) (R.F1 w)) (W.compW (R.chi n) (R.F1 w)) target
+          (W.ap W.Wd W.Wd (\ u -> W.compW u (R.F1 w)) (W.compW (R'.chi n) (t n)) (R.chi n) (rc n))
+          (R.chr w)) ;
+    eq : Id W.Wd X Y = W.comp-cancel (R'.chi n) X Y hX hY
+      (W.trans W.Wd (W.compW (R'.chi n) X) target (W.compW (R'.chi n) Y) eX (W.sym W.Wd (W.compW (R'.chi n) Y) target eY)) ;
+  } ;
+  mor : CD.Mor S.dil S'.dil = (t,(tlen,(tones,\ w -> Nat[w].eq))) ;
+  tri : Id (CD.Mor S.dil D) (CD.compM S.dil S'.dil D mor S'.inc) S.inc =
+    CD.mor-ext S.dil D (CD.compM S.dil S'.dil D mor S'.inc) S.inc rc ;
+} ;
+
+----------------------------------------------------------------------
+-- linear orders with a decidable comparison, strictly increasing maps
+
+record LO {
+  car : U l ;
+  cmp : car -> car -> W.O3 ;
+  ceq : (x y : car) -> Id W.O3 (cmp x y) eq -> Id car x y ;
+  crefl : (x : car) -> Id W.O3 (cmp x x) eq ;
+  cflip : (x y : car) -> Id W.O3 (cmp y x) (W.flip (cmp x y)) ;
+  ctrans : (x y z : car) -> Id W.O3 (cmp x y) lt -> Id W.O3 (cmp y z) lt -> Id W.O3 (cmp x z) lt ;
+} ;
+Map (A B : LO) : U l = (f : A.car -> B.car) * ((x y : A.car) -> Id W.O3 (B.cmp (f x) (f y)) (A.cmp x y)) ;
+map-inj (A B : LO) (f : Map A B) (x y : A.car) (e : Id B.car (f.1 x) (f.1 y)) : Id A.car x y =
+  A.ceq x y (W.trans W.O3 (A.cmp x y) (B.cmp (f.1 x) (f.1 y)) eq
+    (W.sym W.O3 (B.cmp (f.1 x) (f.1 y)) (A.cmp x y) (f.2 x y))
+    (W.subst B.car (\ u -> Id W.O3 (B.cmp (f.1 x) u) eq) (f.1 x) (f.1 y) e (B.crefl (f.1 x)))) ;
+
+----------------------------------------------------------------------
+-- ptykes
+
+record Ptyx {
+  F : CD.Dil -> LO ;
+  arr : (D E : CD.Dil) -> CD.Mor D E -> Map (F D) (F E) ;
+  arr-id : (D : CD.Dil) (y : (F D).car) -> Id (F D).car ((arr D D (CD.idM D)).1 y) y ;
+  arr-comp : (D E G : CD.Dil) (S : CD.Mor D E) (T : CD.Mor E G) (y : (F D).car) ->
+    Id (F G).car ((arr E G T).1 ((arr D E S).1 y)) ((arr D G (CD.compM D E G S T)).1 y) ;
+  -- continuity: some finite truncation supports y
+  support : (D : CD.Dil) (y : (F D).car) -> Ex ((K : W.N) * ((z : (F (DF.On[D].Trunc[K].dil)).car) *
+    Id (F D).car ((arr (DF.On[D].Trunc[K].dil) D (DF.On[D].Trunc[K].inc)).1 z) y)) ;
+  -- stability: supports are closed under binary intersection
+  meet : (D : CD.Dil) (y : (F D).car) (c c' : SubSet) ->
+    ((z : (F (DF.On[D].Sub[c].dil)).car) * Id (F D).car ((arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) y) ->
+    ((z : (F (DF.On[D].Sub[c'].dil)).car) * Id (F D).car ((arr (DF.On[D].Sub[c'].dil) D (DF.On[D].Sub[c'].inc)).1 z) y) ->
+    ((z : (F (DF.On[D].Sub[DF.On[D].meet c c'].dil)).car) *
+      Id (F D).car ((arr (DF.On[D].Sub[DF.On[D].meet c c'].dil) D (DF.On[D].Sub[DF.On[D].meet c c'].inc)).1 z) y) ;
+} ;
+
+module Supports (P : Ptyx) (D : CD.Dil) {
+  Supp (y : (P.F D).car) (c : SubSet) : U l =
+    (z : (P.F (DF.On[D].Sub[c].dil)).car) * Id (P.F D).car ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 z) y ;
+  -- upward closure, by functoriality
+  module Mono (y : (P.F D).car) (c c' : SubSet) (le : LeS c c') (s : Supp y c) {
+    module Q = Up[D,c,c',le] ;
+    z' : (P.F Q.S'.dil).car = (P.arr Q.S.dil Q.S'.dil Q.mor).1 s.1 ;
+    eq : Id (P.F D).car ((P.arr Q.S'.dil D Q.S'.inc).1 z') y =
+      PL.trans (P.F D).car ((P.arr Q.S'.dil D Q.S'.inc).1 z') ((P.arr Q.S.dil D (CD.compM Q.S.dil Q.S'.dil D Q.mor Q.S'.inc)).1 s.1) y
+        (P.arr-comp Q.S.dil Q.S'.dil D Q.mor Q.S'.inc s.1)
+        (PL.trans (P.F D).car ((P.arr Q.S.dil D (CD.compM Q.S.dil Q.S'.dil D Q.mor Q.S'.inc)).1 s.1)
+          ((P.arr Q.S.dil D Q.S.inc).1 s.1) y
+          (PL.ap (CD.Mor Q.S.dil D) (P.F D).car (\ T -> (P.arr Q.S.dil D T).1 s.1)
+            (CD.compM Q.S.dil Q.S'.dil D Q.mor Q.S'.inc) Q.S.inc Q.tri)
+          s.2) ;
+    result : Supp y c' = (z',eq) ;
+  } ;
+  mono (y : (P.F D).car) (c c' : SubSet) (le : LeS c c') (s : Supp y c) : Supp y c' = Mono[y,c,c',le,s].result ;
+  inter (y : (P.F D).car) (c c' : SubSet) (s : Supp y c) (s' : Supp y c') : Supp y (DF.On[D].meet c c') =
+    P.meet D y c c' s s' ;
+  exists (y : (P.F D).car) : Ex ((K : W.N) * Supp y (DF.On[D].lev K)) = P.support D y ;
+  -- a support is unique as a point: arr of an inclusion is injective
+  unique (y : (P.F D).car) (c : SubSet) (s s' : Supp y c) : Id (P.F (DF.On[D].Sub[c].dil)).car s.1 s'.1 =
+    map-inj (P.F (DF.On[D].Sub[c].dil)) (P.F D) (P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)) s.1 s'.1
+      (PL.trans (P.F D).car ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 s.1) y
+        ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 s'.1) s.2
+        (PL.sym (P.F D).car ((P.arr (DF.On[D].Sub[c].dil) D (DF.On[D].Sub[c].inc)).1 s'.1) y s'.2)) ;
+} ;

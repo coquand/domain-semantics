@@ -1,0 +1,85 @@
+-- Subdilators and finite dilators (catemb.pdf, linear-order case, step 2
+-- of PLAN-CATEMB-LO.md).
+--
+-- A decidable subset c of the trace of D gives the subdilator D|c with its
+-- inclusion D|c -> D (Dilator.Restr).  A point x of D(n) lies in D|c(n)
+-- iff the trace component of its normal form is in c.  Taking c = "level
+-- <= K" gives D|K, whose trace has levels <= K: a finite dilator.  Every
+-- point of D(n) is in D|K for K >= n, and D|K is in D|K' for K <= K'.  So
+-- D is the directed union of its finite subdilators.  Intersections of
+-- subdilators are given by the conjunction of the subsets.  With CatDil
+-- (morphisms are cartesian) this makes Dil a category of embeddings whose
+-- finite objects are the finite dilators.
+level l ;
+open Base ; open Prelude[l+] ;
+module W = Dilator[l] ;
+module CD = CatDil[l] ;
+module PL = Prelude[l] ;
+
+ones-le-len : (w : W.Wd) -> Id W.Bool (W.ltN (W.ones w) (suc (W.len w))) true = split {
+  nil -> refl true ;
+  o w | r -> W.ltN-sucR (W.ones w) (suc (W.len w)) r ;
+  i w | r -> r } ;
+
+module On (D : CD.Dil) {
+  module P = W.PreDil[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2] ;
+  TP (k z : W.N) : U l = Id W.Bool (W.ltN z (D.1 k)) true * Id W.Wd P.Sup[k,z].supp (W.idW k) ;
+
+  module Sub (c : W.N -> W.N -> W.Bool) {
+    module R = W.Restr[D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2,c] ;
+    dil : CD.Dil = (R.F0,(R.F1,(R.flen,(R.fones,(R.fid,(R.fcomp,R.fmeet)))))) ;
+    inc : CD.Mor dil D = (R.chi,(R.len-chi,(\ n -> refl (R.F0 n),R.tnat))) ;
+    -- x is in the image of the inclusion iff its trace component is in c
+    member (n x : W.N) (h : Id W.Bool (W.ltN x (D.1 n)) true) : Id W.Bool (W.at (R.chi n) x) (R.trc n x) =
+      W.at-tab (D.1 n) (R.trc n) x h ;
+    -- the trace of D|c lies in c
+    trace-in (m t : W.N) (tp : R.Inc.TPd m t) : Id W.Bool (c m (W.sel (R.chi m) t)) true = R.trIn m t tp ;
+  } ;
+
+  -- truncation at level K
+  lev (K : W.N) (k z : W.N) : W.Bool = W.ltN k (suc K) ;
+  module Trunc (K : W.N) {
+    module S = Sub[lev K] ;
+    dil : CD.Dil = S.dil ;
+    inc : CD.Mor dil D = S.inc ;
+    -- D|K is finite: its trace points have level <= K
+    bounded (m t : W.N) (tp : S.R.Inc.TPd m t) : Id W.Bool (W.ltN m (suc K)) true = S.trace-in m t tp ;
+    -- every point of D(n) with n <= K is in D|K
+    covers (n x : W.N) (hn : Id W.Bool (W.ltN n (suc K)) true) (h : Id W.Bool (W.ltN x (D.1 n)) true) :
+        Id W.Bool (W.at (S.R.chi n) x) true =
+      W.trans W.Bool (W.at (S.R.chi n) x) (S.R.trc n x) true (S.member n x h)
+        (W.ltN-le-lt (W.ones P.Sup[n,x].supp) n (suc K)
+          (W.subst W.N (\ j -> Id W.Bool (W.ltN (W.ones P.Sup[n,x].supp) (suc j)) true) (W.len P.Sup[n,x].supp) n
+            (P.Point[n,x,P.hzOf n x h].supp-supp.1) (ones-le-len P.Sup[n,x].supp))
+          hn) ;
+  } ;
+  -- D is the union of the D|n: every point of D(n) is in D|n
+  union (n x : W.N) (h : Id W.Bool (W.ltN x (D.1 n)) true) : Id W.Bool (W.at (Trunc[n].S.R.chi n) x) true =
+    Trunc[n].covers n x (W.ltN-suc n) h ;
+
+  -- the union is directed: D|K is inside D|K' when K <= K'
+  directed (K K' : W.N) (hK : Id W.Bool (W.ltN K (suc K')) true) (n x : W.N) (h : Id W.Bool (W.ltN x (D.1 n)) true)
+    (m : Id W.Bool (W.at (Trunc[K].S.R.chi n) x) true) : Id W.Bool (W.at (Trunc[K'].S.R.chi n) x) true =
+    W.trans W.Bool (W.at (Trunc[K'].S.R.chi n) x) (Trunc[K'].S.R.trc n x) true (Trunc[K'].S.member n x h)
+      (W.ltN-le-lt (W.ones P.Sup[n,x].supp) K (suc K')
+        (W.trans W.Bool (W.ltN (W.ones P.Sup[n,x].supp) (suc K)) (W.at (Trunc[K].S.R.chi n) x) true
+          (W.sym W.Bool (W.at (Trunc[K].S.R.chi n) x) (Trunc[K].S.R.trc n x) (Trunc[K].S.member n x h)) m)
+        hK) ;
+
+  -- intersections of subdilators
+  meet (c c' : W.N -> W.N -> W.Bool) (k z : W.N) : W.Bool = W.andB (c k z) (c' k z) ;
+  inter (c c' : W.N -> W.N -> W.Bool) (n x : W.N) (h : Id W.Bool (W.ltN x (D.1 n)) true) :
+      Id W.Bool (W.at (Sub[meet c c'].R.chi n) x) (W.andB (W.at (Sub[c].R.chi n) x) (W.at (Sub[c'].R.chi n) x)) =
+    W.trans W.Bool (W.at (Sub[meet c c'].R.chi n) x) (Sub[meet c c'].R.trc n x)
+      (W.andB (W.at (Sub[c].R.chi n) x) (W.at (Sub[c'].R.chi n) x))
+      (Sub[meet c c'].member n x h)
+      (W.sym W.Bool (W.andB (W.at (Sub[c].R.chi n) x) (W.at (Sub[c'].R.chi n) x)) (Sub[meet c c'].R.trc n x)
+        (W.ap2 W.Bool W.Bool W.Bool W.andB (W.at (Sub[c].R.chi n) x) (Sub[c].R.trc n x)
+          (W.at (Sub[c'].R.chi n) x) (Sub[c'].R.trc n x) (Sub[c].member n x h) (Sub[c'].member n x h))) ;
+} ;
+
+-- finite dilators: a bound on the levels of the trace
+Bounded (D : CD.Dil) (K : W.N) : U l = (m t : W.N) -> On[D].TP m t -> Id W.Bool (W.ltN m (suc K)) true ;
+FinDil : U l = (D : CD.Dil) * ((K : W.N) * Bounded D K) ;
+-- the truncations are finite dilators
+finite (D : CD.Dil) (K : W.N) : FinDil = (On[D].Trunc[K].dil,(K,On[D].Trunc[K].bounded)) ;
