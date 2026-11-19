@@ -1,0 +1,141 @@
+-- Stable functors form a locally small type (univalence + finite parts).
+-- A natural isomorphism at all objects (SFUnivalent.NI, a large type) is
+-- the same as a natural family of order isomorphisms on the FINITE objects
+-- (FinNI, a small type): restrict; conversely extend the family and its
+-- inverse (StabFun.Over.Ext) and use uniqueness of extensions (det) to see
+-- that the extensions are inverse.  With univalence (SFUnivalent):
+--     Id SF[C] X Y  ~  NI X Y  ~  FinNI X Y      (small).
+level l ;
+open Base ; open Prelude[l+] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module PL = Prelude[l] ;
+module CE = CatEmb[l] ;
+module SF0 = StabFun[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module HL = Axioms[l].FunExtLemmas[fe @l] ;
+module LU = LOUnivalent[l] ;
+module FLS = FinLOSmall[l] ;
+module R = Replacement[l,l+] ;
+module EH = EquivalenceLemmas[l+] ;
+
+module Loc (C : CE.CE) (X Y : SF0.SF[C]) {
+  module O = SF0.Over[C] ;
+  module U1 = SFUnivalent[l].Uni[C,X] ;
+  FI : U l = (c : C.Fin) -> LU.LOIso (X.G (C.fin c)) (Y.G (C.fin c)) ;
+  NatF (e : FI) : U l = (c d : C.Fin) (k : C.Mor (C.fin c) (C.fin d)) (y : (X.G (C.fin c)).car) ->
+    Id (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 y)) ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 y)) ;
+  FinNI : U l = (e : FI) * NatF e ;
+  natF-prop (e : FI) : PL.isProp (NatF e) =
+    HL.isProp-Pi C.Fin (\ c -> (d : C.Fin) (k : C.Mor (C.fin c) (C.fin d)) (y : (X.G (C.fin c)).car) ->
+        Id (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 y)) ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 y))) (\ c ->
+      HL.isProp-Pi C.Fin (\ d -> (k : C.Mor (C.fin c) (C.fin d)) (y : (X.G (C.fin c)).car) ->
+          Id (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 y)) ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 y))) (\ d ->
+        HL.isProp-Pi (C.Mor (C.fin c) (C.fin d)) (\ k -> (y : (X.G (C.fin c)).car) ->
+            Id (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 y)) ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 y))) (\ k ->
+          HL.isProp-Pi (X.G (C.fin c)).car (\ y ->
+              Id (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 y)) ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 y))) (\ y ->
+            PF.lo-set (Y.G (C.fin d)) ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 y)) ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 y)))))) ;
+  natT-prop (e : U1.FamIso Y.G) : isProp (U1.NatT Y.G e Y.arr) =
+    H.isProp-Pi C.Obj (\ A -> (B : C.Obj) (f : C.Mor A B) (y : (X.G A).car) -> Id (Y.G B).car ((Y.arr A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y))) (\ A ->
+      H.isProp-Pi C.Obj (\ B -> (f : C.Mor A B) (y : (X.G A).car) -> Id (Y.G B).car ((Y.arr A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y))) (\ B ->
+        H.isProp-Pi (C.Mor A B) (\ f -> (y : (X.G A).car) -> Id (Y.G B).car ((Y.arr A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y))) (\ f ->
+          H.isProp-Pi (X.G A).car (\ y -> Id (Y.G B).car ((Y.arr A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y))) (\ y ->
+            PF.lo-set (Y.G B) ((Y.arr A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y)))))) ;
+
+  restrict (n : U1.NI Y) : FinNI = (\ c -> n.1 (C.fin c),\ c d k y -> n.2 (C.fin c) (C.fin d) k y) ;
+
+  module Extend (n : FinNI) {
+    e : FI = n.1 ;
+    inv (c : C.Fin) (y : (Y.G (C.fin c)).car) : (X.G (C.fin c)).car = (e c).1.2.sec y ;
+    invR (c : C.Fin) (y : (Y.G (C.fin c)).car) : Id (Y.G (C.fin c)).car ((e c).1.1 (inv c y)) y = (e c).1.2.sec-eq y ;
+    invL (c : C.Fin) (y : (X.G (C.fin c)).car) : Id (X.G (C.fin c)).car (inv c ((e c).1.1 y)) y =
+      PL.sec-ret (X.G (C.fin c)).car (Y.G (C.fin c)).car (e c).1.1 (e c).1.2 y ;
+    eMap (c : C.Fin) : DP.Map (X.G (C.fin c)) (Y.G (C.fin c)) = FLS.mapOf (X.G (C.fin c)) (Y.G (C.fin c)) (e c) ;
+    iMap (c : C.Fin) : DP.Map (Y.G (C.fin c)) (X.G (C.fin c)) = FLS.invMap (X.G (C.fin c)) (Y.G (C.fin c)) (e c) ;
+    cartE : O.Cart X Y eMap = \ c d k y r ->
+      (inv c r.1,
+       DP.map-inj (X.G (C.fin d)) (Y.G (C.fin d)) (eMap d) ((X.arr (C.fin c) (C.fin d) k).1 (inv c r.1)) y
+         (PL.trans (Y.G (C.fin d)).car ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 (inv c r.1)))
+             ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 (inv c r.1))) ((e d).1.1 y)
+           (PL.sym (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 (inv c r.1)))
+             ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 (inv c r.1))) (n.2 c d k (inv c r.1)))
+           (PL.trans (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 (inv c r.1))) ((Y.arr (C.fin c) (C.fin d) k).1 r.1) ((e d).1.1 y)
+             (PL.ap (Y.G (C.fin c)).car (Y.G (C.fin d)).car (Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 (inv c r.1)) r.1 (invR c r.1))
+             r.2))) ;
+    m : O.Mor X Y = (eMap,(n.2,cartE)) ;
+    natI : O.Nat Y X iMap = \ c d k y ->
+      DP.map-inj (X.G (C.fin d)) (Y.G (C.fin d)) (eMap d) ((X.arr (C.fin c) (C.fin d) k).1 (inv c y)) (inv d ((Y.arr (C.fin c) (C.fin d) k).1 y))
+        (PL.trans (Y.G (C.fin d)).car ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 (inv c y)))
+            ((Y.arr (C.fin c) (C.fin d) k).1 y) ((e d).1.1 (inv d ((Y.arr (C.fin c) (C.fin d) k).1 y)))
+          (PL.trans (Y.G (C.fin d)).car ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 (inv c y)))
+              ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 (inv c y))) ((Y.arr (C.fin c) (C.fin d) k).1 y)
+            (PL.sym (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 (inv c y)))
+              ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 (inv c y))) (n.2 c d k (inv c y)))
+            (PL.ap (Y.G (C.fin c)).car (Y.G (C.fin d)).car (Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 (inv c y)) y (invR c y)))
+          (PL.sym (Y.G (C.fin d)).car ((e d).1.1 (inv d ((Y.arr (C.fin c) (C.fin d) k).1 y))) ((Y.arr (C.fin c) (C.fin d) k).1 y)
+            (invR d ((Y.arr (C.fin c) (C.fin d) k).1 y)))) ;
+    cartI : O.Cart Y X iMap = \ c d k y r ->
+      ((e c).1.1 r.1,
+       PL.trans (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((e c).1.1 r.1)) ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 r.1)) y
+         (n.2 c d k r.1)
+         (PL.trans (Y.G (C.fin d)).car ((e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 r.1)) ((e d).1.1 (inv d y)) y
+           (PL.ap (X.G (C.fin d)).car (Y.G (C.fin d)).car (e d).1.1 ((X.arr (C.fin c) (C.fin d) k).1 r.1) (inv d y) r.2)
+           (invR d y))) ;
+    mi : O.Mor Y X = (iMap,(natI,cartI)) ;
+    module EX = O.Ext[X,Y,m] ;
+    module EY = O.Ext[Y,X,mi] ;
+    module IX = O.Ext[X,X,O.idS X] ;
+    module IY = O.Ext[Y,Y,O.idS Y] ;
+    -- the extensions are inverse (uniqueness of extensions)
+    back (A : C.Obj) (y : (X.G A).car) : Id (X.G A).car (EY.f A (EX.f A y)) y =
+      PL.trans (X.G A).car (EY.f A (EX.f A y)) (IX.f A y) y
+        (IX.det (\ B z -> EY.f B (EX.f B z))
+          (\ B D h z -> PL.trans (X.G D).car ((X.arr B D h).1 (EY.f B (EX.f B z))) (EY.f D ((Y.arr B D h).1 (EX.f B z)))
+              (EY.f D (EX.f D ((X.arr B D h).1 z)))
+            (EY.nat-all B D h (EX.f B z))
+            (PL.ap (Y.G D).car (X.G D).car (EY.f D) ((Y.arr B D h).1 (EX.f B z)) (EX.f D ((X.arr B D h).1 z)) (EX.nat-all B D h z)))
+          (\ c z -> PL.trans (X.G (C.fin c)).car (EY.f (C.fin c) (EX.f (C.fin c) z)) (EY.f (C.fin c) ((e c).1.1 z)) z
+            (PL.ap (Y.G (C.fin c)).car (X.G (C.fin c)).car (EY.f (C.fin c)) (EX.f (C.fin c) z) ((e c).1.1 z) (EX.fin-eq c z))
+            (PL.trans (X.G (C.fin c)).car (EY.f (C.fin c) ((e c).1.1 z)) (inv c ((e c).1.1 z)) z (EY.fin-eq c ((e c).1.1 z)) (invL c z)))
+          A y)
+        (PL.sym (X.G A).car y (IX.f A y)
+          (IX.det (\ B z -> z) (\ B D h z -> refl ((X.arr B D h).1 z)) (\ c z -> refl z) A y)) ;
+    forth (A : C.Obj) (y : (Y.G A).car) : Id (Y.G A).car (EX.f A (EY.f A y)) y =
+      PL.trans (Y.G A).car (EX.f A (EY.f A y)) (IY.f A y) y
+        (IY.det (\ B z -> EX.f B (EY.f B z))
+          (\ B D h z -> PL.trans (Y.G D).car ((Y.arr B D h).1 (EX.f B (EY.f B z))) (EX.f D ((X.arr B D h).1 (EY.f B z)))
+              (EX.f D (EY.f D ((Y.arr B D h).1 z)))
+            (EX.nat-all B D h (EY.f B z))
+            (PL.ap (X.G D).car (Y.G D).car (EX.f D) ((X.arr B D h).1 (EY.f B z)) (EY.f D ((Y.arr B D h).1 z)) (EY.nat-all B D h z)))
+          (\ c z -> PL.trans (Y.G (C.fin c)).car (EX.f (C.fin c) (EY.f (C.fin c) z)) (EX.f (C.fin c) (inv c z)) z
+            (PL.ap (X.G (C.fin c)).car (Y.G (C.fin c)).car (EX.f (C.fin c)) (EY.f (C.fin c) z) (inv c z) (EY.fin-eq c z))
+            (PL.trans (Y.G (C.fin c)).car (EX.f (C.fin c) (inv c z)) ((e c).1.1 (inv c z)) z (EX.fin-eq c (inv c z)) (invR c z)))
+          A y)
+        (PL.sym (Y.G A).car y (IY.f A y)
+          (IY.det (\ B z -> z) (\ B D h z -> refl ((Y.arr B D h).1 z)) (\ c z -> refl z) A y)) ;
+    iso (A : C.Obj) : LU.LOIso (X.G A) (Y.G A) =
+      ((EX.f A,PL.qinv (X.G A).car (Y.G A).car (EX.f A) (EY.f A) (forth A) (back A)),EX.incr A) ;
+    ni : U1.NI Y = (iso,\ A B f y -> EX.nat-all A B f y) ;
+  } ;
+  extend (n : FinNI) : U1.NI Y = Extend[n].ni ;
+  rt1 (n : FinNI) : Id FinNI (restrict (extend n)) n =
+    Sigma-eq FI (\ e -> NatF e) (restrict (extend n)).1 n.1 (restrict (extend n)).2 n.2
+      (HL.funext C.Fin (\ c -> LU.LOIso (X.G (C.fin c)) (Y.G (C.fin c))) (restrict (extend n)).1 n.1 (\ c ->
+        FLS.isoEq (X.G (C.fin c)) (Y.G (C.fin c)) ((restrict (extend n)).1 c) (n.1 c) (\ y -> Extend[n].EX.fin-eq c y)))
+      (natF-prop n.1) ;
+  rt2 (n : U1.NI Y) : Id (U1.NI Y) (extend (restrict n)) n =
+    Sigma-eq (U1.FamIso Y.G) (\ e -> U1.NatT Y.G e Y.arr) (extend (restrict n)).1 n.1 (extend (restrict n)).2 n.2
+      (H.funext C.Obj (\ A -> LU.LOIso (X.G A) (Y.G A)) (extend (restrict n)).1 n.1 (\ A ->
+        FLS.isoEq (X.G A) (Y.G A) ((extend (restrict n)).1 A) (n.1 A) (\ y ->
+          PL.sym (Y.G A).car ((n.1 A).1.1 y) (Extend[restrict n].EX.f A y)
+            (Extend[restrict n].EX.det (\ B z -> (n.1 B).1.1 z) n.2 (\ c z -> refl ((n.1 (C.fin c)).1.1 z)) A y))))
+      (natT-prop n.1) ;
+  -- the paths X = Y form a small type
+  niFin : Equiv (U1.NI Y) FinNI = (restrict,qinv (U1.NI Y) FinNI restrict extend rt1 rt2) ;
+  idNI : Equiv (Id SF0.SF[C] X Y) (U1.NI Y) = (U1.idto-ni Y,U1.univalent Y) ;
+  small : R.Small (Id SF0.SF[C] X Y) =
+    (FinNI,EH.inverse (Id SF0.SF[C] X Y) FinNI (EH.then (Id SF0.SF[C] X Y) (U1.NI Y) FinNI idNI niFin)) ;
+} ;
+locally-small (C : CE.CE) : R.LocallySmall SF0.SF[C] = \ X Y -> Loc[C,X,Y].small ;

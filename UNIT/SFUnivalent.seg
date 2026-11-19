@@ -1,0 +1,164 @@
+-- Univalence for stable functors (structure identity principle for SF[C]).
+-- A natural isomorphism X ~ Y: a family of order isomorphisms
+-- X.G A ~ Y.G A at ALL objects A, natural along all morphisms.
+-- Theorem: Id SF[C] X Y ~ NI X Y.
+-- Proof (as LOUnivalent, one level up): the singleton of natural isos at X
+-- is a proposition.  (1) Families: (G' : Obj -> LO) * (A) -> LOIso (X.G A)
+-- (G' A) is a proposition (a retract of a Pi of LOSingleton totals), which
+-- gives family induction.  (2) Over (X.G, identities), naturality says
+-- arr' = X.arr (funext), and the other fields are propositions (carriers are
+-- sets, images in a linear order are propositions, Ex is truncated).
+level l ;
+open Base ; open Prelude[l+] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module PL = Prelude[l] ;
+module CE = CatEmb[l] ;
+module SF0 = StabFun[l] ;
+module SO = ScottOrder[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module LU = LOUnivalent[l] ;
+
+module Uni (C : CE.CE) (X : SF0.SF[C]) {
+  module O = SF0.Over[C] ;
+  Ob : U l+ = C.Obj ;
+  FamIso (G' : Ob -> DP.LO) : U l+ = (A : Ob) -> LU.LOIso (X.G A) (G' A) ;
+  idfam : FamIso X.G = \ A -> LU.lo-iso-id (X.G A) ;
+  ArrT (G' : Ob -> DP.LO) : U l+ = (A B : Ob) -> C.Mor A B -> DP.Map (G' A) (G' B) ;
+  NatT (G' : Ob -> DP.LO) (e : FamIso G') (a : ArrT G') : U l+ =
+    (A B : Ob) (f : C.Mor A B) (y : (X.G A).car) -> Id (G' B).car ((a A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y)) ;
+  AidT (G' : Ob -> DP.LO) (a : ArrT G') : U l+ = (A : Ob) (y : (G' A).car) -> Id (G' A).car ((a A A (C.idm A)).1 y) y ;
+  AcT (G' : Ob -> DP.LO) (a : ArrT G') : U l+ = (A B D : Ob) (f : C.Mor A B) (g : C.Mor B D) (y : (G' A).car) ->
+    Id (G' D).car ((a B D g).1 ((a A B f).1 y)) ((a A D (C.comp A B D f g)).1 y) ;
+  CtT (G' : Ob -> DP.LO) (a : ArrT G') : U l+ = (A : Ob) (y : (G' A).car) ->
+    SO.Ex ((c : C.Fin) * ((i : C.Mor (C.fin c) A) * SF0.Im (G' (C.fin c)) (G' A) (a (C.fin c) A i) y)) ;
+  StT (G' : Ob -> DP.LO) (a : ArrT G') : U l+ = (A B B' : Ob) (f : C.Mor B A) (f' : C.Mor B' A) (y : (G' A).car) ->
+    SF0.Im (G' B) (G' A) (a B A f) y -> SF0.Im (G' B') (G' A) (a B' A f') y ->
+    SF0.Im (G' (C.pb A B B' f f')) (G' A) (a (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y ;
+  Tail (G' : Ob -> DP.LO) (e : FamIso G') (a : ArrT G') : U l+ = NatT G' e a * (AidT G' a * (AcT G' a * (CtT G' a * StT G' a))) ;
+  Rest (G' : Ob -> DP.LO) (e : FamIso G') : U l+ = (a : ArrT G') * Tail G' e a ;
+
+  stab-prop (G' : Ob -> DP.LO) (a : ArrT G') : isProp (StT G' a) =
+    H.isProp-Pi Ob (\ A -> (B B' : Ob) (f : C.Mor B A) (f' : C.Mor B' A) (y : (G' A).car) -> SF0.Im (G' B) (G' A) (a B A f) y ->
+        SF0.Im (G' B') (G' A) (a B' A f') y ->
+        SF0.Im (G' (C.pb A B B' f f')) (G' A) (a (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y) (\ A ->
+      H.isProp-Pi Ob (\ B -> (B' : Ob) (f : C.Mor B A) (f' : C.Mor B' A) (y : (G' A).car) -> SF0.Im (G' B) (G' A) (a B A f) y ->
+          SF0.Im (G' B') (G' A) (a B' A f') y ->
+          SF0.Im (G' (C.pb A B B' f f')) (G' A) (a (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y) (\ B ->
+        H.isProp-Pi Ob (\ B' -> (f : C.Mor B A) (f' : C.Mor B' A) (y : (G' A).car) -> SF0.Im (G' B) (G' A) (a B A f) y ->
+            SF0.Im (G' B') (G' A) (a B' A f') y ->
+            SF0.Im (G' (C.pb A B B' f f')) (G' A) (a (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y) (\ B' ->
+          H.isProp-Pi (C.Mor B A) (\ f -> (f' : C.Mor B' A) (y : (G' A).car) -> SF0.Im (G' B) (G' A) (a B A f) y ->
+              SF0.Im (G' B') (G' A) (a B' A f') y ->
+              SF0.Im (G' (C.pb A B B' f f')) (G' A) (a (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y) (\ f ->
+            H.isProp-Pi (C.Mor B' A) (\ f' -> (y : (G' A).car) -> SF0.Im (G' B) (G' A) (a B A f) y ->
+                SF0.Im (G' B') (G' A) (a B' A f') y ->
+                SF0.Im (G' (C.pb A B B' f f')) (G' A) (a (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y) (\ f' ->
+              H.isProp-Pi (G' A).car (\ y -> SF0.Im (G' B) (G' A) (a B A f) y -> SF0.Im (G' B') (G' A) (a B' A f') y ->
+                  SF0.Im (G' (C.pb A B B' f f')) (G' A) (a (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y) (\ y ->
+                H.isProp-Pi (SF0.Im (G' B) (G' A) (a B A f) y) (\ _ -> SF0.Im (G' B') (G' A) (a B' A f') y ->
+                    SF0.Im (G' (C.pb A B B' f f')) (G' A) (a (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y) (\ _ ->
+                  H.isProp-Pi (SF0.Im (G' B') (G' A) (a B' A f') y) (\ _ ->
+                      SF0.Im (G' (C.pb A B B' f f')) (G' A) (a (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y) (\ _ ->
+                    SF0.im-prop (G' (C.pb A B B' f f')) (G' A) (a (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y)))))))) ;
+  -- the tail is a proposition
+  tail-prop (G' : Ob -> DP.LO) (e : FamIso G') (a : ArrT G') : isProp (Tail G' e a) =
+    isProp-Sigma (NatT G' e a) (\ _ -> AidT G' a * (AcT G' a * (CtT G' a * StT G' a)))
+      (H.isProp-Pi Ob (\ A -> (B : Ob) (f : C.Mor A B) (y : (X.G A).car) -> Id (G' B).car ((a A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y))) (\ A ->
+        H.isProp-Pi Ob (\ B -> (f : C.Mor A B) (y : (X.G A).car) -> Id (G' B).car ((a A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y))) (\ B ->
+          H.isProp-Pi (C.Mor A B) (\ f -> (y : (X.G A).car) -> Id (G' B).car ((a A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y))) (\ f ->
+            H.isProp-Pi (X.G A).car (\ y -> Id (G' B).car ((a A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y))) (\ y ->
+              PF.lo-set (G' B) ((a A B f).1 ((e A).1.1 y)) ((e B).1.1 ((X.arr A B f).1 y)))))))
+      (\ _ -> isProp-Sigma (AidT G' a) (\ _ -> AcT G' a * (CtT G' a * StT G' a))
+        (H.isProp-Pi Ob (\ A -> (y : (G' A).car) -> Id (G' A).car ((a A A (C.idm A)).1 y) y) (\ A ->
+          H.isProp-Pi (G' A).car (\ y -> Id (G' A).car ((a A A (C.idm A)).1 y) y) (\ y -> PF.lo-set (G' A) ((a A A (C.idm A)).1 y) y)))
+        (\ _ -> isProp-Sigma (AcT G' a) (\ _ -> CtT G' a * StT G' a)
+          (H.isProp-Pi Ob (\ A -> (B D : Ob) (f : C.Mor A B) (g : C.Mor B D) (y : (G' A).car) ->
+              Id (G' D).car ((a B D g).1 ((a A B f).1 y)) ((a A D (C.comp A B D f g)).1 y)) (\ A ->
+            H.isProp-Pi Ob (\ B -> (D : Ob) (f : C.Mor A B) (g : C.Mor B D) (y : (G' A).car) ->
+                Id (G' D).car ((a B D g).1 ((a A B f).1 y)) ((a A D (C.comp A B D f g)).1 y)) (\ B ->
+              H.isProp-Pi Ob (\ D -> (f : C.Mor A B) (g : C.Mor B D) (y : (G' A).car) ->
+                  Id (G' D).car ((a B D g).1 ((a A B f).1 y)) ((a A D (C.comp A B D f g)).1 y)) (\ D ->
+                H.isProp-Pi (C.Mor A B) (\ f -> (g : C.Mor B D) (y : (G' A).car) ->
+                    Id (G' D).car ((a B D g).1 ((a A B f).1 y)) ((a A D (C.comp A B D f g)).1 y)) (\ f ->
+                  H.isProp-Pi (C.Mor B D) (\ g -> (y : (G' A).car) ->
+                      Id (G' D).car ((a B D g).1 ((a A B f).1 y)) ((a A D (C.comp A B D f g)).1 y)) (\ g ->
+                    H.isProp-Pi (G' A).car (\ y -> Id (G' D).car ((a B D g).1 ((a A B f).1 y)) ((a A D (C.comp A B D f g)).1 y)) (\ y ->
+                      PF.lo-set (G' D) ((a B D g).1 ((a A B f).1 y)) ((a A D (C.comp A B D f g)).1 y))))))))
+          (\ _ -> isProp-Sigma (CtT G' a) (\ _ -> StT G' a)
+            (H.isProp-Pi Ob (\ A -> (y : (G' A).car) ->
+                SO.Ex ((c : C.Fin) * ((i : C.Mor (C.fin c) A) * SF0.Im (G' (C.fin c)) (G' A) (a (C.fin c) A i) y))) (\ A ->
+              H.isProp-Pi (G' A).car (\ y ->
+                  SO.Ex ((c : C.Fin) * ((i : C.Mor (C.fin c) A) * SF0.Im (G' (C.fin c)) (G' A) (a (C.fin c) A i) y))) (\ y ->
+                SO.prop ((c : C.Fin) * ((i : C.Mor (C.fin c) A) * SF0.Im (G' (C.fin c)) (G' A) (a (C.fin c) A i) y)))))
+            (\ _ -> stab-prop G' a)))) ;
+
+  -- (1) families of isomorphisms: a proposition, hence family induction
+  FS : U l+ = (G' : Ob -> DP.LO) * FamIso G' ;
+  PiT : U l+ = (A : Ob) -> LU.LOSingleton[X.G A].Total ;
+  swap (w : FS) : PiT = \ A -> (w.1 A,w.2 A) ;
+  unswap (h : PiT) : FS = (\ A -> (h A).1,\ A -> (h A).2) ;
+  fs-prop : isProp FS =
+    retract-prop FS PiT swap unswap (\ w -> refl w)
+      (H.isProp-Pi Ob (\ A -> LU.LOSingleton[X.G A].Total) (\ A -> LU.LOSingleton[X.G A].total-prop)) ;
+  famInd (P : (G' : Ob -> DP.LO) -> FamIso G' -> U l+) (d : P X.G idfam) (G' : Ob -> DP.LO) (e : FamIso G') : P G' e =
+    subst FS (\ w -> P w.1 w.2) (X.G,idfam) (G',e) (fs-prop (X.G,idfam) (G',e)) d ;
+
+  -- (2) the base fibre: arr' is forced by naturality
+  arrPath (u : Rest X.G idfam) : Id (ArrT X.G) u.1 X.arr =
+    H.funext Ob (\ A -> (B : Ob) -> C.Mor A B -> DP.Map (X.G A) (X.G B)) u.1 X.arr (\ A ->
+      H.funext Ob (\ B -> C.Mor A B -> DP.Map (X.G A) (X.G B)) (u.1 A) (X.arr A) (\ B ->
+        H.funext (C.Mor A B) (\ _ -> DP.Map (X.G A) (X.G B)) (u.1 A B) (X.arr A B) (\ f ->
+          O.map-eq (X.G A) (X.G B) (u.1 A B f) (X.arr A B f) (\ y -> u.2.1 A B f y)))) ;
+  base-prop : isProp (Rest X.G idfam) = \ u v ->
+    Sigma-eq (ArrT X.G) (\ a -> Tail X.G idfam a) u.1 v.1 u.2 v.2
+      (trans (ArrT X.G) u.1 X.arr v.1 (arrPath u) (sym (ArrT X.G) v.1 X.arr (arrPath v)))
+      (tail-prop X.G idfam v.1) ;
+  fibre-prop (G' : Ob -> DP.LO) (e : FamIso G') : isProp (Rest G' e) =
+    famInd (\ G1 e1 -> isProp (Rest G1 e1)) base-prop G' e ;
+
+  -- the singleton of natural isomorphisms
+  Expanded : U l+ = (G' : Ob -> DP.LO) * ((e : FamIso G') * Rest G' e) ;
+  restX : Rest X.G idfam = (X.arr,(\ A B f y -> refl ((X.arr A B f).1 y),(X.arr-id,(X.arr-comp,(X.cont,X.stab))))) ;
+  centre : Expanded = (X.G,(idfam,restX)) ;
+  base-path (r : Rest X.G idfam) : Id Expanded centre (X.G,(idfam,r)) =
+    ap (Rest X.G idfam) Expanded (\ v -> (X.G,(idfam,v))) restX r (base-prop restX r) ;
+  expand-path (u : Expanded) : Id Expanded centre u =
+    famInd (\ G1 e1 -> (r : Rest G1 e1) -> Id Expanded centre (G1,(e1,r))) base-path u.1 u.2.1 u.2.2 ;
+  expanded-prop : isProp Expanded = \ u v ->
+    trans Expanded u centre v (sym Expanded centre u (expand-path u)) (expand-path v) ;
+
+  NI (Y : SF0.SF[C]) : U l+ = (e : FamIso Y.G) * NatT Y.G e Y.arr ;
+  Total : U l+ = (Y : SF0.SF[C]) * NI Y ;
+  expand (v : Total) : Expanded = (v.1.G,(v.2.1,(v.1.arr,(v.2.2,(v.1.arr-id,(v.1.arr-comp,(v.1.cont,v.1.stab))))))) ;
+  collapse (v : Expanded) : Total =
+    (new SF0.SF[C, G := v.1, arr := v.2.2.1, arr-id := v.2.2.2.2.1, arr-comp := v.2.2.2.2.2.1,
+       cont := v.2.2.2.2.2.2.1, stab := v.2.2.2.2.2.2.2],(v.2.1,v.2.2.2.1)) ;
+  collapse-expand : (Y : SF0.SF[C]) -> (i : NI Y) -> Id Total (collapse (expand (Y,i))) (Y,i) =
+    split { SF G arr arr-id arr-comp cont stab -> \ i ->
+      refl (new SF0.SF[C, G := G, arr := arr, arr-id := arr-id, arr-comp := arr-comp, cont := cont, stab := stab],i) } ;
+  total-prop : isProp Total =
+    retract-prop Total Expanded expand collapse (\ v -> collapse-expand v.1 v.2) expanded-prop ;
+
+  -- univalence
+  ni-id : NI X = (idfam,\ A B f y -> refl ((X.arr A B f).1 y)) ;
+  idto-ni (Y : SF0.SF[C]) (p : Id SF0.SF[C] X Y) : NI Y = idJ SF0.SF[C] X (\ Z q -> NI Z) ni-id Y p ;
+  isotoid (Y : SF0.SF[C]) (i : NI Y) : Id SF0.SF[C] X Y =
+    ap Total SF0.SF[C] (\ v -> v.1) (X,ni-id) (Y,i) (total-prop (X,ni-id) (Y,i)) ;
+  idtoiso-fst (v : Total) (p : Id Total (X,ni-id) v) :
+      Id (NI v.1) (idto-ni v.1 (ap Total SF0.SF[C] (\ w -> w.1) (X,ni-id) v p)) v.2 =
+    idJ Total (X,ni-id) (\ w q -> Id (NI w.1) (idto-ni w.1 (ap Total SF0.SF[C] (\ z -> z.1) (X,ni-id) w q)) w.2)
+      (refl ni-id) v p ;
+  idtoiso-isotoid (Y : SF0.SF[C]) (i : NI Y) : Id (NI Y) (idto-ni Y (isotoid Y i)) i =
+    idtoiso-fst (Y,i) (total-prop (X,ni-id) (Y,i)) ;
+  loop : Id (Id Total (X,ni-id) (X,ni-id)) (total-prop (X,ni-id) (X,ni-id)) (refl (X,ni-id)) =
+    prop-to-set Total total-prop (X,ni-id) (X,ni-id) (total-prop (X,ni-id) (X,ni-id)) (refl (X,ni-id)) ;
+  isotoid-idtoiso (Y : SF0.SF[C]) (p : Id SF0.SF[C] X Y) : Id (Id SF0.SF[C] X Y) (isotoid Y (idto-ni Y p)) p =
+    idJ SF0.SF[C] X (\ Z q -> Id (Id SF0.SF[C] X Z) (isotoid Z (idto-ni Z q)) q)
+      (ap (Id Total (X,ni-id) (X,ni-id)) (Id SF0.SF[C] X X) (ap Total SF0.SF[C] (\ v -> v.1) (X,ni-id) (X,ni-id))
+        (total-prop (X,ni-id) (X,ni-id)) (refl (X,ni-id)) loop)
+      Y p ;
+  univalent (Y : SF0.SF[C]) : isEquiv (Id SF0.SF[C] X Y) (NI Y) (idto-ni Y) =
+    qinv (Id SF0.SF[C] X Y) (NI Y) (idto-ni Y) (isotoid Y) (idtoiso-isotoid Y) (isotoid-idtoiso Y) ;
+} ;

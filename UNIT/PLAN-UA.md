@@ -19,10 +19,16 @@ unique), isoN ([n] ~ [m] => n = m, via LOFin.psi and ones <= len),
 snProp, FinLO = (A : LO) * ||(n : N) * LOIso A [n]||, untr, and
 small : Replacement.Small FinLO  (FinLO ~ N).
 
-## Level 1 (next): finite dilators
-- univalence of Stab(LO): Id SF X Y ~ natural isos (SIP for stable
-  functors: pointwise LO-univalence (CategorySIPFamily) + naturality by
-  funext + cont, stab, laws propositions);
+## Level 1: finite dilators
+- DONE (2026-11-19) SFUnivalent.seg: univalence of Stab(C) for EVERY C
+  (so at every level: dilators, 2-ptykes, ...): Id SF[C] X Y ~ NI X Y
+  (natural isos at all objects).  Family induction (Pi of LOSingleton
+  totals), base fibre: naturality forces arr' = arr, the rest are props.
+- DONE SFLocSmall.seg: NI X Y ~ FinNI X Y (natural isos on FINITE objects,
+  a small type): restrict / extend (Over.Ext of the family and of its
+  inverse; det shows the extensions are inverse); hence
+  locally-small C : Replacement.LocallySmall SF[C].
+- NEXT:
 - rigidity of decoded codes (StabRigid.Rig) => the type FinDil of finitely
   presented stable functors is a set;
 - replacement: FinDil is the image of Decode : Codes -> SF (SF locally
