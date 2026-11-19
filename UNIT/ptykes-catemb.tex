@@ -192,18 +192,29 @@ at higher types.
 
 Girard's predilators~\cite{Gir81,GirPTLC,GN} are the \emph{monotone}
 pre-dilators, and his dilators the monotone pre-dilators preserving
-well-orders: monotonicity is part of his definition. Most of the
-development uses the weaker notion above; monotonicity is used where it
-matters, for finite pre-dilators (Section~\ref{sec:girard}) and for the
-category of dilators (Section~\ref{sec:ua}).
+well-orders: monotonicity is part of his definition. Girard shows that it
+follows from the preservation of well-orders; this holds constructively, so
+the two notions of dilator agree.
 
-\begin{remark}
-Classically every pre-dilator preserving well-orders is monotone (Girard),
-so the two notions of dilator agree. Whether this holds constructively is
-open. For a pre-dilator given by a code, monotonicity on the generators
-(if $k\le k'$ pointwise then $(i,k)\le(i,k')$) implies monotonicity on all
+\begin{theorem}[Dilators are monotone]\label{thm:mono}
+Every pre-dilator preserving well-orders is monotone.
+\end{theorem}
+
+\begin{proof}[Sketch]
+The comparison of $D(k)x$ and $D(k')x$ is decidable, so it suffices to
+refute $D(k)x>D(k')x$. By directedness we may assume $A=[c]$ finite, and,
+changing one coordinate at a time from the top, that $k$ and $k'$ differ
+only at one coordinate, $a=k(r)<b=k'(r)$. In the well-order
+$B=\omega\times\omega\times\omega$ (lexicographic) the embeddings
+$\psi_i:[c]\to B$ given by $v\mapsto(v,0,v)$ for $v<a$ or $v>b$,
+$v\mapsto(a,i,v)$ for $a\le v<b$, and $b\mapsto(a,i+1,a)$ satisfy
+$\psi_i\circ k'=\psi_{i+1}\circ k$. Hence $D(\psi_i\circ k)x$ would be an
+infinite descending sequence in the well-order $D(B)$.
+\end{proof}
+
+For a pre-dilator given by a code, monotonicity on the generators (if
+$k\le k'$ pointwise then $(i,k)\le(i,k')$) implies monotonicity on all
 points, since every point is the image of a generator.
-\end{remark}
 
 \begin{example}[First examples]
 The identity $X\mapsto X$ is a monotone dilator; $X\mapsto X^{\mathrm{op}}$
@@ -302,10 +313,7 @@ attempt tree over a well-order $A$ gives $f$ and a rank of $U_f$ into
 $1+A$, which refutes the infinite branches of $U_f$. With excluded middle,
 propositions are small (impredicativity), so this segment is a
 verification of Girard's classical theorem on top of the constructive
-development, not part of it. Note also that excluded middle removes the
-size obstruction of Section~\ref{sec:ua}: ``being a finite dilator''
-becomes a small proposition, so that obstruction is a constructive,
-predicative phenomenon. The $\Pi^1_3$ and $\Pi^1_4$ converses (which
+development, not part of it. The $\Pi^1_3$ and $\Pi^1_4$ converses (which
 need Girard's classical type-2 completeness theorem) are not formalised.
 A positive instance (the tree of strictly decreasing sequences) is proved
 constructively to give a dilator.
@@ -313,7 +321,9 @@ constructively to give a dilator.
 The hypothesis that the listed codes decode to dilators is discharged
 for \emph{monotone} codes (Definition~\ref{def:dil}; for a code it suffices
 to check the generators). Not every code is a dilator:
-$X\mapsto X^{\mathrm{op}}$ is a one-generator code which is not.
+$X\mapsto X^{\mathrm{op}}$ is a one-generator code which is not. By
+Theorem~\ref{thm:mono} and the next theorem, a code decodes to a dilator iff
+it is monotone, which is decidable.
 
 \begin{theorem}[Monotone finite pre-dilators are dilators]
 If a code $K$ is monotone then $\mathrm{Decode}\,K$ is a dilator.
@@ -419,14 +429,12 @@ has two embeddings).
 
 \paragraph{Ptykes of type 2.} To go one type up, the dilators must
 themselves form a category of embeddings, whose finite objects form a
-\emph{small} type. With the weak notion of dilator this fails for size
-reasons: ``$\mathrm{Decode}\,K$ is a dilator'' quantifies over all linear
-orders. Girard's definition, with monotonicity
-(Definition~\ref{def:dil}), avoids this: for a finite code, monotonicity is
-small and decidable (it is checked at the joint types of each generator
-with itself) and already implies well-foundedness. We therefore take
-Girard's definition: the finite objects are the monotone codes and the
-objects the monotone, well-foundedness preserving stable functors.
+\emph{small} type. Taken literally, ``$\mathrm{Decode}\,K$ is a dilator''
+quantifies over all linear orders and is a large proposition. But by
+Theorem~\ref{thm:mono} it is equivalent to monotonicity, which for a
+finite code is small and decidable (it is checked at the joint types of
+each generator with itself). So the finite objects are the monotone codes
+and the objects the dilators (which are monotone).
 Monotonicity and well-foundedness pass to sub-functors, which gives
 pull-backs and directedness. A ptyx of type~2 in Girard's sense is a stable
 functor on this category which is well-founded at every object, and:
@@ -437,9 +445,8 @@ categories; the type of dilators and the type of ptykes of type 2 are sets.
 \end{theorem}
 
 \begin{remark}
-The size obstruction is an argument for Girard's definition: being a
-monotone finite pre-dilator is a small decidable property, being a finite
-dilator in the weak sense is not.
+Here monotonicity does real work: it turns the large proposition ``this
+finite pre-dilator is a dilator'' into a small decidable one.
 \end{remark}
 
 Going further up requires a small criterion for the finite objects of type
@@ -482,8 +489,9 @@ $\mathrm{FinDil}_C\to\mathrm{Codes}$.
 Restricted to monotone codes over $\LO$, whose monotonicity is checked at the
 joint types of each generator with itself (decidably), this gives a
 canonical sequence of codes of finite dilators. It replaces the parameter
-of the $\Pi^1_4$ reduction: every monotone code is isomorphic to a member of
-the sequence.
+of the $\Pi^1_4$ reduction: every code decoding to a dilator (it is then
+monotone, Theorem~\ref{thm:mono}) is isomorphic to a member of the
+sequence.
 
 \paragraph{Uniqueness up to isomorphism.} In the proof of the main theorem,
 the multicoproducts of two decoded codes must be unique \emph{strictly}:
@@ -620,7 +628,7 @@ library; the files below take a few seconds each). Main files, in the
   \texttt{DilSet} (dilators form a set), \texttt{Gaunt}, \texttt{DilCat}
   (monotone dilators as a category of embeddings; type-2 ptykes form a set),
   \texttt{UnionWF}; classical completion of the $\Pi^1_2$ theorem:
-  \texttt{GirardClassical};
+  \texttt{GirardClassical}; dilators are monotone: \texttt{DilMono};
 \item type 3 (in progress): \texttt{ThetaP3Term} (terms of $\Theta_P$ and a
   decidable comparison, defined with a fuel bound); a Python mirror of the candidate in
   \texttt{mirror/}.
