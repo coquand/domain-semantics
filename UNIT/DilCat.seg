@@ -139,3 +139,24 @@ Pty : U l+ = (P : SF.SF[DIL]) * IsPtyx P ;
 pty-set : isSet Pty = \ u ->
   Hedberg[Pty,u,\ v -> Id SF.SF[DIL] u.1 v.1,\ v -> Gaunt[l].G[DIL,u.1,v.1,\ c -> u.2 (finD c)].id-prop,refl u.1,
     \ v p -> Sigma-eq SF.SF[DIL] IsPtyx u.1 v.1 u.2 v.2 p (isPtyx-prop v.1)].hedberg ;
+
+-- Girard's dilators (monotone, well-foundedness preserving) form a set
+monoSF-prop (X : SF.SF[LC.ce]) : isProp (MonoSF X) =
+  H.isProp-Pi DP.LO (\ A -> (n : W.N) (x : (X.G (LC.ord n)).car) (k k' : DP.Map (LC.ord n) A) -> PwLe n A k k' ->
+      Id W.Bool (AFm.leO ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))) true) (\ A ->
+    H.isProp-Pi W.N (\ n -> (x : (X.G (LC.ord n)).car) (k k' : DP.Map (LC.ord n) A) -> PwLe n A k k' ->
+        Id W.Bool (AFm.leO ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))) true) (\ n ->
+      H.isProp-Pi (X.G (LC.ord n)).car (\ x -> (k k' : DP.Map (LC.ord n) A) -> PwLe n A k k' ->
+          Id W.Bool (AFm.leO ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))) true) (\ x ->
+        H.isProp-Pi (DP.Map (LC.ord n) A) (\ k -> (k' : DP.Map (LC.ord n) A) -> PwLe n A k k' ->
+            Id W.Bool (AFm.leO ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))) true) (\ k ->
+          H.isProp-Pi (DP.Map (LC.ord n) A) (\ k' -> PwLe n A k k' ->
+              Id W.Bool (AFm.leO ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))) true) (\ k' ->
+            H.isProp-Pi (PwLe n A k k') (\ _ ->
+                Id W.Bool (AFm.leO ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))) true) (\ _ ->
+              W.HB.uip (AFm.leO ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))) true)))))) ;
+ob-prop (X : SF.SF[LC.ce]) : isProp (LW.IsDil X * MonoSF X) =
+  isProp-Sigma (LW.IsDil X) (\ _ -> MonoSF X) (DSm.isDil-prop X) (\ _ -> monoSF-prop X) ;
+dil-set : isSet Ob = \ u ->
+  Hedberg[Ob,u,\ v -> Id SF.SF[LC.ce] u.1 v.1,\ v -> DSm.DS[u.1,v.1,u.2.1].idProp,refl u.1,
+    \ v p -> Sigma-eq SF.SF[LC.ce] (\ X -> LW.IsDil X * MonoSF X) u.1 v.1 u.2 v.2 p (ob-prop v.1)].hedberg ;
