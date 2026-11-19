@@ -257,6 +257,26 @@ The converse directions use bar induction and are not formalised. A
 positive instance (the tree of strictly decreasing sequences) is proved to
 give a dilator.
 
+The hypothesis that the listed codes decode to dilators is discharged
+for \emph{monotone} codes (Girard's monotonicity of predilators on the
+generators: $k\le k'$ pointwise implies $(i,k)\le(i,k')$). Not every code
+is a dilator: $X\mapsto X^{\mathrm{op}}$ is a one-generator code which is
+not.
+
+\begin{theorem}[Monotone finite predilators are dilators]
+If a code $K$ is monotone then $\mathrm{Decode}\,K$ is a dilator.
+\end{theorem}
+
+The proof uses almost-full relations: following Coquand's direct proof of
+the intuitionistic Ramsey theorem~\cite{CoqRamsey}, if a tree $p$ secures
+$A\vee R$ and $q$ secures $B\vee S$ for $n$-ary $R,S$, then $p\otimes_n q$
+secures $A\vee B\vee(R\wedge S)$; hence almost-full relations are closed
+under intersection. On a well-founded linear order, $\le$ is almost full;
+almost-fullness pulls back along maps; so ``same generator and pointwise
+$\le$'' is almost full on $\mathrm{Decode}\,K(A)$; by monotonicity it is
+contained in $\le$, and an almost-full relation contained in $\le$ makes a
+linear order well-founded.
+
 \begin{corollary}[A statement beyond the type theory]
 Take for $S$ the $\Pi^1_4$ axiom of $\Pi^1_2$-$\mathrm{CA}_0$ and let $G_S$ be
 the type-3 pre-ptyx of the previous theorem. The formalised implication
@@ -328,7 +348,7 @@ $\varepsilon_X$.
 \section{What has been implemented}
 
 The development is written in a small dependently typed language and
-checked by its type checker (about 26{,}600 declarations for the whole
+checked by its type checker (about 26{,}800 declarations for the whole
 library; the files below take a few seconds each). Main files, in the
 \texttt{UNIT/} directory:
 \begin{itemize}
@@ -345,6 +365,9 @@ library; the files below take a few seconds each). Main files, in the
 \item Girard's reductions: \texttt{KBTree}, \texttt{LabTree},
   \texttt{Girard}, \texttt{GirardPos}, \texttt{LabTree2}, \texttt{Girard2},
   and at type 3 \texttt{NSumLO}, \texttt{LabTree3}, \texttt{Girard3};
+\item almost-full relations and the intuitionistic Ramsey theorem:
+  \texttt{AlmostFull}; monotone finite predilators are dilators:
+  \texttt{FinDilWF};
 \item examples: \texttt{DilLO}, \texttt{LOEx} (polynomials, $2^X$,
   towers, evaluations), \texttt{EpsTerm}, \texttt{EpsFun}, \texttt{EpsWF}
   ($\varepsilon_X$), \texttt{ThetaTerm}, \texttt{ThetaLO},
@@ -367,6 +390,8 @@ colimits; it is subsumed by the abstract theorem.
   dilators and Bachmann--Howard fixed points, arXiv:2412.13051.
 \bibitem{Buc86} W.~Buchholz, A new system of proof-theoretic ordinal
   functions, \emph{Ann.\ Pure Appl.\ Logic} 32 (1986) 195--207.
+\bibitem{CoqRamsey} Th.~Coquand, A direct proof of Ramsey's Theorem, note,
+  2010, \url{https://www.cse.chalmers.se/~coquand/ramsey1.pdf}.
 \bibitem{Coq89} Th.~Coquand, Categories of embeddings, \emph{Theoret.\
   Comput.\ Sci.} 68 (1989) 221--237.
 \bibitem{Die80} Y.~Diers, Cat\'egories localement multipr\'esentables,

@@ -341,8 +341,15 @@ ptyx).  All.seg 26,650, check.py exit 0.
 Classically: Gp type-3 ptyx => forall f, F_f not a 2-ptyx => S (Pi^1_4);
 with S the axiom of Pi^1_2-CA0, Gp ptyx => Pi^1_2-CA0, hence unprovable
 in the (predicative) type theory (Goedel; metatheorem).
-Not formalised: the classical steps; hypothesis fd (finite dilators are
-dilators) is a parameter, to be proved; coding the specific S.
+Not formalised: the classical steps; coding the specific S.
+fd DISCHARGED (2026-11-19) for MONOTONE codes (every code is false:
+X^op): AlmostFull.seg (Coquand's direct proof of the intuitionistic Ramsey
+theorem: trees, secures, p (x)_n q, Theorem 0.1 ram, afInter; afPull;
+AFLe: <= on a WF linear order is almost full; AFWf: almost full and
+contained in <= => WF); FinDilWF.seg (FD[K].Mono, monoDil : monotone code
+=> dilator; Girard3M: Girard3 over monotone codes, fd derived).
+All.seg 26,824, check.py exit 0.  Open: decidability of Mono (for an
+enumeration of all monotone codes), a concrete monotone instance.
 
 ## Status
 (2026-11-19) step 1 done; step 2 on paper: target (b) fixed as "BH

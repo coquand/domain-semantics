@@ -1,0 +1,171 @@
+-- Monotone finite pre-dilators are dilators (constructively).
+--
+-- A code K (finitely many generators, LOCEF) is MONOTONE if, for every
+-- linear order A and generator i, k <= k' pointwise implies
+-- (i, k) <= (i, k') in Decode K (A) -- Girard's monotonicity of
+-- predilators on the generators.  (Not every code is a dilator:
+-- X |-> X^op, LOWF.opD, is a one-generator code that is not.)
+-- Theorem (monoDil): if K is monotone then Decode K is a dilator.
+-- Proof: for A well-founded, the relation
+--   p R q  :=  same generator  and  pointwise <= on the coordinates
+-- is almost full (AlmostFull: <= on a well-founded linear order is almost
+-- full; pull-backs; the intuitionistic Ramsey theorem for the finitely
+-- many conjuncts), and R is contained in <= of Decode K (A) by
+-- monotonicity, so Decode K (A) is well-founded (AFWf).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module AFm = AlmostFull[l] ;
+module SF0 = StabFun[l] ;
+
+F : CF.CEF = LOCEF[l].cef ;
+
+wfOptT (A : DP.LO) (w : LW.WF A) : LW.WF (LT.Opt A) =
+  W.Pull[(LT.Opt A).car, W.ltO (LT.Opt A).car (LT.Opt A).cmp,
+         (LT.Opt A).car, W.SumOrd[W.Unit, W.ltO W.Unit LT.one.cmp, A.car, W.ltO A.car A.cmp].ltS,
+         \ x -> x, LT.monoO A].pullWF
+    (W.SumOrd[W.Unit, W.ltO W.Unit LT.one.cmp, A.car, W.ltO A.car A.cmp].wfS LT.wfUnit w) ;
+two : DP.LO = LT.Opt LT.one ;
+wfTwo : LW.WF two = wfOptT LT.one LT.wfUnit ;
+
+-- arithmetic
+lePlusL : (a b : W.N) -> Id W.Bool (W.ltN a (suc (W.plus a b))) true = split {
+  zero -> \ b -> refl true ;
+  suc a | r -> \ b -> r b } ;
+ltLe : (a b c : W.N) -> Id W.Bool (W.ltN a b) true -> Id W.Bool (W.ltN b (suc c)) true -> Id W.Bool (W.ltN a c) true = split {
+  zero -> split {
+    zero -> \ c h h2 -> W.absurdB (Id W.Bool (W.ltN zero c) true) h ;
+    suc b -> split {
+      zero -> \ h h' -> W.ltN-zero-abs (Id W.Bool (W.ltN zero zero) true) b h' ;
+      suc c -> \ h h' -> refl true } } ;
+  suc a | r -> split {
+    zero -> \ c h h2 -> W.absurdB (Id W.Bool (W.ltN (suc a) c) true) h ;
+    suc b -> split {
+      zero -> \ h h' -> W.ltN-zero-abs (Id W.Bool (W.ltN (suc a) zero) true) b h' ;
+      suc c -> \ h h' -> r b c h h' } } } ;
+eqD : (c : W.Bool) -> W.Or (Id W.Bool c true) (Id W.Bool c false) = split { false -> inr (refl false) ; true -> inl (refl true) } ;
+eqDec (a b : W.N) : W.Or (Id W.Bool (W.eqN a b) true) (Id W.Bool (W.eqN a b) false) = eqD (W.eqN a b) ;
+
+module FD (K : SC.Code[F]) {
+  module D = SC.Decode[F,K] ;
+  Pt (A : DP.LO) : U l = (D.Gt A).car ;
+  Mono : U l+ = (A : DP.LO) (i : W.N) (h : CF.Lt i K.m) (k k' : DP.Map (LC.ord (K.gen i)) A) ->
+    ((j : (LC.ord (K.gen i)).car) -> Id W.Bool (AFm.leO (A.cmp (k.1 j) (k'.1 j))) true) ->
+    Id W.Bool (AFm.leO ((D.Gt A).cmp (i,(h,k)) (i,(h,k')))) true ;
+
+  -- a bound for the arities
+  sm : W.N -> W.N = split { zero -> zero ; suc n | r -> W.plus r (K.gen n) } ;
+  ltSmC (n i j : W.N) (r : CF.Lt i n -> CF.Lt j (K.gen i) -> CF.Lt j (sm n)) (hi : CF.Lt i (suc n)) (hj : CF.Lt j (K.gen i)) :
+      W.Or (Id W.Bool (W.eqN n i) true) (Id W.Bool (W.eqN n i) false) -> CF.Lt j (sm (suc n)) = split {
+    inl e -> ltLe j (K.gen n) (sm (suc n))
+      (PL.subst W.N (\ x -> Id W.Bool (W.ltN j (K.gen x)) true) i n (PL.sym W.N n i (W.eqN-sound n i e)) hj)
+      (W.le-plus (K.gen n) (sm n)) ;
+    inr e -> ltLe j (sm n) (sm (suc n)) (r (W.le-neq i n hi e) hj) (lePlusL (sm n) (K.gen n)) } ;
+  ltSm : (n i j : W.N) -> CF.Lt i n -> CF.Lt j (K.gen i) -> CF.Lt j (sm n) = split {
+    zero -> \ i j hi hj -> W.ltN-zero-abs (CF.Lt j zero) i hi ;
+    suc n | r -> \ i j hi hj -> ltSmC n i j (r i j) hi hj (eqDec n i) } ;
+
+  module WF1 (A : DP.LO) (w : LW.WF A) (mono : Mono) {
+    Y : U l = Pt A ;
+    module AY = AFm.AF[Y] ;
+    OA : DP.LO = LT.Opt A ;
+    -- coordinate j, if any
+    valD (p : Y) (j : W.N) : W.Or (CF.Lt j (K.gen p.1)) (CF.Lt j (K.gen p.1) -> W.Empty) -> OA.car = split {
+      inl h -> inr (p.2.2.1 (j,h)) ; inr x -> inl tt } ;
+    val (p : Y) (j : W.N) : OA.car = valD p j (W.decB (W.ltN j (K.gen p.1)) true) ;
+    rj (j : W.N) (p q : Y) : W.Bool = AFm.leO (OA.cmp (val p j) (val q j)) ;
+    -- generator indicator
+    ind (j : W.N) (p : Y) : two.car = W.ifW two.car (W.eqN p.1 j) (inr tt) (inl tt) ;
+    sj (j : W.N) (p q : Y) : W.Bool = AFm.leO (two.cmp (ind j p) (ind j q)) ;
+    allR : W.N -> Y -> Y -> W.Bool = split { zero -> \ p q -> true ; suc n | r -> \ p q -> W.andB (rj n p q) (r p q) } ;
+    allS : W.N -> Y -> Y -> W.Bool = split { zero -> \ p q -> true ; suc n | r -> \ p q -> W.andB (sj n p q) (r p q) } ;
+    Rel (p q : Y) : W.Bool = W.andB (allS K.m p q) (allR (sm K.m) p q) ;
+
+    -- almost-fullness
+    afFull : AY.AFR (\ p q -> true) = (sp (\ x -> sp (\ y -> z)),\ x y -> refl true) ;
+    afRj (j : W.N) : AY.AFR (rj j) = AFm.AFPull[Y, OA.car, \ p -> val p j].afPull (AFm.AFLe[OA].le) (AFm.AFLe[OA].afLe (wfOptT A w)) ;
+    afSj (j : W.N) : AY.AFR (sj j) = AFm.AFPull[Y, two.car, ind j].afPull (AFm.AFLe[two].le) (AFm.AFLe[two].afLe wfTwo) ;
+    afR : (n : W.N) -> AY.AFR (allR n) = split {
+      zero -> afFull ;
+      suc n | r -> AY.afInter (rj n) (allR n) (afRj n) r } ;
+    afS : (n : W.N) -> AY.AFR (allS n) = split {
+      zero -> afFull ;
+      suc n | r -> AY.afInter (sj n) (allS n) (afSj n) r } ;
+    afRel : AY.AFR Rel = AY.afInter (allS K.m) (allR (sm K.m)) (afS K.m) (afR (sm K.m)) ;
+
+    -- extracting conjuncts
+    allRC (p q : Y) (n j : W.N) (r : CF.Lt j n -> Id W.Bool (allR n p q) true -> Id W.Bool (rj j p q) true) (hj : CF.Lt j (suc n))
+      (h : Id W.Bool (allR (suc n) p q) true) : W.Or (Id W.Bool (W.eqN n j) true) (Id W.Bool (W.eqN n j) false) -> Id W.Bool (rj j p q) true = split {
+      inl e -> PL.subst W.N (\ x -> Id W.Bool (rj x p q) true) n j (W.eqN-sound n j e) (W.andB-l (rj n p q) (allR n p q) h) ;
+      inr e -> r (W.le-neq j n hj e) (W.andB-r (rj n p q) (allR n p q) h) } ;
+    allRE (p q : Y) : (n j : W.N) -> CF.Lt j n -> Id W.Bool (allR n p q) true -> Id W.Bool (rj j p q) true = split {
+      zero -> \ j hj h -> W.ltN-zero-abs (Id W.Bool (rj j p q) true) j hj ;
+      suc n | r -> \ j hj h -> allRC p q n j (r j) hj h (eqDec n j) } ;
+    allSC (p q : Y) (n j : W.N) (r : CF.Lt j n -> Id W.Bool (allS n p q) true -> Id W.Bool (sj j p q) true) (hj : CF.Lt j (suc n))
+      (h : Id W.Bool (allS (suc n) p q) true) : W.Or (Id W.Bool (W.eqN n j) true) (Id W.Bool (W.eqN n j) false) -> Id W.Bool (sj j p q) true = split {
+      inl e -> PL.subst W.N (\ x -> Id W.Bool (sj x p q) true) n j (W.eqN-sound n j e) (W.andB-l (sj n p q) (allS n p q) h) ;
+      inr e -> r (W.le-neq j n hj e) (W.andB-r (sj n p q) (allS n p q) h) } ;
+    allSE (p q : Y) : (n j : W.N) -> CF.Lt j n -> Id W.Bool (allS n p q) true -> Id W.Bool (sj j p q) true = split {
+      zero -> \ j hj h -> W.ltN-zero-abs (Id W.Bool (sj j p q) true) j hj ;
+      suc n | r -> \ j hj h -> allSC p q n j (r j) hj h (eqDec n j) } ;
+    -- same generator
+    tw : (c : W.Bool) -> Id W.Bool (AFm.leO (two.cmp (inr tt) (W.ifW two.car c (inr tt) (inl tt)))) true -> Id W.Bool c true = split {
+      false -> \ h -> W.absurdB (Id W.Bool false true) h ;
+      true -> \ h -> refl true } ;
+    sgen (p q : Y) (h : Id W.Bool (sj p.1 p q) true) : Id W.N q.1 p.1 =
+      W.eqN-sound q.1 p.1 (tw (W.eqN q.1 p.1)
+        (PL.subst W.Bool (\ c -> Id W.Bool (AFm.leO (two.cmp (W.ifW two.car c (inr tt) (inl tt)) (ind p.1 q))) true)
+          (W.eqN p.1 p.1) true (W.eqN-refl p.1) h)) ;
+    -- coordinates
+    valEqD (p : Y) (j : (LC.ord (K.gen p.1)).car) :
+        (o : W.Or (CF.Lt j.1 (K.gen p.1)) (CF.Lt j.1 (K.gen p.1) -> W.Empty)) -> Id OA.car (valD p j.1 o) (inr (p.2.2.1 j)) = split {
+      inl h0 -> PL.ap (CF.Lt j.1 (K.gen p.1)) OA.car (\ hh -> inr (p.2.2.1 (j.1,hh))) h0 j.2 (W.HB.uip (W.ltN j.1 (K.gen p.1)) true h0 j.2) ;
+      inr x -> CF.efq (Id OA.car (inl tt) (inr (p.2.2.1 j))) (x j.2) } ;
+    valEq (p : Y) (j : (LC.ord (K.gen p.1)).car) : Id OA.car (val p j.1) (inr (p.2.2.1 j)) =
+      valEqD p j (W.decB (W.ltN j.1 (K.gen p.1)) true) ;
+    coord (i : W.N) (h h' : CF.Lt i K.m) (k k' : DP.Map (LC.ord (K.gen i)) A)
+      (hR : Id W.Bool (allR (sm K.m) (i,(h,k)) (i,(h',k'))) true) (j : (LC.ord (K.gen i)).car) :
+        Id W.Bool (AFm.leO (A.cmp (k.1 j) (k'.1 j))) true =
+      PL.trans W.Bool (AFm.leO (A.cmp (k.1 j) (k'.1 j))) (rj j.1 (i,(h,k)) (i,(h',k'))) true
+        (PL.sym W.Bool (rj j.1 (i,(h,k)) (i,(h',k'))) (AFm.leO (A.cmp (k.1 j) (k'.1 j)))
+          (W.ap2 OA.car OA.car W.Bool (\ a b -> AFm.leO (OA.cmp a b))
+            (val (i,(h,k)) j.1) (inr (k.1 j)) (val (i,(h',k')) j.1) (inr (k'.1 j))
+            (valEq (i,(h,k)) j) (valEq (i,(h',k')) j)))
+        (allRE (i,(h,k)) (i,(h',k')) (sm K.m) j.1 (ltSm K.m i j.1 h j.2) hR) ;
+    compatJ (i : W.N) (h : CF.Lt i K.m) (k : DP.Map (LC.ord (K.gen i)) A) (i' : W.N) (e : Id W.N i i') :
+        (h' : CF.Lt i' K.m) (k' : DP.Map (LC.ord (K.gen i')) A) ->
+        Id W.Bool (allR (sm K.m) (i,(h,k)) (i',(h',k'))) true -> Id W.Bool (AFm.leO ((D.Gt A).cmp (i,(h,k)) (i',(h',k')))) true =
+      idJ W.N i (\ i0 e0 -> (h' : CF.Lt i0 K.m) (k' : DP.Map (LC.ord (K.gen i0)) A) ->
+          Id W.Bool (allR (sm K.m) (i,(h,k)) (i0,(h',k'))) true -> Id W.Bool (AFm.leO ((D.Gt A).cmp (i,(h,k)) (i0,(h',k')))) true)
+        (\ h' k' hR -> PL.subst (CF.Lt i K.m) (\ hh -> Id W.Bool (AFm.leO ((D.Gt A).cmp (i,(h,k)) (i,(hh,k')))) true) h h'
+          (W.HB.uip (W.ltN i K.m) true h h')
+          (mono A i h k k' (coord i h h' k k' hR)))
+        i' e ;
+    compat (p q : Y) (hr : Id W.Bool (Rel p q) true) : Id W.Bool (AFm.leO ((D.Gt A).cmp p q)) true =
+      compatJ p.1 p.2.1 p.2.2 q.1
+        (PL.sym W.N q.1 p.1 (sgen p q (allSE p q K.m p.1 p.2.1 (W.andB-l (allS K.m p q) (allR (sm K.m) p q) hr))))
+        q.2.1 q.2.2 (W.andB-r (allS K.m p q) (allR (sm K.m) p q) hr) ;
+    wf : LW.WF (D.Gt A) = AFm.AFWf[D.Gt A, Rel, compat].wfAF afRel ;
+  } ;
+  -- monotone codes decode to dilators
+  monoDil (mono : Mono) : LW.IsDil (SC.Decode[F,K].obj) = \ A w -> WF1[A,w,mono].wf ;
+} ;
+
+-- Girard's type-3 reduction over a sequence of MONOTONE codes: the
+-- hypothesis fd of LabTree3/Girard3 is now a theorem.
+module Girard3M (T4 : W.List Girard3[l].P4 -> W.Bool) (dec : W.N -> Girard3[l].NL)
+  (e : W.N -> (c : W.N) * LT.LL (LC.ord c))
+  (code : W.N -> SC.Code[F]) (mono : (n : W.N) -> FD[code n].Mono)
+  (e3 : W.N -> (k : W.N) * Girard3[l].LLP (LabTree3[l].F2.C.fin (code k))) {
+  fd (n : W.N) : LW.IsDil (SC.Decode[F,code n].obj) = FD[code n].monoDil (mono n) ;
+  module G = Girard3[l].Girard3[T4,dec,e,code,fd,e3] ;
+  Gp : SF0.SF[LabTree3[l].C3] = G.Gp ;
+  ptyx-not3 (f : W.N -> W.N) (pf : LW.IsPtyx G.Branch[f].Ff) (q : LabTree3[l].IsPtyx3 Gp) : W.Empty = G.ptyx-not3 f pf q ;
+} ;
