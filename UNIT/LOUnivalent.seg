@@ -1,0 +1,109 @@
+-- Univalence for decidable linear orders (structure identity principle).
+-- An isomorphism of linear orders P, Q is an equivalence of carriers that
+-- preserves the comparison; the identity type of DP.LO is equivalent to
+-- the type of isomorphisms (univalent).  Proof as ScottDomainObjects
+-- (OrderSingleton): the singleton of isomorphisms at P is a proposition, by
+-- equivalence induction on the carrier (UA.eqind); the comparison is then
+-- forced by funext, and the laws are propositions (carriers are sets).
+level l ;
+open Base ; open Prelude[l+] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module PL = Prelude[l] ;
+module HL = Axioms[l].FunExtLemmas[fe @l] ;
+module UA = Axioms[l].UnivalenceLemmas[ua @l] ;
+
+-- the structure of a linear order on a carrier
+Laws (C : U l) (c : C -> C -> W.O3) : U l =
+  ((x y : C) -> Id W.O3 (c x y) eq -> Id C x y) *
+  (((x : C) -> Id W.O3 (c x x) eq) *
+  (((x y : C) -> Id W.O3 (c y x) (W.flip (c x y))) *
+   ((x y z : C) -> Id W.O3 (c x y) lt -> Id W.O3 (c y z) lt -> Id W.O3 (c x z) lt))) ;
+LOStr (C : U l) : U l = (c : C -> C -> W.O3) * Laws C c ;
+mkLO (C : U l) (s : LOStr C) : DP.LO =
+  new DP.LO[car := C, cmp := s.1, ceq := s.2.1, crefl := s.2.2.1, cflip := s.2.2.2.1, ctrans := s.2.2.2.2] ;
+laws (P : DP.LO) : Laws P.car P.cmp = (P.ceq,(P.crefl,(P.cflip,P.ctrans))) ;
+-- the laws are propositions (the carrier is a set, by the laws themselves)
+laws-prop (C : U l) (c : C -> C -> W.O3) : PL.isProp (Laws C c) = \ u v ->
+  PL.isProp-Sigma ((x y : C) -> Id W.O3 (c x y) eq -> Id C x y) (\ _ -> ((x : C) -> Id W.O3 (c x x) eq) *
+      (((x y : C) -> Id W.O3 (c y x) (W.flip (c x y))) * ((x y z : C) -> Id W.O3 (c x y) lt -> Id W.O3 (c y z) lt -> Id W.O3 (c x z) lt)))
+    (HL.isProp-Pi C (\ x -> (y : C) -> Id W.O3 (c x y) eq -> Id C x y) (\ x ->
+      HL.isProp-Pi C (\ y -> Id W.O3 (c x y) eq -> Id C x y) (\ y ->
+        HL.isProp-Pi (Id W.O3 (c x y) eq) (\ _ -> Id C x y) (\ _ -> PF.lo-set (mkLO C (c,u)) x y))))
+    (\ _ -> PL.isProp-Sigma ((x : C) -> Id W.O3 (c x x) eq) (\ _ -> ((x y : C) -> Id W.O3 (c y x) (W.flip (c x y))) *
+        ((x y z : C) -> Id W.O3 (c x y) lt -> Id W.O3 (c y z) lt -> Id W.O3 (c x z) lt))
+      (HL.isProp-Pi C (\ x -> Id W.O3 (c x x) eq) (\ x -> PF.o3-set (c x x) eq))
+      (\ _ -> PL.isProp-Sigma ((x y : C) -> Id W.O3 (c y x) (W.flip (c x y)))
+          (\ _ -> (x y z : C) -> Id W.O3 (c x y) lt -> Id W.O3 (c y z) lt -> Id W.O3 (c x z) lt)
+        (HL.isProp-Pi C (\ x -> (y : C) -> Id W.O3 (c y x) (W.flip (c x y))) (\ x ->
+          HL.isProp-Pi C (\ y -> Id W.O3 (c y x) (W.flip (c x y))) (\ y -> PF.o3-set (c y x) (W.flip (c x y)))))
+        (\ _ -> HL.isProp-Pi C (\ x -> (y z : C) -> Id W.O3 (c x y) lt -> Id W.O3 (c y z) lt -> Id W.O3 (c x z) lt) (\ x ->
+          HL.isProp-Pi C (\ y -> (z : C) -> Id W.O3 (c x y) lt -> Id W.O3 (c y z) lt -> Id W.O3 (c x z) lt) (\ y ->
+            HL.isProp-Pi C (\ z -> Id W.O3 (c x y) lt -> Id W.O3 (c y z) lt -> Id W.O3 (c x z) lt) (\ z ->
+              HL.isProp-Pi (Id W.O3 (c x y) lt) (\ _ -> Id W.O3 (c y z) lt -> Id W.O3 (c x z) lt) (\ _ ->
+                HL.isProp-Pi (Id W.O3 (c y z) lt) (\ _ -> Id W.O3 (c x z) lt) (\ _ -> PF.o3-set (c x z) lt)))))))) u v ;
+
+-- isomorphisms
+LOIso (P Q : DP.LO) : U l = (e : PL.Equiv P.car Q.car) * ((x y : P.car) -> Id W.O3 (Q.cmp (e.1 x) (e.1 y)) (P.cmp x y)) ;
+lo-iso-id (P : DP.LO) : LOIso P P = (PL.idEquiv P.car,\ x y -> refl (P.cmp x y)) ;
+idto-lo-iso (P Q : DP.LO) (p : Id DP.LO P Q) : LOIso P Q = idJ DP.LO P (\ R q -> LOIso P R) (lo-iso-id P) Q p ;
+
+module LOSingleton (P : DP.LO) {
+  C : U l = P.car ;
+  Fibre (T : U l) (e : PL.Equiv C T) : U l =
+    (s : LOStr T) * ((x y : C) -> Id W.O3 (s.1 (e.1 x) (e.1 y)) (P.cmp x y)) ;
+  centre-fibre : Fibre C (PL.idEquiv C) = ((P.cmp,laws P),\ x y -> refl (P.cmp x y)) ;
+  cmp-path (s : Fibre C (PL.idEquiv C)) : Id (C -> C -> W.O3) s.1.1 P.cmp =
+    HL.funext C (\ _ -> C -> W.O3) s.1.1 P.cmp (\ x ->
+      HL.funext C (\ _ -> W.O3) (s.1.1 x) (P.cmp x) (\ y -> s.2 x y)) ;
+  base-fibre-prop : PL.isProp (Fibre C (PL.idEquiv C)) = \ u v ->
+    PL.Sigma-eq (LOStr C) (\ s -> (x y : C) -> Id W.O3 (s.1 x y) (P.cmp x y)) u.1 v.1 u.2 v.2
+      (PL.Sigma-eq (C -> C -> W.O3) (\ c -> Laws C c) u.1.1 v.1.1 u.1.2 v.1.2
+        (PL.trans (C -> C -> W.O3) u.1.1 P.cmp v.1.1 (cmp-path u) (PL.sym (C -> C -> W.O3) v.1.1 P.cmp (cmp-path v)))
+        (laws-prop C v.1.1))
+      (HL.isProp-Pi C (\ x -> (y : C) -> Id W.O3 (v.1.1 x y) (P.cmp x y)) (\ x ->
+        HL.isProp-Pi C (\ y -> Id W.O3 (v.1.1 x y) (P.cmp x y)) (\ y -> PF.o3-set (v.1.1 x y) (P.cmp x y)))) ;
+  fibre-prop (T : U l) (e : PL.Equiv C T) : PL.isProp (Fibre T e) =
+    UA.eqind C (\ T' e' -> PL.isProp (Fibre T' e')) base-fibre-prop T e ;
+  Expanded : U l+ = (T : U l) * ((e : PL.Equiv C T) * Fibre T e) ;
+  centre : Expanded = (C,(PL.idEquiv C,centre-fibre)) ;
+  base-path (f : Fibre C (PL.idEquiv C)) : Id Expanded centre (C,(PL.idEquiv C,f)) =
+    ap (Fibre C (PL.idEquiv C)) Expanded (\ v -> (C,(PL.idEquiv C,v))) centre-fibre f (base-fibre-prop centre-fibre f) ;
+  expand-path (u : Expanded) : Id Expanded centre u =
+    UA.eqind C (\ T e -> (f : Fibre T e) -> Id Expanded centre (T,(e,f))) base-path u.1 u.2.1 u.2.2 ;
+  expanded-prop : isProp Expanded = \ u v ->
+    trans Expanded u centre v (sym Expanded centre u (expand-path u)) (expand-path v) ;
+  Total : U l+ = (Q : DP.LO) * LOIso P Q ;
+  expand (v : Total) : Expanded = (v.1.car,(v.2.1,((v.1.cmp,laws v.1),v.2.2))) ;
+  collapse (v : Expanded) : Total = (mkLO v.1 v.2.2.1,(v.2.1,v.2.2.2)) ;
+  collapse-expand : (Q : DP.LO) -> (i : LOIso P Q) -> Id Total (collapse (expand (Q,i))) (Q,i) =
+    split { LO car cmp ceq crefl cflip ctrans -> \ i ->
+      refl (new DP.LO[car := car, cmp := cmp, ceq := ceq, crefl := crefl, cflip := cflip, ctrans := ctrans],i) } ;
+  total-prop : isProp Total =
+    retract-prop Total Expanded expand collapse (\ v -> collapse-expand v.1 v.2) expanded-prop ;
+} ;
+
+module LOUnivalence (P : DP.LO) {
+  module S = LOSingleton[P] ;
+  isotoid (Q : DP.LO) (i : LOIso P Q) : Id DP.LO P Q =
+    ap S.Total DP.LO (\ v -> v.1) (P,lo-iso-id P) (Q,i) (S.total-prop (P,lo-iso-id P) (Q,i)) ;
+  idtoiso-fst (v : S.Total) (p : Id S.Total (P,lo-iso-id P) v) :
+      Id (LOIso P v.1) (idto-lo-iso P v.1 (ap S.Total DP.LO (\ w -> w.1) (P,lo-iso-id P) v p)) v.2 =
+    idJ S.Total (P,lo-iso-id P)
+      (\ w q -> Id (LOIso P w.1) (idto-lo-iso P w.1 (ap S.Total DP.LO (\ z -> z.1) (P,lo-iso-id P) w q)) w.2)
+      (refl (lo-iso-id P)) v p ;
+  idtoiso-isotoid (Q : DP.LO) (i : LOIso P Q) : Id (LOIso P Q) (idto-lo-iso P Q (isotoid Q i)) i =
+    idtoiso-fst (Q,i) (S.total-prop (P,lo-iso-id P) (Q,i)) ;
+  loop : Id (Id S.Total (P,lo-iso-id P) (P,lo-iso-id P)) (S.total-prop (P,lo-iso-id P) (P,lo-iso-id P)) (refl (P,lo-iso-id P)) =
+    prop-to-set S.Total S.total-prop (P,lo-iso-id P) (P,lo-iso-id P)
+      (S.total-prop (P,lo-iso-id P) (P,lo-iso-id P)) (refl (P,lo-iso-id P)) ;
+  isotoid-idtoiso (Q : DP.LO) (p : Id DP.LO P Q) : Id (Id DP.LO P Q) (isotoid Q (idto-lo-iso P Q p)) p =
+    idJ DP.LO P (\ R q -> Id (Id DP.LO P R) (isotoid R (idto-lo-iso P R q)) q)
+      (ap (Id S.Total (P,lo-iso-id P) (P,lo-iso-id P)) (Id DP.LO P P)
+        (ap S.Total DP.LO (\ v -> v.1) (P,lo-iso-id P) (P,lo-iso-id P))
+        (S.total-prop (P,lo-iso-id P) (P,lo-iso-id P)) (refl (P,lo-iso-id P)) loop)
+      Q p ;
+  univalent (Q : DP.LO) : isEquiv (Id DP.LO P Q) (LOIso P Q) (idto-lo-iso P Q) =
+    qinv (Id DP.LO P Q) (LOIso P Q) (idto-lo-iso P Q) (isotoid Q) (idtoiso-isotoid Q) (isotoid-idtoiso Q) ;
+} ;

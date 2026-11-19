@@ -1,0 +1,97 @@
+-- The finite linear orders form a small set: rigidity + univalence.
+--
+-- FinLO = (A : DP.LO) * || (n : N) * LOIso A [n] ||  is a large type
+-- (DP.LO : U l+).  Finite ordinals are rigid (StabRigid.Fix: an
+-- order-preserving self-map of a Bishop-finite linear order is the
+-- identity), so LOIso A [m] is a proposition for every A, and [n] ~ [m]
+-- forces n = m (words: ones <= len).  Hence (n : N) * LOIso A [n] is a
+-- proposition and the truncation can be removed; by univalence for linear
+-- orders (LOUnivalent) every finite linear order IS some [n]:
+--     FinLO ~ N        (small : Replacement.Small FinLO).
+-- The small basis of finite objects is obtained effectively, without
+-- choosing codes (as in ScottSmallness for Scott domains).
+level l ;
+open Base ; open Prelude[l+] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module PL = Prelude[l] ;
+module CF = CatEmbFin[l] ;
+module FL = FinList[l] ;
+module LC = LOCat[l] ;
+module HL = Axioms[l].FunExtLemmas[fe @l] ;
+module LU = LOUnivalent[l] ;
+module TL = Truncation[l] ;
+module R = Replacement[l,l+] ;
+
+-- finite ordinals are rigid
+ordL (n : W.N) : W.List (CF.Opt (LC.ord n).car) = FL.fromIdx (LC.ord n).car n (\ i h -> inl (i,h)) ;
+ordM (n : W.N) (p : (LC.ord n).car) : FL.Mem (LC.ord n).car (ordL n) p =
+  FL.mem-fromIdx (LC.ord n).car n (\ i h -> inl (i,h)) (\ q -> (q.1,(q.2,refl (inl q)))) p ;
+rigid (n : W.N) (f : DP.Map (LC.ord n) (LC.ord n)) (x : (LC.ord n).car) : Id (LC.ord n).car (f.1 x) x =
+  StabRigid[l].Fix[LC.ord n, ordL n, ordM n, f].result x ;
+
+-- maps from isomorphisms
+mapOf (A B : DP.LO) (e : LU.LOIso A B) : DP.Map A B = (e.1.1,e.2) ;
+invMap (A B : DP.LO) (e : LU.LOIso A B) : DP.Map B A =
+  (e.1.2.sec,\ x y -> PL.trans W.O3 (A.cmp (e.1.2.sec x) (e.1.2.sec y)) (B.cmp (e.1.1 (e.1.2.sec x)) (e.1.1 (e.1.2.sec y))) (B.cmp x y)
+    (PL.sym W.O3 (B.cmp (e.1.1 (e.1.2.sec x)) (e.1.1 (e.1.2.sec y))) (A.cmp (e.1.2.sec x) (e.1.2.sec y)) (e.2 (e.1.2.sec x) (e.1.2.sec y)))
+    (W.ap2 B.car B.car W.O3 B.cmp (e.1.1 (e.1.2.sec x)) x (e.1.1 (e.1.2.sec y)) y (e.1.2.sec-eq x) (e.1.2.sec-eq y))) ;
+compM (A B C : DP.LO) (f : DP.Map A B) (g : DP.Map B C) : DP.Map A C =
+  (\ x -> g.1 (f.1 x),\ x y -> PL.trans W.O3 (C.cmp (g.1 (f.1 x)) (g.1 (f.1 y))) (B.cmp (f.1 x) (f.1 y)) (A.cmp x y) (g.2 (f.1 x) (f.1 y)) (f.2 x y)) ;
+
+-- isomorphisms are determined by their underlying maps
+isoEq (A B : DP.LO) (e e' : LU.LOIso A B) (h : (x : A.car) -> Id B.car (e.1.1 x) (e'.1.1 x)) : Id (LU.LOIso A B) e e' =
+  PL.Sigma-eq (PL.Equiv A.car B.car) (\ q -> (x y : A.car) -> Id W.O3 (B.cmp (q.1 x) (q.1 y)) (A.cmp x y)) e.1 e'.1 e.2 e'.2
+    (PL.Sigma-eq (A.car -> B.car) (\ f -> PL.isEquiv A.car B.car f) e.1.1 e'.1.1 e.1.2 e'.1.2
+      (HL.funext A.car (\ _ -> B.car) e.1.1 e'.1.1 h)
+      (CategorySIP[l,l].EquivProofs[A.car,B.car,\ x y -> PF.lo-set A x y,\ x y -> PF.lo-set B x y,e'.1.1].proof-prop))
+    (HL.isProp-Pi A.car (\ x -> (y : A.car) -> Id W.O3 (B.cmp (e'.1.1 x) (e'.1.1 y)) (A.cmp x y)) (\ x ->
+      HL.isProp-Pi A.car (\ y -> Id W.O3 (B.cmp (e'.1.1 x) (e'.1.1 y)) (A.cmp x y)) (\ y ->
+        PF.o3-set (B.cmp (e'.1.1 x) (e'.1.1 y)) (A.cmp x y)))) ;
+-- an isomorphism onto [m] is unique
+isoProp (A : DP.LO) (m : W.N) : PL.isProp (LU.LOIso A (LC.ord m)) = \ e e' ->
+  isoEq A (LC.ord m) e e' (\ x ->
+    PL.trans (LC.ord m).car (e.1.1 x) (e'.1.1 (e.1.2.sec (e.1.1 x))) (e'.1.1 x)
+      (PL.sym (LC.ord m).car (e'.1.1 (e.1.2.sec (e.1.1 x))) (e.1.1 x)
+        (rigid m (compM (LC.ord m) A (LC.ord m) (invMap A (LC.ord m) e) (mapOf A (LC.ord m) e')) (e.1.1 x)))
+      (PL.ap A.car (LC.ord m).car e'.1.1 (e.1.2.sec (e.1.1 x)) x (PL.sec-ret A.car (LC.ord m).car e.1.1 e.1.2 x))) ;
+
+-- [n] ~ [m] forces n = m
+onesLe : (w : W.Wd) -> Id W.Bool (W.ltN (W.ones w) (suc (W.len w))) true = split {
+  nil -> refl true ;
+  o w | r -> Girard2[l].ltW (W.ones w) (suc (W.len w)) r ;
+  i w | r -> r } ;
+leMap (n m : W.N) (f : DP.Map (LC.ord n) (LC.ord m)) : Id W.Bool (W.ltN n (suc m)) true =
+  PL.subst W.N (\ k -> Id W.Bool (W.ltN n (suc k)) true) (W.len (LOFin[l].psi n m f).1) m (LOFin[l].psi n m f).2.1
+    (PL.subst W.N (\ k -> Id W.Bool (W.ltN k (suc (W.len (LOFin[l].psi n m f).1))) true) (W.ones (LOFin[l].psi n m f).1) n
+      (LOFin[l].psi n m f).2.2 (onesLe (LOFin[l].psi n m f).1)) ;
+anti : (n m : W.N) -> Id W.Bool (W.ltN n (suc m)) true -> Id W.Bool (W.ltN m (suc n)) true -> Id W.N n m = split {
+  zero -> split {
+    zero -> \ h h' -> refl zero ;
+    suc m -> \ h h' -> W.ltN-zero-abs (Id W.N zero (suc m)) m h' } ;
+  suc n | r -> split {
+    zero -> \ h h' -> W.ltN-zero-abs (Id W.N (suc n) zero) n h ;
+    suc m -> \ h h' -> PL.ap W.N W.N (\ k -> suc k) n m (r m h h') } } ;
+isoN (A : DP.LO) (n m : W.N) (e : LU.LOIso A (LC.ord n)) (e' : LU.LOIso A (LC.ord m)) : Id W.N n m =
+  anti n m
+    (leMap n m (compM (LC.ord n) A (LC.ord m) (invMap A (LC.ord n) e) (mapOf A (LC.ord m) e')))
+    (leMap m n (compM (LC.ord m) A (LC.ord n) (invMap A (LC.ord m) e') (mapOf A (LC.ord n) e))) ;
+
+-- being finite is a proposition, with an untruncated witness
+SN (A : DP.LO) : U l = (n : W.N) * LU.LOIso A (LC.ord n) ;
+snProp (A : DP.LO) : PL.isProp (SN A) = \ u v ->
+  PL.Sigma-eq W.N (\ n -> LU.LOIso A (LC.ord n)) u.1 v.1 u.2 v.2 (isoN A u.1 v.1 u.2 v.2) (isoProp A v.1) ;
+FinLO : U l+ = (A : DP.LO) * TL.Trunc[SN A].carrier ;
+untr (a : FinLO) : SN a.1 = TL.Trunc[SN a.1].induction @l (\ _ -> SN a.1) (\ _ -> snProp a.1) (\ s -> s) a.2 ;
+toN (a : FinLO) : W.N = (untr a).1 ;
+fromN (n : W.N) : FinLO = (LC.ord n,TL.Trunc[SN (LC.ord n)].inc (n,LU.lo-iso-id (LC.ord n))) ;
+toFrom (n : W.N) : Id W.N (toN (fromN n)) n =
+  PL.ap (SN (LC.ord n)) W.N (\ s -> s.1) (untr (fromN n)) (n,LU.lo-iso-id (LC.ord n))
+    (TL.Trunc[SN (LC.ord n)].beta @l (\ _ -> SN (LC.ord n)) (\ _ -> snProp (LC.ord n)) (\ s -> s) (n,LU.lo-iso-id (LC.ord n))) ;
+fromTo (a : FinLO) : Id FinLO (fromN (toN a)) a =
+  Sigma-eq DP.LO (\ A -> TL.Trunc[SN A].carrier) (LC.ord (toN a)) a.1 (fromN (toN a)).2 a.2
+    (sym DP.LO a.1 (LC.ord (toN a)) (LU.LOUnivalence[a.1].isotoid (LC.ord (toN a)) (untr a).2))
+    (TL.Trunc[SN a.1].proposition) ;
+-- the finite linear orders form a small type, equivalent to N
+small : R.Small FinLO = (W.N,(fromN,R.P.qinv W.N FinLO fromN toN fromTo toFrom)) ;
