@@ -1,0 +1,141 @@
+-- The category of (monotone) dilators as a category of embeddings, and
+-- Girard's ptykes of type 2 as stable functors on it: with univalence
+-- they form a SET (a univalent gaunt category, Gaunt).
+--
+-- Size: finite objects must form a SMALL type, but "Decode K is a
+-- dilator" quantifies over all linear orders.  Following Girard, whose
+-- predilators are monotone, we use monotone codes (MonoEnum.MonoFin:
+-- small, decidable; they decode to dilators, FinDilWF) and objects the
+-- monotone dilators (classically: all dilators, by Girard's theorem
+-- "dilators are monotone"; not formalised).  Monotonicity and
+-- well-foundedness pass to sub-functors, which gives pull-backs and
+-- directedness.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module SC = StabCode[l] ;
+module SP = StabPb[l] ;
+module SDi = StabDir[l] ;
+module PL = Prelude[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module TC = TruncationCombinators[l] ;
+module AFm = AlmostFull[l] ;
+module FDW = FinDilWF[l] ;
+module ME = MonoEnum[l] ;
+module STC = StabTabCov[l] ;
+module DSm = DilSet[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+
+F : CatEmbFin[l].CEF = LOCEF[l].cef ;
+module O = SF.Over[LC.ce] ;
+D (K : SC.Code[F]) : SF.SF[LC.ce] = SC.Decode[F,K].obj ;
+
+-- pulling well-foundedness back along an embedding
+wfPull (A B : DP.LO) (f : DP.Map A B) (w : LW.WF B) : LW.WF A =
+  W.Pull[A.car,W.ltO A.car A.cmp,B.car,W.ltO B.car B.cmp,f.1,
+    \ x y h -> PL.trans W.Bool (W.isLt (B.cmp (f.1 x) (f.1 y))) (W.isLt (A.cmp x y)) true
+      (PL.ap W.O3 W.Bool W.isLt (B.cmp (f.1 x) (f.1 y)) (A.cmp x y) (f.2 x y)) h].pullWF w ;
+subDil (X Y : SF.SF[LC.ce]) (m : O.Mor X Y) (dy : LW.IsDil Y) : LW.IsDil X = \ A w ->
+  wfPull (X.G A) (Y.G A) (O.Ext[X,Y,m].f A,O.Ext[X,Y,m].incr A) (dy A w) ;
+
+--------------------------------------------------------------------
+-- monotone stable functors (Girard's monotonicity, on all points)
+
+PwLe (n : W.N) (A : DP.LO) (k k' : DP.Map (LC.ord n) A) : U l =
+  (j : (LC.ord n).car) -> Id W.Bool (AFm.leO (A.cmp (k.1 j) (k'.1 j))) true ;
+MonoSF (X : SF.SF[LC.ce]) : U l+ = (A : DP.LO) (n : W.N) (x : (X.G (LC.ord n)).car) (k k' : DP.Map (LC.ord n) A) ->
+  PwLe n A k k' -> Id W.Bool (AFm.leO ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))) true ;
+leT (o o' : W.O3) (e : Id W.O3 o o') (h : Id W.Bool (AFm.leO o') true) : Id W.Bool (AFm.leO o) true =
+  PL.subst W.O3 (\ z -> Id W.Bool (AFm.leO z) true) o' o (PL.sym W.O3 o o' e) h ;
+subMono (X Y : SF.SF[LC.ce]) (m : O.Mor X Y) (my : MonoSF Y) : MonoSF X = \ A n x k k' pw ->
+  leT ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))
+    ((Y.G A).cmp ((Y.arr (LC.ord n) A k).1 (O.Ext[X,Y,m].f (LC.ord n) x)) ((Y.arr (LC.ord n) A k').1 (O.Ext[X,Y,m].f (LC.ord n) x)))
+    (PL.trans W.O3 ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))
+        ((Y.G A).cmp (O.Ext[X,Y,m].f A ((X.arr (LC.ord n) A k).1 x)) (O.Ext[X,Y,m].f A ((X.arr (LC.ord n) A k').1 x)))
+        ((Y.G A).cmp ((Y.arr (LC.ord n) A k).1 (O.Ext[X,Y,m].f (LC.ord n) x)) ((Y.arr (LC.ord n) A k').1 (O.Ext[X,Y,m].f (LC.ord n) x)))
+      (PL.sym W.O3 ((Y.G A).cmp (O.Ext[X,Y,m].f A ((X.arr (LC.ord n) A k).1 x)) (O.Ext[X,Y,m].f A ((X.arr (LC.ord n) A k').1 x)))
+        ((X.G A).cmp ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x))
+        (O.Ext[X,Y,m].incr A ((X.arr (LC.ord n) A k).1 x) ((X.arr (LC.ord n) A k').1 x)))
+      (W.ap2 (Y.G A).car (Y.G A).car W.O3 (Y.G A).cmp
+        (O.Ext[X,Y,m].f A ((X.arr (LC.ord n) A k).1 x)) ((Y.arr (LC.ord n) A k).1 (O.Ext[X,Y,m].f (LC.ord n) x))
+        (O.Ext[X,Y,m].f A ((X.arr (LC.ord n) A k').1 x)) ((Y.arr (LC.ord n) A k').1 (O.Ext[X,Y,m].f (LC.ord n) x))
+        (PL.sym (Y.G A).car ((Y.arr (LC.ord n) A k).1 (O.Ext[X,Y,m].f (LC.ord n) x)) (O.Ext[X,Y,m].f A ((X.arr (LC.ord n) A k).1 x))
+          (O.Ext[X,Y,m].nat-all (LC.ord n) A k x))
+        (PL.sym (Y.G A).car ((Y.arr (LC.ord n) A k').1 (O.Ext[X,Y,m].f (LC.ord n) x)) (O.Ext[X,Y,m].f A ((X.arr (LC.ord n) A k').1 x))
+          (O.Ext[X,Y,m].nat-all (LC.ord n) A k' x))))
+    (my A n (O.Ext[X,Y,m].f (LC.ord n) x) k k' pw) ;
+
+-- for codes: generator monotonicity <-> monotonicity on all points
+monoSF-code (K : SC.Code[F]) (mono : FDW.FD[K].Mono) : MonoSF (D K) = \ A n x k k' pw ->
+  mono A x.1 x.2.1 (F.C.comp (LC.ord (K.gen x.1)) (LC.ord n) A x.2.2 k) (F.C.comp (LC.ord (K.gen x.1)) (LC.ord n) A x.2.2 k')
+    (\ j -> pw (x.2.2.1 j)) ;
+monoFin-SF (K : SC.Code[F]) (ms : MonoSF (D K)) : ME.MonoFinK K = \ i hi t ht j e pw ->
+  leT (K.ord j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2)))
+    ((SC.Decode[F,K].Gt (LC.ord j.1)).cmp (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (K.gen i)) (LC.ord j.1) (F.C.idm (LC.ord (K.gen i))) j.2.1))
+      (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (K.gen i)) (LC.ord j.1) (F.C.idm (LC.ord (K.gen i))) j.2.2)))
+    (PL.trans W.O3 (K.ord j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2))) (SC.Decode[F,K].cmp (LC.ord j.1) (i,(hi,j.2.1)) (i,(hi,j.2.2)))
+        ((SC.Decode[F,K].Gt (LC.ord j.1)).cmp (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (K.gen i)) (LC.ord j.1) (F.C.idm (LC.ord (K.gen i))) j.2.1))
+          (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (K.gen i)) (LC.ord j.1) (F.C.idm (LC.ord (K.gen i))) j.2.2)))
+      (PL.sym W.O3 (SC.Decode[F,K].cmp (LC.ord j.1) (i,(hi,j.2.1)) (i,(hi,j.2.2))) (K.ord j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2)))
+        (STC.dcmp F K j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2))))
+      (W.ap2 (SC.Pts[F,K.m,K.gen].Pt (LC.ord j.1)) (SC.Pts[F,K.m,K.gen].Pt (LC.ord j.1)) W.O3 (SC.Decode[F,K].cmp (LC.ord j.1))
+        (i,(hi,j.2.1)) (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (K.gen i)) (LC.ord j.1) (F.C.idm (LC.ord (K.gen i))) j.2.1))
+        (i,(hi,j.2.2)) (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (K.gen i)) (LC.ord j.1) (F.C.idm (LC.ord (K.gen i))) j.2.2))
+        (PL.sym (SC.Pts[F,K.m,K.gen].Pt (LC.ord j.1))
+          (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (K.gen i)) (LC.ord j.1) (F.C.idm (LC.ord (K.gen i))) j.2.1)) (i,(hi,j.2.1))
+          (SC.Pts[F,K.m,K.gen].pt3 (LC.ord j.1) (i,(hi,j.2.1))
+            (F.C.comp (LC.ord (K.gen i)) (LC.ord (K.gen i)) (LC.ord j.1) (F.C.idm (LC.ord (K.gen i))) j.2.1) (F.C.id-l (LC.ord (K.gen i)) (LC.ord j.1) j.2.1)))
+        (PL.sym (SC.Pts[F,K.m,K.gen].Pt (LC.ord j.1))
+          (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (K.gen i)) (LC.ord j.1) (F.C.idm (LC.ord (K.gen i))) j.2.2)) (i,(hi,j.2.2))
+          (SC.Pts[F,K.m,K.gen].pt3 (LC.ord j.1) (i,(hi,j.2.2))
+            (F.C.comp (LC.ord (K.gen i)) (LC.ord (K.gen i)) (LC.ord j.1) (F.C.idm (LC.ord (K.gen i))) j.2.2) (F.C.id-l (LC.ord (K.gen i)) (LC.ord j.1) j.2.2)))))
+    (ms (LC.ord j.1) (K.gen i) (i,(hi,F.C.idm (LC.ord (K.gen i)))) j.2.1 j.2.2 (\ jj -> pw jj.1 jj.2)) ;
+
+--------------------------------------------------------------------
+-- the category of monotone dilators
+
+Ob : U l+ = (X : SF.SF[LC.ce]) * (LW.IsDil X * MonoSF X) ;
+monoOf (K : ME.MCode) : FDW.FD[K.1].Mono = ME.MSound[K.1,K.2].mono ;
+finD (K : ME.MCode) : Ob = (D K.1,(FDW.FD[K.1].monoDil (monoOf K),monoSF-code K.1 (monoOf K))) ;
+pbOb (A B B' : Ob) (f : O.Mor B.1 A.1) (f' : O.Mor B'.1 A.1) : Ob =
+  (SP.Pull[LC.ce,A.1,B.1,B'.1,f,f'].obj,
+   (subDil SP.Pull[LC.ce,A.1,B.1,B'.1,f,f'].obj B.1 SP.Pull[LC.ce,A.1,B.1,B'.1,f,f'].pr1 B.2.1,
+    subMono SP.Pull[LC.ce,A.1,B.1,B'.1,f,f'].obj B.1 SP.Pull[LC.ce,A.1,B.1,B'.1,f,f'].pr1 B.2.2)) ;
+module C0 = SDi.StabCE[F] ;
+DirT (A : Ob) (c c' : ME.MCode) (i : O.Mor (finD c).1 A.1) (i' : O.Mor (finD c').1 A.1) : U l =
+  (d : ME.MCode) * ((j : O.Mor (finD d).1 A.1) * ((k : O.Mor (finD c).1 (finD d).1) * ((k' : O.Mor (finD c').1 (finD d).1) *
+    (Id (O.Mor (finD c).1 A.1) (O.compS (finD c).1 (finD d).1 A.1 k j) i * Id (O.Mor (finD c').1 A.1) (O.compS (finD c').1 (finD d).1 A.1 k' j) i')))) ;
+dirD (A : Ob) (c c' : ME.MCode) (i : O.Mor (finD c).1 A.1) (i' : O.Mor (finD c').1 A.1) : Ex (DirT A c c' i i') =
+  TC.rec ((d : SC.Code[F]) * ((j : O.Mor (D d) A.1) * ((k : O.Mor (D c.1) (D d)) * ((k' : O.Mor (D c'.1) (D d)) *
+      (Id (O.Mor (D c.1) A.1) (O.compS (D c.1) (D d) A.1 k j) i * Id (O.Mor (D c'.1) A.1) (O.compS (D c'.1) (D d) A.1 k' j) i')))))
+    @l (Ex (DirT A c c' i i')) (prop (DirT A c c' i i'))
+    (\ w -> inc (DirT A c c' i i') ((w.1,monoFin-SF w.1 (subMono (D w.1) A.1 w.2.1 A.2.2)),w.2))
+    (C0.ce.dir A.1 c.1 c'.1 i i') ;
+DIL : CE.CE = new CE.CE[Obj := Ob, Mor := \ A B -> O.Mor A.1 B.1,
+  idm := \ A -> O.idS A.1, comp := \ A B E -> O.compS A.1 B.1 E.1,
+  id-l := \ A B -> O.id-l A.1 B.1, id-r := \ A B -> O.id-r A.1 B.1,
+  assoc := \ A B E V -> O.assoc A.1 B.1 E.1 V.1, mono := \ A B E -> O.mono A.1 B.1 E.1,
+  pb := pbOb,
+  p1 := \ A B B' f f' -> SP.Pull[LC.ce,A.1,B.1,B'.1,f,f'].pr1,
+  p2 := \ A B B' f f' -> SP.Pull[LC.ce,A.1,B.1,B'.1,f,f'].pr2,
+  pb-sq := \ A B B' f f' -> SP.Pull[LC.ce,A.1,B.1,B'.1,f,f'].sq,
+  pb-univ := \ A B B' f f' E g g' e -> SDi.PbU[F,A.1,B.1,B'.1,f,f',E.1,g,g',e].result,
+  Fin := ME.MCode, fin := finD, dir := dirD] ;
+
+--------------------------------------------------------------------
+-- Girard's ptykes of type 2: stable functors on DIL, well-founded at
+-- every (monotone) dilator.  They form a univalent gaunt category, and a set.
+
+IsPtyx (P : SF.SF[DIL]) : U l+ = (X : Ob) -> LW.WF (P.G X) ;
+ptyIso (P Q : SF.SF[DIL]) (pp : IsPtyx P) :
+    Equiv (Id SF.SF[DIL] P Q) Gaunt[l].G[DIL,P,Q,\ c -> pp (finD c)].IsoM =
+  Gaunt[l].G[DIL,P,Q,\ c -> pp (finD c)].univalent ;
+isPtyx-prop (P : SF.SF[DIL]) : isProp (IsPtyx P) = H.isProp-Pi Ob (\ X -> LW.WF (P.G X)) (\ X -> DSm.wf-prop (P.G X)) ;
+Pty : U l+ = (P : SF.SF[DIL]) * IsPtyx P ;
+pty-set : isSet Pty = \ u ->
+  Hedberg[Pty,u,\ v -> Id SF.SF[DIL] u.1 v.1,\ v -> Gaunt[l].G[DIL,u.1,v.1,\ c -> u.2 (finD c)].id-prop,refl u.1,
+    \ v p -> Sigma-eq SF.SF[DIL] IsPtyx u.1 v.1 u.2 v.2 p (isPtyx-prop v.1)].hedberg ;

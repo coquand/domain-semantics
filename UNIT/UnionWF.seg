@@ -1,0 +1,102 @@
+-- A linear order covered (merely) by the images of two order-embeddings
+-- from well-founded linear orders is well-founded.  Direct accessibility
+-- proof: outer induction on P, inner induction on Q for the points g b
+-- below f a (everything below g b <= f a is f a'' with a'' < a or g b''
+-- with b'' < b); the points g b are handled symmetrically.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LW = LOWF[l] ;
+module TC = TruncationCombinators[l] ;
+
+-- order facts
+module OF (L : DP.LO) {
+  Le (x y : L.car) : U l = Id W.Bool (AlmostFull[l].leO (L.cmp x y)) true ;
+  Lt (x y : L.car) : U l = Id W.Bool (W.isLt (L.cmp x y)) true ;
+  ltE (x y : L.car) (h : Lt x y) : Id W.O3 (L.cmp x y) lt = W.isLt-sound (L.cmp x y) h ;
+  ltI (x y : L.car) (e : Id W.O3 (L.cmp x y) lt) : Lt x y = PL.ap W.O3 W.Bool W.isLt (L.cmp x y) lt e ;
+  leRefl (x : L.car) : Le x x = PL.ap W.O3 W.Bool AlmostFull[l].leO (L.cmp x x) eq (L.crefl x) ;
+  ltLe (x y : L.car) (h : Lt x y) : Le x y = PL.ap W.O3 W.Bool AlmostFull[l].leO (L.cmp x y) lt (ltE x y h) ;
+  ltLeO (x y z : L.car) (h : Lt x y) : (o : W.O3) -> Id W.O3 (L.cmp y z) o -> Id W.Bool (AlmostFull[l].leO o) true -> Lt x z = split {
+    lt -> \ e k -> ltI x z (L.ctrans x y z (ltE x y h) e) ;
+    eq -> \ e k -> PL.subst L.car (\ w -> Lt x w) y z (L.ceq y z e) h ;
+    gt -> \ e k -> W.absurdB (Lt x z) k } ;
+  ltLe-tr (x y z : L.car) (h : Lt x y) (k : Le y z) : Lt x z =
+    ltLeO x y z h (L.cmp y z) (refl (L.cmp y z)) (PL.subst W.O3 (\ o -> Id W.Bool (AlmostFull[l].leO o) true) (L.cmp y z) (L.cmp y z) (refl (L.cmp y z)) k) ;
+  leLeO (x y z : L.car) (k : Le y z) : (o : W.O3) -> Id W.O3 (L.cmp x y) o -> Id W.Bool (AlmostFull[l].leO o) true -> Le x z = split {
+    lt -> \ e k0 -> ltLe x z (ltLe-tr x y z (ltI x y e) k) ;
+    eq -> \ e k0 -> PL.subst L.car (\ w -> Le w z) y x (PL.sym L.car x y (L.ceq x y e)) k ;
+    gt -> \ e k0 -> W.absurdB (Le x z) k0 } ;
+  le-tr (x y z : L.car) (h : Le x y) (k : Le y z) : Le x z = leLeO x y z k (L.cmp x y) (refl (L.cmp x y)) h ;
+  -- x <= y means x < y or x = y
+  leCaseO (x y : L.car) (D : U l) (fl : Lt x y -> D) (fe : Id L.car x y -> D) :
+      (o : W.O3) -> Id W.O3 (L.cmp x y) o -> Id W.Bool (AlmostFull[l].leO o) true -> D = split {
+    lt -> \ e k -> fl (ltI x y e) ;
+    eq -> \ e k -> fe (L.ceq x y e) ;
+    gt -> \ e k -> W.absurdB D k } ;
+  leCase (x y : L.car) (D : U l) (fl : Lt x y -> D) (fe : Id L.car x y -> D) (h : Le x y) : D =
+    leCaseO x y D fl fe (L.cmp x y) (refl (L.cmp x y)) h ;
+} ;
+
+module Half (L P Q : DP.LO) (f : DP.Map P L) (g : DP.Map Q L)
+  (cov : (x : L.car) -> Ex (W.Or ((a : P.car) * Id L.car (f.1 a) x) ((b : Q.car) * Id L.car (g.1 b) x)))
+  (wp : LW.WF P) (wq : LW.WF Q) {
+  module AL = W.Acc[L.car,W.ltO L.car L.cmp] ;
+  module AP = W.Acc[P.car,W.ltO P.car P.cmp] ;
+  module AQ = W.Acc[Q.car,W.ltO Q.car Q.cmp] ;
+  module OL = OF[L] ;
+  accProp (x : L.car) : PL.isProp (AL.AccP x) = ThetaWF[l].AccProp[L.car,W.ltO L.car L.cmp].accProp x ;
+  Cv (x : L.car) : U l = W.Or ((a : P.car) * Id L.car (f.1 a) x) ((b : Q.car) * Id L.car (g.1 b) x) ;
+  -- comparisons reflected by the embeddings
+  reflP (a a' : P.car) (h : OL.Lt (f.1 a') (f.1 a)) : AP.Lt a' a =
+    PL.trans W.Bool (W.isLt (P.cmp a' a)) (W.isLt (L.cmp (f.1 a') (f.1 a))) true
+      (PL.ap W.O3 W.Bool W.isLt (P.cmp a' a) (L.cmp (f.1 a') (f.1 a)) (PL.sym W.O3 (L.cmp (f.1 a') (f.1 a)) (P.cmp a' a) (f.2 a' a))) h ;
+  reflQ (b b' : Q.car) (h : OL.Lt (g.1 b') (g.1 b)) : AQ.Lt b' b =
+    PL.trans W.Bool (W.isLt (Q.cmp b' b)) (W.isLt (L.cmp (g.1 b') (g.1 b))) true
+      (PL.ap W.O3 W.Bool W.isLt (Q.cmp b' b) (L.cmp (g.1 b') (g.1 b)) (PL.sym W.O3 (L.cmp (g.1 b') (g.1 b)) (Q.cmp b' b) (g.2 b' b))) h ;
+  -- the points f a are accessible
+  module Step (a : P.car) (ih : (a' : P.car) -> AP.Lt a' a -> AL.AccP (f.1 a')) {
+    -- points g b below f a
+    Psi (b : Q.car) : U l = OL.Le (g.1 b) (f.1 a) -> AL.AccP (g.1 b) ;
+    below (z : L.car) (b : Q.car) (ihQ : (b' : Q.car) -> AQ.Lt b' b -> Psi b') (hb : OL.Le (g.1 b) (f.1 a))
+      (hz : OL.Lt z (g.1 b)) : Cv z -> AL.AccP z = split {
+      inl w -> PL.subst L.car AL.AccP (f.1 w.1) z w.2
+        (ih w.1 (reflP a w.1 (OL.ltLe-tr (f.1 w.1) (g.1 b) (f.1 a)
+          (PL.subst L.car (\ y -> OL.Lt y (g.1 b)) z (f.1 w.1) (PL.sym L.car (f.1 w.1) z w.2) hz) hb))) ;
+      inr w -> PL.subst L.car AL.AccP (g.1 w.1) z w.2
+        (ihQ w.1 (reflQ b w.1 (PL.subst L.car (\ y -> OL.Lt y (g.1 b)) z (g.1 w.1) (PL.sym L.car (g.1 w.1) z w.2) hz))
+          (OL.le-tr (g.1 w.1) (g.1 b) (f.1 a)
+            (OL.ltLe (g.1 w.1) (g.1 b) (PL.subst L.car (\ y -> OL.Lt y (g.1 b)) z (g.1 w.1) (PL.sym L.car (g.1 w.1) z w.2) hz)) hb)) } ;
+    psi (b : Q.car) : Psi b =
+      AQ.ind Psi (\ b0 ihQ hb -> AL.acc (g.1 b0) (\ z hz ->
+          TC.rec (Cv z) @l (AL.AccP z) (accProp z) (below z b0 ihQ hb hz) (cov z)))
+        b (wq b) ;
+    atF (z : L.car) (hz : OL.Lt z (f.1 a)) : Cv z -> AL.AccP z = split {
+      inl w -> PL.subst L.car AL.AccP (f.1 w.1) z w.2
+        (ih w.1 (reflP a w.1 (PL.subst L.car (\ y -> OL.Lt y (f.1 a)) z (f.1 w.1) (PL.sym L.car (f.1 w.1) z w.2) hz))) ;
+      inr w -> PL.subst L.car AL.AccP (g.1 w.1) z w.2
+        (psi w.1 (OL.ltLe (g.1 w.1) (f.1 a) (PL.subst L.car (\ y -> OL.Lt y (f.1 a)) z (g.1 w.1) (PL.sym L.car (g.1 w.1) z w.2) hz))) } ;
+    result : AL.AccP (f.1 a) = AL.acc (f.1 a) (\ z hz -> TC.rec (Cv z) @l (AL.AccP z) (accProp z) (atF z hz) (cov z)) ;
+  } ;
+  accF (a : P.car) : AL.AccP (f.1 a) = AP.ind (\ a0 -> AL.AccP (f.1 a0)) (\ a0 ih -> Step[a0,ih].result) a (wp a) ;
+} ;
+
+swapOr (A B : U l) : W.Or A B -> W.Or B A = split { inl a -> inr a ; inr b -> inl b } ;
+module UnionWF (L P Q : DP.LO) (f : DP.Map P L) (g : DP.Map Q L)
+  (cov : (x : L.car) -> Ex (W.Or ((a : P.car) * Id L.car (f.1 a) x) ((b : Q.car) * Id L.car (g.1 b) x)))
+  (wp : LW.WF P) (wq : LW.WF Q) {
+  module H1 = Half[L,P,Q,f,g,cov,wp,wq] ;
+  cov' (x : L.car) : Ex (W.Or ((b : Q.car) * Id L.car (g.1 b) x) ((a : P.car) * Id L.car (f.1 a) x)) =
+    TC.rec (H1.Cv x) @l (Ex (W.Or ((b : Q.car) * Id L.car (g.1 b) x) ((a : P.car) * Id L.car (f.1 a) x)))
+      (prop (W.Or ((b : Q.car) * Id L.car (g.1 b) x) ((a : P.car) * Id L.car (f.1 a) x)))
+      (\ c -> inc (W.Or ((b : Q.car) * Id L.car (g.1 b) x) ((a : P.car) * Id L.car (f.1 a) x))
+        (swapOr ((a : P.car) * Id L.car (f.1 a) x) ((b : Q.car) * Id L.car (g.1 b) x) c)) (cov x) ;
+  module H2 = Half[L,Q,P,g,f,cov',wq,wp] ;
+  one (x : L.car) : H1.Cv x -> H1.AL.AccP x = split {
+    inl w -> PL.subst L.car H1.AL.AccP (f.1 w.1) x w.2 (H1.accF w.1) ;
+    inr w -> PL.subst L.car H1.AL.AccP (g.1 w.1) x w.2 (H2.accF w.1) } ;
+  wf : LW.WF L = \ x -> TC.rec (H1.Cv x) @l (H1.AL.AccP x) (H1.accProp x) (one x) (cov x) ;
+} ;

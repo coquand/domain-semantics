@@ -358,6 +358,34 @@ equality of finite stable functors decidable. At type~$2$ the argument does
 not apply directly, since a ptyx is evaluated also at finite pre-dilators
 that are not dilators.
 
+More precisely, for any category of embeddings $C$ and any stable functor
+$X$ whose values at the finite objects are well-founded, paths $X=Y$ are
+equivalent to isomorphisms $X\cong Y$ and both are propositions: such
+functors form a univalent \emph{gaunt} category (its only isomorphisms are
+identities). It is not a preorder ($\mathrm{Id}\to\mathrm{Id}+\mathrm{Id}$
+has two embeddings).
+
+\paragraph{Ptykes of type 2.} To go one type up, the dilators must
+themselves form a category of embeddings, and here a \emph{size}
+obstruction appears: the finite objects must form a small type, but
+``$\mathrm{Decode}\,K$ is a dilator'' quantifies over all linear orders.
+Following Girard, whose predilators are monotone, we take as finite objects
+the \emph{monotone} codes (monotonicity is checked at the joint types of
+each generator with itself, so it is small and decidable, and monotone codes
+decode to dilators) and as objects the monotone dilators; classically these
+are all dilators. Monotonicity and well-foundedness pass to sub-functors,
+which gives pull-backs and directedness. A ptyx of type~2 in Girard's sense
+is then a stable functor on this category which is well-founded at every
+object, and:
+
+\begin{theorem}
+Ptykes of type 2 form a univalent gaunt category; the type of ptykes of
+type 2 is a set.
+\end{theorem}
+
+Going further up requires a small criterion for the finite objects of type
+2 (an analogue of monotonicity), which we do not have.
+
 \paragraph{Enumeration.} A code has a comparison at \emph{every} finite
 level, so codes are not finite data. They are, up to isomorphism: by the
 multicoproducts, a code is determined by a finite \emph{table} giving, for
@@ -530,7 +558,9 @@ library; the files below take a few seconds each). Main files, in the
   \texttt{MonoEnum} (canonical sequence of monotone codes),
   \texttt{FinDilCanon} (canonical representatives), \texttt{CospanUniq},
   \texttt{Dedup}, \texttt{StabCEF2} (second proof of the main theorem),
-  \texttt{DilSet} (dilators form a set);
+  \texttt{DilSet} (dilators form a set), \texttt{Gaunt}, \texttt{DilCat}
+  (monotone dilators as a category of embeddings; type-2 ptykes form a set),
+  \texttt{UnionWF};
 \item type 3 (in progress): \texttt{ThetaP3Term} (terms of $\Theta_P$ and a
   decidable comparison, defined with a fuel bound); a Python mirror of the candidate in
   \texttt{mirror/}.

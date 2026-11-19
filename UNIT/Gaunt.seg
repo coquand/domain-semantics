@@ -1,0 +1,103 @@
+-- Stable functors with well-founded values at the finite objects form a
+-- univalent GAUNT category (any category of embeddings C): for such X,
+--     (X = Y)  ~  Iso(X, Y)      and both are propositions,
+-- i.e. paths are isomorphisms (SFUnivalent, SFLocSmall) and there is at
+-- most one isomorphism (well-founded orders are automorphism-free,
+-- DilSet.Aut).  Instances: dilators (DilSet), and Girard's ptykes of
+-- every type (WfStab).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CE = CatEmb[l] ;
+module SF0 = StabFun[l] ;
+module PL = Prelude[l] ;
+module LW = LOWF[l] ;
+module LU = LOUnivalent[l] ;
+module FLS = FinLOSmall[l] ;
+module SLS = SFLocSmall[l] ;
+module DS = DilSet[l] ;
+module EH = EquivalenceLemmas[l+] ;
+module HL = Axioms[l].FunExtLemmas[fe @l] ;
+
+module G (C : CE.CE) (X Y : SF0.SF[C]) (wx : (c : C.Fin) -> LW.WF (X.G (C.fin c))) {
+  module O = SF0.Over[C] ;
+  module L = SLS.Loc[C,X,Y] ;
+  XG (c : C.Fin) : DP.LO = X.G (C.fin c) ;
+  YG (c : C.Fin) : DP.LO = Y.G (C.fin c) ;
+  -- isomorphisms in Stab(C)
+  IsoM : U l = (S : O.Mor X Y) * ((T : O.Mor Y X) *
+    (Id (O.Mor X X) (O.compS X Y X S T) (O.idS X) * Id (O.Mor Y Y) (O.compS Y X Y T S) (O.idS Y))) ;
+  pa (A B : SF0.SF[C]) (M M' : O.Mor A B) (e : Id (O.Mor A B) M M') (c : C.Fin) (x : (A.G (C.fin c)).car) :
+      Id (B.G (C.fin c)).car ((M.1 c).1 x) ((M'.1 c).1 x) =
+    PL.ap (O.Mor A B) (B.G (C.fin c)).car (\ N -> (N.1 c).1 x) M M' e ;
+  -- at most one isomorphism
+  uniqS (i i' : IsoM) : Id (O.Mor X Y) i.1 i'.1 =
+    O.mor-eq X Y i.1 i'.1 (\ c x ->
+      PL.trans (YG c).car ((i.1.1 c).1 x) ((i'.1.1 c).1 ((i'.2.1.1 c).1 ((i.1.1 c).1 x))) ((i'.1.1 c).1 x)
+        (PL.sym (YG c).car ((i'.1.1 c).1 ((i'.2.1.1 c).1 ((i.1.1 c).1 x))) ((i.1.1 c).1 x)
+          (pa Y Y (O.compS Y X Y i'.2.1 i'.1) (O.idS Y) i'.2.2.2 c ((i.1.1 c).1 x)))
+        (PL.ap (XG c).car (YG c).car (i'.1.1 c).1 ((i'.2.1.1 c).1 ((i.1.1 c).1 x)) x
+          (DS.Aut[XG c,wx c,
+            O.compMap (XG c) (YG c) (XG c) (i.1.1 c) (i'.2.1.1 c),
+            O.compMap (XG c) (YG c) (XG c) (i'.1.1 c) (i.2.1.1 c),
+            \ z -> PL.trans (XG c).car ((i.2.1.1 c).1 ((i'.1.1 c).1 ((i'.2.1.1 c).1 ((i.1.1 c).1 z)))) ((i.2.1.1 c).1 ((i.1.1 c).1 z)) z
+              (PL.ap (YG c).car (XG c).car (i.2.1.1 c).1 ((i'.1.1 c).1 ((i'.2.1.1 c).1 ((i.1.1 c).1 z))) ((i.1.1 c).1 z)
+                (pa Y Y (O.compS Y X Y i'.2.1 i'.1) (O.idS Y) i'.2.2.2 c ((i.1.1 c).1 z)))
+              (pa X X (O.compS X Y X i.1 i.2.1) (O.idS X) i.2.2.1 c z),
+            \ z -> PL.trans (XG c).car ((i'.2.1.1 c).1 ((i.1.1 c).1 ((i.2.1.1 c).1 ((i'.1.1 c).1 z)))) ((i'.2.1.1 c).1 ((i'.1.1 c).1 z)) z
+              (PL.ap (YG c).car (XG c).car (i'.2.1.1 c).1 ((i.1.1 c).1 ((i.2.1.1 c).1 ((i'.1.1 c).1 z))) ((i'.1.1 c).1 z)
+                (pa Y Y (O.compS Y X Y i.2.1 i.1) (O.idS Y) i.2.2.2 c ((i'.1.1 c).1 z)))
+              (pa X X (O.compS X Y X i'.1 i'.2.1) (O.idS X) i'.2.2.1 c z)].result x))) ;
+  -- the rest of an isomorphism is determined by its first component
+  rest-prop (S : O.Mor X Y) : PL.isProp ((T : O.Mor Y X) *
+      (Id (O.Mor X X) (O.compS X Y X S T) (O.idS X) * Id (O.Mor Y Y) (O.compS Y X Y T S) (O.idS Y))) = \ a b ->
+    PL.Sigma-eq (O.Mor Y X) (\ T -> Id (O.Mor X X) (O.compS X Y X S T) (O.idS X) * Id (O.Mor Y Y) (O.compS Y X Y T S) (O.idS Y))
+      a.1 b.1 a.2 b.2
+      (O.mor-eq Y X a.1 b.1 (\ c y ->
+        PL.trans (XG c).car ((a.1.1 c).1 y) ((a.1.1 c).1 ((S.1 c).1 ((b.1.1 c).1 y))) ((b.1.1 c).1 y)
+          (PL.ap (YG c).car (XG c).car (a.1.1 c).1 y ((S.1 c).1 ((b.1.1 c).1 y))
+            (PL.sym (YG c).car ((S.1 c).1 ((b.1.1 c).1 y)) y (pa Y Y (O.compS Y X Y b.1 S) (O.idS Y) b.2.2 c y)))
+          (pa X X (O.compS X Y X S a.1) (O.idS X) a.2.1 c ((b.1.1 c).1 y))))
+      (PL.isProp-Sigma (Id (O.Mor X X) (O.compS X Y X S b.1) (O.idS X)) (\ _ -> Id (O.Mor Y Y) (O.compS Y X Y b.1 S) (O.idS Y))
+        (StabFin[l].mor-set C X X (O.compS X Y X S b.1) (O.idS X)) (\ _ -> StabFin[l].mor-set C Y Y (O.compS Y X Y b.1 S) (O.idS Y))) ;
+  isoM-prop : PL.isProp IsoM = \ i i' ->
+    PL.Sigma-eq (O.Mor X Y) (\ S -> (T : O.Mor Y X) *
+        (Id (O.Mor X X) (O.compS X Y X S T) (O.idS X) * Id (O.Mor Y Y) (O.compS Y X Y T S) (O.idS Y)))
+      i.1 i'.1 i.2 i'.2 (uniqS i i') (rest-prop i'.1) ;
+  -- natural isomorphisms on the finite objects are isomorphisms
+  toIso (n : L.FinNI) : IsoM =
+    (L.Extend[n].m,(L.Extend[n].mi,
+      (O.mor-eq X X (O.compS X Y X L.Extend[n].m L.Extend[n].mi) (O.idS X) (\ c x -> L.Extend[n].invL c x),
+       O.mor-eq Y Y (O.compS Y X Y L.Extend[n].mi L.Extend[n].m) (O.idS Y) (\ c y -> L.Extend[n].invR c y)))) ;
+  fromIso (i : IsoM) : L.FinNI =
+    (\ c -> (((i.1.1 c).1,PL.qinv (XG c).car (YG c).car (i.1.1 c).1 (i.2.1.1 c).1
+        (\ y -> pa Y Y (O.compS Y X Y i.2.1 i.1) (O.idS Y) i.2.2.2 c y)
+        (\ x -> pa X X (O.compS X Y X i.1 i.2.1) (O.idS X) i.2.2.1 c x)),(i.1.1 c).2),
+     i.1.2.1) ;
+  -- the finite natural isomorphisms form a proposition
+  niProp : PL.isProp L.FinNI = \ n n' ->
+    PL.Sigma-eq L.FI (\ e -> L.NatF e) n.1 n'.1 n.2 n'.2
+      (HL.funext C.Fin (\ c -> LU.LOIso (XG c) (YG c)) n.1 n'.1 (\ c ->
+        FLS.isoEq (XG c) (YG c) (n.1 c) (n'.1 c) (\ y ->
+          PL.ap (O.Mor X Y) (YG c).car (\ N -> (N.1 c).1 y) (toIso n).1 (toIso n').1 (uniqS (toIso n) (toIso n')))))
+      (L.natF-prop n'.1) ;
+  finIso : Equiv L.FinNI IsoM =
+    (toIso,qinv L.FinNI IsoM toIso fromIso (\ i -> isoM-prop (toIso (fromIso i)) i) (\ n -> niProp (fromIso (toIso n)) n)) ;
+  -- univalence and gauntness
+  univalent : Equiv (Id SF0.SF[C] X Y) IsoM =
+    EH.then (Id SF0.SF[C] X Y) L.FinNI IsoM (EH.then (Id SF0.SF[C] X Y) (L.U1.NI Y) L.FinNI L.idNI L.niFin) finIso ;
+  id-prop : isProp (Id SF0.SF[C] X Y) =
+    retract-prop (Id SF0.SF[C] X Y) IsoM univalent.1 univalent.2.sec (sec-ret (Id SF0.SF[C] X Y) IsoM univalent.1 univalent.2) isoM-prop ;
+} ;
+
+-- every automorphism of such a functor is the identity
+gaunt (C : CE.CE) (X : SF0.SF[C]) (wx : (c : C.Fin) -> LW.WF (X.G (C.fin c))) (i : G[C,X,X,wx].IsoM) :
+    Id (SF0.Over[C].Mor X X) i.1 (SF0.Over[C].idS X) =
+  G[C,X,X,wx].uniqS i (SF0.Over[C].idS X,(SF0.Over[C].idS X,
+    (SF0.Over[C].id-l X X (SF0.Over[C].idS X),SF0.Over[C].id-l X X (SF0.Over[C].idS X)))) ;
+
+-- dilators: a univalent gaunt category
+dilIso (X Y : SF0.SF[LOCat[l].ce]) (dx : LW.IsDil X) :
+    Equiv (Id SF0.SF[LOCat[l].ce] X Y) G[LOCat[l].ce,X,Y,\ c -> dx (LOCat[l].ord c) (DS.wf-ord c)].IsoM =
+  G[LOCat[l].ce,X,Y,\ c -> dx (LOCat[l].ord c) (DS.wf-ord c)].univalent ;
