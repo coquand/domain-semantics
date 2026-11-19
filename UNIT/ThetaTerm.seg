@@ -1,0 +1,120 @@
+-- Freund's Bachmann-Howard collapse theta D of a pre-dilator D on LO:
+-- terms and their comparison (PLAN-THETA.md).
+--
+-- th n z a  = theta(sigma), sigma in D(theta D) given by the list a of its
+--             n arguments (increasing) and z in D([n]); nl / cs: lists.
+-- cmp s t, for s = th n z a, t = th m z' b (Freund):
+--   lt  if s <= b_j for some j;
+--   gt  else, if a_i >= t for some i;
+--   else compare D(u) z and D(u') z' in D([len u]), where (u, u') are the
+--   words of the merge of a and b.
+-- Defined by recursion on s (R s: the comparison with s, and the list of
+-- comparisons of the elements of a list), with an inner recursion on t
+-- (cmpIn: the comparison and the list of comparisons with the elements).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module SF = StabFun[l] ;
+module PL = Prelude[l] ;
+module LC = LOCat[l] ;
+module FO = FinOrd[l] ;
+module FOE = FinOrdEx[l] ;
+
+leB : W.O3 -> W.Bool = split { lt -> true ; eq -> true ; gt -> false } ;
+geB : W.O3 -> W.Bool = split { lt -> false ; eq -> true ; gt -> true } ;
+anyB (f : W.O3 -> W.Bool) : W.List W.O3 -> W.Bool = split { nilL -> false ; consL c cs | r -> W.orB (f c) r } ;
+sel3 : W.Bool -> W.Bool -> W.O3 -> W.O3 = split {
+  true -> \ b c -> lt ;
+  false -> split { true -> \ c -> gt ; false -> \ c -> c } } ;
+
+lenF0 (X : U l) : W.List X -> W.N = split { nilL -> zero ; consL x xs | r -> suc r } ;
+P20 : U l = W.Wd * W.Wd ;
+stp0 : W.O3 -> P20 -> P20 -> P20 -> P20 = split {
+  lt -> \ p q r -> (i p.1,o p.2) ;
+  eq -> \ p q r -> (i q.1,i q.2) ;
+  gt -> \ p q r -> (o r.1,i r.2) } ;
+
+module Th (D : SF.SF[LC.ce]) {
+  DG (n : W.N) : DP.LO = D.G (LC.ord n) ;
+  data Tm : U l = th (n : W.N) (z : (DG n).car) (as : Tm) | nl | cs (t : Tm) (r : Tm) ;
+  CF : U l = Tm -> W.O3 ;
+  elems : Tm -> W.List Tm = split { th n z a -> nilL ; nl -> nilL ; cs t r | rt rr -> consL t rr } ;
+  lenF (X : U l) (xs : W.List X) : W.N = lenF0 X xs ;
+  mapF (fs : W.List CF) (t : Tm) : W.List W.O3 = W.map CF W.O3 (\ f -> f t) fs ;
+
+  -- the words of a merge, comparing with the given functions
+  P2 : U l = P20 ;
+  stp (c : W.O3) (p q r : P2) : P2 = stp0 c p q r ;
+  mWc (f : CF) (fs : W.List CF) (rec : W.List Tm -> P2) : W.List Tm -> P2 = split {
+    nilL -> (W.idW (suc (lenF CF fs)),W.zeros (suc (lenF CF fs))) ;
+    consL b bs | r' -> stp (f b) (rec (consL b bs)) (rec bs) r' } ;
+  mW : W.List CF -> W.List Tm -> P2 = split {
+    nilL -> \ bs -> (W.zeros (lenF Tm bs),W.idW (lenF Tm bs)) ;
+    consL f fs | r -> mWc f fs r } ;
+
+  -- comparing D(u) z and D(u') z' (when the words fit)
+  cmpAtP (n n' : W.N) (z : (DG n).car) (z' : (DG n').car) (u u' : W.Wd)
+    (e1 : Id W.N (W.ones u) n) (e2 : Id W.N (W.ones u') n') (e3 : Id W.N (W.len u') (W.len u)) : W.O3 =
+    (DG (W.len u)).cmp ((D.arr (LC.ord n) (LC.ord (W.len u)) (FOE.arr n (W.len u) (u,(refl (W.len u),e1)))).1 z)
+      ((D.arr (LC.ord n') (LC.ord (W.len u)) (FOE.arr n' (W.len u) (u',(e3,e2)))).1 z') ;
+  cmpAtD (n n' : W.N) (z : (DG n).car) (z' : (DG n').car) (u u' : W.Wd) :
+      W.Or (Id W.N (W.ones u) n) (Id W.N (W.ones u) n -> W.Empty) ->
+      W.Or (Id W.N (W.ones u') n') (Id W.N (W.ones u') n' -> W.Empty) ->
+      W.Or (Id W.N (W.len u') (W.len u)) (Id W.N (W.len u') (W.len u) -> W.Empty) -> W.O3 = split {
+    inl e1 -> split {
+      inl e2 -> split { inl e3 -> cmpAtP n n' z z' u u' e1 e2 e3 ; inr k -> eq } ;
+      inr k -> \ d3 -> eq } ;
+    inr k -> \ d2 d3 -> eq } ;
+  cmpAt (n n' : W.N) (z : (DG n).car) (z' : (DG n').car) (uw : P2) : W.O3 =
+    cmpAtD n n' z z' uw.1 uw.2 (W.decN (W.ones uw.1) n) (W.decN (W.ones uw.2) n') (W.decN (W.len uw.2) (W.len uw.1)) ;
+
+  -- the comparison
+  cmpIn (n : W.N) (z : (DG n).car) (a : Tm) (ias : W.List CF) : Tm -> W.O3 * W.List W.O3 = split {
+    th m z' b | rb -> (sel3 (anyB leB rb.2) (anyB geB (mapF ias (th m z' b))) (cmpAt n m z z' (mW ias (elems b))),nilL) ;
+    nl -> (eq,nilL) ;
+    cs x r | rx rr -> (eq,consL rx.1 rr.2) } ;
+  R : Tm -> (Tm -> W.O3 * W.List W.O3) * W.List CF = split {
+    th n z a | ra -> (cmpIn n z a ra.2,nilL) ;
+    nl -> (\ t -> (eq,nilL),nilL) ;
+    cs t r | rt rr -> (\ x -> (eq,nilL),consL (\ x -> (rt.1 x).1) rr.2) } ;
+  cmp (s t : Tm) : W.O3 = ((R s).1 t).1 ;
+
+  -- unfolding: the element comparisons are the comparisons with the elements
+  cmpL (s : Tm) : CF = \ t -> cmp s t ;
+  R2 : (a : Tm) -> Id (W.List CF) (R a).2 (W.map Tm CF cmpL (elems a)) = split {
+    th n z a -> refl nilL ;
+    nl -> refl nilL ;
+    cs t r | rt rr -> PL.ap (W.List CF) (W.List CF) (\ k -> consL (cmpL t) k) (R r).2 (W.map Tm CF cmpL (elems r)) rr } ;
+  In2 (n : W.N) (z : (DG n).car) (a : Tm) (ias : W.List CF) :
+      (b : Tm) -> Id (W.List W.O3) (cmpIn n z a ias b).2 (W.map Tm W.O3 (\ x -> (cmpIn n z a ias x).1) (elems b)) = split {
+    th m z' b -> refl nilL ;
+    nl -> refl nilL ;
+    cs x r | rx rr -> PL.ap (W.List W.O3) (W.List W.O3) (\ k -> consL (cmpIn n z a ias x).1 k)
+      (cmpIn n z a ias r).2 (W.map Tm W.O3 (\ y -> (cmpIn n z a ias y).1) (elems r)) rr } ;
+  -- Freund's clauses
+  G3 (n : W.N) (z : (DG n).car) (m : W.N) (z' : (DG m).car) (b : Tm) (x : W.List W.O3) (k : W.List CF) : W.O3 =
+    sel3 (anyB leB x) (anyB geB (mapF k (th m z' b))) (cmpAt n m z z' (mW k (elems b))) ;
+  cmpTh (n : W.N) (z : (DG n).car) (a : Tm) (m : W.N) (z' : (DG m).car) (b : Tm) :
+      Id W.O3 (cmp (th n z a) (th m z' b))
+        (sel3 (anyB leB (W.map Tm W.O3 (cmpL (th n z a)) (elems b)))
+              (anyB geB (W.map Tm W.O3 (\ x -> cmp x (th m z' b)) (elems a)))
+              (cmpAt n m z z' (mW (W.map Tm CF cmpL (elems a)) (elems b)))) =
+    PL.trans W.O3 (cmp (th n z a) (th m z' b)) (G3 n z m z' b (W.map Tm W.O3 (cmpL (th n z a)) (elems b)) (R a).2)
+        (sel3 (anyB leB (W.map Tm W.O3 (cmpL (th n z a)) (elems b)))
+              (anyB geB (W.map Tm W.O3 (\ x -> cmp x (th m z' b)) (elems a)))
+              (cmpAt n m z z' (mW (W.map Tm CF cmpL (elems a)) (elems b))))
+      (PL.ap (W.List W.O3) W.O3 (\ x -> G3 n z m z' b x (R a).2) (cmpIn n z a (R a).2 b).2 (W.map Tm W.O3 (cmpL (th n z a)) (elems b))
+        (In2 n z a (R a).2 b))
+      (PL.trans W.O3 (G3 n z m z' b (W.map Tm W.O3 (cmpL (th n z a)) (elems b)) (R a).2)
+          (G3 n z m z' b (W.map Tm W.O3 (cmpL (th n z a)) (elems b)) (W.map Tm CF cmpL (elems a)))
+          (sel3 (anyB leB (W.map Tm W.O3 (cmpL (th n z a)) (elems b)))
+                (anyB geB (W.map Tm W.O3 (\ x -> cmp x (th m z' b)) (elems a)))
+                (cmpAt n m z z' (mW (W.map Tm CF cmpL (elems a)) (elems b))))
+        (PL.ap (W.List CF) W.O3 (\ k -> G3 n z m z' b (W.map Tm W.O3 (cmpL (th n z a)) (elems b)) k) (R a).2 (W.map Tm CF cmpL (elems a)) (R2 a))
+        (PL.ap (W.List W.O3) W.O3
+          (\ y -> sel3 (anyB leB (W.map Tm W.O3 (cmpL (th n z a)) (elems b))) (anyB geB y)
+                     (cmpAt n m z z' (mW (W.map Tm CF cmpL (elems a)) (elems b))))
+          (mapF (W.map Tm CF cmpL (elems a)) (th m z' b)) (W.map Tm W.O3 (\ x -> cmp x (th m z' b)) (elems a))
+          (W.map-comp Tm CF W.O3 cmpL (\ f -> f (th m z' b)) (elems a)))) ;
+} ;

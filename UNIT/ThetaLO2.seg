@@ -1,0 +1,266 @@
+-- theta D: the linear-order laws by induction on the height (PLAN-THETA.md,
+-- T2b).  Part A: heights, the laws Lk k at level k, normal forms are
+-- propositions, and the linear order LO k of normal theta terms of height
+-- <= k (given Lk k).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CF = CatEmbFin[l] ;
+module SF = StabFun[l] ;
+module PL = Prelude[l] ;
+module SAm = StabAmal[l] ;
+module LC = LOCat[l] ;
+module FOE = FinOrdEx[l] ;
+module GR = Girard[l] ;
+module LT = LabTree[l] ;
+module TT = ThetaTerm[l] ;
+module TL = ThetaLO[l] ;
+module DLO = DilLO[l] ;
+module FE = Axioms[l].FunExtLemmas[fe @l] ;
+
+maxN : W.N -> W.N -> W.N = split {
+  zero -> \ m -> m ;
+  suc n | r -> split { zero -> suc n ; suc m -> suc (r m) } } ;
+leMaxL : (x y k : W.N) -> Id W.Bool (GR.leN (maxN x y) k) true -> Id W.Bool (GR.leN x k) true = split {
+  zero -> \ y k h -> refl true ;
+  suc x | r -> split {
+    zero -> \ k h -> h ;
+    suc y -> split {
+      zero -> \ h -> W.ltN-zero-abs (Id W.Bool (GR.leN (suc x) zero) true) (maxN x y) h ;
+      suc k -> \ h -> r y k h } } } ;
+leMaxR : (x y k : W.N) -> Id W.Bool (GR.leN (maxN x y) k) true -> Id W.Bool (GR.leN y k) true = split {
+  zero -> \ y k h -> h ;
+  suc x | r -> split {
+    zero -> \ k h -> refl true ;
+    suc y -> split {
+      zero -> \ h -> W.ltN-zero-abs (Id W.Bool (GR.leN (suc y) zero) true) (maxN x y) h ;
+      suc k -> \ h -> r y k h } } } ;
+prodProp (A B : U l) (pA : PL.isProp A) (pB : PL.isProp B) : PL.isProp (A * B) = PL.isProp-Sigma A (\ x -> B) pA (\ x -> pB) ;
+unitProp : PL.isProp W.Unit = \ u v -> LT.unitEq u v ;
+
+module L2 (D : SF.SF[LC.ce]) {
+  module T = TT.Th[D] ;
+  module L = TL.ThL[D] ;
+  Tm : U l = T.Tm ;
+  cmp (s t : Tm) : W.O3 = T.cmp s t ;
+  DG (n : W.N) : DP.LO = T.DG n ;
+  hgt : Tm -> W.N = split { th n z a | ra -> suc ra ; nl -> zero ; cs t r | rt rr -> maxN rt rr } ;
+  LeK (t : Tm) (k : W.N) : U l = Id W.Bool (GR.leN (hgt t) k) true ;
+  Good (k : W.N) (t : Tm) : U l = L.NF t * (Id W.Bool (L.isTh t) true * LeK t k) ;
+  TrK (k : W.N) : U l = (s t r : Tm) -> Good k s -> Good k t -> Good k r ->
+    Id W.O3 (cmp s t) lt -> Id W.O3 (cmp t r) lt -> Id W.O3 (cmp s r) lt ;
+  FlK (k : W.N) : U l = (s t : Tm) -> Good k s -> Good k t -> Id W.O3 (cmp t s) (W.flip (cmp s t)) ;
+  RfK (k : W.N) : U l = (s : Tm) -> Good k s -> Id W.O3 (cmp s s) eq ;
+  Lk (k : W.N) : U l = TrK k * (FlK k * RfK k) ;
+
+  -- normality is a proposition
+  sP (n M m : W.N) (f : DP.Map (LC.ord n) (LC.ord M)) (g : DP.Map (LC.ord m) (LC.ord M)) (p : (LC.ord n).car) :
+      PL.isProp ((q : (LC.ord m).car) * Id (LC.ord M).car (f.1 p) (g.1 q)) = \ u v ->
+    PL.Sigma-eq (LC.ord m).car (\ q -> Id (LC.ord M).car (f.1 p) (g.1 q)) u.1 v.1 u.2 v.2
+      (DP.map-inj (LC.ord m) (LC.ord M) g u.1 v.1 (PL.trans (LC.ord M).car (g.1 u.1) (f.1 p) (g.1 v.1) (PL.sym (LC.ord M).car (f.1 p) (g.1 u.1) u.2) v.2))
+      (PF.lo-set (LC.ord M) (f.1 p) (g.1 v.1)) ;
+  Q7 (n : W.N) (z : (DG n).car) (M m : W.N) (f : DP.Map (LC.ord n) (LC.ord M)) (g : DP.Map (LC.ord m) (LC.ord M)) (w : (DG m).car) : U l =
+    Id (DG M).car ((D.arr (LC.ord n) (LC.ord M) f).1 z) ((D.arr (LC.ord m) (LC.ord M) g).1 w) ->
+    (p : (LC.ord n).car) -> (q : (LC.ord m).car) * Id (LC.ord M).car (f.1 p) (g.1 q) ;
+  q7P (n : W.N) (z : (DG n).car) (M m : W.N) (f : DP.Map (LC.ord n) (LC.ord M)) (g : DP.Map (LC.ord m) (LC.ord M)) (w : (DG m).car) :
+      PL.isProp (Q7 n z M m f g w) =
+    FE.isProp-Pi (Id (DG M).car ((D.arr (LC.ord n) (LC.ord M) f).1 z) ((D.arr (LC.ord m) (LC.ord M) g).1 w))
+      (\ h -> (p : (LC.ord n).car) -> (q : (LC.ord m).car) * Id (LC.ord M).car (f.1 p) (g.1 q))
+      (\ h -> FE.isProp-Pi (LC.ord n).car (\ p -> (q : (LC.ord m).car) * Id (LC.ord M).car (f.1 p) (g.1 q)) (\ p -> sP n M m f g p)) ;
+  nzProp (n : W.N) (z : (DG n).car) : PL.isProp (L.NZ n z) =
+    FE.isProp-Pi W.N (\ M -> (m : W.N) (f : DP.Map (LC.ord n) (LC.ord M)) (g : DP.Map (LC.ord m) (LC.ord M)) (w : (DG m).car) -> Q7 n z M m f g w)
+      (\ M -> FE.isProp-Pi W.N (\ m -> (f : DP.Map (LC.ord n) (LC.ord M)) (g : DP.Map (LC.ord m) (LC.ord M)) (w : (DG m).car) -> Q7 n z M m f g w)
+        (\ m -> FE.isProp-Pi (DP.Map (LC.ord n) (LC.ord M)) (\ f -> (g : DP.Map (LC.ord m) (LC.ord M)) (w : (DG m).car) -> Q7 n z M m f g w)
+          (\ f -> FE.isProp-Pi (DP.Map (LC.ord m) (LC.ord M)) (\ g -> (w : (DG m).car) -> Q7 n z M m f g w)
+            (\ g -> FE.isProp-Pi (DG m).car (\ w -> Q7 n z M m f g w) (\ w -> q7P n z M m f g w))))) ;
+  nfZProp : (t : Tm) -> PL.isProp (L.nfZ t) = split {
+    th n z a | ra -> prodProp (L.NZ n z) (L.nfZ a) (nzProp n z) ra ;
+    nl -> unitProp ;
+    cs t r | rt rr -> prodProp (L.nfZ t) (L.nfZ r) rt rr } ;
+  goodProp (k : W.N) (t : Tm) : PL.isProp (Good k t) =
+    prodProp (L.NF t) (Id W.Bool (L.isTh t) true * LeK t k)
+      (prodProp (Id W.Bool (L.nfB t) true) (L.nfZ t) (W.HB.uip (L.nfB t) true) (nfZProp t))
+      (prodProp (Id W.Bool (L.isTh t) true) (LeK t k) (W.HB.uip (L.isTh t) true) (W.HB.uip (GR.leN (hgt t) k) true)) ;
+
+  -- the linear order of the normal theta terms of height <= k
+  Car (k : W.N) : U l = (t : Tm) * Good k t ;
+  module LO (k : W.N) (lk : Lk k) {
+    ceqC (p q : Car k) (h : Id W.O3 (cmp p.1 q.1) eq) : Id (Car k) p q =
+      PL.Sigma-eq Tm (Good k) p.1 q.1 p.2 q.2 (L.ceq p.1 q.1 p.2.1 q.2.1 p.2.2.1 q.2.2.1 h) (goodProp k q.1) ;
+    lo : DP.LO = new DP.LO[car := Car k, cmp := \ p q -> cmp p.1 q.1, ceq := ceqC,
+      crefl := \ p -> lk.2.2 p.1 p.2, cflip := \ p q -> lk.2.1 p.1 q.1 p.2 q.2,
+      ctrans := \ p q r -> lk.1 p.1 q.1 r.1 p.2 q.2 r.2] ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- Part B: arguments as sorted lists in LO k, and the semantic lemma
+  module SemK (k : W.N) (lk : Lk k) {
+    X : DP.LO = LO[k,lk].lo ;
+    module LX = W.LinOrd[X.car,X.cmp,X.ceq,X.cflip,X.ctrans] ;
+    module S = DLO.DilOf[W.interp pId].Lst[X] ;
+    LL : U l = W.List X.car ;
+    -- lifting a normal list of height <= k
+    liftL : (a : Tm) -> L.NF a -> LeK a k -> LL = split {
+      th n z b -> \ na ha -> nilL ;
+      nl -> \ na ha -> nilL ;
+      cs x r | rx rr -> \ na ha -> consL (x,((L.nfCs x r na).2.1,((L.nfCs x r na).1,leMaxL (hgt x) (hgt r) k ha)))
+        (rr (L.nfCs x r na).2.2 (leMaxR (hgt x) (hgt r) k ha)) } ;
+    lenLift : (a : Tm) (na : L.NF a) (ha : LeK a k) -> Id W.N (LX.lenL (liftL a na ha)) (L.lenT a) = split {
+      th n z b -> \ na ha -> refl zero ;
+      nl -> \ na ha -> refl zero ;
+      cs x r | rx rr -> \ na ha -> W.sucEq (LX.lenL (liftL r (L.nfCs x r na).2.2 (leMaxR (hgt x) (hgt r) k ha))) (L.lenT r)
+        (rr (L.nfCs x r na).2.2 (leMaxR (hgt x) (hgt r) k ha)) } ;
+    -- adjacent sortedness gives sortedness
+    hdAll (x : X.car) : (r : Tm) (nr : L.NF r) (hr : LeK r k) -> Id W.Bool (L.hdLt x.1 r) true ->
+        Id W.Bool (LX.sortedB (liftL r nr hr)) true -> Id W.Bool (LX.allGt x (liftL r nr hr)) true = split {
+      th n z b -> \ nr hr h s -> refl true ;
+      nl -> \ nr hr h s -> refl true ;
+      cs y r' -> \ nr hr h s -> W.andB-intro (LX.ltX x (y,((L.nfCs y r' nr).2.1,((L.nfCs y r' nr).1,leMaxL (hgt y) (hgt r') k hr)))) (LX.allGt x (liftL r' (L.nfCs y r' nr).2.2 (leMaxR (hgt y) (hgt r') k hr)))
+        h
+        (LX.allGt-trans x (y,((L.nfCs y r' nr).2.1,((L.nfCs y r' nr).1,leMaxL (hgt y) (hgt r') k hr))) h
+          (liftL r' (L.nfCs y r' nr).2.2 (leMaxR (hgt y) (hgt r') k hr))
+          (W.andB-l (LX.allGt (y,((L.nfCs y r' nr).2.1,((L.nfCs y r' nr).1,leMaxL (hgt y) (hgt r') k hr))) (liftL r' (L.nfCs y r' nr).2.2 (leMaxR (hgt y) (hgt r') k hr)))
+            (LX.sortedB (liftL r' (L.nfCs y r' nr).2.2 (leMaxR (hgt y) (hgt r') k hr))) s)) } ;
+    srtLift : (a : Tm) (na : L.NF a) (ha : LeK a k) -> Id W.Bool (L.srt a) true -> Id W.Bool (LX.sortedB (liftL a na ha)) true = split {
+      th n z b -> \ na ha h -> refl true ;
+      nl -> \ na ha h -> refl true ;
+      cs x r | rx rr -> \ na ha h ->
+        W.andB-intro (LX.allGt (x,((L.nfCs x r na).2.1,((L.nfCs x r na).1,leMaxL (hgt x) (hgt r) k ha))) (liftL r (L.nfCs x r na).2.2 (leMaxR (hgt x) (hgt r) k ha)))
+          (LX.sortedB (liftL r (L.nfCs x r na).2.2 (leMaxR (hgt x) (hgt r) k ha)))
+          (hdAll (x,((L.nfCs x r na).2.1,((L.nfCs x r na).1,leMaxL (hgt x) (hgt r) k ha))) r (L.nfCs x r na).2.2 (leMaxR (hgt x) (hgt r) k ha)
+            (W.andB-l (L.hdLt x r) (L.srt r) h)
+            (rr (L.nfCs x r na).2.2 (leMaxR (hgt x) (hgt r) k ha) (W.andB-r (L.hdLt x r) (L.srt r) h)))
+          (rr (L.nfCs x r na).2.2 (leMaxR (hgt x) (hgt r) k ha) (W.andB-r (L.hdLt x r) (L.srt r) h)) } ;
+    -- the merge words are those of LinOrd's merge of the lifted lists
+    Wds (cv : LX.Cv) : T.P2 = (cv.2.1,cv.2.2) ;
+    stpW (x y : X.car) : (c : W.O3) (p q r : T.P2) (m1 m2 m3 : LX.Cv) ->
+        Id T.P2 p (Wds m1) -> Id T.P2 q (Wds m2) -> Id T.P2 r (Wds m3) ->
+        Id T.P2 (T.stp c p q r) (Wds (LX.stepM x y m1 m2 m3 c)) = split {
+      lt -> \ p q r m1 m2 m3 hp hq hr -> PL.ap T.P2 T.P2 (\ v -> (i v.1,o v.2)) p (Wds m1) hp ;
+      eq -> \ p q r m1 m2 m3 hp hq hr -> PL.ap T.P2 T.P2 (\ v -> (i v.1,i v.2)) q (Wds m2) hq ;
+      gt -> \ p q r m1 m2 m3 hp hq hr -> PL.ap T.P2 T.P2 (\ v -> (o v.1,i v.2)) r (Wds m3) hr } ;
+    fsOf (a : Tm) : W.List T.CF = W.map Tm T.CF T.cmpL (T.elems a) ;
+    MWT (a : Tm) (na : L.NF a) (ha : LeK a k) : U l =
+      (b : Tm) (nb : L.NF b) (hb : LeK b k) -> Id T.P2 (T.mW (fsOf a) (T.elems b)) (Wds (LX.merge (liftL a na ha) (liftL b nb hb))) ;
+    mwNil (b : Tm) (nb : L.NF b) (hb : LeK b k) : Id T.P2 (T.mW nilL (T.elems b)) (Wds (LX.merge nilL (liftL b nb hb))) =
+      PL.ap W.N T.P2 (\ q -> (W.zeros q,W.idW q)) (L.lenT b) (LX.lenL (liftL b nb hb)) (PL.sym W.N (LX.lenL (liftL b nb hb)) (L.lenT b) (lenLift b nb hb)) ;
+    module MWc (x : Tm) (r : Tm) (na : L.NF (cs x r)) (ha : LeK (cs x r) k) (ih : MWT r (L.nfCs x r na).2.2 (leMaxR (hgt x) (hgt r) k ha)) {
+      nr : L.NF r = (L.nfCs x r na).2.2 ;
+      hr : LeK r k = leMaxR (hgt x) (hgt r) k ha ;
+      X0 : X.car = (x,((L.nfCs x r na).2.1,((L.nfCs x r na).1,leMaxL (hgt x) (hgt r) k ha))) ;
+      A0 : LL = liftL r nr hr ;
+      lf : Id W.N (L.LF (fsOf r)) (LX.lenL A0) =
+        PL.trans W.N (L.LF (fsOf r)) (L.lenT r) (LX.lenL A0) (L.lenMap T.cmpL (T.elems r)) (PL.sym W.N (LX.lenL A0) (L.lenT r) (lenLift r nr hr)) ;
+      inner : (b : Tm) (nb : L.NF b) (hb : LeK b k) ->
+          Id T.P2 (T.mWc (T.cmpL x) (fsOf r) (T.mW (fsOf r)) (T.elems b)) (Wds (LX.merge (consL X0 A0) (liftL b nb hb))) = split {
+        th n z c -> \ nb hb -> PL.ap W.N T.P2 (\ q -> (W.idW (suc q),W.zeros (suc q))) (L.LF (fsOf r)) (LX.lenL A0) lf ;
+        nl -> \ nb hb -> PL.ap W.N T.P2 (\ q -> (W.idW (suc q),W.zeros (suc q))) (L.LF (fsOf r)) (LX.lenL A0) lf ;
+        cs y r' | ry rr' -> \ nb hb ->
+          stpW X0 (y,((L.nfCs y r' nb).2.1,((L.nfCs y r' nb).1,leMaxL (hgt y) (hgt r') k hb))) (cmp x y)
+            (T.mW (fsOf r) (T.elems (cs y r'))) (T.mW (fsOf r) (T.elems r')) (T.mWc (T.cmpL x) (fsOf r) (T.mW (fsOf r)) (T.elems r'))
+            (LX.merge A0 (liftL (cs y r') nb hb)) (LX.merge A0 (liftL r' (L.nfCs y r' nb).2.2 (leMaxR (hgt y) (hgt r') k hb)))
+            (LX.merge (consL X0 A0) (liftL r' (L.nfCs y r' nb).2.2 (leMaxR (hgt y) (hgt r') k hb)))
+            (ih (cs y r') nb hb)
+            (ih r' (L.nfCs y r' nb).2.2 (leMaxR (hgt y) (hgt r') k hb))
+            (rr' (L.nfCs y r' nb).2.2 (leMaxR (hgt y) (hgt r') k hb)) } ;
+    } ;
+    mWL : (a : Tm) (na : L.NF a) (ha : LeK a k) -> MWT a na ha = split {
+      th n z c -> \ na ha b nb hb -> mwNil b nb hb ;
+      nl -> \ na ha b nb hb -> mwNil b nb hb ;
+      cs x r | rx rr -> \ na ha -> MWc[x,r,na,ha,rr (L.nfCs x r na).2.2 (leMaxR (hgt x) (hgt r) k ha)].inner } ;
+
+    -- the k-th element of a sublist
+    nthIrr (c : LL) (q : W.N) (h h' : CF.Lt q (LX.lenL c)) : Id X.car (S.nthP c q h) (S.nthP c q h') =
+      PL.ap (CF.Lt q (LX.lenL c)) X.car (S.nthP c q) h h' (W.HB.uip (W.ltN q (LX.lenL c)) true h h') ;
+    nthC : (c : LL) (v : W.Wd) -> Id W.N (W.len v) (LX.lenL c) -> (q : W.N) (hk : CF.Lt q (LX.lenL (LX.compL c v))) (hk' : CF.Lt (W.sel v q) (LX.lenL c)) ->
+        Id X.car (S.nthP (LX.compL c v) q hk) (S.nthP c (W.sel v q) hk') = split {
+      nilL -> \ v hv q hk hk' -> W.ltN-zero-abs (Id X.car (S.nthP (LX.compL nilL v) q hk) (S.nthP nilL (W.sel v q) hk')) q hk ;
+      consL x c | r -> split {
+        nil -> \ hv q hk hk' -> W.absurdN (Id X.car (S.nthP (LX.compL (consL x c) nil) q hk) (S.nthP (consL x c) (W.sel nil q) hk')) (LX.lenL c) hv ;
+        o v -> \ hv q hk hk' -> r v (W.sucInj (W.len v) (LX.lenL c) hv) q hk hk' ;
+        i v -> \ hv -> split {
+          zero -> \ hk hk' -> refl x ;
+          suc q -> \ hk hk' -> r v (W.sucInj (W.len v) (LX.lenL c) hv) q hk hk' } } } ;
+    -- the map of a sorted list
+    mapOf (xs : LL) (N0 : W.N) (e : Id W.N (LX.lenL xs) N0) (sx : Id W.Bool (LX.sortedB xs) true) : DP.Map (LC.ord N0) X =
+      (\ p -> S.nthP xs p.1 (PL.subst W.N (\ q -> CF.Lt p.1 q) N0 (LX.lenL xs) (PL.sym W.N (LX.lenL xs) N0 e) p.2),
+       \ p p' -> S.nth-mono xs sx p.1 p'.1
+         (PL.subst W.N (\ q -> CF.Lt p.1 q) N0 (LX.lenL xs) (PL.sym W.N (LX.lenL xs) N0 e) p.2)
+         (PL.subst W.N (\ q -> CF.Lt p'.1 q) N0 (LX.lenL xs) (PL.sym W.N (LX.lenL xs) N0 e) p'.2)) ;
+    -- elements of a sublist, through an equation
+    nthS (c : LL) (v : W.Wd) (hv : Id W.N (W.len v) (LX.lenL c)) (A' : LL) (e : Id LL (LX.compL c v) A') (q : W.N)
+      (h : CF.Lt q (LX.lenL A')) (h' : CF.Lt (W.sel v q) (LX.lenL c)) : Id X.car (S.nthP A' q h) (S.nthP c (W.sel v q) h') =
+      idJ LL (LX.compL c v) (\ A1 e1 -> (h1 : CF.Lt q (LX.lenL A1)) -> Id X.car (S.nthP A1 q h1) (S.nthP c (W.sel v q) h'))
+        (\ h1 -> nthC c v hv q h1 h') A' e h ;
+    -- the image of a theta term of height <= k+1 in D(LO k)
+    module Img (n : W.N) (z : (DG n).car) (a : Tm) (g : Good (suc k) (th n z a)) {
+      module S1 = L.NTh[n,z,a,g.1] ;
+      ha : LeK a k = g.2.2 ;
+      nfa : L.NF a = S1.nfa ;
+      A : LL = liftL a nfa ha ;
+      sA : Id W.Bool (LX.sortedB A) true = srtLift a nfa ha S1.srtA ;
+      eA : Id W.N (LX.lenL A) n = PL.trans W.N (LX.lenL A) (L.lenT a) n (lenLift a nfa ha) S1.len ;
+      iota : DP.Map (LC.ord n) X = mapOf A n eA sA ;
+      img : (D.G X).car = (D.arr (LC.ord n) X iota).1 z ;
+    } ;
+    -- the semantic lemma: the D-part comparison is the comparison of the images
+    module SemL (n : W.N) (z : (DG n).car) (a : Tm) (ga : Good (suc k) (th n z a))
+      (m : W.N) (w : (DG m).car) (b : Tm) (gb : Good (suc k) (th m w b)) {
+      module I1 = Img[n,z,a,ga] ;
+      module I2 = Img[m,w,b,gb] ;
+      cv : LX.Cv = LX.merge I1.A I2.A ;
+      cov : LX.Cov I1.A I2.A cv = LX.mergeOK I1.A I2.A I1.sA I2.sA ;
+      u : W.Wd = cv.2.1 ;
+      u' : W.Wd = cv.2.2 ;
+      C : LL = cv.1 ;
+      wE : Id T.P2 (T.mW (fsOf a) (T.elems b)) (u,u') = mWL a I1.nfa I1.ha b I2.nfa I2.ha ;
+      e1 : Id W.N (W.ones u) n = PL.trans W.N (W.ones u) (LX.lenL I1.A) n (LX.onesOver C u I1.A (LX.mOver1 I1.A I2.A cv cov)) I1.eA ;
+      e2 : Id W.N (W.ones u') m = PL.trans W.N (W.ones u') (LX.lenL I2.A) m (LX.onesOver C u' I2.A (LX.mOver2 I1.A I2.A cv cov)) I2.eA ;
+      e3 : Id W.N (W.len u') (W.len u) = PL.trans W.N (W.len u') (LX.lenL C) (W.len u) cov.2.1 (PL.sym W.N (W.len u) (LX.lenL C) cov.1) ;
+      iC : DP.Map (LC.ord (W.len u)) X = mapOf C (W.len u) (PL.sym W.N (W.len u) (LX.lenL C) cov.1) cov.2.2.2.2.1 ;
+      fu : DP.Map (LC.ord n) (LC.ord (W.len u)) = L.fM n u e1 ;
+      gu : DP.Map (LC.ord m) (LC.ord (W.len u)) = L.gM m u u' e2 e3 ;
+      mA : Id (DP.Map (LC.ord n) X) (LC.compMap (LC.ord n) (LC.ord (W.len u)) X fu iC) I1.iota =
+        LC.map-eq (LC.ord n) X (LC.compMap (LC.ord n) (LC.ord (W.len u)) X fu iC) I1.iota (\ p ->
+          PL.sym X.car (I1.iota.1 p) (iC.1 (fu.1 p))
+            (nthS C u cov.1 I1.A cov.2.2.1 p.1
+              (PL.subst W.N (\ q -> CF.Lt p.1 q) n (LX.lenL I1.A) (PL.sym W.N (LX.lenL I1.A) n I1.eA) p.2)
+              (PL.subst W.N (\ q -> CF.Lt (fu.1 p).1 q) (W.len u) (LX.lenL C) (PL.sym W.N (LX.lenL C) (W.len u) (PL.sym W.N (W.len u) (LX.lenL C) cov.1)) (fu.1 p).2))) ;
+      mB : Id (DP.Map (LC.ord m) X) (LC.compMap (LC.ord m) (LC.ord (W.len u)) X gu iC) I2.iota =
+        LC.map-eq (LC.ord m) X (LC.compMap (LC.ord m) (LC.ord (W.len u)) X gu iC) I2.iota (\ p ->
+          PL.sym X.car (I2.iota.1 p) (iC.1 (gu.1 p))
+            (nthS C u' cov.2.1 I2.A cov.2.2.2.1 p.1
+              (PL.subst W.N (\ q -> CF.Lt p.1 q) m (LX.lenL I2.A) (PL.sym W.N (LX.lenL I2.A) m I2.eA) p.2)
+              (PL.subst W.N (\ q -> CF.Lt (gu.1 p).1 q) (W.len u) (LX.lenL C) (PL.sym W.N (LX.lenL C) (W.len u) (PL.sym W.N (W.len u) (LX.lenL C) cov.1)) (gu.1 p).2))) ;
+      DX : DP.LO = D.G X ;
+      imA : Id DX.car ((D.arr (LC.ord (W.len u)) X iC).1 ((D.arr (LC.ord n) (LC.ord (W.len u)) fu).1 z)) I1.img =
+        PL.trans DX.car ((D.arr (LC.ord (W.len u)) X iC).1 ((D.arr (LC.ord n) (LC.ord (W.len u)) fu).1 z))
+          ((D.arr (LC.ord n) X (LC.compMap (LC.ord n) (LC.ord (W.len u)) X fu iC)).1 z) I1.img
+          (D.arr-comp (LC.ord n) (LC.ord (W.len u)) X fu iC z)
+          (PL.ap (DP.Map (LC.ord n) X) DX.car (\ h -> (D.arr (LC.ord n) X h).1 z) (LC.compMap (LC.ord n) (LC.ord (W.len u)) X fu iC) I1.iota mA) ;
+      imB : Id DX.car ((D.arr (LC.ord (W.len u)) X iC).1 ((D.arr (LC.ord m) (LC.ord (W.len u)) gu).1 w)) I2.img =
+        PL.trans DX.car ((D.arr (LC.ord (W.len u)) X iC).1 ((D.arr (LC.ord m) (LC.ord (W.len u)) gu).1 w))
+          ((D.arr (LC.ord m) X (LC.compMap (LC.ord m) (LC.ord (W.len u)) X gu iC)).1 w) I2.img
+          (D.arr-comp (LC.ord m) (LC.ord (W.len u)) X gu iC w)
+          (PL.ap (DP.Map (LC.ord m) X) DX.car (\ h -> (D.arr (LC.ord m) X h).1 w) (LC.compMap (LC.ord m) (LC.ord (W.len u)) X gu iC) I2.iota mB) ;
+      result : Id W.O3 (T.cmpAt n m z w (T.mW (fsOf a) (T.elems b))) (DX.cmp I1.img I2.img) =
+        PL.trans W.O3 (T.cmpAt n m z w (T.mW (fsOf a) (T.elems b))) (T.cmpAt n m z w (u,u')) (DX.cmp I1.img I2.img)
+          (PL.ap T.P2 W.O3 (T.cmpAt n m z w) (T.mW (fsOf a) (T.elems b)) (u,u') wE)
+          (PL.trans W.O3 (T.cmpAt n m z w (u,u')) (T.cmpAtP n m z w u u' e1 e2 e3) (DX.cmp I1.img I2.img)
+            (L.cAeval n m z w (u,u') e1 e2 e3)
+            (PL.trans W.O3 (T.cmpAtP n m z w u u' e1 e2 e3)
+                (DX.cmp ((D.arr (LC.ord (W.len u)) X iC).1 ((D.arr (LC.ord n) (LC.ord (W.len u)) fu).1 z))
+                        ((D.arr (LC.ord (W.len u)) X iC).1 ((D.arr (LC.ord m) (LC.ord (W.len u)) gu).1 w)))
+                (DX.cmp I1.img I2.img)
+              (PL.sym W.O3 (DX.cmp ((D.arr (LC.ord (W.len u)) X iC).1 ((D.arr (LC.ord n) (LC.ord (W.len u)) fu).1 z))
+                        ((D.arr (LC.ord (W.len u)) X iC).1 ((D.arr (LC.ord m) (LC.ord (W.len u)) gu).1 w)))
+                (T.cmpAtP n m z w u u' e1 e2 e3)
+                ((D.arr (LC.ord (W.len u)) X iC).2 ((D.arr (LC.ord n) (LC.ord (W.len u)) fu).1 z) ((D.arr (LC.ord m) (LC.ord (W.len u)) gu).1 w)))
+              (W.ap2 DX.car DX.car W.O3 DX.cmp
+                ((D.arr (LC.ord (W.len u)) X iC).1 ((D.arr (LC.ord n) (LC.ord (W.len u)) fu).1 z)) I1.img
+                ((D.arr (LC.ord (W.len u)) X iC).1 ((D.arr (LC.ord m) (LC.ord (W.len u)) gu).1 w)) I2.img imA imB))) ;
+    } ;
+  } ;
+} ;

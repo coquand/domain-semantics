@@ -737,3 +737,11 @@ Marcone-Montalban; Rathjen-Thomson Thm 12.2 in schutte.pdf).
 All.seg 25,488, check.py exit 0 (18.6 s).
 NEXT (ideas): phi X 0 (ATR0), Gamma_X; or eps_X as a fixed point of
 X |-> omega^X inside the hierarchy.
+
+### Bachmann-Howard collapse theta as a type-2 ptyx DONE (2026-11-19)
+See PLAN-THETA.md.  ThetaTerm/ThetaLO/ThetaLO2/ThetaLO3/ThetaFun/ThetaWF/
+ThetaFun2.seg: for every pre-dilator D on LO, theta D (Freund's terms
+theta(a, z)) is a decidable linear order; D |-> theta D is a stable functor
+on Stab(LO) (thetaP : SF[C2]); and thetaP-ptyx : IsPtyx thetaP, i.e. theta D
+is well-founded for every dilator D -- constructively; classically
+equivalent to Pi^1_1-CA0 (Freund).  All.seg 26,337, check.py exit 0.

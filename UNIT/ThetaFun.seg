@@ -1,0 +1,237 @@
+-- theta as a functor on Stab(LO) (PLAN-THETA.md, T3), part 1: the action
+-- of a morphism S : D -> D' of Stab(LO) on terms (rename the trace points
+-- z |-> S_n z), which preserves the order (naturality of S on the
+-- D-parts, induction elsewhere) and normal forms (normality of trace
+-- points is carried by the cartesian property of S).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module SF = StabFun[l] ;
+module PL = Prelude[l] ;
+module LC = LOCat[l] ;
+module GR = Girard[l] ;
+module LT = LabTree[l] ;
+module KT = KBTree[l] ;
+module TT = ThetaTerm[l] ;
+module TL = ThetaLO[l] ;
+module T2 = ThetaLO2[l] ;
+module T3 = ThetaLO3[l] ;
+module O = SF.Over[LC.ce] ;
+
+module TF (D D' : SF.SF[LC.ce]) (S : O.Mor D D') {
+  module T = TT.Th[D] ;
+  module T' = TT.Th[D'] ;
+  module L = TL.ThL[D] ;
+  module L' = TL.ThL[D'] ;
+  Tm : U l = T.Tm ;
+  Tm' : U l = T'.Tm ;
+  sz (n : W.N) (z : (T.DG n).car) : (T'.DG n).car = (S.1 n).1 z ;
+  rn : Tm -> Tm' = split {
+    th n z a | ra -> th n (sz n z) ra ;
+    nl -> nl ;
+    cs x r | rx rr -> cs rx rr } ;
+  elemsRn : (a : Tm) -> Id (W.List Tm') (T'.elems (rn a)) (W.map Tm Tm' rn (T.elems a)) = split {
+    th n z a -> refl nilL ;
+    nl -> refl nilL ;
+    cs x r | rx rr -> PL.ap (W.List Tm') (W.List Tm') (\ k -> consL (rn x) k) (T'.elems (rn r)) (W.map Tm Tm' rn (T.elems r)) rr } ;
+  lenMapT (Y : U l) (h : Tm -> Y) : (xs : W.List Tm) -> Id W.N (T.lenF Y (W.map Tm Y h xs)) (T.lenF Tm xs) = split {
+    nilL -> refl zero ;
+    consL x xs | r -> W.sucEq (T.lenF Y (W.map Tm Y h xs)) (T.lenF Tm xs) r } ;
+  isThRn : (t : Tm) -> Id W.Bool (L'.isTh (rn t)) (L.isTh t) = split {
+    th n z a -> refl true ; nl -> refl false ; cs x r -> refl false } ;
+  isListRn : (t : Tm) -> Id W.Bool (L'.isList (rn t)) (L.isList t) = split {
+    th n z a -> refl false ; nl -> refl true ; cs x r | rx rr -> rr } ;
+  lenTRn (a : Tm) : Id W.N (L'.lenT (rn a)) (L.lenT a) =
+    PL.trans W.N (L'.lenT (rn a)) (T'.lenF Tm' (W.map Tm Tm' rn (T.elems a))) (L.lenT a)
+      (PL.ap (W.List Tm') W.N (T'.lenF Tm') (T'.elems (rn a)) (W.map Tm Tm' rn (T.elems a)) (elemsRn a))
+      (lenMapT Tm' rn (T.elems a)) ;
+  -- map extensionality on the elements of a list
+  mapExtM (Y : U l) (h k : Tm -> Y) : (xs : W.List Tm) -> ((x : Tm) -> LT.memG Tm x xs -> Id Y (h x) (k x)) ->
+      Id (W.List Y) (W.map Tm Y h xs) (W.map Tm Y k xs) = split {
+    nilL -> \ e -> refl nilL ;
+    consL x xs | r -> \ e -> W.ap2 Y (W.List Y) (W.List Y) (\ u v -> consL u v) (h x) (k x) (W.map Tm Y h xs) (W.map Tm Y k xs)
+      (e x (inl (refl x))) (r (\ y m -> e y (inr m))) } ;
+
+  -- the D-part is invariant (naturality of S)
+  cAP (n m : W.N) (z : (T.DG n).car) (w : (T.DG m).car) (u u' : W.Wd)
+    (e1 : Id W.N (W.ones u) n) (e2 : Id W.N (W.ones u') m) (e3 : Id W.N (W.len u') (W.len u)) :
+      Id W.O3 (T'.cmpAtP n m (sz n z) (sz m w) u u' e1 e2 e3) (T.cmpAtP n m z w u u' e1 e2 e3) =
+    PL.trans W.O3 (T'.cmpAtP n m (sz n z) (sz m w) u u' e1 e2 e3)
+        ((T'.DG (W.len u)).cmp ((S.1 (W.len u)).1 ((D.arr (LC.ord n) (LC.ord (W.len u)) (L.fM n u e1)).1 z))
+                               ((S.1 (W.len u)).1 ((D.arr (LC.ord m) (LC.ord (W.len u)) (L.gM m u u' e2 e3)).1 w)))
+        (T.cmpAtP n m z w u u' e1 e2 e3)
+      (W.ap2 (T'.DG (W.len u)).car (T'.DG (W.len u)).car W.O3 (T'.DG (W.len u)).cmp
+        ((D'.arr (LC.ord n) (LC.ord (W.len u)) (L.fM n u e1)).1 (sz n z)) ((S.1 (W.len u)).1 ((D.arr (LC.ord n) (LC.ord (W.len u)) (L.fM n u e1)).1 z))
+        ((D'.arr (LC.ord m) (LC.ord (W.len u)) (L.gM m u u' e2 e3)).1 (sz m w)) ((S.1 (W.len u)).1 ((D.arr (LC.ord m) (LC.ord (W.len u)) (L.gM m u u' e2 e3)).1 w))
+        (S.2.1 n (W.len u) (L.fM n u e1) z) (S.2.1 m (W.len u) (L.gM m u u' e2 e3) w))
+      ((S.1 (W.len u)).2 ((D.arr (LC.ord n) (LC.ord (W.len u)) (L.fM n u e1)).1 z) ((D.arr (LC.ord m) (LC.ord (W.len u)) (L.gM m u u' e2 e3)).1 w)) ;
+  cAD (n m : W.N) (z : (T.DG n).car) (w : (T.DG m).car) (u u' : W.Wd) :
+      (d1 : W.Or (Id W.N (W.ones u) n) (Id W.N (W.ones u) n -> W.Empty))
+      (d2 : W.Or (Id W.N (W.ones u') m) (Id W.N (W.ones u') m -> W.Empty))
+      (d3 : W.Or (Id W.N (W.len u') (W.len u)) (Id W.N (W.len u') (W.len u) -> W.Empty)) ->
+      Id W.O3 (T'.cmpAtD n m (sz n z) (sz m w) u u' d1 d2 d3) (T.cmpAtD n m z w u u' d1 d2 d3) = split {
+    inl e1 -> split {
+      inl e2 -> split { inl e3 -> cAP n m z w u u' e1 e2 e3 ; inr k -> refl eq } ;
+      inr k -> \ d3 -> refl eq } ;
+    inr k -> \ d2 d3 -> refl eq } ;
+  cAinv (n m : W.N) (z : (T.DG n).car) (w : (T.DG m).car) (uw : T.P2) : Id W.O3 (T'.cmpAt n m (sz n z) (sz m w) uw) (T.cmpAt n m z w uw) =
+    cAD n m z w uw.1 uw.2 (W.decN (W.ones uw.1) n) (W.decN (W.ones uw.2) m) (W.decN (W.len uw.2) (W.len uw.1)) ;
+
+  -- the merge words are invariant
+  P2 : U l = T.P2 ;
+  stpEq (c c' : W.O3) (ec : Id W.O3 c c') (p q r p' q' r' : P2) (ep : Id P2 p p') (eq0 : Id P2 q q') (er : Id P2 r r') :
+      Id P2 (T'.stp c p q r) (T.stp c' p' q' r') =
+    idJ W.O3 c (\ c1 e1 -> Id P2 (T'.stp c p q r) (T.stp c1 p' q' r'))
+      (idJ P2 p (\ p1 e -> Id P2 (T'.stp c p q r) (T.stp c p1 q' r'))
+        (idJ P2 q (\ q1 e -> Id P2 (T'.stp c p q r) (T.stp c p q1 r'))
+          (idJ P2 r (\ r1 e -> Id P2 (T'.stp c p q r) (T.stp c p q r1)) (refl (T.stp c p q r)) r' er) q' eq0) p' ep) c' ec ;
+  HypW (xs ys : W.List Tm) : U l = (x : Tm) -> LT.memG Tm x xs -> (y : Tm) -> LT.memG Tm y ys -> Id W.O3 (T'.cmp (rn x) (rn y)) (T.cmp x y) ;
+  fs' (xs : W.List Tm) : W.List T'.CF = W.map Tm' T'.CF T'.cmpL (W.map Tm Tm' rn xs) ;
+  module MWI (x : Tm) (xs : W.List Tm)
+    (ih : (ys : W.List Tm) -> HypW xs ys -> Id P2 (T'.mW (fs' xs) (W.map Tm Tm' rn ys)) (T.mW (W.map Tm T.CF T.cmpL xs) ys)) {
+    inner : (ys : W.List Tm) -> HypW (consL x xs) ys ->
+        Id P2 (T'.mWc (T'.cmpL (rn x)) (fs' xs) (T'.mW (fs' xs)) (W.map Tm Tm' rn ys)) (T.mWc (T.cmpL x) (W.map Tm T.CF T.cmpL xs) (T.mW (W.map Tm T.CF T.cmpL xs)) ys) = split {
+      nilL -> \ h -> PL.ap W.N P2 (\ q -> (W.idW (suc q),W.zeros (suc q))) (T'.lenF T'.CF (fs' xs)) (T.lenF T.CF (W.map Tm T.CF T.cmpL xs))
+        (PL.trans W.N (T'.lenF T'.CF (fs' xs)) (T.lenF Tm xs) (T.lenF T.CF (W.map Tm T.CF T.cmpL xs))
+          (PL.trans W.N (T'.lenF T'.CF (fs' xs)) (T'.lenF Tm' (W.map Tm Tm' rn xs)) (T.lenF Tm xs)
+            (L'.lenMap T'.cmpL (W.map Tm Tm' rn xs)) (lenMapT Tm' rn xs))
+          (PL.sym W.N (T.lenF T.CF (W.map Tm T.CF T.cmpL xs)) (T.lenF Tm xs) (lenMapT T.CF T.cmpL xs))) ;
+      consL y ys | r' -> \ h -> stpEq (T'.cmp (rn x) (rn y)) (T.cmp x y) (h x (inl (refl x)) y (inl (refl y)))
+        (T'.mW (fs' xs) (W.map Tm Tm' rn (consL y ys))) (T'.mW (fs' xs) (W.map Tm Tm' rn ys))
+        (T'.mWc (T'.cmpL (rn x)) (fs' xs) (T'.mW (fs' xs)) (W.map Tm Tm' rn ys))
+        (T.mW (W.map Tm T.CF T.cmpL xs) (consL y ys)) (T.mW (W.map Tm T.CF T.cmpL xs) ys)
+        (T.mWc (T.cmpL x) (W.map Tm T.CF T.cmpL xs) (T.mW (W.map Tm T.CF T.cmpL xs)) ys)
+        (ih (consL y ys) (\ x' mx y' my -> h x' (inr mx) y' my))
+        (ih ys (\ x' mx y' my -> h x' (inr mx) y' (inr my)))
+        (r' (\ x' mx y' my -> h x' mx y' (inr my))) } ;
+  } ;
+  mWinv : (xs ys : W.List Tm) -> HypW xs ys -> Id P2 (T'.mW (fs' xs) (W.map Tm Tm' rn ys)) (T.mW (W.map Tm T.CF T.cmpL xs) ys) = split {
+    nilL -> \ ys h -> PL.ap W.N P2 (\ q -> (W.zeros q,W.idW q)) (T'.lenF Tm' (W.map Tm Tm' rn ys)) (T.lenF Tm ys) (lenMapT Tm' rn ys) ;
+    consL x xs | r -> MWI[x,xs,r].inner } ;
+
+  -- the order is preserved
+  CMP (s t : Tm) : U l = Id W.O3 (T'.cmp (rn s) (rn t)) (T.cmp s t) ;
+  MSc : Tm -> U l = split { th n z a -> (t : Tm) -> CMP (th n z a) t ; nl -> W.Unit ; cs x r | rx rr -> rx * rr } ;
+  thSc : (x : Tm) -> MSc x -> (t : Tm) -> CMP x t = split {
+    th n z a -> \ ms -> ms ;
+    nl -> \ ms t -> refl eq ;
+    cs y r -> \ ms t -> refl eq } ;
+  gSc : (a : Tm) -> MSc a -> (x : Tm) -> LT.memG Tm x (T.elems a) -> (t : Tm) -> CMP x t = split {
+    th n z a -> \ ms x mx -> CF.efq ((t : Tm) -> CMP x t) mx ;
+    nl -> \ ms x mx -> CF.efq ((t : Tm) -> CMP x t) mx ;
+    cs x' r' | rx rr' -> \ ms x mx -> CF.or-elim (Id Tm x' x) (LT.memG Tm x (T.elems r')) ((t : Tm) -> CMP x t)
+      (\ e -> PL.subst Tm (\ u -> (t : Tm) -> CMP u t) x' x e (thSc x' ms.1))
+      (\ m' -> rr' ms.2 x m') mx } ;
+  module Cr (n : W.N) (z : (T.DG n).car) (a : Tm) (ihS : MSc a) {
+    s0 : Tm = th n z a ;
+    MTc : Tm -> U l = split { th m w b -> CMP s0 (th m w b) ; nl -> W.Unit ; cs y r | ry rr -> ry * rr } ;
+    thTc : (y : Tm) -> MTc y -> CMP s0 y = split {
+      th m w b -> \ mt -> mt ;
+      nl -> \ mt -> refl eq ;
+      cs y r -> \ mt -> refl eq } ;
+    gTc : (b : Tm) -> MTc b -> (y : Tm) -> LT.memG Tm y (T.elems b) -> CMP s0 y = split {
+      th m w b -> \ mt y my -> CF.efq (CMP s0 y) my ;
+      nl -> \ mt y my -> CF.efq (CMP s0 y) my ;
+      cs y' r' | ry rr' -> \ mt y my -> CF.or-elim (Id Tm y' y) (LT.memG Tm y (T.elems r')) (CMP s0 y)
+        (\ e -> PL.subst Tm (CMP s0) y' y e (thTc y' mt.1))
+        (\ m' -> rr' mt.2 y m') my } ;
+    G3 (m : W.N) (w : (T.DG m).car) (b : Tm) (x y : W.Bool) (d : W.O3) : W.O3 = TT.sel3 x y d ;
+    core (m : W.N) (w : (T.DG m).car) (b : Tm) (ihT : MTc b) : CMP s0 (th m w b) =
+      PL.trans W.O3 (T'.cmp (rn s0) (rn (th m w b))) (TT.sel3 (TT.anyB TT.leB (W.map Tm' W.O3 (T'.cmpL (rn s0)) (T'.elems (rn b)))) (TT.anyB TT.geB (W.map Tm' W.O3 (\ x -> T'.cmp x (rn (th m w b))) (T'.elems (rn a)))) (T'.cmpAt n m (sz n z) (sz m w) (T'.mW (W.map Tm' T'.CF T'.cmpL (T'.elems (rn a))) (T'.elems (rn b))))) (T.cmp s0 (th m w b))
+        (T'.cmpTh n (sz n z) (rn a) m (sz m w) (rn b))
+        (PL.trans W.O3 (TT.sel3 (TT.anyB TT.leB (W.map Tm' W.O3 (T'.cmpL (rn s0)) (T'.elems (rn b)))) (TT.anyB TT.geB (W.map Tm' W.O3 (\ x -> T'.cmp x (rn (th m w b))) (T'.elems (rn a)))) (T'.cmpAt n m (sz n z) (sz m w) (T'.mW (W.map Tm' T'.CF T'.cmpL (T'.elems (rn a))) (T'.elems (rn b))))) (TT.sel3 (TT.anyB TT.leB (W.map Tm W.O3 (T.cmpL s0) (T.elems b))) (TT.anyB TT.geB (W.map Tm W.O3 (\ x -> T.cmp x (th m w b)) (T.elems a))) (T'.cmpAt n m (sz n z) (sz m w) (T'.mW (W.map Tm' T'.CF T'.cmpL (T'.elems (rn a))) (T'.elems (rn b))))) (T.cmp s0 (th m w b))
+          (W.ap2 W.Bool W.Bool W.O3 (\ x y -> TT.sel3 x y (T'.cmpAt n m (sz n z) (sz m w) (T'.mW (W.map Tm' T'.CF T'.cmpL (T'.elems (rn a))) (T'.elems (rn b)))))
+              (TT.anyB TT.leB (W.map Tm' W.O3 (T'.cmpL (rn s0)) (T'.elems (rn b)))) (TT.anyB TT.leB (W.map Tm W.O3 (T.cmpL s0) (T.elems b)))
+              (TT.anyB TT.geB (W.map Tm' W.O3 (\ x -> T'.cmp x (rn (th m w b))) (T'.elems (rn a)))) (TT.anyB TT.geB (W.map Tm W.O3 (\ x -> T.cmp x (th m w b)) (T.elems a)))
+            (PL.ap (W.List W.O3) W.Bool (TT.anyB TT.leB) (W.map Tm' W.O3 (T'.cmpL (rn s0)) (T'.elems (rn b))) (W.map Tm W.O3 (T.cmpL s0) (T.elems b))
+              (PL.trans (W.List W.O3) (W.map Tm' W.O3 (T'.cmpL (rn s0)) (T'.elems (rn b))) (W.map Tm' W.O3 (T'.cmpL (rn s0)) (W.map Tm Tm' rn (T.elems b)))
+                  (W.map Tm W.O3 (T.cmpL s0) (T.elems b))
+                (PL.ap (W.List Tm') (W.List W.O3) (W.map Tm' W.O3 (T'.cmpL (rn s0))) (T'.elems (rn b)) (W.map Tm Tm' rn (T.elems b)) (elemsRn b))
+                (PL.trans (W.List W.O3) (W.map Tm' W.O3 (T'.cmpL (rn s0)) (W.map Tm Tm' rn (T.elems b))) (W.map Tm W.O3 (\ y -> T'.cmp (rn s0) (rn y)) (T.elems b))
+                    (W.map Tm W.O3 (T.cmpL s0) (T.elems b))
+                  (W.map-comp Tm Tm' W.O3 rn (T'.cmpL (rn s0)) (T.elems b))
+                  (mapExtM W.O3 (\ y -> T'.cmp (rn s0) (rn y)) (T.cmpL s0) (T.elems b) (\ y my -> gTc b ihT y my)))))
+            (PL.ap (W.List W.O3) W.Bool (TT.anyB TT.geB) (W.map Tm' W.O3 (\ x -> T'.cmp x (rn (th m w b))) (T'.elems (rn a))) (W.map Tm W.O3 (\ x -> T.cmp x (th m w b)) (T.elems a))
+              (PL.trans (W.List W.O3) (W.map Tm' W.O3 (\ x -> T'.cmp x (rn (th m w b))) (T'.elems (rn a))) (W.map Tm' W.O3 (\ x -> T'.cmp x (rn (th m w b))) (W.map Tm Tm' rn (T.elems a)))
+                  (W.map Tm W.O3 (\ x -> T.cmp x (th m w b)) (T.elems a))
+                (PL.ap (W.List Tm') (W.List W.O3) (W.map Tm' W.O3 (\ x -> T'.cmp x (rn (th m w b)))) (T'.elems (rn a)) (W.map Tm Tm' rn (T.elems a)) (elemsRn a))
+                (PL.trans (W.List W.O3) (W.map Tm' W.O3 (\ x -> T'.cmp x (rn (th m w b))) (W.map Tm Tm' rn (T.elems a))) (W.map Tm W.O3 (\ x -> T'.cmp (rn x) (rn (th m w b))) (T.elems a))
+                    (W.map Tm W.O3 (\ x -> T.cmp x (th m w b)) (T.elems a))
+                  (W.map-comp Tm Tm' W.O3 rn (\ x -> T'.cmp x (rn (th m w b))) (T.elems a))
+                  (mapExtM W.O3 (\ x -> T'.cmp (rn x) (rn (th m w b))) (\ x -> T.cmp x (th m w b)) (T.elems a) (\ x mx -> gSc a ihS x mx (th m w b)))))))
+          (PL.trans W.O3 (TT.sel3 (TT.anyB TT.leB (W.map Tm W.O3 (T.cmpL s0) (T.elems b))) (TT.anyB TT.geB (W.map Tm W.O3 (\ x -> T.cmp x (th m w b)) (T.elems a))) (T'.cmpAt n m (sz n z) (sz m w) (T'.mW (W.map Tm' T'.CF T'.cmpL (T'.elems (rn a))) (T'.elems (rn b))))) (TT.sel3 (TT.anyB TT.leB (W.map Tm W.O3 (T.cmpL s0) (T.elems b))) (TT.anyB TT.geB (W.map Tm W.O3 (\ x -> T.cmp x (th m w b)) (T.elems a))) (T.cmpAt n m z w (T.mW (W.map Tm T.CF T.cmpL (T.elems a)) (T.elems b)))) (T.cmp s0 (th m w b))
+          (PL.ap W.O3 W.O3 (\ d -> TT.sel3 (TT.anyB TT.leB (W.map Tm W.O3 (T.cmpL s0) (T.elems b))) (TT.anyB TT.geB (W.map Tm W.O3 (\ x -> T.cmp x (th m w b)) (T.elems a))) d)
+            (T'.cmpAt n m (sz n z) (sz m w) (T'.mW (W.map Tm' T'.CF T'.cmpL (T'.elems (rn a))) (T'.elems (rn b))))
+            (T.cmpAt n m z w (T.mW (W.map Tm T.CF T.cmpL (T.elems a)) (T.elems b)))
+            (PL.trans W.O3 (T'.cmpAt n m (sz n z) (sz m w) (T'.mW (W.map Tm' T'.CF T'.cmpL (T'.elems (rn a))) (T'.elems (rn b))))
+                (T'.cmpAt n m (sz n z) (sz m w) (T.mW (W.map Tm T.CF T.cmpL (T.elems a)) (T.elems b)))
+                (T.cmpAt n m z w (T.mW (W.map Tm T.CF T.cmpL (T.elems a)) (T.elems b)))
+              (PL.ap P2 W.O3 (T'.cmpAt n m (sz n z) (sz m w)) (T'.mW (W.map Tm' T'.CF T'.cmpL (T'.elems (rn a))) (T'.elems (rn b))) (T.mW (W.map Tm T.CF T.cmpL (T.elems a)) (T.elems b))
+                (PL.trans P2 (T'.mW (W.map Tm' T'.CF T'.cmpL (T'.elems (rn a))) (T'.elems (rn b))) (T'.mW (fs' (T.elems a)) (W.map Tm Tm' rn (T.elems b)))
+                    (T.mW (W.map Tm T.CF T.cmpL (T.elems a)) (T.elems b))
+                  (W.ap2 (W.List Tm') (W.List Tm') P2 (\ u v -> T'.mW (W.map Tm' T'.CF T'.cmpL u) v) (T'.elems (rn a)) (W.map Tm Tm' rn (T.elems a))
+                    (T'.elems (rn b)) (W.map Tm Tm' rn (T.elems b)) (elemsRn a) (elemsRn b))
+                  (mWinv (T.elems a) (T.elems b) (\ x mx y my -> gSc a ihS x mx y))))
+              (cAinv n m z w (T.mW (W.map Tm T.CF T.cmpL (T.elems a)) (T.elems b)))))
+          (PL.sym W.O3 (T.cmp s0 (th m w b))
+            (TT.sel3 (TT.anyB TT.leB (W.map Tm W.O3 (T.cmpL s0) (T.elems b)))
+                     (TT.anyB TT.geB (W.map Tm W.O3 (\ x -> T.cmp x (th m w b)) (T.elems a)))
+                     (T.cmpAt n m z w (T.mW (W.map Tm T.CF T.cmpL (T.elems a)) (T.elems b))))
+            (T.cmpTh n z a m w b)))) ;
+    inT : (t : Tm) -> MTc t = split {
+      th m w b | rb -> core m w b rb ;
+      nl -> tt ;
+      cs y r | ry rr -> (ry,rr) } ;
+  } ;
+  inS : (s : Tm) -> MSc s = split {
+    th n z a | ra -> \ t -> Cr[n,z,a,ra].thTc t (Cr[n,z,a,ra].inT t) ;
+    nl -> tt ;
+    cs x r | rx rr -> (rx,rr) } ;
+  rnCmp (s t : Tm) : CMP s t = thSc s (inS s) t ;
+
+  -- normal forms are preserved
+  hdRn (x : Tm) : (r : Tm) -> Id W.Bool (L'.hdLt (rn x) (rn r)) (L.hdLt x r) = split {
+    th n z a -> refl true ;
+    nl -> refl true ;
+    cs y r' -> PL.ap W.O3 W.Bool W.isLt (T'.cmp (rn x) (rn y)) (T.cmp x y) (rnCmp x y) } ;
+  srtRn : (a : Tm) -> Id W.Bool (L'.srt (rn a)) (L.srt a) = split {
+    th n z a -> refl true ;
+    nl -> refl true ;
+    cs x r | rx rr -> W.ap2 W.Bool W.Bool W.Bool W.andB (L'.hdLt (rn x) (rn r)) (L.hdLt x r) (L'.srt (rn r)) (L.srt r) (hdRn x r) rr } ;
+  nfBRn : (t : Tm) -> Id W.Bool (L'.nfB (rn t)) (L.nfB t) = split {
+    th n z a | ra -> W.ap2 W.Bool W.Bool W.Bool W.andB
+      (W.andB (L'.isList (rn a)) (GR.eqN (L'.lenT (rn a)) n)) (W.andB (L.isList a) (GR.eqN (L.lenT a) n))
+      (W.andB (L'.srt (rn a)) (L'.nfB (rn a))) (W.andB (L.srt a) (L.nfB a))
+      (W.ap2 W.Bool W.Bool W.Bool W.andB (L'.isList (rn a)) (L.isList a) (GR.eqN (L'.lenT (rn a)) n) (GR.eqN (L.lenT a) n)
+        (isListRn a) (PL.ap W.N W.Bool (\ q -> GR.eqN q n) (L'.lenT (rn a)) (L.lenT a) (lenTRn a)))
+      (W.ap2 W.Bool W.Bool W.Bool W.andB (L'.srt (rn a)) (L.srt a) (L'.nfB (rn a)) (L.nfB a) (srtRn a) ra) ;
+    nl -> refl true ;
+    cs x r | rx rr -> W.ap2 W.Bool W.Bool W.Bool W.andB (L'.isTh (rn x)) (L.isTh x) (W.andB (L'.nfB (rn x)) (L'.nfB (rn r))) (W.andB (L.nfB x) (L.nfB r))
+      (isThRn x) (W.ap2 W.Bool W.Bool W.Bool W.andB (L'.nfB (rn x)) (L.nfB x) (L'.nfB (rn r)) (L.nfB r) rx rr) } ;
+  -- normality of trace points is carried by the cartesian property
+  module NzS (n : W.N) (z : (T.DG n).car) (nz : L.NZ n z) (M m : W.N) (f : DP.Map (LC.ord n) (LC.ord M)) (g : DP.Map (LC.ord m) (LC.ord M))
+    (w' : (T'.DG m).car) (h : Id (T'.DG M).car ((D'.arr (LC.ord n) (LC.ord M) f).1 (sz n z)) ((D'.arr (LC.ord m) (LC.ord M) g).1 w')) {
+    y : (T.DG M).car = (D.arr (LC.ord n) (LC.ord M) f).1 z ;
+    e0 : Id (T'.DG M).car ((S.1 M).1 y) ((D'.arr (LC.ord m) (LC.ord M) g).1 w') =
+      PL.trans (T'.DG M).car ((S.1 M).1 y) ((D'.arr (LC.ord n) (LC.ord M) f).1 (sz n z)) ((D'.arr (LC.ord m) (LC.ord M) g).1 w')
+        (PL.sym (T'.DG M).car ((D'.arr (LC.ord n) (LC.ord M) f).1 (sz n z)) ((S.1 M).1 y) (S.2.1 n M f z)) h ;
+    im : SF.Im (T.DG m) (T.DG M) (D.arr (LC.ord m) (LC.ord M) g) y =
+      S.2.2 m M g y (w',PL.sym (T'.DG M).car ((S.1 M).1 y) ((D'.arr (LC.ord m) (LC.ord M) g).1 w') e0) ;
+    res : (p : (LC.ord n).car) -> (q : (LC.ord m).car) * Id (LC.ord M).car (f.1 p) (g.1 q) =
+      nz M m f g im.1 (PL.sym (T.DG M).car ((D.arr (LC.ord m) (LC.ord M) g).1 im.1) y im.2) ;
+  } ;
+  nzS (n : W.N) (z : (T.DG n).car) (nz : L.NZ n z) : L'.NZ n (sz n z) = \ M m f g w' h -> NzS[n,z,nz,M,m,f,g,w',h].res ;
+  nfZRn : (t : Tm) -> L.nfZ t -> L'.nfZ (rn t) = split {
+    th n z a | ra -> \ h -> (nzS n z h.1,ra h.2) ;
+    nl -> \ h -> tt ;
+    cs x r | rx rr -> \ h -> (rx h.1,rr h.2) } ;
+  -- the induced map of linear orders theta D -> theta D'
+  module TO = T3.ThetaOrd[D] ;
+  module TO' = T3.ThetaOrd[D'] ;
+  arrF (p : TO.Car) : TO'.Car =
+    (rn p.1,((PL.trans W.Bool (L'.nfB (rn p.1)) (L.nfB p.1) true (nfBRn p.1) p.2.1.1,nfZRn p.1 p.2.1.2),
+      PL.trans W.Bool (L'.isTh (rn p.1)) (L.isTh p.1) true (isThRn p.1) p.2.2)) ;
+  arr : DP.Map TO.lo TO'.lo = (arrF,\ p q -> rnCmp p.1 q.1) ;
+} ;

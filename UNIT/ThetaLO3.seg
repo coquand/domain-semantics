@@ -1,0 +1,435 @@
+-- theta D, part C: from the laws at level k to the laws at level k+1
+-- (PLAN-THETA.md, T2b).  Transitivity by nested structural induction on
+-- the three terms (Freund's case analysis, the D-parts compared in
+-- D(LO k) by the semantic lemma); then flip (consistency: not both
+-- s <= b_j and a_i >= t), then reflexivity.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module SF = StabFun[l] ;
+module PL = Prelude[l] ;
+module SAm = StabAmal[l] ;
+module LC = LOCat[l] ;
+module GR = Girard[l] ;
+module G2 = Girard2[l] ;
+module LT = LabTree[l] ;
+module TT = ThetaTerm[l] ;
+module TL = ThetaLO[l] ;
+module T2 = ThetaLO2[l] ;
+
+-- any over a mapped list
+module Any (X : U l) (f : W.O3 -> W.Bool) (g : X -> W.O3) {
+  A (xs : W.List X) : W.Bool = TT.anyB f (W.map X W.O3 g xs) ;
+  ch (y : X) (ys : W.List X) (r : Id W.Bool (A ys) true -> (x : X) * (LT.memG X x ys * Id W.Bool (f (g x)) true)) :
+      (c : W.Bool) -> Id W.Bool (f (g y)) c -> Id W.Bool (W.orB c (A ys)) true ->
+      (x : X) * (LT.memG X x (consL y ys) * Id W.Bool (f (g x)) true) = split {
+    true -> \ e h -> (y,(inl (refl y),e)) ;
+    false -> \ e h -> ((r h).1,(inr (r h).2.1,(r h).2.2)) } ;
+  orl : (c d : W.Bool) -> Id W.Bool (W.orB c d) false -> Id W.Bool c false = split {
+    false -> \ d h -> refl false ; true -> \ d h -> h } ;
+  orr : (c d : W.Bool) -> Id W.Bool (W.orB c d) false -> Id W.Bool d false = split {
+    false -> \ d h -> h ; true -> \ d h -> W.absurdB (Id W.Bool d false) (PL.sym W.Bool true false h) } ;
+  orT : (c d : W.Bool) -> Id W.Bool d true -> Id W.Bool (W.orB c d) true = split {
+    false -> \ d h -> h ; true -> \ d h -> refl true } ;
+  ex : (xs : W.List X) -> Id W.Bool (A xs) true -> (x : X) * (LT.memG X x xs * Id W.Bool (f (g x)) true) = split {
+    nilL -> \ h -> W.absurdB ((x : X) * (LT.memG X x nilL * Id W.Bool (f (g x)) true)) h ;
+    consL y ys | r -> \ h -> ch y ys r (f (g y)) (refl (f (g y))) h } ;
+  all : (xs : W.List X) -> Id W.Bool (A xs) false -> (x : X) -> LT.memG X x xs -> Id W.Bool (f (g x)) false = split {
+    nilL -> \ h x m -> CF.efq (Id W.Bool (f (g x)) false) m ;
+    consL y ys | r -> \ h x m -> CF.or-elim (Id X y x) (LT.memG X x ys) (Id W.Bool (f (g x)) false)
+      (\ e -> PL.subst X (\ v -> Id W.Bool (f (g v)) false) y x e (orl (f (g y)) (A ys) h))
+      (\ m' -> r (orr (f (g y)) (A ys) h) x m') m } ;
+  intro : (xs : W.List X) (x : X) -> LT.memG X x xs -> Id W.Bool (f (g x)) true -> Id W.Bool (A xs) true = split {
+    nilL -> \ x m h -> CF.efq (Id W.Bool (A nilL) true) m ;
+    consL y ys | r -> \ x m h -> CF.or-elim (Id X y x) (LT.memG X x ys) (Id W.Bool (W.orB (f (g y)) (A ys)) true)
+      (\ e -> PL.trans W.Bool (W.orB (f (g y)) (A ys)) (W.orB true (A ys)) true
+        (PL.ap W.Bool W.Bool (\ c -> W.orB c (A ys)) (f (g y)) true (PL.subst X (\ v -> Id W.Bool (f (g v)) true) x y (PL.sym X y x e) h)) (refl true))
+      (\ m' -> orT (f (g y)) (A ys) (r x m' h)) m } ;
+  -- all false gives false
+  allF : (xs : W.List X) -> ((x : X) -> LT.memG X x xs -> Id W.Bool (f (g x)) false) -> Id W.Bool (A xs) false = split {
+    nilL -> \ h -> refl false ;
+    consL y ys | r -> \ h -> PL.trans W.Bool (W.orB (f (g y)) (A ys)) (W.orB false (A ys)) false
+      (PL.ap W.Bool W.Bool (\ c -> W.orB c (A ys)) (f (g y)) false (h y (inl (refl y)))) (r (\ x m -> h x (inr m))) } ;
+} ;
+-- the value of a Bool, with its equation
+bcase (P : W.Bool -> U l) : (b : W.Bool) -> (Id W.Bool b true -> P true) -> (Id W.Bool b false -> P false) -> P b = split {
+  true -> \ t f -> t (refl true) ; false -> \ t f -> f (refl false) } ;
+
+module L3 (D : SF.SF[LC.ce]) {
+  module T = TT.Th[D] ;
+  module L = TL.ThL[D] ;
+  module M2 = T2.L2[D] ;
+  Tm : U l = T.Tm ;
+  cmp (s t : Tm) : W.O3 = T.cmp s t ;
+  DG (n : W.N) : DP.LO = T.DG n ;
+  Good (k : W.N) (t : Tm) : U l = M2.Good k t ;
+  -- elements of a good list are good
+  elemGood (k : W.N) : (a : Tm) -> L.NF a -> M2.LeK a k -> (x : Tm) -> LT.memG Tm x (T.elems a) -> Good k x = split {
+    th n z b -> \ na ha x m -> CF.efq (Good k x) m ;
+    nl -> \ na ha x m -> CF.efq (Good k x) m ;
+    cs y r | ry rr -> \ na ha x m -> CF.or-elim (Id Tm y x) (LT.memG Tm x (T.elems r)) (Good k x)
+      (\ e -> PL.subst Tm (Good k) y x e ((L.nfCs y r na).2.1,((L.nfCs y r na).1,T2.leMaxL (M2.hgt y) (M2.hgt r) k ha)))
+      (\ m' -> rr (L.nfCs y r na).2.2 (T2.leMaxR (M2.hgt y) (M2.hgt r) k ha) x m') m } ;
+  up (k : W.N) (t : Tm) (g : Good k t) : Good (suc k) t = (g.1,(g.2.1,G2.ltW (M2.hgt t) (suc k) g.2.2)) ;
+  argGood (k : W.N) (n : W.N) (z : (DG n).car) (a : Tm) (g : Good (suc k) (th n z a)) (x : Tm) (m : LT.memG Tm x (T.elems a)) : Good k x =
+    elemGood k a L.NTh[n,z,a,g.1].nfa g.2.2 x m ;
+
+  leCases : (o : W.O3) -> Id W.Bool (TT.leB o) true -> W.Or (Id W.O3 o lt) (Id W.O3 o eq) = split {
+    lt -> \ h -> inl (refl lt) ; eq -> \ h -> inr (refl eq) ;
+    gt -> \ h -> W.absurdB (W.Or (Id W.O3 gt lt) (Id W.O3 gt eq)) h } ;
+  geF : (o : W.O3) -> Id W.Bool (TT.geB o) false -> Id W.O3 o lt = split {
+    lt -> \ h -> refl lt ;
+    eq -> \ h -> W.absurdB (Id W.O3 eq lt) (PL.sym W.Bool true false h) ;
+    gt -> \ h -> W.absurdB (Id W.O3 gt lt) (PL.sym W.Bool true false h) } ;
+  s3fT (G : W.Bool) (d : W.O3) (h : Id W.O3 (TT.sel3 false G d) lt) : Id W.Bool G false =
+    bcase (\ c -> Id W.O3 (TT.sel3 false c d) lt -> Id W.Bool c false) G
+      (\ e h1 -> CF.efq (Id W.Bool true false) (SAm.o3-ne gt lt (refl false) h1)) (\ e h1 -> refl false) h ;
+  s3fD (G : W.Bool) (d : W.O3) (hg : Id W.Bool G false) (h : Id W.O3 (TT.sel3 false G d) lt) : Id W.O3 d lt =
+    PL.subst W.Bool (\ c -> Id W.O3 (TT.sel3 false c d) lt) G false hg h ;
+
+  module Step (k : W.N) (lk : M2.Lk k) {
+    module SK = M2.SemK[k,lk] ;
+    X : DP.LO = SK.X ;
+    DX : DP.LO = D.G X ;
+    G1 (t : Tm) : U l = Good (suc k) t ;
+    IMG (n : W.N) (z : (DG n).car) (a : Tm) (g : G1 (th n z a)) : DX.car = SK.Img[n,z,a,g].img ;
+    Lb (s b : Tm) : W.Bool = TT.anyB TT.leB (W.map Tm W.O3 (T.cmpL s) (T.elems b)) ;
+    Gb (a t : Tm) : W.Bool = TT.anyB TT.geB (W.map Tm W.O3 (\ x -> cmp x t) (T.elems a)) ;
+    cE (n : W.N) (z : (DG n).car) (a : Tm) (ga : G1 (th n z a)) (m : W.N) (w : (DG m).car) (b : Tm) (gb : G1 (th m w b)) :
+        Id W.O3 (cmp (th n z a) (th m w b)) (TT.sel3 (Lb (th n z a) b) (Gb a (th m w b)) (DX.cmp (IMG n z a ga) (IMG m w b gb))) =
+      PL.trans W.O3 (cmp (th n z a) (th m w b))
+          (TT.sel3 (Lb (th n z a) b) (Gb a (th m w b)) (T.cmpAt n m z w (T.mW (W.map Tm T.CF T.cmpL (T.elems a)) (T.elems b))))
+          (TT.sel3 (Lb (th n z a) b) (Gb a (th m w b)) (DX.cmp (IMG n z a ga) (IMG m w b gb)))
+        (T.cmpTh n z a m w b)
+        (PL.ap W.O3 W.O3 (\ d -> TT.sel3 (Lb (th n z a) b) (Gb a (th m w b)) d)
+          (T.cmpAt n m z w (T.mW (W.map Tm T.CF T.cmpL (T.elems a)) (T.elems b))) (DX.cmp (IMG n z a ga) (IMG m w b gb))
+          SK.SemL[n,z,a,ga,m,w,b,gb].result) ;
+    gArg (n : W.N) (z : (DG n).car) (a : Tm) (g : G1 (th n z a)) (x : Tm) (mx : LT.memG Tm x (T.elems a)) : G1 x =
+      up k x (argGood k n z a g x mx) ;
+    isThG (x : Tm) (g : G1 x) : Id W.Bool (L.isTh x) true = g.2.1 ;
+    ceqG (x y : Tm) (gx : G1 x) (gy : G1 y) (e : Id W.O3 (cmp x y) eq) : Id Tm x y = L.ceq x y gx.1 gy.1 gx.2.1 gy.2.1 e ;
+
+    TrP (x y q : Tm) : U l = G1 x -> G1 y -> G1 q -> Id W.O3 (cmp x y) lt -> Id W.O3 (cmp y q) lt -> Id W.O3 (cmp x q) lt ;
+    -- the core step for s = th n z a, t = th m w b, r = th p v c
+    module Core (n : W.N) (z : (DG n).car) (a : Tm) (m : W.N) (w : (DG m).car) (b : Tm) (p : W.N) (v : (DG p).car) (c : Tm)
+      (ihS : (x : Tm) -> LT.memG Tm x (T.elems a) -> (y q : Tm) -> TrP x y q)
+      (ihT : (y : Tm) -> LT.memG Tm y (T.elems b) -> (q : Tm) -> TrP (th n z a) y q)
+      (ihR : (q : Tm) -> LT.memG Tm q (T.elems c) -> TrP (th n z a) (th m w b) q)
+      (gs : G1 (th n z a)) (gt : G1 (th m w b)) (gr : G1 (th p v c))
+      (h1 : Id W.O3 (cmp (th n z a) (th m w b)) lt) (h2 : Id W.O3 (cmp (th m w b) (th p v c)) lt) {
+      s0 : Tm = th n z a ;
+      t0 : Tm = th m w b ;
+      r0 : Tm = th p v c ;
+      Goal : U l = Id W.O3 (cmp s0 r0) lt ;
+      eSR : Id W.O3 (cmp s0 r0) (TT.sel3 (Lb s0 c) (Gb a r0) (DX.cmp (IMG n z a gs) (IMG p v c gr))) = cE n z a gs p v c gr ;
+      h1' : Id W.O3 (TT.sel3 (Lb s0 b) (Gb a t0) (DX.cmp (IMG n z a gs) (IMG m w b gt))) lt =
+        PL.trans W.O3 (TT.sel3 (Lb s0 b) (Gb a t0) (DX.cmp (IMG n z a gs) (IMG m w b gt))) (cmp s0 t0) lt
+          (PL.sym W.O3 (cmp s0 t0) (TT.sel3 (Lb s0 b) (Gb a t0) (DX.cmp (IMG n z a gs) (IMG m w b gt))) (cE n z a gs m w b gt)) h1 ;
+      h2' : Id W.O3 (TT.sel3 (Lb t0 c) (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr))) lt =
+        PL.trans W.O3 (TT.sel3 (Lb t0 c) (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr))) (cmp t0 r0) lt
+          (PL.sym W.O3 (cmp t0 r0) (TT.sel3 (Lb t0 c) (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr))) (cE m w b gt p v c gr)) h2 ;
+      -- s <= some c_k gives s < r
+      viaL (q : Tm) (mq : LT.memG Tm q (T.elems c)) (hq : Id W.O3 (cmp s0 q) lt) : Goal =
+        PL.trans W.O3 (cmp s0 r0) (TT.sel3 true (Gb a r0) (DX.cmp (IMG n z a gs) (IMG p v c gr))) lt
+          (PL.trans W.O3 (cmp s0 r0) (TT.sel3 (Lb s0 c) (Gb a r0) (DX.cmp (IMG n z a gs) (IMG p v c gr)))
+              (TT.sel3 true (Gb a r0) (DX.cmp (IMG n z a gs) (IMG p v c gr))) eSR
+            (PL.ap W.Bool W.O3 (\ x -> TT.sel3 x (Gb a r0) (DX.cmp (IMG n z a gs) (IMG p v c gr))) (Lb s0 c) true
+              (Any[Tm,TT.leB,T.cmpL s0].intro (T.elems c) q mq
+                (PL.ap W.O3 W.Bool TT.leB (cmp s0 q) lt hq))))
+          (refl lt) ;
+      -- case B1: t <= some c_k
+      b1 (ex : (q : Tm) * (LT.memG Tm q (T.elems c) * Id W.Bool (TT.leB (cmp t0 q)) true)) : Goal =
+        CF.or-elim (Id W.O3 (cmp t0 ex.1) lt) (Id W.O3 (cmp t0 ex.1) eq) Goal
+          (\ e -> viaL ex.1 ex.2.1 (ihR ex.1 ex.2.1 gs gt (gArg p v c gr ex.1 ex.2.1) h1 e))
+          (\ e -> viaL ex.1 ex.2.1 (PL.subst Tm (\ u -> Id W.O3 (cmp s0 u) lt) t0 ex.1 (ceqG t0 ex.1 gt (gArg p v c gr ex.1 ex.2.1) e) h1))
+          (leCases (cmp t0 ex.1) ex.2.2) ;
+      -- case B2 with A1: s <= some b_j, and every b_j < r
+      a1 (gtr : Id W.Bool (Gb b r0) false) (ex : (y : Tm) * (LT.memG Tm y (T.elems b) * Id W.Bool (TT.leB (cmp s0 y)) true)) : Goal =
+        CF.or-elim (Id W.O3 (cmp s0 ex.1) lt) (Id W.O3 (cmp s0 ex.1) eq) Goal
+          (\ e -> ihT ex.1 ex.2.1 r0 gs (gArg m w b gt ex.1 ex.2.1) gr e
+             (geF (cmp ex.1 r0) (Any[Tm,TT.geB,\ x -> cmp x r0].all (T.elems b) gtr ex.1 ex.2.1)))
+          (\ e -> PL.subst Tm (\ u -> Id W.O3 (cmp u r0) lt) ex.1 s0 (PL.sym Tm s0 ex.1 (ceqG s0 ex.1 gs (gArg m w b gt ex.1 ex.2.1) e))
+             (geF (cmp ex.1 r0) (Any[Tm,TT.geB,\ x -> cmp x r0].all (T.elems b) gtr ex.1 ex.2.1)))
+          (leCases (cmp s0 ex.1) ex.2.2) ;
+      -- case B2 with A2
+      a2 (gtr : Id W.Bool (Gb b r0) false) (dtr : Id W.O3 (DX.cmp (IMG m w b gt) (IMG p v c gr)) lt)
+        (gst : Id W.Bool (Gb a t0) false) (dst : Id W.O3 (DX.cmp (IMG n z a gs) (IMG m w b gt)) lt) : Goal =
+        bcase (\ x -> Id W.Bool (Lb s0 c) x -> Goal) (Lb s0 c)
+          (\ e0 e -> PL.trans W.O3 (cmp s0 r0) (TT.sel3 true (Gb a r0) (DX.cmp (IMG n z a gs) (IMG p v c gr))) lt
+             (PL.trans W.O3 (cmp s0 r0) (TT.sel3 (Lb s0 c) (Gb a r0) (DX.cmp (IMG n z a gs) (IMG p v c gr)))
+                (TT.sel3 true (Gb a r0) (DX.cmp (IMG n z a gs) (IMG p v c gr))) eSR
+                (PL.ap W.Bool W.O3 (\ x -> TT.sel3 x (Gb a r0) (DX.cmp (IMG n z a gs) (IMG p v c gr))) (Lb s0 c) true e))
+             (refl lt))
+          (\ e0 e -> PL.trans W.O3 (cmp s0 r0) (TT.sel3 false false (DX.cmp (IMG n z a gs) (IMG p v c gr))) lt
+             (PL.trans W.O3 (cmp s0 r0) (TT.sel3 (Lb s0 c) (Gb a r0) (DX.cmp (IMG n z a gs) (IMG p v c gr)))
+                (TT.sel3 false false (DX.cmp (IMG n z a gs) (IMG p v c gr))) eSR
+                (W.ap2 W.Bool W.Bool W.O3 (\ x y -> TT.sel3 x y (DX.cmp (IMG n z a gs) (IMG p v c gr))) (Lb s0 c) false (Gb a r0) false e
+                  (Any[Tm,TT.geB,\ x -> cmp x r0].allF (T.elems a) (\ x mx ->
+                    PL.ap W.O3 W.Bool TT.geB (cmp x r0) lt
+                      (ihS x mx t0 r0 (gArg n z a gs x mx) gt gr
+                        (geF (cmp x t0) (Any[Tm,TT.geB,\ y -> cmp y t0].all (T.elems a) gst x mx)) h2)))))
+             (DX.ctrans (IMG n z a gs) (IMG m w b gt) (IMG p v c gr) dst dtr))
+          (refl (Lb s0 c)) ;
+      res : Goal =
+        bcase (\ x -> Id W.Bool (Lb t0 c) x -> Goal) (Lb t0 c)
+          (\ e0 e -> b1 (Any[Tm,TT.leB,T.cmpL t0].ex (T.elems c) e))
+          (\ e0 e -> bcase (\ x -> Id W.Bool (Lb s0 b) x -> Goal) (Lb s0 b)
+             (\ f0 f -> a1 (s3fT (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr)) (PL.subst W.Bool (\ x -> Id W.O3 (TT.sel3 x (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr))) lt) (Lb t0 c) false e h2'))
+                (Any[Tm,TT.leB,T.cmpL s0].ex (T.elems b) f))
+             (\ f0 f -> a2 (s3fT (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr)) (PL.subst W.Bool (\ x -> Id W.O3 (TT.sel3 x (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr))) lt) (Lb t0 c) false e h2'))
+                (s3fD (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr))
+                  (s3fT (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr)) (PL.subst W.Bool (\ x -> Id W.O3 (TT.sel3 x (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr))) lt) (Lb t0 c) false e h2'))
+                  (PL.subst W.Bool (\ x -> Id W.O3 (TT.sel3 x (Gb b r0) (DX.cmp (IMG m w b gt) (IMG p v c gr))) lt) (Lb t0 c) false e h2'))
+                (s3fT (Gb a t0) (DX.cmp (IMG n z a gs) (IMG m w b gt)) (PL.subst W.Bool (\ x -> Id W.O3 (TT.sel3 x (Gb a t0) (DX.cmp (IMG n z a gs) (IMG m w b gt))) lt) (Lb s0 b) false f h1'))
+                (s3fD (Gb a t0) (DX.cmp (IMG n z a gs) (IMG m w b gt))
+                  (s3fT (Gb a t0) (DX.cmp (IMG n z a gs) (IMG m w b gt)) (PL.subst W.Bool (\ x -> Id W.O3 (TT.sel3 x (Gb a t0) (DX.cmp (IMG n z a gs) (IMG m w b gt))) lt) (Lb s0 b) false f h1'))
+                  (PL.subst W.Bool (\ x -> Id W.O3 (TT.sel3 x (Gb a t0) (DX.cmp (IMG n z a gs) (IMG m w b gt))) lt) (Lb s0 b) false f h1')))
+             (refl (Lb s0 b)))
+          (refl (Lb t0 c)) ;
+    } ;
+    -- the nested structural induction
+    MR (s0 t0 : Tm) : Tm -> U l = split { th p v c -> TrP s0 t0 (th p v c) ; nl -> W.Unit ; cs x y | rx ry -> rx * ry } ;
+    MT (s0 : Tm) : Tm -> U l = split { th m w b -> (r : Tm) -> TrP s0 (th m w b) r ; nl -> W.Unit ; cs x y | rx ry -> rx * ry } ;
+    MS : Tm -> U l = split { th n z a -> (t r : Tm) -> TrP (th n z a) t r ; nl -> W.Unit ; cs x y | rx ry -> rx * ry } ;
+    thR (s0 t0 : Tm) : (q : Tm) -> MR s0 t0 q -> Id W.Bool (L.isTh q) true -> TrP s0 t0 q = split {
+      th p v c -> \ mr h -> mr ;
+      nl -> \ mr h -> W.absurdB (TrP s0 t0 nl) h ;
+      cs x y -> \ mr h -> W.absurdB (TrP s0 t0 (cs x y)) h } ;
+    thT (s0 : Tm) : (y : Tm) -> MT s0 y -> Id W.Bool (L.isTh y) true -> (q : Tm) -> TrP s0 y q = split {
+      th m w b -> \ mt h -> mt ;
+      nl -> \ mt h -> W.absurdB ((q : Tm) -> TrP s0 nl q) h ;
+      cs x y -> \ mt h -> W.absurdB ((q : Tm) -> TrP s0 (cs x y) q) h } ;
+    thS : (x : Tm) -> MS x -> Id W.Bool (L.isTh x) true -> (y q : Tm) -> TrP x y q = split {
+      th n z a -> \ ms h -> ms ;
+      nl -> \ ms h -> W.absurdB ((y q : Tm) -> TrP nl y q) h ;
+      cs x y -> \ ms h -> W.absurdB ((y' q : Tm) -> TrP (cs x y) y' q) h } ;
+    gR (s0 t0 : Tm) : (c : Tm) -> MR s0 t0 c -> (q : Tm) -> LT.memG Tm q (T.elems c) -> Id W.Bool (L.isTh q) true -> TrP s0 t0 q = split {
+      th p v c -> \ mr q mq hq -> CF.efq (TrP s0 t0 q) mq ;
+      nl -> \ mr q mq hq -> CF.efq (TrP s0 t0 q) mq ;
+      cs y r' | ry rr' -> \ mr q mq hq -> CF.or-elim (Id Tm y q) (LT.memG Tm q (T.elems r')) (TrP s0 t0 q)
+        (\ e -> PL.subst Tm (TrP s0 t0) y q e (thR s0 t0 y mr.1 (PL.subst Tm (\ u -> Id W.Bool (L.isTh u) true) q y (PL.sym Tm y q e) hq)))
+        (\ m' -> rr' mr.2 q m' hq) mq } ;
+    gT (s0 : Tm) : (b : Tm) -> MT s0 b -> (y : Tm) -> LT.memG Tm y (T.elems b) -> Id W.Bool (L.isTh y) true -> (q : Tm) -> TrP s0 y q = split {
+      th m w b -> \ mt y my hy -> CF.efq ((q : Tm) -> TrP s0 y q) my ;
+      nl -> \ mt y my hy -> CF.efq ((q : Tm) -> TrP s0 y q) my ;
+      cs y' r' | ry rr' -> \ mt y my hy -> CF.or-elim (Id Tm y' y) (LT.memG Tm y (T.elems r')) ((q : Tm) -> TrP s0 y q)
+        (\ e -> PL.subst Tm (\ u -> (q : Tm) -> TrP s0 u q) y' y e (thT s0 y' mt.1 (PL.subst Tm (\ u -> Id W.Bool (L.isTh u) true) y y' (PL.sym Tm y' y e) hy)))
+        (\ m' -> rr' mt.2 y m' hy) my } ;
+    gS : (a : Tm) -> MS a -> (x : Tm) -> LT.memG Tm x (T.elems a) -> Id W.Bool (L.isTh x) true -> (y q : Tm) -> TrP x y q = split {
+      th n z a -> \ ms x mx hx -> CF.efq ((y q : Tm) -> TrP x y q) mx ;
+      nl -> \ ms x mx hx -> CF.efq ((y q : Tm) -> TrP x y q) mx ;
+      cs x' r' | rx rr' -> \ ms x mx hx -> CF.or-elim (Id Tm x' x) (LT.memG Tm x (T.elems r')) ((y q : Tm) -> TrP x y q)
+        (\ e -> PL.subst Tm (\ u -> (y q : Tm) -> TrP u y q) x' x e (thS x' ms.1 (PL.subst Tm (\ u -> Id W.Bool (L.isTh u) true) x x' (PL.sym Tm x' x e) hx)))
+        (\ m' -> rr' ms.2 x m' hx) mx } ;
+    trR (n : W.N) (z : (DG n).car) (a : Tm) (ihS : MS a) (m : W.N) (w : (DG m).car) (b : Tm) (ihT : MT (th n z a) b) :
+        (r : Tm) -> MR (th n z a) (th m w b) r = split {
+      th p v c | rc -> \ gs gt gr h1 h2 -> Core[n,z,a,m,w,b,p,v,c,
+          \ x mx y q gx -> gS a ihS x mx gx.2.1 y q gx,
+          \ y my q gs' gy -> gT (th n z a) b ihT y my gy.2.1 q gs' gy,
+          \ q mq gs' gt' gq -> gR (th n z a) (th m w b) c rc q mq gq.2.1 gs' gt' gq,
+          gs,gt,gr,h1,h2].res ;
+      nl -> tt ;
+      cs x y | rx ry -> (rx,ry) } ;
+    trT (n : W.N) (z : (DG n).car) (a : Tm) (ihS : MS a) : (t : Tm) -> MT (th n z a) t = split {
+      th m w b | rb -> \ r gs gt gr -> thR (th n z a) (th m w b) r (trR n z a ihS m w b rb r) gr.2.1 gs gt gr ;
+      nl -> tt ;
+      cs x y | rx ry -> (rx,ry) } ;
+    trS : (s0 : Tm) -> MS s0 = split {
+      th n z a | ra -> \ t r gs gt gr -> thT (th n z a) t (trT n z a ra t) gt.2.1 r gs gt gr ;
+      nl -> tt ;
+      cs x y | rx ry -> (rx,ry) } ;
+    trK : M2.TrK (suc k) = \ s0 t0 r0 gs gt gr h1 h2 -> thS s0 (trS s0) gs.2.1 t0 r0 gs gt gr h1 h2 ;
+    ------------------------------------------------------------------
+    -- flip and reflexivity at level k+1
+    rfk (x : Tm) (g : Good k x) : Id W.O3 (cmp x x) eq = lk.2.2 x g ;
+    -- an argument is below its term
+    f1 : (x : Tm) -> Id W.Bool (L.isTh x) true -> (n : W.N) (z : (DG n).car) (a : Tm) -> LT.memG Tm x (T.elems a) ->
+        Id W.O3 (cmp x x) eq -> Id W.O3 (cmp x (th n z a)) lt = split {
+      th n' z' a' -> \ h n z a mx e -> PL.trans W.O3 (cmp (th n' z' a') (th n z a))
+          (TT.sel3 (Lb (th n' z' a') a) (TT.anyB TT.geB (W.map Tm W.O3 (\ y -> cmp y (th n z a)) (T.elems a')))
+            (T.cmpAt n' n z' z (T.mW (W.map Tm T.CF T.cmpL (T.elems a')) (T.elems a)))) lt
+        (T.cmpTh n' z' a' n z a)
+        (PL.ap W.Bool W.O3 (\ c -> TT.sel3 c (TT.anyB TT.geB (W.map Tm W.O3 (\ y -> cmp y (th n z a)) (T.elems a')))
+            (T.cmpAt n' n z' z (T.mW (W.map Tm T.CF T.cmpL (T.elems a')) (T.elems a)))) (Lb (th n' z' a') a) true
+          (Any[Tm,TT.leB,T.cmpL (th n' z' a')].intro (T.elems a) (th n' z' a') mx (PL.ap W.O3 W.Bool TT.leB (cmp (th n' z' a') (th n' z' a')) eq e))) ;
+      nl -> \ h n z a mx e -> W.absurdB (Id W.O3 (cmp nl (th n z a)) lt) h ;
+      cs y r -> \ h n z a mx e -> W.absurdB (Id W.O3 (cmp (cs y r) (th n z a)) lt) h } ;
+    argLt (n : W.N) (z : (DG n).car) (a : Tm) (g : G1 (th n z a)) (x : Tm) (mx : LT.memG Tm x (T.elems a)) : Id W.O3 (cmp x (th n z a)) lt =
+      f1 x (argGood k n z a g x mx).2.1 n z a mx (rfk x (argGood k n z a g x mx)) ;
+    -- equal Bools along a list
+    anyEq (f f' : W.O3 -> W.Bool) (g g' : Tm -> W.O3) : (xs : W.List Tm) ->
+        ((x : Tm) -> LT.memG Tm x xs -> Id W.Bool (f (g x)) (f' (g' x))) ->
+        Id W.Bool (TT.anyB f (W.map Tm W.O3 g xs)) (TT.anyB f' (W.map Tm W.O3 g' xs)) = split {
+      nilL -> \ h -> refl false ;
+      consL y ys | r -> \ h -> W.ap2 W.Bool W.Bool W.Bool W.orB (f (g y)) (f' (g' y))
+        (TT.anyB f (W.map Tm W.O3 g ys)) (TT.anyB f' (W.map Tm W.O3 g' ys)) (h y (inl (refl y))) (r (\ x m -> h x (inr m))) } ;
+    leFlip : (o : W.O3) -> Id W.Bool (TT.leB (W.flip o)) (TT.geB o) = split { lt -> refl false ; eq -> refl true ; gt -> refl true } ;
+    geFlip : (o : W.O3) -> Id W.Bool (TT.geB (W.flip o)) (TT.leB o) = split { lt -> refl true ; eq -> refl true ; gt -> refl false } ;
+    sel3F : (L G : W.Bool) (d : W.O3) -> (Id W.Bool L true -> Id W.Bool G true -> W.Empty) ->
+        Id W.O3 (TT.sel3 G L (W.flip d)) (W.flip (TT.sel3 L G d)) = split {
+      true -> split {
+        true -> \ d k -> CF.efq (Id W.O3 lt gt) (k (refl true) (refl true)) ;
+        false -> \ d k -> refl gt } ;
+      false -> split {
+        true -> \ d k -> refl lt ;
+        false -> \ d k -> refl (W.flip d) } } ;
+    FlP (x y : Tm) : U l = G1 x -> G1 y -> Id W.O3 (cmp y x) (W.flip (cmp x y)) ;
+    module FCore (n : W.N) (z : (DG n).car) (a : Tm) (m : W.N) (w : (DG m).car) (b : Tm)
+      (ihS : (x : Tm) -> LT.memG Tm x (T.elems a) -> (y : Tm) -> FlP x y)
+      (ihT : (y : Tm) -> LT.memG Tm y (T.elems b) -> FlP (th n z a) y)
+      (gs : G1 (th n z a)) (gtt : G1 (th m w b)) {
+      s0 : Tm = th n z a ;
+      t0 : Tm = th m w b ;
+      module Cn (ey : (y : Tm) * (LT.memG Tm y (T.elems b) * Id W.Bool (TT.leB (cmp s0 y)) true))
+        (ex : (x : Tm) * (LT.memG Tm x (T.elems a) * Id W.Bool (TT.geB (cmp x t0)) true)) {
+        y : Tm = ey.1 ;
+        x : Tm = ex.1 ;
+        gy : G1 y = gArg m w b gtt y ey.2.1 ;
+        gx : G1 x = gArg n z a gs x ex.2.1 ;
+        yt : Id W.O3 (cmp y t0) lt = argLt m w b gtt y ey.2.1 ;
+        xs : Id W.O3 (cmp x s0) lt = argLt n z a gs x ex.2.1 ;
+        -- y < x
+        geC : (o : W.O3) -> Id W.O3 (cmp x t0) o -> Id W.Bool (TT.geB o) true -> Id W.O3 (cmp y x) lt = split {
+          lt -> \ e h -> W.absurdB (Id W.O3 (cmp y x) lt) h ;
+          eq -> \ e h -> PL.subst Tm (\ u -> Id W.O3 (cmp y u) lt) t0 x (PL.sym Tm x t0 (ceqG x t0 gx gtt e)) yt ;
+          gt -> \ e h -> trK y t0 x gy gtt gx yt
+            (PL.trans W.O3 (cmp t0 x) (W.flip (cmp x t0)) lt (ihS x ex.2.1 t0 gx gtt) (PL.ap W.O3 W.O3 W.flip (cmp x t0) gt e)) } ;
+        yx : Id W.O3 (cmp y x) lt = geC (cmp x t0) (refl (cmp x t0)) ex.2.2 ;
+        ys : Id W.O3 (cmp y s0) lt = trK y x s0 gy gx gs yx xs ;
+        ne0 (e : Id W.O3 (cmp y y) lt) : W.Empty = SAm.o3-ne eq lt (refl false) (PL.trans W.O3 eq (cmp y y) lt (PL.sym W.O3 (cmp y y) eq (rfk y (argGood k m w b gtt y ey.2.1))) e) ;
+        res : W.Empty = CF.or-elim (Id W.O3 (cmp s0 y) lt) (Id W.O3 (cmp s0 y) eq) W.Empty
+          (\ e -> ne0 (trK y s0 y gy gs gy ys e))
+          (\ e -> ne0 (PL.subst Tm (\ u -> Id W.O3 (cmp y u) lt) s0 y (ceqG s0 y gs gy e) ys))
+          (leCases (cmp s0 y) ey.2.2) ;
+      } ;
+      -- not both s <= some b_j and some a_i >= t
+      cons (hl : Id W.Bool (Lb s0 b) true) (hg : Id W.Bool (Gb a t0) true) : W.Empty =
+        Cn[(Any[Tm,TT.leB,T.cmpL s0].ex (T.elems b) hl),(Any[Tm,TT.geB,\ x -> cmp x t0].ex (T.elems a) hg)].res ;
+      lE : Id W.Bool (Lb t0 a) (Gb a t0) =
+        anyEq TT.leB TT.geB (T.cmpL t0) (\ x -> cmp x t0) (T.elems a) (\ x mx ->
+          PL.trans W.Bool (TT.leB (cmp t0 x)) (TT.leB (W.flip (cmp x t0))) (TT.geB (cmp x t0))
+            (PL.ap W.O3 W.Bool TT.leB (cmp t0 x) (W.flip (cmp x t0)) (ihS x mx t0 (gArg n z a gs x mx) gtt))
+            (leFlip (cmp x t0))) ;
+      gE : Id W.Bool (Gb b s0) (Lb s0 b) =
+        anyEq TT.geB TT.leB (\ y -> cmp y s0) (T.cmpL s0) (T.elems b) (\ y my ->
+          PL.trans W.Bool (TT.geB (cmp y s0)) (TT.geB (W.flip (cmp s0 y))) (TT.leB (cmp s0 y))
+            (PL.ap W.O3 W.Bool TT.geB (cmp y s0) (W.flip (cmp s0 y)) (ihT y my gs (gArg m w b gtt y my)))
+            (geFlip (cmp s0 y))) ;
+      Dts : W.O3 = DX.cmp (IMG m w b gtt) (IMG n z a gs) ;
+      Dst : W.O3 = DX.cmp (IMG n z a gs) (IMG m w b gtt) ;
+      res : Id W.O3 (cmp t0 s0) (W.flip (cmp s0 t0)) =
+        PL.trans W.O3 (cmp t0 s0) (TT.sel3 (Lb t0 a) (Gb b s0) Dts) (W.flip (cmp s0 t0))
+          (cE m w b gtt n z a gs)
+          (PL.trans W.O3 (TT.sel3 (Lb t0 a) (Gb b s0) Dts) (TT.sel3 (Gb a t0) (Lb s0 b) Dts) (W.flip (cmp s0 t0))
+            (W.ap2 W.Bool W.Bool W.O3 (\ c d -> TT.sel3 c d Dts) (Lb t0 a) (Gb a t0) (Gb b s0) (Lb s0 b) lE gE)
+            (PL.trans W.O3 (TT.sel3 (Gb a t0) (Lb s0 b) Dts) (TT.sel3 (Gb a t0) (Lb s0 b) (W.flip Dst)) (W.flip (cmp s0 t0))
+              (PL.ap W.O3 W.O3 (\ d -> TT.sel3 (Gb a t0) (Lb s0 b) d) Dts (W.flip Dst) (DX.cflip (IMG n z a gs) (IMG m w b gtt)))
+              (PL.trans W.O3 (TT.sel3 (Gb a t0) (Lb s0 b) (W.flip Dst)) (W.flip (TT.sel3 (Lb s0 b) (Gb a t0) Dst)) (W.flip (cmp s0 t0))
+                (sel3F (Lb s0 b) (Gb a t0) Dst cons)
+                (PL.ap W.O3 W.O3 W.flip (TT.sel3 (Lb s0 b) (Gb a t0) Dst) (cmp s0 t0)
+                  (PL.sym W.O3 (cmp s0 t0) (TT.sel3 (Lb s0 b) (Gb a t0) Dst) (cE n z a gs m w b gtt)))))) ;
+    } ;
+    FT (s0 : Tm) : Tm -> U l = split { th m w b -> FlP s0 (th m w b) ; nl -> W.Unit ; cs x y | rx ry -> rx * ry } ;
+    FS : Tm -> U l = split { th n z a -> (t : Tm) -> FlP (th n z a) t ; nl -> W.Unit ; cs x y | rx ry -> rx * ry } ;
+    thFT (s0 : Tm) : (y : Tm) -> FT s0 y -> Id W.Bool (L.isTh y) true -> FlP s0 y = split {
+      th m w b -> \ ft h -> ft ;
+      nl -> \ ft h -> W.absurdB (FlP s0 nl) h ;
+      cs x y -> \ ft h -> W.absurdB (FlP s0 (cs x y)) h } ;
+    thFS : (x : Tm) -> FS x -> Id W.Bool (L.isTh x) true -> (y : Tm) -> FlP x y = split {
+      th n z a -> \ fs h -> fs ;
+      nl -> \ fs h -> W.absurdB ((y : Tm) -> FlP nl y) h ;
+      cs x y -> \ fs h -> W.absurdB ((y' : Tm) -> FlP (cs x y) y') h } ;
+    gFT (s0 : Tm) : (b : Tm) -> FT s0 b -> (y : Tm) -> LT.memG Tm y (T.elems b) -> Id W.Bool (L.isTh y) true -> FlP s0 y = split {
+      th m w b -> \ ft y my hy -> CF.efq (FlP s0 y) my ;
+      nl -> \ ft y my hy -> CF.efq (FlP s0 y) my ;
+      cs y' r' | ry rr' -> \ ft y my hy -> CF.or-elim (Id Tm y' y) (LT.memG Tm y (T.elems r')) (FlP s0 y)
+        (\ e -> PL.subst Tm (FlP s0) y' y e (thFT s0 y' ft.1 (PL.subst Tm (\ u -> Id W.Bool (L.isTh u) true) y y' (PL.sym Tm y' y e) hy)))
+        (\ m' -> rr' ft.2 y m' hy) my } ;
+    gFS : (a : Tm) -> FS a -> (x : Tm) -> LT.memG Tm x (T.elems a) -> Id W.Bool (L.isTh x) true -> (y : Tm) -> FlP x y = split {
+      th n z a -> \ fs x mx hx -> CF.efq ((y : Tm) -> FlP x y) mx ;
+      nl -> \ fs x mx hx -> CF.efq ((y : Tm) -> FlP x y) mx ;
+      cs x' r' | rx rr' -> \ fs x mx hx -> CF.or-elim (Id Tm x' x) (LT.memG Tm x (T.elems r')) ((y : Tm) -> FlP x y)
+        (\ e -> PL.subst Tm (\ u -> (y : Tm) -> FlP u y) x' x e (thFS x' fs.1 (PL.subst Tm (\ u -> Id W.Bool (L.isTh u) true) x x' (PL.sym Tm x' x e) hx)))
+        (\ m' -> rr' fs.2 x m' hx) mx } ;
+    flT (n : W.N) (z : (DG n).car) (a : Tm) (ihS : FS a) : (t : Tm) -> FT (th n z a) t = split {
+      th m w b | rb -> \ gs g2 -> FCore[n,z,a,m,w,b,
+          \ x mx y gx -> gFS a ihS x mx gx.2.1 y gx,
+          \ y my gs' gy -> gFT (th n z a) b rb y my gy.2.1 gs' gy,
+          gs,g2].res ;
+      nl -> tt ;
+      cs x y | rx ry -> (rx,ry) } ;
+    flS : (s0 : Tm) -> FS s0 = split {
+      th n z a | ra -> \ t gs g2 -> thFT (th n z a) t (flT n z a ra t) g2.2.1 gs g2 ;
+      nl -> tt ;
+      cs x y | rx ry -> (rx,ry) } ;
+    flK : M2.FlK (suc k) = \ s0 t0 gs g2 -> thFS s0 (flS s0) gs.2.1 t0 gs g2 ;
+    -- reflexivity
+    rfS : (s0 : Tm) -> G1 s0 -> Id W.O3 (cmp s0 s0) eq = split {
+      th n z a -> \ g -> PL.trans W.O3 (cmp (th n z a) (th n z a))
+          (TT.sel3 (Lb (th n z a) a) (Gb a (th n z a)) (DX.cmp (IMG n z a g) (IMG n z a g))) eq
+        (cE n z a g n z a g)
+        (PL.trans W.O3 (TT.sel3 (Lb (th n z a) a) (Gb a (th n z a)) (DX.cmp (IMG n z a g) (IMG n z a g)))
+            (TT.sel3 false false (DX.cmp (IMG n z a g) (IMG n z a g))) eq
+          (W.ap2 W.Bool W.Bool W.O3 (\ c d -> TT.sel3 c d (DX.cmp (IMG n z a g) (IMG n z a g))) (Lb (th n z a) a) false (Gb a (th n z a)) false
+            (Any[Tm,TT.leB,T.cmpL (th n z a)].allF (T.elems a) (\ x mx ->
+              PL.ap W.O3 W.Bool TT.leB (cmp (th n z a) x) gt
+                (PL.trans W.O3 (cmp (th n z a) x) (W.flip (cmp x (th n z a))) gt
+                  (flK x (th n z a) (gArg n z a g x mx) g)
+                  (PL.ap W.O3 W.O3 W.flip (cmp x (th n z a)) lt (argLt n z a g x mx)))))
+            (Any[Tm,TT.geB,\ x -> cmp x (th n z a)].allF (T.elems a) (\ x mx ->
+              PL.ap W.O3 W.Bool TT.geB (cmp x (th n z a)) lt (argLt n z a g x mx))))
+          (DX.crefl (IMG n z a g))) ;
+      nl -> \ g -> W.absurdB (Id W.O3 (cmp nl nl) eq) g.2.1 ;
+      cs x y -> \ g -> W.absurdB (Id W.O3 (cmp (cs x y) (cs x y)) eq) g.2.1 } ;
+    lkS : M2.Lk (suc k) = (trK,(flK,rfS)) ;
+  } ;
+  -- the laws at every level
+  noG0 : (t : Tm) -> Good zero t -> W.Empty = split {
+    th n z a -> \ g -> W.ltN-zero-abs W.Empty (M2.hgt a) g.2.2 ;
+    nl -> \ g -> W.absurdB W.Empty g.2.1 ;
+    cs x y -> \ g -> W.absurdB W.Empty g.2.1 } ;
+  lk0 : M2.Lk zero =
+    (\ s0 t0 r0 gs gt0 gr h1 h2 -> CF.efq (Id W.O3 (cmp s0 r0) lt) (noG0 s0 gs),
+     (\ s0 t0 gs gt0 -> CF.efq (Id W.O3 (cmp t0 s0) (W.flip (cmp s0 t0))) (noG0 s0 gs),
+      \ s0 gs -> CF.efq (Id W.O3 (cmp s0 s0) eq) (noG0 s0 gs))) ;
+  lkAll : (k : W.N) -> M2.Lk k = split { zero -> lk0 ; suc k | r -> Step[k,r].lkS } ;
+} ;
+
+-- the linear order theta D of all normal theta terms
+maxN2 (x y : W.N) : W.N = T2.maxN x y ;
+leMaxSL : (x y : W.N) -> Id W.Bool (GR.leN x (maxN2 x y)) true = split {
+  zero -> \ y -> refl true ;
+  suc x | r -> split { zero -> W.ltN-suc x ; suc y -> r y } } ;
+leMaxSR : (x y : W.N) -> Id W.Bool (GR.leN y (maxN2 x y)) true = split {
+  zero -> \ y -> W.ltN-suc y ;
+  suc x | r -> split { zero -> refl true ; suc y -> r y } } ;
+module ThetaOrd (D : SF.SF[LC.ce]) {
+  module T = TT.Th[D] ;
+  module L = TL.ThL[D] ;
+  module M2 = T2.L2[D] ;
+  module M3 = L3[D] ;
+  Tm : U l = T.Tm ;
+  Car : U l = (t : Tm) * (L.NF t * Id W.Bool (L.isTh t) true) ;
+  gd (t : Tm) (h : L.NF t * Id W.Bool (L.isTh t) true) (k : W.N) (e : M2.LeK t k) : M2.Good k t = (h.1,(h.2,e)) ;
+  hp (p : Car) : W.N = M2.hgt p.1 ;
+  nfP (t : Tm) : PL.isProp (L.NF t * Id W.Bool (L.isTh t) true) =
+    T2.prodProp (L.NF t) (Id W.Bool (L.isTh t) true)
+      (T2.prodProp (Id W.Bool (L.nfB t) true) (L.nfZ t) (W.HB.uip (L.nfB t) true) (M2.nfZProp t)) (W.HB.uip (L.isTh t) true) ;
+  le3a (x y z : W.N) : Id W.Bool (GR.leN x (maxN2 (maxN2 x y) z)) true =
+    G2.leN-trans x (maxN2 x y) (maxN2 (maxN2 x y) z) (leMaxSL x y) (leMaxSL (maxN2 x y) z) ;
+  le3b (x y z : W.N) : Id W.Bool (GR.leN y (maxN2 (maxN2 x y) z)) true =
+    G2.leN-trans y (maxN2 x y) (maxN2 (maxN2 x y) z) (leMaxSR x y) (leMaxSL (maxN2 x y) z) ;
+  le3c (x y z : W.N) : Id W.Bool (GR.leN z (maxN2 (maxN2 x y) z)) true = leMaxSR (maxN2 x y) z ;
+  lo : DP.LO = new DP.LO[car := Car, cmp := \ p q -> T.cmp p.1 q.1,
+    ceq := \ p q h -> PL.Sigma-eq Tm (\ t -> L.NF t * Id W.Bool (L.isTh t) true) p.1 q.1 p.2 q.2
+      (L.ceq p.1 q.1 p.2.1 q.2.1 p.2.2 q.2.2 h) (nfP q.1),
+    crefl := \ p -> (M3.lkAll (hp p)).2.2 p.1 (gd p.1 p.2 (hp p) (W.ltN-suc (hp p))),
+    cflip := \ p q -> (M3.lkAll (maxN2 (hp p) (hp q))).2.1 p.1 q.1
+      (gd p.1 p.2 (maxN2 (hp p) (hp q)) (leMaxSL (hp p) (hp q))) (gd q.1 q.2 (maxN2 (hp p) (hp q)) (leMaxSR (hp p) (hp q))),
+    ctrans := \ p q r -> (M3.lkAll (maxN2 (maxN2 (hp p) (hp q)) (hp r))).1 p.1 q.1 r.1
+      (gd p.1 p.2 (maxN2 (maxN2 (hp p) (hp q)) (hp r)) (le3a (hp p) (hp q) (hp r)))
+      (gd q.1 q.2 (maxN2 (maxN2 (hp p) (hp q)) (hp r)) (le3b (hp p) (hp q) (hp r)))
+      (gd r.1 r.2 (maxN2 (maxN2 (hp p) (hp q)) (hp r)) (le3c (hp p) (hp q) (hp r)))] ;
+} ;

@@ -1,0 +1,246 @@
+-- theta as a type-2 ptyx (PLAN-THETA.md, T3b): functor laws, continuity
+-- (supports by covering the trace points of a term, preimages by
+-- relabelling), stability (zip through the pull-back points), and
+--   thetaP : SF.SF[LOWF.C2],  thetaP-ptyx : LOWF.IsPtyx thetaP .
+-- Part 1: functor laws, backward normality, relabelling, continuity.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module SF = StabFun[l] ;
+module SC = StabCode[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module LT = LabTree[l] ;
+module L2 = LabTree2[l] ;
+module KT = KBTree[l] ;
+module CE = CatEmb[l] ;
+module TT = ThetaTerm[l] ;
+module TL = ThetaLO[l] ;
+module T3 = ThetaLO3[l] ;
+module TF = ThetaFun[l] ;
+module O = SF.Over[LC.ce] ;
+
+TDL : U l+ = SF.SF[LC.ce] ;
+
+-- functor laws
+module ThLaws (D : TDL) {
+  module T = TT.Th[D] ;
+  module R = TF.TF[D,D,O.idS D] ;
+  rnId : (t : T.Tm) -> Id T.Tm (R.rn t) t = split {
+    th n z a | ra -> PL.ap T.Tm T.Tm (\ u -> th n z u) (R.rn a) a ra ;
+    nl -> refl nl ;
+    cs x r | rx rr -> W.ap2 T.Tm T.Tm T.Tm (\ u v -> cs u v) (R.rn x) x (R.rn r) r rx rr } ;
+} ;
+module ThLawsC (D D' D'' : TDL) (S : O.Mor D D') (S' : O.Mor D' D'') {
+  module T = TT.Th[D] ;
+  module T'' = TT.Th[D''] ;
+  module R1 = TF.TF[D,D',S] ;
+  module R2 = TF.TF[D',D'',S'] ;
+  module R3 = TF.TF[D,D'',O.compS D D' D'' S S'] ;
+  rnComp : (t : T.Tm) -> Id T''.Tm (R2.rn (R1.rn t)) (R3.rn t) = split {
+    th n z a | ra -> PL.ap T''.Tm T''.Tm (\ u -> th n ((S'.1 n).1 ((S.1 n).1 z)) u) (R2.rn (R1.rn a)) (R3.rn a) ra ;
+    nl -> refl nl ;
+    cs x r | rx rr -> W.ap2 T''.Tm T''.Tm T''.Tm (\ u v -> cs u v) (R2.rn (R1.rn x)) (R3.rn x) (R2.rn (R1.rn r)) (R3.rn r) rx rr } ;
+} ;
+
+-- normality goes backwards along any morphism (naturality)
+module ThBack (D D' : TDL) (S : O.Mor D D') {
+  module T = TT.Th[D] ;
+  module L = TL.ThL[D] ;
+  module L' = TL.ThL[D'] ;
+  module R = TF.TF[D,D',S] ;
+  nzB (n : W.N) (z : (T.DG n).car) (nz : L'.NZ n (R.sz n z)) : L.NZ n z = \ M m f g w h ->
+    nz M m f g ((S.1 m).1 w)
+      (PL.trans (TT.Th[D'].DG M).car ((D'.arr (LC.ord n) (LC.ord M) f).1 (R.sz n z)) ((S.1 M).1 ((D.arr (LC.ord n) (LC.ord M) f).1 z))
+          ((D'.arr (LC.ord m) (LC.ord M) g).1 ((S.1 m).1 w))
+        (S.2.1 n M f z)
+        (PL.trans (TT.Th[D'].DG M).car ((S.1 M).1 ((D.arr (LC.ord n) (LC.ord M) f).1 z)) ((S.1 M).1 ((D.arr (LC.ord m) (LC.ord M) g).1 w))
+            ((D'.arr (LC.ord m) (LC.ord M) g).1 ((S.1 m).1 w))
+          (PL.ap (T.DG M).car (TT.Th[D'].DG M).car (S.1 M).1 ((D.arr (LC.ord n) (LC.ord M) f).1 z) ((D.arr (LC.ord m) (LC.ord M) g).1 w) h)
+          (PL.sym (TT.Th[D'].DG M).car ((D'.arr (LC.ord m) (LC.ord M) g).1 ((S.1 m).1 w)) ((S.1 M).1 ((D.arr (LC.ord m) (LC.ord M) g).1 w)) (S.2.1 m M g w)))) ;
+  nfZB : (t : T.Tm) -> L'.nfZ (R.rn t) -> L.nfZ t = split {
+    th n z a | ra -> \ h -> (nzB n z h.1,ra h.2) ;
+    nl -> \ h -> tt ;
+    cs x r | rx rr -> \ h -> (rx h.1,rr h.2) } ;
+  -- a term is normal if its image is
+  nfB (t : T.Tm) (h : L'.NF (R.rn t)) : L.NF t =
+    (PL.trans W.Bool (L.nfB t) (L'.nfB (R.rn t)) true (PL.sym W.Bool (L'.nfB (R.rn t)) (L.nfB t) (R.nfBRn t)) h.1,nfZB t h.2) ;
+} ;
+
+-- supports over Stab(LO): LabTreeG with trace points (a dummy tree)
+module LGT = LT.LabTreeG[LW.C2, L2.Pt2, L2.pm2, \ D x -> refl x, \ D1 D2 D3 S S' x -> refl (x.1,(S'.1 x.1).1 ((S.1 x.1).1 x.2)),
+  \ D x -> L2.Sup1[D,x].result, \ D -> L2.Init[D].result, \ A B B' f f' b b' e -> L2.Pbp[A,B,B',f,f'].result b b' e,
+  \ D r -> true, \ D D' g r -> refl true, \ D z r h -> h] ;
+memAL (X : U l) (a : X) : (xs ys : W.List X) -> LT.memG X a xs -> LT.memG X a (KT.appL X xs ys) = split {
+  nilL -> \ ys m -> CF.efq (LT.memG X a ys) m ;
+  consL x xs | r -> \ ys m -> CF.or-elim (Id X x a) (LT.memG X a xs) (LT.memG X a (KT.appL X (consL x xs) ys))
+    (\ e -> inl e) (\ m' -> inr (r ys m')) m } ;
+memAR (X : U l) (a : X) : (xs ys : W.List X) -> LT.memG X a ys -> LT.memG X a (KT.appL X xs ys) = split {
+  nilL -> \ ys m -> m ;
+  consL x xs | r -> \ ys m -> inr (r ys m) } ;
+
+module ThCont (D : TDL) {
+  module T = TT.Th[D] ;
+  module L = TL.ThL[D] ;
+  module TO = T3.ThetaOrd[D] ;
+  PtC : U l = (L2.Pt2 D).car ;
+  pts : T.Tm -> W.List PtC = split {
+    th n z a | ra -> consL (n,z) ra ;
+    nl -> nilL ;
+    cs x r | rx rr -> KT.appL PtC rx rr } ;
+  module Rl (K : LW.C2.Fin) (i : LW.C2.Mor (LW.C2.fin K) D) {
+    DK : TDL = LW.C2.fin K ;
+    module TK = TT.Th[DK] ;
+    module R = TF.TF[DK,D,i] ;
+    FK (k : W.N) : U l = (DK.G (LC.ord k)).car ;
+    FD (k : W.N) : U l = (D.G (LC.ord k)).car ;
+    IM (x : PtC) : U l = SF.Im (L2.Pt2 DK) (L2.Pt2 D) (L2.pm2 DK D i) x ;
+    pre (n : W.N) (z : FD n) (im : IM (n,z)) : FK n =
+      PL.subst W.N FK im.1.1 n (PL.ap PtC W.N (\ q -> q.1) ((L2.pm2 DK D i).1 im.1) (n,z) im.2) im.1.2 ;
+    substNat (c : W.N) (y : FK c) (n : W.N) (e : Id W.N c n) : Id (FD n) ((i.1 n).1 (PL.subst W.N FK c n e y)) (PL.subst W.N FD c n e ((i.1 c).1 y)) =
+      idJ W.N c (\ k e1 -> Id (FD k) ((i.1 k).1 (PL.subst W.N FK c k e1 y)) (PL.subst W.N FD c k e1 ((i.1 c).1 y))) (refl ((i.1 c).1 y)) n e ;
+    preEq (n : W.N) (z : FD n) (im : IM (n,z)) : Id (FD n) ((i.1 n).1 (pre n z im)) z =
+      PL.trans (FD n) ((i.1 n).1 (pre n z im))
+          (PL.subst W.N FD im.1.1 n (PL.ap PtC W.N (\ q -> q.1) ((L2.pm2 DK D i).1 im.1) (n,z) im.2) ((i.1 im.1.1).1 im.1.2)) z
+        (substNat im.1.1 im.1.2 n (PL.ap PtC W.N (\ q -> q.1) ((L2.pm2 DK D i).1 im.1) (n,z) im.2))
+        (PL.Sigma-snd W.N FD im.1.1 n ((i.1 im.1.1).1 im.1.2) z im.2) ;
+    PI (t : T.Tm) : U l = (x : PtC) -> LT.memG PtC x (pts t) -> IM x ;
+    rl : (t : T.Tm) -> PI t -> TK.Tm = split {
+      th n z a | ra -> \ pi -> th n (pre n z (pi (n,z) (inl (refl (n,z))))) (ra (\ x m -> pi x (inr m))) ;
+      nl -> \ pi -> nl ;
+      cs x r | rx rr -> \ pi -> cs (rx (\ p m -> pi p (memAL PtC p (pts x) (pts r) m))) (rr (\ p m -> pi p (memAR PtC p (pts x) (pts r) m))) } ;
+    rlRn : (t : T.Tm) (pi : PI t) -> Id T.Tm (R.rn (rl t pi)) t = split {
+      th n z a | ra -> \ pi -> W.ap2 (FD n) T.Tm T.Tm (\ u v -> th n u v)
+        ((i.1 n).1 (pre n z (pi (n,z) (inl (refl (n,z)))))) z (R.rn (rl a (\ x m -> pi x (inr m)))) a
+        (preEq n z (pi (n,z) (inl (refl (n,z))))) (ra (\ x m -> pi x (inr m))) ;
+      nl -> \ pi -> refl nl ;
+      cs x r | rx rr -> \ pi -> W.ap2 T.Tm T.Tm T.Tm (\ u v -> cs u v)
+        (R.rn (rl x (\ p m -> pi p (memAL PtC p (pts x) (pts r) m)))) x
+        (R.rn (rl r (\ p m -> pi p (memAR PtC p (pts x) (pts r) m)))) r
+        (rx (\ p m -> pi p (memAL PtC p (pts x) (pts r) m))) (rr (\ p m -> pi p (memAR PtC p (pts x) (pts r) m))) } ;
+  } ;
+  module Wit (y : TO.Car) (s : LGT.SuppT D (pts y.1)) {
+    module RR = Rl[s.1,s.2.1] ;
+    module TOK = T3.ThetaOrd[RR.DK] ;
+    t' : RR.TK.Tm = RR.rl y.1 s.2.2 ;
+    e' : Id T.Tm (RR.R.rn t') y.1 = RR.rlRn y.1 s.2.2 ;
+    nf' : TL.ThL[RR.DK].NF t' =
+      ThBack[RR.DK,D,s.2.1].nfB t' (PL.subst T.Tm L.NF y.1 (RR.R.rn t') (PL.sym T.Tm (RR.R.rn t') y.1 e') y.2.1) ;
+    th' : Id W.Bool (TL.ThL[RR.DK].isTh t') true =
+      PL.trans W.Bool (TL.ThL[RR.DK].isTh t') (L.isTh (RR.R.rn t')) true
+        (PL.sym W.Bool (L.isTh (RR.R.rn t')) (TL.ThL[RR.DK].isTh t') (RR.R.isThRn t'))
+        (PL.subst T.Tm (\ u -> Id W.Bool (L.isTh u) true) y.1 (RR.R.rn t') (PL.sym T.Tm (RR.R.rn t') y.1 e') y.2.2) ;
+    res : SF.Im TOK.lo TO.lo RR.R.arr y =
+      ((t',(nf',th')),PL.Sigma-eq T.Tm (\ u -> L.NF u * Id W.Bool (L.isTh u) true) (RR.R.rn t') y.1 (RR.R.arrF (t',(nf',th'))).2 y.2 e' (TO.nfP y.1)) ;
+  } ;
+} ;
+
+-- stability: zip two preimages through the pull-back trace points
+module ThStab (A B B' : TDL) (f : O.Mor B A) (f' : O.Mor B' A) {
+  module PB = StabPb[l].Pull[LC.ce,A,B,B',f,f'] ;
+  Q : TDL = PB.obj ;
+  q1 : O.Mor Q B = PB.pr1 ;
+  module TA = TT.Th[A] ;
+  module TB = TT.Th[B] ;
+  module TB' = TT.Th[B'] ;
+  module TQ = TT.Th[Q] ;
+  module Rf = TF.TF[B,A,f] ;
+  module Rf' = TF.TF[B',A,f'] ;
+  module Rq = TF.TF[Q,B,q1] ;
+  PA : U l = L2.Pts[A].Car ;
+  PB0 : U l = L2.Pts[B].Car ;
+  tag (X : TDL) : TT.Th[X].Tm -> W.N = split { th n z a -> zero ; nl -> suc zero ; cs x r -> suc (suc zero) } ;
+  hpA (d : PA) : TA.Tm -> PA = split { th n z a -> (n,z) ; nl -> d ; cs x r -> d } ;
+  pr1A : TA.Tm -> TA.Tm = split { th n z a -> a ; nl -> nl ; cs x r -> x } ;
+  pr2A : TA.Tm -> TA.Tm = split { th n z a -> nl ; nl -> nl ; cs x r -> r } ;
+  neqT (m k : W.N) (h : Id W.Bool (W.isEq (W.cmpN m k)) false) (u v : TA.Tm) (e : Id TA.Tm u v) (em : Id W.N (tag A u) m) (ek : Id W.N (tag A v) k) (Z : U l) : Z =
+    W.absurdB Z (PL.trans W.Bool false (W.isEq (W.cmpN m k)) true (PL.sym W.Bool (W.isEq (W.cmpN m k)) false h)
+      (PL.subst W.N (\ q -> Id W.Bool (W.isEq (W.cmpN m q)) true) m k
+        (PL.trans W.N m (tag A u) k (PL.sym W.N (tag A u) m em) (PL.trans W.N (tag A u) (tag A v) k (PL.ap TA.Tm W.N (tag A) u v e) ek))
+        (PL.ap W.O3 W.Bool W.isEq (W.cmpN m m) eq (W.cmpN-refl m)))) ;
+  EQ (b : TB.Tm) (b' : TB'.Tm) : U l = Id TA.Tm (Rf.rn b) (Rf'.rn b') ;
+  pbOf (n : W.N) (z : (B.G (LC.ord n)).car) (a : TB.Tm) (n' : W.N) (z' : (B'.G (LC.ord n')).car) (a' : TB'.Tm)
+    (e : EQ (th n z a) (th n' z' a')) : SF.Im (L2.Pt2 Q) (L2.Pt2 B) (L2.pm2 Q B q1) (n,z) =
+    L2.Pbp[A,B,B',f,f'].result (n,z) (n',z') (PL.ap TA.Tm PA (hpA (n,(f.1 n).1 z)) (Rf.rn (th n z a)) (Rf'.rn (th n' z' a')) e) ;
+  zp : (b : TB.Tm) (b' : TB'.Tm) -> EQ b b' -> TQ.Tm = split {
+    th n z a | ra -> split {
+      th n' z' a' -> \ e -> th (pbOf n z a n' z' a' e).1.1 (pbOf n z a n' z' a' e).1.2
+        (ra a' (PL.ap TA.Tm TA.Tm pr1A (Rf.rn (th n z a)) (Rf'.rn (th n' z' a')) e)) ;
+      nl -> \ e -> neqT zero (suc zero) (refl false) (Rf.rn (th n z a)) (Rf'.rn nl) e (refl zero) (refl (suc zero)) TQ.Tm ;
+      cs x' r' -> \ e -> neqT zero (suc (suc zero)) (refl false) (Rf.rn (th n z a)) (Rf'.rn (cs x' r')) e (refl zero) (refl (suc (suc zero))) TQ.Tm } ;
+    nl -> split {
+      th n' z' a' -> \ e -> neqT (suc zero) zero (refl false) (Rf.rn nl) (Rf'.rn (th n' z' a')) e (refl (suc zero)) (refl zero) TQ.Tm ;
+      nl -> \ e -> nl ;
+      cs x' r' -> \ e -> neqT (suc zero) (suc (suc zero)) (refl false) (Rf.rn nl) (Rf'.rn (cs x' r')) e (refl (suc zero)) (refl (suc (suc zero))) TQ.Tm } ;
+    cs x r | rx rr -> split {
+      th n' z' a' -> \ e -> neqT (suc (suc zero)) zero (refl false) (Rf.rn (cs x r)) (Rf'.rn (th n' z' a')) e (refl (suc (suc zero))) (refl zero) TQ.Tm ;
+      nl -> \ e -> neqT (suc (suc zero)) (suc zero) (refl false) (Rf.rn (cs x r)) (Rf'.rn nl) e (refl (suc (suc zero))) (refl (suc zero)) TQ.Tm ;
+      cs x' r' -> \ e -> cs (rx x' (PL.ap TA.Tm TA.Tm pr1A (Rf.rn (cs x r)) (Rf'.rn (cs x' r')) e))
+                             (rr r' (PL.ap TA.Tm TA.Tm pr2A (Rf.rn (cs x r)) (Rf'.rn (cs x' r')) e)) } } ;
+  zpP1 : (b : TB.Tm) (b' : TB'.Tm) (e : EQ b b') -> Id TB.Tm (Rq.rn (zp b b' e)) b = split {
+    th n z a | ra -> split {
+      th n' z' a' -> \ e -> PL.trans TB.Tm (Rq.rn (zp (th n z a) (th n' z' a') e))
+          (th (pbOf n z a n' z' a' e).1.1 ((q1.1 (pbOf n z a n' z' a' e).1.1).1 (pbOf n z a n' z' a' e).1.2) a) (th n z a)
+        (PL.ap TB.Tm TB.Tm (\ u -> th (pbOf n z a n' z' a' e).1.1 ((q1.1 (pbOf n z a n' z' a' e).1.1).1 (pbOf n z a n' z' a' e).1.2) u)
+          (Rq.rn (zp a a' (PL.ap TA.Tm TA.Tm pr1A (Rf.rn (th n z a)) (Rf'.rn (th n' z' a')) e))) a
+          (ra a' (PL.ap TA.Tm TA.Tm pr1A (Rf.rn (th n z a)) (Rf'.rn (th n' z' a')) e)))
+        (PL.ap PB0 TB.Tm (\ q -> th q.1 q.2 a) ((L2.pm2 Q B q1).1 (pbOf n z a n' z' a' e).1) (n,z) (pbOf n z a n' z' a' e).2) ;
+      nl -> \ e -> neqT zero (suc zero) (refl false) (Rf.rn (th n z a)) (Rf'.rn nl) e (refl zero) (refl (suc zero)) (Id TB.Tm (Rq.rn (zp (th n z a) nl e)) (th n z a)) ;
+      cs x' r' -> \ e -> neqT zero (suc (suc zero)) (refl false) (Rf.rn (th n z a)) (Rf'.rn (cs x' r')) e (refl zero) (refl (suc (suc zero)))
+        (Id TB.Tm (Rq.rn (zp (th n z a) (cs x' r') e)) (th n z a)) } ;
+    nl -> split {
+      th n' z' a' -> \ e -> neqT (suc zero) zero (refl false) (Rf.rn nl) (Rf'.rn (th n' z' a')) e (refl (suc zero)) (refl zero) (Id TB.Tm (Rq.rn (zp nl (th n' z' a') e)) nl) ;
+      nl -> \ e -> refl nl ;
+      cs x' r' -> \ e -> neqT (suc zero) (suc (suc zero)) (refl false) (Rf.rn nl) (Rf'.rn (cs x' r')) e (refl (suc zero)) (refl (suc (suc zero))) (Id TB.Tm (Rq.rn (zp nl (cs x' r') e)) nl) } ;
+    cs x r | rx rr -> split {
+      th n' z' a' -> \ e -> neqT (suc (suc zero)) zero (refl false) (Rf.rn (cs x r)) (Rf'.rn (th n' z' a')) e (refl (suc (suc zero))) (refl zero)
+        (Id TB.Tm (Rq.rn (zp (cs x r) (th n' z' a') e)) (cs x r)) ;
+      nl -> \ e -> neqT (suc (suc zero)) (suc zero) (refl false) (Rf.rn (cs x r)) (Rf'.rn nl) e (refl (suc (suc zero))) (refl (suc zero))
+        (Id TB.Tm (Rq.rn (zp (cs x r) nl e)) (cs x r)) ;
+      cs x' r' -> \ e -> W.ap2 TB.Tm TB.Tm TB.Tm (\ u v -> cs u v)
+        (Rq.rn (zp x x' (PL.ap TA.Tm TA.Tm pr1A (Rf.rn (cs x r)) (Rf'.rn (cs x' r')) e))) x
+        (Rq.rn (zp r r' (PL.ap TA.Tm TA.Tm pr2A (Rf.rn (cs x r)) (Rf'.rn (cs x' r')) e))) r
+        (rx x' (PL.ap TA.Tm TA.Tm pr1A (Rf.rn (cs x r)) (Rf'.rn (cs x' r')) e))
+        (rr r' (PL.ap TA.Tm TA.Tm pr2A (Rf.rn (cs x r)) (Rf'.rn (cs x' r')) e)) } } ;
+  module TOA = T3.ThetaOrd[A] ;
+  module TOB = T3.ThetaOrd[B] ;
+  module TOQ = T3.ThetaOrd[Q] ;
+  module Rh = TF.TF[Q,A,O.compS Q B A q1 f] ;
+  module Res (y : TOA.Car) (r : SF.Im TOB.lo TOA.lo Rf.arr y) (r' : SF.Im T3.ThetaOrd[B'].lo TOA.lo Rf'.arr y) {
+    eB : Id TA.Tm (Rf.rn r.1.1) y.1 = PL.ap TOA.Car TA.Tm (\ u -> u.1) (Rf.arrF r.1) y r.2 ;
+    eB' : Id TA.Tm (Rf'.rn r'.1.1) y.1 = PL.ap TOA.Car TA.Tm (\ u -> u.1) (Rf'.arrF r'.1) y r'.2 ;
+    e0 : EQ r.1.1 r'.1.1 = PL.trans TA.Tm (Rf.rn r.1.1) y.1 (Rf'.rn r'.1.1) eB (PL.sym TA.Tm (Rf'.rn r'.1.1) y.1 eB') ;
+    gm : TQ.Tm = zp r.1.1 r'.1.1 e0 ;
+    gB : Id TB.Tm (Rq.rn gm) r.1.1 = zpP1 r.1.1 r'.1.1 e0 ;
+    nf : TL.ThL[Q].NF gm = ThBack[Q,B,q1].nfB gm (PL.subst TB.Tm TL.ThL[B].NF r.1.1 (Rq.rn gm) (PL.sym TB.Tm (Rq.rn gm) r.1.1 gB) r.1.2.1) ;
+    ht : Id W.Bool (TL.ThL[Q].isTh gm) true =
+      PL.trans W.Bool (TL.ThL[Q].isTh gm) (TL.ThL[B].isTh (Rq.rn gm)) true (PL.sym W.Bool (TL.ThL[B].isTh (Rq.rn gm)) (TL.ThL[Q].isTh gm) (Rq.isThRn gm))
+        (PL.subst TB.Tm (\ u -> Id W.Bool (TL.ThL[B].isTh u) true) r.1.1 (Rq.rn gm) (PL.sym TB.Tm (Rq.rn gm) r.1.1 gB) r.1.2.2) ;
+    gA : Id TA.Tm (Rh.rn gm) y.1 =
+      PL.trans TA.Tm (Rh.rn gm) (Rf.rn (Rq.rn gm)) y.1
+        (PL.sym TA.Tm (Rf.rn (Rq.rn gm)) (Rh.rn gm) (ThLawsC[Q,B,A,q1,f].rnComp gm))
+        (PL.trans TA.Tm (Rf.rn (Rq.rn gm)) (Rf.rn r.1.1) y.1 (PL.ap TB.Tm TA.Tm Rf.rn (Rq.rn gm) r.1.1 gB) eB) ;
+    res : SF.Im TOQ.lo TOA.lo Rh.arr y =
+      ((gm,(nf,ht)),PL.Sigma-eq TA.Tm (\ u -> TL.ThL[A].NF u * Id W.Bool (TL.ThL[A].isTh u) true) (Rh.rn gm) y.1 (Rh.arrF (gm,(nf,ht))).2 y.2 gA (TOA.nfP y.1)) ;
+  } ;
+} ;
+
+-- theta as a functor on Stab(LO), and it is a type-2 ptyx
+thG (D : TDL) : DP.LO = T3.ThetaOrd[D].lo ;
+thArr (D D' : TDL) (S : O.Mor D D') : DP.Map (thG D) (thG D') = TF.TF[D,D',S].arr ;
+thetaP : SF.SF[LW.C2] = new SF.SF[LW.C2, G := thG, arr := thArr,
+  arr-id := \ D y -> PL.Sigma-eq (TT.Th[D].Tm) (\ u -> TL.ThL[D].NF u * Id W.Bool (TL.ThL[D].isTh u) true)
+      (TF.TF[D,D,O.idS D].rn y.1) y.1 (TF.TF[D,D,O.idS D].arrF y).2 y.2 (ThLaws[D].rnId y.1) (T3.ThetaOrd[D].nfP y.1),
+  arr-comp := \ D1 D2 D3 S S' y -> PL.Sigma-eq (TT.Th[D3].Tm) (\ u -> TL.ThL[D3].NF u * Id W.Bool (TL.ThL[D3].isTh u) true)
+      (TF.TF[D2,D3,S'].rn (TF.TF[D1,D2,S].rn y.1)) (TF.TF[D1,D3,O.compS D1 D2 D3 S S'].rn y.1)
+      (TF.TF[D2,D3,S'].arrF (TF.TF[D1,D2,S].arrF y)).2 (TF.TF[D1,D3,O.compS D1 D2 D3 S S'].arrF y).2
+      (ThLawsC[D1,D2,D3,S,S'].rnComp y.1) (T3.ThetaOrd[D3].nfP (TF.TF[D1,D3,O.compS D1 D2 D3 S S'].rn y.1)),
+  cont := \ D y -> TC.map (LGT.SuppT D (ThCont[D].pts y.1))
+      ((K : LW.C2.Fin) * ((i : LW.C2.Mor (LW.C2.fin K) D) * SF.Im (thG (LW.C2.fin K)) (thG D) (thArr (LW.C2.fin K) D i) y))
+      (\ s -> (s.1,(s.2.1,ThCont[D].Wit[y,s].res))) (LGT.suppL D (ThCont[D].pts y.1)),
+  stab := \ A B B' f f' y r r' -> ThStab[A,B,B',f,f'].Res[y,r,r'].res] ;
+thetaP-ptyx : LW.IsPtyx thetaP = \ D d -> ThetaWF[l].WFD[D,d].wfTheta ;
