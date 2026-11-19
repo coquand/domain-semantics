@@ -1,0 +1,321 @@
+-- Classical completion of Girard's Pi^1_2 theorem, in a segment with
+-- excluded middle (for propositions) and dependent choice as parameters.
+--
+-- Note: with excluded middle every proposition is equivalent to a
+-- boolean, so propositions are small (impredicativity).  The results here
+-- are a verification of Girard's classical theorems on top of the
+-- constructive development, kept separate from it.
+--
+--  * Bar: a prefix-closed tree over a well-founded label order with no
+--    infinite branch has a well-founded Kleene-Brouwer order (and is
+--    bounded).  Proof: KB-accessibility of the subtree at t is a
+--    proposition, closed under "all children" (KBTree: bndKB, wfKB);
+--    if the root fails, excluded middle gives a failing child at each
+--    step, and dependent choice an infinite branch.
+--  * dil-ill: if D_T is a dilator, every U_f has an infinite branch
+--    (otherwise the KB order of U_f is a rank of U_f into a well-order,
+--    refuted by Girard.rank-not-dil);
+--  * ill-dil: if every U_f has an infinite branch, D_T is a dilator: an
+--    infinite branch of an attempt tree S_A gives f and a rank of U_f
+--    into 1 + A, refuting the branches of U_f; so S_A is bounded (Bar).
+--  * girard: D_T is a dilator  <=>  every U_f is ill-founded.
+-- Hypotheses: the trees U_f are prefix-closed, and dec lists every finite
+-- sequence t at some index j with |t| <= j+1.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module GR = Girard[l] ;
+module ST = StabTab[l] ;
+module TC = TruncationCombinators[l] ;
+module HL = Axioms[l].FunExtLemmas[fe @l] ;
+
+isEqS : (c : W.O3) -> Id W.Bool (W.isEq c) true -> Id W.O3 c eq = split {
+  lt -> \ h -> W.absurdB (Id W.O3 lt eq) h ; eq -> \ h -> refl eq ; gt -> \ h -> W.absurdB (Id W.O3 gt eq) h } ;
+LEM : U l+ = (P : U l) -> PL.isProp P -> W.Or P (P -> W.Empty) ;
+DC : U l+ = (A : U l) (R : A -> A -> U l) (a0 : A) -> ((x : A) -> Ex ((y : A) * R x y)) ->
+  Ex ((s : W.N -> A) * (Id A (s zero) a0 * ((n : W.N) -> R (s n) (s (suc n))))) ;
+
+module Classical (lem : LEM) (dc : DC) {
+
+  ------------------------------------------------------------------
+  -- bar induction for KB trees
+
+  module Bar (L : DP.LO) (wl : W.Acc[L.car,W.ltO L.car L.cmp].WF) (P : KT.KB[L].Tr)
+    (pc : (xs ys : KT.KB[L].Ls) -> Id W.Bool (P (KT.KB[L].app xs ys)) true -> Id W.Bool (P xs) true) {
+    module K = KT.KB[L] ;
+    Ls : U l = K.Ls ;
+    preL (g : W.N -> L.car) : W.N -> Ls = split { zero -> nilL ; suc n | r -> K.app r (K.one (g n)) } ;
+    Branch : U l = (g : W.N -> L.car) * ((n : W.N) -> Id W.Bool (P (preL g n)) true) ;
+    From (t : Ls) : K.Tr = \ ys -> P (K.app t ys) ;
+    Good (t : Ls) : U l = (ys : Ls) -> Id W.Bool (From t ys) true -> W.Acc[Ls,K.ltP (From t)].AccP ys ;
+    good-prop (t : Ls) : PL.isProp (Good t) =
+      HL.isProp-Pi Ls (\ ys -> Id W.Bool (From t ys) true -> W.Acc[Ls,K.ltP (From t)].AccP ys) (\ ys ->
+        HL.isProp-Pi (Id W.Bool (From t ys) true) (\ _ -> W.Acc[Ls,K.ltP (From t)].AccP ys) (\ _ ->
+          ThetaWF[l].AccProp[Ls,K.ltP (From t)].accProp ys)) ;
+    pcF (t : Ls) (xs ys : Ls) (h : Id W.Bool (From t (K.app xs ys)) true) : Id W.Bool (From t xs) true =
+      pc (K.app t xs) ys (PL.subst Ls (\ z -> Id W.Bool (P z) true) (K.app t (K.app xs ys)) (K.app (K.app t xs) ys)
+        (PL.sym Ls (K.app (K.app t xs) ys) (K.app t (K.app xs ys)) (K.app-assoc t xs ys)) h) ;
+    -- closure: if all children are good, so is the node
+    closure (t : Ls) (h : (a : L.car) -> Good (K.app t (K.one a))) : Good t =
+      K.wfKB wl (node (\ a -> (K.Bd[From (K.app t (K.one a)),pcF (K.app t (K.one a))].bndKB (h a)).1)) (From t)
+        (\ a -> K.bnd-ext (K.Bd[From (K.app t (K.one a)),pcF (K.app t (K.one a))].bndKB (h a)).1
+          (From (K.app t (K.one a))) (K.sub (From t) a)
+          (\ ys -> PL.ap Ls W.Bool P (K.app (K.app t (K.one a)) ys) (K.app t (consL a ys)) (K.app-assoc t (K.one a) ys))
+          (K.Bd[From (K.app t (K.one a)),pcF (K.app t (K.one a))].bndKB (h a)).2) ;
+    Bad (t : Ls) : U l = Good t -> W.Empty ;
+    -- a bad node is in the tree
+    inP (t : Ls) (b : Bad t) : Id W.Bool (P t) true =
+      CF.or-elim (Id W.Bool (P t) true) (Id W.Bool (P t) true -> W.Empty) (Id W.Bool (P t) true) (\ x -> x)
+        (\ np -> CF.efq (Id W.Bool (P t) true) (b (\ ys hy -> CF.efq (W.Acc[Ls,K.ltP (From t)].AccP ys) (np (pc t ys hy)))))
+        (W.decB (P t) true) ;
+    -- a bad node has a bad child
+    Child (t : Ls) : U l = (a : L.car) * Bad (K.app t (K.one a)) ;
+    badChild (t : Ls) (b : Bad t) : Ex (Child t) =
+      CF.or-elim (Ex (Child t)) (Ex (Child t) -> W.Empty) (Ex (Child t)) (\ x -> x)
+        (\ ne -> CF.efq (Ex (Child t)) (b (closure t (\ a ->
+          CF.or-elim (Good (K.app t (K.one a))) (Bad (K.app t (K.one a))) (Good (K.app t (K.one a))) (\ g -> g)
+            (\ bb -> CF.efq (Good (K.app t (K.one a))) (ne (inc (Child t) (a,bb))))
+            (lem (Good (K.app t (K.one a))) (good-prop (K.app t (K.one a))))))))
+        (lem (Ex (Child t)) (prop (Child t))) ;
+    -- dependent choice: an infinite branch of bad nodes
+    BN : U l = (t : Ls) * Bad t ;
+    R (x y : BN) : U l = (a : L.car) * Id Ls y.1 (K.app x.1 (K.one a)) ;
+    tot (x : BN) : Ex ((y : BN) * R x y) =
+      TC.rec (Child x.1) @l (Ex ((y : BN) * R x y)) (prop ((y : BN) * R x y))
+        (\ c -> inc ((y : BN) * R x y) ((K.app x.1 (K.one c.1),c.2),(c.1,refl (K.app x.1 (K.one c.1)))))
+        (badChild x.1 x.2) ;
+    module Seq (b0 : Bad nilL) (sq : (s : W.N -> BN) * (Id BN (s zero) (nilL,b0) * ((n : W.N) -> R (s n) (s (suc n))))) {
+      s : W.N -> BN = sq.1 ;
+      g (n : W.N) : L.car = (sq.2.2 n).1 ;
+      eqs : (n : W.N) -> Id Ls (s n).1 (preL g n) = split {
+        zero -> PL.ap BN Ls (\ x -> x.1) (s zero) (nilL,b0) sq.2.1 ;
+        suc n | r -> PL.trans Ls (s (suc n)).1 (K.app (s n).1 (K.one (g n))) (preL g (suc n)) (sq.2.2 n).2
+          (PL.ap Ls Ls (\ z -> K.app z (K.one (g n))) (s n).1 (preL g n) r) } ;
+      branch : Branch = (g,\ n -> PL.subst Ls (\ z -> Id W.Bool (P z) true) (s n).1 (preL g n) (eqs n) (inP (s n).1 (s n).2)) ;
+    } ;
+    -- the theorem: no infinite branch => KB well-founded
+    wfTree (nb : Branch -> W.Empty) : Good nilL =
+      CF.or-elim (Good nilL) (Bad nilL) (Good nilL) (\ x -> x)
+        (\ b0 -> CF.efq (Good nilL)
+          (TC.rec ((s : W.N -> BN) * (Id BN (s zero) (nilL,b0) * ((n : W.N) -> R (s n) (s (suc n))))) @l W.Empty CF.empty-prop
+            (\ sq -> nb Seq[b0,sq].branch) (dc BN R (nilL,b0) tot)))
+        (lem (Good nilL) (good-prop nilL)) ;
+    bounded (nb : Branch -> W.Empty) : K.WFT P = K.Bd[P,pc].bndKB (wfTree nb) ;
+  } ;
+
+  ------------------------------------------------------------------
+  -- Girard's Pi^1_2 theorem: D_T a dilator => every U_f is ill-founded
+
+  module G2 (T : W.List (W.N * W.N) -> W.Bool) (dec : W.N -> GR.NL)
+    (pcT : (f : W.N -> W.N) (xs ys : GR.NL) -> Id W.Bool (GR.Girard[T,dec].Uf f (KT.appL W.N xs ys)) true ->
+      Id W.Bool (GR.Girard[T,dec].Uf f xs) true) {
+    module GG = GR.Girard[T,dec] ;
+    module K = KT.KB[LW.omega] ;
+    IllF (f : W.N -> W.N) : U l = (g : W.N -> W.N) * ((n : W.N) -> Id W.Bool (GG.Uf f (GR.pre n g)) true) ;
+    module RK (f : W.N -> W.N) (nb : IllF f -> W.Empty) {
+      module BB = Bar[LW.omega,LW.wf-omega,GG.Uf f,pcT f] ;
+      preL-pre (g : W.N -> W.N) : (n : W.N) -> Id GR.NL (BB.preL g n) (GR.pre n g) = split {
+        zero -> refl nilL ;
+        suc n | r -> PL.trans GR.NL (BB.preL g (suc n)) (K.app (GR.pre n g) (K.one (g n))) (GR.pre (suc n) g)
+          (PL.ap GR.NL GR.NL (\ z -> K.app z (K.one (g n))) (BB.preL g n) (GR.pre n g) r)
+          (PL.sym GR.NL (GR.pre (suc n) g) (K.app (GR.pre n g) (K.one (g n))) (GR.pre-snoc n g)) } ;
+      nb' (br : BB.Branch) : W.Empty =
+        nb (br.1,\ n -> PL.subst GR.NL (\ z -> Id W.Bool (GG.Uf f z) true) (BB.preL br.1 n) (GR.pre n br.1) (preL-pre br.1 n) (br.2 n)) ;
+      XO : DP.LO = K.Ord[GG.Uf f].o ;
+      wXO : LW.WF XO = \ p -> K.Ord[GG.Uf f].toO p (BB.wfTree nb' p.1 p.2) ;
+      X : DP.LO = LT.Opt XO ;
+      wX : LW.WF X = FinDilWF[l].wfOptT XO wXO ;
+      rkO (t : GR.NL) : (b : W.Bool) -> Id W.Bool (GG.Uf f t) b -> X.car = split {
+        true -> \ e -> inr (t,e) ; false -> \ e -> inl tt } ;
+      rk (t : GR.NL) : X.car = rkO t (GG.Uf f t) (refl (GG.Uf f t)) ;
+      rkE (t : GR.NL) (h : Id W.Bool (GG.Uf f t) true) : (b : W.Bool) (e : Id W.Bool (GG.Uf f t) b) -> Id X.car (rkO t b e) (inr (t,h)) = split {
+        true -> \ e -> PL.ap (Id W.Bool (GG.Uf f t) true) X.car (\ z -> inr (t,z)) e h (W.HB.uip (GG.Uf f t) true e h) ;
+        false -> \ e -> W.absurdB (Id X.car (inl tt) (inr (t,h))) (PL.trans W.Bool false (GG.Uf f t) true (PL.sym W.Bool (GG.Uf f t) false e) h) } ;
+      -- a proper prefix
+      pprefD : (t t' : GR.NL) -> Id W.Bool (GR.ppref t t') true -> (a : W.N) * ((ys : GR.NL) * Id GR.NL t' (K.app t (consL a ys))) = split {
+        nilL -> split {
+          nilL -> \ h -> W.absurdB ((a : W.N) * ((ys : GR.NL) * Id GR.NL nilL (K.app nilL (consL a ys)))) h ;
+          consL y u -> \ h -> (y,(u,refl (consL y u))) } ;
+        consL x s0 | r -> split {
+          nilL -> \ h -> W.absurdB ((a : W.N) * ((ys : GR.NL) * Id GR.NL nilL (K.app (consL x s0) (consL a ys)))) h ;
+          consL y u -> \ h -> ((r u (W.andB-r (GR.eqN x y) (GR.ppref s0 u) h)).1,((r u (W.andB-r (GR.eqN x y) (GR.ppref s0 u) h)).2.1,
+            W.ap2 W.N GR.NL GR.NL (\ z w -> consL z w) y x u
+              (K.app s0 (consL (r u (W.andB-r (GR.eqN x y) (GR.ppref s0 u) h)).1 (r u (W.andB-r (GR.eqN x y) (GR.ppref s0 u) h)).2.1))
+              (PL.sym W.N x y (W.cmpN-eq x y (isEqS (W.cmpN x y) (W.andB-l (GR.eqN x y) (GR.ppref s0 u) h))))
+              (r u (W.andB-r (GR.eqN x y) (GR.ppref s0 u) h)).2.2)) } } ;
+      cond (t t' : GR.NL) (ht : Id W.Bool (GG.Uf f t) true) (ht' : Id W.Bool (GG.Uf f t') true) (hp : Id W.Bool (GR.ppref t t') true) :
+          Id W.O3 (X.cmp (rk t') (rk t)) lt =
+        PL.trans W.O3 (X.cmp (rk t') (rk t)) (K.kb t' t) lt
+          (W.ap2 X.car X.car W.O3 X.cmp (rk t') (inr (t',ht')) (rk t) (inr (t,ht))
+            (rkE t' ht' (GG.Uf f t') (refl (GG.Uf f t'))) (rkE t ht (GG.Uf f t) (refl (GG.Uf f t))))
+          (PL.subst GR.NL (\ z -> Id W.O3 (K.kb z t) lt) (K.app t (consL (pprefD t t' hp).1 (pprefD t t' hp).2.1)) t'
+            (PL.sym GR.NL t' (K.app t (consL (pprefD t t' hp).1 (pprefD t t' hp).2.1)) (pprefD t t' hp).2.2)
+            (K.kb-ext t (pprefD t t' hp).1 (pprefD t t' hp).2.1)) ;
+      rank : GG.Rank f X = (rk,cond) ;
+    } ;
+    -- the theorem
+    dil-ill (d : LW.IsDil GG.D) (f : W.N -> W.N) : Ex (IllF f) =
+      CF.or-elim (Ex (IllF f)) (Ex (IllF f) -> W.Empty) (Ex (IllF f)) (\ x -> x)
+        (\ ne -> CF.efq (Ex (IllF f))
+          (GG.rank-not-dil f RK[f,\ i -> ne (inc (IllF f) i)].X RK[f,\ i -> ne (inc (IllF f) i)].wX RK[f,\ i -> ne (inc (IllF f) i)].rank d))
+        (lem (Ex (IllF f)) (prop (IllF f))) ;
+
+    ----------------------------------------------------------------
+    -- the converse: every U_f ill-founded => D_T a dilator
+    -- (dec lists every finite sequence t at an index j with |t| <= j+1)
+    pprefApp : (t : GR.NL) (a : W.N) (ys : GR.NL) -> Id W.Bool (GR.ppref t (KT.appL W.N t (consL a ys))) true = split {
+      nilL -> \ a ys -> refl true ;
+      consL x s0 | r -> \ a ys -> W.andB-intro (GR.eqN x x) (GR.ppref s0 (KT.appL W.N s0 (consL a ys)))
+        (PL.ap W.O3 W.Bool W.isEq (W.cmpN x x) eq (W.cmpN-refl x)) (r a ys) } ;
+    pprefIrr : (t : GR.NL) -> Id W.Bool (GR.ppref t t) true -> W.Empty = split {
+      nilL -> \ h -> W.absurdB W.Empty h ;
+      consL x s0 | r -> \ h -> r (W.andB-r (GR.eqN x x) (GR.ppref s0 s0) h) } ;
+    -- a rank of U_f into a well-founded order refutes an infinite branch
+    module RB (f : W.N -> W.N) (X : DP.LO) (wX : LW.WF X) (R : GG.Rank f X) (ib : IllF f) {
+      module AX = W.Acc[X.car,W.ltO X.car X.cmp] ;
+      g : W.N -> W.N = ib.1 ;
+      dsc (n : W.N) : Id W.O3 (X.cmp (R.1 (GR.pre (suc n) g)) (R.1 (GR.pre n g))) lt =
+        R.2 (GR.pre n g) (GR.pre (suc n) g) (ib.2 n) (ib.2 (suc n))
+          (PL.subst GR.NL (\ z -> Id W.Bool (GR.ppref (GR.pre n g) z) true) (KT.appL W.N (GR.pre n g) (consL (g n) nilL)) (GR.pre (suc n) g)
+            (PL.sym GR.NL (GR.pre (suc n) g) (KT.appL W.N (GR.pre n g) (consL (g n) nilL)) (GR.pre-snoc n g))
+            (pprefApp (GR.pre n g) (g n) nilL)) ;
+      Q (x : X.car) : U l = (n : W.N) -> Id X.car (R.1 (GR.pre n g)) x -> W.Empty ;
+      result : W.Empty =
+        AX.ind Q (\ x ih n e -> ih (R.1 (GR.pre (suc n) g))
+            (PL.subst X.car (\ z -> AX.Lt (R.1 (GR.pre (suc n) g)) z) (R.1 (GR.pre n g)) x e
+              (PL.ap W.O3 W.Bool W.isLt (X.cmp (R.1 (GR.pre (suc n) g)) (R.1 (GR.pre n g))) lt (dsc n)))
+            (suc n) (refl (R.1 (GR.pre (suc n) g))))
+          (R.1 (GR.pre zero g)) (wX (R.1 (GR.pre zero g))) zero (refl (R.1 (GR.pre zero g))) ;
+    } ;
+    eqBS : (a b : W.Bool) -> Id W.Bool (GR.eqB a b) true -> Id W.Bool a b = split {
+      false -> split { false -> \ h -> refl false ; true -> \ h -> W.absurdB (Id W.Bool false true) h } ;
+      true -> \ b h -> PL.sym W.Bool b true h } ;
+    module Conv (decS : (t : GR.NL) -> (j : W.N) * (Id GR.NL (dec j) t * Id W.Bool (GR.leN (GR.lenN W.N t) (suc j)) true))
+      (ill : (f : W.N -> W.N) -> Ex (IllF f)) {
+      module LTG = GG.LTG ;
+      module NB (A : DP.LO) (wA : LW.WF A)
+        (br : Bar[LT.Lab A,LTG.LG.wfLab A wA,LTG.LG.P A,LTG.LG.pcP A].Branch) {
+        module BB = Bar[LT.Lab A,LTG.LG.wfLab A wA,LTG.LG.P A,LTG.LG.pcP A] ;
+        LA : U l = (LT.Lab A).car ;
+        OA : DP.LO = LT.Opt A ;
+        g : W.N -> LA = br.1 ;
+        f (n : W.N) : W.N = (g n).1 ;
+        m (n : W.N) : OA.car = (g n).2 ;
+        Rv : W.N -> LT.LL A = split { zero -> nilL ; suc k | r -> consL (g k) r } ;
+        rvEq : (n : W.N) -> Id (LT.LL A) (KT.revL LA (BB.preL g n)) (Rv n) = split {
+          zero -> refl nilL ;
+          suc n | r -> PL.trans (LT.LL A) (KT.revL LA (BB.preL g (suc n)))
+              (KT.appL LA (KT.revL LA (consL (g n) nilL)) (KT.revL LA (BB.preL g n))) (Rv (suc n))
+            (KT.revL-app LA (BB.preL g n) (consL (g n) nilL))
+            (PL.ap (LT.LL A) (LT.LL A) (\ z -> consL (g n) z) (KT.revL LA (BB.preL g n)) (Rv n) r) } ;
+        okN (n : W.N) : Id W.Bool (GG.ok A (Rv n)) true =
+          PL.subst (LT.LL A) (\ z -> Id W.Bool (GG.ok A z) true) (KT.revL LA (BB.preL g n)) (Rv n) (rvEq n) (br.2 n) ;
+        stepK (k : W.N) : Id W.Bool (GG.step A (Rv k) (g k)) true = W.andB-r (GG.ok A (Rv k)) (GG.step A (Rv k) (g k)) (okN (suc k)) ;
+        lenRv : (k : W.N) -> Id W.N (GR.lenN LA (Rv k)) k = split {
+          zero -> refl zero ; suc k | r -> PL.ap W.N W.N (\ z -> suc z) (GR.lenN LA (Rv k)) k r } ;
+        fstsRv : (n : W.N) -> Id GR.NL (GG.fsts A (Rv n)) (GR.preR f n) = split {
+          zero -> refl nilL ;
+          suc n | r -> PL.ap GR.NL GR.NL (\ z -> consL (f n) z) (GG.fsts A (Rv n)) (GR.preR f n) r } ;
+        -- presence of the label k
+        presK (k : W.N) : Id W.Bool (GR.isSome A.car (m k)) (GG.inU k (GR.pre (suc k) f)) =
+          PL.trans W.Bool (GR.isSome A.car (m k)) (GG.inU (GR.lenN LA (Rv k)) (KT.revL W.N (GG.fsts A (consL (g k) (Rv k)))))
+              (GG.inU k (GR.pre (suc k) f))
+            (eqBS (GR.isSome A.car (m k)) (GG.inU (GR.lenN LA (Rv k)) (KT.revL W.N (GG.fsts A (consL (g k) (Rv k)))))
+              (W.andB-l (GR.eqB (GR.isSome A.car (m k)) (GG.inU (GR.lenN LA (Rv k)) (KT.revL W.N (GG.fsts A (consL (g k) (Rv k))))))
+                (GG.pairs A (GR.lenN LA (Rv k)) (m k) (Rv k)) (stepK k)))
+            (W.ap2 W.N GR.NL W.Bool GG.inU (GR.lenN LA (Rv k)) k (KT.revL W.N (GG.fsts A (consL (g k) (Rv k)))) (GR.pre (suc k) f)
+              (lenRv k)
+              (PL.trans GR.NL (KT.revL W.N (GG.fsts A (consL (g k) (Rv k)))) (KT.revL W.N (GR.preR f (suc k))) (GR.pre (suc k) f)
+                (PL.ap GR.NL GR.NL (KT.revL W.N) (GG.fsts A (consL (g k) (Rv k))) (GR.preR f (suc k)) (fstsRv (suc k)))
+                (GR.revPre f (suc k)))) ;
+        -- the pair conditions
+        pairsE (K : W.N) (mk : OA.car) : (n : W.N) -> Id W.Bool (GG.pairs A K mk (Rv n)) true ->
+            (j : W.N) -> CF.Lt j n -> Id W.Bool (GG.pairOK A j K (m j) mk) true = split {
+          zero -> \ h j hj -> W.ltN-zero-abs (Id W.Bool (GG.pairOK A j K (m j) mk) true) j hj ;
+          suc n | r -> \ h j hj -> CF.or-elim (CF.Lt j n) (Id W.N j n) (Id W.Bool (GG.pairOK A j K (m j) mk) true)
+            (\ a -> r (W.andB-l (GG.pairs A K mk (Rv n)) (GG.pairOK A (GR.lenN LA (Rv n)) K (m n) mk) h) j a)
+            (\ e -> PL.subst W.N (\ z -> Id W.Bool (GG.pairOK A z K (m z) mk) true) n j (PL.sym W.N j n e)
+              (PL.subst W.N (\ z -> Id W.Bool (GG.pairOK A z K (m n) mk) true) (GR.lenN LA (Rv n)) n (lenRv n)
+                (W.andB-r (GG.pairs A K mk (Rv n)) (GG.pairOK A (GR.lenN LA (Rv n)) K (m n) mk) h)))
+            (CF.lt-split j n hj) } ;
+        pairAt (k j : W.N) (hj : CF.Lt j k) : Id W.Bool (GG.pairOK A j k (m j) (m k)) true =
+          PL.subst W.N (\ z -> Id W.Bool (GG.pairOK A j z (m j) (m k)) true) (GR.lenN LA (Rv k)) k (lenRv k)
+            (pairsE (GR.lenN LA (Rv k)) (m k) k
+              (W.andB-r (GR.eqB (GR.isSome A.car (m k)) (GG.inU (GR.lenN LA (Rv k)) (KT.revL W.N (GG.fsts A (consL (g k) (Rv k))))))
+                (GG.pairs A (GR.lenN LA (Rv k)) (m k) (Rv k)) (stepK k))
+              j hj) ;
+        -- the rank
+        jOf (t : GR.NL) : W.N = (decS t).1 ;
+        presT (t : GR.NL) (ht : Id W.Bool (GG.Uf f t) true) : Id W.Bool (GR.isSome A.car (m (jOf t))) true =
+          PL.trans W.Bool (GR.isSome A.car (m (jOf t))) (GG.inU (jOf t) (GR.pre (suc (jOf t)) f)) true (presK (jOf t))
+            (PL.subst GR.NL (\ z -> Id W.Bool (W.andB (GR.leN (GR.lenN W.N z) (suc (jOf t)))
+                (T (GR.zipN (GR.take (GR.lenN W.N z) (GR.pre (suc (jOf t)) f)) z))) true)
+              t (dec (jOf t)) (PL.sym GR.NL (dec (jOf t)) t (decS t).2.1)
+              (W.andB-intro (GR.leN (GR.lenN W.N t) (suc (jOf t))) (T (GR.zipN (GR.take (GR.lenN W.N t) (GR.pre (suc (jOf t)) f)) t))
+                (decS t).2.2
+                (PL.subst GR.NL (\ z -> Id W.Bool (T (GR.zipN z t)) true) (GR.pre (GR.lenN W.N t) f) (GR.take (GR.lenN W.N t) (GR.pre (suc (jOf t)) f))
+                  (PL.sym GR.NL (GR.take (GR.lenN W.N t) (GR.pre (suc (jOf t)) f)) (GR.pre (GR.lenN W.N t) f)
+                    (GR.take-pre (GR.lenN W.N t) (suc (jOf t)) f (decS t).2.2))
+                  ht))) ;
+        rk (t : GR.NL) : OA.car = m (jOf t) ;
+        impT (c d : W.Bool) (hc : Id W.Bool c true) (h : Id W.Bool (GR.impB c d) true) : Id W.Bool d true =
+          PL.subst W.Bool (\ z -> Id W.Bool (GR.impB z d) true) c true hc h ;
+        anteP (t t' : GR.NL) (ht : Id W.Bool (GG.Uf f t) true) (ht' : Id W.Bool (GG.Uf f t') true) (hp : Id W.Bool (GR.ppref t t') true)
+            (j k : W.N) (ej : Id W.N j (jOf t)) (ek : Id W.N k (jOf t')) :
+            Id W.Bool (W.andB (GR.isSome A.car (m j)) (W.andB (GR.isSome A.car (m k)) (GR.ppref (dec j) (dec k)))) true =
+          W.andB-intro (GR.isSome A.car (m j)) (W.andB (GR.isSome A.car (m k)) (GR.ppref (dec j) (dec k)))
+            (PL.subst W.N (\ z -> Id W.Bool (GR.isSome A.car (m z)) true) (jOf t) j (PL.sym W.N j (jOf t) ej) (presT t ht))
+            (W.andB-intro (GR.isSome A.car (m k)) (GR.ppref (dec j) (dec k))
+              (PL.subst W.N (\ z -> Id W.Bool (GR.isSome A.car (m z)) true) (jOf t') k (PL.sym W.N k (jOf t') ek) (presT t' ht'))
+              (PL.trans W.Bool (GR.ppref (dec j) (dec k)) (GR.ppref t t') true (PL.sym W.Bool (GR.ppref t t') (GR.ppref (dec j) (dec k))
+                (W.ap2 GR.NL GR.NL W.Bool (\ a b -> GR.ppref a b) t (dec j) t' (dec k)
+                  (PL.trans GR.NL t (dec (jOf t)) (dec j) (PL.sym GR.NL (dec (jOf t)) t (decS t).2.1)
+                    (PL.ap W.N GR.NL dec (jOf t) j (PL.sym W.N j (jOf t) ej)))
+                  (PL.trans GR.NL t' (dec (jOf t')) (dec k) (PL.sym GR.NL (dec (jOf t')) t' (decS t').2.1)
+                    (PL.ap W.N GR.NL dec (jOf t') k (PL.sym W.N k (jOf t') ek))))) hp)) ;
+        cmpO (t t' : GR.NL) (ht : Id W.Bool (GG.Uf f t) true) (ht' : Id W.Bool (GG.Uf f t') true) (hp : Id W.Bool (GR.ppref t t') true) :
+            (o : W.O3) -> Id W.O3 (W.cmpN (jOf t) (jOf t')) o -> Id W.O3 (OA.cmp (rk t') (rk t)) lt = split {
+          lt -> \ c -> W.isLt-sound (OA.cmp (m (jOf t')) (m (jOf t)))
+            (impT (W.andB (GR.isSome A.car (m (jOf t))) (W.andB (GR.isSome A.car (m (jOf t'))) (GR.ppref (dec (jOf t)) (dec (jOf t')))))
+              (W.isLt (OA.cmp (m (jOf t')) (m (jOf t))))
+              (anteP t t' ht ht' hp (jOf t) (jOf t') (refl (jOf t)) (refl (jOf t')))
+              (W.andB-l (GR.impB (W.andB (GR.isSome A.car (m (jOf t))) (W.andB (GR.isSome A.car (m (jOf t'))) (GR.ppref (dec (jOf t)) (dec (jOf t')))))
+                  (W.isLt (OA.cmp (m (jOf t')) (m (jOf t)))))
+                (GR.impB (W.andB (GR.isSome A.car (m (jOf t'))) (W.andB (GR.isSome A.car (m (jOf t))) (GR.ppref (dec (jOf t')) (dec (jOf t)))))
+                  (W.isLt (OA.cmp (m (jOf t)) (m (jOf t')))))
+                (pairAt (jOf t') (jOf t) (ST.ltOf (jOf t) (jOf t') c)))) ;
+          eq -> \ c -> CF.efq (Id W.O3 (OA.cmp (rk t') (rk t)) lt)
+            (pprefIrr t (PL.subst GR.NL (\ z -> Id W.Bool (GR.ppref t z) true) t' t
+              (PL.trans GR.NL t' (dec (jOf t')) t (PL.sym GR.NL (dec (jOf t')) t' (decS t').2.1)
+                (PL.trans GR.NL (dec (jOf t')) (dec (jOf t)) t
+                  (PL.ap W.N GR.NL dec (jOf t') (jOf t) (PL.sym W.N (jOf t) (jOf t') (W.cmpN-eq (jOf t) (jOf t') c))) (decS t).2.1)) hp)) ;
+          gt -> \ c -> W.isLt-sound (OA.cmp (m (jOf t')) (m (jOf t)))
+            (impT (W.andB (GR.isSome A.car (m (jOf t))) (W.andB (GR.isSome A.car (m (jOf t'))) (GR.ppref (dec (jOf t)) (dec (jOf t')))))
+              (W.isLt (OA.cmp (m (jOf t')) (m (jOf t))))
+              (anteP t t' ht ht' hp (jOf t) (jOf t') (refl (jOf t)) (refl (jOf t')))
+              (W.andB-r (GR.impB (W.andB (GR.isSome A.car (m (jOf t'))) (W.andB (GR.isSome A.car (m (jOf t))) (GR.ppref (dec (jOf t')) (dec (jOf t)))))
+                  (W.isLt (OA.cmp (m (jOf t)) (m (jOf t')))))
+                (GR.impB (W.andB (GR.isSome A.car (m (jOf t))) (W.andB (GR.isSome A.car (m (jOf t'))) (GR.ppref (dec (jOf t)) (dec (jOf t')))))
+                  (W.isLt (OA.cmp (m (jOf t')) (m (jOf t)))))
+                (pairAt (jOf t) (jOf t') (ST.ltOf (jOf t') (jOf t) (PL.trans W.O3 (W.cmpN (jOf t') (jOf t)) (W.flip (W.cmpN (jOf t) (jOf t'))) lt
+                  (W.cmpN-flip (jOf t) (jOf t')) (PL.ap W.O3 W.O3 W.flip (W.cmpN (jOf t) (jOf t')) gt c)))))) } ;
+        rank : GG.Rank f OA = (rk,\ t t' ht ht' hp -> cmpO t t' ht ht' hp (W.cmpN (jOf t) (jOf t')) (refl (W.cmpN (jOf t) (jOf t')))) ;
+        result : W.Empty =
+          TC.rec (IllF f) @l W.Empty CF.empty-prop (\ ib -> RB[f,OA,FinDilWF[l].wfOptT A wA,rank,ib].result) (ill f) ;
+      } ;
+      wfA (A : DP.LO) (wA : LW.WF A) : LTG.WFT A =
+        Bar[LT.Lab A,LTG.LG.wfLab A wA,LTG.LG.P A,LTG.LG.pcP A].bounded (\ br -> NB[A,wA,br].result) ;
+      ill-dil : LW.IsDil GG.D = GG.dil-wf wfA ;
+    } ;
+    -- Girard's Pi^1_2 completeness: D_T is a dilator iff every U_f is ill-founded
+    girard (decS : (t : GR.NL) -> (j : W.N) * (Id GR.NL (dec j) t * Id W.Bool (GR.leN (GR.lenN W.N t) (suc j)) true)) :
+        (LW.IsDil GG.D -> (f : W.N -> W.N) -> Ex (IllF f)) * (((f : W.N -> W.N) -> Ex (IllF f)) -> LW.IsDil GG.D) =
+      (dil-ill,\ ill -> Conv[decS,ill].ill-dil) ;
+  } ;
+} ;

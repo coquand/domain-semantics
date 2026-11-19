@@ -271,9 +271,33 @@ type-3 ptyx iff every 2-ptyx has a well-founded attempt tree; and if $F_f$
 is a 2-ptyx for some $f$, then $G$ is not a type-3 ptyx.
 \end{theorem}
 
-The converse directions use bar induction and are not formalised. A
-positive instance (the tree of strictly decreasing sequences) is proved to
-give a dilator.
+The converse directions use bar induction. For $\Pi^1_2$ they are
+formalised in a separate segment taking excluded middle (for
+propositions) and dependent choice as parameters:
+
+\begin{theorem}[Girard's $\Pi^1_2$ theorem, classically]
+Assume excluded middle and dependent choice, let the trees $U_f$ be
+prefix-closed and let the enumeration of finite sequences list every $t$ at
+an index $j$ with $|t|\le j+1$. Then $D_T$ is a dilator iff every $U_f$ has
+an infinite branch.
+\end{theorem}
+
+The only classical ingredient is bar induction: a prefix-closed tree over a
+well-founded label order with no infinite branch has a well-founded
+Kleene--Brouwer order. Kleene--Brouwer accessibility of the subtree at a
+node is a proposition, closed under ``all children'' (constructively);
+if the root fails, excluded middle gives a failing child at each step and
+dependent choice an infinite branch. Then: if some $U_f$ has no infinite
+branch, its own Kleene--Brouwer order is a rank into a well-order, which
+refutes that $D_T$ is a dilator; conversely an infinite branch of an
+attempt tree over a well-order $A$ gives $f$ and a rank of $U_f$ into
+$1+A$, which refutes the infinite branches of $U_f$. With excluded middle,
+propositions are small (impredicativity), so this segment is a
+verification of Girard's classical theorem on top of the constructive
+development, not part of it. The $\Pi^1_3$ and $\Pi^1_4$ converses (which
+need Girard's classical type-2 completeness theorem) are not formalised.
+A positive instance (the tree of strictly decreasing sequences) is proved
+constructively to give a dilator.
 
 The hypothesis that the listed codes decode to dilators is discharged
 for \emph{monotone} codes (Definition~\ref{def:dil}; for a code it suffices
@@ -584,7 +608,8 @@ library; the files below take a few seconds each). Main files, in the
   \texttt{Dedup}, \texttt{StabCEF2} (second proof of the main theorem),
   \texttt{DilSet} (dilators form a set), \texttt{Gaunt}, \texttt{DilCat}
   (monotone dilators as a category of embeddings; type-2 ptykes form a set),
-  \texttt{UnionWF};
+  \texttt{UnionWF}; classical completion of the $\Pi^1_2$ theorem:
+  \texttt{GirardClassical};
 \item type 3 (in progress): \texttt{ThetaP3Term} (terms of $\Theta_P$ and a
   decidable comparison, defined with a fuel bound); a Python mirror of the candidate in
   \texttt{mirror/}.
