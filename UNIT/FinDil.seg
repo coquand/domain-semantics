@@ -138,6 +138,11 @@ module FD (F : CF.CEF) {
       (\ p -> Iso[K,K'].eq.1 (trans SFC (dec K) (inc (q K)) (dec K') (sym SFC (inc (q K)) (dec K) (im.triangle K))
         (trans SFC (inc (q K)) (inc (q K')) (dec K') (ap FinDil SFC inc (q K) (q K') p) (im.triangle K'))))
       Iso[K,K'].decNI ;
+  -- maps both ways between decoded codes give equal finite stable functors
+  qEq (K K' : Code) (b : Iso[K,K'].Both) : Id FinDil (q K) (q K') =
+    (im.embedding (q K) (q K')).sec
+      (trans SFC (inc (q K)) (dec K) (inc (q K')) (im.triangle K)
+        (trans SFC (dec K) (dec K') (inc (q K')) (Iso[K,K'].eq.2.sec Iso[K,K'].ToNI[b].ni) (sym SFC (inc (q K')) (dec K') (im.triangle K')))) ;
   decEq (x y : FinDil) : DecEq x y =
     elim (\ z -> (w : FinDil) -> DecEq z w)
       (\ z -> HL.isProp-Pi FinDil (\ w -> DecEq z w) (\ w -> decEq-prop z w))

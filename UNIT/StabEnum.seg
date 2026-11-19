@@ -1,0 +1,202 @@
+-- Enumeration of finite stable functors up to iso (abstract catemb over
+-- a CEF), and hence of finite dilators, 2-ptykes, ... .
+--
+-- EnumIso F: finite lists L b of finite objects of F such that every
+-- finite object has an iso copy in some L b (maps both ways; by rigidity
+-- they are inverse).  Theorem: EnumIso F -> EnumIso Stab(F).
+-- Stage B of Stab(F): all valid tables (StabTab) with m <= B generators
+-- taken from L 0 ++ ... ++ L B.  Every code K is iso to a listed one:
+-- move its generators to listed iso copies (StabTabCov.GenIso), read its
+-- table (TblOf), and find an agreeing table in the list (TabCov).
+-- Instances: finite ordinals, hence dilators, 2-ptykes, 3-ptykes; and
+-- the replacement image FinDil (FinDil.seg) is covered by the lists.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module SF = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module ST = StabTab[l] ;
+module STC = StabTabCov[l] ;
+module FL = FinList[l] ;
+module PL = Prelude[l] ;
+
+IsoR (F : CF.CEF) (c c' : F.C.Fin) : U l = F.C.Mor (F.C.fin c') (F.C.fin c) * F.C.Mor (F.C.fin c) (F.C.fin c') ;
+record EnumIso (F : CF.CEF) {
+  c0 : F.C.Fin ;
+  L : W.N -> W.List (CF.Opt F.C.Fin) ;
+  cover : (c : F.C.Fin) -> (b : W.N) * FL.MemR F.C.Fin (IsoR F) (L b) c ;
+} ;
+
+--------------------------------------------------------------------
+-- cumulative lists and bounds
+
+lcat (A : U l) (L : W.N -> W.List (CF.Opt A)) : W.N -> W.List (CF.Opt A) = split {
+  zero -> L zero ;
+  suc b | r -> FL.appL A r (L (suc b)) } ;
+eqZ (b : W.N) (h : CF.Lt b (suc zero)) : Id W.N b zero =
+  CF.or-elim (CF.Lt b zero) (Id W.N b zero) (Id W.N b zero) (\ a -> W.ltN-zero-abs (Id W.N b zero) b a) (\ e -> e) (CF.lt-split b zero h) ;
+memLcat (A : U l) (R : A -> A -> U l) (L : W.N -> W.List (CF.Opt A)) (a : A) (b : W.N) (mb : FL.MemR A R (L b) a) :
+    (B : W.N) -> CF.Lt b (suc B) -> FL.MemR A R (lcat A L B) a = split {
+  zero -> \ h -> PL.subst W.N (\ x -> FL.MemR A R (L x) a) b zero (eqZ b h) mb ;
+  suc B | r -> \ h -> CF.or-elim (CF.Lt b (suc B)) (Id W.N b (suc B)) (FL.MemR A R (lcat A L (suc B)) a)
+    (\ h' -> FL.memR-appL-l A R (lcat A L B) (L (suc B)) a (r h'))
+    (\ e -> FL.memR-appL-r A R (lcat A L B) (L (suc B)) a (PL.subst W.N (\ x -> FL.MemR A R (L x) a) b (suc B) e mb))
+    (CF.lt-split b (suc B) h) } ;
+lt-plus-l (k : W.N) : (a b : W.N) -> CF.Lt k b -> CF.Lt k (W.plus a b) = split {
+  zero -> \ b h -> h ;
+  suc a | r -> \ b h -> W.ltN-sucR k (W.plus a b) (r b h) } ;
+ltS-plus-l (k a x : W.N) (h : CF.Lt k (suc x)) : CF.Lt k (suc (W.plus a x)) =
+  PL.subst W.N (\ y -> CF.Lt k y) (W.plus a (suc x)) (suc (W.plus a x)) (W.plus-sucR a x) (lt-plus-l k a (suc x) h) ;
+bsum (b : W.N -> W.N) : W.N -> W.N = split { zero -> zero ; suc t | r -> W.plus (b t) r } ;
+bsum-le (b : W.N -> W.N) : (t i : W.N) -> CF.Lt i t -> CF.Lt (b i) (suc (bsum b t)) = split {
+  zero -> \ i h -> W.ltN-zero-abs (CF.Lt (b i) (suc zero)) i h ;
+  suc t | r -> \ i h -> CF.or-elim (CF.Lt i t) (Id W.N i t) (CF.Lt (b i) (suc (W.plus (b t) (bsum b t))))
+    (\ a -> ltS-plus-l (b i) (b t) (bsum b t) (r i a))
+    (\ e -> PL.subst W.N (\ y -> CF.Lt (b y) (suc (W.plus (b t) (bsum b t)))) t i (PL.sym W.N i t e)
+      (FL.lt-plus-r (b t) (suc (b t)) (bsum b t) (W.ltN-suc (b t))))
+    (CF.lt-split i t h) } ;
+
+--------------------------------------------------------------------
+-- stage B of the enumeration of codes
+
+genC (F : CF.CEF) (c0 : F.C.Fin) (m : W.N) (fn : (i : W.N) -> CF.Lt i m -> F.C.Fin) (i : W.N) :
+    W.Or (CF.Lt i m) (CF.Lt i m -> W.Empty) -> F.C.Fin = split { inl h -> fn i h ; inr n -> c0 } ;
+genC-eq (F : CF.CEF) (c0 : F.C.Fin) (m : W.N) (fn : (i : W.N) -> CF.Lt i m -> F.C.Fin) (i : W.N) (hi : CF.Lt i m) :
+    (r : W.Or (CF.Lt i m) (CF.Lt i m -> W.Empty)) -> Id F.C.Fin (genC F c0 m fn i r) (fn i hi) = split {
+  inl h -> PL.ap (CF.Lt i m) F.C.Fin (fn i) h hi (W.HB.uip (W.ltN i m) true h hi) ;
+  inr n -> CF.efq (Id F.C.Fin c0 (fn i hi)) (n hi) } ;
+
+module Stage (F : CF.CEF) (E : EnumIso[F]) (B : W.N) {
+  Lg : W.List (CF.Opt F.C.Fin) = lcat F.C.Fin E.L B ;
+  module G (m : W.N) { module D = FL.DepFun[\ i -> F.C.Fin,\ i -> Lg,\ i -> IsoR F,m] ; } ;
+  GFn (m : W.N) : U l = G[m].D.Fn m ;
+  genT (m : W.N) (fn : GFn m) (i : W.N) : F.C.Fin = genC F E.c0 m fn i (W.decB (W.ltN i m) true) ;
+  module TT (m : W.N) (fn : GFn m) {
+    gen (i : W.N) : F.C.Fin = genT m fn i ;
+    J (n1 n2 : W.N) : W.N = F.jtN (gen n1) (gen n2) ;
+    module In (n1 n2 : W.N) { module D = FL.DepFun[\ t -> W.O3,\ t -> FL.o3L,\ t x y -> Id W.O3 y x,J n1 n2] ; } ;
+    InT (n1 n2 : W.N) : U l = In[n1,n2].D.Fn (J n1 n2) ;
+    module Mi (n1 : W.N) { module D = FL.DepFun[\ n2 -> InT n1 n2,\ n2 -> In[n1,n2].D.lst (J n1 n2),\ n2 s s' -> In[n1,n2].D.Ag (J n1 n2) s s',m] ; } ;
+    MiT (n1 : W.N) : U l = Mi[n1].D.Fn m ;
+    module Ou = FL.DepFun[\ n1 -> MiT n1,\ n1 -> Mi[n1].D.lst m,\ n1 s s' -> Mi[n1].D.Ag m s s',m] ;
+    Tbl : U l = Ou.Fn m ;
+    tblL : W.List (CF.Opt Tbl) = Ou.lst m ;
+    AgT (s s' : Tbl) : U l = Ou.Ag m s s' ;
+    tblM (tau : Tbl) : FL.MemR Tbl AgT tblL tau =
+      Ou.Cov[tau,\ n1 h1 -> Mi[n1].D.Cov[tau n1 h1,\ n2 h2 -> In[n1,n2].D.Cov[tau n1 h1 n2 h2,\ t ht -> FL.o3M (tau n1 h1 n2 h2 t ht)].full].full].full ;
+  } ;
+  S2 (m : W.N) : U l = (fn : GFn m) * TT[m,fn].Tbl ;
+  s2L (m : W.N) : W.List (CF.Opt (S2 m)) = FL.sigL (GFn m) (\ fn -> TT[m,fn].Tbl) (\ fn -> TT[m,fn].tblL) (G[m].D.lst m) ;
+  S1 : U l = (m : W.N) * S2 m ;
+  mel (i : W.N) (h : CF.Lt i (suc B)) : CF.Opt W.N = inl i ;
+  s1L : W.List (CF.Opt S1) = FL.sigL W.N S2 s2L (FL.fromIdx W.N (suc B) mel) ;
+  Vd (s : S1) : U l = ST.TabV[F,s.1,genT s.1 s.2.1,s.2.2].Valid ;
+  decVd (s : S1) : W.Or (Vd s) (Vd s -> W.Empty) = ST.TabV[F,s.1,genT s.1 s.2.1,s.2.2].decValid ;
+  VS : U l = (s : S1) * Vd s ;
+  codeOf (q : VS) : SC.Code[F] = ST.TabV[F,q.1.1,genT q.1.1 q.1.2.1,q.1.2.2].Laws[q.2].code ;
+  LB : W.List (CF.Opt SC.Code[F]) = FL.mapO VS SC.Code[F] codeOf (FL.filterS S1 Vd decVd s1L) ;
+} ;
+
+--------------------------------------------------------------------
+-- every code is iso to a listed one
+
+module CovK (F : CF.CEF) (E : EnumIso[F]) (K : SC.Code[F]) {
+  module O = SF.Over[F.C] ;
+  IsoS (c c' : SC.Code[F]) : U l = O.Mor (SC.Decode[F,c'].obj) (SC.Decode[F,c].obj) * O.Mor (SC.Decode[F,c].obj) (SC.Decode[F,c'].obj) ;
+  bi (i : W.N) : W.N = (E.cover (K.gen i)).1 ;
+  B : W.N = W.plus K.m (bsum bi K.m) ;
+  module St = Stage[F,E,B] ;
+  memG (i : W.N) (h : CF.Lt i K.m) : FL.MemR F.C.Fin (IsoR F) St.Lg (K.gen i) =
+    memLcat F.C.Fin (IsoR F) E.L (K.gen i) (bi i) (E.cover (K.gen i)).2 B (ltS-plus-l (bi i) K.m (bsum bi K.m) (bsum-le bi K.m i h)) ;
+  fm : FL.MemR (St.GFn K.m) (St.G[K.m].D.Ag K.m) (St.G[K.m].D.lst K.m) (\ i h -> K.gen i) =
+    St.G[K.m].D.Cov[\ i h -> K.gen i,memG].full ;
+  fn : St.GFn K.m = fm.2.2.1 ;
+  isoI (i : W.N) (h : CF.Lt i K.m) : IsoR F (K.gen i) (fn i h) = fm.2.2.2.2 i h ;
+  gen' (i : W.N) : F.C.Fin = St.genT K.m fn i ;
+  ge (i : W.N) (h : CF.Lt i K.m) : Id F.C.Fin (gen' i) (fn i h) = genC-eq F E.c0 K.m fn i h (W.decB (W.ltN i K.m) true) ;
+  pm (c c' : F.C.Fin) (e : Id F.C.Fin c c') : F.C.Mor (F.C.fin c) (F.C.fin c') =
+    PL.subst F.C.Fin (\ x -> F.C.Mor (F.C.fin c) (F.C.fin x)) c c' e (F.C.idm (F.C.fin c)) ;
+  phi (i : W.N) (h : CF.Lt i K.m) : F.C.Mor (F.C.fin (gen' i)) (F.C.fin (K.gen i)) =
+    F.C.comp (F.C.fin (gen' i)) (F.C.fin (fn i h)) (F.C.fin (K.gen i)) (pm (gen' i) (fn i h) (ge i h)) (isoI i h).1 ;
+  psi (i : W.N) (h : CF.Lt i K.m) : F.C.Mor (F.C.fin (K.gen i)) (F.C.fin (gen' i)) =
+    F.C.comp (F.C.fin (K.gen i)) (F.C.fin (fn i h)) (F.C.fin (gen' i)) (isoI i h).2 (pm (fn i h) (gen' i) (PL.sym F.C.Fin (gen' i) (fn i h) (ge i h))) ;
+  module GI = STC.GenIso[F,K,gen',phi,psi] ;
+  K' : SC.Code[F] = GI.code ;
+  module TO = STC.TblOf[F,K'] ;
+  module T2 = St.TT[K.m,fn] ;
+  tm : FL.MemR T2.Tbl T2.AgT T2.tblL TO.tbl = T2.tblM TO.tbl ;
+  tau : T2.Tbl = tm.2.2.1 ;
+  ag (d : F.C.Fin) (p q : SC.Pts[F,K.m,gen'].Pt (F.C.fin d)) : Id W.O3 (ST.Tab[F,K.m,gen',tau].ordT d p q) (K'.ord d p q) =
+    PL.trans W.O3 (ST.Tab[F,K.m,gen',tau].ordT d p q) (ST.Tab[F,K.m,gen',TO.tbl].ordT d p q) (K'.ord d p q)
+      (tm.2.2.2.2 p.1 p.2.1 q.1 q.2.1 ST.FJ[F,gen' p.1,gen' q.1,d,p.2.2,q.2.2].t ST.FJ[F,gen' p.1,gen' q.1,d,p.2.2,q.2.2].ht)
+      (TO.ag d p q) ;
+  module TC = STC.TabCov[F,K',tau,ag] ;
+  -- the target entry and its membership
+  s0 : St.S1 = (K.m,(fn,tau)) ;
+  memF : FL.Mem (St.GFn K.m) (St.G[K.m].D.lst K.m) fn = (fm.1,(fm.2.1,(fn,(fm.2.2.2.1,refl fn)))) ;
+  memT : FL.Mem T2.Tbl T2.tblL tau = (tm.1,(tm.2.1,(tau,(tm.2.2.2.1,refl tau)))) ;
+  memS2 : FL.Mem (St.S2 K.m) (St.s2L K.m) (fn,tau) =
+    FL.MemSig[St.GFn K.m,\ f0 -> St.TT[K.m,f0].Tbl,\ f0 -> St.TT[K.m,f0].tblL,fn,tau,memT].result (St.G[K.m].D.lst K.m) memF ;
+  memS : FL.Mem St.S1 St.s1L s0 =
+    FL.MemSig[W.N,St.S2,St.s2L,K.m,(fn,tau),memS2].result (FL.fromIdx W.N (suc B) St.mel)
+      (FL.mem-fromIdx1 W.N (suc B) St.mel K.m (FL.lt-plus-r K.m (suc K.m) (bsum bi K.m) (W.ltN-suc K.m)) K.m (refl (inl K.m))) ;
+  Good (s : St.S1) : U l = (v : St.Vd s) -> IsoS K (St.codeOf (s,v)) ;
+  good : Good s0 = \ v ->
+    (O.compS (SC.Decode[F,St.codeOf (s0,v)].obj) (SC.Decode[F,K'].obj) (SC.Decode[F,K].obj) TC.At[v].m12 GI.to,
+     O.compS (SC.Decode[F,K].obj) (SC.Decode[F,K'].obj) (SC.Decode[F,St.codeOf (s0,v)].obj) GI.from TC.At[v].m21) ;
+  RV (x y : St.VS) : U l = Id St.S1 y.1 x.1 ;
+  mf : FL.MemR St.VS RV (FL.filterS St.S1 St.Vd St.decVd St.s1L) (s0,TC.vv) =
+    FL.memR-filterS St.S1 (\ x y -> Id St.S1 y x) St.Vd St.decVd St.s1L s0
+      (\ a' e -> PL.subst St.S1 St.Vd s0 a' (PL.sym St.S1 a' s0 e) TC.vv) memS ;
+  result : FL.MemR SC.Code[F] IsoS St.LB K =
+    FL.memR-mapO St.VS SC.Code[F] RV IsoS St.codeOf (FL.filterS St.S1 St.Vd St.decVd St.s1L) (s0,TC.vv) K
+      (\ q e -> PL.subst St.S1 Good s0 q.1 (PL.sym St.S1 q.1 s0 e) good q.2) mf ;
+} ;
+
+--------------------------------------------------------------------
+-- the theorem and the hierarchy
+
+module Empty0 (F : CF.CEF) (c0 : F.C.Fin) {
+  tau0 (i : W.N) (h : CF.Lt i zero) : (i' : W.N) -> CF.Lt i' zero -> (t : W.N) -> CF.Lt t (F.jtN c0 c0) -> W.O3 =
+    W.ltN-zero-abs ((i' : W.N) -> CF.Lt i' zero -> (t : W.N) -> CF.Lt t (F.jtN c0 c0) -> W.O3) i h ;
+  module TV = ST.TabV[F,zero,\ i -> c0,tau0] ;
+  vv : TV.Valid = (\ i h -> W.ltN-zero-abs (TV.CR i h) i h,
+    (\ i h -> W.ltN-zero-abs (TV.VP0 i h) i h,\ i h -> W.ltN-zero-abs (TV.VTa i h) i h)) ;
+  code : SC.Code[F] = TV.Laws[vv].code ;
+} ;
+emptyCode (F : CF.CEF) (c0 : F.C.Fin) : SC.Code[F] = Empty0[F,c0].code ;
+enumStab (F : CF.CEF) (E : EnumIso[F]) : EnumIso[StabCEF[l].StabCEF[F].cef] =
+  new EnumIso[StabCEF[l].StabCEF[F].cef, c0 := emptyCode F E.c0,
+    L := \ b -> Stage[F,E,b].LB,
+    cover := \ K -> (CovK[F,E,K].B,CovK[F,E,K].result)] ;
+
+enumFO : EnumIso[FinOrd[l].cef] =
+  new EnumIso[FinOrd[l].cef, c0 := zero,
+    L := \ b -> consL (inl b) nilL,
+    cover := \ c -> (c,(zero,(refl true,(c,(refl (inl c),(FinOrd[l].ce.idm c,FinOrd[l].ce.idm c))))))] ;
+enumDil : EnumIso[StabCEF[l].dilCEF] = enumStab FinOrd[l].cef enumFO ;
+enumPty : EnumIso[StabCEF[l].ptyCEF] = enumStab StabCEF[l].dilCEF enumDil ;
+enumPty3 : EnumIso[StabCEF[l].pty3CEF] = enumStab StabCEF[l].ptyCEF enumPty ;
+
+--------------------------------------------------------------------
+-- the small set FinDil (replacement image of Decode) is enumerated
+
+module FinDilEnum (F : CF.CEF) (E : EnumIso[F]) {
+  module FDm = FinDil[l].FD[F] ;
+  LB (b : W.N) : W.List (CF.Opt SC.Code[F]) = Stage[F,E,b].LB ;
+  Hit (x : FDm.FinDil) : U l = Ex ((b : W.N) * ((k : W.N) * ((h : CF.Lt k (FL.lenL SC.Code[F] (LB b))) *
+    ((K : SC.Code[F]) * (Id (CF.Opt SC.Code[F]) (FL.nthO SC.Code[F] (LB b) k) (inl K) * Id FDm.FinDil (FDm.q K) x))))) ;
+  hitQ (K : SC.Code[F]) : Hit (FDm.q K) =
+    inc ((b : W.N) * ((k : W.N) * ((h : CF.Lt k (FL.lenL SC.Code[F] (LB b))) *
+        ((K' : SC.Code[F]) * (Id (CF.Opt SC.Code[F]) (FL.nthO SC.Code[F] (LB b) k) (inl K') * Id FDm.FinDil (FDm.q K') (FDm.q K))))))
+      (CovK[F,E,K].B,(CovK[F,E,K].result.1,(CovK[F,E,K].result.2.1,(CovK[F,E,K].result.2.2.1,(CovK[F,E,K].result.2.2.2.1,
+        FDm.qEq CovK[F,E,K].result.2.2.1 K (CovK[F,E,K].result.2.2.2.2.1,CovK[F,E,K].result.2.2.2.2.2)))))) ;
+  -- every finite stable functor (up to iso) occurs in the lists
+  hit (x : FDm.FinDil) : Hit x =
+    FDm.elim Hit (\ x0 -> prop ((b : W.N) * ((k : W.N) * ((h : CF.Lt k (FL.lenL SC.Code[F] (LB b))) *
+      ((K : SC.Code[F]) * (Id (CF.Opt SC.Code[F]) (FL.nthO SC.Code[F] (LB b) k) (inl K) * Id FDm.FinDil (FDm.q K) x0))))))
+      hitQ x ;
+} ;
+-- finite dilators up to iso: a small set with decidable equality, enumerated
+finDil-hit : (x : FinDil[l].FD[FinOrd[l].cef].FinDil) -> FinDilEnum[FinOrd[l].cef,enumFO].Hit x = FinDilEnum[FinOrd[l].cef,enumFO].hit ;

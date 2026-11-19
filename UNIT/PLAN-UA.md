@@ -36,10 +36,21 @@ small : Replacement.Small FinLO  (FinLO ~ N).
   D K -> D K', D K' -> D K is an iso, so iso = two finite hom searches
   (StabHom + EnumDec); decEq : decidable equality on FinDil.
   FinDil0 = finite dilators up to iso (F = FinOrd).
-- OPEN: enumeration N ->> FinDil.  Code[F] is NOT enumerable as it
-  stands (ord : (d : Fin) -> ... ranges over all finite levels); need
-  codes determined by a finite level (ord at the joint types of pairs of
-  generators, cf. StabHom.OrdN / jt), then Code ~ a decidable subset of N.
+- DONE (2026-11-19) enumeration, in three files:
+  StabTab.seg: a finite TABLE tau i hi i' hi' t ht (generators i, i',
+  listed joint type t of gen i, gen i') gives comparisons at every level,
+  read at the LEAST listed joint type through which the pair factors
+  (searchL + LstUniq; invariance by jt-uniq, no duplicate-consistency
+  condition needed, unlike StabSum.SV1).  Validity = finitely many
+  checks (refl at generators; flip/eq at pair joint types; transitivity
+  at ternary joint types, StabJt0.Tern), decidable; a valid table is a
+  code (TabV.Laws.code).
+  StabTabCov.seg: TabCov (a table agreeing with a code is valid; the
+  codes are iso by identity maps), TblOf (a code's own table), GenIso
+  (codes transported along generator isos; rigidity of finite objects).
+  StabEnum.seg: EnumIso F (lists of finite objects covering up to iso)
+  -> EnumIso Stab(F) (enumStab); enumFO, enumDil, enumPty, enumPty3;
+  FinDilEnum.hit: every element of FinDil occurs (merely) in the lists.
 ## What should simplify
 - StabJt layer 7d (canonical entries CN, DetA, DetB, jt-uniq via funext on
   tables and J on code paths): "unique up to iso" becomes equality, the

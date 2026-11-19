@@ -1,0 +1,297 @@
+-- Finite tables for codes of stable functors (abstract catemb over a CEF),
+-- toward an enumeration of finite stable functors up to iso.
+--
+-- A code (StabCode) has a comparison ord at EVERY finite level d.  By
+-- the multicoproducts (jt-cover, jt-uniq) a pair of normal forms at d
+-- factors through exactly one listed joint type of its generators; so
+-- ord is determined by a TABLE  tau i i' t  (generators i, i', listed
+-- joint type t of gen i, gen i').  Here: the comparison read off a table
+-- at the LEAST listed joint type through which the pair factors
+-- (computed by search), and its invariance under postcomposition.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module SJ0 = StabJt0[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module FL = FinList[l] ;
+
+--------------------------------------------------------------------
+-- least witnesses of bounded search
+
+Lst (n : W.N) (P : W.N -> U l) (t : W.N) : U l = CF.Lt t n * (P t * ((i : W.N) -> CF.Lt i t -> P i -> W.Empty)) ;
+searchL : (n : W.N) (P : W.N -> U l) (d : (i : W.N) -> W.Or (P i) (P i -> W.Empty)) -> W.Or ((t : W.N) * Lst n P t) (CF.None n P) = split {
+  zero -> \ P d -> inr (\ i h p -> W.ltN-zero-abs W.Empty i h) ;
+  suc n | ih -> \ P d -> CF.or-elim ((t : W.N) * Lst n P t) (CF.None n P) (W.Or ((t : W.N) * Lst (suc n) P t) (CF.None (suc n) P))
+    (\ b -> inl (b.1,(W.ltN-sucR b.1 n b.2.1,b.2.2)))
+    (\ no -> CF.or-elim (P n) (P n -> W.Empty) (W.Or ((t : W.N) * Lst (suc n) P t) (CF.None (suc n) P))
+      (\ p -> inl (n,(W.ltN-suc n,(p,\ i h q -> no i h q))))
+      (\ np -> inr (\ i h p -> CF.or-elim (CF.Lt i n) (Id W.N i n) W.Empty
+        (\ a -> no i a p) (\ e -> np (PL.subst W.N P i n e p)) (CF.lt-split i n h)))
+      (d n))
+    (ih P d) } ;
+ltOf (m n : W.N) (e : Id W.O3 (W.cmpN m n) lt) : CF.Lt m n =
+  PL.trans W.Bool (W.ltN m n) (W.isLt (W.cmpN m n)) true (PL.sym W.Bool (W.isLt (W.cmpN m n)) (W.ltN m n) (W.ltN-cmp m n))
+    (PL.ap W.O3 W.Bool W.isLt (W.cmpN m n) lt e) ;
+-- least witnesses of equivalent predicates coincide
+module LstUniq (n n' : W.N) (P P' : W.N -> U l) (f : (i : W.N) -> P i -> P' i) (g : (i : W.N) -> P' i -> P i)
+  (t t' : W.N) (a : Lst n P t) (b : Lst n' P' t') {
+  go : (o : W.O3) -> Id W.O3 (W.cmpN t t') o -> Id W.N t t' = split {
+    lt -> \ e -> CF.efq (Id W.N t t') (b.2.2 t (ltOf t t' e) (f t a.2.1)) ;
+    eq -> \ e -> W.cmpN-eq t t' e ;
+    gt -> \ e -> CF.efq (Id W.N t t') (a.2.2 t' (ltOf t' t (PL.trans W.O3 (W.cmpN t' t) (W.flip (W.cmpN t t')) lt
+      (W.cmpN-flip t t') (PL.ap W.O3 W.O3 W.flip (W.cmpN t t') gt e))) (g t' b.2.1)) } ;
+  result : Id W.N t t' = go (W.cmpN t t') (refl (W.cmpN t t')) ;
+} ;
+
+--------------------------------------------------------------------
+-- the least listed joint type through which a pair factors
+
+module FJ (F : CF.CEF) (a b d : F.C.Fin) (f : F.C.Mor (F.C.fin a) (F.C.fin d)) (g : F.C.Mor (F.C.fin b) (F.C.fin d)) {
+  module J0 = SJ0.FindJ[F,a,b,d,f,g] ;
+  Q (t : W.N) : U l = J0.Q t ;
+  res : (t : W.N) * Lst (F.jtN a b) Q t =
+    CF.or-elim ((t : W.N) * Lst (F.jtN a b) Q t) (CF.None (F.jtN a b) Q) ((t : W.N) * Lst (F.jtN a b) Q t)
+      (\ r -> r)
+      (\ no -> CF.efq ((t : W.N) * Lst (F.jtN a b) Q t) (TC.rec ((t : W.N) * ((h : CF.Lt t (F.jtN a b)) * ((j : CF.JT F.C a b) *
+            (Id (CF.Opt (CF.JT F.C a b)) (F.jt a b t h) (inl j) * CF.JFac F.C a b d f g j)))) @l W.Empty CF.empty-prop
+          (\ w -> no w.1 w.2.1 w.2) (F.jt-cover a b d f g)))
+      (searchL (F.jtN a b) Q J0.decQ) ;
+  t : W.N = res.1 ;
+  lst : Lst (F.jtN a b) Q t = res.2 ;
+  ht : CF.Lt t (F.jtN a b) = lst.2.1.1 ;
+  j : CF.JT F.C a b = lst.2.1.2.1 ;
+  ej : Id (CF.Opt (CF.JT F.C a b)) (F.jt a b t ht) (inl j) = lst.2.1.2.2.1 ;
+  fac : CF.JFac F.C a b d f g j = lst.2.1.2.2.2 ;
+} ;
+
+-- factorisations are stable under postcomposition
+jfac-post (F : CF.CEF) (a b d d' : F.C.Fin) (f : F.C.Mor (F.C.fin a) (F.C.fin d)) (g : F.C.Mor (F.C.fin b) (F.C.fin d))
+  (l0 : F.C.Mor (F.C.fin d) (F.C.fin d')) (j : CF.JT F.C a b) (u : CF.JFac F.C a b d f g j) :
+    CF.JFac F.C a b d' (F.C.comp (F.C.fin a) (F.C.fin d) (F.C.fin d') f l0) (F.C.comp (F.C.fin b) (F.C.fin d) (F.C.fin d') g l0) j =
+  (F.C.comp (F.C.fin j.1) (F.C.fin d) (F.C.fin d') u.1 l0,
+   (PL.trans (F.C.Mor (F.C.fin a) (F.C.fin d'))
+      (F.C.comp (F.C.fin a) (F.C.fin j.1) (F.C.fin d') j.2.1 (F.C.comp (F.C.fin j.1) (F.C.fin d) (F.C.fin d') u.1 l0))
+      (F.C.comp (F.C.fin a) (F.C.fin d) (F.C.fin d') (F.C.comp (F.C.fin a) (F.C.fin j.1) (F.C.fin d) j.2.1 u.1) l0)
+      (F.C.comp (F.C.fin a) (F.C.fin d) (F.C.fin d') f l0)
+      (PL.sym (F.C.Mor (F.C.fin a) (F.C.fin d'))
+        (F.C.comp (F.C.fin a) (F.C.fin d) (F.C.fin d') (F.C.comp (F.C.fin a) (F.C.fin j.1) (F.C.fin d) j.2.1 u.1) l0)
+        (F.C.comp (F.C.fin a) (F.C.fin j.1) (F.C.fin d') j.2.1 (F.C.comp (F.C.fin j.1) (F.C.fin d) (F.C.fin d') u.1 l0))
+        (F.C.assoc (F.C.fin a) (F.C.fin j.1) (F.C.fin d) (F.C.fin d') j.2.1 u.1 l0))
+      (PL.ap (F.C.Mor (F.C.fin a) (F.C.fin d)) (F.C.Mor (F.C.fin a) (F.C.fin d')) (\ x -> F.C.comp (F.C.fin a) (F.C.fin d) (F.C.fin d') x l0)
+        (F.C.comp (F.C.fin a) (F.C.fin j.1) (F.C.fin d) j.2.1 u.1) f u.2.1),
+    PL.trans (F.C.Mor (F.C.fin b) (F.C.fin d'))
+      (F.C.comp (F.C.fin b) (F.C.fin j.1) (F.C.fin d') j.2.2 (F.C.comp (F.C.fin j.1) (F.C.fin d) (F.C.fin d') u.1 l0))
+      (F.C.comp (F.C.fin b) (F.C.fin d) (F.C.fin d') (F.C.comp (F.C.fin b) (F.C.fin j.1) (F.C.fin d) j.2.2 u.1) l0)
+      (F.C.comp (F.C.fin b) (F.C.fin d) (F.C.fin d') g l0)
+      (PL.sym (F.C.Mor (F.C.fin b) (F.C.fin d'))
+        (F.C.comp (F.C.fin b) (F.C.fin d) (F.C.fin d') (F.C.comp (F.C.fin b) (F.C.fin j.1) (F.C.fin d) j.2.2 u.1) l0)
+        (F.C.comp (F.C.fin b) (F.C.fin j.1) (F.C.fin d') j.2.2 (F.C.comp (F.C.fin j.1) (F.C.fin d) (F.C.fin d') u.1 l0))
+        (F.C.assoc (F.C.fin b) (F.C.fin j.1) (F.C.fin d) (F.C.fin d') j.2.2 u.1 l0))
+      (PL.ap (F.C.Mor (F.C.fin b) (F.C.fin d)) (F.C.Mor (F.C.fin b) (F.C.fin d')) (\ x -> F.C.comp (F.C.fin b) (F.C.fin d) (F.C.fin d') x l0)
+        (F.C.comp (F.C.fin b) (F.C.fin j.1) (F.C.fin d) j.2.2 u.1) g u.2.2))) ;
+
+-- the least joint type is invariant under postcomposition
+module FJPost (F : CF.CEF) (a b d d' : F.C.Fin) (f : F.C.Mor (F.C.fin a) (F.C.fin d)) (g : F.C.Mor (F.C.fin b) (F.C.fin d))
+  (l0 : F.C.Mor (F.C.fin d) (F.C.fin d')) {
+  f' : F.C.Mor (F.C.fin a) (F.C.fin d') = F.C.comp (F.C.fin a) (F.C.fin d) (F.C.fin d') f l0 ;
+  g' : F.C.Mor (F.C.fin b) (F.C.fin d') = F.C.comp (F.C.fin b) (F.C.fin d) (F.C.fin d') g l0 ;
+  module A = FJ[F,a,b,d,f,g] ;
+  module B = FJ[F,a,b,d',f',g'] ;
+  fw (t : W.N) (q : A.Q t) : B.Q t = (q.1,(q.2.1,(q.2.2.1,jfac-post F a b d d' f g l0 q.2.1 q.2.2.2))) ;
+  bw (t : W.N) (q : B.Q t) : A.Q t =
+    (q.1,(q.2.1,(q.2.2.1,PL.subst (CF.JT F.C a b) (\ j0 -> CF.JFac F.C a b d f g j0) A.j q.2.1
+      (F.jt-uniq a b d' f' g' A.t A.ht A.j A.ej t q.1 q.2.1 q.2.2.1 (jfac-post F a b d d' f g l0 A.j A.fac) q.2.2.2)
+      A.fac))) ;
+  same : Id W.N B.t A.t = LstUniq[F.jtN a b,F.jtN a b,B.Q,A.Q,bw,fw,B.t,A.t,B.lst,A.lst].result ;
+} ;
+
+--------------------------------------------------------------------
+-- the comparison of a table
+
+module Tab (F : CF.CEF) (m : W.N) (gen : W.N -> F.C.Fin) (tau : (i : W.N) -> CF.Lt i m -> (i' : W.N) -> CF.Lt i' m -> (t : W.N) -> CF.Lt t (F.jtN (gen i) (gen i')) -> W.O3) {
+  module PP = SC.Pts[F,m,gen] ;
+  Pt (d : F.C.Fin) : U l = PP.Pt (F.C.fin d) ;
+  TI (i i' : W.N) : U l = (t : W.N) * CF.Lt t (F.jtN (gen i) (gen i')) ;
+  ordT (d : F.C.Fin) (p q : Pt d) : W.O3 = tau p.1 p.2.1 q.1 q.2.1 FJ[F,gen p.1,gen q.1,d,p.2.2,q.2.2].t FJ[F,gen p.1,gen q.1,d,p.2.2,q.2.2].ht ;
+  inv (d d' : F.C.Fin) (l0 : F.C.Mor (F.C.fin d) (F.C.fin d')) (p q : Pt d) :
+      Id W.O3 (ordT d' (PP.post (F.C.fin d) (F.C.fin d') l0 p) (PP.post (F.C.fin d) (F.C.fin d') l0 q)) (ordT d p q) =
+    PL.ap (TI p.1 q.1) W.O3 (\ s -> tau p.1 p.2.1 q.1 q.2.1 s.1 s.2)
+      (FJPost[F,gen p.1,gen q.1,d,d',p.2.2,q.2.2,l0].B.t,FJPost[F,gen p.1,gen q.1,d,d',p.2.2,q.2.2,l0].B.ht)
+      (FJ[F,gen p.1,gen q.1,d,p.2.2,q.2.2].t,FJ[F,gen p.1,gen q.1,d,p.2.2,q.2.2].ht)
+      (PL.Sigma-eq W.N (\ t -> CF.Lt t (F.jtN (gen p.1) (gen q.1)))
+        FJPost[F,gen p.1,gen q.1,d,d',p.2.2,q.2.2,l0].B.t FJ[F,gen p.1,gen q.1,d,p.2.2,q.2.2].t
+        FJPost[F,gen p.1,gen q.1,d,d',p.2.2,q.2.2,l0].B.ht FJ[F,gen p.1,gen q.1,d,p.2.2,q.2.2].ht
+        FJPost[F,gen p.1,gen q.1,d,d',p.2.2,q.2.2,l0].same
+        (W.HB.uip (W.ltN FJ[F,gen p.1,gen q.1,d,p.2.2,q.2.2].t (F.jtN (gen p.1) (gen q.1))) true)) ;
+} ;
+
+--------------------------------------------------------------------
+-- decidable equality of normal forms
+
+module PtDec (F : CF.CEF) (m : W.N) (gen : W.N -> F.C.Fin) (d : F.C.Fin) {
+  module PP = SC.Pts[F,m,gen] ;
+  Pt : U l = PP.Pt (F.C.fin d) ;
+  M (i : W.N) : U l = F.C.Mor (F.C.fin (gen i)) (F.C.fin d) ;
+  decSplit (a b : Pt) : W.Or (PP.Split (F.C.fin d) a b) (PP.Split (F.C.fin d) a b -> W.Empty) =
+    CF.or-elim (Id W.N a.1 b.1) (Id W.N a.1 b.1 -> W.Empty) (W.Or (PP.Split (F.C.fin d) a b) (PP.Split (F.C.fin d) a b -> W.Empty))
+      (\ z -> CF.or-elim (Id (M b.1) (PL.subst W.N M a.1 b.1 z a.2.2) b.2.2) (Id (M b.1) (PL.subst W.N M a.1 b.1 z a.2.2) b.2.2 -> W.Empty)
+          (W.Or (PP.Split (F.C.fin d) a b) (PP.Split (F.C.fin d) a b -> W.Empty))
+        (\ e -> inl (z,e))
+        (\ ne -> inr (\ s -> ne (PL.subst (Id W.N a.1 b.1) (\ z0 -> Id (M b.1) (PL.subst W.N M a.1 b.1 z0 a.2.2) b.2.2) s.1 z
+          (W.HN.uip a.1 b.1 s.1 z) s.2)))
+        (F.hom-dec (gen b.1) d (PL.subst W.N M a.1 b.1 z a.2.2) b.2.2))
+      (\ nz -> inr (\ s -> nz s.1))
+      (W.decN a.1 b.1) ;
+  split-pt (a b : Pt) (s : PP.Split (F.C.fin d) a b) : Id Pt a b =
+    idJ W.N a.1 (\ y z -> (hy : CF.Lt y m) (k : M y) -> Id (M y) (PL.subst W.N M a.1 y z a.2.2) k -> Id Pt a (y,(hy,k)))
+      (\ hy k e -> W.ap2 (CF.Lt a.1 m) (M a.1) Pt (\ h0 k0 -> (a.1,(h0,k0))) a.2.1 hy a.2.2 k (W.HB.uip (W.ltN a.1 m) true a.2.1 hy) e)
+      b.1 s.1 b.2.1 b.2.2 s.2 ;
+} ;
+
+decImp (A B : U l) (da : W.Or A (A -> W.Empty)) (db : W.Or B (B -> W.Empty)) : W.Or (A -> B) ((A -> B) -> W.Empty) =
+  CF.or-elim A (A -> W.Empty) (W.Or (A -> B) ((A -> B) -> W.Empty))
+    (\ a -> CF.or-elim B (B -> W.Empty) (W.Or (A -> B) ((A -> B) -> W.Empty)) (\ b -> inl (\ _ -> b)) (\ nb -> inr (\ f -> nb (f a))) db)
+    (\ na -> inl (\ a -> CF.efq B (na a))) da ;
+
+--------------------------------------------------------------------
+-- validity: finitely many checks; a valid table is a code
+
+module TabV (F : CF.CEF) (m : W.N) (gen : W.N -> F.C.Fin) (tau : (i : W.N) -> CF.Lt i m -> (i' : W.N) -> CF.Lt i' m -> (t : W.N) -> CF.Lt t (F.jtN (gen i) (gen i')) -> W.O3) {
+  module T = Tab[F,m,gen,tau] ;
+  module PP = T.PP ;
+  Pt (d : F.C.Fin) : U l = T.Pt d ;
+  ordT (d : F.C.Fin) (p q : Pt d) : W.O3 = T.ordT d p q ;
+  g (i : W.N) : F.C.Obj = F.C.fin (gen i) ;
+  JTy (i i' : W.N) : U l = CF.JT F.C (gen i) (gen i') ;
+  -- checks
+  gp (i : W.N) (hi : CF.Lt i m) : Pt (gen i) = (i,(hi,F.C.idm (g i))) ;
+  CR (i : W.N) (hi : CF.Lt i m) : U l = Id W.O3 (ordT (gen i) (gp i hi) (gp i hi)) eq ;
+  pj (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (j : JTy i i') : Pt j.1 = (i,(hi,j.2.1)) ;
+  qj (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (j : JTy i i') : Pt j.1 = (i',(hi',j.2.2)) ;
+  CF1 (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (j : JTy i i') : U l =
+    Id W.O3 (ordT j.1 (qj i hi i' hi' j) (pj i hi i' hi' j)) (W.flip (ordT j.1 (pj i hi i' hi' j) (qj i hi i' hi' j))) ;
+  CE1 (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (j : JTy i i') : U l =
+    Id W.O3 (ordT j.1 (pj i hi i' hi' j) (qj i hi i' hi' j)) eq -> PP.Split (F.C.fin j.1) (pj i hi i' hi' j) (qj i hi i' hi' j) ;
+  CP (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (j : JTy i i') : U l = CF1 i hi i' hi' j * CE1 i hi i' hi' j ;
+  CT (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (i'' : W.N) (hi'' : CF.Lt i'' m)
+    (j1 : JTy i i') (j2 : CF.JT F.C j1.1 (gen i'')) : U l =
+    Id W.O3 (ordT j2.1 (i,(hi,F.C.comp (g i) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.1 j2.2.1)) (i',(hi',F.C.comp (g i') (F.C.fin j1.1) (F.C.fin j2.1) j1.2.2 j2.2.1))) lt ->
+    Id W.O3 (ordT j2.1 (i',(hi',F.C.comp (g i') (F.C.fin j1.1) (F.C.fin j2.1) j1.2.2 j2.2.1)) (i'',(hi'',j2.2.2))) lt ->
+    Id W.O3 (ordT j2.1 (i,(hi,F.C.comp (g i) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.1 j2.2.1)) (i'',(hi'',j2.2.2))) lt ;
+  VR : U l = (i : W.N) (hi : CF.Lt i m) -> CR i hi ;
+  VP2 (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (t : W.N) (ht : CF.Lt t (F.jtN (gen i) (gen i'))) : U l =
+    (j : JTy i i') -> Id (CF.Opt (JTy i i')) (F.jt (gen i) (gen i') t ht) (inl j) -> CP i hi i' hi' j ;
+  VP1 (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) : U l = (t : W.N) (ht : CF.Lt t (F.jtN (gen i) (gen i'))) -> VP2 i hi i' hi' t ht ;
+  VP0 (i : W.N) (hi : CF.Lt i m) : U l = (i' : W.N) (hi' : CF.Lt i' m) -> VP1 i hi i' hi' ;
+  VP : U l = (i : W.N) (hi : CF.Lt i m) -> VP0 i hi ;
+  VT4 (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (i'' : W.N) (hi'' : CF.Lt i'' m) (j1 : JTy i i')
+    (t2 : W.N) (ht2 : CF.Lt t2 (F.jtN j1.1 (gen i''))) : U l =
+    (j2 : CF.JT F.C j1.1 (gen i'')) -> Id (CF.Opt (CF.JT F.C j1.1 (gen i''))) (F.jt j1.1 (gen i'') t2 ht2) (inl j2) -> CT i hi i' hi' i'' hi'' j1 j2 ;
+  VT3 (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (i'' : W.N) (hi'' : CF.Lt i'' m) (j1 : JTy i i') : U l =
+    (t2 : W.N) (ht2 : CF.Lt t2 (F.jtN j1.1 (gen i''))) -> VT4 i hi i' hi' i'' hi'' j1 t2 ht2 ;
+  VT2 (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (i'' : W.N) (hi'' : CF.Lt i'' m) (t1 : W.N) (ht1 : CF.Lt t1 (F.jtN (gen i) (gen i'))) : U l =
+    (j1 : JTy i i') -> Id (CF.Opt (JTy i i')) (F.jt (gen i) (gen i') t1 ht1) (inl j1) -> VT3 i hi i' hi' i'' hi'' j1 ;
+  VT1 (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (i'' : W.N) (hi'' : CF.Lt i'' m) : U l =
+    (t1 : W.N) (ht1 : CF.Lt t1 (F.jtN (gen i) (gen i'))) -> VT2 i hi i' hi' i'' hi'' t1 ht1 ;
+  VT0 (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) : U l = (i'' : W.N) (hi'' : CF.Lt i'' m) -> VT1 i hi i' hi' i'' hi'' ;
+  VTa (i : W.N) (hi : CF.Lt i m) : U l = (i' : W.N) (hi' : CF.Lt i' m) -> VT0 i hi i' hi' ;
+  VT : U l = (i : W.N) (hi : CF.Lt i m) -> VTa i hi ;
+  Valid : U l = VR * (VP * VT) ;
+
+  -- decidability
+  decO3 (a b : W.O3) : W.Or (Id W.O3 a b) (Id W.O3 a b -> W.Empty) = StabHom[l].decO3 a b ;
+  decCP (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (j : JTy i i') : W.Or (CP i hi i' hi' j) (CP i hi i' hi' j -> W.Empty) =
+    StabHom[l].decPair (CF1 i hi i' hi' j) (CE1 i hi i' hi' j)
+      (decO3 (ordT j.1 (qj i hi i' hi' j) (pj i hi i' hi' j)) (W.flip (ordT j.1 (pj i hi i' hi' j) (qj i hi i' hi' j))))
+      (decImp (Id W.O3 (ordT j.1 (pj i hi i' hi' j) (qj i hi i' hi' j)) eq) (PP.Split (F.C.fin j.1) (pj i hi i' hi' j) (qj i hi i' hi' j))
+        (decO3 (ordT j.1 (pj i hi i' hi' j) (qj i hi i' hi' j)) eq)
+        (PtDec[F,m,gen,j.1].decSplit (pj i hi i' hi' j) (qj i hi i' hi' j))) ;
+  decCT (i : W.N) (hi : CF.Lt i m) (i' : W.N) (hi' : CF.Lt i' m) (i'' : W.N) (hi'' : CF.Lt i'' m)
+    (j1 : JTy i i') (j2 : CF.JT F.C j1.1 (gen i'')) : W.Or (CT i hi i' hi' i'' hi'' j1 j2) (CT i hi i' hi' i'' hi'' j1 j2 -> W.Empty) =
+    decImp (Id W.O3 (ordT j2.1 (i,(hi,F.C.comp (g i) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.1 j2.2.1)) (i',(hi',F.C.comp (g i') (F.C.fin j1.1) (F.C.fin j2.1) j1.2.2 j2.2.1))) lt)
+      (Id W.O3 (ordT j2.1 (i',(hi',F.C.comp (g i') (F.C.fin j1.1) (F.C.fin j2.1) j1.2.2 j2.2.1)) (i'',(hi'',j2.2.2))) lt ->
+       Id W.O3 (ordT j2.1 (i,(hi,F.C.comp (g i) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.1 j2.2.1)) (i'',(hi'',j2.2.2))) lt)
+      (decO3 (ordT j2.1 (i,(hi,F.C.comp (g i) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.1 j2.2.1)) (i',(hi',F.C.comp (g i') (F.C.fin j1.1) (F.C.fin j2.1) j1.2.2 j2.2.1))) lt)
+      (decImp (Id W.O3 (ordT j2.1 (i',(hi',F.C.comp (g i') (F.C.fin j1.1) (F.C.fin j2.1) j1.2.2 j2.2.1)) (i'',(hi'',j2.2.2))) lt)
+        (Id W.O3 (ordT j2.1 (i,(hi,F.C.comp (g i) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.1 j2.2.1)) (i'',(hi'',j2.2.2))) lt)
+        (decO3 (ordT j2.1 (i',(hi',F.C.comp (g i') (F.C.fin j1.1) (F.C.fin j2.1) j1.2.2 j2.2.1)) (i'',(hi'',j2.2.2))) lt)
+        (decO3 (ordT j2.1 (i,(hi,F.C.comp (g i) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.1 j2.2.1)) (i'',(hi'',j2.2.2))) lt)) ;
+  decVR : W.Or VR (VR -> W.Empty) = FL.DecAll[m,CR,\ i hi -> decO3 (ordT (gen i) (gp i hi) (gp i hi)) eq].result ;
+  decVP : W.Or VP (VP -> W.Empty) =
+    FL.DecAll[m,VP0,\ i hi -> FL.DecAll[m,VP1 i hi,\ i' hi' -> FL.DecAll[F.jtN (gen i) (gen i'),VP2 i hi i' hi',\ t ht ->
+      FL.decOpt (JTy i i') (CP i hi i' hi') (decCP i hi i' hi') (F.jt (gen i) (gen i') t ht)].result].result].result ;
+  decVT : W.Or VT (VT -> W.Empty) =
+    FL.DecAll[m,VTa,\ i hi -> FL.DecAll[m,VT0 i hi,\ i' hi' -> FL.DecAll[m,VT1 i hi i' hi',\ i'' hi'' ->
+      FL.DecAll[F.jtN (gen i) (gen i'),VT2 i hi i' hi' i'' hi'',\ t1 ht1 ->
+        FL.decOpt (JTy i i') (VT3 i hi i' hi' i'' hi'') (\ j1 ->
+          FL.DecAll[F.jtN j1.1 (gen i''),VT4 i hi i' hi' i'' hi'' j1,\ t2 ht2 ->
+            FL.decOpt (CF.JT F.C j1.1 (gen i'')) (CT i hi i' hi' i'' hi'' j1) (decCT i hi i' hi' i'' hi'' j1)
+              (F.jt j1.1 (gen i'') t2 ht2)].result)
+          (F.jt (gen i) (gen i') t1 ht1)].result].result].result].result ;
+  decValid : W.Or Valid (Valid -> W.Empty) =
+    StabHom[l].decPair VR (VP * VT) decVR (StabHom[l].decPair VP VT decVP decVT) ;
+
+  -- comparisons can be computed at any level through which the points factor
+  down (d0 d : F.C.Fin) (l0 : F.C.Mor (F.C.fin d0) (F.C.fin d)) (a b : Pt d0) (a' b' : Pt d)
+    (ea : Id (Pt d) (PP.post (F.C.fin d0) (F.C.fin d) l0 a) a') (eb : Id (Pt d) (PP.post (F.C.fin d0) (F.C.fin d) l0 b) b') :
+      Id W.O3 (ordT d0 a b) (ordT d a' b') =
+    PL.trans W.O3 (ordT d0 a b) (ordT d (PP.post (F.C.fin d0) (F.C.fin d) l0 a) (PP.post (F.C.fin d0) (F.C.fin d) l0 b)) (ordT d a' b')
+      (PL.sym W.O3 (ordT d (PP.post (F.C.fin d0) (F.C.fin d) l0 a) (PP.post (F.C.fin d0) (F.C.fin d) l0 b)) (ordT d0 a b) (T.inv d0 d l0 a b))
+      (W.ap2 (Pt d) (Pt d) W.O3 (ordT d) (PP.post (F.C.fin d0) (F.C.fin d) l0 a) a' (PP.post (F.C.fin d0) (F.C.fin d) l0 b) b' ea eb) ;
+
+  module Laws (vv : Valid) {
+    orefl (d : F.C.Fin) (p : Pt d) : Id W.O3 (ordT d p p) eq =
+      PL.trans W.O3 (ordT d p p) (ordT (gen p.1) (gp p.1 p.2.1) (gp p.1 p.2.1)) eq
+        (PL.sym W.O3 (ordT (gen p.1) (gp p.1 p.2.1) (gp p.1 p.2.1)) (ordT d p p)
+          (down (gen p.1) d p.2.2 (gp p.1 p.2.1) (gp p.1 p.2.1) p p
+            (PP.pt3 (F.C.fin d) p (F.C.comp (g p.1) (g p.1) (F.C.fin d) (F.C.idm (g p.1)) p.2.2) (F.C.id-l (g p.1) (F.C.fin d) p.2.2))
+            (PP.pt3 (F.C.fin d) p (F.C.comp (g p.1) (g p.1) (F.C.fin d) (F.C.idm (g p.1)) p.2.2) (F.C.id-l (g p.1) (F.C.fin d) p.2.2))))
+        (vv.1 p.1 p.2.1) ;
+    module PJ (d : F.C.Fin) (p q : Pt d) {
+      module J = FJ[F,gen p.1,gen q.1,d,p.2.2,q.2.2] ;
+      E : F.C.Fin = J.j.1 ;
+      mm : F.C.Mor (F.C.fin E) (F.C.fin d) = J.fac.1 ;
+      a : Pt E = pj p.1 p.2.1 q.1 q.2.1 J.j ;
+      b : Pt E = qj p.1 p.2.1 q.1 q.2.1 J.j ;
+      ea : Id (Pt d) (PP.post (F.C.fin E) (F.C.fin d) mm a) p = PP.pt3 (F.C.fin d) p (F.C.comp (g p.1) (F.C.fin E) (F.C.fin d) J.j.2.1 mm) J.fac.2.1 ;
+      eb : Id (Pt d) (PP.post (F.C.fin E) (F.C.fin d) mm b) q = PP.pt3 (F.C.fin d) q (F.C.comp (g q.1) (F.C.fin E) (F.C.fin d) J.j.2.2 mm) J.fac.2.2 ;
+      chk : CP p.1 p.2.1 q.1 q.2.1 J.j = vv.2.1 p.1 p.2.1 q.1 q.2.1 J.t J.ht J.j J.ej ;
+      flipR : Id W.O3 (ordT d q p) (W.flip (ordT d p q)) =
+        PL.trans W.O3 (ordT d q p) (ordT E b a) (W.flip (ordT d p q))
+          (PL.sym W.O3 (ordT E b a) (ordT d q p) (down E d mm b a q p eb ea))
+          (PL.trans W.O3 (ordT E b a) (W.flip (ordT E a b)) (W.flip (ordT d p q)) chk.1
+            (PL.ap W.O3 W.O3 W.flip (ordT E a b) (ordT d p q) (down E d mm a b p q ea eb))) ;
+      eqR (h : Id W.O3 (ordT d p q) eq) : Id (Pt d) p q =
+        PL.trans (Pt d) p (PP.post (F.C.fin E) (F.C.fin d) mm a) q
+          (PL.sym (Pt d) (PP.post (F.C.fin E) (F.C.fin d) mm a) p ea)
+          (PL.trans (Pt d) (PP.post (F.C.fin E) (F.C.fin d) mm a) (PP.post (F.C.fin E) (F.C.fin d) mm b) q
+            (PL.ap (Pt E) (Pt d) (PP.post (F.C.fin E) (F.C.fin d) mm) a b
+              (PtDec[F,m,gen,E].split-pt a b (chk.2 (PL.trans W.O3 (ordT E a b) (ordT d p q) eq (down E d mm a b p q ea eb) h))))
+            eb) ;
+    } ;
+    module OT (d : F.C.Fin) (p q r : Pt d) (h1 : Id W.O3 (ordT d p q) lt) (h2 : Id W.O3 (ordT d q r) lt) {
+      module TT = SJ0.Tern[F,gen p.1,gen q.1,gen r.1,d,p.2.2,q.2.2,r.2.2] ;
+      E : F.C.Fin = TT.e2 ;
+      px : Pt E = (p.1,(p.2.1,TT.ta)) ;
+      py : Pt E = (q.1,(q.2.1,TT.tb)) ;
+      pz : Pt E = (r.1,(r.2.1,TT.tc)) ;
+      ep : Id (Pt d) (PP.post (F.C.fin E) (F.C.fin d) TT.m2 px) p = PP.pt3 (F.C.fin d) p (F.C.comp (g p.1) (F.C.fin E) (F.C.fin d) TT.ta TT.m2) TT.efa ;
+      eq' : Id (Pt d) (PP.post (F.C.fin E) (F.C.fin d) TT.m2 py) q = PP.pt3 (F.C.fin d) q (F.C.comp (g q.1) (F.C.fin E) (F.C.fin d) TT.tb TT.m2) TT.efb ;
+      er : Id (Pt d) (PP.post (F.C.fin E) (F.C.fin d) TT.m2 pz) r = PP.pt3 (F.C.fin d) r (F.C.comp (g r.1) (F.C.fin E) (F.C.fin d) TT.tc TT.m2) TT.efc ;
+      result : Id W.O3 (ordT d p r) lt =
+        PL.trans W.O3 (ordT d p r) (ordT E px pz) lt
+          (PL.sym W.O3 (ordT E px pz) (ordT d p r) (down E d TT.m2 px pz p r ep er))
+          (vv.2.2 p.1 p.2.1 q.1 q.2.1 r.1 r.2.1 TT.J1.t TT.J1.ht TT.J1.j TT.J1.ej TT.J2.t TT.J2.ht TT.J2.j TT.J2.ej
+            (PL.trans W.O3 (ordT E px py) (ordT d p q) lt (down E d TT.m2 px py p q ep eq') h1)
+            (PL.trans W.O3 (ordT E py pz) (ordT d q r) lt (down E d TT.m2 py pz q r eq' er) h2)) ;
+    } ;
+    code : SC.Code[F] = new SC.Code[F,m := m, gen := gen, ord := ordT, inv := T.inv,
+      orefl := orefl,
+      oflip := \ d p q -> PJ[d,p,q].flipR,
+      otrans := \ d p q r h1 h2 -> OT[d,p,q,r,h1,h2].result,
+      oeq := \ d p q h -> PJ[d,p,q].eqR h] ;
+  } ;
+} ;

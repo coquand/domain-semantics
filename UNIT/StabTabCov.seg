@@ -1,0 +1,211 @@
+-- Every code is (up to iso) given by a valid finite table (abstract
+-- catemb over a CEF).
+--  * TabCov: a table whose comparisons agree with a code K is valid, and
+--    the code it defines is iso to K (identity maps);
+--  * tblOf K: the table read off K at the listed joint types agrees with K;
+--  * GenIso: a code transported along isomorphisms of its generators is
+--    iso to the original (rigidity of finite objects: the composites of
+--    the given maps are identities).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module SF = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module ST = StabTab[l] ;
+module PL = Prelude[l] ;
+
+-- the comparison of a decoded code at a finite level is the code's
+dcmp (F : CF.CEF) (K : SC.Code[F]) (c : F.C.Fin) (p q : SC.Pts[F,K.m,K.gen].Pt (F.C.fin c)) :
+    Id W.O3 (SC.Decode[F,K].cmp (F.C.fin c) p q) (K.ord c p q) =
+  SC.Decode[F,K].spec (F.C.fin c) p q
+    (c,(F.C.idm (F.C.fin c),(p.2.2,(q.2.2,(F.C.id-r (F.C.fin (K.gen p.1)) (F.C.fin c) p.2.2,F.C.id-r (F.C.fin (K.gen q.1)) (F.C.fin c) q.2.2))))) ;
+-- comparisons of a code computed through a factorisation
+kdown (F : CF.CEF) (K : SC.Code[F]) (d0 d : F.C.Fin) (l0 : F.C.Mor (F.C.fin d0) (F.C.fin d))
+  (a b : SC.Pts[F,K.m,K.gen].Pt (F.C.fin d0)) (a' b' : SC.Pts[F,K.m,K.gen].Pt (F.C.fin d))
+  (ea : Id (SC.Pts[F,K.m,K.gen].Pt (F.C.fin d)) (SC.Pts[F,K.m,K.gen].post (F.C.fin d0) (F.C.fin d) l0 a) a')
+  (eb : Id (SC.Pts[F,K.m,K.gen].Pt (F.C.fin d)) (SC.Pts[F,K.m,K.gen].post (F.C.fin d0) (F.C.fin d) l0 b) b') :
+    Id W.O3 (K.ord d0 a b) (K.ord d a' b') =
+  PL.trans W.O3 (K.ord d0 a b) (K.ord d (SC.Pts[F,K.m,K.gen].post (F.C.fin d0) (F.C.fin d) l0 a) (SC.Pts[F,K.m,K.gen].post (F.C.fin d0) (F.C.fin d) l0 b))
+      (K.ord d a' b')
+    (PL.sym W.O3 (K.ord d (SC.Pts[F,K.m,K.gen].post (F.C.fin d0) (F.C.fin d) l0 a) (SC.Pts[F,K.m,K.gen].post (F.C.fin d0) (F.C.fin d) l0 b))
+      (K.ord d0 a b) (K.inv d0 d l0 a b))
+    (W.ap2 (SC.Pts[F,K.m,K.gen].Pt (F.C.fin d)) (SC.Pts[F,K.m,K.gen].Pt (F.C.fin d)) W.O3 (K.ord d)
+      (SC.Pts[F,K.m,K.gen].post (F.C.fin d0) (F.C.fin d) l0 a) a' (SC.Pts[F,K.m,K.gen].post (F.C.fin d0) (F.C.fin d) l0 b) b' ea eb) ;
+
+--------------------------------------------------------------------
+-- a table agreeing with a code
+
+module TabCov (F : CF.CEF) (K : SC.Code[F])
+  (tau : (i : W.N) -> CF.Lt i K.m -> (i' : W.N) -> CF.Lt i' K.m -> (t : W.N) -> CF.Lt t (F.jtN (K.gen i) (K.gen i')) -> W.O3)
+  (ag : (d : F.C.Fin) (p q : SC.Pts[F,K.m,K.gen].Pt (F.C.fin d)) -> Id W.O3 (ST.Tab[F,K.m,K.gen,tau].ordT d p q) (K.ord d p q)) {
+  module TV = ST.TabV[F,K.m,K.gen,tau] ;
+  module PP = TV.PP ;
+  vr : TV.VR = \ i hi -> PL.trans W.O3 (TV.ordT (K.gen i) (TV.gp i hi) (TV.gp i hi)) (K.ord (K.gen i) (TV.gp i hi) (TV.gp i hi)) eq
+    (ag (K.gen i) (TV.gp i hi) (TV.gp i hi)) (K.orefl (K.gen i) (TV.gp i hi)) ;
+  cp (i : W.N) (hi : CF.Lt i K.m) (i' : W.N) (hi' : CF.Lt i' K.m) (j : TV.JTy i i') : TV.CP i hi i' hi' j =
+    (PL.trans W.O3 (TV.ordT j.1 (TV.qj i hi i' hi' j) (TV.pj i hi i' hi' j)) (K.ord j.1 (TV.qj i hi i' hi' j) (TV.pj i hi i' hi' j))
+        (W.flip (TV.ordT j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j)))
+       (ag j.1 (TV.qj i hi i' hi' j) (TV.pj i hi i' hi' j))
+       (PL.trans W.O3 (K.ord j.1 (TV.qj i hi i' hi' j) (TV.pj i hi i' hi' j)) (W.flip (K.ord j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j)))
+          (W.flip (TV.ordT j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j)))
+         (K.oflip j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j))
+         (PL.ap W.O3 W.O3 W.flip (K.ord j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j)) (TV.ordT j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j))
+           (PL.sym W.O3 (TV.ordT j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j)) (K.ord j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j))
+             (ag j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j))))),
+     \ h -> PP.pt-split (F.C.fin j.1) (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j)
+       (K.oeq j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j)
+         (PL.trans W.O3 (K.ord j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j)) (TV.ordT j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j)) eq
+           (PL.sym W.O3 (TV.ordT j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j)) (K.ord j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j))
+             (ag j.1 (TV.pj i hi i' hi' j) (TV.qj i hi i' hi' j))) h))) ;
+  -- transitivity at any three points
+  tr3 (d : F.C.Fin) (a b c : TV.Pt d) (h1 : Id W.O3 (TV.ordT d a b) lt) (h2 : Id W.O3 (TV.ordT d b c) lt) : Id W.O3 (TV.ordT d a c) lt =
+    PL.trans W.O3 (TV.ordT d a c) (K.ord d a c) lt (ag d a c)
+      (K.otrans d a b c (PL.trans W.O3 (K.ord d a b) (TV.ordT d a b) lt (PL.sym W.O3 (TV.ordT d a b) (K.ord d a b) (ag d a b)) h1)
+        (PL.trans W.O3 (K.ord d b c) (TV.ordT d b c) lt (PL.sym W.O3 (TV.ordT d b c) (K.ord d b c) (ag d b c)) h2)) ;
+  vv : TV.Valid = (vr,(\ i hi i' hi' t ht j e -> cp i hi i' hi' j,
+    \ i hi i' hi' i'' hi'' t1 ht1 j1 e1 t2 ht2 j2 e2 ->
+      tr3 j2.1 (i,(hi,F.C.comp (TV.g i) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.1 j2.2.1)) (i',(hi',F.C.comp (TV.g i') (F.C.fin j1.1) (F.C.fin j2.1) j1.2.2 j2.2.1))
+        (i'',(hi'',j2.2.2)))) ;
+  -- identity maps both ways, for any proof of validity
+  module At (w : TV.Valid) {
+    K2 : SC.Code[F] = TV.Laws[w].code ;
+    module O = SF.Over[F.C] ;
+    module D1 = SC.Decode[F,K2] ;
+    module D2 = SC.Decode[F,K] ;
+    m12 : O.Mor D1.obj D2.obj =
+      (\ c -> (\ p -> p,\ p q -> PL.trans W.O3 (D2.cmp (F.C.fin c) p q) (K.ord c p q) (D1.cmp (F.C.fin c) p q) (dcmp F K c p q)
+          (PL.trans W.O3 (K.ord c p q) (TV.ordT c p q) (D1.cmp (F.C.fin c) p q) (PL.sym W.O3 (TV.ordT c p q) (K.ord c p q) (ag c p q))
+            (PL.sym W.O3 (D1.cmp (F.C.fin c) p q) (TV.ordT c p q) (dcmp F K2 c p q)))),
+       (\ c d k y -> refl (PP.post (F.C.fin c) (F.C.fin d) k y),\ c d k y r -> r)) ;
+    m21 : O.Mor D2.obj D1.obj =
+      (\ c -> (\ p -> p,\ p q -> PL.trans W.O3 (D1.cmp (F.C.fin c) p q) (TV.ordT c p q) (D2.cmp (F.C.fin c) p q) (dcmp F K2 c p q)
+          (PL.trans W.O3 (TV.ordT c p q) (K.ord c p q) (D2.cmp (F.C.fin c) p q) (ag c p q)
+            (PL.sym W.O3 (D2.cmp (F.C.fin c) p q) (K.ord c p q) (dcmp F K c p q)))),
+       (\ c d k y -> refl (PP.post (F.C.fin c) (F.C.fin d) k y),\ c d k y r -> r)) ;
+  } ;
+  K2 : SC.Code[F] = At[vv].K2 ;
+} ;
+
+--------------------------------------------------------------------
+-- the table of a code
+
+module TblOf (F : CF.CEF) (K : SC.Code[F]) {
+  module PP = SC.Pts[F,K.m,K.gen] ;
+  JTy (i i' : W.N) : U l = CF.JT F.C (K.gen i) (K.gen i') ;
+  tv (i : W.N) (hi : CF.Lt i K.m) (i' : W.N) (hi' : CF.Lt i' K.m) : CF.Opt (JTy i i') -> W.O3 = split {
+    inl j -> K.ord j.1 (i,(hi,j.2.1)) (i',(hi',j.2.2)) ;
+    inr u -> eq } ;
+  tbl (i : W.N) (hi : CF.Lt i K.m) (i' : W.N) (hi' : CF.Lt i' K.m) (t : W.N) (ht : CF.Lt t (F.jtN (K.gen i) (K.gen i'))) : W.O3 =
+    tv i hi i' hi' (F.jt (K.gen i) (K.gen i') t ht) ;
+  ag (d : F.C.Fin) (p q : PP.Pt (F.C.fin d)) : Id W.O3 (ST.Tab[F,K.m,K.gen,tbl].ordT d p q) (K.ord d p q) =
+    PL.trans W.O3 (ST.Tab[F,K.m,K.gen,tbl].ordT d p q) (K.ord ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j.1
+        (p.1,(p.2.1,ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j.2.1)) (q.1,(q.2.1,ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j.2.2)))
+      (K.ord d p q)
+      (PL.ap (CF.Opt (JTy p.1 q.1)) W.O3 (tv p.1 p.2.1 q.1 q.2.1)
+        (F.jt (K.gen p.1) (K.gen q.1) ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].t ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].ht)
+        (inl ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j) ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].ej)
+      (kdown F K ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j.1 d ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].fac.1
+        (p.1,(p.2.1,ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j.2.1)) (q.1,(q.2.1,ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j.2.2)) p q
+        (PP.pt3 (F.C.fin d) p (F.C.comp (F.C.fin (K.gen p.1)) (F.C.fin ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j.1) (F.C.fin d)
+            ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j.2.1 ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].fac.1)
+          ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].fac.2.1)
+        (PP.pt3 (F.C.fin d) q (F.C.comp (F.C.fin (K.gen q.1)) (F.C.fin ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j.1) (F.C.fin d)
+            ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].j.2.2 ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].fac.1)
+          ST.FJ[F,K.gen p.1,K.gen q.1,d,p.2.2,q.2.2].fac.2.2)) ;
+  module C = TabCov[F,K,tbl,ag] ;
+} ;
+
+--------------------------------------------------------------------
+-- transport of a code along isomorphisms of its generators
+
+module GenIso (F : CF.CEF) (K : SC.Code[F]) (gen' : W.N -> F.C.Fin)
+  (phi : (i : W.N) -> CF.Lt i K.m -> F.C.Mor (F.C.fin (gen' i)) (F.C.fin (K.gen i)))
+  (psi : (i : W.N) -> CF.Lt i K.m -> F.C.Mor (F.C.fin (K.gen i)) (F.C.fin (gen' i))) {
+  module P = SC.Pts[F,K.m,K.gen] ;
+  module P' = SC.Pts[F,K.m,gen'] ;
+  g (i : W.N) : F.C.Obj = F.C.fin (K.gen i) ;
+  g' (i : W.N) : F.C.Obj = F.C.fin (gen' i) ;
+  tr (A : F.C.Obj) (p : P'.Pt A) : P.Pt A = (p.1,(p.2.1,F.C.comp (g p.1) (g' p.1) A (psi p.1 p.2.1) p.2.2)) ;
+  tr' (A : F.C.Obj) (p : P.Pt A) : P'.Pt A = (p.1,(p.2.1,F.C.comp (g' p.1) (g p.1) A (phi p.1 p.2.1) p.2.2)) ;
+  -- composing with an endomorphism of a finite object that is the identity
+  cancel (X Y A : F.C.Obj) (u : F.C.Mor X Y) (v : F.C.Mor Y X) (e : Id (F.C.Mor X X) (F.C.comp X Y X u v) (F.C.idm X)) (k : F.C.Mor X A) :
+      Id (F.C.Mor X A) (F.C.comp X Y A u (F.C.comp Y X A v k)) k =
+    PL.trans (F.C.Mor X A) (F.C.comp X Y A u (F.C.comp Y X A v k)) (F.C.comp X X A (F.C.comp X Y X u v) k) k
+      (PL.sym (F.C.Mor X A) (F.C.comp X X A (F.C.comp X Y X u v) k) (F.C.comp X Y A u (F.C.comp Y X A v k)) (F.C.assoc X Y X A u v k))
+      (PL.trans (F.C.Mor X A) (F.C.comp X X A (F.C.comp X Y X u v) k) (F.C.comp X X A (F.C.idm X) k) k
+        (PL.ap (F.C.Mor X X) (F.C.Mor X A) (\ z -> F.C.comp X X A z k) (F.C.comp X Y X u v) (F.C.idm X) e)
+        (F.C.id-l X A k)) ;
+  trtr' (A : F.C.Obj) (p : P.Pt A) : Id (P.Pt A) (tr A (tr' A p)) p =
+    P.pt3 A p (F.C.comp (g p.1) (g' p.1) A (psi p.1 p.2.1) (F.C.comp (g' p.1) (g p.1) A (phi p.1 p.2.1) p.2.2))
+      (cancel (g p.1) (g' p.1) A (psi p.1 p.2.1) (phi p.1 p.2.1) (F.rigid (K.gen p.1) (F.C.comp (g p.1) (g' p.1) (g p.1) (psi p.1 p.2.1) (phi p.1 p.2.1))) p.2.2) ;
+  tr'tr (A : F.C.Obj) (p : P'.Pt A) : Id (P'.Pt A) (tr' A (tr A p)) p =
+    P'.pt3 A p (F.C.comp (g' p.1) (g p.1) A (phi p.1 p.2.1) (F.C.comp (g p.1) (g' p.1) A (psi p.1 p.2.1) p.2.2))
+      (cancel (g' p.1) (g p.1) A (phi p.1 p.2.1) (psi p.1 p.2.1) (F.rigid (gen' p.1) (F.C.comp (g' p.1) (g p.1) (g' p.1) (phi p.1 p.2.1) (psi p.1 p.2.1))) p.2.2) ;
+  tr-post (A B : F.C.Obj) (l0 : F.C.Mor A B) (p : P'.Pt A) : Id (P.Pt B) (tr B (P'.post A B l0 p)) (P.post A B l0 (tr A p)) =
+    PL.ap (F.C.Mor (g p.1) B) (P.Pt B) (\ z -> (p.1,(p.2.1,z)))
+      (F.C.comp (g p.1) (g' p.1) B (psi p.1 p.2.1) (F.C.comp (g' p.1) A B p.2.2 l0))
+      (F.C.comp (g p.1) A B (F.C.comp (g p.1) (g' p.1) A (psi p.1 p.2.1) p.2.2) l0)
+      (PL.sym (F.C.Mor (g p.1) B) (F.C.comp (g p.1) A B (F.C.comp (g p.1) (g' p.1) A (psi p.1 p.2.1) p.2.2) l0)
+        (F.C.comp (g p.1) (g' p.1) B (psi p.1 p.2.1) (F.C.comp (g' p.1) A B p.2.2 l0))
+        (F.C.assoc (g p.1) (g' p.1) A B (psi p.1 p.2.1) p.2.2 l0)) ;
+  tr'-post (A B : F.C.Obj) (l0 : F.C.Mor A B) (p : P.Pt A) : Id (P'.Pt B) (tr' B (P.post A B l0 p)) (P'.post A B l0 (tr' A p)) =
+    PL.ap (F.C.Mor (g' p.1) B) (P'.Pt B) (\ z -> (p.1,(p.2.1,z)))
+      (F.C.comp (g' p.1) (g p.1) B (phi p.1 p.2.1) (F.C.comp (g p.1) A B p.2.2 l0))
+      (F.C.comp (g' p.1) A B (F.C.comp (g' p.1) (g p.1) A (phi p.1 p.2.1) p.2.2) l0)
+      (PL.sym (F.C.Mor (g' p.1) B) (F.C.comp (g' p.1) A B (F.C.comp (g' p.1) (g p.1) A (phi p.1 p.2.1) p.2.2) l0)
+        (F.C.comp (g' p.1) (g p.1) B (phi p.1 p.2.1) (F.C.comp (g p.1) A B p.2.2 l0))
+        (F.C.assoc (g' p.1) (g p.1) A B (phi p.1 p.2.1) p.2.2 l0)) ;
+  ord' (d : F.C.Fin) (p q : P'.Pt (F.C.fin d)) : W.O3 = K.ord d (tr (F.C.fin d) p) (tr (F.C.fin d) q) ;
+  code : SC.Code[F] = new SC.Code[F,m := K.m, gen := gen', ord := ord',
+    inv := \ d d' l0 p q -> PL.trans W.O3 (ord' d' (P'.post (F.C.fin d) (F.C.fin d') l0 p) (P'.post (F.C.fin d) (F.C.fin d') l0 q))
+        (K.ord d' (P.post (F.C.fin d) (F.C.fin d') l0 (tr (F.C.fin d) p)) (P.post (F.C.fin d) (F.C.fin d') l0 (tr (F.C.fin d) q))) (ord' d p q)
+      (W.ap2 (P.Pt (F.C.fin d')) (P.Pt (F.C.fin d')) W.O3 (K.ord d')
+        (tr (F.C.fin d') (P'.post (F.C.fin d) (F.C.fin d') l0 p)) (P.post (F.C.fin d) (F.C.fin d') l0 (tr (F.C.fin d) p))
+        (tr (F.C.fin d') (P'.post (F.C.fin d) (F.C.fin d') l0 q)) (P.post (F.C.fin d) (F.C.fin d') l0 (tr (F.C.fin d) q))
+        (tr-post (F.C.fin d) (F.C.fin d') l0 p) (tr-post (F.C.fin d) (F.C.fin d') l0 q))
+      (K.inv d d' l0 (tr (F.C.fin d) p) (tr (F.C.fin d) q)),
+    orefl := \ d p -> K.orefl d (tr (F.C.fin d) p),
+    oflip := \ d p q -> K.oflip d (tr (F.C.fin d) p) (tr (F.C.fin d) q),
+    otrans := \ d p q r h1 h2 -> K.otrans d (tr (F.C.fin d) p) (tr (F.C.fin d) q) (tr (F.C.fin d) r) h1 h2,
+    oeq := \ d p q h -> PL.trans (P'.Pt (F.C.fin d)) p (tr' (F.C.fin d) (tr (F.C.fin d) p)) q
+      (PL.sym (P'.Pt (F.C.fin d)) (tr' (F.C.fin d) (tr (F.C.fin d) p)) p (tr'tr (F.C.fin d) p))
+      (PL.trans (P'.Pt (F.C.fin d)) (tr' (F.C.fin d) (tr (F.C.fin d) p)) (tr' (F.C.fin d) (tr (F.C.fin d) q)) q
+        (PL.ap (P.Pt (F.C.fin d)) (P'.Pt (F.C.fin d)) (tr' (F.C.fin d)) (tr (F.C.fin d) p) (tr (F.C.fin d) q)
+          (K.oeq d (tr (F.C.fin d) p) (tr (F.C.fin d) q) h))
+        (tr'tr (F.C.fin d) q))] ;
+  module O = SF.Over[F.C] ;
+  module D = SC.Decode[F,K] ;
+  module D' = SC.Decode[F,code] ;
+  -- maps both ways
+  to : O.Mor D'.obj D.obj =
+    (\ c -> (tr (F.C.fin c),\ p q -> PL.trans W.O3 (D.cmp (F.C.fin c) (tr (F.C.fin c) p) (tr (F.C.fin c) q)) (ord' c p q) (D'.cmp (F.C.fin c) p q)
+        (dcmp F K c (tr (F.C.fin c) p) (tr (F.C.fin c) q)) (PL.sym W.O3 (D'.cmp (F.C.fin c) p q) (ord' c p q) (dcmp F code c p q))),
+     (\ c d k y -> PL.sym (P.Pt (F.C.fin d)) (tr (F.C.fin d) (P'.post (F.C.fin c) (F.C.fin d) k y)) (P.post (F.C.fin c) (F.C.fin d) k (tr (F.C.fin c) y))
+        (tr-post (F.C.fin c) (F.C.fin d) k y),
+      \ c d k y r -> (tr' (F.C.fin c) r.1,
+        PL.trans (P'.Pt (F.C.fin d)) (P'.post (F.C.fin c) (F.C.fin d) k (tr' (F.C.fin c) r.1)) (tr' (F.C.fin d) (P.post (F.C.fin c) (F.C.fin d) k r.1)) y
+          (PL.sym (P'.Pt (F.C.fin d)) (tr' (F.C.fin d) (P.post (F.C.fin c) (F.C.fin d) k r.1)) (P'.post (F.C.fin c) (F.C.fin d) k (tr' (F.C.fin c) r.1))
+            (tr'-post (F.C.fin c) (F.C.fin d) k r.1))
+          (PL.trans (P'.Pt (F.C.fin d)) (tr' (F.C.fin d) (P.post (F.C.fin c) (F.C.fin d) k r.1)) (tr' (F.C.fin d) (tr (F.C.fin d) y)) y
+            (PL.ap (P.Pt (F.C.fin d)) (P'.Pt (F.C.fin d)) (tr' (F.C.fin d)) (P.post (F.C.fin c) (F.C.fin d) k r.1) (tr (F.C.fin d) y) r.2)
+            (tr'tr (F.C.fin d) y))))) ;
+  from : O.Mor D.obj D'.obj =
+    (\ c -> (tr' (F.C.fin c),\ p q ->
+        PL.trans W.O3 (D'.cmp (F.C.fin c) (tr' (F.C.fin c) p) (tr' (F.C.fin c) q)) (ord' c (tr' (F.C.fin c) p) (tr' (F.C.fin c) q)) (D.cmp (F.C.fin c) p q)
+          (dcmp F code c (tr' (F.C.fin c) p) (tr' (F.C.fin c) q))
+          (PL.trans W.O3 (ord' c (tr' (F.C.fin c) p) (tr' (F.C.fin c) q)) (K.ord c p q) (D.cmp (F.C.fin c) p q)
+            (W.ap2 (P.Pt (F.C.fin c)) (P.Pt (F.C.fin c)) W.O3 (K.ord c) (tr (F.C.fin c) (tr' (F.C.fin c) p)) p (tr (F.C.fin c) (tr' (F.C.fin c) q)) q
+              (trtr' (F.C.fin c) p) (trtr' (F.C.fin c) q))
+            (PL.sym W.O3 (D.cmp (F.C.fin c) p q) (K.ord c p q) (dcmp F K c p q)))),
+     (\ c d k y -> PL.sym (P'.Pt (F.C.fin d)) (tr' (F.C.fin d) (P.post (F.C.fin c) (F.C.fin d) k y)) (P'.post (F.C.fin c) (F.C.fin d) k (tr' (F.C.fin c) y))
+        (tr'-post (F.C.fin c) (F.C.fin d) k y),
+      \ c d k y r -> (tr (F.C.fin c) r.1,
+        PL.trans (P.Pt (F.C.fin d)) (P.post (F.C.fin c) (F.C.fin d) k (tr (F.C.fin c) r.1)) (tr (F.C.fin d) (P'.post (F.C.fin c) (F.C.fin d) k r.1)) y
+          (PL.sym (P.Pt (F.C.fin d)) (tr (F.C.fin d) (P'.post (F.C.fin c) (F.C.fin d) k r.1)) (P.post (F.C.fin c) (F.C.fin d) k (tr (F.C.fin c) r.1))
+            (tr-post (F.C.fin c) (F.C.fin d) k r.1))
+          (PL.trans (P.Pt (F.C.fin d)) (tr (F.C.fin d) (P'.post (F.C.fin c) (F.C.fin d) k r.1)) (tr (F.C.fin d) (tr' (F.C.fin d) y)) y
+            (PL.ap (P'.Pt (F.C.fin d)) (P.Pt (F.C.fin d)) (tr (F.C.fin d)) (P'.post (F.C.fin c) (F.C.fin d) k r.1) (tr' (F.C.fin d) y) r.2)
+            (trtr' (F.C.fin d) y))))) ;
+} ;
