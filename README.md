@@ -79,12 +79,13 @@ and their finite sequences.
 - [Development guide](UNIT/README.txt) and
   [logical-relation proof account](UNIT/LOGICAL_RELATION_PROGRAM.md)
 
-`python3 UNIT/check.py` checks eight sessions: the full development
-(16,157 declarations), general CUSL `Fp` construction (2,412), general
+`python3 UNIT/check.py` checks nine sessions: the full development
+(25,488 declarations), general CUSL `Fp` construction (2,412), general
 dependent products and sums (1,156), independent projector proof (3,916),
 structural typed laws (5,118), independent logical relation and actual
 syntactic consequences (6,782), the general witness extraction principle
-(216), and the complete derivation-enumeration instance (541).
+(216), the complete derivation-enumeration instance (541), and adequacy
+with principal environments only (3,633).
 All pass with zero failures,
 and all 40 frozen dependency hashes match. The separate sessions audit
 which earlier proof modules are excluded. The development uses univalence
@@ -104,6 +105,37 @@ python3 UNIT/check.py /path/to/seg
 Python verifies dependency hashes and launches the Haskell checker; it does
 no type-checking. The checker binary is not bundled. The development guide
 explains the recorded checker and the `UNIT_CHECKER` alternative.
+
+## Dilators and ptykes over all linear orders (`UNIT/`)
+
+Girard's dilators and ptykes, formalised constructively (well-foundedness =
+inductive accessibility) as stable functors on the category of decidable
+linear orders and embeddings, following the categories-of-embeddings
+approach of [`UNIT/PLAN-CATEMB-LO.md`](UNIT/PLAN-CATEMB-LO.md).
+
+- **Categories of embeddings.** Stable functors `SF[C]`, codes, the covering
+  theorem, and `Stab(C)` as a category of embeddings for every such `C`
+  ([`StabCEF.seg`](UNIT/StabCEF.seg)); the instance for all linear orders
+  ([`LOCEF.seg`](UNIT/LOCEF.seg)); dilators `IsDil` and type-2 ptykes
+  `IsPtyx` ([`LOWF.seg`](UNIT/LOWF.seg)).
+- **Girard's reductions.** The Kleene–Brouwer order of a tree is
+  well-founded iff the tree is ([`KBTree.seg`](UNIT/KBTree.seg)); labelled
+  trees give pre-dilators ([`LabTree.seg`](UNIT/LabTree.seg)); a Π¹₂
+  statement `∀f ∃g ∀n R` gives a pre-dilator `D_T`, which is a dilator iff
+  all its attempt trees are well-founded, and is refuted by a rank of some
+  `U_f` ([`Girard.seg`](UNIT/Girard.seg)); a positive instance proved to be
+  a dilator ([`GirardPos.seg`](UNIT/GirardPos.seg)); the type-2 analogue for
+  Π¹₃ statements and ptykes ([`LabTree2.seg`](UNIT/LabTree2.seg),
+  [`Girard2.seg`](UNIT/Girard2.seg)). Only the constructive halves are
+  formalised; the converse directions use bar induction.
+- **Concrete dilators.** All polynomial dilators, e.g. `X ↦ 2^X`
+  ([`DilLO.seg`](UNIT/DilLO.seg), [`LOEx.seg`](UNIT/LOEx.seg)), and
+  **`X ↦ ε_X`** ([`EpsTerm.seg`](UNIT/EpsTerm.seg) — Cantor normal forms over
+  ε-numbers as a linear order; [`EpsFun.seg`](UNIT/EpsFun.seg) — the stable
+  functor; [`EpsWF.seg`](UNIT/EpsWF.seg) — `X` well-founded ⇒ `ε_X`
+  well-founded). Classically these well-ordering principles are equivalent
+  over RCA₀ to ACA₀ (`2^X`, Girard) and ACA₀⁺ (`ε_X`, Afshari–Rathjen,
+  Marcone–Montalbán); the reversals are not formalised.
 
 ## Main results — where they are proved
 

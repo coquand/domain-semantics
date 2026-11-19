@@ -719,3 +719,21 @@ dec j = 0^j; okR (reversed nodes: labels present, strictly increasing),
 gen/PtoQ (root-first: strictly decreasing), Brouwer bounds by Acc on X
 (Step, bndDec, bndQ), KBTree.bnd-mono; posD-dil : LOWF.IsDil posD via
 Girard dil-wf -- the first use of dil-wf.  All.seg, check.py exit 0.
+
+### epsilon_X DONE (2026-11-19): EpsTerm, EpsFun, EpsWF
+EpsTerm: terms zT | eT x r (eps_x + r) | wT a r (omega^a + r) over any
+decidable LO X; cmp structural on the first term, vsE x b = cmp b (E x)
+(lemma V); letters compared by keys (K); normal forms nf (letters
+non-increasing, exponent never a single eps_x); laws: crefl, cflip, ceq
+(via NE: a normal exponent is never eps_x), lcEq, ctrans (structural on
+the first term; mixed eps cases by M1/M2/M3); EpsLO[X].lo.
+EpsFun: renaming (rn-cmp, rn-nf), functor laws, supports = atoms (via
+LabTreeG.suppL with a dummy tree), relabelling Rl, zip Zp; EpsF.dil :
+SF.SF[LC.ce].
+EpsWF: accHead (list lemma over letters ordered by keys), accE (x
+accessible => eps_x accessible), accT; epsD-dil : LOWF.IsDil epsD, i.e.
+WOP(eps_X) -- classically equivalent to ACA0+ over RCA0 (Afshari-Rathjen,
+Marcone-Montalban; Rathjen-Thomson Thm 12.2 in schutte.pdf).
+All.seg 25,488, check.py exit 0 (18.6 s).
+NEXT (ideas): phi X 0 (ATR0), Gamma_X; or eps_X as a fixed point of
+X |-> omega^X inside the hierarchy.

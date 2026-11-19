@@ -1,0 +1,402 @@
+-- epsilon_X: Cantor normal forms over the epsilon numbers eps_x, x in X.
+--
+-- Terms: zT (zero), eT x r (= eps_x + r), wT a r (= omega^a + r).
+-- A term is a list of principal parts (letters): inl x (eps_x) or inr a
+-- (omega^a).  Normal form (nf): letters non-increasing, exponents in
+-- normal form and never a single eps_x (omega^{eps_x} = eps_x).
+-- cmp: lexicographic on letters (a proper prefix is smaller), letters
+-- compared by their keys: eps_x by x, omega^a by a, and omega^a against
+-- eps_y by a against eps_y (vsE y a).  cmp is defined by structural
+-- recursion on the first term; vsE x b computes cmp b (E x) (lemma V).
+-- On normal forms cmp is a decidable linear order (EpsLO X).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module SAm = StabAmal[l] ;
+
+gtB : W.O3 -> W.Bool = split { lt -> false ; eq -> false ; gt -> true } ;
+flipflip : (o : W.O3) -> Id W.O3 (W.flip (W.flip o)) o = split { lt -> refl lt ; eq -> refl eq ; gt -> refl gt } ;
+flip-eq : (o : W.O3) -> Id W.O3 (W.flip o) eq -> Id W.O3 o eq = split {
+  lt -> \ h -> CF.efq (Id W.O3 lt eq) (SAm.o3-ne gt eq (refl false) h) ;
+  eq -> \ h -> refl eq ;
+  gt -> \ h -> CF.efq (Id W.O3 gt eq) (SAm.o3-ne lt eq (refl false) h) } ;
+flip-lt : (o : W.O3) -> Id W.O3 (W.flip o) lt -> Id W.O3 o gt = split {
+  lt -> \ h -> CF.efq (Id W.O3 lt gt) (SAm.o3-ne gt lt (refl false) h) ;
+  eq -> \ h -> CF.efq (Id W.O3 eq gt) (SAm.o3-ne eq lt (refl false) h) ;
+  gt -> \ h -> refl gt } ;
+nO (a b : W.O3) (h : Id W.Bool (PF.eqO a b) false) (e : Id W.O3 a b) (A : U l) : A = CF.efq A (SAm.o3-ne a b h e) ;
+
+module Eps (X : DP.LO) {
+  data T : U l = zT | eT (x : X.car) (r : T) | wT (a : T) (r : T) ;
+  E (x : X.car) : T = eT x zT ;
+  isZ : T -> W.Bool = split { zT -> true ; eT x r -> false ; wT a r -> false } ;
+  -- cmp t zT and cmp zT t
+  zc : T -> W.O3 = split { zT -> eq ; eT x r -> gt ; wT a r -> gt } ;
+  cz : T -> W.O3 = split { zT -> eq ; eT x r -> lt ; wT a r -> lt } ;
+  -- vsE x b = cmp b (E x)
+  vsE (x : X.car) : T -> W.O3 = split {
+    zT -> lt ;
+    eT y s -> W.lexO3 (X.cmp y x) (zc s) ;
+    wT c s | rc rs -> W.lexO3 rc (zc s) } ;
+  cmp : T -> T -> W.O3 = split {
+    zT -> cz ;
+    eT x r | rr -> split { zT -> gt ; eT y s -> W.lexO3 (X.cmp x y) (rr s) ; wT b s -> W.lexO3 (W.flip (vsE x b)) (rr s) } ;
+    wT a r | ra rr -> split { zT -> gt ; eT y s -> W.lexO3 (ra (E y)) (rr s) ; wT b s -> W.lexO3 (ra b) (rr s) } } ;
+
+  czc : (s : T) -> Id W.O3 (cmp s zT) (zc s) = split { zT -> refl eq ; eT x r -> refl gt ; wT a r -> refl gt } ;
+  V (x : X.car) : (b : T) -> Id W.O3 (vsE x b) (cmp b (E x)) = split {
+    zT -> refl lt ;
+    eT y s -> PL.ap W.O3 W.O3 (\ o -> W.lexO3 (X.cmp y x) o) (zc s) (cmp s zT) (PL.sym W.O3 (cmp s zT) (zc s) (czc s)) ;
+    wT c s | rc rs -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (vsE x c) (cmp c (E x)) (zc s) (cmp s zT) rc (PL.sym W.O3 (cmp s zT) (zc s) (czc s)) } ;
+  -- zc is never lt; zc s = eq iff s = zT
+  zc-nlt : (s : T) -> Id W.O3 (zc s) lt -> W.Empty = split {
+    zT -> \ h -> SAm.o3-ne eq lt (refl false) h ; eT x r -> \ h -> SAm.o3-ne gt lt (refl false) h ; wT a r -> \ h -> SAm.o3-ne gt lt (refl false) h } ;
+
+  ------------------------------------------------------------------
+  -- reflexivity and symmetry
+  crefl : (t : T) -> Id W.O3 (cmp t t) eq = split {
+    zT -> refl eq ;
+    eT x r | rr -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (X.cmp x x) eq (cmp r r) eq (X.crefl x) rr ;
+    wT a r | ra rr -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (cmp a a) eq (cmp r r) eq ra rr } ;
+  lexF (c d c' d' : W.O3) (e1 : Id W.O3 c' (W.flip c)) (e2 : Id W.O3 d' (W.flip d)) : Id W.O3 (W.lexO3 c' d') (W.flip (W.lexO3 c d)) =
+    PL.trans W.O3 (W.lexO3 c' d') (W.lexO3 (W.flip c) (W.flip d)) (W.flip (W.lexO3 c d))
+      (W.ap2 W.O3 W.O3 W.O3 W.lexO3 c' (W.flip c) d' (W.flip d) e1 e2) (SAm.lex-flip c d) ;
+  cflip : (t t' : T) -> Id W.O3 (cmp t' t) (W.flip (cmp t t')) = split {
+    zT -> split { zT -> refl eq ; eT y s -> refl gt ; wT b s -> refl gt } ;
+    eT x r | rr -> split {
+      zT -> refl lt ;
+      eT y s -> lexF (X.cmp x y) (cmp r s) (X.cmp y x) (cmp s r) (X.cflip x y) (rr s) ;
+      wT b s -> lexF (W.flip (vsE x b)) (cmp r s) (cmp b (E x)) (cmp s r)
+        (PL.trans W.O3 (cmp b (E x)) (vsE x b) (W.flip (W.flip (vsE x b)))
+          (PL.sym W.O3 (vsE x b) (cmp b (E x)) (V x b)) (PL.sym W.O3 (W.flip (W.flip (vsE x b))) (vsE x b) (flipflip (vsE x b))))
+        (rr s) } ;
+    wT a r | ra rr -> split {
+      zT -> refl lt ;
+      eT y s -> lexF (cmp a (E y)) (cmp r s) (W.flip (vsE y a)) (cmp s r)
+        (PL.ap W.O3 W.O3 W.flip (vsE y a) (cmp a (E y)) (V y a)) (rr s) ;
+      wT b s -> lexF (cmp a b) (cmp r s) (cmp b a) (cmp s r) (ra b) (rr s) } } ;
+
+  ------------------------------------------------------------------
+  -- letters and normal forms
+  Pr : U l = W.Or X.car T ;
+  key : Pr -> T = split { inl x -> E x ; inr a -> a } ;
+  lc : Pr -> Pr -> W.O3 = split {
+    inl x -> split { inl y -> X.cmp x y ; inr b -> W.flip (vsE x b) } ;
+    inr a -> split { inl y -> cmp a (E y) ; inr b -> cmp a b } } ;
+  -- letters are compared by their keys
+  K : (p q : Pr) -> Id W.O3 (lc p q) (cmp (key p) (key q)) = split {
+    inl x -> split {
+      inl y -> PL.sym W.O3 (W.lexO3 (X.cmp x y) eq) (X.cmp x y) (SAm.lex-eqR (X.cmp x y)) ;
+      inr b -> PL.trans W.O3 (W.flip (vsE x b)) (W.flip (cmp b (E x))) (cmp (E x) b)
+        (PL.ap W.O3 W.O3 W.flip (vsE x b) (cmp b (E x)) (V x b))
+        (PL.sym W.O3 (cmp (E x) b) (W.flip (cmp b (E x))) (cflip b (E x))) } ;
+    inr a -> split { inl y -> refl (cmp a (E y)) ; inr b -> refl (cmp a b) } } ;
+  lcRefl : (p : Pr) -> Id W.O3 (lc p p) eq = split { inl x -> X.crefl x ; inr a -> crefl a } ;
+  notE : T -> W.Bool = split { zT -> true ; eT x r -> W.notB (isZ r) ; wT a r -> true } ;
+  -- the next letter is not above p
+  leH (p : Pr) : T -> W.Bool = split {
+    zT -> true ;
+    eT y s -> W.notB (gtB (lc (inl y) p)) ;
+    wT b s -> W.notB (gtB (lc (inr b) p)) } ;
+  nf : T -> W.Bool = split {
+    zT -> true ;
+    eT x r | rr -> W.andB rr (leH (inl x) r) ;
+    wT a r | ra rr -> W.andB (W.andB ra (notE a)) (W.andB rr (leH (inr a) r)) } ;
+  nfP : Pr -> W.Bool = split { inl x -> true ; inr a -> W.andB (nf a) (notE a) } ;
+  -- projections of nf
+  nfE-r (x : X.car) (r : T) (h : Id W.Bool (nf (eT x r)) true) : Id W.Bool (nf r) true = W.andB-l (nf r) (leH (inl x) r) h ;
+  nfW-a (a r : T) (h : Id W.Bool (nf (wT a r)) true) : Id W.Bool (nf a) true =
+    W.andB-l (nf a) (notE a) (W.andB-l (W.andB (nf a) (notE a)) (W.andB (nf r) (leH (inr a) r)) h) ;
+  nfW-e (a r : T) (h : Id W.Bool (nf (wT a r)) true) : Id W.Bool (notE a) true =
+    W.andB-r (nf a) (notE a) (W.andB-l (W.andB (nf a) (notE a)) (W.andB (nf r) (leH (inr a) r)) h) ;
+  nfW-r (a r : T) (h : Id W.Bool (nf (wT a r)) true) : Id W.Bool (nf r) true =
+    W.andB-l (nf r) (leH (inr a) r) (W.andB-r (W.andB (nf a) (notE a)) (W.andB (nf r) (leH (inr a) r)) h) ;
+  nfE (x : X.car) : Id W.Bool (nf (E x)) true = refl true ;
+
+  -- a normal exponent is never eps_x
+  zEq : (s : T) -> Id W.O3 (cmp s zT) eq -> Id W.Bool (isZ s) true = split {
+    zT -> \ h -> refl true ;
+    eT x r -> \ h -> nO gt eq (refl false) h (Id W.Bool false true) ;
+    wT a r -> \ h -> nO gt eq (refl false) h (Id W.Bool false true) } ;
+  NE (x : X.car) : (b : T) -> Id W.Bool (nf b) true -> Id W.Bool (notE b) true -> Id W.O3 (cmp b (E x)) eq -> W.Empty = split {
+    zT -> \ n h e -> SAm.o3-ne lt eq (refl false) e ;
+    eT y s -> \ n h e -> W.absurdB W.Empty
+      (PL.trans W.Bool false (W.notB (isZ s)) true
+        (PL.ap W.Bool W.Bool W.notB true (isZ s) (PL.sym W.Bool (isZ s) true (zEq s (SAm.lex-eq (X.cmp y x) (cmp s zT) e).2))) h) ;
+    wT c s | rc rs -> \ n h e -> rc (nfW-a c s n) (nfW-e c s n) (SAm.lex-eq (cmp c (E x)) (cmp s zT) e).1 } ;
+  NEv (x : X.car) (b : T) (n : Id W.Bool (nf b) true) (h : Id W.Bool (notE b) true) (e : Id W.O3 (vsE x b) eq) : W.Empty =
+    NE x b n h (PL.trans W.O3 (cmp b (E x)) (vsE x b) eq (PL.sym W.O3 (vsE x b) (cmp b (E x)) (V x b)) e) ;
+
+  -- equality
+  ceq : (t t' : T) -> Id W.Bool (nf t) true -> Id W.Bool (nf t') true -> Id W.O3 (cmp t t') eq -> Id T t t' = split {
+    zT -> split {
+      zT -> \ n n' e -> refl zT ;
+      eT y s -> \ n n' e -> nO lt eq (refl false) e (Id T zT (eT y s)) ;
+      wT b s -> \ n n' e -> nO lt eq (refl false) e (Id T zT (wT b s)) } ;
+    eT x r | rr -> split {
+      zT -> \ n n' e -> nO gt eq (refl false) e (Id T (eT x r) zT) ;
+      eT y s -> \ n n' e -> W.ap2 X.car T T (\ u v -> eT u v) x y r s
+        (X.ceq x y (SAm.lex-eq (X.cmp x y) (cmp r s) e).1)
+        (rr s (nfE-r x r n) (nfE-r y s n') (SAm.lex-eq (X.cmp x y) (cmp r s) e).2) ;
+      wT b s -> \ n n' e -> CF.efq (Id T (eT x r) (wT b s))
+        (NEv x b (nfW-a b s n') (nfW-e b s n') (flip-eq (vsE x b) (SAm.lex-eq (W.flip (vsE x b)) (cmp r s) e).1)) } ;
+    wT a r | ra rr -> split {
+      zT -> \ n n' e -> nO gt eq (refl false) e (Id T (wT a r) zT) ;
+      eT y s -> \ n n' e -> CF.efq (Id T (wT a r) (eT y s))
+        (NE y a (nfW-a a r n) (nfW-e a r n) (SAm.lex-eq (cmp a (E y)) (cmp r s) e).1) ;
+      wT b s -> \ n n' e -> W.ap2 T T T (\ u v -> wT u v) a b r s
+        (ra b (nfW-a a r n) (nfW-a b s n') (SAm.lex-eq (cmp a b) (cmp r s) e).1)
+        (rr s (nfW-r a r n) (nfW-r b s n') (SAm.lex-eq (cmp a b) (cmp r s) e).2) } } ;
+  -- equal normal letters are equal
+  lcEq : (p q : Pr) -> Id W.Bool (nfP p) true -> Id W.Bool (nfP q) true -> Id W.O3 (lc p q) eq -> Id Pr p q = split {
+    inl x -> split {
+      inl y -> \ n n' e -> PL.ap X.car Pr (\ u -> inl u) x y (X.ceq x y e) ;
+      inr b -> \ n n' e -> CF.efq (Id Pr (inl x) (inr b))
+        (NEv x b (W.andB-l (nf b) (notE b) n') (W.andB-r (nf b) (notE b) n') (flip-eq (vsE x b) e)) } ;
+    inr a -> split {
+      inl y -> \ n n' e -> CF.efq (Id Pr (inr a) (inl y)) (NE y a (W.andB-l (nf a) (notE a) n) (W.andB-r (nf a) (notE a) n) e) ;
+      inr b -> \ n n' e -> PL.ap T Pr (\ u -> inr u) a b
+        (ceq a b (W.andB-l (nf a) (notE a) n) (W.andB-l (nf b) (notE b) n') e) } } ;
+
+  ------------------------------------------------------------------
+  -- transitivity
+  LtX (a b : X.car) : U l = Id W.O3 (X.cmp a b) lt ;
+  gtOfLt (a b : X.car) (h : LtX a b) : Id W.O3 (X.cmp b a) gt =
+    PL.trans W.O3 (X.cmp b a) (W.flip (X.cmp a b)) gt (X.cflip a b) (PL.ap W.O3 W.O3 W.flip (X.cmp a b) lt h) ;
+  ltOfGt (a b : X.car) (h : Id W.O3 (X.cmp a b) gt) : LtX b a =
+    PL.trans W.O3 (X.cmp b a) (W.flip (X.cmp a b)) lt (X.cflip a b) (PL.ap W.O3 W.O3 W.flip (X.cmp a b) gt h) ;
+  lexNotLt : (c d : W.O3) -> Id W.Bool (W.isLt (W.lexO3 c d)) false -> Id W.Bool (W.isLt c) false = split {
+    lt -> \ d h -> W.absurdB (Id W.Bool true false) (PL.sym W.Bool true false h) ;
+    eq -> \ d h -> refl false ; gt -> \ d h -> refl false } ;
+  isLtGt (o : W.O3) (h : Id W.O3 o gt) : Id W.Bool (W.isLt o) false = PL.ap W.O3 W.Bool W.isLt o gt h ;
+  -- lexO3 c d = lt with d never lt, or with c never eq
+  lexLtNz : (c d : W.O3) -> Id W.O3 (W.lexO3 c d) lt -> (Id W.O3 d lt -> W.Empty) -> Id W.O3 c lt = split {
+    lt -> \ d h k -> refl lt ;
+    eq -> \ d h k -> CF.efq (Id W.O3 eq lt) (k h) ;
+    gt -> \ d h k -> nO gt lt (refl false) h (Id W.O3 gt lt) } ;
+  lexLtNe : (c d : W.O3) -> Id W.O3 (W.lexO3 c d) lt -> (Id W.O3 c eq -> W.Empty) -> Id W.O3 c lt = split {
+    lt -> \ d h k -> refl lt ;
+    eq -> \ d h k -> CF.efq (Id W.O3 eq lt) (k (refl eq)) ;
+    gt -> \ d h k -> nO gt lt (refl false) h (Id W.O3 gt lt) } ;
+  lexGtNe : (c d : W.O3) -> Id W.O3 (W.lexO3 c d) gt -> (Id W.O3 c eq -> W.Empty) -> Id W.O3 c gt = split {
+    lt -> \ d h k -> nO lt gt (refl false) h (Id W.O3 lt gt) ;
+    eq -> \ d h k -> CF.efq (Id W.O3 eq gt) (k (refl eq)) ;
+    gt -> \ d h k -> refl gt } ;
+  gtL (c d : W.O3) (h : Id W.O3 c gt) : Id W.O3 (W.lexO3 c d) gt = PL.ap W.O3 W.O3 (\ o -> W.lexO3 o d) c gt h ;
+  zcOfLt (s : T) : (u : T) -> Id W.O3 (cmp s u) lt -> Id W.O3 (zc u) gt = split {
+    zT -> \ h -> CF.efq (Id W.O3 eq gt) (zc-nlt s (PL.trans W.O3 (zc s) (cmp s zT) lt (PL.sym W.O3 (cmp s zT) (zc s) (czc s)) h)) ;
+    eT y r -> \ h -> refl gt ;
+    wT b r -> \ h -> refl gt } ;
+
+  -- from lexO3 (flip o) d = lt: o is not lt
+  notLtOfFlip : (o d : W.O3) -> Id W.O3 (W.lexO3 (W.flip o) d) lt -> Id W.Bool (W.isLt o) false = split {
+    lt -> \ d h -> nO gt lt (refl false) h (Id W.Bool true false) ;
+    eq -> \ d h -> refl false ;
+    gt -> \ d h -> refl false } ;
+  -- (M1) x < y and c >= eps_y give c > eps_x
+  module M1 (x y : X.car) (hxy : LtX x y) {
+    ce (z : X.car) (s : T) : (o : W.O3) -> Id W.O3 (X.cmp z y) o -> Id W.Bool (W.isLt (W.lexO3 o (zc s))) false ->
+        Id W.O3 (W.lexO3 (X.cmp z x) (zc s)) gt = split {
+      lt -> \ e h -> W.absurdB (Id W.O3 (W.lexO3 (X.cmp z x) (zc s)) gt) (PL.sym W.Bool true false h) ;
+      eq -> \ e h -> gtL (X.cmp z x) (zc s)
+        (PL.subst X.car (\ w -> Id W.O3 (X.cmp w x) gt) y z (PL.sym X.car z y (X.ceq z y e)) (gtOfLt x y hxy)) ;
+      gt -> \ e h -> gtL (X.cmp z x) (zc s) (gtOfLt x z (X.ctrans x y z hxy (ltOfGt z y e))) } ;
+    m : (c : T) -> Id W.Bool (W.isLt (vsE y c)) false -> Id W.O3 (vsE x c) gt = split {
+      zT -> \ h -> W.absurdB (Id W.O3 lt gt) (PL.sym W.Bool true false h) ;
+      eT z s -> \ h -> ce z s (X.cmp z y) (refl (X.cmp z y)) h ;
+      wT c s | rc rs -> \ h -> gtL (vsE x c) (zc s) (rc (lexNotLt (vsE y c) (zc s) h)) } ;
+  } ;
+  -- (M2) c >= eps_x and c < eps_z give x < z
+  module M2 (x z : X.car) {
+    ce (y : X.car) (hz : LtX y z) : (o : W.O3) -> Id W.O3 (X.cmp y x) o -> Id W.Bool (W.isLt o) false -> LtX x z = split {
+      lt -> \ e h -> W.absurdB (LtX x z) (PL.sym W.Bool true false h) ;
+      eq -> \ e h -> PL.subst X.car (\ w -> LtX w z) y x (X.ceq y x e) hz ;
+      gt -> \ e h -> X.ctrans x y z (ltOfGt y x e) hz } ;
+    m : (b : T) -> Id W.Bool (W.isLt (vsE x b)) false -> Id W.O3 (vsE z b) lt -> LtX x z = split {
+      zT -> \ h1 h2 -> W.absurdB (LtX x z) (PL.sym W.Bool true false h1) ;
+      eT y s -> \ h1 h2 -> ce y (lexLtNz (X.cmp y z) (zc s) h2 (zc-nlt s)) (X.cmp y x) (refl (X.cmp y x))
+        (lexNotLt (X.cmp y x) (zc s) h1) ;
+      wT c s | rc rs -> \ h1 h2 -> rc (lexNotLt (vsE x c) (zc s) h1) (lexLtNz (vsE z c) (zc s) h2 (zc-nlt s)) } ;
+  } ;
+  -- (M3) b > eps_x and b < c give c > eps_x (normal forms)
+  module M3 (x : X.car) {
+    Goal (b : T) : U l = Id W.Bool (nf b) true -> Id W.O3 (vsE x b) gt ->
+      (c : T) -> Id W.Bool (nf c) true -> Id W.O3 (cmp b c) lt -> Id W.O3 (vsE x c) gt ;
+    -- b = eps_y + s
+    eE (y : X.car) (s : T) (hb : Id W.O3 (W.lexO3 (X.cmp y x) (zc s)) gt) (z : X.car) (u : T) (h : Id W.O3 (W.lexO3 (X.cmp y z) (cmp s u)) lt)
+      : (o1 : W.O3) -> Id W.O3 (X.cmp y x) o1 -> (o2 : W.O3) -> Id W.O3 (X.cmp y z) o2 -> Id W.O3 (W.lexO3 (X.cmp z x) (zc u)) gt = split {
+      lt -> \ e1 o2 e2 -> nO lt gt (refl false) (PL.trans W.O3 lt (W.lexO3 (X.cmp y x) (zc s)) gt
+          (PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (zc s)) lt (X.cmp y x) (PL.sym W.O3 (X.cmp y x) lt e1)) hb)
+        (Id W.O3 (W.lexO3 (X.cmp z x) (zc u)) gt) ;
+      eq -> \ e1 -> split {
+        lt -> \ e2 -> gtL (X.cmp z x) (zc u)
+          (PL.subst X.car (\ w -> Id W.O3 (X.cmp z w) gt) y x (X.ceq y x e1) (gtOfLt y z e2)) ;
+        eq -> \ e2 -> PL.trans W.O3 (W.lexO3 (X.cmp z x) (zc u)) (W.lexO3 eq gt) gt
+          (W.ap2 W.O3 W.O3 W.O3 W.lexO3 (X.cmp z x) eq (zc u) gt
+            (PL.subst X.car (\ w -> Id W.O3 (X.cmp z w) eq) z x
+              (PL.trans X.car z y x (PL.sym X.car y z (X.ceq y z e2)) (X.ceq y x e1)) (X.crefl z))
+            (zcOfLt s u (PL.subst W.O3 (\ o -> Id W.O3 (W.lexO3 o (cmp s u)) lt) (X.cmp y z) eq e2 h)))
+          (refl gt) ;
+        gt -> \ e2 -> nO gt lt (refl false) (PL.trans W.O3 gt (W.lexO3 (X.cmp y z) (cmp s u)) lt
+          (PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (cmp s u)) gt (X.cmp y z) (PL.sym W.O3 (X.cmp y z) gt e2)) h)
+          (Id W.O3 (W.lexO3 (X.cmp z x) (zc u)) gt) } ;
+      gt -> \ e1 -> split {
+        lt -> \ e2 -> gtL (X.cmp z x) (zc u) (gtOfLt x z (X.ctrans x y z (ltOfGt y x e1) e2)) ;
+        eq -> \ e2 -> gtL (X.cmp z x) (zc u)
+          (PL.subst X.car (\ w -> Id W.O3 (X.cmp w x) gt) y z (X.ceq y z e2) e1) ;
+        gt -> \ e2 -> nO gt lt (refl false) (PL.trans W.O3 gt (W.lexO3 (X.cmp y z) (cmp s u)) lt
+          (PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (cmp s u)) gt (X.cmp y z) (PL.sym W.O3 (X.cmp y z) gt e2)) h)
+          (Id W.O3 (W.lexO3 (X.cmp z x) (zc u)) gt) } } ;
+    -- b = eps_y + s, c = omega^d + u
+    eW (y : X.car) (s : T) (hb : Id W.O3 (W.lexO3 (X.cmp y x) (zc s)) gt) (d u : T) (h : Id W.O3 (W.lexO3 (W.flip (vsE y d)) (cmp s u)) lt)
+      : (o1 : W.O3) -> Id W.O3 (X.cmp y x) o1 -> (o3 : W.O3) -> Id W.O3 (vsE y d) o3 -> Id W.O3 (W.lexO3 (vsE x d) (zc u)) gt = split {
+      lt -> \ e1 o3 e3 -> nO lt gt (refl false) (PL.trans W.O3 lt (W.lexO3 (X.cmp y x) (zc s)) gt
+          (PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (zc s)) lt (X.cmp y x) (PL.sym W.O3 (X.cmp y x) lt e1)) hb)
+        (Id W.O3 (W.lexO3 (vsE x d) (zc u)) gt) ;
+      eq -> \ e1 -> split {
+        lt -> \ e3 -> nO gt lt (refl false)
+          (PL.trans W.O3 gt (W.lexO3 (W.flip (vsE y d)) (cmp s u)) lt
+            (PL.ap W.O3 W.O3 (\ o -> W.lexO3 (W.flip o) (cmp s u)) lt (vsE y d) (PL.sym W.O3 (vsE y d) lt e3)) h)
+          (Id W.O3 (W.lexO3 (vsE x d) (zc u)) gt) ;
+        eq -> \ e3 -> PL.trans W.O3 (W.lexO3 (vsE x d) (zc u)) (W.lexO3 eq gt) gt
+          (W.ap2 W.O3 W.O3 W.O3 W.lexO3 (vsE x d) eq (zc u) gt
+            (PL.subst X.car (\ w -> Id W.O3 (vsE w d) eq) y x (X.ceq y x e1) e3)
+            (zcOfLt s u (PL.subst W.O3 (\ o -> Id W.O3 (W.lexO3 (W.flip o) (cmp s u)) lt) (vsE y d) eq e3 h)))
+          (refl gt) ;
+        gt -> \ e3 -> gtL (vsE x d) (zc u) (PL.subst X.car (\ w -> Id W.O3 (vsE w d) gt) y x (X.ceq y x e1) e3) } ;
+      gt -> \ e1 o3 e3 -> gtL (vsE x d) (zc u)
+        (M1[x,y,ltOfGt y x e1].m d (notLtOfFlip (vsE y d) (cmp s u) h)) } ;
+    -- b = omega^a + s, c = omega^d + u
+    wW (a s : T) (na : Id W.Bool (nf a) true) (ea : Id W.Bool (notE a) true) (va : Id W.O3 (vsE x a) gt)
+      (ra : Goal a) (d u : T) (nd : Id W.Bool (nf d) true) (h : Id W.O3 (W.lexO3 (cmp a d) (cmp s u)) lt)
+      : (o : W.O3) -> Id W.O3 (cmp a d) o -> Id W.O3 (W.lexO3 (vsE x d) (zc u)) gt = split {
+      lt -> \ e -> gtL (vsE x d) (zc u) (ra na va d nd e) ;
+      eq -> \ e -> gtL (vsE x d) (zc u) (PL.subst T (\ w -> Id W.O3 (vsE x w) gt) a d (ceq a d na nd e) va) ;
+      gt -> \ e -> nO gt lt (refl false) (PL.trans W.O3 gt (W.lexO3 (cmp a d) (cmp s u)) lt
+          (PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (cmp s u)) gt (cmp a d) (PL.sym W.O3 (cmp a d) gt e)) h)
+        (Id W.O3 (W.lexO3 (vsE x d) (zc u)) gt) } ;
+    m : (b : T) -> Goal b = split {
+      zT -> \ n hb c nc h -> nO lt gt (refl false) hb (Id W.O3 (vsE x c) gt) ;
+      eT y s | rs -> \ n hb -> split {
+        zT -> \ nc h -> nO gt lt (refl false) h (Id W.O3 (vsE x zT) gt) ;
+        eT z u -> \ nc h -> eE y s hb z u h (X.cmp y x) (refl (X.cmp y x)) (X.cmp y z) (refl (X.cmp y z)) ;
+        wT d u -> \ nc h -> eW y s hb d u h (X.cmp y x) (refl (X.cmp y x)) (vsE y d) (refl (vsE y d)) } ;
+      wT a s | ra rs -> \ n hb -> split {
+        zT -> \ nc h -> nO gt lt (refl false) h (Id W.O3 (vsE x zT) gt) ;
+        eT z u -> \ nc h -> gtL (X.cmp z x) (zc u) (gtOfLt x z
+          (M2[x,z].m a (isLtGt (vsE x a) (lexGtNe (vsE x a) (zc s) hb (\ q -> NEv x a (nfW-a a s n) (nfW-e a s n) q)))
+            (PL.trans W.O3 (vsE z a) (cmp a (E z)) lt (V z a)
+              (lexLtNe (cmp a (E z)) (cmp s u) h (\ q -> NE z a (nfW-a a s n) (nfW-e a s n) q))))) ;
+        wT d u -> \ nc h -> wW a s (nfW-a a s n) (nfW-e a s n)
+          (lexGtNe (vsE x a) (zc s) hb (\ q -> NEv x a (nfW-a a s n) (nfW-e a s n) q)) ra d u (nfW-a d u nc) h
+          (cmp a d) (refl (cmp a d)) } } ;
+  } ;
+
+  cons : Pr -> T -> T = split { inl x -> \ r -> eT x r ; inr a -> \ r -> wT a r } ;
+  consCmp : (p : Pr) (r : T) (q : Pr) (s : T) -> Id W.O3 (cmp (cons p r) (cons q s)) (W.lexO3 (lc p q) (cmp r s)) = split {
+    inl x -> \ r -> split { inl y -> \ s -> refl (W.lexO3 (X.cmp x y) (cmp r s)) ; inr b -> \ s -> refl (W.lexO3 (W.flip (vsE x b)) (cmp r s)) } ;
+    inr a -> \ r -> split { inl y -> \ s -> refl (W.lexO3 (cmp a (E y)) (cmp r s)) ; inr b -> \ s -> refl (W.lexO3 (cmp a b) (cmp r s)) } } ;
+  consZ : (p : Pr) (r : T) -> Id W.O3 (cmp (cons p r) zT) gt = split { inl x -> \ r -> refl gt ; inr a -> \ r -> refl gt } ;
+  nfKey : (p : Pr) -> Id W.Bool (nfP p) true -> Id W.Bool (nf (key p)) true = split {
+    inl x -> \ h -> refl true ; inr a -> \ h -> W.andB-l (nf a) (notE a) h } ;
+  lcR (a : T) : (q : Pr) -> Id W.O3 (lc (inr a) q) (cmp a (key q)) = split {
+    inl y -> refl (cmp a (E y)) ; inr b -> refl (cmp a b) } ;
+
+  TransP (t : T) : U l = (t2 t3 : T) -> Id W.Bool (nf t) true -> Id W.Bool (nf t2) true -> Id W.Bool (nf t3) true ->
+    Id W.O3 (cmp t t2) lt -> Id W.O3 (cmp t2 t3) lt -> Id W.O3 (cmp t t3) lt ;
+  LetT (p : Pr) : U l = (q r : Pr) -> Id W.Bool (nfP q) true -> Id W.Bool (nfP r) true ->
+    Id W.O3 (lc p q) lt -> Id W.O3 (lc q r) lt -> Id W.O3 (lc p r) lt ;
+  -- letter transitivity, first letter eps_x
+  LTL (x : X.car) : LetT (inl x) = split {
+    inl y -> split {
+      inl z -> \ nq nr h1 h2 -> X.ctrans x y z h1 h2 ;
+      inr c -> \ nq nr h1 h2 -> PL.ap W.O3 W.O3 W.flip (vsE x c) gt
+        (M1[x,y,h1].m c (isLtGt (vsE y c) (flip-lt (vsE y c) h2))) } ;
+    inr b -> split {
+      inl z -> \ nq nr h1 h2 -> M2[x,z].m b (isLtGt (vsE x b) (flip-lt (vsE x b) h1))
+        (PL.trans W.O3 (vsE z b) (cmp b (E z)) lt (V z b) h2) ;
+      inr c -> \ nq nr h1 h2 -> PL.ap W.O3 W.O3 W.flip (vsE x c) gt
+        (M3[x].m b (W.andB-l (nf b) (notE b) nq) (flip-lt (vsE x b) h1) c (W.andB-l (nf c) (notE c) nr) h2) } } ;
+  -- first letter omega^a, from transitivity at a
+  LTR (a : T) (na : Id W.Bool (nf a) true) (ra : TransP a) : LetT (inr a) = \ q r nq nr h1 h2 ->
+    PL.trans W.O3 (lc (inr a) r) (cmp a (key r)) lt (lcR a r)
+      (ra (key q) (key r) na (nfKey q nq) (nfKey r nr)
+        (PL.trans W.O3 (cmp a (key q)) (lc (inr a) q) lt (PL.sym W.O3 (lc (inr a) q) (cmp a (key q)) (lcR a q)) h1)
+        (PL.trans W.O3 (cmp (key q) (key r)) (lc q r) lt (PL.sym W.O3 (lc q r) (cmp (key q) (key r)) (K q r)) h2)) ;
+
+  -- the lexicographic step
+  module Lx (p1 : Pr) (r1 : T) (np1 : Id W.Bool (nfP p1) true) (lt1 : LetT p1) (ih : TransP r1) (nr1 : Id W.Bool (nf r1) true)
+    (p2 : Pr) (r2 : T) (np2 : Id W.Bool (nfP p2) true) (nr2 : Id W.Bool (nf r2) true)
+    (p3 : Pr) (r3 : T) (np3 : Id W.Bool (nfP p3) true) (nr3 : Id W.Bool (nf r3) true) {
+    G : U l = Id W.O3 (W.lexO3 (lc p1 p3) (cmp r1 r3)) lt ;
+    ltG (h : Id W.O3 (lc p1 p3) lt) : G = PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (cmp r1 r3)) (lc p1 p3) lt h ;
+    tr : (o1 : W.O3) -> Id W.O3 (lc p1 p2) o1 -> (o2 : W.O3) -> Id W.O3 (lc p2 p3) o2 ->
+        Id W.O3 (W.lexO3 o1 (cmp r1 r2)) lt -> Id W.O3 (W.lexO3 o2 (cmp r2 r3)) lt -> G = split {
+      lt -> \ e1 -> split {
+        lt -> \ e2 h1 h2 -> ltG (lt1 p2 p3 np2 np3 e1 e2) ;
+        eq -> \ e2 h1 h2 -> ltG (PL.subst Pr (\ w -> Id W.O3 (lc p1 w) lt) p2 p3 (lcEq p2 p3 np2 np3 e2) e1) ;
+        gt -> \ e2 h1 h2 -> nO gt lt (refl false) h2 G } ;
+      eq -> \ e1 -> split {
+        lt -> \ e2 h1 h2 -> ltG (PL.subst Pr (\ w -> Id W.O3 (lc w p3) lt) p2 p1 (PL.sym Pr p1 p2 (lcEq p1 p2 np1 np2 e1)) e2) ;
+        eq -> \ e2 h1 h2 -> PL.trans W.O3 (W.lexO3 (lc p1 p3) (cmp r1 r3)) (W.lexO3 eq lt) lt
+          (W.ap2 W.O3 W.O3 W.O3 W.lexO3 (lc p1 p3) eq (cmp r1 r3) lt
+            (PL.subst Pr (\ w -> Id W.O3 (lc p1 w) eq) p1 p3
+              (PL.trans Pr p1 p2 p3 (lcEq p1 p2 np1 np2 e1) (lcEq p2 p3 np2 np3 e2)) (lcRefl p1))
+            (ih r2 r3 nr1 nr2 nr3 h1 h2))
+          (refl lt) ;
+        gt -> \ e2 h1 h2 -> nO gt lt (refl false) h2 G } ;
+      gt -> \ e1 o2 e2 h1 h2 -> nO gt lt (refl false) h1 G } ;
+    res (h1 : Id W.O3 (W.lexO3 (lc p1 p2) (cmp r1 r2)) lt) (h2 : Id W.O3 (W.lexO3 (lc p2 p3) (cmp r2 r3)) lt) : G =
+      tr (lc p1 p2) (refl (lc p1 p2)) (lc p2 p3) (refl (lc p2 p3)) h1 h2 ;
+  } ;
+  -- splitting the second and third terms into letter and tail
+  module T23 (p1 : Pr) (r1 : T) (np1 : Id W.Bool (nfP p1) true) (lt1 : LetT p1) (ih : TransP r1) (nr1 : Id W.Bool (nf r1) true) {
+    G (t3 : T) : U l = Id W.O3 (cmp (cons p1 r1) t3) lt ;
+    fin (p2 : Pr) (r2 : T) (np2 : Id W.Bool (nfP p2) true) (nr2 : Id W.Bool (nf r2) true)
+      (p3 : Pr) (r3 : T) (np3 : Id W.Bool (nfP p3) true) (nr3 : Id W.Bool (nf r3) true)
+      (h1 : Id W.O3 (cmp (cons p1 r1) (cons p2 r2)) lt) (h2 : Id W.O3 (cmp (cons p2 r2) (cons p3 r3)) lt) : G (cons p3 r3) =
+      PL.trans W.O3 (cmp (cons p1 r1) (cons p3 r3)) (W.lexO3 (lc p1 p3) (cmp r1 r3)) lt (consCmp p1 r1 p3 r3)
+        (Lx[p1,r1,np1,lt1,ih,nr1,p2,r2,np2,nr2,p3,r3,np3,nr3].res
+          (PL.trans W.O3 (W.lexO3 (lc p1 p2) (cmp r1 r2)) (cmp (cons p1 r1) (cons p2 r2)) lt
+            (PL.sym W.O3 (cmp (cons p1 r1) (cons p2 r2)) (W.lexO3 (lc p1 p2) (cmp r1 r2)) (consCmp p1 r1 p2 r2)) h1)
+          (PL.trans W.O3 (W.lexO3 (lc p2 p3) (cmp r2 r3)) (cmp (cons p2 r2) (cons p3 r3)) lt
+            (PL.sym W.O3 (cmp (cons p2 r2) (cons p3 r3)) (W.lexO3 (lc p2 p3) (cmp r2 r3)) (consCmp p2 r2 p3 r3)) h2)) ;
+    s3 (p2 : Pr) (r2 : T) (np2 : Id W.Bool (nfP p2) true) (nr2 : Id W.Bool (nf r2) true)
+      (h1 : Id W.O3 (cmp (cons p1 r1) (cons p2 r2)) lt) :
+        (t3 : T) -> Id W.Bool (nf t3) true -> Id W.O3 (cmp (cons p2 r2) t3) lt -> G t3 = split {
+      zT -> \ n3 h2 -> nO gt lt (refl false) (PL.trans W.O3 gt (cmp (cons p2 r2) zT) lt (PL.sym W.O3 (cmp (cons p2 r2) zT) gt (consZ p2 r2)) h2) (G zT) ;
+      eT z u -> \ n3 h2 -> fin p2 r2 np2 nr2 (inl z) u (refl true) (nfE-r z u n3) h1 h2 ;
+      wT c u -> \ n3 h2 -> fin p2 r2 np2 nr2 (inr c) u (W.andB-intro (nf c) (notE c) (nfW-a c u n3) (nfW-e c u n3)) (nfW-r c u n3) h1 h2 } ;
+    s2 : (t2 t3 : T) -> Id W.Bool (nf t2) true -> Id W.Bool (nf t3) true ->
+        Id W.O3 (cmp (cons p1 r1) t2) lt -> Id W.O3 (cmp t2 t3) lt -> G t3 = split {
+      zT -> \ t3 n2 n3 h1 h2 -> nO gt lt (refl false) (PL.trans W.O3 gt (cmp (cons p1 r1) zT) lt (PL.sym W.O3 (cmp (cons p1 r1) zT) gt (consZ p1 r1)) h1) (G t3) ;
+      eT y s -> \ t3 n2 n3 h1 h2 -> s3 (inl y) s (refl true) (nfE-r y s n2) h1 t3 n3 h2 ;
+      wT b s -> \ t3 n2 n3 h1 h2 -> s3 (inr b) s (W.andB-intro (nf b) (notE b) (nfW-a b s n2) (nfW-e b s n2)) (nfW-r b s n2) h1 t3 n3 h2 } ;
+  } ;
+  -- cmp t zT = lt is impossible
+  zcEqLt (t : T) (h : Id W.O3 (cmp t zT) lt) : Id W.O3 (cmp t zT) eq =
+    CF.efq (Id W.O3 (cmp t zT) eq) (zc-nlt t (PL.trans W.O3 (zc t) (cmp t zT) lt (PL.sym W.O3 (cmp t zT) (zc t) (czc t)) h)) ;
+  ctrans : (t : T) -> TransP t = split {
+    zT -> \ t2 -> split {
+      zT -> \ n n2 n3 h1 h2 -> nO eq lt (refl false) (PL.trans W.O3 eq (cmp t2 zT) lt
+          (PL.sym W.O3 (cmp t2 zT) eq (zcEqLt t2 h2)) h2) (Id W.O3 eq lt) ;
+      eT z u -> \ n n2 n3 h1 h2 -> refl lt ;
+      wT c u -> \ n n2 n3 h1 h2 -> refl lt } ;
+    eT x r | rr -> \ t2 t3 n n2 n3 h1 h2 -> T23[inl x,r,refl true,LTL x,rr,nfE-r x r n].s2 t2 t3 n2 n3 h1 h2 ;
+    wT a r | ra rr -> \ t2 t3 n n2 n3 h1 h2 ->
+      T23[inr a,r,W.andB-intro (nf a) (notE a) (nfW-a a r n) (nfW-e a r n),LTR a (nfW-a a r n) ra,rr,nfW-r a r n].s2 t2 t3 n2 n3 h1 h2 } ;
+} ;
+
+-- the linear order epsilon_X
+module EpsLO (X : DP.LO) {
+  module EX = Eps[X] ;
+  Car : U l = (t : EX.T) * Id W.Bool (EX.nf t) true ;
+  lo : DP.LO = new DP.LO[car := Car, cmp := \ p q -> EX.cmp p.1 q.1,
+    ceq := \ p q h -> PL.Sigma-eq EX.T (\ t -> Id W.Bool (EX.nf t) true) p.1 q.1 p.2 q.2 (EX.ceq p.1 q.1 p.2 q.2 h) (W.HB.uip (EX.nf q.1) true),
+    crefl := \ p -> EX.crefl p.1, cflip := \ p q -> EX.cflip p.1 q.1,
+    ctrans := \ p q r -> EX.ctrans p.1 q.1 r.1 p.2 q.2 r.2] ;
+} ;

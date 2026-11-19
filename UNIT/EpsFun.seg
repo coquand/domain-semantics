@@ -1,0 +1,218 @@
+-- epsilon_X as a stable functor on all linear orders (a pre-dilator):
+-- X |-> EpsLO[X].lo, f |-> renaming of the eps-atoms.
+--   * renaming preserves cmp, vsE, normal forms (rn-cmp, rn-nf);
+--   * supports: the atoms of a term, joined by directedness (LabTreeG's
+--     suppL for points = elements), preimage by relabelling (Rl);
+--   * pull-backs: zip two terms with the same image (Zp).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module SF = StabFun[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module ET = EpsTerm[l] ;
+
+-- renaming of atoms along f : X -> Y
+module Rn (X Y : DP.LO) (f : DP.Map X Y) {
+  module EX = ET.Eps[X] ;
+  module EY = ET.Eps[Y] ;
+  rn : EX.T -> EY.T = split {
+    zT -> zT ;
+    eT x r | rr -> eT (f.1 x) rr ;
+    wT a r | ra rr -> wT ra rr } ;
+  zc-rn : (s : EX.T) -> Id W.O3 (EY.zc (rn s)) (EX.zc s) = split { zT -> refl eq ; eT x r -> refl gt ; wT a r -> refl gt } ;
+  cz-rn : (s : EX.T) -> Id W.O3 (EY.cz (rn s)) (EX.cz s) = split { zT -> refl eq ; eT x r -> refl lt ; wT a r -> refl lt } ;
+  isZ-rn : (s : EX.T) -> Id W.Bool (EY.isZ (rn s)) (EX.isZ s) = split { zT -> refl true ; eT x r -> refl false ; wT a r -> refl false } ;
+  vsE-rn (x : X.car) : (b : EX.T) -> Id W.O3 (EY.vsE (f.1 x) (rn b)) (EX.vsE x b) = split {
+    zT -> refl lt ;
+    eT y s -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (Y.cmp (f.1 y) (f.1 x)) (X.cmp y x) (EY.zc (rn s)) (EX.zc s) (f.2 y x) (zc-rn s) ;
+    wT c s | rc rs -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (EY.vsE (f.1 x) (rn c)) (EX.vsE x c) (EY.zc (rn s)) (EX.zc s) rc (zc-rn s) } ;
+  rn-cmp : (t t' : EX.T) -> Id W.O3 (EY.cmp (rn t) (rn t')) (EX.cmp t t') = split {
+    zT -> \ t' -> cz-rn t' ;
+    eT x r | rr -> split {
+      zT -> refl gt ;
+      eT y s -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (Y.cmp (f.1 x) (f.1 y)) (X.cmp x y) (EY.cmp (rn r) (rn s)) (EX.cmp r s) (f.2 x y) (rr s) ;
+      wT b s -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (W.flip (EY.vsE (f.1 x) (rn b))) (W.flip (EX.vsE x b)) (EY.cmp (rn r) (rn s)) (EX.cmp r s)
+        (PL.ap W.O3 W.O3 W.flip (EY.vsE (f.1 x) (rn b)) (EX.vsE x b) (vsE-rn x b)) (rr s) } ;
+    wT a r | ra rr -> split {
+      zT -> refl gt ;
+      eT y s -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (EY.cmp (rn a) (EY.E (f.1 y))) (EX.cmp a (EX.E y)) (EY.cmp (rn r) (rn s)) (EX.cmp r s)
+        (ra (EX.E y)) (rr s) ;
+      wT b s -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (EY.cmp (rn a) (rn b)) (EX.cmp a b) (EY.cmp (rn r) (rn s)) (EX.cmp r s) (ra b) (rr s) } } ;
+  notE-rn : (a : EX.T) -> Id W.Bool (EY.notE (rn a)) (EX.notE a) = split {
+    zT -> refl true ;
+    eT x r -> PL.ap W.Bool W.Bool W.notB (EY.isZ (rn r)) (EX.isZ r) (isZ-rn r) ;
+    wT a r -> refl true } ;
+  gn (o o' : W.O3) (e : Id W.O3 o o') : Id W.Bool (W.notB (ET.gtB o)) (W.notB (ET.gtB o')) =
+    PL.ap W.O3 W.Bool (\ c -> W.notB (ET.gtB c)) o o' e ;
+  leHe-rn (x : X.car) : (r : EX.T) -> Id W.Bool (EY.leH (inl (f.1 x)) (rn r)) (EX.leH (inl x) r) = split {
+    zT -> refl true ;
+    eT y s -> gn (Y.cmp (f.1 y) (f.1 x)) (X.cmp y x) (f.2 y x) ;
+    wT b s -> gn (EY.cmp (rn b) (EY.E (f.1 x))) (EX.cmp b (EX.E x)) (rn-cmp b (EX.E x)) } ;
+  leHw-rn (a : EX.T) : (r : EX.T) -> Id W.Bool (EY.leH (inr (rn a)) (rn r)) (EX.leH (inr a) r) = split {
+    zT -> refl true ;
+    eT y s -> gn (W.flip (EY.vsE (f.1 y) (rn a))) (W.flip (EX.vsE y a)) (PL.ap W.O3 W.O3 W.flip (EY.vsE (f.1 y) (rn a)) (EX.vsE y a) (vsE-rn y a)) ;
+    wT b s -> gn (EY.cmp (rn b) (rn a)) (EX.cmp b a) (rn-cmp b a) } ;
+  rn-nf : (t : EX.T) -> Id W.Bool (EY.nf (rn t)) (EX.nf t) = split {
+    zT -> refl true ;
+    eT x r | rr -> W.ap2 W.Bool W.Bool W.Bool W.andB (EY.nf (rn r)) (EX.nf r) (EY.leH (inl (f.1 x)) (rn r)) (EX.leH (inl x) r) rr (leHe-rn x r) ;
+    wT a r | ra rr -> W.ap2 W.Bool W.Bool W.Bool W.andB (W.andB (EY.nf (rn a)) (EY.notE (rn a))) (W.andB (EX.nf a) (EX.notE a))
+      (W.andB (EY.nf (rn r)) (EY.leH (inr (rn a)) (rn r))) (W.andB (EX.nf r) (EX.leH (inr a) r))
+      (W.ap2 W.Bool W.Bool W.Bool W.andB (EY.nf (rn a)) (EX.nf a) (EY.notE (rn a)) (EX.notE a) ra (notE-rn a))
+      (W.ap2 W.Bool W.Bool W.Bool W.andB (EY.nf (rn r)) (EX.nf r) (EY.leH (inr (rn a)) (rn r)) (EX.leH (inr a) r) rr (leHw-rn a r)) } ;
+} ;
+
+module EpsF {
+  G (X : DP.LO) : DP.LO = ET.EpsLO[X].lo ;
+  T (X : DP.LO) : U l = ET.Eps[X].T ;
+  rn (X Y : DP.LO) (f : DP.Map X Y) (t : T X) : T Y = Rn[X,Y,f].rn t ;
+  arrF (X Y : DP.LO) (f : DP.Map X Y) (p : (G X).car) : (G Y).car =
+    (rn X Y f p.1,PL.trans W.Bool (ET.Eps[Y].nf (rn X Y f p.1)) (ET.Eps[X].nf p.1) true (Rn[X,Y,f].rn-nf p.1) p.2) ;
+  arr (X Y : DP.LO) (f : DP.Map X Y) : DP.Map (G X) (G Y) = (arrF X Y f,\ p q -> Rn[X,Y,f].rn-cmp p.1 q.1) ;
+  gEq (X : DP.LO) (p q : (G X).car) (e : Id (T X) p.1 q.1) : Id (G X).car p q =
+    PL.Sigma-eq (T X) (\ t -> Id W.Bool (ET.Eps[X].nf t) true) p.1 q.1 p.2 q.2 e (W.HB.uip (ET.Eps[X].nf q.1) true) ;
+  fstEq (X : DP.LO) (p q : (G X).car) (e : Id (G X).car p q) : Id (T X) p.1 q.1 = PL.ap (G X).car (T X) (\ u -> u.1) p q e ;
+  rn-id (X : DP.LO) : (t : T X) -> Id (T X) (rn X X (LC.idMap X) t) t = split {
+    zT -> refl zT ;
+    eT x r | rr -> PL.ap (T X) (T X) (\ u -> eT x u) (rn X X (LC.idMap X) r) r rr ;
+    wT a r | ra rr -> W.ap2 (T X) (T X) (T X) (\ u v -> wT u v) (rn X X (LC.idMap X) a) a (rn X X (LC.idMap X) r) r ra rr } ;
+  rn-comp (X Y Z : DP.LO) (f : DP.Map X Y) (g : DP.Map Y Z) : (t : T X) ->
+      Id (T Z) (rn Y Z g (rn X Y f t)) (rn X Z (LC.compMap X Y Z f g) t) = split {
+    zT -> refl zT ;
+    eT x r | rr -> PL.ap (T Z) (T Z) (\ u -> eT (g.1 (f.1 x)) u) (rn Y Z g (rn X Y f r)) (rn X Z (LC.compMap X Y Z f g) r) rr ;
+    wT a r | ra rr -> W.ap2 (T Z) (T Z) (T Z) (\ u v -> wT u v) (rn Y Z g (rn X Y f a)) (rn X Z (LC.compMap X Y Z f g) a)
+      (rn Y Z g (rn X Y f r)) (rn X Z (LC.compMap X Y Z f g) r) ra rr } ;
+  arr-id (X : DP.LO) (p : (G X).car) : Id (G X).car (arrF X X (LC.idMap X) p) p = gEq X (arrF X X (LC.idMap X) p) p (rn-id X p.1) ;
+  arr-comp (X Y Z : DP.LO) (f : DP.Map X Y) (g : DP.Map Y Z) (p : (G X).car) :
+      Id (G Z).car (arrF Y Z g (arrF X Y f p)) (arrF X Z (LC.compMap X Y Z f g) p) =
+    gEq Z (arrF Y Z g (arrF X Y f p)) (arrF X Z (LC.compMap X Y Z f g) p) (rn-comp X Y Z f g p.1) ;
+
+  -- supports: the atoms
+  atoms (X : DP.LO) : T X -> W.List X.car = split {
+    zT -> nilL ;
+    eT x r | rr -> consL x rr ;
+    wT a r | ra rr -> KT.appL X.car ra rr } ;
+  memL (X : DP.LO) (a : X.car) : (xs ys : W.List X.car) -> LT.memG X.car a xs -> LT.memG X.car a (KT.appL X.car xs ys) = split {
+    nilL -> \ ys m -> CF.efq (LT.memG X.car a ys) m ;
+    consL x xs | r -> \ ys m -> CF.or-elim (Id X.car x a) (LT.memG X.car a xs) (LT.memG X.car a (KT.appL X.car (consL x xs) ys))
+      (\ e -> inl e) (\ m' -> inr (r ys m')) m } ;
+  memR (X : DP.LO) (a : X.car) : (xs ys : W.List X.car) -> LT.memG X.car a ys -> LT.memG X.car a (KT.appL X.car xs ys) = split {
+    nilL -> \ ys m -> m ;
+    consL x xs | r -> \ ys m -> inr (r ys m) } ;
+  module LG = LT.LabTreeG[LC.ce, \ A -> A, \ A B f -> f, \ A x -> refl x, \ A B D f g x -> refl (g.1 (f.1 x)),
+    \ A x -> inc ((c : W.N) * ((i : DP.Map (LC.ord c) A) * SF.Im (LC.ord c) A i x)) (suc zero,(LW.pick A x,((zero,refl true),refl x))),
+    \ A -> inc ((c : W.N) * DP.Map (LC.ord c) A) (zero,LT.emptyMap A),
+    \ A B B' f f' b b' e -> ((b,(b',e)),refl b),
+    \ A r -> true, \ A B g r -> refl true, \ A z r h -> h] ;
+  module Rl (X : DP.LO) (c : W.N) (i : DP.Map (LC.ord c) X) {
+    PI (t : T X) : U l = (a : X.car) -> LT.memG X.car a (atoms X t) -> SF.Im (LC.ord c) X i a ;
+    rl : (t : T X) -> PI t -> T (LC.ord c) = split {
+      zT -> \ pi -> zT ;
+      eT x r | rr -> \ pi -> eT (pi x (inl (refl x))).1 (rr (\ a m -> pi a (inr m))) ;
+      wT a r | ra rr -> \ pi -> wT (ra (\ b m -> pi b (memL X b (atoms X a) (atoms X r) m))) (rr (\ b m -> pi b (memR X b (atoms X a) (atoms X r) m))) } ;
+    rl-rn : (t : T X) (pi : PI t) -> Id (T X) (rn (LC.ord c) X i (rl t pi)) t = split {
+      zT -> \ pi -> refl zT ;
+      eT x r | rr -> \ pi -> W.ap2 X.car (T X) (T X) (\ u v -> eT u v) (i.1 (pi x (inl (refl x))).1) x
+        (rn (LC.ord c) X i (rl r (\ a m -> pi a (inr m)))) r (pi x (inl (refl x))).2 (rr (\ a m -> pi a (inr m))) ;
+      wT a r | ra rr -> \ pi -> W.ap2 (T X) (T X) (T X) (\ u v -> wT u v)
+        (rn (LC.ord c) X i (rl a (\ b m -> pi b (memL X b (atoms X a) (atoms X r) m)))) a
+        (rn (LC.ord c) X i (rl r (\ b m -> pi b (memR X b (atoms X a) (atoms X r) m)))) r
+        (ra (\ b m -> pi b (memL X b (atoms X a) (atoms X r) m))) (rr (\ b m -> pi b (memR X b (atoms X a) (atoms X r) m))) } ;
+  } ;
+  module Ct (X : DP.LO) (y : (G X).car) (s : LG.SuppT X (atoms X y.1)) {
+    module R = Rl[X,s.1,s.2.1] ;
+    t0 : T (LC.ord s.1) = R.rl y.1 s.2.2 ;
+    e0 : Id (T X) (rn (LC.ord s.1) X s.2.1 t0) y.1 = R.rl-rn y.1 s.2.2 ;
+    n0 : Id W.Bool (ET.Eps[LC.ord s.1].nf t0) true =
+      PL.trans W.Bool (ET.Eps[LC.ord s.1].nf t0) (ET.Eps[X].nf (rn (LC.ord s.1) X s.2.1 t0)) true
+        (PL.sym W.Bool (ET.Eps[X].nf (rn (LC.ord s.1) X s.2.1 t0)) (ET.Eps[LC.ord s.1].nf t0) (Rn[LC.ord s.1,X,s.2.1].rn-nf t0))
+        (PL.trans W.Bool (ET.Eps[X].nf (rn (LC.ord s.1) X s.2.1 t0)) (ET.Eps[X].nf y.1) true
+          (PL.ap (T X) W.Bool ET.Eps[X].nf (rn (LC.ord s.1) X s.2.1 t0) y.1 e0) y.2) ;
+    wit : SF.Im (G (LC.ord s.1)) (G X) (arr (LC.ord s.1) X s.2.1) y = ((t0,n0),gEq X (arrF (LC.ord s.1) X s.2.1 (t0,n0)) y e0) ;
+  } ;
+  cont (X : DP.LO) (y : (G X).car) :
+      Ex ((c : W.N) * ((i : DP.Map (LC.ord c) X) * SF.Im (G (LC.ord c)) (G X) (arr (LC.ord c) X i) y)) =
+    TC.map (LG.SuppT X (atoms X y.1)) ((c : W.N) * ((i : DP.Map (LC.ord c) X) * SF.Im (G (LC.ord c)) (G X) (arr (LC.ord c) X i) y))
+      (\ s -> (s.1,(s.2.1,Ct[X,y,s].wit))) (LG.suppL X (atoms X y.1)) ;
+
+  -- pull-backs: zip
+  module Zp (A B B' : DP.LO) (f : DP.Map B A) (f' : DP.Map B' A) {
+    module PB = LC.PB[A,B,B',f,f'] ;
+    TA : U l = T A ;
+    tag (X : DP.LO) : T X -> W.N = split { zT -> zero ; eT x r -> suc zero ; wT a r -> suc (suc zero) } ;
+    hdE (d : A.car) : TA -> A.car = split { zT -> d ; eT x r -> x ; wT a r -> d } ;
+    t1 : TA -> TA = split { zT -> zT ; eT x r -> r ; wT a r -> a } ;
+    t2 : TA -> TA = split { zT -> zT ; eT x r -> r ; wT a r -> r } ;
+    -- distinct shapes have distinct images
+    tagE (u v : TA) (e : Id TA u v) : Id W.N (tag A u) (tag A v) = PL.ap TA W.N (tag A) u v e ;
+    neq (m n : W.N) (h : Id W.Bool (W.isEq (W.cmpN m n)) false) (e : Id W.N m n) (Z : U l) : Z =
+      W.absurdB Z (PL.trans W.Bool false (W.isEq (W.cmpN m n)) true (PL.sym W.Bool (W.isEq (W.cmpN m n)) false h)
+        (PL.subst W.N (\ k -> Id W.Bool (W.isEq (W.cmpN m k)) true) m n e (PL.ap W.O3 W.Bool W.isEq (W.cmpN m m) eq (W.cmpN-refl m)))) ;
+    mf (b : T B) : TA = rn B A f b ;
+    mf' (b : T B') : TA = rn B' A f' b ;
+    zp : (b : T B) (b' : T B') -> Id TA (mf b) (mf' b') -> T PB.P = split {
+      zT -> split {
+        zT -> \ e -> zT ;
+        eT x r -> \ e -> neq zero (suc zero) (refl false) (tagE (mf zT) (mf' (eT x r)) e) (T PB.P) ;
+        wT a r -> \ e -> neq zero (suc (suc zero)) (refl false) (tagE (mf zT) (mf' (wT a r)) e) (T PB.P) } ;
+      eT x r | rr -> split {
+        zT -> \ e -> neq (suc zero) zero (refl false) (tagE (mf (eT x r)) (mf' zT) e) (T PB.P) ;
+        eT x' r' -> \ e -> eT (x,(x',PL.ap TA A.car (hdE (f.1 x)) (mf (eT x r)) (mf' (eT x' r')) e))
+          (rr r' (PL.ap TA TA t2 (mf (eT x r)) (mf' (eT x' r')) e)) ;
+        wT a' r' -> \ e -> neq (suc zero) (suc (suc zero)) (refl false) (tagE (mf (eT x r)) (mf' (wT a' r')) e) (T PB.P) } ;
+      wT a r | ra rr -> split {
+        zT -> \ e -> neq (suc (suc zero)) zero (refl false) (tagE (mf (wT a r)) (mf' zT) e) (T PB.P) ;
+        eT x' r' -> \ e -> neq (suc (suc zero)) (suc zero) (refl false) (tagE (mf (wT a r)) (mf' (eT x' r')) e) (T PB.P) ;
+        wT a' r' -> \ e -> wT (ra a' (PL.ap TA TA t1 (mf (wT a r)) (mf' (wT a' r')) e)) (rr r' (PL.ap TA TA t2 (mf (wT a r)) (mf' (wT a' r')) e)) } } ;
+    zp-p1 : (b : T B) (b' : T B') (e : Id TA (mf b) (mf' b')) -> Id (T B) (rn PB.P B PB.p1 (zp b b' e)) b = split {
+      zT -> split {
+        zT -> \ e -> refl zT ;
+        eT x r -> \ e -> neq zero (suc zero) (refl false) (tagE (mf zT) (mf' (eT x r)) e) (Id (T B) (rn PB.P B PB.p1 (zp zT (eT x r) e)) zT) ;
+        wT a r -> \ e -> neq zero (suc (suc zero)) (refl false) (tagE (mf zT) (mf' (wT a r)) e) (Id (T B) (rn PB.P B PB.p1 (zp zT (wT a r) e)) zT) } ;
+      eT x r | rr -> split {
+        zT -> \ e -> neq (suc zero) zero (refl false) (tagE (mf (eT x r)) (mf' zT) e) (Id (T B) (rn PB.P B PB.p1 (zp (eT x r) zT e)) (eT x r)) ;
+        eT x' r' -> \ e -> PL.ap (T B) (T B) (\ u -> eT x u)
+          (rn PB.P B PB.p1 (zp r r' (PL.ap TA TA t2 (mf (eT x r)) (mf' (eT x' r')) e))) r
+          (rr r' (PL.ap TA TA t2 (mf (eT x r)) (mf' (eT x' r')) e)) ;
+        wT a' r' -> \ e -> neq (suc zero) (suc (suc zero)) (refl false) (tagE (mf (eT x r)) (mf' (wT a' r')) e)
+          (Id (T B) (rn PB.P B PB.p1 (zp (eT x r) (wT a' r') e)) (eT x r)) } ;
+      wT a r | ra rr -> split {
+        zT -> \ e -> neq (suc (suc zero)) zero (refl false) (tagE (mf (wT a r)) (mf' zT) e) (Id (T B) (rn PB.P B PB.p1 (zp (wT a r) zT e)) (wT a r)) ;
+        eT x' r' -> \ e -> neq (suc (suc zero)) (suc zero) (refl false) (tagE (mf (wT a r)) (mf' (eT x' r')) e)
+          (Id (T B) (rn PB.P B PB.p1 (zp (wT a r) (eT x' r') e)) (wT a r)) ;
+        wT a' r' -> \ e -> W.ap2 (T B) (T B) (T B) (\ u v -> wT u v)
+          (rn PB.P B PB.p1 (zp a a' (PL.ap TA TA t1 (mf (wT a r)) (mf' (wT a' r')) e))) a
+          (rn PB.P B PB.p1 (zp r r' (PL.ap TA TA t2 (mf (wT a r)) (mf' (wT a' r')) e))) r
+          (ra a' (PL.ap TA TA t1 (mf (wT a r)) (mf' (wT a' r')) e)) (rr r' (PL.ap TA TA t2 (mf (wT a r)) (mf' (wT a' r')) e)) } } ;
+  } ;
+  module St (A B B' : DP.LO) (f : DP.Map B A) (f' : DP.Map B' A) (y : (G A).car)
+    (r : SF.Im (G B) (G A) (arr B A f) y) (r' : SF.Im (G B') (G A) (arr B' A f') y) {
+    module Z = Zp[A,B,B',f,f'] ;
+    h : DP.Map Z.PB.P A = LC.compMap Z.PB.P B A Z.PB.p1 f ;
+    eB : Id (T A) (rn B A f r.1.1) y.1 = fstEq A (arrF B A f r.1) y r.2 ;
+    eB' : Id (T A) (rn B' A f' r'.1.1) y.1 = fstEq A (arrF B' A f' r'.1) y r'.2 ;
+    e0 : Id (T A) (rn B A f r.1.1) (rn B' A f' r'.1.1) = PL.trans (T A) (rn B A f r.1.1) y.1 (rn B' A f' r'.1.1) eB (PL.sym (T A) (rn B' A f' r'.1.1) y.1 eB') ;
+    gm : T Z.PB.P = Z.zp r.1.1 r'.1.1 e0 ;
+    gmB : Id (T B) (rn Z.PB.P B Z.PB.p1 gm) r.1.1 = Z.zp-p1 r.1.1 r'.1.1 e0 ;
+    gmA : Id (T A) (rn Z.PB.P A h gm) y.1 =
+      PL.trans (T A) (rn Z.PB.P A h gm) (rn B A f (rn Z.PB.P B Z.PB.p1 gm)) y.1
+        (PL.sym (T A) (rn B A f (rn Z.PB.P B Z.PB.p1 gm)) (rn Z.PB.P A h gm) (rn-comp Z.PB.P B A Z.PB.p1 f gm))
+        (PL.trans (T A) (rn B A f (rn Z.PB.P B Z.PB.p1 gm)) (rn B A f r.1.1) y.1
+          (PL.ap (T B) (T A) (rn B A f) (rn Z.PB.P B Z.PB.p1 gm) r.1.1 gmB) eB) ;
+    gmN : Id W.Bool (ET.Eps[Z.PB.P].nf gm) true =
+      PL.trans W.Bool (ET.Eps[Z.PB.P].nf gm) (ET.Eps[B].nf (rn Z.PB.P B Z.PB.p1 gm)) true
+        (PL.sym W.Bool (ET.Eps[B].nf (rn Z.PB.P B Z.PB.p1 gm)) (ET.Eps[Z.PB.P].nf gm) (Rn[Z.PB.P,B,Z.PB.p1].rn-nf gm))
+        (PL.trans W.Bool (ET.Eps[B].nf (rn Z.PB.P B Z.PB.p1 gm)) (ET.Eps[B].nf r.1.1) true
+          (PL.ap (T B) W.Bool ET.Eps[B].nf (rn Z.PB.P B Z.PB.p1 gm) r.1.1 gmB) r.1.2) ;
+    result : SF.Im (G Z.PB.P) (G A) (arr Z.PB.P A h) y = ((gm,gmN),gEq A (arrF Z.PB.P A h (gm,gmN)) y gmA) ;
+  } ;
+
+  dil : SF.SF[LC.ce] = new SF.SF[LC.ce, G := G, arr := arr, arr-id := arr-id, arr-comp := arr-comp, cont := cont,
+    stab := \ A B B' f f' y r r' -> St[A,B,B',f,f',y,r,r'].result] ;
+} ;

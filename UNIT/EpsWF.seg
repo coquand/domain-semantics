@@ -1,0 +1,162 @@
+-- epsilon_X is well-founded when X is: X |-> epsilon_X is a dilator
+-- (constructively; classically WOP(eps_X) is equivalent to ACA0+ over
+-- RCA0, Afshari-Rathjen, Marcone-Montalban).
+--
+--   accHead: a normal term whose first letter is accessible (in the order
+--     of letters, i.e. of their keys) is accessible -- accessibility
+--     induction on the letter, inner induction on the tail;
+--   accE: x accessible in X  =>  eps_x accessible (induction on x, and
+--     structural induction over the terms below eps_x);
+--   accT: every normal term is accessible (structural induction: the key
+--     of omega^a is the subterm a, the key of eps_x is eps_x).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module SF = StabFun[l] ;
+module PL = Prelude[l] ;
+module SAm = StabAmal[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module ET = EpsTerm[l] ;
+module EF = EpsFun[l] ;
+
+module EpsWF (X : DP.LO) {
+  module EX = ET.Eps[X] ;
+  T : U l = EX.T ;
+  Pr : U l = EX.Pr ;
+  ltT (t t' : T) : W.Bool = W.andB (EX.nf t) (W.isLt (EX.cmp t t')) ;
+  ltPr (q p : Pr) : W.Bool = W.andB (EX.nfP q) (W.isLt (EX.lc q p)) ;
+  module AT = W.Acc[T, ltT] ;
+  module AP = W.Acc[Pr, ltPr] ;
+  module AX = W.Acc[X.car, W.ltO X.car X.cmp] ;
+
+  -- letters are accessible when their keys are
+  monoK (q p : Pr) (h : Id W.Bool (ltPr q p) true) : Id W.Bool (ltT (EX.key q) (EX.key p)) true =
+    W.andB-intro (EX.nf (EX.key q)) (W.isLt (EX.cmp (EX.key q) (EX.key p)))
+      (EX.nfKey q (W.andB-l (EX.nfP q) (W.isLt (EX.lc q p)) h))
+      (PL.trans W.Bool (W.isLt (EX.cmp (EX.key q) (EX.key p))) (W.isLt (EX.lc q p)) true
+        (PL.ap W.O3 W.Bool W.isLt (EX.cmp (EX.key q) (EX.key p)) (EX.lc q p) (PL.sym W.O3 (EX.lc q p) (EX.cmp (EX.key q) (EX.key p)) (EX.K q p)))
+        (W.andB-r (EX.nfP q) (W.isLt (EX.lc q p)) h)) ;
+  pullK (p : Pr) (h : AT.AccP (EX.key p)) : AP.AccP p = W.Pull[Pr, ltPr, T, ltT, EX.key, monoK].pull p h ;
+
+  zcNL : (t : T) -> Id W.Bool (W.isLt (EX.zc t)) false = split { zT -> refl false ; eT x r -> refl false ; wT a r -> refl false } ;
+  nlZ (t : T) : Id W.Bool (W.isLt (EX.cmp t zT)) false =
+    PL.trans W.Bool (W.isLt (EX.cmp t zT)) (W.isLt (EX.zc t)) false (PL.ap W.O3 W.Bool W.isLt (EX.cmp t zT) (EX.zc t) (EX.czc t)) (zcNL t) ;
+  -- zero is the least term
+  accZ : AT.AccP zT = AT.acc zT (\ t h -> W.absurdB (AT.AccP t)
+    (PL.trans W.Bool false (W.isLt (EX.cmp t zT)) true (PL.sym W.Bool (W.isLt (EX.cmp t zT)) false (nlZ t))
+      (W.andB-r (EX.nf t) (W.isLt (EX.cmp t zT)) h))) ;
+  isLtLex : (c d : W.O3) -> Id W.Bool (W.isLt (W.lexO3 c d)) true -> Id W.Bool (W.isLt d) false -> Id W.Bool (W.isLt c) true = split {
+    lt -> \ d h k -> refl true ;
+    eq -> \ d h k -> W.absurdB (Id W.Bool false true) (PL.trans W.Bool false (W.isLt d) true (PL.sym W.Bool (W.isLt d) false k) h) ;
+    gt -> \ d h k -> h } ;
+
+  -- normal forms of cons p r
+  nfC-r : (p : Pr) (r : T) -> Id W.Bool (EX.nf (EX.cons p r)) true -> Id W.Bool (EX.nf r) true = split {
+    inl x -> \ r h -> EX.nfE-r x r h ; inr a -> \ r h -> EX.nfW-r a r h } ;
+  nfC-p : (p : Pr) (r : T) -> Id W.Bool (EX.nf (EX.cons p r)) true -> Id W.Bool (EX.nfP p) true = split {
+    inl x -> \ r h -> refl true ;
+    inr a -> \ r h -> W.andB-intro (EX.nf a) (EX.notE a) (EX.nfW-a a r h) (EX.nfW-e a r h) } ;
+  nfC-h : (p : Pr) (r : T) -> Id W.Bool (EX.nf (EX.cons p r)) true -> Id W.Bool (EX.leH p r) true = split {
+    inl x -> \ r h -> W.andB-r (EX.nf r) (EX.leH (inl x) r) h ;
+    inr a -> \ r h -> W.andB-r (EX.nf r) (EX.leH (inr a) r)
+      (W.andB-r (W.andB (EX.nf a) (EX.notE a)) (W.andB (EX.nf r) (EX.leH (inr a) r)) h) } ;
+  leHc (p : Pr) : (q : Pr) (s : T) -> Id W.Bool (EX.leH p (EX.cons q s)) (W.notB (ET.gtB (EX.lc q p))) = split {
+    inl y -> \ s -> refl (W.notB (ET.gtB (EX.lc (inl y) p))) ;
+    inr b -> \ s -> refl (W.notB (ET.gtB (EX.lc (inr b) p))) } ;
+
+  PH (q : Pr) : U l = (r : T) -> Id W.Bool (EX.nf (EX.cons q r)) true -> AT.AccP (EX.cons q r) ;
+
+  -- the list lemma at a letter p, given the letters below p
+  module L1 (p : Pr) (np : Id W.Bool (EX.nfP p) true)
+    (ih : (q : Pr) -> Id W.Bool (EX.nfP q) true -> Id W.O3 (EX.lc q p) lt -> PH q) {
+    belowC (q : Pr) (s : T) (n : Id W.Bool (EX.nf (EX.cons q s)) true) (h : Id W.O3 (EX.lc q p) lt) : AT.AccP (EX.cons q s) =
+      ih q (nfC-p q s n) h s n ;
+    IH2 (r1 : T) : U l = (s : T) -> AT.Lt s r1 -> Id W.Bool (EX.nf (EX.cons p s)) true -> AT.AccP (EX.cons p s) ;
+    predO (r1 : T) (ih2 : IH2 r1) (q : Pr) (s : T) (n : Id W.Bool (EX.nf (EX.cons q s)) true)
+      (hl : Id W.Bool (W.isLt (W.lexO3 (EX.lc q p) (EX.cmp s r1))) true) :
+        (o : W.O3) -> Id W.O3 (EX.lc q p) o -> AT.AccP (EX.cons q s) = split {
+      lt -> \ e -> belowC q s n e ;
+      eq -> \ e -> PL.subst Pr (\ w -> AT.AccP (EX.cons w s)) p q (PL.sym Pr q p (EX.lcEq q p (nfC-p q s n) np e))
+        (ih2 s
+          (W.andB-intro (EX.nf s) (W.isLt (EX.cmp s r1)) (nfC-r q s n)
+            (PL.subst W.O3 (\ o -> Id W.Bool (W.isLt (W.lexO3 o (EX.cmp s r1))) true) (EX.lc q p) eq e hl))
+          (PL.subst Pr (\ w -> Id W.Bool (EX.nf (EX.cons w s)) true) q p (EX.lcEq q p (nfC-p q s n) np e) n)) ;
+      gt -> \ e -> W.absurdB (AT.AccP (EX.cons q s))
+        (PL.subst W.O3 (\ o -> Id W.Bool (W.isLt (W.lexO3 o (EX.cmp s r1))) true) (EX.lc q p) gt e hl) } ;
+    predC (r1 : T) (ih2 : IH2 r1) (q : Pr) (s : T) (h : AT.Lt (EX.cons q s) (EX.cons p r1)) : AT.AccP (EX.cons q s) =
+      predO r1 ih2 q s (W.andB-l (EX.nf (EX.cons q s)) (W.isLt (EX.cmp (EX.cons q s) (EX.cons p r1))) h)
+        (PL.trans W.Bool (W.isLt (W.lexO3 (EX.lc q p) (EX.cmp s r1))) (W.isLt (EX.cmp (EX.cons q s) (EX.cons p r1))) true
+          (PL.ap W.O3 W.Bool W.isLt (W.lexO3 (EX.lc q p) (EX.cmp s r1)) (EX.cmp (EX.cons q s) (EX.cons p r1))
+            (PL.sym W.O3 (EX.cmp (EX.cons q s) (EX.cons p r1)) (W.lexO3 (EX.lc q p) (EX.cmp s r1)) (EX.consCmp q s p r1)))
+          (W.andB-r (EX.nf (EX.cons q s)) (W.isLt (EX.cmp (EX.cons q s) (EX.cons p r1))) h))
+        (EX.lc q p) (refl (EX.lc q p)) ;
+    predT (r1 : T) (ih2 : IH2 r1) : (t : T) -> AT.Lt t (EX.cons p r1) -> AT.AccP t = split {
+      zT -> \ h -> accZ ;
+      eT y s -> \ h -> predC r1 ih2 (inl y) s h ;
+      wT b s -> \ h -> predC r1 ih2 (inr b) s h } ;
+    inner (r : T) (ar : AT.AccP r) : Id W.Bool (EX.nf (EX.cons p r)) true -> AT.AccP (EX.cons p r) =
+      AT.ind (\ r1 -> Id W.Bool (EX.nf (EX.cons p r1)) true -> AT.AccP (EX.cons p r1))
+        (\ r1 ih2 n1 -> AT.acc (EX.cons p r1) (predT r1 ih2)) r ar ;
+    -- the tail is accessible
+    tailO (q : Pr) (s : T) (rec : Id W.Bool (EX.nf (EX.cons p s)) true -> AT.AccP s)
+      (nr : Id W.Bool (EX.nf (EX.cons q s)) true) (lh : Id W.Bool (W.notB (ET.gtB (EX.lc q p))) true) :
+        (o : W.O3) -> Id W.O3 (EX.lc q p) o -> AT.AccP (EX.cons q s) = split {
+      lt -> \ e -> belowC q s nr e ;
+      eq -> \ e -> PL.subst Pr (\ w -> AT.AccP (EX.cons w s)) p q (PL.sym Pr q p (EX.lcEq q p (nfC-p q s nr) np e))
+        (inner s
+          (rec (PL.subst Pr (\ w -> Id W.Bool (EX.nf (EX.cons w s)) true) q p (EX.lcEq q p (nfC-p q s nr) np e) nr))
+          (PL.subst Pr (\ w -> Id W.Bool (EX.nf (EX.cons w s)) true) q p (EX.lcEq q p (nfC-p q s nr) np e) nr)) ;
+      gt -> \ e -> W.absurdB (AT.AccP (EX.cons q s))
+        (PL.subst W.O3 (\ o -> Id W.Bool (W.notB (ET.gtB o)) true) (EX.lc q p) gt e lh) } ;
+    tailC (q : Pr) (s : T) (rec : Id W.Bool (EX.nf (EX.cons p s)) true -> AT.AccP s)
+      (n : Id W.Bool (EX.nf (EX.cons p (EX.cons q s))) true) : AT.AccP (EX.cons q s) =
+      tailO q s rec (nfC-r p (EX.cons q s) n)
+        (PL.trans W.Bool (W.notB (ET.gtB (EX.lc q p))) (EX.leH p (EX.cons q s)) true
+          (PL.sym W.Bool (EX.leH p (EX.cons q s)) (W.notB (ET.gtB (EX.lc q p))) (leHc p q s)) (nfC-h p (EX.cons q s) n))
+        (EX.lc q p) (refl (EX.lc q p)) ;
+    tailAcc : (r : T) -> Id W.Bool (EX.nf (EX.cons p r)) true -> AT.AccP r = split {
+      zT -> \ n -> accZ ;
+      eT y s | rs -> \ n -> tailC (inl y) s rs n ;
+      wT b s | rb rs -> \ n -> tailC (inr b) s rs n } ;
+    result : PH p = \ r n -> inner r (tailAcc r n) n ;
+  } ;
+  accHead (p : Pr) (ap : AP.AccP p) : Id W.Bool (EX.nfP p) true -> PH p =
+    AP.ind (\ p1 -> Id W.Bool (EX.nfP p1) true -> PH p1)
+      (\ p1 ih np1 -> L1[p1,np1,\ q nq e -> ih q (W.andB-intro (EX.nfP q) (W.isLt (EX.lc q p1)) nq (PL.ap W.O3 W.Bool W.isLt (EX.lc q p1) lt e)) nq].result)
+      p ap ;
+
+  -- eps_x is accessible when x is
+  module Bel (x : X.car) (ihx : (y : X.car) -> AX.Lt y x -> AT.AccP (EX.E y)) {
+    bel : (t : T) -> Id W.Bool (EX.nf t) true -> Id W.Bool (W.isLt (EX.cmp t (EX.E x))) true -> AT.AccP t = split {
+      zT -> \ n h -> accZ ;
+      eT y s | rs -> \ n h -> accHead (inl y) (pullK (inl y) (ihx y (isLtLex (X.cmp y x) (EX.cmp s zT) h (nlZ s)))) (refl true) s n ;
+      wT c s | rc rs -> \ n h -> accHead (inr c)
+        (pullK (inr c) (rc (EX.nfW-a c s n) (isLtLex (EX.cmp c (EX.E x)) (EX.cmp s zT) h (nlZ s))))
+        (W.andB-intro (EX.nf c) (EX.notE c) (EX.nfW-a c s n) (EX.nfW-e c s n)) s n } ;
+  } ;
+  accE (x : X.car) (ax : AX.AccP x) : AT.AccP (EX.E x) =
+    AX.ind (\ x1 -> AT.AccP (EX.E x1))
+      (\ x1 ihx -> AT.acc (EX.E x1) (\ t h -> Bel[x1,ihx].bel t (W.andB-l (EX.nf t) (W.isLt (EX.cmp t (EX.E x1))) h)
+        (W.andB-r (EX.nf t) (W.isLt (EX.cmp t (EX.E x1))) h)))
+      x ax ;
+
+  -- every normal term is accessible
+  accT (wx : LW.WF X) : (t : T) -> Id W.Bool (EX.nf t) true -> AT.AccP t = split {
+    zT -> \ n -> accZ ;
+    eT x r | rr -> \ n -> accHead (inl x) (pullK (inl x) (accE x (wx x))) (refl true) r n ;
+    wT a r | ra rr -> \ n -> accHead (inr a) (pullK (inr a) (ra (EX.nfW-a a r n)))
+      (W.andB-intro (EX.nf a) (EX.notE a) (EX.nfW-a a r n) (EX.nfW-e a r n)) r n } ;
+  module EL = ET.EpsLO[X] ;
+  wf (wx : LW.WF X) : LW.WF EL.lo = \ p ->
+    W.Pull[EL.Car, W.ltO EL.Car EL.lo.cmp, T, ltT, \ q -> q.1,
+      \ a b h -> W.andB-intro (EX.nf a.1) (W.isLt (EX.cmp a.1 b.1)) a.2 h].pull p (accT wx p.1 p.2) ;
+} ;
+
+-- X |-> epsilon_X is a dilator on all linear orders
+epsD : SF.SF[LC.ce] = EF.EpsF.dil ;
+epsD-dil : LW.IsDil epsD = \ X w -> EpsWF[X].wf w ;
+-- e.g. epsilon_omega is well-founded
+epsOmega-wf : LW.WF (epsD.G LW.omega) = epsD-dil LW.omega LW.wf-omega ;
