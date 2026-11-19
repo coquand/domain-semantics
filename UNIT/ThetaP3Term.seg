@@ -1,0 +1,247 @@
+-- The type-3 collapse Theta_P of a 2-ptyx P (PLAN-THETA3.md, step 3c):
+-- trace terms and their comparison (closure rule).
+--
+-- P is given by its object part PG : DL -> DL and its action Pm on
+-- morphisms of Stab(LO) (laws later).  Trace terms (atoms in N):
+--   at n                 an atom (below all collapses);
+--   sy i b               the i-th point just below the term b;
+--   th K c z ys ts       theta(sigma), sigma in P(Delta)(A) in normal form:
+--                        K a code (finite dilator), z in P(Decode K)([c]),
+--                        ys the list of the c arguments, ts the K.m generator
+--                        images (closed trace terms: the Delta-support);
+--   nl / cs              lists.
+-- Comparison (closure rule, after Towsner; atoms below all collapses):
+--   th s < th t  if th s is not closed under some support function
+--                gamma = ts'_j of t:  gamma[vars := (th s)^-] >= th s;
+--   th s > th t  symmetrically;
+--   else compare s and t in P(Delta): select the entry of the joint-type
+--   list SJ.JL[F,K,K'] (Diers's finite multicoproduct) whose embeddings
+--   u, v and table agree with the comparisons of the relabelled generator
+--   images, and compare the images of z, z' under Pm u, Pm v after merging
+--   ys, ys' (as ThetaTerm.cmpAt); no entry: eq.
+-- gamma[vars := b^-] replaces the variables of a trace term by the points
+-- sy i b, "the i-th point just below b": above every term below b.
+-- The closure test is not a subterm call, so the comparison is defined by
+-- recursion on a fuel bound (out of fuel: eq).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module SF = StabFun[l] ;
+module SC = StabCode[l] ;
+module SJ = StabJt[l] ;
+module PL = Prelude[l] ;
+module LC = LOCat[l] ;
+module TT = ThetaTerm[l] ;
+module O = SF.Over[LC.ce] ;
+
+F3 : CF.CEF = LOCEF[l].cef ;
+DL3 : U l+ = SF.SF[LC.ce] ;
+Cd3 : U l = SC.Code[F3] ;
+
+-- small helpers on N, Bool, O3
+eqO3 : W.O3 -> W.O3 -> W.Bool = split {
+  lt -> split { lt -> true ; eq -> false ; gt -> false } ;
+  eq -> split { lt -> false ; eq -> true ; gt -> false } ;
+  gt -> split { lt -> false ; eq -> false ; gt -> true } } ;
+minusN : W.N -> W.N -> W.N = split {
+  zero -> \ n -> zero ;
+  suc m | r -> split { zero -> suc m ; suc n -> r n } } ;
+allBelow : W.N -> (W.N -> W.Bool) -> W.Bool = split {
+  zero -> \ f -> true ;
+  suc n | r -> \ f -> W.andB (f n) (r f) } ;
+withLtD (i n : W.N) (k : CF.Lt i n -> W.Bool) : W.Or (CF.Lt i n) (CF.Lt i n -> W.Empty) -> W.Bool = split {
+  inl h -> k h ; inr h -> true } ;
+forLt (n : W.N) (f : (i : W.N) -> CF.Lt i n -> W.Bool) : W.Bool =
+  allBelow n (\ i -> withLtD i n (f i) (W.decB (W.ltN i n) true)) ;
+rngN : W.N -> W.N -> W.List W.N = split {
+  zero -> \ s -> nilL ;
+  suc n | r -> \ s -> consL s (r (suc s)) } ;
+idL (c : W.N) : W.List W.N = rngN c zero ;
+hdN : W.List W.N -> W.N = split { nilL -> zero ; consL x xs -> x } ;
+sgl (n : W.N) : W.List W.N = consL n nilL ;
+-- a map of finite ordinals as a total function on N
+totD (k k' : W.N) (w : DP.Map (LC.ord k) (LC.ord k')) (x : W.N) :
+    W.Or (CF.Lt x k) (CF.Lt x k -> W.Empty) -> W.N = split {
+  inl h -> (w.1 (x,h)).1 ; inr h -> x } ;
+tot (k k' : W.N) (w : DP.Map (LC.ord k) (LC.ord k')) (x : W.N) : W.N = totD k k' w x (W.decB (W.ltN x k) true) ;
+isIdM (k k' : W.N) (w : DP.Map (LC.ord k) (LC.ord k')) : W.Bool =
+  W.andB (W.eqN k k') (allBelow k (\ x -> W.eqN (tot k k' w x) x)) ;
+-- merging two increasing lists of naturals into a pair of words
+mNc (a : W.N) (as : W.List W.N) (rec : W.List W.N -> TT.P20) : W.List W.N -> TT.P20 = split {
+  nilL -> (W.idW (suc (TT.lenF0 W.N as)),W.zeros (suc (TT.lenF0 W.N as))) ;
+  consL b bs | r' -> TT.stp0 (W.cmpN a b) (rec (consL b bs)) (rec bs) r' } ;
+mN : W.List W.N -> W.List W.N -> TT.P20 = split {
+  nilL -> \ bs -> (W.zeros (TT.lenF0 W.N bs),W.idW (TT.lenF0 W.N bs)) ;
+  consL a as | r -> mNc a as r } ;
+
+module Th3 (PG : DL3 -> DL3) (Pm : (D D' : DL3) -> O.Mor D D' -> O.Mor (PG D) (PG D')) {
+  Dec (K : Cd3) : DL3 = SC.Decode[F3,K].obj ;
+  PGK (K : Cd3) (c : W.N) : DP.LO = (PG (Dec K)).G (LC.ord c) ;
+  data Tm : U l = at (n : W.N) | sy (i : W.N) (b : Tm) | th (K : Cd3) (c : W.N) (z : (PGK K c).car) (ys : Tm) (ts : Tm)
+    | nl | cs (t : Tm) (r : Tm) ;
+
+  -- relabelling of the variables (shallow: ts are closed traces)
+  rn (f : W.N -> W.N) : Tm -> Tm = split {
+    at n -> at (f n) ;
+    sy i b | rb -> sy i b ;
+    th K c z ys ts | rys rts -> th K c z rys ts ;
+    nl -> nl ;
+    cs t r | rt rr -> cs rt rr } ;
+  -- instantiation of the variables just below b
+  inst (b : Tm) : Tm -> Tm = split {
+    at n -> sy n b ;
+    sy i b' | rb -> sy i b' ;
+    th K c z ys ts | rys rts -> th K c z rys ts ;
+    nl -> nl ;
+    cs t r | rt rr -> cs rt rr } ;
+  idLT : W.N -> W.N -> Tm = split {
+    zero -> \ s -> nl ;
+    suc n | r -> \ s -> cs (at s) (r (suc s)) } ;
+  trT : Tm -> Tm = split {
+    at n -> at zero ;
+    sy i b -> at zero ;
+    th K c z ys ts -> th K c z (idLT c zero) ts ;
+    nl -> nl ;
+    cs t r -> cs t r } ;
+  nthT : Tm -> W.N -> Tm = split {
+    at n -> \ k -> nl ;
+    sy i b -> \ k -> nl ;
+    th K c z ys ts -> \ k -> nl ;
+    nl -> \ k -> nl ;
+    cs t r | rt rr -> split { zero -> t ; suc k -> rr k } } ;
+  elemsT : Tm -> W.List Tm = split {
+    at n -> nilL ; sy i b -> nilL ; th K c z ys ts -> nilL ; nl -> nilL ;
+    cs t r | rt rr -> consL t rr } ;
+  size : Tm -> W.N = split {
+    at n -> W.one ;
+    sy i b | rb -> suc rb ;
+    th K c z ys ts | rys rts -> suc (W.plus rys rts) ;
+    nl -> W.one ;
+    cs t r | rt rr -> suc (W.plus rt rr) } ;
+
+  CT : U l = Tm -> Tm -> W.O3 ;
+  -- merging two argument lists into a pair of words
+  mLc (cf : CT) (a : Tm) (as : W.List Tm) (rec : W.List Tm -> TT.P20) : W.List Tm -> TT.P20 = split {
+    nilL -> (W.idW (suc (TT.lenF0 Tm as)),W.zeros (suc (TT.lenF0 Tm as))) ;
+    consL b bs | r' -> TT.stp0 (cf a b) (rec (consL b bs)) (rec bs) r' } ;
+  mL (cf : CT) : W.List Tm -> W.List Tm -> TT.P20 = split {
+    nilL -> \ bs -> (W.zeros (TT.lenF0 Tm bs),W.idW (TT.lenF0 Tm bs)) ;
+    consL a as | r -> mLc cf a as r } ;
+
+  -- the joint-type entries of K, K' and their agreement with the terms
+  module Sel (cf : CT) (K : Cd3) (ts : Tm) (K' : Cd3) (ts' : Tm) {
+    module L = SJ.JL[F3,K,K'] ;
+    okU (p : L.Ix) (q : L.VS p) (u : O.Mor (Dec K) (Dec (L.cd p q))) : W.Bool =
+      forLt K.m (\ n1 h1 -> W.andB (W.eqN ((u.1 (K.gen n1)).1 (n1,(h1,LC.idMap (LC.ord (K.gen n1))))).1 n1)
+        (isIdM ((L.cd p q).gen ((u.1 (K.gen n1)).1 (n1,(h1,LC.idMap (LC.ord (K.gen n1))))).1) (K.gen n1)
+          ((u.1 (K.gen n1)).1 (n1,(h1,LC.idMap (LC.ord (K.gen n1))))).2.2)) ;
+    okVi (p : L.Ix) (q : L.VS p) (n2 : W.N) (i : W.N) (w : DP.Map (LC.ord ((L.cd p q).gen i)) (LC.ord (K'.gen n2))) : W.Bool =
+      W.ifW W.Bool (W.ltN i K.m)
+        (eqO3 (cf (rn (tot ((L.cd p q).gen i) (K'.gen n2) w) (nthT ts i)) (nthT ts' n2)) eq)
+        (W.andB (W.eqN (W.sel p.1 (minusN i K.m)) n2) (isIdM ((L.cd p q).gen i) (K'.gen n2) w)) ;
+    okV (p : L.Ix) (q : L.VS p) (v : O.Mor (Dec K') (Dec (L.cd p q))) : W.Bool =
+      forLt K'.m (\ n2 h2 -> okVi p q n2 ((v.1 (K'.gen n2)).1 (n2,(h2,LC.idMap (LC.ord (K'.gen n2))))).1
+        ((v.1 (K'.gen n2)).1 (n2,(h2,LC.idMap (LC.ord (K'.gen n2))))).2.2) ;
+    okJ (p : L.Ix) (q : L.VS p) (n1 : W.N) (h1 : CF.Lt n1 K.m) (n2 : W.N) (h2 : CF.Lt n2 (L.K2r p).m) (t : W.N)
+      (ht : CF.Lt t (F3.jtN (K.gen n1) ((L.K2r p).gen n2))) :
+        CF.Opt (CF.JT F3.C (K.gen n1) ((L.K2r p).gen n2)) -> W.Bool = split {
+      inl j -> eqO3 (q.1 n1 h1 n2 h2 t ht)
+        (cf (rn (tot (K.gen n1) j.1 j.2.1) (nthT ts n1)) (rn (tot ((L.K2r p).gen n2) j.1 j.2.2) (nthT ts' (W.sel p.1 n2)))) ;
+      inr x -> true } ;
+    okT (p : L.Ix) (q : L.VS p) : W.Bool =
+      forLt K.m (\ n1 h1 -> forLt (L.K2r p).m (\ n2 h2 -> forLt (F3.jtN (K.gen n1) ((L.K2r p).gen n2)) (\ t ht ->
+        okJ p q n1 h1 n2 h2 t ht (F3.jt (K.gen n1) ((L.K2r p).gen n2) t ht)))) ;
+    okE (e : L.E1) : W.Bool = W.andB (okU e.1 e.2.1 e.2.2.1) (W.andB (okV e.1 e.2.1 e.2.2.2) (okT e.1 e.2.1)) ;
+    via (c : W.N) (z : (PGK K c).car) (ys : Tm) (c' : W.N) (z' : (PGK K' c').car) (ys' : Tm) (e : L.E1) : W.O3 =
+      TT.Th[PG (Dec (L.cd e.1 e.2.1))].cmpAt c c'
+        (((Pm (Dec K) (Dec (L.cd e.1 e.2.1)) e.2.2.1).1 c).1 z)
+        (((Pm (Dec K') (Dec (L.cd e.1 e.2.1)) e.2.2.2).1 c').1 z')
+        (mL cf (elemsT ys) (elemsT ys')) ;
+    selOne (c : W.N) (z : (PGK K c).car) (ys : Tm) (c' : W.N) (z' : (PGK K' c').car) (ys' : Tm) (rest : W.O3) :
+        CF.Opt L.E1 -> W.O3 = split {
+      inl e -> W.ifW W.O3 (okE e) (via c z ys c' z' ys' e) rest ;
+      inr x -> rest } ;
+    selC (c : W.N) (z : (PGK K c).car) (ys : Tm) (c' : W.N) (z' : (PGK K' c').car) (ys' : Tm) :
+        W.List (CF.Opt L.E1) -> W.O3 = split {
+      nilL -> eq ;
+      consL x xs | r -> selOne c z ys c' z' ys' r x } ;
+    cmpP (c : W.N) (z : (PGK K c).car) (ys : Tm) (c' : W.N) (z' : (PGK K' c').car) (ys' : Tm) : W.O3 =
+      selC c z ys c' z' ys' L.e1L ;
+  } ;
+
+  -- one step of the comparison, given the comparison cf one level down
+  -- does t mention a point just below b (shallow: the argument lists)
+  hasSym (cf : CT) (b : Tm) : Tm -> W.Bool = split {
+    at n -> false ;
+    sy i b' -> eqO3 (cf b b') eq ;
+    th K c z ys ts | rys rts -> rys ;
+    nl -> false ;
+    cs t r | rt rr -> W.orB rt rr } ;
+  -- b is not closed under the support function gamma
+  notClosed (cf : CT) (b : Tm) (g : Tm) : W.Bool = TT.geB (cf (inst b g) b) ;
+  anyNC (cf : CT) (b : Tm) : W.List Tm -> W.Bool = split {
+    nilL -> false ;
+    consL g gs | r -> W.orB (notClosed cf b g) r } ;
+  symTh (cf : CT) (b t : Tm) : W.O3 = W.ifW W.O3 (hasSym cf b t) lt (W.ifW W.O3 (TT.leB (cf b t)) lt gt) ;
+  stTh (cf : CT) (K : Cd3) (c : W.N) (z : (PGK K c).car) (ys ts : Tm) : Tm -> W.O3 = split {
+    at n -> gt ;
+    sy j b -> W.flip (symTh cf b (th K c z ys ts)) ;
+    th K' c' z' ys' ts' -> TT.sel3 (anyNC cf (th K c z ys ts) (elemsT ts'))
+        (anyNC cf (th K' c' z' ys' ts') (elemsT ts))
+        (Sel[cf,K,ts,K',ts'].cmpP c z ys c' z' ys') ;
+    nl -> eq ;
+    cs t r -> eq } ;
+  stSy (cf : CT) (i : W.N) (b : Tm) : Tm -> W.O3 = split {
+    at n -> gt ;
+    sy j b' -> W.lexO3 (cf b b') (W.cmpN i j) ;
+    th K c z ys ts -> symTh cf b (th K c z ys ts) ;
+    nl -> eq ;
+    cs t r -> eq } ;
+  stAt (m : W.N) : Tm -> W.O3 = split {
+    at n -> W.cmpN m n ; sy j b -> lt ; th K c z ys ts -> lt ; nl -> eq ; cs t r -> eq } ;
+  step (cf : CT) : Tm -> Tm -> W.O3 = split {
+    at m -> stAt m ;
+    sy i b -> stSy cf i b ;
+    th K c z ys ts -> stTh cf K c z ys ts ;
+    nl -> \ t -> eq ;
+    cs t r -> \ x -> eq } ;
+  cmpF : W.N -> Tm -> Tm -> W.O3 = split {
+    zero -> \ s t -> eq ;
+    suc f | r -> step r } ;
+  fuel (s t : Tm) : W.N = W.mul (suc (W.plus (size s) (size t))) (suc (W.plus (size s) (size t))) ;
+  cmp (s t : Tm) : W.O3 = cmpF (fuel s t) s t ;
+} ;
+
+-- smoke test: the constant 2-ptyx with value the identity dilator, and
+-- collapses with the empty code (no Delta-support)
+module Th3Test {
+  module T = Th3[\ D -> LOWF[l].idD, \ D D' S -> O.idS (LOWF[l].idD)] ;
+  K0 : Cd3 = LabTree2[l].K0 ;
+  z0 : (T.PGK K0 W.one).car = (zero,refl true) ;
+  s0 : T.Tm = th K0 W.one z0 (cs (at zero) nl) nl ;
+  s1 : T.Tm = th K0 W.one z0 (cs (at W.one) nl) nl ;
+  a0 : T.Tm = at zero ;
+} ;
+#conv Th3Test.T.cmp Th3Test.s0 Th3Test.s1 = lt ;
+#conv Th3Test.T.cmp Th3Test.s1 Th3Test.s0 = gt ;
+#conv Th3Test.T.cmp Th3Test.s0 Th3Test.s0 = eq ;
+#conv Th3Test.T.cmp Th3Test.a0 Th3Test.s0 = lt ;
+#conv Th3Test.T.cmp Th3Test.s1 Th3Test.a0 = gt ;
+
+-- P = the identity 2-ptyx; K1 = the code of the generator of idD.
+-- Comparisons of two K1-collapses (u0 < u1, u0 < w0, ...) go through the
+-- joint-type list JL[K1,K1] (tables, homs) and exceed the checker's 10 s
+-- budget by normalisation; they are not evaluated here.
+module Th3Test1 {
+  module T = Th3[\ D -> D, \ D D' S -> S] ;
+  K1 : Cd3 = StabCover[l].Gen1[F3,LOWF[l].idD,W.one,(zero,refl true)].code ;
+  z1 : (T.PGK K1 W.one).car = (zero,(refl true,LC.idMap (LC.ord W.one))) ;
+  u0 : T.Tm = th K1 W.one z1 (cs (at zero) nl) (cs (at zero) nl) ;
+  u1 : T.Tm = th K1 W.one z1 (cs (at W.one) nl) (cs (at zero) nl) ;
+  w0 : T.Tm = th K1 W.one z1 (cs (at zero) nl) (cs u0 nl) ;
+} ;
+#conv Th3Test1.K1.m = W.one ;
+#conv Th3Test1.K1.gen zero = W.one ;
+#conv Th3Test1.T.cmp (at zero) Th3Test1.u0 = lt ;
