@@ -1,0 +1,255 @@
+-- The canonical sequence of monotone finite dilators (codes over LOCEF),
+-- replacing the parameter "code" of Girard's type-3 reduction.
+--  * MonoFin: monotonicity checked at the listed joint types of each
+--    generator with itself only -- decidable; Sound: MonoFin => Mono
+--    (FinDilWF), through the finite refinement at each linear order;
+--  * MonoTr: an iso copy of a monotone code, as produced by the
+--    enumeration (StabEnum.CovK), satisfies MonoFin;
+--  * flattening of stratified lists into a sequence N -> X (padding);
+--  * seqM : N -> monotone codes, covering every monotone code up to iso;
+--  * Girard3E: Girard's type-3 reduction over this sequence.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module SF = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module ST = StabTab[l] ;
+module STC = StabTabCov[l] ;
+module SE = StabEnum[l] ;
+module FL = FinList[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module LC = LOCat[l] ;
+module AFm = AlmostFull[l] ;
+module FDW = FinDilWF[l] ;
+
+F : CF.CEF = LOCEF[l].cef ;
+
+--------------------------------------------------------------------
+-- finite monotonicity
+
+module MFin (m : W.N) (gen : W.N -> W.N) (ord : (d : W.N) -> SC.Pts[F,m,gen].Pt (LC.ord d) -> SC.Pts[F,m,gen].Pt (LC.ord d) -> W.O3) {
+  JTy (i : W.N) : U l = CF.JT F.C (gen i) (gen i) ;
+  LePw (n c : W.N) (u v : DP.Map (LC.ord n) (LC.ord c)) : U l =
+    (x : W.N) (h : CF.Lt x n) -> Id W.Bool (AFm.leO ((LC.ord c).cmp (u.1 (x,h)) (v.1 (x,h)))) true ;
+  decLePw (n c : W.N) (u v : DP.Map (LC.ord n) (LC.ord c)) : W.Or (LePw n c u v) (LePw n c u v -> W.Empty) =
+    FL.DecAll[n,\ x h -> Id W.Bool (AFm.leO ((LC.ord c).cmp (u.1 (x,h)) (v.1 (x,h)))) true,
+      \ x h -> W.decB (AFm.leO ((LC.ord c).cmp (u.1 (x,h)) (v.1 (x,h)))) true].result ;
+  MC (i : W.N) (hi : CF.Lt i m) (j : JTy i) : U l =
+    LePw (gen i) j.1 j.2.1 j.2.2 -> Id W.Bool (AFm.leO (ord j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2)))) true ;
+  MF1 (i : W.N) (hi : CF.Lt i m) (t : W.N) (ht : CF.Lt t (F.jtN (gen i) (gen i))) : U l =
+    (j : JTy i) -> Id (CF.Opt (JTy i)) (F.jt (gen i) (gen i) t ht) (inl j) -> MC i hi j ;
+  MF0 (i : W.N) (hi : CF.Lt i m) : U l = (t : W.N) (ht : CF.Lt t (F.jtN (gen i) (gen i))) -> MF1 i hi t ht ;
+  MonoFin : U l = (i : W.N) (hi : CF.Lt i m) -> MF0 i hi ;
+  decMonoFin : W.Or MonoFin (MonoFin -> W.Empty) =
+    FL.DecAll[m,MF0,\ i hi -> FL.DecAll[F.jtN (gen i) (gen i),MF1 i hi,\ t ht ->
+      FL.decOpt (JTy i) (MC i hi) (\ j -> ST.decImp (LePw (gen i) j.1 j.2.1 j.2.2)
+          (Id W.Bool (AFm.leO (ord j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2)))) true)
+          (decLePw (gen i) j.1 j.2.1 j.2.2) (W.decB (AFm.leO (ord j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2)))) true))
+        (F.jt (gen i) (gen i) t ht)].result].result ;
+} ;
+MonoFinK (K : SC.Code[F]) : U l = MFin[K.m,K.gen,K.ord].MonoFin ;
+
+-- soundness: finite monotonicity gives monotonicity at every linear order
+module MSound (K : SC.Code[F]) (mf : MonoFinK K) {
+  module D = SC.Decode[F,K] ;
+  module PP = SC.Pts[F,K.m,K.gen] ;
+  Goal (A : DP.LO) (i : W.N) (h : CF.Lt i K.m) (k k' : DP.Map (LC.ord (K.gen i)) A) : U l =
+    Id W.Bool (AFm.leO ((D.Gt A).cmp (i,(h,k)) (i,(h,k')))) true ;
+  module ViaRef (A : DP.LO) (i : W.N) (h : CF.Lt i K.m) (k k' : DP.Map (LC.ord (K.gen i)) A)
+    (pw : (j : (LC.ord (K.gen i)).car) -> Id W.Bool (AFm.leO (A.cmp (k.1 j) (k'.1 j))) true)
+    (r : D.Ref A (i,(h,k)) (i,(h,k'))) {
+    c : W.N = r.1 ;
+    jj : DP.Map (LC.ord c) A = r.2.1 ;
+    k0 : DP.Map (LC.ord (K.gen i)) (LC.ord c) = r.2.2.1 ;
+    k0' : DP.Map (LC.ord (K.gen i)) (LC.ord c) = r.2.2.2.1 ;
+    module J = ST.FJ[F,K.gen i,K.gen i,c,k0,k0'] ;
+    E : W.N = J.j.1 ;
+    u : DP.Map (LC.ord (K.gen i)) (LC.ord E) = J.j.2.1 ;
+    v : DP.Map (LC.ord (K.gen i)) (LC.ord E) = J.j.2.2 ;
+    mm : DP.Map (LC.ord E) (LC.ord c) = J.fac.1 ;
+    ek (y : (LC.ord (K.gen i)).car) : Id A.car (jj.1 (mm.1 (u.1 y))) (k.1 y) =
+      PL.ap (DP.Map (LC.ord (K.gen i)) A) A.car (\ M -> M.1 y)
+        (F.C.comp (LC.ord (K.gen i)) (LC.ord c) A (F.C.comp (LC.ord (K.gen i)) (LC.ord E) (LC.ord c) u mm) jj) k
+        (PL.trans (DP.Map (LC.ord (K.gen i)) A)
+          (F.C.comp (LC.ord (K.gen i)) (LC.ord c) A (F.C.comp (LC.ord (K.gen i)) (LC.ord E) (LC.ord c) u mm) jj)
+          (F.C.comp (LC.ord (K.gen i)) (LC.ord c) A k0 jj) k
+          (PL.ap (DP.Map (LC.ord (K.gen i)) (LC.ord c)) (DP.Map (LC.ord (K.gen i)) A) (\ M -> F.C.comp (LC.ord (K.gen i)) (LC.ord c) A M jj)
+            (F.C.comp (LC.ord (K.gen i)) (LC.ord E) (LC.ord c) u mm) k0 J.fac.2.1)
+          r.2.2.2.2.1) ;
+    ek' (y : (LC.ord (K.gen i)).car) : Id A.car (jj.1 (mm.1 (v.1 y))) (k'.1 y) =
+      PL.ap (DP.Map (LC.ord (K.gen i)) A) A.car (\ M -> M.1 y)
+        (F.C.comp (LC.ord (K.gen i)) (LC.ord c) A (F.C.comp (LC.ord (K.gen i)) (LC.ord E) (LC.ord c) v mm) jj) k'
+        (PL.trans (DP.Map (LC.ord (K.gen i)) A)
+          (F.C.comp (LC.ord (K.gen i)) (LC.ord c) A (F.C.comp (LC.ord (K.gen i)) (LC.ord E) (LC.ord c) v mm) jj)
+          (F.C.comp (LC.ord (K.gen i)) (LC.ord c) A k0' jj) k'
+          (PL.ap (DP.Map (LC.ord (K.gen i)) (LC.ord c)) (DP.Map (LC.ord (K.gen i)) A) (\ M -> F.C.comp (LC.ord (K.gen i)) (LC.ord c) A M jj)
+            (F.C.comp (LC.ord (K.gen i)) (LC.ord E) (LC.ord c) v mm) k0' J.fac.2.2)
+          r.2.2.2.2.2) ;
+    cmpE (y : (LC.ord (K.gen i)).car) : Id W.O3 ((LC.ord E).cmp (u.1 y) (v.1 y)) (A.cmp (k.1 y) (k'.1 y)) =
+      PL.trans W.O3 ((LC.ord E).cmp (u.1 y) (v.1 y)) (A.cmp (jj.1 (mm.1 (u.1 y))) (jj.1 (mm.1 (v.1 y)))) (A.cmp (k.1 y) (k'.1 y))
+        (PL.sym W.O3 (A.cmp (jj.1 (mm.1 (u.1 y))) (jj.1 (mm.1 (v.1 y)))) ((LC.ord E).cmp (u.1 y) (v.1 y))
+          ((F.C.comp (LC.ord E) (LC.ord c) A mm jj).2 (u.1 y) (v.1 y)))
+        (W.ap2 A.car A.car W.O3 A.cmp (jj.1 (mm.1 (u.1 y))) (k.1 y) (jj.1 (mm.1 (v.1 y))) (k'.1 y) (ek y) (ek' y)) ;
+    pwE : MFin[K.m,K.gen,K.ord].LePw (K.gen i) E u v = \ x hx ->
+      PL.subst W.O3 (\ o -> Id W.Bool (AFm.leO o) true) (A.cmp (k.1 (x,hx)) (k'.1 (x,hx))) ((LC.ord E).cmp (u.1 (x,hx)) (v.1 (x,hx)))
+        (PL.sym W.O3 ((LC.ord E).cmp (u.1 (x,hx)) (v.1 (x,hx))) (A.cmp (k.1 (x,hx)) (k'.1 (x,hx))) (cmpE (x,hx))) (pw (x,hx)) ;
+    atE : Id W.Bool (AFm.leO (K.ord E (i,(h,u)) (i,(h,v)))) true = mf i h J.t J.ht J.j J.ej pwE ;
+    eqc : Id W.O3 (K.ord E (i,(h,u)) (i,(h,v))) ((D.Gt A).cmp (i,(h,k)) (i,(h,k'))) =
+      PL.trans W.O3 (K.ord E (i,(h,u)) (i,(h,v))) (K.ord c (i,(h,k0)) (i,(h,k0'))) ((D.Gt A).cmp (i,(h,k)) (i,(h,k')))
+        (STC.kdown F K E c mm (i,(h,u)) (i,(h,v)) (i,(h,k0)) (i,(h,k0'))
+          (PP.pt3 (LC.ord c) (i,(h,k0)) (F.C.comp (LC.ord (K.gen i)) (LC.ord E) (LC.ord c) u mm) J.fac.2.1)
+          (PP.pt3 (LC.ord c) (i,(h,k0')) (F.C.comp (LC.ord (K.gen i)) (LC.ord E) (LC.ord c) v mm) J.fac.2.2))
+        (PL.sym W.O3 (D.cmp A (i,(h,k)) (i,(h,k'))) (K.ord c (i,(h,k0)) (i,(h,k0'))) (D.spec A (i,(h,k)) (i,(h,k')) r)) ;
+    result : Goal A i h k k' =
+      PL.subst W.O3 (\ o -> Id W.Bool (AFm.leO o) true) (K.ord E (i,(h,u)) (i,(h,v))) ((D.Gt A).cmp (i,(h,k)) (i,(h,k'))) eqc atE ;
+  } ;
+  mono : FDW.FD[K].Mono = \ A i h k k' pw ->
+    TC.rec (D.Ref A (i,(h,k)) (i,(h,k'))) @l (Goal A i h k k') (W.HB.uip (AFm.leO ((D.Gt A).cmp (i,(h,k)) (i,(h,k')))) true)
+      (\ r -> ViaRef[A,i,h,k,k',pw,r].result) (F.C.dir A (K.gen i) (K.gen i) k k') ;
+} ;
+
+-- a copy of a monotone code along maps of generators satisfies MonoFin
+module MonoTr (K : SC.Code[F]) (gen' : W.N -> W.N)
+  (psi : (i : W.N) -> CF.Lt i K.m -> DP.Map (LC.ord (K.gen i)) (LC.ord (gen' i)))
+  (ord2 : (d : W.N) -> SC.Pts[F,K.m,gen'].Pt (LC.ord d) -> SC.Pts[F,K.m,gen'].Pt (LC.ord d) -> W.O3)
+  (agr : (d : W.N) (p q : SC.Pts[F,K.m,gen'].Pt (LC.ord d)) ->
+    Id W.O3 (ord2 d p q) (K.ord d (p.1,(p.2.1,F.C.comp (LC.ord (K.gen p.1)) (LC.ord (gen' p.1)) (LC.ord d) (psi p.1 p.2.1) p.2.2))
+      (q.1,(q.2.1,F.C.comp (LC.ord (K.gen q.1)) (LC.ord (gen' q.1)) (LC.ord d) (psi q.1 q.2.1) q.2.2))))
+  (mono : FDW.FD[K].Mono) {
+  module M2 = MFin[K.m,gen',ord2] ;
+  result : M2.MonoFin = \ i hi t ht j e pw ->
+    PL.subst W.O3 (\ o -> Id W.Bool (AFm.leO o) true)
+      (SC.Decode[F,K].cmp (LC.ord j.1) (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.1))
+        (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.2)))
+      (ord2 j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2)))
+      (PL.trans W.O3
+        (SC.Decode[F,K].cmp (LC.ord j.1) (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.1))
+          (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.2)))
+        (K.ord j.1 (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.1))
+          (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.2)))
+        (ord2 j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2)))
+        (STC.dcmp F K j.1 (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.1))
+          (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.2)))
+        (PL.sym W.O3 (ord2 j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2)))
+          (K.ord j.1 (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.1))
+            (i,(hi,F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.2)))
+          (agr j.1 (i,(hi,j.2.1)) (i,(hi,j.2.2)))))
+      (mono (LC.ord j.1) i hi (F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.1)
+        (F.C.comp (LC.ord (K.gen i)) (LC.ord (gen' i)) (LC.ord j.1) (psi i hi) j.2.2)
+        (\ y -> pw ((psi i hi).1 y).1 ((psi i hi).1 y).2)) ;
+} ;
+
+--------------------------------------------------------------------
+-- monotone codes in the enumeration
+
+enumLO : SE.EnumIso[F] =
+  new SE.EnumIso[F, c0 := zero,
+    L := \ b -> consL (inl b) nilL,
+    cover := \ c -> (c,(zero,(refl true,(c,(refl (inl c),(F.C.idm (LC.ord c),F.C.idm (LC.ord c)))))))] ;
+MCode : U l = (K : SC.Code[F]) * MonoFinK K ;
+decMF (K : SC.Code[F]) : W.Or (MonoFinK K) (MonoFinK K -> W.Empty) = MFin[K.m,K.gen,K.ord].decMonoFin ;
+LM (b : W.N) : W.List (CF.Opt MCode) = FL.filterS SC.Code[F] MonoFinK decMF (SE.Stage[F,enumLO,b].LB) ;
+
+module CovM (K : SC.Code[F]) (mono : FDW.FD[K].Mono) {
+  module CK = SE.CovK[F,enumLO,K] ;
+  module St = CK.St ;
+  IsoM (c c' : SC.Code[F]) : U l = CK.IsoS c c' * MonoFinK c' ;
+  agr (d : W.N) (p q : SC.Pts[F,K.m,CK.gen'].Pt (LC.ord d)) :
+      Id W.O3 (ST.Tab[F,K.m,CK.gen',CK.tau].ordT d p q) (K.ord d (CK.GI.tr (LC.ord d) p) (CK.GI.tr (LC.ord d) q)) = CK.ag d p q ;
+  Good (s : St.S1) : U l = (v : St.Vd s) -> IsoM K (St.codeOf (s,v)) ;
+  good : Good CK.s0 = \ v -> (CK.good v,MonoTr[K,CK.gen',CK.psi,ST.Tab[F,K.m,CK.gen',CK.tau].ordT,agr,mono].result) ;
+  m1 : FL.MemR SC.Code[F] IsoM St.LB K =
+    FL.memR-mapO St.VS SC.Code[F] CK.RV IsoM St.codeOf (FL.filterS St.S1 St.Vd St.decVd St.s1L) (CK.s0,CK.TC.vv) K
+      (\ q e -> PL.subst St.S1 Good CK.s0 q.1 (PL.sym St.S1 q.1 CK.s0 e) good q.2) CK.mf ;
+  RM (x y : MCode) : U l = CK.IsoS x.1 y.1 ;
+  mr : (k : W.N) * ((h : CF.Lt k (FL.lenL MCode (LM CK.B))) * ((q : MCode) *
+      (Id (CF.Opt MCode) (FL.nthO MCode (LM CK.B) k) (inl q) * IsoM K q.1))) =
+    FL.memR-filterS SC.Code[F] IsoM MonoFinK decMF St.LB K (\ a' r -> r.2) m1 ;
+  -- membership in the list of monotone codes, up to iso
+  result : (k : W.N) * ((h : CF.Lt k (FL.lenL MCode (LM CK.B))) * ((q : MCode) *
+      (Id (CF.Opt MCode) (FL.nthO MCode (LM CK.B) k) (inl q) * CK.IsoS K q.1))) =
+    (mr.1,(mr.2.1,(mr.2.2.1,(mr.2.2.2.1,mr.2.2.2.2.1)))) ;
+} ;
+
+--------------------------------------------------------------------
+-- stratified lists flattened into a sequence (each stage padded by one
+-- junk entry, so that position >= stage)
+
+module Flat (X : U l) (x0 : X) (LL : W.N -> W.List (CF.Opt X)) {
+  LP (b : W.N) : W.List (CF.Opt X) = consL (inr tt) (LL b) ;
+  cat : W.N -> W.List (CF.Opt X) = SE.lcat X LP ;
+  seq (n : W.N) : X = CF.optGet X x0 (FL.nthO X (cat n) n) ;
+  lenGt : (b : W.N) -> CF.Lt b (FL.lenL X (cat b)) = split {
+    zero -> refl true ;
+    suc b | r -> PL.subst W.N (\ z -> CF.Lt (suc b) z) (suc (W.plus (FL.lenL X (cat b)) (FL.lenL X (LL (suc b)))))
+        (FL.lenL X (cat (suc b)))
+      (PL.sym W.N (FL.lenL X (cat (suc b))) (suc (W.plus (FL.lenL X (cat b)) (FL.lenL X (LL (suc b)))))
+        (PL.trans W.N (FL.lenL X (cat (suc b))) (W.plus (FL.lenL X (cat b)) (FL.lenL X (LP (suc b))))
+            (suc (W.plus (FL.lenL X (cat b)) (FL.lenL X (LL (suc b)))))
+          (FL.len-appL X (cat b) (LP (suc b))) (W.plus-sucR (FL.lenL X (cat b)) (FL.lenL X (LL (suc b))))))
+      (FL.lt-plus-r b (FL.lenL X (cat b)) (FL.lenL X (LL (suc b))) r) } ;
+  ext (b P : W.N) (hP : CF.Lt P (FL.lenL X (cat b))) : (j : W.N) ->
+      CF.Lt P (FL.lenL X (cat (W.plus j b))) * Id (CF.Opt X) (FL.nthO X (cat (W.plus j b)) P) (FL.nthO X (cat b) P) = split {
+    zero -> (hP,refl (FL.nthO X (cat b) P)) ;
+    suc j | r -> (PL.subst W.N (\ z -> CF.Lt P z) (W.plus (FL.lenL X (cat (W.plus j b))) (FL.lenL X (LP (suc (W.plus j b)))))
+          (FL.lenL X (cat (suc (W.plus j b))))
+        (PL.sym W.N (FL.lenL X (cat (suc (W.plus j b)))) (W.plus (FL.lenL X (cat (W.plus j b))) (FL.lenL X (LP (suc (W.plus j b)))))
+          (FL.len-appL X (cat (W.plus j b)) (LP (suc (W.plus j b)))))
+        (FL.lt-plus-r P (FL.lenL X (cat (W.plus j b))) (FL.lenL X (LP (suc (W.plus j b)))) r.1),
+      PL.trans (CF.Opt X) (FL.nthO X (cat (suc (W.plus j b))) P) (FL.nthO X (cat (W.plus j b)) P) (FL.nthO X (cat b) P)
+        (FL.nth-appL-l X (cat (W.plus j b)) (LP (suc (W.plus j b))) P r.1) r.2) } ;
+  le-split : (P b : W.N) -> CF.Lt b (suc P) -> (j : W.N) * Id W.N (W.plus j b) P = split {
+    zero -> \ b h -> (zero,SE.eqZ b h) ;
+    suc P | r -> \ b h -> CF.or-elim (CF.Lt b (suc P)) (Id W.N b (suc P)) ((j : W.N) * Id W.N (W.plus j b) (suc P))
+      (\ h' -> (suc (r b h').1,PL.ap W.N W.N (\ z -> suc z) (W.plus (r b h').1 b) P (r b h').2))
+      (\ e -> (zero,e))
+      (CF.lt-split b (suc P) h) } ;
+  Pos (b : W.N) (a' : X) : U l =
+    (P : W.N) * (CF.Lt P (FL.lenL X (cat b)) * (Id (CF.Opt X) (FL.nthO X (cat b) P) (inl a') * CF.Lt b (suc P))) ;
+  posAt (a' : X) : (b k : W.N) -> CF.Lt (suc k) (FL.lenL X (LP b)) -> Id (CF.Opt X) (FL.nthO X (LP b) (suc k)) (inl a') -> Pos b a' = split {
+    zero -> \ k h e -> (suc k,(h,(e,refl true))) ;
+    suc b -> \ k h e -> (W.plus (FL.lenL X (cat b)) (suc k),
+      (PL.subst W.N (\ z -> CF.Lt (W.plus (FL.lenL X (cat b)) (suc k)) z) (W.plus (FL.lenL X (cat b)) (FL.lenL X (LP (suc b))))
+          (FL.lenL X (cat (suc b)))
+        (PL.sym W.N (FL.lenL X (cat (suc b))) (W.plus (FL.lenL X (cat b)) (FL.lenL X (LP (suc b)))) (FL.len-appL X (cat b) (LP (suc b))))
+        (PL.trans W.Bool (W.ltN (W.plus (FL.lenL X (cat b)) (suc k)) (W.plus (FL.lenL X (cat b)) (FL.lenL X (LP (suc b)))))
+          (W.ltN (suc k) (FL.lenL X (LP (suc b)))) true
+          (W.ltN-plus (FL.lenL X (cat b)) (suc k) (FL.lenL X (LP (suc b)))) h),
+       (PL.trans (CF.Opt X) (FL.nthO X (cat (suc b)) (W.plus (FL.lenL X (cat b)) (suc k))) (FL.nthO X (LP (suc b)) (suc k)) (inl a')
+          (FL.nth-appL-r X (cat b) (LP (suc b)) (suc k)) e,
+        FL.lt-plus-r b (FL.lenL X (cat b)) (suc k) (lenGt b)))) } ;
+  -- every listed entry occurs in the sequence
+  module Cover (R : X -> X -> U l) (a : X) (b : W.N) (m : FL.MemR X R (LL b) a) {
+    a' : X = m.2.2.1 ;
+    pos : Pos b a' = posAt a' b m.1 m.2.1 m.2.2.2.1 ;
+    P : W.N = pos.1 ;
+    ls : (j : W.N) * Id W.N (W.plus j b) P = le-split P b pos.2.2.2 ;
+    eP : Id (CF.Opt X) (FL.nthO X (cat P) P) (inl a') =
+      PL.subst W.N (\ z -> Id (CF.Opt X) (FL.nthO X (cat z) P) (inl a')) (W.plus ls.1 b) P ls.2
+        (PL.trans (CF.Opt X) (FL.nthO X (cat (W.plus ls.1 b)) P) (FL.nthO X (cat b) P) (inl a') (ext b P pos.2.1 ls.1).2 pos.2.2.1) ;
+    result : R a (seq P) =
+      PL.subst X (R a) a' (seq P) (PL.sym X (seq P) a' (PL.ap (CF.Opt X) X (CF.optGet X x0) (FL.nthO X (cat P) P) (inl a') eP)) m.2.2.2.2 ;
+  } ;
+} ;
+
+--------------------------------------------------------------------
+-- the canonical sequence of monotone finite dilators
+
+mc0 : MCode = (SE.emptyCode F zero,\ i hi -> W.ltN-zero-abs (MFin[zero,\ i0 -> zero,(SE.emptyCode F zero).ord].MF0 i hi) i hi) ;
+module FM = Flat[MCode,mc0,LM] ;
+code (n : W.N) : SC.Code[F] = (FM.seq n).1 ;
+monoN (n : W.N) : FDW.FD[code n].Mono = MSound[code n,(FM.seq n).2].mono ;
+-- every monotone code is iso to some code n (maps both ways)
+complete (K : SC.Code[F]) (mono : FDW.FD[K].Mono) : (n : W.N) * SE.CovK[F,enumLO,K].IsoS K (code n) =
+  (FM.Cover[\ x y -> SE.CovK[F,enumLO,K].IsoS K y.1,mc0,SE.CovK[F,enumLO,K].B,CovM[K,mono].result].P,
+   FM.Cover[\ x y -> SE.CovK[F,enumLO,K].IsoS K y.1,mc0,SE.CovK[F,enumLO,K].B,CovM[K,mono].result].result) ;
+
+-- Girard's type-3 reduction with the canonical sequence of finite dilators
+module Girard3E (T4 : W.List Girard3[l].P4 -> W.Bool) (dec : W.N -> Girard3[l].NL)
+  (e : W.N -> (c : W.N) * LabTree[l].LL (LC.ord c))
+  (e3 : W.N -> (k : W.N) * Girard3[l].LLP (LabTree3[l].F2.C.fin (code k))) {
+  module G = FDW.Girard3M[T4,dec,e,code,monoN,e3] ;
+} ;

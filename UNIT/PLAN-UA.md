@@ -51,6 +51,15 @@ small : Replacement.Small FinLO  (FinLO ~ N).
   StabEnum.seg: EnumIso F (lists of finite objects covering up to iso)
   -> EnumIso Stab(F) (enumStab); enumFO, enumDil, enumPty, enumPty3;
   FinDilEnum.hit: every element of FinDil occurs (merely) in the lists.
+- DONE (2026-11-19) MonoEnum.seg (Girard3 without the code parameter):
+  MonoFin (monotonicity at the joint types of each generator with
+  itself; decidable), MSound: MonoFin => FinDilWF.Mono; MonoTr: the iso
+  copy produced by the enumeration of a monotone code is MonoFin; enumLO
+  and the lists LM b of MonoFin codes over LOCEF; Flat: stratified lists
+  -> sequence (padding); code : N -> Code, monoN, complete (every
+  monotone code is iso to some code n); Girard3E = FinDilWF.Girard3M
+  over this sequence.  Remaining classical input for the Pi^1_4 theorem:
+  every finite dilator is monotone (Girard), joint-type completeness, e3.
 ## What should simplify
 - StabJt layer 7d (canonical entries CN, DetA, DetB, jt-uniq via funext on
   tables and J on code paths): "unique up to iso" becomes equality, the
