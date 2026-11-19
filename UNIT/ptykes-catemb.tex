@@ -36,12 +36,15 @@ dilators and ptykes~\cite{Gir81,GirPTLC} following the approach of
 $\Stab(C)$ of stable functors on a category of embeddings $C$ with good
 finite objects is again such a category; iterating from the category of
 linear orders gives dilators, ptykes of type~2, of type~3, and so on.
-Well-foundedness is inductive accessibility, and no classical principle is
-used. We give examples (polynomial dilators, $2^X$, $\varepsilon_X$, the
+Well-foundedness is inductive accessibility, and the main development uses
+no classical principle. We give examples (polynomial dilators, $2^X$, $\varepsilon_X$, the
 evaluation ptykes, and the Bachmann--Howard collapse $D\mapsto\vartheta D$
 as a type-2 ptyx), the constructive halves of Girard's $\Pi^1_2$ and
-$\Pi^1_3$ completeness theorems, and a candidate type-3 collapse aimed at
-$\Pi^1_2$-comprehension.
+$\Pi^1_3$ completeness theorems (and, in a separate classical segment, the
+full $\Pi^1_2$ theorem), and a candidate type-3 collapse aimed at
+$\Pi^1_2$-comprehension. With univalence, finite stable functors up to
+isomorphism form a small set with decidable equality, and dilators and
+ptykes of type~2 form sets.
 \end{abstract}
 
 \section{Setting}
@@ -54,8 +57,12 @@ comparison $A\times A\to\{<,=,>\}$ satisfying reflexivity, flip,
 transitivity and $x=y$ whenever the comparison says so.  A morphism of
 linear orders is a strictly increasing map (an embedding).  An order is
 \emph{well-founded} if every element is accessible (inductively defined
-$\Acc$).  Nothing below uses excluded middle; in several places decidability
-that is usually assumed is \emph{derived}.
+$\Acc$).  The main development uses no excluded middle; in several places
+decidability that is usually assumed is \emph{derived}. Two extensions are
+kept separate, as parameters of the segments that use them: univalence and
+replacement (Section~\ref{sec:ua}), and excluded middle with dependent
+choice, used only to complete Girard's $\Pi^1_2$ theorem
+(Section~\ref{sec:girard}).
 
 \section{Categories of embeddings}
 
@@ -240,10 +247,11 @@ well-founded, and argues by induction on the image of $\sigma$ in $D(W)$,
 with a semantic lemma identifying the term comparison with the comparison
 in $D$ of the image of a well-behaved sub-order.
 
-\section{Girard's completeness theorems, constructive halves}\label{sec:girard}
+\section{Girard's completeness theorems}\label{sec:girard}
 
-Both theorems are due to Girard~\cite{Gir81,GirPTLC}; we formalise the
-directions that need no classical principle.
+Both theorems are due to Girard~\cite{Gir81,GirPTLC}. We formalise
+constructively the directions that need no classical principle, and, for
+$\Pi^1_2$, the converse in a classical segment.
 
 \begin{theorem}[$\Pi^1_2$]
 To a tree $T$ (a $\Pi^1_2$ statement $\forall f\exists g\forall n\,R$)
@@ -294,7 +302,10 @@ attempt tree over a well-order $A$ gives $f$ and a rank of $U_f$ into
 $1+A$, which refutes the infinite branches of $U_f$. With excluded middle,
 propositions are small (impredicativity), so this segment is a
 verification of Girard's classical theorem on top of the constructive
-development, not part of it. The $\Pi^1_3$ and $\Pi^1_4$ converses (which
+development, not part of it. Note also that excluded middle removes the
+size obstruction of Section~\ref{sec:ua}: ``being a finite dilator''
+becomes a small proposition, so that obstruction is a constructive,
+predicative phenomenon. The $\Pi^1_3$ and $\Pi^1_4$ converses (which
 need Girard's classical type-2 completeness theorem) are not formalised.
 A positive instance (the tree of strictly decreasing sequences) is proved
 constructively to give a dilator.
