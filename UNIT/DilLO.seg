@@ -1,0 +1,158 @@
+-- Finite-valued dilators (CatDil.Dil, denotations of Dilator.LinOrd.DenOrd)
+-- as stable functors on ALL linear orders (SF.SF[LC.ce]).
+--
+--   dilOf D : SF.SF[LC.ce]    X |-> D(X) = PtyxDen.Den[X].F D, f |-> D(f)
+--                             (Dilator.Fun: map the support list);
+--   cont: a denotation (a, z) is the image of (enum a, z) along the
+--         strictly increasing map [len a] -> X read off the sorted list a;
+--   stab: zip the two preimage lists into the pull-back.
+--   isDil-iff: Dilator.IsDil D  <=>  LOWF.IsDil (dilOf D)  (same statement).
+-- Hence every polynomial pre-dilator (Id, 1, +, ., 2^D; Dilator.polDil) is
+-- a dilator on all linear orders, e.g. X |-> 2^X (twoD-dil): the first
+-- genuine (non-identity) dilators of the LO hierarchy, proved
+-- constructively.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CD = CatDil[l] ;
+module CF = CatEmbFin[l] ;
+module SF = StabFun[l] ;
+module PL = Prelude[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module LT = LabTree[l] ;
+module PDn = PtyxDen[l] ;
+
+module DilOf (D : CD.Dil) {
+  P (X : DP.LO) : U l = PDn.Den[X].Pt D ;
+  G (X : DP.LO) : DP.LO = PDn.Den[X].F D ;
+  module FU (X Y : DP.LO) (f : DP.Map X Y) {
+    module M = W.Fun[X.car,X.cmp,X.ceq,X.cflip,X.ctrans,Y.car,Y.cmp,Y.ceq,Y.cflip,Y.ctrans,f.1,f.2,
+      D.1,D.2.1,D.2.2.1,D.2.2.2.1,D.2.2.2.2.1,D.2.2.2.2.2.1,D.2.2.2.2.2.2] ;
+  } ;
+  arr (X Y : DP.LO) (f : DP.Map X Y) : DP.Map (G X) (G Y) = (FU[X,Y,f].M.Df,FU[X,Y,f].M.Df-order) ;
+  arr-id (X : DP.LO) (d : P X) : Id (P X) ((arr X X (LC.idMap X)).1 d) d =
+    PDn.Den[X].deq D ((arr X X (LC.idMap X)).1 d) d (W.map-id X.car d.1) (refl d.2.1) ;
+  arr-comp (X Y Z : DP.LO) (f : DP.Map X Y) (g : DP.Map Y Z) (d : P X) :
+      Id (P Z) ((arr Y Z g).1 ((arr X Y f).1 d)) ((arr X Z (LC.compMap X Y Z f g)).1 d) =
+    PDn.Den[Z].deq D ((arr Y Z g).1 ((arr X Y f).1 d)) ((arr X Z (LC.compMap X Y Z f g)).1 d)
+      (W.map-comp X.car Y.car Z.car f.1 g.1 d.1) (refl d.2.1) ;
+
+  ----------------------------------------------------------------------
+  -- a sorted list is a strictly increasing map from [its length]
+  module Lst (X : DP.LO) {
+    module LX = W.LinOrd[X.car,X.cmp,X.ceq,X.cflip,X.ctrans] ;
+    L : U l = W.List X.car ;
+    nthP : (a : L) (k : W.N) -> CF.Lt k (LX.lenL a) -> X.car = split {
+      nilL -> \ k h -> W.ltN-zero-abs X.car k h ;
+      consL x a | r -> split { zero -> \ h -> x ; suc k -> \ h -> r k h } } ;
+    shift (n : W.N) (p : (LC.ord n).car) : (LC.ord (suc n)).car = (suc p.1,p.2) ;
+    enum : (a : L) -> W.List (LC.ord (LX.lenL a)).car = split {
+      nilL -> nilL ;
+      consL x a | r -> consL (zero,refl true) (W.map (LC.ord (LX.lenL a)).car (LC.ord (suc (LX.lenL a))).car (shift (LX.lenL a)) r) } ;
+    enum-map : (a : L) -> Id L (W.map (LC.ord (LX.lenL a)).car X.car (\ p -> nthP a p.1 p.2) (enum a)) a = split {
+      nilL -> refl nilL ;
+      consL x a | r -> PL.ap L L (\ t -> consL x t)
+        (W.map (LC.ord (suc (LX.lenL a))).car X.car (\ p -> nthP (consL x a) p.1 p.2)
+          (W.map (LC.ord (LX.lenL a)).car (LC.ord (suc (LX.lenL a))).car (shift (LX.lenL a)) (enum a))) a
+        (PL.trans L
+          (W.map (LC.ord (suc (LX.lenL a))).car X.car (\ p -> nthP (consL x a) p.1 p.2)
+            (W.map (LC.ord (LX.lenL a)).car (LC.ord (suc (LX.lenL a))).car (shift (LX.lenL a)) (enum a)))
+          (W.map (LC.ord (LX.lenL a)).car X.car (\ p -> nthP a p.1 p.2) (enum a)) a
+          (W.map-comp (LC.ord (LX.lenL a)).car (LC.ord (suc (LX.lenL a))).car X.car (shift (LX.lenL a)) (\ p -> nthP (consL x a) p.1 p.2) (enum a))
+          r) } ;
+    -- the head of a sorted list is below all its elements
+    allGt-nth (x : X.car) : (a : L) -> Id W.Bool (LX.allGt x a) true -> (k : W.N) (h : CF.Lt k (LX.lenL a)) ->
+        Id W.O3 (X.cmp x (nthP a k h)) lt = split {
+      nilL -> \ g k h -> W.ltN-zero-abs (Id W.O3 (X.cmp x (nthP nilL k h)) lt) k h ;
+      consL y a | r -> \ g -> split {
+        zero -> \ h -> W.isLt-sound (X.cmp x y) (W.andB-l (W.isLt (X.cmp x y)) (LX.allGt x a) g) ;
+        suc k -> \ h -> r (W.andB-r (W.isLt (X.cmp x y)) (LX.allGt x a) g) k h } } ;
+    gtOf (x y : X.car) (e : Id W.O3 (X.cmp x y) lt) : Id W.O3 (X.cmp y x) gt =
+      PL.trans W.O3 (X.cmp y x) (W.flip (X.cmp x y)) gt (X.cflip x y) (PL.ap W.O3 W.O3 W.flip (X.cmp x y) lt e) ;
+    nth-mono : (a : L) -> Id W.Bool (LX.sortedB a) true -> (k k' : W.N) (h : CF.Lt k (LX.lenL a)) (h' : CF.Lt k' (LX.lenL a)) ->
+        Id W.O3 (X.cmp (nthP a k h) (nthP a k' h')) (W.cmpN k k') = split {
+      nilL -> \ s k k' h h' -> W.ltN-zero-abs (Id W.O3 (X.cmp (nthP nilL k h) (nthP nilL k' h')) (W.cmpN k k')) k h ;
+      consL x a | r -> \ s -> split {
+        zero -> split {
+          zero -> \ h h' -> X.crefl x ;
+          suc k' -> \ h h' -> allGt-nth x a (W.andB-l (LX.allGt x a) (LX.sortedB a) s) k' h' } ;
+        suc k -> split {
+          zero -> \ h h' -> gtOf x (nthP a k h) (allGt-nth x a (W.andB-l (LX.allGt x a) (LX.sortedB a) s) k h) ;
+          suc k' -> \ h h' -> r (W.andB-r (LX.allGt x a) (LX.sortedB a) s) k k' h h' } } } ;
+    iM (a : L) (s : Id W.Bool (LX.sortedB a) true) : DP.Map (LC.ord (LX.lenL a)) X =
+      (\ p -> nthP a p.1 p.2,\ p q -> nth-mono a s p.1 q.1 p.2 q.2) ;
+  } ;
+
+  -- continuity: the support of (a, z) is a
+  module Ct (X : DP.LO) (d : P X) {
+    module S = Lst[X] ;
+    c : W.N = S.LX.lenL d.1 ;
+    i : DP.Map (LC.ord c) X = S.iM d.1 d.2.2.1 ;
+    module F1 = FU[LC.ord c,X,i].M ;
+    wit : SF.Im (G (LC.ord c)) (G X) (arr (LC.ord c) X i) d =
+      (F1.pre d (S.enum d.1) (S.enum-map d.1),F1.Df-onto d (S.enum d.1) (S.enum-map d.1)) ;
+  } ;
+  cont (X : DP.LO) (d : P X) :
+      Ex ((c : W.N) * ((i : DP.Map (LC.ord c) X) * SF.Im (G (LC.ord c)) (G X) (arr (LC.ord c) X i) d)) =
+    inc ((c : W.N) * ((i : DP.Map (LC.ord c) X) * SF.Im (G (LC.ord c)) (G X) (arr (LC.ord c) X i) d))
+      (Ct[X,d].c,(Ct[X,d].i,Ct[X,d].wit)) ;
+
+  -- stability: zip the two preimage lists
+  module St (A B B' : DP.LO) (f : DP.Map B A) (f' : DP.Map B' A) (y : P A)
+    (r : SF.Im (G B) (G A) (arr B A f) y) (r' : SF.Im (G B') (G A) (arr B' A f') y) {
+    module PB = LC.PB[A,B,B',f,f'] ;
+    LA : U l = W.List A.car ;
+    mf (bs : W.List B.car) : LA = W.map B.car A.car f.1 bs ;
+    mf' (bs : W.List B'.car) : LA = W.map B'.car A.car f'.1 bs ;
+    zipPB : (bs : W.List B.car) (bs' : W.List B'.car) -> Id LA (mf bs) (mf' bs') -> W.List PB.Car = split {
+      nilL -> split {
+        nilL -> \ e -> nilL ;
+        consL q bs' -> \ e -> LT.nilCons A.car (f'.1 q) (mf' bs') e (W.List PB.Car) } ;
+      consL p bs | rr -> split {
+        nilL -> \ e -> LT.consNil A.car (f.1 p) (mf bs) e (W.List PB.Car) ;
+        consL q bs' -> \ e -> consL (p,(q,PL.ap LA A.car (LT.hdL A.car (f.1 p)) (mf (consL p bs)) (mf' (consL q bs')) e))
+          (rr bs' (PL.ap LA LA (LT.tlL A.car) (mf (consL p bs)) (mf' (consL q bs')) e)) } } ;
+    zip-p1 : (bs : W.List B.car) (bs' : W.List B'.car) (e : Id LA (mf bs) (mf' bs')) ->
+        Id (W.List B.car) (W.map PB.Car B.car (\ t -> t.1) (zipPB bs bs' e)) bs = split {
+      nilL -> split {
+        nilL -> \ e -> refl nilL ;
+        consL q bs' -> \ e -> LT.nilCons A.car (f'.1 q) (mf' bs') e (Id (W.List B.car) (W.map PB.Car B.car (\ t -> t.1) (zipPB nilL (consL q bs') e)) nilL) } ;
+      consL p bs | rr -> split {
+        nilL -> \ e -> LT.consNil A.car (f.1 p) (mf bs) e
+          (Id (W.List B.car) (W.map PB.Car B.car (\ t -> t.1) (zipPB (consL p bs) nilL e)) (consL p bs)) ;
+        consL q bs' -> \ e -> PL.ap (W.List B.car) (W.List B.car) (\ t -> consL p t)
+          (W.map PB.Car B.car (\ t -> t.1) (zipPB bs bs' (PL.ap LA LA (LT.tlL A.car) (mf (consL p bs)) (mf' (consL q bs')) e))) bs
+          (rr bs' (PL.ap LA LA (LT.tlL A.car) (mf (consL p bs)) (mf' (consL q bs')) e)) } } ;
+    eB : Id LA (mf r.1.1) y.1 = PL.ap (P A) LA (\ t -> t.1) ((arr B A f).1 r.1) y r.2 ;
+    eB' : Id LA (mf' r'.1.1) y.1 = PL.ap (P A) LA (\ t -> t.1) ((arr B' A f').1 r'.1) y r'.2 ;
+    e0 : Id LA (mf r.1.1) (mf' r'.1.1) = PL.trans LA (mf r.1.1) y.1 (mf' r'.1.1) eB (PL.sym LA (mf' r'.1.1) y.1 eB') ;
+    gm : W.List PB.Car = zipPB r.1.1 r'.1.1 e0 ;
+    h : DP.Map PB.P A = LC.compMap PB.P B A PB.p1 f ;
+    eA : Id LA (W.map PB.Car A.car h.1 gm) y.1 =
+      PL.trans LA (W.map PB.Car A.car h.1 gm) (mf (W.map PB.Car B.car (\ t -> t.1) gm)) y.1
+        (PL.sym LA (mf (W.map PB.Car B.car (\ t -> t.1) gm)) (W.map PB.Car A.car h.1 gm)
+          (W.map-comp PB.Car B.car A.car (\ t -> t.1) f.1 gm))
+        (PL.trans LA (mf (W.map PB.Car B.car (\ t -> t.1) gm)) (mf r.1.1) y.1
+          (PL.ap (W.List B.car) LA mf (W.map PB.Car B.car (\ t -> t.1) gm) r.1.1 (zip-p1 r.1.1 r'.1.1 e0)) eB) ;
+    module F2 = FU[PB.P,A,h].M ;
+    result : SF.Im (G PB.P) (G A) (arr PB.P A h) y = (F2.pre y gm eA,F2.Df-onto y gm eA) ;
+  } ;
+
+  dil : SF.SF[LC.ce] = new SF.SF[LC.ce, G := G, arr := arr, arr-id := arr-id, arr-comp := arr-comp, cont := cont,
+    stab := \ A B B' f f' y r r' -> St[A,B,B',f,f',y,r,r'].result] ;
+
+  -- the two notions of dilator agree
+  isDil-to (h : W.IsDil D) : LW.IsDil dil = \ X w -> h X.car X.cmp X.ceq X.cflip X.ctrans w ;
+  isDil-from (h : LW.IsDil dil) : W.IsDil D = \ X cmpX xeq xflip xtrans w ->
+    h (new DP.LO[car := X, cmp := cmpX, ceq := xeq, crefl := \ x -> W.flip-fix (cmpX x x) (xflip x x),
+      cflip := xflip, ctrans := xtrans]) w ;
+} ;
+
+-- every polynomial pre-dilator is a dilator on all linear orders
+polD (p : W.Pol) : SF.SF[LC.ce] = DilOf[W.interp p].dil ;
+polD-dil (p : W.Pol) : LW.IsDil (polD p) = DilOf[W.interp p].isDil-to (W.polDil p) ;
+-- X |-> 2^X
+twoD : SF.SF[LC.ce] = polD (pExp pId) ;
+twoD-dil : LW.IsDil twoD = polD-dil (pExp pId) ;

@@ -1,0 +1,381 @@
+-- Labelled trees over a linear order X, and their Kleene-Brouwer orders
+-- as pre-dilators.
+--
+-- A label over X is a pair (n, m) with n : N and m : 1 + X (lexicographic).
+-- A family of trees is given by a decidable predicate ok X on REVERSED
+-- label lists (the last label first), which is
+--   * invariant under embeddings X -> Y (applied to the labels), and
+--   * closed under removing the last labels (suffix-closed when reversed).
+-- Then X |-> KB(tree_X) is a stable functor on LO (supports: the
+-- X-labels, joined by directedness; pull-backs: zip), and
+--   dil-wf / wf-dil :  it is a dilator  <=>  tree_X is well-founded
+--                      (bounded) for every well-founded X.
+-- Generic form LabTreeG: any CE C with a "points" functor Pt : C -> LO
+-- (labels are points), single-point supports, an initial finite object
+-- and pull-back pairing of points.  LabTree is the instance C = LO,
+-- Pt X = X; LabTree2.seg gives C = Stab(LO), Pt D = trace points of D.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CF = CatEmbFin[l] ;
+module SF = StabFun[l] ;
+module CE = CatEmb[l] ;
+module TC = TruncationCombinators[l] ;
+module PL = Prelude[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module PS = PtyxSum[l] ;
+
+-- the one-point order
+unitEq : (x y : W.Unit) -> Id W.Unit x y = split { tt -> split { tt -> refl tt } } ;
+one : DP.LO = new DP.LO[car := W.Unit, cmp := \ x y -> eq, ceq := \ x y h -> unitEq x y,
+  crefl := \ x -> refl eq, cflip := \ x y -> refl eq, ctrans := \ x y z h h' -> h] ;
+
+-- the lexicographic product of two linear orders
+module Lex (A B : DP.LO) {
+  Car : U l = A.car * B.car ;
+  cmp (p q : Car) : W.O3 = W.lexO3 (A.cmp p.1 q.1) (B.cmp p.2 q.2) ;
+  ceq (p q : Car) (h : Id W.O3 (cmp p q) eq) : Id Car p q =
+    W.prodEq A.car B.car p q (A.ceq p.1 q.1 (StabAmal[l].lex-eq (A.cmp p.1 q.1) (B.cmp p.2 q.2) h).1)
+      (B.ceq p.2 q.2 (StabAmal[l].lex-eq (A.cmp p.1 q.1) (B.cmp p.2 q.2) h).2) ;
+  crefl (p : Car) : Id W.O3 (cmp p p) eq =
+    W.ap2 W.O3 W.O3 W.O3 W.lexO3 (A.cmp p.1 p.1) eq (B.cmp p.2 p.2) eq (A.crefl p.1) (B.crefl p.2) ;
+  cflip (p q : Car) : Id W.O3 (cmp q p) (W.flip (cmp p q)) =
+    PL.trans W.O3 (cmp q p) (W.lexO3 (W.flip (A.cmp p.1 q.1)) (W.flip (B.cmp p.2 q.2))) (W.flip (cmp p q))
+      (W.ap2 W.O3 W.O3 W.O3 W.lexO3 (A.cmp q.1 p.1) (W.flip (A.cmp p.1 q.1)) (B.cmp q.2 p.2) (W.flip (B.cmp p.2 q.2))
+        (A.cflip p.1 q.1) (B.cflip p.2 q.2))
+      (StabAmal[l].lex-flip (A.cmp p.1 q.1) (B.cmp p.2 q.2)) ;
+  Goal (p r : Car) : U l = Id W.O3 (cmp p r) lt ;
+  ne (a b : W.O3) (h : Id W.Bool (PF.eqO a b) false) (e : Id W.O3 a b) (X : U l) : X = CF.efq X (StabAmal[l].o3-ne a b h e) ;
+  ltL (p r : Car) (h : Id W.O3 (A.cmp p.1 r.1) lt) : Goal p r =
+    PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (B.cmp p.2 r.2)) (A.cmp p.1 r.1) lt h ;
+  tr (p q r : Car) : (o1 : W.O3) -> Id W.O3 (A.cmp p.1 q.1) o1 -> (o2 : W.O3) -> Id W.O3 (A.cmp q.1 r.1) o2 ->
+      Id W.O3 (W.lexO3 o1 (B.cmp p.2 q.2)) lt -> Id W.O3 (W.lexO3 o2 (B.cmp q.2 r.2)) lt -> Goal p r = split {
+    lt -> \ e1 -> split {
+      lt -> \ e2 h1 h2 -> ltL p r (A.ctrans p.1 q.1 r.1 e1 e2) ;
+      eq -> \ e2 h1 h2 -> ltL p r (PL.subst A.car (\ x -> Id W.O3 (A.cmp p.1 x) lt) q.1 r.1 (A.ceq q.1 r.1 e2) e1) ;
+      gt -> \ e2 h1 h2 -> ne gt lt (refl false) h2 (Goal p r) } ;
+    eq -> \ e1 -> split {
+      lt -> \ e2 h1 h2 -> ltL p r (PL.subst A.car (\ x -> Id W.O3 (A.cmp x r.1) lt) q.1 p.1 (PL.sym A.car p.1 q.1 (A.ceq p.1 q.1 e1)) e2) ;
+      eq -> \ e2 h1 h2 ->
+        PL.trans W.O3 (cmp p r) (W.lexO3 eq (B.cmp p.2 r.2)) lt
+          (PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (B.cmp p.2 r.2)) (A.cmp p.1 r.1) eq
+            (PL.subst A.car (\ x -> Id W.O3 (A.cmp x r.1) eq) q.1 p.1 (PL.sym A.car p.1 q.1 (A.ceq p.1 q.1 e1)) e2))
+          (B.ctrans p.2 q.2 r.2 h1 h2) ;
+      gt -> \ e2 h1 h2 -> ne gt lt (refl false) h2 (Goal p r) } ;
+    gt -> \ e1 o2 e2 h1 h2 -> ne gt lt (refl false) h1 (Goal p r) } ;
+  ctrans (p q r : Car) (h1 : Id W.O3 (cmp p q) lt) (h2 : Id W.O3 (cmp q r) lt) : Goal p r =
+    tr p q r (A.cmp p.1 q.1) (refl (A.cmp p.1 q.1)) (A.cmp q.1 r.1) (refl (A.cmp q.1 r.1)) h1 h2 ;
+  lo : DP.LO = new DP.LO[car := Car, cmp := cmp, ceq := ceq, crefl := crefl, cflip := cflip, ctrans := ctrans] ;
+} ;
+
+-- options and labels
+Opt (A : DP.LO) : DP.LO = PS.SumLO[one, A].lo ;
+Lab (A : DP.LO) : DP.LO = Lex[LW.omega, Opt A].lo ;
+LL (A : DP.LO) : U l = W.List (Lab A).car ;
+
+omap (A B : DP.LO) (g : DP.Map A B) : W.Or W.Unit A.car -> W.Or W.Unit B.car = split {
+  inl u -> inl u ; inr x -> inr (g.1 x) } ;
+omap-cmp (A B : DP.LO) (g : DP.Map A B) : (m m' : W.Or W.Unit A.car) ->
+    Id W.O3 ((Opt B).cmp (omap A B g m) (omap A B g m')) ((Opt A).cmp m m') = split {
+  inl u -> split { inl v -> refl eq ; inr y -> refl lt } ;
+  inr x -> split { inl v -> refl gt ; inr y -> g.2 x y } } ;
+omap-id (A : DP.LO) : (m : W.Or W.Unit A.car) -> Id (W.Or W.Unit A.car) (omap A A (LC.idMap A) m) m = split {
+  inl u -> refl (inl u) ; inr x -> refl (inr x) } ;
+omap-comp (A B D : DP.LO) (f : DP.Map A B) (g : DP.Map B D) : (m : W.Or W.Unit A.car) ->
+    Id (W.Or W.Unit D.car) (omap B D g (omap A B f m)) (omap A D (LC.compMap A B D f g) m) = split {
+  inl u -> refl (inl u) ; inr x -> refl (inr (g.1 (f.1 x))) } ;
+
+lm (A B : DP.LO) (g : DP.Map A B) (p : (Lab A).car) : (Lab B).car = (p.1,omap A B g p.2) ;
+lmMap (A B : DP.LO) (g : DP.Map A B) : DP.Map (Lab A) (Lab B) =
+  (lm A B g,\ p q -> PL.ap W.O3 W.O3 (\ o -> W.lexO3 (W.cmpN p.1 q.1) o)
+    ((Opt B).cmp (omap A B g p.2) (omap A B g q.2)) ((Opt A).cmp p.2 q.2) (omap-cmp A B g p.2 q.2)) ;
+mapL (A B : DP.LO) (g : DP.Map A B) (xs : LL A) : LL B = W.map (Lab A).car (Lab B).car (lm A B g) xs ;
+mapL-comp (A B D : DP.LO) (f : DP.Map A B) (g : DP.Map B D) (xs : LL A) :
+    Id (LL D) (mapL B D g (mapL A B f xs)) (mapL A D (LC.compMap A B D f g) xs) =
+  PL.trans (LL D) (mapL B D g (mapL A B f xs)) (W.map (Lab A).car (Lab D).car (\ p -> lm B D g (lm A B f p)) xs)
+      (mapL A D (LC.compMap A B D f g) xs)
+    (W.map-comp (Lab A).car (Lab B).car (Lab D).car (lm A B f) (lm B D g) xs)
+    (KT.map-ext (Lab A).car (Lab D).car (\ p -> lm B D g (lm A B f p)) (lm A D (LC.compMap A B D f g))
+      (\ p -> PL.ap (W.Or W.Unit D.car) (Lab D).car (\ m -> (p.1,m)) (omap B D g (omap A B f p.2)) (omap A D (LC.compMap A B D f g) p.2)
+        (omap-comp A B D f g p.2)) xs) ;
+mapL-id (A : DP.LO) (xs : LL A) : Id (LL A) (mapL A A (LC.idMap A) xs) xs =
+  PL.trans (LL A) (mapL A A (LC.idMap A) xs) (W.map (Lab A).car (Lab A).car (\ p -> p) xs) xs
+    (KT.map-ext (Lab A).car (Lab A).car (lm A A (LC.idMap A)) (\ p -> p)
+      (\ p -> PL.ap (W.Or W.Unit A.car) (Lab A).car (\ m -> (p.1,m)) (omap A A (LC.idMap A) p.2) p.2 (omap-id A p.2)) xs)
+    (W.map-id (Lab A).car xs) ;
+
+-- list discrimination
+isNilL (X : U l) : W.List X -> W.Bool = split { nilL -> true ; consL x ls -> false } ;
+hdL (X : U l) (d : X) : W.List X -> X = split { nilL -> d ; consL x ls -> x } ;
+tlL (X : U l) : W.List X -> W.List X = split { nilL -> nilL ; consL x ls -> ls } ;
+nilCons (X : U l) (x : X) (ls : W.List X) (e : Id (W.List X) nilL (consL x ls)) (Y : U l) : Y =
+  W.absurdB Y (PL.sym W.Bool true false (PL.ap (W.List X) W.Bool (isNilL X) nilL (consL x ls) e)) ;
+consNil (X : U l) (x : X) (ls : W.List X) (e : Id (W.List X) (consL x ls) nilL) (Y : U l) : Y =
+  W.absurdB Y (PL.ap (W.List X) W.Bool (isNilL X) (consL x ls) nilL e) ;
+
+wfUnit : W.Acc[W.Unit, W.ltO W.Unit one.cmp].WF =
+  \ x -> W.Acc[W.Unit, W.ltO W.Unit one.cmp].acc x (\ z h -> W.absurdB (W.Acc[W.Unit, W.ltO W.Unit one.cmp].AccP z) h) ;
+monoO (A : DP.LO) : (x y : (Opt A).car) -> Id W.Bool (W.ltO (Opt A).car (Opt A).cmp x y) true ->
+    Id W.Bool (W.SumOrd[W.Unit, W.ltO W.Unit one.cmp, A.car, W.ltO A.car A.cmp].ltS x y) true = split {
+  inl u -> split { inl v -> \ h -> h ; inr z -> \ h -> h } ;
+  inr x -> split { inl v -> \ h -> h ; inr z -> \ h -> h } } ;
+
+------------------------------------------------------------------------
+memG (X : U l) (a : X) : W.List X -> U l = split { nilL -> W.Empty ; consL x xs | r -> W.Or (Id X x a) r } ;
+
+module LabTreeG (C : CE.CE) (Pt : C.Obj -> DP.LO)
+  (pm : (A B : C.Obj) -> C.Mor A B -> DP.Map (Pt A) (Pt B))
+  (pm-id : (A : C.Obj) (x : (Pt A).car) -> Id (Pt A).car ((pm A A (C.idm A)).1 x) x)
+  (pm-comp : (A B D : C.Obj) (f : C.Mor A B) (g : C.Mor B D) (x : (Pt A).car) ->
+    Id (Pt D).car ((pm B D g).1 ((pm A B f).1 x)) ((pm A D (C.comp A B D f g)).1 x))
+  (supp1 : (A : C.Obj) (x : (Pt A).car) -> Ex ((c : C.Fin) * ((i : C.Mor (C.fin c) A) * SF.Im (Pt (C.fin c)) (Pt A) (pm (C.fin c) A i) x)))
+  (init : (A : C.Obj) -> Ex ((c : C.Fin) * C.Mor (C.fin c) A))
+  (pbp : (A B B' : C.Obj) (f : C.Mor B A) (f' : C.Mor B' A) (b : (Pt B).car) (b' : (Pt B').car) ->
+    Id (Pt A).car ((pm B A f).1 b) ((pm B' A f').1 b') ->
+    SF.Im (Pt (C.pb A B B' f f')) (Pt B) (pm (C.pb A B B' f f') B (C.p1 A B B' f f')) b)
+  (ok : (A : C.Obj) -> LL (Pt A) -> W.Bool)
+  (inv : (A B : C.Obj) (g : C.Mor A B) (r : LL (Pt A)) -> Id W.Bool (ok B (mapL (Pt A) (Pt B) (pm A B g) r)) (ok A r))
+  (pcl : (A : C.Obj) (z r : LL (Pt A)) -> Id W.Bool (ok A (KT.appL (Lab (Pt A)).car z r)) true -> Id W.Bool (ok A r) true) {
+
+  LP (A : C.Obj) : U l = LL (Pt A) ;
+  mp (A B : C.Obj) (g : C.Mor A B) (xs : LP A) : LP B = mapL (Pt A) (Pt B) (pm A B g) xs ;
+  -- the tree (on lists read from the root)
+  P (A : C.Obj) (xs : LP A) : W.Bool = ok A (KT.revL (Lab (Pt A)).car xs) ;
+  G (A : C.Obj) : DP.LO = KT.KB[Lab (Pt A)].Ord[P A].o ;
+
+  okMap (A B : C.Obj) (g : C.Mor A B) (xs : LP A) : Id W.Bool (P B (mp A B g xs)) (P A xs) =
+    PL.trans W.Bool (P B (mp A B g xs)) (ok B (mp A B g (KT.revL (Lab (Pt A)).car xs))) (P A xs)
+      (PL.ap (LP B) W.Bool (ok B) (KT.revL (Lab (Pt B)).car (mp A B g xs)) (mp A B g (KT.revL (Lab (Pt A)).car xs))
+        (KT.rev-map (Lab (Pt A)).car (Lab (Pt B)).car (lm (Pt A) (Pt B) (pm A B g)) xs))
+      (inv A B g (KT.revL (Lab (Pt A)).car xs)) ;
+  gEq (A : C.Obj) (y z : (G A).car) (e : Id (LP A) y.1 z.1) : Id (G A).car y z =
+    PL.Sigma-eq (LP A) (\ xs -> Id W.Bool (P A xs) true) y.1 z.1 y.2 z.2 e (W.HB.uip (P A z.1) true) ;
+  fstEq (A : C.Obj) (y z : (G A).car) (e : Id (G A).car y z) : Id (LP A) y.1 z.1 =
+    PL.ap (G A).car (LP A) (\ t -> t.1) y z e ;
+
+  -- functoriality
+  omapId (A : C.Obj) : (m : W.Or W.Unit (Pt A).car) -> Id (W.Or W.Unit (Pt A).car) (omap (Pt A) (Pt A) (pm A A (C.idm A)) m) m = split {
+    inl u -> refl (inl u) ;
+    inr x -> PL.ap (Pt A).car (W.Or W.Unit (Pt A).car) (\ z -> inr z) ((pm A A (C.idm A)).1 x) x (pm-id A x) } ;
+  omapComp (A B D : C.Obj) (f : C.Mor A B) (g : C.Mor B D) : (m : W.Or W.Unit (Pt A).car) ->
+      Id (W.Or W.Unit (Pt D).car) (omap (Pt B) (Pt D) (pm B D g) (omap (Pt A) (Pt B) (pm A B f) m)) (omap (Pt A) (Pt D) (pm A D (C.comp A B D f g)) m) = split {
+    inl u -> refl (inl u) ;
+    inr x -> PL.ap (Pt D).car (W.Or W.Unit (Pt D).car) (\ z -> inr z) ((pm B D g).1 ((pm A B f).1 x)) ((pm A D (C.comp A B D f g)).1 x) (pm-comp A B D f g x) } ;
+  mpId (A : C.Obj) (xs : LP A) : Id (LP A) (mp A A (C.idm A) xs) xs =
+    PL.trans (LP A) (mp A A (C.idm A) xs) (W.map (Lab (Pt A)).car (Lab (Pt A)).car (\ p -> p) xs) xs
+      (KT.map-ext (Lab (Pt A)).car (Lab (Pt A)).car (lm (Pt A) (Pt A) (pm A A (C.idm A))) (\ p -> p)
+        (\ p -> PL.ap (W.Or W.Unit (Pt A).car) (Lab (Pt A)).car (\ m -> (p.1,m)) (omap (Pt A) (Pt A) (pm A A (C.idm A)) p.2) p.2 (omapId A p.2)) xs)
+      (W.map-id (Lab (Pt A)).car xs) ;
+  mpComp (A B D : C.Obj) (f : C.Mor A B) (g : C.Mor B D) (xs : LP A) :
+      Id (LP D) (mp B D g (mp A B f xs)) (mp A D (C.comp A B D f g) xs) =
+    PL.trans (LP D) (mp B D g (mp A B f xs))
+        (W.map (Lab (Pt A)).car (Lab (Pt D)).car (\ p -> lm (Pt B) (Pt D) (pm B D g) (lm (Pt A) (Pt B) (pm A B f) p)) xs)
+        (mp A D (C.comp A B D f g) xs)
+      (W.map-comp (Lab (Pt A)).car (Lab (Pt B)).car (Lab (Pt D)).car (lm (Pt A) (Pt B) (pm A B f)) (lm (Pt B) (Pt D) (pm B D g)) xs)
+      (KT.map-ext (Lab (Pt A)).car (Lab (Pt D)).car (\ p -> lm (Pt B) (Pt D) (pm B D g) (lm (Pt A) (Pt B) (pm A B f) p))
+        (lm (Pt A) (Pt D) (pm A D (C.comp A B D f g)))
+        (\ p -> PL.ap (W.Or W.Unit (Pt D).car) (Lab (Pt D)).car (\ m -> (p.1,m))
+          (omap (Pt B) (Pt D) (pm B D g) (omap (Pt A) (Pt B) (pm A B f) p.2)) (omap (Pt A) (Pt D) (pm A D (C.comp A B D f g)) p.2)
+          (omapComp A B D f g p.2)) xs) ;
+
+  arrF (A B : C.Obj) (g : C.Mor A B) (y : (G A).car) : (G B).car =
+    (mp A B g y.1,PL.trans W.Bool (P B (mp A B g y.1)) (P A y.1) true (okMap A B g y.1) y.2) ;
+  arr (A B : C.Obj) (g : C.Mor A B) : DP.Map (G A) (G B) =
+    (arrF A B g,\ y z -> KT.kbG-map (Lab (Pt A)).car (Lab (Pt B)).car (Lab (Pt A)).cmp (Lab (Pt B)).cmp
+      (lm (Pt A) (Pt B) (pm A B g)) (lmMap (Pt A) (Pt B) (pm A B g)).2 y.1 z.1) ;
+  arr-id (A : C.Obj) (y : (G A).car) : Id (G A).car (arrF A A (C.idm A) y) y =
+    gEq A (arrF A A (C.idm A) y) y (mpId A y.1) ;
+  arr-comp (A B D : C.Obj) (f : C.Mor A B) (g : C.Mor B D) (y : (G A).car) :
+      Id (G D).car (arrF B D g (arrF A B f y)) (arrF A D (C.comp A B D f g) y) =
+    gEq D (arrF B D g (arrF A B f y)) (arrF A D (C.comp A B D f g) y) (mpComp A B D f g y.1) ;
+
+  ----------------------------------------------------------------------
+  -- supports: all points of a list, joined by directedness
+  SuppT (A : C.Obj) (xs : W.List (Pt A).car) : U l =
+    (c : C.Fin) * ((i : C.Mor (C.fin c) A) * ((x : (Pt A).car) -> memG (Pt A).car x xs -> SF.Im (Pt (C.fin c)) (Pt A) (pm (C.fin c) A i) x)) ;
+  liftIm (A : C.Obj) (c d : C.Fin) (k : C.Mor (C.fin c) (C.fin d)) (j : C.Mor (C.fin d) A) (i : C.Mor (C.fin c) A)
+    (e : Id (C.Mor (C.fin c) A) (C.comp (C.fin c) (C.fin d) A k j) i) (x : (Pt A).car)
+    (im : SF.Im (Pt (C.fin c)) (Pt A) (pm (C.fin c) A i) x) : SF.Im (Pt (C.fin d)) (Pt A) (pm (C.fin d) A j) x =
+    ((pm (C.fin c) (C.fin d) k).1 im.1,
+     PL.trans (Pt A).car ((pm (C.fin d) A j).1 ((pm (C.fin c) (C.fin d) k).1 im.1)) ((pm (C.fin c) A (C.comp (C.fin c) (C.fin d) A k j)).1 im.1) x
+       (pm-comp (C.fin c) (C.fin d) A k j im.1)
+       (PL.trans (Pt A).car ((pm (C.fin c) A (C.comp (C.fin c) (C.fin d) A k j)).1 im.1) ((pm (C.fin c) A i).1 im.1) x
+         (PL.ap (C.Mor (C.fin c) A) (Pt A).car (\ M -> (pm (C.fin c) A M).1 im.1) (C.comp (C.fin c) (C.fin d) A k j) i e)
+         im.2)) ;
+  DirT (A : C.Obj) (c c' : C.Fin) (i : C.Mor (C.fin c) A) (i' : C.Mor (C.fin c') A) : U l =
+    (d : C.Fin) * ((j : C.Mor (C.fin d) A) * ((k : C.Mor (C.fin c) (C.fin d)) * ((k' : C.Mor (C.fin c') (C.fin d)) *
+      (Id (C.Mor (C.fin c) A) (C.comp (C.fin c) (C.fin d) A k j) i * Id (C.Mor (C.fin c') A) (C.comp (C.fin c') (C.fin d) A k' j) i')))) ;
+  joinS (A : C.Obj) (x : (Pt A).car) (xs : W.List (Pt A).car)
+    (s1 : (c : C.Fin) * ((i : C.Mor (C.fin c) A) * SF.Im (Pt (C.fin c)) (Pt A) (pm (C.fin c) A i) x))
+    (s2 : SuppT A xs) (t : DirT A s1.1 s2.1 s1.2.1 s2.2.1) : SuppT A (consL x xs) =
+    (t.1,(t.2.1,\ a m -> CF.or-elim (Id (Pt A).car x a) (memG (Pt A).car a xs) (SF.Im (Pt (C.fin t.1)) (Pt A) (pm (C.fin t.1) A t.2.1) a)
+      (\ e -> PL.subst (Pt A).car (\ z -> SF.Im (Pt (C.fin t.1)) (Pt A) (pm (C.fin t.1) A t.2.1) z) x a e
+        (liftIm A s1.1 t.1 t.2.2.1 t.2.1 s1.2.1 t.2.2.2.2.1 x s1.2.2))
+      (\ m' -> liftIm A s2.1 t.1 t.2.2.2.1 t.2.1 s2.2.1 t.2.2.2.2.2 a (s2.2.2 a m')) m)) ;
+  suppL (A : C.Obj) : (xs : W.List (Pt A).car) -> Ex (SuppT A xs) = split {
+    nilL -> TC.map ((c : C.Fin) * C.Mor (C.fin c) A) (SuppT A nilL)
+      (\ t -> (t.1,(t.2,\ a m -> CF.efq (SF.Im (Pt (C.fin t.1)) (Pt A) (pm (C.fin t.1) A t.2) a) m))) (init A) ;
+    consL x xs | r -> TC.bind2 ((c : C.Fin) * ((i : C.Mor (C.fin c) A) * SF.Im (Pt (C.fin c)) (Pt A) (pm (C.fin c) A i) x)) (SuppT A xs) (SuppT A (consL x xs))
+      (\ s1 s2 -> TC.map (DirT A s1.1 s2.1 s1.2.1 s2.2.1) (SuppT A (consL x xs)) (joinS A x xs s1 s2) (C.dir A s1.1 s2.1 s1.2.1 s2.2.1))
+      (supp1 A x) r } ;
+
+  optC (A : C.Obj) : W.Or W.Unit (Pt A).car -> W.List (Pt A).car -> W.List (Pt A).car = split {
+    inl u -> \ ls -> ls ; inr x -> \ ls -> consL x ls } ;
+  labsG (A : C.Obj) : LP A -> W.List (Pt A).car = split { nilL -> nilL ; consL p xs | r -> optC A p.2 r } ;
+  module Supp (A : C.Obj) (y : (G A).car) (s : SuppT A (labsG A y.1)) {
+    c : C.Fin = s.1 ;
+    i : C.Mor (C.fin c) A = s.2.1 ;
+    PI (xs : LP A) : U l = (a : (Pt A).car) -> memG (Pt A).car a (labsG A xs) -> SF.Im (Pt (C.fin c)) (Pt A) (pm (C.fin c) A i) a ;
+    relC (n : W.N) (xs : LP A) (rr : PI xs -> LP (C.fin c)) : (m : W.Or W.Unit (Pt A).car) ->
+        ((a : (Pt A).car) -> memG (Pt A).car a (optC A m (labsG A xs)) -> SF.Im (Pt (C.fin c)) (Pt A) (pm (C.fin c) A i) a) -> LP (C.fin c) = split {
+      inl u -> \ pi -> consL (n,inl u) (rr pi) ;
+      inr x -> \ pi -> consL (n,inr (pi x (inl (refl x))).1) (rr (\ a h -> pi a (inr h))) } ;
+    relab : (xs : LP A) -> PI xs -> LP (C.fin c) = split {
+      nilL -> \ pi -> nilL ;
+      consL p xs | r -> \ pi -> relC p.1 xs r p.2 pi } ;
+    relCm (n : W.N) (xs : LP A) (ih : (pi : PI xs) -> Id (LP A) (mp (C.fin c) A i (relab xs pi)) xs) :
+        (m : W.Or W.Unit (Pt A).car) (pi : (a : (Pt A).car) -> memG (Pt A).car a (optC A m (labsG A xs)) -> SF.Im (Pt (C.fin c)) (Pt A) (pm (C.fin c) A i) a) ->
+        Id (LP A) (mp (C.fin c) A i (relC n xs (relab xs) m pi)) (consL (n,m) xs) = split {
+      inl u -> \ pi -> PL.ap (LP A) (LP A) (\ t -> consL (n,inl u) t) (mp (C.fin c) A i (relab xs pi)) xs (ih pi) ;
+      inr x -> \ pi -> W.ap2 (W.Or W.Unit (Pt A).car) (LP A) (LP A) (\ a t -> consL (n,a) t)
+          (inr ((pm (C.fin c) A i).1 (pi x (inl (refl x))).1)) (inr x)
+          (mp (C.fin c) A i (relab xs (\ a h -> pi a (inr h)))) xs
+          (PL.ap (Pt A).car (W.Or W.Unit (Pt A).car) (\ z -> inr z) ((pm (C.fin c) A i).1 (pi x (inl (refl x))).1) x (pi x (inl (refl x))).2)
+          (ih (\ a h -> pi a (inr h))) } ;
+    relab-map : (xs : LP A) (pi : PI xs) -> Id (LP A) (mp (C.fin c) A i (relab xs pi)) xs = split {
+      nilL -> \ pi -> refl nilL ;
+      consL p xs | r -> \ pi -> relCm p.1 xs r p.2 pi } ;
+    sg : LP (C.fin c) = relab y.1 s.2.2 ;
+    sgEq : Id (LP A) (mp (C.fin c) A i sg) y.1 = relab-map y.1 s.2.2 ;
+    sgOk : Id W.Bool (P (C.fin c) sg) true =
+      PL.trans W.Bool (P (C.fin c) sg) (P A (mp (C.fin c) A i sg)) true
+        (PL.sym W.Bool (P A (mp (C.fin c) A i sg)) (P (C.fin c) sg) (okMap (C.fin c) A i sg))
+        (PL.trans W.Bool (P A (mp (C.fin c) A i sg)) (P A y.1) true
+          (PL.ap (LP A) W.Bool (P A) (mp (C.fin c) A i sg) y.1 sgEq) y.2) ;
+    wit : SF.Im (G (C.fin c)) (G A) (arr (C.fin c) A i) y =
+      ((sg,sgOk),gEq A (arrF (C.fin c) A i (sg,sgOk)) y sgEq) ;
+  } ;
+  cont (A : C.Obj) (y : (G A).car) :
+      Ex ((c : C.Fin) * ((i : C.Mor (C.fin c) A) * SF.Im (G (C.fin c)) (G A) (arr (C.fin c) A i) y)) =
+    TC.map (SuppT A (labsG A y.1)) ((c : C.Fin) * ((i : C.Mor (C.fin c) A) * SF.Im (G (C.fin c)) (G A) (arr (C.fin c) A i) y))
+      (\ s -> (s.1,(s.2.1,Supp[A,y,s].wit))) (suppL A (labsG A y.1)) ;
+
+  ----------------------------------------------------------------------
+  -- stability: zip the two preimages
+  module Stb (A B B' : C.Obj) (f : C.Mor B A) (f' : C.Mor B' A) (y : (G A).car)
+    (r : SF.Im (G B) (G A) (arr B A f) y) (r' : SF.Im (G B') (G A) (arr B' A f') y) {
+    Q : C.Obj = C.pb A B B' f f' ;
+    q1 : C.Mor Q B = C.p1 A B B' f f' ;
+    OA : U l = W.Or W.Unit (Pt A).car ;
+    pairO : (m : W.Or W.Unit (Pt B).car) (m' : W.Or W.Unit (Pt B').car) -> Id OA (omap (Pt B) (Pt A) (pm B A f) m) (omap (Pt B') (Pt A) (pm B' A f') m') ->
+        W.Or W.Unit (Pt Q).car = split {
+      inl u -> \ m' e -> inl tt ;
+      inr b -> split {
+        inl u -> \ e -> PS.SumLO[one,Pt A].rl (W.Or W.Unit (Pt Q).car) ((pm B A f).1 b) u e ;
+        inr b' -> \ e -> inr (pbp A B B' f f' b b' (PS.SumLO[one,Pt A].inr-inj ((pm B A f).1 b) ((pm B' A f').1 b') e)).1 } } ;
+    pairO-p1 : (m : W.Or W.Unit (Pt B).car) (m' : W.Or W.Unit (Pt B').car) (e : Id OA (omap (Pt B) (Pt A) (pm B A f) m) (omap (Pt B') (Pt A) (pm B' A f') m')) ->
+        Id (W.Or W.Unit (Pt B).car) (omap (Pt Q) (Pt B) (pm Q B q1) (pairO m m' e)) m = split {
+      inl u -> \ m' e -> PL.ap W.Unit (W.Or W.Unit (Pt B).car) (\ v -> inl v) tt u (unitEq tt u) ;
+      inr b -> split {
+        inl u -> \ e -> PS.SumLO[one,Pt A].rl (Id (W.Or W.Unit (Pt B).car) (omap (Pt Q) (Pt B) (pm Q B q1) (pairO (inr b) (inl u) e)) (inr b)) ((pm B A f).1 b) u e ;
+        inr b' -> \ e -> PL.ap (Pt B).car (W.Or W.Unit (Pt B).car) (\ z -> inr z)
+          ((pm Q B q1).1 (pbp A B B' f f' b b' (PS.SumLO[one,Pt A].inr-inj ((pm B A f).1 b) ((pm B' A f').1 b') e)).1) b
+          (pbp A B B' f f' b b' (PS.SumLO[one,Pt A].inr-inj ((pm B A f).1 b) ((pm B' A f').1 b') e)).2 } } ;
+    hdE (p : (Lab (Pt B)).car) (q : (Lab (Pt B')).car) (bs : LP B) (bs' : LP B')
+      (e : Id (LP A) (mp B A f (consL p bs)) (mp B' A f' (consL q bs'))) :
+      Id OA (omap (Pt B) (Pt A) (pm B A f) p.2) (omap (Pt B') (Pt A) (pm B' A f') q.2) =
+      PL.ap (LP A) OA (\ z -> (hdL (Lab (Pt A)).car (lm (Pt B) (Pt A) (pm B A f) p) z).2) (mp B A f (consL p bs)) (mp B' A f' (consL q bs')) e ;
+    tlE (p : (Lab (Pt B)).car) (q : (Lab (Pt B')).car) (bs : LP B) (bs' : LP B')
+      (e : Id (LP A) (mp B A f (consL p bs)) (mp B' A f' (consL q bs'))) : Id (LP A) (mp B A f bs) (mp B' A f' bs') =
+      PL.ap (LP A) (LP A) (tlL (Lab (Pt A)).car) (mp B A f (consL p bs)) (mp B' A f' (consL q bs')) e ;
+    zipPB : (bs : LP B) (bs' : LP B') -> Id (LP A) (mp B A f bs) (mp B' A f' bs') -> LP Q = split {
+      nilL -> split {
+        nilL -> \ e -> nilL ;
+        consL q bs' -> \ e -> nilCons (Lab (Pt A)).car (lm (Pt B') (Pt A) (pm B' A f') q) (mp B' A f' bs') e (LP Q) } ;
+      consL p bs | rr -> split {
+        nilL -> \ e -> consNil (Lab (Pt A)).car (lm (Pt B) (Pt A) (pm B A f) p) (mp B A f bs) e (LP Q) ;
+        consL q bs' -> \ e -> consL (p.1,pairO p.2 q.2 (hdE p q bs bs' e)) (rr bs' (tlE p q bs bs' e)) } } ;
+    zip-p1 : (bs : LP B) (bs' : LP B') (e : Id (LP A) (mp B A f bs) (mp B' A f' bs')) ->
+        Id (LP B) (mp Q B q1 (zipPB bs bs' e)) bs = split {
+      nilL -> split {
+        nilL -> \ e -> refl nilL ;
+        consL q bs' -> \ e -> nilCons (Lab (Pt A)).car (lm (Pt B') (Pt A) (pm B' A f') q) (mp B' A f' bs') e
+          (Id (LP B) (mp Q B q1 (zipPB nilL (consL q bs') e)) nilL) } ;
+      consL p bs | rr -> split {
+        nilL -> \ e -> consNil (Lab (Pt A)).car (lm (Pt B) (Pt A) (pm B A f) p) (mp B A f bs) e
+          (Id (LP B) (mp Q B q1 (zipPB (consL p bs) nilL e)) (consL p bs)) ;
+        consL q bs' -> \ e -> W.ap2 (W.Or W.Unit (Pt B).car) (LP B) (LP B) (\ a t -> consL (p.1,a) t)
+          (omap (Pt Q) (Pt B) (pm Q B q1) (pairO p.2 q.2 (hdE p q bs bs' e))) p.2
+          (mp Q B q1 (zipPB bs bs' (tlE p q bs bs' e))) bs
+          (pairO-p1 p.2 q.2 (hdE p q bs bs' e))
+          (rr bs' (tlE p q bs bs' e)) } } ;
+    eB : Id (LP A) (mp B A f r.1.1) y.1 = fstEq A (arrF B A f r.1) y r.2 ;
+    eB' : Id (LP A) (mp B' A f' r'.1.1) y.1 = fstEq A (arrF B' A f' r'.1) y r'.2 ;
+    e0 : Id (LP A) (mp B A f r.1.1) (mp B' A f' r'.1.1) =
+      PL.trans (LP A) (mp B A f r.1.1) y.1 (mp B' A f' r'.1.1) eB (PL.sym (LP A) (mp B' A f' r'.1.1) y.1 eB') ;
+    gm : LP Q = zipPB r.1.1 r'.1.1 e0 ;
+    gmB : Id (LP B) (mp Q B q1 gm) r.1.1 = zip-p1 r.1.1 r'.1.1 e0 ;
+    gmOk : Id W.Bool (P Q gm) true =
+      PL.trans W.Bool (P Q gm) (P B (mp Q B q1 gm)) true
+        (PL.sym W.Bool (P B (mp Q B q1 gm)) (P Q gm) (okMap Q B q1 gm))
+        (PL.trans W.Bool (P B (mp Q B q1 gm)) (P B r.1.1) true
+          (PL.ap (LP B) W.Bool (P B) (mp Q B q1 gm) r.1.1 gmB) r.1.2) ;
+    gmA : Id (LP A) (mp Q A (C.comp Q B A q1 f) gm) y.1 =
+      PL.trans (LP A) (mp Q A (C.comp Q B A q1 f) gm) (mp B A f (mp Q B q1 gm)) y.1
+        (PL.sym (LP A) (mp B A f (mp Q B q1 gm)) (mp Q A (C.comp Q B A q1 f) gm) (mpComp Q B A q1 f gm))
+        (PL.trans (LP A) (mp B A f (mp Q B q1 gm)) (mp B A f r.1.1) y.1
+          (PL.ap (LP B) (LP A) (mp B A f) (mp Q B q1 gm) r.1.1 gmB) eB) ;
+    result : SF.Im (G Q) (G A) (arr Q A (C.comp Q B A q1 f)) y =
+      ((gm,gmOk),gEq A (arrF Q A (C.comp Q B A q1 f) (gm,gmOk)) y gmA) ;
+  } ;
+
+  dil : SF.SF[C] = new SF.SF[C, G := G, arr := arr, arr-id := arr-id, arr-comp := arr-comp, cont := cont,
+    stab := \ A B B' f f' y r r' -> Stb[A,B,B',f,f',y,r,r'].result] ;
+
+  ----------------------------------------------------------------------
+  -- well-foundedness
+  wfOpt (A : DP.LO) (w : LW.WF A) : W.Acc[(Opt A).car, W.ltO (Opt A).car (Opt A).cmp].WF =
+    W.Pull[(Opt A).car, W.ltO (Opt A).car (Opt A).cmp,
+           (Opt A).car, W.SumOrd[W.Unit, W.ltO W.Unit one.cmp, A.car, W.ltO A.car A.cmp].ltS,
+           \ x -> x, monoO A].pullWF
+      (W.SumOrd[W.Unit, W.ltO W.Unit one.cmp, A.car, W.ltO A.car A.cmp].wfS wfUnit w) ;
+  wfLab (A : DP.LO) (w : LW.WF A) : W.Acc[(Lab A).car, W.ltO (Lab A).car (Lab A).cmp].WF =
+    W.LexOrd[W.N, W.cmpN, W.cmpN-eq, (Opt A).car, (Opt A).cmp].wfP W.wfN (wfOpt A w) ;
+  pcP (A : C.Obj) (xs ys : LP A) (h : Id W.Bool (P A (KT.appL (Lab (Pt A)).car xs ys)) true) : Id W.Bool (P A xs) true =
+    pcl A (KT.revL (Lab (Pt A)).car ys) (KT.revL (Lab (Pt A)).car xs)
+      (PL.subst (LP A) (\ t -> Id W.Bool (ok A t) true)
+        (KT.revL (Lab (Pt A)).car (KT.appL (Lab (Pt A)).car xs ys)) (KT.appL (Lab (Pt A)).car (KT.revL (Lab (Pt A)).car ys) (KT.revL (Lab (Pt A)).car xs))
+        (KT.revL-app (Lab (Pt A)).car xs ys) h) ;
+  WFT (A : C.Obj) : U l = KT.KB[Lab (Pt A)].WFT (P A) ;
+  -- for a class of objects (Q) whose point orders are well-founded
+  module WFs (Q : C.Obj -> U l+) (ptwf : (A : C.Obj) -> Q A -> LW.WF (Pt A)) {
+    dil-wf (h : (A : C.Obj) -> Q A -> WFT A) : LW.Lift C Q dil =
+      \ A q -> KT.KB[Lab (Pt A)].Ord[P A].wfO (wfLab (Pt A) (ptwf A q)) (h A q) ;
+    wf-dil (d : LW.Lift C Q dil) (A : C.Obj) (q : Q A) : WFT A =
+      KT.KB[Lab (Pt A)].Ord[P A].bndO (pcP A) (d A q) ;
+  } ;
+} ;
+
+------------------------------------------------------------------------
+-- the instance over LO: points of X are elements of X
+emptyMap (A : DP.LO) : DP.Map (LC.ord zero) A =
+  (\ p -> W.ltN-zero-abs A.car p.1 p.2,\ p q -> W.ltN-zero-abs (Id W.O3 (A.cmp (W.ltN-zero-abs A.car p.1 p.2) (W.ltN-zero-abs A.car q.1 q.2)) (W.cmpN p.1 q.1)) p.1 p.2) ;
+module LabTree (ok : (A : DP.LO) -> LL A -> W.Bool)
+  (inv : (A B : DP.LO) (g : DP.Map A B) (r : LL A) -> Id W.Bool (ok B (mapL A B g r)) (ok A r))
+  (pcl : (A : DP.LO) (z r : LL A) -> Id W.Bool (ok A (KT.appL (Lab A).car z r)) true -> Id W.Bool (ok A r) true) {
+  module LG = LabTreeG[LC.ce, \ A -> A, \ A B f -> f, \ A x -> refl x, \ A B D f g x -> refl (g.1 (f.1 x)),
+    \ A x -> inc ((c : W.N) * ((i : DP.Map (LC.ord c) A) * SF.Im (LC.ord c) A i x)) (suc zero,(LW.pick A x,((zero,refl true),refl x))),
+    \ A -> inc ((c : W.N) * DP.Map (LC.ord c) A) (zero,emptyMap A),
+    \ A B B' f f' b b' e -> ((b,(b',e)),refl b),
+    ok, inv, pcl] ;
+  P (A : DP.LO) (xs : LL A) : W.Bool = LG.P A xs ;
+  G (A : DP.LO) : DP.LO = LG.G A ;
+  dil : SF.SF[LC.ce] = LG.dil ;
+  WFT (A : DP.LO) : U l = LG.WFT A ;
+  dil-wf (h : (A : DP.LO) -> LW.WF A -> WFT A) : LW.IsDil dil = LG.WFs[\ A -> LW.WF A, \ A w -> w].dil-wf h ;
+  wf-dil (d : LW.IsDil dil) (A : DP.LO) (w : LW.WF A) : WFT A = LG.WFs[\ A -> LW.WF A, \ A w -> w].wf-dil d A w ;
+} ;

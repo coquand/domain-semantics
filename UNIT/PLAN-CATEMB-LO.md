@@ -645,3 +645,77 @@ ptyx.  All.seg in check.py exit 0.
 NEXT: completeness reductions: tree T |-> pre-dilator D_T with
 (T well-founded <-> D_T dilator) [Girard, Pi^1_2]; then the type-2 analogue.
 
+### Pi^1_2 reduction DONE (2026-11-19): KBTree, LabTree, Girard
+KBTree.seg: KB order on label lists (extension smaller) as a DP.LO
+(KB[L].lo); Brouwer bounds Bnd b P (BT branching over L), WFT P;
+wfKB: L WF + Bnd b P => every P-node KB-accessible; Bd.bndKB: P
+prefix-closed + KB-accessible => WFT P; Ord[P].o = KB(P) as LO, wfO/bndO.
+Generic appL/revL/map lemmas.
+LabTree.seg: labels (n, m : 1+X) lex (Lex, Opt, Lab); LabTree[ok,inv,pcl]
+for ok on REVERSED lists, invariant under embeddings, suffix-closed:
+dil : SF.SF[LC.ce] (cont: sorted dedup labels via SL merge + rank, relab;
+stab: zip of the two preimages into the pull-back); dil-wf / wf-dil:
+dil is a dilator <=> WFT (tree over X) for every WF X.  Both constructive.
+Girard.seg: Girard[T,dec] for T on (N*N)* and an enumeration dec:
+S_X = finite attempts (s, partial rank of U_s into X); D = LTG.dil.
+dil-wf/wf-dil; rank-not-dil: a rank of some U_f into a WF X refutes
+IsDil D (the rank gives an infinite KB descent).  Ex0: T = {()} gives
+a provably non-dilator.  NOT formalised (classical, bar induction):
+forall f U_f ill-founded => D dilator; with it, Girard: Pi^1_2-complete.
+All.seg 24,845 decls, check.py exit 0 (18.7 s).
+NEXT: type-2 analogue (Pi^1_3, ptykes of type 2) -- needs a design for
+trees whose attempts carry points of a dilator argument.
+
+### Type-2 (Pi^1_3) reduction DONE (2026-11-19): LabTree (generic), LabTree2, Girard2
+LabTree.seg refactored: LabTreeG[C,Pt,pm,pm-id,pm-comp,supp1,init,pbp,ok,inv,pcl]
+for any CE C with a points functor Pt : C -> LO; supports of label lists
+from single points + init + C.dir (no more sorted lists); WFs[Q,ptwf]:
+dil-wf / wf-dil relative to a class Q with WF point orders.  LabTree
+(type 1, Pt X = X) is an instance; Girard.seg unchanged.
+LabTree2.seg: C2 = Stab(LO); trace points Pt2 D = (c, y in D[c]) ordered
+via (image in D(omega), c) (Ind: order induced by an injection); pm2 by
+the finite components (invariance: Ext nat-all/fin-eq/incr at omega);
+supp1 = covering theorem (StabCover) + fin-eq; init = empty code K0
+(all fields by absurdity); pbp = J on the level path (Sigma-snd) + fin-eq;
+Pts.wf: D dilator => Pt2 D WF.  LabTree2[ok,inv,pcl].pty : SF[C2],
+ptyx-wf / wf-ptyx.
+Girard2.seg: Girard2[T3,dec,e]: attempts (u, partial natural embedding of
+the finite part of D_u = Girard[T_u] into D): label j present iff the
+candidate e j = (c_j, n_j) is a node of D_u (|n_j| <= j+1), at level c_j,
+and for every listed joint type (F.jt) the D-comparison equals the
+D_u-comparison (castL moves n_j to the label's level).  inv2 via Nat +
+Map of S; Agree: Girard ok depends on T only via short words.  Theorems:
+ptyx-wf/wf-ptyx; dil-not-ptyx: D_f dilator => Fp not a ptyx (identity
+branch).  NOT formalised (classical): forall f, D_f not a dilator =>
+Fp ptyx (needs: jt complete, natural embeddings from finite stages,
+e onto, bar induction).
+All.seg 25,079 decls, check.py exit 0 (16.4 s).
+NEXT (ideas): type 3 by instantiating LabTreeG over Stab(Stab(LO)) (points
+= trace points at codes); or a concrete enumeration e and a worked
+example; write-up.
+
+### Bridge CatDil -> Stab(LO) DONE (2026-11-19): DilLO.seg
+DilOf[D].dil : SF.SF[LC.ce] for every finite-valued D : CatDil.Dil:
+G X = PtyxDen.Den[X].F D, arr = Dilator.Fun.Df (Df-order), arr-id/comp by
+Den.deq (map-id/map-comp); cont: Lst (sorted list = strictly increasing
+map [len a] -> X: nthP, enum, enum-map, nth-mono) + Fun.pre/Df-onto;
+stab: zip the preimage lists into LC.PB + pre/Df-onto.  isDil-to /
+isDil-from: Dilator.IsDil D <=> LOWF.IsDil (DilOf D).dil (same statement).
+polD p, polD-dil: all polynomial pre-dilators (Id,1,+,.,2^D) are dilators
+on all LO; twoD = X |-> 2^X, twoD-dil (Girard's WOP(2^X), cf. Rathjen-
+Thomson in schutte.pdf, Thm 12.1).
+NOT done: the analogous bridge for infinite-valued PDil (omega+X,...):
+it needs transports along lenL (PDen's z : F (lenL a)); no WFPresP is
+proved for an infinite PDil yet, so it would add pre-dilators only.
+All.seg 25,149 decls, check.py exit 0 (16.5 s).
+LOEx.seg (2026-11-19): two-omega (2^omega WF = evOmega-ptyx at twoD),
+ev2 = evaluation at 2^omega is a type-2 ptyx (uses twoD-dil), two-two-omega,
+towers 2^...^X (towerD-dil), X+1, X.X.  All.seg 25,167, check.py exit 0.
+NEXT candidate: a POSITIVE instance of Girard.seg (T = true, dec j = 0^j:
+S_X = strictly decreasing sequences, so D_T is provably a dilator via
+dil-wf; needs: ok(rev xs) => decreasing, and Brouwer bounds by Acc on X).
+GirardPos.seg DONE (2026-11-19): positive instance of Girard: T = true,
+dec j = 0^j; okR (reversed nodes: labels present, strictly increasing),
+gen/PtoQ (root-first: strictly decreasing), Brouwer bounds by Acc on X
+(Step, bndDec, bndQ), KBTree.bnd-mono; posD-dil : LOWF.IsDil posD via
+Girard dil-wf -- the first use of dil-wf.  All.seg, check.py exit 0.

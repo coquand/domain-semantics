@@ -1,0 +1,33 @@
+-- Examples of dilators and ptykes over all linear orders, using the
+-- polynomial dilators of DilLO (e.g. X |-> 2^X).
+--   * two-omega: 2^omega is well-founded -- the dilator 2^X fed to the
+--     type-2 ptyx "evaluation at omega";
+--   * ev2: evaluation at 2^omega is a type-2 ptyx (its proof uses that
+--     2^X is a dilator);
+--   * towers 2^2^...^X (tower n) are dilators.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module SF = StabFun[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module DL = DilLO[l] ;
+
+-- 2^omega is well-founded
+twoOmega : DP.LO = DL.twoD.G LW.omega ;
+two-omega : LW.WF twoOmega = LW.evOmega-ptyx DL.twoD DL.twoD-dil ;
+
+-- evaluation at 2^omega: a type-2 ptyx
+ev2 : SF.SF[LW.C2] = LW.Ev[twoOmega].ev ;
+ev2-ptyx : LW.IsPtyx ev2 = LW.Ev[twoOmega].ptyx two-omega ;
+-- e.g. it sends 2^X to 2^(2^omega), which is therefore well-founded
+two-two-omega : LW.WF (DL.twoD.G twoOmega) = ev2-ptyx DL.twoD DL.twoD-dil ;
+
+-- towers of exponentials
+tower : W.N -> W.Pol = split { zero -> pId ; suc n | r -> pExp r } ;
+towerD (n : W.N) : SF.SF[LC.ce] = DL.polD (tower n) ;
+towerD-dil (n : W.N) : LW.IsDil (towerD n) = DL.polD-dil (tower n) ;
+-- X + 1 and X . X
+succD-dil : LW.IsDil (DL.polD (pSum pId pOne)) = DL.polD-dil (pSum pId pOne) ;
+sqD-dil : LW.IsDil (DL.polD (pProd pId pId)) = DL.polD-dil (pProd pId pId) ;

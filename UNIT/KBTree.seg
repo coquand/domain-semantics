@@ -1,0 +1,270 @@
+-- The Kleene-Brouwer order on finite sequences of labels.
+--
+-- Labels come from a decidable linear order L; nodes are lists read from
+-- the root (consL = first label).  KB order: a proper extension is
+-- SMALLER, and at the first difference the labels decide.  It is a
+-- decidable linear order on all lists.
+--
+-- A tree is a predicate P on lists (Bool); it is well-founded when it has
+-- a bound b : BT, a Brouwer tree branching over L (Bnd b P).  Then:
+--   * wfKB : L well-founded, Bnd b P  =>  every node of P is accessible
+--     in the KB order restricted to P;
+--   * bndKB : P prefix-closed, every node of P KB-accessible  =>  some
+--     Bnd b P.
+-- Both directions are constructive.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module SAm = StabAmal[l] ;
+
+-- generic list operations
+appL (A : U l) : W.List A -> W.List A -> W.List A = split { nilL -> \ ys -> ys ; consL x xs | r -> \ ys -> consL x (r ys) } ;
+revL (A : U l) : W.List A -> W.List A = split { nilL -> nilL ; consL x xs | r -> appL A r (consL x nilL) } ;
+appL-nil (A : U l) : (xs : W.List A) -> Id (W.List A) (appL A xs nilL) xs = split {
+  nilL -> refl nilL ;
+  consL x xs | r -> PL.ap (W.List A) (W.List A) (\ t -> consL x t) (appL A xs nilL) xs r } ;
+appL-assoc (A : U l) : (xs ys zs : W.List A) -> Id (W.List A) (appL A (appL A xs ys) zs) (appL A xs (appL A ys zs)) = split {
+  nilL -> \ ys zs -> refl (appL A ys zs) ;
+  consL x xs | r -> \ ys zs -> PL.ap (W.List A) (W.List A) (\ t -> consL x t) (appL A (appL A xs ys) zs) (appL A xs (appL A ys zs)) (r ys zs) } ;
+revL-app (A : U l) : (xs ys : W.List A) -> Id (W.List A) (revL A (appL A xs ys)) (appL A (revL A ys) (revL A xs)) = split {
+  nilL -> \ ys -> PL.sym (W.List A) (appL A (revL A ys) nilL) (revL A ys) (appL-nil A (revL A ys)) ;
+  consL x xs | r -> \ ys -> PL.trans (W.List A) (appL A (revL A (appL A xs ys)) (consL x nilL))
+      (appL A (appL A (revL A ys) (revL A xs)) (consL x nilL)) (appL A (revL A ys) (appL A (revL A xs) (consL x nilL)))
+    (PL.ap (W.List A) (W.List A) (\ t -> appL A t (consL x nilL)) (revL A (appL A xs ys)) (appL A (revL A ys) (revL A xs)) (r ys))
+    (appL-assoc A (revL A ys) (revL A xs) (consL x nilL)) } ;
+map-app (A B : U l) (h : A -> B) : (xs ys : W.List A) -> Id (W.List B) (W.map A B h (appL A xs ys)) (appL B (W.map A B h xs) (W.map A B h ys)) = split {
+  nilL -> \ ys -> refl (W.map A B h ys) ;
+  consL x xs | r -> \ ys -> PL.ap (W.List B) (W.List B) (\ t -> consL (h x) t) (W.map A B h (appL A xs ys)) (appL B (W.map A B h xs) (W.map A B h ys)) (r ys) } ;
+rev-map (A B : U l) (h : A -> B) : (xs : W.List A) -> Id (W.List B) (revL B (W.map A B h xs)) (W.map A B h (revL A xs)) = split {
+  nilL -> refl nilL ;
+  consL x xs | r -> PL.trans (W.List B) (appL B (revL B (W.map A B h xs)) (consL (h x) nilL)) (appL B (W.map A B h (revL A xs)) (consL (h x) nilL))
+      (W.map A B h (appL A (revL A xs) (consL x nilL)))
+    (PL.ap (W.List B) (W.List B) (\ t -> appL B t (consL (h x) nilL)) (revL B (W.map A B h xs)) (W.map A B h (revL A xs)) r)
+    (PL.sym (W.List B) (W.map A B h (appL A (revL A xs) (consL x nilL))) (appL B (W.map A B h (revL A xs)) (consL (h x) nilL))
+      (map-app A B h (revL A xs) (consL x nilL))) } ;
+map-ext (A B : U l) (h k : A -> B) (e : (x : A) -> Id B (h x) (k x)) : (xs : W.List A) -> Id (W.List B) (W.map A B h xs) (W.map A B k xs) = split {
+  nilL -> refl nilL ;
+  consL x xs | r -> W.ap2 B (W.List B) (W.List B) (\ a t -> consL a t) (h x) (k x) (W.map A B h xs) (W.map A B k xs) (e x) r } ;
+
+kbNil (A : U l) : W.List A -> W.O3 = split { nilL -> eq ; consL y ys -> gt } ;
+-- the order with a given comparison of labels
+kbG (A : U l) (cmp : A -> A -> W.O3) : W.List A -> W.List A -> W.O3 = split {
+  nilL -> kbNil A ;
+  consL x xs | r -> split { nilL -> lt ; consL y ys -> W.lexO3 (cmp x y) (r ys) } } ;
+
+-- the KB comparison is invariant under maps preserving the comparison
+kbG-map (A B : U l) (cA : A -> A -> W.O3) (cB : B -> B -> W.O3) (g : A -> B)
+  (H : (x y : A) -> Id W.O3 (cB (g x) (g y)) (cA x y))
+  : (xs ys : W.List A) -> Id W.O3 (kbG B cB (W.map A B g xs) (W.map A B g ys)) (kbG A cA xs ys) = split {
+  nilL -> split { nilL -> refl eq ; consL y ys -> refl gt } ;
+  consL x xs | r -> split {
+    nilL -> refl lt ;
+    consL y ys -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (cB (g x) (g y)) (cA x y)
+      (kbG B cB (W.map A B g xs) (W.map A B g ys)) (kbG A cA xs ys) (H x y) (r ys) } } ;
+
+notTrue0 : (c : W.Bool) -> (Id W.Bool c true -> Id W.Bool false true) -> Id W.Bool c false = split {
+  false -> \ k -> refl false ;
+  true -> \ k -> W.absurdB (Id W.Bool true false) (k (refl true)) } ;
+
+module KB (L : DP.LO) {
+  Ls : U l = W.List L.car ;
+  kb (xs ys : Ls) : W.O3 = kbG L.car L.cmp xs ys ;
+  LtL (a b : L.car) : U l = Id W.O3 (L.cmp a b) lt ;
+
+  ne (a b : W.O3) (h : Id W.Bool (PF.eqO a b) false) (e : Id W.O3 a b) (A : U l) : A = CF.efq A (SAm.o3-ne a b h e) ;
+  consEq (x y : L.car) (xs ys : Ls) (e : Id L.car x y) (e' : Id Ls xs ys) : Id Ls (consL x xs) (consL y ys) =
+    W.ap2 L.car Ls Ls (\ a t -> consL a t) x y xs ys e e' ;
+
+  ceq : (xs ys : Ls) -> Id W.O3 (kb xs ys) eq -> Id Ls xs ys = split {
+    nilL -> split { nilL -> \ h -> refl nilL ; consL y ys -> \ h -> ne gt eq (refl false) h (Id Ls nilL (consL y ys)) } ;
+    consL x xs | r -> split {
+      nilL -> \ h -> ne lt eq (refl false) h (Id Ls (consL x xs) nilL) ;
+      consL y ys -> \ h -> consEq x y xs ys (L.ceq x y (SAm.lex-eq (L.cmp x y) (kb xs ys) h).1)
+                             (r ys (SAm.lex-eq (L.cmp x y) (kb xs ys) h).2) } } ;
+  crefl : (xs : Ls) -> Id W.O3 (kb xs xs) eq = split {
+    nilL -> refl eq ;
+    consL x xs | r -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (L.cmp x x) eq (kb xs xs) eq (L.crefl x) r } ;
+  cflip : (xs ys : Ls) -> Id W.O3 (kb ys xs) (W.flip (kb xs ys)) = split {
+    nilL -> split { nilL -> refl eq ; consL y ys -> refl lt } ;
+    consL x xs | r -> split {
+      nilL -> refl gt ;
+      consL y ys -> PL.trans W.O3 (kb (consL y ys) (consL x xs)) (W.lexO3 (W.flip (L.cmp x y)) (W.flip (kb xs ys)))
+          (W.flip (kb (consL x xs) (consL y ys)))
+        (W.ap2 W.O3 W.O3 W.O3 W.lexO3 (L.cmp y x) (W.flip (L.cmp x y)) (kb ys xs) (W.flip (kb xs ys)) (L.cflip x y) (r ys))
+        (SAm.lex-flip (L.cmp x y) (kb xs ys)) } } ;
+
+  -- transitivity at two conses, by cases on the label comparisons
+  Gl (x z : L.car) (xs zs : Ls) : U l = Id W.O3 (W.lexO3 (L.cmp x z) (kb xs zs)) lt ;
+  ltH (x z : L.car) (xs zs : Ls) (h : LtL x z) : Gl x z xs zs =
+    PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (kb xs zs)) (L.cmp x z) lt h ;
+  tr (x y z : L.car) (xs ys zs : Ls) (ih : Id W.O3 (kb xs ys) lt -> Id W.O3 (kb ys zs) lt -> Id W.O3 (kb xs zs) lt)
+    : (o1 : W.O3) -> Id W.O3 (L.cmp x y) o1 -> (o2 : W.O3) -> Id W.O3 (L.cmp y z) o2 ->
+      Id W.O3 (W.lexO3 o1 (kb xs ys)) lt -> Id W.O3 (W.lexO3 o2 (kb ys zs)) lt -> Gl x z xs zs = split {
+    lt -> \ e1 -> split {
+      lt -> \ e2 h1 h2 -> ltH x z xs zs (L.ctrans x y z e1 e2) ;
+      eq -> \ e2 h1 h2 -> ltH x z xs zs (PL.subst L.car (\ t -> LtL x t) y z (L.ceq y z e2) e1) ;
+      gt -> \ e2 h1 h2 -> ne gt lt (refl false) h2 (Gl x z xs zs) } ;
+    eq -> \ e1 -> split {
+      lt -> \ e2 h1 h2 -> ltH x z xs zs (PL.subst L.car (\ t -> LtL t z) y x (PL.sym L.car x y (L.ceq x y e1)) e2) ;
+      eq -> \ e2 h1 h2 ->
+        PL.trans W.O3 (W.lexO3 (L.cmp x z) (kb xs zs)) (W.lexO3 eq (kb xs zs)) lt
+          (PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (kb xs zs)) (L.cmp x z) eq
+            (PL.subst L.car (\ t -> Id W.O3 (L.cmp t z) eq) y x (PL.sym L.car x y (L.ceq x y e1)) e2))
+          (ih h1 h2) ;
+      gt -> \ e2 h1 h2 -> ne gt lt (refl false) h2 (Gl x z xs zs) } ;
+    gt -> \ e1 o2 e2 h1 h2 -> ne gt lt (refl false) h1 (Gl x z xs zs) } ;
+  nilLt : (zs : Ls) -> Id W.O3 (kb nilL zs) lt -> (A : U l) -> A = split {
+    nilL -> \ h A -> ne eq lt (refl false) h A ;
+    consL z zs -> \ h A -> ne gt lt (refl false) h A } ;
+  ctrans : (xs ys zs : Ls) -> Id W.O3 (kb xs ys) lt -> Id W.O3 (kb ys zs) lt -> Id W.O3 (kb xs zs) lt = split {
+    nilL -> split {
+      nilL -> \ zs h1 h2 -> ne eq lt (refl false) h1 (Id W.O3 (kb nilL zs) lt) ;
+      consL y ys -> \ zs h1 h2 -> ne gt lt (refl false) h1 (Id W.O3 (kb nilL zs) lt) } ;
+    consL x xs | r -> split {
+      nilL -> \ zs h1 h2 -> nilLt zs h2 (Id W.O3 (kb (consL x xs) zs) lt) ;
+      consL y ys -> split {
+        nilL -> \ h1 h2 -> refl lt ;
+        consL z zs -> \ h1 h2 -> tr x y z xs ys zs (r ys zs) (L.cmp x y) (refl (L.cmp x y)) (L.cmp y z) (refl (L.cmp y z)) h1 h2 } } } ;
+
+  lo : DP.LO = new DP.LO[car := Ls, cmp := kb, ceq := ceq, crefl := crefl, cflip := cflip, ctrans := ctrans] ;
+
+  ------------------------------------------------------------------
+  -- trees and their well-foundedness
+
+  app (xs ys : Ls) : Ls = appL L.car xs ys ;
+  -- a proper extension is smaller
+  kb-ext : (xs : Ls) (a : L.car) (ys : Ls) -> Id W.O3 (kb (app xs (consL a ys)) xs) lt = split {
+    nilL -> \ a ys -> refl lt ;
+    consL x xs | r -> \ a ys -> PL.trans W.O3 (W.lexO3 (L.cmp x x) (kb (app xs (consL a ys)) xs)) (W.lexO3 eq lt) lt
+      (W.ap2 W.O3 W.O3 W.O3 W.lexO3 (L.cmp x x) eq (kb (app xs (consL a ys)) xs) lt (L.crefl x) (r a ys)) (refl lt) } ;
+  app-assoc (xs ys zs : Ls) : Id Ls (app (app xs ys) zs) (app xs (app ys zs)) = appL-assoc L.car xs ys zs ;
+
+  Tr : U l = Ls -> W.Bool ;
+  sub (P : Tr) (a : L.car) : Tr = \ xs -> P (consL a xs) ;
+  -- Brouwer trees branching over the labels
+  data BT : U l = leaf | node (f : L.car -> BT) ;
+  Bnd : BT -> Tr -> U l = split {
+    leaf -> \ P -> (xs : Ls) -> Id W.Bool (P xs) false ;
+    node f | r -> \ P -> (a : L.car) -> r a (sub P a) } ;
+  bnd-ext : (b : BT) (P Q : Tr) -> ((xs : Ls) -> Id W.Bool (P xs) (Q xs)) -> Bnd b P -> Bnd b Q = split {
+    leaf -> \ P Q e h xs -> PL.trans W.Bool (Q xs) (P xs) false (PL.sym W.Bool (P xs) (Q xs) (e xs)) (h xs) ;
+    node f | r -> \ P Q e h a -> r a (sub P a) (sub Q a) (\ xs -> e (consL a xs)) (h a) } ;
+  -- a smaller tree has the same bounds
+  bnd-mono : (b : BT) (P Q : Tr) -> ((xs : Ls) -> Id W.Bool (P xs) true -> Id W.Bool (Q xs) true) -> Bnd b Q -> Bnd b P = split {
+    leaf -> \ P Q m h xs -> notTrue0 (P xs) (\ h' -> PL.trans W.Bool false (Q xs) true (PL.sym W.Bool (Q xs) false (h xs)) (m xs h')) ;
+    node f | r -> \ P Q m h a -> r a (sub P a) (sub Q a) (\ xs -> m (consL a xs)) (h a) } ;
+  WFT (P : Tr) : U l = (b : BT) * Bnd b P ;
+
+  -- the KB order restricted to the nodes of P
+  ltP (P : Tr) (xs ys : Ls) : W.Bool = W.andB (P xs) (W.isLt (kb xs ys)) ;
+
+  module AL = W.Acc[L.car, W.ltO L.car L.cmp] ;
+
+  -- (1) a bounded tree over a well-founded L is KB-well-founded
+  module Wf (wl : AL.WF) (P : Tr) (f : L.car -> BT)
+    (ih : (a : L.car) (Q : Tr) -> Bnd (f a) Q -> (xs : Ls) -> Id W.Bool (Q xs) true -> W.Acc[Ls, ltP Q].AccP xs)
+    (hb : (a : L.car) -> Bnd (f a) (sub P a)) {
+    module AK = W.Acc[Ls, ltP P] ;
+    PH (a : L.car) : U l = (xs : Ls) -> Id W.Bool (P (consL a xs)) true -> AK.AccP (consL a xs) ;
+    -- the predecessors b :: ys of a :: xs
+    predC (a : L.car) (oh : (b : L.car) -> AL.Lt b a -> PH b) (xs : Ls)
+      (ih2 : (ys : Ls) -> W.Acc[Ls, ltP (sub P a)].Lt ys xs -> Id W.Bool (P (consL a ys)) true -> AK.AccP (consL a ys))
+      (b : L.car) (ys : Ls) (h : AK.Lt (consL b ys) (consL a xs))
+      : (c : W.O3) -> Id W.O3 (L.cmp b a) c -> AK.AccP (consL b ys) = split {
+      lt -> \ e -> oh b (PL.ap W.O3 W.Bool W.isLt (L.cmp b a) lt e) ys (W.andB-l (P (consL b ys)) (W.isLt (kb (consL b ys) (consL a xs))) h) ;
+      eq -> \ e -> PL.subst L.car (\ t -> AK.AccP (consL t ys)) a b (PL.sym L.car b a (L.ceq b a e))
+          (ih2 ys
+            (W.andB-intro (P (consL a ys)) (W.isLt (kb ys xs))
+              (PL.subst L.car (\ t -> Id W.Bool (P (consL t ys)) true) b a (L.ceq b a e)
+                (W.andB-l (P (consL b ys)) (W.isLt (kb (consL b ys) (consL a xs))) h))
+              (PL.subst W.O3 (\ c1 -> Id W.Bool (W.isLt (W.lexO3 c1 (kb ys xs))) true) (L.cmp b a) eq e
+                (W.andB-r (P (consL b ys)) (W.isLt (kb (consL b ys) (consL a xs))) h)))
+            (PL.subst L.car (\ t -> Id W.Bool (P (consL t ys)) true) b a (L.ceq b a e)
+              (W.andB-l (P (consL b ys)) (W.isLt (kb (consL b ys) (consL a xs))) h))) ;
+      gt -> \ e -> W.absurdB (AK.AccP (consL b ys))
+          (PL.subst W.O3 (\ c1 -> Id W.Bool (W.isLt (W.lexO3 c1 (kb ys xs))) true) (L.cmp b a) gt e
+            (W.andB-r (P (consL b ys)) (W.isLt (kb (consL b ys) (consL a xs))) h)) } ;
+    predK (a : L.car) (oh : (b : L.car) -> AL.Lt b a -> PH b) (xs : Ls)
+      (ih2 : (ys : Ls) -> W.Acc[Ls, ltP (sub P a)].Lt ys xs -> Id W.Bool (P (consL a ys)) true -> AK.AccP (consL a ys))
+      : (zs : Ls) -> AK.Lt zs (consL a xs) -> AK.AccP zs = split {
+      nilL -> \ h -> W.absurdB (AK.AccP nilL) (W.andB-r (P nilL) false h) ;
+      consL b ys -> \ h -> predC a oh xs ih2 b ys h (L.cmp b a) (refl (L.cmp b a)) } ;
+    accHead (a : L.car) (aa : AL.AccP a) : PH a =
+      AL.ind PH
+        (\ a1 oh xs hx -> W.Acc[Ls, ltP (sub P a1)].ind
+            (\ xs1 -> Id W.Bool (P (consL a1 xs1)) true -> AK.AccP (consL a1 xs1))
+            (\ xs1 ih2 hx1 -> AK.acc (consL a1 xs1) (predK a1 oh xs1 ih2))
+            xs (ih a1 (sub P a1) (hb a1) xs hx) hx)
+        a aa ;
+    -- every node of P below the root
+    ysAcc : (ys : Ls) -> AK.Lt ys nilL -> AK.AccP ys = split {
+      nilL -> \ k -> W.absurdB (AK.AccP nilL) (W.andB-r (P nilL) false k) ;
+      consL a xs -> \ k -> accHead a (wl a) xs (W.andB-l (P (consL a xs)) true k) } ;
+    accCons : (zs : Ls) -> Id W.Bool (P zs) true -> AK.AccP zs = split {
+      nilL -> \ h1 -> AK.acc nilL ysAcc ;
+      consL a xs -> \ h1 -> accHead a (wl a) xs h1 } ;
+  } ;
+  wfKB (wl : AL.WF) : (b : BT) (P : Tr) -> Bnd b P -> (xs : Ls) -> Id W.Bool (P xs) true -> W.Acc[Ls, ltP P].AccP xs = split {
+    leaf -> \ P hb xs h -> W.absurdB (W.Acc[Ls, ltP P].AccP xs) (PL.trans W.Bool false (P xs) true (PL.sym W.Bool (P xs) false (hb xs)) h) ;
+    node f | r -> \ P hb xs h -> Wf[wl,P,f,r,hb].accCons xs h } ;
+
+  -- (2) a prefix-closed tree whose nodes are KB-accessible is bounded
+  notTrue : (c : W.Bool) -> (Id W.Bool c true -> Id W.Bool false true) -> Id W.Bool c false = split {
+    false -> \ k -> refl false ;
+    true -> \ k -> W.absurdB (Id W.Bool true false) (k (refl true)) } ;
+  one (a : L.car) : Ls = consL a nilL ;
+  module Bd (P : Tr) (pc : (xs ys : Ls) -> Id W.Bool (P (app xs ys)) true -> Id W.Bool (P xs) true) {
+    module AK = W.Acc[Ls, ltP P] ;
+    From (xs : Ls) : Tr = \ ys -> P (app xs ys) ;
+    M (xs : Ls) : U l = WFT (From xs) ;
+    -- outside P nothing is left
+    out (xs : Ls) (h : Id W.Bool (P xs) false) : M xs =
+      (leaf,\ ys -> notTrue (P (app xs ys)) (\ h' -> PL.trans W.Bool false (P xs) true (PL.sym W.Bool (P xs) false h) (pc xs ys h'))) ;
+    module St (xs : Ls) (ih : (ys : Ls) -> AK.Lt ys xs -> M ys) {
+      ch (a : L.car) : (c : W.Bool) -> Id W.Bool c (P (app xs (one a))) -> M (app xs (one a)) = split {
+        true -> \ e -> ih (app xs (one a))
+          (W.andB-intro (P (app xs (one a))) (W.isLt (kb (app xs (one a)) xs)) (PL.sym W.Bool true (P (app xs (one a))) e)
+            (PL.ap W.O3 W.Bool W.isLt (kb (app xs (one a)) xs) lt (kb-ext xs a nilL))) ;
+        false -> \ e -> out (app xs (one a)) (PL.sym W.Bool false (P (app xs (one a))) e) } ;
+      child (a : L.car) : M (app xs (one a)) = ch a (P (app xs (one a))) (refl (P (app xs (one a)))) ;
+      result : M xs =
+        (node (\ a -> (child a).1),
+         \ a -> bnd-ext (child a).1 (From (app xs (one a))) (sub (From xs) a)
+           (\ ys -> PL.ap Ls W.Bool P (app (app xs (one a)) ys) (app xs (consL a ys)) (app-assoc xs (one a) ys))
+           (child a).2) ;
+    } ;
+    accM (xs : Ls) (ax : AK.AccP xs) : M xs = AK.ind M (\ xs1 ih -> St[xs1,ih].result) xs ax ;
+    root (wk : (xs : Ls) -> Id W.Bool (P xs) true -> AK.AccP xs) : (c : W.Bool) -> Id W.Bool c (P nilL) -> WFT P = split {
+      true -> \ e -> accM nilL (wk nilL (PL.sym W.Bool true (P nilL) e)) ;
+      false -> \ e -> out nilL (PL.sym W.Bool false (P nilL) e) } ;
+    bndKB (wk : (xs : Ls) -> Id W.Bool (P xs) true -> AK.AccP xs) : WFT P = root wk (P nilL) (refl (P nilL)) ;
+  } ;
+
+  ------------------------------------------------------------------
+  -- the KB order of a tree as a linear order, and the equivalence
+  module Ord (P : Tr) {
+    Car : U l = (xs : Ls) * Id W.Bool (P xs) true ;
+    ceqC (p q : Car) (h : Id W.O3 (kb p.1 q.1) eq) : Id Car p q =
+      PL.Sigma-eq Ls (\ xs -> Id W.Bool (P xs) true) p.1 q.1 p.2 q.2 (ceq p.1 q.1 h) (W.HB.uip (P q.1) true) ;
+    o : DP.LO = new DP.LO[car := Car, cmp := \ p q -> kb p.1 q.1, ceq := ceqC,
+      crefl := \ p -> crefl p.1, cflip := \ p q -> cflip p.1 q.1, ctrans := \ p q r -> ctrans p.1 q.1 r.1] ;
+    module AO = W.Acc[Car, W.ltO Car o.cmp] ;
+    module AK = W.Acc[Ls, ltP P] ;
+    toO (p : Car) (h : AK.AccP p.1) : AO.AccP p =
+      W.Pull[Car, W.ltO Car o.cmp, Ls, ltP P, \ q -> q.1,
+        \ x y h1 -> W.andB-intro (P x.1) (W.isLt (kb x.1 y.1)) x.2 h1].pull p h ;
+    fromO (p : Car) (h : AO.AccP p) : AK.AccP p.1 =
+      AO.ind (\ q -> AK.AccP q.1)
+        (\ q ih -> AK.acc q.1 (\ zs k -> ih (zs,W.andB-l (P zs) (W.isLt (kb zs q.1)) k) (W.andB-r (P zs) (W.isLt (kb zs q.1)) k)))
+        p h ;
+    -- a bounded tree has a well-founded KB order (L well-founded)
+    wfO (wl : AL.WF) (t : WFT P) : AO.WF = \ p -> toO p (wfKB wl t.1 P t.2 p.1 p.2) ;
+    -- a prefix-closed tree with a well-founded KB order is bounded
+    bndO (pc : (xs ys : Ls) -> Id W.Bool (P (app xs ys)) true -> Id W.Bool (P xs) true) (w : AO.WF) : WFT P =
+      Bd[P,pc].bndKB (\ xs h -> fromO (xs,h) (w (xs,h))) ;
+  } ;
+} ;

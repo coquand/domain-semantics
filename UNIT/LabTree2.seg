@@ -1,0 +1,160 @@
+-- Labelled trees over a pre-dilator D, as functors on Stab(LO): the
+-- points interface of LabTreeG for C2 = Stab(LO).
+--
+-- A trace point of D is (c, y) with y in D([c]).  They are linearly
+-- ordered through their images in D(omega) (then by c): the order is
+-- invariant under morphisms D -> D' (Ext at omega), and well-founded when
+-- D is a dilator.  Supports: the covering theorem; the initial finite
+-- object: the empty code; pull-backs: J on the level equality.
+-- LabTree2[ok,inv,pcl] gives a type-2 pre-ptyx F with
+--   F is a ptyx  <=>  tree_D is well-founded for every dilator D.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CF = CatEmbFin[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module SP = StabPb[l] ;
+module SC = StabCode[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module O = SF.Over[LC.ce] ;
+
+F : CF.CEF = LOCEF[l].cef ;
+C2 : CE.CE = LW.C2 ;
+DL : U l+ = SF.SF[LC.ce] ;
+
+-- a linear order induced by an injective map into a linear order
+module Ind (A : U l) (B : DP.LO) (h : A -> B.car) (hinj : (p q : A) -> Id B.car (h p) (h q) -> Id A p q) {
+  lo : DP.LO = new DP.LO[car := A, cmp := \ p q -> B.cmp (h p) (h q), ceq := \ p q e -> hinj p q (B.ceq (h p) (h q) e),
+    crefl := \ p -> B.crefl (h p), cflip := \ p q -> B.cflip (h p) (h q), ctrans := \ p q r -> B.ctrans (h p) (h q) (h r)] ;
+} ;
+
+io (c : W.N) : DP.Map (LC.ord c) LW.omega = (\ p -> p.1,\ p q -> refl (W.cmpN p.1 q.1)) ;
+
+-- trace points
+module Pts (D : DL) {
+  Car : U l = (c : W.N) * (D.G (LC.ord c)).car ;
+  Lx : DP.LO = LT.Lex[D.G LW.omega, LW.omega].lo ;
+  iota (c : W.N) (y : (D.G (LC.ord c)).car) : (D.G LW.omega).car = (D.arr (LC.ord c) LW.omega (io c)).1 y ;
+  emb (p : Car) : Lx.car = (iota p.1 p.2,p.1) ;
+  sigInj (c : W.N) (y : (D.G (LC.ord c)).car) (c' : W.N) (e2 : Id W.N c c') : (y' : (D.G (LC.ord c')).car) ->
+      Id (D.G LW.omega).car (iota c y) (iota c' y') -> Id Car (c,y) (c',y') =
+    idJ W.N c (\ z q -> (y' : (D.G (LC.ord z)).car) -> Id (D.G LW.omega).car (iota c y) (iota z y') -> Id Car (c,y) (z,y'))
+      (\ y' h -> PL.ap (D.G (LC.ord c)).car Car (\ u -> (c,u)) y y'
+        (DP.map-inj (D.G (LC.ord c)) (D.G LW.omega) (D.arr (LC.ord c) LW.omega (io c)) y y' h))
+      c' e2 ;
+  inj (p q : Car) (e : Id Lx.car (emb p) (emb q)) : Id Car p q =
+    sigInj p.1 p.2 q.1 (PL.ap Lx.car W.N (\ t -> t.2) (emb p) (emb q) e) q.2
+      (PL.ap Lx.car (D.G LW.omega).car (\ t -> t.1) (emb p) (emb q) e) ;
+  lo : DP.LO = Ind[Car, Lx, emb, inj].lo ;
+  -- well-founded when D is a dilator
+  wf (d : LW.IsDil D) : LW.WF lo =
+    W.Pull[Car, W.ltO Car lo.cmp, Lx.car, W.LexOrd[(D.G LW.omega).car, (D.G LW.omega).cmp, (D.G LW.omega).ceq, W.N, W.cmpN].ltP,
+      emb, \ x y h -> h].pullWF
+      (W.LexOrd[(D.G LW.omega).car, (D.G LW.omega).cmp, (D.G LW.omega).ceq, W.N, W.cmpN].wfP (d LW.omega LW.wf-omega) W.wfN) ;
+} ;
+Pt2 (D : DL) : DP.LO = Pts[D].lo ;
+
+-- the action of morphisms
+module PM (D D' : DL) (S : O.Mor D D') {
+  module E = O.Ext[D,D',S] ;
+  f (p : Pts[D].Car) : Pts[D'].Car = (p.1,(S.1 p.1).1 p.2) ;
+  iS (c : W.N) (y : (D.G (LC.ord c)).car) :
+      Id (D'.G LW.omega).car (Pts[D'].iota c ((S.1 c).1 y)) (E.f LW.omega (Pts[D].iota c y)) =
+    PL.trans (D'.G LW.omega).car (Pts[D'].iota c ((S.1 c).1 y)) ((D'.arr (LC.ord c) LW.omega (io c)).1 (E.f (LC.ord c) y))
+        (E.f LW.omega (Pts[D].iota c y))
+      (PL.ap (D'.G (LC.ord c)).car (D'.G LW.omega).car (D'.arr (LC.ord c) LW.omega (io c)).1 ((S.1 c).1 y) (E.f (LC.ord c) y)
+        (PL.sym (D'.G (LC.ord c)).car (E.f (LC.ord c) y) ((S.1 c).1 y) (E.fin-eq c y)))
+      (E.nat-all (LC.ord c) LW.omega (io c) y) ;
+  mono (p q : Pts[D].Car) : Id W.O3 ((Pt2 D').cmp (f p) (f q)) ((Pt2 D).cmp p q) =
+    PL.trans W.O3 ((Pt2 D').cmp (f p) (f q))
+        (W.lexO3 ((D'.G LW.omega).cmp (E.f LW.omega (Pts[D].iota p.1 p.2)) (E.f LW.omega (Pts[D].iota q.1 q.2))) (W.cmpN p.1 q.1))
+        ((Pt2 D).cmp p q)
+      (W.ap2 (D'.G LW.omega).car (D'.G LW.omega).car W.O3 (\ a b -> W.lexO3 ((D'.G LW.omega).cmp a b) (W.cmpN p.1 q.1))
+        (Pts[D'].iota p.1 ((S.1 p.1).1 p.2)) (E.f LW.omega (Pts[D].iota p.1 p.2))
+        (Pts[D'].iota q.1 ((S.1 q.1).1 q.2)) (E.f LW.omega (Pts[D].iota q.1 q.2))
+        (iS p.1 p.2) (iS q.1 q.2))
+      (PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (W.cmpN p.1 q.1))
+        ((D'.G LW.omega).cmp (E.f LW.omega (Pts[D].iota p.1 p.2)) (E.f LW.omega (Pts[D].iota q.1 q.2)))
+        ((D.G LW.omega).cmp (Pts[D].iota p.1 p.2) (Pts[D].iota q.1 q.2))
+        (E.incr LW.omega (Pts[D].iota p.1 p.2) (Pts[D].iota q.1 q.2))) ;
+  map : DP.Map (Pt2 D) (Pt2 D') = (f,mono) ;
+} ;
+pm2 (D D' : DL) (S : O.Mor D D') : DP.Map (Pt2 D) (Pt2 D') = PM[D,D',S].map ;
+
+-- single-point supports: the covering theorem
+module Sup1 (D : DL) (x : Pts[D].Car) {
+  module CV = StabCover[l].Cover[F,D,LC.ord x.1,x.2] ;
+  T : U l = (K : C2.Fin) * ((i : C2.Mor (C2.fin K) D) * SF.Im (Pt2 (C2.fin K)) (Pt2 D) (pm2 (C2.fin K) D i) x) ;
+  cvt (t : CV.Target) : T =
+    (t.1,(t.2.1,((x.1,t.2.2.1),
+      PL.ap (D.G (LC.ord x.1)).car Pts[D].Car (\ u -> (x.1,u)) ((t.2.1.1 x.1).1 t.2.2.1) x.2
+        (PL.trans (D.G (LC.ord x.1)).car ((t.2.1.1 x.1).1 t.2.2.1) (O.Ext[SC.Decode[F,t.1].obj,D,t.2.1].f (LC.ord x.1) t.2.2.1) x.2
+          (PL.sym (D.G (LC.ord x.1)).car (O.Ext[SC.Decode[F,t.1].obj,D,t.2.1].f (LC.ord x.1) t.2.2.1) ((t.2.1.1 x.1).1 t.2.2.1)
+            (O.Ext[SC.Decode[F,t.1].obj,D,t.2.1].fin-eq x.1 t.2.2.1))
+          t.2.2.2)))) ;
+  result : Ex T = TC.map CV.Target T cvt CV.cover ;
+} ;
+
+-- the empty code: an initial finite object
+g0 (i : W.N) : W.N = zero ;
+module PP0 = SC.Pts[F,zero,g0] ;
+ord0 (d : W.N) (p q : PP0.Pt (LC.ord d)) : W.O3 = W.ltN-zero-abs W.O3 p.1 p.2.1 ;
+K0 : SC.Code[F] = new SC.Code[F, m := zero, gen := g0, ord := ord0,
+  inv := \ d d' l0 p q -> W.ltN-zero-abs (Id W.O3 (ord0 d' (PP0.post (LC.ord d) (LC.ord d') l0 p) (PP0.post (LC.ord d) (LC.ord d') l0 q)) (ord0 d p q)) p.1 p.2.1,
+  orefl := \ d p -> W.ltN-zero-abs (Id W.O3 (ord0 d p p) eq) p.1 p.2.1,
+  oflip := \ d p q -> W.ltN-zero-abs (Id W.O3 (ord0 d q p) (W.flip (ord0 d p q))) p.1 p.2.1,
+  otrans := \ d p q r h h' -> W.ltN-zero-abs (Id W.O3 (ord0 d p r) lt) p.1 p.2.1,
+  oeq := \ d p q h -> W.ltN-zero-abs (Id (PP0.Pt (LC.ord d)) p q) p.1 p.2.1] ;
+module Init (D : DL) {
+  X0 : DL = SC.Decode[F,K0].obj ;
+  a (c : W.N) : DP.Map (X0.G (LC.ord c)) (D.G (LC.ord c)) =
+    (\ p -> W.ltN-zero-abs (D.G (LC.ord c)).car p.1 p.2.1,
+     \ p q -> W.ltN-zero-abs (Id W.O3 ((D.G (LC.ord c)).cmp (W.ltN-zero-abs (D.G (LC.ord c)).car p.1 p.2.1) (W.ltN-zero-abs (D.G (LC.ord c)).car q.1 q.2.1))
+       ((X0.G (LC.ord c)).cmp p q)) p.1 p.2.1) ;
+  mor : O.Mor X0 D =
+    (a,(\ c d k y -> W.ltN-zero-abs (Id (D.G (LC.ord d)).car ((D.arr (LC.ord c) (LC.ord d) k).1 ((a c).1 y)) ((a d).1 ((X0.arr (LC.ord c) (LC.ord d) k).1 y))) y.1 y.2.1,
+        \ c d k y r -> W.ltN-zero-abs (SF.Im (X0.G (LC.ord c)) (X0.G (LC.ord d)) (X0.arr (LC.ord c) (LC.ord d) k) y) y.1 y.2.1)) ;
+  result : Ex ((K : C2.Fin) * C2.Mor (C2.fin K) D) = inc ((K : C2.Fin) * C2.Mor (C2.fin K) D) (K0,mor) ;
+} ;
+
+-- pull-backs: pair two trace points with the same image
+module Pbp (A B B' : DL) (f : O.Mor B A) (f' : O.Mor B' A) {
+  module PB = SP.Pull[LC.ce,A,B,B',f,f'] ;
+  Goal (b : Pts[B].Car) : U l = SF.Im (Pt2 PB.obj) (Pt2 B) (pm2 PB.obj B PB.pr1) b ;
+  core (c : W.N) (y : (B.G (LC.ord c)).car) (z : W.N) (q : Id W.N c z) : (y' : (B'.G (LC.ord z)).car) ->
+      Id (A.G (LC.ord z)).car (PL.subst W.N (\ k -> (A.G (LC.ord k)).car) c z q ((f.1 c).1 y)) ((f'.1 z).1 y') -> Goal (c,y) =
+    idJ W.N c (\ z1 q1 -> (y' : (B'.G (LC.ord z1)).car) ->
+        Id (A.G (LC.ord z1)).car (PL.subst W.N (\ k -> (A.G (LC.ord k)).car) c z1 q1 ((f.1 c).1 y)) ((f'.1 z1).1 y') -> Goal (c,y))
+      (\ y' h -> ((c,(y,(y',
+          PL.trans (A.G (LC.ord c)).car (PB.s (LC.ord c) y) ((f.1 c).1 y) (PB.s' (LC.ord c) y')
+            (PB.E.fin-eq c y)
+            (PL.trans (A.G (LC.ord c)).car ((f.1 c).1 y) ((f'.1 c).1 y') (PB.s' (LC.ord c) y') h
+              (PL.sym (A.G (LC.ord c)).car (PB.s' (LC.ord c) y') ((f'.1 c).1 y') (PB.E'.fin-eq c y')))))),
+        refl (c,y)))
+      z q ;
+  result (b : Pts[B].Car) (b' : Pts[B'].Car) (e : Id Pts[A].Car (PM[B,A,f].f b) (PM[B',A,f'].f b')) : Goal b =
+    core b.1 b.2 b'.1 (PL.ap Pts[A].Car W.N (\ t -> t.1) (PM[B,A,f].f b) (PM[B',A,f'].f b') e) b'.2
+      (PL.Sigma-snd W.N (\ k -> (A.G (LC.ord k)).car) b.1 b'.1 ((f.1 b.1).1 b.2) ((f'.1 b'.1).1 b'.2) e) ;
+} ;
+
+-- the instance
+module LabTree2 (ok : (D : DL) -> LT.LL (Pt2 D) -> W.Bool)
+  (inv : (D D' : DL) (g : O.Mor D D') (r : LT.LL (Pt2 D)) -> Id W.Bool (ok D' (LT.mapL (Pt2 D) (Pt2 D') (pm2 D D' g) r)) (ok D r))
+  (pcl : (D : DL) (z r : LT.LL (Pt2 D)) -> Id W.Bool (ok D (KT.appL (LT.Lab (Pt2 D)).car z r)) true -> Id W.Bool (ok D r) true) {
+  module LG = LT.LabTreeG[C2, Pt2, pm2, \ D x -> refl x, \ D1 D2 D3 S T x -> refl (x.1,(T.1 x.1).1 ((S.1 x.1).1 x.2)),
+    \ D x -> Sup1[D,x].result, \ D -> Init[D].result, \ A B B' f f' b b' e -> Pbp[A,B,B',f,f'].result b b' e,
+    ok, inv, pcl] ;
+  G (D : DL) : DP.LO = LG.G D ;
+  pty : SF.SF[C2] = LG.dil ;
+  WFT (D : DL) : U l = LG.WFT D ;
+  ptyx-wf (h : (D : DL) -> LW.IsDil D -> WFT D) : LW.IsPtyx pty = LG.WFs[LW.IsDil, \ D d -> Pts[D].wf d].dil-wf h ;
+  wf-ptyx (p : LW.IsPtyx pty) (D : DL) (d : LW.IsDil D) : WFT D = LG.WFs[LW.IsDil, \ D d -> Pts[D].wf d].wf-dil p D d ;
+} ;

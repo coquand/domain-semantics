@@ -1,0 +1,159 @@
+-- A positive instance of Girard's Pi^1_2 reduction: a Girard tree whose
+-- dilator is PROVED to be a dilator (constructively).
+--
+-- T = everything, dec j = 0^j (j zeros).  Then every U_f contains the
+-- chain () < 0 < 00 < ..., so no U_f has a rank: the Pi^1_2 statement
+-- "forall f, U_f ill-founded" is true.  The attempt tree S_X is the tree
+-- of strictly decreasing sequences of X (labels (n_j, x_j), all present,
+-- x_0 > x_1 > ...), well-founded when X is (Brouwer bounds by Acc on X).
+-- Hence (dil-wf of Girard.seg) D_T is a dilator: posD-dil.
+-- Compare Girard.Ex0 (T = {()}): a provable non-dilator.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module SF = StabFun[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module GR = Girard[l] ;
+
+NL : U l = GR.NL ;
+zerosN : W.N -> NL = split { zero -> nilL ; suc n | r -> consL zero r } ;
+T1 (w : W.List (W.N * W.N)) : W.Bool = true ;
+module G1 = GR.Girard[T1, zerosN] ;
+
+lenZ : (k : W.N) -> Id W.N (GR.lenN W.N (zerosN k)) k = split {
+  zero -> refl zero ; suc k | r -> W.sucEq (GR.lenN W.N (zerosN k)) k r } ;
+ppZ : (n : W.N) -> Id W.Bool (GR.ppref (zerosN n) (zerosN (suc n))) true = split {
+  zero -> refl true ; suc n | r -> r } ;
+ltSS : (k : W.N) -> Id W.Bool (W.ltN k (suc (suc k))) true = split {
+  zero -> refl true ; suc k | r -> r } ;
+eqB-l : (x y : W.Bool) -> Id W.Bool (GR.eqB x y) true -> Id W.Bool y true -> Id W.Bool x true = split {
+  false -> split {
+    false -> \ h k -> W.absurdB (Id W.Bool false true) k ;
+    true -> \ h k -> W.absurdB (Id W.Bool false true) h } ;
+  true -> \ y h k -> refl true } ;
+impE : (c d : W.Bool) -> Id W.Bool (GR.impB c d) true -> Id W.Bool c true -> Id W.Bool d true = split {
+  false -> \ d h k -> W.absurdB (Id W.Bool d true) k ;
+  true -> \ d h k -> h } ;
+
+module Pos (A : DP.LO) {
+  Lb : U l = (LT.Lab A).car ;
+  LLA : U l = LT.LL A ;
+  OA : U l = W.Or W.Unit A.car ;
+  some (m : OA) : W.Bool = GR.isSome A.car m ;
+  ltO (m m' : OA) : W.Bool = W.isLt ((LT.Opt A).cmp m m') ;
+  app (z r : LLA) : LLA = KT.appL Lb z r ;
+  rev (xs : LLA) : LLA = KT.revL Lb xs ;
+
+  -- the codes are always available
+  inU1 (k : W.N) (s : NL) : Id W.Bool (G1.inU k s) true =
+    W.andB-intro (GR.leN (GR.lenN W.N (zerosN k)) (suc k)) true
+      (PL.subst W.N (\ n -> Id W.Bool (GR.leN n (suc k)) true) k (GR.lenN W.N (zerosN k))
+        (PL.sym W.N (GR.lenN W.N (zerosN k)) k (lenZ k)) (ltSS k))
+      (refl true) ;
+
+  -- (1) on reversed lists: present labels, each below the previous one
+  hdGt (m : OA) : LLA -> W.Bool = split { nilL -> true ; consL b r -> ltO m b.2 } ;
+  Rrev : LLA -> W.Bool = split {
+    nilL -> true ;
+    consL a r | rr -> W.andB rr (W.andB (some a.2) (hdGt a.2 r)) } ;
+  hdL (m : OA) : (r : LLA) -> Id W.Bool (Rrev r) true -> Id W.Bool (some m) true ->
+      Id W.Bool (G1.pairs A (GR.lenN Lb r) m r) true -> Id W.Bool (hdGt m r) true = split {
+    nilL -> \ hr hm hp -> refl true ;
+    consL b r -> \ hr hm hp ->
+      impE (W.andB (some b.2) (W.andB (some m) (GR.ppref (zerosN (GR.lenN Lb r)) (zerosN (suc (GR.lenN Lb r))))))
+        (ltO m b.2)
+        (W.andB-l (GR.impB (W.andB (some b.2) (W.andB (some m) (GR.ppref (zerosN (GR.lenN Lb r)) (zerosN (suc (GR.lenN Lb r)))))) (ltO m b.2))
+          (GR.impB (W.andB (some m) (W.andB (some b.2) (GR.ppref (zerosN (suc (GR.lenN Lb r))) (zerosN (GR.lenN Lb r))))) (ltO b.2 m))
+          (W.andB-r (G1.pairs A (suc (GR.lenN Lb r)) m r) (G1.pairOK A (GR.lenN Lb r) (suc (GR.lenN Lb r)) b.2 m) hp))
+        (W.andB-intro (some b.2) (W.andB (some m) (GR.ppref (zerosN (GR.lenN Lb r)) (zerosN (suc (GR.lenN Lb r)))))
+          (W.andB-l (some b.2) (hdGt b.2 r) (W.andB-r (Rrev r) (W.andB (some b.2) (hdGt b.2 r)) hr))
+          (W.andB-intro (some m) (GR.ppref (zerosN (GR.lenN Lb r)) (zerosN (suc (GR.lenN Lb r)))) hm (ppZ (GR.lenN Lb r)))) } ;
+  okR : (r : LLA) -> Id W.Bool (G1.ok A r) true -> Id W.Bool (Rrev r) true = split {
+    nilL -> \ h -> refl true ;
+    consL a r | rr -> \ h ->
+      W.andB-intro (Rrev r) (W.andB (some a.2) (hdGt a.2 r))
+        (rr (W.andB-l (G1.ok A r) (G1.step A r a) h))
+        (W.andB-intro (some a.2) (hdGt a.2 r)
+          (eqB-l (some a.2) (G1.inU (GR.lenN Lb r) (KT.revL W.N (G1.fsts A (consL a r))))
+            (W.andB-l (GR.eqB (some a.2) (G1.inU (GR.lenN Lb r) (KT.revL W.N (G1.fsts A (consL a r))))) (G1.pairs A (GR.lenN Lb r) a.2 r)
+              (W.andB-r (G1.ok A r) (G1.step A r a) h))
+            (inU1 (GR.lenN Lb r) (KT.revL W.N (G1.fsts A (consL a r)))))
+          (hdL a.2 r (rr (W.andB-l (G1.ok A r) (G1.step A r a) h))
+            (eqB-l (some a.2) (G1.inU (GR.lenN Lb r) (KT.revL W.N (G1.fsts A (consL a r))))
+              (W.andB-l (GR.eqB (some a.2) (G1.inU (GR.lenN Lb r) (KT.revL W.N (G1.fsts A (consL a r))))) (G1.pairs A (GR.lenN Lb r) a.2 r)
+                (W.andB-r (G1.ok A r) (G1.step A r a) h))
+              (inU1 (GR.lenN Lb r) (KT.revL W.N (G1.fsts A (consL a r)))))
+            (W.andB-r (GR.eqB (some a.2) (G1.inU (GR.lenN Lb r) (KT.revL W.N (G1.fsts A (consL a r))))) (G1.pairs A (GR.lenN Lb r) a.2 r)
+              (W.andB-r (G1.ok A r) (G1.step A r a) h)))) } ;
+  rrevSuf : (z r : LLA) -> Id W.Bool (Rrev (app z r)) true -> Id W.Bool (Rrev r) true = split {
+    nilL -> \ r h -> h ;
+    consL a z | rr -> \ r h -> rr r (W.andB-l (Rrev (app z r)) (W.andB (some a.2) (hdGt a.2 (app z r))) h) } ;
+
+  -- (2) read from the root: strictly decreasing, all present
+  DecL : LLA -> OA -> W.Bool = split {
+    nilL -> \ m -> true ;
+    consL a xs | rr -> \ m -> W.andB (ltO a.2 m) (W.andB (some a.2) (rr a.2)) } ;
+  Dec (m : OA) (xs : LLA) : W.Bool = DecL xs m ;
+  Q : LLA -> W.Bool = split { nilL -> true ; consL a xs -> W.andB (some a.2) (Dec a.2 xs) } ;
+  gen : (xs : LLA) (a : Lb) (z : LLA) -> Id W.Bool (Rrev (app (rev xs) (consL a z))) true -> Id W.Bool (Dec a.2 xs) true = split {
+    nilL -> \ a z h -> refl true ;
+    consL b xs | rr -> \ a z h ->
+      W.andB-intro (ltO b.2 a.2) (W.andB (some b.2) (Dec b.2 xs))
+        (W.andB-r (some b.2) (hdGt b.2 (consL a z))
+          (W.andB-r (Rrev (consL a z)) (W.andB (some b.2) (hdGt b.2 (consL a z)))
+            (rrevSuf (rev xs) (consL b (consL a z))
+              (PL.subst LLA (\ t -> Id W.Bool (Rrev t) true) (app (app (rev xs) (consL b nilL)) (consL a z)) (app (rev xs) (consL b (consL a z)))
+                (KT.appL-assoc Lb (rev xs) (consL b nilL) (consL a z)) h))))
+        (W.andB-intro (some b.2) (Dec b.2 xs)
+          (W.andB-l (some b.2) (hdGt b.2 (consL a z))
+            (W.andB-r (Rrev (consL a z)) (W.andB (some b.2) (hdGt b.2 (consL a z)))
+              (rrevSuf (rev xs) (consL b (consL a z))
+                (PL.subst LLA (\ t -> Id W.Bool (Rrev t) true) (app (app (rev xs) (consL b nilL)) (consL a z)) (app (rev xs) (consL b (consL a z)))
+                  (KT.appL-assoc Lb (rev xs) (consL b nilL) (consL a z)) h))))
+          (rr b (consL a z)
+            (PL.subst LLA (\ t -> Id W.Bool (Rrev t) true) (app (app (rev xs) (consL b nilL)) (consL a z)) (app (rev xs) (consL b (consL a z)))
+              (KT.appL-assoc Lb (rev xs) (consL b nilL) (consL a z)) h))) } ;
+  PtoQ : (xs : LLA) -> Id W.Bool (G1.ok A (rev xs)) true -> Id W.Bool (Q xs) true = split {
+    nilL -> \ h -> refl true ;
+    consL a xs -> \ h ->
+      W.andB-intro (some a.2) (Dec a.2 xs)
+        (W.andB-l (some a.2) true (rrevSuf (rev xs) (consL a nilL) (okR (rev (consL a xs)) h)))
+        (gen xs a nilL (okR (rev (consL a xs)) h)) } ;
+
+  -- (3) Brouwer bounds for decreasing sequences, by accessibility on A
+  module K = KT.KB[LT.Lab A] ;
+  module AA = W.Acc[A.car, W.ltO A.car A.cmp] ;
+  M (x : A.car) : U l = (b : K.BT) * K.Bnd b (Dec (inr x)) ;
+  module Step (x : A.car) (ih : (y : A.car) -> AA.Lt y x -> M y) {
+    chY (n : W.N) (y : A.car) : (c : W.Bool) -> Id W.Bool c (W.isLt (A.cmp y x)) ->
+        (b : K.BT) * K.Bnd b (\ xs -> Dec (inr x) (consL (n,inr y) xs)) = split {
+      true -> \ e -> ((ih y (PL.sym W.Bool true (W.isLt (A.cmp y x)) e)).1,
+        K.bnd-ext (ih y (PL.sym W.Bool true (W.isLt (A.cmp y x)) e)).1 (Dec (inr y)) (\ xs -> Dec (inr x) (consL (n,inr y) xs))
+          (\ xs -> PL.ap W.Bool W.Bool (\ c -> W.andB c (Dec (inr y) xs)) true (W.isLt (A.cmp y x)) e)
+          (ih y (PL.sym W.Bool true (W.isLt (A.cmp y x)) e)).2) ;
+      false -> \ e -> (leaf,\ xs -> PL.ap W.Bool W.Bool (\ c -> W.andB c (Dec (inr y) xs)) (W.isLt (A.cmp y x)) false
+          (PL.sym W.Bool false (W.isLt (A.cmp y x)) e)) } ;
+    chM (n : W.N) : (m : OA) -> (b : K.BT) * K.Bnd b (\ xs -> Dec (inr x) (consL (n,m) xs)) = split {
+      inl u -> (leaf,\ xs -> refl false) ;
+      inr y -> chY n y (W.isLt (A.cmp y x)) (refl (W.isLt (A.cmp y x))) } ;
+    result : M x = (node (\ a -> (chM a.1 a.2).1),\ a -> (chM a.1 a.2).2) ;
+  } ;
+  bndDec (w : LW.WF A) (x : A.car) : M x = AA.ind M (\ x1 ih -> Step[x1,ih].result) x (w x) ;
+  rootM (w : LW.WF A) (n : W.N) : (m : OA) -> (b : K.BT) * K.Bnd b (\ xs -> Q (consL (n,m) xs)) = split {
+    inl u -> (leaf,\ xs -> refl false) ;
+    inr y -> bndDec w y } ;
+  bndQ (w : LW.WF A) : K.Bnd (node (\ a -> (rootM w a.1 a.2).1)) Q = \ a -> (rootM w a.1 a.2).2 ;
+
+  -- (4) the attempt tree S_A is bounded
+  wft (w : LW.WF A) : G1.LTG.WFT A =
+    (node (\ a -> (rootM w a.1 a.2).1),
+     K.bnd-mono (node (\ a -> (rootM w a.1 a.2).1)) (G1.LTG.P A) Q (\ xs h -> PtoQ xs h) (bndQ w)) ;
+} ;
+
+posD : SF.SF[LC.ce] = G1.D ;
+posD-dil : LW.IsDil posD = G1.dil-wf (\ A w -> Pos[A].wft w) ;

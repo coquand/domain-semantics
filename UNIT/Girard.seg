@@ -1,0 +1,283 @@
+-- Girard's Pi^1_2 reduction to dilators (over all linear orders).
+--
+-- Data: a decidable T on finite sequences of pairs (the matrix of a Pi^1_2
+-- statement  forall f exists g forall n R(f|n, g|n)), and an enumeration
+-- dec : N -> N* of finite sequences.  For f : N -> N put
+--     U_f = { t | T (zip (f|len t) t) } ,
+-- so the statement says: U_f is ill-founded for every f.
+--
+-- D_T(X) is the Kleene-Brouwer order of the tree S_X of finite attempts
+-- (s, r) where s = (s_0..s_{k-1}) is an initial segment of some f and r is
+-- a partial rank of U_s into X: label j is (s_j, m_j) with m_j : 1 + X,
+--   * m_j present  iff  |dec j| <= j+1 and dec j is in U_s,
+--   * m_k < m_j when both are present and dec j is a proper prefix of dec k.
+--
+-- Proved here (constructively):
+--   * D_T is a pre-dilator (LabTree: stable functor on LO);
+--   * D_T is a dilator  <=>  S_X is well-founded for every well-founded X
+--     (dil-wf, wf-dil);
+--   * a rank of some U_f into a well-founded X refutes "D_T is a dilator"
+--     (rank-not-dil): the rank is an infinite descending KB sequence.
+-- Classically (Kleene normal form; a countable well-founded tree has a
+-- rank into a countable well-order; dec onto) this gives Girard's theorem
+--   D_T dilator  <=>  forall f, U_f ill-founded ,
+-- i.e. "being a dilator" is Pi^1_2-complete.  The direction
+-- "forall f, U_f ill-founded => D_T dilator" uses bar induction and is not
+-- formalised.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module LC = LOCat[l] ;
+module SF = StabFun[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+
+NL : U l = W.List W.N ;
+lenN (X : U l) : W.List X -> W.N = split { nilL -> zero ; consL x xs | r -> suc r } ;
+take : W.N -> NL -> NL = split {
+  zero -> \ s -> nilL ;
+  suc n | r -> split { nilL -> nilL ; consL x s -> consL x (r s) } } ;
+zipN : NL -> NL -> W.List (W.N * W.N) = split {
+  nilL -> \ t -> nilL ;
+  consL x s | r -> split { nilL -> nilL ; consL y t -> consL (x,y) (r t) } } ;
+eqN (x y : W.N) : W.Bool = W.isEq (W.cmpN x y) ;
+-- proper prefix
+ppref : NL -> NL -> W.Bool = split {
+  nilL -> split { nilL -> false ; consL y t -> true } ;
+  consL x s | r -> split { nilL -> false ; consL y t -> W.andB (eqN x y) (r t) } } ;
+leN (n m : W.N) : W.Bool = W.ltN n (suc m) ;
+impB : W.Bool -> W.Bool -> W.Bool = split { false -> \ d -> true ; true -> \ d -> d } ;
+impI : (c d : W.Bool) -> (Id W.Bool c true -> Id W.Bool d true) -> Id W.Bool (impB c d) true = split {
+  false -> \ d h -> refl true ; true -> \ d h -> h (refl true) } ;
+eqB : W.Bool -> W.Bool -> W.Bool = split { false -> split { false -> true ; true -> false } ; true -> \ d -> d } ;
+eqB-refl : (b : W.Bool) -> Id W.Bool (eqB b b) true = split { false -> refl true ; true -> refl true } ;
+isSome (X : U l) : W.Or W.Unit X -> W.Bool = split { inl u -> false ; inr x -> true } ;
+
+-- initial segments of f : N -> N
+pre : W.N -> (W.N -> W.N) -> NL = split {
+  zero -> \ f -> nilL ;
+  suc n | r -> \ f -> consL (f zero) (r (\ x -> f (suc x))) } ;
+preR (f : W.N -> W.N) : W.N -> NL = split { zero -> nilL ; suc n | r -> consL (f n) r } ;
+pre-snoc : (k : W.N) (f : W.N -> W.N) -> Id NL (pre (suc k) f) (KT.appL W.N (pre k f) (consL (f k) nilL)) = split {
+  zero -> \ f -> refl (consL (f zero) nilL) ;
+  suc k | r -> \ f -> PL.ap NL NL (\ t -> consL (f zero) t) (pre (suc k) (\ x -> f (suc x)))
+    (KT.appL W.N (pre k (\ x -> f (suc x))) (consL (f (suc k)) nilL)) (r (\ x -> f (suc x))) } ;
+revPre (f : W.N -> W.N) : (k : W.N) -> Id NL (KT.revL W.N (preR f k)) (pre k f) = split {
+  zero -> refl nilL ;
+  suc k | r -> PL.trans NL (KT.appL W.N (KT.revL W.N (preR f k)) (consL (f k) nilL)) (KT.appL W.N (pre k f) (consL (f k) nilL)) (pre (suc k) f)
+    (PL.ap NL NL (\ t -> KT.appL W.N t (consL (f k) nilL)) (KT.revL W.N (preR f k)) (pre k f) r)
+    (PL.sym NL (pre (suc k) f) (KT.appL W.N (pre k f) (consL (f k) nilL)) (pre-snoc k f)) } ;
+take-pre : (n m : W.N) (f : W.N -> W.N) -> Id W.Bool (leN n m) true -> Id NL (take n (pre m f)) (pre n f) = split {
+  zero -> \ m f h -> refl nilL ;
+  suc n | r -> split {
+    zero -> \ f h -> W.ltN-zero-abs (Id NL (take (suc n) (pre zero f)) (pre (suc n) f)) n h ;
+    suc m -> \ f h -> PL.ap NL NL (\ t -> consL (f zero) t) (take n (pre m (\ x -> f (suc x)))) (pre n (\ x -> f (suc x)))
+      (r m (\ x -> f (suc x)) h) } } ;
+revrev (X : U l) : (xs : W.List X) -> Id (W.List X) (KT.revL X (KT.revL X xs)) xs = split {
+  nilL -> refl nilL ;
+  consL x xs | r -> PL.trans (W.List X) (KT.revL X (KT.appL X (KT.revL X xs) (consL x nilL)))
+      (KT.appL X (consL x nilL) (KT.revL X (KT.revL X xs))) (consL x xs)
+    (KT.revL-app X (KT.revL X xs) (consL x nilL))
+    (PL.ap (W.List X) (W.List X) (\ t -> consL x t) (KT.revL X (KT.revL X xs)) xs r) } ;
+
+module Girard (T : W.List (W.N * W.N) -> W.Bool) (dec : W.N -> NL) {
+  -- the code k is in U_s (s of length k+1)
+  inU (k : W.N) (s : NL) : W.Bool = W.andB (leN (lenN W.N (dec k)) (suc k)) (T (zipN (take (lenN W.N (dec k)) s) (dec k))) ;
+  -- the rank condition between the codes j and k, in both directions
+  pairOK (A : DP.LO) (j k : W.N) (mj mk : W.Or W.Unit A.car) : W.Bool =
+    W.andB (impB (W.andB (isSome A.car mj) (W.andB (isSome A.car mk) (ppref (dec j) (dec k)))) (W.isLt ((LT.Opt A).cmp mk mj)))
+           (impB (W.andB (isSome A.car mk) (W.andB (isSome A.car mj) (ppref (dec k) (dec j)))) (W.isLt ((LT.Opt A).cmp mj mk))) ;
+  -- the new label (code k) against all earlier ones
+  pairs (A : DP.LO) (k : W.N) (mk : W.Or W.Unit A.car) : LT.LL A -> W.Bool = split {
+    nilL -> true ;
+    consL b rho | r -> W.andB r (pairOK A (lenN (LT.Lab A).car rho) k b.2 mk) } ;
+  fsts (A : DP.LO) (rho : LT.LL A) : NL = W.map (LT.Lab A).car W.N (\ p -> p.1) rho ;
+  step (A : DP.LO) (rho : LT.LL A) (a : (LT.Lab A).car) : W.Bool =
+    W.andB (eqB (isSome A.car a.2) (inU (lenN (LT.Lab A).car rho) (KT.revL W.N (fsts A (consL a rho)))))
+           (pairs A (lenN (LT.Lab A).car rho) a.2 rho) ;
+  -- on reversed lists (the last label first)
+  ok (A : DP.LO) : LT.LL A -> W.Bool = split {
+    nilL -> true ;
+    consL a rho | r -> W.andB r (step A rho a) } ;
+
+  -- invariance under embeddings
+  lenMap (X Y : U l) (h : X -> Y) : (xs : W.List X) -> Id W.N (lenN Y (W.map X Y h xs)) (lenN X xs) = split {
+    nilL -> refl zero ;
+    consL x xs | r -> W.sucEq (lenN Y (W.map X Y h xs)) (lenN X xs) r } ;
+  fstsMap (A B : DP.LO) (g : DP.Map A B) (rho : LT.LL A) : Id NL (fsts B (LT.mapL A B g rho)) (fsts A rho) =
+    W.map-comp (LT.Lab A).car (LT.Lab B).car W.N (LT.lm A B g) (\ p -> p.1) rho ;
+  someMap (A B : DP.LO) (g : DP.Map A B) : (m : W.Or W.Unit A.car) -> Id W.Bool (isSome B.car (LT.omap A B g m)) (isSome A.car m) = split {
+    inl u -> refl false ; inr x -> refl true } ;
+  pairOKMap (A B : DP.LO) (g : DP.Map A B) (j k : W.N) : (mj mk : W.Or W.Unit A.car) ->
+      Id W.Bool (pairOK B j k (LT.omap A B g mj) (LT.omap A B g mk)) (pairOK A j k mj mk) = split {
+    inl u -> split { inl v -> refl (pairOK A j k (inl u) (inl v)) ; inr y -> refl (pairOK A j k (inl u) (inr y)) } ;
+    inr x -> split {
+      inl v -> refl (pairOK A j k (inr x) (inl v)) ;
+      inr y -> W.ap2 W.O3 W.O3 W.Bool
+        (\ c d -> W.andB (impB (W.andB true (W.andB true (ppref (dec j) (dec k)))) (W.isLt c))
+                         (impB (W.andB true (W.andB true (ppref (dec k) (dec j)))) (W.isLt d)))
+        (B.cmp (g.1 y) (g.1 x)) (A.cmp y x) (B.cmp (g.1 x) (g.1 y)) (A.cmp x y) (g.2 y x) (g.2 x y) } } ;
+  pairsMap (A B : DP.LO) (g : DP.Map A B) (k : W.N) (mk : W.Or W.Unit A.car) : (rho : LT.LL A) ->
+      Id W.Bool (pairs B k (LT.omap A B g mk) (LT.mapL A B g rho)) (pairs A k mk rho) = split {
+    nilL -> refl true ;
+    consL b rho | r -> W.ap2 W.Bool W.Bool W.Bool W.andB (pairs B k (LT.omap A B g mk) (LT.mapL A B g rho)) (pairs A k mk rho)
+        (pairOK B (lenN (LT.Lab B).car (LT.mapL A B g rho)) k (LT.omap A B g b.2) (LT.omap A B g mk))
+        (pairOK A (lenN (LT.Lab A).car rho) k b.2 mk)
+      r
+      (PL.trans W.Bool (pairOK B (lenN (LT.Lab B).car (LT.mapL A B g rho)) k (LT.omap A B g b.2) (LT.omap A B g mk))
+          (pairOK B (lenN (LT.Lab A).car rho) k (LT.omap A B g b.2) (LT.omap A B g mk)) (pairOK A (lenN (LT.Lab A).car rho) k b.2 mk)
+        (PL.ap W.N W.Bool (\ n -> pairOK B n k (LT.omap A B g b.2) (LT.omap A B g mk))
+          (lenN (LT.Lab B).car (LT.mapL A B g rho)) (lenN (LT.Lab A).car rho) (lenMap (LT.Lab A).car (LT.Lab B).car (LT.lm A B g) rho))
+        (pairOKMap A B g (lenN (LT.Lab A).car rho) k b.2 mk)) } ;
+  stepMap (A B : DP.LO) (g : DP.Map A B) (rho : LT.LL A) (a : (LT.Lab A).car) :
+      Id W.Bool (step B (LT.mapL A B g rho) (LT.lm A B g a)) (step A rho a) =
+    W.ap2 W.Bool W.Bool W.Bool W.andB
+      (eqB (isSome B.car (LT.omap A B g a.2)) (inU (lenN (LT.Lab B).car (LT.mapL A B g rho)) (KT.revL W.N (fsts B (LT.mapL A B g (consL a rho))))))
+      (eqB (isSome A.car a.2) (inU (lenN (LT.Lab A).car rho) (KT.revL W.N (fsts A (consL a rho)))))
+      (pairs B (lenN (LT.Lab B).car (LT.mapL A B g rho)) (LT.omap A B g a.2) (LT.mapL A B g rho))
+      (pairs A (lenN (LT.Lab A).car rho) a.2 rho)
+      (W.ap2 W.Bool W.Bool W.Bool eqB (isSome B.car (LT.omap A B g a.2)) (isSome A.car a.2)
+        (inU (lenN (LT.Lab B).car (LT.mapL A B g rho)) (KT.revL W.N (fsts B (LT.mapL A B g (consL a rho)))))
+        (inU (lenN (LT.Lab A).car rho) (KT.revL W.N (fsts A (consL a rho))))
+        (someMap A B g a.2)
+        (W.ap2 W.N NL W.Bool inU (lenN (LT.Lab B).car (LT.mapL A B g rho)) (lenN (LT.Lab A).car rho)
+          (KT.revL W.N (fsts B (LT.mapL A B g (consL a rho)))) (KT.revL W.N (fsts A (consL a rho)))
+          (lenMap (LT.Lab A).car (LT.Lab B).car (LT.lm A B g) rho)
+          (PL.ap NL NL (KT.revL W.N) (fsts B (LT.mapL A B g (consL a rho))) (fsts A (consL a rho)) (fstsMap A B g (consL a rho)))))
+      (PL.trans W.Bool (pairs B (lenN (LT.Lab B).car (LT.mapL A B g rho)) (LT.omap A B g a.2) (LT.mapL A B g rho))
+          (pairs B (lenN (LT.Lab A).car rho) (LT.omap A B g a.2) (LT.mapL A B g rho)) (pairs A (lenN (LT.Lab A).car rho) a.2 rho)
+        (PL.ap W.N W.Bool (\ n -> pairs B n (LT.omap A B g a.2) (LT.mapL A B g rho))
+          (lenN (LT.Lab B).car (LT.mapL A B g rho)) (lenN (LT.Lab A).car rho) (lenMap (LT.Lab A).car (LT.Lab B).car (LT.lm A B g) rho))
+        (pairsMap A B g (lenN (LT.Lab A).car rho) a.2 rho)) ;
+  inv (A B : DP.LO) (g : DP.Map A B) : (rho : LT.LL A) -> Id W.Bool (ok B (LT.mapL A B g rho)) (ok A rho) = split {
+    nilL -> refl true ;
+    consL a rho | r -> W.ap2 W.Bool W.Bool W.Bool W.andB (ok B (LT.mapL A B g rho)) (ok A rho)
+      (step B (LT.mapL A B g rho) (LT.lm A B g a)) (step A rho a) r (stepMap A B g rho a) } ;
+  -- closed under removing the last labels
+  pcl (A : DP.LO) : (z rho : LT.LL A) -> Id W.Bool (ok A (KT.appL (LT.Lab A).car z rho)) true -> Id W.Bool (ok A rho) true = split {
+    nilL -> \ rho h -> h ;
+    consL a z | r -> \ rho h -> r rho (W.andB-l (ok A (KT.appL (LT.Lab A).car z rho)) (step A (KT.appL (LT.Lab A).car z rho) a) h) } ;
+
+  module LTG = LT.LabTree[ok, inv, pcl] ;
+  D : SF.SF[LC.ce] = LTG.dil ;
+
+  -- (1) D_T is a dilator iff all the trees S_X (X well-founded) are well-founded
+  dil-wf (h : (A : DP.LO) -> LW.WF A -> LTG.WFT A) : LW.IsDil D = LTG.dil-wf h ;
+  wf-dil (d : LW.IsDil D) (A : DP.LO) (w : LW.WF A) : LTG.WFT A = LTG.wf-dil d A w ;
+
+  -- (2) a rank of some U_f into a well-founded X refutes it
+  Uf (f : W.N -> W.N) (t : NL) : W.Bool = T (zipN (pre (lenN W.N t) f) t) ;
+  Rank (f : W.N -> W.N) (X : DP.LO) : U l = (rk : NL -> X.car) *
+    ((t t' : NL) -> Id W.Bool (Uf f t) true -> Id W.Bool (Uf f t') true -> Id W.Bool (ppref t t') true -> Id W.O3 (X.cmp (rk t') (rk t)) lt) ;
+
+  module Branch (f : W.N -> W.N) (X : DP.LO) (R : Rank f X) {
+    OX : U l = W.Or W.Unit X.car ;
+    optIf : W.Bool -> X.car -> OX = split { false -> \ x -> inl tt ; true -> \ x -> inr x } ;
+    someOpt : (b : W.Bool) (x : X.car) -> Id W.Bool (isSome X.car (optIf b x)) b = split {
+      false -> \ x -> refl false ; true -> \ x -> refl true } ;
+    optTrue : (b : W.Bool) (x : X.car) -> Id W.Bool b true -> Id OX (optIf b x) (inr x) = split {
+      false -> \ x h -> W.absurdB (Id OX (inl tt) (inr x)) h ; true -> \ x h -> refl (inr x) } ;
+    bit (j : W.N) : W.Bool = inU j (pre (suc j) f) ;
+    mlab (j : W.N) : OX = optIf (bit j) (R.1 (dec j)) ;
+    lab (j : W.N) : (LT.Lab X).car = (f j,mlab j) ;
+    br : W.N -> LT.LL X = split { zero -> nilL ; suc n | r -> consL (lab n) r } ;
+    lenBr : (n : W.N) -> Id W.N (lenN (LT.Lab X).car (br n)) n = split {
+      zero -> refl zero ; suc n | r -> W.sucEq (lenN (LT.Lab X).car (br n)) n r } ;
+    fstBr : (n : W.N) -> Id NL (fsts X (br n)) (preR f n) = split {
+      zero -> refl nilL ; suc n | r -> PL.ap NL NL (\ t -> consL (f n) t) (fsts X (br n)) (preR f n) r } ;
+    -- a present label is a code in U_f
+    bitU (j : W.N) (h : Id W.Bool (bit j) true) : Id W.Bool (Uf f (dec j)) true =
+      PL.subst NL (\ s -> Id W.Bool (T (zipN s (dec j))) true) (take (lenN W.N (dec j)) (pre (suc j) f)) (pre (lenN W.N (dec j)) f)
+        (take-pre (lenN W.N (dec j)) (suc j) f (W.andB-l (leN (lenN W.N (dec j)) (suc j)) (T (zipN (take (lenN W.N (dec j)) (pre (suc j) f)) (dec j))) h))
+        (W.andB-r (leN (lenN W.N (dec j)) (suc j)) (T (zipN (take (lenN W.N (dec j)) (pre (suc j) f)) (dec j))) h) ;
+    someBit (j : W.N) (h : Id W.Bool (isSome X.car (mlab j)) true) : Id W.Bool (bit j) true =
+      PL.trans W.Bool (bit j) (isSome X.car (mlab j)) true (PL.sym W.Bool (isSome X.car (mlab j)) (bit j) (someOpt (bit j) (R.1 (dec j)))) h ;
+    -- one direction of the pair condition
+    dirOK (j k : W.N) (hj : Id W.Bool (isSome X.car (mlab j)) true) (hk : Id W.Bool (isSome X.car (mlab k)) true)
+      (hp : Id W.Bool (ppref (dec j) (dec k)) true) : Id W.Bool (W.isLt ((LT.Opt X).cmp (mlab k) (mlab j))) true =
+      PL.trans W.Bool (W.isLt ((LT.Opt X).cmp (mlab k) (mlab j))) (W.isLt (X.cmp (R.1 (dec k)) (R.1 (dec j)))) true
+        (W.ap2 OX OX W.Bool (\ u v -> W.isLt ((LT.Opt X).cmp u v)) (mlab k) (inr (R.1 (dec k))) (mlab j) (inr (R.1 (dec j)))
+          (optTrue (bit k) (R.1 (dec k)) (someBit k hk)) (optTrue (bit j) (R.1 (dec j)) (someBit j hj)))
+        (PL.ap W.O3 W.Bool W.isLt (X.cmp (R.1 (dec k)) (R.1 (dec j))) lt
+          (R.2 (dec j) (dec k) (bitU j (someBit j hj)) (bitU k (someBit k hk)) hp)) ;
+    pairLab (j k : W.N) : Id W.Bool (pairOK X j k (mlab j) (mlab k)) true =
+      W.andB-intro
+        (impB (W.andB (isSome X.car (mlab j)) (W.andB (isSome X.car (mlab k)) (ppref (dec j) (dec k)))) (W.isLt ((LT.Opt X).cmp (mlab k) (mlab j))))
+        (impB (W.andB (isSome X.car (mlab k)) (W.andB (isSome X.car (mlab j)) (ppref (dec k) (dec j)))) (W.isLt ((LT.Opt X).cmp (mlab j) (mlab k))))
+        (impI (W.andB (isSome X.car (mlab j)) (W.andB (isSome X.car (mlab k)) (ppref (dec j) (dec k)))) (W.isLt ((LT.Opt X).cmp (mlab k) (mlab j)))
+          (\ c -> dirOK j k
+            (W.andB-l (isSome X.car (mlab j)) (W.andB (isSome X.car (mlab k)) (ppref (dec j) (dec k))) c)
+            (W.andB-l (isSome X.car (mlab k)) (ppref (dec j) (dec k)) (W.andB-r (isSome X.car (mlab j)) (W.andB (isSome X.car (mlab k)) (ppref (dec j) (dec k))) c))
+            (W.andB-r (isSome X.car (mlab k)) (ppref (dec j) (dec k)) (W.andB-r (isSome X.car (mlab j)) (W.andB (isSome X.car (mlab k)) (ppref (dec j) (dec k))) c))))
+        (impI (W.andB (isSome X.car (mlab k)) (W.andB (isSome X.car (mlab j)) (ppref (dec k) (dec j)))) (W.isLt ((LT.Opt X).cmp (mlab j) (mlab k)))
+          (\ c -> dirOK k j
+            (W.andB-l (isSome X.car (mlab k)) (W.andB (isSome X.car (mlab j)) (ppref (dec k) (dec j))) c)
+            (W.andB-l (isSome X.car (mlab j)) (ppref (dec k) (dec j)) (W.andB-r (isSome X.car (mlab k)) (W.andB (isSome X.car (mlab j)) (ppref (dec k) (dec j))) c))
+            (W.andB-r (isSome X.car (mlab j)) (ppref (dec k) (dec j)) (W.andB-r (isSome X.car (mlab k)) (W.andB (isSome X.car (mlab j)) (ppref (dec k) (dec j))) c)))) ;
+    pairsBr (k : W.N) : (n : W.N) -> Id W.Bool (pairs X k (mlab k) (br n)) true = split {
+      zero -> refl true ;
+      suc n | r -> W.andB-intro (pairs X k (mlab k) (br n)) (pairOK X (lenN (LT.Lab X).car (br n)) k (mlab n) (mlab k)) r
+        (PL.subst W.N (\ m -> Id W.Bool (pairOK X m k (mlab n) (mlab k)) true) n (lenN (LT.Lab X).car (br n))
+          (PL.sym W.N (lenN (LT.Lab X).car (br n)) n (lenBr n)) (pairLab n k)) } ;
+    inuBr (k : W.N) : Id W.Bool (inU (lenN (LT.Lab X).car (br k)) (KT.revL W.N (fsts X (consL (lab k) (br k))))) (bit k) =
+      W.ap2 W.N NL W.Bool inU (lenN (LT.Lab X).car (br k)) k (KT.revL W.N (fsts X (consL (lab k) (br k)))) (pre (suc k) f)
+        (lenBr k)
+        (PL.trans NL (KT.revL W.N (consL (f k) (fsts X (br k)))) (KT.revL W.N (preR f (suc k))) (pre (suc k) f)
+          (PL.ap NL NL (\ t -> KT.revL W.N (consL (f k) t)) (fsts X (br k)) (preR f k) (fstBr k))
+          (revPre f (suc k))) ;
+    stepBr (k : W.N) : Id W.Bool (step X (br k) (lab k)) true =
+      W.andB-intro (eqB (isSome X.car (mlab k)) (inU (lenN (LT.Lab X).car (br k)) (KT.revL W.N (fsts X (consL (lab k) (br k))))))
+        (pairs X (lenN (LT.Lab X).car (br k)) (mlab k) (br k))
+        (PL.trans W.Bool (eqB (isSome X.car (mlab k)) (inU (lenN (LT.Lab X).car (br k)) (KT.revL W.N (fsts X (consL (lab k) (br k))))))
+            (eqB (bit k) (bit k)) true
+          (W.ap2 W.Bool W.Bool W.Bool eqB (isSome X.car (mlab k)) (bit k)
+            (inU (lenN (LT.Lab X).car (br k)) (KT.revL W.N (fsts X (consL (lab k) (br k))))) (bit k)
+            (someOpt (bit k) (R.1 (dec k))) (inuBr k))
+          (eqB-refl (bit k)))
+        (PL.subst W.N (\ m -> Id W.Bool (pairs X m (mlab k) (br k)) true) k (lenN (LT.Lab X).car (br k))
+          (PL.sym W.N (lenN (LT.Lab X).car (br k)) k (lenBr k)) (pairsBr k k)) ;
+    okBr : (n : W.N) -> Id W.Bool (ok X (br n)) true = split {
+      zero -> refl true ;
+      suc n | r -> W.andB-intro (ok X (br n)) (step X (br n) (lab n)) r (stepBr n) } ;
+    -- the nodes of the branch, read from the root
+    nu (n : W.N) : (LTG.G X).car =
+      (KT.revL (LT.Lab X).car (br n),
+       PL.subst (LT.LL X) (\ t -> Id W.Bool (ok X t) true) (br n) (KT.revL (LT.Lab X).car (KT.revL (LT.Lab X).car (br n)))
+         (PL.sym (LT.LL X) (KT.revL (LT.Lab X).car (KT.revL (LT.Lab X).car (br n))) (br n) (revrev (LT.Lab X).car (br n))) (okBr n)) ;
+    descent (n : W.N) : Id W.O3 ((LTG.G X).cmp (nu (suc n)) (nu n)) lt =
+      KT.KB[LT.Lab X].kb-ext (KT.revL (LT.Lab X).car (br n)) (lab n) nilL ;
+    module AG = W.Acc[(LTG.G X).car, W.ltO (LTG.G X).car (LTG.G X).cmp] ;
+    noAcc (a : AG.AccP (nu zero)) : W.Empty =
+      AG.ind (\ y -> (n : W.N) -> Id (LTG.G X).car y (nu n) -> W.Empty)
+        (\ y ih n e -> ih (nu (suc n))
+          (PL.subst (LTG.G X).car (\ z -> AG.Lt (nu (suc n)) z) (nu n) y (PL.sym (LTG.G X).car y (nu n) e)
+            (PL.ap W.O3 W.Bool W.isLt ((LTG.G X).cmp (nu (suc n)) (nu n)) lt (descent n)))
+          (suc n) (refl (nu (suc n))))
+        (nu zero) a zero (refl (nu zero)) ;
+  } ;
+  rank-not-dil (f : W.N -> W.N) (X : DP.LO) (w : LW.WF X) (R : Rank f X) (d : LW.IsDil D) : W.Empty =
+    Branch[f,X,R].noAcc (d X w (Branch[f,X,R].nu zero)) ;
+} ;
+
+-- Example: T accepts only the empty sequence, so every U_f = {()} has a
+-- (trivial) rank into omega, and D_T is NOT a dilator.
+module Ex0 {
+  T0 (u : W.List (W.N * W.N)) : W.Bool = LT.isNilL (W.N * W.N) u ;
+  module G0 = Girard[T0, \ n -> nilL] ;
+  f0 (n : W.N) : W.N = zero ;
+  -- U_f0 contains only the empty sequence
+  onlyNil : (t : NL) -> Id W.Bool (G0.Uf f0 t) true -> Id NL t nilL = split {
+    nilL -> \ h -> refl nilL ;
+    consL x t -> \ h -> W.absurdB (Id NL (consL x t) nilL) h } ;
+  noPair : (t t' : NL) -> Id NL t nilL -> Id NL t' nilL -> Id W.Bool (ppref t t') true -> W.Empty = split {
+    nilL -> split {
+      nilL -> \ e e' h -> W.absurdB W.Empty h ;
+      consL y t' -> \ e e' h -> LT.consNil W.N y t' e' W.Empty } ;
+    consL x t -> \ t' e e' h -> LT.consNil W.N x t e W.Empty } ;
+  R0 : G0.Rank f0 LW.omega = (\ t -> zero,
+    \ t t' h h' p -> CatEmbFin[l].efq (Id W.O3 (W.cmpN zero zero) lt) (noPair t t' (onlyNil t h) (onlyNil t' h') p)) ;
+  notDil (d : LW.IsDil G0.D) : W.Empty = G0.rank-not-dil f0 LW.omega LW.wf-omega R0 d ;
+} ;
