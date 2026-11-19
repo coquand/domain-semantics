@@ -1,0 +1,41 @@
+-- Categories of embeddings, abstractly (catemb.pdf, linear-order case).
+--
+-- Objects may be large (U l+); morphisms are small (U l).  The finite
+-- objects are given by a SMALL type of codes Fin with a decoding
+-- fin : Fin -> Obj (not required to be injective: continuity only needs
+-- "some code").  Axioms:
+--   * category laws (as identities of morphisms);
+--   * every morphism is mono;
+--   * pull-backs of cospans (with the universal property);
+--   * directedness: two maps from finite objects into A merely factor
+--     through a common map from a finite object.
+-- Stable functors C -> LO and their morphisms are in StabFun.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+
+record CE {
+  Obj : U l+ ;
+  Mor : Obj -> Obj -> U l ;
+  idm : (A : Obj) -> Mor A A ;
+  comp : (A B D : Obj) -> Mor A B -> Mor B D -> Mor A D ;
+  id-l : (A B : Obj) (f : Mor A B) -> Id (Mor A B) (comp A A B (idm A) f) f ;
+  id-r : (A B : Obj) (f : Mor A B) -> Id (Mor A B) (comp A B B f (idm B)) f ;
+  assoc : (A B D E : Obj) (f : Mor A B) (g : Mor B D) (h : Mor D E) ->
+    Id (Mor A E) (comp A D E (comp A B D f g) h) (comp A B E f (comp B D E g h)) ;
+  mono : (A B D : Obj) (g g' : Mor A B) (f : Mor B D) ->
+    Id (Mor A D) (comp A B D g f) (comp A B D g' f) -> Id (Mor A B) g g' ;
+  pb : (A B B' : Obj) -> Mor B A -> Mor B' A -> Obj ;
+  p1 : (A B B' : Obj) (f : Mor B A) (f' : Mor B' A) -> Mor (pb A B B' f f') B ;
+  p2 : (A B B' : Obj) (f : Mor B A) (f' : Mor B' A) -> Mor (pb A B B' f f') B' ;
+  pb-sq : (A B B' : Obj) (f : Mor B A) (f' : Mor B' A) ->
+    Id (Mor (pb A B B' f f') A) (comp (pb A B B' f f') B A (p1 A B B' f f') f) (comp (pb A B B' f f') B' A (p2 A B B' f f') f') ;
+  pb-univ : (A B B' : Obj) (f : Mor B A) (f' : Mor B' A) (E : Obj) (g : Mor E B) (g' : Mor E B') ->
+    Id (Mor E A) (comp E B A g f) (comp E B' A g' f') ->
+    (h : Mor E (pb A B B' f f')) * (Id (Mor E B) (comp E (pb A B B' f f') B h (p1 A B B' f f')) g *
+      Id (Mor E B') (comp E (pb A B B' f f') B' h (p2 A B B' f f')) g') ;
+  Fin : U l ;
+  fin : Fin -> Obj ;
+  dir : (A : Obj) (c c' : Fin) (i : Mor (fin c) A) (i' : Mor (fin c') A) ->
+    Ex ((d : Fin) * ((j : Mor (fin d) A) * ((k : Mor (fin c) (fin d)) * ((k' : Mor (fin c') (fin d)) *
+      (Id (Mor (fin c) A) (comp (fin c) (fin d) A k j) i * Id (Mor (fin c') A) (comp (fin c') (fin d) A k' j) i'))))) ;
+} ;

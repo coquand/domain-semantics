@@ -1,0 +1,202 @@
+-- Categories of embeddings with Bishop-finite finite objects (abstract
+-- catemb, finiteness layer).  CEF extends CE (field C) with:
+--   * hom-sets between finite objects are Bishop finite: an enumeration
+--     (homN, hom, hom-surj) and decidable equality (hom-dec);
+--   * every finite object has a finite list of subobjects (subN, subo,
+--     subm; total in the index, only j < subN c matters) such that every
+--     map into it is image-equivalent to one in the list (sub-cover);
+--   * each listed subobject has a self-amalgamation (amal*), so that
+--     supports of stable functors are decidable (StabDec);
+--   * finite multicoproducts of finite objects given by finite families
+--     (jt*: Diers's multicolimits, with finitely many members);
+--   * enumerations are junk-tolerant (entries in Opt), so that a finite
+--     list may be filtered by a decidable condition;
+--   * finite objects are rigid: their only endomorphism is the identity;
+--   * morphism types are sets.
+-- Derived here: bounded search over N, decidable factorisation between
+-- finite objects (decFac), composition of factorisations.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CE = CatEmb[l] ;
+module PL = Prelude[l] ;
+
+efq (A : U l) : W.Empty -> A = split { } ;
+empty-prop : PL.isProp W.Empty = \ a b -> efq (Id W.Empty a b) a ;
+or-elim (A B D : U l) (f : A -> D) (g : B -> D) : W.Or A B -> D = split { inl a -> f a ; inr b -> g b } ;
+
+Lt (i n : W.N) : U l = Id W.Bool (W.ltN i n) true ;
+
+lt-split : (i n : W.N) -> Lt i (suc n) -> W.Or (Lt i n) (Id W.N i n) = split {
+  zero -> split {
+    zero -> \ h -> inr (refl zero) ;
+    suc n -> \ h -> inl (refl true) } ;
+  suc i | ih -> split {
+    zero -> \ h -> W.ltN-zero-abs (W.Or (Lt (suc i) zero) (Id W.N (suc i) zero)) i h ;
+    suc n -> \ h -> or-elim (Lt i n) (Id W.N i n) (W.Or (Lt (suc i) (suc n)) (Id W.N (suc i) (suc n)))
+      (\ a -> inl a) (\ e -> inr (PL.ap W.N W.N (\ k -> suc k) i n e)) (ih n h) } } ;
+
+-- bounded search
+Bnd (n : W.N) (P : W.N -> U l) : U l = (i : W.N) * (Lt i n * P i) ;
+None (n : W.N) (P : W.N -> U l) : U l = (i : W.N) -> Lt i n -> P i -> W.Empty ;
+search : (n : W.N) (P : W.N -> U l) (d : (i : W.N) -> W.Or (P i) (P i -> W.Empty)) -> W.Or (Bnd n P) (None n P) = split {
+  zero -> \ P d -> inr (\ i h p -> W.ltN-zero-abs W.Empty i h) ;
+  suc n | ih -> \ P d -> or-elim (Bnd n P) (None n P) (W.Or (Bnd (suc n) P) (None (suc n) P))
+    (\ b -> inl (b.1,(W.ltN-sucR b.1 n b.2.1,b.2.2)))
+    (\ no -> or-elim (P n) (P n -> W.Empty) (W.Or (Bnd (suc n) P) (None (suc n) P))
+      (\ p -> inl (n,(W.ltN-suc n,p)))
+      (\ np -> inr (\ i h p -> or-elim (Lt i n) (Id W.N i n) W.Empty
+        (\ a -> no i a p) (\ e -> np (PL.subst W.N P i n e p)) (lt-split i n h)))
+      (d n))
+    (ih P d) } ;
+
+-- optional values (junk-tolerant enumerations)
+Opt (A : U l) : U l = W.Or A W.Unit ;
+isInl (A : U l) : Opt A -> W.Bool = split { inl a -> true ; inr u -> false } ;
+optGet (A : U l) (a0 : A) : Opt A -> A = split { inl a -> a ; inr u -> a0 } ;
+inl-inj (A : U l) (a b : A) (e : Id (Opt A) (inl a) (inl b)) : Id A a b = PL.ap (Opt A) A (optGet A a) (inl a) (inl b) e ;
+inl-inr (A : U l) (a : A) (u : W.Unit) (e : Id (Opt A) (inl a) (inr u)) : W.Empty =
+  W.absurdB W.Empty (PL.sym W.Bool true false (PL.ap (Opt A) W.Bool (isInl A) (inl a) (inr u) e)) ;
+
+dec-lt-sig (n i : W.N) (P : Lt i n -> U l) (d : (h : Lt i n) -> W.Or (P h) (P h -> W.Empty)) :
+    W.Or ((h : Lt i n) * P h) (((h : Lt i n) * P h) -> W.Empty) =
+  or-elim (Lt i n) (Lt i n -> W.Empty) (W.Or ((h : Lt i n) * P h) (((h : Lt i n) * P h) -> W.Empty))
+    (\ h -> or-elim (P h) (P h -> W.Empty) (W.Or ((h : Lt i n) * P h) (((h : Lt i n) * P h) -> W.Empty))
+      (\ p -> inl (h,p))
+      (\ np -> inr (\ q -> np (PL.subst (Lt i n) P q.1 h (W.HB.uip (W.ltN i n) true q.1 h) q.2)))
+      (d h))
+    (\ nh -> inr (\ q -> nh q.1))
+    (W.decB (W.ltN i n) true) ;
+
+-- deciding an existential over a junk-tolerant finite enumeration
+Enum (A : U l) (n : W.N) (el : (i : W.N) -> Lt i n -> Opt A) : U l =
+  (a : A) -> (i : W.N) * ((h : Lt i n) * Id (Opt A) (el i h) (inl a)) ;
+module EnumDec (A : U l) (n : W.N) (el : (i : W.N) -> Lt i n -> Opt A) (surj : Enum A n el)
+  (P : A -> U l) (dp : (a : A) -> W.Or (P a) (P a -> W.Empty)) {
+  R (i : W.N) (h : Lt i n) : U l = (a : A) * (Id (Opt A) (el i h) (inl a) * P a) ;
+  Q (i : W.N) : U l = (h : Lt i n) * R i h ;
+  decO (i : W.N) (h : Lt i n) : (o : Opt A) -> Id (Opt A) (el i h) o -> W.Or (R i h) (R i h -> W.Empty) = split {
+    inl a -> \ e -> or-elim (P a) (P a -> W.Empty) (W.Or (R i h) (R i h -> W.Empty))
+      (\ p -> inl (a,(e,p)))
+      (\ np -> inr (\ q -> np (PL.subst A P q.1 a
+        (inl-inj A q.1 a (PL.trans (Opt A) (inl q.1) (el i h) (inl a) (PL.sym (Opt A) (el i h) (inl q.1) q.2.1) e)) q.2.2)))
+      (dp a) ;
+    inr u -> \ e -> inr (\ q -> inl-inr A q.1 u (PL.trans (Opt A) (inl q.1) (el i h) (inr u) (PL.sym (Opt A) (el i h) (inl q.1) q.2.1) e)) } ;
+  decQ (i : W.N) : W.Or (Q i) (Q i -> W.Empty) = dec-lt-sig n i (R i) (\ h -> decO i h (el i h) (refl (el i h))) ;
+  result : W.Or ((a : A) * P a) (((a : A) * P a) -> W.Empty) =
+    or-elim (Bnd n Q) (None n Q) (W.Or ((a : A) * P a) (((a : A) * P a) -> W.Empty))
+      (\ b -> inl (b.2.2.2.1,b.2.2.2.2.2))
+      (\ no -> inr (\ ap0 -> no (surj ap0.1).1 (surj ap0.1).2.1 ((surj ap0.1).2.1,(ap0.1,((surj ap0.1).2.2,ap0.2)))))
+      (search n Q decQ) ;
+} ;
+
+Fac (C : CE.CE) (B A' A : C.Obj) (f : C.Mor B A) (g : C.Mor A' A) : U l =
+  (h : C.Mor B A') * Id (C.Mor B A) (C.comp B A' A h g) f ;
+fac-comp (C : CE.CE) (B A' A'' A : C.Obj) (f : C.Mor B A) (g : C.Mor A' A) (g' : C.Mor A'' A)
+  (u : Fac C B A' A f g) (v : Fac C A' A'' A g g') : Fac C B A'' A f g' =
+  (C.comp B A' A'' u.1 v.1,
+   PL.trans (C.Mor B A) (C.comp B A'' A (C.comp B A' A'' u.1 v.1) g') (C.comp B A' A u.1 (C.comp A' A'' A v.1 g')) f
+     (C.assoc B A' A'' A u.1 v.1 g')
+     (PL.trans (C.Mor B A) (C.comp B A' A u.1 (C.comp A' A'' A v.1 g')) (C.comp B A' A u.1 g) f
+       (PL.ap (C.Mor A' A) (C.Mor B A) (C.comp B A' A u.1) (C.comp A' A'' A v.1 g') g v.2)
+       u.2)) ;
+fac-refl (C : CE.CE) (B A : C.Obj) (f : C.Mor B A) : Fac C B B A f f = (C.idm B,C.id-l B A f) ;
+-- precomposition
+fac-pre (C : CE.CE) (B' B A' A : C.Obj) (a : C.Mor B' B) (f : C.Mor B A) (g : C.Mor A' A) (u : Fac C B A' A f g) :
+    Fac C B' A' A (C.comp B' B A a f) g =
+  (C.comp B' B A' a u.1,
+   PL.trans (C.Mor B' A) (C.comp B' A' A (C.comp B' B A' a u.1) g) (C.comp B' B A a (C.comp B A' A u.1 g)) (C.comp B' B A a f)
+     (C.assoc B' B A' A a u.1 g)
+     (PL.ap (C.Mor B A) (C.Mor B' A) (C.comp B' B A a) (C.comp B A' A u.1 g) f u.2)) ;
+
+-- cospans out of two finite objects, and factorisations through them
+JT (C : CE.CE) (a b : C.Fin) : U l = (c : C.Fin) * (C.Mor (C.fin a) (C.fin c) * C.Mor (C.fin b) (C.fin c)) ;
+JFac (C : CE.CE) (a b d : C.Fin) (f : C.Mor (C.fin a) (C.fin d)) (g : C.Mor (C.fin b) (C.fin d)) (j : JT C a b) : U l =
+  (m : C.Mor (C.fin j.1) (C.fin d)) * (Id (C.Mor (C.fin a) (C.fin d)) (C.comp (C.fin a) (C.fin j.1) (C.fin d) j.2.1 m) f *
+    Id (C.Mor (C.fin b) (C.fin d)) (C.comp (C.fin b) (C.fin j.1) (C.fin d) j.2.2 m) g) ;
+
+record CEF {
+  C : CE.CE ;
+  homN : (c d : C.Fin) -> W.N ;
+  hom : (c d : C.Fin) (i : W.N) -> Lt i (homN c d) -> Opt (C.Mor (C.fin c) (C.fin d)) ;
+  hom-surj : (c d : C.Fin) -> Enum (C.Mor (C.fin c) (C.fin d)) (homN c d) (hom c d) ;
+  hom-dec : (c d : C.Fin) (k k' : C.Mor (C.fin c) (C.fin d)) ->
+    W.Or (Id (C.Mor (C.fin c) (C.fin d)) k k') (Id (C.Mor (C.fin c) (C.fin d)) k k' -> W.Empty) ;
+  subN : C.Fin -> W.N ;
+  subo : C.Fin -> W.N -> C.Fin ;
+  subm : (c : C.Fin) (j : W.N) -> C.Mor (C.fin (subo c j)) (C.fin c) ;
+  -- (stated for maps out of FINITE objects only; maps out of arbitrary
+  -- objects are handled through continuity of the functors)
+  sub-cover : (c c' : C.Fin) (k : C.Mor (C.fin c') (C.fin c)) ->
+    Ex ((j : W.N) * (Lt j (subN c) *
+      (Fac C (C.fin c') (C.fin (subo c j)) (C.fin c) k (subm c j) * Fac C (C.fin (subo c j)) (C.fin c') (C.fin c) (subm c j) k))) ;
+  amalD : C.Fin -> W.N -> C.Obj ;
+  amalw : (c : C.Fin) (j : W.N) -> C.Mor (C.fin c) (amalD c j) ;
+  amalw' : (c : C.Fin) (j : W.N) -> C.Mor (C.fin c) (amalD c j) ;
+  amal-sq : (c : C.Fin) (j : W.N) ->
+    Id (C.Mor (C.fin (subo c j)) (amalD c j)) (C.comp (C.fin (subo c j)) (C.fin c) (amalD c j) (subm c j) (amalw c j))
+      (C.comp (C.fin (subo c j)) (C.fin c) (amalD c j) (subm c j) (amalw' c j)) ;
+  amal-t : (c : C.Fin) (j : W.N) -> C.Mor (C.pb (amalD c j) (C.fin c) (C.fin c) (amalw c j) (amalw' c j)) (C.fin (subo c j)) ;
+  amal-tp : (c : C.Fin) (j : W.N) ->
+    Id (C.Mor (C.pb (amalD c j) (C.fin c) (C.fin c) (amalw c j) (amalw' c j)) (C.fin c))
+      (C.comp (C.pb (amalD c j) (C.fin c) (C.fin c) (amalw c j) (amalw' c j)) (C.fin (subo c j)) (C.fin c) (amal-t c j) (subm c j))
+      (C.p1 (amalD c j) (C.fin c) (C.fin c) (amalw c j) (amalw' c j)) ;
+  -- finite multicoproducts of finite objects (Diers), as finite families:
+  -- a junk-tolerant list of cospans fin a -> fin c <- fin b such that every
+  -- pair of maps into a finite object factors through exactly one listed
+  -- cospan (jt-cover, jt-uniq), by exactly one map (jt-epi)
+  jtN : (a b : C.Fin) -> W.N ;
+  jt : (a b : C.Fin) (t : W.N) -> Lt t (jtN a b) -> Opt (JT C a b) ;
+  jt-cover : (a b d : C.Fin) (f : C.Mor (C.fin a) (C.fin d)) (g : C.Mor (C.fin b) (C.fin d)) ->
+    Ex ((t : W.N) * ((h : Lt t (jtN a b)) * ((j : JT C a b) * (Id (Opt (JT C a b)) (jt a b t h) (inl j) * JFac C a b d f g j)))) ;
+  jt-uniq : (a b d : C.Fin) (f : C.Mor (C.fin a) (C.fin d)) (g : C.Mor (C.fin b) (C.fin d))
+    (t : W.N) (h : Lt t (jtN a b)) (j : JT C a b) (e : Id (Opt (JT C a b)) (jt a b t h) (inl j))
+    (t' : W.N) (h' : Lt t' (jtN a b)) (j' : JT C a b) (e' : Id (Opt (JT C a b)) (jt a b t' h') (inl j')) ->
+    JFac C a b d f g j -> JFac C a b d f g j' -> Id (JT C a b) j j' ;
+  jt-epi : (a b : C.Fin) (t : W.N) (h : Lt t (jtN a b)) (j : JT C a b) (e : Id (Opt (JT C a b)) (jt a b t h) (inl j))
+    (d : C.Fin) (m m' : C.Mor (C.fin j.1) (C.fin d)) ->
+    Id (C.Mor (C.fin a) (C.fin d)) (C.comp (C.fin a) (C.fin j.1) (C.fin d) j.2.1 m) (C.comp (C.fin a) (C.fin j.1) (C.fin d) j.2.1 m') ->
+    Id (C.Mor (C.fin b) (C.fin d)) (C.comp (C.fin b) (C.fin j.1) (C.fin d) j.2.2 m) (C.comp (C.fin b) (C.fin j.1) (C.fin d) j.2.2 m') ->
+    Id (C.Mor (C.fin j.1) (C.fin d)) m m' ;
+  rigid : (c : C.Fin) (a : C.Mor (C.fin c) (C.fin c)) -> Id (C.Mor (C.fin c) (C.fin c)) a (C.idm (C.fin c)) ;
+  mor-set : (A B : C.Obj) -> PL.isSet (C.Mor A B) ;
+} ;
+-- all the axioms except the multicoproducts
+record CEF0 {
+  C : CE.CE ;
+  homN : (c d : C.Fin) -> W.N ;
+  hom : (c d : C.Fin) (i : W.N) -> Lt i (homN c d) -> Opt (C.Mor (C.fin c) (C.fin d)) ;
+  hom-surj : (c d : C.Fin) -> Enum (C.Mor (C.fin c) (C.fin d)) (homN c d) (hom c d) ;
+  hom-dec : (c d : C.Fin) (k k' : C.Mor (C.fin c) (C.fin d)) ->
+    W.Or (Id (C.Mor (C.fin c) (C.fin d)) k k') (Id (C.Mor (C.fin c) (C.fin d)) k k' -> W.Empty) ;
+  subN : C.Fin -> W.N ;
+  subo : C.Fin -> W.N -> C.Fin ;
+  subm : (c : C.Fin) (j : W.N) -> C.Mor (C.fin (subo c j)) (C.fin c) ;
+  -- (stated for maps out of FINITE objects only; maps out of arbitrary
+  -- objects are handled through continuity of the functors)
+  sub-cover : (c c' : C.Fin) (k : C.Mor (C.fin c') (C.fin c)) ->
+    Ex ((j : W.N) * (Lt j (subN c) *
+      (Fac C (C.fin c') (C.fin (subo c j)) (C.fin c) k (subm c j) * Fac C (C.fin (subo c j)) (C.fin c') (C.fin c) (subm c j) k))) ;
+  amalD : C.Fin -> W.N -> C.Obj ;
+  amalw : (c : C.Fin) (j : W.N) -> C.Mor (C.fin c) (amalD c j) ;
+  amalw' : (c : C.Fin) (j : W.N) -> C.Mor (C.fin c) (amalD c j) ;
+  amal-sq : (c : C.Fin) (j : W.N) ->
+    Id (C.Mor (C.fin (subo c j)) (amalD c j)) (C.comp (C.fin (subo c j)) (C.fin c) (amalD c j) (subm c j) (amalw c j))
+      (C.comp (C.fin (subo c j)) (C.fin c) (amalD c j) (subm c j) (amalw' c j)) ;
+  amal-t : (c : C.Fin) (j : W.N) -> C.Mor (C.pb (amalD c j) (C.fin c) (C.fin c) (amalw c j) (amalw' c j)) (C.fin (subo c j)) ;
+  amal-tp : (c : C.Fin) (j : W.N) ->
+    Id (C.Mor (C.pb (amalD c j) (C.fin c) (C.fin c) (amalw c j) (amalw' c j)) (C.fin c))
+      (C.comp (C.pb (amalD c j) (C.fin c) (C.fin c) (amalw c j) (amalw' c j)) (C.fin (subo c j)) (C.fin c) (amal-t c j) (subm c j))
+      (C.p1 (amalD c j) (C.fin c) (C.fin c) (amalw c j) (amalw' c j)) ;
+  rigid : (c : C.Fin) (a : C.Mor (C.fin c) (C.fin c)) -> Id (C.Mor (C.fin c) (C.fin c)) a (C.idm (C.fin c)) ;
+  mor-set : (A B : C.Obj) -> PL.isSet (C.Mor A B) ;
+} ;
+
+
+-- decidable factorisation between finite objects
+module DecFac (F : CEF) (e e' c : F.C.Fin) (f : F.C.Mor (F.C.fin e) (F.C.fin c)) (g : F.C.Mor (F.C.fin e') (F.C.fin c)) {
+  result : W.Or (Fac F.C (F.C.fin e) (F.C.fin e') (F.C.fin c) f g) (Fac F.C (F.C.fin e) (F.C.fin e') (F.C.fin c) f g -> W.Empty) =
+    EnumDec[F.C.Mor (F.C.fin e) (F.C.fin e'),F.homN e e',F.hom e e',F.hom-surj e e',
+      \ h -> Id (F.C.Mor (F.C.fin e) (F.C.fin c)) (F.C.comp (F.C.fin e) (F.C.fin e') (F.C.fin c) h g) f,
+      \ h -> F.hom-dec e c (F.C.comp (F.C.fin e) (F.C.fin e') (F.C.fin c) h g) f].result ;
+} ;

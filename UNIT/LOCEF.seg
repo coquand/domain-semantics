@@ -1,0 +1,195 @@
+-- All linear orders form a CEF (finiteness transported from FinOrd along
+-- phi/psi, amalgamation built directly), hence the hierarchy over LO:
+-- dilators on all linear orders, ptykes, ...
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module FO = FinOrd[l] ;
+module LC = LOCat[l] ;
+module LF = LOFin[l] ;
+module FL = FinList[l] ;
+module SAm = StabAmal[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+M (c d : W.N) : U l = DP.Map (LC.ord c) (LC.ord d) ;
+cm (a b d : W.N) (f : M a b) (g : M b d) : M a d = LC.compMap (LC.ord a) (LC.ord b) (LC.ord d) f g ;
+
+hom (c d : W.N) (i : W.N) (h : CF.Lt i (W.pow2 d)) : CF.Opt (M c d) = FL.optMap (FO.Mor c d) (M c d) (LF.phi c d) (FO.hom c d i h) ;
+hom-surj (c d : W.N) : CF.Enum (M c d) (W.pow2 d) (hom c d) = \ f ->
+  ((FO.hom-surj c d (LF.psi c d f)).1,((FO.hom-surj c d (LF.psi c d f)).2.1,
+    PL.trans (CF.Opt (M c d)) (hom c d (FO.hom-surj c d (LF.psi c d f)).1 (FO.hom-surj c d (LF.psi c d f)).2.1)
+      (inl (LF.phi c d (LF.psi c d f))) (inl f)
+      (PL.ap (CF.Opt (FO.Mor c d)) (CF.Opt (M c d)) (FL.optMap (FO.Mor c d) (M c d) (LF.phi c d))
+        (FO.hom c d (FO.hom-surj c d (LF.psi c d f)).1 (FO.hom-surj c d (LF.psi c d f)).2.1) (inl (LF.psi c d f)) (FO.hom-surj c d (LF.psi c d f)).2.2)
+      (PL.ap (M c d) (CF.Opt (M c d)) (\ x -> inl x) (LF.phi c d (LF.psi c d f)) f (LF.phipsi c d f)))) ;
+hom-dec (c d : W.N) (f g : M c d) : W.Or (Id (M c d) f g) (Id (M c d) f g -> W.Empty) =
+  CF.or-elim (Id (FO.Mor c d) (LF.psi c d f) (LF.psi c d g)) (Id (FO.Mor c d) (LF.psi c d f) (LF.psi c d g) -> W.Empty) (W.Or (Id (M c d) f g) (Id (M c d) f g -> W.Empty))
+    (\ e -> inl (PL.trans (M c d) f (LF.phi c d (LF.psi c d f)) g (PL.sym (M c d) (LF.phi c d (LF.psi c d f)) f (LF.phipsi c d f))
+      (PL.trans (M c d) (LF.phi c d (LF.psi c d f)) (LF.phi c d (LF.psi c d g)) g
+        (PL.ap (FO.Mor c d) (M c d) (LF.phi c d) (LF.psi c d f) (LF.psi c d g) e) (LF.phipsi c d g))))
+    (\ ne -> inr (\ e -> ne (PL.ap (M c d) (FO.Mor c d) (LF.psi c d) f g e)))
+    (FO.hom-dec c d (LF.psi c d f) (LF.psi c d g)) ;
+
+-- subobjects
+SCT (c c' : W.N) (k : DP.Map (LC.ord c') (LC.ord c)) : U l = (j0 : W.N) * (CF.Lt j0 (W.pow2 c) *
+  (CF.Fac LC.ce (LC.ord c') (LC.ord (FO.subo c j0)) (LC.ord c) k (LF.phi (FO.subo c j0) c (FO.subm c j0)) *
+   CF.Fac LC.ce (LC.ord (FO.subo c j0)) (LC.ord c') (LC.ord c) (LF.phi (FO.subo c j0) c (FO.subm c j0)) k)) ;
+subm (c j : W.N) : M (FO.subo c j) c = LF.phi (FO.subo c j) c (FO.subm c j) ;
+module SC0 (c c' : W.N) (k : M c' c)
+  (w : (j : W.N) * (CF.Lt j (W.pow2 c) * (CF.Fac FO.ce c' (FO.subo c j) c (LF.psi c' c k) (FO.subm c j) *
+    CF.Fac FO.ce (FO.subo c j) c' c (FO.subm c j) (LF.psi c' c k)))) {
+  j : W.N = w.1 ;
+  s : W.N = FO.subo c j ;
+  h1 : FO.Mor c' s = w.2.2.1.1 ;
+  h2 : FO.Mor s c' = w.2.2.2.1 ;
+  f1 : CF.Fac LC.ce (LC.ord c') (LC.ord s) (LC.ord c) k (subm c j) =
+    (LF.phi c' s h1,
+     PL.trans (M c' c) (cm c' s c (LF.phi c' s h1) (subm c j)) (LF.phi c' c (FO.comp c' s c h1 (FO.subm c j))) k
+       (PL.sym (M c' c) (LF.phi c' c (FO.comp c' s c h1 (FO.subm c j))) (cm c' s c (LF.phi c' s h1) (subm c j)) (LF.phi-comp c' s c h1 (FO.subm c j)))
+       (PL.trans (M c' c) (LF.phi c' c (FO.comp c' s c h1 (FO.subm c j))) (LF.phi c' c (LF.psi c' c k)) k
+         (PL.ap (FO.Mor c' c) (M c' c) (LF.phi c' c) (FO.comp c' s c h1 (FO.subm c j)) (LF.psi c' c k) w.2.2.1.2) (LF.phipsi c' c k))) ;
+  f2 : CF.Fac LC.ce (LC.ord s) (LC.ord c') (LC.ord c) (subm c j) k =
+    (LF.phi s c' h2,
+     PL.trans (M s c) (cm s c' c (LF.phi s c' h2) k) (cm s c' c (LF.phi s c' h2) (LF.phi c' c (LF.psi c' c k))) (subm c j)
+       (PL.ap (M c' c) (M s c) (cm s c' c (LF.phi s c' h2)) k (LF.phi c' c (LF.psi c' c k)) (PL.sym (M c' c) (LF.phi c' c (LF.psi c' c k)) k (LF.phipsi c' c k)))
+       (PL.trans (M s c) (cm s c' c (LF.phi s c' h2) (LF.phi c' c (LF.psi c' c k))) (LF.phi s c (FO.comp s c' c h2 (LF.psi c' c k))) (subm c j)
+         (PL.sym (M s c) (LF.phi s c (FO.comp s c' c h2 (LF.psi c' c k))) (cm s c' c (LF.phi s c' h2) (LF.phi c' c (LF.psi c' c k))) (LF.phi-comp s c' c h2 (LF.psi c' c k)))
+         (PL.ap (FO.Mor s c) (M s c) (LF.phi s c) (FO.comp s c' c h2 (LF.psi c' c k)) (FO.subm c j) w.2.2.2.2))) ;
+  result : SCT c c' k = (j,(w.2.1,(f1,f2))) ;
+} ;
+sub-cover (c c' : W.N) (k : M c' c) : Ex (SCT c c' k) =
+  TC.map ((j : W.N) * (CF.Lt j (W.pow2 c) * (CF.Fac FO.ce c' (FO.subo c j) c (LF.psi c' c k) (FO.subm c j) *
+      CF.Fac FO.ce (FO.subo c j) c' c (FO.subm c j) (LF.psi c' c k))))
+    (SCT c c' k) (\ w -> SC0[c,c',k,w].result) (FO.cef.sub-cover c c' (LF.psi c' c k)) ;
+
+-- amalgamation: [c] x {L,R}, lexicographic
+module AmL (c j : W.N) {
+  s : W.Wd = FO.bin c j ;
+  so : W.N = FO.subo c j ;
+  X : DP.LO = SAm.LexB[LC.ord c].lo ;
+  tg (b : LC.Pt c) : W.Bool = SAm.nb (W.at s b.1) ;
+  keep (p q : LC.Pt c) : (o : W.O3) -> Id W.O3 (W.cmpN p.1 q.1) o -> Id W.O3 (W.lexO3 o (SAm.cmpB (tg p) (tg q))) o = split {
+    lt -> \ e -> refl lt ;
+    eq -> \ e -> PL.subst (LC.Pt c) (\ x -> Id W.O3 (SAm.cmpB (tg p) (tg x)) eq) p q (LC.ptEq c p q (W.cmpN-eq p.1 q.1 e)) (SAm.cmpB-refl (tg p)) ;
+    gt -> \ e -> refl gt } ;
+  w : DP.Map (LC.ord c) X = (\ b -> (b,false),\ p q -> SAm.lex-eqR (W.cmpN p.1 q.1)) ;
+  w' : DP.Map (LC.ord c) X = (\ b -> (b,tg b),\ p q -> keep p q (W.cmpN p.1 q.1) (refl (W.cmpN p.1 q.1))) ;
+  sq : Id (DP.Map (LC.ord so) X) (LC.compMap (LC.ord so) (LC.ord c) X (subm c j) w) (LC.compMap (LC.ord so) (LC.ord c) X (subm c j) w') =
+    LC.map-eq (LC.ord so) X (LC.compMap (LC.ord so) (LC.ord c) X (subm c j) w) (LC.compMap (LC.ord so) (LC.ord c) X (subm c j) w')
+      (\ x -> PL.ap W.Bool (LC.Pt c * W.Bool) (\ b -> ((subm c j).1 x,SAm.nb b)) true (W.at s (W.sel s x.1))
+        (PL.sym W.Bool (W.at s (W.sel s x.1)) true (W.at-sel s x.1 x.2))) ;
+  module P = LC.PB[X,LC.ord c,LC.ord c,w,w'] ;
+  inT (p : P.Car) : Id W.Bool (W.at s p.1.1) true =
+    PL.subst (LC.Pt c) (\ x -> Id W.Bool (W.at s x.1) true) p.2.1 p.1
+      (PL.sym (LC.Pt c) p.1 p.2.1 (PL.ap (LC.Pt c * W.Bool) (LC.Pt c) (\ x -> x.1) (p.1,false) (p.2.1,tg p.2.1) p.2.2))
+      (SAm.nb-false (W.at s p.2.1.1) (PL.ap (LC.Pt c * W.Bool) W.Bool (\ x -> x.2) (p.1,false) (p.2.1,tg p.2.1) p.2.2)) ;
+  r (p : P.Car) : W.N = W.rank s p.1.1 ;
+  hr (p : P.Car) : CF.Lt (r p) so = W.rank-lt s p.1.1 (inT p) ;
+  es (p : P.Car) : Id W.N (W.sel s (r p)) p.1.1 = W.sel-rank s p.1.1 (inT p) ;
+  t : DP.Map P.P (LC.ord so) =
+    (\ p -> (r p,hr p),
+     \ p q -> PL.trans W.O3 (W.cmpN (r p) (r q)) (W.cmpN (W.sel s (r p)) (W.sel s (r q))) (W.cmpN p.1.1 q.1.1)
+       (PL.sym W.O3 (W.cmpN (W.sel s (r p)) (W.sel s (r q))) (W.cmpN (r p) (r q)) (W.sel-mono s (r p) (r q) (hr p) (hr q)))
+       (W.ap2 W.N W.N W.O3 (\ a b -> W.cmpN a b) (W.sel s (r p)) p.1.1 (W.sel s (r q)) q.1.1 (es p) (es q))) ;
+  tp : Id (DP.Map P.P (LC.ord c)) (LC.compMap P.P (LC.ord so) (LC.ord c) t (subm c j)) P.p1 =
+    LC.map-eq P.P (LC.ord c) (LC.compMap P.P (LC.ord so) (LC.ord c) t (subm c j)) P.p1
+      (\ p -> LC.ptEq c ((subm c j).1 (t.1 p)) p.1 (es p)) ;
+} ;
+
+-- multicoproducts, transported
+FJT (a b : W.N) : U l = CF.JT FO.ce a b ;
+LJT (a b : W.N) : U l = CF.JT LC.ce a b ;
+toJ (a b : W.N) (j : FJT a b) : LJT a b = (j.1,(LF.phi a j.1 j.2.1,LF.phi b j.1 j.2.2)) ;
+jt (a b t : W.N) (h : CF.Lt t (FO.jtN a b)) : CF.Opt (LJT a b) = FL.optMap (FJT a b) (LJT a b) (toJ a b) (FO.jt a b t h) ;
+-- an LO factorisation gives a FinOrd one, and back
+module FacT (a b d : W.N) (f : M a d) (g : M b d) (js : FJT a b) {
+  fwd (q : CF.JFac FO.ce a b d (LF.psi a d f) (LF.psi b d g) js) : CF.JFac LC.ce a b d f g (toJ a b js) =
+    (LF.phi js.1 d q.1,
+     (PL.trans (M a d) (cm a js.1 d (LF.phi a js.1 js.2.1) (LF.phi js.1 d q.1)) (LF.phi a d (FO.comp a js.1 d js.2.1 q.1)) f
+        (PL.sym (M a d) (LF.phi a d (FO.comp a js.1 d js.2.1 q.1)) (cm a js.1 d (LF.phi a js.1 js.2.1) (LF.phi js.1 d q.1)) (LF.phi-comp a js.1 d js.2.1 q.1))
+        (PL.trans (M a d) (LF.phi a d (FO.comp a js.1 d js.2.1 q.1)) (LF.phi a d (LF.psi a d f)) f
+          (PL.ap (FO.Mor a d) (M a d) (LF.phi a d) (FO.comp a js.1 d js.2.1 q.1) (LF.psi a d f) q.2.1) (LF.phipsi a d f)),
+      PL.trans (M b d) (cm b js.1 d (LF.phi b js.1 js.2.2) (LF.phi js.1 d q.1)) (LF.phi b d (FO.comp b js.1 d js.2.2 q.1)) g
+        (PL.sym (M b d) (LF.phi b d (FO.comp b js.1 d js.2.2 q.1)) (cm b js.1 d (LF.phi b js.1 js.2.2) (LF.phi js.1 d q.1)) (LF.phi-comp b js.1 d js.2.2 q.1))
+        (PL.trans (M b d) (LF.phi b d (FO.comp b js.1 d js.2.2 q.1)) (LF.phi b d (LF.psi b d g)) g
+          (PL.ap (FO.Mor b d) (M b d) (LF.phi b d) (FO.comp b js.1 d js.2.2 q.1) (LF.psi b d g) q.2.2) (LF.phipsi b d g)))) ;
+  -- a composite with a transported map, back in FinOrd
+  bk (x : W.N) (u : FO.Mor x js.1) (m : M js.1 d) (k : M x d) (e : Id (M x d) (cm x js.1 d (LF.phi x js.1 u) m) k) :
+      Id (FO.Mor x d) (FO.comp x js.1 d u (LF.psi js.1 d m)) (LF.psi x d k) =
+    LF.phi-inj x d (FO.comp x js.1 d u (LF.psi js.1 d m)) (LF.psi x d k)
+      (PL.trans (M x d) (LF.phi x d (FO.comp x js.1 d u (LF.psi js.1 d m))) (cm x js.1 d (LF.phi x js.1 u) m) (LF.phi x d (LF.psi x d k))
+        (PL.trans (M x d) (LF.phi x d (FO.comp x js.1 d u (LF.psi js.1 d m))) (cm x js.1 d (LF.phi x js.1 u) (LF.phi js.1 d (LF.psi js.1 d m))) (cm x js.1 d (LF.phi x js.1 u) m)
+          (LF.phi-comp x js.1 d u (LF.psi js.1 d m))
+          (PL.ap (M js.1 d) (M x d) (cm x js.1 d (LF.phi x js.1 u)) (LF.phi js.1 d (LF.psi js.1 d m)) m (LF.phipsi js.1 d m)))
+        (PL.trans (M x d) (cm x js.1 d (LF.phi x js.1 u) m) k (LF.phi x d (LF.psi x d k)) e (PL.sym (M x d) (LF.phi x d (LF.psi x d k)) k (LF.phipsi x d k)))) ;
+  bwd (q : CF.JFac LC.ce a b d f g (toJ a b js)) : CF.JFac FO.ce a b d (LF.psi a d f) (LF.psi b d g) js =
+    (LF.psi js.1 d q.1,(bk a js.2.1 q.1 f q.2.1,bk b js.2.2 q.1 g q.2.2)) ;
+} ;
+jt-cover (a b d : W.N) (f : M a d) (g : M b d) :
+    Ex ((t : W.N) * ((h : CF.Lt t (FO.jtN a b)) * ((j : LJT a b) * (Id (CF.Opt (LJT a b)) (jt a b t h) (inl j) * CF.JFac LC.ce a b d f g j)))) =
+  TC.map ((t : W.N) * ((h : CF.Lt t (FO.jtN a b)) * ((j : FJT a b) * (Id (CF.Opt (FJT a b)) (FO.jt a b t h) (inl j) * CF.JFac FO.ce a b d (LF.psi a d f) (LF.psi b d g) j))))
+    ((t : W.N) * ((h : CF.Lt t (FO.jtN a b)) * ((j : LJT a b) * (Id (CF.Opt (LJT a b)) (jt a b t h) (inl j) * CF.JFac LC.ce a b d f g j))))
+    (\ w0 -> (w0.1,(w0.2.1,(toJ a b w0.2.2.1,(PL.ap (CF.Opt (FJT a b)) (CF.Opt (LJT a b)) (FL.optMap (FJT a b) (LJT a b) (toJ a b)) (FO.jt a b w0.1 w0.2.1) (inl w0.2.2.1) w0.2.2.2.1,
+      FacT[a,b,d,f,g,w0.2.2.1].fwd w0.2.2.2.2)))))
+    (FO.cef.jt-cover a b d (LF.psi a d f) (LF.psi b d g)) ;
+module Inv (a b t : W.N) (h : CF.Lt t (FO.jtN a b)) (j : LJT a b) (e : Id (CF.Opt (LJT a b)) (jt a b t h) (inl j)) {
+  iv : (js : FJT a b) * (Id (CF.Opt (FJT a b)) (FO.jt a b t h) (inl js) * Id (LJT a b) (toJ a b js) j) =
+    FL.optMap-inv (FJT a b) (LJT a b) (toJ a b) j (FO.jt a b t h) e ;
+} ;
+jt-uniq (a b d : W.N) (f : M a d) (g : M b d)
+  (t : W.N) (h : CF.Lt t (FO.jtN a b)) (j : LJT a b) (e : Id (CF.Opt (LJT a b)) (jt a b t h) (inl j))
+  (t' : W.N) (h' : CF.Lt t' (FO.jtN a b)) (j' : LJT a b) (e' : Id (CF.Opt (LJT a b)) (jt a b t' h') (inl j'))
+  (q : CF.JFac LC.ce a b d f g j) (q' : CF.JFac LC.ce a b d f g j') : Id (LJT a b) j j' =
+  PL.trans (LJT a b) j (toJ a b Inv[a,b,t,h,j,e].iv.1) j' (PL.sym (LJT a b) (toJ a b Inv[a,b,t,h,j,e].iv.1) j Inv[a,b,t,h,j,e].iv.2.2)
+    (PL.trans (LJT a b) (toJ a b Inv[a,b,t,h,j,e].iv.1) (toJ a b Inv[a,b,t',h',j',e'].iv.1) j'
+      (PL.ap (FJT a b) (LJT a b) (toJ a b) Inv[a,b,t,h,j,e].iv.1 Inv[a,b,t',h',j',e'].iv.1
+        (FO.cef.jt-uniq a b d (LF.psi a d f) (LF.psi b d g) t h Inv[a,b,t,h,j,e].iv.1 Inv[a,b,t,h,j,e].iv.2.1 t' h' Inv[a,b,t',h',j',e'].iv.1 Inv[a,b,t',h',j',e'].iv.2.1
+          (FacT[a,b,d,f,g,Inv[a,b,t,h,j,e].iv.1].bwd (PL.subst (LJT a b) (CF.JFac LC.ce a b d f g) j (toJ a b Inv[a,b,t,h,j,e].iv.1)
+            (PL.sym (LJT a b) (toJ a b Inv[a,b,t,h,j,e].iv.1) j Inv[a,b,t,h,j,e].iv.2.2) q))
+          (FacT[a,b,d,f,g,Inv[a,b,t',h',j',e'].iv.1].bwd (PL.subst (LJT a b) (CF.JFac LC.ce a b d f g) j' (toJ a b Inv[a,b,t',h',j',e'].iv.1)
+            (PL.sym (LJT a b) (toJ a b Inv[a,b,t',h',j',e'].iv.1) j' Inv[a,b,t',h',j',e'].iv.2.2) q'))))
+      Inv[a,b,t',h',j',e'].iv.2.2) ;
+EpiS (a b d : W.N) (j : LJT a b) : U l = (m m' : M j.1 d) ->
+  Id (M a d) (cm a j.1 d j.2.1 m) (cm a j.1 d j.2.1 m') -> Id (M b d) (cm b j.1 d j.2.2 m) (cm b j.1 d j.2.2 m') -> Id (M j.1 d) m m' ;
+module EpiF (a b d : W.N) (js : FJT a b) (t : W.N) (h : CF.Lt t (FO.jtN a b)) (ejs : Id (CF.Opt (FJT a b)) (FO.jt a b t h) (inl js)) {
+  -- equal composites with a transported map give equal FinOrd composites
+  cq (x : W.N) (u : FO.Mor x js.1) (m m' : M js.1 d) (E : Id (M x d) (cm x js.1 d (LF.phi x js.1 u) m) (cm x js.1 d (LF.phi x js.1 u) m')) :
+      Id (FO.Mor x d) (FO.comp x js.1 d u (LF.psi js.1 d m)) (FO.comp x js.1 d u (LF.psi js.1 d m')) =
+    PL.trans (FO.Mor x d) (FO.comp x js.1 d u (LF.psi js.1 d m)) (LF.psi x d (cm x js.1 d (LF.phi x js.1 u) m')) (FO.comp x js.1 d u (LF.psi js.1 d m'))
+      (FacT[a,b,d,LF.phi a d (LF.psi a d (cm a js.1 d (LF.phi a js.1 js.2.1) m)),LF.phi b d (LF.psi b d (cm b js.1 d (LF.phi b js.1 js.2.2) m)),js].bk x u m
+        (cm x js.1 d (LF.phi x js.1 u) m') E)
+      (PL.sym (FO.Mor x d) (FO.comp x js.1 d u (LF.psi js.1 d m')) (LF.psi x d (cm x js.1 d (LF.phi x js.1 u) m'))
+        (FacT[a,b,d,LF.phi a d (LF.psi a d (cm a js.1 d (LF.phi a js.1 js.2.1) m)),LF.phi b d (LF.psi b d (cm b js.1 d (LF.phi b js.1 js.2.2) m)),js].bk x u m'
+          (cm x js.1 d (LF.phi x js.1 u) m') (refl (cm x js.1 d (LF.phi x js.1 u) m')))) ;
+  result : EpiS a b d (toJ a b js) = \ m m' E1 E2 ->
+    PL.trans (M js.1 d) m (LF.phi js.1 d (LF.psi js.1 d m)) m' (PL.sym (M js.1 d) (LF.phi js.1 d (LF.psi js.1 d m)) m (LF.phipsi js.1 d m))
+      (PL.trans (M js.1 d) (LF.phi js.1 d (LF.psi js.1 d m)) (LF.phi js.1 d (LF.psi js.1 d m')) m'
+        (PL.ap (FO.Mor js.1 d) (M js.1 d) (LF.phi js.1 d) (LF.psi js.1 d m) (LF.psi js.1 d m')
+          (FO.cef.jt-epi a b t h js ejs d (LF.psi js.1 d m) (LF.psi js.1 d m') (cq a js.2.1 m m' E1) (cq b js.2.2 m m' E2)))
+        (LF.phipsi js.1 d m')) ;
+} ;
+jt-epi (a b t : W.N) (h : CF.Lt t (FO.jtN a b)) (j : LJT a b) (e : Id (CF.Opt (LJT a b)) (jt a b t h) (inl j)) (d : W.N) : EpiS a b d j =
+  PL.subst (LJT a b) (EpiS a b d) (toJ a b Inv[a,b,t,h,j,e].iv.1) j Inv[a,b,t,h,j,e].iv.2.2
+    EpiF[a,b,d,Inv[a,b,t,h,j,e].iv.1,t,h,Inv[a,b,t,h,j,e].iv.2.1].result ;
+
+rigid (c : W.N) (a : M c c) : Id (M c c) a (LC.idMap (LC.ord c)) =
+  PL.trans (M c c) a (LF.phi c c (LF.psi c c a)) (LC.idMap (LC.ord c)) (PL.sym (M c c) (LF.phi c c (LF.psi c c a)) a (LF.phipsi c c a))
+    (PL.trans (M c c) (LF.phi c c (LF.psi c c a)) (LF.phi c c (FO.idm c)) (LC.idMap (LC.ord c))
+      (PL.ap (FO.Mor c c) (M c c) (LF.phi c c) (LF.psi c c a) (FO.idm c) (FO.rigid c (LF.psi c c a))) (LF.phi-id c)) ;
+
+-- ALL LINEAR ORDERS form a CEF
+cef : CF.CEF = new CF.CEF[C := LC.ce,
+  homN := \ c d -> W.pow2 d, hom := hom, hom-surj := hom-surj, hom-dec := hom-dec,
+  subN := \ c -> W.pow2 c, subo := FO.subo, subm := subm, sub-cover := sub-cover,
+  amalD := \ c j -> AmL[c,j].X, amalw := \ c j -> AmL[c,j].w, amalw' := \ c j -> AmL[c,j].w',
+  amal-sq := \ c j -> AmL[c,j].sq, amal-t := \ c j -> AmL[c,j].t, amal-tp := \ c j -> AmL[c,j].tp,
+  jtN := FO.jtN, jt := jt, jt-cover := jt-cover, jt-uniq := jt-uniq,
+  jt-epi := \ a b t h j e d m m' E1 E2 -> jt-epi a b t h j e d m m' E1 E2,
+  rigid := rigid, mor-set := \ A B -> StabFin[l].map-set A B] ;
+
+-- the hierarchy over all linear orders
+dilLO : CF.CEF = StabCEF[l].StabCEF[cef].cef ;
+ptyLO : CF.CEF = StabCEF[l].StabCEF[dilLO].cef ;

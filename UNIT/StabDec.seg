@@ -1,0 +1,71 @@
+-- Supports of stable functors into LO are DECIDABLE, given an
+-- amalgamation of A with itself over B (abstract catemb).
+--
+-- Let s : B -> A, and w, w' : A -> D with s;w = s;w' whose pull-back is
+-- contained in s (t;s = p1).  For any stable X and x in X(A):
+--     x in Im X(s)   <->   X(w) x = X(w') x
+-- (=> by functoriality; <= by stability: X(w) x is in the images of X(w)
+-- and X(w'), hence of X along the pull-back, which factors through s).
+-- The right-hand side is an equation in the linear order X(D), so it is
+-- decidable.  Nothing is assumed about supports: decidability comes from
+-- the decidable equality of LO values, as degeneracy is decidable for
+-- simplicial sets with decidable equality (x = s_i d_i x).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module PL = Prelude[l] ;
+
+lt-eq (h : Id W.O3 lt eq) : W.Empty =
+  W.absurdB W.Empty (PL.subst W.O3 (\ o -> Id W.Bool (PF.eqO lt o) true) lt eq h (refl true)) ;
+gt-eq (h : Id W.O3 gt eq) : W.Empty =
+  W.absurdB W.Empty (PL.subst W.O3 (\ o -> Id W.Bool (PF.eqO gt o) true) gt eq h (refl true)) ;
+
+module Dec (C : CE.CE) (X : SF.SF[C]) (A B D : C.Obj) (s : C.Mor B A) (w w' : C.Mor A D)
+  (sq : Id (C.Mor B D) (C.comp B A D s w) (C.comp B A D s w'))
+  (t : C.Mor (C.pb D A A w w') B)
+  (tp : Id (C.Mor (C.pb D A A w w') A) (C.comp (C.pb D A A w w') B A t s) (C.p1 D A A w w'))
+  (x : (X.G A).car) {
+  P : C.Obj = C.pb D A A w w' ;
+  p1 : C.Mor P A = C.p1 D A A w w' ;
+  y : (X.G D).car = (X.arr A D w).1 x ;
+  y' : (X.G D).car = (X.arr A D w').1 x ;
+  Yes : U l = SF.Im (X.G B) (X.G A) (X.arr B A s) x ;
+  module FromEq (e : Id (X.G D).car y y') {
+    st : SF.Im (X.G P) (X.G D) (X.arr P D (C.comp P A D p1 w)) y =
+      X.stab D A A w w' y (x,refl y) (x,PL.sym (X.G D).car y y' e) ;
+    z : (X.G P).car = st.1 ;
+    ez : Id (X.G A).car ((X.arr P A p1).1 z) x =
+      DP.map-inj (X.G A) (X.G D) (X.arr A D w) ((X.arr P A p1).1 z) x
+        (PL.trans (X.G D).car ((X.arr A D w).1 ((X.arr P A p1).1 z)) ((X.arr P D (C.comp P A D p1 w)).1 z) y
+          (X.arr-comp P A D p1 w z) st.2) ;
+    result : Yes =
+      ((X.arr P B t).1 z,
+       PL.trans (X.G A).car ((X.arr B A s).1 ((X.arr P B t).1 z)) ((X.arr P A (C.comp P B A t s)).1 z) x
+         (X.arr-comp P B A t s z)
+         (PL.trans (X.G A).car ((X.arr P A (C.comp P B A t s)).1 z) ((X.arr P A p1).1 z) x
+           (PL.ap (C.Mor P A) (X.G A).car (\ M -> (X.arr P A M).1 z) (C.comp P B A t s) p1 tp)
+           ez)) ;
+  } ;
+  toEq (r : Yes) : Id (X.G D).car y y' =
+    PL.trans (X.G D).car y ((X.arr A D w).1 ((X.arr B A s).1 r.1)) y'
+      (PL.ap (X.G A).car (X.G D).car (X.arr A D w).1 x ((X.arr B A s).1 r.1) (PL.sym (X.G A).car ((X.arr B A s).1 r.1) x r.2))
+      (PL.trans (X.G D).car ((X.arr A D w).1 ((X.arr B A s).1 r.1)) ((X.arr B D (C.comp B A D s w)).1 r.1) y'
+        (X.arr-comp B A D s w r.1)
+        (PL.trans (X.G D).car ((X.arr B D (C.comp B A D s w)).1 r.1) ((X.arr B D (C.comp B A D s w')).1 r.1) y'
+          (PL.ap (C.Mor B D) (X.G D).car (\ M -> (X.arr B D M).1 r.1) (C.comp B A D s w) (C.comp B A D s w') sq)
+          (PL.trans (X.G D).car ((X.arr B D (C.comp B A D s w')).1 r.1) ((X.arr A D w').1 ((X.arr B A s).1 r.1)) y'
+            (PL.sym (X.G D).car ((X.arr A D w').1 ((X.arr B A s).1 r.1)) ((X.arr B D (C.comp B A D s w')).1 r.1)
+              (X.arr-comp B A D s w' r.1))
+            (PL.ap (X.G A).car (X.G D).car (X.arr A D w').1 ((X.arr B A s).1 r.1) x r.2)))) ;
+  cmpEq (r : Yes) : Id W.O3 ((X.G D).cmp y y') eq =
+    PL.subst (X.G D).car (\ v -> Id W.O3 ((X.G D).cmp y v) eq) y y' (toEq r) ((X.G D).crefl y) ;
+  decide : (o : W.O3) -> Id W.O3 ((X.G D).cmp y y') o -> W.Or Yes (Yes -> W.Empty) = split {
+    lt -> \ h -> inr (\ r -> lt-eq (PL.trans W.O3 lt ((X.G D).cmp y y') eq (PL.sym W.O3 ((X.G D).cmp y y') lt h) (cmpEq r))) ;
+    eq -> \ h -> inl FromEq[(X.G D).ceq y y' h].result ;
+    gt -> \ h -> inr (\ r -> gt-eq (PL.trans W.O3 gt ((X.G D).cmp y y') eq (PL.sym W.O3 ((X.G D).cmp y y') gt h) (cmpEq r))) } ;
+  dec : W.Or Yes (Yes -> W.Empty) = decide ((X.G D).cmp y y') (refl ((X.G D).cmp y y')) ;
+} ;

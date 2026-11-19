@@ -1,0 +1,82 @@
+-- Computed joint types (abstract catemb over a CEF), toward the finite
+-- multicoproducts of decoded codes.
+--  * decJFac: factorisation through a given cospan is decidable;
+--  * findJ: a listed joint type through which a given pair of maps into a
+--    finite object factors, COMPUTED by search (the search cannot fail,
+--    by jt-cover);
+--  * Tern: ternary joint types, obtained by iterating binary ones.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CF = CatEmbFin[l] ;
+module SDi = StabDir[l] ;
+module SH = StabHom[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+decJFac (F : CF.CEF) (a b d : F.C.Fin) (f : F.C.Mor (F.C.fin a) (F.C.fin d)) (g : F.C.Mor (F.C.fin b) (F.C.fin d)) (j : CF.JT F.C a b) :
+    W.Or (CF.JFac F.C a b d f g j) (CF.JFac F.C a b d f g j -> W.Empty) =
+  SDi.DecHom[F,j.1,d,\ m -> Id (F.C.Mor (F.C.fin a) (F.C.fin d)) (F.C.comp (F.C.fin a) (F.C.fin j.1) (F.C.fin d) j.2.1 m) f *
+      Id (F.C.Mor (F.C.fin b) (F.C.fin d)) (F.C.comp (F.C.fin b) (F.C.fin j.1) (F.C.fin d) j.2.2 m) g,
+    \ m -> SH.decPair (Id (F.C.Mor (F.C.fin a) (F.C.fin d)) (F.C.comp (F.C.fin a) (F.C.fin j.1) (F.C.fin d) j.2.1 m) f)
+      (Id (F.C.Mor (F.C.fin b) (F.C.fin d)) (F.C.comp (F.C.fin b) (F.C.fin j.1) (F.C.fin d) j.2.2 m) g)
+      (F.hom-dec a d (F.C.comp (F.C.fin a) (F.C.fin j.1) (F.C.fin d) j.2.1 m) f)
+      (F.hom-dec b d (F.C.comp (F.C.fin b) (F.C.fin j.1) (F.C.fin d) j.2.2 m) g)].result ;
+
+-- deciding an existential about an optional value
+decOptEx (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) : (o : CF.Opt A) ->
+    W.Or ((a : A) * (Id (CF.Opt A) o (inl a) * P a)) (((a : A) * (Id (CF.Opt A) o (inl a) * P a)) -> W.Empty) = split {
+  inl a0 -> CF.or-elim (P a0) (P a0 -> W.Empty) (W.Or ((a : A) * (Id (CF.Opt A) (inl a0) (inl a) * P a)) (((a : A) * (Id (CF.Opt A) (inl a0) (inl a) * P a)) -> W.Empty))
+    (\ p -> inl (a0,(refl (inl a0),p)))
+    (\ np -> inr (\ q -> np (PL.subst A P q.1 a0 (PL.sym A a0 q.1 (CF.inl-inj A a0 q.1 q.2.1)) q.2.2)))
+    (d a0) ;
+  inr u -> inr (\ q -> CF.inl-inr A q.1 u (PL.sym (CF.Opt A) (inr u) (inl q.1) q.2.1)) } ;
+
+module FindJ (F : CF.CEF) (a b d : F.C.Fin) (f : F.C.Mor (F.C.fin a) (F.C.fin d)) (g : F.C.Mor (F.C.fin b) (F.C.fin d)) {
+  R (t : W.N) (h : CF.Lt t (F.jtN a b)) : U l =
+    (j : CF.JT F.C a b) * (Id (CF.Opt (CF.JT F.C a b)) (F.jt a b t h) (inl j) * CF.JFac F.C a b d f g j) ;
+  Q (t : W.N) : U l = (h : CF.Lt t (F.jtN a b)) * R t h ;
+  decQ (t : W.N) : W.Or (Q t) (Q t -> W.Empty) =
+    CF.dec-lt-sig (F.jtN a b) t (R t) (\ h -> decOptEx (CF.JT F.C a b) (CF.JFac F.C a b d f g) (decJFac F a b d f g) (F.jt a b t h)) ;
+  JC : U l = (t : W.N) * Q t ;
+  result : JC =
+    CF.or-elim (CF.Bnd (F.jtN a b) Q) (CF.None (F.jtN a b) Q) JC
+      (\ bb -> (bb.1,bb.2.2))
+      (\ no -> CF.efq JC (TC.rec ((t : W.N) * ((h : CF.Lt t (F.jtN a b)) * ((j : CF.JT F.C a b) *
+            (Id (CF.Opt (CF.JT F.C a b)) (F.jt a b t h) (inl j) * CF.JFac F.C a b d f g j)))) @l W.Empty CF.empty-prop
+          (\ w -> no w.1 w.2.1 w.2) (F.jt-cover a b d f g)))
+      (CF.search (F.jtN a b) Q decQ) ;
+  t : W.N = result.1 ;
+  ht : CF.Lt t (F.jtN a b) = result.2.1 ;
+  j : CF.JT F.C a b = result.2.2.1 ;
+  ej : Id (CF.Opt (CF.JT F.C a b)) (F.jt a b t ht) (inl j) = result.2.2.2.1 ;
+  fac : CF.JFac F.C a b d f g j = result.2.2.2.2 ;
+} ;
+
+-- ternary joint types: (a,b) through a listed j1, then (j1, c) through a listed j2
+module Tern (F : CF.CEF) (a b c d : F.C.Fin) (f : F.C.Mor (F.C.fin a) (F.C.fin d)) (g : F.C.Mor (F.C.fin b) (F.C.fin d))
+  (h : F.C.Mor (F.C.fin c) (F.C.fin d)) {
+  module J1 = FindJ[F,a,b,d,f,g] ;
+  e1 : F.C.Fin = J1.j.1 ;
+  m1 : F.C.Mor (F.C.fin e1) (F.C.fin d) = J1.fac.1 ;
+  module J2 = FindJ[F,e1,c,d,m1,h] ;
+  e2 : F.C.Fin = J2.j.1 ;
+  m2 : F.C.Mor (F.C.fin e2) (F.C.fin d) = J2.fac.1 ;
+  ta : F.C.Mor (F.C.fin a) (F.C.fin e2) = F.C.comp (F.C.fin a) (F.C.fin e1) (F.C.fin e2) J1.j.2.1 J2.j.2.1 ;
+  tb : F.C.Mor (F.C.fin b) (F.C.fin e2) = F.C.comp (F.C.fin b) (F.C.fin e1) (F.C.fin e2) J1.j.2.2 J2.j.2.1 ;
+  tc : F.C.Mor (F.C.fin c) (F.C.fin e2) = J2.j.2.2 ;
+  fa (x : F.C.Fin) (u0 : F.C.Mor (F.C.fin x) (F.C.fin e1)) (k : F.C.Mor (F.C.fin x) (F.C.fin d))
+    (ek : Id (F.C.Mor (F.C.fin x) (F.C.fin d)) (F.C.comp (F.C.fin x) (F.C.fin e1) (F.C.fin d) u0 m1) k) :
+      Id (F.C.Mor (F.C.fin x) (F.C.fin d)) (F.C.comp (F.C.fin x) (F.C.fin e2) (F.C.fin d) (F.C.comp (F.C.fin x) (F.C.fin e1) (F.C.fin e2) u0 J2.j.2.1) m2) k =
+    PL.trans (F.C.Mor (F.C.fin x) (F.C.fin d)) (F.C.comp (F.C.fin x) (F.C.fin e2) (F.C.fin d) (F.C.comp (F.C.fin x) (F.C.fin e1) (F.C.fin e2) u0 J2.j.2.1) m2)
+        (F.C.comp (F.C.fin x) (F.C.fin e1) (F.C.fin d) u0 (F.C.comp (F.C.fin e1) (F.C.fin e2) (F.C.fin d) J2.j.2.1 m2)) k
+      (F.C.assoc (F.C.fin x) (F.C.fin e1) (F.C.fin e2) (F.C.fin d) u0 J2.j.2.1 m2)
+      (PL.trans (F.C.Mor (F.C.fin x) (F.C.fin d)) (F.C.comp (F.C.fin x) (F.C.fin e1) (F.C.fin d) u0 (F.C.comp (F.C.fin e1) (F.C.fin e2) (F.C.fin d) J2.j.2.1 m2))
+          (F.C.comp (F.C.fin x) (F.C.fin e1) (F.C.fin d) u0 m1) k
+        (PL.ap (F.C.Mor (F.C.fin e1) (F.C.fin d)) (F.C.Mor (F.C.fin x) (F.C.fin d)) (F.C.comp (F.C.fin x) (F.C.fin e1) (F.C.fin d) u0)
+          (F.C.comp (F.C.fin e1) (F.C.fin e2) (F.C.fin d) J2.j.2.1 m2) m1 J2.fac.2.1)
+        ek) ;
+  efa : Id (F.C.Mor (F.C.fin a) (F.C.fin d)) (F.C.comp (F.C.fin a) (F.C.fin e2) (F.C.fin d) ta m2) f = fa a J1.j.2.1 f J1.fac.2.1 ;
+  efb : Id (F.C.Mor (F.C.fin b) (F.C.fin d)) (F.C.comp (F.C.fin b) (F.C.fin e2) (F.C.fin d) tb m2) g = fa b J1.j.2.2 g J1.fac.2.2 ;
+  efc : Id (F.C.Mor (F.C.fin c) (F.C.fin d)) (F.C.comp (F.C.fin c) (F.C.fin e2) (F.C.fin d) tc m2) h = J2.fac.2.2 ;
+} ;

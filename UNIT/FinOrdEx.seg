@@ -1,0 +1,90 @@
+-- Examples over the finite ordinals (FinOrd.cef).
+--
+--  * dilCE: stable functors from finite ordinals to linear orders (the
+--    finite-level form of DILATORS) form a category of embeddings, whose
+--    finite objects are codes (finite dilators): StabDir.StabCE.
+--  * idD: the identity dilator n |-> [n], as a stable functor (pull-backs
+--    are intersections of images, read off with rank/sel).
+--  * a least support COMPUTED by the generic finite search of StabSupp:
+--    the point 2 of [5] has least support the subset {2}, coded by the
+--    word o o i o o, whose binary code is 4.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SS = StabSupp[l] ;
+module SDi = StabDir[l] ;
+module FO = FinOrd[l] ;
+module PL = Prelude[l] ;
+
+dilCE : CE.CE = SDi.StabCE[FO.cef].ce ;
+
+--------------------------------------------------------------------
+-- the identity dilator
+
+Pt (n : W.N) : U l = (k : W.N) * CF.Lt k n ;
+ptEq (n : W.N) (p q : Pt n) (e : Id W.N p.1 q.1) : Id (Pt n) p q =
+  PL.Sigma-eq W.N (\ k -> CF.Lt k n) p.1 q.1 p.2 q.2 e (W.HB.uip (W.ltN q.1 n) true) ;
+G (n : W.N) : DP.LO = new DP.LO[car := Pt n, cmp := \ p q -> W.cmpN p.1 q.1,
+  ceq := \ p q h -> ptEq n p q (W.cmpN-eq p.1 q.1 h),
+  crefl := \ p -> W.cmpN-refl p.1, cflip := \ p q -> W.cmpN-flip p.1 q.1,
+  ctrans := \ p q r -> W.cmpN-trans p.1 q.1 r.1] ;
+ltO (m n : W.N) (f : FO.Mor m n) (p : Pt m) : CF.Lt p.1 (W.ones f.1) =
+  PL.subst W.N (\ k -> CF.Lt p.1 k) m (W.ones f.1) (PL.sym W.N (W.ones f.1) m f.2.2) p.2 ;
+ltf (m n : W.N) (f : FO.Mor m n) (p : Pt m) : CF.Lt (W.sel f.1 p.1) n =
+  PL.subst W.N (\ k -> CF.Lt (W.sel f.1 p.1) k) (W.len f.1) n f.2.1 (W.sel-lt f.1 p.1 (ltO m n f p)) ;
+arr (m n : W.N) (f : FO.Mor m n) : DP.Map (G m) (G n) =
+  (\ p -> (W.sel f.1 p.1,ltf m n f p),\ p q -> W.sel-mono f.1 p.1 q.1 (ltO m n f p) (ltO m n f q)) ;
+arr-id (n : W.N) (p : Pt n) : Id (Pt n) ((arr n n (FO.idm n)).1 p) p = ptEq n ((arr n n (FO.idm n)).1 p) p (W.sel-idW n p.1 p.2) ;
+arr-comp (a b d : W.N) (f : FO.Mor a b) (g : FO.Mor b d) (p : Pt a) :
+    Id (Pt d) ((arr b d g).1 ((arr a b f).1 p)) ((arr a d (FO.comp a b d f g)).1 p) =
+  ptEq d ((arr b d g).1 ((arr a b f).1 p)) ((arr a d (FO.comp a b d f g)).1 p)
+    (PL.sym W.N (W.sel (W.compW g.1 f.1) p.1) (W.sel g.1 (W.sel f.1 p.1)) (W.sel-comp g.1 f.1 p.1 (FO.gl a b d f g))) ;
+module Stab (A B B' : W.N) (f : FO.Mor B A) (f' : FO.Mor B' A) (y : Pt A)
+  (r : SF.Im (G B) (G A) (arr B A f) y) (r' : SF.Im (G B') (G A) (arr B' A f') y) {
+  module Q = FO.PB[A,B,B',f,f'] ;
+  ey : Id W.N (W.sel f.1 r.1.1) y.1 = PL.ap (Pt A) W.N (\ p -> p.1) ((arr B A f).1 r.1) y r.2 ;
+  ey' : Id W.N (W.sel f'.1 r'.1.1) y.1 = PL.ap (Pt A) W.N (\ p -> p.1) ((arr B' A f').1 r'.1) y r'.2 ;
+  at1 : Id W.Bool (W.at f.1 y.1) true =
+    PL.subst W.N (\ k -> Id W.Bool (W.at f.1 k) true) (W.sel f.1 r.1.1) y.1 ey (W.at-sel f.1 r.1.1 (ltO B A f r.1)) ;
+  at2 : Id W.Bool (W.at f'.1 y.1) true =
+    PL.subst W.N (\ k -> Id W.Bool (W.at f'.1 k) true) (W.sel f'.1 r'.1.1) y.1 ey' (W.at-sel f'.1 r'.1.1 (ltO B' A f' r'.1)) ;
+  atv : Id W.Bool (W.at Q.v y.1) true =
+    PL.trans W.Bool (W.at Q.v y.1) (W.andB (W.at f.1 y.1) (W.at f'.1 y.1)) true (W.at-and f.1 y.1 f'.1)
+      (W.andB-intro (W.at f.1 y.1) (W.at f'.1 y.1) at1 at2) ;
+  z : Pt Q.P = (W.rank Q.v y.1,W.rank-lt Q.v y.1 atv) ;
+  result : SF.Im (G Q.P) (G A) (arr Q.P A (FO.comp Q.P B A Q.p1 f)) y =
+    (z,ptEq A ((arr Q.P A (FO.comp Q.P B A Q.p1 f)).1 z) y
+      (PL.trans W.N (W.sel (W.compW f.1 Q.p1.1) z.1) (W.sel Q.v z.1) y.1
+        (PL.ap W.Wd W.N (\ u -> W.sel u z.1) (W.compW f.1 Q.p1.1) Q.v (W.restrict-comp f.1 Q.v Q.hl1 Q.le1))
+        (W.sel-rank Q.v y.1 atv))) ;
+} ;
+idD : SF.SF[FO.ce] = new SF.SF[FO.ce, G := G, arr := arr, arr-id := arr-id, arr-comp := arr-comp,
+  cont := \ A y -> inc ((c : W.N) * ((i : FO.Mor c A) * SF.Im (G c) (G A) (arr c A i) y)) (A,(FO.idm A,(y,arr-id A y))),
+  stab := \ A B B' f f' y r r' -> Stab[A,B,B',f,f',y,r,r'].result] ;
+
+--------------------------------------------------------------------
+-- a computed least support
+
+module L = SS.LS[FO.cef,idD,W.five,(W.two,refl true)] ;
+#conv L.j0 = W.four ;
+#conv FO.bin W.five L.j0 = o (o (i (o (o nil)))) ;
+#conv L.x0.1 = zero ;
+
+--------------------------------------------------------------------
+-- directedness computes: the codes of the points 0 and 1 of [2] (one
+-- generator each) merge into a code with ONE generator, since both
+-- generators are the same point of the identity dilator (duplicate
+-- detection by hom search + LO equality)
+
+module SCv = StabCover[l] ;
+module A1 = SCv.Gen1[FO.cef,idD,W.two,(zero,refl true)] ;
+module A2 = SCv.Gen1[FO.cef,idD,W.two,(W.one,refl true)] ;
+#conv A1.code.m = W.one ;
+#conv A1.g0 = W.one ;
+module DD = SDi.DirS[FO.cef,idD,A1.code,A2.code,A1.mor,A2.mor] ;
+#conv DD.S.M = W.one ;
+#conv DD.S.gen zero = W.one ;

@@ -1,0 +1,188 @@
+-- AdeqLamB.seg: the budgeted adequacy, case lam (AdeqLamP.LamCase at the
+-- bound K).  The keys of the selection are typed by one common type from
+-- quantitative soundness of A : U (bound J = d1 + K); the body is typed
+-- by quantitative soundness of M : B at the key (bound J3 = (d3 + d1) + K),
+-- where its induction hypothesis is used.
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open SynLemmas[l] ; open Weaken[l] ; open Subst[l] ; open Presup[l] ; open Cross[l] ;
+open Filter[l] ; open Sem[l] ; open Sound[l] ; open Reduction[l] ; open RelC[l] ; open LawsC[l] ; open AdeqBase[l] ;
+open PrinEnv[l] ; open AdeqPiP[l] ; open AdeqLamP[l] ;
+open TypingK[l] ; open SemK[l] ; open SoundK[l] ; open LawsK[l] ; open AdeqBaseB[l] ; open AdeqPiB[l] ; open AdeqPiCaseB[l] ;
+
+-- the keys of a selection, typed at a type below the collected key types
+key-atK (J K : Nat) (a : Ty) (A A' : Filt) (G : Ty -> Filt) (te : TyElK J A' a) :
+    (f d t : Ty) -> ASel f d t -> EntS (UpRK J K a A G) f -> Cons d -> TpK J (el d te.a) = split {
+  as-none f -> \ e cd -> k-bot om te.a tt (le-refl om) te.tp ;
+  as-here x v -> \ e cd -> upt-at J a x (ents-inv (UpRK J K a A G) (arr x v) e).1 te.a te.below te.tp ;
+  as-l f1 f2 d t q | rq -> \ e cd -> rq (ents-inv (UpRK J K a A G) (meet f1 f2) e).1 cd ;
+  as-r f1 f2 d t q | rq -> \ e cd -> rq (ents-inv (UpRK J K a A G) (meet f1 f2) e).2 cd ;
+  as-meet f d1 t1 d2 t2 q1 q2 | r1 r2 -> \ e cd ->
+    tpk-join J d1 d2 te.a (r1 e (cons-meet-l d1 d2 cd)) (r2 e (cons-down (meet d1 d2) d2 (le-meet-r d1 d2) cd)) cd } ;
+
+module AdeqLB (n : Nat) (D : Ctx n) (wD : Der n (jwf D)) (Kmax : Nat) {
+  open RelCD[n, D] ;
+  open LawsCD[n, D] ;
+  open AdeqB[n, D] ;
+  open AdeqBB[n, D, Kmax] ;
+  open AdeqPP[n, D, wD] ;
+  open AdeqLP[n, D, wD] ;
+  open AdeqPB[n, D, wD, Kmax] ;
+  open AdeqPCB[n, D, wD, Kmax] ;
+
+  module LamCaseB (m : Nat) (G : Ctx m) (A : Tm m) (B M : Tm (suc m))
+      (h1 : Der m (jty G A (uu m)))
+      (K d1 d3 : Nat)
+      (s1 : HasTyIH m G A (uu m) d1) (s3 : HasTyIH (suc m) (ext m G A) M B d3)
+      (r1 : AdB0 (add d1 K) m G A A (uu m)) (r3 : AdB0 (add (add d3 d1) K) (suc m) (ext m G A) M M B)
+      (rho : Env m) (fi : FitsKP K m G rho) (s s' : Fin m -> Tm n) (rs : RelSB m G rho s s') {
+
+    J : Nat = add d1 K ;
+    J3 : Nat = add (add d3 d1) K ;
+    lKJ : LeN K J = leN-add d1 K ;
+    lJJ3 : LeN (add d3 J) J3 = le-two d1 d3 K ;
+    lJ3 : LeN J J3 = leN-trans J (add d3 J) J3 (leN-add d3 J) lJJ3 ;
+    fiJ : FitsKP J m G rho = fitskp-map K J lKJ m G rho fi ;
+
+    As : Tm n = Sub.trav m A n s ;
+    As' : Tm n = Sub.trav m A n s' ;
+    Bs : Tm (suc n) = Sub.trav (suc m) B (suc n) (Sub.lift m n s) ;
+    Ms : Tm (suc n) = Sub.trav (suc m) M (suc n) (Sub.lift m n s) ;
+    Ms' : Tm (suc n) = Sub.trav (suc m) M (suc n) (Sub.lift m n s') ;
+    L : Tm n = lam n As Ms ;
+    L' : Tm n = lam n As' Ms' ;
+    AK : Filt = semK K m A rho ;
+    GK (x : Ty) : Filt = famK K m M rho x ;
+
+    eA : Der n (jeq D As As' (uu n)) = subst-cross m n G D s s' A (uu m) h1 rs.ok rs.ok' rs.eq wD ;
+
+    module At (u : Ty) (w : LamWK K AK GK u) (d t : Ty) (q : ASel u d t) (P P' : Tm n)
+        (a : Arg Can d As P P') {
+
+      i : InvArr w.f d t = inv-arr w.f d t (le-trans w.f u (arr d t) w.le (asel-le u d t q)) ;
+      cd2 : Cons i.1 = cons-down d i.1 i.2.2.2.1 a.cd ;
+      dc : DomCK J K AK GK w.f = dom-collectK J K lKJ AK GK w.f w.ents ;
+      te : TyElK J (semK J m A rho) dc.a = ty-enlK J AK (semK J m A rho) (s1 K J (leN-refl J) rho fi.1) dc.a dc.ina ;
+      ty2 : TyInK J (semK J m A rho) i.1 =
+        new TyInKR[J, semK J m A rho, i.1, a := te.a, ina := te.inA,
+                   tp := key-atK J K dc.a AK (semK J m A rho) GK te w.f i.1 i.2.1 i.2.2.1 dc.ents cd2] ;
+      rho' : Env (suc m) = extE m rho (prin i.1) ;
+      fi' : FitsKP J (suc m) (ext m G A) rho' = fitskp-ext J m G A rho i.1 fiJ ty2 ;
+      mt2 : (semK K (suc m) M rho').mem i.2.1 =
+        Entries[GK, famK-anti K m M rho, EntRK K AK GK, \ x v r -> r.2].sel
+          w.f i.1 i.2.1 i.2.2.1 w.ents i.1 (le-refl i.1) ;
+      e0 : EnlK (add d3 J) (semK (add d3 J) (suc m) M rho') (semK (add d3 J) (suc m) B rho') i.2.1 =
+        s3 J (add d3 J) (leN-refl (add d3 J)) rho' fi'.1 i.2.1 (semK-monoK K J lKJ (suc m) M rho' i.2.1 mt2) ;
+      e : EnlK J3 (semK J3 (suc m) M rho') (semK J3 (suc m) B rho') i.2.1 =
+        enlk-map (add d3 J) J3 lJJ3 (semK (add d3 J) (suc m) M rho') (semK J3 (suc m) M rho')
+          (semK (add d3 J) (suc m) B rho') (semK J3 (suc m) B rho')
+          (semK-monoK (add d3 J) J3 lJJ3 (suc m) M rho') (semK-monoK (add d3 J) J3 lJJ3 (suc m) B rho') i.2.1 e0 ;
+      fi3 : FitsKP J3 (suc m) (ext m G A) rho' = fitskp-map J J3 lJ3 (suc m) (ext m G A) rho' fi' ;
+      tyA : TyR ty2.a As As' = ad-tyB J m G A A r1 rho fiJ s s' rs ty2.a ty2.ina (tpk-pre J i.1 ty2.a ty2.tp) ;
+
+      at2 (Q Q' : Tm n) (aQ : TmR d As Q Q') : TmR i.1 As Q Q' = cmono-tm d i.1 i.2.2.2.1 As Q Q' aQ ;
+      ar (Q Q' : Tm n) (aQ : TmR d As Q Q') : ArgRB m A rho (prin i.1) s s' Q Q' =
+        argr-at m A rho i.1 s s' Q Q' (at2 Q Q' aQ)
+          (cl5 i.1 ty2.a (tpk-tp J i.1 ty2.a ty2.tp) As As' Q Q' tyA (at2 Q Q' aQ)) ;
+      ar1 (Q Q' : Tm n) (aQ : TmR d As Q Q') : ArgRB m A rho (prin i.1) s s Q Q' =
+        argr-at m A rho i.1 s s Q Q' (at2 Q Q' aQ) (at2 Q Q' aQ) ;
+
+      dP : Der n (jty D P As) = (eq-pre n (jeq D P P' As) a.cv).1 ;
+      eP1 : Der n (jeq D P P' As') = eq-conv n D P P' As As' a.cv eA (eq-pre n (jeq D As As' (uu n)) eA).2 ;
+      dP1 : Der n (jty D P As') = (eq-pre n (jeq D P P' As') eP1).1 ;
+
+      body (s1' : Fin m -> Tm n) (rs1 : RelSB m G rho s s1') (Q Q' : Tm n) (eQ : Der n (jeq D Q Q' As))
+          (eQ' : Der n (jeq D Q' Q (Sub.trav m A n s1'))) (arQ : ArgRB m A rho (prin i.1) s s1' Q Q') :
+          TmR e.v (Sub.trav (suc m) B n (consS m n s Q)) (Sub.trav (suc m) M n (consS m n s Q)) (Sub.trav (suc m) M n (consS m n s1' Q')) =
+        (r3 rho' fi3 (consS m n s Q) (consS m n s1' Q') (rels-extB m G A rho (prin i.1) s s1' Q Q' rs1 eQ eQ' arQ)
+           e.v e.c e.inA e.inB e.tp).1 ;
+
+      b3 : TmR e.v (Sub.trav (suc m) B n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s' P')) =
+        body s' rs P P' a.cv (eq-sym n D P P' As' eP1) (ar P P' a.rel) ;
+      b1 : TmR e.v (Sub.trav (suc m) B n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s P')) =
+        body s (rels-diagB m G rho s s' rs) P P' a.cv (eq-sym n D P P' As a.cv) (ar1 P P' a.rel) ;
+      b0 : TmR e.v (Sub.trav (suc m) B n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s' P)) =
+        body s' rs P P (eq-refl n D P As dP) (eq-refl n D P As' dP1) (ar P P (cl2 d As P P' a.rel)) ;
+      b2 : TmR e.v (Sub.trav (suc m) B n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s' P)) (Sub.trav (suc m) M n (consS m n s' P')) =
+        cl6 e.v e.c (tpk-tp J3 e.v e.c e.tp) (Sub.trav (suc m) B n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s' P))
+          (Sub.trav (suc m) M n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s' P'))
+          (cl4 e.v e.c (tpk-tp J3 e.v e.c e.tp) (Sub.trav (suc m) B n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s P))
+             (Sub.trav (suc m) M n (consS m n s' P)) b0)
+          b3 ;
+
+      fin (s1' s2 : Fin m -> Tm n) (Q Q' : Tm n) (A1 A2 : Tm n) (M1 M2 : Tm (suc n))
+          (e1 : Id (Tm (suc n)) (Sub.trav (suc m) M (suc n) (Sub.lift m n s1')) M1)
+          (e2 : Id (Tm (suc n)) (Sub.trav (suc m) M (suc n) (Sub.lift m n s2)) M2)
+          (b : TmR e.v (Sub.trav (suc m) B n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s1' Q)) (Sub.trav (suc m) M n (consS m n s2 Q'))) :
+          TmR t (subst1 n Bs P) (app n (lam n A1 M1) Q) (app n (lam n A2 M2) Q') =
+        cl7 t (subst1 n Bs P) (app n (lam n A1 M1) Q) (app n (lam n A2 M2) Q') (subst1 n M1 Q) (subst1 n M2 Q')
+          (reds-beta n A1 M1 Q) (reds-beta n A2 M2 Q')
+          (cmono-tm e.v t (le-trans e.v i.2.1 t e.below i.2.2.2.2) (subst1 n Bs P) (subst1 n M1 Q) (subst1 n M2 Q')
+             (tmr-tr e.v (Sub.trav (suc m) B n (consS m n s P)) (subst1 n Bs P) (eq-cons m n s P B)
+                (subst1 n M1 Q) (subst1 n M2 Q')
+                (tmr-trr e.v (Sub.trav (suc m) B n (consS m n s P)) (subst1 n M1 Q)
+                   (Sub.trav (suc m) M n (consS m n s2 Q')) (subst1 n M2 Q')
+                   (Prelude[l].subst (Tm (suc n)) (\ Z -> Id (Tm n) (Sub.trav (suc m) M n (consS m n s2 Q')) (subst1 n Z Q'))
+                      (Sub.trav (suc m) M (suc n) (Sub.lift m n s2)) M2 e2 (eq-cons m n s2 Q' M))
+                   (tmr-trl e.v (Sub.trav (suc m) B n (consS m n s P)) (Sub.trav (suc m) M n (consS m n s1' Q))
+                      (subst1 n M1 Q) (Sub.trav (suc m) M n (consS m n s2 Q'))
+                      (Prelude[l].subst (Tm (suc n)) (\ Z -> Id (Tm n) (Sub.trav (suc m) M n (consS m n s1' Q)) (subst1 n Z Q))
+                         (Sub.trav (suc m) M (suc n) (Sub.lift m n s1')) M1 e1 (eq-cons m n s1' Q M))
+                      b)))) ;
+
+      appc : AppC Can t (subst1 n Bs P) L L' P P' =
+        new AppRC[Can, t, subst1 n Bs P, L, L', P, P', c1 := fin s s P P' As As Ms Ms (refl Ms) (refl Ms) b1,
+                 c2 := fin s' s' P P' As' As' Ms' Ms' (refl Ms') (refl Ms') b2,
+                 c3 := fin s s' P P' As As' Ms Ms' (refl Ms) (refl Ms') b3] ;
+    } ;
+
+    tm1 (u : Ty) (w : (semK K m (lam m A M) rho).mem u) : TmR u (pp n As Bs) L L' =
+      (tmr-unfold u (pp n As Bs) L L').2
+        (new TmCR[Can, u, pp n As Bs, L, L',
+                  ty := tyc-lamw AK GK u (lamFK-incl K AK AK GK GK (incl-refl AK) (\ x hx -> incl-refl (GK x)) u w) L L',
+                  fn := fun-at-pp u As Bs L L' (\ d t q P P' a -> At[u, w, d, t, q, P, P', a].appc)]) ;
+  } ;
+
+  -- the weight: any W above the Pi call (w1, w2) and the calls at J and J3
+  ad-lam-atB (m : Nat) (G : Ctx m) (A : Tm m) (B M : Tm (suc m))
+      (h1 : Der m (jty G A (uu m))) (h2 : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+      (w1 w2 w3 d1 d3 W : Nat) (q1 : LeN (add w1 d1) W) (q2 : LeN w2 W) (q3 : LeN (add w3 (add d3 d1)) W)
+      (s1 : HasTyIH m G A (uu m) d1) (s3 : HasTyIH (suc m) (ext m G A) M B d3)
+      (r1 : AdW w1 m G A A (uu m)) (r2 : AdW w2 (suc m) (ext m G A) B B (uu (suc m))) (r3 : AdW w3 (suc m) (ext m G A) M M B)
+      (K : Nat) (hB : LeN (add W K) Kmax)
+      (rho : Env m) (fi : FitsKP K m G rho) (s s' : Fin m -> Tm n) (rs : RelSB m G rho s s') (u c : Ty)
+      (mu : (semK K m (lam m A M) rho).mem u) (mc : (semK K m (pp m A B) rho).mem c) (hc : TpK K (el u c)) :
+      TmR u (Sub.trav m (pp m A B) n s) (Sub.trav m (lam m A M) n s) (Sub.trav m (lam m A M) n s') *
+      TmR u (Sub.trav m (pp m A B) n s') (Sub.trav m (lam m A M) n s) (Sub.trav m (lam m A M) n s') =
+    (t1,
+     cl5 u c (tpk-tp K u c hc) (Sub.trav m (pp m A B) n s) (Sub.trav m (pp m A B) n s')
+       (Sub.trav m (lam m A M) n s) (Sub.trav m (lam m A M) n s')
+       (ad-tyB K m G (pp m A B) (pp m A B)
+          (ad-pi-atB m G A A B B h1 h1 (eq-refl m G A (uu m) h1) h2 (eq-refl (suc m) (ext m G A) B (uu (suc m)) h2)
+             w1 w1 w2 w2 w2 zero W l1 l1 q2 (leN-trans (add w2 zero) w2 W (add-zero-le w2) q2) q2
+             r1 r1 r2 r2 r2 (sk-refl (suc m) (ext m G A) B (uu (suc m))) K hB)
+          rho fi s s' rs c mc (tpk-pre K u c hc))
+       t1)
+    where {
+      l1 : LeN w1 W = leN-trans w1 (add w1 d1) W (le-sum-l w1 d1) q1 ;
+      t1 : TmR u (Sub.trav m (pp m A B) n s) (Sub.trav m (lam m A M) n s) (Sub.trav m (lam m A M) n s') =
+        LamCaseB[m, G, A, B, M, h1, K, d1, d3, s1, s3, r1 (add d1 K) (wstep Kmax w1 d1 W K q1 hB),
+                 r3 (add (add d3 d1) K) (wstep Kmax w3 (add d3 d1) W K q3 hB), rho, fi, s, s', rs].tm1 u mu ; } ;
+
+  -- each premise counted once: W = (w1 + (w2 + w3)) + (d1 + (d3 + d1))
+  ad-lamB (m : Nat) (G : Ctx m) (A : Tm m) (B M : Tm (suc m))
+      (h1 : Der m (jty G A (uu m))) (h2 : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+      (w1 w2 w3 d1 d3 : Nat) (s1 : HasTyIH m G A (uu m) d1) (s3 : HasTyIH (suc m) (ext m G A) M B d3)
+      (r1 : AdW w1 m G A A (uu m)) (r2 : AdW w2 (suc m) (ext m G A) B B (uu (suc m))) (r3 : AdW w3 (suc m) (ext m G A) M M B) :
+      AdW (add (add w1 (add w2 w3)) (add d1 (add d3 d1))) m G (lam m A M) (lam m A M) (pp m A B) =
+    \ K hB -> ad-lam-atB m G A B M h1 h2 w1 w2 w3 d1 d3 W q1 q2 q3 s1 s3 r1 r2 r3 K hB
+    where {
+      S : Nat = add w1 (add w2 w3) ;
+      Dl : Nat = add d1 (add d3 d1) ;
+      W : Nat = add S Dl ;
+      q1 : LeN (add w1 d1) W = am2 w1 S d1 Dl (le-sum-l w1 (add w2 w3)) (le-sum-l d1 (add d3 d1)) ;
+      q2 : LeN w2 W = leN-trans w2 S W (leN-trans w2 (add w2 w3) S (le-sum-l w2 w3) (le-sum-r w1 (add w2 w3))) (le-sum-l S Dl) ;
+      q3 : LeN (add w3 (add d3 d1)) W =
+        am2 w3 S (add d3 d1) Dl (leN-trans w3 (add w2 w3) S (le-sum-r w2 w3) (le-sum-r w1 (add w2 w3))) (le-sum-r d1 (add d3 d1)) ; } ;
+} ;

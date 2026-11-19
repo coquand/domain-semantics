@@ -1,0 +1,138 @@
+-- AdeqAppFin.seg: the app and beta cases of adequacy (vendor/AdeqApp.seg)
+-- with environments extended ONLY by principal filters prin v, v compact.
+-- vendor/AdeqApp.seg extends rho by the full semantics sem a rho of the
+-- argument (an ideal element); this is the only place in the vendor proof
+-- where an environment receives a non-principal filter.  Here continuity
+-- (Sem.cont-last) supplies a compact x in sem a rho that suffices, and
+-- soundness supplies a typed v below x, so prin v is a typed environment
+-- entry.  See PRA/LEVELS.md.
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open SynLemmas[l] ; open Weaken[l] ; open Subst[l] ; open Presup[l] ; open Cross[l] ;
+open Filter[l] ; open Sem[l] ; open Sound[l] ; open Reduction[l] ; open RelC[l] ; open LawsC[l] ; open AdeqBase[l] ;
+open AdeqPi[l] ; open AdeqLam[l] ; open AdeqApp[l] ;
+
+module AdeqAF (n : Nat) (D : Ctx n) (wD : Der n (jwf D)) {
+  open RelCD[n, D] ;
+  open LawsCD[n, D] ;
+  open AdeqB[n, D] ;
+  open AdeqP[n, D, wD] ;
+  open AdeqL[n, D, wD] ;
+  open AdeqA[n, D, wD] ;
+
+  ----------------------------------------------------------------------
+  -- the argument as a new variable, at a compact x in sem a rho
+
+  module ArgFin (m : Nat) (G : Ctx m) (A a a' : Tm m) (h1 : Der m (jty G A (uu m))) (ea : Der m (jeq G a a' A))
+      (ra : Ad m G a a' A) (rho : Env m) (fi : Fits m G rho) (s s' : Fin m -> Tm n) (rs : RelS m G rho s s')
+      (x : Ty) (mx : (sem m a rho).mem x) {
+
+    e : Enl (sem m a rho) (sem m A rho) x =
+      soundness-ty m G a A ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].da rho fi x mx ;
+
+    -- the compact, typed entry for the new variable
+    v : Ty = e.v ;
+    rho2 : Env (suc m) = extE m rho (prin v) ;
+
+    fi2 : Fits (suc m) (ext m G A) rho2 =
+      (fi, (ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].tyuA,
+            prin-hasty (sem m A rho) v (new TyInR[sem m A rho, v, a := e.c, ina := e.inB, tp := e.tp]))) ;
+
+    raa : ArgR m A rho (prin v) s s'
+            ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].as
+            ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].as' =
+      \ u c mu mc hc ->
+        ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].raa-at u c (prin-sub v (sem m a rho) e.inA u mu) mc hc ;
+
+    rs2 : RelS (suc m) (ext m G A) rho2
+            (consS m n s ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].as)
+            (consS m n s' ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].as') =
+      rels-ext m G A rho (prin v) s s'
+        ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].as
+        ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].as' rs
+        ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].cvaa
+        ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].cvaa' raa ;
+
+    -- anything holding at a compact y above x holds at rho2
+    up (B : Tm (suc m)) (y : Ty) (le : Le x y) :
+        Incl (sem (suc m) B (extE m rho (prin y))) (sem (suc m) B rho2) =
+      sem-mono (suc m) B (extE m rho (prin y)) rho2
+        (extE-incl m rho rho (prin y) (prin v) (envincl-refl m rho) (prin-anti v y (le-trans v x y e.below le))) ;
+
+    -- the type B[a] related to itself, at an element c of B over (rho, prin y)
+    tyB (B : Tm (suc m)) (rB : Ad (suc m) (ext m G A) B B (uu (suc m))) (c : Ty) (y : Ty) (le : Le x y)
+        (mc : (sem (suc m) B (extE m rho (prin y))).mem c) (hc : Tp (el c univ)) :
+        TyR c (Sub.trav m (subst1 m B a) n s) (Sub.trav m (subst1 m B a) n s') =
+      tyr-tr c (Sub.trav (suc m) B n (consS m n s ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].as))
+        (Sub.trav (suc m) B n (consS m n s' ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].as'))
+        (Sub.trav m (subst1 m B a) n s) (Sub.trav m (subst1 m B a) n s')
+        (eq-cons-sub m n s B a) (eq-cons-sub m n s' B a)
+        (ad-ty (suc m) (ext m G A) B B rB rho2 fi2
+           (consS m n s ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].as)
+           (consS m n s' ArgCase[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs].as') rs2 c
+           (up B y le c mc) hc) ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- app, with the type B[a] handled at a compact argument
+
+  tyB-at (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m)) (a a' : Tm m)
+      (h1 : Der m (jty G A (uu m))) (ea : Der m (jeq G a a' A))
+      (ra : Ad m G a a' A) (rB : Ad (suc m) (ext m G A) B B (uu (suc m)))
+      (rho : Env m) (fi : Fits m G rho) (s s' : Fin m -> Tm n) (rs : RelS m G rho s s') (c : Ty)
+      (mc : (sem m (subst1 m B a) rho).mem c) (hc : Tp (el c univ)) :
+      TyR c (Sub.trav m (subst1 m B a) n s) (Sub.trav m (subst1 m B a) n s') =
+    ArgFin[m, G, A, a, a', h1, ea, ra, rho, fi, s, s', rs, lc.1, lc.2.1].tyB B rB c lc.1 (le-refl lc.1) lc.2.2 hc
+    where {
+      lc : LastIn m B rho (sem m a rho) c =
+        cont-last m B rho (sem m a rho) c ((subst1-sem m B a rho).1 c mc) ; } ;
+
+  ad-app-fin (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m)) (f f' a a' : Tm m)
+      (h1 : Der m (jty G A (uu m))) (df : Der m (jty G f (pp m A B))) (ea : Der m (jeq G a a' A))
+      (rf : Ad m G f f' (pp m A B)) (ra : Ad m G a a' A) (rB : Ad (suc m) (ext m G A) B B (uu (suc m))) :
+      Ad m G (app m f a) (app m f' a') (subst1 m B a) =
+    \ rho fi s s' rs z c mz mc hc ->
+      (app-at m G A B f f' a a' h1 df ea rf ra rho fi s s' rs z mz,
+       cl5 z c hc (Sub.trav m (subst1 m B a) n s) (Sub.trav m (subst1 m B a) n s')
+         (Sub.trav m (app m f a) n s) (Sub.trav m (app m f' a') n s')
+         (tyB-at m G A B a a' h1 ea ra rB rho fi s s' rs c mc (tp-pre z c hc))
+         (app-at m G A B f f' a a' h1 df ea rf ra rho fi s s' rs z mz)) ;
+
+  ----------------------------------------------------------------------
+  -- beta: one compact argument for both the term and its type
+
+  beta-body (m : Nat) (G : Ctx m) (A : Tm m) (B M : Tm (suc m)) (a : Tm m)
+      (h1 : Der m (jty G A (uu m))) (h2 : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+      (h3 : Der (suc m) (jty (ext m G A) M B)) (h4 : Der m (jty G a A))
+      (r3 : Ad (suc m) (ext m G A) M M B) (r4 : Ad m G a a A)
+      (rho : Env m) (fi : Fits m G rho) (s s' : Fin m -> Tm n) (rs : RelS m G rho s s') (u c : Ty)
+      (mu : (sem m (app m (lam m A M) a) rho).mem u) (mc : (sem m (subst1 m B a) rho).mem c) (hc : Tp (el u c)) :
+      TmR u (Sub.trav (suc m) B n (consS m n s (Sub.trav m a n s)))
+        (Sub.trav (suc m) M n (consS m n s (Sub.trav m a n s))) (Sub.trav (suc m) M n (consS m n s' (Sub.trav m a n s'))) *
+      TmR u (Sub.trav (suc m) B n (consS m n s' (Sub.trav m a n s')))
+        (Sub.trav (suc m) M n (consS m n s (Sub.trav m a n s))) (Sub.trav (suc m) M n (consS m n s' (Sub.trav m a n s'))) =
+    r3 ArgFin[m, G, A, a, a, h1, eq-refl m G a A h4, r4, rho, fi, s, s', rs, xx, mxx].rho2 ArgFin[m, G, A, a, a, h1, eq-refl m G a A h4, r4, rho, fi, s, s', rs, xx, mxx].fi2 (consS m n s (Sub.trav m a n s)) (consS m n s' (Sub.trav m a n s')) ArgFin[m, G, A, a, a, h1, eq-refl m G a A h4, r4, rho, fi, s, s', rs, xx, mxx].rs2 u c
+      (ArgFin[m, G, A, a, a, h1, eq-refl m G a A h4, r4, rho, fi, s, s', rs, xx, mxx].up M lu.1 (le-meet-l lu.1 lc.1) u lu.2.2)
+      (ArgFin[m, G, A, a, a, h1, eq-refl m G a A h4, r4, rho, fi, s, s', rs, xx, mxx].up B lc.1 (le-meet-r lu.1 lc.1) c lc.2.2) hc
+    where {
+      lu : LastIn m M rho (sem m a rho) u =
+        cont-last m M rho (sem m a rho) u
+          ((subst1-sem m M a rho).1 u
+             ((soundness-eq m G (app m (lam m A M) a) (subst1 m M a) (subst1 m B a)
+                 (eq-beta m G A B M a h1 h2 h3 h4) rho fi).1 u mu)) ;
+      lc : LastIn m B rho (sem m a rho) c = cont-last m B rho (sem m a rho) c ((subst1-sem m B a rho).1 c mc) ;
+      xx : Ty = meet lu.1 lc.1 ;
+      mxx : (sem m a rho).mem xx = (sem m a rho).fmeet lu.1 lc.1 lu.2.1 lc.2.1 ; } ;
+
+  ad-beta-fin (m : Nat) (G : Ctx m) (A : Tm m) (B M : Tm (suc m)) (a : Tm m)
+      (h1 : Der m (jty G A (uu m))) (h2 : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+      (h3 : Der (suc m) (jty (ext m G A) M B)) (h4 : Der m (jty G a A))
+      (r3 : Ad (suc m) (ext m G A) M M B) (r4 : Ad m G a a A) :
+      Ad m G (app m (lam m A M) a) (subst1 m M a) (subst1 m B a) =
+    \ rho fi s s' rs u c mu mc hc ->
+      (beta-at m G A B M a h1 h2 h3 h4 r3 r4 rho fi s s' rs s u c mu mc hc
+         (beta-body m G A B M a h1 h2 h3 h4 r3 r4 rho fi s s' rs u c mu mc hc).1,
+       beta-at m G A B M a h1 h2 h3 h4 r3 r4 rho fi s s' rs s' u c mu mc hc
+         (beta-body m G A B M a h1 h2 h3 h4 r3 r4 rho fi s s' rs u c mu mc hc).2) ;
+} ;

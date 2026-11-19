@@ -1,0 +1,80 @@
+-- AdeqBaseB.seg: related substitutions for the budgeted adequacy
+-- (PRA/LEVELS.md, B4).  As AdeqBase.AdeqB, but the variables are related
+-- only at the instances (u, c) of depth <= Kmax: u in rho i, c in
+-- semK Kmax (the type of i), TpK Kmax (el u c).  Kmax is fixed for the
+-- whole adequacy proof.  The argument for a new variable is given at one
+-- instance v and moved up to every u >= v by monotonicity (argr-at).
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open SynLemmas[l] ; open Weaken[l] ; open Subst[l] ; open Presup[l] ; open Cross[l] ;
+open Filter[l] ; open Sem[l] ; open Sound[l] ; open Reduction[l] ; open RelC[l] ; open LawsC[l] ; open AdeqBase[l] ;
+open TypingK[l] ; open SemK[l] ;
+
+module AdeqBB (n : Nat) (D : Ctx n) (Kmax : Nat) {
+  open RelCD[n, D] ;
+  open LawsCD[n, D] ;
+  open AdeqB[n, D] ;
+
+  record RelSBR { m : Nat ; G : Ctx m ; rho : Env m ; s : Fin m -> Tm n ; s' : Fin m -> Tm n ;
+    ok : SubOk m n G D s ; ok' : SubOk m n G D s' ; eq : SubEq m n G D s s' ; eq' : SubEq m n G D s' s ;
+    vr : (i : Fin m) -> (u c : Ty) -> (rho i).mem u -> (semK Kmax m (lookup m G i) rho).mem c -> TpK Kmax (el u c) ->
+         VarR m G rho s s' i u ; } ;
+  RelSB (m : Nat) (G : Ctx m) (rho : Env m) (s s' : Fin m -> Tm n) : U l = RelSBR[m, G, rho, s, s'] ;
+
+  rels-symB (m : Nat) (G : Ctx m) (rho : Env m) (s s' : Fin m -> Tm n) (rs : RelSB m G rho s s') : RelSB m G rho s' s =
+    new RelSBR[m, G, rho, s', s, ok := rs.ok', ok' := rs.ok, eq := rs.eq', eq' := rs.eq,
+             vr := \ i u c mu mc hc ->
+               (cl4 u c (tpk-tp Kmax u c hc) (Sub.trav m (lookup m G i) n s') (s i) (s' i) (rs.vr i u c mu mc hc).2,
+                cl4 u c (tpk-tp Kmax u c hc) (Sub.trav m (lookup m G i) n s) (s i) (s' i) (rs.vr i u c mu mc hc).1)] ;
+
+  rels-diagB (m : Nat) (G : Ctx m) (rho : Env m) (s s' : Fin m -> Tm n) (rs : RelSB m G rho s s') : RelSB m G rho s s =
+    new RelSBR[m, G, rho, s, s, ok := rs.ok, ok' := rs.ok,
+             eq := \ i -> eq-refl n D (s i) (Sub.trav m (lookup m G i) n s) (rs.ok i),
+             eq' := \ i -> eq-refl n D (s i) (Sub.trav m (lookup m G i) n s) (rs.ok i),
+             vr := \ i u c mu mc hc ->
+               (cl2 u (Sub.trav m (lookup m G i) n s) (s i) (s' i) (rs.vr i u c mu mc hc).1,
+                cl2 u (Sub.trav m (lookup m G i) n s) (s i) (s' i) (rs.vr i u c mu mc hc).1)] ;
+
+  ArgRB (m : Nat) (A : Tm m) (rho : Env m) (X : Filt) (s s' : Fin m -> Tm n) (P P' : Tm n) : U l =
+    (u c : Ty) -> X.mem u -> (semK Kmax m A rho).mem c -> TpK Kmax (el u c) ->
+    TmR u (Sub.trav m A n s) P P' * TmR u (Sub.trav m A n s') P P' ;
+
+  -- the argument at one instance v gives it at prin v
+  argr-at (m : Nat) (A : Tm m) (rho : Env m) (v : Ty) (s s' : Fin m -> Tm n) (P P' : Tm n)
+      (t1 : TmR v (Sub.trav m A n s) P P') (t2 : TmR v (Sub.trav m A n s') P P') : ArgRB m A rho (prin v) s s' P P' =
+    \ u c mu mc hc -> (cmono-tm v u mu (Sub.trav m A n s) P P' t1, cmono-tm v u mu (Sub.trav m A n s') P P' t2) ;
+
+  ext-vrB (m : Nat) (G : Ctx m) (A : Tm m) (rho : Env m) (X : Filt) (s s' : Fin m -> Tm n) (P P' : Tm n)
+      (rs : RelSB m G rho s s') (hP : ArgRB m A rho X s s' P P') :
+      (i : Fin (suc m)) -> (u c : Ty) -> (extE m rho X i).mem u ->
+      (semK Kmax (suc m) (lookup (suc m) (ext m G A) i) (extE m rho X)).mem c -> TpK Kmax (el u c) ->
+      VarR (suc m) (ext m G A) (extE m rho X) (consS m n s P) (consS m n s' P') i u = split {
+    none -> \ u c mu mc hc ->
+      (tmr-tr u (Sub.trav m A n s) (Sub.trav (suc m) (wk m A) n (consS m n s P))
+         (sym (Tm n) (Sub.trav (suc m) (wk m A) n (consS m n s P)) (Sub.trav m A n s) (consS-wk m n s P A)) P P'
+         (hP u c mu ((wkK-sem Kmax m A rho X).1 c mc) hc).1,
+       tmr-tr u (Sub.trav m A n s') (Sub.trav (suc m) (wk m A) n (consS m n s' P'))
+         (sym (Tm n) (Sub.trav (suc m) (wk m A) n (consS m n s' P')) (Sub.trav m A n s') (consS-wk m n s' P' A)) P P'
+         (hP u c mu ((wkK-sem Kmax m A rho X).1 c mc) hc).2) ;
+    some i -> \ u c mu mc hc ->
+      (tmr-tr u (Sub.trav m (lookup m G i) n s) (Sub.trav (suc m) (wk m (lookup m G i)) n (consS m n s P))
+         (sym (Tm n) (Sub.trav (suc m) (wk m (lookup m G i)) n (consS m n s P)) (Sub.trav m (lookup m G i) n s)
+            (consS-wk m n s P (lookup m G i))) (s i) (s' i)
+         (rs.vr i u c mu ((wkK-sem Kmax m (lookup m G i) rho X).1 c mc) hc).1,
+       tmr-tr u (Sub.trav m (lookup m G i) n s') (Sub.trav (suc m) (wk m (lookup m G i)) n (consS m n s' P'))
+         (sym (Tm n) (Sub.trav (suc m) (wk m (lookup m G i)) n (consS m n s' P')) (Sub.trav m (lookup m G i) n s')
+            (consS-wk m n s' P' (lookup m G i))) (s i) (s' i)
+         (rs.vr i u c mu ((wkK-sem Kmax m (lookup m G i) rho X).1 c mc) hc).2) } ;
+
+  rels-extB (m : Nat) (G : Ctx m) (A : Tm m) (rho : Env m) (X : Filt) (s s' : Fin m -> Tm n) (P P' : Tm n)
+      (rs : RelSB m G rho s s') (eP : Der n (jeq D P P' (Sub.trav m A n s))) (eP' : Der n (jeq D P' P (Sub.trav m A n s')))
+      (hP : ArgRB m A rho X s s' P P') :
+      RelSB (suc m) (ext m G A) (extE m rho X) (consS m n s P) (consS m n s' P') =
+    new RelSBR[suc m, ext m G A, extE m rho X, consS m n s P, consS m n s' P',
+             ok := ext-ok m G A s P rs.ok (eq-pre n (jeq D P P' (Sub.trav m A n s)) eP).1,
+             ok' := ext-ok m G A s' P' rs.ok' (eq-pre n (jeq D P' P (Sub.trav m A n s')) eP').1,
+             eq := ext-eq m G A s s' P P' rs.eq eP,
+             eq' := ext-eq m G A s' s P' P rs.eq' eP',
+             vr := ext-vrB m G A rho X s s' P P' rs hP] ;
+} ;

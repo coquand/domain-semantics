@@ -112,7 +112,7 @@ def main():
     for source in ("All.seg", "CUSLFpCheck.seg", "IndependentDependentProductCheck.seg",
                    "IndependentProjectorCheck.seg", "StructuralTypedLawsCheck.seg",
                    "IndependentLogicalRelationCheck.seg", "WitnessSearchCheck.seg",
-                   "DerivationSearchCheck.seg"):
+                   "DerivationSearchCheck.seg", "FinEnvCheck.seg"):
         try:
             result = subprocess.run([str(checker), source], cwd=root,
                                     text=True, capture_output=True, timeout=60)

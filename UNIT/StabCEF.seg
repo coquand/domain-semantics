@@ -1,0 +1,70 @@
+-- Stab(C) satisfies all the CEF axioms except the finite multicoproducts
+-- (abstract catemb over a CEF): Bishop-finite hom-sets between decoded
+-- codes (StabHom), decidable equality of morphisms and morphisms forming
+-- a set (StabFin), subobjects = restrictions to subsets of generators
+-- (StabSub), self-amalgamations (StabAmal), rigidity (StabRigid).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module SF = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module SDi = StabDir[l] ;
+module FO = FinOrd[l] ;
+module SFn = StabFin[l] ;
+module SH = StabHom[l] ;
+module SSb = StabSub[l] ;
+module SAm = StabAmal[l] ;
+module SRg = StabRigid[l] ;
+
+module StabCEF0 (F : CF.CEF) {
+  module O = SF.Over[F.C] ;
+  C' : CatEmb[l].CE = SDi.StabCE[F].ce ;
+  T (K K2 : SC.Code[F]) (k : O.Mor (SC.Decode[F,K2].obj) (SC.Decode[F,K].obj)) : U l =
+    (j : W.N) * (CF.Lt j (W.pow2 K.m) *
+      (CF.Fac C' (SC.Decode[F,K2].obj) (SC.Decode[F,SSb.Restr[F,K,FO.bin K.m j,FO.len-bin K.m j].code].obj) (SC.Decode[F,K].obj) k
+         SSb.Restr[F,K,FO.bin K.m j,FO.len-bin K.m j].sub *
+       CF.Fac C' (SC.Decode[F,SSb.Restr[F,K,FO.bin K.m j,FO.len-bin K.m j].code].obj) (SC.Decode[F,K2].obj) (SC.Decode[F,K].obj)
+         SSb.Restr[F,K,FO.bin K.m j,FO.len-bin K.m j].sub k)) ;
+  subc (K K2 : SC.Code[F]) (k : O.Mor (SC.Decode[F,K2].obj) (SC.Decode[F,K].obj)) : T K K2 k =
+    (SSb.SubCov[F,K,K2,k].j,(SSb.SubCov[F,K,K2,k].hj,
+      ((SSb.SubCov[F,K,K2,k].L1.mor,SSb.SubCov[F,K,K2,k].L1.eq),(SSb.SubCov[F,K,K2,k].L2.mor,SSb.SubCov[F,K,K2,k].L2.eq)))) ;
+  cef0 : CF.CEF0 = new CF.CEF0[C := C',
+    homN := \ K K' -> SH.HomE[F,K,K'].homN,
+    hom := \ K K' -> SH.HomE[F,K,K'].hom,
+    hom-surj := \ K K' -> SH.HomE[F,K,K'].hom-surj,
+    hom-dec := \ K K' S S' -> SFn.GI[F,K,SC.Decode[F,K'].obj].Dec[S,S'].result,
+    subN := \ K -> W.pow2 K.m,
+    subo := \ K j -> SSb.Restr[F,K,FO.bin K.m j,FO.len-bin K.m j].code,
+    subm := \ K j -> SSb.Restr[F,K,FO.bin K.m j,FO.len-bin K.m j].sub,
+    sub-cover := \ K K2 k -> inc (T K K2 k) (subc K K2 k),
+    amalD := \ K j -> SAm.Amal[F,K,j].X2,
+    amalw := \ K j -> SAm.Amal[F,K,j].w,
+    amalw' := \ K j -> SAm.Amal[F,K,j].w',
+    amal-sq := \ K j -> SAm.Amal[F,K,j].sq,
+    amal-t := \ K j -> SAm.Amal[F,K,j].t,
+    amal-tp := \ K j -> SAm.Amal[F,K,j].tp,
+    rigid := \ K a -> SRg.Rig[F,K].rigid a,
+    mor-set := \ X Y -> SFn.mor-set F.C X Y] ;
+} ;
+
+-- the first instance: dilators (stable functors on the finite ordinals)
+dilCEF0 : CF.CEF0 = StabCEF0[FO.cef].cef0 ;
+
+-- THE THEOREM: stable functors on a CEF form a CEF
+module StabCEF (F : CF.CEF) {
+  module Z = StabCEF0[F] ;
+  module J = StabJt[l].JtFields[F] ;
+  cef : CF.CEF = new CF.CEF[C := Z.C',
+    homN := Z.cef0.homN, hom := Z.cef0.hom, hom-surj := Z.cef0.hom-surj, hom-dec := Z.cef0.hom-dec,
+    subN := Z.cef0.subN, subo := Z.cef0.subo, subm := Z.cef0.subm, sub-cover := Z.cef0.sub-cover,
+    amalD := Z.cef0.amalD, amalw := Z.cef0.amalw, amalw' := Z.cef0.amalw', amal-sq := Z.cef0.amal-sq,
+    amal-t := Z.cef0.amal-t, amal-tp := Z.cef0.amal-tp,
+    jtN := J.jtN, jt := J.jt, jt-cover := J.jt-cover, jt-uniq := J.jt-uniq, jt-epi := \ K1 K2 t h j e K4 m m' e1 e2 -> J.jt-epi K1 K2 t h j e K4 m m' e1 e2,
+    rigid := Z.cef0.rigid, mor-set := Z.cef0.mor-set] ;
+} ;
+
+-- the hierarchy: finite ordinals, dilators, ptykes of type 2, ptykes of type 3, ...
+dilCEF : CF.CEF = StabCEF[FO.cef].cef ;
+ptyCEF : CF.CEF = StabCEF[dilCEF].cef ;
+pty3CEF : CF.CEF = StabCEF[ptyCEF].cef ;

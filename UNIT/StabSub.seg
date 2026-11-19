@@ -1,0 +1,199 @@
+-- Finiteness of Stab(C), layer 4: subobjects of decoded codes
+-- (abstract catemb over a CEF).
+--
+-- Restr: the restriction of a code K to a subset T of its generators (a
+-- word of length K.m): generators gen (sel T i), comparison pulled back
+-- along the inclusion of normal forms; the inclusion is a cartesian
+-- morphism Decode K|T -> Decode K.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module SDi = StabDir[l] ;
+module FO = FinOrd[l] ;
+module FL = FinList[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+module Restr (F : CF.CEF) (K : SC.Code[F]) (T : W.Wd) (lT : Id W.N (W.len T) K.m) {
+  module PK = SC.Pts[F,K.m,K.gen] ;
+  mT : W.N = W.ones T ;
+  genT (i : W.N) : F.C.Fin = K.gen (W.sel T i) ;
+  module PT = SC.Pts[F,mT,genT] ;
+  ltl (i : W.N) (h : CF.Lt i mT) : CF.Lt (W.sel T i) K.m =
+    PL.subst W.N (\ x -> CF.Lt (W.sel T i) x) (W.len T) K.m lT (W.sel-lt T i h) ;
+  lift (A : F.C.Obj) (p : PT.Pt A) : PK.Pt A = (W.sel T p.1,(ltl p.1 p.2.1,p.2.2)) ;
+  ord (d : F.C.Fin) (p q : PT.Pt (F.C.fin d)) : W.O3 = K.ord d (lift (F.C.fin d) p) (lift (F.C.fin d) q) ;
+  -- lift is injective
+  module LI (A : F.C.Obj) (p q : PT.Pt A) (e : Id (PK.Pt A) (lift A p) (lift A q)) {
+    e1 : Id W.N p.1 q.1 = FO.sel-inj T p.1 q.1 p.2.1 q.2.1 (PL.ap (PK.Pt A) W.N (\ x -> x.1) (lift A p) (lift A q) e) ;
+    base (hq : CF.Lt p.1 mT) (kq : F.C.Mor (F.C.fin (genT p.1)) A) (e0 : Id (PK.Pt A) (lift A p) (lift A (p.1,(hq,kq)))) :
+        Id (PT.Pt A) p (p.1,(hq,kq)) =
+      PL.trans (PT.Pt A) p (p.1,(hq,p.2.2)) (p.1,(hq,kq))
+        (PL.ap (CF.Lt p.1 mT) (PT.Pt A) (\ u -> (p.1,(u,p.2.2))) p.2.1 hq (W.HB.uip (W.ltN p.1 mT) true p.2.1 hq))
+        (PL.ap (F.C.Mor (F.C.fin (genT p.1)) A) (PT.Pt A) (\ u -> (p.1,(hq,u))) p.2.2 kq
+          (PL.subst (Id W.N (W.sel T p.1) (W.sel T p.1))
+            (\ z -> Id (F.C.Mor (F.C.fin (genT p.1)) A) (PL.subst W.N (\ i -> F.C.Mor (F.C.fin (K.gen i)) A) (W.sel T p.1) (W.sel T p.1) z p.2.2) kq)
+            (PK.pt-split A (lift A p) (lift A (p.1,(hq,kq))) e0).1 (refl (W.sel T p.1))
+            (W.HN.uip (W.sel T p.1) (W.sel T p.1) (PK.pt-split A (lift A p) (lift A (p.1,(hq,kq))) e0).1 (refl (W.sel T p.1)))
+            (PK.pt-split A (lift A p) (lift A (p.1,(hq,kq))) e0).2)) ;
+    core (i : W.N) (ei : Id W.N p.1 i) : (hq : CF.Lt i mT) (kq : F.C.Mor (F.C.fin (genT i)) A) ->
+        Id (PK.Pt A) (lift A p) (lift A (i,(hq,kq))) -> Id (PT.Pt A) p (i,(hq,kq)) =
+      idJ W.N p.1 (\ i0 e0 -> (hq : CF.Lt i0 mT) (kq : F.C.Mor (F.C.fin (genT i0)) A) ->
+          Id (PK.Pt A) (lift A p) (lift A (i0,(hq,kq))) -> Id (PT.Pt A) p (i0,(hq,kq))) base i ei ;
+    result : Id (PT.Pt A) p q = core q.1 e1 q.2.1 q.2.2 e ;
+  } ;
+  code : SC.Code[F] = new SC.Code[F,m := mT, gen := genT, ord := ord,
+    inv := \ d d' l0 p q -> K.inv d d' l0 (lift (F.C.fin d) p) (lift (F.C.fin d) q),
+    orefl := \ d p -> K.orefl d (lift (F.C.fin d) p),
+    oflip := \ d p q -> K.oflip d (lift (F.C.fin d) p) (lift (F.C.fin d) q),
+    otrans := \ d p q r -> K.otrans d (lift (F.C.fin d) p) (lift (F.C.fin d) q) (lift (F.C.fin d) r),
+    oeq := \ d p q h -> LI[F.C.fin d,p,q,K.oeq d (lift (F.C.fin d) p) (lift (F.C.fin d) q) h].result] ;
+  module DK = SC.Decode[F,K] ;
+  module DT = SC.Decode[F,code] ;
+  module O = SF.Over[F.C] ;
+  refK (c : F.C.Fin) (p q : PK.Pt (F.C.fin c)) : DK.Ref (F.C.fin c) p q =
+    (c,(F.C.idm (F.C.fin c),(p.2.2,(q.2.2,(F.C.id-r (F.C.fin (K.gen p.1)) (F.C.fin c) p.2.2,F.C.id-r (F.C.fin (K.gen q.1)) (F.C.fin c) q.2.2))))) ;
+  refT (c : F.C.Fin) (p q : PT.Pt (F.C.fin c)) : DT.Ref (F.C.fin c) p q =
+    (c,(F.C.idm (F.C.fin c),(p.2.2,(q.2.2,(F.C.id-r (F.C.fin (genT p.1)) (F.C.fin c) p.2.2,F.C.id-r (F.C.fin (genT q.1)) (F.C.fin c) q.2.2))))) ;
+  mmap (c : F.C.Fin) : DP.Map (DT.Gt (F.C.fin c)) (DK.Gt (F.C.fin c)) =
+    (lift (F.C.fin c),\ p q -> PL.trans W.O3 (DK.cmp (F.C.fin c) (lift (F.C.fin c) p) (lift (F.C.fin c) q)) (ord c p q) (DT.cmp (F.C.fin c) p q)
+      (DK.spec (F.C.fin c) (lift (F.C.fin c) p) (lift (F.C.fin c) q) (refK c (lift (F.C.fin c) p) (lift (F.C.fin c) q)))
+      (PL.sym W.O3 (DT.cmp (F.C.fin c) p q) (ord c p q) (DT.spec (F.C.fin c) p q (refT c p q)))) ;
+  mnat : O.Nat DT.obj DK.obj mmap = \ c d k p -> refl (lift (F.C.fin d) (DT.PP.post (F.C.fin c) (F.C.fin d) k p)) ;
+  module CartR (c d : F.C.Fin) (k : F.C.Mor (F.C.fin c) (F.C.fin d)) (y : PT.Pt (F.C.fin d)) {
+    Fc : F.C.Obj = F.C.fin c ;
+    Fd : F.C.Obj = F.C.fin d ;
+    core (n2 : W.N) (gz : F.C.Mor (F.C.fin (K.gen n2)) Fc) (n4 : W.N) (z4 : Id W.N n2 n4) : (t : F.C.Mor (F.C.fin (K.gen n4)) Fd) ->
+        Id (F.C.Mor (F.C.fin (K.gen n4)) Fd) (PL.subst W.N (\ i -> F.C.Mor (F.C.fin (K.gen i)) Fd) n2 n4 z4 (F.C.comp (F.C.fin (K.gen n2)) Fc Fd gz k)) t ->
+        (gw : F.C.Mor (F.C.fin (K.gen n4)) Fc) * Id (F.C.Mor (F.C.fin (K.gen n4)) Fd) (F.C.comp (F.C.fin (K.gen n4)) Fc Fd gw k) t =
+      idJ W.N n2 (\ n5 z5 -> (t : F.C.Mor (F.C.fin (K.gen n5)) Fd) ->
+          Id (F.C.Mor (F.C.fin (K.gen n5)) Fd) (PL.subst W.N (\ i -> F.C.Mor (F.C.fin (K.gen i)) Fd) n2 n5 z5 (F.C.comp (F.C.fin (K.gen n2)) Fc Fd gz k)) t ->
+          (gw : F.C.Mor (F.C.fin (K.gen n5)) Fc) * Id (F.C.Mor (F.C.fin (K.gen n5)) Fd) (F.C.comp (F.C.fin (K.gen n5)) Fc Fd gw k) t)
+        (\ t e -> (gz,e)) n4 z4 ;
+    result (r : SF.Im (DK.Gt Fc) (DK.Gt Fd) (DK.arr Fc Fd k) (lift Fd y)) : SF.Im (DT.Gt Fc) (DT.Gt Fd) (DT.arr Fc Fd k) y =
+      ((y.1,(y.2.1,(core r.1.1 r.1.2.2 (W.sel T y.1) (PK.pt-split Fd (PK.post Fc Fd k r.1) (lift Fd y) r.2).1 y.2.2
+          (PK.pt-split Fd (PK.post Fc Fd k r.1) (lift Fd y) r.2).2).1)),
+       DT.PP.pt3 Fd y (F.C.comp (F.C.fin (genT y.1)) Fc Fd (core r.1.1 r.1.2.2 (W.sel T y.1) (PK.pt-split Fd (PK.post Fc Fd k r.1) (lift Fd y) r.2).1 y.2.2
+          (PK.pt-split Fd (PK.post Fc Fd k r.1) (lift Fd y) r.2).2).1 k)
+         (core r.1.1 r.1.2.2 (W.sel T y.1) (PK.pt-split Fd (PK.post Fc Fd k r.1) (lift Fd y) r.2).1 y.2.2
+          (PK.pt-split Fd (PK.post Fc Fd k r.1) (lift Fd y) r.2).2).2) ;
+  } ;
+  sub : O.Mor DT.obj DK.obj = (mmap,(mnat,\ c d k y r -> CartR[c,d,k,y].result r)) ;
+} ;
+
+-- words from boolean functions
+wordOf : W.N -> (W.N -> W.Bool) -> W.Wd = split {
+  zero -> \ f -> nil ;
+  suc m | r -> \ f -> W.cons (f zero) (r (\ i -> f (suc i))) } ;
+len-wordOf : (m : W.N) (f : W.N -> W.Bool) -> Id W.N (W.len (wordOf m f)) m = split {
+  zero -> \ f -> refl zero ;
+  suc m | r -> \ f -> PL.trans W.N (W.len (W.cons (f zero) (wordOf m (\ i -> f (suc i))))) (suc (W.len (wordOf m (\ i -> f (suc i))))) (suc m)
+    (W.len-cons (f zero) (wordOf m (\ i -> f (suc i)))) (PL.ap W.N W.N (\ k -> suc k) (W.len (wordOf m (\ i -> f (suc i)))) m (r (\ i -> f (suc i)))) } ;
+at-wordOf : (m : W.N) (f : W.N -> W.Bool) (n : W.N) -> CF.Lt n m -> Id W.Bool (W.at (wordOf m f) n) (f n) = split {
+  zero -> \ f n h -> W.ltN-zero-abs (Id W.Bool false (f n)) n h ;
+  suc m | r -> \ f -> split {
+    zero -> \ h -> W.at-cons0 (f zero) (wordOf m (\ i -> f (suc i))) ;
+    suc n -> \ h -> PL.trans W.Bool (W.at (W.cons (f zero) (wordOf m (\ i -> f (suc i)))) (suc n)) (W.at (wordOf m (\ i -> f (suc i))) n) (f (suc n))
+      (W.at-consS (f zero) (wordOf m (\ i -> f (suc i))) n) (r (\ i -> f (suc i)) n h) } } ;
+
+-- every cartesian map into Decode K is image-equivalent to a listed restriction
+module SubCov (F : CF.CEF) (K K2 : SC.Code[F]) (k : SF.Over[F.C].Mor (SC.Decode[F,K2].obj) (SC.Decode[F,K].obj)) {
+  module O = SF.Over[F.C] ;
+  module DK = SC.Decode[F,K] ;
+  module D2 = SC.Decode[F,K2] ;
+  module H = StabHom[l].HomE[F,K,K2] ;
+  g (n : W.N) : F.C.Obj = F.C.fin (K.gen n) ;
+  p0 (n : W.N) (hn : CF.Lt n K.m) : DK.Pt (g n) = (n,(hn,F.C.idm (g n))) ;
+  Hit (n : W.N) (hn : CF.Lt n K.m) : U l = (v : D2.Pt (g n)) * Id (DK.Pt (g n)) ((k.1 (K.gen n)).1 v) (p0 n hn) ;
+  decHit (n : W.N) (hn : CF.Lt n K.m) : W.Or (Hit n hn) (Hit n hn -> W.Empty) =
+    CF.EnumDec[D2.Pt (g n),FL.lenL (D2.Pt (g n)) (H.imgL n),\ i h -> FL.nthO (D2.Pt (g n)) (H.imgL n) i,
+      FL.toEnum (D2.Pt (g n)) (H.imgL n) (H.imgM n),
+      \ v -> Id (DK.Pt (g n)) ((k.1 (K.gen n)).1 v) (p0 n hn),
+      \ v -> SDi.lo-dec (DK.Gt (g n)) ((k.1 (K.gen n)).1 v) (p0 n hn)].result ;
+  bitH (n : W.N) (hn : CF.Lt n K.m) : W.Or (Hit n hn) (Hit n hn -> W.Empty) -> W.Bool = split { inl x -> true ; inr x -> false } ;
+  bitL (n : W.N) : W.Or (CF.Lt n K.m) (CF.Lt n K.m -> W.Empty) -> W.Bool = split { inl hn -> bitH n hn (decHit n hn) ; inr x -> false } ;
+  bit (n : W.N) : W.Bool = bitL n (W.decB (W.ltN n K.m) true) ;
+  -- soundness and completeness of the bits
+  soundH (n : W.N) (hn : CF.Lt n K.m) : (r : W.Or (Hit n hn) (Hit n hn -> W.Empty)) -> Id W.Bool (bitH n hn r) true -> Hit n hn = split {
+    inl x -> \ e -> x ; inr x -> \ e -> W.absurdB (Hit n hn) e } ;
+  soundL (n : W.N) (hn : CF.Lt n K.m) : (r : W.Or (CF.Lt n K.m) (CF.Lt n K.m -> W.Empty)) -> Id W.Bool (bitL n r) true -> Hit n hn = split {
+    inl hn' -> \ e -> PL.subst (CF.Lt n K.m) (Hit n) hn' hn (W.HB.uip (W.ltN n K.m) true hn' hn) (soundH n hn' (decHit n hn') e) ;
+    inr x -> \ e -> W.absurdB (Hit n hn) e } ;
+  complH (n : W.N) (hn : CF.Lt n K.m) (x : Hit n hn) : (r : W.Or (Hit n hn) (Hit n hn -> W.Empty)) -> Id W.Bool (bitH n hn r) true = split {
+    inl y -> refl true ; inr y -> CF.efq (Id W.Bool false true) (y x) } ;
+  complL (n : W.N) (hn : CF.Lt n K.m) (x : Hit n hn) : (r : W.Or (CF.Lt n K.m) (CF.Lt n K.m -> W.Empty)) -> Id W.Bool (bitL n r) true = split {
+    inl hn' -> complH n hn' (PL.subst (CF.Lt n K.m) (Hit n) hn hn' (W.HB.uip (W.ltN n K.m) true hn hn') x) (decHit n hn') ;
+    inr y -> CF.efq (Id W.Bool false true) (y hn) } ;
+  T0 : W.Wd = wordOf K.m bit ;
+  j : W.N = FO.code T0 ;
+  hj : CF.Lt j (W.pow2 K.m) = FO.code-lt' T0 K.m (len-wordOf K.m bit) ;
+  T : W.Wd = FO.bin K.m j ;
+  eT : Id W.Wd T T0 = FO.bin-code' T0 K.m (len-wordOf K.m bit) ;
+  atT (n : W.N) (hn : CF.Lt n K.m) : Id W.Bool (W.at T n) (bit n) =
+    PL.trans W.Bool (W.at T n) (W.at T0 n) (bit n) (PL.ap W.Wd W.Bool (\ x -> W.at x n) T T0 eT) (at-wordOf K.m bit n hn) ;
+  module R = Restr[F,K,T,FO.len-bin K.m j] ;
+  lT : Id W.N (W.len T) K.m = FO.len-bin K.m j ;
+  -- every image point of k hits its generator
+  module HG (c : F.C.Fin) (y : D2.Pt (F.C.fin c)) {
+    z : DK.Pt (F.C.fin c) = (k.1 c).1 y ;
+    r0 : SF.Im (DK.Gt (g z.1)) (DK.Gt (F.C.fin c)) (DK.arr (g z.1) (F.C.fin c) z.2.2) z =
+      (p0 z.1 z.2.1,DK.PP.pt3 (F.C.fin c) z (F.C.comp (g z.1) (g z.1) (F.C.fin c) (F.C.idm (g z.1)) z.2.2) (F.C.id-l (g z.1) (F.C.fin c) z.2.2)) ;
+    r1 : SF.Im (D2.Gt (g z.1)) (D2.Gt (F.C.fin c)) (D2.arr (g z.1) (F.C.fin c) z.2.2) y = k.2.2 (K.gen z.1) c z.2.2 y r0 ;
+    result : Hit z.1 z.2.1 =
+      (r1.1,DP.map-inj (DK.Gt (g z.1)) (DK.Gt (F.C.fin c)) (DK.arr (g z.1) (F.C.fin c) z.2.2) ((k.1 (K.gen z.1)).1 r1.1) (p0 z.1 z.2.1)
+        (PL.trans (DK.Pt (F.C.fin c)) (DK.PP.post (g z.1) (F.C.fin c) z.2.2 ((k.1 (K.gen z.1)).1 r1.1)) ((k.1 c).1 (D2.PP.post (g z.1) (F.C.fin c) z.2.2 r1.1))
+            (DK.PP.post (g z.1) (F.C.fin c) z.2.2 (p0 z.1 z.2.1))
+          (k.2.1 (K.gen z.1) c z.2.2 r1.1)
+          (PL.trans (DK.Pt (F.C.fin c)) ((k.1 c).1 (D2.PP.post (g z.1) (F.C.fin c) z.2.2 r1.1)) z (DK.PP.post (g z.1) (F.C.fin c) z.2.2 (p0 z.1 z.2.1))
+            (PL.ap (D2.Pt (F.C.fin c)) (DK.Pt (F.C.fin c)) (k.1 c).1 (D2.PP.post (g z.1) (F.C.fin c) z.2.2 r1.1) y r1.2)
+            (PL.sym (DK.Pt (F.C.fin c)) (DK.PP.post (g z.1) (F.C.fin c) z.2.2 (p0 z.1 z.2.1)) z r0.2)))) ;
+    inT : Id W.Bool (W.at T z.1) true =
+      PL.trans W.Bool (W.at T z.1) (bit z.1) true (atT z.1 z.2.1) (complL z.1 z.2.1 result (W.decB (W.ltN z.1 K.m) true)) ;
+  } ;
+  -- preimages in the restriction
+  pre (c : F.C.Fin) (i : W.N) (hi : CF.Lt i R.mT) (n3 : W.N) (e3 : Id W.N (W.sel T i) n3) :
+      (hn : CF.Lt n3 K.m) (f3 : F.C.Mor (g n3) (F.C.fin c)) ->
+      Id (DK.Pt (F.C.fin c)) (R.lift (F.C.fin c) (i,(hi,PL.subst W.N (\ x -> F.C.Mor (g x) (F.C.fin c)) n3 (W.sel T i) (PL.sym W.N (W.sel T i) n3 e3) f3)))
+        (n3,(hn,f3)) =
+    idJ W.N (W.sel T i) (\ n4 e4 -> (hn : CF.Lt n4 K.m) (f3 : F.C.Mor (g n4) (F.C.fin c)) ->
+        Id (DK.Pt (F.C.fin c)) (R.lift (F.C.fin c) (i,(hi,PL.subst W.N (\ x -> F.C.Mor (g x) (F.C.fin c)) n4 (W.sel T i) (PL.sym W.N (W.sel T i) n4 e4) f3)))
+          (n4,(hn,f3)))
+      (\ hn f3 -> PL.ap (CF.Lt (W.sel T i) K.m) (DK.Pt (F.C.fin c)) (\ u -> (W.sel T i,(u,f3))) (R.ltl i hi) hn (W.HB.uip (W.ltN (W.sel T i) K.m) true (R.ltl i hi) hn))
+      n3 e3 ;
+  cov1 (c : F.C.Fin) (y : D2.Pt (F.C.fin c)) : SF.Im (R.DT.Gt (F.C.fin c)) (DK.Gt (F.C.fin c)) (R.sub.1 c) ((k.1 c).1 y) =
+    ((W.rank T HG[c,y].z.1,(W.rank-lt T HG[c,y].z.1 HG[c,y].inT,
+       PL.subst W.N (\ x -> F.C.Mor (g x) (F.C.fin c)) HG[c,y].z.1 (W.sel T (W.rank T HG[c,y].z.1))
+         (PL.sym W.N (W.sel T (W.rank T HG[c,y].z.1)) HG[c,y].z.1 (W.sel-rank T HG[c,y].z.1 HG[c,y].inT)) HG[c,y].z.2.2)),
+     pre c (W.rank T HG[c,y].z.1) (W.rank-lt T HG[c,y].z.1 HG[c,y].inT) HG[c,y].z.1 (W.sel-rank T HG[c,y].z.1 HG[c,y].inT)
+       HG[c,y].z.2.1 HG[c,y].z.2.2) ;
+  module L1 = SDi.Lift[F.C,D2.obj,R.DT.obj,DK.obj,k,R.sub,cov1] ;
+  -- the restriction lands in the image of k
+  module C2 (c : F.C.Fin) (p : R.PT.Pt (F.C.fin c)) {
+    n : W.N = W.sel T p.1 ;
+    hn : CF.Lt n K.m = R.ltl p.1 p.2.1 ;
+    hit : Hit n hn =
+      soundL n hn (W.decB (W.ltN n K.m) true)
+        (PL.trans W.Bool (bit n) (W.at T n) true (PL.sym W.Bool (W.at T n) (bit n) (atT n hn)) (W.at-sel T p.1 p.2.1)) ;
+    result : SF.Im (D2.Gt (F.C.fin c)) (DK.Gt (F.C.fin c)) (k.1 c) (R.lift (F.C.fin c) p) =
+      (D2.PP.post (g n) (F.C.fin c) p.2.2 hit.1,
+       PL.trans (DK.Pt (F.C.fin c)) ((k.1 c).1 (D2.PP.post (g n) (F.C.fin c) p.2.2 hit.1)) (DK.PP.post (g n) (F.C.fin c) p.2.2 ((k.1 (K.gen n)).1 hit.1))
+           (R.lift (F.C.fin c) p)
+         (PL.sym (DK.Pt (F.C.fin c)) (DK.PP.post (g n) (F.C.fin c) p.2.2 ((k.1 (K.gen n)).1 hit.1)) ((k.1 c).1 (D2.PP.post (g n) (F.C.fin c) p.2.2 hit.1))
+           (k.2.1 (K.gen n) c p.2.2 hit.1))
+         (PL.trans (DK.Pt (F.C.fin c)) (DK.PP.post (g n) (F.C.fin c) p.2.2 ((k.1 (K.gen n)).1 hit.1)) (DK.PP.post (g n) (F.C.fin c) p.2.2 (p0 n hn))
+             (R.lift (F.C.fin c) p)
+           (PL.ap (DK.Pt (g n)) (DK.Pt (F.C.fin c)) (DK.PP.post (g n) (F.C.fin c) p.2.2) ((k.1 (K.gen n)).1 hit.1) (p0 n hn) hit.2)
+           (DK.PP.pt3 (F.C.fin c) (R.lift (F.C.fin c) p) (F.C.comp (g n) (g n) (F.C.fin c) (F.C.idm (g n)) p.2.2) (F.C.id-l (g n) (F.C.fin c) p.2.2)))) ;
+  } ;
+  module L2 = SDi.Lift[F.C,R.DT.obj,D2.obj,DK.obj,R.sub,k,\ c p -> C2[c,p].result] ;
+  result : (j0 : W.N) * (CF.Lt j0 (W.pow2 K.m) *
+      ((h : O.Mor D2.obj R.DT.obj) * Id (O.Mor D2.obj DK.obj) (O.compS D2.obj R.DT.obj DK.obj h R.sub) k *
+       ((h' : O.Mor R.DT.obj D2.obj) * Id (O.Mor R.DT.obj DK.obj) (O.compS R.DT.obj D2.obj DK.obj h' k) R.sub))) =
+    (j,(hj,(L1.mor,(L1.eq,(L2.mor,L2.eq))))) ;
+} ;

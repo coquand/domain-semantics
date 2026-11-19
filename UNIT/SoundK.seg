@@ -1,0 +1,1020 @@
+-- SoundK.seg: quantitative soundness (PRA/NEXT_SESSION_BUDGET.md, B2b).
+-- Soundness (Sound.seg) for the bounded semantics semK, with the depth
+-- bound of the output linear in the derivation:
+--   jty G M A   (d : Nat) * for K, J >= d + K, rho with FitsK K G rho,
+--               t in semK K M rho: a typed v <= t in semK J M rho, of a
+--               type c in semK J A rho, with TpK J (el v c);
+--   jeq G M N A (d : Nat) * the same J: semK K M rho c= semK J N rho and back.
+-- The typed witnesses carry TpK derivations (TypingK.seg), so their depth
+-- is bounded through generation as well.
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open Filter[l] ; open Sem[l] ; open Sound[l] ; open TypingK[l] ; open SemK[l] ;
+
+------------------------------------------------------------------------
+-- arithmetic
+
+leN-suc : (n : Nat) -> LeN n (suc n) = split { zero -> tt ; suc n | r -> r } ;
+
+leN-pred-le : (n : Nat) -> LeN (pred n) n = split { zero -> tt ; suc n -> leN-suc n } ;
+
+leN-add : (m K : Nat) -> LeN K (add m K) = split {
+  zero -> \ K -> leN-refl K ;
+  suc m | r -> \ K -> leN-trans K (add m K) (suc (add m K)) (r K) (leN-suc (add m K)) } ;
+
+leN-add-l : (a b : Nat) -> LeN a (add a b) = split { zero -> \ b -> tt ; suc a | r -> \ b -> r b } ;
+
+add-assoc-le : (a b K : Nat) -> LeN (add a (add b K)) (add (add a b) K) = split {
+  zero -> \ b K -> leN-refl (add b K) ;
+  suc a | r -> \ b K -> r b K } ;
+
+add-assoc-ge : (a b K : Nat) -> LeN (add (add a b) K) (add a (add b K)) = split {
+  zero -> \ b K -> leN-refl (add b K) ;
+  suc a | r -> \ b K -> r b K } ;
+
+add-mono-l : (a a' : Nat) -> LeN a a' -> (K : Nat) -> LeN (add a K) (add a' K) = split {
+  zero -> \ a' h K -> leN-add a' K ;
+  suc a | r -> split {
+    zero -> \ h K -> efq h ;
+    suc a' -> \ h K -> r a' h K } } ;
+
+add-mono-r : (a K K' : Nat) -> LeN K K' -> LeN (add a K) (add a K') = split {
+  zero -> \ K K' h -> h ;
+  suc a | r -> \ K K' h -> r K K' h } ;
+
+add-suc-le : (a b : Nat) -> LeN (add a (suc b)) (suc (add a b)) = split {
+  zero -> \ b -> leN-refl (suc b) ;
+  suc a | r -> \ b -> r b } ;
+
+add-suc-ge : (a b : Nat) -> LeN (suc (add a b)) (add a (suc b)) = split {
+  zero -> \ b -> leN-refl (suc b) ;
+  suc a | r -> \ b -> r b } ;
+
+add-zero-ge : (a : Nat) -> LeN a (add a zero) = split { zero -> tt ; suc a | r -> r } ;
+
+add-comm-le : (a b : Nat) -> LeN (add a b) (add b a) = split {
+  zero -> \ b -> add-zero-ge b ;
+  suc a | r -> \ b -> leN-trans (suc (add a b)) (suc (add b a)) (add b (suc a)) (r b) (add-suc-ge b a) } ;
+
+-- the summands of a sum
+le-sum-l (a b : Nat) : LeN a (add a b) = leN-add-l a b ;
+le-sum-r (a b : Nat) : LeN b (add a b) = leN-add a b ;
+
+-- add a K <= add D K when a <= D
+le-at (a D K : Nat) (h : LeN a D) : LeN (add a K) (add D K) = add-mono-l a D h K ;
+
+-- two steps: add b (add a K) <= add (add b a) K
+le-two (a b K : Nat) : LeN (add b (add a K)) (add (add b a) K) = add-assoc-le b a K ;
+
+leN-max-mono (a b c d : Nat) (h1 : LeN a c) (h2 : LeN b d) : LeN (max a b) (max c d) =
+  leN-max-lub a b (max c d) (leN-trans a c (max c d) h1 (leN-max-l c d)) (leN-trans b d (max c d) h2 (leN-max-r c d)) ;
+
+------------------------------------------------------------------------
+-- bounded semantic typing
+
+record EnlKR { K : Nat ; A : Filt ; B : Filt ; t : Ty ;
+  v : Ty ; below : Le v t ; inA : A.mem v ; c : Ty ; inB : B.mem c ; tp : TpK K (el v c) ; } ;
+EnlK (K : Nat) (A B : Filt) (t : Ty) : U l = EnlKR[K, A, B, t] ;
+
+HasTyK (K : Nat) (A B : Filt) : U l = (t : Ty) -> A.mem t -> EnlK K A B t ;
+
+enlk-map (K K' : Nat) (le : LeN K K') (A A' B B' : Filt) (iA : Incl A A') (iB : Incl B B') (t : Ty) (e : EnlK K A B t) :
+    EnlK K' A' B' t =
+  new EnlKR[K', A', B', t, v := e.v, below := e.below, inA := iA e.v e.inA, c := e.c, inB := iB e.c e.inB,
+    tp := tpk-mono K K' le e.v e.c e.tp] ;
+
+hastyk-conv (K : Nat) (A B B' : Filt) (h : HasTyK K A B) (i : Incl B B') : HasTyK K A B' =
+  \ t m -> enlk-map K K (leN-refl K) A A B B' (incl-refl A) i t (h t m) ;
+
+-- an om-like element: typed by om (the witness is om, not t)
+enlk-om (K : Nat) (A B : Filt) (t : Ty) (e : Le om t) : EnlK K A B t =
+  new EnlKR[K, A, B, t, v := om, below := e, inA := A.fom, c := om, inB := B.fom, tp := tpk-omom K] ;
+
+enlk-cons (K : Nat) (A B : Filt) (t : Ty) (e : EnlK K A B t) : Cons t =
+  cons-down e.v t e.below (tp-cons e.v e.c (tpk-tp K e.v e.c e.tp)) ;
+
+-- a typed key: its principal filter is typed
+prink-hasty (K : Nat) (A : Filt) (x : Ty) (h : TyInK K A x) : HasTyK K (prin x) A =
+  \ t le -> new EnlKR[K, prin x, A, t, v := x, below := le, inA := le-refl x, c := h.a, inB := h.ina, tp := h.tp] ;
+
+-- U : U
+univ-hastyk (K : Nat) : HasTyK K univF univF =
+  \ t le -> new EnlKR[K, univF, univF, t, v := univ, below := le, inA := le-refl univ, c := univ, inB := le-refl univ,
+                      tp := tpk-UU K] ;
+
+-- types: an element of U is typed by U
+tpk-univ-by (K : Nat) (v c : Ty) (lu : Le univ c) (bv : Bd K v) : ShapeK K v c -> TpK K (el v univ) = split {
+  sk-bot e h -> k-bot v univ bv e (tpk-UU K) ;
+  sk-univ e1 e2 -> k-univ v univ bv tt e1 (eqv-refl univ) ;
+  sk-pi A phi bpi e1 e2 h1 h2 cp -> k-pi v univ A phi bv tt bpi e1 (eqv-refl univ) h1 h2 cp ;
+  sk-lam A phi f e1 e2 h1 h2 cf -> efq (univ-not-pi A phi (le-trans univ c (pi A phi) lu e2.1)) } ;
+
+tpk-univ (K : Nat) (v c : Ty) (h : TpK K (el v c)) (lu : Le univ c) : TpK K (el v univ) =
+  tpk-univ-by K v c lu (tpk-bd-el K v c h).1 (shapek K v c h) ;
+
+record TyElKR { K : Nat ; A : Filt ; t : Ty ; a : Ty ; below : Le a t ; inA : A.mem a ; tp : TpK K (el a univ) ; } ;
+TyElK (K : Nat) (A : Filt) (t : Ty) : U l = TyElKR[K, A, t] ;
+
+-- from a typing of the members of A0 in A by U
+ty-enlK (K : Nat) (A0 A : Filt) (h : (t : Ty) -> A0.mem t -> EnlK K A univF t) (t : Ty) (m : A0.mem t) : TyElK K A t =
+  new TyElKR[K, A, t, a := e.v, below := e.below, inA := e.inA, tp := tpk-univ K e.v e.c e.tp e.inB]
+  where { e : EnlK K A univF t = h t m ; } ;
+
+------------------------------------------------------------------------
+-- fitting environments
+
+FitsK (K : Nat) : (n : Nat) -> Ctx n -> Env n -> U l = split {
+  zero -> \ G rho -> Top ;
+  suc n | r -> \ G rho -> r G.1 (tlE n rho) * HasTyK K (rho (fz n)) (semK K n G.2 (tlE n rho)) } ;
+
+fitsk-ext (K : Nat) (n : Nat) (G : Ctx n) (A : Tm n) (rho : Env n) (x : Ty) (fi : FitsK K n G rho)
+    (hx : TyInK K (semK K n A rho) x) : FitsK K (suc n) (ext n G A) (extE n rho (prin x)) =
+  (fi, prink-hasty K (semK K n A rho) x hx) ;
+
+fitsk-map (K K' : Nat) (le : LeN K K') : (n : Nat) -> (G : Ctx n) -> (rho : Env n) -> FitsK K n G rho -> FitsK K' n G rho = split {
+  zero -> \ G rho fi -> tt ;
+  suc n | r -> \ G rho fi ->
+    (r G.1 (tlE n rho) fi.1,
+     \ t m -> enlk-map K K' le (rho (fz n)) (rho (fz n)) (semK K n G.2 (tlE n rho)) (semK K' n G.2 (tlE n rho))
+                (incl-refl (rho (fz n))) (semK-monoK K K' le n G.2 (tlE n rho)) t (fi.2 t m)) } ;
+
+fitsk-cons (K : Nat) : (n : Nat) -> (G : Ctx n) -> (rho : Env n) -> FitsK K n G rho -> ConsEnv n rho = split {
+  zero -> \ G rho fi i -> efq i ;
+  suc n | r -> \ G rho fi -> split {
+    none -> \ t m -> enlk-cons K (rho (fz n)) (semK K n G.2 (tlE n rho)) t (fi.2 t m) ;
+    some i -> r G.1 (tlE n rho) fi.1 i } } ;
+
+semk-cons (K : Nat) (n : Nat) (M : Tm n) (rho : Env n) (c : ConsEnv n rho) : ConsF (semK K n M rho) =
+  \ t m -> sem-cons n M rho c t (semK-incl K n M rho t m) ;
+
+wkK-sem-tl (K : Nat) (n : Nat) (M : Tm n) (rho : Env (suc n)) : FEq (semK K (suc n) (wk n M) rho) (semK K n M (tlE n rho)) =
+  feq-trans (semK K (suc n) (wk n M) rho) (semK K (suc n) (wk n M) (extE n (tlE n rho) (rho (fz n)))) (semK K n M (tlE n rho))
+    (semK-eq K (suc n) (wk n M) rho (extE n (tlE n rho) (rho (fz n))) (eta-env n rho))
+    (wkK-sem K n M (tlE n rho) (rho (fz n))) ;
+
+fitsk-var (K : Nat) : (n : Nat) -> (G : Ctx n) -> (rho : Env n) -> FitsK K n G rho -> (i : Fin n) ->
+    HasTyK K (rho i) (semK K n (lookup n G i) rho) = split {
+  zero -> \ G rho fi i -> efq i ;
+  suc n | r -> \ G rho fi -> split {
+    none -> hastyk-conv K (rho (fz n)) (semK K n G.2 (tlE n rho)) (semK K (suc n) (wk n G.2) rho) fi.2
+              (wkK-sem-tl K n G.2 rho).2 ;
+    some i -> hastyk-conv K (rho (fs n i)) (semK K n (lookup n G.1 i) (tlE n rho)) (semK K (suc n) (wk n (lookup n G.1 i)) rho)
+                (r G.1 (tlE n rho) fi.1 i) (wkK-sem-tl K n (lookup n G.1 i) rho).2 } } ;
+
+------------------------------------------------------------------------
+-- cores: every member t of semK K M rho is above a member of depth <= K
+-- (when the environment has cores, e.g. when it fits)
+
+CoreF (K : Nat) (X : Filt) : U l = (t : Ty) -> X.mem t -> (t0 : Ty) * (Le t0 t * (Bd K t0 * X.mem t0)) ;
+
+core-app (K : Nat) (F X : Filt) (t : Ty) (w : AppWK K F X t) : (t0 : Ty) * (Le t0 t * (Bd K t0 * (appFK K F X).mem t0)) =
+  (ia.2.1, (ia.2.2.2.2,
+    (leN-trans (md ia.2.1) (pred (md w.g)) K (asel-md w.g ia.1 ia.2.1 ia.2.2.1).2
+       (leN-trans (pred (md w.g)) (md w.g) K (leN-pred-le (md w.g)) w.bg),
+     new AppWKR[K, F, X, ia.2.1, g := w.g, x := w.x, ing := w.ing, inx := w.inx,
+       le := le-trans w.g (arr ia.1 ia.2.1) (arr w.x ia.2.1) (asel-le w.g ia.1 ia.2.1 ia.2.2.1)
+               (le-arr ia.1 w.x ia.2.1 ia.2.1 ia.2.2.2.1 (le-refl ia.2.1)),
+       bg := w.bg, bx := w.bx])))
+  where { ia : InvArr w.g w.x t = inv-arr w.g w.x t w.le ; } ;
+
+core-lam (K : Nat) (A : Filt) (G : Ty -> Filt) (t : Ty) (w : LamWK K A G t) :
+    (t0 : Ty) * (Le t0 t * (Bd K t0 * (lamFK K A G).mem t0)) =
+  (w.f, (w.le, (w.bf, new LamWKR[K, A, G, w.f, f := w.f, le := le-refl w.f, bf := w.bf, ents := w.ents]))) ;
+
+core-pi (K : Nat) (A : Filt) (G : Ty -> Filt) (t : Ty) : (piFK K A G).mem t ->
+    (t0 : Ty) * (Le t0 t * (Bd K t0 * (piFK K A G).mem t0)) = split {
+  inl e -> (om, (e, (tt, inl (le-refl om)))) ;
+  inr w -> (pi w.a w.b, (w.le, (w.bp,
+    inr (new PiWKR[K, A, G, pi w.a w.b, a := w.a, b := w.b, le := le-refl (pi w.a w.b), bp := w.bp, ina := w.ina, ents := w.ents])))) } ;
+
+semK-core (K : Nat) : (n : Nat) -> (M : Tm n) -> (rho : Env n) -> ((i : Fin n) -> CoreF K (rho i)) ->
+    CoreF K (semK K n M rho) = split {
+  var n i -> \ rho h -> h i ;
+  uu n -> \ rho h t m -> (univ, (m, (tt, le-refl univ))) ;
+  pp n A B | rA rB -> \ rho h -> core-pi K (semK K n A rho) (famK K n B rho) ;
+  lam n A M | rA rM -> \ rho h -> core-lam K (semK K n A rho) (famK K n M rho) ;
+  app n M N | rM rN -> \ rho h -> core-app K (semK K n M rho) (semK K n N rho) } ;
+
+fitsk-core (K : Nat) (n : Nat) (G : Ctx n) (rho : Env n) (fi : FitsK K n G rho) (i : Fin n) : CoreF K (rho i) =
+  \ t m -> ((e t m).v, ((e t m).below, ((tpk-bd-el K (e t m).v (e t m).c (e t m).tp).1, (e t m).inA)))
+  where { e : HasTyK K (rho i) (semK K n (lookup n G i) rho) = fitsk-var K n G rho fi i ; } ;
+
+-- the environment extended by the semantics of a term
+core-ext (K : Nat) (n : Nat) (rho : Env n) (X : Filt) (h : (i : Fin n) -> CoreF K (rho i)) (hX : CoreF K X) :
+    (i : Fin (suc n)) -> CoreF K (extE n rho X i) = split {
+  none -> hX ;
+  some i -> h i } ;
+
+------------------------------------------------------------------------
+-- the statements
+
+HasTyIH (n : Nat) (G : Ctx n) (M A : Tm n) (d : Nat) : U l+ =
+  (K J : Nat) -> LeN (add d K) J -> (rho : Env n) -> FitsK K n G rho ->
+    (t : Ty) -> (semK K n M rho).mem t -> EnlK J (semK J n M rho) (semK J n A rho) t ;
+
+EqIH (n : Nat) (G : Ctx n) (M N A : Tm n) (d : Nat) : U l+ =
+  (K J : Nat) -> LeN (add d K) J -> (rho : Env n) -> FitsK K n G rho ->
+    Incl (semK K n M rho) (semK J n N rho) * Incl (semK K n N rho) (semK J n M rho) ;
+
+SoundJK (n : Nat) : Jf n -> U l+ = split {
+  jwf G -> Top ;
+  jty G M A -> (d : Nat) * HasTyIH n G M A d ;
+  jeq G M N A -> (d : Nat) * EqIH n G M N A d } ;
+
+------------------------------------------------------------------------
+-- variables, conversion, U
+
+sk-var (n : Nat) (G : Ctx n) (i : Fin n) : HasTyIH n G (var n i) (lookup n G i) zero =
+  \ K J hJ rho fi t m ->
+    enlk-map K J hJ (rho i) (rho i) (semK K n (lookup n G i) rho) (semK J n (lookup n G i) rho)
+      (incl-refl (rho i)) (semK-monoK K J hJ n (lookup n G i) rho) t (fitsk-var K n G rho fi i t m) ;
+
+sk-conv (n : Nat) (G : Ctx n) (M A B : Tm n) (d1 d2 : Nat) (h1 : HasTyIH n G M A d1) (h2 : EqIH n G A B (uu n) d2)
+    (K J : Nat) (hJ : LeN (add (add d2 d1) K) J) (rho : Env n) (fi : FitsK K n G rho) (t : Ty) (m : (semK K n M rho).mem t) :
+    EnlK J (semK J n M rho) (semK J n B rho) t =
+    enlk-map (add d1 K) J (leN-trans (add d1 K) (add d2 (add d1 K)) J (leN-add d2 (add d1 K)) hJ2)
+      (semK (add d1 K) n M rho) (semK J n M rho) (semK (add d1 K) n A rho) (semK J n B rho)
+      (semK-monoK (add d1 K) J (leN-trans (add d1 K) (add d2 (add d1 K)) J (leN-add d2 (add d1 K)) hJ2) n M rho)
+      (h2 (add d1 K) J hJ2 rho (fitsk-map K (add d1 K) (leN-add d1 K) n G rho fi)).1
+      t (h1 K (add d1 K) (leN-refl (add d1 K)) rho fi t m)
+  where { hJ2 : LeN (add d2 (add d1 K)) J = leN-trans (add d2 (add d1 K)) (add (add d2 d1) K) J (le-two d1 d2 K) hJ ; } ;
+
+sk-U (n : Nat) (G : Ctx n) : HasTyIH n G (uu n) (uu n) zero =
+  \ K J hJ rho fi -> univ-hastyk J ;
+
+------------------------------------------------------------------------
+-- Lemma 3.9 with bounds: a common domain for the keys
+
+-- x is typed at every type a' <= a typed in U.  Stored as data (a typing of x
+-- at some a0 >= a), not as the closure \ a' l h -> tpk-up ..., so that EntS
+-- of UpRK is first-order (PRA/EXTRACTION.md section 7); upt-at applies it.
+UpTK (J : Nat) (a x : Ty) : U l = (a0 : Ty) * (TpK J (el x a0) * Le a a0) ;
+
+upt-at (J : Nat) (a x : Ty) (u : UpTK J a x) (a' : Ty) (l : Le a' a) (h : TpK J (el a' univ)) : TpK J (el x a') =
+  tpk-up J x u.1 a' u.2.1 (le-trans a' a u.1 l u.2.2) h ;
+
+upt-downK (J : Nat) (a b x : Ty) (le : Le b a) (u : UpTK J a x) : UpTK J b x = (u.1, (u.2.1, le-trans b a u.1 le u.2.2)) ;
+
+UpRK (J K : Nat) (a : Ty) (A : Filt) (G : Ty -> Filt) (x v : Ty) : U l = UpTK J a x * EntRK K A G x v ;
+
+upr-downK (J K : Nat) (a b : Ty) (A : Filt) (G : Ty -> Filt) (le : Le b a) (x v : Ty) (r : UpRK J K a A G x v) :
+    UpRK J K b A G x v = (upt-downK J a b x le r.1, r.2) ;
+
+record DomCKR { J : Nat ; K : Nat ; A : Filt ; G : Ty -> Filt ; f : Ty ; a : Ty ; ina : A.mem a ; ents : EntS (UpRK J K a A G) f ; } ;
+DomCK (J K : Nat) (A : Filt) (G : Ty -> Filt) (f : Ty) : U l = DomCKR[J, K, A, G, f] ;
+
+dom-collectK (J K : Nat) (lK : LeN K J) (A : Filt) (G : Ty -> Filt) : (f : Ty) -> EntS (EntRK K A G) f -> DomCK J K A G f = split {
+  es-om -> new DomCKR[J, K, A, G, om, a := om, ina := A.fom, ents := es-om] ;
+  es-arr x v h -> new DomCKR[J, K, A, G, arr x v, a := h.1.a, ina := h.1.ina,
+    ents := es-arr x v ((h.1.a, (tpk-mono K J lK x h.1.a h.1.tp, le-refl h.1.a)), h)] ;
+  es-meet f1 f2 h1 h2 | r1 r2 -> new DomCKR[J, K, A, G, meet f1 f2,
+    a := meet r1.a r2.a, ina := A.fmeet r1.a r2.a r1.ina r2.ina,
+    ents := es-meet f1 f2
+      (ents-map (UpRK J K r1.a A G) (UpRK J K (meet r1.a r2.a) A G) (upr-downK J K r1.a (meet r1.a r2.a) A G (le-meet-l r1.a r2.a)) f1 r1.ents)
+      (ents-map (UpRK J K r2.a A G) (UpRK J K (meet r1.a r2.a) A G) (upr-downK J K r2.a (meet r1.a r2.a) A G (le-meet-r r1.a r2.a)) f2 r2.ents)] } ;
+
+-- bounds of constructors
+bd-arr-mk (K : Nat) (a b : Ty) (ha : Bd K a) (hb : Bd K b) : Bd (suc K) (arr a b) = leN-max-lub (md a) (md b) K ha hb ;
+bd-pi-mk (K : Nat) (a b : Ty) (ha : Bd K a) (hb : Bd K b) : Bd (suc K) (pi a b) = leN-max-lub (md a) (md b) K ha hb ;
+
+-- arr om univ has depth 1
+bd-om-univ (J m : Nat) (h : LeN (suc m) J) : Bd J (arr om univ) = leN-trans (suc zero) (suc m) J tt h ;
+
+max-add (a b K : Nat) : LeN (max (add a K) (add b K)) (add (add a b) K) =
+  leN-max-lub (add a K) (add b K) (add (add a b) K) (le-at a (add a b) K (le-sum-l a b)) (le-at b (add a b) K (le-sum-r a b)) ;
+
+leN-suc2 (m : Nat) : LeN m (suc (suc m)) = leN-trans m (suc m) (suc (suc m)) (leN-suc m) (leN-suc (suc m)) ;
+
+------------------------------------------------------------------------
+-- the rule Pi
+
+-- the family, each value replaced by a type below it; b' has depth <= M0 + 1
+record PiCKR { J : Nat ; M0 : Nat ; A : Filt ; G : Ty -> Filt ; a : Ty ; b : Ty ;
+  b' : Ty ; below : Le b' b ; bb : Bd (suc M0) b' ; ents : EntS (EntRK J A G) b' ; tpe : TpK J (ent b' a (arr om univ)) ; } ;
+PiCK (J M0 : Nat) (A : Filt) (G : Ty -> Filt) (a b : Ty) : U l = PiCKR[J, M0, A, G, a, b] ;
+
+-- input bound K, domain typed at J1, family at J2, output J
+module PiK (n : Nat) (A : Tm n) (B : Tm (suc n)) (rho : Env n) (K J1 J2 J : Nat)
+    (lK : LeN K J1) (lJ : LeN (suc (suc (max J1 J2))) J)
+    (hA : (t : Ty) -> (semK K n A rho).mem t -> EnlK J1 (semK J1 n A rho) univF t)
+    (hG : (x : Ty) -> TyInK K (semK K n A rho) x -> (v : Ty) -> (famK K n B rho x).mem v ->
+            EnlK J2 (famK J2 n B rho x) univF v) {
+  M0 : Nat = max J1 J2 ;
+  l1 : LeN J1 M0 = leN-max-l J1 J2 ;
+  l2 : LeN J2 M0 = leN-max-r J1 J2 ;
+  lKM : LeN K M0 = leN-trans K J1 M0 lK l1 ;
+  lSM : LeN (suc M0) J = leN-trans (suc M0) (suc (suc M0)) J (leN-suc (suc M0)) lJ ;
+  lMJ : LeN M0 J = leN-trans M0 (suc (suc M0)) J (leN-suc2 M0) lJ ;
+  lKJ : LeN K J = leN-trans K M0 J lKM lMJ ;
+  l1J : LeN J1 J = leN-trans J1 M0 J l1 lMJ ;
+  l2J : LeN J2 J = leN-trans J2 M0 J l2 lMJ ;
+  bAU : Bd J (arr om univ) = bd-om-univ J (suc M0) lJ ;
+  Ain : Filt = semK K n A rho ;
+  Gin (x : Ty) : Filt = famK K n B rho x ;
+  Aout : Filt = semK J n A rho ;
+  Gout (x : Ty) : Filt = famK J n B rho x ;
+  iA : Incl Ain Aout = semK-monoK K J lKJ n A rho ;
+  iG2 (x : Ty) : Incl (famK J2 n B rho x) (Gout x) = semK-monoK J2 J l2J (suc n) B (extE n rho (prin x)) ;
+
+  entry-bd (x y : Ty) (bx : Bd K x) (by : Bd J2 y) : Bd (suc M0) (arr x y) =
+    bd-arr-mk M0 x y (bd-mono K M0 lKM x bx) (bd-mono J2 M0 l2 y by) ;
+
+  pi-entry (a a0 : Ty) (ha : TpK J (el a univ)) (le : Le a a0) (x v : Ty) (r : UpRK J K a0 Ain Gin x v)
+      (y : TyElK J2 (famK J2 n B rho x) v) : PiCK J M0 Aout Gout a (arr x v) =
+    new PiCKR[J, M0, Aout, Gout, a, arr x v, b' := arr x y.a, below := le-arr x x y.a v (le-refl x) y.below,
+      bb := eb,
+      ents := es-arr x y.a (tyink-map K J lKJ Ain Aout iA x r.2.1, iG2 x y.a y.inA),
+      tpe := ken-arr x y.a univ a (arr om univ) bAU (bd-mono (suc M0) J lSM (arr x y.a) eb) (upt-at J a0 x r.1 a le ha)
+               (om-univ-at x) (tpk-mono J2 J l2J y.a univ y.tp)]
+    where {
+      eb : Bd (suc M0) (arr x y.a) =
+        entry-bd x y.a (tpk-bd-el K x r.2.1.a r.2.1.tp).1 (tpk-bd-el J2 y.a univ y.tp).1 ; } ;
+
+  pi-collect (a a0 : Ty) (ha : TpK J (el a univ)) (le : Le a a0) :
+      (b : Ty) -> EntS (UpRK J K a0 Ain Gin) b -> PiCK J M0 Aout Gout a b = split {
+    es-om -> new PiCKR[J, M0, Aout, Gout, a, om, b' := om, below := le-refl om, bb := tt, ents := es-om,
+                       tpe := ken-om a (arr om univ) (tpk-bd-el J a univ ha).1 bAU] ;
+    es-arr x v r -> pi-entry a a0 ha le x v r (ty-enlK J2 (Gin x) (famK J2 n B rho x) (hG x r.2.1) v r.2.2) ;
+    es-meet b1 b2 h1 h2 | r1 r2 -> new PiCKR[J, M0, Aout, Gout, a, meet b1 b2,
+      b' := meet r1.b' r2.b', below := le-meet-mono r1.b' b1 r2.b' b2 r1.below r2.below,
+      bb := bd-meet (suc M0) r1.b' r2.b' r1.bb r2.bb,
+      ents := es-meet r1.b' r2.b' r1.ents r2.ents, tpe := ken-meet r1.b' r2.b' a (arr om univ) r1.tpe r2.tpe] } ;
+
+  main (cP : ConsF (piFK J Aout Gout)) (t : Ty) (w : PiWK K Ain Gin t) : EnlK J (piFK J Aout Gout) univF t =
+    new EnlKR[J, piFK J Aout Gout, univF, t,
+      v := pi s.a pc.b',
+      below := le-trans (pi s.a pc.b') (pi w.a w.b) t
+                (le-pi s.a w.a pc.b' w.b (le-split-l s.a w.a d.a s.below) pc.below) w.le,
+      inA := inr inP, c := univ, inB := le-refl univ,
+      tp := k-pi (pi s.a pc.b') univ s.a pc.b' bv tt bv (eqv-refl (pi s.a pc.b')) (eqv-refl univ)
+              (tpk-mono J1 J l1J s.a univ s.tp) pc.tpe
+              (cons-psel (pi s.a pc.b') s.a pc.b' (cP (pi s.a pc.b') (inr inP)) (ps-here s.a pc.b')).2]
+    where {
+      d : DomCK J K Ain Gin w.b = dom-collectK J K lKJ Ain Gin w.b w.ents ;
+      s : TyElK J1 (semK J1 n A rho) (meet w.a d.a) =
+        ty-enlK J1 Ain (semK J1 n A rho) hA (meet w.a d.a) (Ain.fmeet w.a d.a w.ina d.ina) ;
+      pc : PiCK J M0 Aout Gout s.a w.b =
+        pi-collect s.a d.a (tpk-mono J1 J l1J s.a univ s.tp) (le-split-r s.a w.a d.a s.below) w.b d.ents ;
+      bv : Bd J (pi s.a pc.b') =
+        bd-mono (suc (suc M0)) J lJ (pi s.a pc.b')
+          (bd-pi-mk (suc M0) s.a pc.b' (bd-mono J1 (suc M0) (leN-trans J1 M0 (suc M0) l1 (leN-suc M0)) s.a (tpk-bd-el J1 s.a univ s.tp).1) pc.bb) ;
+      inP : PiWK J Aout Gout (pi s.a pc.b') =
+        new PiWKR[J, Aout, Gout, pi s.a pc.b', a := s.a, b := pc.b', le := le-refl (pi s.a pc.b'), bp := bv,
+                  ina := semK-monoK J1 J l1J n A rho s.a s.inA, ents := pc.ents] ; } ;
+
+  sound (cP : ConsF (piFK J Aout Gout)) : (t : Ty) -> (piFK K Ain Gin).mem t -> EnlK J (piFK J Aout Gout) univF t = \ t -> split {
+    inl e -> enlk-om J (piFK J Aout Gout) univF t e ;
+    inr w -> main cP t w } ;
+} ;
+
+sk-Pi (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (d1 d2 : Nat)
+    (h1 : HasTyIH n G A (uu n) d1) (h2 : HasTyIH (suc n) (ext n G A) B (uu (suc n)) d2)
+    (K J : Nat) (hJ : LeN (add (suc (suc (add d1 d2))) K) J) (rho : Env n) (fi : FitsK K n G rho)
+    (t : Ty) (m : (semK K n (pp n A B) rho).mem t) : EnlK J (semK J n (pp n A B) rho) (semK J n (uu n) rho) t =
+  PiK[n, A, B, rho, K, add d1 K, add d2 K, J, leN-add d1 K, lJ,
+      h1 K (add d1 K) (leN-refl (add d1 K)) rho fi,
+      \ x hx v hv -> h2 K (add d2 K) (leN-refl (add d2 K)) (extE n rho (prin x)) (fitsk-ext K n G A rho x fi hx) v hv].sound
+    (semk-cons J n (pp n A B) rho (fitsk-cons K n G rho fi)) t m
+  where {
+    lJ : LeN (suc (suc (max (add d1 K) (add d2 K)))) J =
+      leN-trans (suc (suc (max (add d1 K) (add d2 K)))) (add (suc (suc (add d1 d2))) K) J (max-add d1 d2 K) hJ ; } ;
+
+------------------------------------------------------------------------
+-- the rule lam
+
+record LamCKR { J : Nat ; M0 : Nat ; A : Filt ; G : Ty -> Filt ; H : Ty -> Filt ; a : Ty ; f : Ty ;
+  f' : Ty ; phi : Ty ; below : Le f' f ; bf : Bd (suc M0) f' ; bphi : Bd (suc M0) phi ;
+  ents : EntS (EntRK J A G) f' ; fents : EntS (EntRK J A H) phi ;
+  tpe : TpK J (ent f' a phi) ; tpf : TpK J (ent phi a (arr om univ)) ; } ;
+LamCK (J M0 : Nat) (A : Filt) (G H : Ty -> Filt) (a f : Ty) : U l = LamCKR[J, M0, A, G, H, a, f] ;
+
+-- input K; domain typed at J1, body at J3, its type at J2; output J
+module LamK (n : Nat) (A : Tm n) (B M : Tm (suc n)) (rho : Env n) (K J1 J3 J2 J : Nat)
+    (lK1 : LeN K J1) (lK3 : LeN K J3) (lJ : LeN (suc (suc (max J1 (max J3 J2)))) J)
+    (hA : (t : Ty) -> (semK K n A rho).mem t -> EnlK J1 (semK J1 n A rho) univF t)
+    (hM : (x : Ty) -> TyInK K (semK K n A rho) x -> (v : Ty) -> (famK K n M rho x).mem v ->
+            EnlK J3 (famK J3 n M rho x) (famK J3 n B rho x) v)
+    (hB : (x : Ty) -> TyInK K (semK K n A rho) x -> (c : Ty) -> (famK J3 n B rho x).mem c ->
+            EnlK J2 (famK J2 n B rho x) univF c) {
+  M0 : Nat = max J1 (max J3 J2) ;
+  l1 : LeN J1 M0 = leN-max-l J1 (max J3 J2) ;
+  l3 : LeN J3 M0 = leN-trans J3 (max J3 J2) M0 (leN-max-l J3 J2) (leN-max-r J1 (max J3 J2)) ;
+  l2 : LeN J2 M0 = leN-trans J2 (max J3 J2) M0 (leN-max-r J3 J2) (leN-max-r J1 (max J3 J2)) ;
+  lKM : LeN K M0 = leN-trans K J1 M0 lK1 l1 ;
+  lSM : LeN (suc M0) J = leN-trans (suc M0) (suc (suc M0)) J (leN-suc (suc M0)) lJ ;
+  lMJ : LeN M0 J = leN-trans M0 (suc (suc M0)) J (leN-suc2 M0) lJ ;
+  lKJ : LeN K J = leN-trans K M0 J lKM lMJ ;
+  l1J : LeN J1 J = leN-trans J1 M0 J l1 lMJ ;
+  l2J : LeN J2 J = leN-trans J2 M0 J l2 lMJ ;
+  l3J : LeN J3 J = leN-trans J3 M0 J l3 lMJ ;
+  l1S : LeN J1 (suc M0) = leN-trans J1 M0 (suc M0) l1 (leN-suc M0) ;
+  bAU : Bd J (arr om univ) = bd-om-univ J (suc M0) lJ ;
+  Ain : Filt = semK K n A rho ;
+  Gin (x : Ty) : Filt = famK K n M rho x ;
+  Aout : Filt = semK J n A rho ;
+  Gout (x : Ty) : Filt = famK J n M rho x ;
+  Hout (x : Ty) : Filt = famK J n B rho x ;
+  iA : Incl Ain Aout = semK-monoK K J lKJ n A rho ;
+
+  lam-entry (a a0 : Ty) (ha : TpK J (el a univ)) (le : Le a a0) (x v : Ty) (r : UpRK J K a0 Ain Gin x v)
+      (e : EnlK J3 (famK J3 n M rho x) (famK J3 n B rho x) v) : LamCK J M0 Aout Gout Hout a (arr x v) =
+    new LamCKR[J, M0, Aout, Gout, Hout, a, arr x v, f' := arr x e.v, phi := arr x y.a,
+      below := le-arr x x e.v v (le-refl x) e.below, bf := ebf, bphi := ebp,
+      ents := es-arr x e.v (tyink-map K J lKJ Ain Aout iA x r.2.1,
+                semK-monoK J3 J l3J (suc n) M (extE n rho (prin x)) e.v e.inA),
+      fents := es-arr x y.a (tyink-map K J lKJ Ain Aout iA x r.2.1,
+                semK-monoK J2 J l2J (suc n) B (extE n rho (prin x)) y.a y.inA),
+      tpe := ken-arr x e.v y.a a (arr x y.a) (bd-mono (suc M0) J lSM (arr x y.a) ebp) (bd-mono (suc M0) J lSM (arr x e.v) ebf)
+               (upt-at J a0 x r.1 a le ha) (le-refl (arr x y.a))
+               (tpk-up J e.v e.c y.a (tpk-mono J3 J l3J e.v e.c e.tp) y.below (tpk-mono J2 J l2J y.a univ y.tp)),
+      tpf := ken-arr x y.a univ a (arr om univ) bAU (bd-mono (suc M0) J lSM (arr x y.a) ebp)
+               (upt-at J a0 x r.1 a le ha) (om-univ-at x) (tpk-mono J2 J l2J y.a univ y.tp)]
+    where {
+      y : TyElK J2 (famK J2 n B rho x) e.c = ty-enlK J2 (famK J3 n B rho x) (famK J2 n B rho x) (hB x r.2.1) e.c e.inB ;
+      bx : Bd M0 x = bd-mono K M0 lKM x (tpk-bd-el K x r.2.1.a r.2.1.tp).1 ;
+      ebf : Bd (suc M0) (arr x e.v) = bd-arr-mk M0 x e.v bx (bd-mono J3 M0 l3 e.v (tpk-bd-el J3 e.v e.c e.tp).1) ;
+      ebp : Bd (suc M0) (arr x y.a) = bd-arr-mk M0 x y.a bx (bd-mono J2 M0 l2 y.a (tpk-bd-el J2 y.a univ y.tp).1) ; } ;
+
+  lam-collect (a a0 : Ty) (ha : TpK J (el a univ)) (le : Le a a0) :
+      (f : Ty) -> EntS (UpRK J K a0 Ain Gin) f -> LamCK J M0 Aout Gout Hout a f = split {
+    es-om -> new LamCKR[J, M0, Aout, Gout, Hout, a, om, f' := om, phi := om, below := le-refl om, bf := tt, bphi := tt,
+                        ents := es-om, fents := es-om,
+                        tpe := ken-om a om (tpk-bd-el J a univ ha).1 tt,
+                        tpf := ken-om a (arr om univ) (tpk-bd-el J a univ ha).1 bAU] ;
+    es-arr x v r -> lam-entry a a0 ha le x v r (hM x r.2.1 v r.2.2) ;
+    es-meet f1 f2 h1 h2 | r1 r2 -> new LamCKR[J, M0, Aout, Gout, Hout, a, meet f1 f2,
+      f' := meet r1.f' r2.f', phi := meet r1.phi r2.phi, below := le-meet-mono r1.f' f1 r2.f' f2 r1.below r2.below,
+      bf := bd-meet (suc M0) r1.f' r2.f' r1.bf r2.bf, bphi := bd-meet (suc M0) r1.phi r2.phi r1.bphi r2.bphi,
+      ents := es-meet r1.f' r2.f' r1.ents r2.ents, fents := es-meet r1.phi r2.phi r1.fents r2.fents,
+      tpe := ken-meet r1.f' r2.f' a (meet r1.phi r2.phi)
+              (tpk-up-ent J r1.f' a r1.phi a (meet r1.phi r2.phi) r1.tpe
+                 (bd-mono (suc M0) J lSM (meet r1.phi r2.phi) (bd-meet (suc M0) r1.phi r2.phi r1.bphi r2.bphi))
+                 (le-refl a) (le-meet-l r1.phi r2.phi) ha)
+              (tpk-up-ent J r2.f' a r2.phi a (meet r1.phi r2.phi) r2.tpe
+                 (bd-mono (suc M0) J lSM (meet r1.phi r2.phi) (bd-meet (suc M0) r1.phi r2.phi r1.bphi r2.bphi))
+                 (le-refl a) (le-meet-r r1.phi r2.phi) ha),
+      tpf := ken-meet r1.phi r2.phi a (arr om univ) r1.tpf r2.tpf] } ;
+
+  main (cG : ConsF (lamFK J Aout Gout)) (cH : ConsF (lamFK J Aout Hout)) (t : Ty) (w : LamWK K Ain Gin t) :
+      EnlK J (lamFK J Aout Gout) (piFK J Aout Hout) t =
+    new EnlKR[J, lamFK J Aout Gout, piFK J Aout Hout, t,
+      v := lc.f', below := le-trans lc.f' w.f t lc.below w.le, inA := inL,
+      c := pi s.a lc.phi,
+      inB := inr (new PiWKR[J, Aout, Hout, pi s.a lc.phi, a := s.a, b := lc.phi, le := le-refl (pi s.a lc.phi), bp := bpi,
+                            ina := semK-monoK J1 J l1J n A rho s.a s.inA, ents := lc.fents]),
+      tp := k-lam lc.f' (pi s.a lc.phi) s.a lc.phi lc.f' (bd-mono (suc M0) J lSM lc.f' lc.bf) bpi
+              (eqv-refl lc.f') (eqv-refl (pi s.a lc.phi))
+              (k-pi (pi s.a lc.phi) univ s.a lc.phi bpi tt bpi (eqv-refl (pi s.a lc.phi)) (eqv-refl univ)
+                 (tpk-mono J1 J l1J s.a univ s.tp) lc.tpf (cH lc.phi inH))
+              lc.tpe (cG lc.f' inL)]
+    where {
+      d : DomCK J K Ain Gin w.f = dom-collectK J K lKJ Ain Gin w.f w.ents ;
+      s : TyElK J1 (semK J1 n A rho) d.a = ty-enlK J1 Ain (semK J1 n A rho) hA d.a d.ina ;
+      lc : LamCK J M0 Aout Gout Hout s.a w.f = lam-collect s.a d.a (tpk-mono J1 J l1J s.a univ s.tp) s.below w.f d.ents ;
+      bpi : Bd J (pi s.a lc.phi) =
+        bd-mono (suc (suc M0)) J lJ (pi s.a lc.phi)
+          (bd-pi-mk (suc M0) s.a lc.phi (bd-mono J1 (suc M0) l1S s.a (tpk-bd-el J1 s.a univ s.tp).1) lc.bphi) ;
+      inL : LamWK J Aout Gout lc.f' =
+        new LamWKR[J, Aout, Gout, lc.f', f := lc.f', le := le-refl lc.f', bf := bd-mono (suc M0) J lSM lc.f' lc.bf, ents := lc.ents] ;
+      inH : LamWK J Aout Hout lc.phi =
+        new LamWKR[J, Aout, Hout, lc.phi, f := lc.phi, le := le-refl lc.phi, bf := bd-mono (suc M0) J lSM lc.phi lc.bphi, ents := lc.fents] ; } ;
+} ;
+
+sk-Lam (n : Nat) (G : Ctx n) (A : Tm n) (B M : Tm (suc n)) (d1 d2 d3 : Nat)
+    (h1 : HasTyIH n G A (uu n) d1) (h2 : HasTyIH (suc n) (ext n G A) B (uu (suc n)) d2)
+    (h3 : HasTyIH (suc n) (ext n G A) M B d3)
+    (K J : Nat) (hJ : LeN (add (suc (suc (add d2 (add d1 d3)))) K) J) (rho : Env n) (fi : FitsK K n G rho)
+    (t : Ty) (m : (semK K n (lam n A M) rho).mem t) : EnlK J (semK J n (lam n A M) rho) (semK J n (pp n A B) rho) t =
+  LamK[n, A, B, M, rho, K, add d1 K, add d3 K, add d2 (add d3 K), J, leN-add d1 K, leN-add d3 K, lJ,
+       h1 K (add d1 K) (leN-refl (add d1 K)) rho fi,
+       \ x hx v hv -> h3 K (add d3 K) (leN-refl (add d3 K)) (extE n rho (prin x)) (fitsk-ext K n G A rho x fi hx) v hv,
+       \ x hx c hc -> h2 (add d3 K) (add d2 (add d3 K)) (leN-refl (add d2 (add d3 K))) (extE n rho (prin x))
+                        (fitsk-ext (add d3 K) n G A rho x (fitsk-map K (add d3 K) (leN-add d3 K) n G rho fi)
+                           (tyink-map K (add d3 K) (leN-add d3 K) (semK K n A rho) (semK (add d3 K) n A rho)
+                              (semK-monoK K (add d3 K) (leN-add d3 K) n A rho) x hx)) c hc].main
+    (semk-cons J n (lam n A M) rho (fitsk-cons K n G rho fi))
+    (semk-cons J n (lam n A B) rho (fitsk-cons K n G rho fi)) t m
+  where {
+    D : Nat = add d1 d3 ;
+    P : Nat = add d2 (add D K) ;
+    T : Nat = add (add d2 D) K ;
+    pt : LeN P T = add-assoc-le d2 D K ;
+    q1 : LeN (add d1 K) T = leN-trans (add d1 K) P T
+           (leN-trans (add d1 K) (add D K) P (le-at d1 D K (le-sum-l d1 d3)) (leN-add d2 (add D K))) pt ;
+    q3 : LeN (add d3 K) T = leN-trans (add d3 K) P T
+           (leN-trans (add d3 K) (add D K) P (le-at d3 D K (le-sum-r d1 d3)) (leN-add d2 (add D K))) pt ;
+    q2 : LeN (add d2 (add d3 K)) T = leN-trans (add d2 (add d3 K)) P T
+           (add-mono-r d2 (add d3 K) (add D K) (le-at d3 D K (le-sum-r d1 d3))) pt ;
+    lJ : LeN (suc (suc (max (add d1 K) (max (add d3 K) (add d2 (add d3 K)))))) J =
+      leN-trans (suc (suc (max (add d1 K) (max (add d3 K) (add d2 (add d3 K)))))) (suc (suc T)) J
+        (leN-max-lub (add d1 K) (max (add d3 K) (add d2 (add d3 K))) T q1 (leN-max-lub (add d3 K) (add d2 (add d3 K)) T q3 q2)) hJ ; } ;
+
+------------------------------------------------------------------------
+-- the rule app
+
+record PiInKR { K : Nat ; A : Filt ; G : Ty -> Filt ; A1 : Ty ; phi1 : Ty ;
+  b : Ty ; inA1 : A.mem A1 ; leb : Le b phi1 ; ents : EntS (EntRK K A G) b ; } ;
+PiInK (K : Nat) (A : Filt) (G : Ty -> Filt) (A1 phi1 : Ty) : U l = PiInKR[K, A, G, A1, phi1] ;
+
+piink-mk (K : Nat) (A : Filt) (G : Ty -> Filt) (A1 phi1 c : Ty) (p : PiWK K A G c) (j : Le p.a A1 * Le p.b phi1) : PiInK K A G A1 phi1 =
+  new PiInKR[K, A, G, A1, phi1, b := p.b, inA1 := A.fup p.a A1 j.1 p.ina, leb := j.2, ents := p.ents] ;
+
+pi-in-piK (K : Nat) (A : Filt) (G : Ty -> Filt) (c A1 phi1 : Ty) (le : Le c (pi A1 phi1)) : (piFK K A G).mem c -> PiInK K A G A1 phi1 = split {
+  inl e -> absurd (PiInK K A G A1 phi1) (om-not-pi A1 phi1 (le-trans om c (pi A1 phi1) e le)) ;
+  inr p -> piink-mk K A G A1 phi1 c p (pi-inj p.a p.b A1 phi1 (le-trans (pi p.a p.b) c (pi A1 phi1) p.le le)) } ;
+
+piK-univ-clash (K : Nat) (A : Filt) (G : Ty -> Filt) (c : Ty) (le : Le c univ) (m : (piFK K A G).mem c) : Empty =
+  pi-univ-clash A G c le (piFK-incl K A A G G (incl-refl A) (\ x hx -> incl-refl (G x)) c m) ;
+
+-- Pi(A1, phi1) : U and A2 <= A1, A2 : U give Pi(A2, phi1) : U, one level up
+pi-shrinkK (J : Nat) (A1 phi1 A2 : Ty) (h : TpK J (el (pi A1 phi1) univ)) (le : Le A2 A1) (h2 : TpK J (el A2 univ)) :
+    TpK (suc J) (el (pi A2 phi1) univ) =
+  k-pi (pi A2 phi1) univ A2 b.phi1
+    (bd-pi-mk J A2 phi1 bA2 (bd-pi-r J A1 phi1 (tpk-bd-el J (pi A1 phi1) univ h).1)) tt
+    (bd-pi-mk J A2 b.phi1 bA2 (bd-pi-r J b.A1 b.phi1 b.bpi))
+    (le-pi A2 A2 phi1 b.phi1 (le-refl A2) parts.2.1, le-pi A2 A2 b.phi1 phi1 (le-refl A2) parts.2.2)
+    (eqv-refl univ) (tpk-mono J (suc J) (leN-suc J) A2 univ h2)
+    (tpk-up-ent (suc J) b.phi1 b.A1 (arr om univ) A2 (arr om univ)
+       (tpk-mono-ent J (suc J) (leN-suc J) b.phi1 b.A1 (arr om univ) b.hphi)
+       (bd-mono J (suc J) (leN-suc J) (arr om univ) (tpk-bd-ent J b.phi1 b.A1 (arr om univ) b.hphi).2.2)
+       (le-trans A2 A1 b.A1 le parts.1.1) (le-refl (arr om univ)) (tpk-mono J (suc J) (leN-suc J) A2 univ h2))
+    b.c
+  where {
+    b : PiBelowK J (pi A1 phi1) A1 phi1 = below-piK J (pi A1 phi1) A1 phi1 h (le-refl (pi A1 phi1)) ;
+    parts : Eqv A1 b.A1 * Eqv phi1 b.phi1 = eqv-pi-inj A1 phi1 b.A1 b.phi1 b.e ;
+    bA2 : Bd J A2 = (tpk-bd-el J A2 univ h2).1 ; } ;
+
+-- input K; function and argument typed at L; the domain at L2 >= L; output suc L2
+module AppK (n : Nat) (A : Tm n) (B : Tm (suc n)) (fn a : Tm n) (rho : Env n) (K L L2 : Nat) (lL : LeN L L2)
+    (hA : (t : Ty) -> (semK L n A rho).mem t -> EnlK L2 (semK L2 n A rho) univF t) {
+  S : Nat = suc L2 ;
+  lLS : LeN L S = leN-trans L L2 S lL (leN-suc L2) ;
+  l2S : LeN L2 S = leN-suc L2 ;
+  AL : Filt = semK L n A rho ;
+  GL (x : Ty) : Filt = famK L n B rho x ;
+  Fout : Filt = semK S n fn rho ;
+  Xout : Filt = semK S n a rho ;
+  T : Filt = semK S n (subst1 n B a) rho ;
+  PL : Filt = piFK L AL GL ;
+
+  iT (x : Ty) (hx : Xout.mem x) : Incl (famK S n B rho x) T =
+    incl-trans (famK S n B rho x) (semK S (suc n) B (extE n rho Xout)) T
+      (semK-mono S (suc n) B (extE n rho (prin x)) (extE n rho Xout)
+         (extE-incl n rho rho (prin x) Xout (envincl-refl n rho) (prin-sub x Xout hx)))
+      (subst1K-sem S n B a rho).2 ;
+
+  main (t : Ty) (w : AppWK K (semK K n fn rho) (semK K n a rho) t) (eg : EnlK L (semK L n fn rho) PL w.g)
+      (ex : EnlK L (semK L n a rho) AL w.x) (A1 phi1 : Ty)
+      (hg : TpK L (el eg.v (pi A1 phi1))) (hpi : TpK L (el (pi A1 phi1) univ)) (pin : PiInK L AL GL A1 phi1) :
+      EnlK S (appFK S Fout Xout) T t =
+    new EnlKR[S, appFK S Fout Xout, T, t,
+      v := as.w, below := le-trans as.w ia.2.1 t as.lew ia.2.2.2.2,
+      inA := new AppWKR[S, Fout, Xout, as.w, g := eg.v, x := ex.v,
+               ing := semK-monoK L S lLS n fn rho eg.v eg.inA, inx := semK-monoK L S lLS n a rho ex.v ex.inA, le := as.lef,
+               bg := bd-mono L S lLS eg.v (tpk-bd-el L eg.v eg.c eg.tp).1,
+               bx := bd-mono L S lLS ex.v (tpk-bd-el L ex.v ex.c ex.tp).1],
+      c := as.y,
+      inB := iT ex.v (semK-monoK L S lLS n a rho ex.v ex.inA) as.y
+               (semK-monoK L S lLS (suc n) B (extE n rho (prin ex.v)) as.y yin),
+      tp := as.tpw]
+    where {
+      a2 : TyElK L2 (semK L2 n A rho) (meet A1 ex.c) =
+        ty-enlK L2 AL (semK L2 n A rho) hA (meet A1 ex.c) (AL.fmeet A1 ex.c pin.inA1 ex.inB) ;
+      l21 : Le a2.a A1 = le-split-l a2.a A1 ex.c a2.below ;
+      hx : TpK S (el ex.v a2.a) =
+        tpk-up S ex.v ex.c a2.a (tpk-mono L S lLS ex.v ex.c ex.tp) (le-split-r a2.a A1 ex.c a2.below)
+          (tpk-mono L2 S l2S a2.a univ a2.tp) ;
+      hg2 : TpK S (el eg.v (pi a2.a phi1)) =
+        tpk-up S eg.v (pi A1 phi1) (pi a2.a phi1) (tpk-mono L S lLS eg.v (pi A1 phi1) hg)
+          (le-pi a2.a A1 phi1 phi1 l21 (le-refl phi1))
+          (pi-shrinkK L2 A1 phi1 a2.a (tpk-mono L L2 lL (pi A1 phi1) univ hpi) l21 a2.tp) ;
+      lgx : Le eg.v (arr ex.v t) =
+        le-trans eg.v (arr w.x t) (arr ex.v t) (le-trans eg.v w.g (arr w.x t) eg.below w.le)
+          (le-arr w.x ex.v t t ex.below (le-refl t)) ;
+      ia : InvArr eg.v ex.v t = inv-arr eg.v ex.v t lgx ;
+      as : AppTK S eg.v phi1 ex.v ia.2.1 = app-selK S eg.v a2.a phi1 ex.v ia.1 ia.2.1 hg2 ia.2.2.1 hx ia.2.2.2.1 ;
+      ib : InvArr pin.b ex.v as.y = inv-arr pin.b ex.v as.y (le-trans pin.b phi1 (arr ex.v as.y) pin.leb as.ley) ;
+      yin : (GL ex.v).mem as.y =
+        (GL ex.v).fup ib.2.1 as.y ib.2.2.2.2
+          (Entries[GL, famK-anti L n B rho, EntRK L AL GL, \ x v r -> r.2].sel pin.b ib.1 ib.2.1 ib.2.2.1 pin.ents ex.v ib.2.2.2.1) ; } ;
+
+  by-shape (t : Ty) (w : AppWK K (semK K n fn rho) (semK K n a rho) t) (eg : EnlK L (semK L n fn rho) PL w.g)
+      (ex : EnlK L (semK L n a rho) AL w.x) : ShapeK L eg.v eg.c -> EnlK S (appFK S Fout Xout) T t = split {
+    sk-bot e h -> enlk-om S (appFK S Fout Xout) T t (app-om-like eg.v w.x t e (le-trans eg.v w.g (arr w.x t) eg.below w.le)) ;
+    sk-univ e1 e2 -> absurd (EnlK S (appFK S Fout Xout) T t) (piK-univ-clash L AL GL eg.c e2.1 eg.inB) ;
+    sk-pi A1 phi1 bpi e1 e2 h1 h2 cp -> absurd (EnlK S (appFK S Fout Xout) T t) (piK-univ-clash L AL GL eg.c e2.1 eg.inB) ;
+    sk-lam A1 phi1 f0 e1 e2 h1 h2 cf ->
+      main t w eg ex A1 phi1
+        (tpk-conv L eg.v eg.c eg.v (pi A1 phi1) eg.tp (tpk-bd-el L eg.v eg.c eg.tp).1 (tpk-bd-el L (pi A1 phi1) univ h1).1
+           (eqv-refl eg.v) e2) h1
+        (pi-in-piK L AL GL eg.c A1 phi1 e2.1 eg.inB) } ;
+
+  sound (hF : (g : Ty) -> (semK K n fn rho).mem g -> EnlK L (semK L n fn rho) PL g)
+      (hX : (x : Ty) -> (semK K n a rho).mem x -> EnlK L (semK L n a rho) AL x)
+      (t : Ty) (w : AppWK K (semK K n fn rho) (semK K n a rho) t) : EnlK S (appFK S Fout Xout) T t =
+    by-shape t w (hF w.g w.ing) (hX w.x w.inx) (shapek L (hF w.g w.ing).v (hF w.g w.ing).c (hF w.g w.ing).tp) ;
+} ;
+
+sk-App (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (fn a : Tm n) (d1 d3 d4 : Nat)
+    (h1 : HasTyIH n G A (uu n) d1) (h3 : HasTyIH n G fn (pp n A B) d3) (h4 : HasTyIH n G a A d4)
+    (K J : Nat) (hJ : LeN (add (suc (add d1 (add d3 d4))) K) J) (rho : Env n) (fi : FitsK K n G rho)
+    (t : Ty) (m : (semK K n (app n fn a) rho).mem t) : EnlK J (semK J n (app n fn a) rho) (semK J n (subst1 n B a) rho) t =
+  enlk-map (suc L2) J lS (semK (suc L2) n (app n fn a) rho) (semK J n (app n fn a) rho)
+    (semK (suc L2) n (subst1 n B a) rho) (semK J n (subst1 n B a) rho)
+    (semK-monoK (suc L2) J lS n (app n fn a) rho) (semK-monoK (suc L2) J lS n (subst1 n B a) rho) t
+    (AppK[n, A, B, fn, a, rho, K, L, L2, leN-add d1 L, h1 L L2 (leN-refl L2) rho (fitsk-map K L lKL n G rho fi)].sound
+       (h3 K L (le-at d3 D K (le-sum-l d3 d4)) rho fi) (h4 K L (le-at d4 D K (le-sum-r d3 d4)) rho fi) t m)
+  where {
+    D : Nat = add d3 d4 ;
+    L : Nat = add D K ;
+    L2 : Nat = add d1 L ;
+    lKL : LeN K L = leN-add D K ;
+    lS : LeN (suc L2) J = leN-trans (suc L2) (add (suc (add d1 D)) K) J (add-assoc-le d1 D K) hJ ; } ;
+
+------------------------------------------------------------------------
+-- the equations
+
+-- chaining two steps: K -> d1 + K -> d2 + (d1 + K) <= (d1 + d2) + K, and the other order
+record ChainR { d1 : Nat ; d2 : Nat ; K : Nat ; J : Nat ;
+  l1 : LeN (add d1 K) J ; l2 : LeN (add d2 K) J ;
+  c12 : LeN (add d2 (add d1 K)) J ; c21 : LeN (add d1 (add d2 K)) J ; } ;
+
+chain (d1 d2 K J : Nat) (hJ : LeN (add (add d1 d2) K) J) : ChainR[d1, d2, K, J] =
+  new ChainR[d1, d2, K, J,
+    l1 := leN-trans (add d1 K) (add (add d1 d2) K) J (le-at d1 (add d1 d2) K (le-sum-l d1 d2)) hJ,
+    l2 := leN-trans (add d2 K) (add (add d1 d2) K) J (le-at d2 (add d1 d2) K (le-sum-r d1 d2)) hJ,
+    c12 := leN-trans (add d2 (add d1 K)) (add (add d2 d1) K) J (add-assoc-le d2 d1 K)
+             (leN-trans (add (add d2 d1) K) (add (add d1 d2) K) J (le-at (add d2 d1) (add d1 d2) K (add-comm-le d2 d1)) hJ),
+    c21 := leN-trans (add d1 (add d2 K)) (add (add d1 d2) K) J (add-assoc-le d1 d2 K) hJ] ;
+
+sk-refl (n : Nat) (G : Ctx n) (M A : Tm n) : EqIH n G M M A zero =
+  \ K J hJ rho fi -> (semK-monoK K J hJ n M rho, semK-monoK K J hJ n M rho) ;
+
+sk-sym (n : Nat) (G : Ctx n) (M N A : Tm n) (d : Nat) (h : EqIH n G M N A d) : EqIH n G N M A d =
+  \ K J hJ rho fi -> ((h K J hJ rho fi).2, (h K J hJ rho fi).1) ;
+
+sk-trans (n : Nat) (G : Ctx n) (M N P A : Tm n) (d1 d2 : Nat) (h1 : EqIH n G M N A d1) (h2 : EqIH n G N P A d2)
+    (K J : Nat) (hJ : LeN (add (add d1 d2) K) J) (rho : Env n) (fi : FitsK K n G rho) :
+    Incl (semK K n M rho) (semK J n P rho) * Incl (semK K n P rho) (semK J n M rho) =
+  (incl-trans (semK K n M rho) (semK (add d1 K) n N rho) (semK J n P rho)
+     (h1 K (add d1 K) (leN-refl (add d1 K)) rho fi).1
+     (h2 (add d1 K) J ch.c12 rho (fitsk-map K (add d1 K) (leN-add d1 K) n G rho fi)).1,
+   incl-trans (semK K n P rho) (semK (add d2 K) n N rho) (semK J n M rho)
+     (h2 K (add d2 K) (leN-refl (add d2 K)) rho fi).2
+     (h1 (add d2 K) J ch.c21 rho (fitsk-map K (add d2 K) (leN-add d2 K) n G rho fi)).2)
+  where { ch : ChainR[d1, d2, K, J] = chain d1 d2 K J hJ ; } ;
+
+------------------------------------------------------------------------
+-- beta
+
+-- reduction: no depth is added
+beta-to (n : Nat) (A : Tm n) (M : Tm (suc n)) (a : Tm n) (rho : Env n) (K : Nat) (t : Ty)
+    (w : (semK K n (app n (lam n A M) a) rho).mem t) : (semK K n (subst1 n M a) rho).mem t =
+  (subst1K-sem K n M a rho).2 t
+    (semK-mono K (suc n) M (extE n rho (prin w.x)) (extE n rho (semK K n a rho))
+       (extE-incl n rho rho (prin w.x) (semK K n a rho) (envincl-refl n rho) (prin-sub w.x (semK K n a rho) w.inx))
+       t ((famK K n M rho w.x).fup ia.2.1 t ia.2.2.2.2
+          (Entries[famK K n M rho, famK-anti K n M rho, EntRK K (semK K n A rho) (famK K n M rho), \ x v r -> r.2].sel
+             lw.f ia.1 ia.2.1 ia.2.2.1 lw.ents w.x ia.2.2.2.1)))
+  where {
+    lw : LamWK K (semK K n A rho) (famK K n M rho) w.g = w.ing ;
+    ia : InvArr lw.f w.x t = inv-arr lw.f w.x t (le-trans lw.f w.g (arr w.x t) lw.le w.le) ; } ;
+
+-- expansion: the core t0 of t, a bounded x for the last variable (cont-lastK),
+-- the typed v <= x (soundness of the argument), and the entry v -> t0
+beta-from (n : Nat) (G : Ctx n) (A : Tm n) (M : Tm (suc n)) (a : Tm n) (d4 : Nat) (h4 : HasTyIH n G a A d4)
+    (K : Nat) (rho : Env n) (fi : FitsK K n G rho) (t : Ty) (m : (semK K n (subst1 n M a) rho).mem t) :
+    (semK (suc (add d4 K)) n (app n (lam n A M) a) rho).mem t =
+  (semK S n (app n (lam n A M) a) rho).fup c.1 t c.2.1
+    (new AppWKR[S, lamFK S (semK S n A rho) (famK S n M rho), semK S n a rho, c.1,
+       g := arr ex.v c.1, x := ex.v,
+       ing := new LamWKR[S, semK S n A rho, famK S n M rho, arr ex.v c.1, f := arr ex.v c.1, le := le-refl (arr ex.v c.1),
+                bf := bg,
+                ents := es-arr ex.v c.1
+                  (new TyInKR[S, semK S n A rho, ex.v, a := ex.c, ina := semK-monoK L4 S lS n A rho ex.c ex.inB,
+                              tp := tpk-mono L4 S lS ex.v ex.c ex.tp],
+                   semK-monoK K S lKS (suc n) M (extE n rho (prin ex.v)) c.1
+                     (famK-anti K n M rho lst.1 ex.v ex.below c.1 lst.2.2.2))],
+       inx := semK-monoK L4 S lS n a rho ex.v ex.inA, le := le-refl (arr ex.v c.1), bg := bg,
+       bx := bd-mono L4 S lS ex.v (tpk-bd-el L4 ex.v ex.c ex.tp).1])
+  where {
+    L4 : Nat = add d4 K ;
+    S : Nat = suc L4 ;
+    lS : LeN L4 S = leN-suc L4 ;
+    lKS : LeN K S = leN-trans K L4 S (leN-add d4 K) lS ;
+    X : Filt = semK K n a rho ;
+    m1 : (semK K (suc n) M (extE n rho X)).mem t = (subst1K-sem K n M a rho).1 t m ;
+    c : (t0 : Ty) * (Le t0 t * (Bd K t0 * (semK K (suc n) M (extE n rho X)).mem t0)) =
+      semK-core K (suc n) M (extE n rho X)
+        (core-ext K n rho X (fitsk-core K n G rho fi) (semK-core K n a rho (fitsk-core K n G rho fi))) t m1 ;
+    lst : LastInK K n M rho X c.1 = cont-lastK K n M rho X c.1 c.2.2.1 c.2.2.2 ;
+    ex : EnlK L4 (semK L4 n a rho) (semK L4 n A rho) lst.1 = h4 K L4 (leN-refl L4) rho fi lst.1 lst.2.1 ;
+    bg : Bd S (arr ex.v c.1) =
+      bd-arr-mk L4 ex.v c.1 (tpk-bd-el L4 ex.v ex.c ex.tp).1 (bd-mono K L4 (leN-add d4 K) c.1 c.2.2.1) ; } ;
+
+sk-beta (n : Nat) (G : Ctx n) (A : Tm n) (B M : Tm (suc n)) (a : Tm n) (d4 : Nat) (h4 : HasTyIH n G a A d4) :
+    EqIH n G (app n (lam n A M) a) (subst1 n M a) (subst1 n B a) (suc d4) =
+  \ K J hJ rho fi ->
+    (\ t w -> semK-monoK K J (leN-trans K (add (suc d4) K) J (leN-add (suc d4) K) hJ) n (subst1 n M a) rho t
+                (beta-to n A M a rho K t w),
+     \ t m -> semK-monoK (suc (add d4 K)) J hJ n (app n (lam n A M) a) rho t (beta-from n G A M a d4 h4 K rho fi t m)) ;
+
+------------------------------------------------------------------------
+-- congruences
+
+sk-eqPi (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (d4 d5 : Nat)
+    (h4 : EqIH n G A A' (uu n) d4) (h5 : EqIH (suc n) (ext n G A) B B' (uu (suc n)) d5)
+    (K J : Nat) (hJ : LeN (add (add d4 d5) K) J) (rho : Env n) (fi : FitsK K n G rho) :
+    Incl (semK K n (pp n A B) rho) (semK J n (pp n A' B') rho) * Incl (semK K n (pp n A' B') rho) (semK J n (pp n A B) rho) =
+  (piFK-map K J lKJ (semK K n A rho) (semK J n A' rho) (famK K n B rho) (famK J n B' rho)
+     (incl-trans (semK K n A rho) (semK (add d4 K) n A' rho) (semK J n A' rho)
+        (h4 K (add d4 K) (leN-refl (add d4 K)) rho fi).1 (semK-monoK (add d4 K) J ch.l1 n A' rho))
+     (\ x hx -> incl-trans (famK K n B rho x) (famK (add d5 K) n B' rho x) (famK J n B' rho x)
+        (h5 K (add d5 K) (leN-refl (add d5 K)) (extE n rho (prin x)) (fitsk-ext K n G A rho x fi hx)).1
+        (semK-monoK (add d5 K) J ch.l2 (suc n) B' (extE n rho (prin x)))),
+   piFK-map K J lKJ (semK K n A' rho) (semK J n A rho) (famK K n B' rho) (famK J n B rho)
+     (incl-trans (semK K n A' rho) (semK L n A rho) (semK J n A rho)
+        (h4 K L (leN-refl L) rho fi).2 (semK-monoK L J ch.l1 n A rho))
+     (\ x hx -> incl-trans (famK K n B' rho x) (famK L n B' rho x) (famK J n B rho x)
+        (semK-monoK K L (leN-add d4 K) (suc n) B' (extE n rho (prin x)))
+        (h5 L J ch.c12 (extE n rho (prin x))
+           (fitsk-ext L n G A rho x (fitsk-map K L (leN-add d4 K) n G rho fi)
+              (tyink-map K L (leN-add d4 K) (semK K n A' rho) (semK L n A rho) (h4 K L (leN-refl L) rho fi).2 x hx))).2))
+  where {
+    ch : ChainR[d4, d5, K, J] = chain d4 d5 K J hJ ;
+    L : Nat = add d4 K ;
+    lKJ : LeN K J = leN-trans K (add d4 K) J (leN-add d4 K) ch.l1 ; } ;
+
+sk-app-fun (n : Nat) (G : Ctx n) (fn fn' a : Tm n) (A : Tm n) (d3 : Nat) (h3 : EqIH n G fn fn' A d3)
+    (K J : Nat) (hJ : LeN (add d3 K) J) (rho : Env n) (fi : FitsK K n G rho) :
+    Incl (semK K n (app n fn a) rho) (semK J n (app n fn' a) rho) * Incl (semK K n (app n fn' a) rho) (semK J n (app n fn a) rho) =
+  (appFK-map K J lKJ (semK K n fn rho) (semK J n fn' rho) (semK K n a rho) (semK J n a rho)
+     (h3 K J hJ rho fi).1 (semK-monoK K J lKJ n a rho),
+   appFK-map K J lKJ (semK K n fn' rho) (semK J n fn rho) (semK K n a rho) (semK J n a rho)
+     (h3 K J hJ rho fi).2 (semK-monoK K J lKJ n a rho))
+  where { lKJ : LeN K J = leN-trans K (add d3 K) J (leN-add d3 K) hJ ; } ;
+
+sk-app-arg (n : Nat) (G : Ctx n) (fn a a' : Tm n) (A : Tm n) (d4 : Nat) (h4 : EqIH n G a a' A d4)
+    (K J : Nat) (hJ : LeN (add d4 K) J) (rho : Env n) (fi : FitsK K n G rho) :
+    Incl (semK K n (app n fn a) rho) (semK J n (app n fn a') rho) * Incl (semK K n (app n fn a') rho) (semK J n (app n fn a) rho) =
+  (appFK-map K J lKJ (semK K n fn rho) (semK J n fn rho) (semK K n a rho) (semK J n a' rho)
+     (semK-monoK K J lKJ n fn rho) (h4 K J hJ rho fi).1,
+   appFK-map K J lKJ (semK K n fn rho) (semK J n fn rho) (semK K n a' rho) (semK J n a rho)
+     (semK-monoK K J lKJ n fn rho) (h4 K J hJ rho fi).2)
+  where { lKJ : LeN K J = leN-trans K (add d4 K) J (leN-add d4 K) hJ ; } ;
+
+------------------------------------------------------------------------
+-- eta (funext)
+
+TyKeyK (K : Nat) (A x v : Ty) : U l = TpK K (el x A) ;
+EntsQK (K : Nat) (f A phi : Ty) : U l = EntS (TyKeyK K A) f ;
+
+ent-entsK-by (K : Nat) : (J : Form) -> TpK K J -> ByForm ElTop (EntsQK K) J = split {
+  k-bot u a bu e h -> tt ;
+  k-univ u a bu ba e1 e2 -> tt ;
+  k-pi u a A phi bu ba bpi e1 e2 h1 h2 c -> tt ;
+  k-lam u a A phi f bu ba e1 e2 h1 h2 c -> tt ;
+  ken-om A phi bA bp -> es-om ;
+  ken-arr x v y A phi bp bf h1 le h2 | r1 r2 -> es-arr x v h1 ;
+  ken-meet f1 f2 A phi h1 h2 | r1 r2 -> es-meet f1 f2 r1 r2 } ;
+
+ent-entsK (K : Nat) (f A phi : Ty) (h : TpK K (ent f A phi)) : EntS (TyKeyK K A) f = ent-entsK-by K (ent f A phi) h ;
+
+module EtaK (n : Nat) (A : Tm n) (B : Tm (suc n)) (fn g : Tm n) (rho : Env n) (K L J2 : Nat)
+    (hF : (t : Ty) -> (semK K n fn rho).mem t -> EnlK L (semK L n fn rho) (piFK L (semK L n A rho) (famK L n B rho)) t)
+    (step : (x : Ty) -> TyInK L (semK L n A rho) x ->
+              Incl (appFK L (semK L n fn rho) (prin x)) (appFK J2 (semK J2 n g rho) (prin x))) {
+  F' : Filt = semK J2 n g rho ;
+  AL : Filt = semK L n A rho ;
+  GL (x : Ty) : Filt = famK L n B rho x ;
+
+  entry (f0 A1 : Ty) (inA1 : AL.mem A1) (hf0 : (semK L n fn rho).mem f0) (bf0 : Bd L f0) (x v : Ty)
+      (hx : TpK L (el x A1)) (le : Le f0 (arr x v)) : F'.mem (arr x v) =
+    F'.fup s.g (arr x v) (le-trans s.g (arr s.x v) (arr x v) s.le (le-arr s.x x v v s.inx (le-refl v))) s.ing
+    where {
+      s : AppWK J2 F' (prin x) v =
+        step x (new TyInKR[L, AL, x, a := A1, ina := inA1, tp := hx]) v
+          (new AppWKR[L, semK L n fn rho, prin x, v, g := f0, x := x, ing := hf0, inx := le-refl x, le := le,
+                      bg := bf0, bx := (tpk-bd-el L x A1 hx).1]) ; } ;
+
+  lam-in (t : Ty) (e : EnlK L (semK L n fn rho) (piFK L AL GL) t) (A1 phi1 f0 : Ty) (e1 : Eqv e.v f0)
+      (h2 : TpK L (ent f0 A1 phi1)) (pin : PiInK L AL GL A1 phi1) : F'.mem f0 =
+    ents-in F' (TyKeyK L A1) f0
+      (entry f0 A1 pin.inA1 ((semK L n fn rho).fup e.v f0 e1.1 e.inA) (tpk-bd-ent L f0 A1 phi1 h2).1)
+      f0 (ent-entsK L f0 A1 phi1 h2) (le-refl f0) ;
+
+  by-shape (t : Ty) (e : EnlK L (semK L n fn rho) (piFK L AL GL) t) : ShapeK L e.v e.c -> F'.mem e.v = split {
+    sk-bot ez h -> om-in F' e.v ez ;
+    sk-univ e1 e2 -> absurd (F'.mem e.v) (piK-univ-clash L AL GL e.c e2.1 e.inB) ;
+    sk-pi A1 phi1 bpi e1 e2 h1 h2 cp -> absurd (F'.mem e.v) (piK-univ-clash L AL GL e.c e2.1 e.inB) ;
+    sk-lam A1 phi1 f0 e1 e2 h1 h2 cf ->
+      F'.fup f0 e.v e1.2 (lam-in t e A1 phi1 f0 e1 h2 (pi-in-piK L AL GL e.c A1 phi1 e2.1 e.inB)) } ;
+
+  incl : Incl (semK K n fn rho) F' =
+    \ t m -> F'.fup (hF t m).v t (hF t m).below (by-shape t (hF t m) (shapek L (hF t m).v (hF t m).c (hF t m).tp)) ;
+} ;
+
+-- the premise of eta, from the induction hypothesis on the weakened terms
+eta-stepK (n : Nat) (fn g : Tm n) (rho : Env n) (x : Ty) (L J2 : Nat)
+    (i : Incl (semK L (suc n) (app (suc n) (wk n fn) (var (suc n) (fz n))) (extE n rho (prin x)))
+              (semK J2 (suc n) (app (suc n) (wk n g) (var (suc n) (fz n))) (extE n rho (prin x)))) :
+    Incl (appFK L (semK L n fn rho) (prin x)) (appFK J2 (semK J2 n g rho) (prin x)) =
+  incl-trans (appFK L (semK L n fn rho) (prin x)) (semK J2 (suc n) (app (suc n) (wk n g) (var (suc n) (fz n))) (extE n rho (prin x)))
+    (appFK J2 (semK J2 n g rho) (prin x))
+    (incl-trans (appFK L (semK L n fn rho) (prin x)) (semK L (suc n) (app (suc n) (wk n fn) (var (suc n) (fz n))) (extE n rho (prin x)))
+       (semK J2 (suc n) (app (suc n) (wk n g) (var (suc n) (fz n))) (extE n rho (prin x)))
+       (appFK-map L L (leN-refl L) (semK L n fn rho) (semK L (suc n) (wk n fn) (extE n rho (prin x))) (prin x) (prin x)
+          (wkK-sem L n fn rho (prin x)).2 (incl-refl (prin x)))
+       i)
+    (appFK-map J2 J2 (leN-refl J2) (semK J2 (suc n) (wk n g) (extE n rho (prin x))) (semK J2 n g rho) (prin x) (prin x)
+       (wkK-sem J2 n g rho (prin x)).1 (incl-refl (prin x))) ;
+
+sk-funext (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (fn g : Tm n) (d2 d3 d4 : Nat)
+    (h2 : EqIH (suc n) (ext n G A) (app (suc n) (wk n fn) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B d2)
+    (h3 : HasTyIH n G fn (pp n A B) d3) (h4 : HasTyIH n G g (pp n A B) d4)
+    (K J : Nat) (hJ : LeN (add (add d2 (add d3 d4)) K) J) (rho : Env n) (fi : FitsK K n G rho) :
+    Incl (semK K n fn rho) (semK J n g rho) * Incl (semK K n g rho) (semK J n fn rho) =
+  (incl-trans (semK K n fn rho) (semK J2 n g rho) (semK J n g rho)
+     (EtaK[n, A, B, fn, g, rho, K, L, J2, h3 K L (le-at d3 D K (le-sum-l d3 d4)) rho fi,
+           \ x hx -> eta-stepK n fn g rho x L J2 (h2 L J2 (leN-refl J2) (extE n rho (prin x)) (fitsk-ext L n G A rho x fiL hx)).1].incl)
+     (semK-monoK J2 J lJ n g rho),
+   incl-trans (semK K n g rho) (semK J2 n fn rho) (semK J n fn rho)
+     (EtaK[n, A, B, g, fn, rho, K, L, J2, h4 K L (le-at d4 D K (le-sum-r d3 d4)) rho fi,
+           \ x hx -> eta-stepK n g fn rho x L J2 (h2 L J2 (leN-refl J2) (extE n rho (prin x)) (fitsk-ext L n G A rho x fiL hx)).2].incl)
+     (semK-monoK J2 J lJ n fn rho))
+  where {
+    D : Nat = add d3 d4 ;
+    L : Nat = add D K ;
+    J2 : Nat = add d2 L ;
+    fiL : FitsK L n G rho = fitsk-map K L (leN-add D K) n G rho fi ;
+    lJ : LeN J2 J = leN-trans J2 (add (add d2 D) K) J (add-assoc-le d2 D K) hJ ; } ;
+
+------------------------------------------------------------------------
+-- quantitative soundness, by one eliminator: the bound d is computed
+-- from the derivation.  Each rule adds at most 2 to the sum of the bounds
+-- of (some of) its premises, so d <= 2 |d| (dsz-bound below).
+
+soundK : (n : Nat) -> (J : Jf n) -> Der n J -> SoundJK n J = split {
+  wf-emp -> tt ;
+  wf-ext n G A h -> tt ;
+  ty-var n G i h -> (zero, sk-var n G i) ;
+  ty-conv n G M A B h1 h2 h3 | r1 r2 r3 -> (add r2.1 r1.1, sk-conv n G M A B r1.1 r2.1 r1.2 r2.2) ;
+  ty-U n G h -> (zero, sk-U n G) ;
+  ty-Pi n G A B h1 h2 | r1 r2 -> (suc (suc (add r1.1 r2.1)), sk-Pi n G A B r1.1 r2.1 r1.2 r2.2) ;
+  ty-Lam n G A B M h1 h2 h3 | r1 r2 r3 ->
+    (suc (suc (add r2.1 (add r1.1 r3.1))), sk-Lam n G A B M r1.1 r2.1 r3.1 r1.2 r2.2 r3.2) ;
+  ty-App n G A B fn a h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    (suc (add r1.1 (add r3.1 r4.1)), sk-App n G A B fn a r1.1 r3.1 r4.1 r1.2 r3.2 r4.2) ;
+  eq-refl n G M A h | r -> (zero, sk-refl n G M A) ;
+  eq-sym n G M N A h | r -> (r.1, sk-sym n G M N A r.1 r.2) ;
+  eq-trans n G M N P A h1 h2 | r1 r2 ->
+    (add r1.1 r2.1, sk-trans n G M N P A r1.1 r2.1 r1.2 r2.2) ;
+  eq-conv n G M N A B h1 h2 h3 | r1 r2 r3 -> r1 ;
+  eq-beta n G A B M a h1 h2 h3 h4 | r1 r2 r3 r4 -> (suc r4.1, sk-beta n G A B M a r4.1 r4.2) ;
+  eq-Pi n G A A' B B' h1 h2 h3 h4 h5 | r1 r2 r3 r4 r5 ->
+    (add r4.1 r5.1, sk-eqPi n G A A' B B' r4.1 r5.1 r4.2 r5.2) ;
+  eq-funext n G A B fn g h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    (add r2.1 (add r3.1 r4.1), sk-funext n G A B fn g r2.1 r3.1 r4.1 r2.2 r3.2 r4.2) ;
+  eq-app-fun n G A B fn fn' a h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    (r3.1, sk-app-fun n G fn fn' a (pp n A B) r3.1 r3.2) ;
+  eq-app-arg n G A B fn a a' h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    (r4.1, sk-app-arg n G fn a a' A r4.1 r4.2) } ;
+
+-- Theorem 2.31, quantitative
+soundness-tyK (n : Nat) (G : Ctx n) (M A : Tm n) (d : Der n (jty G M A)) : (b : Nat) * HasTyIH n G M A b =
+  soundK n (jty G M A) d ;
+
+soundness-eqK (n : Nat) (G : Ctx n) (M N A : Tm n) (d : Der n (jeq G M N A)) : (b : Nat) * EqIH n G M N A b =
+  soundK n (jeq G M N A) d ;
+
+------------------------------------------------------------------------
+-- the bound is linear: d <= 2 |d|
+
+-- twice the number of nodes of a derivation (each node contributes 2;
+-- the premises are summed in an order convenient for the proof below)
+nodes2 : (n : Nat) -> (J : Jf n) -> Der n J -> Nat = split {
+  wf-emp -> suc (suc zero) ;
+  wf-ext n G A h | r -> suc (suc r) ;
+  ty-var n G i h | r -> suc (suc r) ;
+  ty-conv n G M A B h1 h2 h3 | r1 r2 r3 -> suc (suc (add r2 (add r1 r3))) ;
+  ty-U n G h | r -> suc (suc r) ;
+  ty-Pi n G A B h1 h2 | r1 r2 -> suc (suc (add r1 r2)) ;
+  ty-Lam n G A B M h1 h2 h3 | r1 r2 r3 -> suc (suc (add r2 (add r1 r3))) ;
+  ty-App n G A B fn a h1 h2 h3 h4 | r1 r2 r3 r4 -> suc (suc (add r1 (add r3 (add r4 r2)))) ;
+  eq-refl n G M A h | r -> suc (suc r) ;
+  eq-sym n G M N A h | r -> suc (suc r) ;
+  eq-trans n G M N P A h1 h2 | r1 r2 -> suc (suc (add r1 r2)) ;
+  eq-conv n G M N A B h1 h2 h3 | r1 r2 r3 -> suc (suc (add r1 (add r2 r3))) ;
+  eq-beta n G A B M a h1 h2 h3 h4 | r1 r2 r3 r4 -> suc (suc (add r4 (add r1 (add r2 r3)))) ;
+  eq-Pi n G A A' B B' h1 h2 h3 h4 h5 | r1 r2 r3 r4 r5 -> suc (suc (add (add r4 r5) (add r1 (add r2 r3)))) ;
+  eq-funext n G A B fn g h1 h2 h3 h4 | r1 r2 r3 r4 -> suc (suc (add (add r2 (add r3 r4)) r1)) ;
+  eq-app-fun n G A B fn fn' a h1 h2 h3 h4 | r1 r2 r3 r4 -> suc (suc (add r3 (add r1 (add r2 r4)))) ;
+  eq-app-arg n G A B fn a a' h1 h2 h3 h4 | r1 r2 r3 r4 -> suc (suc (add r4 (add r1 (add r2 r3)))) } ;
+
+deltaOf (n : Nat) : (J : Jf n) -> SoundJK n J -> Nat = split {
+  jwf G -> \ s -> zero ;
+  jty G M A -> \ s -> s.1 ;
+  jeq G M N A -> \ s -> s.1 } ;
+
+lsuc2 (x y : Nat) (h : LeN x y) : LeN x (suc (suc y)) = leN-trans x y (suc (suc y)) h (leN-suc2 y) ;
+am2 (a a' b b' : Nat) (ha : LeN a a') (hb : LeN b b') : LeN (add a b) (add a' b') =
+  leN-trans (add a b) (add a' b) (add a' b') (add-mono-l a a' ha b) (add-mono-r a' b b' hb) ;
+ext-r (x y z : Nat) (h : LeN x y) : LeN x (add y z) = leN-trans x y (add y z) h (leN-add-l y z) ;
+
+dsz-bound : (n : Nat) -> (J : Jf n) -> (d : Der n J) -> LeN (deltaOf n J (soundK n J d)) (nodes2 n J d) = split {
+  wf-emp -> tt ;
+  wf-ext n G A h | r -> tt ;
+  ty-var n G i h | r -> tt ;
+  ty-conv n G M A B h1 h2 h3 | r1 r2 r3 ->
+    lsuc2 (add (soundK n (jeq G A B (uu n)) h2).1 (soundK n (jty G M A) h1).1)
+      (add (nodes2 n (jeq G A B (uu n)) h2) (add (nodes2 n (jty G M A) h1) (nodes2 n (jty G B (uu n)) h3)))
+      (am2 (soundK n (jeq G A B (uu n)) h2).1 (nodes2 n (jeq G A B (uu n)) h2)
+         (soundK n (jty G M A) h1).1 (add (nodes2 n (jty G M A) h1) (nodes2 n (jty G B (uu n)) h3))
+         r2 (ext-r (soundK n (jty G M A) h1).1 (nodes2 n (jty G M A) h1) (nodes2 n (jty G B (uu n)) h3) r1)) ;
+  ty-U n G h | r -> tt ;
+  ty-Pi n G A B h1 h2 | r1 r2 ->
+    am2 (soundK n (jty G A (uu n)) h1).1 (nodes2 n (jty G A (uu n)) h1)
+      (soundK (suc n) (jty (ext n G A) B (uu (suc n))) h2).1 (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) r1 r2 ;
+  ty-Lam n G A B M h1 h2 h3 | r1 r2 r3 ->
+    am2 (soundK (suc n) (jty (ext n G A) B (uu (suc n))) h2).1 (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2)
+      (add (soundK n (jty G A (uu n)) h1).1 (soundK (suc n) (jty (ext n G A) M B) h3).1)
+      (add (nodes2 n (jty G A (uu n)) h1) (nodes2 (suc n) (jty (ext n G A) M B) h3))
+      r2 (am2 (soundK n (jty G A (uu n)) h1).1 (nodes2 n (jty G A (uu n)) h1)
+            (soundK (suc n) (jty (ext n G A) M B) h3).1 (nodes2 (suc n) (jty (ext n G A) M B) h3) r1 r3) ;
+  ty-App n G A B fn a h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    leN-trans (add (soundK n (jty G A (uu n)) h1).1 (add (soundK n (jty G fn (pp n A B)) h3).1 (soundK n (jty G a A) h4).1))
+      (add (nodes2 n (jty G A (uu n)) h1) (add (nodes2 n (jty G fn (pp n A B)) h3)
+         (add (nodes2 n (jty G a A) h4) (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2))))
+      (suc (add (nodes2 n (jty G A (uu n)) h1) (add (nodes2 n (jty G fn (pp n A B)) h3)
+         (add (nodes2 n (jty G a A) h4) (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2)))))
+      (am2 (soundK n (jty G A (uu n)) h1).1 (nodes2 n (jty G A (uu n)) h1)
+         (add (soundK n (jty G fn (pp n A B)) h3).1 (soundK n (jty G a A) h4).1)
+         (add (nodes2 n (jty G fn (pp n A B)) h3) (add (nodes2 n (jty G a A) h4) (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2)))
+         r1
+         (am2 (soundK n (jty G fn (pp n A B)) h3).1 (nodes2 n (jty G fn (pp n A B)) h3)
+            (soundK n (jty G a A) h4).1 (add (nodes2 n (jty G a A) h4) (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2))
+            r3 (ext-r (soundK n (jty G a A) h4).1 (nodes2 n (jty G a A) h4) (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) r4)))
+      (leN-suc (add (nodes2 n (jty G A (uu n)) h1) (add (nodes2 n (jty G fn (pp n A B)) h3)
+         (add (nodes2 n (jty G a A) h4) (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2))))) ;
+  eq-refl n G M A h | r -> tt ;
+  eq-sym n G M N A h | r -> lsuc2 (soundK n (jeq G M N A) h).1 (nodes2 n (jeq G M N A) h) r ;
+  eq-trans n G M N P A h1 h2 | r1 r2 ->
+    lsuc2 (add (soundK n (jeq G M N A) h1).1 (soundK n (jeq G N P A) h2).1)
+      (add (nodes2 n (jeq G M N A) h1) (nodes2 n (jeq G N P A) h2))
+      (am2 (soundK n (jeq G M N A) h1).1 (nodes2 n (jeq G M N A) h1) (soundK n (jeq G N P A) h2).1 (nodes2 n (jeq G N P A) h2) r1 r2) ;
+  eq-conv n G M N A B h1 h2 h3 | r1 r2 r3 ->
+    lsuc2 (soundK n (jeq G M N A) h1).1 (add (nodes2 n (jeq G M N A) h1) (add (nodes2 n (jeq G A B (uu n)) h2) (nodes2 n (jty G B (uu n)) h3)))
+      (ext-r (soundK n (jeq G M N A) h1).1 (nodes2 n (jeq G M N A) h1)
+         (add (nodes2 n (jeq G A B (uu n)) h2) (nodes2 n (jty G B (uu n)) h3)) r1) ;
+  eq-beta n G A B M a h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    leN-trans (soundK n (jty G a A) h4).1
+      (add (nodes2 n (jty G a A) h4) (add (nodes2 n (jty G A (uu n)) h1)
+         (add (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) (nodes2 (suc n) (jty (ext n G A) M B) h3))))
+      (suc (add (nodes2 n (jty G a A) h4) (add (nodes2 n (jty G A (uu n)) h1)
+         (add (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) (nodes2 (suc n) (jty (ext n G A) M B) h3)))))
+      (ext-r (soundK n (jty G a A) h4).1 (nodes2 n (jty G a A) h4)
+         (add (nodes2 n (jty G A (uu n)) h1)
+            (add (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) (nodes2 (suc n) (jty (ext n G A) M B) h3))) r4)
+      (leN-suc (add (nodes2 n (jty G a A) h4) (add (nodes2 n (jty G A (uu n)) h1)
+         (add (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) (nodes2 (suc n) (jty (ext n G A) M B) h3))))) ;
+  eq-Pi n G A A' B B' h1 h2 h3 h4 h5 | r1 r2 r3 r4 r5 ->
+    lsuc2 (add (soundK n (jeq G A A' (uu n)) h4).1 (soundK (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5).1)
+      (add (add (nodes2 n (jeq G A A' (uu n)) h4) (nodes2 (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5))
+         (add (nodes2 n (jty G A (uu n)) h1)
+            (add (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) (nodes2 (suc n) (jty (ext n G A) B' (uu (suc n))) h3))))
+      (ext-r (add (soundK n (jeq G A A' (uu n)) h4).1 (soundK (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5).1)
+         (add (nodes2 n (jeq G A A' (uu n)) h4) (nodes2 (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5))
+         (add (nodes2 n (jty G A (uu n)) h1)
+            (add (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) (nodes2 (suc n) (jty (ext n G A) B' (uu (suc n))) h3)))
+         (am2 (soundK n (jeq G A A' (uu n)) h4).1 (nodes2 n (jeq G A A' (uu n)) h4)
+            (soundK (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5).1 (nodes2 (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5) r4 r5)) ;
+  eq-funext n G A B fn g h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    lsuc2 (add (soundK (suc n) (jeq (ext n G A) (app (suc n) (wk n fn) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2).1
+             (add (soundK n (jty G fn (pp n A B)) h3).1 (soundK n (jty G g (pp n A B)) h4).1))
+      (add (add (nodes2 (suc n) (jeq (ext n G A) (app (suc n) (wk n fn) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2)
+                (add (nodes2 n (jty G fn (pp n A B)) h3) (nodes2 n (jty G g (pp n A B)) h4)))
+           (nodes2 n (jty G A (uu n)) h1))
+      (ext-r (add (soundK (suc n) (jeq (ext n G A) (app (suc n) (wk n fn) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2).1
+                  (add (soundK n (jty G fn (pp n A B)) h3).1 (soundK n (jty G g (pp n A B)) h4).1))
+         (add (nodes2 (suc n) (jeq (ext n G A) (app (suc n) (wk n fn) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2)
+              (add (nodes2 n (jty G fn (pp n A B)) h3) (nodes2 n (jty G g (pp n A B)) h4)))
+         (nodes2 n (jty G A (uu n)) h1)
+         (am2 (soundK (suc n) (jeq (ext n G A) (app (suc n) (wk n fn) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2).1
+              (nodes2 (suc n) (jeq (ext n G A) (app (suc n) (wk n fn) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2)
+              (add (soundK n (jty G fn (pp n A B)) h3).1 (soundK n (jty G g (pp n A B)) h4).1)
+              (add (nodes2 n (jty G fn (pp n A B)) h3) (nodes2 n (jty G g (pp n A B)) h4))
+              r2 (am2 (soundK n (jty G fn (pp n A B)) h3).1 (nodes2 n (jty G fn (pp n A B)) h3)
+                      (soundK n (jty G g (pp n A B)) h4).1 (nodes2 n (jty G g (pp n A B)) h4) r3 r4))) ;
+  eq-app-fun n G A B fn fn' a h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    lsuc2 (soundK n (jeq G fn fn' (pp n A B)) h3).1
+      (add (nodes2 n (jeq G fn fn' (pp n A B)) h3)
+         (add (nodes2 n (jty G A (uu n)) h1) (add (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) (nodes2 n (jty G a A) h4))))
+      (ext-r (soundK n (jeq G fn fn' (pp n A B)) h3).1 (nodes2 n (jeq G fn fn' (pp n A B)) h3)
+         (add (nodes2 n (jty G A (uu n)) h1) (add (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) (nodes2 n (jty G a A) h4))) r3) ;
+  eq-app-arg n G A B fn a a' h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    lsuc2 (soundK n (jeq G a a' A) h4).1
+      (add (nodes2 n (jeq G a a' A) h4)
+         (add (nodes2 n (jty G A (uu n)) h1) (add (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) (nodes2 n (jty G fn (pp n A B)) h3))))
+      (ext-r (soundK n (jeq G a a' A) h4).1 (nodes2 n (jeq G a a' A) h4)
+         (add (nodes2 n (jty G A (uu n)) h1) (add (nodes2 (suc n) (jty (ext n G A) B (uu (suc n))) h2) (nodes2 n (jty G fn (pp n A B)) h3))) r4) } ;

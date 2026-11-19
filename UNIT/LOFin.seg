@@ -1,0 +1,127 @@
+-- Finiteness for the category of all linear orders (LOCat.ce), part 1:
+-- strictly increasing maps [c] -> [d] are exactly the words (FinOrd).
+--   phi w = sel w (FinOrdEx.arr); psi f = toW d c f, built by recursion
+--   on d (is 0 hit?  i : o, then shift by pred); phi (psi f) = f.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module FO = FinOrd[l] ;
+module FOE = FinOrdEx[l] ;
+module LC = LOCat[l] ;
+module PL = Prelude[l] ;
+
+Fn (c : W.N) : U l = (x : W.N) -> CF.Lt x c -> W.N ;
+ifZ : W.N -> W.Wd -> W.Wd -> W.Wd = split { zero -> \ a b -> a ; suc n -> \ a b -> b } ;
+tw1 (d : W.N) (r : (c : W.N) -> Fn c -> W.Wd) : (c : W.N) -> Fn c -> W.Wd = split {
+  zero -> \ f -> o (r zero (\ x h -> zero)) ;
+  suc c -> \ f -> ifZ (f zero (refl true)) (i (r c (\ x h -> W.pred (f (suc x) h)))) (o (r (suc c) (\ x h -> W.pred (f x h)))) } ;
+toW : (d c : W.N) -> Fn c -> W.Wd = split {
+  zero -> \ c f -> nil ;
+  suc d | r -> tw1 d r } ;
+
+-- hypotheses on f
+Mono (c : W.N) (f : Fn c) : U l = (x : W.N) (h : CF.Lt x c) (y : W.N) (h' : CF.Lt y c) -> Id W.O3 (W.cmpN (f x h) (f y h')) (W.cmpN x y) ;
+Bnd (c d : W.N) (f : Fn c) : U l = (x : W.N) (h : CF.Lt x c) -> CF.Lt (f x h) d ;
+pos : (a : W.N) -> Id W.O3 (W.cmpN zero a) lt -> Id W.N (suc (W.pred a)) a = split {
+  zero -> \ h -> W.absurdB (Id W.N (suc zero) zero) (PL.sym W.Bool true false (PL.ap W.O3 W.Bool W.isEq eq lt h)) ;
+  suc a -> \ h -> refl (suc a) } ;
+-- shifting a family of positive values
+module Sh (c d : W.N) (f : Fn c) (mono : Mono c f) (bnd : Bnd c (suc d) f) (ps : (x : W.N) (h : CF.Lt x c) -> Id W.O3 (W.cmpN zero (f x h)) lt) {
+  g : Fn c = \ x h -> W.pred (f x h) ;
+  eg (x : W.N) (h : CF.Lt x c) : Id W.N (suc (g x h)) (f x h) = pos (f x h) (ps x h) ;
+  mono' : Mono c g = \ x h y h' ->
+    PL.trans W.O3 (W.cmpN (g x h) (g y h')) (W.cmpN (f x h) (f y h')) (W.cmpN x y)
+      (W.ap2 W.N W.N W.O3 (\ a b -> W.cmpN a b) (suc (g x h)) (f x h) (suc (g y h')) (f y h') (eg x h) (eg y h'))
+      (mono x h y h') ;
+  bnd' : Bnd c d g = \ x h -> PL.subst W.N (\ a -> CF.Lt a (suc d)) (f x h) (suc (g x h)) (PL.sym W.N (suc (g x h)) (f x h) (eg x h)) (bnd x h) ;
+} ;
+
+-- the specification of toW
+Spec (d c : W.N) (f : Fn c) : U l =
+  Id W.N (W.len (toW d c f)) d * (Id W.N (W.ones (toW d c f)) c * ((x : W.N) (h : CF.Lt x c) -> Id W.N (W.sel (toW d c f) x) (f x h))) ;
+lenZ (d : W.N) (r : (c : W.N) (f : Fn c) -> Id W.N (W.len (toW d c f)) d) (c : W.N) (f : Fn (suc c)) : (n : W.N) ->
+    Id W.N (W.len (ifZ n (i (toW d c (\ x h -> W.pred (f (suc x) h)))) (o (toW d (suc c) (\ x h -> W.pred (f x h)))))) (suc d) = split {
+  zero -> PL.ap W.N W.N (\ k -> suc k) (W.len (toW d c (\ x h -> W.pred (f (suc x) h)))) d (r c (\ x h -> W.pred (f (suc x) h))) ;
+  suc n -> PL.ap W.N W.N (\ k -> suc k) (W.len (toW d (suc c) (\ x h -> W.pred (f x h)))) d (r (suc c) (\ x h -> W.pred (f x h))) } ;
+len-toW : (d c : W.N) (f : Fn c) -> Id W.N (W.len (toW d c f)) d = split {
+  zero -> \ c f -> refl zero ;
+  suc d | r -> split {
+    zero -> \ f -> PL.ap W.N W.N (\ k -> suc k) (W.len (toW d zero (\ x h -> zero))) d (r zero (\ x h -> zero)) ;
+    suc c -> \ f -> lenZ d r c f (f zero (refl true)) } } ;
+SP (d c : W.N) (f : Fn c) : U l = Id W.N (W.ones (toW d c f)) c * ((x : W.N) (h : CF.Lt x c) -> Id W.N (W.sel (toW d c f) x) (f x h)) ;
+IHT (d : W.N) : U l = (c : W.N) (f : Fn c) -> Mono c f -> Bnd c d f -> SP d c f ;
+module OS (d : W.N) (r : IHT d) (c : W.N) (f : Fn (suc c)) (mono : Mono (suc c) f) (bnd : Bnd (suc c) (suc d) f) {
+  wi : W.Wd = i (toW d c (\ x h -> W.pred (f (suc x) h))) ;
+  wo : W.Wd = o (toW d (suc c) (\ x h -> W.pred (f x h))) ;
+  Pn (n : W.N) : U l = Id W.N (W.ones (ifZ n wi wo)) (suc c) * ((x : W.N) (h : CF.Lt x (suc c)) -> Id W.N (W.sel (ifZ n wi wo) x) (f x h)) ;
+  f0 : W.N = f zero (refl true) ;
+  f0h (h : CF.Lt zero (suc c)) : Id W.N (f zero h) f0 = PL.ap (CF.Lt zero (suc c)) W.N (f zero) h (refl true) (W.HB.uip (W.ltN zero (suc c)) true h (refl true)) ;
+  -- case f 0 = 0: generator i
+  module Z (e : Id W.N f0 zero) {
+    f1 : Fn c = \ x h -> f (suc x) h ;
+    ps (x : W.N) (h : CF.Lt x c) : Id W.O3 (W.cmpN zero (f1 x h)) lt =
+      PL.subst W.N (\ a -> Id W.O3 (W.cmpN a (f1 x h)) lt) f0 zero e (mono zero (refl true) (suc x) h) ;
+    module H = Sh[c,d,f1,\ x h y h' -> mono (suc x) h (suc y) h',\ x h -> bnd (suc x) h,ps] ;
+    ih : SP d c H.g = r c H.g H.mono' H.bnd' ;
+    selp : (x : W.N) (h : CF.Lt x (suc c)) -> Id W.N (W.sel wi x) (f x h) = split {
+      zero -> \ h -> PL.sym W.N (f zero h) zero (PL.trans W.N (f zero h) f0 zero (f0h h) e) ;
+      suc x -> \ h -> PL.trans W.N (suc (W.sel (toW d c H.g) x)) (suc (H.g x h)) (f (suc x) h)
+        (PL.ap W.N W.N (\ k -> suc k) (W.sel (toW d c H.g) x) (H.g x h) (ih.2 x h)) (H.eg x h) } ;
+    result : Pn zero = (PL.ap W.N W.N (\ k -> suc k) (W.ones (toW d c H.g)) c ih.1,selp) ;
+  } ;
+  -- case f 0 > 0: generator o
+  module P (n : W.N) (e : Id W.N f0 (suc n)) {
+    ps0 : Id W.O3 (W.cmpN zero f0) lt = PL.subst W.N (\ a -> Id W.O3 (W.cmpN zero a) lt) (suc n) f0 (PL.sym W.N f0 (suc n) e) (refl lt) ;
+    ps : (x : W.N) (h : CF.Lt x (suc c)) -> Id W.O3 (W.cmpN zero (f x h)) lt = split {
+      zero -> \ h -> PL.subst W.N (\ a -> Id W.O3 (W.cmpN zero a) lt) f0 (f zero h) (PL.sym W.N (f zero h) f0 (f0h h)) ps0 ;
+      suc x -> \ h -> W.cmpN-trans zero f0 (f (suc x) h) ps0 (mono zero (refl true) (suc x) h) } ;
+    module H = Sh[suc c,d,f,mono,bnd,ps] ;
+    ih : SP d (suc c) H.g = r (suc c) H.g H.mono' H.bnd' ;
+    result : Pn (suc n) = (ih.1,\ x h -> PL.trans W.N (suc (W.sel (toW d (suc c) H.g) x)) (suc (H.g x h)) (f x h)
+      (PL.ap W.N W.N (\ k -> suc k) (W.sel (toW d (suc c) H.g) x) (H.g x h) (ih.2 x h)) (H.eg x h)) ;
+  } ;
+  res : (n : W.N) -> Id W.N f0 n -> Pn n = split {
+    zero -> \ e -> Z[e].result ;
+    suc n -> \ e -> P[n,e].result } ;
+  result : SP (suc d) (suc c) f = res f0 (refl f0) ;
+} ;
+spec : (d : W.N) -> IHT d = split {
+  zero -> split {
+    zero -> \ f mono bnd -> (refl zero,\ x h -> W.ltN-zero-abs (Id W.N (W.sel nil x) (f x h)) x h) ;
+    suc c -> \ f mono bnd -> W.ltN-zero-abs (SP zero (suc c) f) (f zero (refl true)) (bnd zero (refl true)) } ;
+  suc d | r -> split {
+    zero -> \ f mono bnd -> ((r zero (\ x h -> zero) (\ x h y h' -> W.ltN-zero-abs (Id W.O3 eq (W.cmpN x y)) x h) (\ x h -> W.ltN-zero-abs (CF.Lt zero d) x h)).1,
+      \ x h -> W.ltN-zero-abs (Id W.N (W.sel (o (toW d zero (\ x0 h0 -> zero))) x) (f x h)) x h) ;
+    suc c -> \ f mono bnd -> OS[d,r,c,f,mono,bnd].result } } ;
+
+--------------------------------------------------------------------
+-- the correspondence
+
+phi (c d : W.N) (w : FO.Mor c d) : DP.Map (LC.ord c) (LC.ord d) = FOE.arr c d w ;
+module Psi (c d : W.N) (f : DP.Map (LC.ord c) (LC.ord d)) {
+  fn : Fn c = \ x h -> (f.1 (x,h)).1 ;
+  mono : Mono c fn = \ x h y h' -> f.2 (x,h) (y,h') ;
+  bnd : Bnd c d fn = \ x h -> (f.1 (x,h)).2 ;
+  sp : SP d c fn = spec d c fn mono bnd ;
+  w : FO.Mor c d = (toW d c fn,(len-toW d c fn,sp.1)) ;
+  back : Id (DP.Map (LC.ord c) (LC.ord d)) (phi c d w) f =
+    LC.map-eq (LC.ord c) (LC.ord d) (phi c d w) f (\ p -> LC.ptEq d ((phi c d w).1 p) (f.1 p) (sp.2 p.1 p.2)) ;
+} ;
+psi (c d : W.N) (f : DP.Map (LC.ord c) (LC.ord d)) : FO.Mor c d = Psi[c,d,f].w ;
+phipsi (c d : W.N) (f : DP.Map (LC.ord c) (LC.ord d)) : Id (DP.Map (LC.ord c) (LC.ord d)) (phi c d (psi c d f)) f = Psi[c,d,f].back ;
+phi-inj (c d : W.N) (u v : FO.Mor c d) (e : Id (DP.Map (LC.ord c) (LC.ord d)) (phi c d u) (phi c d v)) : Id (FO.Mor c d) u v =
+  FO.meq c d u v (W.sel-ext u.1 v.1 (PL.trans W.N (W.len u.1) d (W.len v.1) u.2.1 (PL.sym W.N (W.len v.1) d v.2.1))
+    (PL.trans W.N (W.ones u.1) c (W.ones v.1) u.2.2 (PL.sym W.N (W.ones v.1) c v.2.2))
+    (\ x hx -> PL.ap (LC.Pt d) W.N (\ q -> q.1) ((phi c d u).1 (x,PL.subst W.N (\ k -> CF.Lt x k) (W.ones u.1) c u.2.2 hx))
+        ((phi c d v).1 (x,PL.subst W.N (\ k -> CF.Lt x k) (W.ones u.1) c u.2.2 hx))
+      (PL.ap (DP.Map (LC.ord c) (LC.ord d)) (LC.Pt d) (\ M -> M.1 (x,PL.subst W.N (\ k -> CF.Lt x k) (W.ones u.1) c u.2.2 hx)) (phi c d u) (phi c d v) e))) ;
+psiphi (c d : W.N) (u : FO.Mor c d) : Id (FO.Mor c d) (psi c d (phi c d u)) u =
+  phi-inj c d (psi c d (phi c d u)) u (phipsi c d (phi c d u)) ;
+phi-comp (a b d : W.N) (f : FO.Mor a b) (g : FO.Mor b d) :
+    Id (DP.Map (LC.ord a) (LC.ord d)) (phi a d (FO.comp a b d f g)) (LC.compMap (LC.ord a) (LC.ord b) (LC.ord d) (phi a b f) (phi b d g)) =
+  LC.map-eq (LC.ord a) (LC.ord d) (phi a d (FO.comp a b d f g)) (LC.compMap (LC.ord a) (LC.ord b) (LC.ord d) (phi a b f) (phi b d g))
+    (\ p -> PL.sym (LC.Pt d) ((phi b d g).1 ((phi a b f).1 p)) ((phi a d (FO.comp a b d f g)).1 p) (FOE.arr-comp a b d f g p)) ;
+phi-id (c : W.N) : Id (DP.Map (LC.ord c) (LC.ord c)) (phi c c (FO.idm c)) (LC.idMap (LC.ord c)) =
+  LC.map-eq (LC.ord c) (LC.ord c) (phi c c (FO.idm c)) (LC.idMap (LC.ord c)) (\ p -> FOE.arr-id c p) ;

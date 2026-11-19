@@ -1,0 +1,325 @@
+-- Junk-tolerant finite enumerations as lists (abstract catemb toolkit).
+--
+-- A list of optional values l : List (Opt A) enumerates A up to a relation R
+-- when every a has an index k < len l with nth l k = inl a' and R a a'.
+-- Combinators: generation from an indexed family, append, map, binary
+-- product, filtering by a decidable test; with the membership lemmas.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+
+LO (A : U l) : U l = W.List (CF.Opt A) ;
+lenL (A : U l) : W.List (CF.Opt A) -> W.N = split { nilL -> zero ; consL x xs | r -> suc r } ;
+nthO (A : U l) : W.List (CF.Opt A) -> W.N -> CF.Opt A = split {
+  nilL -> \ k -> inr tt ;
+  consL x xs | r -> split { zero -> x ; suc k -> r k } } ;
+-- membership up to a relation
+MemR (A : U l) (R : A -> A -> U l) (xs : W.List (CF.Opt A)) (a : A) : U l =
+  (k : W.N) * ((h : CF.Lt k (lenL A xs)) * ((a' : A) * (Id (CF.Opt A) (nthO A xs k) (inl a') * R a a'))) ;
+Mem (A : U l) (xs : W.List (CF.Opt A)) (a : A) : U l = MemR A (\ x y -> Id A y x) xs a ;
+-- to the CEF interface
+toEnum (A : U l) (xs : W.List (CF.Opt A)) (m : (a : A) -> Mem A xs a) : CF.Enum A (lenL A xs) (\ i h -> nthO A xs i) =
+  \ a -> ((m a).1,((m a).2.1,PL.subst A (\ x -> Id (CF.Opt A) (nthO A xs (m a).1) (inl x)) (m a).2.2.1 a (m a).2.2.2.2 (m a).2.2.2.1)) ;
+
+lt-plus-r : (k a b : W.N) -> CF.Lt k a -> CF.Lt k (W.plus a b) = split {
+  zero -> split { zero -> \ b h -> W.ltN-zero-abs (CF.Lt zero b) zero h ; suc a -> \ b h -> refl true } ;
+  suc k | r -> split { zero -> \ b h -> W.ltN-zero-abs (CF.Lt (suc k) b) (suc k) h ; suc a -> \ b h -> r a b h } } ;
+
+-- generation from a total family
+genL (A : U l) : W.N -> (W.N -> CF.Opt A) -> W.List (CF.Opt A) = split {
+  zero -> \ f -> nilL ;
+  suc n | r -> \ f -> consL (f zero) (r (\ i -> f (suc i))) } ;
+len-genL (A : U l) : (n : W.N) (f : W.N -> CF.Opt A) -> Id W.N (lenL A (genL A n f)) n = split {
+  zero -> \ f -> refl zero ;
+  suc n | r -> \ f -> PL.ap W.N W.N (\ x -> suc x) (lenL A (genL A n (\ i -> f (suc i)))) n (r (\ i -> f (suc i))) } ;
+nth-genL (A : U l) : (n : W.N) (f : W.N -> CF.Opt A) (k : W.N) -> CF.Lt k n -> Id (CF.Opt A) (nthO A (genL A n f) k) (f k) = split {
+  zero -> \ f k h -> W.ltN-zero-abs (Id (CF.Opt A) (inr tt) (f k)) k h ;
+  suc n | r -> \ f -> split {
+    zero -> \ h -> refl (f zero) ;
+    suc k -> \ h -> r (\ i -> f (suc i)) k h } } ;
+-- from an indexed family
+totF (A : U l) (n : W.N) (el : (i : W.N) -> CF.Lt i n -> CF.Opt A) (i : W.N) : CF.Opt A =
+  CF.or-elim (CF.Lt i n) (CF.Lt i n -> W.Empty) (CF.Opt A) (\ h -> el i h) (\ nh -> inr tt) (W.decB (W.ltN i n) true) ;
+totF-eq (A : U l) (n : W.N) (el : (i : W.N) -> CF.Lt i n -> CF.Opt A) (i : W.N) (h : CF.Lt i n) :
+    (r : W.Or (CF.Lt i n) (CF.Lt i n -> W.Empty)) ->
+    Id (CF.Opt A) (CF.or-elim (CF.Lt i n) (CF.Lt i n -> W.Empty) (CF.Opt A) (\ h0 -> el i h0) (\ nh -> inr tt) r) (el i h) = split {
+  inl h0 -> PL.ap (CF.Lt i n) (CF.Opt A) (el i) h0 h (W.HB.uip (W.ltN i n) true h0 h) ;
+  inr nh -> CF.efq (Id (CF.Opt A) (inr tt) (el i h)) (nh h) } ;
+fromIdx (A : U l) (n : W.N) (el : (i : W.N) -> CF.Lt i n -> CF.Opt A) : W.List (CF.Opt A) = genL A n (totF A n el) ;
+mem-fromIdx (A : U l) (n : W.N) (el : (i : W.N) -> CF.Lt i n -> CF.Opt A) (surj : CF.Enum A n el) (a : A) : Mem A (fromIdx A n el) a =
+  ((surj a).1,(PL.subst W.N (\ x -> CF.Lt (surj a).1 x) n (lenL A (fromIdx A n el)) (PL.sym W.N (lenL A (fromIdx A n el)) n (len-genL A n (totF A n el)))
+      (surj a).2.1,
+    (a,(PL.trans (CF.Opt A) (nthO A (fromIdx A n el) (surj a).1) (totF A n el (surj a).1) (inl a)
+          (nth-genL A n (totF A n el) (surj a).1 (surj a).2.1)
+          (PL.trans (CF.Opt A) (totF A n el (surj a).1) (el (surj a).1 (surj a).2.1) (inl a)
+            (totF-eq A n el (surj a).1 (surj a).2.1 (W.decB (W.ltN (surj a).1 n) true)) (surj a).2.2),
+        refl a)))) ;
+
+mem-fromIdx1 (A : U l) (n : W.N) (el : (i : W.N) -> CF.Lt i n -> CF.Opt A) (i : W.N) (h : CF.Lt i n) (a : A)
+  (e : Id (CF.Opt A) (el i h) (inl a)) : Mem A (fromIdx A n el) a =
+  (i,(PL.subst W.N (\ x -> CF.Lt i x) n (lenL A (fromIdx A n el)) (PL.sym W.N (lenL A (fromIdx A n el)) n (len-genL A n (totF A n el))) h,
+    (a,(PL.trans (CF.Opt A) (nthO A (fromIdx A n el) i) (totF A n el i) (inl a)
+          (nth-genL A n (totF A n el) i h)
+          (PL.trans (CF.Opt A) (totF A n el i) (el i h) (inl a) (totF-eq A n el i h (W.decB (W.ltN i n) true)) e),
+        refl a)))) ;
+
+-- append
+appL (A : U l) : W.List (CF.Opt A) -> W.List (CF.Opt A) -> W.List (CF.Opt A) = split {
+  nilL -> \ ys -> ys ;
+  consL x xs | r -> \ ys -> consL x (r ys) } ;
+len-appL (A : U l) : (xs ys : W.List (CF.Opt A)) -> Id W.N (lenL A (appL A xs ys)) (W.plus (lenL A xs) (lenL A ys)) = split {
+  nilL -> \ ys -> refl (lenL A ys) ;
+  consL x xs | r -> \ ys -> PL.ap W.N W.N (\ k -> suc k) (lenL A (appL A xs ys)) (W.plus (lenL A xs) (lenL A ys)) (r ys) } ;
+nth-appL-l (A : U l) : (xs ys : W.List (CF.Opt A)) (k : W.N) -> CF.Lt k (lenL A xs) -> Id (CF.Opt A) (nthO A (appL A xs ys) k) (nthO A xs k) = split {
+  nilL -> \ ys k h -> W.ltN-zero-abs (Id (CF.Opt A) (nthO A ys k) (inr tt)) k h ;
+  consL x xs | r -> \ ys -> split { zero -> \ h -> refl x ; suc k -> \ h -> r ys k h } } ;
+nth-appL-r (A : U l) : (xs ys : W.List (CF.Opt A)) (k : W.N) -> Id (CF.Opt A) (nthO A (appL A xs ys) (W.plus (lenL A xs) k)) (nthO A ys k) = split {
+  nilL -> \ ys k -> refl (nthO A ys k) ;
+  consL x xs | r -> \ ys k -> r ys k } ;
+memR-appL-l (A : U l) (R : A -> A -> U l) (xs ys : W.List (CF.Opt A)) (a : A) (m : MemR A R xs a) : MemR A R (appL A xs ys) a =
+  (m.1,(PL.subst W.N (\ x -> CF.Lt m.1 x) (W.plus (lenL A xs) (lenL A ys)) (lenL A (appL A xs ys))
+      (PL.sym W.N (lenL A (appL A xs ys)) (W.plus (lenL A xs) (lenL A ys)) (len-appL A xs ys)) (lt-plus-r m.1 (lenL A xs) (lenL A ys) m.2.1),
+    (m.2.2.1,(PL.trans (CF.Opt A) (nthO A (appL A xs ys) m.1) (nthO A xs m.1) (inl m.2.2.1) (nth-appL-l A xs ys m.1 m.2.1) m.2.2.2.1,m.2.2.2.2)))) ;
+memR-appL-r (A : U l) (R : A -> A -> U l) (xs ys : W.List (CF.Opt A)) (a : A) (m : MemR A R ys a) : MemR A R (appL A xs ys) a =
+  (W.plus (lenL A xs) m.1,(PL.subst W.N (\ x -> CF.Lt (W.plus (lenL A xs) m.1) x) (W.plus (lenL A xs) (lenL A ys)) (lenL A (appL A xs ys))
+      (PL.sym W.N (lenL A (appL A xs ys)) (W.plus (lenL A xs) (lenL A ys)) (len-appL A xs ys))
+      (PL.trans W.Bool (W.ltN (W.plus (lenL A xs) m.1) (W.plus (lenL A xs) (lenL A ys))) (W.ltN m.1 (lenL A ys)) true
+        (W.ltN-plus (lenL A xs) m.1 (lenL A ys)) m.2.1),
+    (m.2.2.1,(PL.trans (CF.Opt A) (nthO A (appL A xs ys) (W.plus (lenL A xs) m.1)) (nthO A ys m.1) (inl m.2.2.1) (nth-appL-r A xs ys m.1) m.2.2.2.1,
+      m.2.2.2.2)))) ;
+
+-- map
+optMap (A B : U l) (f : A -> B) : CF.Opt A -> CF.Opt B = split { inl a -> inl (f a) ; inr u -> inr u } ;
+mapO (A B : U l) (f : A -> B) : W.List (CF.Opt A) -> W.List (CF.Opt B) = split {
+  nilL -> nilL ; consL x xs | r -> consL (optMap A B f x) r } ;
+len-mapO (A B : U l) (f : A -> B) : (xs : W.List (CF.Opt A)) -> Id W.N (lenL B (mapO A B f xs)) (lenL A xs) = split {
+  nilL -> refl zero ;
+  consL x xs | r -> PL.ap W.N W.N (\ k -> suc k) (lenL B (mapO A B f xs)) (lenL A xs) r } ;
+nth-mapO (A B : U l) (f : A -> B) : (xs : W.List (CF.Opt A)) (k : W.N) -> Id (CF.Opt B) (nthO B (mapO A B f xs) k) (optMap A B f (nthO A xs k)) = split {
+  nilL -> \ k -> refl (inr tt) ;
+  consL x xs | r -> split { zero -> refl (optMap A B f x) ; suc k -> r k } } ;
+-- a member a' (related to a) of xs gives the member f a' of the mapped list
+memR-mapO (A B : U l) (R : A -> A -> U l) (S : B -> B -> U l) (f : A -> B) (xs : W.List (CF.Opt A)) (a : A) (b : B)
+  (fr : (a' : A) -> R a a' -> S b (f a')) (m : MemR A R xs a) : MemR B S (mapO A B f xs) b =
+  (m.1,(PL.subst W.N (\ x -> CF.Lt m.1 x) (lenL A xs) (lenL B (mapO A B f xs)) (PL.sym W.N (lenL B (mapO A B f xs)) (lenL A xs) (len-mapO A B f xs)) m.2.1,
+    (f m.2.2.1,(PL.trans (CF.Opt B) (nthO B (mapO A B f xs) m.1) (optMap A B f (nthO A xs m.1)) (inl (f m.2.2.1))
+        (nth-mapO A B f xs m.1) (PL.ap (CF.Opt A) (CF.Opt B) (optMap A B f) (nthO A xs m.1) (inl m.2.2.1) m.2.2.2.1),
+      fr m.2.2.1 m.2.2.2.2)))) ;
+
+-- binary product: for each entry of xs, the list ys paired with it
+pairs (A B : U l) (ys : W.List (CF.Opt B)) : CF.Opt A -> W.List (CF.Opt (A * B)) = split {
+  inl a -> mapO B (A * B) (\ b -> (a,b)) ys ; inr u -> nilL } ;
+prodL (A B : U l) (ys : W.List (CF.Opt B)) : W.List (CF.Opt A) -> W.List (CF.Opt (A * B)) = split {
+  nilL -> nilL ; consL x xs | r -> appL (A * B) (pairs A B ys x) r } ;
+-- membership in the product, for relations on both sides (the pair relation is componentwise)
+PR (A B : U l) (R : A -> A -> U l) (S : B -> B -> U l) (p q : A * B) : U l = R p.1 q.1 * S p.2 q.2 ;
+module MemProd (A B : U l) (R : A -> A -> U l) (S : B -> B -> U l) (ys : W.List (CF.Opt B)) (b : B) (mb : MemR B S ys b) {
+  P (xs : W.List (CF.Opt A)) (a : A) : U l = MemR (A * B) (PR A B R S) (prodL A B ys xs) (a,b) ;
+  head (a : A) (rest : W.List (CF.Opt (A * B))) : (x : CF.Opt A) (a' : A) -> Id (CF.Opt A) x (inl a') -> R a a' ->
+      MemR (A * B) (PR A B R S) (appL (A * B) (pairs A B ys x) rest) (a,b) = split {
+    inl a0 -> \ a' e r -> memR-appL-l (A * B) (PR A B R S) (pairs A B ys (inl a0)) rest (a,b)
+      (memR-mapO B (A * B) S (PR A B R S) (\ b0 -> (a0,b0)) ys b (a,b)
+        (\ b' sb -> (PL.subst A (\ x -> R a x) a' a0 (PL.sym A a0 a' (CF.inl-inj A a0 a' e)) r,sb)) mb) ;
+    inr u -> \ a' e r -> CF.efq (MemR (A * B) (PR A B R S) (appL (A * B) nilL rest) (a,b)) (CF.inl-inr A a' u (PL.sym (CF.Opt A) (inr u) (inl a') e)) } ;
+  go : (xs : W.List (CF.Opt A)) (a : A) (k : W.N) -> CF.Lt k (lenL A xs) -> (a' : A) -> Id (CF.Opt A) (nthO A xs k) (inl a') -> R a a' -> P xs a = split {
+    nilL -> \ a k h -> W.ltN-zero-abs ((a' : A) -> Id (CF.Opt A) (inr tt) (inl a') -> R a a' -> P nilL a) k h ;
+    consL x xs | r -> \ a -> split {
+      zero -> \ h a' e rr -> head a (prodL A B ys xs) x a' e rr ;
+      suc k -> \ h a' e rr -> memR-appL-r (A * B) (PR A B R S) (pairs A B ys x) (prodL A B ys xs) (a,b) (r a k h a' e rr) } } ;
+  result (xs : W.List (CF.Opt A)) (a : A) (ma : MemR A R xs a) : P xs a = go xs a ma.1 ma.2.1 ma.2.2.1 ma.2.2.2.1 ma.2.2.2.2 ;
+} ;
+
+-- filtering by a decidable test
+keepO (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) : CF.Opt A -> CF.Opt A = split {
+  inl a -> CF.or-elim (P a) (P a -> W.Empty) (CF.Opt A) (\ p -> inl a) (\ np -> inr tt) (d a) ;
+  inr u -> inr u } ;
+filterO (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) : W.List (CF.Opt A) -> W.List (CF.Opt A) = split {
+  nilL -> nilL ; consL x xs | r -> consL (keepO A P d x) r } ;
+len-filterO (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) : (xs : W.List (CF.Opt A)) ->
+    Id W.N (lenL A (filterO A P d xs)) (lenL A xs) = split {
+  nilL -> refl zero ;
+  consL x xs | r -> PL.ap W.N W.N (\ k -> suc k) (lenL A (filterO A P d xs)) (lenL A xs) r } ;
+nth-filterO (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) : (xs : W.List (CF.Opt A)) (k : W.N) ->
+    Id (CF.Opt A) (nthO A (filterO A P d xs) k) (keepO A P d (nthO A xs k)) = split {
+  nilL -> \ k -> refl (inr tt) ;
+  consL x xs | r -> split { zero -> refl (keepO A P d x) ; suc k -> r k } } ;
+keep-yes (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) (a : A) (p : P a) :
+    (r : W.Or (P a) (P a -> W.Empty)) -> Id (CF.Opt A) (CF.or-elim (P a) (P a -> W.Empty) (CF.Opt A) (\ p0 -> inl a) (\ np -> inr tt) r) (inl a) = split {
+  inl p0 -> refl (inl a) ; inr np -> CF.efq (Id (CF.Opt A) (inr tt) (inl a)) (np p) } ;
+keep-sound2 (A : U l) (P : A -> U l) (a b : A) : (r : W.Or (P a) (P a -> W.Empty)) ->
+    Id (CF.Opt A) (CF.or-elim (P a) (P a -> W.Empty) (CF.Opt A) (\ p0 -> inl a) (\ np -> inr tt) r) (inl b) -> P b = split {
+  inl p0 -> \ e -> PL.subst A P a b (CF.inl-inj A a b e) p0 ;
+  inr np -> \ e -> CF.efq (P b) (CF.inl-inr A b tt (PL.sym (CF.Opt A) (inr tt) (inl b) e)) } ;
+-- a kept entry satisfies the test
+keep-sound (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) (b : A) : (x : CF.Opt A) ->
+    Id (CF.Opt A) (keepO A P d x) (inl b) -> P b = split {
+  inl a -> \ e -> keep-sound2 A P a b (d a) e ;
+  inr u -> \ e -> CF.efq (P b) (CF.inl-inr A b u (PL.sym (CF.Opt A) (inr u) (inl b) e)) } ;
+memR-filterO (A : U l) (R : A -> A -> U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) (xs : W.List (CF.Opt A)) (a : A)
+  (pa : (a' : A) -> R a a' -> P a') (m : MemR A R xs a) : MemR A R (filterO A P d xs) a =
+  (m.1,(PL.subst W.N (\ x -> CF.Lt m.1 x) (lenL A xs) (lenL A (filterO A P d xs)) (PL.sym W.N (lenL A (filterO A P d xs)) (lenL A xs) (len-filterO A P d xs)) m.2.1,
+    (m.2.2.1,(PL.trans (CF.Opt A) (nthO A (filterO A P d xs) m.1) (keepO A P d (nthO A xs m.1)) (inl m.2.2.1)
+        (nth-filterO A P d xs m.1)
+        (PL.trans (CF.Opt A) (keepO A P d (nthO A xs m.1)) (keepO A P d (inl m.2.2.1)) (inl m.2.2.1)
+          (PL.ap (CF.Opt A) (CF.Opt A) (keepO A P d) (nthO A xs m.1) (inl m.2.2.1) m.2.2.2.1)
+          (keep-yes A P d m.2.2.1 (pa m.2.2.1 m.2.2.2.2) (d m.2.2.1))),
+      m.2.2.2.2)))) ;
+-- every listed entry of a filtered list passes the test
+filter-sound (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) (xs : W.List (CF.Opt A)) (k : W.N) (b : A)
+  (e : Id (CF.Opt A) (nthO A (filterO A P d xs) k) (inl b)) : P b =
+  keep-sound A P d b (nthO A xs k)
+    (PL.trans (CF.Opt A) (keepO A P d (nthO A xs k)) (nthO A (filterO A P d xs) k) (inl b)
+      (PL.sym (CF.Opt A) (nthO A (filterO A P d xs) k) (keepO A P d (nthO A xs k)) (nth-filterO A P d xs k)) e) ;
+
+-- dependent pairs: for each entry a of xs, the list ys a
+sigE (A : U l) (B : A -> U l) (ys : (a : A) -> W.List (CF.Opt (B a))) : CF.Opt A -> W.List (CF.Opt ((a : A) * B a)) = split {
+  inl a -> mapO (B a) ((x : A) * B x) (\ b -> (a,b)) (ys a) ; inr u -> nilL } ;
+sigL (A : U l) (B : A -> U l) (ys : (a : A) -> W.List (CF.Opt (B a))) : W.List (CF.Opt A) -> W.List (CF.Opt ((a : A) * B a)) = split {
+  nilL -> nilL ; consL x xs | r -> appL ((a : A) * B a) (sigE A B ys x) r } ;
+module MemSig (A : U l) (B : A -> U l) (ys : (a : A) -> W.List (CF.Opt (B a))) (a : A) (b : B a) (mb : Mem (B a) (ys a) b) {
+  T : U l = (x : A) * B x ;
+  P (xs : W.List (CF.Opt A)) : U l = Mem T (sigL A B ys xs) (a,b) ;
+  base (rest : W.List (CF.Opt T)) : Mem T (appL T (sigE A B ys (inl a)) rest) (a,b) =
+    memR-appL-l T (\ x y -> Id T y x) (sigE A B ys (inl a)) rest (a,b)
+      (memR-mapO (B a) T (\ x y -> Id (B a) y x) (\ x y -> Id T y x) (\ b0 -> (a,b0)) (ys a) b (a,b)
+        (\ b' eb -> PL.ap (B a) T (\ b0 -> (a,b0)) b' b eb) mb) ;
+  head (rest : W.List (CF.Opt T)) : (x : CF.Opt A) -> Id (CF.Opt A) x (inl a) -> Mem T (appL T (sigE A B ys x) rest) (a,b) = split {
+    inl a0 -> \ e -> idJ A a (\ a1 e1 -> Mem T (appL T (sigE A B ys (inl a1)) rest) (a,b)) (base rest) a0
+      (PL.sym A a0 a (CF.inl-inj A a0 a e)) ;
+    inr u -> \ e -> CF.efq (Mem T (appL T nilL rest) (a,b)) (CF.inl-inr A a u (PL.sym (CF.Opt A) (inr u) (inl a) e)) } ;
+  go : (xs : W.List (CF.Opt A)) (k : W.N) -> CF.Lt k (lenL A xs) -> Id (CF.Opt A) (nthO A xs k) (inl a) -> P xs = split {
+    nilL -> \ k h -> W.ltN-zero-abs (Id (CF.Opt A) (inr tt) (inl a) -> P nilL) k h ;
+    consL x xs | r -> split {
+      zero -> \ h e -> head (sigL A B ys xs) x e ;
+      suc k -> \ h e -> memR-appL-r T (\ x0 y -> Id T y x0) (sigE A B ys x) (sigL A B ys xs) (a,b) (r k h e) } } ;
+  result (xs : W.List (CF.Opt A)) (ma : Mem A xs a) : P xs =
+    go xs ma.1 ma.2.1 (PL.subst A (\ x -> Id (CF.Opt A) (nthO A xs ma.1) (inl x)) ma.2.2.1 a ma.2.2.2.2 ma.2.2.2.1) ;
+} ;
+
+-- filtering into a subtype
+keepS (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) : CF.Opt A -> CF.Opt ((a : A) * P a) = split {
+  inl a -> CF.or-elim (P a) (P a -> W.Empty) (CF.Opt ((x : A) * P x)) (\ p -> inl (a,p)) (\ np -> inr tt) (d a) ;
+  inr u -> inr u } ;
+filterS (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) : W.List (CF.Opt A) -> W.List (CF.Opt ((a : A) * P a)) = split {
+  nilL -> nilL ; consL x xs | r -> consL (keepS A P d x) r } ;
+len-filterS (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) : (xs : W.List (CF.Opt A)) ->
+    Id W.N (lenL ((a : A) * P a) (filterS A P d xs)) (lenL A xs) = split {
+  nilL -> refl zero ;
+  consL x xs | r -> PL.ap W.N W.N (\ k -> suc k) (lenL ((a : A) * P a) (filterS A P d xs)) (lenL A xs) r } ;
+nth-filterS (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) : (xs : W.List (CF.Opt A)) (k : W.N) ->
+    Id (CF.Opt ((a : A) * P a)) (nthO ((a : A) * P a) (filterS A P d xs) k) (keepS A P d (nthO A xs k)) = split {
+  nilL -> \ k -> refl (inr tt) ;
+  consL x xs | r -> split { zero -> refl (keepS A P d x) ; suc k -> r k } } ;
+keepS-yes (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) (a : A) (p : P a) :
+    (r : W.Or (P a) (P a -> W.Empty)) -> (q : P a) * Id (CF.Opt ((x : A) * P x))
+      (CF.or-elim (P a) (P a -> W.Empty) (CF.Opt ((x : A) * P x)) (\ p0 -> inl (a,p0)) (\ np -> inr tt) r) (inl (a,q)) = split {
+  inl p0 -> (p0,refl (inl (a,p0))) ;
+  inr np -> CF.efq ((q : P a) * Id (CF.Opt ((x : A) * P x)) (inr tt) (inl (a,q))) (np p) } ;
+-- membership in the filtered list: relation on first components
+memR-filterS (A : U l) (R : A -> A -> U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) (xs : W.List (CF.Opt A)) (a : A)
+  (pa : (a' : A) -> R a a' -> P a') (m : MemR A R xs a) :
+    (k : W.N) * ((h : CF.Lt k (lenL ((x : A) * P x) (filterS A P d xs))) * ((q : (x : A) * P x) *
+      (Id (CF.Opt ((x : A) * P x)) (nthO ((x : A) * P x) (filterS A P d xs) k) (inl q) * R a q.1))) =
+  (m.1,(PL.subst W.N (\ x -> CF.Lt m.1 x) (lenL A xs) (lenL ((x : A) * P x) (filterS A P d xs))
+      (PL.sym W.N (lenL ((x : A) * P x) (filterS A P d xs)) (lenL A xs) (len-filterS A P d xs)) m.2.1,
+    ((m.2.2.1,(keepS-yes A P d m.2.2.1 (pa m.2.2.1 m.2.2.2.2) (d m.2.2.1)).1),
+     (PL.trans (CF.Opt ((x : A) * P x)) (nthO ((x : A) * P x) (filterS A P d xs) m.1) (keepS A P d (nthO A xs m.1))
+         (inl (m.2.2.1,(keepS-yes A P d m.2.2.1 (pa m.2.2.1 m.2.2.2.2) (d m.2.2.1)).1))
+        (nth-filterS A P d xs m.1)
+        (PL.trans (CF.Opt ((x : A) * P x)) (keepS A P d (nthO A xs m.1)) (keepS A P d (inl m.2.2.1))
+            (inl (m.2.2.1,(keepS-yes A P d m.2.2.1 (pa m.2.2.1 m.2.2.2.2) (d m.2.2.1)).1))
+          (PL.ap (CF.Opt A) (CF.Opt ((x : A) * P x)) (keepS A P d) (nthO A xs m.1) (inl m.2.2.1) m.2.2.2.1)
+          (keepS-yes A P d m.2.2.1 (pa m.2.2.1 m.2.2.2.2) (d m.2.2.1)).2),
+      m.2.2.2.2)))) ;
+
+-- deciding a bounded universal statement
+module DecAll (n : W.N) (P : (i : W.N) -> CF.Lt i n -> U l) (d : (i : W.N) (h : CF.Lt i n) -> W.Or (P i h) (P i h -> W.Empty)) {
+  Bad (i : W.N) : U l = (h : CF.Lt i n) * (P i h -> W.Empty) ;
+  decBad (i : W.N) : W.Or (Bad i) (Bad i -> W.Empty) =
+    CF.dec-lt-sig n i (\ h -> P i h -> W.Empty)
+      (\ h -> CF.or-elim (P i h) (P i h -> W.Empty) (W.Or (P i h -> W.Empty) ((P i h -> W.Empty) -> W.Empty))
+        (\ p -> inr (\ np -> np p)) (\ np -> inl np) (d i h)) ;
+  result : W.Or ((i : W.N) (h : CF.Lt i n) -> P i h) (((i : W.N) (h : CF.Lt i n) -> P i h) -> W.Empty) =
+    CF.or-elim (CF.Bnd n Bad) (CF.None n Bad) (W.Or ((i : W.N) (h : CF.Lt i n) -> P i h) (((i : W.N) (h : CF.Lt i n) -> P i h) -> W.Empty))
+      (\ b -> inr (\ all -> b.2.2.2 (all b.1 b.2.2.1)))
+      (\ no -> inl (\ i h -> CF.or-elim (P i h) (P i h -> W.Empty) (P i h) (\ p -> p) (\ np -> CF.efq (P i h) (no i h (h,np))) (d i h)))
+      (CF.search n Bad decBad) ;
+} ;
+-- deciding a statement about the content of an optional value
+decOpt (A : U l) (P : A -> U l) (d : (a : A) -> W.Or (P a) (P a -> W.Empty)) : (o : CF.Opt A) ->
+    W.Or ((a : A) -> Id (CF.Opt A) o (inl a) -> P a) (((a : A) -> Id (CF.Opt A) o (inl a) -> P a) -> W.Empty) = split {
+  inl a0 -> CF.or-elim (P a0) (P a0 -> W.Empty)
+      (W.Or ((a : A) -> Id (CF.Opt A) (inl a0) (inl a) -> P a) (((a : A) -> Id (CF.Opt A) (inl a0) (inl a) -> P a) -> W.Empty))
+    (\ p -> inl (\ a e -> PL.subst A P a0 a (CF.inl-inj A a0 a e) p))
+    (\ np -> inr (\ all -> np (all a0 (refl (inl a0)))))
+    (d a0) ;
+  inr u -> inl (\ a e -> CF.efq (P a) (CF.inl-inr A a u (PL.sym (CF.Opt A) (inr u) (inl a) e))) } ;
+
+-- dependent functions on [k], enumerated up to pointwise agreement
+module DepFun (B : W.N -> U l) (L : (i : W.N) -> W.List (CF.Opt (B i))) (R : (i : W.N) -> B i -> B i -> U l) (k : W.N) {
+  Fn (t : W.N) : U l = (i : W.N) -> CF.Lt i t -> B i ;
+  Ag (t : W.N) (s s' : Fn t) : U l = (i : W.N) (h : CF.Lt i t) -> R i (s i h) (s' i h) ;
+  s0 : Fn zero = \ i h -> W.ltN-zero-abs (B i) i h ;
+  ext (t : W.N) (s : Fn t) (v : B t) : Fn (suc t) = \ i h ->
+    CF.or-elim (CF.Lt i t) (Id W.N i t) (B i) (\ a -> s i a) (\ e -> PL.subst W.N B t i (PL.sym W.N i t e) v) (CF.lt-split i t h) ;
+  lst : (t : W.N) -> W.List (CF.Opt (Fn t)) = split {
+    zero -> consL (inl s0) nilL ;
+    suc t | r -> mapO (Fn t * B t) (Fn (suc t)) (\ p -> ext t p.1 p.2) (prodL (Fn t) (B t) (L t) r) } ;
+  module Cov (tau : Fn k) (mem : (i : W.N) (h : CF.Lt i k) -> MemR (B i) (R i) (L i) (tau i h)) {
+    cv (i t : W.N) (h : CF.Lt i t) (ht : CF.Lt t (suc k)) : CF.Lt i k = W.ltN-le-lt (suc i) t (suc k) h ht ;
+    res (t : W.N) (ht : CF.Lt t (suc k)) : Fn t = \ i h -> tau i (cv i t h ht) ;
+    eqAt (i t : W.N) (e : Id W.N i t) (hi : CF.Lt i k) : (ht : CF.Lt t k) (v : B t) -> R t (tau t ht) v ->
+        R i (tau i hi) (PL.subst W.N B t i (PL.sym W.N i t e) v) =
+      idJ W.N i (\ t0 e0 -> (ht0 : CF.Lt t0 k) (v0 : B t0) -> R t0 (tau t0 ht0) v0 -> R i (tau i hi) (PL.subst W.N B t0 i (PL.sym W.N i t0 e0) v0))
+        (\ ht0 v0 r0 -> PL.subst (CF.Lt i k) (\ x -> R i (tau i x) v0) ht0 hi (W.HB.uip (W.ltN i k) true ht0 hi) r0) t e ;
+    extAg1 (t : W.N) (ht : CF.Lt (suc t) (suc k)) (s : Fn t) (ag : Ag t (res t (W.ltN-sucR t k ht)) s) (v : B t) (rv : R t (tau t ht) v)
+      (i : W.N) (h : CF.Lt i (suc t)) : (r : W.Or (CF.Lt i t) (Id W.N i t)) ->
+        R i (tau i (cv i (suc t) h ht)) (CF.or-elim (CF.Lt i t) (Id W.N i t) (B i) (\ a -> s i a) (\ e -> PL.subst W.N B t i (PL.sym W.N i t e) v) r) = split {
+      inl a -> PL.subst (CF.Lt i k) (\ x -> R i (tau i x) (s i a)) (cv i t a (W.ltN-sucR t k ht)) (cv i (suc t) h ht)
+        (W.HB.uip (W.ltN i k) true (cv i t a (W.ltN-sucR t k ht)) (cv i (suc t) h ht)) (ag i a) ;
+      inr e -> eqAt i t e (cv i (suc t) h ht) ht v rv } ;
+    module Step (t : W.N) (ht : CF.Lt (suc t) (suc k)) (ih : MemR (Fn t) (Ag t) (lst t) (res t (W.ltN-sucR t k ht))) {
+      pm : MemR (Fn t * B t) (PR (Fn t) (B t) (Ag t) (R t)) (prodL (Fn t) (B t) (L t) (lst t)) (res t (W.ltN-sucR t k ht),tau t ht) =
+        MemProd[Fn t,B t,Ag t,R t,L t,tau t ht,mem t ht].result (lst t) (res t (W.ltN-sucR t k ht)) ih ;
+      result : MemR (Fn (suc t)) (Ag (suc t)) (lst (suc t)) (res (suc t) ht) =
+        memR-mapO (Fn t * B t) (Fn (suc t)) (PR (Fn t) (B t) (Ag t) (R t)) (Ag (suc t))
+          (\ p -> ext t p.1 p.2) (prodL (Fn t) (B t) (L t) (lst t)) (res t (W.ltN-sucR t k ht),tau t ht) (res (suc t) ht)
+          (\ q pr -> \ i h -> extAg1 t ht q.1 pr.1 q.2 pr.2 i h (CF.lt-split i t h)) pm ;
+    } ;
+    cov : (t : W.N) (ht : CF.Lt t (suc k)) -> MemR (Fn t) (Ag t) (lst t) (res t ht) = split {
+      zero -> \ ht -> (zero,(refl true,(s0,(refl (inl s0),\ i h -> W.ltN-zero-abs (R i (tau i (cv i zero h ht)) (s0 i h)) i h)))) ;
+      suc t | r -> \ ht -> Step[t,ht,r (W.ltN-sucR t k ht)].result } ;
+    -- the final statement, with the original proofs
+    full : MemR (Fn k) (Ag k) (lst k) tau =
+      ((cov k (W.ltN-suc k)).1,((cov k (W.ltN-suc k)).2.1,((cov k (W.ltN-suc k)).2.2.1,((cov k (W.ltN-suc k)).2.2.2.1,
+        \ i h -> PL.subst (CF.Lt i k) (\ x -> R i (tau i x) ((cov k (W.ltN-suc k)).2.2.1 i h)) (cv i k h (W.ltN-suc k)) h
+          (W.HB.uip (W.ltN i k) true (cv i k h (W.ltN-suc k)) h) ((cov k (W.ltN-suc k)).2.2.2.2 i h))))) ;
+  } ;
+} ;
+o3L : W.List (CF.Opt W.O3) = consL (inl lt) (consL (inl eq) (consL (inl gt) nilL)) ;
+o3M : (o : W.O3) -> Mem W.O3 o3L o = split {
+  lt -> (zero,(refl true,(lt,(refl (inl lt),refl lt)))) ;
+  eq -> (suc zero,(refl true,(eq,(refl (inl eq),refl eq)))) ;
+  gt -> (suc (suc zero),(refl true,(gt,(refl (inl gt),refl gt)))) } ;
+
+-- a decision, viewed as a boolean, and its extraction
+isInlO (A B : U l) : W.Or A B -> W.Bool = split { inl a -> true ; inr b -> false } ;
+extract (A B : U l) : (o : W.Or A B) -> Id W.Bool (isInlO A B o) true -> A = split {
+  inl a -> \ h -> a ; inr b -> \ h -> W.absurdB A h } ;
+isInl-of (A : U l) : (o : W.Or A (A -> W.Empty)) -> A -> Id W.Bool (isInlO A (A -> W.Empty) o) true = split {
+  inl a -> \ x -> refl true ; inr na -> \ x -> CF.efq (Id W.Bool false true) (na x) } ;
+
+-- inverting a mapped list
+optMap-inv (A B : U l) (f : A -> B) (b : B) : (o : CF.Opt A) -> Id (CF.Opt B) (optMap A B f o) (inl b) ->
+    (a : A) * (Id (CF.Opt A) o (inl a) * Id B (f a) b) = split {
+  inl a -> \ e -> (a,(refl (inl a),CF.inl-inj B (f a) b e)) ;
+  inr u -> \ e -> CF.efq ((a : A) * (Id (CF.Opt A) (inr u) (inl a) * Id B (f a) b)) (CF.inl-inr B b u (PL.sym (CF.Opt B) (inr u) (inl b) e)) } ;
+mapO-inv (A B : U l) (f : A -> B) (xs : W.List (CF.Opt A)) (t : W.N) (b : B) (e : Id (CF.Opt B) (nthO B (mapO A B f xs) t) (inl b)) :
+    (a : A) * (Id (CF.Opt A) (nthO A xs t) (inl a) * Id B (f a) b) =
+  optMap-inv A B f b (nthO A xs t) (PL.trans (CF.Opt B) (optMap A B f (nthO A xs t)) (nthO B (mapO A B f xs) t) (inl b)
+    (PL.sym (CF.Opt B) (nthO B (mapO A B f xs) t) (optMap A B f (nthO A xs t)) (nth-mapO A B f xs t)) e) ;
+inl-of (A B : U l) : (o : W.Or A B) -> Id W.Bool (isInlO A B o) true -> (a : A) * Id (W.Or A B) o (inl a) = split {
+  inl a -> \ h -> (a,refl (inl a)) ; inr b -> \ h -> W.absurdB ((a : A) * Id (W.Or A B) (inr b) (inl a)) h } ;
+optCase (A : U l) : CF.Opt A -> W.N -> W.N -> W.N = split { inl a -> \ x y -> x ; inr u -> \ x y -> y } ;

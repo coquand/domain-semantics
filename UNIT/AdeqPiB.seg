@@ -1,0 +1,193 @@
+-- AdeqPiB.seg: the budgeted adequacy (PRA/LEVELS.md, B4): the statement
+-- and the cases var, conv (and eq-conv), U, Pi (and eq-Pi), sym, trans.
+--   AdB0 K   the statement of AdeqPiP.Ad at the bound K: the environment
+--            fits at K (FitsK), the instance (u, c) is in semK K with
+--            TpK K (el u c), the variables are related up to Kmax (RelSB);
+--   AdW w    AdB0 K for every K with w + K <= Kmax (w is the weight of the
+--            derivation: how far above K its proof may look).
+-- A case at K calls the induction hypotheses at K + (the bound of a
+-- soundness step), at most Kmax by the weights.
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open SynLemmas[l] ; open Weaken[l] ; open Subst[l] ; open Presup[l] ; open Cross[l] ;
+open Filter[l] ; open Sem[l] ; open Sound[l] ; open Reduction[l] ; open RelC[l] ; open LawsC[l] ; open AdeqBase[l] ;
+open PrinEnv[l] ; open AdeqPiP[l] ;
+open TypingK[l] ; open SemK[l] ; open SoundK[l] ; open LawsK[l] ; open AdeqBaseB[l] ;
+
+-- the weight of a call: wi + (inc + K) <= Kmax from (wi + inc) <= w and w + K <= Kmax
+wstep (Kmax wi inc w K : Nat) (hw : LeN (add wi inc) w) (hB : LeN (add w K) Kmax) : LeN (add wi (add inc K)) Kmax =
+  leN-trans (add wi (add inc K)) (add (add wi inc) K) Kmax (add-assoc-le wi inc K)
+    (leN-trans (add (add wi inc) K) (add w K) Kmax (le-at (add wi inc) w K hw) hB) ;
+
+wstep0 (Kmax wi w K : Nat) (hw : LeN wi w) (hB : LeN (add w K) Kmax) : LeN (add wi K) Kmax =
+  leN-trans (add wi K) (add w K) Kmax (le-at wi w K hw) hB ;
+
+add-zero-le : (a : Nat) -> LeN (add a zero) a = split { zero -> tt ; suc a | r -> r } ;
+
+-- fitting at K, over a principal environment (finite data k: PrinEnv.IsPrin)
+FitsKP (K : Nat) (m : Nat) (G : Ctx m) (rho : Env m) : U l = FitsK K m G rho * IsPrin m rho ;
+
+fitskp-map (K K' : Nat) (le : LeN K K') (m : Nat) (G : Ctx m) (rho : Env m) (fi : FitsKP K m G rho) : FitsKP K' m G rho =
+  (fitsk-map K K' le m G rho fi.1, fi.2) ;
+
+fitskp-ext (K : Nat) (m : Nat) (G : Ctx m) (A : Tm m) (rho : Env m) (x : Ty) (fi : FitsKP K m G rho)
+    (hx : TyInK K (semK K m A rho) x) : FitsKP K (suc m) (ext m G A) (extE m rho (prin x)) =
+  (fitsk-ext K m G A rho x fi.1 hx, isprin-ext m rho x fi.2) ;
+
+-- fitting moved along an equivalence of environments
+fitsk-eq (K : Nat) : (m : Nat) -> (G : Ctx m) -> (rho rho' : Env m) -> EnvEq m rho rho' -> FitsK K m G rho -> FitsK K m G rho' = split {
+  zero -> \ G rho rho' e fi -> tt ;
+  suc m | r -> \ G rho rho' e fi ->
+    (r G.1 (tlE m rho) (tlE m rho') (\ i -> e (fs m i)) fi.1,
+     \ t mt -> enlk-map K K (leN-refl K) (rho (fz m)) (rho' (fz m)) (semK K m G.2 (tlE m rho)) (semK K m G.2 (tlE m rho'))
+                 (e (fz m)).1 (semK-eq K m G.2 (tlE m rho) (tlE m rho') (\ i -> e (fs m i))).1 t (fi.2 t ((e (fz m)).2 t mt))) } ;
+
+penv-isprin (m : Nat) (k : Fin m -> Ty) : IsPrin m (penv m k) = (k, \ i -> feq-refl (prin (k i))) ;
+
+wbound (Kmax w K : Nat) (hB : LeN (add w K) Kmax) : LeN K Kmax = leN-trans K (add w K) Kmax (leN-add w K) hB ;
+
+module AdeqPB (n : Nat) (D : Ctx n) (wD : Der n (jwf D)) (Kmax : Nat) {
+  open RelCD[n, D] ;
+  open LawsCD[n, D] ;
+  open AdeqB[n, D] ;
+  open AdeqBB[n, D, Kmax] ;
+  open AdeqPP[n, D, wD] ;
+
+  AdB0 (K : Nat) (m : Nat) (G : Ctx m) (M M' A : Tm m) : U l+ =
+    (rho : Env m) -> FitsKP K m G rho -> (s s' : Fin m -> Tm n) -> RelSB m G rho s s' ->
+    (u c : Ty) -> (semK K m M rho).mem u -> (semK K m A rho).mem c -> TpK K (el u c) ->
+    TmR u (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m M' n s') *
+    TmR u (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m M' n s') ;
+
+  AdW (w : Nat) (m : Nat) (G : Ctx m) (M M' A : Tm m) : U l+ =
+    (K : Nat) -> LeN (add w K) Kmax -> AdB0 K m G M M' A ;
+
+  -- the statement over finite data: the environment is penv k
+  AdBF (K : Nat) (m : Nat) (G : Ctx m) (M M' A : Tm m) : U l+ =
+    (k : Fin m -> Ty) -> FitsK K m G (penv m k) -> (s s' : Fin m -> Tm n) -> RelSB m G (penv m k) s s' ->
+    (u c : Ty) -> (semK K m M (penv m k)).mem u -> (semK K m A (penv m k)).mem c -> TpK K (el u c) ->
+    TmR u (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m M' n s') *
+    TmR u (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m M' n s') ;
+
+  AdWF (w : Nat) (m : Nat) (G : Ctx m) (M M' A : Tm m) : U l+ =
+    (K : Nat) -> LeN (add w K) Kmax -> AdBF K m G M M' A ;
+
+  relsB-eq (m : Nat) (G : Ctx m) (rho rho' : Env m) (e : EnvEq m rho rho') (s s' : Fin m -> Tm n) (rs : RelSB m G rho s s') :
+      RelSB m G rho' s s' =
+    new RelSBR[m, G, rho', s, s', ok := rs.ok, ok' := rs.ok', eq := rs.eq, eq' := rs.eq',
+      vr := \ i u c mu mc hc -> rs.vr i u c ((e i).2 u mu) ((semK-eq Kmax m (lookup m G i) rho rho' e).2 c mc) hc] ;
+
+  -- the two statements agree
+  toF (K : Nat) (m : Nat) (G : Ctx m) (M M' A : Tm m) (r : AdB0 K m G M M' A) : AdBF K m G M M' A =
+    \ k fi s s' rs u c mu mc hc -> r (penv m k) (fi, penv-isprin m k) s s' rs u c mu mc hc ;
+
+  fromF (K : Nat) (m : Nat) (G : Ctx m) (M M' A : Tm m) (r : AdBF K m G M M' A) : AdB0 K m G M M' A =
+    \ rho fi s s' rs u c mu mc hc ->
+      r fi.2.1 (fitsk-eq K m G rho (penv m fi.2.1) fi.2.2 fi.1) s s' (relsB-eq m G rho (penv m fi.2.1) fi.2.2 s s' rs) u c
+        ((semK-eq K m M rho (penv m fi.2.1) fi.2.2).1 u mu) ((semK-eq K m A rho (penv m fi.2.1) fi.2.2).1 c mc) hc ;
+
+  WF (w : Nat) (m : Nat) (G : Ctx m) (M M' A : Tm m) (r : AdW w m G M M' A) : AdWF w m G M M' A =
+    \ K hB -> toF K m G M M' A (r K hB) ;
+  FW (w : Nat) (m : Nat) (G : Ctx m) (M M' A : Tm m) (r : AdWF w m G M M' A) : AdW w m G M M' A =
+    \ K hB -> fromF K m G M M' A (r K hB) ;
+
+  -- at the type U: the relation as types
+  ad-tyB (K : Nat) (m : Nat) (G : Ctx m) (A A' : Tm m) (r : AdB0 K m G A A' (uu m)) (rho : Env m) (fi : FitsKP K m G rho)
+      (s s' : Fin m -> Tm n) (rs : RelSB m G rho s s') (c : Ty) (mc : (semK K m A rho).mem c) (hc : TpK K (el c univ)) :
+      TyR c (Sub.trav m A n s) (Sub.trav m A' n s') =
+    tmr-ty c (uu n) (Sub.trav m A n s) (Sub.trav m A' n s') (r rho fi s s' rs c univ mc (le-refl univ) hc).1 ;
+
+  ----------------------------------------------------------------------
+  -- var, U
+
+  ad-varB (m : Nat) (G : Ctx m) (i : Fin m) : AdW zero m G (var m i) (var m i) (lookup m G i) =
+    \ K hB rho fi s s' rs u c mu mc hc ->
+      rs.vr i u c mu (semK-monoK K Kmax hB m (lookup m G i) rho c mc) (tpk-mono K Kmax hB u c hc) ;
+
+  ad-UB (m : Nat) (G : Ctx m) : AdW zero m G (uu m) (uu m) (uu m) =
+    \ K hB rho fi s s' rs u c mu mc hc -> (tmr-uu u mu, tmr-uu u mu) ;
+
+  ----------------------------------------------------------------------
+  -- conv: the type moved back along A = B by quantitative soundness
+
+  ad-conv-atB (m : Nat) (G : Ctx m) (M M' A B : Tm m) (w1 w2 d2 : Nat)
+      (r1 : AdW w1 m G M M' A) (r2 : AdW w2 m G A B (uu m)) (e2 : EqIH m G A B (uu m) d2)
+      (K : Nat) (hB : LeN (add (add (add w1 w2) d2) K) Kmax)
+      (rho : Env m) (fi : FitsKP K m G rho) (s s' : Fin m -> Tm n) (rs : RelSB m G rho s s') (u c : Ty)
+      (mu : (semK K m M rho).mem u) (mc : (semK K m B rho).mem c) (hc : TpK K (el u c)) :
+      TmR u (Sub.trav m B n s) (Sub.trav m M n s) (Sub.trav m M' n s') *
+      TmR u (Sub.trav m B n s') (Sub.trav m M n s) (Sub.trav m M' n s') =
+    (cl5 u c (tpk-tp K u c hc) (Sub.trav m A n s) (Sub.trav m B n s) (Sub.trav m M n s) (Sub.trav m M' n s')
+       (ad-tyB K1 m G A B (r2 K1 h2) rho fi1 s s (rels-diagB m G rho s s' rs) c mcA hcU) t.1,
+     cl5 u c (tpk-tp K u c hc) (Sub.trav m A n s') (Sub.trav m B n s') (Sub.trav m M n s) (Sub.trav m M' n s')
+       (ad-tyB K1 m G A B (r2 K1 h2) rho fi1 s' s' (rels-diagB m G rho s' s (rels-symB m G rho s s' rs)) c mcA hcU) t.2)
+    where {
+      w : Nat = add (add w1 w2) d2 ;
+      K1 : Nat = add d2 K ;
+      lK : LeN K K1 = leN-add d2 K ;
+      h1 : LeN (add w1 K1) Kmax = wstep Kmax w1 d2 w K (am2 w1 (add w1 w2) d2 d2 (le-sum-l w1 w2) (leN-refl d2)) hB ;
+      h2 : LeN (add w2 K1) Kmax = wstep Kmax w2 d2 w K (am2 w2 (add w1 w2) d2 d2 (le-sum-r w1 w2) (leN-refl d2)) hB ;
+      fi1 : FitsKP K1 m G rho = fitskp-map K K1 lK m G rho fi ;
+      hc1 : TpK K1 (el u c) = tpk-mono K K1 lK u c hc ;
+      mcA : (semK K1 m A rho).mem c = (e2 K K1 (leN-refl K1) rho fi.1).2 c mc ;
+      hcU : TpK K1 (el c univ) = tpk-pre K1 u c hc1 ;
+      t : TmR u (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m M' n s') *
+          TmR u (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m M' n s') =
+        r1 K1 h1 rho fi1 s s' rs u c (semK-monoK K K1 lK m M rho u mu) mcA hc1 ; } ;
+
+  ad-convB (m : Nat) (G : Ctx m) (M M' A B : Tm m) (w1 w2 d2 : Nat)
+      (r1 : AdW w1 m G M M' A) (r2 : AdW w2 m G A B (uu m)) (e2 : EqIH m G A B (uu m) d2) :
+      AdW (add (add w1 w2) d2) m G M M' B =
+    \ K hB rho fi s s' rs u c mu mc hc -> ad-conv-atB m G M M' A B w1 w2 d2 r1 r2 e2 K hB rho fi s s' rs u c mu mc hc ;
+
+  ----------------------------------------------------------------------
+  -- sym, trans: the subject moved along the premise
+
+  ad-sym-atB (m : Nat) (G : Ctx m) (M N A : Tm m) (w d : Nat) (r : AdW w m G M N A) (e : EqIH m G M N A d)
+      (K : Nat) (hB : LeN (add (add w d) K) Kmax)
+      (rho : Env m) (fi : FitsKP K m G rho) (s s' : Fin m -> Tm n) (rs : RelSB m G rho s s') (u c : Ty)
+      (mu : (semK K m N rho).mem u) (mc : (semK K m A rho).mem c) (hc : TpK K (el u c)) :
+      TmR u (Sub.trav m A n s) (Sub.trav m N n s) (Sub.trav m M n s') *
+      TmR u (Sub.trav m A n s') (Sub.trav m N n s) (Sub.trav m M n s') =
+    (cl4 u c (tpk-tp K u c hc) (Sub.trav m A n s) (Sub.trav m M n s') (Sub.trav m N n s) t.2,
+     cl4 u c (tpk-tp K u c hc) (Sub.trav m A n s') (Sub.trav m M n s') (Sub.trav m N n s) t.1)
+    where {
+      K1 : Nat = add d K ;
+      lK : LeN K K1 = leN-add d K ;
+      t : TmR u (Sub.trav m A n s') (Sub.trav m M n s') (Sub.trav m N n s) *
+          TmR u (Sub.trav m A n s) (Sub.trav m M n s') (Sub.trav m N n s) =
+        r K1 (wstep Kmax w d (add w d) K (leN-refl (add w d)) hB) rho (fitskp-map K K1 lK m G rho fi) s' s
+          (rels-symB m G rho s s' rs) u c ((e K K1 (leN-refl K1) rho fi.1).2 u mu)
+          (semK-monoK K K1 lK m A rho c mc) (tpk-mono K K1 lK u c hc) ; } ;
+
+  ad-symB (m : Nat) (G : Ctx m) (M N A : Tm m) (w d : Nat) (r : AdW w m G M N A) (e : EqIH m G M N A d) :
+      AdW (add w d) m G N M A =
+    \ K hB rho fi s s' rs u c mu mc hc -> ad-sym-atB m G M N A w d r e K hB rho fi s s' rs u c mu mc hc ;
+
+  ad-trans-atB (m : Nat) (G : Ctx m) (M N P A : Tm m) (w1 w2 d : Nat) (r1 : AdW w1 m G M N A) (r2 : AdW w2 m G N P A)
+      (e : EqIH m G M N A d) (K : Nat) (hB : LeN (add (add (add w1 w2) d) K) Kmax)
+      (rho : Env m) (fi : FitsKP K m G rho) (s s' : Fin m -> Tm n) (rs : RelSB m G rho s s') (u c : Ty)
+      (mu : (semK K m M rho).mem u) (mc : (semK K m A rho).mem c) (hc : TpK K (el u c)) :
+      TmR u (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m P n s') *
+      TmR u (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m P n s') =
+    (cl6 u c (tpk-tp K u c hc) (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m N n s) (Sub.trav m P n s')
+       (r1 K h1 rho fi s s (rels-diagB m G rho s s' rs) u c mu mc hc).1 (r2 K1 h2 rho fi1 s s' rs u c uN mc1 hc1).1,
+     cl6 u c (tpk-tp K u c hc) (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m N n s') (Sub.trav m P n s')
+       (r1 K h1 rho fi s s' rs u c mu mc hc).2
+       (r2 K1 h2 rho fi1 s' s' (rels-diagB m G rho s' s (rels-symB m G rho s s' rs)) u c uN mc1 hc1).1)
+    where {
+      w : Nat = add (add w1 w2) d ;
+      K1 : Nat = add d K ;
+      lK : LeN K K1 = leN-add d K ;
+      h1 : LeN (add w1 K) Kmax = wstep0 Kmax w1 w K (leN-trans w1 (add w1 w2) w (le-sum-l w1 w2) (le-sum-l (add w1 w2) d)) hB ;
+      h2 : LeN (add w2 K1) Kmax = wstep Kmax w2 d w K (am2 w2 (add w1 w2) d d (le-sum-r w1 w2) (leN-refl d)) hB ;
+      fi1 : FitsKP K1 m G rho = fitskp-map K K1 lK m G rho fi ;
+      uN : (semK K1 m N rho).mem u = (e K K1 (leN-refl K1) rho fi.1).1 u mu ;
+      mc1 : (semK K1 m A rho).mem c = semK-monoK K K1 lK m A rho c mc ;
+      hc1 : TpK K1 (el u c) = tpk-mono K K1 lK u c hc ; } ;
+
+  ad-transB (m : Nat) (G : Ctx m) (M N P A : Tm m) (w1 w2 d : Nat) (r1 : AdW w1 m G M N A) (r2 : AdW w2 m G N P A)
+      (e : EqIH m G M N A d) : AdW (add (add w1 w2) d) m G M P A =
+    \ K hB rho fi s s' rs u c mu mc hc -> ad-trans-atB m G M N P A w1 w2 d r1 r2 e K hB rho fi s s' rs u c mu mc hc ;
+} ;

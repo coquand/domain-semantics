@@ -1,0 +1,266 @@
+-- The category of ALL linear orders and strictly increasing maps, as a
+-- category of embeddings whose finite objects are the finite ordinals.
+--
+-- Objects DP.LO (large), morphisms DP.Map (strictly increasing, hence
+-- order embeddings); equality of maps is pointwise (map-eq, funext);
+-- every map is mono (injective); the pull-back of f, f' is
+-- {(b,b') | f b = f' b'} ordered by b; finite objects [n].
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CE = CatEmb[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module FE = Axioms[l].FunExtLemmas[fe @l] ;
+
+idMap (A : DP.LO) : DP.Map A A = (\ x -> x,\ x y -> refl (A.cmp x y)) ;
+compMap (A B D : DP.LO) (f : DP.Map A B) (g : DP.Map B D) : DP.Map A D =
+  (\ x -> g.1 (f.1 x),\ x y -> PL.trans W.O3 (D.cmp (g.1 (f.1 x)) (g.1 (f.1 y))) (B.cmp (f.1 x) (f.1 y)) (A.cmp x y)
+    (g.2 (f.1 x) (f.1 y)) (f.2 x y)) ;
+map-eq (A B : DP.LO) (f g : DP.Map A B) (e : (x : A.car) -> Id B.car (f.1 x) (g.1 x)) : Id (DP.Map A B) f g =
+  PL.Sigma-eq (A.car -> B.car) (\ h -> (x y : A.car) -> Id W.O3 (B.cmp (h x) (h y)) (A.cmp x y)) f.1 g.1 f.2 g.2
+    (FE.funext A.car (\ x -> B.car) f.1 g.1 e)
+    (FE.isProp-Pi A.car (\ x -> (y : A.car) -> Id W.O3 (B.cmp (g.1 x) (g.1 y)) (A.cmp x y))
+      (\ x -> FE.isProp-Pi A.car (\ y -> Id W.O3 (B.cmp (g.1 x) (g.1 y)) (A.cmp x y))
+        (\ y -> PF.o3-set (B.cmp (g.1 x) (g.1 y)) (A.cmp x y)))) ;
+
+-- pull-backs
+module PB (A B B' : DP.LO) (f : DP.Map B A) (f' : DP.Map B' A) {
+  Car : U l = (b : B.car) * ((b' : B'.car) * Id A.car (f.1 b) (f'.1 b')) ;
+  snd-prop (b : B.car) : PL.isProp ((b' : B'.car) * Id A.car (f.1 b) (f'.1 b')) = \ u v ->
+    PL.Sigma-eq B'.car (\ b' -> Id A.car (f.1 b) (f'.1 b')) u.1 v.1 u.2 v.2
+      (DP.map-inj B' A f' u.1 v.1 (PL.trans A.car (f'.1 u.1) (f.1 b) (f'.1 v.1) (PL.sym A.car (f.1 b) (f'.1 u.1) u.2) v.2))
+      (PF.lo-set A (f.1 b) (f'.1 v.1)) ;
+  peq (p q : Car) (e : Id B.car p.1 q.1) : Id Car p q =
+    PL.Sigma-eq B.car (\ b -> (b' : B'.car) * Id A.car (f.1 b) (f'.1 b')) p.1 q.1 p.2 q.2 e (snd-prop q.1) ;
+  P : DP.LO = new DP.LO[car := Car, cmp := \ p q -> B.cmp p.1 q.1,
+    ceq := \ p q h -> peq p q (B.ceq p.1 q.1 h),
+    crefl := \ p -> B.crefl p.1, cflip := \ p q -> B.cflip p.1 q.1,
+    ctrans := \ p q r -> B.ctrans p.1 q.1 r.1] ;
+  p1 : DP.Map P B = (\ p -> p.1,\ p q -> refl (B.cmp p.1 q.1)) ;
+  p2 : DP.Map P B' = (\ p -> p.2.1,\ p q ->
+    PL.trans W.O3 (B'.cmp p.2.1 q.2.1) (A.cmp (f'.1 p.2.1) (f'.1 q.2.1)) (B.cmp p.1 q.1)
+      (PL.sym W.O3 (A.cmp (f'.1 p.2.1) (f'.1 q.2.1)) (B'.cmp p.2.1 q.2.1) (f'.2 p.2.1 q.2.1))
+      (PL.trans W.O3 (A.cmp (f'.1 p.2.1) (f'.1 q.2.1)) (A.cmp (f.1 p.1) (f.1 q.1)) (B.cmp p.1 q.1)
+        (W.ap2 A.car A.car W.O3 A.cmp (f'.1 p.2.1) (f.1 p.1) (f'.1 q.2.1) (f.1 q.1)
+          (PL.sym A.car (f.1 p.1) (f'.1 p.2.1) p.2.2) (PL.sym A.car (f.1 q.1) (f'.1 q.2.1) q.2.2))
+        (f.2 p.1 q.1))) ;
+  sq : Id (DP.Map P A) (compMap P B A p1 f) (compMap P B' A p2 f') =
+    map-eq P A (compMap P B A p1 f) (compMap P B' A p2 f') (\ p -> p.2.2) ;
+  module Univ (E : DP.LO) (g : DP.Map E B) (g' : DP.Map E B') (e : Id (DP.Map E A) (compMap E B A g f) (compMap E B' A g' f')) {
+    h : DP.Map E P = (\ x -> (g.1 x,(g'.1 x,PL.ap (DP.Map E A) A.car (\ M -> M.1 x) (compMap E B A g f) (compMap E B' A g' f') e)),
+      \ x y -> g.2 x y) ;
+    result : (hh : DP.Map E P) * (Id (DP.Map E B) (compMap E P B hh p1) g * Id (DP.Map E B') (compMap E P B' hh p2) g') =
+      (h,(map-eq E B (compMap E P B h p1) g (\ x -> refl (g.1 x)),map-eq E B' (compMap E P B' h p2) g' (\ x -> refl (g'.1 x)))) ;
+  } ;
+} ;
+
+-- finite ordinals as linear orders
+Pt (n : W.N) : U l = (k : W.N) * CF.Lt k n ;
+ptEq (n : W.N) (p q : Pt n) (e : Id W.N p.1 q.1) : Id (Pt n) p q =
+  PL.Sigma-eq W.N (\ k -> CF.Lt k n) p.1 q.1 p.2 q.2 e (W.HB.uip (W.ltN q.1 n) true) ;
+ord (n : W.N) : DP.LO = FinOrdEx[l].G n ;
+
+--------------------------------------------------------------------
+-- strictly sorted lists in a linear order, and their merge
+
+module SL (A : DP.LO) {
+  LtA (a b : A.car) : U l = Id W.O3 (A.cmp a b) lt ;
+  L : U l = W.List A.car ;
+  len : L -> W.N = split { nilL -> zero ; consL x xs | r -> suc r } ;
+  Mem (a : A.car) : L -> U l = split { nilL -> W.Empty ; consL x xs | r -> W.Or (Id A.car x a) r } ;
+  AllGt (x : A.car) (xs : L) : U l = (a : A.car) -> Mem a xs -> LtA x a ;
+  Srt : L -> U l = split { nilL -> W.Unit ; consL x xs | r -> AllGt x xs * r } ;
+  -- merge, with duplicates removed
+  stp (x : A.car) (xs : L) (y : A.car) (ys : L) (r : L -> L) (r' : L) : W.O3 -> L = split {
+    lt -> consL x (r (consL y ys)) ; eq -> consL x (r ys) ; gt -> consL y r' } ;
+  mergeY (x : A.car) (xs : L) (r : L -> L) : L -> L = split {
+    nilL -> consL x xs ;
+    consL y ys | r' -> stp x xs y ys r r' (A.cmp x y) } ;
+  merge : L -> L -> L = split {
+    nilL -> \ ys -> ys ;
+    consL x xs | r -> mergeY x xs r } ;
+  -- membership in the merge
+  orL (P Q R : U l) (f : P -> R) (g : Q -> R) : W.Or P Q -> R = CF.or-elim P Q R f g ;
+  Inv (r : L -> L) (xs : L) : U l = (ys : L) (a : A.car) -> Mem a (r ys) -> W.Or (Mem a xs) (Mem a ys) ;
+  M3s (x : A.car) (xs : L) (y : A.car) (ys : L) (r : L -> L) (r' : L)
+    (ir : (zs : L) (a : A.car) -> Mem a (r zs) -> W.Or (Mem a xs) (Mem a zs))
+    (ir' : (a : A.car) -> Mem a r' -> W.Or (Mem a (consL x xs)) (Mem a ys)) (a : A.car) :
+    (o : W.O3) -> Mem a (stp x xs y ys r r' o) -> W.Or (Mem a (consL x xs)) (Mem a (consL y ys)) = split {
+    lt -> \ m -> orL (Id A.car x a) (Mem a (r (consL y ys))) (W.Or (Mem a (consL x xs)) (Mem a (consL y ys)))
+      (\ e -> inl (inl e)) (\ m' -> orL (Mem a xs) (Mem a (consL y ys)) (W.Or (Mem a (consL x xs)) (Mem a (consL y ys)))
+        (\ u -> inl (inr u)) (\ u -> inr u) (ir (consL y ys) a m')) m ;
+    eq -> \ m -> orL (Id A.car x a) (Mem a (r ys)) (W.Or (Mem a (consL x xs)) (Mem a (consL y ys)))
+      (\ e -> inl (inl e)) (\ m' -> orL (Mem a xs) (Mem a ys) (W.Or (Mem a (consL x xs)) (Mem a (consL y ys)))
+        (\ u -> inl (inr u)) (\ u -> inr (inr u)) (ir ys a m')) m ;
+    gt -> \ m -> orL (Id A.car y a) (Mem a r') (W.Or (Mem a (consL x xs)) (Mem a (consL y ys)))
+      (\ e -> inr (inl e)) (\ m' -> orL (Mem a (consL x xs)) (Mem a ys) (W.Or (Mem a (consL x xs)) (Mem a (consL y ys)))
+        (\ u -> inl u) (\ u -> inr (inr u)) (ir' a m')) m } ;
+  M3 : (xs ys : L) (a : A.car) -> Mem a (merge xs ys) -> W.Or (Mem a xs) (Mem a ys) = split {
+    nilL -> \ ys a m -> inr m ;
+    consL x xs | r -> split {
+      nilL -> \ a m -> inl m ;
+      consL y ys | r' -> \ a m -> M3s x xs y ys (merge xs) (mergeY x xs (merge xs) ys) r r' a (A.cmp x y) m } } ;
+  -- everything of both lists is in the merge
+  M12s (x : A.car) (xs : L) (y : A.car) (ys : L) (r : L -> L) (r' : L)
+    (ir : (zs : L) (a : A.car) -> W.Or (Mem a xs) (Mem a zs) -> Mem a (r zs))
+    (ir' : (a : A.car) -> W.Or (Mem a (consL x xs)) (Mem a ys) -> Mem a r') (a : A.car) :
+    (o : W.O3) -> Id W.O3 (A.cmp x y) o -> W.Or (Mem a (consL x xs)) (Mem a (consL y ys)) -> Mem a (stp x xs y ys r r' o) = split {
+    lt -> \ e m -> orL (Mem a (consL x xs)) (Mem a (consL y ys)) (Mem a (stp x xs y ys r r' lt))
+      (\ m1 -> orL (Id A.car x a) (Mem a xs) (Mem a (stp x xs y ys r r' lt)) (\ ex -> inl ex) (\ mx -> inr (ir (consL y ys) a (inl mx))) m1)
+      (\ m2 -> inr (ir (consL y ys) a (inr m2))) m ;
+    eq -> \ e m -> orL (Mem a (consL x xs)) (Mem a (consL y ys)) (Mem a (stp x xs y ys r r' eq))
+      (\ m1 -> orL (Id A.car x a) (Mem a xs) (Mem a (stp x xs y ys r r' eq)) (\ ex -> inl ex) (\ mx -> inr (ir ys a (inl mx))) m1)
+      (\ m2 -> orL (Id A.car y a) (Mem a ys) (Mem a (stp x xs y ys r r' eq))
+        (\ ey -> inl (PL.trans A.car x y a (A.ceq x y e) ey)) (\ my -> inr (ir ys a (inr my))) m2) m ;
+    gt -> \ e m -> orL (Mem a (consL x xs)) (Mem a (consL y ys)) (Mem a (stp x xs y ys r r' gt))
+      (\ m1 -> inr (ir' a (inl m1)))
+      (\ m2 -> orL (Id A.car y a) (Mem a ys) (Mem a (stp x xs y ys r r' gt)) (\ ey -> inl ey) (\ my -> inr (ir' a (inr my))) m2) m } ;
+  M12 : (xs ys : L) (a : A.car) -> W.Or (Mem a xs) (Mem a ys) -> Mem a (merge xs ys) = split {
+    nilL -> \ ys a m -> orL W.Empty (Mem a ys) (Mem a ys) (\ z -> CF.efq (Mem a ys) z) (\ z -> z) m ;
+    consL x xs | r -> split {
+      nilL -> \ a m -> orL (Mem a (consL x xs)) W.Empty (Mem a (consL x xs)) (\ z -> z) (\ z -> CF.efq (Mem a (consL x xs)) z) m ;
+      consL y ys | r' -> \ a m -> M12s x xs y ys (merge xs) (mergeY x xs (merge xs) ys) r r' a (A.cmp x y) (refl (A.cmp x y)) m } } ;
+  -- the merge of sorted lists is sorted
+  gtLt (x y : A.car) (e : Id W.O3 (A.cmp x y) gt) : LtA y x =
+    PL.trans W.O3 (A.cmp y x) (W.flip (A.cmp x y)) lt (A.cflip x y) (PL.ap W.O3 W.O3 W.flip (A.cmp x y) gt e) ;
+  Ss (x : A.car) (xs : L) (y : A.car) (ys : L) (sx : Srt (consL x xs)) (sy : Srt (consL y ys))
+    (ih : (zs : L) -> Srt xs -> Srt zs -> Srt (merge xs zs))
+    (ih' : Srt (consL x xs) -> Srt ys -> Srt (mergeY x xs (merge xs) ys)) :
+    (o : W.O3) -> Id W.O3 (A.cmp x y) o -> Srt (stp x xs y ys (merge xs) (mergeY x xs (merge xs) ys) o) = split {
+    lt -> \ e -> (\ a m -> orL (Mem a xs) (Mem a (consL y ys)) (LtA x a)
+        (\ mx -> sx.1 a mx)
+        (\ my -> orL (Id A.car y a) (Mem a ys) (LtA x a) (\ ey -> PL.subst A.car (\ z -> LtA x z) y a ey e)
+          (\ mys -> A.ctrans x y a e (sy.1 a mys)) my)
+        (M3 xs (consL y ys) a m),
+      ih (consL y ys) sx.2 sy) ;
+    eq -> \ e -> (\ a m -> orL (Mem a xs) (Mem a ys) (LtA x a)
+        (\ mx -> sx.1 a mx)
+        (\ mys -> PL.subst A.car (\ z -> LtA z a) y x (PL.sym A.car x y (A.ceq x y e)) (sy.1 a mys))
+        (M3 xs ys a m),
+      ih ys sx.2 sy.2) ;
+    gt -> \ e -> (\ a m -> orL (Mem a (consL x xs)) (Mem a ys) (LtA y a)
+        (\ mx -> orL (Id A.car x a) (Mem a xs) (LtA y a) (\ ex -> PL.subst A.car (\ z -> LtA y z) x a ex (gtLt x y e))
+          (\ mxs -> A.ctrans y x a (gtLt x y e) (sx.1 a mxs)) mx)
+        (\ mys -> sy.1 a mys)
+        (M3 (consL x xs) ys a m),
+      ih' sx sy.2) } ;
+  S : (xs ys : L) -> Srt xs -> Srt ys -> Srt (merge xs ys) = split {
+    nilL -> \ ys sx sy -> sy ;
+    consL x xs | r -> split {
+      nilL -> \ sx sy -> sx ;
+      consL y ys | r' -> \ sx sy -> Ss x xs y ys sx sy r r' (A.cmp x y) (refl (A.cmp x y)) } } ;
+  -- indexing
+  ev : (xs : L) (k : W.N) -> CF.Lt k (len xs) -> A.car = split {
+    nilL -> \ k h -> W.ltN-zero-abs A.car k h ;
+    consL x xs | r -> split { zero -> \ h -> x ; suc k -> \ h -> r k h } } ;
+  ev-mem : (xs : L) (k : W.N) (h : CF.Lt k (len xs)) -> Mem (ev xs k h) xs = split {
+    nilL -> \ k h -> W.ltN-zero-abs (Mem (ev nilL k h) nilL) k h ;
+    consL x xs | r -> split { zero -> \ h -> inl (refl x) ; suc k -> \ h -> inr (r k h) } } ;
+  ev-mono : (xs : L) -> Srt xs -> (k k' : W.N) (h : CF.Lt k (len xs)) (h' : CF.Lt k' (len xs)) ->
+      Id W.O3 (A.cmp (ev xs k h) (ev xs k' h')) (W.cmpN k k') = split {
+    nilL -> \ sx k k' h h' -> W.ltN-zero-abs (Id W.O3 (A.cmp (ev nilL k h) (ev nilL k' h')) (W.cmpN k k')) k h ;
+    consL x xs | r -> \ sx -> split {
+      zero -> split {
+        zero -> \ h h' -> A.crefl x ;
+        suc k' -> \ h h' -> sx.1 (ev xs k' h') (ev-mem xs k' h') } ;
+      suc k -> split {
+        zero -> \ h h' -> PL.trans W.O3 (A.cmp (ev xs k h) x) (W.flip (A.cmp x (ev xs k h))) gt (A.cflip x (ev xs k h))
+          (PL.ap W.O3 W.O3 W.flip (A.cmp x (ev xs k h)) lt (sx.1 (ev xs k h) (ev-mem xs k h))) ;
+        suc k' -> \ h h' -> r sx.2 k k' h h' } } } ;
+  -- the rank of an element: the number of entries below it
+  ifLt : W.O3 -> W.N -> W.N -> W.N = split { lt -> \ a b -> a ; eq -> \ a b -> b ; gt -> \ a b -> b } ;
+  rk (a : A.car) : L -> W.N = split { nilL -> zero ; consL x xs | r -> ifLt (A.cmp x a) (suc r) r } ;
+  rk-zero (a : A.car) : (xs : L) -> AllGt a xs -> Id W.N (rk a xs) zero = split {
+    nilL -> \ g -> refl zero ;
+    consL x xs | r -> \ g -> PL.trans W.N (ifLt (A.cmp x a) (suc (rk a xs)) (rk a xs)) (rk a xs) zero
+      (PL.ap W.O3 W.N (\ o -> ifLt o (suc (rk a xs)) (rk a xs)) (A.cmp x a) gt
+        (PL.trans W.O3 (A.cmp x a) (W.flip (A.cmp a x)) gt (A.cflip a x) (PL.ap W.O3 W.O3 W.flip (A.cmp a x) lt (g x (inl (refl x))))))
+      (r (\ b m -> g b (inr m))) } ;
+  Rank (xs : L) (a : A.car) : U l = (h : CF.Lt (rk a xs) (len xs)) * Id A.car (ev xs (rk a xs) h) a ;
+  rankL : (xs : L) -> Srt xs -> (a : A.car) -> Mem a xs -> Rank xs a = split {
+    nilL -> \ sx a m -> CF.efq (Rank nilL a) m ;
+    consL x xs | r -> \ sx a m -> orL (Id A.car x a) (Mem a xs) (Rank (consL x xs) a)
+      (\ ex -> PL.subst A.car (Rank (consL x xs)) x a ex
+        (PL.subst W.N (\ n -> (h : CF.Lt n (suc (len xs))) * Id A.car (ev (consL x xs) n h) x) zero (rk x (consL x xs))
+          (PL.sym W.N (rk x (consL x xs)) zero
+            (PL.trans W.N (ifLt (A.cmp x x) (suc (rk x xs)) (rk x xs)) (rk x xs) zero
+              (PL.ap W.O3 W.N (\ o -> ifLt o (suc (rk x xs)) (rk x xs)) (A.cmp x x) eq (A.crefl x))
+              (rk-zero x xs sx.1)))
+          (refl true,refl x)))
+      (\ ma -> PL.subst W.N (\ n -> (h : CF.Lt n (suc (len xs))) * Id A.car (ev (consL x xs) n h) a) (suc (rk a xs)) (rk a (consL x xs))
+        (PL.sym W.N (rk a (consL x xs)) (suc (rk a xs)) (PL.ap W.O3 W.N (\ o -> ifLt o (suc (rk a xs)) (rk a xs)) (A.cmp x a) lt (sx.1 a ma)))
+        (r sx.2 a ma))
+      m } ;
+  -- lists of a strictly increasing family
+  mkL : (c : W.N) -> ((x : W.N) -> CF.Lt x c -> A.car) -> L = split {
+    zero -> \ f -> nilL ;
+    suc c | r -> \ f -> consL (f zero (refl true)) (r (\ x h -> f (suc x) h)) } ;
+  mkL-mem : (c : W.N) (f : (x : W.N) -> CF.Lt x c -> A.car) (x : W.N) (h : CF.Lt x c) -> Mem (f x h) (mkL c f) = split {
+    zero -> \ f x h -> W.ltN-zero-abs (Mem (f x h) nilL) x h ;
+    suc c | r -> \ f -> split {
+      zero -> \ h -> inl (PL.ap (CF.Lt zero (suc c)) A.car (f zero) (refl true) h (W.HB.uip (W.ltN zero (suc c)) true (refl true) h)) ;
+      suc x -> \ h -> inr (r (\ y hy -> f (suc y) hy) x h) } } ;
+  mkL-inv : (c : W.N) (f : (x : W.N) -> CF.Lt x c -> A.car) (a : A.car) -> Mem a (mkL c f) ->
+      (x : W.N) * ((h : CF.Lt x c) * Id A.car (f x h) a) = split {
+    zero -> \ f a m -> CF.efq ((x : W.N) * ((h : CF.Lt x zero) * Id A.car (f x h) a)) m ;
+    suc c | r -> \ f a m -> orL (Id A.car (f zero (refl true)) a) (Mem a (mkL c (\ x h -> f (suc x) h))) ((x : W.N) * ((h : CF.Lt x (suc c)) * Id A.car (f x h) a))
+      (\ e -> (zero,(refl true,e)))
+      (\ m' -> (suc (r (\ x h -> f (suc x) h) a m').1,((r (\ x h -> f (suc x) h) a m').2.1,(r (\ x h -> f (suc x) h) a m').2.2))) m } ;
+  mkL-srt : (c : W.N) (f : (x : W.N) -> CF.Lt x c -> A.car)
+      (mono : (x : W.N) (h : CF.Lt x c) (y : W.N) (h' : CF.Lt y c) -> Id W.O3 (A.cmp (f x h) (f y h')) (W.cmpN x y)) -> Srt (mkL c f) = split {
+    zero -> \ f mono -> tt ;
+    suc c | r -> \ f mono ->
+      (\ a m -> PL.subst A.car (\ z -> LtA (f zero (refl true)) z) (f (suc (mkL-inv c (\ x h -> f (suc x) h) a m).1) (mkL-inv c (\ x h -> f (suc x) h) a m).2.1) a
+          (mkL-inv c (\ x h -> f (suc x) h) a m).2.2
+          (mono zero (refl true) (suc (mkL-inv c (\ x h -> f (suc x) h) a m).1) (mkL-inv c (\ x h -> f (suc x) h) a m).2.1),
+       r (\ x h -> f (suc x) h) (\ x h y h' -> mono (suc x) h (suc y) h')) } ;
+} ;
+
+-- directedness: merge the two finite images
+module DirL (A : DP.LO) (c c' : W.N) (i0 : DP.Map (ord c) A) (i1 : DP.Map (ord c') A) {
+  module S = SL[A] ;
+  f0 (x : W.N) (h : CF.Lt x c) : A.car = i0.1 (x,h) ;
+  f1 (x : W.N) (h : CF.Lt x c') : A.car = i1.1 (x,h) ;
+  l0 : S.L = S.mkL c f0 ;
+  l1 : S.L = S.mkL c' f1 ;
+  lm : S.L = S.merge l0 l1 ;
+  srt : S.Srt lm = S.S l0 l1 (S.mkL-srt c f0 (\ x h y h' -> i0.2 (x,h) (y,h'))) (S.mkL-srt c' f1 (\ x h y h' -> i1.2 (x,h) (y,h'))) ;
+  d : W.N = S.len lm ;
+  j : DP.Map (ord d) A = (\ p -> S.ev lm p.1 p.2,\ p q -> S.ev-mono lm srt p.1 q.1 p.2 q.2) ;
+  module K (n : W.N) (i : DP.Map (ord n) A) (mem : (p : Pt n) -> S.Mem (i.1 p) lm) {
+    rkp (p : Pt n) : S.Rank lm (i.1 p) = S.rankL lm srt (i.1 p) (mem p) ;
+    k : DP.Map (ord n) (ord d) =
+      (\ p -> (S.rk (i.1 p) lm,(rkp p).1),
+       \ p q -> PL.trans W.O3 (W.cmpN (S.rk (i.1 p) lm) (S.rk (i.1 q) lm)) (A.cmp (S.ev lm (S.rk (i.1 p) lm) (rkp p).1) (S.ev lm (S.rk (i.1 q) lm) (rkp q).1))
+           (W.cmpN p.1 q.1)
+         (PL.sym W.O3 (A.cmp (S.ev lm (S.rk (i.1 p) lm) (rkp p).1) (S.ev lm (S.rk (i.1 q) lm) (rkp q).1)) (W.cmpN (S.rk (i.1 p) lm) (S.rk (i.1 q) lm))
+           (S.ev-mono lm srt (S.rk (i.1 p) lm) (S.rk (i.1 q) lm) (rkp p).1 (rkp q).1))
+         (PL.trans W.O3 (A.cmp (S.ev lm (S.rk (i.1 p) lm) (rkp p).1) (S.ev lm (S.rk (i.1 q) lm) (rkp q).1)) (A.cmp (i.1 p) (i.1 q)) (W.cmpN p.1 q.1)
+           (W.ap2 A.car A.car W.O3 A.cmp (S.ev lm (S.rk (i.1 p) lm) (rkp p).1) (i.1 p) (S.ev lm (S.rk (i.1 q) lm) (rkp q).1) (i.1 q) (rkp p).2 (rkp q).2)
+           (i.2 p q))) ;
+    ek : Id (DP.Map (ord n) A) (compMap (ord n) (ord d) A k j) i = map-eq (ord n) A (compMap (ord n) (ord d) A k j) i (\ p -> (rkp p).2) ;
+  } ;
+  module K0 = K[c,i0,\ p -> S.M12 l0 l1 (i0.1 p) (inl (S.mkL-mem c f0 p.1 p.2))] ;
+  module K1 = K[c',i1,\ p -> S.M12 l0 l1 (i1.1 p) (inr (S.mkL-mem c' f1 p.1 p.2))] ;
+  T : U l = (d0 : W.N) * ((j0 : DP.Map (ord d0) A) * ((k0 : DP.Map (ord c) (ord d0)) * ((k1 : DP.Map (ord c') (ord d0)) *
+    (Id (DP.Map (ord c) A) (compMap (ord c) (ord d0) A k0 j0) i0 * Id (DP.Map (ord c') A) (compMap (ord c') (ord d0) A k1 j0) i1)))) ;
+  result : T = (d,(j,(K0.k,(K1.k,(K0.ek,K1.ek))))) ;
+} ;
+
+-- the category of embeddings of all linear orders
+ce : CE.CE = new CE.CE[Obj := DP.LO, Mor := DP.Map, idm := idMap, comp := compMap,
+  id-l := \ A B f -> map-eq A B (compMap A A B (idMap A) f) f (\ x -> refl (f.1 x)),
+  id-r := \ A B f -> map-eq A B (compMap A B B f (idMap B)) f (\ x -> refl (f.1 x)),
+  assoc := \ A B D E f g h -> map-eq A E (compMap A D E (compMap A B D f g) h) (compMap A B E f (compMap B D E g h)) (\ x -> refl (h.1 (g.1 (f.1 x)))),
+  mono := \ A B D g g' f e -> map-eq A B g g' (\ x -> DP.map-inj B D f (g.1 x) (g'.1 x)
+    (PL.ap (DP.Map A D) D.car (\ M -> M.1 x) (compMap A B D g f) (compMap A B D g' f) e)),
+  pb := \ A B B' f f' -> PB[A,B,B',f,f'].P,
+  p1 := \ A B B' f f' -> PB[A,B,B',f,f'].p1,
+  p2 := \ A B B' f f' -> PB[A,B,B',f,f'].p2,
+  pb-sq := \ A B B' f f' -> PB[A,B,B',f,f'].sq,
+  pb-univ := \ A B B' f f' E g g' e -> PB[A,B,B',f,f'].Univ[E,g,g',e].result,
+  Fin := W.N, fin := ord,
+  dir := \ A c c' i0 i1 -> inc DirL[A,c,c',i0,i1].T DirL[A,c,c',i0,i1].result] ;

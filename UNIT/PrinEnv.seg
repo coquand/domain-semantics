@@ -1,0 +1,30 @@
+-- PrinEnv.seg: principal environments.  An environment is principal when
+-- each variable is (equivalent to) the principal filter of a compact
+-- element: the environment is then given by finite data k : Fin m -> Ty.
+-- FitsP = Fits together with principality; it is closed under the only
+-- environment extension the adequacy proof uses after AdeqAppFin,
+-- extE rho (prin x).  See PRA/LEVELS.md.
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open Filter[l] ; open Sem[l] ; open Sound[l] ;
+
+IsPrin (m : Nat) (rho : Env m) : U l = (k : Fin m -> Ty) * ((i : Fin m) -> FEq (rho i) (prin (k i))) ;
+
+FitsP (m : Nat) (G : Ctx m) (rho : Env m) : U l = Fits m G rho * IsPrin m rho ;
+
+consK (m : Nat) (x : Ty) (k : Fin m -> Ty) : Fin (suc m) -> Ty = split {
+  none -> x ;
+  some i -> k i } ;
+
+isprin-ext-at (m : Nat) (rho : Env m) (x : Ty) (p : IsPrin m rho) :
+    (i : Fin (suc m)) -> FEq (extE m rho (prin x) i) (prin (consK m x p.1 i)) = split {
+  none -> feq-refl (prin x) ;
+  some i -> p.2 i } ;
+
+isprin-ext (m : Nat) (rho : Env m) (x : Ty) (p : IsPrin m rho) : IsPrin (suc m) (extE m rho (prin x)) =
+  (consK m x p.1, isprin-ext-at m rho x p) ;
+
+fitsP-ext (m : Nat) (G : Ctx m) (A : Tm m) (rho : Env m) (x : Ty) (fi : FitsP m G rho)
+    (hA : TyU (sem m A rho)) (hx : TyIn (sem m A rho) x) : FitsP (suc m) (ext m G A) (extE m rho (prin x)) =
+  (fits-ext m G A rho x fi.1 hA hx, isprin-ext m rho x fi.2) ;

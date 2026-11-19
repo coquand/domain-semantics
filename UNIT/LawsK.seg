@@ -1,0 +1,51 @@
+-- LawsK.seg: the typed parts of a representative (LawsC.seg: key-tp,
+-- val-u, fam-val, sel-val) for bounded derivations TpK K (TypingK.seg),
+-- with the same proofs.  Used by the budgeted adequacy (AdeqB*.seg).
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open Weaken[l] ; open Subst[l] ; open Presup[l] ; open Reduction[l] ; open RelC[l] ; open LawsC[l] ;
+open TypingK[l] ;
+
+key-tpK (K : Nat) : (g d t : Ty) -> ASel g d t -> (A phi : Ty) -> TpK K (ent g A phi) -> TpK K (el A univ) -> Cons d ->
+    TpK K (el d A) = split {
+  as-none g -> \ A phi h hA cd -> k-bot om A tt (le-refl om) hA ;
+  as-here a b -> \ A phi h hA cd -> (ent-invK K (arr a b) A phi h).1 ;
+  as-l g1 g2 d t q | rq -> \ A phi h hA cd -> rq A phi (ent-invK K (meet g1 g2) A phi h).1 hA cd ;
+  as-r g1 g2 d t q | rq -> \ A phi h hA cd -> rq A phi (ent-invK K (meet g1 g2) A phi h).2 hA cd ;
+  as-meet g d1 t1 d2 t2 q1 q2 | r1 r2 -> \ A phi h hA cd ->
+    tpk-join K d1 d2 A (r1 A phi h hA (cons-meet-l d1 d2 cd))
+      (r2 A phi h hA (cons-down (meet d1 d2) d2 (le-meet-r d1 d2) cd)) cd } ;
+
+val-uK-by (K : Nat) (x v y : Ty) (h : TpK K (el v y)) (le : Le (arr om univ) (arr x y)) : ShapeK K v y -> TpK K (el v univ) = split {
+  sk-bot e hy -> k-bot v univ (tpk-bd-el K v y h).1 e (tpk-UU K) ;
+  sk-univ e1 e2 -> k-univ v univ (tpk-bd-el K v y h).1 tt e1 (eqv-refl univ) ;
+  sk-pi B psi bpi e1 e2 h1 h2 c -> tpk-conv K v y v univ h (tpk-bd-el K v y h).1 tt (eqv-refl v) e2 ;
+  sk-lam B psi f e1 e2 h1 h2 c ->
+    absurd (TpK K (el v univ)) (sel-all NoPiC i.2.1 (pi j.1 j.2.1) j.2.2.2.2.1 (asel-cod (arr om univ) i.1 i.2.1 i.2.2.1 tt))
+    where {
+      i : InvArr (arr om univ) x (pi B psi) =
+        inv-arr (arr om univ) x (pi B psi)
+          (le-trans (arr om univ) (arr x y) (arr x (pi B psi)) le (le-arr x x y (pi B psi) (le-refl x) e2.1)) ;
+      j : InvPi i.2.1 B psi = inv-pi i.2.1 B psi i.2.2.2.2 ; } } ;
+
+val-uK (K : Nat) (x v y : Ty) (h : TpK K (el v y)) (le : Le (arr om univ) (arr x y)) : TpK K (el v univ) =
+  val-uK-by K x v y h le (shapek K v y h) ;
+
+fam-valK (K : Nat) : (g d t : Ty) -> ASel g d t -> (A : Ty) -> TpK K (ent g A (arr om univ)) -> Cons g -> Cons d ->
+    TpK K (el t univ) = split {
+  as-none g -> \ A h cg cd -> tpk-omU K ;
+  as-here a b -> \ A h cg cd ->
+    val-uK K a b (ent-invK K (arr a b) A (arr om univ) h).2.1 (ent-invK K (arr a b) A (arr om univ) h).2.2.2
+      (ent-invK K (arr a b) A (arr om univ) h).2.2.1 ;
+  as-l g1 g2 d t q | rq -> \ A h cg cd -> rq A (ent-invK K (meet g1 g2) A (arr om univ) h).1 (cons-meet-l g1 g2 cg) cd ;
+  as-r g1 g2 d t q | rq -> \ A h cg cd ->
+    rq A (ent-invK K (meet g1 g2) A (arr om univ) h).2 (cons-down (meet g1 g2) g2 (le-meet-r g1 g2) cg) cd ;
+  as-meet g d1 t1 d2 t2 q1 q2 | r1 r2 -> \ A h cg cd ->
+    tpk-join K t1 t2 univ (r1 A h cg (cons-meet-l d1 d2 cd)) (r2 A h cg (cons-down (meet d1 d2) d2 (le-meet-r d1 d2) cd))
+      (cons-asel g (meet d1 d2) (meet t1 t2) cg (as-meet g d1 t1 d2 t2 q1 q2) cd) } ;
+
+sel-valK (K : Nat) (f A phi d t : Ty) (h2 : TpK K (ent f A phi)) (cf : Cons f) (hpi : TpK K (el (pi A phi) univ))
+    (q : ASel f d t) (cd : Cons d) : SelTK K phi d t =
+  ent-selK K f d t q A phi d h2 cf (pi-fam-cons A phi (tpk-tp K (pi A phi) univ hpi))
+    (key-tpK K f d t q A phi h2 (pi-domK K A phi hpi) cd) (le-refl d) ;

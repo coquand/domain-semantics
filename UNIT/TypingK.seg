@@ -1,0 +1,429 @@
+-- TypingK.seg: depth-bounded typing derivations (PRA/LEVELS.md Update 4,
+-- option (a); B2a).
+--   TpK K J   Tp J where every type occurring in the derivation has md <= K
+--             (each rule bounds the types of its conclusion that are not
+--             already conclusions of a premise: tpk-bd).
+-- md is not invariant under Eqv, and generation (Shape) returns the
+-- representatives stored in the derivation, so the bound has to be kept
+-- in the derivation.  With one K for the whole derivation every lemma
+-- below closes: its outputs are meets and selections of the types of its
+-- inputs (the only new types are given by the caller, with their bounds).
+-- The lemmas are those of Typing.seg used by Sound.seg, with the same
+-- proofs: tpk-conv, shapek, below-piK, pi-domK, tpk-pre, tpk-up(-ent),
+-- tpk-join, ent-selK, app-selK.  Consistency facts go through tpk-tp.
+-- One change: in app-sel's om case the value is om (not the target t),
+-- so it stays bounded.
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ; open Filter[l] ;
+
+------------------------------------------------------------------------
+-- depth bounds
+
+Bd (K : Nat) (t : Ty) : U l = LeN (md t) K ;
+
+leN-suc-l : (m K : Nat) -> LeN (suc m) K -> LeN m K = split {
+  zero -> \ K h -> tt ;
+  suc m | r -> split {
+    zero -> \ h -> efq h ;
+    suc K -> \ h -> r K h } } ;
+
+bd-om (K : Nat) : Bd K om = tt ;
+
+bd-meet (K : Nat) (s t : Ty) (h1 : Bd K s) (h2 : Bd K t) : Bd K (meet s t) = leN-max-lub (md s) (md t) K h1 h2 ;
+
+bd-meet-l (K : Nat) (s t : Ty) (h : Bd K (meet s t)) : Bd K s = leN-trans (md s) (max (md s) (md t)) K (leN-max-l (md s) (md t)) h ;
+bd-meet-r (K : Nat) (s t : Ty) (h : Bd K (meet s t)) : Bd K t = leN-trans (md t) (max (md s) (md t)) K (leN-max-r (md s) (md t)) h ;
+
+bd-mono (K K' : Nat) (le : LeN K K') (t : Ty) (h : Bd K t) : Bd K' t = leN-trans (md t) K K' h le ;
+
+-- the parts of a constructor
+bd-arr-l (K : Nat) (s t : Ty) (h : Bd K (arr s t)) : Bd K s =
+  leN-trans (md s) (max (md s) (md t)) K (leN-max-l (md s) (md t)) (leN-suc-l (max (md s) (md t)) K h) ;
+bd-arr-r (K : Nat) (s t : Ty) (h : Bd K (arr s t)) : Bd K t =
+  leN-trans (md t) (max (md s) (md t)) K (leN-max-r (md s) (md t)) (leN-suc-l (max (md s) (md t)) K h) ;
+bd-pi-l (K : Nat) (s t : Ty) (h : Bd K (pi s t)) : Bd K s =
+  leN-trans (md s) (max (md s) (md t)) K (leN-max-l (md s) (md t)) (leN-suc-l (max (md s) (md t)) K h) ;
+bd-pi-r (K : Nat) (s t : Ty) (h : Bd K (pi s t)) : Bd K t =
+  leN-trans (md t) (max (md s) (md t)) K (leN-max-r (md s) (md t)) (leN-suc-l (max (md s) (md t)) K h) ;
+
+-- the meet of two products
+bd-pi-meet : (K : Nat) -> (a b a' b' : Ty) -> Bd K (pi a b) -> Bd K (pi a' b') ->
+    Bd K (pi (meet a a') (meet b b')) = split {
+  zero -> \ a b a' b' h h' -> efq h ;
+  suc K -> \ a b a' b' h h' ->
+    leN-max-lub (max (md a) (md a')) (max (md b) (md b')) K
+      (leN-max-lub (md a) (md a') K
+         (leN-trans (md a) (max (md a) (md b)) K (leN-max-l (md a) (md b)) h)
+         (leN-trans (md a') (max (md a') (md b')) K (leN-max-l (md a') (md b')) h'))
+      (leN-max-lub (md b) (md b') K
+         (leN-trans (md b) (max (md a) (md b)) K (leN-max-r (md a) (md b)) h)
+         (leN-trans (md b') (max (md a') (md b')) K (leN-max-r (md a') (md b')) h')) } ;
+
+-- the entries of a bounded type are bounded
+BdE (K : Nat) (R : Ty -> Ty -> U l) (x v : Ty) : U l = R x v * (Bd K x * Bd K v) ;
+
+ents-bd (K : Nat) (R : Ty -> Ty -> U l) : (f : Ty) -> EntS R f -> Bd K f -> EntS (BdE K R) f = split {
+  es-om -> \ b -> es-om ;
+  es-arr x v r -> \ b -> es-arr x v (r, (bd-arr-l K x v b, bd-arr-r K x v b)) ;
+  es-meet f1 f2 h1 h2 | r1 r2 -> \ b -> es-meet f1 f2 (r1 (bd-meet-l K f1 f2 b)) (r2 (bd-meet-r K f1 f2 b)) } ;
+
+
+data TpK (K : Nat) : (J : Form) -> U l =
+    k-bot (u a : Ty) (bu : Bd K u) (e : Le om u) (h : TpK K (el a univ)) : TpK K (el u a)
+  | k-univ (u a : Ty) (bu : Bd K u) (ba : Bd K a) (e1 : Eqv u univ) (e2 : Eqv a univ) : TpK K (el u a)
+  | k-pi (u a A phi : Ty) (bu : Bd K u) (ba : Bd K a) (bpi : Bd K (pi A phi)) (e1 : Eqv u (pi A phi)) (e2 : Eqv a univ)
+      (h1 : TpK K (el A univ)) (h2 : TpK K (ent phi A (arr om univ))) (c : Cons phi) : TpK K (el u a)
+  | k-lam (u a A phi f : Ty) (bu : Bd K u) (ba : Bd K a) (e1 : Eqv u f) (e2 : Eqv a (pi A phi))
+      (h1 : TpK K (el (pi A phi) univ)) (h2 : TpK K (ent f A phi)) (c : Cons f) : TpK K (el u a)
+  | ken-om (A phi : Ty) (bA : Bd K A) (bp : Bd K phi) : TpK K (ent om A phi)
+  | ken-arr (x v y A phi : Ty) (bp : Bd K phi) (bf : Bd K (arr x v)) (h1 : TpK K (el x A)) (le : Le phi (arr x y))
+      (h2 : TpK K (el v y)) : TpK K (ent (arr x v) A phi)
+  | ken-meet (f1 f2 A phi : Ty) (h1 : TpK K (ent f1 A phi)) (h2 : TpK K (ent f2 A phi)) :
+      TpK K (ent (meet f1 f2) A phi) ;
+
+------------------------------------------------------------------------
+-- the conclusion is bounded; forgetting the bound; a larger bound
+
+BdForm (K : Nat) : Form -> U l = split {
+  el u a -> Bd K u * Bd K a ;
+  ent f A phi -> Bd K f * (Bd K A * Bd K phi) } ;
+
+tpk-bd-by (K : Nat) : (J : Form) -> TpK K J -> BdForm K J = split {
+  k-bot u a bu e h | rh -> (bu, rh.1) ;
+  k-univ u a bu ba e1 e2 -> (bu, ba) ;
+  k-pi u a A phi bu ba bpi e1 e2 h1 h2 c | r1 r2 -> (bu, ba) ;
+  k-lam u a A phi f bu ba e1 e2 h1 h2 c | r1 r2 -> (bu, ba) ;
+  ken-om A phi bA bp -> (tt, (bA, bp)) ;
+  ken-arr x v y A phi bp bf h1 le h2 | r1 r2 -> (bf, (r1.2, bp)) ;
+  ken-meet f1 f2 A phi h1 h2 | r1 r2 -> (bd-meet K f1 f2 r1.1 r2.1, r1.2) } ;
+
+tpk-bd-el (K : Nat) (u a : Ty) (h : TpK K (el u a)) : Bd K u * Bd K a = tpk-bd-by K (el u a) h ;
+tpk-bd-ent (K : Nat) (f A phi : Ty) (h : TpK K (ent f A phi)) : Bd K f * (Bd K A * Bd K phi) =
+  tpk-bd-by K (ent f A phi) h ;
+
+tpk-tp-by (K : Nat) : (J : Form) -> TpK K J -> Tp J = split {
+  k-bot u a bu e h | rh -> t-bot u a e rh ;
+  k-univ u a bu ba e1 e2 -> t-univ u a e1 e2 ;
+  k-pi u a A phi bu ba bpi e1 e2 h1 h2 c | r1 r2 -> t-pi u a A phi e1 e2 r1 r2 c ;
+  k-lam u a A phi f bu ba e1 e2 h1 h2 c | r1 r2 -> t-lam u a A phi f e1 e2 r1 r2 c ;
+  ken-om A phi bA bp -> en-om A phi ;
+  ken-arr x v y A phi bp bf h1 le h2 | r1 r2 -> en-arr x v y A phi r1 le r2 ;
+  ken-meet f1 f2 A phi h1 h2 | r1 r2 -> en-meet f1 f2 A phi r1 r2 } ;
+
+tpk-tp (K : Nat) (u a : Ty) (h : TpK K (el u a)) : Tp (el u a) = tpk-tp-by K (el u a) h ;
+tpk-tp-ent (K : Nat) (f A phi : Ty) (h : TpK K (ent f A phi)) : Tp (ent f A phi) = tpk-tp-by K (ent f A phi) h ;
+
+tpk-mono-by (K K' : Nat) (le : LeN K K') : (J : Form) -> TpK K J -> TpK K' J = split {
+  k-bot u a bu e h | rh -> k-bot u a (bd-mono K K' le u bu) e rh ;
+  k-univ u a bu ba e1 e2 -> k-univ u a (bd-mono K K' le u bu) (bd-mono K K' le a ba) e1 e2 ;
+  k-pi u a A phi bu ba bpi e1 e2 h1 h2 c | r1 r2 ->
+    k-pi u a A phi (bd-mono K K' le u bu) (bd-mono K K' le a ba) (bd-mono K K' le (pi A phi) bpi) e1 e2 r1 r2 c ;
+  k-lam u a A phi f bu ba e1 e2 h1 h2 c | r1 r2 ->
+    k-lam u a A phi f (bd-mono K K' le u bu) (bd-mono K K' le a ba) e1 e2 r1 r2 c ;
+  ken-om A phi bA bp -> ken-om A phi (bd-mono K K' le A bA) (bd-mono K K' le phi bp) ;
+  ken-arr x v y A phi bp bf h1 le0 h2 | r1 r2 ->
+    ken-arr x v y A phi (bd-mono K K' le phi bp) (bd-mono K K' le (arr x v) bf) r1 le0 r2 ;
+  ken-meet f1 f2 A phi h1 h2 | r1 r2 -> ken-meet f1 f2 A phi r1 r2 } ;
+
+tpk-mono (K K' : Nat) (le : LeN K K') (u a : Ty) (h : TpK K (el u a)) : TpK K' (el u a) = tpk-mono-by K K' le (el u a) h ;
+tpk-mono-ent (K K' : Nat) (le : LeN K K') (f A phi : Ty) (h : TpK K (ent f A phi)) : TpK K' (ent f A phi) =
+  tpk-mono-by K K' le (ent f A phi) h ;
+
+tpk-UU (K : Nat) : TpK K (el univ univ) = k-univ univ univ tt tt (eqv-refl univ) (eqv-refl univ) ;
+tpk-omU (K : Nat) : TpK K (el om univ) = k-bot om univ tt (le-refl om) (tpk-UU K) ;
+tpk-omom (K : Nat) : TpK K (el om om) = k-bot om om tt (le-refl om) (tpk-omU K) ;
+
+------------------------------------------------------------------------
+-- Lemma 2.1: conversion (to bounded types)
+
+ConvPK (K : Nat) (u a : Ty) : U l =
+  (u' a' : Ty) -> Bd K u' -> Bd K a' -> Eqv u u' -> Eqv a a' -> TpK K (el u' a') ;
+
+tpk-conv-by (K : Nat) : (J : Form) -> TpK K J -> ByForm (ConvPK K) NoEnt J = split {
+  k-bot u a bu e h | rh -> \ u' a' bu' ba' eu ea ->
+    k-bot u' a' bu' (le-trans om u u' e eu.1) (rh a' univ ba' tt ea (eqv-refl univ)) ;
+  k-univ u a bu ba e1 e2 -> \ u' a' bu' ba' eu ea ->
+    k-univ u' a' bu' ba' (eqv-trans u' u univ (eqv-sym u u' eu) e1) (eqv-trans a' a univ (eqv-sym a a' ea) e2) ;
+  k-pi u a A phi bu ba bpi e1 e2 h1 h2 c | r1 r2 -> \ u' a' bu' ba' eu ea ->
+    k-pi u' a' A phi bu' ba' bpi (eqv-trans u' u (pi A phi) (eqv-sym u u' eu) e1) (eqv-trans a' a univ (eqv-sym a a' ea) e2) h1 h2 c ;
+  k-lam u a A phi f bu ba e1 e2 h1 h2 c | r1 r2 -> \ u' a' bu' ba' eu ea ->
+    k-lam u' a' A phi f bu' ba' (eqv-trans u' u f (eqv-sym u u' eu) e1) (eqv-trans a' a (pi A phi) (eqv-sym a a' ea) e2) h1 h2 c ;
+  ken-om A phi bA bp -> tt ;
+  ken-arr x v y A phi bp bf h1 le h2 | r1 r2 -> tt ;
+  ken-meet f1 f2 A phi h1 h2 | r1 r2 -> tt } ;
+
+tpk-conv (K : Nat) (u a u' a' : Ty) (h : TpK K (el u a)) (bu' : Bd K u') (ba' : Bd K a') (eu : Eqv u u') (ea : Eqv a a') :
+    TpK K (el u' a') = tpk-conv-by K (el u a) h u' a' bu' ba' eu ea ;
+
+------------------------------------------------------------------------
+-- Lemma 2.3: generation
+
+data ShapeK (K : Nat) (u a : Ty) : U l =
+    sk-bot (e : Le om u) (h : TpK K (el a univ))
+  | sk-univ (e1 : Eqv u univ) (e2 : Eqv a univ)
+  | sk-pi (A phi : Ty) (bpi : Bd K (pi A phi)) (e1 : Eqv u (pi A phi)) (e2 : Eqv a univ)
+      (h1 : TpK K (el A univ)) (h2 : TpK K (ent phi A (arr om univ))) (c : Cons phi)
+  | sk-lam (A phi f : Ty) (e1 : Eqv u f) (e2 : Eqv a (pi A phi))
+      (h1 : TpK K (el (pi A phi) univ)) (h2 : TpK K (ent f A phi)) (c : Cons f) ;
+
+shapek-by (K : Nat) : (J : Form) -> TpK K J -> ByForm (ShapeK K) NoEnt J = split {
+  k-bot u a bu e h -> sk-bot e h ;
+  k-univ u a bu ba e1 e2 -> sk-univ e1 e2 ;
+  k-pi u a A phi bu ba bpi e1 e2 h1 h2 c -> sk-pi A phi bpi e1 e2 h1 h2 c ;
+  k-lam u a A phi f bu ba e1 e2 h1 h2 c -> sk-lam A phi f e1 e2 h1 h2 c ;
+  ken-om A phi bA bp -> tt ;
+  ken-arr x v y A phi bp bf h1 le h2 -> tt ;
+  ken-meet f1 f2 A phi h1 h2 -> tt } ;
+
+shapek (K : Nat) (u a : Ty) (h : TpK K (el u a)) : ShapeK K u a = shapek-by K (el u a) h ;
+
+-- the entries of f, by the shape of f
+EntInvK (K : Nat) (A phi : Ty) : Ty -> U l = split {
+  om -> Top ; univ -> Empty ; pi s t -> Empty ;
+  arr x v -> TpK K (el x A) * ((y : Ty) * (Le phi (arr x y) * TpK K (el v y))) ;
+  meet f1 f2 -> TpK K (ent f1 A phi) * TpK K (ent f2 A phi) } ;
+
+EntInvKF (K : Nat) (f A phi : Ty) : U l = EntInvK K A phi f ;
+
+ent-invK-by (K : Nat) : (J : Form) -> TpK K J -> ByForm ElTop (EntInvKF K) J = split {
+  k-bot u a bu e h -> tt ;
+  k-univ u a bu ba e1 e2 -> tt ;
+  k-pi u a A phi bu ba bpi e1 e2 h1 h2 c -> tt ;
+  k-lam u a A phi f bu ba e1 e2 h1 h2 c -> tt ;
+  ken-om A phi bA bp -> tt ;
+  ken-arr x v y A phi bp bf h1 le h2 -> (h1, (y, (le, h2))) ;
+  ken-meet f1 f2 A phi h1 h2 -> (h1, h2) } ;
+
+ent-invK (K : Nat) (f A phi : Ty) (h : TpK K (ent f A phi)) : EntInvK K A phi f = ent-invK-by K (ent f A phi) h ;
+
+-- a type below Pi(A, phi) is a Pi
+record PiBelowKR { K : Nat ; a : Ty ; A : Ty ; phi : Ty ;
+  A1 : Ty ; phi1 : Ty ; e : Eqv a (pi A1 phi1) ; lA : Le A1 A ; lphi : Le phi1 phi ;
+  hA : TpK K (el A1 univ) ; hphi : TpK K (ent phi1 A1 (arr om univ)) ; c : Cons phi1 ; bpi : Bd K (pi A1 phi1) ; } ;
+PiBelowK (K : Nat) (a A phi : Ty) : U l = PiBelowKR[K, a, A, phi] ;
+
+below-pi-byK (K : Nat) (a A phi : Ty) (le : Le a (pi A phi)) : ShapeK K a univ -> PiBelowK K a A phi = split {
+  sk-bot e h -> absurd (PiBelowK K a A phi) (om-not-pi A phi (le-trans om a (pi A phi) e le)) ;
+  sk-univ e1 e2 -> absurd (PiBelowK K a A phi) (univ-not-pi A phi (le-trans univ a (pi A phi) e1.2 le)) ;
+  sk-pi A1 phi1 bpi e1 e2 h1 h2 c ->
+    new PiBelowKR[K, a, A, phi, A1 := A1, phi1 := phi1, e := e1,
+      lA := (pi-inj A1 phi1 A phi (le-trans (pi A1 phi1) a (pi A phi) e1.2 le)).1,
+      lphi := (pi-inj A1 phi1 A phi (le-trans (pi A1 phi1) a (pi A phi) e1.2 le)).2,
+      hA := h1, hphi := h2, c := c, bpi := bpi] ;
+  sk-lam A2 phi2 f e1 e2 h1 h2 c -> absurd (PiBelowK K a A phi) (univ-not-pi A2 phi2 e2.1) } ;
+
+below-piK (K : Nat) (a A phi : Ty) (h : TpK K (el a univ)) (le : Le a (pi A phi)) : PiBelowK K a A phi =
+  below-pi-byK K a A phi le (shapek K a univ h) ;
+
+pi-domK (K : Nat) (A phi : Ty) (h : TpK K (el (pi A phi) univ)) : TpK K (el A univ) =
+  tpk-conv K b.A1 univ A univ b.hA (bd-pi-l K A phi (tpk-bd-el K (pi A phi) univ h).1) tt
+    (eqv-sym A b.A1 (eqv-pi-inj A phi b.A1 b.phi1 b.e).1) (eqv-refl univ)
+  where { b : PiBelowK K (pi A phi) A phi = below-piK K (pi A phi) A phi h (le-refl (pi A phi)) ; } ;
+
+------------------------------------------------------------------------
+-- Lemma 2.2: presupposition
+
+tpk-pre-by (K : Nat) (u a : Ty) (ba : Bd K a) : ShapeK K u a -> TpK K (el a univ) = split {
+  sk-bot e h -> h ;
+  sk-univ e1 e2 -> k-univ a univ ba tt e2 (eqv-refl univ) ;
+  sk-pi A phi bpi e1 e2 h1 h2 c -> k-univ a univ ba tt e2 (eqv-refl univ) ;
+  sk-lam A phi f e1 e2 h1 h2 c -> tpk-conv K (pi A phi) univ a univ h1 ba tt (eqv-sym a (pi A phi) e2) (eqv-refl univ) } ;
+
+tpk-pre (K : Nat) (u a : Ty) (h : TpK K (el u a)) : TpK K (el a univ) =
+  tpk-pre-by K u a (tpk-bd-el K u a h).2 (shapek K u a h) ;
+
+------------------------------------------------------------------------
+-- Proposition 2.5: upward monotonicity in the type
+
+UpPK (K : Nat) (u a : Ty) : U l = (a' : Ty) -> Le a' a -> TpK K (el a' univ) -> TpK K (el u a') ;
+UpQK (K : Nat) (f A phi : Ty) : U l =
+  (A' phi' : Ty) -> Bd K phi' -> Le A' A -> Le phi' phi -> TpK K (el A' univ) -> TpK K (ent f A' phi') ;
+
+up-lamK (K : Nat) (u a' A phi f : Ty) (bu : Bd K u) (e1 : Eqv u f) (c : Cons f) (rec : UpQK K f A phi)
+    (h' : TpK K (el a' univ)) (b : PiBelowK K a' A phi) : TpK K (el u a') =
+  k-lam u a' b.A1 b.phi1 f bu (tpk-bd-el K a' univ h').1 e1 b.e
+    (tpk-conv K a' univ (pi b.A1 b.phi1) univ h' b.bpi tt b.e (eqv-refl univ))
+    (rec b.A1 b.phi1 (tpk-bd-ent K b.phi1 b.A1 (arr om univ) b.hphi).1 b.lA b.lphi b.hA) c ;
+
+tpk-up-by (K : Nat) : (J : Form) -> TpK K J -> ByForm (UpPK K) (UpQK K) J = split {
+  k-bot u a bu e h | rh -> \ a' le h' -> k-bot u a' bu e h' ;
+  k-univ u a bu ba e1 e2 -> \ a' le h' ->
+    k-univ u a' bu (tpk-bd-el K a' univ h').1 e1 (below-univ a' (tpk-tp K a' univ h') (le-trans a' a univ le e2.1)) ;
+  k-pi u a A phi bu ba bpi e1 e2 h1 h2 c | r1 r2 -> \ a' le h' ->
+    k-pi u a' A phi bu (tpk-bd-el K a' univ h').1 bpi e1 (below-univ a' (tpk-tp K a' univ h') (le-trans a' a univ le e2.1)) h1 h2 c ;
+  k-lam u a A phi f bu ba e1 e2 h1 h2 c | r1 r2 -> \ a' le h' ->
+    up-lamK K u a' A phi f bu e1 c r2 h' (below-piK K a' A phi h' (le-trans a' a (pi A phi) le e2.1)) ;
+  ken-om A phi bA bp -> \ A' phi' bp' l1 l2 hA -> ken-om A' phi' (tpk-bd-el K A' univ hA).1 bp' ;
+  ken-arr x v y A phi bp bf h1 le h2 | r1 r2 -> \ A' phi' bp' l1 l2 hA ->
+    ken-arr x v y A' phi' bp' bf (r1 A' l1 hA) (le-trans phi' phi (arr x y) l2 le) h2 ;
+  ken-meet f1 f2 A phi h1 h2 | r1 r2 -> \ A' phi' bp' l1 l2 hA ->
+    ken-meet f1 f2 A' phi' (r1 A' phi' bp' l1 l2 hA) (r2 A' phi' bp' l1 l2 hA) } ;
+
+tpk-up (K : Nat) (u a a' : Ty) (h : TpK K (el u a)) (le : Le a' a) (h' : TpK K (el a' univ)) : TpK K (el u a') =
+  tpk-up-by K (el u a) h a' le h' ;
+
+tpk-up-ent (K : Nat) (f A phi A' phi' : Ty) (h : TpK K (ent f A phi)) (bp' : Bd K phi') (l1 : Le A' A) (l2 : Le phi' phi)
+    (hA : TpK K (el A' univ)) : TpK K (ent f A' phi') =
+  tpk-up-by K (ent f A phi) h A' phi' bp' l1 l2 hA ;
+
+------------------------------------------------------------------------
+-- Proposition 2.6: joins of compatible typed elements
+
+JoinPK (K : Nat) (u a : Ty) : U l = (v : Ty) -> TpK K (el v a) -> Cons (meet u v) -> TpK K (el (meet u v) a) ;
+
+join-bot-rK (K : Nat) (u v a : Ty) (h : TpK K (el u a)) (bv : Bd K v) (e : Le om v) : TpK K (el (meet u v) a) =
+  tpk-conv K u a (meet u v) a h (bd-meet K u v (tpk-bd-el K u a h).1 bv) (tpk-bd-el K u a h).2
+    (eqv-sym (meet u v) u (eqv-meet-om-r u v e)) (eqv-refl a) ;
+
+join-univK (K : Nat) (u a v : Ty) (bu : Bd K u) (bv : Bd K v) (ba : Bd K a) (e1 : Eqv u univ) (e2 : Eqv a univ)
+    (c : Cons (meet u v)) : ShapeK K v a -> TpK K (el (meet u v) a) = split {
+  sk-bot e h -> join-bot-rK K u v a (k-univ u a bu ba e1 e2) bv e ;
+  sk-univ e1' e2' -> k-univ (meet u v) a (bd-meet K u v bu bv) ba
+    (eqv-trans (meet u v) (meet univ univ) univ (eqv-meet u univ v univ e1 e1')
+       (le-meet-l univ univ, le-meet univ univ univ (le-refl univ) (le-refl univ))) e2 ;
+  sk-pi B psi bpi e1' e2' h1 h2 c' -> efq (clash-up u v B psi c e1.1 e1'.1) ;
+  sk-lam B psi g e1' e2' h1 h2 c' -> efq (univ-pi a B psi e2 e2') } ;
+
+join-pi-piK (K : Nat) (u v a A phi B psi : Ty) (bu : Bd K u) (bv : Bd K v) (ba : Bd K a)
+    (bpA : Bd K (pi A phi)) (bpB : Bd K (pi B psi))
+    (e1 : Eqv u (pi A phi)) (e1' : Eqv v (pi B psi)) (e2 : Eqv a univ)
+    (rA : JoinPK K A univ) (hB : TpK K (el B univ))
+    (h2 : TpK K (ent phi A (arr om univ))) (h2' : TpK K (ent psi B (arr om univ)))
+    (c : Cons (meet u v)) : TpK K (el (meet u v) a) =
+  k-pi (meet u v) a (meet A B) (meet phi psi) (bd-meet K u v bu bv) ba (bd-pi-meet K A phi B psi bpA bpB)
+    (eqv-pi-meet u v A phi B psi e1 e1') e2 hAB
+    (ken-meet phi psi (meet A B) (arr om univ)
+       (tpk-up-ent K phi A (arr om univ) (meet A B) (arr om univ) h2 bAU (le-meet-l A B) (le-refl (arr om univ)) hAB)
+       (tpk-up-ent K psi B (arr om univ) (meet A B) (arr om univ) h2' bAU (le-meet-r A B) (le-refl (arr om univ)) hAB))
+    cp.2
+  where {
+    bAU : Bd K (arr om univ) = (tpk-bd-ent K phi A (arr om univ) h2).2.2 ;
+    cpp : Cons (meet (pi A phi) (pi B psi)) =
+      cons-down (meet u v) (meet (pi A phi) (pi B psi)) (le-meet-mono u (pi A phi) v (pi B psi) e1.1 e1'.1) c ;
+    cp : Cons (meet A B) * Cons (meet phi psi) =
+      cons-psel (meet (pi A phi) (pi B psi)) (meet A B) (meet phi psi) cpp
+        (ps-meet (meet (pi A phi) (pi B psi)) A phi B psi
+           (ps-l (pi A phi) (pi B psi) A phi (ps-here A phi))
+           (ps-r (pi A phi) (pi B psi) B psi (ps-here B psi))) ;
+    hAB : TpK K (el (meet A B) univ) = rA B hB cp.1 ; } ;
+
+join-piK (K : Nat) (u a A phi v : Ty) (bu : Bd K u) (bv : Bd K v) (ba : Bd K a) (bpi : Bd K (pi A phi))
+    (e1 : Eqv u (pi A phi)) (e2 : Eqv a univ) (h1 : TpK K (el A univ))
+    (h2 : TpK K (ent phi A (arr om univ))) (c0 : Cons phi) (rA : JoinPK K A univ) (c : Cons (meet u v)) :
+    ShapeK K v a -> TpK K (el (meet u v) a) = split {
+  sk-bot e h -> join-bot-rK K u v a (k-pi u a A phi bu ba bpi e1 e2 h1 h2 c0) bv e ;
+  sk-univ e1' e2' -> efq (clash-up v u A phi
+      (cons-down (meet u v) (meet v u) (le-meet (meet u v) v u (le-meet-r u v) (le-meet-l u v)) c) e1'.1 e1.1) ;
+  sk-pi B psi bpi' e1' e2' h1' h2' c' -> join-pi-piK K u v a A phi B psi bu bv ba bpi bpi' e1 e1' e2 rA h1' h2 h2' c ;
+  sk-lam B psi g e1' e2' h1' h2' c' -> efq (univ-pi a B psi e2 e2') } ;
+
+join-lamK (K : Nat) (u a A phi f v : Ty) (bu : Bd K u) (bv : Bd K v) (ba : Bd K a)
+    (e1 : Eqv u f) (e2 : Eqv a (pi A phi)) (h1 : TpK K (el (pi A phi) univ))
+    (h2 : TpK K (ent f A phi)) (c0 : Cons f) (c : Cons (meet u v)) :
+    ShapeK K v a -> TpK K (el (meet u v) a) = split {
+  sk-bot e h -> join-bot-rK K u v a (k-lam u a A phi f bu ba e1 e2 h1 h2 c0) bv e ;
+  sk-univ e1' e2' -> efq (univ-pi a A phi e2' e2) ;
+  sk-pi B psi bpi e1' e2' h1' h2' c' -> efq (univ-pi a A phi e2' e2) ;
+  sk-lam B psi g e1' e2' h1' h2' c' ->
+    k-lam (meet u v) a A phi (meet f g) (bd-meet K u v bu bv) ba (eqv-meet u f v g e1 e1') e2 h1
+      (ken-meet f g A phi h2
+         (tpk-up-ent K g B psi A phi h2' (tpk-bd-ent K f A phi h2).2.2
+            (pi-inj A phi B psi (le-trans (pi A phi) a (pi B psi) e2.2 e2'.1)).1
+            (pi-inj A phi B psi (le-trans (pi A phi) a (pi B psi) e2.2 e2'.1)).2
+            (pi-domK K A phi h1)))
+      (cons-down (meet u v) (meet f g) (eqv-meet u f v g e1 e1').1 c) } ;
+
+tpk-join-by (K : Nat) : (J : Form) -> TpK K J -> ByForm (JoinPK K) NoEnt J = split {
+  k-bot u a bu e h | rh -> \ v hv c ->
+    tpk-conv K v a (meet u v) a hv (bd-meet K u v bu (tpk-bd-el K v a hv).1) (tpk-bd-el K v a hv).2
+      (eqv-sym (meet u v) v (eqv-meet-om-l u v e)) (eqv-refl a) ;
+  k-univ u a bu ba e1 e2 -> \ v hv c -> join-univK K u a v bu (tpk-bd-el K v a hv).1 ba e1 e2 c (shapek K v a hv) ;
+  k-pi u a A phi bu ba bpi e1 e2 h1 h2 c0 | r1 r2 -> \ v hv c ->
+    join-piK K u a A phi v bu (tpk-bd-el K v a hv).1 ba bpi e1 e2 h1 h2 c0 r1 c (shapek K v a hv) ;
+  k-lam u a A phi f bu ba e1 e2 h1 h2 c0 | r1 r2 -> \ v hv c ->
+    join-lamK K u a A phi f v bu (tpk-bd-el K v a hv).1 ba e1 e2 h1 h2 c0 c (shapek K v a hv) ;
+  ken-om A phi bA bp -> tt ;
+  ken-arr x v y A phi bp bf h1 le h2 | r1 r2 -> tt ;
+  ken-meet f1 f2 A phi h1 h2 | r1 r2 -> tt } ;
+
+tpk-join (K : Nat) (u v a : Ty) (hu : TpK K (el u a)) (hv : TpK K (el v a)) (c : Cons (meet u v)) : TpK K (el (meet u v) a) =
+  tpk-join-by K (el u a) hu v hv c ;
+
+------------------------------------------------------------------------
+-- Lemma 2.7: the entries at a selection
+
+SelTK (K : Nat) (phi x t : Ty) : U l = (y : Ty) * (Le phi (arr x y) * TpK K (el t y)) ;
+
+selt-meetK (K : Nat) (phi x t1 t2 : Ty) (cphi : Cons phi) (cx : Cons x) (c12 : Cons (meet t1 t2))
+    (s1 : SelTK K phi x t1) (s2 : SelTK K phi x t2) : SelTK K phi x (meet t1 t2) =
+  (meet s1.1 s2.1,
+   (le-y,
+    tpk-join K t1 t2 (meet s1.1 s2.1)
+      (tpk-up K t1 s1.1 (meet s1.1 s2.1) s1.2.2 (le-meet-l s1.1 s2.1) hy)
+      (tpk-up K t2 s2.1 (meet s1.1 s2.1) s2.2.2 (le-meet-r s1.1 s2.1) hy) c12))
+  where {
+    le-y : Le phi (arr x (meet s1.1 s2.1)) =
+      le-trans phi (meet (arr x s1.1) (arr x s2.1)) (arr x (meet s1.1 s2.1))
+        (le-meet phi (arr x s1.1) (arr x s2.1) s1.2.1 s2.2.1) (le-arr-meet x s1.1 s2.1) ;
+    hy : TpK K (el (meet s1.1 s2.1) univ) =
+      tpk-join K s1.1 s2.1 univ (tpk-pre K t1 s1.1 s1.2.2) (tpk-pre K t2 s2.1 s2.2.2)
+        (cons-value phi x (meet s1.1 s2.1) cphi cx le-y) ; } ;
+
+selt-entryK (K : Nat) (A phi x x' v : Ty) (le : Le x x') (e : EntInvK K A phi (arr x' v)) : SelTK K phi x v =
+  (e.2.1, (le-trans phi (arr x' e.2.1) (arr x e.2.1) e.2.2.1 (le-arr x' x e.2.1 e.2.1 le (le-refl e.2.1)), e.2.2.2)) ;
+
+EntSelK (K : Nat) (g d t : Ty) : U l =
+  (A phi x : Ty) -> TpK K (ent g A phi) -> Cons g -> Cons phi -> TpK K (el x A) -> Le x d -> SelTK K phi x t ;
+
+ent-selK (K : Nat) : (g d t : Ty) -> ASel g d t -> EntSelK K g d t = split {
+  as-none g -> \ A phi x h cg cphi hx le -> (om, (om-arr-at phi x, tpk-omom K)) ;
+  as-here a b -> \ A phi x h cg cphi hx le -> selt-entryK K A phi x a b le (ent-invK K (arr a b) A phi h) ;
+  as-l g1 g2 d t q | rq -> \ A phi x h cg cphi hx le ->
+    rq A phi x (ent-invK K (meet g1 g2) A phi h).1 (cons-meet-l g1 g2 cg) cphi hx le ;
+  as-r g1 g2 d t q | rq -> \ A phi x h cg cphi hx le ->
+    rq A phi x (ent-invK K (meet g1 g2) A phi h).2
+      (cons-down (meet g1 g2) g2 (le-meet-r g1 g2) cg) cphi hx le ;
+  as-meet g d1 t1 d2 t2 q1 q2 | r1 r2 -> \ A phi x h cg cphi hx le ->
+    selt-meetK K phi x t1 t2 cphi (tp-cons x A (tpk-tp K x A hx))
+      (cons-asel g (meet d1 d2) (meet t1 t2) cg (as-meet g d1 t1 d2 t2 q1 q2)
+         (cons-down x (meet d1 d2) le (tp-cons x A (tpk-tp K x A hx))))
+      (r1 A phi x h cg cphi hx (le-meet-split-l x d1 d2 le))
+      (r2 A phi x h cg cphi hx (le-meet-split-r x d1 d2 le)) } ;
+
+------------------------------------------------------------------------
+-- Lemma 2.8: the values of a typed function
+
+record AppTKR { K : Nat ; f : Ty ; phi : Ty ; x : Ty ; t : Ty ;
+  y : Ty ; ley : Le phi (arr x y) ; w : Ty ; lew : Le w t ; tpw : TpK K (el w y) ; lef : Le f (arr x w) ; } ;
+AppTK (K : Nat) (f phi x t : Ty) : U l = AppTKR[K, f, phi, x, t] ;
+
+app-lamK (K : Nat) (f A phi x d t B psi g : Ty) (q : ASel f d t) (hx : TpK K (el x A)) (le : Le x d)
+    (hpi : TpK K (el (pi A phi) univ))
+    (e1 : Eqv f g) (e : Eqv (pi A phi) (pi B psi)) (h2 : TpK K (ent g B psi)) (cg : Cons g) : AppTK K f phi x t =
+  new AppTKR[K, f, phi, x, t,
+    y := s.1, ley := s.2.1, w := w.2.1, lew := les-le w.2.1 t w.2.2.2.2, tpw := s.2.2,
+    lef := le-trans f g (arr x w.2.1) e1.1
+            (le-trans g (arr w.1 w.2.1) (arr x w.2.1) (asel-le g w.1 w.2.1 w.2.2.1)
+               (le-arr w.1 x w.2.1 w.2.1 (le-trans x d w.1 le (les-le d w.1 w.2.2.2.1)) (le-refl w.2.1)))]
+  where {
+    w : ATr g d t = asel-tr f d t q g (le-les g f e1.2) ;
+    s : SelTK K phi x w.2.1 =
+      ent-selK K g w.1 w.2.1 w.2.2.1 A phi x
+        (tpk-up-ent K g B psi A phi h2 (bd-pi-r K A phi (tpk-bd-el K (pi A phi) univ hpi).1)
+           (pi-inj A phi B psi e.1).1 (pi-inj A phi B psi e.1).2 (pi-domK K A phi hpi))
+        cg (pi-fam-cons A phi (tpk-tp K (pi A phi) univ hpi)) hx (le-trans x d w.1 le (les-le d w.1 w.2.2.2.1)) ; } ;
+
+-- the om case takes the value om (Typing.app-sel-by takes the target)
+app-sel-byK (K : Nat) (f A phi x d t : Ty) (q : ASel f d t) (hx : TpK K (el x A)) (le : Le x d)
+    (hpi : TpK K (el (pi A phi) univ)) : ShapeK K f (pi A phi) -> AppTK K f phi x t = split {
+  sk-bot e h -> new AppTKR[K, f, phi, x, t,
+    y := om, ley := om-arr-at phi x, w := om, lew := app-bot f d t e q, tpw := tpk-omom K,
+    lef := om-arr-at f x] ;
+  sk-univ e1 e2 -> absurd (AppTK K f phi x t) (univ-pi (pi A phi) A phi e2 (eqv-refl (pi A phi))) ;
+  sk-pi B psi bpi e1 e2 h1 h2 c -> absurd (AppTK K f phi x t) (univ-pi (pi A phi) A phi e2 (eqv-refl (pi A phi))) ;
+  sk-lam B psi g e1 e2 h1 h2 c -> app-lamK K f A phi x d t B psi g q hx le hpi e1 e2 h2 c } ;
+
+app-selK (K : Nat) (f A phi x d t : Ty) (hf : TpK K (el f (pi A phi))) (q : ASel f d t) (hx : TpK K (el x A)) (le : Le x d) :
+    AppTK K f phi x t =
+  app-sel-byK K f A phi x d t q hx le (tpk-pre K f (pi A phi) hf) (shapek K f (pi A phi) hf) ;

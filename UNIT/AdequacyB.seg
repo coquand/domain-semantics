@@ -1,0 +1,114 @@
+-- AdequacyB.seg: the budgeted adequacy (PRA/LEVELS.md, B4).  One
+-- eliminator computes, for a derivation d, a weight w(d) and a proof of
+-- AdW w(d): for every K with w(d) + K <= Kmax, the statement AdB0 K, in
+-- which every type is of depth <= Kmax (the instance by TpK K, the
+-- variables by RelSB at Kmax).  The weight of a node is the sum of the
+-- weights of its premises and of the bounds of the soundness steps its
+-- case uses (SoundK.soundK), so the induction never looks above Kmax.
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open SynLemmas[l] ; open Weaken[l] ; open Subst[l] ; open Presup[l] ; open Cross[l] ;
+open Filter[l] ; open Sem[l] ; open Sound[l] ; open Reduction[l] ; open RelC[l] ; open LawsC[l] ; open AdeqBase[l] ;
+open PrinEnv[l] ; open AdeqPiP[l] ; open AdeqLamP[l] ;
+open TypingK[l] ; open SemK[l] ; open SoundK[l] ; open LawsK[l] ; open AdeqBaseB[l] ; open AdeqPiB[l] ;
+open AdeqPiCaseB[l] ; open AdeqLamB[l] ; open AdeqFunB[l] ; open AdeqAppB[l] ;
+
+-- the weight of a derivation (independent of Kmax): the weights of the
+-- premises and the soundness bounds the case uses
+wt : (m : Nat) -> (J : Jf m) -> Der m J -> Nat = split {
+  wf-emp -> zero ;
+  wf-ext m G A h | r -> zero ;
+  ty-var m G i h | r -> zero ;
+  ty-conv m G M A B h1 h2 h3 | r1 r2 r3 -> add (add r1 r2) (soundness-eqK m G A B (uu m) h2).1 ;
+  ty-U m G h | r -> zero ;
+  ty-Pi m G A B h1 h2 | r1 r2 -> add r1 r2 ;
+  ty-Lam m G A B M h1 h2 h3 | r1 r2 r3 ->
+    add (add r1 (add r2 r3))
+        (add (soundness-tyK m G A (uu m) h1).1
+             (add (soundness-tyK (suc m) (ext m G A) M B h3).1 (soundness-tyK m G A (uu m) h1).1)) ;
+  ty-App m G A B f a h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    add (add r3 (add r4 r2)) (add (soundness-tyK m G f (pp m A B) h3).1 (soundness-tyK m G a A h4).1) ;
+  eq-refl m G M A h | r -> r ;
+  eq-sym m G M N A h | r -> add r (soundness-eqK m G M N A h).1 ;
+  eq-trans m G M N P A h1 h2 | r1 r2 -> add (add r1 r2) (soundness-eqK m G M N A h1).1 ;
+  eq-conv m G M N A B h1 h2 h3 | r1 r2 r3 -> add (add r1 r2) (soundness-eqK m G A B (uu m) h2).1 ;
+  eq-beta m G A B M a h1 h2 h3 h4 | r1 r2 r3 r4 -> add (add r3 r4) (soundness-tyK m G a A h4).1 ;
+  eq-Pi m G A A' B B' h1 h2 h3 h4 h5 | r1 r2 r3 r4 r5 ->
+    add (add r1 (add r4 (add r2 (add r3 r5)))) (soundness-eqK (suc m) (ext m G A) B B' (uu (suc m)) h5).1 ;
+  eq-funext m G A B f g h1 h2 h3 h4 | r1 r2 r3 r4 -> add r1 (add r2 r3) ;
+  eq-app-fun m G A B f f' a h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    add (add r3 (add r4 r2))
+        (add (soundness-tyK m G f (pp m A B) (eq-pre m (jeq G f f' (pp m A B)) h3).1).1 (soundness-tyK m G a A h4).1) ;
+  eq-app-arg m G A B f a a' h1 h2 h3 h4 | r1 r2 r3 r4 ->
+    add (add r3 (add r4 r2)) (add (soundness-tyK m G f (pp m A B) h3).1 (soundness-tyK m G a A (eq-pre m (jeq G a a' A) h4).1).1) } ;
+
+module AdeqTB (n : Nat) (D : Ctx n) (wD : Der n (jwf D)) (Kmax : Nat) {
+  open AdeqPB[n, D, wD, Kmax] ;
+  open AdeqPCB[n, D, wD, Kmax] ;
+  open AdeqLB[n, D, wD, Kmax] ;
+  open AdeqFB[n, D, wD, Kmax] ;
+  open AdeqAB[n, D, wD, Kmax] ;
+
+  AdJB (m : Nat) : (J : Jf m) -> Der m J -> U l+ = split {
+    jwf G -> \ d -> Top ;
+    jty G M A -> \ d -> AdWF (wt m (jty G M A) d) m G M M A ;
+    jeq G M M' A -> \ d -> AdWF (wt m (jeq G M M' A) d) m G M M' A } ;
+
+  adequacyB : (m : Nat) -> (J : Jf m) -> (d : Der m J) -> AdJB m J d = split {
+    wf-emp -> tt ;
+    wf-ext m G A h | r -> tt ;
+    ty-var m G i h | r -> WF (wt m (jty G (var m i) (lookup m G i)) (ty-var m G i h)) m G (var m i) (var m i) (lookup m G i)
+      (ad-varB m G i) ;
+    ty-conv m G M A B h1 h2 h3 | r1 r2 r3 -> WF (wt m (jty G M B) (ty-conv m G M A B h1 h2 h3)) m G M M B
+      (ad-convB m G M M A B (wt m (jty G M A) h1) (wt m (jeq G A B (uu m)) h2) (soundness-eqK m G A B (uu m) h2).1
+        (FW (wt m (jty G M A) h1) m G M M A r1) (FW (wt m (jeq G A B (uu m)) h2) m G A B (uu m) r2) (soundness-eqK m G A B (uu m) h2).2) ;
+    ty-U m G h | r -> WF (wt m (jty G (uu m) (uu m)) (ty-U m G h)) m G (uu m) (uu m) (uu m)
+      (ad-UB m G) ;
+    ty-Pi m G A B h1 h2 | r1 r2 -> WF (wt m (jty G (pp m A B) (uu m)) (ty-Pi m G A B h1 h2)) m G (pp m A B) (pp m A B) (uu m)
+      (ad-pi-tyB m G A B h1 h2 (wt m (jty G A (uu m)) h1) (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2) (FW (wt m (jty G A (uu m)) h1) m G A A (uu m) r1) (FW (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2) (suc m) (ext m G A) B B (uu (suc m)) r2)) ;
+    ty-Lam m G A B M h1 h2 h3 | r1 r2 r3 -> WF (wt m (jty G (lam m A M) (pp m A B)) (ty-Lam m G A B M h1 h2 h3)) m G (lam m A M) (lam m A M) (pp m A B)
+      (ad-lamB m G A B M h1 h2 (wt m (jty G A (uu m)) h1) (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2)
+        (wt (suc m) (jty (ext m G A) M B) h3) (soundness-tyK m G A (uu m) h1).1
+        (soundness-tyK (suc m) (ext m G A) M B h3).1 (soundness-tyK m G A (uu m) h1).2
+        (soundness-tyK (suc m) (ext m G A) M B h3).2 (FW (wt m (jty G A (uu m)) h1) m G A A (uu m) r1) (FW (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2) (suc m) (ext m G A) B B (uu (suc m)) r2) (FW (wt (suc m) (jty (ext m G A) M B) h3) (suc m) (ext m G A) M M B r3)) ;
+    ty-App m G A B f a h1 h2 h3 h4 | r1 r2 r3 r4 -> WF (wt m (jty G (app m f a) (subst1 m B a)) (ty-App m G A B f a h1 h2 h3 h4)) m G (app m f a) (app m f a) (subst1 m B a)
+      (\ K hB -> ad-app-atB m G A B f f a a h1 (eq-refl m G a A h4) (wt m (jty G f (pp m A B)) h3) (wt m (jty G a A) h4)
+                  (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2)
+                  (soundness-tyK m G f (pp m A B) h3).1 (soundness-tyK m G a A h4).1
+                  (soundness-tyK m G f (pp m A B) h3).2 (soundness-tyK m G a A h4).2 (FW (wt m (jty G f (pp m A B)) h3) m G f f (pp m A B) r3) (FW (wt m (jty G a A) h4) m G a a A r4) (FW (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2) (suc m) (ext m G A) B B (uu (suc m)) r2) K hB) ;
+    eq-refl m G M A h | r -> r ;
+    eq-sym m G M N A h | r -> WF (wt m (jeq G N M A) (eq-sym m G M N A h)) m G N M A
+      (ad-symB m G M N A (wt m (jeq G M N A) h) (soundness-eqK m G M N A h).1 (FW (wt m (jeq G M N A) h) m G M N A r) (soundness-eqK m G M N A h).2) ;
+    eq-trans m G M N P A h1 h2 | r1 r2 -> WF (wt m (jeq G M P A) (eq-trans m G M N P A h1 h2)) m G M P A
+      (ad-transB m G M N P A (wt m (jeq G M N A) h1) (wt m (jeq G N P A) h2) (soundness-eqK m G M N A h1).1
+        (FW (wt m (jeq G M N A) h1) m G M N A r1) (FW (wt m (jeq G N P A) h2) m G N P A r2) (soundness-eqK m G M N A h1).2) ;
+    eq-conv m G M N A B h1 h2 h3 | r1 r2 r3 -> WF (wt m (jeq G M N B) (eq-conv m G M N A B h1 h2 h3)) m G M N B
+      (ad-convB m G M N A B (wt m (jeq G M N A) h1) (wt m (jeq G A B (uu m)) h2) (soundness-eqK m G A B (uu m) h2).1
+        (FW (wt m (jeq G M N A) h1) m G M N A r1) (FW (wt m (jeq G A B (uu m)) h2) m G A B (uu m) r2) (soundness-eqK m G A B (uu m) h2).2) ;
+    eq-beta m G A B M a h1 h2 h3 h4 | r1 r2 r3 r4 -> WF (wt m (jeq G (app m (lam m A M) a) (subst1 m M a) (subst1 m B a)) (eq-beta m G A B M a h1 h2 h3 h4)) m G (app m (lam m A M) a) (subst1 m M a) (subst1 m B a)
+      (\ K hB -> ad-beta-atB m G A B M a h1 h4 (wt (suc m) (jty (ext m G A) M B) h3) (wt m (jty G a A) h4)
+                  (soundness-tyK m G a A h4).1 (soundness-tyK m G a A h4).2 (FW (wt (suc m) (jty (ext m G A) M B) h3) (suc m) (ext m G A) M M B r3) (FW (wt m (jty G a A) h4) m G a a A r4) K hB) ;
+    eq-Pi m G A A' B B' h1 h2 h3 h4 h5 | r1 r2 r3 r4 r5 -> WF (wt m (jeq G (pp m A B) (pp m A' B') (uu m)) (eq-Pi m G A A' B B' h1 h2 h3 h4 h5)) m G (pp m A B) (pp m A' B') (uu m)
+      (ad-piB m G A A' B B' h1 (eq-pre m (jeq G A A' (uu m)) h4).2 h4 h3 h5
+        (wt m (jty G A (uu m)) h1) (wt m (jeq G A A' (uu m)) h4) (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2)
+        (wt (suc m) (jty (ext m G A) B' (uu (suc m))) h3) (wt (suc m) (jeq (ext m G A) B B' (uu (suc m))) h5)
+        (soundness-eqK (suc m) (ext m G A) B B' (uu (suc m)) h5).1 (FW (wt m (jty G A (uu m)) h1) m G A A (uu m) r1) (FW (wt m (jeq G A A' (uu m)) h4) m G A A' (uu m) r4) (FW (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2) (suc m) (ext m G A) B B (uu (suc m)) r2) (FW (wt (suc m) (jty (ext m G A) B' (uu (suc m))) h3) (suc m) (ext m G A) B' B' (uu (suc m)) r3) (FW (wt (suc m) (jeq (ext m G A) B B' (uu (suc m))) h5) (suc m) (ext m G A) B B' (uu (suc m)) r5)
+        (soundness-eqK (suc m) (ext m G A) B B' (uu (suc m)) h5).2) ;
+    eq-funext m G A B f g h1 h2 h3 h4 | r1 r2 r3 r4 -> WF (wt m (jeq G f g (pp m A B)) (eq-funext m G A B f g h1 h2 h3 h4)) m G f g (pp m A B)
+      (\ K hB -> ad-funext-atB m G A B f g h1 (wt m (jty G A (uu m)) h1)
+                  (wt (suc m) (jeq (ext m G A) (app (suc m) (wk m f) (var (suc m) (fz m))) (app (suc m) (wk m g) (var (suc m) (fz m))) B) h2)
+                  (wt m (jty G f (pp m A B)) h3) (FW (wt m (jty G A (uu m)) h1) m G A A (uu m) r1) (FW (wt (suc m) (jeq (ext m G A) (app (suc m) (wk m f) (var (suc m) (fz m))) (app (suc m) (wk m g) (var (suc m) (fz m))) B) h2) (suc m) (ext m G A) (app (suc m) (wk m f) (var (suc m) (fz m))) (app (suc m) (wk m g) (var (suc m) (fz m))) B r2) (FW (wt m (jty G f (pp m A B)) h3) m G f f (pp m A B) r3) K hB) ;
+    eq-app-fun m G A B f f' a h1 h2 h3 h4 | r1 r2 r3 r4 -> WF (wt m (jeq G (app m f a) (app m f' a) (subst1 m B a)) (eq-app-fun m G A B f f' a h1 h2 h3 h4)) m G (app m f a) (app m f' a) (subst1 m B a)
+      (\ K hB -> ad-app-atB m G A B f f' a a h1 (eq-refl m G a A h4) (wt m (jeq G f f' (pp m A B)) h3) (wt m (jty G a A) h4)
+                  (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2)
+                  (soundness-tyK m G f (pp m A B) (eq-pre m (jeq G f f' (pp m A B)) h3).1).1 (soundness-tyK m G a A h4).1
+                  (soundness-tyK m G f (pp m A B) (eq-pre m (jeq G f f' (pp m A B)) h3).1).2 (soundness-tyK m G a A h4).2
+                  (FW (wt m (jeq G f f' (pp m A B)) h3) m G f f' (pp m A B) r3) (FW (wt m (jty G a A) h4) m G a a A r4) (FW (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2) (suc m) (ext m G A) B B (uu (suc m)) r2) K hB) ;
+    eq-app-arg m G A B f a a' h1 h2 h3 h4 | r1 r2 r3 r4 -> WF (wt m (jeq G (app m f a) (app m f a') (subst1 m B a)) (eq-app-arg m G A B f a a' h1 h2 h3 h4)) m G (app m f a) (app m f a') (subst1 m B a)
+      (\ K hB -> ad-app-atB m G A B f f a a' h1 h4 (wt m (jty G f (pp m A B)) h3) (wt m (jeq G a a' A) h4)
+                  (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2)
+                  (soundness-tyK m G f (pp m A B) h3).1 (soundness-tyK m G a A (eq-pre m (jeq G a a' A) h4).1).1
+                  (soundness-tyK m G f (pp m A B) h3).2 (soundness-tyK m G a A (eq-pre m (jeq G a a' A) h4).1).2
+                  (FW (wt m (jty G f (pp m A B)) h3) m G f f (pp m A B) r3) (FW (wt m (jeq G a a' A) h4) m G a a' A r4) (FW (wt (suc m) (jty (ext m G A) B (uu (suc m))) h2) (suc m) (ext m G A) B B (uu (suc m)) r2) K hB) } ;
+} ;

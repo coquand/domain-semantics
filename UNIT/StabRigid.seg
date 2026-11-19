@@ -1,0 +1,134 @@
+-- Finiteness of Stab(C), layer 6: decoded codes are rigid
+-- (abstract catemb over a CEF).
+--
+-- Finite linear orders: if every element of a linear order L occurs in a
+-- (junk-tolerant) list of length N, an order-preserving self-map f of L is
+-- the identity.  Constructive pigeonhole by counting: cnt y = number of
+-- entries below y; x < y gives cnt x < cnt y (x itself is listed), so a
+-- strictly monotone chain has at most N+1 elements; if x < f x (or
+-- f x < x), the chain x, f x, f f x, ... is strictly monotone and too
+-- long.  Each level Decode K (fin d) is such a finite order (normal forms
+-- (n, k) with k in a hom-list of C), so every endomorphism of Decode K
+-- is the identity.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module FL = FinList[l] ;
+module SAm = StabAmal[l] ;
+module PL = Prelude[l] ;
+
+-- counting the entries satisfying a boolean test
+ifN : W.Bool -> W.N -> W.N -> W.N = split { false -> \ a b -> b ; true -> \ a b -> a } ;
+hitE (A : U l) (p : A -> W.Bool) : CF.Opt A -> W.Bool = split { inl a -> p a ; inr u -> false } ;
+cnt (A : U l) (p : A -> W.Bool) : W.List (CF.Opt A) -> W.N = split {
+  nilL -> zero ;
+  consL x xs | r -> ifN (hitE A p x) (suc r) r } ;
+Le (a b : W.N) : U l = CF.Lt a (suc b) ;
+-- the count is at most the length
+le-step : (b : W.Bool) (r n : W.N) -> Le r n -> Le (ifN b (suc r) r) (suc n) = split {
+  false -> \ r n h -> W.ltN-sucR r (suc n) h ; true -> \ r n h -> h } ;
+cnt-le (A : U l) (p : A -> W.Bool) : (xs : W.List (CF.Opt A)) -> Le (cnt A p xs) (FL.lenL A xs) = split {
+  nilL -> refl true ;
+  consL x xs | r -> le-step (hitE A p x) (cnt A p xs) (FL.lenL A xs) r } ;
+-- monotonicity of the count in the test
+Imp (A : U l) (p q : A -> W.Bool) : U l = (a : A) -> Id W.Bool (p a) true -> Id W.Bool (q a) true ;
+hit-imp (A : U l) (p q : A -> W.Bool) (h : Imp A p q) : (x : CF.Opt A) -> Id W.Bool (hitE A p x) true -> Id W.Bool (hitE A q x) true = split {
+  inl a -> h a ; inr u -> \ e -> e } ;
+mono-step : (bp bq : W.Bool) -> (Id W.Bool bp true -> Id W.Bool bq true) -> (rp rq : W.N) -> Le rp rq -> Le (ifN bp (suc rp) rp) (ifN bq (suc rq) rq) = split {
+  false -> split { false -> \ h rp rq e -> e ; true -> \ h rp rq e -> W.ltN-sucR rp (suc rq) e } ;
+  true -> split { false -> \ h rp rq e -> W.absurdB (Le (suc rp) rq) (h (refl true)) ; true -> \ h rp rq e -> e } } ;
+cnt-mono (A : U l) (p q : A -> W.Bool) (h : Imp A p q) : (xs : W.List (CF.Opt A)) -> Le (cnt A p xs) (cnt A q xs) = split {
+  nilL -> refl true ;
+  consL x xs | r -> mono-step (hitE A p x) (hitE A q x) (hit-imp A p q h x) (cnt A p xs) (cnt A q xs) r } ;
+strict-step : (bp bq : W.Bool) -> (Id W.Bool bp true -> Id W.Bool bq true) -> (rp rq : W.N) -> CF.Lt rp rq ->
+    CF.Lt (ifN bp (suc rp) rp) (ifN bq (suc rq) rq) = split {
+  false -> split { false -> \ h rp rq e -> e ; true -> \ h rp rq e -> W.ltN-sucR rp rq e } ;
+  true -> split { false -> \ h rp rq e -> W.absurdB (CF.Lt (suc rp) rq) (h (refl true)) ; true -> \ h rp rq e -> e } } ;
+hit-new (A : U l) (p q : A -> W.Bool) (a : A) (pa : Id W.Bool (p a) false) (qa : Id W.Bool (q a) true) : (x : CF.Opt A) ->
+    Id (CF.Opt A) x (inl a) -> (rp rq : W.N) -> Le rp rq -> CF.Lt (ifN (hitE A p x) (suc rp) rp) (ifN (hitE A q x) (suc rq) rq) = split {
+  inl a0 -> \ e -> PL.subst A (\ a1 -> (rp rq : W.N) -> Le rp rq -> CF.Lt (ifN (p a1) (suc rp) rp) (ifN (q a1) (suc rq) rq)) a a0
+    (PL.sym A a0 a (CF.inl-inj A a0 a e))
+    (\ rp rq h -> PL.subst W.Bool (\ b -> CF.Lt (ifN b (suc rp) rp) (ifN (q a) (suc rq) rq)) false (p a) (PL.sym W.Bool (p a) false pa)
+      (PL.subst W.Bool (\ b -> CF.Lt rp (ifN b (suc rq) rq)) true (q a) (PL.sym W.Bool (q a) true qa) h)) ;
+  inr u -> \ e -> CF.efq ((rp rq : W.N) -> Le rp rq -> CF.Lt rp rq) (CF.inl-inr A a u (PL.sym (CF.Opt A) (inr u) (inl a) e)) } ;
+cnt-strict (A : U l) (p q : A -> W.Bool) (h : Imp A p q) (a : A) (pa : Id W.Bool (p a) false) (qa : Id W.Bool (q a) true) :
+    (xs : W.List (CF.Opt A)) (k : W.N) -> CF.Lt k (FL.lenL A xs) -> Id (CF.Opt A) (FL.nthO A xs k) (inl a) -> CF.Lt (cnt A p xs) (cnt A q xs) = split {
+  nilL -> \ k hk e -> W.ltN-zero-abs (CF.Lt zero zero) k hk ;
+  consL x xs | r -> split {
+    zero -> \ hk e -> hit-new A p q a pa qa x e (cnt A p xs) (cnt A q xs) (cnt-mono A p q h xs) ;
+    suc k -> \ hk e -> strict-step (hitE A p x) (hitE A q x) (hit-imp A p q h x) (cnt A p xs) (cnt A q xs) (r k hk e) } } ;
+
+--------------------------------------------------------------------
+-- order-preserving self-maps of finite linear orders
+
+lt-isLt (a b : W.O3) (e : Id W.O3 a b) (h : Id W.O3 b lt) : Id W.Bool (W.isLt a) true =
+  PL.subst W.O3 (\ x -> Id W.Bool (W.isLt x) true) lt a (PL.sym W.O3 a lt (PL.trans W.O3 a b lt e h)) (refl true) ;
+module FinLO (L : DP.LO) (xs : W.List (CF.Opt L.car)) (mem : (a : L.car) -> FL.Mem L.car xs a) (f : DP.Map L L) {
+  bel (y a : L.car) : W.Bool = W.isLt (L.cmp a y) ;
+  bel-imp (y y' : L.car) (h : Id W.O3 (L.cmp y y') lt) : Imp L.car (bel y) (bel y') = \ a e ->
+    lt-isLt (L.cmp a y') lt (L.ctrans a y y' (W.isLt-sound (L.cmp a y) e) h) (refl lt) ;
+  bel-self (y : L.car) : Id W.Bool (bel y y) false = PL.ap W.O3 W.Bool W.isLt (L.cmp y y) eq (L.crefl y) ;
+  cnt-lt (y y' : L.car) (h : Id W.O3 (L.cmp y y') lt) : CF.Lt (cnt L.car (bel y) xs) (cnt L.car (bel y') xs) =
+    cnt-strict L.car (bel y) (bel y') (bel-imp y y' h) (mem y).2.2.1
+      (PL.subst L.car (\ a -> Id W.Bool (bel y a) false) y (mem y).2.2.1 (PL.sym L.car (mem y).2.2.1 y (mem y).2.2.2.2) (bel-self y))
+      (PL.subst L.car (\ a -> Id W.Bool (bel y' a) true) y (mem y).2.2.1 (PL.sym L.car (mem y).2.2.1 y (mem y).2.2.2.2) (lt-isLt (L.cmp y y') lt h (refl lt)))
+      xs (mem y).1 (mem y).2.1 (mem y).2.2.2.1 ;
+  iter (x : L.car) : W.N -> L.car = split { zero -> x ; suc k | r -> f.1 r } ;
+  module Up (x : L.car) (h0 : Id W.O3 (L.cmp x (f.1 x)) lt) {
+    step : (k : W.N) -> Id W.O3 (L.cmp (iter x k) (iter x (suc k))) lt = split {
+      zero -> h0 ;
+      suc k | r -> PL.trans W.O3 (L.cmp (f.1 (iter x k)) (f.1 (iter x (suc k)))) (L.cmp (iter x k) (iter x (suc k))) lt
+        (f.2 (iter x k) (iter x (suc k))) r } ;
+    grow : (k : W.N) -> Le k (cnt L.car (bel (iter x k)) xs) = split {
+      zero -> refl true ;
+      suc k | r -> W.ltN-le-lt k (cnt L.car (bel (iter x k)) xs) (cnt L.car (bel (iter x (suc k))) xs) r
+        (cnt-lt (iter x k) (iter x (suc k)) (step k)) } ;
+    N : W.N = FL.lenL L.car xs ;
+    c : W.N = cnt L.car (bel (iter x (suc N))) xs ;
+    result : W.Empty = W.ltN-irr W.Empty c (W.ltN-le-lt c N c (cnt-le L.car (bel (iter x (suc N))) xs) (grow (suc N))) ;
+  } ;
+} ;
+flipLO (L : DP.LO) : DP.LO = new DP.LO[car := L.car, cmp := \ x y -> L.cmp y x,
+  ceq := \ x y h -> PL.sym L.car y x (L.ceq y x h), crefl := L.crefl, cflip := \ x y -> L.cflip y x,
+  ctrans := \ x y z h1 h2 -> L.ctrans z y x h2 h1] ;
+module Fix (L : DP.LO) (xs : W.List (CF.Opt L.car)) (mem : (a : L.car) -> FL.Mem L.car xs a) (f : DP.Map L L) {
+  module U1 = FinLO[L,xs,mem,f] ;
+  module U2 = FinLO[flipLO L,xs,mem,(f.1,\ x y -> f.2 y x)] ;
+  fx (x : L.car) : (o : W.O3) -> Id W.O3 (L.cmp x (f.1 x)) o -> Id L.car (f.1 x) x = split {
+    lt -> \ e -> CF.efq (Id L.car (f.1 x) x) U1.Up[x,e].result ;
+    eq -> \ e -> PL.sym L.car x (f.1 x) (L.ceq x (f.1 x) e) ;
+    gt -> \ e -> CF.efq (Id L.car (f.1 x) x)
+      U2.Up[x,PL.trans W.O3 (L.cmp (f.1 x) x) (W.flip (L.cmp x (f.1 x))) lt (L.cflip x (f.1 x))
+        (PL.ap W.O3 W.O3 W.flip (L.cmp x (f.1 x)) gt e)].result } ;
+  result (x : L.car) : Id L.car (f.1 x) x = fx x (L.cmp x (f.1 x)) (refl (L.cmp x (f.1 x))) ;
+} ;
+
+--------------------------------------------------------------------
+-- decoded codes are rigid
+
+module Rig (F : CF.CEF) (K : SC.Code[F]) {
+  module D = SC.Decode[F,K] ;
+  module O = SF.Over[F.C] ;
+  Ix : U l = (k : W.N) * CF.Lt k K.m ;
+  ixL : W.List (CF.Opt Ix) = FL.fromIdx Ix K.m (\ i h -> inl (i,h)) ;
+  ixM (p : Ix) : FL.Mem Ix ixL p = FL.mem-fromIdx Ix K.m (\ i h -> inl (i,h)) (\ q -> (q.1,(q.2,refl (inl q)))) p ;
+  HB (d : F.C.Fin) (p : Ix) : U l = F.C.Mor (F.C.fin (K.gen p.1)) (F.C.fin d) ;
+  hL (d : F.C.Fin) (p : Ix) : W.List (CF.Opt (HB d p)) = FL.fromIdx (HB d p) (F.homN (K.gen p.1) d) (F.hom (K.gen p.1) d) ;
+  hM (d : F.C.Fin) (p : Ix) (k : HB d p) : FL.Mem (HB d p) (hL d p) k =
+    FL.mem-fromIdx (HB d p) (F.homN (K.gen p.1) d) (F.hom (K.gen p.1) d) (F.hom-surj (K.gen p.1) d) k ;
+  toPt (d : F.C.Fin) (q : (p : Ix) * HB d p) : D.Pt (F.C.fin d) = (q.1.1,(q.1.2,q.2)) ;
+  ptL (d : F.C.Fin) : W.List (CF.Opt (D.Pt (F.C.fin d))) = FL.mapO ((p : Ix) * HB d p) (D.Pt (F.C.fin d)) (toPt d) (FL.sigL Ix (HB d) (hL d) ixL) ;
+  ptM (d : F.C.Fin) (v : D.Pt (F.C.fin d)) : FL.Mem (D.Pt (F.C.fin d)) (ptL d) v =
+    FL.memR-mapO ((p : Ix) * HB d p) (D.Pt (F.C.fin d)) (\ x y -> Id ((p : Ix) * HB d p) y x) (\ x y -> Id (D.Pt (F.C.fin d)) y x) (toPt d)
+      (FL.sigL Ix (HB d) (hL d) ixL) ((v.1,v.2.1),v.2.2) v
+      (\ q e -> PL.ap ((p : Ix) * HB d p) (D.Pt (F.C.fin d)) (toPt d) q ((v.1,v.2.1),v.2.2) e)
+      (FL.MemSig[Ix,HB d,hL d,(v.1,v.2.1),v.2.2,hM d (v.1,v.2.1) v.2.2].result ixL (ixM (v.1,v.2.1))) ;
+  rigid (a : O.Mor D.obj D.obj) : Id (O.Mor D.obj D.obj) a (O.idS D.obj) =
+    O.mor-eq D.obj D.obj a (O.idS D.obj) (\ d p -> Fix[D.Gt (F.C.fin d),ptL d,ptM d,a.1 d].result p) ;
+} ;

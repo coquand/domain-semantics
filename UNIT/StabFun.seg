@@ -1,0 +1,360 @@
+-- Stable functors on an abstract category of embeddings, into linear
+-- orders (catemb.pdf, linear-order case; abstract version of DilPtyx /
+-- PtyxMor / PtyxFinite / PtyxPull).
+--
+-- SF[C]: a functor G : C.Obj -> LO with
+--   * continuity: every point merely comes from a finite object (some
+--     code c and some morphism fin c -> A);
+--   * stability: a point in the images of G(f) and G(f') is in the image
+--     of G along the pull-back of f and f'.
+-- Morphisms are given by their FINITE PART (so that they form a SMALL
+-- type even though objects are large): a family on the codes, natural
+-- along morphisms of finite objects, whose naturality squares on finite
+-- objects are pull-backs (Cart).  Ext extends a morphism to all objects
+-- (unique choice over finite witnesses, well defined by directedness),
+-- strictly increasing, natural along ALL morphisms (nat-all), with
+-- pull-back squares along ALL morphisms (cart-all: pull back along the
+-- finite witness, take a finite witness in the pull-back, use Cart), and
+-- unique (det).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CE = CatEmb[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module FE = Axioms[l].FunExtLemmas[fe @l] ;
+
+Im (A B : DP.LO) (h : DP.Map A B) (y : B.car) : U l = (z : A.car) * Id B.car (h.1 z) y ;
+im-prop (A B : DP.LO) (h : DP.Map A B) (y : B.car) : PL.isProp (Im A B h y) = \ u v ->
+  PL.Sigma-eq A.car (\ z -> Id B.car (h.1 z) y) u.1 v.1 u.2 v.2
+    (DP.map-inj A B h u.1 v.1 (PL.trans B.car (h.1 u.1) y (h.1 v.1) u.2 (PL.sym B.car (h.1 v.1) y v.2)))
+    (PF.lo-set B (h.1 v.1) y) ;
+
+record SF (C : CE.CE) {
+  G : C.Obj -> DP.LO ;
+  arr : (A B : C.Obj) -> C.Mor A B -> DP.Map (G A) (G B) ;
+  arr-id : (A : C.Obj) (y : (G A).car) -> Id (G A).car ((arr A A (C.idm A)).1 y) y ;
+  arr-comp : (A B D : C.Obj) (f : C.Mor A B) (g : C.Mor B D) (y : (G A).car) ->
+    Id (G D).car ((arr B D g).1 ((arr A B f).1 y)) ((arr A D (C.comp A B D f g)).1 y) ;
+  cont : (A : C.Obj) (y : (G A).car) ->
+    Ex ((c : C.Fin) * ((i : C.Mor (C.fin c) A) * Im (G (C.fin c)) (G A) (arr (C.fin c) A i) y)) ;
+  stab : (A B B' : C.Obj) (f : C.Mor B A) (f' : C.Mor B' A) (y : (G A).car) ->
+    Im (G B) (G A) (arr B A f) y -> Im (G B') (G A) (arr B' A f') y ->
+    Im (G (C.pb A B B' f f')) (G A) (arr (C.pb A B B' f f') A (C.comp (C.pb A B B' f f') B A (C.p1 A B B' f f') f)) y ;
+} ;
+
+module Over (C : CE.CE) {
+  Dir (A : C.Obj) (c c' : C.Fin) (i : C.Mor (C.fin c) A) (i' : C.Mor (C.fin c') A) : U l =
+    (d : C.Fin) * ((j : C.Mor (C.fin d) A) * ((k : C.Mor (C.fin c) (C.fin d)) * ((k' : C.Mor (C.fin c') (C.fin d)) *
+      (Id (C.Mor (C.fin c) A) (C.comp (C.fin c) (C.fin d) A k j) i * Id (C.Mor (C.fin c') A) (C.comp (C.fin c') (C.fin d) A k' j) i')))) ;
+  Wit (X : SF[C]) (A : C.Obj) (y : (X.G A).car) : U l =
+    (c : C.Fin) * ((i : C.Mor (C.fin c) A) * Im (X.G (C.fin c)) (X.G A) (X.arr (C.fin c) A i) y) ;
+
+  --------------------------------------------------------------------
+  -- morphisms: finite parts
+
+  Fam (X Y : SF[C]) : U l = (c : C.Fin) -> DP.Map (X.G (C.fin c)) (Y.G (C.fin c)) ;
+  Nat (X Y : SF[C]) (a : Fam X Y) : U l =
+    (c d : C.Fin) (k : C.Mor (C.fin c) (C.fin d)) (y : (X.G (C.fin c)).car) ->
+      Id (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((a c).1 y)) ((a d).1 ((X.arr (C.fin c) (C.fin d) k).1 y)) ;
+  Cart (X Y : SF[C]) (a : Fam X Y) : U l =
+    (c d : C.Fin) (k : C.Mor (C.fin c) (C.fin d)) (y : (X.G (C.fin d)).car) ->
+      Im (Y.G (C.fin c)) (Y.G (C.fin d)) (Y.arr (C.fin c) (C.fin d) k) ((a d).1 y) ->
+      Im (X.G (C.fin c)) (X.G (C.fin d)) (X.arr (C.fin c) (C.fin d) k) y ;
+  Mor (X Y : SF[C]) : U l = (a : Fam X Y) * (Nat X Y a * Cart X Y a) ;
+  MorEq (X Y : SF[C]) (S T : Mor X Y) : U l = (c : C.Fin) (y : (X.G (C.fin c)).car) ->
+    Id (Y.G (C.fin c)).car ((S.1 c).1 y) ((T.1 c).1 y) ;
+
+  map-eq (A B : DP.LO) (f g : DP.Map A B) (e : (x : A.car) -> Id B.car (f.1 x) (g.1 x)) : Id (DP.Map A B) f g =
+    PL.Sigma-eq (A.car -> B.car) (\ h -> (x y : A.car) -> Id W.O3 (B.cmp (h x) (h y)) (A.cmp x y)) f.1 g.1 f.2 g.2
+      (FE.funext A.car (\ x -> B.car) f.1 g.1 e)
+      (FE.isProp-Pi A.car (\ x -> (y : A.car) -> Id W.O3 (B.cmp (g.1 x) (g.1 y)) (A.cmp x y))
+        (\ x -> FE.isProp-Pi A.car (\ y -> Id W.O3 (B.cmp (g.1 x) (g.1 y)) (A.cmp x y))
+          (\ y -> PF.o3-set (B.cmp (g.1 x) (g.1 y)) (A.cmp x y)))) ;
+  nat-prop (X Y : SF[C]) (a : Fam X Y) : PL.isProp (Nat X Y a) =
+    FE.isProp-Pi C.Fin (\ c -> (d : C.Fin) (k : C.Mor (C.fin c) (C.fin d)) (y : (X.G (C.fin c)).car) ->
+        Id (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((a c).1 y)) ((a d).1 ((X.arr (C.fin c) (C.fin d) k).1 y)))
+      (\ c -> FE.isProp-Pi C.Fin (\ d -> (k : C.Mor (C.fin c) (C.fin d)) (y : (X.G (C.fin c)).car) ->
+          Id (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((a c).1 y)) ((a d).1 ((X.arr (C.fin c) (C.fin d) k).1 y)))
+        (\ d -> FE.isProp-Pi (C.Mor (C.fin c) (C.fin d)) (\ k -> (y : (X.G (C.fin c)).car) ->
+            Id (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((a c).1 y)) ((a d).1 ((X.arr (C.fin c) (C.fin d) k).1 y)))
+          (\ k -> FE.isProp-Pi (X.G (C.fin c)).car (\ y ->
+              Id (Y.G (C.fin d)).car ((Y.arr (C.fin c) (C.fin d) k).1 ((a c).1 y)) ((a d).1 ((X.arr (C.fin c) (C.fin d) k).1 y)))
+            (\ y -> PF.lo-set (Y.G (C.fin d)) ((Y.arr (C.fin c) (C.fin d) k).1 ((a c).1 y)) ((a d).1 ((X.arr (C.fin c) (C.fin d) k).1 y)))))) ;
+  cart-prop (X Y : SF[C]) (a : Fam X Y) : PL.isProp (Cart X Y a) =
+    FE.isProp-Pi C.Fin (\ c -> (d : C.Fin) (k : C.Mor (C.fin c) (C.fin d)) (y : (X.G (C.fin d)).car) ->
+        Im (Y.G (C.fin c)) (Y.G (C.fin d)) (Y.arr (C.fin c) (C.fin d) k) ((a d).1 y) ->
+        Im (X.G (C.fin c)) (X.G (C.fin d)) (X.arr (C.fin c) (C.fin d) k) y)
+      (\ c -> FE.isProp-Pi C.Fin (\ d -> (k : C.Mor (C.fin c) (C.fin d)) (y : (X.G (C.fin d)).car) ->
+          Im (Y.G (C.fin c)) (Y.G (C.fin d)) (Y.arr (C.fin c) (C.fin d) k) ((a d).1 y) ->
+          Im (X.G (C.fin c)) (X.G (C.fin d)) (X.arr (C.fin c) (C.fin d) k) y)
+        (\ d -> FE.isProp-Pi (C.Mor (C.fin c) (C.fin d)) (\ k -> (y : (X.G (C.fin d)).car) ->
+            Im (Y.G (C.fin c)) (Y.G (C.fin d)) (Y.arr (C.fin c) (C.fin d) k) ((a d).1 y) ->
+            Im (X.G (C.fin c)) (X.G (C.fin d)) (X.arr (C.fin c) (C.fin d) k) y)
+          (\ k -> FE.isProp-Pi (X.G (C.fin d)).car (\ y ->
+              Im (Y.G (C.fin c)) (Y.G (C.fin d)) (Y.arr (C.fin c) (C.fin d) k) ((a d).1 y) ->
+              Im (X.G (C.fin c)) (X.G (C.fin d)) (X.arr (C.fin c) (C.fin d) k) y)
+            (\ y -> FE.isProp-Pi (Im (Y.G (C.fin c)) (Y.G (C.fin d)) (Y.arr (C.fin c) (C.fin d) k) ((a d).1 y))
+              (\ r -> Im (X.G (C.fin c)) (X.G (C.fin d)) (X.arr (C.fin c) (C.fin d) k) y)
+              (\ r -> im-prop (X.G (C.fin c)) (X.G (C.fin d)) (X.arr (C.fin c) (C.fin d) k) y))))) ;
+  mor-eq (X Y : SF[C]) (S T : Mor X Y) (e : MorEq X Y S T) : Id (Mor X Y) S T =
+    PL.Sigma-eq (Fam X Y) (\ a -> Nat X Y a * Cart X Y a) S.1 T.1 S.2 T.2
+      (FE.funext C.Fin (\ c -> DP.Map (X.G (C.fin c)) (Y.G (C.fin c))) S.1 T.1
+        (\ c -> map-eq (X.G (C.fin c)) (Y.G (C.fin c)) (S.1 c) (T.1 c) (e c)))
+      (PL.isProp-Sigma (Nat X Y T.1) (\ n -> Cart X Y T.1) (nat-prop X Y T.1) (\ n -> cart-prop X Y T.1)) ;
+
+  idMap (A : DP.LO) : DP.Map A A = (\ x -> x,\ x y -> refl (A.cmp x y)) ;
+  compMap (A B D : DP.LO) (f : DP.Map A B) (g : DP.Map B D) : DP.Map A D =
+    (\ x -> g.1 (f.1 x),\ x y -> W.trans W.O3 (D.cmp (g.1 (f.1 x)) (g.1 (f.1 y))) (B.cmp (f.1 x) (f.1 y)) (A.cmp x y)
+      (g.2 (f.1 x) (f.1 y)) (f.2 x y)) ;
+
+  idS (X : SF[C]) : Mor X X = (\ c -> idMap (X.G (C.fin c)),(\ c d k y -> refl ((X.arr (C.fin c) (C.fin d) k).1 y),\ c d k y r -> r)) ;
+  module Comp (X Y Z : SF[C]) (S : Mor X Y) (T : Mor Y Z) {
+    a : Fam X Z = \ c -> compMap (X.G (C.fin c)) (Y.G (C.fin c)) (Z.G (C.fin c)) (S.1 c) (T.1 c) ;
+    nat : Nat X Z a = \ c d k y ->
+      PL.trans (Z.G (C.fin d)).car ((Z.arr (C.fin c) (C.fin d) k).1 ((T.1 c).1 ((S.1 c).1 y)))
+        ((T.1 d).1 ((Y.arr (C.fin c) (C.fin d) k).1 ((S.1 c).1 y))) ((T.1 d).1 ((S.1 d).1 ((X.arr (C.fin c) (C.fin d) k).1 y)))
+        (T.2.1 c d k ((S.1 c).1 y))
+        (PL.ap (Y.G (C.fin d)).car (Z.G (C.fin d)).car (T.1 d).1 ((Y.arr (C.fin c) (C.fin d) k).1 ((S.1 c).1 y))
+          ((S.1 d).1 ((X.arr (C.fin c) (C.fin d) k).1 y)) (S.2.1 c d k y)) ;
+    cart : Cart X Z a = \ c d k y r -> S.2.2 c d k y (T.2.2 c d k ((S.1 d).1 y) r) ;
+    mor : Mor X Z = (a,(nat,cart)) ;
+  } ;
+  compS (X Y Z : SF[C]) (S : Mor X Y) (T : Mor Y Z) : Mor X Z = Comp[X,Y,Z,S,T].mor ;
+  id-l (X Y : SF[C]) (S : Mor X Y) : Id (Mor X Y) (compS X X Y (idS X) S) S =
+    mor-eq X Y (compS X X Y (idS X) S) S (\ c y -> refl ((S.1 c).1 y)) ;
+  id-r (X Y : SF[C]) (S : Mor X Y) : Id (Mor X Y) (compS X Y Y S (idS Y)) S =
+    mor-eq X Y (compS X Y Y S (idS Y)) S (\ c y -> refl ((S.1 c).1 y)) ;
+  assoc (X Y Z V : SF[C]) (S : Mor X Y) (T : Mor Y Z) (M : Mor Z V) :
+      Id (Mor X V) (compS X Z V (compS X Y Z S T) M) (compS X Y V S (compS Y Z V T M)) =
+    mor-eq X V (compS X Z V (compS X Y Z S T) M) (compS X Y V S (compS Y Z V T M)) (\ c y -> refl ((M.1 c).1 ((T.1 c).1 ((S.1 c).1 y)))) ;
+  mono (X Y Z : SF[C]) (S S' : Mor X Y) (T : Mor Y Z) (e : Id (Mor X Z) (compS X Y Z S T) (compS X Y Z S' T)) : Id (Mor X Y) S S' =
+    mor-eq X Y S S' (\ c y -> DP.map-inj (Y.G (C.fin c)) (Z.G (C.fin c)) (T.1 c) ((S.1 c).1 y) ((S'.1 c).1 y)
+      (PL.ap (Mor X Z) (Z.G (C.fin c)).car (\ M -> (M.1 c).1 y) (compS X Y Z S T) (compS X Y Z S' T) e)) ;
+
+  --------------------------------------------------------------------
+  -- extension of a morphism to all objects
+
+  module Ext (X Y : SF[C]) (m : Mor X Y) {
+    a (c : C.Fin) : (X.G (C.fin c)).car -> (Y.G (C.fin c)).car = (m.1 c).1 ;
+    val (A : C.Obj) (y : (X.G A).car) (w : Wit X A y) : (Y.G A).car = (Y.arr (C.fin w.1) A w.2.1).1 (a w.1 w.2.2.1) ;
+    -- a witness at a common refinement computes the same value
+    module Ref (A : C.Obj) (y : (X.G A).car) (w : Wit X A y) (d : C.Fin) (j : C.Mor (C.fin d) A)
+      (k : C.Mor (C.fin w.1) (C.fin d)) (ek : Id (C.Mor (C.fin w.1) A) (C.comp (C.fin w.1) (C.fin d) A k j) w.2.1) {
+      c : C.Fin = w.1 ;
+      i : C.Mor (C.fin c) A = w.2.1 ;
+      z : (X.G (C.fin c)).car = w.2.2.1 ;
+      u : (X.G (C.fin d)).car = (X.arr (C.fin c) (C.fin d) k).1 z ;
+      eu : Id (X.G A).car ((X.arr (C.fin d) A j).1 u) y =
+        PL.trans (X.G A).car ((X.arr (C.fin d) A j).1 u) ((X.arr (C.fin c) A (C.comp (C.fin c) (C.fin d) A k j)).1 z) y
+          (X.arr-comp (C.fin c) (C.fin d) A k j z)
+          (PL.trans (X.G A).car ((X.arr (C.fin c) A (C.comp (C.fin c) (C.fin d) A k j)).1 z) ((X.arr (C.fin c) A i).1 z) y
+            (PL.ap (C.Mor (C.fin c) A) (X.G A).car (\ M -> (X.arr (C.fin c) A M).1 z) (C.comp (C.fin c) (C.fin d) A k j) i ek)
+            w.2.2.2) ;
+      wd : Wit X A y = (d,(j,(u,eu))) ;
+      -- val w = Y(j) (a_d u)
+      ev : Id (Y.G A).car (val A y w) (val A y wd) =
+        PL.trans (Y.G A).car (val A y w) ((Y.arr (C.fin c) A (C.comp (C.fin c) (C.fin d) A k j)).1 (a c z)) (val A y wd)
+          (PL.ap (C.Mor (C.fin c) A) (Y.G A).car (\ M -> (Y.arr (C.fin c) A M).1 (a c z)) i (C.comp (C.fin c) (C.fin d) A k j)
+            (PL.sym (C.Mor (C.fin c) A) (C.comp (C.fin c) (C.fin d) A k j) i ek))
+          (PL.trans (Y.G A).car ((Y.arr (C.fin c) A (C.comp (C.fin c) (C.fin d) A k j)).1 (a c z))
+            ((Y.arr (C.fin d) A j).1 ((Y.arr (C.fin c) (C.fin d) k).1 (a c z))) (val A y wd)
+            (PL.sym (Y.G A).car ((Y.arr (C.fin d) A j).1 ((Y.arr (C.fin c) (C.fin d) k).1 (a c z)))
+              ((Y.arr (C.fin c) A (C.comp (C.fin c) (C.fin d) A k j)).1 (a c z)) (Y.arr-comp (C.fin c) (C.fin d) A k j (a c z)))
+            (PL.ap (Y.G (C.fin d)).car (Y.G A).car (Y.arr (C.fin d) A j).1 ((Y.arr (C.fin c) (C.fin d) k).1 (a c z)) (a d u)
+              (m.2.1 c d k z))) ;
+    } ;
+    module Indep (A : C.Obj) (y : (X.G A).car) (w w' : Wit X A y) (t : Dir A w.1 w'.1 w.2.1 w'.2.1) {
+      module R1 = Ref[A,y,w,t.1,t.2.1,t.2.2.1,t.2.2.2.2.1] ;
+      module R2 = Ref[A,y,w',t.1,t.2.1,t.2.2.2.1,t.2.2.2.2.2] ;
+      euu : Id (X.G (C.fin t.1)).car R1.u R2.u =
+        DP.map-inj (X.G (C.fin t.1)) (X.G A) (X.arr (C.fin t.1) A t.2.1) R1.u R2.u
+          (PL.trans (X.G A).car ((X.arr (C.fin t.1) A t.2.1).1 R1.u) y ((X.arr (C.fin t.1) A t.2.1).1 R2.u)
+            R1.eu (PL.sym (X.G A).car ((X.arr (C.fin t.1) A t.2.1).1 R2.u) y R2.eu)) ;
+      result : Id (Y.G A).car (val A y w) (val A y w') =
+        PL.trans (Y.G A).car (val A y w) (val A y R1.wd) (val A y w') R1.ev
+          (PL.trans (Y.G A).car (val A y R1.wd) (val A y R2.wd) (val A y w')
+            (PL.ap (X.G (C.fin t.1)).car (Y.G A).car (\ v -> (Y.arr (C.fin t.1) A t.2.1).1 (a t.1 v)) R1.u R2.u euu)
+            (PL.sym (Y.G A).car (val A y w') (val A y R2.wd) R2.ev)) ;
+    } ;
+    indep (A : C.Obj) (y : (X.G A).car) (w w' : Wit X A y) : Id (Y.G A).car (val A y w) (val A y w') =
+      TC.rec (Dir A w.1 w'.1 w.2.1 w'.2.1) @l (Id (Y.G A).car (val A y w) (val A y w'))
+        (PF.lo-set (Y.G A) (val A y w) (val A y w'))
+        (\ t -> Indep[A,y,w,w',t].result) (C.dir A w.1 w'.1 w.2.1 w'.2.1) ;
+    Cand (A : C.Obj) (y : (X.G A).car) (v : (Y.G A).car) : U l = Ex ((w : Wit X A y) * Id (Y.G A).car v (val A y w)) ;
+    Cc (A : C.Obj) (y : (X.G A).car) : U l = (v : (Y.G A).car) * Cand A y v ;
+    cand-eq (A : C.Obj) (y : (X.G A).car) (v v' : (Y.G A).car) (h : Cand A y v) (h' : Cand A y v') : Id (Y.G A).car v v' =
+      TC.rec ((w : Wit X A y) * Id (Y.G A).car v (val A y w)) @l (Id (Y.G A).car v v') (PF.lo-set (Y.G A) v v')
+        (\ p -> TC.rec ((w : Wit X A y) * Id (Y.G A).car v' (val A y w)) @l (Id (Y.G A).car v v') (PF.lo-set (Y.G A) v v')
+          (\ p' -> PL.trans (Y.G A).car v (val A y p.1) v' p.2
+            (PL.trans (Y.G A).car (val A y p.1) (val A y p'.1) v' (indep A y p.1 p'.1) (PL.sym (Y.G A).car v' (val A y p'.1) p'.2)))
+          h')
+        h ;
+    cc-prop (A : C.Obj) (y : (X.G A).car) : PL.isProp (Cc A y) = \ p q ->
+      PL.Sigma-eq (Y.G A).car (Cand A y) p.1 q.1 p.2 q.2 (cand-eq A y p.1 q.1 p.2 q.2)
+        (prop ((w : Wit X A y) * Id (Y.G A).car q.1 (val A y w))) ;
+    pick (A : C.Obj) (y : (X.G A).car) (w : Wit X A y) : Cc A y =
+      (val A y w,inc ((w' : Wit X A y) * Id (Y.G A).car (val A y w) (val A y w')) (w,refl (val A y w))) ;
+    get (A : C.Obj) (y : (X.G A).car) : Cc A y = TC.rec (Wit X A y) @l (Cc A y) (cc-prop A y) (pick A y) (X.cont A y) ;
+    f (A : C.Obj) (y : (X.G A).car) : (Y.G A).car = (get A y).1 ;
+    spec (A : C.Obj) (y : (X.G A).car) (w : Wit X A y) : Id (Y.G A).car (f A y) (val A y w) =
+      cand-eq A y (f A y) (val A y w) (get A y).2 (pick A y w).2 ;
+    -- on finite objects, the extension is the given family
+    fin-eq (c : C.Fin) (y : (X.G (C.fin c)).car) : Id (Y.G (C.fin c)).car (f (C.fin c) y) (a c y) =
+      PL.trans (Y.G (C.fin c)).car (f (C.fin c) y) (val (C.fin c) y (c,(C.idm (C.fin c),(y,X.arr-id (C.fin c) y)))) (a c y)
+        (spec (C.fin c) y (c,(C.idm (C.fin c),(y,X.arr-id (C.fin c) y))))
+        (Y.arr-id (C.fin c) (a c y)) ;
+    -- strictly increasing
+    module Incr (A : C.Obj) (y1 y2 : (X.G A).car) (w1 : Wit X A y1) (w2 : Wit X A y2) (t : Dir A w1.1 w2.1 w1.2.1 w2.2.1) {
+      module R1 = Ref[A,y1,w1,t.1,t.2.1,t.2.2.1,t.2.2.2.2.1] ;
+      module R2 = Ref[A,y2,w2,t.1,t.2.1,t.2.2.2.1,t.2.2.2.2.2] ;
+      j : C.Mor (C.fin t.1) A = t.2.1 ;
+      e1 : Id (Y.G A).car (f A y1) ((Y.arr (C.fin t.1) A j).1 (a t.1 R1.u)) = spec A y1 R1.wd ;
+      e2 : Id (Y.G A).car (f A y2) ((Y.arr (C.fin t.1) A j).1 (a t.1 R2.u)) = spec A y2 R2.wd ;
+      result : Id W.O3 ((Y.G A).cmp (f A y1) (f A y2)) ((X.G A).cmp y1 y2) =
+        W.trans W.O3 ((Y.G A).cmp (f A y1) (f A y2))
+          ((Y.G A).cmp ((Y.arr (C.fin t.1) A j).1 (a t.1 R1.u)) ((Y.arr (C.fin t.1) A j).1 (a t.1 R2.u))) ((X.G A).cmp y1 y2)
+          (W.ap2 (Y.G A).car (Y.G A).car W.O3 (Y.G A).cmp (f A y1) ((Y.arr (C.fin t.1) A j).1 (a t.1 R1.u))
+            (f A y2) ((Y.arr (C.fin t.1) A j).1 (a t.1 R2.u)) e1 e2)
+          (W.trans W.O3 ((Y.G A).cmp ((Y.arr (C.fin t.1) A j).1 (a t.1 R1.u)) ((Y.arr (C.fin t.1) A j).1 (a t.1 R2.u)))
+            ((Y.G (C.fin t.1)).cmp (a t.1 R1.u) (a t.1 R2.u)) ((X.G A).cmp y1 y2)
+            ((Y.arr (C.fin t.1) A j).2 (a t.1 R1.u) (a t.1 R2.u))
+            (W.trans W.O3 ((Y.G (C.fin t.1)).cmp (a t.1 R1.u) (a t.1 R2.u)) ((X.G (C.fin t.1)).cmp R1.u R2.u) ((X.G A).cmp y1 y2)
+              ((m.1 t.1).2 R1.u R2.u)
+              (W.trans W.O3 ((X.G (C.fin t.1)).cmp R1.u R2.u)
+                ((X.G A).cmp ((X.arr (C.fin t.1) A j).1 R1.u) ((X.arr (C.fin t.1) A j).1 R2.u)) ((X.G A).cmp y1 y2)
+                (W.sym W.O3 ((X.G A).cmp ((X.arr (C.fin t.1) A j).1 R1.u) ((X.arr (C.fin t.1) A j).1 R2.u))
+                  ((X.G (C.fin t.1)).cmp R1.u R2.u) ((X.arr (C.fin t.1) A j).2 R1.u R2.u))
+                (W.ap2 (X.G A).car (X.G A).car W.O3 (X.G A).cmp ((X.arr (C.fin t.1) A j).1 R1.u) y1
+                  ((X.arr (C.fin t.1) A j).1 R2.u) y2 R1.eu R2.eu)))) ;
+    } ;
+    incr (A : C.Obj) (y1 y2 : (X.G A).car) : Id W.O3 ((Y.G A).cmp (f A y1) (f A y2)) ((X.G A).cmp y1 y2) =
+      TC.rec (Wit X A y1) @l (Id W.O3 ((Y.G A).cmp (f A y1) (f A y2)) ((X.G A).cmp y1 y2))
+        (PF.o3-set ((Y.G A).cmp (f A y1) (f A y2)) ((X.G A).cmp y1 y2))
+        (\ w1 -> TC.rec (Wit X A y2) @l (Id W.O3 ((Y.G A).cmp (f A y1) (f A y2)) ((X.G A).cmp y1 y2))
+          (PF.o3-set ((Y.G A).cmp (f A y1) (f A y2)) ((X.G A).cmp y1 y2))
+          (\ w2 -> TC.rec (Dir A w1.1 w2.1 w1.2.1 w2.2.1) @l (Id W.O3 ((Y.G A).cmp (f A y1) (f A y2)) ((X.G A).cmp y1 y2))
+            (PF.o3-set ((Y.G A).cmp (f A y1) (f A y2)) ((X.G A).cmp y1 y2))
+            (\ t -> Incr[A,y1,y2,w1,w2,t].result) (C.dir A w1.1 w2.1 w1.2.1 w2.2.1))
+          (X.cont A y2))
+        (X.cont A y1) ;
+    map (A : C.Obj) : DP.Map (X.G A) (Y.G A) = (f A,incr A) ;
+
+    -- natural along all morphisms
+    module NatW (A B : C.Obj) (h : C.Mor A B) (y : (X.G A).car) (w : Wit X A y) {
+      c : C.Fin = w.1 ;
+      i : C.Mor (C.fin c) A = w.2.1 ;
+      z : (X.G (C.fin c)).car = w.2.2.1 ;
+      wh : Wit X B ((X.arr A B h).1 y) =
+        (c,(C.comp (C.fin c) A B i h,(z,
+          PL.trans (X.G B).car ((X.arr (C.fin c) B (C.comp (C.fin c) A B i h)).1 z) ((X.arr A B h).1 ((X.arr (C.fin c) A i).1 z))
+            ((X.arr A B h).1 y)
+            (PL.sym (X.G B).car ((X.arr A B h).1 ((X.arr (C.fin c) A i).1 z)) ((X.arr (C.fin c) B (C.comp (C.fin c) A B i h)).1 z)
+              (X.arr-comp (C.fin c) A B i h z))
+            (PL.ap (X.G A).car (X.G B).car (X.arr A B h).1 ((X.arr (C.fin c) A i).1 z) y w.2.2.2)))) ;
+      result : Id (Y.G B).car ((Y.arr A B h).1 (f A y)) (f B ((X.arr A B h).1 y)) =
+        PL.trans (Y.G B).car ((Y.arr A B h).1 (f A y)) ((Y.arr A B h).1 (val A y w)) (f B ((X.arr A B h).1 y))
+          (PL.ap (Y.G A).car (Y.G B).car (Y.arr A B h).1 (f A y) (val A y w) (spec A y w))
+          (PL.trans (Y.G B).car ((Y.arr A B h).1 (val A y w)) (val B ((X.arr A B h).1 y) wh) (f B ((X.arr A B h).1 y))
+            (Y.arr-comp (C.fin c) A B i h (a c z))
+            (PL.sym (Y.G B).car (f B ((X.arr A B h).1 y)) (val B ((X.arr A B h).1 y) wh) (spec B ((X.arr A B h).1 y) wh))) ;
+    } ;
+    nat-all (A B : C.Obj) (h : C.Mor A B) (y : (X.G A).car) : Id (Y.G B).car ((Y.arr A B h).1 (f A y)) (f B ((X.arr A B h).1 y)) =
+      TC.rec (Wit X A y) @l (Id (Y.G B).car ((Y.arr A B h).1 (f A y)) (f B ((X.arr A B h).1 y)))
+        (PF.lo-set (Y.G B) ((Y.arr A B h).1 (f A y)) (f B ((X.arr A B h).1 y)))
+        (\ w -> NatW[A,B,h,y,w].result) (X.cont A y) ;
+
+    -- pull-back squares along all morphisms
+    module CartW (A B : C.Obj) (h : C.Mor B A) (y : (X.G A).car) (r : Im (Y.G B) (Y.G A) (Y.arr B A h) (f A y)) (w : Wit X A y) {
+      c : C.Fin = w.1 ;
+      i : C.Mor (C.fin c) A = w.2.1 ;
+      z : (X.G (C.fin c)).car = w.2.2.1 ;
+      P : C.Obj = C.pb A B (C.fin c) h i ;
+      q1 : C.Mor P B = C.p1 A B (C.fin c) h i ;
+      q2 : C.Mor P (C.fin c) = C.p2 A B (C.fin c) h i ;
+      sv : Im (Y.G (C.fin c)) (Y.G A) (Y.arr (C.fin c) A i) (f A y) =
+        (a c z,PL.sym (Y.G A).car (f A y) (val A y w) (spec A y w)) ;
+      st : Im (Y.G P) (Y.G A) (Y.arr P A (C.comp P B A q1 h)) (f A y) = Y.stab A B (C.fin c) h i (f A y) r sv ;
+      u : (Y.G P).car = st.1 ;
+      e2 : Id (Y.G (C.fin c)).car ((Y.arr P (C.fin c) q2).1 u) (a c z) =
+        DP.map-inj (Y.G (C.fin c)) (Y.G A) (Y.arr (C.fin c) A i) ((Y.arr P (C.fin c) q2).1 u) (a c z)
+          (PL.trans (Y.G A).car ((Y.arr (C.fin c) A i).1 ((Y.arr P (C.fin c) q2).1 u)) ((Y.arr P A (C.comp P (C.fin c) A q2 i)).1 u)
+            ((Y.arr (C.fin c) A i).1 (a c z))
+            (Y.arr-comp P (C.fin c) A q2 i u)
+            (PL.trans (Y.G A).car ((Y.arr P A (C.comp P (C.fin c) A q2 i)).1 u) ((Y.arr P A (C.comp P B A q1 h)).1 u)
+              ((Y.arr (C.fin c) A i).1 (a c z))
+              (PL.ap (C.Mor P A) (Y.G A).car (\ M -> (Y.arr P A M).1 u) (C.comp P (C.fin c) A q2 i) (C.comp P B A q1 h)
+                (PL.sym (C.Mor P A) (C.comp P B A q1 h) (C.comp P (C.fin c) A q2 i) (C.pb-sq A B (C.fin c) h i)))
+              (PL.trans (Y.G A).car ((Y.arr P A (C.comp P B A q1 h)).1 u) (f A y) ((Y.arr (C.fin c) A i).1 (a c z))
+                st.2 (spec A y w)))) ;
+      module Fin2 (v : Wit Y P u) {
+        e : C.Fin = v.1 ;
+        iu : C.Mor (C.fin e) P = v.2.1 ;
+        u0 : (Y.G (C.fin e)).car = v.2.2.1 ;
+        kk : C.Mor (C.fin e) (C.fin c) = C.comp (C.fin e) P (C.fin c) iu q2 ;
+        ek : Id (Y.G (C.fin c)).car ((Y.arr (C.fin e) (C.fin c) kk).1 u0) (a c z) =
+          PL.trans (Y.G (C.fin c)).car ((Y.arr (C.fin e) (C.fin c) kk).1 u0) ((Y.arr P (C.fin c) q2).1 ((Y.arr (C.fin e) P iu).1 u0)) (a c z)
+            (PL.sym (Y.G (C.fin c)).car ((Y.arr P (C.fin c) q2).1 ((Y.arr (C.fin e) P iu).1 u0)) ((Y.arr (C.fin e) (C.fin c) kk).1 u0)
+              (Y.arr-comp (C.fin e) P (C.fin c) iu q2 u0))
+            (PL.trans (Y.G (C.fin c)).car ((Y.arr P (C.fin c) q2).1 ((Y.arr (C.fin e) P iu).1 u0)) ((Y.arr P (C.fin c) q2).1 u) (a c z)
+              (PL.ap (Y.G P).car (Y.G (C.fin c)).car (Y.arr P (C.fin c) q2).1 ((Y.arr (C.fin e) P iu).1 u0) u v.2.2.2)
+              e2) ;
+        zz : Im (X.G (C.fin e)) (X.G (C.fin c)) (X.arr (C.fin e) (C.fin c) kk) z = m.2.2 e c kk z (u0,ek) ;
+        g : C.Mor (C.fin e) B = C.comp (C.fin e) P B iu q1 ;
+        eM : Id (C.Mor (C.fin e) A) (C.comp (C.fin e) B A g h) (C.comp (C.fin e) (C.fin c) A kk i) =
+          PL.trans (C.Mor (C.fin e) A) (C.comp (C.fin e) B A g h) (C.comp (C.fin e) P A iu (C.comp P B A q1 h))
+            (C.comp (C.fin e) (C.fin c) A kk i)
+            (C.assoc (C.fin e) P B A iu q1 h)
+            (PL.trans (C.Mor (C.fin e) A) (C.comp (C.fin e) P A iu (C.comp P B A q1 h)) (C.comp (C.fin e) P A iu (C.comp P (C.fin c) A q2 i))
+              (C.comp (C.fin e) (C.fin c) A kk i)
+              (PL.ap (C.Mor P A) (C.Mor (C.fin e) A) (C.comp (C.fin e) P A iu) (C.comp P B A q1 h) (C.comp P (C.fin c) A q2 i)
+                (C.pb-sq A B (C.fin c) h i))
+              (PL.sym (C.Mor (C.fin e) A) (C.comp (C.fin e) (C.fin c) A kk i) (C.comp (C.fin e) P A iu (C.comp P (C.fin c) A q2 i))
+                (C.assoc (C.fin e) P (C.fin c) A iu q2 i))) ;
+        result : Im (X.G B) (X.G A) (X.arr B A h) y =
+          ((X.arr (C.fin e) B g).1 zz.1,
+           PL.trans (X.G A).car ((X.arr B A h).1 ((X.arr (C.fin e) B g).1 zz.1)) ((X.arr (C.fin e) A (C.comp (C.fin e) B A g h)).1 zz.1) y
+             (X.arr-comp (C.fin e) B A g h zz.1)
+             (PL.trans (X.G A).car ((X.arr (C.fin e) A (C.comp (C.fin e) B A g h)).1 zz.1)
+               ((X.arr (C.fin e) A (C.comp (C.fin e) (C.fin c) A kk i)).1 zz.1) y
+               (PL.ap (C.Mor (C.fin e) A) (X.G A).car (\ M -> (X.arr (C.fin e) A M).1 zz.1)
+                 (C.comp (C.fin e) B A g h) (C.comp (C.fin e) (C.fin c) A kk i) eM)
+               (PL.trans (X.G A).car ((X.arr (C.fin e) A (C.comp (C.fin e) (C.fin c) A kk i)).1 zz.1)
+                 ((X.arr (C.fin c) A i).1 ((X.arr (C.fin e) (C.fin c) kk).1 zz.1)) y
+                 (PL.sym (X.G A).car ((X.arr (C.fin c) A i).1 ((X.arr (C.fin e) (C.fin c) kk).1 zz.1))
+                   ((X.arr (C.fin e) A (C.comp (C.fin e) (C.fin c) A kk i)).1 zz.1) (X.arr-comp (C.fin e) (C.fin c) A kk i zz.1))
+                 (PL.trans (X.G A).car ((X.arr (C.fin c) A i).1 ((X.arr (C.fin e) (C.fin c) kk).1 zz.1)) ((X.arr (C.fin c) A i).1 z) y
+                   (PL.ap (X.G (C.fin c)).car (X.G A).car (X.arr (C.fin c) A i).1 ((X.arr (C.fin e) (C.fin c) kk).1 zz.1) z zz.2)
+                   w.2.2.2)))) ;
+      } ;
+      result : Im (X.G B) (X.G A) (X.arr B A h) y =
+        TC.rec (Wit Y P u) @l (Im (X.G B) (X.G A) (X.arr B A h) y) (im-prop (X.G B) (X.G A) (X.arr B A h) y)
+          (\ v -> Fin2[v].result) (Y.cont P u) ;
+    } ;
+    cart-all (A B : C.Obj) (h : C.Mor B A) (y : (X.G A).car) (r : Im (Y.G B) (Y.G A) (Y.arr B A h) (f A y)) :
+        Im (X.G B) (X.G A) (X.arr B A h) y =
+      TC.rec (Wit X A y) @l (Im (X.G B) (X.G A) (X.arr B A h) y) (im-prop (X.G B) (X.G A) (X.arr B A h) y)
+        (\ w -> CartW[A,B,h,y,r,w].result) (X.cont A y) ;
+
+    -- uniqueness: a natural family agreeing on finite objects is f
+    det (b : (A : C.Obj) -> (X.G A).car -> (Y.G A).car)
+      (nb : (A B : C.Obj) (h : C.Mor A B) (y : (X.G A).car) -> Id (Y.G B).car ((Y.arr A B h).1 (b A y)) (b B ((X.arr A B h).1 y)))
+      (hb : (c : C.Fin) (y : (X.G (C.fin c)).car) -> Id (Y.G (C.fin c)).car (b (C.fin c) y) (a c y))
+      (A : C.Obj) (y : (X.G A).car) : Id (Y.G A).car (b A y) (f A y) =
+      TC.rec (Wit X A y) @l (Id (Y.G A).car (b A y) (f A y)) (PF.lo-set (Y.G A) (b A y) (f A y))
+        (\ w -> PL.trans (Y.G A).car (b A y) (b A ((X.arr (C.fin w.1) A w.2.1).1 w.2.2.1)) (f A y)
+          (PL.ap (X.G A).car (Y.G A).car (b A) y ((X.arr (C.fin w.1) A w.2.1).1 w.2.2.1)
+            (PL.sym (X.G A).car ((X.arr (C.fin w.1) A w.2.1).1 w.2.2.1) y w.2.2.2))
+          (PL.trans (Y.G A).car (b A ((X.arr (C.fin w.1) A w.2.1).1 w.2.2.1)) (val A y w) (f A y)
+            (PL.trans (Y.G A).car (b A ((X.arr (C.fin w.1) A w.2.1).1 w.2.2.1)) ((Y.arr (C.fin w.1) A w.2.1).1 (b (C.fin w.1) w.2.2.1))
+              (val A y w)
+              (PL.sym (Y.G A).car ((Y.arr (C.fin w.1) A w.2.1).1 (b (C.fin w.1) w.2.2.1)) (b A ((X.arr (C.fin w.1) A w.2.1).1 w.2.2.1))
+                (nb (C.fin w.1) A w.2.1 w.2.2.1))
+              (PL.ap (Y.G (C.fin w.1)).car (Y.G A).car (Y.arr (C.fin w.1) A w.2.1).1 (b (C.fin w.1) w.2.2.1) (a w.1 w.2.2.1)
+                (hb w.1 w.2.2.1)))
+            (PL.sym (Y.G A).car (f A y) (val A y w) (spec A y w))))
+        (X.cont A y) ;
+  } ;
+} ;

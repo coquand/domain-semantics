@@ -1,0 +1,680 @@
+-- ConsBool.seg: a first-order twin of consistency (PRA/EXTRACTION.md, the
+-- Cons repair).
+--
+-- Consistency.seg defines Cons r = C (md r) r by recursion on a fuel, with
+-- the predicate in negative position (keys consistent => values
+-- consistent), so a proof of Cons r is a functional of level md r.  This
+-- is the one place where the budgeted proof is not first-order.
+--
+-- After `opaque Cons`, the rest of the development sees Cons only through
+-- its interface
+--     cons-om, cons-univ, cons-fix-to, cons-fix-from, cons-down-s
+-- (cons-down, cons-clash, cons-psel, cons-asel, cons-meet-l, cons-pi are
+-- defined from these; PRA/audit.py checks that nothing else is used).
+-- Here we give a Boolean predicate consB, computed by a terminating
+-- recursion on the depth that checks the clauses over the finitely many
+-- components and subsets of arrow components, and prove the same
+-- interface for CB r = IsT (consB r):
+--     cb-om, cb-univ, cb-fix-to, cb-fix-from, cb-down-s.
+-- These proofs use only first-order data (Bool, Ty, selections, Les), so
+-- substituting CB for Cons and the twins for the interface turns the whole
+-- budgeted proof into a first-order one.  As a check, cons-iff-cb proves
+-- Cons r <=> CB r.
+--
+-- The clauses CL P r quantify over all selections ASel r d t, i.e. over
+-- all meet-trees (with repetitions and om) of arrow components.  A
+-- selection is dominated by the subset S of the arrow components it uses:
+-- with x, y the meets of the keys and values of S, Les d x and Les y t
+-- (asel-vec).  Subsets are bit vectors over the list of arrow components.
+-- The comparison of meets goes through Sub X Y (the univ, pi and arrow
+-- components of X are components of Y; a tuple of selections), which
+-- transports Les (les-sub).  Every recursion here has a first-order motive
+-- (PRA/audit.py): Sub is data, and the subsets are checked by a search for
+-- a failing subset (allsub-w), not by a hypothesis over all subsets.
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ;
+
+------------------------------------------------------------------------
+-- Booleans
+
+and-l : (a b : Bool) -> IsT (and a b) -> IsT a = split { true -> \ b h -> tt ; false -> \ b h -> efq h } ;
+and-r : (a b : Bool) -> IsT (and a b) -> IsT b = split { true -> \ b h -> h ; false -> \ b h -> efq h } ;
+and-i : (a b : Bool) -> IsT a -> IsT b -> IsT (and a b) = split { true -> \ b ha hb -> hb ; false -> \ b ha hb -> efq ha } ;
+
+or-l : (a b : Bool) -> IsT a -> IsT (or a b) = split { true -> \ b h -> tt ; false -> \ b h -> efq h } ;
+or-r : (a b : Bool) -> IsT b -> IsT (or a b) = split { true -> \ b h -> tt ; false -> \ b h -> h } ;
+or-e : (a b : Bool) -> IsT (or a b) -> Plus (IsT a) (IsT b) = split { true -> \ b h -> inl tt ; false -> \ b h -> inr h } ;
+
+implies (a b : Bool) : Bool = or (not a) b ;
+imp-e : (a b : Bool) -> IsT (implies a b) -> IsT a -> IsT b = split { true -> \ b h ha -> h ; false -> \ b h ha -> efq ha } ;
+imp-i : (a b : Bool) -> (IsT a -> IsT b) -> IsT (implies a b) = split { true -> \ b f -> f tt ; false -> \ b f -> tt } ;
+
+nand-e : (a b : Bool) -> IsT (not (and a b)) -> IsT a -> IsT b -> Empty = split {
+  true -> split { true -> \ h ha hb -> h ; false -> \ h ha hb -> hb } ;
+  false -> \ b h ha hb -> ha } ;
+nand-i : (a b : Bool) -> (IsT a -> IsT b -> Empty) -> IsT (not (and a b)) = split {
+  true -> split { true -> \ f -> f tt tt ; false -> \ f -> tt } ;
+  false -> \ b f -> tt } ;
+
+------------------------------------------------------------------------
+-- univ and pi components
+
+hasU : Ty -> Bool = split {
+  om -> false ; univ -> true ; pi a b -> false ; arr a b -> false ;
+  meet a b | ra rb -> or ra rb } ;
+
+hasP : Ty -> Bool = split {
+  om -> false ; univ -> false ; pi a b -> true ; arr a b -> false ;
+  meet a b | ra rb -> or ra rb } ;
+
+isU : Ty -> Bool = split { om -> false ; univ -> true ; pi a b -> false ; arr a b -> false ; meet a b -> false } ;
+isP : Ty -> Bool = split { om -> false ; univ -> false ; pi a b -> true ; arr a b -> false ; meet a b -> false } ;
+
+selu-here : (k : Ty) -> IsT (isU k) -> IsT (hasU k) = split {
+  om -> \ h -> h ; univ -> \ h -> h ; pi a b -> \ h -> h ; arr a b -> \ h -> h ; meet a b -> \ h -> efq h } ;
+selp-here : (k : Ty) -> IsT (isP k) -> IsT (hasP k) = split {
+  om -> \ h -> h ; univ -> \ h -> h ; pi a b -> \ h -> h ; arr a b -> \ h -> h ; meet a b -> \ h -> efq h } ;
+
+sel-hasu-by : (r k : Ty) -> Sel r k -> IsT (isU k) -> IsT (hasU r) = split {
+  sel-here k -> selu-here k ;
+  sel-l r1 r2 k h | rh -> \ u -> or-l (hasU r1) (hasU r2) (rh u) ;
+  sel-r r1 r2 k h | rh -> \ u -> or-r (hasU r1) (hasU r2) (rh u) } ;
+
+sel-hasp-by : (r k : Ty) -> Sel r k -> IsT (isP k) -> IsT (hasP r) = split {
+  sel-here k -> selp-here k ;
+  sel-l r1 r2 k h | rh -> \ u -> or-l (hasP r1) (hasP r2) (rh u) ;
+  sel-r r1 r2 k h | rh -> \ u -> or-r (hasP r1) (hasP r2) (rh u) } ;
+
+sel-hasu (r : Ty) (h : Sel r univ) : IsT (hasU r) = sel-hasu-by r univ h tt ;
+sel-hasp (r f g : Ty) (h : Sel r (pi f g)) : IsT (hasP r) = sel-hasp-by r (pi f g) h tt ;
+
+selu-meet (a b : Ty) : Plus (IsT (hasU a)) (IsT (hasU b)) -> (IsT (hasU a) -> Sel a univ) -> (IsT (hasU b) -> Sel b univ) ->
+    Sel (meet a b) univ = split {
+  inl x -> \ ra rb -> sel-l a b univ (ra x) ;
+  inr y -> \ ra rb -> sel-r a b univ (rb y) } ;
+
+hasu-sel : (r : Ty) -> IsT (hasU r) -> Sel r univ = split {
+  om -> \ h -> efq h ; univ -> \ h -> sel-here univ ; pi a b -> \ h -> efq h ; arr a b -> \ h -> efq h ;
+  meet a b | ra rb -> \ h -> selu-meet a b (or-e (hasU a) (hasU b) h) ra rb } ;
+
+pcomp-l (a b : Ty) (p : PiComp a) : PiComp (meet a b) = (p.1, (p.2.1, sel-l a b (pi p.1 p.2.1) p.2.2)) ;
+pcomp-r (a b : Ty) (p : PiComp b) : PiComp (meet a b) = (p.1, (p.2.1, sel-r a b (pi p.1 p.2.1) p.2.2)) ;
+
+selp-meet (a b : Ty) : Plus (IsT (hasP a)) (IsT (hasP b)) -> (IsT (hasP a) -> PiComp a) -> (IsT (hasP b) -> PiComp b) ->
+    PiComp (meet a b) = split {
+  inl x -> \ ra rb -> pcomp-l a b (ra x) ;
+  inr y -> \ ra rb -> pcomp-r a b (rb y) } ;
+
+hasp-sel : (r : Ty) -> IsT (hasP r) -> PiComp r = split {
+  om -> \ h -> efq h ; univ -> \ h -> efq h ; pi a b -> \ h -> (a, (b, sel-here (pi a b))) ; arr a b -> \ h -> efq h ;
+  meet a b | ra rb -> \ h -> selp-meet a b (or-e (hasP a) (hasP b) h) ra rb } ;
+
+------------------------------------------------------------------------
+-- selections from components
+
+SelPA (r : Ty) : Ty -> U l = split {
+  om -> Top ; univ -> Top ; pi a b -> PSel r a b ; arr a b -> ASel r a b ; meet a b -> Top } ;
+
+selpa-here : (k : Ty) -> SelPA k k = split {
+  om -> tt ; univ -> tt ; pi a b -> ps-here a b ; arr a b -> as-here a b ; meet a b -> tt } ;
+
+selpa-l (r1 r2 : Ty) : (k : Ty) -> SelPA r1 k -> SelPA (meet r1 r2) k = split {
+  om -> \ h -> tt ; univ -> \ h -> tt ;
+  pi a b -> \ h -> ps-l r1 r2 a b h ; arr a b -> \ h -> as-l r1 r2 a b h ; meet a b -> \ h -> tt } ;
+
+selpa-r (r1 r2 : Ty) : (k : Ty) -> SelPA r2 k -> SelPA (meet r1 r2) k = split {
+  om -> \ h -> tt ; univ -> \ h -> tt ;
+  pi a b -> \ h -> ps-r r1 r2 a b h ; arr a b -> \ h -> as-r r1 r2 a b h ; meet a b -> \ h -> tt } ;
+
+sel-pa : (r k : Ty) -> Sel r k -> SelPA r k = split {
+  sel-here k -> selpa-here k ;
+  sel-l r1 r2 k h | rh -> selpa-l r1 r2 k rh ;
+  sel-r r1 r2 k h | rh -> selpa-r r1 r2 k rh } ;
+
+sel-psel (r a b : Ty) (h : Sel r (pi a b)) : PSel r a b = sel-pa r (pi a b) h ;
+sel-asel (r a b : Ty) (h : Sel r (arr a b)) : ASel r a b = sel-pa r (arr a b) h ;
+
+------------------------------------------------------------------------
+-- Sub: the univ, pi and arrow components of X are components of Y
+
+Sub : Ty -> Ty -> U l = split {
+  om -> \ Y -> Top ;
+  univ -> \ Y -> Sel Y univ ;
+  pi a b -> \ Y -> Sel Y (pi a b) ;
+  arr a b -> \ Y -> Sel Y (arr a b) ;
+  meet X1 X2 | r1 r2 -> \ Y -> r1 Y * r2 Y } ;
+
+-- the relevant components: univ, pi and arrows
+Rlv : Ty -> U l = split { om -> Empty ; univ -> Top ; pi a b -> Top ; arr a b -> Top ; meet a b -> Empty } ;
+
+sub-leaf : (c : Ty) -> Rlv c -> (Y : Ty) -> Sub c Y -> Sel Y c = split {
+  om -> \ h Y p -> efq h ; univ -> \ h Y p -> p ; pi a b -> \ h Y p -> p ; arr a b -> \ h Y p -> p ;
+  meet a b -> \ h Y p -> efq h } ;
+
+-- a relevant component of Y is a component of Z when Sub Y Z
+sel-sub : (Y c : Ty) -> Sel Y c -> Rlv c -> (Z : Ty) -> Sub Y Z -> Sel Z c = split {
+  sel-here c -> \ h Z p -> sub-leaf c h Z p ;
+  sel-l r1 r2 c s | rs -> \ h Z p -> rs h Z p.1 ;
+  sel-r r1 r2 c s | rs -> \ h Z p -> rs h Z p.2 } ;
+
+sub-trans : (X : Ty) -> (Y Z : Ty) -> Sub X Y -> Sub Y Z -> Sub X Z = split {
+  om -> \ Y Z p q -> tt ;
+  univ -> \ Y Z p q -> sel-sub Y univ p tt Z q ;
+  pi a b -> \ Y Z p q -> sel-sub Y (pi a b) p tt Z q ;
+  arr a b -> \ Y Z p q -> sel-sub Y (arr a b) p tt Z q ;
+  meet X1 X2 | r1 r2 -> \ Y Z p q -> (r1 Y Z p.1 q, r2 Y Z p.2 q) } ;
+
+sub-lift-l : (X : Ty) -> (Y Z : Ty) -> Sub X Y -> Sub X (meet Y Z) = split {
+  om -> \ Y Z p -> tt ;
+  univ -> \ Y Z p -> sel-l Y Z univ p ;
+  pi a b -> \ Y Z p -> sel-l Y Z (pi a b) p ;
+  arr a b -> \ Y Z p -> sel-l Y Z (arr a b) p ;
+  meet X1 X2 | r1 r2 -> \ Y Z p -> (r1 Y Z p.1, r2 Y Z p.2) } ;
+
+sub-lift-r : (X : Ty) -> (Y Z : Ty) -> Sub X Z -> Sub X (meet Y Z) = split {
+  om -> \ Y Z p -> tt ;
+  univ -> \ Y Z p -> sel-r Y Z univ p ;
+  pi a b -> \ Y Z p -> sel-r Y Z (pi a b) p ;
+  arr a b -> \ Y Z p -> sel-r Y Z (arr a b) p ;
+  meet X1 X2 | r1 r2 -> \ Y Z p -> (r1 Y Z p.1, r2 Y Z p.2) } ;
+
+sub-refl : (X : Ty) -> Sub X X = split {
+  om -> tt ; univ -> sel-here univ ; pi a b -> sel-here (pi a b) ; arr a b -> sel-here (arr a b) ;
+  meet X1 X2 | r1 r2 -> (sub-lift-l X1 X1 X2 r1, sub-lift-r X2 X1 X2 r2) } ;
+
+sub-ml (X Z : Ty) : Sub X (meet X Z) = sub-lift-l X X Z (sub-refl X) ;
+sub-mr (Z X : Ty) : Sub X (meet Z X) = sub-lift-r X Z X (sub-refl X) ;
+sub-om (Y : Ty) : Sub om Y = tt ;
+sub-lub (X Y Z : Ty) (p : Sub X Z) (q : Sub Y Z) : Sub (meet X Y) Z = (p, q) ;
+
+sub-mono (X X' Y Y' : Ty) (p : Sub X X') (q : Sub Y Y') : Sub (meet X Y) (meet X' Y') =
+  sub-lub X Y (meet X' Y') (sub-trans X X' (meet X' Y') p (sub-ml X' Y')) (sub-trans Y Y' (meet X' Y') q (sub-mr X' Y')) ;
+
+-- Les depends only on the univ, pi and arrow components
+psel-sub : (X s t : Ty) -> PSel X s t -> (Y : Ty) -> Sub X Y -> PSel Y s t = split {
+  ps-none X -> \ Y p -> ps-none Y ;
+  ps-here a b -> \ Y p -> sel-psel Y a b p ;
+  ps-l r1 r2 s t h | rh -> \ Y p -> rh Y p.1 ;
+  ps-r r1 r2 s t h | rh -> \ Y p -> rh Y p.2 ;
+  ps-meet r s1 t1 s2 t2 h1 h2 | r1 r2 -> \ Y p -> ps-meet Y s1 t1 s2 t2 (r1 Y p) (r2 Y p) } ;
+
+asel-sub : (X d t : Ty) -> ASel X d t -> (Y : Ty) -> Sub X Y -> ASel Y d t = split {
+  as-none X -> \ Y p -> as-none Y ;
+  as-here a b -> \ Y p -> sel-asel Y a b p ;
+  as-l r1 r2 d t h | rh -> \ Y p -> rh Y p.1 ;
+  as-r r1 r2 d t h | rh -> \ Y p -> rh Y p.2 ;
+  as-meet r d1 t1 d2 t2 h1 h2 | r1 r2 -> \ Y p -> as-meet Y d1 t1 d2 t2 (r1 Y p) (r2 Y p) } ;
+
+les-sub : (X k : Ty) -> Les X k -> (Y : Ty) -> Sub X Y -> Les Y k = split {
+  s-om r -> \ Y p -> s-om Y ;
+  s-meet r a b h1 h2 | r1 r2 -> \ Y p -> s-meet Y a b (r1 Y p) (r2 Y p) ;
+  s-univ r h -> \ Y p -> s-univ Y (sel-sub r univ h tt Y p) ;
+  s-pi r a b f g s t h q h1 h2 -> \ Y p -> s-pi Y a b f g s t (sel-sub r (pi f g) h tt Y p) (psel-sub r s t q Y p) h1 h2 ;
+  s-arr r a b d t q h1 h2 -> \ Y p -> s-arr Y a b d t (asel-sub r d t q Y p) h1 h2 } ;
+
+-- Y has all the relevant components of X: Y <=s X
+les-of-sub (X Y : Ty) (p : Sub X Y) : Les Y X = les-sub X X (les-refl X) Y p ;
+
+------------------------------------------------------------------------
+-- om <=s t, decided
+
+olB : Ty -> Bool = split {
+  om -> true ; univ -> false ; pi a b -> false ; arr a b | ra rb -> rb ; meet a b | ra rb -> and ra rb } ;
+
+olb-les : (t : Ty) -> IsT (olB t) -> Les om t = split {
+  om -> \ h -> s-om om ;
+  univ -> \ h -> efq h ;
+  pi a b -> \ h -> efq h ;
+  arr a b | ra rb -> \ h -> s-arr om a b om om (as-none om) (s-om a) (rb h) ;
+  meet a b | ra rb -> \ h -> s-meet om a b (ra (and-l (olB a) (olB b) h)) (rb (and-r (olB a) (olB b) h)) } ;
+
+les-olb-by : (r k : Ty) -> Les r k -> OmOnly r -> IsT (olB k) = split {
+  s-om r -> \ o -> tt ;
+  s-meet r a b h1 h2 | r1 r2 -> \ o -> and-i (olB a) (olB b) (r1 o) (r2 o) ;
+  s-univ r h -> \ o -> efq (omonly-sel r univ h o) ;
+  s-pi r a b f g s t h q h1 h2 -> \ o -> efq (omonly-sel r (pi f g) h o) ;
+  s-arr r a b d t q h1 h2 | r1 r2 -> \ o -> r2 (asel-omonly r d t q o) } ;
+
+les-olb (t : Ty) (h : Les om t) : IsT (olB t) = les-olb-by om t h tt ;
+
+------------------------------------------------------------------------
+-- the pi selection with all pi components
+
+piDoms : Ty -> Ty = split {
+  om -> om ; univ -> om ; pi a b -> a ; arr a b -> om ; meet a b | ra rb -> meet ra rb } ;
+piCods : Ty -> Ty = split {
+  om -> om ; univ -> om ; pi a b -> b ; arr a b -> om ; meet a b | ra rb -> meet ra rb } ;
+
+dom-psel : (r : Ty) -> PSel r (piDoms r) (piCods r) = split {
+  om -> ps-none om ; univ -> ps-none univ ; pi a b -> ps-here a b ; arr a b -> ps-none (arr a b) ;
+  meet a b | ra rb ->
+    ps-meet (meet a b) (piDoms a) (piCods a) (piDoms b) (piCods b) (ps-l a b (piDoms a) (piCods a) ra) (ps-r a b (piDoms b) (piCods b) rb) } ;
+
+psel-dom : (r s t : Ty) -> PSel r s t -> Les (piDoms r) s * Les (piCods r) t = split {
+  ps-none r -> (s-om (piDoms r), s-om (piCods r)) ;
+  ps-here a b -> (les-refl a, les-refl b) ;
+  ps-l r1 r2 s t h | rh -> (les-weak-l (piDoms r1) s rh.1 (piDoms r2), les-weak-l (piCods r1) t rh.2 (piCods r2)) ;
+  ps-r r1 r2 s t h | rh -> (les-weak-r (piDoms r2) s rh.1 (piDoms r1), les-weak-r (piCods r2) t rh.2 (piCods r1)) ;
+  ps-meet r s1 t1 s2 t2 h1 h2 | r1 r2 ->
+    (s-meet (piDoms r) s1 s2 r1.1 r2.1, s-meet (piCods r) t1 t2 r1.2 r2.2) } ;
+
+------------------------------------------------------------------------
+-- the arrow components, and their subsets as bit vectors
+
+data TyL = tnil | tcons (a b : Ty) (L : TyL) ;
+
+tapp : TyL -> TyL -> TyL = split {
+  tnil -> \ M -> M ;
+  tcons a b L | rL -> \ M -> tcons a b (rL M) } ;
+
+arrows : Ty -> TyL = split {
+  om -> tnil ; univ -> tnil ; pi a b -> tnil ; arr a b -> tcons a b tnil ;
+  meet a b | ra rb -> tapp ra rb } ;
+
+data BL = bnil | bcons (c : Bool) (v : BL) ;
+
+hd : BL -> Bool = split { bnil -> false ; bcons c v -> c } ;
+tl : BL -> BL = split { bnil -> bnil ; bcons c v -> v } ;
+
+stepK : Bool -> Ty -> Ty -> Ty = split { true -> \ dd a -> meet dd a ; false -> \ dd a -> dd } ;
+
+-- the meets of the keys and of the values of the selected arrows, after dd, tt
+keysFrom : TyL -> BL -> Ty -> Ty = split {
+  tnil -> \ v dd -> dd ;
+  tcons a b L | rL -> \ v dd -> rL (tl v) (stepK (hd v) dd a) } ;
+valsFrom : TyL -> BL -> Ty -> Ty = split {
+  tnil -> \ v tt -> tt ;
+  tcons a b L | rL -> \ v tt -> rL (tl v) (stepK (hd v) tt b) } ;
+
+-- check g at every subset
+allSub (g : Ty -> Ty -> Bool) : TyL -> Ty -> Ty -> Bool = split {
+  tnil -> \ dd tt -> g dd tt ;
+  tcons a b L | rL -> \ dd tt -> and (rL dd tt) (rL (meet dd a) (meet tt b)) } ;
+
+pick-sub : (c : Bool) (F : Ty -> Ty -> Bool) (dd tt a b : Ty) ->
+    IsT (and (F dd tt) (F (meet dd a) (meet tt b))) -> IsT (F (stepK c dd a) (stepK c tt b)) = split {
+  true -> \ F dd tt a b h -> and-r (F dd tt) (F (meet dd a) (meet tt b)) h ;
+  false -> \ F dd tt a b h -> and-l (F dd tt) (F (meet dd a) (meet tt b)) h } ;
+
+allsub-e (g : Ty -> Ty -> Bool) : (L : TyL) -> (dd tt : Ty) -> IsT (allSub g L dd tt) -> (v : BL) ->
+    IsT (g (keysFrom L v dd) (valsFrom L v tt)) = split {
+  tnil -> \ dd tt h v -> h ;
+  tcons a b L | rL -> \ dd tt h v ->
+    rL (stepK (hd v) dd a) (stepK (hd v) tt b) (pick-sub (hd v) (allSub g L) dd tt a b h) (tl v) } ;
+
+and-F : (a b : Bool) -> IsF (and a b) -> Plus (IsF a) (IsF b) = split {
+  true -> \ b h -> inr h ; false -> \ b h -> inl tt } ;
+
+-- a failing subset
+W (g : Ty -> Ty -> Bool) (L : TyL) (dd tt : Ty) : U l = (v : BL) * IsF (g (keysFrom L v dd) (valsFrom L v tt)) ;
+
+w-cons (g : Ty -> Ty -> Bool) (a b : Ty) (L : TyL) (dd tt : Ty) (w0 : IsF (allSub g L dd tt) -> W g L dd tt)
+    (w1 : IsF (allSub g L (meet dd a) (meet tt b)) -> W g L (meet dd a) (meet tt b)) :
+    Plus (IsF (allSub g L dd tt)) (IsF (allSub g L (meet dd a) (meet tt b))) -> W g (tcons a b L) dd tt = split {
+  inl h -> (bcons false (w0 h).1, (w0 h).2) ;
+  inr h -> (bcons true (w1 h).1, (w1 h).2) } ;
+
+allsub-w (g : Ty -> Ty -> Bool) : (L : TyL) -> (dd tt : Ty) -> IsF (allSub g L dd tt) -> W g L dd tt = split {
+  tnil -> \ dd tt h -> (bnil, h) ;
+  tcons a b L | rL -> \ dd tt h ->
+    w-cons g a b L dd tt (rL dd tt) (rL (meet dd a) (meet tt b))
+      (and-F (allSub g L dd tt) (allSub g L (meet dd a) (meet tt b)) h) } ;
+
+isT-by-dec (b : Bool) (k : IsF b -> Empty) : Plus (IsT b) (IsF b) -> IsT b = split {
+  inl t -> t ; inr f -> efq (k f) } ;
+isT-by (b : Bool) (k : IsF b -> Empty) : IsT b = isT-by-dec b k (bool-dec b) ;
+
+allsub-i (g : Ty -> Ty -> Bool) (L : TyL) (dd tt : Ty) (f : (v : BL) -> IsT (g (keysFrom L v dd) (valsFrom L v tt))) :
+    IsT (allSub g L dd tt) =
+  isT-by (allSub g L dd tt)
+    (\ fl -> IsT-IsF (g (keysFrom L (allsub-w g L dd tt fl).1 dd) (valsFrom L (allsub-w g L dd tt fl).1 tt))
+       (f (allsub-w g L dd tt fl).1) (allsub-w g L dd tt fl).2) ;
+
+-- soundness: a subset is a selection
+ArrIn (r : Ty) : TyL -> U l = split { tnil -> Top ; tcons a b L | rL -> Sel r (arr a b) * rL } ;
+
+arrin-app (r : Ty) : (L : TyL) -> ArrIn r L -> (M : TyL) -> ArrIn r M -> ArrIn r (tapp L M) = split {
+  tnil -> \ i M j -> j ;
+  tcons a b L | rL -> \ i M j -> (i.1, rL i.2 M j) } ;
+
+arrin-l (r1 r2 : Ty) : (L : TyL) -> ArrIn r1 L -> ArrIn (meet r1 r2) L = split {
+  tnil -> \ i -> tt ;
+  tcons a b L | rL -> \ i -> (sel-l r1 r2 (arr a b) i.1, rL i.2) } ;
+
+arrin-r (r1 r2 : Ty) : (L : TyL) -> ArrIn r2 L -> ArrIn (meet r1 r2) L = split {
+  tnil -> \ i -> tt ;
+  tcons a b L | rL -> \ i -> (sel-r r1 r2 (arr a b) i.1, rL i.2) } ;
+
+arrows-in : (r : Ty) -> ArrIn r (arrows r) = split {
+  om -> tt ; univ -> tt ; pi a b -> tt ; arr a b -> (sel-here (arr a b), tt) ;
+  meet a b | ra rb -> arrin-app (meet a b) (arrows a) (arrin-l a b (arrows a) ra) (arrows b) (arrin-r a b (arrows b) rb) } ;
+
+step-asel (r a b : Ty) (s : Sel r (arr a b)) : (c : Bool) -> (dd tt : Ty) -> ASel r dd tt -> ASel r (stepK c dd a) (stepK c tt b) = split {
+  true -> \ dd tt q -> as-meet r dd tt a b q (sel-asel r a b s) ;
+  false -> \ dd tt q -> q } ;
+
+keys-asel (r : Ty) : (L : TyL) -> ArrIn r L -> (v : BL) -> (dd tt : Ty) -> ASel r dd tt ->
+    ASel r (keysFrom L v dd) (valsFrom L v tt) = split {
+  tnil -> \ i v dd tt q -> q ;
+  tcons a b L | rL -> \ i v dd tt q -> rL i.2 (tl v) (stepK (hd v) dd a) (stepK (hd v) tt b) (step-asel r a b i.1 (hd v) dd tt q) } ;
+
+vec-asel (r : Ty) (v : BL) : ASel r (keysFrom (arrows r) v om) (valsFrom (arrows r) v om) =
+  keys-asel r (arrows r) (arrows-in r) v om om (as-none r) ;
+
+-- completeness: a selection is dominated by the subset it uses
+
+SubEq (X Y : Ty) : U l = Sub X Y * Sub Y X ;
+
+stepk-mono : (c : Bool) -> (dd dd' a : Ty) -> Sub dd dd' -> Sub (stepK c dd a) (stepK c dd' a) = split {
+  true -> \ dd dd' a p -> sub-mono dd dd' a a p (sub-refl a) ;
+  false -> \ dd dd' a p -> p } ;
+
+keys-mono : (L : TyL) -> (v : BL) -> (dd dd' : Ty) -> Sub dd dd' -> Sub (keysFrom L v dd) (keysFrom L v dd') = split {
+  tnil -> \ v dd dd' p -> p ;
+  tcons a b L | rL -> \ v dd dd' p -> rL (tl v) (stepK (hd v) dd a) (stepK (hd v) dd' a) (stepk-mono (hd v) dd dd' a p) } ;
+vals-mono : (L : TyL) -> (v : BL) -> (tt tt' : Ty) -> Sub tt tt' -> Sub (valsFrom L v tt) (valsFrom L v tt') = split {
+  tnil -> \ v tt tt' p -> p ;
+  tcons a b L | rL -> \ v tt tt' p -> rL (tl v) (stepK (hd v) tt b) (stepK (hd v) tt' b) (stepk-mono (hd v) tt tt' b p) } ;
+
+-- the empty subset
+keys-bnil : (L : TyL) -> (dd : Ty) -> SubEq (keysFrom L bnil dd) dd = split {
+  tnil -> \ dd -> (sub-refl dd, sub-refl dd) ;
+  tcons a b L | rL -> \ dd -> rL dd } ;
+vals-bnil : (L : TyL) -> (tt : Ty) -> SubEq (valsFrom L bnil tt) tt = split {
+  tnil -> \ tt -> (sub-refl tt, sub-refl tt) ;
+  tcons a b L | rL -> \ tt -> rL tt } ;
+
+-- a subset of L1 ++ L2 from subsets of L1 and L2
+vcat : TyL -> BL -> BL -> BL = split {
+  tnil -> \ v w -> w ;
+  tcons a b L | rL -> \ v w -> bcons (hd v) (rL (tl v) w) } ;
+
+keys-cat : (L1 : TyL) -> (L2 : TyL) -> (v w : BL) -> (dd : Ty) ->
+    SubEq (keysFrom (tapp L1 L2) (vcat L1 v w) dd) (keysFrom L2 w (keysFrom L1 v dd)) = split {
+  tnil -> \ L2 v w dd -> (sub-refl (keysFrom L2 w dd), sub-refl (keysFrom L2 w dd)) ;
+  tcons a b L | rL -> \ L2 v w dd -> rL L2 (tl v) w (stepK (hd v) dd a) } ;
+vals-cat : (L1 : TyL) -> (L2 : TyL) -> (v w : BL) -> (tt : Ty) ->
+    SubEq (valsFrom (tapp L1 L2) (vcat L1 v w) tt) (valsFrom L2 w (valsFrom L1 v tt)) = split {
+  tnil -> \ L2 v w tt -> (sub-refl (valsFrom L2 w tt), sub-refl (valsFrom L2 w tt)) ;
+  tcons a b L | rL -> \ L2 v w tt -> rL L2 (tl v) w (stepK (hd v) tt b) } ;
+
+-- the union of two subsets
+borL : TyL -> BL -> BL -> BL = split {
+  tnil -> \ v w -> bnil ;
+  tcons a b L | rL -> \ v w -> bcons (or (hd v) (hd w)) (rL (tl v) (tl w)) } ;
+
+stepk-ext : (c : Bool) -> (dd a : Ty) -> Sub dd (stepK c dd a) = split {
+  true -> \ dd a -> sub-ml dd a ;
+  false -> \ dd a -> sub-refl dd } ;
+
+-- keys: the union selects nothing outside the two subsets
+stepk-union : (c1 c2 : Bool) -> (dd1 dd2 dd a : Ty) -> Sub dd (meet dd1 dd2) ->
+    Sub (stepK (or c1 c2) dd a) (meet (stepK c1 dd1 a) (stepK c2 dd2 a)) = split {
+  true -> \ c2 dd1 dd2 dd a p ->
+    sub-lub dd a (meet (meet dd1 a) (stepK c2 dd2 a))
+      (sub-trans dd (meet dd1 dd2) (meet (meet dd1 a) (stepK c2 dd2 a)) p
+         (sub-mono dd1 (meet dd1 a) dd2 (stepK c2 dd2 a) (sub-ml dd1 a) (stepk-ext c2 dd2 a)))
+      (sub-trans a (meet dd1 a) (meet (meet dd1 a) (stepK c2 dd2 a)) (sub-mr dd1 a) (sub-ml (meet dd1 a) (stepK c2 dd2 a))) ;
+  false -> split {
+    true -> \ dd1 dd2 dd a p ->
+      sub-lub dd a (meet dd1 (meet dd2 a))
+        (sub-trans dd (meet dd1 dd2) (meet dd1 (meet dd2 a)) p
+           (sub-mono dd1 dd1 dd2 (meet dd2 a) (sub-refl dd1) (sub-ml dd2 a)))
+        (sub-trans a (meet dd2 a) (meet dd1 (meet dd2 a)) (sub-mr dd2 a) (sub-mr dd1 (meet dd2 a))) ;
+    false -> \ dd1 dd2 dd a p -> p } } ;
+
+stepv-one : (c : Bool) -> (tt2 tt b : Ty) -> Sub tt2 tt -> Sub (stepK c tt2 b) (meet tt b) = split {
+  true -> \ tt2 tt b p -> sub-mono tt2 tt b b p (sub-refl b) ;
+  false -> \ tt2 tt b p -> sub-trans tt2 tt (meet tt b) p (sub-ml tt b) } ;
+
+-- values: the union selects everything of the two subsets
+stepv-union : (c1 c2 : Bool) -> (tt1 tt2 tt b : Ty) -> Sub (meet tt1 tt2) tt ->
+    Sub (meet (stepK c1 tt1 b) (stepK c2 tt2 b)) (stepK (or c1 c2) tt b) = split {
+  true -> \ c2 tt1 tt2 tt b q ->
+    sub-lub (meet tt1 b) (stepK c2 tt2 b) (meet tt b)
+      (sub-mono tt1 tt b b (sub-trans tt1 (meet tt1 tt2) tt (sub-ml tt1 tt2) q) (sub-refl b))
+      (stepv-one c2 tt2 tt b (sub-trans tt2 (meet tt1 tt2) tt (sub-mr tt1 tt2) q)) ;
+  false -> split {
+    true -> \ tt1 tt2 tt b q ->
+      sub-lub tt1 (meet tt2 b) (meet tt b)
+        (sub-trans tt1 tt (meet tt b) (sub-trans tt1 (meet tt1 tt2) tt (sub-ml tt1 tt2) q) (sub-ml tt b))
+        (sub-mono tt2 tt b b (sub-trans tt2 (meet tt1 tt2) tt (sub-mr tt1 tt2) q) (sub-refl b)) ;
+    false -> \ tt1 tt2 tt b q -> q } } ;
+
+union : (L : TyL) -> (v1 v2 : BL) -> (dd1 tt1 dd2 tt2 dd tt : Ty) -> Sub dd (meet dd1 dd2) -> Sub (meet tt1 tt2) tt ->
+    Sub (keysFrom L (borL L v1 v2) dd) (meet (keysFrom L v1 dd1) (keysFrom L v2 dd2)) *
+    Sub (meet (valsFrom L v1 tt1) (valsFrom L v2 tt2)) (valsFrom L (borL L v1 v2) tt) = split {
+  tnil -> \ v1 v2 dd1 tt1 dd2 tt2 dd tt p q -> (p, q) ;
+  tcons a b L | rL -> \ v1 v2 dd1 tt1 dd2 tt2 dd tt p q ->
+    rL (tl v1) (tl v2)
+      (stepK (hd v1) dd1 a) (stepK (hd v1) tt1 b) (stepK (hd v2) dd2 a) (stepK (hd v2) tt2 b)
+      (stepK (or (hd v1) (hd v2)) dd a) (stepK (or (hd v1) (hd v2)) tt b)
+      (stepk-union (hd v1) (hd v2) dd1 dd2 dd a p) (stepv-union (hd v1) (hd v2) tt1 tt2 tt b q) } ;
+
+-- the subset used by a selection
+Dom (r d t : Ty) : U l = (v : BL) * (Les d (keysFrom (arrows r) v om) * Les (valsFrom (arrows r) v om) t) ;
+
+dom-l (r1 r2 d t : Ty) (w : Dom r1 d t) : Dom (meet r1 r2) d t =
+  (vcat (arrows r1) w.1 bnil,
+   (les-trans d (keysFrom (arrows r1) w.1 om) K w.2.1
+      (les-of-sub K (keysFrom (arrows r1) w.1 om)
+         (sub-trans K (keysFrom (arrows r2) bnil (keysFrom (arrows r1) w.1 om)) (keysFrom (arrows r1) w.1 om)
+            (keys-cat (arrows r1) (arrows r2) w.1 bnil om).1
+            (keys-bnil (arrows r2) (keysFrom (arrows r1) w.1 om)).1)),
+    les-trans V (valsFrom (arrows r1) w.1 om) t
+      (les-of-sub (valsFrom (arrows r1) w.1 om) V
+         (sub-trans (valsFrom (arrows r1) w.1 om) (valsFrom (arrows r2) bnil (valsFrom (arrows r1) w.1 om)) V
+            (vals-bnil (arrows r2) (valsFrom (arrows r1) w.1 om)).2
+            (vals-cat (arrows r1) (arrows r2) w.1 bnil om).2))
+      w.2.2))
+  where {
+    K : Ty = keysFrom (tapp (arrows r1) (arrows r2)) (vcat (arrows r1) w.1 bnil) om ;
+    V : Ty = valsFrom (tapp (arrows r1) (arrows r2)) (vcat (arrows r1) w.1 bnil) om ; } ;
+
+dom-r (r1 r2 d t : Ty) (w : Dom r2 d t) : Dom (meet r1 r2) d t =
+  (vcat (arrows r1) bnil w.1,
+   (les-trans d (keysFrom (arrows r2) w.1 om) K w.2.1
+      (les-of-sub K (keysFrom (arrows r2) w.1 om)
+         (sub-trans K (keysFrom (arrows r2) w.1 (keysFrom (arrows r1) bnil om)) (keysFrom (arrows r2) w.1 om)
+            (keys-cat (arrows r1) (arrows r2) bnil w.1 om).1
+            (keys-mono (arrows r2) w.1 (keysFrom (arrows r1) bnil om) om (keys-bnil (arrows r1) om).1))),
+    les-trans V (valsFrom (arrows r2) w.1 om) t
+      (les-of-sub (valsFrom (arrows r2) w.1 om) V
+         (sub-trans (valsFrom (arrows r2) w.1 om) (valsFrom (arrows r2) w.1 (valsFrom (arrows r1) bnil om)) V
+            (vals-mono (arrows r2) w.1 om (valsFrom (arrows r1) bnil om) (vals-bnil (arrows r1) om).2)
+            (vals-cat (arrows r1) (arrows r2) bnil w.1 om).2))
+      w.2.2))
+  where {
+    K : Ty = keysFrom (tapp (arrows r1) (arrows r2)) (vcat (arrows r1) bnil w.1) om ;
+    V : Ty = valsFrom (tapp (arrows r1) (arrows r2)) (vcat (arrows r1) bnil w.1) om ; } ;
+
+sub-mm (Y : Ty) (p : Sub om Y) : Sub (meet om om) Y = sub-lub om om Y p p ;
+
+dom-meet (r d1 t1 d2 t2 : Ty) (w1 : Dom r d1 t1) (w2 : Dom r d2 t2) : Dom r (meet d1 d2) (meet t1 t2) =
+  (borL L w1.1 w2.1,
+   (les-trans (meet d1 d2) (meet K1 K2) K
+      (s-meet (meet d1 d2) K1 K2 (les-weak-l d1 K1 w1.2.1 d2) (les-weak-r d2 K2 w2.2.1 d1))
+      (les-of-sub K (meet K1 K2) u.1),
+    s-meet V t1 t2
+      (les-trans V V1 t1 (les-inv V (meet V1 V2) (les-of-sub (meet V1 V2) V u.2)).1 w1.2.2)
+      (les-trans V V2 t2 (les-inv V (meet V1 V2) (les-of-sub (meet V1 V2) V u.2)).2 w2.2.2)))
+  where {
+    L : TyL = arrows r ;
+    K1 : Ty = keysFrom L w1.1 om ; K2 : Ty = keysFrom L w2.1 om ; K : Ty = keysFrom L (borL L w1.1 w2.1) om ;
+    V1 : Ty = valsFrom L w1.1 om ; V2 : Ty = valsFrom L w2.1 om ; V : Ty = valsFrom L (borL L w1.1 w2.1) om ;
+    u : Sub K (meet K1 K2) * Sub (meet V1 V2) V =
+      union L w1.1 w2.1 om om om om om om (sub-om (meet om om)) (sub-mm om (sub-refl om)) ; } ;
+
+asel-vec : (r d t : Ty) -> ASel r d t -> Dom r d t = split {
+  as-none r -> (bnil, (les-of-sub (keysFrom (arrows r) bnil om) om (keys-bnil (arrows r) om).1, s-om (valsFrom (arrows r) bnil om))) ;
+  as-here a b -> (bcons true bnil, (s-meet a om a (s-om a) (les-refl a), les-weak-r b b (les-refl b) om)) ;
+  as-l r1 r2 d t h | rh -> dom-l r1 r2 d t rh ;
+  as-r r1 r2 d t h | rh -> dom-r r1 r2 d t rh ;
+  as-meet r d1 t1 d2 t2 h1 h2 | r1 r2 -> dom-meet r d1 t1 d2 t2 r1 r2 } ;
+
+------------------------------------------------------------------------
+-- the clauses, decided
+
+g23 (P : Ty -> Bool) (d t : Ty) : Bool = implies (P d) (olB t) ;
+g5 (P : Ty -> Bool) (d t : Ty) : Bool = implies (P d) (P t) ;
+
+clB (P : Ty -> Bool) (r : Ty) : Bool =
+  and (not (and (hasU r) (hasP r)))
+   (and (implies (or (hasU r) (hasP r)) (allSub (g23 P) (arrows r) om om))
+     (and (and (P (piDoms r)) (P (piCods r)))
+          (allSub (g5 P) (arrows r) om om))) ;
+
+DownP (P : Ty -> Bool) : U l = (x y : Ty) -> Les x y -> IsT (P x) -> IsT (P y) ;
+
+module ClB (P : Ty -> Bool) (r : Ty) (h : IsT (clB P r)) {
+  X1 : Bool = and (implies (or (hasU r) (hasP r)) (allSub (g23 P) (arrows r) om om))
+     (and (and (P (piDoms r)) (P (piCods r))) (allSub (g5 P) (arrows r) om om)) ;
+  b1 : IsT (not (and (hasU r) (hasP r))) = and-l (not (and (hasU r) (hasP r))) X1 h ;
+  h1 : IsT X1 = and-r (not (and (hasU r) (hasP r))) X1 h ;
+  X2 : Bool = and (and (P (piDoms r)) (P (piCods r))) (allSub (g5 P) (arrows r) om om) ;
+  b23 : IsT (implies (or (hasU r) (hasP r)) (allSub (g23 P) (arrows r) om om)) =
+    and-l (implies (or (hasU r) (hasP r)) (allSub (g23 P) (arrows r) om om)) X2 h1 ;
+  h2 : IsT X2 = and-r (implies (or (hasU r) (hasP r)) (allSub (g23 P) (arrows r) om om)) X2 h1 ;
+  b4 : IsT (and (P (piDoms r)) (P (piCods r))) = and-l (and (P (piDoms r)) (P (piCods r))) (allSub (g5 P) (arrows r) om om) h2 ;
+  b5 : IsT (allSub (g5 P) (arrows r) om om) = and-r (and (P (piDoms r)) (P (piCods r))) (allSub (g5 P) (arrows r) om om) h2 ;
+} ;
+
+cl-of-clB (P : Ty -> Bool) (dP : DownP P) (r : Ty) (h : IsT (clB P r)) : CL (\ s -> IsT (P s)) r =
+  (\ f g hu hp -> nand-e (hasU r) (hasP r) ClB[P, r, h].b1 (sel-hasu r hu) (sel-hasp r f g hp),
+   (\ d t hu q x -> c23 d t (or-l (hasU r) (hasP r) (sel-hasu r hu)) q x,
+   (\ f g d t hp q x -> c23 d t (or-r (hasU r) (hasP r) (sel-hasp r f g hp)) q x,
+   (\ s t q -> (dP (piDoms r) s (psel-dom r s t q).1 (and-l (P (piDoms r)) (P (piCods r)) ClB[P, r, h].b4),
+                dP (piCods r) t (psel-dom r s t q).2 (and-r (P (piDoms r)) (P (piCods r)) ClB[P, r, h].b4)),
+    \ d t q x -> dP (valsFrom (arrows r) (w d t q).1 om) t (w d t q).2.2
+      (imp-e (P (keysFrom (arrows r) (w d t q).1 om)) (P (valsFrom (arrows r) (w d t q).1 om))
+         (allsub-e (g5 P) (arrows r) om om ClB[P, r, h].b5 (w d t q).1)
+         (dP d (keysFrom (arrows r) (w d t q).1 om) (w d t q).2.1 x))))))
+  where {
+    w (d t : Ty) (q : ASel r d t) : Dom r d t = asel-vec r d t q ;
+    c23 (d t : Ty) (o : IsT (or (hasU r) (hasP r))) (q : ASel r d t) (x : IsT (P d)) : Les om t =
+      les-trans om (valsFrom (arrows r) (w d t q).1 om) t
+        (olb-les (valsFrom (arrows r) (w d t q).1 om)
+           (imp-e (P (keysFrom (arrows r) (w d t q).1 om)) (olB (valsFrom (arrows r) (w d t q).1 om))
+              (allsub-e (g23 P) (arrows r) om om (imp-e (or (hasU r) (hasP r)) (allSub (g23 P) (arrows r) om om) ClB[P, r, h].b23 o) (w d t q).1)
+              (dP d (keysFrom (arrows r) (w d t q).1 om) (w d t q).2.1 x)))
+        (w d t q).2.2 ; } ;
+
+-- the univ/pi clause at a selection, from either component
+c23-pick (P : Ty -> Bool) (r : Ty) (c : CL (\ s -> IsT (P s)) r) (d t : Ty) (q : ASel r d t) (x : IsT (P d)) :
+    Plus (IsT (hasU r)) (IsT (hasP r)) -> Les om t = split {
+  inl u -> cl-ua (\ s -> IsT (P s)) r c d t (hasu-sel r u) q x ;
+  inr p -> cl-pa (\ s -> IsT (P s)) r c (hasp-sel r p).1 (hasp-sel r p).2.1 d t (hasp-sel r p).2.2 q x } ;
+
+clB-of-cl (P : Ty -> Bool) (r : Ty) (c : CL (\ s -> IsT (P s)) r) : IsT (clB P r) =
+  and-i (not (and (hasU r) (hasP r))) X1
+    (nand-i (hasU r) (hasP r)
+       (\ u p -> cl-up (\ s -> IsT (P s)) r c (hasp-sel r p).1 (hasp-sel r p).2.1 (hasu-sel r u) (hasp-sel r p).2.2))
+    (and-i (implies (or (hasU r) (hasP r)) (allSub (g23 P) (arrows r) om om)) X2
+       (imp-i (or (hasU r) (hasP r)) (allSub (g23 P) (arrows r) om om)
+          (\ o -> allsub-i (g23 P) (arrows r) om om
+             (\ v -> imp-i (P (keysFrom (arrows r) v om)) (olB (valsFrom (arrows r) v om))
+                (\ x -> les-olb (valsFrom (arrows r) v om)
+                   (c23-pick P r c (keysFrom (arrows r) v om) (valsFrom (arrows r) v om) (vec-asel r v) x
+                      (or-e (hasU r) (hasP r) o))))))
+       (and-i (and (P (piDoms r)) (P (piCods r))) (allSub (g5 P) (arrows r) om om)
+          (and-i (P (piDoms r)) (P (piCods r))
+             (cl-ps (\ s -> IsT (P s)) r c (piDoms r) (piCods r) (dom-psel r)).1
+             (cl-ps (\ s -> IsT (P s)) r c (piDoms r) (piCods r) (dom-psel r)).2)
+          (allsub-i (g5 P) (arrows r) om om
+             (\ v -> imp-i (P (keysFrom (arrows r) v om)) (P (valsFrom (arrows r) v om))
+                (\ x -> cl-as (\ s -> IsT (P s)) r c (keysFrom (arrows r) v om) (valsFrom (arrows r) v om) (vec-asel r v) x)))))
+  where {
+    X2 : Bool = and (and (P (piDoms r)) (P (piCods r))) (allSub (g5 P) (arrows r) om om) ;
+    X1 : Bool = and (implies (or (hasU r) (hasP r)) (allSub (g23 P) (arrows r) om om)) X2 ; } ;
+
+------------------------------------------------------------------------
+-- consistency with fuel, decided; Lemmas 1.1 and 1.3 as in Consistency.seg
+
+consBN : Nat -> Ty -> Bool = split {
+  zero -> \ r -> true ;
+  suc N | rN -> \ r -> clB rN r } ;
+
+CBN (N : Nat) (r : Ty) : U l = IsT (consBN N r) ;
+
+cb-down : (N : Nat) -> (x y : Ty) -> Les x y -> CBN N x -> CBN N y = split {
+  zero -> \ x y h c -> tt ;
+  suc N | rN -> \ x y h c ->
+    clB-of-cl (consBN N) y (Down[CBN N, rN, x, y, h, cl-of-clB (consBN N) rN x c].cl) } ;
+
+cb-move : (a b : Nat) -> (r : Ty) -> LeN (md r) a -> LeN (md r) b -> Iff (CBN a r) (CBN b r) = split {
+  zero -> split {
+    zero -> \ r ha hb -> (\ x -> x, \ x -> x) ;
+    suc b | rb -> \ r ha hb ->
+      (\ x -> clB-of-cl (consBN b) r (cl-zero (CBN b) r ha (\ s z -> (rb s z (leN-trans (md s) zero b z tt)).1 tt)),
+       \ x -> tt) } ;
+  suc a | ra -> split {
+    zero -> \ r ha hb ->
+      (\ x -> tt,
+       \ x -> clB-of-cl (consBN a) r (cl-zero (CBN a) r hb (\ s z -> (ra zero s (leN-trans (md s) zero a z tt) z).2 tt))) ;
+    suc b -> \ r ha hb ->
+      (\ x -> clB-of-cl (consBN b) r
+         (cl-map (CBN a) (CBN b) r
+            (\ s h -> (ra b s (part-fuel r s a ha h) (part-fuel r s b hb h)).1)
+            (\ s h -> (ra b s (part-fuel r s a ha h) (part-fuel r s b hb h)).2)
+            (cl-of-clB (consBN a) (cb-down a) r x)),
+       \ x -> clB-of-cl (consBN a) r
+         (cl-map (CBN b) (CBN a) r
+            (\ s h -> (ra b s (part-fuel r s a ha h) (part-fuel r s b hb h)).2)
+            (\ s h -> (ra b s (part-fuel r s a ha h) (part-fuel r s b hb h)).1)
+            (cl-of-clB (consBN b) (cb-down b) r x))) } } ;
+
+------------------------------------------------------------------------
+-- the twin of Cons and of its interface
+
+consB (r : Ty) : Bool = consBN (md r) r ;
+CB (r : Ty) : U l = IsT (consB r) ;
+
+cb-om : CB om = tt ;
+cb-univ : CB univ = tt ;
+
+part-moveB (r s : Ty) (h : LeN (md s) (pred (md r))) : Iff (CBN (md r) s) (CB s) =
+  cb-move (md r) (md s) s (part-le r s h) (leN-refl (md s)) ;
+
+fuel-upB (r : Ty) : Iff (CB r) (CBN (suc (md r)) r) =
+  cb-move (md r) (suc (md r)) r (leN-refl (md r)) (leN-suc (md r)) ;
+
+cb-fix-to (r : Ty) (c : CB r) : CL CB r =
+  cl-map (CBN (md r)) CB r
+    (\ s h -> (part-moveB r s h).1) (\ s h -> (part-moveB r s h).2)
+    (cl-of-clB (consBN (md r)) (cb-down (md r)) r ((fuel-upB r).1 c)) ;
+
+cb-fix-from (r : Ty) (c : CL CB r) : CB r =
+  (fuel-upB r).2
+    (clB-of-cl (consBN (md r)) r
+       (cl-map CB (CBN (md r)) r (\ s h -> (part-moveB r s h).2) (\ s h -> (part-moveB r s h).1) c)) ;
+
+cb-down-s (x y : Ty) (h : Les x y) (c : CB x) : CB y =
+  (cb-move (max (md x) (md y)) (md y) y (leN-max-r (md x) (md y)) (leN-refl (md y))).1
+    (cb-down (max (md x) (md y)) x y h
+       ((cb-move (md x) (max (md x) (md y)) x (leN-refl (md x)) (leN-max-l (md x) (md y))).1 c)) ;
+
+------------------------------------------------------------------------
+-- check: the twin is consistency
+
+le-univ0 : (r : Ty) -> LeN (md r) zero -> Le univ r = split {
+  om -> \ z -> le-om univ ;
+  univ -> \ z -> le-refl univ ;
+  pi a b -> \ z -> efq z ;
+  arr a b -> \ z -> efq z ;
+  meet a b | ra rb -> \ z ->
+    le-meet univ a b
+      (ra (leN-trans (md a) (max (md a) (md b)) zero (leN-max-l (md a) (md b)) z))
+      (rb (leN-trans (md b) (max (md a) (md b)) zero (leN-max-r (md a) (md b)) z)) } ;
+
+cons0 (r : Ty) (z : LeN (md r) zero) : Cons r = cons-down univ r (le-univ0 r z) cons-univ ;
+
+cons-cb : (N : Nat) -> (r : Ty) -> LeN (md r) N -> Iff (Cons r) (CB r) = split {
+  zero -> \ r z -> (\ c -> (cb-move zero (md r) r z (leN-refl (md r))).1 tt, \ c -> cons0 r z) ;
+  suc N | rN -> \ r h ->
+    (\ c -> cb-fix-from r
+       (cl-map Cons CB r (\ s p -> (rN s (part-fuel r s N h p)).1) (\ s p -> (rN s (part-fuel r s N h p)).2) (cons-fix-to r c)),
+     \ c -> cons-fix-from r
+       (cl-map CB Cons r (\ s p -> (rN s (part-fuel r s N h p)).2) (\ s p -> (rN s (part-fuel r s N h p)).1) (cb-fix-to r c))) } ;
+
+cons-iff-cb (r : Ty) : Iff (Cons r) (CB r) = cons-cb (md r) r (leN-refl (md r)) ;

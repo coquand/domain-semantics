@@ -1,0 +1,118 @@
+-- Well-foundedness over all linear orders: dilators and ptykes.
+--
+--  * WF A: every element of the linear order A is accessible;
+--  * IsDil X (X a stable functor on LO): X sends well-orders to well-orders;
+--  * IsPtyx F (F a stable functor on Stab(LO)): F sends dilators to
+--    well-orders (Girard's type-2 ptykes).
+-- Examples: the identity is a dilator; reversal X |-> X^op is a
+-- pre-dilator but NOT a dilator (omega^op has no accessible point);
+-- evaluation at a linear order Z is a type-2 pre-ptyx, and a ptyx when Z
+-- is well-founded (e.g. Z = omega).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module SP = StabPb[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module SDi = StabDir[l] ;
+module LC = LOCat[l] ;
+module LCF = LOCEF[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+WF (A : DP.LO) : U l = W.Acc[A.car,W.ltO A.car A.cmp].WF ;
+-- the hierarchy of well-foundedness predicates
+Lift (C : CE.CE) (P : C.Obj -> U l+) (X : SF.SF[C]) : U l+ = (A : C.Obj) -> P A -> WF (X.G A) ;
+IsDil (X : SF.SF[LC.ce]) : U l+ = Lift LC.ce (\ A -> WF A) X ;
+C2 : CE.CE = SDi.StabCE[LCF.cef].ce ;
+IsPtyx (F : SF.SF[C2]) : U l+ = Lift C2 IsDil F ;
+
+omega : DP.LO = new DP.LO[car := W.N, cmp := W.cmpN, ceq := W.cmpN-eq, crefl := W.cmpN-refl, cflip := W.cmpN-flip, ctrans := W.cmpN-trans] ;
+wf-omega : WF omega = W.wfN ;
+
+--------------------------------------------------------------------
+-- a point of A as a map from [1]
+pick (A : DP.LO) (y : A.car) : DP.Map (LC.ord (suc zero)) A =
+  (\ p -> y,\ p q -> PL.trans W.O3 (A.cmp y y) eq (W.cmpN p.1 q.1) (A.crefl y)
+    (PL.sym W.O3 (W.cmpN p.1 q.1) eq (W.ap2 W.N W.N W.O3 W.cmpN p.1 zero q.1 zero (StabCover[l].one-zero p.1 p.2) (StabCover[l].one-zero q.1 q.2)))) ;
+
+-- the identity dilator
+idD : SF.SF[LC.ce] = new SF.SF[LC.ce, G := \ A -> A, arr := \ A B f -> f,
+  arr-id := \ A y -> refl y, arr-comp := \ A B D f g y -> refl (g.1 (f.1 y)),
+  cont := \ A y -> inc ((c : W.N) * ((i : DP.Map (LC.ord c) A) * SF.Im (LC.ord c) A i y)) (suc zero,(pick A y,((zero,refl true),refl y))),
+  stab := \ A B B' f f' y r r' -> ((r.1,(r'.1,PL.trans A.car (f.1 r.1) y (f'.1 r'.1) r.2 (PL.sym A.car (f'.1 r'.1) y r'.2))),r.2)] ;
+idD-dil : IsDil idD = \ A w -> w ;
+
+-- the reversal X |-> X^op: a pre-dilator which is not a dilator
+op (A : DP.LO) : DP.LO = StabRigid[l].flipLO A ;
+opMap (A B : DP.LO) (f : DP.Map A B) : DP.Map (op A) (op B) = (f.1,\ x y -> f.2 y x) ;
+opD : SF.SF[LC.ce] = new SF.SF[LC.ce, G := op, arr := opMap,
+  arr-id := \ A y -> refl y, arr-comp := \ A B D f g y -> refl (g.1 (f.1 y)),
+  cont := \ A y -> inc ((c : W.N) * ((i : DP.Map (LC.ord c) A) * SF.Im (op (LC.ord c)) (op A) (opMap (LC.ord c) A i) y))
+    (suc zero,(pick A y,((zero,refl true),refl y))),
+  stab := \ A B B' f f' y r r' -> ((r.1,(r'.1,PL.trans A.car (f.1 r.1) y (f'.1 r'.1) r.2 (PL.sym A.car (f'.1 r'.1) y r'.2))),r.2)] ;
+module OpOmega {
+  module AC = W.Acc[W.N,W.ltO W.N (\ x y -> W.cmpN y x)] ;
+  -- every point of omega^op has a strictly larger predecessor: nothing is accessible
+  noAcc (n : W.N) (an : AC.AccP n) : W.Empty =
+    AC.ind (\ x -> W.Empty) (\ x ih -> ih (suc x)
+      (PL.trans W.Bool (W.isLt (W.cmpN x (suc x))) (W.ltN x (suc x)) true (W.ltN-cmp x (suc x)) (W.ltN-suc x))) n an ;
+} ;
+opD-not-dil (h : IsDil opD) : W.Empty = OpOmega.noAcc zero (h omega wf-omega zero) ;
+
+--------------------------------------------------------------------
+-- evaluation at a linear order Z: a pre-ptyx of type 2
+module Ev (Z : DP.LO) {
+  module O = SF.Over[LC.ce] ;
+  F : CF.CEF = LCF.cef ;
+  E (X Y : SF.SF[LC.ce]) (S : O.Mor X Y) (A : DP.LO) (x : (X.G A).car) : (Y.G A).car = O.Ext[X,Y,S].f A x ;
+  arr (X Y : SF.SF[LC.ce]) (S : O.Mor X Y) : DP.Map (X.G Z) (Y.G Z) = O.Ext[X,Y,S].map Z ;
+  -- the extension of the identity is the identity
+  arr-id (X : SF.SF[LC.ce]) (x : (X.G Z).car) : Id (X.G Z).car (E X X (O.idS X) Z x) x =
+    PL.sym (X.G Z).car x (E X X (O.idS X) Z x)
+      (O.Ext[X,X,O.idS X].det (\ A y -> y) (\ A B h y -> refl ((X.arr A B h).1 y)) (\ c y -> refl y) Z x) ;
+  -- the extension of a composite is the composite of the extensions
+  arr-comp (X Y V : SF.SF[LC.ce]) (S : O.Mor X Y) (T : O.Mor Y V) (x : (X.G Z).car) :
+      Id (V.G Z).car (E Y V T Z (E X Y S Z x)) (E X V (O.compS X Y V S T) Z x) =
+    O.Ext[X,V,O.compS X Y V S T].det (\ A y -> E Y V T A (E X Y S A y))
+      (\ A B h y -> PL.trans (V.G B).car ((V.arr A B h).1 (E Y V T A (E X Y S A y))) (E Y V T B ((Y.arr A B h).1 (E X Y S A y)))
+          (E Y V T B (E X Y S B ((X.arr A B h).1 y)))
+        (O.Ext[Y,V,T].nat-all A B h (E X Y S A y))
+        (PL.ap (Y.G B).car (V.G B).car (E Y V T B) ((Y.arr A B h).1 (E X Y S A y)) (E X Y S B ((X.arr A B h).1 y)) (O.Ext[X,Y,S].nat-all A B h y)))
+      (\ c y -> PL.trans (V.G (LC.ord c)).car (E Y V T (LC.ord c) (E X Y S (LC.ord c) y)) ((T.1 c).1 (E X Y S (LC.ord c) y)) ((T.1 c).1 ((S.1 c).1 y))
+        (O.Ext[Y,V,T].fin-eq c (E X Y S (LC.ord c) y))
+        (PL.ap (Y.G (LC.ord c)).car (V.G (LC.ord c)).car (T.1 c).1 (E X Y S (LC.ord c) y) ((S.1 c).1 y) (O.Ext[X,Y,S].fin-eq c y)))
+      Z x ;
+  -- continuity: the covering theorem
+  cont (X : SF.SF[LC.ce]) (y : (X.G Z).car) :
+      Ex ((K : SC.Code[F]) * ((i : O.Mor (SC.Decode[F,K].obj) X) * SF.Im ((SC.Decode[F,K].obj).G Z) (X.G Z) (arr (SC.Decode[F,K].obj) X i) y)) =
+    TC.map StabCover[l].Cover[F,X,Z,y].Target
+      ((K : SC.Code[F]) * ((i : O.Mor (SC.Decode[F,K].obj) X) * SF.Im ((SC.Decode[F,K].obj).G Z) (X.G Z) (arr (SC.Decode[F,K].obj) X i) y))
+      (\ t -> (t.1,(t.2.1,t.2.2))) StabCover[l].Cover[F,X,Z,y].cover ;
+  -- stability: the pull-back is computed pointwise
+  module St (X Y Y' : SF.SF[LC.ce]) (S : O.Mor Y X) (S' : O.Mor Y' X) (x : (X.G Z).car)
+    (r : SF.Im (Y.G Z) (X.G Z) (arr Y X S) x) (r' : SF.Im (Y'.G Z) (X.G Z) (arr Y' X S') x) {
+    module PB = SP.Pull[LC.ce,X,Y,Y',S,S'] ;
+    p : PB.Car Z = (r.1,(r'.1,PL.trans (X.G Z).car (PB.s Z r.1) x (PB.s' Z r'.1) r.2 (PL.sym (X.G Z).car (PB.s' Z r'.1) x r'.2))) ;
+    -- the extension of the first projection is the first projection
+    e1 : Id (Y.G Z).car (E PB.obj Y PB.pr1 Z p) p.1 =
+      PL.sym (Y.G Z).car p.1 (E PB.obj Y PB.pr1 Z p)
+        (O.Ext[PB.obj,Y,PB.pr1].det (\ A q -> q.1) (\ A B h q -> refl ((Y.arr A B h).1 q.1)) (\ c q -> refl q.1) Z p) ;
+    result : SF.Im (PB.obj.G Z) (X.G Z) (arr PB.obj X (O.compS PB.obj Y X PB.pr1 S)) x =
+      (p,PL.trans (X.G Z).car (E PB.obj X (O.compS PB.obj Y X PB.pr1 S) Z p) (E Y X S Z (E PB.obj Y PB.pr1 Z p)) x
+        (PL.sym (X.G Z).car (E Y X S Z (E PB.obj Y PB.pr1 Z p)) (E PB.obj X (O.compS PB.obj Y X PB.pr1 S) Z p) (arr-comp PB.obj Y X PB.pr1 S p))
+        (PL.trans (X.G Z).car (E Y X S Z (E PB.obj Y PB.pr1 Z p)) (E Y X S Z p.1) x
+          (PL.ap (Y.G Z).car (X.G Z).car (E Y X S Z) (E PB.obj Y PB.pr1 Z p) p.1 e1) r.2)) ;
+  } ;
+  ev : SF.SF[C2] = new SF.SF[C2, G := \ X -> X.G Z, arr := arr,
+    arr-id := arr-id, arr-comp := arr-comp, cont := cont,
+    stab := \ X Y Y' S S' x r r' -> St[X,Y,Y',S,S',x,r,r'].result] ;
+  -- a ptyx when Z is well-founded
+  ptyx (wz : WF Z) : IsPtyx ev = \ X d -> d Z wz ;
+} ;
+evOmega : SF.SF[C2] = Ev[omega].ev ;
+evOmega-ptyx : IsPtyx evOmega = Ev[omega].ptyx wf-omega ;

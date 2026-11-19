@@ -1,0 +1,32 @@
+-- AdequacyK.seg: adequacy stated over finite data only.  The environment is
+-- penv m k = \ i -> prin (k i) for compact k : Fin m -> Ty; no filter is
+-- quantified over in the statement.  Obtained from AdequacyP.adequacy-fin,
+-- whose proof only visits principal environments (PRA/LEVELS.md).
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open SynLemmas[l] ; open Weaken[l] ; open Subst[l] ; open Presup[l] ; open Cross[l] ;
+open Filter[l] ; open Sem[l] ; open Sound[l] ; open Reduction[l] ; open RelC[l] ; open LawsC[l] ; open AdeqBase[l] ;
+open PrinEnv[l] ; open AdeqPiP[l] ; open AdequacyP[l] ;
+
+penv-prin (m : Nat) (k : Fin m -> Ty) : IsPrin m (penv m k) = (k, \ i -> feq-refl (prin (k i))) ;
+
+module AdeqK (n : Nat) (D : Ctx n) (wD : Der n (jwf D)) {
+  open RelCD[n, D] ;
+  open AdeqB[n, D] ;
+
+  -- the statement: finite environment data k, compact u and c
+  AdK (m : Nat) (G : Ctx m) (M M' A : Tm m) : U l+ =
+    (k : Fin m -> Ty) -> Fits m G (penv m k) -> (s s' : Fin m -> Tm n) -> RelS m G (penv m k) s s' ->
+    (u c : Ty) -> (sem m M (penv m k)).mem u -> (sem m A (penv m k)).mem c -> Tp (el u c) ->
+    TmR u (Sub.trav m A n s) (Sub.trav m M n s) (Sub.trav m M' n s') *
+    TmR u (Sub.trav m A n s') (Sub.trav m M n s) (Sub.trav m M' n s') ;
+
+  adequacy-k-eq (m : Nat) (G : Ctx m) (M M' A : Tm m) (d : Der m (jeq G M M' A)) : AdK m G M M' A =
+    \ k fi s s' rs u c mu mc hc ->
+      AdeqTP[n, D, wD].adequacy-fin m (jeq G M M' A) d (penv m k) (fi, penv-prin m k) s s' rs u c mu mc hc ;
+
+  adequacy-k-ty (m : Nat) (G : Ctx m) (M A : Tm m) (d : Der m (jty G M A)) : AdK m G M M A =
+    \ k fi s s' rs u c mu mc hc ->
+      AdeqTP[n, D, wD].adequacy-fin m (jty G M A) d (penv m k) (fi, penv-prin m k) s s' rs u c mu mc hc ;
+} ;

@@ -1,0 +1,76 @@
+-- Finiteness of Stab(C), layer 1 (abstract catemb over a CEF):
+--  * a morphism out of a decoded code is determined by the images of
+--    the generators (val, det);
+--  * equality of such morphisms is decidable (finitely many generators,
+--    each compared in a linear order);
+--  * morphisms of stable functors form a set.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module SDi = StabDir[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module FE = Axioms[l].FunExtLemmas[fe @l] ;
+
+-- morphisms form a set
+map-set (A B : DP.LO) : PL.isSet (DP.Map A B) =
+  PL.isSet-Sigma (A.car -> B.car) (\ h -> (x y : A.car) -> Id W.O3 (B.cmp (h x) (h y)) (A.cmp x y))
+    (FE.isSet-Pi A.car (\ x -> B.car) (\ x -> \ u v -> PF.lo-set B u v))
+    (\ h -> PL.prop-to-set ((x y : A.car) -> Id W.O3 (B.cmp (h x) (h y)) (A.cmp x y))
+      (FE.isProp-Pi A.car (\ x -> (y : A.car) -> Id W.O3 (B.cmp (h x) (h y)) (A.cmp x y))
+        (\ x -> FE.isProp-Pi A.car (\ y -> Id W.O3 (B.cmp (h x) (h y)) (A.cmp x y)) (\ y -> PF.o3-set (B.cmp (h x) (h y)) (A.cmp x y))))) ;
+mor-set (C : CE.CE) (X Y : SF.SF[C]) : PL.isSet (SF.Over[C].Mor X Y) =
+  PL.isSet-Sigma (SF.Over[C].Fam X Y) (\ a -> SF.Over[C].Nat X Y a * SF.Over[C].Cart X Y a)
+    (FE.isSet-Pi C.Fin (\ c -> DP.Map (X.G (C.fin c)) (Y.G (C.fin c))) (\ c -> map-set (X.G (C.fin c)) (Y.G (C.fin c))))
+    (\ a -> PL.prop-to-set (SF.Over[C].Nat X Y a * SF.Over[C].Cart X Y a)
+      (PL.isProp-Sigma (SF.Over[C].Nat X Y a) (\ x -> SF.Over[C].Cart X Y a) (SF.Over[C].nat-prop X Y a) (\ x -> SF.Over[C].cart-prop X Y a))) ;
+
+-- generator images
+module GI (F : CF.CEF) (K : SC.Code[F]) (Y : SF.SF[F.C]) {
+  module D = SC.Decode[F,K] ;
+  module O = SF.Over[F.C] ;
+  g (n : W.N) : F.C.Obj = F.C.fin (K.gen n) ;
+  p0 (n : W.N) (hn : CF.Lt n K.m) : D.Pt (g n) = (n,(hn,F.C.idm (g n))) ;
+  gimg (S : O.Mor D.obj Y) (n : W.N) (hn : CF.Lt n K.m) : (Y.G (g n)).car = (S.1 (K.gen n)).1 (p0 n hn) ;
+  val (S : O.Mor D.obj Y) (c : F.C.Fin) (p : D.Pt (F.C.fin c)) :
+      Id (Y.G (F.C.fin c)).car ((S.1 c).1 p) ((Y.arr (g p.1) (F.C.fin c) p.2.2).1 (gimg S p.1 p.2.1)) =
+    PL.sym (Y.G (F.C.fin c)).car ((Y.arr (g p.1) (F.C.fin c) p.2.2).1 (gimg S p.1 p.2.1)) ((S.1 c).1 p)
+      (PL.trans (Y.G (F.C.fin c)).car ((Y.arr (g p.1) (F.C.fin c) p.2.2).1 (gimg S p.1 p.2.1))
+        ((S.1 c).1 (D.PP.post (g p.1) (F.C.fin c) p.2.2 (p0 p.1 p.2.1))) ((S.1 c).1 p)
+        (S.2.1 (K.gen p.1) c p.2.2 (p0 p.1 p.2.1))
+        (PL.ap (D.Pt (F.C.fin c)) (Y.G (F.C.fin c)).car (S.1 c).1 (D.PP.post (g p.1) (F.C.fin c) p.2.2 (p0 p.1 p.2.1)) p
+          (D.PP.pt3 (F.C.fin c) p (F.C.comp (g p.1) (g p.1) (F.C.fin c) (F.C.idm (g p.1)) p.2.2) (F.C.id-l (g p.1) (F.C.fin c) p.2.2)))) ;
+  det (S T : O.Mor D.obj Y) (e : (n : W.N) (hn : CF.Lt n K.m) -> Id (Y.G (g n)).car (gimg S n hn) (gimg T n hn)) :
+      Id (O.Mor D.obj Y) S T =
+    O.mor-eq D.obj Y S T (\ c p ->
+      PL.trans (Y.G (F.C.fin c)).car ((S.1 c).1 p) ((Y.arr (g p.1) (F.C.fin c) p.2.2).1 (gimg S p.1 p.2.1)) ((T.1 c).1 p)
+        (val S c p)
+        (PL.trans (Y.G (F.C.fin c)).car ((Y.arr (g p.1) (F.C.fin c) p.2.2).1 (gimg S p.1 p.2.1))
+          ((Y.arr (g p.1) (F.C.fin c) p.2.2).1 (gimg T p.1 p.2.1)) ((T.1 c).1 p)
+          (PL.ap (Y.G (g p.1)).car (Y.G (F.C.fin c)).car (Y.arr (g p.1) (F.C.fin c) p.2.2).1 (gimg S p.1 p.2.1) (gimg T p.1 p.2.1)
+            (e p.1 p.2.1))
+          (PL.sym (Y.G (F.C.fin c)).car ((T.1 c).1 p) ((Y.arr (g p.1) (F.C.fin c) p.2.2).1 (gimg T p.1 p.2.1)) (val T c p)))) ;
+  -- decidable equality
+  module Dec (S T : O.Mor D.obj Y) {
+    Eqn (n : W.N) (hn : CF.Lt n K.m) : U l = Id (Y.G (g n)).car (gimg S n hn) (gimg T n hn) ;
+    Bad (n : W.N) : U l = (hn : CF.Lt n K.m) * (Eqn n hn -> W.Empty) ;
+    decBad (n : W.N) : W.Or (Bad n) (Bad n -> W.Empty) =
+      CF.dec-lt-sig K.m n (\ hn -> Eqn n hn -> W.Empty)
+        (\ hn -> CF.or-elim (Eqn n hn) (Eqn n hn -> W.Empty) (W.Or (Eqn n hn -> W.Empty) ((Eqn n hn -> W.Empty) -> W.Empty))
+          (\ e -> inr (\ ne -> ne e)) (\ ne -> inl ne) (SDi.lo-dec (Y.G (g n)) (gimg S n hn) (gimg T n hn))) ;
+    allEq (no : CF.None K.m Bad) (n : W.N) (hn : CF.Lt n K.m) : Eqn n hn =
+      CF.or-elim (Eqn n hn) (Eqn n hn -> W.Empty) (Eqn n hn) (\ e -> e)
+        (\ ne -> CF.efq (Eqn n hn) (no n hn (hn,ne))) (SDi.lo-dec (Y.G (g n)) (gimg S n hn) (gimg T n hn)) ;
+    result : W.Or (Id (O.Mor D.obj Y) S T) (Id (O.Mor D.obj Y) S T -> W.Empty) =
+      CF.or-elim (CF.Bnd K.m Bad) (CF.None K.m Bad) (W.Or (Id (O.Mor D.obj Y) S T) (Id (O.Mor D.obj Y) S T -> W.Empty))
+        (\ b -> inr (\ e -> b.2.2.2 (PL.ap (O.Mor D.obj Y) (Y.G (g b.1)).car (\ M -> gimg M b.1 b.2.2.1) S T e)))
+        (\ no -> inl (det S T (allEq no)))
+        (CF.search K.m Bad decBad) ;
+  } ;
+} ;

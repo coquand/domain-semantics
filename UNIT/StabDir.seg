@@ -1,0 +1,482 @@
+-- Directedness of the finite objects of Stab(C), and Stab(C) as a
+-- category of embeddings (abstract catemb over a CEF).
+--
+-- A STATE is a finite list of generators: points x_i in X(fin (gen i)),
+-- each MINIMAL (every map supporting x_i has a section), and pairwise
+-- non-duplicate (a map h with X(h) x_i = x_j forces i = j).  From a state
+-- we get a code (comparison of normal forms in X) and a CARTESIAN
+-- morphism into X (GenN, the n-generator form of StabCover.Gen1):
+--   * normal forms are injective into X (Collide: X(f) x = X(f') x' with
+--     x minimal gives h with h;f' = f and X(h) x = x'; non-duplication
+--     gives the same generator, rigidity gives h = id);
+--   * cartesian by minimality.
+-- Inserting a minimal point y (Ins) is decidable: either some x_i maps
+-- onto y (finite search over i and over hom-sets, LO equality), or y is
+-- added in front (non-duplication by Flip: minimality turns a map onto
+-- x_j into one back from x_j).
+-- dir for two cartesian maps Decode K -> X, Decode K' -> X: insert the
+-- images of all generators of K, then of K' (Fold); the resulting code
+-- covers both, and both maps factor through it (Lift: a morphism whose
+-- values lie in the image of a cartesian morphism factors through it).
+-- With StabPb this makes Stab(C) a category of embeddings (StabCE).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module SD = StabDec[l] ;
+module SP = StabPb[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+--------------------------------------------------------------------
+-- decision helpers
+
+lo-dec-o (L : DP.LO) (a b : L.car) : (o : W.O3) -> Id W.O3 (L.cmp a b) o -> W.Or (Id L.car a b) (Id L.car a b -> W.Empty) = split {
+  lt -> \ h -> inr (\ e -> SD.lt-eq (PL.trans W.O3 lt (L.cmp a b) eq (PL.sym W.O3 (L.cmp a b) lt h)
+    (PL.subst L.car (\ v -> Id W.O3 (L.cmp a v) eq) a b e (L.crefl a)))) ;
+  eq -> \ h -> inl (L.ceq a b h) ;
+  gt -> \ h -> inr (\ e -> SD.gt-eq (PL.trans W.O3 gt (L.cmp a b) eq (PL.sym W.O3 (L.cmp a b) gt h)
+    (PL.subst L.car (\ v -> Id W.O3 (L.cmp a v) eq) a b e (L.crefl a)))) } ;
+lo-dec (L : DP.LO) (a b : L.car) : W.Or (Id L.car a b) (Id L.car a b -> W.Empty) = lo-dec-o L a b (L.cmp a b) (refl (L.cmp a b)) ;
+
+dec-lt-sig (n i : W.N) (P : CF.Lt i n -> U l) (d : (h : CF.Lt i n) -> W.Or (P h) (P h -> W.Empty)) :
+    W.Or ((h : CF.Lt i n) * P h) (((h : CF.Lt i n) * P h) -> W.Empty) =
+  CF.or-elim (CF.Lt i n) (CF.Lt i n -> W.Empty) (W.Or ((h : CF.Lt i n) * P h) (((h : CF.Lt i n) * P h) -> W.Empty))
+    (\ h -> CF.or-elim (P h) (P h -> W.Empty) (W.Or ((h : CF.Lt i n) * P h) (((h : CF.Lt i n) * P h) -> W.Empty))
+      (\ p -> inl (h,p))
+      (\ np -> inr (\ q -> np (PL.subst (CF.Lt i n) P q.1 h (W.HB.uip (W.ltN i n) true q.1 h) q.2)))
+      (d h))
+    (\ nh -> inr (\ q -> nh q.1))
+    (W.decB (W.ltN i n) true) ;
+
+-- search through a hom-set between finite objects
+module DecHom (F : CF.CEF) (c d : F.C.Fin) (P : F.C.Mor (F.C.fin c) (F.C.fin d) -> U l)
+  (dp : (h : F.C.Mor (F.C.fin c) (F.C.fin d)) -> W.Or (P h) (P h -> W.Empty)) {
+  result : W.Or ((h : F.C.Mor (F.C.fin c) (F.C.fin d)) * P h) (((h : F.C.Mor (F.C.fin c) (F.C.fin d)) * P h) -> W.Empty) =
+    CF.EnumDec[F.C.Mor (F.C.fin c) (F.C.fin d),F.homN c d,F.hom c d,F.hom-surj c d,P,dp].result ;
+} ;
+
+--------------------------------------------------------------------
+-- minimal points
+
+Minimal (F : CF.CEF) (X : SF.SF[F.C]) (E : F.C.Obj) (x : (X.G E).car) : U l+ =
+  (B : F.C.Obj) (g : F.C.Mor B E) -> SF.Im (X.G B) (X.G E) (X.arr B E g) x ->
+    Ex ((h : F.C.Mor E B) * Id (F.C.Mor E E) (F.C.comp E B E h g) (F.C.idm E)) ;
+
+-- two normal forms with the same value: the first generator maps to the second
+module Collide (F : CF.CEF) (X : SF.SF[F.C]) (E E' A : F.C.Obj) (x : (X.G E).car) (x' : (X.G E').car)
+  (mn : Minimal F X E x) (f : F.C.Mor E A) (f' : F.C.Mor E' A)
+  (q : Id (X.G A).car ((X.arr E A f).1 x) ((X.arr E' A f').1 x')) {
+  P : F.C.Obj = F.C.pb A E E' f f' ;
+  p1 : F.C.Mor P E = F.C.p1 A E E' f f' ;
+  p2 : F.C.Mor P E' = F.C.p2 A E E' f f' ;
+  y : (X.G A).car = (X.arr E A f).1 x ;
+  st : SF.Im (X.G P) (X.G A) (X.arr P A (F.C.comp P E A p1 f)) y =
+    X.stab A E E' f f' y (x,refl y) (x',PL.sym (X.G A).car y ((X.arr E' A f').1 x') q) ;
+  w : (X.G P).car = st.1 ;
+  ew1 : Id (X.G E).car ((X.arr P E p1).1 w) x =
+    DP.map-inj (X.G E) (X.G A) (X.arr E A f) ((X.arr P E p1).1 w) x
+      (PL.trans (X.G A).car ((X.arr E A f).1 ((X.arr P E p1).1 w)) ((X.arr P A (F.C.comp P E A p1 f)).1 w) y
+        (X.arr-comp P E A p1 f w) st.2) ;
+  ew2 : Id (X.G E').car ((X.arr P E' p2).1 w) x' =
+    DP.map-inj (X.G E') (X.G A) (X.arr E' A f') ((X.arr P E' p2).1 w) x'
+      (PL.trans (X.G A).car ((X.arr E' A f').1 ((X.arr P E' p2).1 w)) ((X.arr P A (F.C.comp P E' A p2 f')).1 w) ((X.arr E' A f').1 x')
+        (X.arr-comp P E' A p2 f' w)
+        (PL.trans (X.G A).car ((X.arr P A (F.C.comp P E' A p2 f')).1 w) ((X.arr P A (F.C.comp P E A p1 f)).1 w) ((X.arr E' A f').1 x')
+          (PL.ap (F.C.Mor P A) (X.G A).car (\ M -> (X.arr P A M).1 w) (F.C.comp P E' A p2 f') (F.C.comp P E A p1 f)
+            (PL.sym (F.C.Mor P A) (F.C.comp P E A p1 f) (F.C.comp P E' A p2 f') (F.C.pb-sq A E E' f f')))
+          (PL.trans (X.G A).car ((X.arr P A (F.C.comp P E A p1 f)).1 w) y ((X.arr E' A f').1 x') st.2 q))) ;
+  Res : U l = (h : F.C.Mor E E') * (Id (F.C.Mor E A) (F.C.comp E E' A h f') f * Id (X.G E').car ((X.arr E E' h).1 x) x') ;
+  module Sec (hh : (u : F.C.Mor E P) * Id (F.C.Mor E E) (F.C.comp E P E u p1) (F.C.idm E)) {
+    u : F.C.Mor E P = hh.1 ;
+    h : F.C.Mor E E' = F.C.comp E P E' u p2 ;
+    eh : Id (F.C.Mor E A) (F.C.comp E E' A h f') f =
+      PL.trans (F.C.Mor E A) (F.C.comp E E' A h f') (F.C.comp E P A u (F.C.comp P E' A p2 f')) f
+        (F.C.assoc E P E' A u p2 f')
+        (PL.trans (F.C.Mor E A) (F.C.comp E P A u (F.C.comp P E' A p2 f')) (F.C.comp E P A u (F.C.comp P E A p1 f)) f
+          (PL.ap (F.C.Mor P A) (F.C.Mor E A) (F.C.comp E P A u) (F.C.comp P E' A p2 f') (F.C.comp P E A p1 f)
+            (PL.sym (F.C.Mor P A) (F.C.comp P E A p1 f) (F.C.comp P E' A p2 f') (F.C.pb-sq A E E' f f')))
+          (PL.trans (F.C.Mor E A) (F.C.comp E P A u (F.C.comp P E A p1 f)) (F.C.comp E E A (F.C.comp E P E u p1) f) f
+            (PL.sym (F.C.Mor E A) (F.C.comp E E A (F.C.comp E P E u p1) f) (F.C.comp E P A u (F.C.comp P E A p1 f))
+              (F.C.assoc E P E A u p1 f))
+            (PL.trans (F.C.Mor E A) (F.C.comp E E A (F.C.comp E P E u p1) f) (F.C.comp E E A (F.C.idm E) f) f
+              (PL.ap (F.C.Mor E E) (F.C.Mor E A) (\ M -> F.C.comp E E A M f) (F.C.comp E P E u p1) (F.C.idm E) hh.2)
+              (F.C.id-l E A f)))) ;
+    ux : Id (X.G P).car ((X.arr E P u).1 x) w =
+      DP.map-inj (X.G P) (X.G E) (X.arr P E p1) ((X.arr E P u).1 x) w
+        (PL.trans (X.G E).car ((X.arr P E p1).1 ((X.arr E P u).1 x)) ((X.arr E E (F.C.comp E P E u p1)).1 x) ((X.arr P E p1).1 w)
+          (X.arr-comp E P E u p1 x)
+          (PL.trans (X.G E).car ((X.arr E E (F.C.comp E P E u p1)).1 x) ((X.arr E E (F.C.idm E)).1 x) ((X.arr P E p1).1 w)
+            (PL.ap (F.C.Mor E E) (X.G E).car (\ M -> (X.arr E E M).1 x) (F.C.comp E P E u p1) (F.C.idm E) hh.2)
+            (PL.trans (X.G E).car ((X.arr E E (F.C.idm E)).1 x) x ((X.arr P E p1).1 w)
+              (X.arr-id E x) (PL.sym (X.G E).car ((X.arr P E p1).1 w) x ew1)))) ;
+    hx : Id (X.G E').car ((X.arr E E' h).1 x) x' =
+      PL.trans (X.G E').car ((X.arr E E' h).1 x) ((X.arr P E' p2).1 ((X.arr E P u).1 x)) x'
+        (PL.sym (X.G E').car ((X.arr P E' p2).1 ((X.arr E P u).1 x)) ((X.arr E E' h).1 x) (X.arr-comp E P E' u p2 x))
+        (PL.trans (X.G E').car ((X.arr P E' p2).1 ((X.arr E P u).1 x)) ((X.arr P E' p2).1 w) x'
+          (PL.ap (X.G P).car (X.G E').car (X.arr P E' p2).1 ((X.arr E P u).1 x) w ux) ew2) ;
+    result : Res = (h,(eh,hx)) ;
+  } ;
+  result : Ex Res =
+    TC.map ((u : F.C.Mor E P) * Id (F.C.Mor E E) (F.C.comp E P E u p1) (F.C.idm E)) Res (\ hh -> Sec[hh].result) (mn P p1 (w,ew1)) ;
+} ;
+
+-- a map onto a minimal point has a section carrying the point back
+module Flip (F : CF.CEF) (X : SF.SF[F.C]) (E E' : F.C.Obj) (x : (X.G E).car) (x' : (X.G E').car) (mn' : Minimal F X E' x')
+  (h : F.C.Mor E E') (eh : Id (X.G E').car ((X.arr E E' h).1 x) x') {
+  Res : U l = (u : F.C.Mor E' E) * Id (X.G E).car ((X.arr E' E u).1 x') x ;
+  one (hh : (u : F.C.Mor E' E) * Id (F.C.Mor E' E') (F.C.comp E' E E' u h) (F.C.idm E')) : Res =
+    (hh.1,DP.map-inj (X.G E) (X.G E') (X.arr E E' h) ((X.arr E' E hh.1).1 x') x
+      (PL.trans (X.G E').car ((X.arr E E' h).1 ((X.arr E' E hh.1).1 x')) ((X.arr E' E' (F.C.comp E' E E' hh.1 h)).1 x') ((X.arr E E' h).1 x)
+        (X.arr-comp E' E E' hh.1 h x')
+        (PL.trans (X.G E').car ((X.arr E' E' (F.C.comp E' E E' hh.1 h)).1 x') ((X.arr E' E' (F.C.idm E')).1 x') ((X.arr E E' h).1 x)
+          (PL.ap (F.C.Mor E' E') (X.G E').car (\ M -> (X.arr E' E' M).1 x') (F.C.comp E' E E' hh.1 h) (F.C.idm E') hh.2)
+          (PL.trans (X.G E').car ((X.arr E' E' (F.C.idm E')).1 x') x' ((X.arr E E' h).1 x)
+            (X.arr-id E' x') (PL.sym (X.G E').car ((X.arr E E' h).1 x) x' eh))))) ;
+  result : Ex Res =
+    TC.map ((u : F.C.Mor E' E) * Id (F.C.Mor E' E') (F.C.comp E' E E' u h) (F.C.idm E')) Res one (mn' E h (x,eh)) ;
+} ;
+
+--------------------------------------------------------------------
+-- states: lists of minimal, pairwise non-duplicate generators
+
+DupY (F : CF.CEF) (X : SF.SF[F.C]) (M : W.N) (gen : W.N -> F.C.Fin)
+  (xs : (i : W.N) -> CF.Lt i M -> (X.G (F.C.fin (gen i))).car) (i : W.N) (hi : CF.Lt i M) (E : F.C.Obj) (y : (X.G E).car) : U l =
+  (h : F.C.Mor (F.C.fin (gen i)) E) * Id (X.G E).car ((X.arr (F.C.fin (gen i)) E h).1 (xs i hi)) y ;
+
+record St (F : CF.CEF) (X : SF.SF[F.C]) {
+  M : W.N ;
+  gen : W.N -> F.C.Fin ;
+  xs : (i : W.N) -> CF.Lt i M -> (X.G (F.C.fin (gen i))).car ;
+  mnl : (i : W.N) (hi : CF.Lt i M) -> Minimal F X (F.C.fin (gen i)) (xs i hi) ;
+  nd : (i j : W.N) (hi : CF.Lt i M) (hj : CF.Lt j M) -> DupY F X M gen xs i hi (F.C.fin (gen j)) (xs j hj) -> Id W.N i j ;
+} ;
+
+imS (F : CF.CEF) (X : SF.SF[F.C]) (S : St[F,X]) (A : F.C.Obj) (p : SC.Pts[F,S.M,S.gen].Pt A) : (X.G A).car =
+  (X.arr (F.C.fin (S.gen p.1)) A p.2.2).1 (S.xs p.1 p.2.1) ;
+Covered (F : CF.CEF) (X : SF.SF[F.C]) (S : St[F,X]) (e : F.C.Fin) (y : (X.G (F.C.fin e)).car) : U l =
+  (p : SC.Pts[F,S.M,S.gen].Pt (F.C.fin e)) * Id (X.G (F.C.fin e)).car (imS F X S (F.C.fin e) p) y ;
+Grows (F : CF.CEF) (X : SF.SF[F.C]) (S S' : St[F,X]) : U l =
+  (e : F.C.Fin) (y : (X.G (F.C.fin e)).car) -> Covered F X S e y -> Covered F X S' e y ;
+
+efqL (A : U l+) : W.Empty -> A = split { } ;
+st0 (F : CF.CEF) (X : SF.SF[F.C]) (d0 : F.C.Fin) : St[F,X] = new St[F,X, M := zero, gen := \ i -> d0,
+  xs := \ i h -> W.ltN-zero-abs (X.G (F.C.fin d0)).car i h,
+  mnl := \ i h -> efqL (Minimal F X (F.C.fin d0) (W.ltN-zero-abs (X.G (F.C.fin d0)).car i h)) (W.ltN-zero-abs W.Empty i h),
+  nd := \ i j hi hj dd -> W.ltN-zero-abs (Id W.N i j) i hi] ;
+
+--------------------------------------------------------------------
+-- the code and the cartesian morphism of a state
+
+module GenN (F : CF.CEF) (X : SF.SF[F.C]) (S : St[F,X]) {
+  module PP = SC.Pts[F,S.M,S.gen] ;
+  Pt (A : F.C.Obj) : U l = PP.Pt A ;
+  g (i : W.N) : F.C.Obj = F.C.fin (S.gen i) ;
+  im (A : F.C.Obj) (p : Pt A) : (X.G A).car = (X.arr (g p.1) A p.2.2).1 (S.xs p.1 p.2.1) ;
+  ord (d : F.C.Fin) (p q : Pt (F.C.fin d)) : W.O3 = (X.G (F.C.fin d)).cmp (im (F.C.fin d) p) (im (F.C.fin d) q) ;
+  pa (A B : F.C.Obj) (p : Pt A) (l0 : F.C.Mor A B) : Id (X.G B).car (im B (PP.post A B l0 p)) ((X.arr A B l0).1 (im A p)) =
+    PL.sym (X.G B).car ((X.arr A B l0).1 (im A p)) (im B (PP.post A B l0 p)) (X.arr-comp (g p.1) A B p.2.2 l0 (S.xs p.1 p.2.1)) ;
+  inv (d d' : F.C.Fin) (l0 : F.C.Mor (F.C.fin d) (F.C.fin d')) (p q : Pt (F.C.fin d)) :
+      Id W.O3 (ord d' (PP.post (F.C.fin d) (F.C.fin d') l0 p) (PP.post (F.C.fin d) (F.C.fin d') l0 q)) (ord d p q) =
+    PL.trans W.O3 (ord d' (PP.post (F.C.fin d) (F.C.fin d') l0 p) (PP.post (F.C.fin d) (F.C.fin d') l0 q))
+      ((X.G (F.C.fin d')).cmp ((X.arr (F.C.fin d) (F.C.fin d') l0).1 (im (F.C.fin d) p)) ((X.arr (F.C.fin d) (F.C.fin d') l0).1 (im (F.C.fin d) q)))
+      (ord d p q)
+      (W.ap2 (X.G (F.C.fin d')).car (X.G (F.C.fin d')).car W.O3 (X.G (F.C.fin d')).cmp
+        (im (F.C.fin d') (PP.post (F.C.fin d) (F.C.fin d') l0 p)) ((X.arr (F.C.fin d) (F.C.fin d') l0).1 (im (F.C.fin d) p))
+        (im (F.C.fin d') (PP.post (F.C.fin d) (F.C.fin d') l0 q)) ((X.arr (F.C.fin d) (F.C.fin d') l0).1 (im (F.C.fin d) q))
+        (pa (F.C.fin d) (F.C.fin d') p l0) (pa (F.C.fin d) (F.C.fin d') q l0))
+      ((X.arr (F.C.fin d) (F.C.fin d') l0).2 (im (F.C.fin d) p) (im (F.C.fin d) q)) ;
+  pt-set (A : F.C.Obj) : PL.isSet (Pt A) =
+    PL.isSet-Sigma W.N (\ i -> CF.Lt i S.M * F.C.Mor (g i) A) (\ a b -> W.HN.uip a b)
+      (\ i -> PL.isSet-Sigma (CF.Lt i S.M) (\ h -> F.C.Mor (g i) A) (PL.prop-to-set (CF.Lt i S.M) (W.HB.uip (W.ltN i S.M) true))
+        (\ h -> F.mor-set (g i) A)) ;
+
+  -- normal forms are injective into X
+  module Inj (A : F.C.Obj) (p q : Pt A) (eq0 : Id (X.G A).car (im A p) (im A q)) {
+    base (hj : CF.Lt p.1 S.M) (k : F.C.Mor (g p.1) A) (h : F.C.Mor (g p.1) (g p.1))
+      (eh : Id (F.C.Mor (g p.1) A) (F.C.comp (g p.1) (g p.1) A h k) p.2.2) : Id (Pt A) p (p.1,(hj,k)) =
+      PL.trans (Pt A) p (p.1,(hj,p.2.2)) (p.1,(hj,k))
+        (PL.ap (CF.Lt p.1 S.M) (Pt A) (\ u -> (p.1,(u,p.2.2))) p.2.1 hj (W.HB.uip (W.ltN p.1 S.M) true p.2.1 hj))
+        (PL.ap (F.C.Mor (g p.1) A) (Pt A) (\ u -> (p.1,(hj,u))) p.2.2 k
+          (PL.sym (F.C.Mor (g p.1) A) k p.2.2
+            (PL.trans (F.C.Mor (g p.1) A) k (F.C.comp (g p.1) (g p.1) A (F.C.idm (g p.1)) k) p.2.2
+              (PL.sym (F.C.Mor (g p.1) A) (F.C.comp (g p.1) (g p.1) A (F.C.idm (g p.1)) k) k (F.C.id-l (g p.1) A k))
+              (PL.trans (F.C.Mor (g p.1) A) (F.C.comp (g p.1) (g p.1) A (F.C.idm (g p.1)) k) (F.C.comp (g p.1) (g p.1) A h k) p.2.2
+                (PL.ap (F.C.Mor (g p.1) (g p.1)) (F.C.Mor (g p.1) A) (\ M -> F.C.comp (g p.1) (g p.1) A M k) (F.C.idm (g p.1)) h
+                  (PL.sym (F.C.Mor (g p.1) (g p.1)) h (F.C.idm (g p.1)) (F.rigid (S.gen p.1) h)))
+                eh)))) ;
+    core (j : W.N) (z : Id W.N p.1 j) : (hj : CF.Lt j S.M) (k : F.C.Mor (g j) A) (h : F.C.Mor (g p.1) (g j)) ->
+        Id (F.C.Mor (g p.1) A) (F.C.comp (g p.1) (g j) A h k) p.2.2 -> Id (Pt A) p (j,(hj,k)) =
+      idJ W.N p.1 (\ j0 z0 -> (hj0 : CF.Lt j0 S.M) (k0 : F.C.Mor (g j0) A) (h0 : F.C.Mor (g p.1) (g j0)) ->
+          Id (F.C.Mor (g p.1) A) (F.C.comp (g p.1) (g j0) A h0 k0) p.2.2 -> Id (Pt A) p (j0,(hj0,k0)))
+        base j z ;
+    module CO = Collide[F,X,g p.1,g q.1,A,S.xs p.1 p.2.1,S.xs q.1 q.2.1,S.mnl p.1 p.2.1,p.2.2,q.2.2,eq0] ;
+    one (r : CO.Res) : Id (Pt A) p q = core q.1 (S.nd p.1 q.1 p.2.1 q.2.1 (r.1,r.2.2)) q.2.1 q.2.2 r.1 r.2.1 ;
+    result : Id (Pt A) p q = TC.rec CO.Res @l (Id (Pt A) p q) (pt-set A p q) one CO.result ;
+  } ;
+  oeq (d : F.C.Fin) (p q : Pt (F.C.fin d)) (h : Id W.O3 (ord d p q) eq) : Id (Pt (F.C.fin d)) p q =
+    Inj[F.C.fin d,p,q,(X.G (F.C.fin d)).ceq (im (F.C.fin d) p) (im (F.C.fin d) q) h].result ;
+  code : SC.Code[F] = new SC.Code[F,m := S.M, gen := S.gen, ord := ord, inv := inv,
+    orefl := \ d p -> (X.G (F.C.fin d)).crefl (im (F.C.fin d) p),
+    oflip := \ d p q -> (X.G (F.C.fin d)).cflip (im (F.C.fin d) p) (im (F.C.fin d) q),
+    otrans := \ d p q r -> (X.G (F.C.fin d)).ctrans (im (F.C.fin d) p) (im (F.C.fin d) q) (im (F.C.fin d) r),
+    oeq := oeq] ;
+  module D = SC.Decode[F,code] ;
+  module O = SF.Over[F.C] ;
+
+  dref (c' : F.C.Fin) (p q : Pt (F.C.fin c')) : D.Ref (F.C.fin c') p q =
+    (c',(F.C.idm (F.C.fin c'),(p.2.2,(q.2.2,(F.C.id-r (g p.1) (F.C.fin c') p.2.2,F.C.id-r (g q.1) (F.C.fin c') q.2.2))))) ;
+  mmap (c' : F.C.Fin) : DP.Map (D.Gt (F.C.fin c')) (X.G (F.C.fin c')) =
+    (\ p -> im (F.C.fin c') p,
+     \ p q -> PL.sym W.O3 (D.cmp (F.C.fin c') p q) (ord c' p q) (D.spec (F.C.fin c') p q (dref c' p q))) ;
+  mnat : O.Nat D.obj X mmap = \ c' d k p -> PL.sym (X.G (F.C.fin d)).car (im (F.C.fin d) (PP.post (F.C.fin c') (F.C.fin d) k p))
+    ((X.arr (F.C.fin c') (F.C.fin d) k).1 (im (F.C.fin c') p)) (pa (F.C.fin c') (F.C.fin d) p k) ;
+  module Cart (c' d : F.C.Fin) (k : F.C.Mor (F.C.fin c') (F.C.fin d)) (p : Pt (F.C.fin d))
+    (r : SF.Im (X.G (F.C.fin c')) (X.G (F.C.fin d)) (X.arr (F.C.fin c') (F.C.fin d) k) (im (F.C.fin d) p)) {
+    Fd : F.C.Obj = F.C.fin d ;
+    Fc' : F.C.Obj = F.C.fin c' ;
+    e0 : F.C.Obj = g p.1 ;
+    x0 : (X.G e0).car = S.xs p.1 p.2.1 ;
+    P : F.C.Obj = F.C.pb Fd e0 Fc' p.2.2 k ;
+    p1 : F.C.Mor P e0 = F.C.p1 Fd e0 Fc' p.2.2 k ;
+    p2 : F.C.Mor P Fc' = F.C.p2 Fd e0 Fc' p.2.2 k ;
+    st : SF.Im (X.G P) (X.G Fd) (X.arr P Fd (F.C.comp P e0 Fd p1 p.2.2)) (im Fd p) =
+      X.stab Fd e0 Fc' p.2.2 k (im Fd p) (x0,refl (im Fd p)) r ;
+    ez : SF.Im (X.G P) (X.G e0) (X.arr P e0 p1) x0 =
+      (st.1,DP.map-inj (X.G e0) (X.G Fd) (X.arr e0 Fd p.2.2) ((X.arr P e0 p1).1 st.1) x0
+        (PL.trans (X.G Fd).car ((X.arr e0 Fd p.2.2).1 ((X.arr P e0 p1).1 st.1)) ((X.arr P Fd (F.C.comp P e0 Fd p1 p.2.2)).1 st.1) (im Fd p)
+          (X.arr-comp P e0 Fd p1 p.2.2 st.1) st.2)) ;
+    module Sec (hh : (h : F.C.Mor e0 P) * Id (F.C.Mor e0 e0) (F.C.comp e0 P e0 h p1) (F.C.idm e0)) {
+      k2 : F.C.Mor e0 Fc' = F.C.comp e0 P Fc' hh.1 p2 ;
+      ek : Id (F.C.Mor e0 Fd) (F.C.comp e0 Fc' Fd k2 k) p.2.2 =
+        PL.trans (F.C.Mor e0 Fd) (F.C.comp e0 Fc' Fd k2 k) (F.C.comp e0 P Fd hh.1 (F.C.comp P Fc' Fd p2 k)) p.2.2
+          (F.C.assoc e0 P Fc' Fd hh.1 p2 k)
+          (PL.trans (F.C.Mor e0 Fd) (F.C.comp e0 P Fd hh.1 (F.C.comp P Fc' Fd p2 k)) (F.C.comp e0 P Fd hh.1 (F.C.comp P e0 Fd p1 p.2.2)) p.2.2
+            (PL.ap (F.C.Mor P Fd) (F.C.Mor e0 Fd) (F.C.comp e0 P Fd hh.1) (F.C.comp P Fc' Fd p2 k) (F.C.comp P e0 Fd p1 p.2.2)
+              (PL.sym (F.C.Mor P Fd) (F.C.comp P e0 Fd p1 p.2.2) (F.C.comp P Fc' Fd p2 k) (F.C.pb-sq Fd e0 Fc' p.2.2 k)))
+            (PL.trans (F.C.Mor e0 Fd) (F.C.comp e0 P Fd hh.1 (F.C.comp P e0 Fd p1 p.2.2)) (F.C.comp e0 e0 Fd (F.C.comp e0 P e0 hh.1 p1) p.2.2) p.2.2
+              (PL.sym (F.C.Mor e0 Fd) (F.C.comp e0 e0 Fd (F.C.comp e0 P e0 hh.1 p1) p.2.2) (F.C.comp e0 P Fd hh.1 (F.C.comp P e0 Fd p1 p.2.2))
+                (F.C.assoc e0 P e0 Fd hh.1 p1 p.2.2))
+              (PL.trans (F.C.Mor e0 Fd) (F.C.comp e0 e0 Fd (F.C.comp e0 P e0 hh.1 p1) p.2.2) (F.C.comp e0 e0 Fd (F.C.idm e0) p.2.2) p.2.2
+                (PL.ap (F.C.Mor e0 e0) (F.C.Mor e0 Fd) (\ M -> F.C.comp e0 e0 Fd M p.2.2) (F.C.comp e0 P e0 hh.1 p1) (F.C.idm e0) hh.2)
+                (F.C.id-l e0 Fd p.2.2)))) ;
+      result : SF.Im (D.Gt Fc') (D.Gt Fd) (D.arr Fc' Fd k) p =
+        ((p.1,(p.2.1,k2)),PP.pt3 Fd p (F.C.comp e0 Fc' Fd k2 k) ek) ;
+    } ;
+    result : SF.Im (D.Gt Fc') (D.Gt Fd) (D.arr Fc' Fd k) p =
+      TC.rec ((h : F.C.Mor e0 P) * Id (F.C.Mor e0 e0) (F.C.comp e0 P e0 h p1) (F.C.idm e0)) @l
+        (SF.Im (D.Gt Fc') (D.Gt Fd) (D.arr Fc' Fd k) p) (SF.im-prop (D.Gt Fc') (D.Gt Fd) (D.arr Fc' Fd k) p)
+        (\ hh -> Sec[hh].result) (S.mnl p.1 p.2.1 P p1 ez) ;
+  } ;
+  mor : O.Mor D.obj X = (mmap,(mnat,\ c' d k p r -> Cart[c',d,k,p,r].result)) ;
+} ;
+
+--------------------------------------------------------------------
+-- inserting a minimal point
+
+or-elimL (A B : U l) (D : U l+) (f : A -> D) (g : B -> D) : W.Or A B -> D = split { inl a -> f a ; inr b -> g b } ;
+
+module Ins (F : CF.CEF) (X : SF.SF[F.C]) (S : St[F,X]) (e : F.C.Fin) (y : (X.G (F.C.fin e)).car) (my : Minimal F X (F.C.fin e) y) {
+  Fe : F.C.Obj = F.C.fin e ;
+  Q (i : W.N) : U l = (hi : CF.Lt i S.M) * DupY F X S.M S.gen S.xs i hi Fe y ;
+  decQ (i : W.N) : W.Or (Q i) (Q i -> W.Empty) =
+    dec-lt-sig S.M i (\ hi -> DupY F X S.M S.gen S.xs i hi Fe y)
+      (\ hi -> DecHom[F,S.gen i,e,\ h -> Id (X.G Fe).car ((X.arr (F.C.fin (S.gen i)) Fe h).1 (S.xs i hi)) y,
+         \ h -> lo-dec (X.G Fe) ((X.arr (F.C.fin (S.gen i)) Fe h).1 (S.xs i hi)) y].result) ;
+  Res : U l+ = (S' : St[F,X]) * (Grows F X S S' * Covered F X S' e y) ;
+  found (b : CF.Bnd S.M Q) : Res = (S,(\ e2 y2 c -> c,((b.1,(b.2.2.1,b.2.2.2.1)),b.2.2.2.2))) ;
+  module New (no : CF.None S.M Q) {
+    gen' : W.N -> F.C.Fin = split { zero -> e ; suc i -> S.gen i } ;
+    xs' : (i : W.N) -> CF.Lt i (suc S.M) -> (X.G (F.C.fin (gen' i))).car = split {
+      zero -> \ h -> y ; suc i -> \ h -> S.xs i h } ;
+    mnl' : (i : W.N) (hi : CF.Lt i (suc S.M)) -> Minimal F X (F.C.fin (gen' i)) (xs' i hi) = split {
+      zero -> \ hi -> my ; suc i -> \ hi -> S.mnl i hi } ;
+    nd' : (i j : W.N) (hi : CF.Lt i (suc S.M)) (hj : CF.Lt j (suc S.M)) ->
+        DupY F X (suc S.M) gen' xs' i hi (F.C.fin (gen' j)) (xs' j hj) -> Id W.N i j = split {
+      zero -> split {
+        zero -> \ hi hj dd -> refl zero ;
+        suc j -> \ hi hj dd -> CF.efq (Id W.N zero (suc j))
+          (TC.rec (Flip[F,X,Fe,F.C.fin (S.gen j),y,S.xs j hj,S.mnl j hj,dd.1,dd.2].Res) @l W.Empty CF.empty-prop
+            (\ r -> no j hj (hj,r)) Flip[F,X,Fe,F.C.fin (S.gen j),y,S.xs j hj,S.mnl j hj,dd.1,dd.2].result) } ;
+      suc i -> split {
+        zero -> \ hi hj dd -> CF.efq (Id W.N (suc i) zero) (no i hi (hi,dd)) ;
+        suc j -> \ hi hj dd -> PL.ap W.N W.N (\ k -> suc k) i j (S.nd i j hi hj dd) } } ;
+    S' : St[F,X] = new St[F,X, M := suc S.M, gen := gen', xs := xs', mnl := mnl', nd := nd'] ;
+    res : Res = (S',(\ e2 y2 c -> ((suc c.1.1,(c.1.2.1,c.1.2.2)),c.2),((zero,(refl true,F.C.idm Fe)),X.arr-id Fe y))) ;
+  } ;
+  result : Res = or-elimL (CF.Bnd S.M Q) (CF.None S.M Q) Res found (\ no -> New[no].res) (CF.search S.M Q decQ) ;
+} ;
+
+-- inserting a finite family of minimal points
+module Fold (F : CF.CEF) (X : SF.SF[F.C]) (N0 : W.N) (es : W.N -> F.C.Fin) (ys : (n : W.N) -> CF.Lt n N0 -> (X.G (F.C.fin (es n))).car)
+  (mys : (n : W.N) (h : CF.Lt n N0) -> Minimal F X (F.C.fin (es n)) (ys n h)) {
+  CovAll (t : W.N) (S' : St[F,X]) : U l = (n : W.N) -> CF.Lt n t -> (h : CF.Lt n N0) -> Covered F X S' (es n) (ys n h) ;
+  Inv (t : W.N) (S : St[F,X]) : U l+ = (S' : St[F,X]) * (Grows F X S S' * CovAll t S') ;
+  cov-tr (S' : St[F,X]) (t : W.N) (ht : CF.Lt t N0) (c : Covered F X S' (es t) (ys t ht)) (n : W.N) (q : Id W.N t n) :
+      (h : CF.Lt n N0) -> Covered F X S' (es n) (ys n h) =
+    idJ W.N t (\ n0 q0 -> (h : CF.Lt n0 N0) -> Covered F X S' (es n0) (ys n0 h))
+      (\ h -> PL.subst (CF.Lt t N0) (\ u -> Covered F X S' (es t) (ys t u)) ht h (W.HB.uip (W.ltN t N0) true ht h) c) n q ;
+  module Yes (t : W.N) (S : St[F,X]) (r : Inv t S) (ht : CF.Lt t N0) {
+    module I = Ins[F,X,r.1,es t,ys t ht,mys t ht] ;
+    res : Inv (suc t) S = (I.result.1,(\ e2 y2 c -> I.result.2.1 e2 y2 (r.2.1 e2 y2 c),
+      \ n hn h -> CF.or-elim (CF.Lt n t) (Id W.N n t) (Covered F X I.result.1 (es n) (ys n h))
+        (\ a -> I.result.2.1 (es n) (ys n h) (r.2.2 n a h))
+        (\ q -> cov-tr I.result.1 t ht I.result.2.2 n (PL.sym W.N n t q) h)
+        (CF.lt-split n t hn))) ;
+  } ;
+  skip (t : W.N) (S : St[F,X]) (r : Inv t S) (nht : CF.Lt t N0 -> W.Empty) : Inv (suc t) S =
+    (r.1,(r.2.1,\ n hn h -> CF.or-elim (CF.Lt n t) (Id W.N n t) (Covered F X r.1 (es n) (ys n h))
+      (\ a -> r.2.2 n a h)
+      (\ q -> CF.efq (Covered F X r.1 (es n) (ys n h)) (nht (PL.subst W.N (\ k -> CF.Lt k N0) n t q h)))
+      (CF.lt-split n t hn))) ;
+  step (t : W.N) (S : St[F,X]) (r : Inv t S) : Inv (suc t) S =
+    or-elimL (CF.Lt t N0) (CF.Lt t N0 -> W.Empty) (Inv (suc t) S) (\ ht -> Yes[t,S,r,ht].res) (\ nht -> skip t S r nht)
+      (W.decB (W.ltN t N0) true) ;
+  proc : (t : W.N) (S : St[F,X]) -> Inv t S = split {
+    zero -> \ S -> (S,(\ e2 y2 c -> c,\ n hn h -> W.ltN-zero-abs (Covered F X S (es n) (ys n h)) n hn)) ;
+    suc t | ih -> \ S -> step t S (ih S) } ;
+} ;
+
+--------------------------------------------------------------------
+-- the generators of a code, sent into X by a morphism, are minimal
+
+module MinGen (F : CF.CEF) (X : SF.SF[F.C]) (K : SC.Code[F]) (m1 : SF.Over[F.C].Mor (SC.Decode[F,K].obj) X) (n : W.N) (hn : CF.Lt n K.m) {
+  module D = SC.Decode[F,K] ;
+  module O = SF.Over[F.C] ;
+  module E = O.Ext[D.obj,X,m1] ;
+  Eo : F.C.Obj = F.C.fin (K.gen n) ;
+  pt : D.Pt Eo = (n,(hn,F.C.idm Eo)) ;
+  y : (X.G Eo).car = (m1.1 (K.gen n)).1 pt ;
+  secL (B : F.C.Obj) (gg : F.C.Mor B Eo) (n' : W.N) (k : F.C.Mor (F.C.fin (K.gen n')) B) (n2 : W.N) (z : Id W.N n' n2) :
+      (t : F.C.Mor (F.C.fin (K.gen n2)) Eo) ->
+      Id (F.C.Mor (F.C.fin (K.gen n2)) Eo) (PL.subst W.N (\ i -> F.C.Mor (F.C.fin (K.gen i)) Eo) n' n2 z (F.C.comp (F.C.fin (K.gen n')) B Eo k gg)) t ->
+      (u : F.C.Mor (F.C.fin (K.gen n2)) B) * Id (F.C.Mor (F.C.fin (K.gen n2)) Eo) (F.C.comp (F.C.fin (K.gen n2)) B Eo u gg) t =
+    idJ W.N n' (\ n3 z3 -> (t : F.C.Mor (F.C.fin (K.gen n3)) Eo) ->
+        Id (F.C.Mor (F.C.fin (K.gen n3)) Eo) (PL.subst W.N (\ i -> F.C.Mor (F.C.fin (K.gen i)) Eo) n' n3 z3 (F.C.comp (F.C.fin (K.gen n')) B Eo k gg)) t ->
+        (u : F.C.Mor (F.C.fin (K.gen n3)) B) * Id (F.C.Mor (F.C.fin (K.gen n3)) Eo) (F.C.comp (F.C.fin (K.gen n3)) B Eo u gg) t)
+      (\ t ee -> (k,ee)) n2 z ;
+  module MinM (B : F.C.Obj) (gg : F.C.Mor B Eo) (r : SF.Im (X.G B) (X.G Eo) (X.arr B Eo gg) y) {
+    r1 : SF.Im (X.G B) (X.G Eo) (X.arr B Eo gg) (E.f Eo pt) =
+      PL.subst (X.G Eo).car (\ v -> SF.Im (X.G B) (X.G Eo) (X.arr B Eo gg) v) y (E.f Eo pt)
+        (PL.sym (X.G Eo).car (E.f Eo pt) y (E.fin-eq (K.gen n) pt)) r ;
+    r2 : SF.Im (D.Gt B) (D.Gt Eo) (D.arr B Eo gg) pt = E.cart-all Eo B gg pt r1 ;
+    sp : D.PP.Split Eo (D.PP.post B Eo gg r2.1) pt = D.PP.pt-split Eo (D.PP.post B Eo gg r2.1) pt r2.2 ;
+    result : (u : F.C.Mor Eo B) * Id (F.C.Mor Eo Eo) (F.C.comp Eo B Eo u gg) (F.C.idm Eo) =
+      secL B gg r2.1.1 r2.1.2.2 n sp.1 (F.C.idm Eo) sp.2 ;
+  } ;
+  result : Minimal F X Eo y = \ B gg r ->
+    inc ((u : F.C.Mor Eo B) * Id (F.C.Mor Eo Eo) (F.C.comp Eo B Eo u gg) (F.C.idm Eo)) MinM[B,gg,r].result ;
+} ;
+
+--------------------------------------------------------------------
+-- factoring through a cartesian morphism
+
+module Lift (C : CE.CE) (Y Z X : SF.SF[C]) (i : SF.Over[C].Mor Y X) (j : SF.Over[C].Mor Z X)
+  (cov : (c : C.Fin) (y : (Y.G (C.fin c)).car) -> SF.Im (Z.G (C.fin c)) (X.G (C.fin c)) (j.1 c) ((i.1 c).1 y)) {
+  module O = SF.Over[C] ;
+  a (c : C.Fin) (y : (Y.G (C.fin c)).car) : (Z.G (C.fin c)).car = (cov c y).1 ;
+  mp (c : C.Fin) : DP.Map (Y.G (C.fin c)) (Z.G (C.fin c)) =
+    (a c,\ y y' -> PL.trans W.O3 ((Z.G (C.fin c)).cmp (a c y) (a c y')) ((X.G (C.fin c)).cmp ((j.1 c).1 (a c y)) ((j.1 c).1 (a c y'))) ((Y.G (C.fin c)).cmp y y')
+      (PL.sym W.O3 ((X.G (C.fin c)).cmp ((j.1 c).1 (a c y)) ((j.1 c).1 (a c y'))) ((Z.G (C.fin c)).cmp (a c y) (a c y')) ((j.1 c).2 (a c y) (a c y')))
+      (PL.trans W.O3 ((X.G (C.fin c)).cmp ((j.1 c).1 (a c y)) ((j.1 c).1 (a c y'))) ((X.G (C.fin c)).cmp ((i.1 c).1 y) ((i.1 c).1 y')) ((Y.G (C.fin c)).cmp y y')
+        (W.ap2 (X.G (C.fin c)).car (X.G (C.fin c)).car W.O3 (X.G (C.fin c)).cmp ((j.1 c).1 (a c y)) ((i.1 c).1 y) ((j.1 c).1 (a c y')) ((i.1 c).1 y')
+          (cov c y).2 (cov c y').2)
+        ((i.1 c).2 y y'))) ;
+  nat : O.Nat Y Z mp = \ c d k y ->
+    DP.map-inj (Z.G (C.fin d)) (X.G (C.fin d)) (j.1 d) ((Z.arr (C.fin c) (C.fin d) k).1 (a c y)) (a d ((Y.arr (C.fin c) (C.fin d) k).1 y))
+      (PL.trans (X.G (C.fin d)).car ((j.1 d).1 ((Z.arr (C.fin c) (C.fin d) k).1 (a c y))) ((X.arr (C.fin c) (C.fin d) k).1 ((j.1 c).1 (a c y)))
+         ((j.1 d).1 (a d ((Y.arr (C.fin c) (C.fin d) k).1 y)))
+        (PL.sym (X.G (C.fin d)).car ((X.arr (C.fin c) (C.fin d) k).1 ((j.1 c).1 (a c y))) ((j.1 d).1 ((Z.arr (C.fin c) (C.fin d) k).1 (a c y)))
+          (j.2.1 c d k (a c y)))
+        (PL.trans (X.G (C.fin d)).car ((X.arr (C.fin c) (C.fin d) k).1 ((j.1 c).1 (a c y))) ((X.arr (C.fin c) (C.fin d) k).1 ((i.1 c).1 y))
+           ((j.1 d).1 (a d ((Y.arr (C.fin c) (C.fin d) k).1 y)))
+          (PL.ap (X.G (C.fin c)).car (X.G (C.fin d)).car (X.arr (C.fin c) (C.fin d) k).1 ((j.1 c).1 (a c y)) ((i.1 c).1 y) (cov c y).2)
+          (PL.trans (X.G (C.fin d)).car ((X.arr (C.fin c) (C.fin d) k).1 ((i.1 c).1 y)) ((i.1 d).1 ((Y.arr (C.fin c) (C.fin d) k).1 y))
+             ((j.1 d).1 (a d ((Y.arr (C.fin c) (C.fin d) k).1 y)))
+            (i.2.1 c d k y)
+            (PL.sym (X.G (C.fin d)).car ((j.1 d).1 (a d ((Y.arr (C.fin c) (C.fin d) k).1 y))) ((i.1 d).1 ((Y.arr (C.fin c) (C.fin d) k).1 y))
+              (cov d ((Y.arr (C.fin c) (C.fin d) k).1 y)).2)))) ;
+  cart : O.Cart Y Z mp = \ c d k y r -> i.2.2 c d k y ((j.1 c).1 r.1,
+    PL.trans (X.G (C.fin d)).car ((X.arr (C.fin c) (C.fin d) k).1 ((j.1 c).1 r.1)) ((j.1 d).1 ((Z.arr (C.fin c) (C.fin d) k).1 r.1)) ((i.1 d).1 y)
+      (j.2.1 c d k r.1)
+      (PL.trans (X.G (C.fin d)).car ((j.1 d).1 ((Z.arr (C.fin c) (C.fin d) k).1 r.1)) ((j.1 d).1 (a d y)) ((i.1 d).1 y)
+        (PL.ap (Z.G (C.fin d)).car (X.G (C.fin d)).car (j.1 d).1 ((Z.arr (C.fin c) (C.fin d) k).1 r.1) (a d y) r.2)
+        (cov d y).2)) ;
+  mor : O.Mor Y Z = (mp,(nat,cart)) ;
+  eq : Id (O.Mor Y X) (O.compS Y Z X mor j) i = O.mor-eq Y X (O.compS Y Z X mor j) i (\ c y -> (cov c y).2) ;
+} ;
+
+--------------------------------------------------------------------
+-- directedness
+
+module DirS (F : CF.CEF) (X : SF.SF[F.C]) (K K' : SC.Code[F])
+  (i1 : SF.Over[F.C].Mor (SC.Decode[F,K].obj) X) (i2 : SF.Over[F.C].Mor (SC.Decode[F,K'].obj) X) {
+  module O = SF.Over[F.C] ;
+  module D1 = SC.Decode[F,K] ;
+  module D2 = SC.Decode[F,K'] ;
+  y1 (n : W.N) (hn : CF.Lt n K.m) : (X.G (F.C.fin (K.gen n))).car = (i1.1 (K.gen n)).1 (n,(hn,F.C.idm (F.C.fin (K.gen n)))) ;
+  y2 (n : W.N) (hn : CF.Lt n K'.m) : (X.G (F.C.fin (K'.gen n))).car = (i2.1 (K'.gen n)).1 (n,(hn,F.C.idm (F.C.fin (K'.gen n)))) ;
+  module F1 = Fold[F,X,K.m,K.gen,y1,\ n hn -> MinGen[F,X,K,i1,n,hn].result] ;
+  module F2 = Fold[F,X,K'.m,K'.gen,y2,\ n hn -> MinGen[F,X,K',i2,n,hn].result] ;
+  R1 : F1.Inv K.m (st0 F X (K.gen zero)) = F1.proc K.m (st0 F X (K.gen zero)) ;
+  R2 : F2.Inv K'.m R1.1 = F2.proc K'.m R1.1 ;
+  S : St[F,X] = R2.1 ;
+  module G = GenN[F,X,S] ;
+  module CovK (Kc : SC.Code[F]) (ii : O.Mor (SC.Decode[F,Kc].obj) X)
+    (cv : (n : W.N) (hn : CF.Lt n Kc.m) -> Covered F X S (Kc.gen n) ((ii.1 (Kc.gen n)).1 (n,(hn,F.C.idm (F.C.fin (Kc.gen n)))))) {
+    module DK = SC.Decode[F,Kc] ;
+    module CC (c : F.C.Fin) (p : DK.Pt (F.C.fin c)) {
+      Fg : F.C.Obj = F.C.fin (Kc.gen p.1) ;
+      Fc : F.C.Obj = F.C.fin c ;
+      p0 : DK.Pt Fg = (p.1,(p.2.1,F.C.idm Fg)) ;
+      q : G.Pt Fg = (cv p.1 p.2.1).1 ;
+      result : SF.Im (G.D.Gt Fc) (X.G Fc) (G.mor.1 c) ((ii.1 c).1 p) =
+        (G.PP.post Fg Fc p.2.2 q,
+         PL.trans (X.G Fc).car (G.im Fc (G.PP.post Fg Fc p.2.2 q)) ((X.arr Fg Fc p.2.2).1 (G.im Fg q)) ((ii.1 c).1 p)
+           (G.pa Fg Fc q p.2.2)
+           (PL.trans (X.G Fc).car ((X.arr Fg Fc p.2.2).1 (G.im Fg q)) ((X.arr Fg Fc p.2.2).1 ((ii.1 (Kc.gen p.1)).1 p0)) ((ii.1 c).1 p)
+             (PL.ap (X.G Fg).car (X.G Fc).car (X.arr Fg Fc p.2.2).1 (G.im Fg q) ((ii.1 (Kc.gen p.1)).1 p0) (cv p.1 p.2.1).2)
+             (PL.trans (X.G Fc).car ((X.arr Fg Fc p.2.2).1 ((ii.1 (Kc.gen p.1)).1 p0)) ((ii.1 c).1 (DK.PP.post Fg Fc p.2.2 p0)) ((ii.1 c).1 p)
+               (ii.2.1 (Kc.gen p.1) c p.2.2 p0)
+               (PL.ap (DK.Pt Fc) (X.G Fc).car (ii.1 c).1 (DK.PP.post Fg Fc p.2.2 p0) p
+                 (DK.PP.pt3 Fc p (F.C.comp Fg Fg Fc (F.C.idm Fg) p.2.2) (F.C.id-l Fg Fc p.2.2)))))) ;
+    } ;
+    module L = Lift[F.C,DK.obj,G.D.obj,X,ii,G.mor,\ c p -> CC[c,p].result] ;
+  } ;
+  module K1 = CovK[K,i1,\ n hn -> R2.2.1 (K.gen n) (y1 n hn) (R1.2.2 n hn hn)] ;
+  module K2 = CovK[K',i2,\ n hn -> R2.2.2 n hn hn] ;
+  T : U l = (d : SC.Code[F]) * ((j : O.Mor (SC.Decode[F,d].obj) X) * ((k : O.Mor D1.obj (SC.Decode[F,d].obj)) *
+    ((k' : O.Mor D2.obj (SC.Decode[F,d].obj)) *
+      (Id (O.Mor D1.obj X) (O.compS D1.obj (SC.Decode[F,d].obj) X k j) i1 * Id (O.Mor D2.obj X) (O.compS D2.obj (SC.Decode[F,d].obj) X k' j) i2)))) ;
+  result : T = (G.code,(G.mor,(K1.L.mor,(K2.L.mor,(K1.L.eq,K2.L.eq))))) ;
+} ;
+
+--------------------------------------------------------------------
+-- Stab(C) is a category of embeddings
+
+module PbU (F : CF.CEF) (X Y Y' : SF.SF[F.C]) (S : SF.Over[F.C].Mor Y X) (S' : SF.Over[F.C].Mor Y' X)
+  (Z : SF.SF[F.C]) (T : SF.Over[F.C].Mor Z Y) (T' : SF.Over[F.C].Mor Z Y')
+  (e : Id (SF.Over[F.C].Mor Z X) (SF.Over[F.C].compS Z Y X T S) (SF.Over[F.C].compS Z Y' X T' S')) {
+  module PB = SP.Pull[F.C,X,Y,Y',S,S'] ;
+  module UU = PB.Univ[Z,T,T',e] ;
+  result : (h : SF.Over[F.C].Mor Z PB.obj) * (Id (SF.Over[F.C].Mor Z Y) (SF.Over[F.C].compS Z PB.obj Y h PB.pr1) T *
+      Id (SF.Over[F.C].Mor Z Y') (SF.Over[F.C].compS Z PB.obj Y' h PB.pr2) T') = (UU.h,(UU.h1,UU.h2)) ;
+} ;
+
+module StabCE (F : CF.CEF) {
+  module O = SF.Over[F.C] ;
+  ce : CE.CE = new CE.CE[Obj := SF.SF[F.C], Mor := O.Mor, idm := O.idS, comp := O.compS,
+    id-l := O.id-l, id-r := O.id-r, assoc := O.assoc, mono := O.mono,
+    pb := \ X Y Y' S S' -> SP.Pull[F.C,X,Y,Y',S,S'].obj,
+    p1 := \ X Y Y' S S' -> SP.Pull[F.C,X,Y,Y',S,S'].pr1,
+    p2 := \ X Y Y' S S' -> SP.Pull[F.C,X,Y,Y',S,S'].pr2,
+    pb-sq := \ X Y Y' S S' -> SP.Pull[F.C,X,Y,Y',S,S'].sq,
+    pb-univ := \ X Y Y' S S' Z T T' e -> PbU[F,X,Y,Y',S,S',Z,T,T',e].result,
+    Fin := SC.Code[F], fin := \ K -> SC.Decode[F,K].obj,
+    dir := \ X K K' i1 i2 -> inc DirS[F,X,K,K',i1,i2].T DirS[F,X,K,K',i1,i2].result] ;
+} ;

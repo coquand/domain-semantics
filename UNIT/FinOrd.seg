@@ -1,0 +1,745 @@
+-- Finite ordinals and strictly increasing maps (words) as a category of
+-- embeddings (abstract catemb, the base instance).
+--
+-- Objects and finite objects are the natural numbers; a map m -> n is a
+-- word w with len w = n and ones w = m (Dilator.Wd).  Composition is
+-- compW, pull-backs are intersections (andW), directedness is the union
+-- (orW) of the two images.  Equality of maps is equality of words.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CE = CatEmb[l] ;
+module CD = CatDil[l] ;
+module PL = Prelude[l] ;
+module CF = CatEmbFin[l] ;
+
+--------------------------------------------------------------------
+-- word lemmas
+
+idW-comp : (w : W.Wd) -> Id W.Wd (W.compW (W.idW (W.len w)) w) w = split {
+  nil -> refl nil ;
+  o w | r -> PL.ap W.Wd W.Wd (\ u -> o u) (W.compW (W.idW (W.len w)) w) w r ;
+  i w | r -> PL.ap W.Wd W.Wd (\ u -> i u) (W.compW (W.idW (W.len w)) w) w r } ;
+
+comp-le (v w : W.Wd) : W.Le (W.compW v w) v = \ y h ->
+  W.andB-l (W.at v y) (W.at w (W.rank v y))
+    (PL.trans W.Bool (W.andB (W.at v y) (W.at w (W.rank v y))) (W.at (W.compW v w) y) true
+      (PL.sym W.Bool (W.at (W.compW v w) y) (W.andB (W.at v y) (W.at w (W.rank v y))) (W.at-comp v y w)) h) ;
+
+sel-inj (f : W.Wd) (a b : W.N) (ha : Id W.Bool (W.ltN a (W.ones f)) true) (hb : Id W.Bool (W.ltN b (W.ones f)) true)
+  (e : Id W.N (W.sel f a) (W.sel f b)) : Id W.N a b =
+  W.cmpN-eq a b (PL.trans W.O3 (W.cmpN a b) (W.cmpN (W.sel f a) (W.sel f b)) eq
+    (PL.sym W.O3 (W.cmpN (W.sel f a) (W.sel f b)) (W.cmpN a b) (W.sel-mono f a b ha hb))
+    (PL.subst W.N (\ k -> Id W.O3 (W.cmpN (W.sel f a) k) eq) (W.sel f a) (W.sel f b) e (W.cmpN-refl (W.sel f a)))) ;
+
+-- composition is left cancellable
+comp-mono (v w w' : W.Wd) (lw : Id W.N (W.len w) (W.ones v)) (lw' : Id W.N (W.len w') (W.ones v))
+  (e : Id W.Wd (W.compW v w) (W.compW v w')) : Id W.Wd w w' =
+  W.sel-ext w w' (PL.trans W.N (W.len w) (W.ones v) (W.len w') lw (PL.sym W.N (W.len w') (W.ones v) lw'))
+    (PL.trans W.N (W.ones w) (W.ones (W.compW v w)) (W.ones w')
+      (PL.sym W.N (W.ones (W.compW v w)) (W.ones w) (W.ones-comp v w (PL.sym W.N (W.len w) (W.ones v) lw)))
+      (PL.trans W.N (W.ones (W.compW v w)) (W.ones (W.compW v w')) (W.ones w')
+        (PL.ap W.Wd W.N W.ones (W.compW v w) (W.compW v w') e)
+        (W.ones-comp v w' (PL.sym W.N (W.len w') (W.ones v) lw'))))
+    (\ z hz -> sel-inj v (W.sel w z) (W.sel w' z)
+      (PL.subst W.N (\ k -> Id W.Bool (W.ltN (W.sel w z) k) true) (W.len w) (W.ones v) lw (W.sel-lt w z hz))
+      (PL.subst W.N (\ k -> Id W.Bool (W.ltN (W.sel w' z) k) true) (W.len w') (W.ones v) lw'
+        (W.sel-lt w' z (PL.subst W.N (\ k -> Id W.Bool (W.ltN z k) true) (W.ones w) (W.ones w')
+          (PL.trans W.N (W.ones w) (W.ones (W.compW v w)) (W.ones w')
+            (PL.sym W.N (W.ones (W.compW v w)) (W.ones w) (W.ones-comp v w (PL.sym W.N (W.len w) (W.ones v) lw)))
+            (PL.trans W.N (W.ones (W.compW v w)) (W.ones (W.compW v w')) (W.ones w')
+              (PL.ap W.Wd W.N W.ones (W.compW v w) (W.compW v w') e)
+              (W.ones-comp v w' (PL.sym W.N (W.len w') (W.ones v) lw')))) hz)))
+      (PL.trans W.N (W.sel v (W.sel w z)) (W.sel (W.compW v w) z) (W.sel v (W.sel w' z))
+        (PL.sym W.N (W.sel (W.compW v w) z) (W.sel v (W.sel w z)) (W.sel-comp v w z (PL.sym W.N (W.len w) (W.ones v) lw)))
+        (PL.trans W.N (W.sel (W.compW v w) z) (W.sel (W.compW v w') z) (W.sel v (W.sel w' z))
+          (PL.ap W.Wd W.N (\ u -> W.sel u z) (W.compW v w) (W.compW v w') e)
+          (W.sel-comp v w' z (PL.sym W.N (W.len w') (W.ones v) lw'))))) ;
+
+ones-restrict (w s : W.Wd) (hl : Id W.N (W.len s) (W.len w)) (p : W.Le s w) : Id W.N (W.ones (W.restrict w s)) (W.ones s) =
+  PL.trans W.N (W.ones (W.restrict w s)) (W.ones (W.compW w (W.restrict w s))) (W.ones s)
+    (PL.sym W.N (W.ones (W.compW w (W.restrict w s))) (W.ones (W.restrict w s))
+      (W.ones-comp w (W.restrict w s) (PL.sym W.N (W.len (W.restrict w s)) (W.ones w) (W.len-restrict w s))))
+    (PL.ap W.Wd W.N W.ones (W.compW w (W.restrict w s)) s (W.restrict-comp w s hl p)) ;
+
+-- union of two subsets of the same [n]
+orW : W.Wd -> W.Wd -> W.Wd = split {
+  nil -> \ b -> b ;
+  o w | r -> \ b -> W.cons (W.hd b) (r (W.tl b)) ;
+  i w | r -> \ b -> i (r (W.tl b)) } ;
+at-or : (v : W.Wd) (y : W.N) (b : W.Wd) -> Id W.Bool (W.at (orW v b) y) (W.orB (W.at v y) (W.at b y)) = split {
+  nil -> \ y b -> refl (W.at b y) ;
+  o v | r -> split {
+    zero -> \ b -> PL.trans W.Bool (W.at (W.cons (W.hd b) (orW v (W.tl b))) zero) (W.hd b) (W.at b zero)
+      (W.at-cons0 (W.hd b) (orW v (W.tl b))) (PL.sym W.Bool (W.at b zero) (W.hd b) (W.at-hd b)) ;
+    suc y -> \ b -> PL.trans W.Bool (W.at (W.cons (W.hd b) (orW v (W.tl b))) (suc y)) (W.at (orW v (W.tl b)) y) (W.orB (W.at v y) (W.at b (suc y)))
+      (W.at-consS (W.hd b) (orW v (W.tl b)) y)
+      (PL.trans W.Bool (W.at (orW v (W.tl b)) y) (W.orB (W.at v y) (W.at (W.tl b) y)) (W.orB (W.at v y) (W.at b (suc y)))
+        (r y (W.tl b))
+        (PL.ap W.Bool W.Bool (W.orB (W.at v y)) (W.at (W.tl b) y) (W.at b (suc y)) (PL.sym W.Bool (W.at b (suc y)) (W.at (W.tl b) y) (W.at-tl b y)))) } ;
+  i v | r -> split {
+    zero -> \ b -> refl true ;
+    suc y -> \ b -> PL.trans W.Bool (W.at (orW v (W.tl b)) y) (W.orB (W.at v y) (W.at (W.tl b) y)) (W.orB (W.at v y) (W.at b (suc y)))
+      (r y (W.tl b))
+      (PL.ap W.Bool W.Bool (W.orB (W.at v y)) (W.at (W.tl b) y) (W.at b (suc y)) (PL.sym W.Bool (W.at b (suc y)) (W.at (W.tl b) y) (W.at-tl b y))) } } ;
+len-tl : (b : W.Wd) (n : W.N) -> Id W.N (W.len b) (suc n) -> Id W.N (W.len (W.tl b)) n = split {
+  nil -> \ n h -> W.absurdN (Id W.N zero n) n h ;
+  o b -> \ n h -> W.sucInj (W.len b) n h ;
+  i b -> \ n h -> W.sucInj (W.len b) n h } ;
+len-or : (v b : W.Wd) -> Id W.N (W.len b) (W.len v) -> Id W.N (W.len (orW v b)) (W.len v) = split {
+  nil -> \ b h -> h ;
+  o v | r -> \ b h -> PL.trans W.N (W.len (W.cons (W.hd b) (orW v (W.tl b)))) (suc (W.len (orW v (W.tl b)))) (suc (W.len v))
+    (W.len-cons (W.hd b) (orW v (W.tl b)))
+    (PL.ap W.N W.N (\ k -> suc k) (W.len (orW v (W.tl b))) (W.len v) (r (W.tl b) (len-tl b (W.len v) h))) ;
+  i v | r -> \ b h -> PL.ap W.N W.N (\ k -> suc k) (W.len (orW v (W.tl b))) (W.len v) (r (W.tl b) (len-tl b (W.len v) h)) } ;
+orB-r : (c d : W.Bool) -> Id W.Bool d true -> Id W.Bool (W.orB c d) true = split {
+  false -> \ d h -> h ; true -> \ d h -> refl true } ;
+le-or-l (v b : W.Wd) : W.Le v (orW v b) = \ y h ->
+  PL.trans W.Bool (W.at (orW v b) y) (W.orB (W.at v y) (W.at b y)) true (at-or v y b)
+    (PL.subst W.Bool (\ c -> Id W.Bool (W.orB c (W.at b y)) true) true (W.at v y) (PL.sym W.Bool (W.at v y) true h) (refl true)) ;
+le-or-r (v b : W.Wd) : W.Le b (orW v b) = \ y h ->
+  PL.trans W.Bool (W.at (orW v b) y) (W.orB (W.at v y) (W.at b y)) true (at-or v y b) (orB-r (W.at v y) (W.at b y) h) ;
+
+--------------------------------------------------------------------
+-- the category
+
+Mor (m n : W.N) : U l = (w : W.Wd) * (Id W.N (W.len w) n * Id W.N (W.ones w) m) ;
+mprop (w : W.Wd) (m n : W.N) : PL.isProp (Id W.N (W.len w) n * Id W.N (W.ones w) m) =
+  PL.isProp-Sigma (Id W.N (W.len w) n) (\ x -> Id W.N (W.ones w) m) (W.HN.uip (W.len w) n) (\ x -> W.HN.uip (W.ones w) m) ;
+meq (m n : W.N) (f g : Mor m n) (e : Id W.Wd f.1 g.1) : Id (Mor m n) f g =
+  PL.Sigma-eq W.Wd (\ w -> Id W.N (W.len w) n * Id W.N (W.ones w) m) f.1 g.1 f.2 g.2 e (mprop g.1 m n) ;
+mor-set (m n : W.N) : PL.isSet (Mor m n) =
+  PL.isSet-Sigma W.Wd (\ w -> Id W.N (W.len w) n * Id W.N (W.ones w) m) (\ a b -> W.HW.uip a b)
+    (\ w -> PL.prop-to-set (Id W.N (W.len w) n * Id W.N (W.ones w) m) (mprop w m n)) ;
+idm (n : W.N) : Mor n n = (W.idW n,(W.len-idW n,W.ones-idW n)) ;
+gl (a b d : W.N) (f : Mor a b) (g : Mor b d) : Id W.N (W.ones g.1) (W.len f.1) =
+  PL.trans W.N (W.ones g.1) b (W.len f.1) g.2.2 (PL.sym W.N (W.len f.1) b f.2.1) ;
+comp (a b d : W.N) (f : Mor a b) (g : Mor b d) : Mor a d =
+  (W.compW g.1 f.1,(PL.trans W.N (W.len (W.compW g.1 f.1)) (W.len g.1) d (W.len-comp g.1 f.1) g.2.1,
+    PL.trans W.N (W.ones (W.compW g.1 f.1)) (W.ones f.1) a (W.ones-comp g.1 f.1 (gl a b d f g)) f.2.2)) ;
+id-l (a b : W.N) (f : Mor a b) : Id (Mor a b) (comp a a b (idm a) f) f =
+  meq a b (comp a a b (idm a) f) f
+    (PL.subst W.N (\ k -> Id W.Wd (W.compW f.1 (W.idW k)) f.1) (W.ones f.1) a f.2.2 (W.comp-id f.1)) ;
+id-r (a b : W.N) (f : Mor a b) : Id (Mor a b) (comp a b b f (idm b)) f =
+  meq a b (comp a b b f (idm b)) f
+    (PL.subst W.N (\ k -> Id W.Wd (W.compW (W.idW k) f.1) f.1) (W.len f.1) b f.2.1 (idW-comp f.1)) ;
+assoc (a b d e : W.N) (f : Mor a b) (g : Mor b d) (h : Mor d e) :
+    Id (Mor a e) (comp a d e (comp a b d f g) h) (comp a b e f (comp b d e g h)) =
+  meq a e (comp a d e (comp a b d f g) h) (comp a b e f (comp b d e g h))
+    (PL.sym W.Wd (W.compW (W.compW h.1 g.1) f.1) (W.compW h.1 (W.compW g.1 f.1))
+      (CD.comp-assoc h.1 g.1 f.1 (gl b d e g h) (gl a b d f g))) ;
+mono (a b d : W.N) (g g' : Mor a b) (f : Mor b d) (e : Id (Mor a d) (comp a b d g f) (comp a b d g' f)) : Id (Mor a b) g g' =
+  meq a b g g' (comp-mono f.1 g.1 g'.1 (PL.sym W.N (W.ones f.1) (W.len g.1) (gl a b d g f))
+    (PL.sym W.N (W.ones f.1) (W.len g'.1) (gl a b d g' f))
+    (PL.ap (Mor a d) W.Wd (\ M -> M.1) (comp a b d g f) (comp a b d g' f) e)) ;
+
+-- pull-backs: intersections
+module PB (a b b' : W.N) (f : Mor b a) (f' : Mor b' a) {
+  v : W.Wd = W.andW f.1 f'.1 ;
+  P : W.N = W.ones v ;
+  hl1 : Id W.N (W.len v) (W.len f.1) = W.len-and f.1 f'.1 ;
+  hl2 : Id W.N (W.len v) (W.len f'.1) =
+    PL.trans W.N (W.len v) (W.len f.1) (W.len f'.1) hl1 (PL.trans W.N (W.len f.1) a (W.len f'.1) f.2.1 (PL.sym W.N (W.len f'.1) a f'.2.1)) ;
+  le1 : W.Le v f.1 = W.Le-and-l f.1 f'.1 ;
+  le2 : W.Le v f'.1 = W.Le-and-r f.1 f'.1 ;
+  p1 : Mor P b = (W.restrict f.1 v,(PL.trans W.N (W.len (W.restrict f.1 v)) (W.ones f.1) b (W.len-restrict f.1 v) f.2.2,
+    ones-restrict f.1 v hl1 le1)) ;
+  p2 : Mor P b' = (W.restrict f'.1 v,(PL.trans W.N (W.len (W.restrict f'.1 v)) (W.ones f'.1) b' (W.len-restrict f'.1 v) f'.2.2,
+    ones-restrict f'.1 v hl2 le2)) ;
+  sq : Id (Mor P a) (comp P b a p1 f) (comp P b' a p2 f') =
+    meq P a (comp P b a p1 f) (comp P b' a p2 f')
+      (PL.trans W.Wd (W.compW f.1 (W.restrict f.1 v)) v (W.compW f'.1 (W.restrict f'.1 v))
+        (W.restrict-comp f.1 v hl1 le1) (PL.sym W.Wd (W.compW f'.1 (W.restrict f'.1 v)) v (W.restrict-comp f'.1 v hl2 le2))) ;
+  module Univ (E : W.N) (g : Mor E b) (g' : Mor E b') (e : Id (Mor E a) (comp E b a g f) (comp E b' a g' f')) {
+    u : W.Wd = W.compW f.1 g.1 ;
+    ue : Id W.Wd u (W.compW f'.1 g'.1) = PL.ap (Mor E a) W.Wd (\ M -> M.1) (comp E b a g f) (comp E b' a g' f') e ;
+    le : W.Le u v = \ y h -> PL.trans W.Bool (W.at v y) (W.andB (W.at f.1 y) (W.at f'.1 y)) true (W.at-and f.1 y f'.1)
+      (W.andB-intro (W.at f.1 y) (W.at f'.1 y) (comp-le f.1 g.1 y h)
+        (comp-le f'.1 g'.1 y (PL.subst W.Wd (\ x -> Id W.Bool (W.at x y) true) u (W.compW f'.1 g'.1) ue h))) ;
+    lu : Id W.N (W.len u) (W.len v) =
+      PL.trans W.N (W.len u) (W.len f.1) (W.len v) (W.len-comp f.1 g.1) (PL.sym W.N (W.len v) (W.len f.1) hl1) ;
+    hw : W.Wd = W.restrict v u ;
+    h : Mor E P = (hw,(W.len-restrict v u,
+      PL.trans W.N (W.ones hw) (W.ones u) E (ones-restrict v u lu le)
+        (PL.trans W.N (W.ones u) (W.ones g.1) E (W.ones-comp f.1 g.1 (gl E b a g f)) g.2.2))) ;
+    vh : Id W.Wd (W.compW v hw) u = W.restrict-comp v u lu le ;
+    lh : Id W.N (W.ones v) (W.len hw) = PL.sym W.N (W.len hw) (W.ones v) (W.len-restrict v u) ;
+    h1 : Id (Mor E b) (comp E P b h p1) g =
+      meq E b (comp E P b h p1) g
+        (comp-mono f.1 (W.compW p1.1 hw) g.1
+          (PL.trans W.N (W.len (W.compW p1.1 hw)) (W.len p1.1) (W.ones f.1) (W.len-comp p1.1 hw) (W.len-restrict f.1 v))
+          (PL.sym W.N (W.ones f.1) (W.len g.1) (gl E b a g f))
+          (PL.trans W.Wd (W.compW f.1 (W.compW p1.1 hw)) (W.compW (W.compW f.1 p1.1) hw) u
+            (PL.sym W.Wd (W.compW (W.compW f.1 p1.1) hw) (W.compW f.1 (W.compW p1.1 hw))
+              (CD.comp-assoc f.1 p1.1 hw (PL.sym W.N (W.len p1.1) (W.ones f.1) (W.len-restrict f.1 v))
+                (PL.trans W.N (W.ones p1.1) (W.ones v) (W.len hw) (ones-restrict f.1 v hl1 le1) lh)))
+            (PL.trans W.Wd (W.compW (W.compW f.1 p1.1) hw) (W.compW v hw) u
+              (PL.ap W.Wd W.Wd (\ M -> W.compW M hw) (W.compW f.1 p1.1) v (W.restrict-comp f.1 v hl1 le1)) vh))) ;
+    h2 : Id (Mor E b') (comp E P b' h p2) g' =
+      meq E b' (comp E P b' h p2) g'
+        (comp-mono f'.1 (W.compW p2.1 hw) g'.1
+          (PL.trans W.N (W.len (W.compW p2.1 hw)) (W.len p2.1) (W.ones f'.1) (W.len-comp p2.1 hw) (W.len-restrict f'.1 v))
+          (PL.sym W.N (W.ones f'.1) (W.len g'.1) (gl E b' a g' f'))
+          (PL.trans W.Wd (W.compW f'.1 (W.compW p2.1 hw)) (W.compW (W.compW f'.1 p2.1) hw) (W.compW f'.1 g'.1)
+            (PL.sym W.Wd (W.compW (W.compW f'.1 p2.1) hw) (W.compW f'.1 (W.compW p2.1 hw))
+              (CD.comp-assoc f'.1 p2.1 hw (PL.sym W.N (W.len p2.1) (W.ones f'.1) (W.len-restrict f'.1 v))
+                (PL.trans W.N (W.ones p2.1) (W.ones v) (W.len hw) (ones-restrict f'.1 v hl2 le2) lh)))
+            (PL.trans W.Wd (W.compW (W.compW f'.1 p2.1) hw) (W.compW v hw) (W.compW f'.1 g'.1)
+              (PL.ap W.Wd W.Wd (\ M -> W.compW M hw) (W.compW f'.1 p2.1) v (W.restrict-comp f'.1 v hl2 le2))
+              (PL.trans W.Wd (W.compW v hw) u (W.compW f'.1 g'.1) vh ue)))) ;
+    result : (hh : Mor E P) * (Id (Mor E b) (comp E P b hh p1) g * Id (Mor E b') (comp E P b' hh p2) g') = (h,(h1,h2)) ;
+  } ;
+} ;
+
+-- directedness: the union of the two images
+module DirO (A c c' : W.N) (i0 : Mor c A) (i1 : Mor c' A) {
+  v : W.Wd = orW i0.1 i1.1 ;
+  lv : Id W.N (W.len v) A =
+    PL.trans W.N (W.len v) (W.len i0.1) A
+      (len-or i0.1 i1.1 (PL.trans W.N (W.len i1.1) A (W.len i0.1) i1.2.1 (PL.sym W.N (W.len i0.1) A i0.2.1))) i0.2.1 ;
+  d : W.N = W.ones v ;
+  j : Mor d A = (v,(lv,refl d)) ;
+  l0 : Id W.N (W.len i0.1) (W.len v) = PL.trans W.N (W.len i0.1) A (W.len v) i0.2.1 (PL.sym W.N (W.len v) A lv) ;
+  l1 : Id W.N (W.len i1.1) (W.len v) = PL.trans W.N (W.len i1.1) A (W.len v) i1.2.1 (PL.sym W.N (W.len v) A lv) ;
+  k : Mor c d = (W.restrict v i0.1,(W.len-restrict v i0.1,
+    PL.trans W.N (W.ones (W.restrict v i0.1)) (W.ones i0.1) c (ones-restrict v i0.1 l0 (le-or-l i0.1 i1.1)) i0.2.2)) ;
+  k' : Mor c' d = (W.restrict v i1.1,(W.len-restrict v i1.1,
+    PL.trans W.N (W.ones (W.restrict v i1.1)) (W.ones i1.1) c' (ones-restrict v i1.1 l1 (le-or-r i0.1 i1.1)) i1.2.2)) ;
+  T : U l = (d0 : W.N) * ((j0 : Mor d0 A) * ((k0 : Mor c d0) * ((k1 : Mor c' d0) *
+    (Id (Mor c A) (comp c d0 A k0 j0) i0 * Id (Mor c' A) (comp c' d0 A k1 j0) i1)))) ;
+  result : T = (d,(j,(k,(k',(meq c A (comp c d A k j) i0 (W.restrict-comp v i0.1 l0 (le-or-l i0.1 i1.1)),
+    meq c' A (comp c' d A k' j) i1 (W.restrict-comp v i1.1 l1 (le-or-r i0.1 i1.1))))))) ;
+} ;
+
+ce : CE.CE = new CE.CE[Obj := W.N, Mor := Mor, idm := idm, comp := comp, id-l := id-l, id-r := id-r, assoc := assoc, mono := mono,
+  pb := \ a b b' f f' -> PB[a,b,b',f,f'].P,
+  p1 := \ a b b' f f' -> PB[a,b,b',f,f'].p1,
+  p2 := \ a b b' f f' -> PB[a,b,b',f,f'].p2,
+  pb-sq := \ a b b' f f' -> PB[a,b,b',f,f'].sq,
+  pb-univ := \ a b b' f f' E g g' e -> PB[a,b,b',f,f'].Univ[E,g,g',e].result,
+  Fin := W.N, fin := \ n -> n,
+  dir := \ A c c' i0 i1 -> inc DirO[A,c,c',i0,i1].T DirO[A,c,c',i0,i1].result] ;
+
+--------------------------------------------------------------------
+-- binary enumeration of the words of length d
+
+stepB (q : W.N) : W.Bool -> W.N * W.Bool = split { false -> (q,true) ; true -> (suc q,false) } ;
+hp : W.N -> W.N * W.Bool = split { zero -> (zero,false) ; suc n | r -> stepB r.1 r.2 } ;
+hp-dbl : (k : W.N) -> Id (W.N * W.Bool) (hp (W.dblN k)) (k,false) = split {
+  zero -> refl (zero,false) ;
+  suc k | r -> PL.ap (W.N * W.Bool) (W.N * W.Bool) (\ p -> stepB (stepB p.1 p.2).1 (stepB p.1 p.2).2) (hp (W.dblN k)) (k,false) r } ;
+hp-dbl1 (k : W.N) : Id (W.N * W.Bool) (hp (suc (W.dblN k))) (k,true) =
+  PL.ap (W.N * W.Bool) (W.N * W.Bool) (\ p -> stepB p.1 p.2) (hp (W.dblN k)) (k,false) (hp-dbl k) ;
+bin : W.N -> W.N -> W.Wd = split { zero -> \ j -> nil ; suc d | r -> \ j -> W.cons (hp j).2 (r (hp j).1) } ;
+code : W.Wd -> W.N = split { nil -> zero ; o w | r -> W.dblN r ; i w | r -> suc (W.dblN r) } ;
+bin-code : (w : W.Wd) -> Id W.Wd (bin (W.len w) (code w)) w = split {
+  nil -> refl nil ;
+  o w | r -> PL.trans W.Wd (bin (suc (W.len w)) (W.dblN (code w))) (o (bin (W.len w) (code w))) (o w)
+    (PL.ap (W.N * W.Bool) W.Wd (\ p -> W.cons p.2 (bin (W.len w) p.1)) (hp (W.dblN (code w))) (code w,false) (hp-dbl (code w)))
+    (PL.ap W.Wd W.Wd (\ u -> o u) (bin (W.len w) (code w)) w r) ;
+  i w | r -> PL.trans W.Wd (bin (suc (W.len w)) (suc (W.dblN (code w)))) (i (bin (W.len w) (code w))) (i w)
+    (PL.ap (W.N * W.Bool) W.Wd (\ p -> W.cons p.2 (bin (W.len w) p.1)) (hp (suc (W.dblN (code w)))) (code w,true) (hp-dbl1 (code w)))
+    (PL.ap W.Wd W.Wd (\ u -> i u) (bin (W.len w) (code w)) w r) } ;
+len-bin : (d j : W.N) -> Id W.N (W.len (bin d j)) d = split {
+  zero -> \ j -> refl zero ;
+  suc d | r -> \ j -> PL.trans W.N (W.len (W.cons (hp j).2 (bin d (hp j).1))) (suc (W.len (bin d (hp j).1))) (suc d)
+    (W.len-cons (hp j).2 (bin d (hp j).1)) (PL.ap W.N W.N (\ k -> suc k) (W.len (bin d (hp j).1)) d (r (hp j).1)) } ;
+lt-dbl0 : (k m : W.N) -> CF.Lt k m -> CF.Lt (W.dblN k) (W.dblN m) = split {
+  zero -> split { zero -> \ h -> W.ltN-zero-abs (CF.Lt zero zero) zero h ; suc m -> \ h -> refl true } ;
+  suc k | r -> split { zero -> \ h -> W.ltN-zero-abs (CF.Lt (W.dblN (suc k)) zero) (suc k) h ; suc m -> \ h -> r m h } } ;
+lt-dbl1 : (k m : W.N) -> CF.Lt k m -> CF.Lt (suc (W.dblN k)) (W.dblN m) = split {
+  zero -> split { zero -> \ h -> W.ltN-zero-abs (CF.Lt W.one zero) zero h ; suc m -> \ h -> refl true } ;
+  suc k | r -> split { zero -> \ h -> W.ltN-zero-abs (CF.Lt (suc (W.dblN (suc k))) zero) (suc k) h ; suc m -> \ h -> r m h } } ;
+code-lt : (w : W.Wd) -> CF.Lt (code w) (W.pow2 (W.len w)) = split {
+  nil -> refl true ;
+  o w | r -> lt-dbl0 (code w) (W.pow2 (W.len w)) r ;
+  i w | r -> lt-dbl1 (code w) (W.pow2 (W.len w)) r } ;
+code-lt' (w : W.Wd) (d : W.N) (lw : Id W.N (W.len w) d) : CF.Lt (code w) (W.pow2 d) =
+  PL.subst W.N (\ x -> CF.Lt (code w) (W.pow2 x)) (W.len w) d lw (code-lt w) ;
+bin-code' (w : W.Wd) (d : W.N) (lw : Id W.N (W.len w) d) : Id W.Wd (bin d (code w)) w =
+  PL.subst W.N (\ x -> Id W.Wd (bin x (code w)) w) (W.len w) d lw (bin-code w) ;
+
+--------------------------------------------------------------------
+-- Bishop-finite hom-sets
+
+homW (c d : W.N) (u : W.Wd) (lu : Id W.N (W.len u) d) : CF.Opt (Mor c d) =
+  CF.or-elim (Id W.N (W.ones u) c) (Id W.N (W.ones u) c -> W.Empty) (CF.Opt (Mor c d))
+    (\ e -> inl (u,(lu,e))) (\ ne -> inr tt) (W.decN (W.ones u) c) ;
+homW-ok (c d : W.N) (w : W.Wd) (lu lw : Id W.N (W.len w) d) (ow : Id W.N (W.ones w) c) :
+    (r : W.Or (Id W.N (W.ones w) c) (Id W.N (W.ones w) c -> W.Empty)) ->
+    Id (CF.Opt (Mor c d)) (CF.or-elim (Id W.N (W.ones w) c) (Id W.N (W.ones w) c -> W.Empty) (CF.Opt (Mor c d))
+      (\ e -> inl (w,(lu,e))) (\ ne -> inr tt) r) (inl (w,(lw,ow))) = split {
+  inl e -> PL.ap (Mor c d) (CF.Opt (Mor c d)) (\ M -> inl M) (w,(lu,e)) (w,(lw,ow)) (meq c d (w,(lu,e)) (w,(lw,ow)) (refl w)) ;
+  inr ne -> CF.efq (Id (CF.Opt (Mor c d)) (inr tt) (inl (w,(lw,ow)))) (ne ow) } ;
+homW-eq (c d : W.N) (w : W.Wd) (lw : Id W.N (W.len w) d) (ow : Id W.N (W.ones w) c) (u : W.Wd) (e : Id W.Wd u w) :
+    (lu : Id W.N (W.len u) d) -> Id (CF.Opt (Mor c d)) (homW c d u lu) (inl (w,(lw,ow))) =
+  idJ W.Wd w (\ u0 e0 -> (lu : Id W.N (W.len u0) d) -> Id (CF.Opt (Mor c d)) (homW c d u0 lu) (inl (w,(lw,ow))))
+    (\ lu -> homW-ok c d w lu lw ow (W.decN (W.ones w) c)) u (PL.sym W.Wd u w e) ;
+hom (c d : W.N) (j : W.N) (h : CF.Lt j (W.pow2 d)) : CF.Opt (Mor c d) = homW c d (bin d j) (len-bin d j) ;
+hom-surj (c d : W.N) : CF.Enum (Mor c d) (W.pow2 d) (hom c d) = \ k ->
+  (code k.1,(code-lt' k.1 d k.2.1,homW-eq c d k.1 k.2.1 k.2.2 (bin d (code k.1)) (bin-code' k.1 d k.2.1) (len-bin d (code k.1)))) ;
+hom-dec (c d : W.N) (k k' : Mor c d) : W.Or (Id (Mor c d) k k') (Id (Mor c d) k k' -> W.Empty) =
+  CF.or-elim (Id W.Wd k.1 k'.1) (Id W.Wd k.1 k'.1 -> W.Empty) (W.Or (Id (Mor c d) k k') (Id (Mor c d) k k' -> W.Empty))
+    (\ e -> inl (meq c d k k' e)) (\ ne -> inr (\ e -> ne (PL.ap (Mor c d) W.Wd (\ M -> M.1) k k' e))) (W.decW k.1 k'.1) ;
+
+--------------------------------------------------------------------
+-- subobjects: all words of length c
+
+subo (c j : W.N) : W.N = W.ones (bin c j) ;
+subm (c j : W.N) : Mor (subo c j) c = (bin c j,(len-bin c j,refl (subo c j))) ;
+module SubC (c B : W.N) (k : Mor B c) {
+  w : W.Wd = k.1 ;
+  j : W.N = code w ;
+  bw : W.Wd = bin c j ;
+  e : Id W.Wd bw w = bin-code' w c k.2.1 ;
+  eo : Id W.N (W.ones bw) B = PL.trans W.N (W.ones bw) (W.ones w) B (PL.ap W.Wd W.N W.ones bw w e) k.2.2 ;
+  h1 : Mor B (subo c j) = (W.idW B,(PL.trans W.N (W.len (W.idW B)) B (W.ones bw) (W.len-idW B) (PL.sym W.N (W.ones bw) B eo),W.ones-idW B)) ;
+  f1 : CF.Fac ce B (subo c j) c k (subm c j) =
+    (h1,meq B c (comp B (subo c j) c h1 (subm c j)) k
+      (PL.trans W.Wd (W.compW bw (W.idW B)) (W.compW bw (W.idW (W.ones bw))) w
+        (PL.ap W.N W.Wd (\ x -> W.compW bw (W.idW x)) B (W.ones bw) (PL.sym W.N (W.ones bw) B eo))
+        (PL.trans W.Wd (W.compW bw (W.idW (W.ones bw))) bw w (W.comp-id bw) e))) ;
+  h2 : Mor (subo c j) B = (W.idW (W.ones bw),(PL.trans W.N (W.len (W.idW (W.ones bw))) (W.ones bw) B (W.len-idW (W.ones bw)) eo,W.ones-idW (W.ones bw))) ;
+  f2 : CF.Fac ce (subo c j) B c (subm c j) k =
+    (h2,meq (subo c j) c (comp (subo c j) B c h2 k) (subm c j)
+      (PL.trans W.Wd (W.compW w (W.idW (W.ones bw))) (W.compW w (W.idW (W.ones w))) bw
+        (PL.ap W.Wd W.Wd (\ x -> W.compW w (W.idW (W.ones x))) bw w e)
+        (PL.trans W.Wd (W.compW w (W.idW (W.ones w))) w bw (W.comp-id w) (PL.sym W.Wd bw w e)))) ;
+  result : Ex ((j0 : W.N) * (CF.Lt j0 (W.pow2 c) * (CF.Fac ce B (subo c j0) c k (subm c j0) * CF.Fac ce (subo c j0) B c (subm c j0) k))) =
+    inc ((j0 : W.N) * (CF.Lt j0 (W.pow2 c) * (CF.Fac ce B (subo c j0) c k (subm c j0) * CF.Fac ce (subo c j0) B c (subm c j0) k)))
+      (j,(code-lt' w c k.2.1,(f1,f2))) ;
+} ;
+
+--------------------------------------------------------------------
+-- rigidity
+
+ltN-suc-false : (a b : W.N) -> Id W.Bool (W.ltN a b) false -> Id W.Bool (W.ltN (suc a) b) false = split {
+  zero -> split { zero -> \ h -> refl false ; suc b -> \ h -> W.absurdB (Id W.Bool (W.ltN W.one (suc b)) false) (PL.sym W.Bool true false h) } ;
+  suc a | r -> split { zero -> \ h -> refl false ; suc b -> \ h -> r b h } } ;
+ones-le : (w : W.Wd) -> Id W.Bool (W.ltN (W.len w) (W.ones w)) false = split {
+  nil -> refl false ;
+  o w | r -> ltN-suc-false (W.len w) (W.ones w) r ;
+  i w | r -> r } ;
+full-word : (w : W.Wd) -> Id W.N (W.len w) (W.ones w) -> Id W.Wd w (W.idW (W.len w)) = split {
+  nil -> \ h -> refl nil ;
+  o w -> \ h -> W.absurdB (Id W.Wd (o w) (W.idW (suc (W.len w))))
+    (PL.trans W.Bool false (W.ltN (W.len w) (W.ones w)) true (PL.sym W.Bool (W.ltN (W.len w) (W.ones w)) false (ones-le w))
+      (PL.subst W.N (\ x -> Id W.Bool (W.ltN (W.len w) x) true) (suc (W.len w)) (W.ones w) h (W.ltN-suc (W.len w)))) ;
+  i w | r -> \ h -> PL.ap W.Wd W.Wd (\ u -> i u) w (W.idW (W.len w)) (r (W.sucInj (W.len w) (W.ones w) h)) } ;
+rigid (c : W.N) (a : Mor c c) : Id (Mor c c) a (idm c) =
+  meq c c a (idm c) (PL.trans W.Wd a.1 (W.idW (W.len a.1)) (W.idW c)
+    (full-word a.1 (PL.trans W.N (W.len a.1) c (W.ones a.1) a.2.1 (PL.sym W.N (W.ones a.1) c a.2.2)))
+    (PL.ap W.N W.Wd W.idW (W.len a.1) c a.2.1)) ;
+
+--------------------------------------------------------------------
+-- self-amalgamation over a subset s: double the points outside s
+
+A1 : W.Wd -> W.Wd = split { nil -> nil ; o s | r -> i (o r) ; i s | r -> i r } ;
+A2 : W.Wd -> W.Wd = split { nil -> nil ; o s | r -> o (i r) ; i s | r -> i r } ;
+len-A12 : (s : W.Wd) -> Id W.N (W.len (A2 s)) (W.len (A1 s)) = split {
+  nil -> refl zero ;
+  o s | r -> PL.ap W.N W.N (\ k -> suc (suc k)) (W.len (A2 s)) (W.len (A1 s)) r ;
+  i s | r -> PL.ap W.N W.N (\ k -> suc k) (W.len (A2 s)) (W.len (A1 s)) r } ;
+ones-A1 : (s : W.Wd) -> Id W.N (W.ones (A1 s)) (W.len s) = split {
+  nil -> refl zero ;
+  o s | r -> PL.ap W.N W.N (\ k -> suc k) (W.ones (A1 s)) (W.len s) r ;
+  i s | r -> PL.ap W.N W.N (\ k -> suc k) (W.ones (A1 s)) (W.len s) r } ;
+ones-A2 : (s : W.Wd) -> Id W.N (W.ones (A2 s)) (W.len s) = split {
+  nil -> refl zero ;
+  o s | r -> PL.ap W.N W.N (\ k -> suc k) (W.ones (A2 s)) (W.len s) r ;
+  i s | r -> PL.ap W.N W.N (\ k -> suc k) (W.ones (A2 s)) (W.len s) r } ;
+amal-sqW : (s : W.Wd) -> Id W.Wd (W.compW (A1 s) s) (W.compW (A2 s) s) = split {
+  nil -> refl nil ;
+  o s | r -> PL.ap W.Wd W.Wd (\ u -> o (o u)) (W.compW (A1 s) s) (W.compW (A2 s) s) r ;
+  i s | r -> PL.ap W.Wd W.Wd (\ u -> i u) (W.compW (A1 s) s) (W.compW (A2 s) s) r } ;
+and-A12 : (s : W.Wd) -> Id W.Wd (W.andW (A1 s) (A2 s)) (W.compW (A1 s) s) = split {
+  nil -> refl nil ;
+  o s | r -> PL.ap W.Wd W.Wd (\ u -> o (o u)) (W.andW (A1 s) (A2 s)) (W.compW (A1 s) s) r ;
+  i s | r -> PL.ap W.Wd W.Wd (\ u -> i u) (W.andW (A1 s) (A2 s)) (W.compW (A1 s) s) r } ;
+-- restrict w (w . x) = x
+restrict-of-comp (w x : W.Wd) (lx : Id W.N (W.len x) (W.ones w)) : Id W.Wd (W.restrict w (W.compW w x)) x =
+  comp-mono w (W.restrict w (W.compW w x)) x (W.len-restrict w (W.compW w x)) lx
+    (W.restrict-comp w (W.compW w x) (W.len-comp w x) (comp-le w x)) ;
+module Amal (c j : W.N) {
+  s : W.Wd = bin c j ;
+  ls : Id W.N (W.len s) c = len-bin c j ;
+  D : W.N = W.len (A1 s) ;
+  w1 : Mor c D = (A1 s,(refl D,PL.trans W.N (W.ones (A1 s)) (W.len s) c (ones-A1 s) ls)) ;
+  w2 : Mor c D = (A2 s,(len-A12 s,PL.trans W.N (W.ones (A2 s)) (W.len s) c (ones-A2 s) ls)) ;
+  sq : Id (Mor (subo c j) D) (comp (subo c j) c D (subm c j) w1) (comp (subo c j) c D (subm c j) w2) =
+    meq (subo c j) D (comp (subo c j) c D (subm c j) w1) (comp (subo c j) c D (subm c j) w2) (amal-sqW s) ;
+  module Q = PB[D,c,c,w1,w2] ;
+  eP : Id W.N (W.ones s) Q.P =
+    PL.sym W.N Q.P (W.ones s) (PL.trans W.N Q.P (W.ones (W.compW (A1 s) s)) (W.ones s)
+      (PL.ap W.Wd W.N W.ones (W.andW (A1 s) (A2 s)) (W.compW (A1 s) s) (and-A12 s))
+      (W.ones-comp (A1 s) s (PL.trans W.N (W.ones (A1 s)) (W.len s) (W.len s) (ones-A1 s) (refl (W.len s))))) ;
+  t : Mor Q.P (subo c j) = (W.idW (W.ones s),(W.len-idW (W.ones s),PL.trans W.N (W.ones (W.idW (W.ones s))) (W.ones s) Q.P (W.ones-idW (W.ones s)) eP)) ;
+  tp : Id (Mor Q.P c) (comp Q.P (subo c j) c t (subm c j)) Q.p1 =
+    meq Q.P c (comp Q.P (subo c j) c t (subm c j)) Q.p1
+      (PL.trans W.Wd (W.compW s (W.idW (W.ones s))) s (W.restrict (A1 s) Q.v)
+        (W.comp-id s)
+        (PL.sym W.Wd (W.restrict (A1 s) Q.v) s
+          (PL.trans W.Wd (W.restrict (A1 s) Q.v) (W.restrict (A1 s) (W.compW (A1 s) s)) s
+            (PL.ap W.Wd W.Wd (W.restrict (A1 s)) Q.v (W.compW (A1 s) s) (and-A12 s))
+            (restrict-of-comp (A1 s) s (PL.sym W.N (W.ones (A1 s)) (W.len s) (ones-A1 s)))))) ;
+} ;
+
+--------------------------------------------------------------------
+-- finite multicoproducts: the jointly surjective shuffles of a and b
+
+wext-pt (u v : W.Wd) (hl : Id W.N (W.len u) (W.len v)) (pt : (y : W.N) -> Id W.Bool (W.at u y) (W.at v y)) : Id W.Wd u v =
+  W.wext u v hl (\ y h -> PL.trans W.Bool (W.at v y) (W.at u y) true (PL.sym W.Bool (W.at u y) (W.at v y) (pt y)) h)
+    (\ y h -> PL.trans W.Bool (W.at u y) (W.at v y) true (pt y) h) ;
+and-or : (a b c : W.Bool) -> Id W.Bool (W.andB a (W.orB b c)) (W.orB (W.andB a b) (W.andB a c)) = split {
+  false -> \ b c -> refl false ; true -> \ b c -> refl (W.orB b c) } ;
+comp-or (w u v : W.Wd) (hl : Id W.N (W.len (W.compW w v)) (W.len (W.compW w u))) :
+    Id W.Wd (W.compW w (orW u v)) (orW (W.compW w u) (W.compW w v)) =
+  wext-pt (W.compW w (orW u v)) (orW (W.compW w u) (W.compW w v))
+    (PL.trans W.N (W.len (W.compW w (orW u v))) (W.len w) (W.len (orW (W.compW w u) (W.compW w v)))
+      (W.len-comp w (orW u v))
+      (PL.sym W.N (W.len (orW (W.compW w u) (W.compW w v))) (W.len w)
+        (PL.trans W.N (W.len (orW (W.compW w u) (W.compW w v))) (W.len (W.compW w u)) (W.len w)
+          (len-or (W.compW w u) (W.compW w v) hl) (W.len-comp w u))))
+    (\ y -> PL.trans W.Bool (W.at (W.compW w (orW u v)) y) (W.andB (W.at w y) (W.at (orW u v) (W.rank w y)))
+        (W.at (orW (W.compW w u) (W.compW w v)) y)
+      (W.at-comp w y (orW u v))
+      (PL.trans W.Bool (W.andB (W.at w y) (W.at (orW u v) (W.rank w y))) (W.andB (W.at w y) (W.orB (W.at u (W.rank w y)) (W.at v (W.rank w y))))
+          (W.at (orW (W.compW w u) (W.compW w v)) y)
+        (PL.ap W.Bool W.Bool (W.andB (W.at w y)) (W.at (orW u v) (W.rank w y)) (W.orB (W.at u (W.rank w y)) (W.at v (W.rank w y)))
+          (at-or u (W.rank w y) v))
+        (PL.trans W.Bool (W.andB (W.at w y) (W.orB (W.at u (W.rank w y)) (W.at v (W.rank w y))))
+            (W.orB (W.andB (W.at w y) (W.at u (W.rank w y))) (W.andB (W.at w y) (W.at v (W.rank w y))))
+            (W.at (orW (W.compW w u) (W.compW w v)) y)
+          (and-or (W.at w y) (W.at u (W.rank w y)) (W.at v (W.rank w y)))
+          (PL.sym W.Bool (W.at (orW (W.compW w u) (W.compW w v)) y)
+            (W.orB (W.andB (W.at w y) (W.at u (W.rank w y))) (W.andB (W.at w y) (W.at v (W.rank w y))))
+            (PL.trans W.Bool (W.at (orW (W.compW w u) (W.compW w v)) y) (W.orB (W.at (W.compW w u) y) (W.at (W.compW w v) y))
+                (W.orB (W.andB (W.at w y) (W.at u (W.rank w y))) (W.andB (W.at w y) (W.at v (W.rank w y))))
+              (at-or (W.compW w u) y (W.compW w v))
+              (W.ap2 W.Bool W.Bool W.Bool W.orB (W.at (W.compW w u) y) (W.andB (W.at w y) (W.at u (W.rank w y)))
+                (W.at (W.compW w v) y) (W.andB (W.at w y) (W.at v (W.rank w y))) (W.at-comp w y u) (W.at-comp w y v))))))) ;
+
+-- the two restrictions to the union are jointly surjective
+module JS (Uw Vw : W.Wd) (hl : Id W.N (W.len Vw) (W.len Uw)) {
+  w : W.Wd = orW Uw Vw ;
+  lw : Id W.N (W.len w) (W.len Uw) = len-or Uw Vw hl ;
+  ru : W.Wd = W.restrict w Uw ;
+  rv : W.Wd = W.restrict w Vw ;
+  hUw : Id W.N (W.len Uw) (W.len w) = PL.sym W.N (W.len w) (W.len Uw) lw ;
+  hVw : Id W.N (W.len Vw) (W.len w) = PL.trans W.N (W.len Vw) (W.len Uw) (W.len w) hl hUw ;
+  cu : Id W.Wd (W.compW w ru) Uw = W.restrict-comp w Uw hUw (le-or-l Uw Vw) ;
+  cv : Id W.Wd (W.compW w rv) Vw = W.restrict-comp w Vw hVw (le-or-r Uw Vw) ;
+  lr : Id W.N (W.len rv) (W.len ru) = PL.trans W.N (W.len rv) (W.ones w) (W.len ru) (W.len-restrict w Vw) (PL.sym W.N (W.len ru) (W.ones w) (W.len-restrict w Uw)) ;
+  result : Id W.Wd (orW ru rv) (W.idW (W.ones w)) =
+    comp-mono w (orW ru rv) (W.idW (W.ones w))
+      (PL.trans W.N (W.len (orW ru rv)) (W.len ru) (W.ones w) (len-or ru rv lr) (W.len-restrict w Uw)) (W.len-idW (W.ones w))
+      (PL.trans W.Wd (W.compW w (orW ru rv)) (orW (W.compW w ru) (W.compW w rv)) (W.compW w (W.idW (W.ones w)))
+        (comp-or w ru rv (PL.trans W.N (W.len (W.compW w rv)) (W.len w) (W.len (W.compW w ru)) (W.len-comp w rv) (PL.sym W.N (W.len (W.compW w ru)) (W.len w) (W.len-comp w ru))))
+        (PL.trans W.Wd (orW (W.compW w ru) (W.compW w rv)) w (W.compW w (W.idW (W.ones w)))
+          (W.ap2 W.Wd W.Wd W.Wd orW (W.compW w ru) Uw (W.compW w rv) Vw cu cv)
+          (PL.sym W.Wd (W.compW w (W.idW (W.ones w))) w (W.comp-id w)))) ;
+} ;
+
+-- jointly surjective cospans are epimorphic, and determined by what they factor
+JSurj (a b : W.N) (j : CF.JT ce a b) : U l = Id W.Wd (orW j.2.1.1 j.2.2.1) (W.idW j.1) ;
+module Epi (a b : W.N) (j : CF.JT ce a b) (js : JSurj a b j) (d : W.N) (m : Mor j.1 d) {
+  lu : Id W.N (W.len j.2.1.1) (W.ones m.1) = PL.trans W.N (W.len j.2.1.1) j.1 (W.ones m.1) j.2.1.2.1 (PL.sym W.N (W.ones m.1) j.1 m.2.2) ;
+  -- m is the union of the images of its two composites
+  res : Id W.Wd m.1 (orW (W.compW m.1 j.2.1.1) (W.compW m.1 j.2.2.1)) =
+    PL.trans W.Wd m.1 (W.compW m.1 (W.idW j.1)) (orW (W.compW m.1 j.2.1.1) (W.compW m.1 j.2.2.1))
+      (PL.sym W.Wd (W.compW m.1 (W.idW j.1)) m.1
+        (PL.subst W.N (\ x -> Id W.Wd (W.compW m.1 (W.idW x)) m.1) (W.ones m.1) j.1 m.2.2 (W.comp-id m.1)))
+      (PL.trans W.Wd (W.compW m.1 (W.idW j.1)) (W.compW m.1 (orW j.2.1.1 j.2.2.1)) (orW (W.compW m.1 j.2.1.1) (W.compW m.1 j.2.2.1))
+        (PL.ap W.Wd W.Wd (W.compW m.1) (W.idW j.1) (orW j.2.1.1 j.2.2.1) (PL.sym W.Wd (orW j.2.1.1 j.2.2.1) (W.idW j.1) js))
+        (comp-or m.1 j.2.1.1 j.2.2.1 (PL.trans W.N (W.len (W.compW m.1 j.2.2.1)) (W.len m.1) (W.len (W.compW m.1 j.2.1.1))
+          (W.len-comp m.1 j.2.2.1) (PL.sym W.N (W.len (W.compW m.1 j.2.1.1)) (W.len m.1) (W.len-comp m.1 j.2.1.1))))) ;
+} ;
+jt-eq (a b : W.N) (j j' : CF.JT ce a b) (ec : Id W.N j.1 j'.1) (eu : Id W.Wd j.2.1.1 j'.2.1.1) (ev : Id W.Wd j.2.2.1 j'.2.2.1) :
+    Id (CF.JT ce a b) j j' =
+  idJ W.N j.1 (\ c0 e0 -> (u' : Mor a c0) (v' : Mor b c0) -> Id W.Wd j.2.1.1 u'.1 -> Id W.Wd j.2.2.1 v'.1 ->
+      Id (CF.JT ce a b) j (c0,(u',v')))
+    (\ u' v' eu0 ev0 -> PL.ap (Mor a j.1 * Mor b j.1) (CF.JT ce a b) (\ p -> (j.1,p)) j.2 (u',v')
+      (W.ap2 (Mor a j.1) (Mor b j.1) (Mor a j.1 * Mor b j.1) (\ x y -> (x,y)) j.2.1 u' j.2.2 v'
+        (meq a j.1 j.2.1 u' eu0) (meq b j.1 j.2.2 v' ev0)))
+    j'.1 ec j'.2.1 j'.2.2 eu ev ;
+
+-- the cospan of a pair of words (Uw, Vw) of the same length
+module Jc (a b : W.N) (Uw Vw : W.Wd) (hl : Id W.N (W.len Vw) (W.len Uw)) (oa : Id W.N (W.ones Uw) a) (ob : Id W.N (W.ones Vw) b) {
+  module S = JS[Uw,Vw,hl] ;
+  ju : Mor a (W.ones S.w) = (S.ru,(W.len-restrict S.w Uw,PL.trans W.N (W.ones S.ru) (W.ones Uw) a (ones-restrict S.w Uw S.hUw (le-or-l Uw Vw)) oa)) ;
+  jv : Mor b (W.ones S.w) = (S.rv,(W.len-restrict S.w Vw,PL.trans W.N (W.ones S.rv) (W.ones Vw) b (ones-restrict S.w Vw S.hVw (le-or-r Uw Vw)) ob)) ;
+  j : CF.JT ce a b = (W.ones S.w,(ju,jv)) ;
+  js : JSurj a b j = S.result ;
+} ;
+
+-- pairs of words of length n, interleaved
+zipW : W.Wd -> W.Wd -> W.Wd = split {
+  nil -> \ v -> nil ;
+  o u | r -> split { nil -> nil ; o v -> o (o (r v)) ; i v -> o (i (r v)) } ;
+  i u | r -> split { nil -> nil ; o v -> i (o (r v)) ; i v -> i (i (r v)) } } ;
+unz : W.Wd -> W.Wd * W.Wd = split { nil -> (nil,nil) ; o z | r -> (o r.2,r.1) ; i z | r -> (i r.2,r.1) } ;
+unz-zip : (u v : W.Wd) -> Id W.N (W.len v) (W.len u) -> Id (W.Wd * W.Wd) (unz (zipW u v)) (u,v) = split {
+  nil -> \ v h -> PL.ap W.Wd (W.Wd * W.Wd) (\ x -> (nil,x)) nil v (PL.sym W.Wd v nil (W.len-zero v h)) ;
+  o u | r -> split {
+    nil -> \ h -> W.absurdN (Id (W.Wd * W.Wd) (nil,nil) (o u,nil)) (W.len u) h ;
+    o v -> \ h -> PL.ap (W.Wd * W.Wd) (W.Wd * W.Wd) (\ p -> (o p.1,o p.2)) (unz (zipW u v)) (u,v) (r v (W.sucInj (W.len v) (W.len u) h)) ;
+    i v -> \ h -> PL.ap (W.Wd * W.Wd) (W.Wd * W.Wd) (\ p -> (o p.1,i p.2)) (unz (zipW u v)) (u,v) (r v (W.sucInj (W.len v) (W.len u) h)) } ;
+  i u | r -> split {
+    nil -> \ h -> W.absurdN (Id (W.Wd * W.Wd) (nil,nil) (i u,nil)) (W.len u) h ;
+    o v -> \ h -> PL.ap (W.Wd * W.Wd) (W.Wd * W.Wd) (\ p -> (i p.1,o p.2)) (unz (zipW u v)) (u,v) (r v (W.sucInj (W.len v) (W.len u) h)) ;
+    i v -> \ h -> PL.ap (W.Wd * W.Wd) (W.Wd * W.Wd) (\ p -> (i p.1,i p.2)) (unz (zipW u v)) (u,v) (r v (W.sucInj (W.len v) (W.len u) h)) } } ;
+len-zip : (u v : W.Wd) -> Id W.N (W.len v) (W.len u) -> Id W.N (W.len (zipW u v)) (W.dblN (W.len u)) = split {
+  nil -> \ v h -> refl zero ;
+  o u | r -> split {
+    nil -> \ h -> W.absurdN (Id W.N zero (W.dblN (suc (W.len u)))) (W.len u) h ;
+    o v -> \ h -> PL.ap W.N W.N (\ k -> suc (suc k)) (W.len (zipW u v)) (W.dblN (W.len u)) (r v (W.sucInj (W.len v) (W.len u) h)) ;
+    i v -> \ h -> PL.ap W.N W.N (\ k -> suc (suc k)) (W.len (zipW u v)) (W.dblN (W.len u)) (r v (W.sucInj (W.len v) (W.len u) h)) } ;
+  i u | r -> split {
+    nil -> \ h -> W.absurdN (Id W.N zero (W.dblN (suc (W.len u)))) (W.len u) h ;
+    o v -> \ h -> PL.ap W.N W.N (\ k -> suc (suc k)) (W.len (zipW u v)) (W.dblN (W.len u)) (r v (W.sucInj (W.len v) (W.len u) h)) ;
+    i v -> \ h -> PL.ap W.N W.N (\ k -> suc (suc k)) (W.len (zipW u v)) (W.dblN (W.len u)) (r v (W.sucInj (W.len v) (W.len u) h)) } } ;
+
+-- the listed cospan of an interleaved word (junk unless the counts match)
+JD (a b : W.N) (Uw Vw : W.Wd) : U l =
+  W.Or (Id W.N (W.len Vw) (W.len Uw)) (Id W.N (W.len Vw) (W.len Uw) -> W.Empty) ->
+  W.Or (Id W.N (W.ones Uw) a) (Id W.N (W.ones Uw) a -> W.Empty) ->
+  W.Or (Id W.N (W.ones Vw) b) (Id W.N (W.ones Vw) b -> W.Empty) -> CF.Opt (CF.JT ce a b) ;
+jd (a b : W.N) (Uw Vw : W.Wd) : JD a b Uw Vw = split {
+  inl hl -> split {
+    inl oa -> split { inl ob -> inl Jc[a,b,Uw,Vw,hl,oa,ob].j ; inr x -> inr tt } ;
+    inr x -> \ r3 -> inr tt } ;
+  inr x -> \ r2 r3 -> inr tt } ;
+jd-js (a b : W.N) (Uw Vw : W.Wd) (j : CF.JT ce a b) : (r1 : W.Or (Id W.N (W.len Vw) (W.len Uw)) (Id W.N (W.len Vw) (W.len Uw) -> W.Empty))
+    (r2 : W.Or (Id W.N (W.ones Uw) a) (Id W.N (W.ones Uw) a -> W.Empty)) (r3 : W.Or (Id W.N (W.ones Vw) b) (Id W.N (W.ones Vw) b -> W.Empty)) ->
+    Id (CF.Opt (CF.JT ce a b)) (jd a b Uw Vw r1 r2 r3) (inl j) -> JSurj a b j = split {
+  inl hl -> split {
+    inl oa -> split {
+      inl ob -> \ e -> PL.subst (CF.JT ce a b) (JSurj a b) Jc[a,b,Uw,Vw,hl,oa,ob].j j
+        (CF.inl-inj (CF.JT ce a b) Jc[a,b,Uw,Vw,hl,oa,ob].j j e) Jc[a,b,Uw,Vw,hl,oa,ob].js ;
+      inr x -> \ e -> CF.efq (JSurj a b j) (CF.inl-inr (CF.JT ce a b) j tt (PL.sym (CF.Opt (CF.JT ce a b)) (inr tt) (inl j) e)) } ;
+    inr x -> \ r3 e -> CF.efq (JSurj a b j) (CF.inl-inr (CF.JT ce a b) j tt (PL.sym (CF.Opt (CF.JT ce a b)) (inr tt) (inl j) e)) } ;
+  inr x -> \ r2 r3 e -> CF.efq (JSurj a b j) (CF.inl-inr (CF.JT ce a b) j tt (PL.sym (CF.Opt (CF.JT ce a b)) (inr tt) (inl j) e)) } ;
+jtW (a b : W.N) (z : W.Wd) : CF.Opt (CF.JT ce a b) =
+  jd a b (unz z).1 (unz z).2 (W.decN (W.len (unz z).2) (W.len (unz z).1)) (W.decN (W.ones (unz z).1) a) (W.decN (W.ones (unz z).2) b) ;
+jtN (a b : W.N) : W.N = W.pow2 (W.dblN (W.plus a b)) ;
+jt (a b t : W.N) (h : CF.Lt t (jtN a b)) : CF.Opt (CF.JT ce a b) = jtW a b (bin (W.dblN (W.plus a b)) t) ;
+jt-js (a b t : W.N) (h : CF.Lt t (jtN a b)) (j : CF.JT ce a b) (e : Id (CF.Opt (CF.JT ce a b)) (jt a b t h) (inl j)) : JSurj a b j =
+  jd-js a b (unz (bin (W.dblN (W.plus a b)) t)).1 (unz (bin (W.dblN (W.plus a b)) t)).2 j
+    (W.decN (W.len (unz (bin (W.dblN (W.plus a b)) t)).2) (W.len (unz (bin (W.dblN (W.plus a b)) t)).1))
+    (W.decN (W.ones (unz (bin (W.dblN (W.plus a b)) t)).1) a) (W.decN (W.ones (unz (bin (W.dblN (W.plus a b)) t)).2) b) e ;
+
+-- epimorphy and uniqueness
+jt-epi (a b t : W.N) (h : CF.Lt t (jtN a b)) (j : CF.JT ce a b) (e : Id (CF.Opt (CF.JT ce a b)) (jt a b t h) (inl j))
+  (d : W.N) (m m' : Mor j.1 d)
+  (e1 : Id (Mor a d) (comp a j.1 d j.2.1 m) (comp a j.1 d j.2.1 m'))
+  (e2 : Id (Mor b d) (comp b j.1 d j.2.2 m) (comp b j.1 d j.2.2 m')) : Id (Mor j.1 d) m m' =
+  meq j.1 d m m'
+    (PL.trans W.Wd m.1 (orW (W.compW m.1 j.2.1.1) (W.compW m.1 j.2.2.1)) m'.1
+      Epi[a,b,j,jt-js a b t h j e,d,m].res
+      (PL.trans W.Wd (orW (W.compW m.1 j.2.1.1) (W.compW m.1 j.2.2.1)) (orW (W.compW m'.1 j.2.1.1) (W.compW m'.1 j.2.2.1)) m'.1
+        (W.ap2 W.Wd W.Wd W.Wd orW (W.compW m.1 j.2.1.1) (W.compW m'.1 j.2.1.1) (W.compW m.1 j.2.2.1) (W.compW m'.1 j.2.2.1)
+          (PL.ap (Mor a d) W.Wd (\ M -> M.1) (comp a j.1 d j.2.1 m) (comp a j.1 d j.2.1 m') e1)
+          (PL.ap (Mor b d) W.Wd (\ M -> M.1) (comp b j.1 d j.2.2 m) (comp b j.1 d j.2.2 m') e2))
+        (PL.sym W.Wd m'.1 (orW (W.compW m'.1 j.2.1.1) (W.compW m'.1 j.2.2.1)) Epi[a,b,j,jt-js a b t h j e,d,m'].res))) ;
+module Uniq (a b d : W.N) (f : Mor a d) (g : Mor b d) (j : CF.JT ce a b) (js : JSurj a b j) (j' : CF.JT ce a b) (js' : JSurj a b j')
+  (q : CF.JFac ce a b d f g j) (q' : CF.JFac ce a b d f g j') {
+  mf : Id W.Wd q.1.1 (orW f.1 g.1) =
+    PL.trans W.Wd q.1.1 (orW (W.compW q.1.1 j.2.1.1) (W.compW q.1.1 j.2.2.1)) (orW f.1 g.1) Epi[a,b,j,js,d,q.1].res
+      (W.ap2 W.Wd W.Wd W.Wd orW (W.compW q.1.1 j.2.1.1) f.1 (W.compW q.1.1 j.2.2.1) g.1
+        (PL.ap (Mor a d) W.Wd (\ M -> M.1) (comp a j.1 d j.2.1 q.1) f q.2.1)
+        (PL.ap (Mor b d) W.Wd (\ M -> M.1) (comp b j.1 d j.2.2 q.1) g q.2.2)) ;
+  mf' : Id W.Wd q'.1.1 (orW f.1 g.1) =
+    PL.trans W.Wd q'.1.1 (orW (W.compW q'.1.1 j'.2.1.1) (W.compW q'.1.1 j'.2.2.1)) (orW f.1 g.1) Epi[a,b,j',js',d,q'.1].res
+      (W.ap2 W.Wd W.Wd W.Wd orW (W.compW q'.1.1 j'.2.1.1) f.1 (W.compW q'.1.1 j'.2.2.1) g.1
+        (PL.ap (Mor a d) W.Wd (\ M -> M.1) (comp a j'.1 d j'.2.1 q'.1) f q'.2.1)
+        (PL.ap (Mor b d) W.Wd (\ M -> M.1) (comp b j'.1 d j'.2.2 q'.1) g q'.2.2)) ;
+  mm : Id W.Wd q.1.1 q'.1.1 = PL.trans W.Wd q.1.1 (orW f.1 g.1) q'.1.1 mf (PL.sym W.Wd q'.1.1 (orW f.1 g.1) mf') ;
+  ec : Id W.N j.1 j'.1 =
+    PL.trans W.N j.1 (W.ones q.1.1) j'.1 (PL.sym W.N (W.ones q.1.1) j.1 q.1.2.2)
+      (PL.trans W.N (W.ones q.1.1) (W.ones q'.1.1) j'.1 (PL.ap W.Wd W.N W.ones q.1.1 q'.1.1 mm) q'.1.2.2) ;
+  canc (x x' : W.Wd) (lx : Id W.N (W.len x) j.1) (lx' : Id W.N (W.len x') j'.1)
+    (ex : Id W.Wd (W.compW q.1.1 x) (W.compW q'.1.1 x')) : Id W.Wd x x' =
+    comp-mono q.1.1 x x' (PL.trans W.N (W.len x) j.1 (W.ones q.1.1) lx (PL.sym W.N (W.ones q.1.1) j.1 q.1.2.2))
+      (PL.trans W.N (W.len x') j'.1 (W.ones q.1.1) lx' (PL.trans W.N j'.1 (W.ones q'.1.1) (W.ones q.1.1)
+        (PL.sym W.N (W.ones q'.1.1) j'.1 q'.1.2.2) (PL.ap W.Wd W.N W.ones q'.1.1 q.1.1 (PL.sym W.Wd q.1.1 q'.1.1 mm))))
+      (PL.trans W.Wd (W.compW q.1.1 x) (W.compW q'.1.1 x') (W.compW q.1.1 x') ex
+        (PL.ap W.Wd W.Wd (\ M -> W.compW M x') q'.1.1 q.1.1 (PL.sym W.Wd q.1.1 q'.1.1 mm))) ;
+  result : Id (CF.JT ce a b) j j' =
+    jt-eq a b j j' ec
+      (canc j.2.1.1 j'.2.1.1 j.2.1.2.1 j'.2.1.2.1
+        (PL.trans W.Wd (W.compW q.1.1 j.2.1.1) f.1 (W.compW q'.1.1 j'.2.1.1)
+          (PL.ap (Mor a d) W.Wd (\ M -> M.1) (comp a j.1 d j.2.1 q.1) f q.2.1)
+          (PL.sym W.Wd (W.compW q'.1.1 j'.2.1.1) f.1 (PL.ap (Mor a d) W.Wd (\ M -> M.1) (comp a j'.1 d j'.2.1 q'.1) f q'.2.1))))
+      (canc j.2.2.1 j'.2.2.1 j.2.2.2.1 j'.2.2.2.1
+        (PL.trans W.Wd (W.compW q.1.1 j.2.2.1) g.1 (W.compW q'.1.1 j'.2.2.1)
+          (PL.ap (Mor b d) W.Wd (\ M -> M.1) (comp b j.1 d j.2.2 q.1) g q.2.2)
+          (PL.sym W.Wd (W.compW q'.1.1 j'.2.2.1) g.1 (PL.ap (Mor b d) W.Wd (\ M -> M.1) (comp b j'.1 d j'.2.2 q'.1) g q'.2.2)))) ;
+} ;
+jt-uniq (a b d : W.N) (f : Mor a d) (g : Mor b d)
+  (t : W.N) (h : CF.Lt t (jtN a b)) (j : CF.JT ce a b) (e : Id (CF.Opt (CF.JT ce a b)) (jt a b t h) (inl j))
+  (t' : W.N) (h' : CF.Lt t' (jtN a b)) (j' : CF.JT ce a b) (e' : Id (CF.Opt (CF.JT ce a b)) (jt a b t' h') (inl j'))
+  (q : CF.JFac ce a b d f g j) (q' : CF.JFac ce a b d f g j') : Id (CF.JT ce a b) j j' =
+  Uniq[a,b,d,f,g,j,jt-js a b t h j e,j',jt-js a b t' h' j' e',q,q'].result ;
+
+-- covering: (f, g) factors through the union of its images, padded to length a + b
+ones-or-le : (F G : W.Wd) -> CF.Lt (W.ones (orW F G)) (suc (W.plus (W.ones F) (W.ones G))) = split {
+  nil -> \ G -> W.ltN-suc (W.ones G) ;
+  o F | r -> split {
+    nil -> r nil ;
+    o G -> r G ;
+    i G -> PL.subst W.N (\ x -> CF.Lt (W.ones (orW F G)) x) (suc (W.plus (W.ones F) (W.ones G))) (W.plus (W.ones F) (suc (W.ones G)))
+      (PL.sym W.N (W.plus (W.ones F) (suc (W.ones G))) (suc (W.plus (W.ones F) (W.ones G))) (W.plus-sucR (W.ones F) (W.ones G))) (r G) } ;
+  i F | r -> split {
+    nil -> r nil ;
+    o G -> r G ;
+    i G -> PL.subst W.N (\ x -> CF.Lt (W.ones (orW F G)) (suc x)) (suc (W.plus (W.ones F) (W.ones G))) (W.plus (W.ones F) (suc (W.ones G)))
+      (PL.sym W.N (W.plus (W.ones F) (suc (W.ones G))) (suc (W.plus (W.ones F) (W.ones G))) (W.plus-sucR (W.ones F) (W.ones G)))
+      (W.ltN-sucR (W.ones (orW F G)) (suc (W.plus (W.ones F) (W.ones G))) (r G)) } } ;
+le-split : (c n : W.N) -> CF.Lt c (suc n) -> (k : W.N) * Id W.N (W.plus c k) n = split {
+  zero -> \ n h -> (n,refl n) ;
+  suc c | r -> split {
+    zero -> \ h -> W.ltN-zero-abs ((k : W.N) * Id W.N (W.plus (suc c) k) zero) c h ;
+    suc n -> \ h -> ((r n h).1,PL.ap W.N W.N (\ x -> suc x) (W.plus c (r n h).1) n (r n h).2) } } ;
+or-app : (u v : W.Wd) -> Id W.N (W.len v) (W.len u) -> (u' v' : W.Wd) ->
+    Id W.Wd (orW (W.app u u') (W.app v v')) (W.app (orW u v) (orW u' v')) = split {
+  nil -> \ v h u' v' -> PL.subst W.Wd (\ x -> Id W.Wd (orW u' (W.app x v')) (W.app (orW nil x) (orW u' v'))) nil v
+    (PL.sym W.Wd v nil (W.len-zero v h)) (refl (orW u' v')) ;
+  o u | r -> split {
+    nil -> \ h u' v' -> W.absurdN (Id W.Wd (orW (W.app (o u) u') v') (W.app (orW (o u) nil) (orW u' v'))) (W.len u) h ;
+    o v -> \ h u' v' -> PL.ap W.Wd W.Wd (\ x -> o x) (orW (W.app u u') (W.app v v')) (W.app (orW u v) (orW u' v')) (r v (W.sucInj (W.len v) (W.len u) h) u' v') ;
+    i v -> \ h u' v' -> PL.ap W.Wd W.Wd (\ x -> i x) (orW (W.app u u') (W.app v v')) (W.app (orW u v) (orW u' v')) (r v (W.sucInj (W.len v) (W.len u) h) u' v') } ;
+  i u | r -> split {
+    nil -> \ h u' v' -> W.absurdN (Id W.Wd (orW (W.app (i u) u') v') (W.app (orW (i u) nil) (orW u' v'))) (W.len u) h ;
+    o v -> \ h u' v' -> PL.ap W.Wd W.Wd (\ x -> i x) (orW (W.app u u') (W.app v v')) (W.app (orW u v) (orW u' v')) (r v (W.sucInj (W.len v) (W.len u) h) u' v') ;
+    i v -> \ h u' v' -> PL.ap W.Wd W.Wd (\ x -> i x) (orW (W.app u u') (W.app v v')) (W.app (orW u v) (orW u' v')) (r v (W.sucInj (W.len v) (W.len u) h) u' v') } } ;
+or-zeros : (k : W.N) -> Id W.Wd (orW (W.zeros k) (W.zeros k)) (W.zeros k) = split {
+  zero -> refl nil ;
+  suc k | r -> PL.ap W.Wd W.Wd (\ x -> o x) (orW (W.zeros k) (W.zeros k)) (W.zeros k) r } ;
+restrict-app : (p q : W.Wd) -> Id W.N (W.len q) (W.len p) -> (p' q' : W.Wd) ->
+    Id W.Wd (W.restrict (W.app p p') (W.app q q')) (W.app (W.restrict p q) (W.restrict p' q')) = split {
+  nil -> \ q h p' q' -> PL.subst W.Wd (\ x -> Id W.Wd (W.restrict p' (W.app x q')) (W.restrict p' q')) nil q
+    (PL.sym W.Wd q nil (W.len-zero q h)) (refl (W.restrict p' q')) ;
+  o p | r -> split {
+    nil -> \ h p' q' -> W.absurdN (Id W.Wd (W.restrict (W.app (o p) p') q') (W.app (W.restrict (o p) nil) (W.restrict p' q'))) (W.len p) h ;
+    o q -> \ h p' q' -> r q (W.sucInj (W.len q) (W.len p) h) p' q' ;
+    i q -> \ h p' q' -> r q (W.sucInj (W.len q) (W.len p) h) p' q' } ;
+  i p | r -> split {
+    nil -> \ h p' q' -> W.absurdN (Id W.Wd (W.restrict (W.app (i p) p') q') (W.app (W.restrict (i p) nil) (W.restrict p' q'))) (W.len p) h ;
+    o q -> \ h p' q' -> PL.ap W.Wd W.Wd (\ x -> o x) (W.restrict (W.app p p') (W.app q q')) (W.app (W.restrict p q) (W.restrict p' q')) (r q (W.sucInj (W.len q) (W.len p) h) p' q') ;
+    i q -> \ h p' q' -> PL.ap W.Wd W.Wd (\ x -> i x) (W.restrict (W.app p p') (W.app q q')) (W.app (W.restrict p q) (W.restrict p' q')) (r q (W.sucInj (W.len q) (W.len p) h) p' q') } } ;
+restrict-idW : (q : W.Wd) -> Id W.Wd (W.restrict (W.idW (W.len q)) q) q = split {
+  nil -> refl nil ;
+  o q | r -> PL.ap W.Wd W.Wd (\ x -> o x) (W.restrict (W.idW (W.len q)) q) q r ;
+  i q | r -> PL.ap W.Wd W.Wd (\ x -> i x) (W.restrict (W.idW (W.len q)) q) q r } ;
+restrict-zeros : (k : W.N) (x : W.Wd) -> Id W.Wd (W.restrict (W.zeros k) x) nil = split {
+  zero -> \ x -> refl nil ;
+  suc k | r -> \ x -> r (W.tl x) } ;
+app-nil : (x : W.Wd) -> Id W.Wd (W.app x nil) x = split {
+  nil -> refl nil ;
+  o x | r -> PL.ap W.Wd W.Wd (\ y -> o y) (W.app x nil) x r ;
+  i x | r -> PL.ap W.Wd W.Wd (\ y -> i y) (W.app x nil) x r } ;
+-- restricting the padded union gives back the restriction
+pad-restrict (c k : W.N) (x : W.Wd) (lx : Id W.N (W.len x) c) :
+    Id W.Wd (W.restrict (W.app (W.idW c) (W.zeros k)) (W.app x (W.zeros k))) x =
+  PL.trans W.Wd (W.restrict (W.app (W.idW c) (W.zeros k)) (W.app x (W.zeros k))) (W.app (W.restrict (W.idW c) x) (W.restrict (W.zeros k) (W.zeros k))) x
+    (restrict-app (W.idW c) x (PL.trans W.N (W.len x) c (W.len (W.idW c)) lx (PL.sym W.N (W.len (W.idW c)) c (W.len-idW c))) (W.zeros k) (W.zeros k))
+    (PL.trans W.Wd (W.app (W.restrict (W.idW c) x) (W.restrict (W.zeros k) (W.zeros k))) (W.app x nil) x
+      (W.ap2 W.Wd W.Wd W.Wd W.app (W.restrict (W.idW c) x) x (W.restrict (W.zeros k) (W.zeros k)) nil
+        (PL.subst W.N (\ y -> Id W.Wd (W.restrict (W.idW y) x) x) (W.len x) c lx (restrict-idW x))
+        (restrict-zeros k (W.zeros k)))
+      (app-nil x)) ;
+-- the value of jd when the three tests succeed
+jd-inl (a b : W.N) (Uw Vw : W.Wd) (hl : Id W.N (W.len Vw) (W.len Uw)) (oa : Id W.N (W.ones Uw) a) (ob : Id W.N (W.ones Vw) b) :
+    (r1 : W.Or (Id W.N (W.len Vw) (W.len Uw)) (Id W.N (W.len Vw) (W.len Uw) -> W.Empty))
+    (r2 : W.Or (Id W.N (W.ones Uw) a) (Id W.N (W.ones Uw) a -> W.Empty)) (r3 : W.Or (Id W.N (W.ones Vw) b) (Id W.N (W.ones Vw) b -> W.Empty)) ->
+    Id (CF.Opt (CF.JT ce a b)) (jd a b Uw Vw r1 r2 r3) (inl Jc[a,b,Uw,Vw,hl,oa,ob].j) = split {
+  inl hl' -> split {
+    inl oa' -> split {
+      inl ob' -> PL.ap (CF.JT ce a b) (CF.Opt (CF.JT ce a b)) (\ x -> inl x) Jc[a,b,Uw,Vw,hl',oa',ob'].j Jc[a,b,Uw,Vw,hl,oa,ob].j
+        (jt-eq a b Jc[a,b,Uw,Vw,hl',oa',ob'].j Jc[a,b,Uw,Vw,hl,oa,ob].j (refl (W.ones (orW Uw Vw)))
+          (refl (W.restrict (orW Uw Vw) Uw)) (refl (W.restrict (orW Uw Vw) Vw))) ;
+      inr x -> CF.efq (Id (CF.Opt (CF.JT ce a b)) (inr tt) (inl Jc[a,b,Uw,Vw,hl,oa,ob].j)) (x ob) } ;
+    inr x -> \ r3 -> CF.efq (Id (CF.Opt (CF.JT ce a b)) (jd a b Uw Vw (inl hl') (inr x) r3) (inl Jc[a,b,Uw,Vw,hl,oa,ob].j)) (x oa) } ;
+  inr x -> \ r2 r3 -> CF.efq (Id (CF.Opt (CF.JT ce a b)) (jd a b Uw Vw (inr x) r2 r3) (inl Jc[a,b,Uw,Vw,hl,oa,ob].j)) (x hl) } ;
+
+module Cov (a b d : W.N) (f : Mor a d) (g : Mor b d) {
+  F : W.Wd = f.1 ;
+  G : W.Wd = g.1 ;
+  lG : Id W.N (W.len G) (W.len F) = PL.trans W.N (W.len G) d (W.len F) g.2.1 (PL.sym W.N (W.len F) d f.2.1) ;
+  module J0 = Jc[a,b,F,G,lG,f.2.2,g.2.2] ;
+  module S = J0.S ;
+  c0 : W.N = W.ones S.w ;
+  m : Mor c0 d = (S.w,(PL.trans W.N (W.len S.w) (W.len F) d S.lw f.2.1,refl c0)) ;
+  jf : CF.JFac ce a b d f g J0.j =
+    (m,(meq a d (comp a c0 d J0.ju m) f S.cu,meq b d (comp b c0 d J0.jv m) g S.cv)) ;
+  n : W.N = W.plus a b ;
+  bound : CF.Lt c0 (suc n) =
+    PL.trans W.Bool (W.ltN c0 (suc n)) (W.ltN c0 (suc (W.plus (W.ones F) (W.ones G)))) true
+      (PL.sym W.Bool (W.ltN c0 (suc (W.plus (W.ones F) (W.ones G)))) (W.ltN c0 (suc n))
+        (W.ap2 W.N W.N W.Bool (\ x y -> W.ltN c0 (suc (W.plus x y))) (W.ones F) a (W.ones G) b f.2.2 g.2.2))
+      (ones-or-le F G) ;
+  k : W.N = (le-split c0 n bound).1 ;
+  ek : Id W.N (W.plus c0 k) n = (le-split c0 n bound).2 ;
+  Z : W.Wd = W.zeros k ;
+  Uw : W.Wd = W.app S.ru Z ;
+  Vw : W.Wd = W.app S.rv Z ;
+  lru : Id W.N (W.len S.ru) c0 = W.len-restrict S.w F ;
+  lrv : Id W.N (W.len S.rv) c0 = W.len-restrict S.w G ;
+  lpad (x : W.Wd) (lx : Id W.N (W.len x) c0) : Id W.N (W.len (W.app x Z)) n =
+    PL.trans W.N (W.len (W.app x Z)) (W.plus (W.len x) (W.len Z)) n (W.len-app x Z)
+      (PL.trans W.N (W.plus (W.len x) (W.len Z)) (W.plus c0 k) n
+        (W.ap2 W.N W.N W.N W.plus (W.len x) c0 (W.len Z) k lx (W.len-zeros k)) ek) ;
+  lVU : Id W.N (W.len Vw) (W.len Uw) = PL.trans W.N (W.len Vw) n (W.len Uw) (lpad S.rv lrv) (PL.sym W.N (W.len Uw) n (lpad S.ru lru)) ;
+  opad (x : W.Wd) : Id W.N (W.ones (W.app x Z)) (W.ones x) =
+    PL.trans W.N (W.ones (W.app x Z)) (W.plus (W.ones x) (W.ones Z)) (W.ones x) (W.ones-app x Z)
+      (PL.trans W.N (W.plus (W.ones x) (W.ones Z)) (W.plus (W.ones x) zero) (W.ones x)
+        (PL.ap W.N W.N (W.plus (W.ones x)) (W.ones Z) zero (W.ones-zeros k)) (W.plus-zero (W.ones x))) ;
+  oa : Id W.N (W.ones Uw) a = PL.trans W.N (W.ones Uw) (W.ones S.ru) a (opad S.ru) J0.ju.2.2 ;
+  ob : Id W.N (W.ones Vw) b = PL.trans W.N (W.ones Vw) (W.ones S.rv) b (opad S.rv) J0.jv.2.2 ;
+  module J1 = Jc[a,b,Uw,Vw,lVU,oa,ob] ;
+  w1e : Id W.Wd (orW Uw Vw) (W.app (W.idW c0) Z) =
+    PL.trans W.Wd (orW Uw Vw) (W.app (orW S.ru S.rv) (orW Z Z)) (W.app (W.idW c0) Z)
+      (or-app S.ru S.rv S.lr Z Z)
+      (W.ap2 W.Wd W.Wd W.Wd W.app (orW S.ru S.rv) (W.idW c0) (orW Z Z) Z S.result (or-zeros k)) ;
+  ec : Id W.N J1.j.1 J0.j.1 =
+    PL.trans W.N (W.ones (orW Uw Vw)) (W.ones (W.app (W.idW c0) Z)) c0 (PL.ap W.Wd W.N W.ones (orW Uw Vw) (W.app (W.idW c0) Z) w1e)
+      (PL.trans W.N (W.ones (W.app (W.idW c0) Z)) (W.ones (W.idW c0)) c0 (opad (W.idW c0)) (W.ones-idW c0)) ;
+  er (x : W.Wd) (lx : Id W.N (W.len x) c0) : Id W.Wd (W.restrict (orW Uw Vw) (W.app x Z)) x =
+    PL.trans W.Wd (W.restrict (orW Uw Vw) (W.app x Z)) (W.restrict (W.app (W.idW c0) Z) (W.app x Z)) x
+      (PL.ap W.Wd W.Wd (\ y -> W.restrict y (W.app x Z)) (orW Uw Vw) (W.app (W.idW c0) Z) w1e)
+      (pad-restrict c0 k x lx) ;
+  eJ : Id (CF.JT ce a b) J1.j J0.j = jt-eq a b J1.j J0.j ec (er S.ru lru) (er S.rv lrv) ;
+  -- the index
+  zz : W.Wd = zipW Uw Vw ;
+  lz : Id W.N (W.len zz) (W.dblN n) =
+    PL.trans W.N (W.len zz) (W.dblN (W.len Uw)) (W.dblN n) (len-zip Uw Vw lVU) (PL.ap W.N W.N W.dblN (W.len Uw) n (lpad S.ru lru)) ;
+  tz : W.N = code zz ;
+  ht : CF.Lt tz (jtN a b) = code-lt' zz (W.dblN n) lz ;
+  G2 (p : W.Wd * W.Wd) : CF.Opt (CF.JT ce a b) =
+    jd a b p.1 p.2 (W.decN (W.len p.2) (W.len p.1)) (W.decN (W.ones p.1) a) (W.decN (W.ones p.2) b) ;
+  ez : Id (W.Wd * W.Wd) (unz (bin (W.dblN n) tz)) (Uw,Vw) =
+    PL.trans (W.Wd * W.Wd) (unz (bin (W.dblN n) tz)) (unz zz) (Uw,Vw)
+      (PL.ap W.Wd (W.Wd * W.Wd) unz (bin (W.dblN n) tz) zz (bin-code' zz (W.dblN n) lz)) (unz-zip Uw Vw lVU) ;
+  listed : Id (CF.Opt (CF.JT ce a b)) (jt a b tz ht) (inl J0.j) =
+    PL.trans (CF.Opt (CF.JT ce a b)) (G2 (unz (bin (W.dblN n) tz))) (G2 (Uw,Vw)) (inl J0.j)
+      (PL.ap (W.Wd * W.Wd) (CF.Opt (CF.JT ce a b)) G2 (unz (bin (W.dblN n) tz)) (Uw,Vw) ez)
+      (PL.trans (CF.Opt (CF.JT ce a b)) (G2 (Uw,Vw)) (inl J1.j) (inl J0.j)
+        (jd-inl a b Uw Vw lVU oa ob (W.decN (W.len Vw) (W.len Uw)) (W.decN (W.ones Uw) a) (W.decN (W.ones Vw) b))
+        (PL.ap (CF.JT ce a b) (CF.Opt (CF.JT ce a b)) (\ x -> inl x) J1.j J0.j eJ)) ;
+  T : U l = (t : W.N) * ((h : CF.Lt t (jtN a b)) * ((j : CF.JT ce a b) *
+    (Id (CF.Opt (CF.JT ce a b)) (jt a b t h) (inl j) * CF.JFac ce a b d f g j))) ;
+  result : T = (tz,(ht,(J0.j,(listed,jf)))) ;
+} ;
+
+--------------------------------------------------------------------
+-- the finite ordinals form a CEF
+
+cef : CF.CEF = new CF.CEF[C := ce,
+  homN := \ c d -> W.pow2 d, hom := hom, hom-surj := hom-surj, hom-dec := hom-dec,
+  subN := \ c -> W.pow2 c, subo := subo, subm := subm, sub-cover := \ c c' k -> SubC[c,c',k].result,
+  amalD := \ c j -> Amal[c,j].D, amalw := \ c j -> Amal[c,j].w1, amalw' := \ c j -> Amal[c,j].w2,
+  amal-sq := \ c j -> Amal[c,j].sq, amal-t := \ c j -> Amal[c,j].t, amal-tp := \ c j -> Amal[c,j].tp,
+  jtN := jtN, jt := jt,
+  jt-cover := \ a b d f g -> inc Cov[a,b,d,f,g].T Cov[a,b,d,f,g].result,
+  jt-uniq := jt-uniq, jt-epi := jt-epi,
+  rigid := rigid, mor-set := mor-set] ;

@@ -1,0 +1,195 @@
+-- AdeqPiCaseB.seg: the budgeted adequacy, case Pi (and eq-Pi): AdeqPiP.PiCase
+-- at the bound K.  The family B' is reached by quantitative soundness of
+-- B = B', so its induction hypothesis is used at K + d5.
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open SynLemmas[l] ; open Weaken[l] ; open Subst[l] ; open Presup[l] ; open Cross[l] ;
+open Filter[l] ; open Sem[l] ; open Sound[l] ; open Reduction[l] ; open RelC[l] ; open LawsC[l] ; open AdeqBase[l] ;
+open PrinEnv[l] ; open AdeqPiP[l] ;
+open TypingK[l] ; open SemK[l] ; open SoundK[l] ; open LawsK[l] ; open AdeqBaseB[l] ; open AdeqPiB[l] ;
+
+module AdeqPCB (n : Nat) (D : Ctx n) (wD : Der n (jwf D)) (Kmax : Nat) {
+  open RelCD[n, D] ;
+  open LawsCD[n, D] ;
+  open AdeqB[n, D] ;
+  open AdeqBB[n, D, Kmax] ;
+  open AdeqPP[n, D, wD] ;
+  open AdeqPB[n, D, wD, Kmax] ;
+
+  module PiCaseB (m : Nat) (G : Ctx m) (A A' : Tm m) (B B' : Tm (suc m))
+      (h1 : Der m (jty G A (uu m))) (hA' : Der m (jty G A' (uu m))) (eAA : Der m (jeq G A A' (uu m)))
+      (hB' : Der (suc m) (jty (ext m G A) B' (uu (suc m)))) (eBB : Der (suc m) (jeq (ext m G A) B B' (uu (suc m))))
+      (K d5 : Nat)
+      (rA0 : AdB0 K m G A A (uu m)) (rA : AdB0 K m G A A' (uu m))
+      (rB1 : AdB0 K (suc m) (ext m G A) B B (uu (suc m))) (rB'1 : AdB0 (add d5 K) (suc m) (ext m G A) B' B' (uu (suc m)))
+      (rB : AdB0 K (suc m) (ext m G A) B B' (uu (suc m)))
+      (e5 : EqIH (suc m) (ext m G A) B B' (uu (suc m)) d5)
+      (rho : Env m) (fi : FitsKP K m G rho) (s s' : Fin m -> Tm n) (rs : RelSB m G rho s s') {
+
+    As : Tm n = Sub.trav m A n s ;
+    As' : Tm n = Sub.trav m A n s' ;
+    T : Tm n = pp n As (Sub.trav (suc m) B (suc n) (Sub.lift m n s)) ;
+    T' : Tm n = pp n (Sub.trav m A' n s') (Sub.trav (suc m) B' (suc n) (Sub.lift m n s')) ;
+    K5 : Nat = add d5 K ;
+    l5 : LeN K K5 = leN-add d5 K ;
+    AK : Filt = semK K m A rho ;
+    GK (x : Ty) : Filt = famK K m B rho x ;
+
+    eA : Der n (jeq D As As' (uu n)) = subst-cross m n G D s s' A (uu m) h1 rs.ok rs.ok' rs.eq wD ;
+
+    cA : Der n (jeq D As (Sub.trav m A' n s') (uu n)) =
+      eq-trans n D As (Sub.trav m A' n s) (Sub.trav m A' n s') (uu n)
+        (sub-der m (jeq G A A' (uu m)) eAA n D s rs.ok wD)
+        (subst-cross m n G D s s' A' (uu m) hA' rs.ok rs.ok' rs.eq wD) ;
+
+    cB : Der (suc n) (jeq (ext n D As) (Sub.trav (suc m) B (suc n) (Sub.lift m n s))
+           (Sub.trav (suc m) B' (suc n) (Sub.lift m n s')) (uu (suc n))) =
+      eq-trans (suc n) (ext n D As) (Sub.trav (suc m) B (suc n) (Sub.lift m n s))
+        (Sub.trav (suc m) B' (suc n) (Sub.lift m n s)) (Sub.trav (suc m) B' (suc n) (Sub.lift m n s')) (uu (suc n))
+        (sub-der (suc m) (jeq (ext m G A) B B' (uu (suc m))) eBB (suc n) (ext n D As) (Sub.lift m n s)
+           (XB[m, n, G, D, s, s', rs.ok, rs.ok', rs.eq, wD, A, h1, eA].soL)
+           (XB[m, n, G, D, s, s', rs.ok, rs.ok', rs.eq, wD, A, h1, eA].wHA))
+        (XB[m, n, G, D, s, s', rs.ok, rs.ok', rs.eq, wD, A, h1, eA].under B' (uu (suc m))
+           (xsub (suc m) (jty (ext m G A) B' (uu (suc m))) hB')) ;
+
+    module At (u : Ty) (mpi : (piFK K AK GK).mem u) (Ac phic : Ty) (e : Eqv u (pi Ac phic))
+        (hAc : TpK K (el Ac univ)) (hphic : TpK K (ent phic Ac (arr om univ))) (cphic : Cons phic) {
+
+      pin : PiInK K AK GK Ac phic = pi-in-piK K AK GK u Ac phic e.1 mpi ;
+
+      tyA : TyR Ac As As' = ad-tyB K m G A A rA0 rho fi s s' rs Ac pin.inA1 hAc ;
+
+      fam-mem (d y : Ty) (q : ASel phic d y) : (GK d).mem y =
+        (GK d).fup i.2.1 y i.2.2.2.2
+          (Entries[GK, famK-anti K m B rho, EntRK K AK GK, \ x v r -> r.2].sel
+             pin.b i.1 i.2.1 i.2.2.1 pin.ents d i.2.2.2.1)
+        where { i : InvArr pin.b d y = inv-arr pin.b d y (le-trans pin.b phic (arr d y) pin.leb (asel-le phic d y q)) ; } ;
+
+      module Arg1 (d y : Ty) (q : ASel phic d y) (P P' : Tm n) (a : Arg Can d As P P') {
+        hd : TpK K (el d Ac) = key-tpK K phic d y q Ac (arr om univ) hphic hAc a.cd ;
+        hy : TpK K (el y univ) = fam-valK K phic d y q Ac hphic cphic a.cd ;
+        rho' : Env (suc m) = extE m rho (prin d) ;
+        fi' : FitsKP K (suc m) (ext m G A) rho' =
+          fitskp-ext K m G A rho d fi (new TyInKR[K, AK, d, a := Ac, ina := pin.inA1, tp := hd]) ;
+        my : (semK K (suc m) B rho').mem y = fam-mem d y q ;
+        my' : (semK K5 (suc m) B' rho').mem y = (e5 K K5 (leN-refl K5) rho' fi'.1).1 y my ;
+
+        aP' : TmR d As' P P' = cl5 d Ac (tpk-tp K d Ac hd) As As' P P' tyA a.rel ;
+        eP1 : Der n (jeq D P P' As') = eq-conv n D P P' As As' a.cv eA (eq-pre n (jeq D As As' (uu n)) eA).2 ;
+        eQ : Der n (jeq D P' P As) = eq-sym n D P P' As a.cv ;
+        eQ1 : Der n (jeq D P' P As') = eq-sym n D P P' As' eP1 ;
+
+        rs3 : RelSB (suc m) (ext m G A) rho' (consS m n s P) (consS m n s' P') =
+          rels-extB m G A rho (prin d) s s' P P' rs a.cv eQ1 (argr-at m A rho d s s' P P' a.rel aP') ;
+        rs1 : RelSB (suc m) (ext m G A) rho' (consS m n s P) (consS m n s P') =
+          rels-extB m G A rho (prin d) s s P P' (rels-diagB m G rho s s' rs) a.cv eQ (argr-at m A rho d s s P P' a.rel a.rel) ;
+        rs2 : RelSB (suc m) (ext m G A) rho' (consS m n s' P) (consS m n s' P') =
+          rels-extB m G A rho (prin d) s' s' P P' (rels-diagB m G rho s' s (rels-symB m G rho s s' rs)) eP1 eQ1
+            (argr-at m A rho d s' s' P P' aP' aP') ;
+
+        eqB (s1 : Fin m -> Tm n) (Q : Tm n) (X : Tm (suc m)) :
+            Id (Tm n) (Sub.trav (suc m) X n (consS m n s1 Q)) (subst1 n (Sub.trav (suc m) X (suc n) (Sub.lift m n s1)) Q) =
+          sym (Tm n) (subst1 n (Sub.trav (suc m) X (suc n) (Sub.lift m n s1)) Q) (Sub.trav (suc m) X n (consS m n s1 Q))
+            (consS-eq m n s1 Q X) ;
+
+        famc : FamC Can y (Sub.trav (suc m) B (suc n) (Sub.lift m n s)) (Sub.trav (suc m) B' (suc n) (Sub.lift m n s')) P P' =
+          new FamRC[Can, y, Sub.trav (suc m) B (suc n) (Sub.lift m n s), Sub.trav (suc m) B' (suc n) (Sub.lift m n s'), P, P',
+            c1 := tyr-tr y (Sub.trav (suc m) B n (consS m n s P)) (Sub.trav (suc m) B n (consS m n s P'))
+                   (subst1 n (Sub.trav (suc m) B (suc n) (Sub.lift m n s)) P) (subst1 n (Sub.trav (suc m) B (suc n) (Sub.lift m n s)) P')
+                   (eqB s P B) (eqB s P' B)
+                   (ad-tyB K (suc m) (ext m G A) B B rB1 rho' fi' (consS m n s P) (consS m n s P') rs1 y my hy),
+            c2 := tyr-tr y (Sub.trav (suc m) B' n (consS m n s' P)) (Sub.trav (suc m) B' n (consS m n s' P'))
+                   (subst1 n (Sub.trav (suc m) B' (suc n) (Sub.lift m n s')) P) (subst1 n (Sub.trav (suc m) B' (suc n) (Sub.lift m n s')) P')
+                   (eqB s' P B') (eqB s' P' B')
+                   (ad-tyB K5 (suc m) (ext m G A) B' B' rB'1 rho' (fitskp-map K K5 l5 (suc m) (ext m G A) rho' fi')
+                      (consS m n s' P) (consS m n s' P') rs2 y my' (tpk-mono K K5 l5 y univ hy)),
+            c3 := tyr-tr y (Sub.trav (suc m) B n (consS m n s P)) (Sub.trav (suc m) B' n (consS m n s' P'))
+                   (subst1 n (Sub.trav (suc m) B (suc n) (Sub.lift m n s)) P) (subst1 n (Sub.trav (suc m) B' (suc n) (Sub.lift m n s')) P')
+                   (eqB s P B) (eqB s' P' B')
+                   (ad-tyB K (suc m) (ext m G A) B B' rB rho' fi' (consS m n s P) (consS m n s' P') rs3 y my hy)] ;
+      } ;
+
+      pity : PiTy Can Ac phic T T' =
+        new PiTyRC[Can, Ac, phic, T, T', A0 := As, B0 := Sub.trav (suc m) B (suc n) (Sub.lift m n s),
+                 A1 := Sub.trav m A' n s', B1 := Sub.trav (suc m) B' (suc n) (Sub.lift m n s'),
+                 red := rrefl n T, red' := rrefl n T',
+                 d := new PiDRC[Can, Ac, phic, As, Sub.trav (suc m) B (suc n) (Sub.lift m n s),
+                              Sub.trav m A' n s', Sub.trav (suc m) B' (suc n) (Sub.lift m n s'),
+                              cA := cA, cB := cB,
+                              dom := ad-tyB K m G A A' rA rho fi s s' rs Ac pin.inA1 hAc,
+                              fam := \ d y q P P' a -> Arg1[d, y, q, P, P', a].famc]] ;
+    } ;
+
+    pc-at (u : Ty) (hu : TpK K (el u univ)) (mpi : (piFK K AK GK).mem u) (f g Au phiu : Ty)
+        (hp : Sel u (pi f g)) (q : PSel u Au phiu) : PiTy Can Au phiu T T' =
+      pity-mono Can cmono b.A1 b.phi1 Au phiu b.lA b.lphi T T'
+        (At[u, mpi, b.A1, b.phi1, b.e, b.hA, b.hphi, b.c].pity)
+      where { b : PiBelowK K u Au phiu = below-piK K u Au phiu hu (psel-up u f g Au phiu hp q) ; } ;
+
+    tm (u c : Ty) (mu : (semK K m (pp m A B) rho).mem u) (mc : (semK K m (uu m) rho).mem c) (hc : TpK K (el u c)) :
+        TmR u (uu n) T T' =
+      (tmr-unfold u (uu n) T T').2
+        (new TmCR[Can, u, uu n, T, T',
+           ty := new TyCR[Can, u, T, T',
+             un := \ hu -> absurd (Reds n T (uu n) * Reds n T' (uu n))
+                    (piK-univ-clash K AK GK u (sel-le u univ hu) mu),
+             pc := pc-at u (tpk-univ K u c hc mc) mu],
+           fn := fun-at-uu u T T']) ;
+  } ;
+
+  -- the weights: any W above each call
+  ad-pi-atB (m : Nat) (G : Ctx m) (A A' : Tm m) (B B' : Tm (suc m))
+      (h1 : Der m (jty G A (uu m))) (hA' : Der m (jty G A' (uu m))) (eAA : Der m (jeq G A A' (uu m)))
+      (hB' : Der (suc m) (jty (ext m G A) B' (uu (suc m)))) (eBB : Der (suc m) (jeq (ext m G A) B B' (uu (suc m))))
+      (w0 wA w1 w1' wB d5 W : Nat)
+      (l0 : LeN w0 W) (lA : LeN wA W) (l1 : LeN w1 W) (l1' : LeN (add w1' d5) W) (lB : LeN wB W)
+      (rA0 : AdW w0 m G A A (uu m)) (rA : AdW wA m G A A' (uu m))
+      (rB1 : AdW w1 (suc m) (ext m G A) B B (uu (suc m))) (rB'1 : AdW w1' (suc m) (ext m G A) B' B' (uu (suc m)))
+      (rB : AdW wB (suc m) (ext m G A) B B' (uu (suc m))) (e5 : EqIH (suc m) (ext m G A) B B' (uu (suc m)) d5)
+      (K : Nat) (hB : LeN (add W K) Kmax) :
+      AdB0 K m G (pp m A B) (pp m A' B') (uu m) =
+    \ rho fi s s' rs u c mu mc hc ->
+      (PiCaseB[m, G, A, A', B, B', h1, hA', eAA, hB', eBB, K, d5, rA0 K (wstep0 Kmax w0 W K l0 hB), rA K (wstep0 Kmax wA W K lA hB),
+               rB1 K (wstep0 Kmax w1 W K l1 hB), rB'1 (add d5 K) (wstep Kmax w1' d5 W K l1' hB), rB K (wstep0 Kmax wB W K lB hB),
+               e5, rho, fi, s, s', rs].tm u c mu mc hc,
+       PiCaseB[m, G, A, A', B, B', h1, hA', eAA, hB', eBB, K, d5, rA0 K (wstep0 Kmax w0 W K l0 hB), rA K (wstep0 Kmax wA W K lA hB),
+               rB1 K (wstep0 Kmax w1 W K l1 hB), rB'1 (add d5 K) (wstep Kmax w1' d5 W K l1' hB), rB K (wstep0 Kmax wB W K lB hB),
+               e5, rho, fi, s, s', rs].tm u c mu mc hc) ;
+
+  -- eq-Pi: five premises, W = (w0 + (wA + (w1 + (w1' + wB)))) + d5
+  ad-piB (m : Nat) (G : Ctx m) (A A' : Tm m) (B B' : Tm (suc m))
+      (h1 : Der m (jty G A (uu m))) (hA' : Der m (jty G A' (uu m))) (eAA : Der m (jeq G A A' (uu m)))
+      (hB' : Der (suc m) (jty (ext m G A) B' (uu (suc m)))) (eBB : Der (suc m) (jeq (ext m G A) B B' (uu (suc m))))
+      (w0 wA w1 w1' wB d5 : Nat)
+      (rA0 : AdW w0 m G A A (uu m)) (rA : AdW wA m G A A' (uu m))
+      (rB1 : AdW w1 (suc m) (ext m G A) B B (uu (suc m))) (rB'1 : AdW w1' (suc m) (ext m G A) B' B' (uu (suc m)))
+      (rB : AdW wB (suc m) (ext m G A) B B' (uu (suc m))) (e5 : EqIH (suc m) (ext m G A) B B' (uu (suc m)) d5) :
+      AdW (add (add w0 (add wA (add w1 (add w1' wB)))) d5) m G (pp m A B) (pp m A' B') (uu m) =
+    \ K hB -> ad-pi-atB m G A A' B B' h1 hA' eAA hB' eBB w0 wA w1 w1' wB d5 W l0 lA l1 l1' lB rA0 rA rB1 rB'1 rB e5 K hB
+    where {
+      S4 : Nat = add w1' wB ;
+      S3 : Nat = add w1 S4 ;
+      S2 : Nat = add wA S3 ;
+      S : Nat = add w0 S2 ;
+      W : Nat = add S d5 ;
+      sW : LeN S W = le-sum-l S d5 ;
+      l0 : LeN w0 W = leN-trans w0 S W (le-sum-l w0 S2) sW ;
+      l2 : LeN S2 S = le-sum-r w0 S2 ;
+      lA : LeN wA W = leN-trans wA S W (leN-trans wA S2 S (le-sum-l wA S3) l2) sW ;
+      l3 : LeN S3 S = leN-trans S3 S2 S (le-sum-r wA S3) l2 ;
+      l1 : LeN w1 W = leN-trans w1 S W (leN-trans w1 S3 S (le-sum-l w1 S4) l3) sW ;
+      l4 : LeN S4 S = leN-trans S4 S3 S (le-sum-r w1 S4) l3 ;
+      lB : LeN wB W = leN-trans wB S W (leN-trans wB S4 S (le-sum-r w1' wB) l4) sW ;
+      l1' : LeN (add w1' d5) W = am2 w1' S d5 d5 (leN-trans w1' S4 S (le-sum-l w1' wB) l4) (leN-refl d5) ; } ;
+
+  -- ty-Pi: two premises, each counted once, W = w1 + w2
+  ad-pi-tyB (m : Nat) (G : Ctx m) (A : Tm m) (B : Tm (suc m))
+      (h1 : Der m (jty G A (uu m))) (h2 : Der (suc m) (jty (ext m G A) B (uu (suc m))))
+      (w1 w2 : Nat) (r1 : AdW w1 m G A A (uu m)) (r2 : AdW w2 (suc m) (ext m G A) B B (uu (suc m))) :
+      AdW (add w1 w2) m G (pp m A B) (pp m A B) (uu m) =
+    \ K hB -> ad-pi-atB m G A A B B h1 h1 (eq-refl m G A (uu m) h1) h2 (eq-refl (suc m) (ext m G A) B (uu (suc m)) h2)
+                w1 w1 w2 w2 w2 zero (add w1 w2) (le-sum-l w1 w2) (le-sum-l w1 w2) (le-sum-r w1 w2)
+                (leN-trans (add w2 zero) w2 (add w1 w2) (add-zero-le w2) (le-sum-r w1 w2)) (le-sum-r w1 w2)
+                r1 r1 r2 r2 r2 (sk-refl (suc m) (ext m G A) B (uu (suc m))) K hB ;
+} ;

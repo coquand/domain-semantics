@@ -1,0 +1,286 @@
+-- Sums of codes along a comparison table (abstract catemb over a CEF),
+-- toward the finite multicoproducts of decoded codes.
+--
+-- Generators of K1 (indices < m1) then of K2 (indices m1 + y).  The side
+-- of an index is read off W.cut; the type of cut values is a proposition,
+-- so transports along it are harmless.  view: a point of the sum is a
+-- point of K1 or of K2; in1, in2: the inverse injections; back-view.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PF = PtyxFinite[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module SJ0 = StabJt0[l] ;
+module PL = Prelude[l] ;
+module FL = FinList[l] ;
+
+plus-cancel : (L a b : W.N) -> Id W.N (W.plus L a) (W.plus L b) -> Id W.N a b = split {
+  zero -> \ a b e -> e ;
+  suc L | r -> \ a b e -> r a b (W.sucInj (W.plus L a) (W.plus L b) e) } ;
+lt-plus-abs : (L y : W.N) -> CF.Lt (W.plus L y) L -> W.Empty = split {
+  zero -> \ y h -> W.ltN-zero-abs W.Empty y h ;
+  suc L | r -> \ y h -> r y h } ;
+
+module Side (F : CF.CEF) (K1 K2 : SC.Code[F]) {
+  m1 : W.N = K1.m ;
+  m2 : W.N = K2.m ;
+  mS : W.N = W.plus m1 m2 ;
+  CutT (i : W.N) : U l = W.Or (CF.Lt i m1) ((y : W.N) * Id W.N i (W.plus m1 y)) ;
+  cut-prop (i : W.N) : PL.isProp (CutT i) = split {
+    inl h -> split {
+      inl h' -> PL.ap (CF.Lt i m1) (CutT i) (\ x -> inl x) h h' (W.HB.uip (W.ltN i m1) true h h') ;
+      inr p' -> CF.efq (Id (CutT i) (inl h) (inr p'))
+        (lt-plus-abs m1 p'.1 (PL.subst W.N (\ x -> CF.Lt x m1) i (W.plus m1 p'.1) p'.2 h)) } ;
+    inr p -> split {
+      inl h' -> CF.efq (Id (CutT i) (inr p) (inl h'))
+        (lt-plus-abs m1 p.1 (PL.subst W.N (\ x -> CF.Lt x m1) i (W.plus m1 p.1) p.2 h')) ;
+      inr p' -> PL.ap ((y : W.N) * Id W.N i (W.plus m1 y)) (CutT i) (\ x -> inr x) p p'
+        (PL.Sigma-eq W.N (\ y -> Id W.N i (W.plus m1 y)) p.1 p'.1 p.2 p'.2
+          (plus-cancel m1 p.1 p'.1 (PL.trans W.N (W.plus m1 p.1) i (W.plus m1 p'.1) (PL.sym W.N i (W.plus m1 p.1) p.2) p'.2))
+          (W.HN.uip i (W.plus m1 p'.1))) } } ;
+  genC (i : W.N) : CutT i -> F.C.Fin = split { inl h -> K1.gen i ; inr p -> K2.gen p.1 } ;
+  genS (i : W.N) : F.C.Fin = genC i (W.cut m1 i) ;
+  module PS = SC.Pts[F,mS,genS] ;
+  module P1 = SC.Pts[F,m1,K1.gen] ;
+  module P2 = SC.Pts[F,m2,K2.gen] ;
+  VT (A : F.C.Obj) : U l = W.Or (P1.Pt A) (P2.Pt A) ;
+  trF (A : F.C.Obj) (i : W.N) (c c' : CutT i) (e : Id (CutT i) c c') (f : F.C.Mor (F.C.fin (genC i c)) A) : F.C.Mor (F.C.fin (genC i c')) A =
+    PL.subst (CutT i) (\ x -> F.C.Mor (F.C.fin (genC i x)) A) c c' e f ;
+  trF-path (A : F.C.Obj) (i : W.N) (c c' : CutT i) (e e' : Id (CutT i) c c') (f : F.C.Mor (F.C.fin (genC i c)) A) :
+      Id (F.C.Mor (F.C.fin (genC i c')) A) (trF A i c c' e f) (trF A i c c' e' f) =
+    PL.ap (Id (CutT i) c c') (F.C.Mor (F.C.fin (genC i c')) A) (\ x -> trF A i c c' x f) e e' (PL.prop-to-set (CutT i) (cut-prop i) c c' e e') ;
+  lt1 (i : W.N) (h : CF.Lt i m1) : CF.Lt i mS = FL.lt-plus-r i m1 m2 h ;
+  lt2 (y : W.N) (h : CF.Lt y m2) : CF.Lt (W.plus m1 y) mS = PL.trans W.Bool (W.ltN (W.plus m1 y) mS) (W.ltN y m2) true (W.ltN-plus m1 y m2) h ;
+  lt2i (i : W.N) (hi : CF.Lt i mS) (p : (y : W.N) * Id W.N i (W.plus m1 y)) : CF.Lt p.1 m2 =
+    PL.trans W.Bool (W.ltN p.1 m2) (W.ltN (W.plus m1 p.1) mS) true (PL.sym W.Bool (W.ltN (W.plus m1 p.1) mS) (W.ltN p.1 m2) (W.ltN-plus m1 p.1 m2))
+      (PL.subst W.N (\ x -> CF.Lt x mS) i (W.plus m1 p.1) p.2 hi) ;
+  -- views
+  view' (A : F.C.Obj) (i : W.N) (hi : CF.Lt i mS) : (c : CutT i) -> F.C.Mor (F.C.fin (genC i c)) A -> VT A = split {
+    inl h -> \ f -> inl (i,(h,f)) ;
+    inr p -> \ f -> inr (p.1,(lt2i i hi p,f)) } ;
+  view (A : F.C.Obj) (p : PS.Pt A) : VT A = view' A p.1 p.2.1 (W.cut m1 p.1) p.2.2 ;
+  view-tr (A : F.C.Obj) (i : W.N) (hi : CF.Lt i mS) (c c' : CutT i) (e : Id (CutT i) c c') (f : F.C.Mor (F.C.fin (genC i c)) A) :
+      Id (VT A) (view' A i hi c' (trF A i c c' e f)) (view' A i hi c f) =
+    idJ (CutT i) c (\ c0 e0 -> Id (VT A) (view' A i hi c0 (trF A i c c0 e0 f)) (view' A i hi c f)) (refl (view' A i hi c f)) c' e ;
+  in1 (A : F.C.Obj) (q : P1.Pt A) : PS.Pt A =
+    (q.1,(lt1 q.1 q.2.1,trF A q.1 (inl q.2.1) (W.cut m1 q.1) (cut-prop q.1 (inl q.2.1) (W.cut m1 q.1)) q.2.2)) ;
+  c2 (y : W.N) : CutT (W.plus m1 y) = inr (y,refl (W.plus m1 y)) ;
+  in2 (A : F.C.Obj) (q : P2.Pt A) : PS.Pt A =
+    (W.plus m1 q.1,(lt2 q.1 q.2.1,trF A (W.plus m1 q.1) (c2 q.1) (W.cut m1 (W.plus m1 q.1)) (cut-prop (W.plus m1 q.1) (c2 q.1) (W.cut m1 (W.plus m1 q.1))) q.2.2)) ;
+  view-in1 (A : F.C.Obj) (q : P1.Pt A) : Id (VT A) (view A (in1 A q)) (inl q) =
+    view-tr A q.1 (lt1 q.1 q.2.1) (inl q.2.1) (W.cut m1 q.1) (cut-prop q.1 (inl q.2.1) (W.cut m1 q.1)) q.2.2 ;
+  view-in2 (A : F.C.Obj) (q : P2.Pt A) : Id (VT A) (view A (in2 A q)) (inr q) =
+    PL.trans (VT A) (view A (in2 A q)) (inr (q.1,(lt2i (W.plus m1 q.1) (lt2 q.1 q.2.1) (q.1,refl (W.plus m1 q.1)),q.2.2))) (inr q)
+      (view-tr A (W.plus m1 q.1) (lt2 q.1 q.2.1) (c2 q.1) (W.cut m1 (W.plus m1 q.1)) (cut-prop (W.plus m1 q.1) (c2 q.1) (W.cut m1 (W.plus m1 q.1))) q.2.2)
+      (PL.ap (CF.Lt q.1 m2) (VT A) (\ u -> inr (q.1,(u,q.2.2))) (lt2i (W.plus m1 q.1) (lt2 q.1 q.2.1) (q.1,refl (W.plus m1 q.1))) q.2.1
+        (W.HB.uip (W.ltN q.1 m2) true (lt2i (W.plus m1 q.1) (lt2 q.1 q.2.1) (q.1,refl (W.plus m1 q.1))) q.2.1)) ;
+  back (A : F.C.Obj) : VT A -> PS.Pt A = split { inl q -> in1 A q ; inr q -> in2 A q } ;
+  -- back after view is the identity
+  module BV (A : F.C.Obj) (i : W.N) (hi : CF.Lt i mS) {
+    caseL (h : CF.Lt i m1) (f : F.C.Mor (F.C.fin (K1.gen i)) A) (e : Id (CutT i) (inl h) (W.cut m1 i)) :
+        Id (PS.Pt A) (in1 A (i,(h,f))) (i,(hi,trF A i (inl h) (W.cut m1 i) e f)) =
+      W.ap2 (CF.Lt i mS) (F.C.Mor (F.C.fin (genS i)) A) (PS.Pt A) (\ u x -> (i,(u,x)))
+        (lt1 i h) hi (trF A i (inl h) (W.cut m1 i) (cut-prop i (inl h) (W.cut m1 i)) f) (trF A i (inl h) (W.cut m1 i) e f)
+        (W.HB.uip (W.ltN i mS) true (lt1 i h) hi) (trF-path A i (inl h) (W.cut m1 i) (cut-prop i (inl h) (W.cut m1 i)) e f) ;
+    caseR (y : W.N) (ey : Id W.N i (W.plus m1 y)) (f : F.C.Mor (F.C.fin (K2.gen y)) A) (hy : CF.Lt y m2)
+      (e : Id (CutT i) (inr (y,ey)) (W.cut m1 i)) : Id (PS.Pt A) (in2 A (y,(hy,f))) (i,(hi,trF A i (inr (y,ey)) (W.cut m1 i) e f)) =
+      idJ W.N i (\ k e0 -> (hk : CF.Lt k mS) (ck : Id W.N k (W.plus m1 y)) (ek : Id (CutT k) (inr (y,ck)) (W.cut m1 k)) ->
+          Id (PS.Pt A) (k,(hk,trF A k (inr (y,ck)) (W.cut m1 k) ek f)) (i,(hi,trF A i (inr (y,ey)) (W.cut m1 i) e f)))
+        (\ hk ck ek -> W.ap2 (CF.Lt i mS) (F.C.Mor (F.C.fin (genS i)) A) (PS.Pt A) (\ u x -> (i,(u,x)))
+          hk hi (trF A i (inr (y,ck)) (W.cut m1 i) ek f) (trF A i (inr (y,ey)) (W.cut m1 i) e f)
+          (W.HB.uip (W.ltN i mS) true hk hi)
+          (idJ (Id W.N i (W.plus m1 y)) ck (\ c0 e1 -> (ek0 : Id (CutT i) (inr (y,c0)) (W.cut m1 i)) ->
+              Id (F.C.Mor (F.C.fin (genS i)) A) (trF A i (inr (y,ck)) (W.cut m1 i) ek f) (trF A i (inr (y,c0)) (W.cut m1 i) ek0 f))
+            (\ ek0 -> trF-path A i (inr (y,ck)) (W.cut m1 i) ek ek0 f) ey (W.HN.uip i (W.plus m1 y) ck ey) e))
+        (W.plus m1 y) ey (lt2 y hy) (refl (W.plus m1 y)) (cut-prop (W.plus m1 y) (c2 y) (W.cut m1 (W.plus m1 y))) ;
+    gen : (c : CutT i) (f : F.C.Mor (F.C.fin (genC i c)) A) (e : Id (CutT i) c (W.cut m1 i)) ->
+        Id (PS.Pt A) (back A (view' A i hi c f)) (i,(hi,trF A i c (W.cut m1 i) e f)) = split {
+      inl h -> \ f e -> caseL h f e ;
+      inr p -> \ f e -> caseR p.1 p.2 f (lt2i i hi p) e } ;
+  } ;
+  back-view (A : F.C.Obj) (p : PS.Pt A) : Id (PS.Pt A) (back A (view A p)) p =
+    BV[A,p.1,p.2.1].gen (W.cut m1 p.1) p.2.2 (refl (W.cut m1 p.1)) ;
+  view-inj (A : F.C.Obj) (p q : PS.Pt A) (e : Id (VT A) (view A p) (view A q)) : Id (PS.Pt A) p q =
+    PL.trans (PS.Pt A) p (back A (view A p)) q (PL.sym (PS.Pt A) (back A (view A p)) p (back-view A p))
+      (PL.trans (PS.Pt A) (back A (view A p)) (back A (view A q)) q (PL.ap (VT A) (PS.Pt A) (back A) (view A p) (view A q) e) (back-view A q)) ;
+  -- views commute with postcomposition
+  mapV (A B : F.C.Obj) (l0 : F.C.Mor A B) : VT A -> VT B = split {
+    inl q -> inl (P1.post A B l0 q) ; inr q -> inr (P2.post A B l0 q) } ;
+  view-post' (A B : F.C.Obj) (l0 : F.C.Mor A B) (i : W.N) (hi : CF.Lt i mS) : (c : CutT i) (f : F.C.Mor (F.C.fin (genC i c)) A) ->
+      Id (VT B) (view' B i hi c (F.C.comp (F.C.fin (genC i c)) A B f l0)) (mapV A B l0 (view' A i hi c f)) = split {
+    inl h -> \ f -> refl (inl (i,(h,F.C.comp (F.C.fin (K1.gen i)) A B f l0))) ;
+    inr p -> \ f -> refl (inr (p.1,(lt2i i hi p,F.C.comp (F.C.fin (K2.gen p.1)) A B f l0))) } ;
+  view-post (A B : F.C.Obj) (l0 : F.C.Mor A B) (p : PS.Pt A) : Id (VT B) (view B (PS.post A B l0 p)) (mapV A B l0 (view A p)) =
+    view-post' A B l0 p.1 p.2.1 (W.cut m1 p.1) p.2.2 ;
+} ;
+
+--------------------------------------------------------------------
+-- the sum code along a table of cross comparisons
+
+flip-flip : (o : W.O3) -> Id W.O3 (W.flip (W.flip o)) o = split { lt -> refl lt ; eq -> refl eq ; gt -> refl gt } ;
+flip-eq : (o : W.O3) -> Id W.O3 (W.flip o) eq -> Id W.O3 o eq = split {
+  lt -> \ h -> W.absurdB (Id W.O3 lt eq) (PL.ap W.O3 W.Bool W.isEq gt eq h) ;
+  eq -> \ h -> refl eq ;
+  gt -> \ h -> W.absurdB (Id W.O3 gt eq) (PL.ap W.O3 W.Bool W.isEq lt eq h) } ;
+decImp (A B : U l) (da : W.Or A (A -> W.Empty)) (db : W.Or B (B -> W.Empty)) : W.Or (A -> B) ((A -> B) -> W.Empty) =
+  CF.or-elim A (A -> W.Empty) (W.Or (A -> B) ((A -> B) -> W.Empty))
+    (\ a -> CF.or-elim B (B -> W.Empty) (W.Or (A -> B) ((A -> B) -> W.Empty)) (\ b -> inl (\ x -> b)) (\ nb -> inr (\ ab -> nb (ab a))) db)
+    (\ na -> inl (\ a -> CF.efq B (na a))) da ;
+decNot (A : U l) (da : W.Or A (A -> W.Empty)) : W.Or (A -> W.Empty) ((A -> W.Empty) -> W.Empty) =
+  CF.or-elim A (A -> W.Empty) (W.Or (A -> W.Empty) ((A -> W.Empty) -> W.Empty)) (\ a -> inr (\ na -> na a)) (\ na -> inl na) da ;
+
+module SumC (F : CF.CEF) (K1 K2 : SC.Code[F])
+  (tbl : (n1 : W.N) -> CF.Lt n1 K1.m -> (n2 : W.N) -> CF.Lt n2 K2.m -> (t : W.N) -> CF.Lt t (F.jtN (K1.gen n1) (K2.gen n2)) -> W.O3) {
+  module S = Side[F,K1,K2] ;
+  JTy (n1 n2 : W.N) : U l = CF.JT F.C (K1.gen n1) (K2.gen n2) ;
+  look (d : F.C.Fin) (a : S.P1.Pt (F.C.fin d)) (b : S.P2.Pt (F.C.fin d)) : W.O3 =
+    tbl a.1 a.2.1 b.1 b.2.1 SJ0.FindJ[F,K1.gen a.1,K2.gen b.1,d,a.2.2,b.2.2].t SJ0.FindJ[F,K1.gen a.1,K2.gen b.1,d,a.2.2,b.2.2].ht ;
+  ordV (d : F.C.Fin) : S.VT (F.C.fin d) -> S.VT (F.C.fin d) -> W.O3 = split {
+    inl a -> split { inl b -> K1.ord d a b ; inr b -> look d a b } ;
+    inr a -> split { inl b -> W.flip (look d b a) ; inr b -> K2.ord d a b } } ;
+  ordS (d : F.C.Fin) (p q : S.PS.Pt (F.C.fin d)) : W.O3 = ordV d (S.view (F.C.fin d) p) (S.view (F.C.fin d) q) ;
+  -- validity of the table
+  SV1 : U l = (n1 : W.N) (h1 : CF.Lt n1 K1.m) (n2 : W.N) (h2 : CF.Lt n2 K2.m)
+    (t : W.N) (ht : CF.Lt t (F.jtN (K1.gen n1) (K2.gen n2))) (t' : W.N) (ht' : CF.Lt t' (F.jtN (K1.gen n1) (K2.gen n2)))
+    (j : JTy n1 n2) (e : Id (CF.Opt (JTy n1 n2)) (F.jt (K1.gen n1) (K2.gen n2) t ht) (inl j))
+    (j' : JTy n1 n2) (e' : Id (CF.Opt (JTy n1 n2)) (F.jt (K1.gen n1) (K2.gen n2) t' ht') (inl j')) ->
+    CF.JFac F.C (K1.gen n1) (K2.gen n2) j.1 j.2.1 j.2.2 j' -> Id W.O3 (tbl n1 h1 n2 h2 t ht) (tbl n1 h1 n2 h2 t' ht') ;
+  SV2 : U l = (n1 : W.N) (h1 : CF.Lt n1 K1.m) (n2 : W.N) (h2 : CF.Lt n2 K2.m) (t : W.N) (ht : CF.Lt t (F.jtN (K1.gen n1) (K2.gen n2))) ->
+    Id W.O3 (tbl n1 h1 n2 h2 t ht) eq -> W.Empty ;
+  JT3 (x y z : W.N) : U l = CF.JT F.C (S.genS x) (S.genS y) ;
+  Tr3 (x : W.N) (hx : CF.Lt x S.mS) (y : W.N) (hy : CF.Lt y S.mS) (z : W.N) (hz : CF.Lt z S.mS)
+    (j1 : CF.JT F.C (S.genS x) (S.genS y)) (j2 : CF.JT F.C j1.1 (S.genS z)) : U l =
+    Id W.O3 (ordS j2.1 (x,(hx,F.C.comp (F.C.fin (S.genS x)) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.1 j2.2.1))
+      (y,(hy,F.C.comp (F.C.fin (S.genS y)) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.2 j2.2.1))) lt ->
+    Id W.O3 (ordS j2.1 (y,(hy,F.C.comp (F.C.fin (S.genS y)) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.2 j2.2.1)) (z,(hz,j2.2.2))) lt ->
+    Id W.O3 (ordS j2.1 (x,(hx,F.C.comp (F.C.fin (S.genS x)) (F.C.fin j1.1) (F.C.fin j2.1) j1.2.1 j2.2.1)) (z,(hz,j2.2.2))) lt ;
+  SV3 : U l = (x : W.N) (hx : CF.Lt x S.mS) (y : W.N) (hy : CF.Lt y S.mS) (z : W.N) (hz : CF.Lt z S.mS)
+    (t1 : W.N) (h1 : CF.Lt t1 (F.jtN (S.genS x) (S.genS y))) (j1 : CF.JT F.C (S.genS x) (S.genS y))
+    (e1 : Id (CF.Opt (CF.JT F.C (S.genS x) (S.genS y))) (F.jt (S.genS x) (S.genS y) t1 h1) (inl j1))
+    (t2 : W.N) (h2 : CF.Lt t2 (F.jtN j1.1 (S.genS z))) (j2 : CF.JT F.C j1.1 (S.genS z))
+    (e2 : Id (CF.Opt (CF.JT F.C j1.1 (S.genS z))) (F.jt j1.1 (S.genS z) t2 h2) (inl j2)) -> Tr3 x hx y hy z hz j1 j2 ;
+  SV : U l = SV1 * (SV2 * SV3) ;
+} ;
+
+-- a valid table gives a code
+module SumCode (F : CF.CEF) (K1 K2 : SC.Code[F])
+  (tbl : (n1 : W.N) -> CF.Lt n1 K1.m -> (n2 : W.N) -> CF.Lt n2 K2.m -> (t : W.N) -> CF.Lt t (F.jtN (K1.gen n1) (K2.gen n2)) -> W.O3)
+  (sv : SumC[F,K1,K2,tbl].SV) {
+  module T0 = SumC[F,K1,K2,tbl] ;
+  module S = T0.S ;
+  -- the lookup is invariant under postcomposition
+  module LI (d d' : F.C.Fin) (l0 : F.C.Mor (F.C.fin d) (F.C.fin d')) (a : S.P1.Pt (F.C.fin d)) (b : S.P2.Pt (F.C.fin d)) {
+    ga : F.C.Fin = K1.gen a.1 ;
+    gb : F.C.Fin = K2.gen b.1 ;
+    module J = SJ0.FindJ[F,ga,gb,d,a.2.2,b.2.2] ;
+    module J' = SJ0.FindJ[F,ga,gb,d',F.C.comp (F.C.fin ga) (F.C.fin d) (F.C.fin d') a.2.2 l0,F.C.comp (F.C.fin gb) (F.C.fin d) (F.C.fin d') b.2.2 l0] ;
+    ce (x : F.C.Fin) (u : F.C.Mor (F.C.fin x) (F.C.fin J.j.1)) (k : F.C.Mor (F.C.fin x) (F.C.fin d))
+      (ek : Id (F.C.Mor (F.C.fin x) (F.C.fin d)) (F.C.comp (F.C.fin x) (F.C.fin J.j.1) (F.C.fin d) u J.fac.1) k) :
+        Id (F.C.Mor (F.C.fin x) (F.C.fin d')) (F.C.comp (F.C.fin x) (F.C.fin J.j.1) (F.C.fin d') u (F.C.comp (F.C.fin J.j.1) (F.C.fin d) (F.C.fin d') J.fac.1 l0))
+          (F.C.comp (F.C.fin x) (F.C.fin d) (F.C.fin d') k l0) =
+      PL.trans (F.C.Mor (F.C.fin x) (F.C.fin d')) (F.C.comp (F.C.fin x) (F.C.fin J.j.1) (F.C.fin d') u (F.C.comp (F.C.fin J.j.1) (F.C.fin d) (F.C.fin d') J.fac.1 l0))
+          (F.C.comp (F.C.fin x) (F.C.fin d) (F.C.fin d') (F.C.comp (F.C.fin x) (F.C.fin J.j.1) (F.C.fin d) u J.fac.1) l0) (F.C.comp (F.C.fin x) (F.C.fin d) (F.C.fin d') k l0)
+        (PL.sym (F.C.Mor (F.C.fin x) (F.C.fin d')) (F.C.comp (F.C.fin x) (F.C.fin d) (F.C.fin d') (F.C.comp (F.C.fin x) (F.C.fin J.j.1) (F.C.fin d) u J.fac.1) l0)
+          (F.C.comp (F.C.fin x) (F.C.fin J.j.1) (F.C.fin d') u (F.C.comp (F.C.fin J.j.1) (F.C.fin d) (F.C.fin d') J.fac.1 l0))
+          (F.C.assoc (F.C.fin x) (F.C.fin J.j.1) (F.C.fin d) (F.C.fin d') u J.fac.1 l0))
+        (PL.ap (F.C.Mor (F.C.fin x) (F.C.fin d)) (F.C.Mor (F.C.fin x) (F.C.fin d')) (\ M -> F.C.comp (F.C.fin x) (F.C.fin d) (F.C.fin d') M l0)
+          (F.C.comp (F.C.fin x) (F.C.fin J.j.1) (F.C.fin d) u J.fac.1) k ek) ;
+    facl : CF.JFac F.C ga gb d' (F.C.comp (F.C.fin ga) (F.C.fin d) (F.C.fin d') a.2.2 l0) (F.C.comp (F.C.fin gb) (F.C.fin d) (F.C.fin d') b.2.2 l0) J.j =
+      (F.C.comp (F.C.fin J.j.1) (F.C.fin d) (F.C.fin d') J.fac.1 l0,(ce ga J.j.2.1 a.2.2 J.fac.2.1,ce gb J.j.2.2 b.2.2 J.fac.2.2)) ;
+    ej : Id (CF.JT F.C ga gb) J'.j J.j =
+      F.jt-uniq ga gb d' (F.C.comp (F.C.fin ga) (F.C.fin d) (F.C.fin d') a.2.2 l0) (F.C.comp (F.C.fin gb) (F.C.fin d) (F.C.fin d') b.2.2 l0)
+        J'.t J'.ht J'.j J'.ej J.t J.ht J.j J.ej J'.fac facl ;
+    fac' : CF.JFac F.C ga gb J'.j.1 J'.j.2.1 J'.j.2.2 J.j =
+      PL.subst (CF.JT F.C ga gb) (\ x -> CF.JFac F.C ga gb J'.j.1 J'.j.2.1 J'.j.2.2 x) J'.j J.j ej
+        (F.C.idm (F.C.fin J'.j.1),(F.C.id-r (F.C.fin ga) (F.C.fin J'.j.1) J'.j.2.1,F.C.id-r (F.C.fin gb) (F.C.fin J'.j.1) J'.j.2.2)) ;
+    result : Id W.O3 (T0.look d' (S.P1.post (F.C.fin d) (F.C.fin d') l0 a) (S.P2.post (F.C.fin d) (F.C.fin d') l0 b)) (T0.look d a b) =
+      sv.1 a.1 a.2.1 b.1 b.2.1 J'.t J'.ht J.t J.ht J'.j J'.ej J.j J.ej fac' ;
+  } ;
+  invV (d d' : F.C.Fin) (l0 : F.C.Mor (F.C.fin d) (F.C.fin d')) : (x y : S.VT (F.C.fin d)) ->
+      Id W.O3 (T0.ordV d' (S.mapV (F.C.fin d) (F.C.fin d') l0 x) (S.mapV (F.C.fin d) (F.C.fin d') l0 y)) (T0.ordV d x y) = split {
+    inl a -> split { inl b -> K1.inv d d' l0 a b ; inr b -> LI[d,d',l0,a,b].result } ;
+    inr a -> split {
+      inl b -> PL.ap W.O3 W.O3 W.flip (T0.look d' (S.P1.post (F.C.fin d) (F.C.fin d') l0 b) (S.P2.post (F.C.fin d) (F.C.fin d') l0 a)) (T0.look d b a)
+        LI[d,d',l0,b,a].result ;
+      inr b -> K2.inv d d' l0 a b } } ;
+  invS (d d' : F.C.Fin) (l0 : F.C.Mor (F.C.fin d) (F.C.fin d')) (p q : S.PS.Pt (F.C.fin d)) :
+      Id W.O3 (T0.ordS d' (S.PS.post (F.C.fin d) (F.C.fin d') l0 p) (S.PS.post (F.C.fin d) (F.C.fin d') l0 q)) (T0.ordS d p q) =
+    PL.trans W.O3 (T0.ordS d' (S.PS.post (F.C.fin d) (F.C.fin d') l0 p) (S.PS.post (F.C.fin d) (F.C.fin d') l0 q))
+        (T0.ordV d' (S.mapV (F.C.fin d) (F.C.fin d') l0 (S.view (F.C.fin d) p)) (S.mapV (F.C.fin d) (F.C.fin d') l0 (S.view (F.C.fin d) q))) (T0.ordS d p q)
+      (W.ap2 (S.VT (F.C.fin d')) (S.VT (F.C.fin d')) W.O3 (T0.ordV d')
+        (S.view (F.C.fin d') (S.PS.post (F.C.fin d) (F.C.fin d') l0 p)) (S.mapV (F.C.fin d) (F.C.fin d') l0 (S.view (F.C.fin d) p))
+        (S.view (F.C.fin d') (S.PS.post (F.C.fin d) (F.C.fin d') l0 q)) (S.mapV (F.C.fin d) (F.C.fin d') l0 (S.view (F.C.fin d) q))
+        (S.view-post (F.C.fin d) (F.C.fin d') l0 p) (S.view-post (F.C.fin d) (F.C.fin d') l0 q))
+      (invV d d' l0 (S.view (F.C.fin d) p) (S.view (F.C.fin d) q)) ;
+  oreflV (d : F.C.Fin) : (x : S.VT (F.C.fin d)) -> Id W.O3 (T0.ordV d x x) eq = split {
+    inl a -> K1.orefl d a ; inr a -> K2.orefl d a } ;
+  oflipV (d : F.C.Fin) : (x y : S.VT (F.C.fin d)) -> Id W.O3 (T0.ordV d y x) (W.flip (T0.ordV d x y)) = split {
+    inl a -> split { inl b -> K1.oflip d a b ; inr b -> refl (W.flip (T0.look d a b)) } ;
+    inr a -> split {
+      inl b -> PL.sym W.O3 (W.flip (W.flip (T0.look d b a))) (T0.look d b a) (flip-flip (T0.look d b a)) ;
+      inr b -> K2.oflip d a b } } ;
+  oeqV (d : F.C.Fin) : (x y : S.VT (F.C.fin d)) -> Id W.O3 (T0.ordV d x y) eq -> Id (S.VT (F.C.fin d)) x y = split {
+    inl a -> split {
+      inl b -> \ h -> PL.ap (S.P1.Pt (F.C.fin d)) (S.VT (F.C.fin d)) (\ u -> inl u) a b (K1.oeq d a b h) ;
+      inr b -> \ h -> CF.efq (Id (S.VT (F.C.fin d)) (inl a) (inr b))
+        (sv.2.1 a.1 a.2.1 b.1 b.2.1 SJ0.FindJ[F,K1.gen a.1,K2.gen b.1,d,a.2.2,b.2.2].t SJ0.FindJ[F,K1.gen a.1,K2.gen b.1,d,a.2.2,b.2.2].ht h) } ;
+    inr a -> split {
+      inl b -> \ h -> CF.efq (Id (S.VT (F.C.fin d)) (inr a) (inl b))
+        (sv.2.1 b.1 b.2.1 a.1 a.2.1 SJ0.FindJ[F,K1.gen b.1,K2.gen a.1,d,b.2.2,a.2.2].t SJ0.FindJ[F,K1.gen b.1,K2.gen a.1,d,b.2.2,a.2.2].ht
+          (flip-eq (T0.look d b a) h)) ;
+      inr b -> \ h -> PL.ap (S.P2.Pt (F.C.fin d)) (S.VT (F.C.fin d)) (\ u -> inr u) a b (K2.oeq d a b h) } } ;
+  oeqS (d : F.C.Fin) (p q : S.PS.Pt (F.C.fin d)) (h : Id W.O3 (T0.ordS d p q) eq) : Id (S.PS.Pt (F.C.fin d)) p q =
+    S.view-inj (F.C.fin d) p q (oeqV d (S.view (F.C.fin d) p) (S.view (F.C.fin d) q) h) ;
+  -- transitivity, through ternary joint types
+  module OT (d : F.C.Fin) (p q r : S.PS.Pt (F.C.fin d)) (h1 : Id W.O3 (T0.ordS d p q) lt) (h2 : Id W.O3 (T0.ordS d q r) lt) {
+    module TT = SJ0.Tern[F,S.genS p.1,S.genS q.1,S.genS r.1,d,p.2.2,q.2.2,r.2.2] ;
+    E : F.C.Fin = TT.e2 ;
+    px : S.PS.Pt (F.C.fin E) = (p.1,(p.2.1,TT.ta)) ;
+    py : S.PS.Pt (F.C.fin E) = (q.1,(q.2.1,TT.tb)) ;
+    pz : S.PS.Pt (F.C.fin E) = (r.1,(r.2.1,TT.tc)) ;
+    ep : Id (S.PS.Pt (F.C.fin d)) (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 px) p = S.PS.pt3 (F.C.fin d) p (F.C.comp (F.C.fin (S.genS p.1)) (F.C.fin E) (F.C.fin d) TT.ta TT.m2) TT.efa ;
+    eq' : Id (S.PS.Pt (F.C.fin d)) (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 py) q = S.PS.pt3 (F.C.fin d) q (F.C.comp (F.C.fin (S.genS q.1)) (F.C.fin E) (F.C.fin d) TT.tb TT.m2) TT.efb ;
+    er : Id (S.PS.Pt (F.C.fin d)) (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 pz) r = S.PS.pt3 (F.C.fin d) r (F.C.comp (F.C.fin (S.genS r.1)) (F.C.fin E) (F.C.fin d) TT.tc TT.m2) TT.efc ;
+    down (a b : S.PS.Pt (F.C.fin E)) (a' b' : S.PS.Pt (F.C.fin d))
+      (ea : Id (S.PS.Pt (F.C.fin d)) (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 a) a') (eb : Id (S.PS.Pt (F.C.fin d)) (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 b) b') :
+        Id W.O3 (T0.ordS E a b) (T0.ordS d a' b') =
+      PL.trans W.O3 (T0.ordS E a b) (T0.ordS d (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 a) (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 b)) (T0.ordS d a' b')
+        (PL.sym W.O3 (T0.ordS d (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 a) (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 b)) (T0.ordS E a b) (invS E d TT.m2 a b))
+        (W.ap2 (S.PS.Pt (F.C.fin d)) (S.PS.Pt (F.C.fin d)) W.O3 (T0.ordS d)
+          (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 a) a' (S.PS.post (F.C.fin E) (F.C.fin d) TT.m2 b) b' ea eb) ;
+    result : Id W.O3 (T0.ordS d p r) lt =
+      PL.trans W.O3 (T0.ordS d p r) (T0.ordS E px pz) lt
+        (PL.sym W.O3 (T0.ordS E px pz) (T0.ordS d p r) (down px pz p r ep er))
+        (sv.2.2 p.1 p.2.1 q.1 q.2.1 r.1 r.2.1 TT.J1.t TT.J1.ht TT.J1.j TT.J1.ej TT.J2.t TT.J2.ht TT.J2.j TT.J2.ej
+          (PL.trans W.O3 (T0.ordS E px py) (T0.ordS d p q) lt (down px py p q ep eq') h1)
+          (PL.trans W.O3 (T0.ordS E py pz) (T0.ordS d q r) lt (down py pz q r eq' er) h2)) ;
+  } ;
+  code : SC.Code[F] = new SC.Code[F,m := S.mS, gen := S.genS, ord := T0.ordS, inv := invS,
+    orefl := \ d p -> oreflV d (S.view (F.C.fin d) p),
+    oflip := \ d p q -> oflipV d (S.view (F.C.fin d) p) (S.view (F.C.fin d) q),
+    otrans := \ d p q r h1 h2 -> OT[d,p,q,r,h1,h2].result,
+    oeq := oeqS] ;
+} ;
+
+-- the injections commute with postcomposition
+module InPost (F : CF.CEF) (K1 K2 : SC.Code[F]) (A B : F.C.Obj) (l0 : F.C.Mor A B) {
+  module S = Side[F,K1,K2] ;
+  in1-post (q : S.P1.Pt A) : Id (S.PS.Pt B) (S.in1 B (S.P1.post A B l0 q)) (S.PS.post A B l0 (S.in1 A q)) =
+    S.view-inj B (S.in1 B (S.P1.post A B l0 q)) (S.PS.post A B l0 (S.in1 A q))
+      (PL.trans (S.VT B) (S.view B (S.in1 B (S.P1.post A B l0 q))) (inl (S.P1.post A B l0 q)) (S.view B (S.PS.post A B l0 (S.in1 A q)))
+        (S.view-in1 B (S.P1.post A B l0 q))
+        (PL.sym (S.VT B) (S.view B (S.PS.post A B l0 (S.in1 A q))) (inl (S.P1.post A B l0 q))
+          (PL.trans (S.VT B) (S.view B (S.PS.post A B l0 (S.in1 A q))) (S.mapV A B l0 (S.view A (S.in1 A q))) (inl (S.P1.post A B l0 q))
+            (S.view-post A B l0 (S.in1 A q)) (PL.ap (S.VT A) (S.VT B) (S.mapV A B l0) (S.view A (S.in1 A q)) (inl q) (S.view-in1 A q))))) ;
+  in2-post (q : S.P2.Pt A) : Id (S.PS.Pt B) (S.in2 B (S.P2.post A B l0 q)) (S.PS.post A B l0 (S.in2 A q)) =
+    S.view-inj B (S.in2 B (S.P2.post A B l0 q)) (S.PS.post A B l0 (S.in2 A q))
+      (PL.trans (S.VT B) (S.view B (S.in2 B (S.P2.post A B l0 q))) (inr (S.P2.post A B l0 q)) (S.view B (S.PS.post A B l0 (S.in2 A q)))
+        (S.view-in2 B (S.P2.post A B l0 q))
+        (PL.sym (S.VT B) (S.view B (S.PS.post A B l0 (S.in2 A q))) (inr (S.P2.post A B l0 q))
+          (PL.trans (S.VT B) (S.view B (S.PS.post A B l0 (S.in2 A q))) (S.mapV A B l0 (S.view A (S.in2 A q))) (inr (S.P2.post A B l0 q))
+            (S.view-post A B l0 (S.in2 A q)) (PL.ap (S.VT A) (S.VT B) (S.mapV A B l0) (S.view A (S.in2 A q)) (inr q) (S.view-in2 A q))))) ;
+} ;

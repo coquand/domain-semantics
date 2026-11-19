@@ -1,0 +1,429 @@
+-- SemK.seg: the depth-bounded semantics (PRA/NEXT_SESSION_BUDGET.md, B1).
+--   (Bd and the typed keys: TypingK.seg)
+--   semK K M rho  the members of sem M rho with a membership proof all of
+--                 whose witness types (g, x of an application, f of a
+--                 lambda, pi a b of a product, the types a of the keys)
+--                 have md <= K, and the keys are typed by TpK K.  The target itself is not bounded, so
+--                 semK K M rho is again a filter.  Variables are looked up
+--                 in rho; the depth of the environment is bounded apart.
+--   semK-incl     semK K M rho c= sem M rho
+--   semK-monoK    monotone in K;  semK-mono  monotone in rho
+--   subst1K-sem   substitution at a fixed K (no depth is added)
+--   cont-lastK    continuity in the last variable, with a bounded x,
+--                 for a bounded target.
+
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open Filter[l] ; open Sem[l] ; open TypingK[l] ;
+
+------------------------------------------------------------------------
+-- the bounded operations
+
+-- application: bounded g and x
+record AppWKR { K : Nat ; F : Filt ; X : Filt ; t : Ty ;
+  g : Ty ; x : Ty ; ing : F.mem g ; inx : X.mem x ; le : Le g (arr x t) ; bg : Bd K g ; bx : Bd K x ; } ;
+AppWK (K : Nat) (F X : Filt) (t : Ty) : U l = AppWKR[K, F, X, t] ;
+
+appK-om (K : Nat) (F X : Filt) : AppWK K F X om =
+  new AppWKR[K, F, X, om, g := om, x := om, ing := F.fom, inx := X.fom, le := le-om-arr, bg := tt, bx := tt] ;
+
+appK-meet (K : Nat) (F X : Filt) (s t : Ty) (v : AppWK K F X s) (w : AppWK K F X t) : AppWK K F X (meet s t) =
+  new AppWKR[K, F, X, meet s t,
+    g := meet v.g w.g, x := meet v.x w.x,
+    ing := F.fmeet v.g w.g v.ing w.ing, inx := X.fmeet v.x w.x v.inx w.inx,
+    le := le-trans (meet v.g w.g) (meet (arr v.x s) (arr w.x t)) (arr (meet v.x w.x) (meet s t))
+           (le-meet-mono v.g (arr v.x s) w.g (arr w.x t) v.le w.le) (le-arr-meet2 v.x s w.x t),
+    bg := bd-meet K v.g w.g v.bg w.bg, bx := bd-meet K v.x w.x v.bx w.bx] ;
+
+appK-up (K : Nat) (F X : Filt) (t t' : Ty) (le : Le t t') (w : AppWK K F X t) : AppWK K F X t' =
+  new AppWKR[K, F, X, t', g := w.g, x := w.x, ing := w.ing, inx := w.inx,
+           le := le-trans w.g (arr w.x t) (arr w.x t') w.le (le-arr w.x w.x t t' (le-refl w.x) le),
+           bg := w.bg, bx := w.bx] ;
+
+appFK (K : Nat) (F X : Filt) : Filt = new Filt[AppWK K F X, appK-om K F X, appK-meet K F X, appK-up K F X] ;
+
+-- the keys: typed by a bounded a
+record TyInKR { K : Nat ; A : Filt ; x : Ty ; a : Ty ; ina : A.mem a ; tp : TpK K (el x a) ; } ;
+TyInK (K : Nat) (A : Filt) (x : Ty) : U l = TyInKR[K, A, x] ;
+
+tyink-tyin (K : Nat) (A : Filt) (x : Ty) (h : TyInK K A x) : TyIn A x =
+  new TyInR[A, x, a := h.a, ina := h.ina, tp := tpk-tp K x h.a h.tp] ;
+
+tyink-map (K K' : Nat) (le : LeN K K') (A A' : Filt) (i : Incl A A') (x : Ty) (h : TyInK K A x) : TyInK K' A' x =
+  new TyInKR[K', A', x, a := h.a, ina := i h.a h.ina, tp := tpk-mono K K' le x h.a h.tp] ;
+
+EntRK (K : Nat) (A : Filt) (G : Ty -> Filt) (x v : Ty) : U l = TyInK K A x * (G x).mem v ;
+
+FamInclK (K : Nat) (A : Filt) (G G' : Ty -> Filt) : U l = (x : Ty) -> TyInK K A x -> Incl (G x) (G' x) ;
+
+entrk-map (K K' : Nat) (le : LeN K K') (A A' : Filt) (G G' : Ty -> Filt) (iA : Incl A A') (iG : FamInclK K A G G')
+    (x v : Ty) (r : EntRK K A G x v) : EntRK K' A' G' x v =
+  (tyink-map K K' le A A' iA x r.1, iG x r.1 v r.2) ;
+
+-- to the unbounded entries
+entrk-entr (K : Nat) (A A' : Filt) (G G' : Ty -> Filt) (iA : Incl A A') (iG : FamInclK K A G G')
+    (x v : Ty) (r : EntRK K A G x v) : EntR A' G' x v =
+  (tyin-mono A A' iA x (tyink-tyin K A x r.1), iG x r.1 v r.2) ;
+
+-- abstraction: a bounded f
+record LamWKR { K : Nat ; A : Filt ; G : Ty -> Filt ; t : Ty ;
+  f : Ty ; le : Le f t ; bf : Bd K f ; ents : EntS (EntRK K A G) f ; } ;
+LamWK (K : Nat) (A : Filt) (G : Ty -> Filt) (t : Ty) : U l = LamWKR[K, A, G, t] ;
+
+lamK-om (K : Nat) (A : Filt) (G : Ty -> Filt) : LamWK K A G om =
+  new LamWKR[K, A, G, om, f := om, le := le-refl om, bf := tt, ents := es-om] ;
+
+lamK-meet (K : Nat) (A : Filt) (G : Ty -> Filt) (s t : Ty) (v : LamWK K A G s) (w : LamWK K A G t) : LamWK K A G (meet s t) =
+  new LamWKR[K, A, G, meet s t, f := meet v.f w.f, le := le-meet-mono v.f s w.f t v.le w.le,
+    bf := bd-meet K v.f w.f v.bf w.bf, ents := es-meet v.f w.f v.ents w.ents] ;
+
+lamK-up (K : Nat) (A : Filt) (G : Ty -> Filt) (t t' : Ty) (le : Le t t') (w : LamWK K A G t) : LamWK K A G t' =
+  new LamWKR[K, A, G, t', f := w.f, le := le-trans w.f t t' w.le le, bf := w.bf, ents := w.ents] ;
+
+lamFK (K : Nat) (A : Filt) (G : Ty -> Filt) : Filt = new Filt[LamWK K A G, lamK-om K A G, lamK-meet K A G, lamK-up K A G] ;
+
+-- products: a bounded pi a b
+record PiWKR { K : Nat ; A : Filt ; G : Ty -> Filt ; t : Ty ;
+  a : Ty ; b : Ty ; le : Le (pi a b) t ; bp : Bd K (pi a b) ; ina : A.mem a ; ents : EntS (EntRK K A G) b ; } ;
+PiWK (K : Nat) (A : Filt) (G : Ty -> Filt) (t : Ty) : U l = PiWKR[K, A, G, t] ;
+
+piK-meet (K : Nat) (A : Filt) (G : Ty -> Filt) (s t : Ty) (v : PiWK K A G s) (w : PiWK K A G t) : PiWK K A G (meet s t) =
+  new PiWKR[K, A, G, meet s t,
+    a := meet v.a w.a, b := meet v.b w.b,
+    le := le-meet (pi (meet v.a w.a) (meet v.b w.b)) s t
+           (le-trans (pi (meet v.a w.a) (meet v.b w.b)) (pi v.a v.b) s
+              (le-pi (meet v.a w.a) v.a (meet v.b w.b) v.b (le-meet-l v.a w.a) (le-meet-l v.b w.b)) v.le)
+           (le-trans (pi (meet v.a w.a) (meet v.b w.b)) (pi w.a w.b) t
+              (le-pi (meet v.a w.a) w.a (meet v.b w.b) w.b (le-meet-r v.a w.a) (le-meet-r v.b w.b)) w.le),
+    bp := bd-pi-meet K v.a v.b w.a w.b v.bp w.bp,
+    ina := A.fmeet v.a w.a v.ina w.ina,
+    ents := es-meet v.b w.b v.ents w.ents] ;
+
+piK-up (K : Nat) (A : Filt) (G : Ty -> Filt) (t t' : Ty) (le : Le t t') (w : PiWK K A G t) : PiWK K A G t' =
+  new PiWKR[K, A, G, t', a := w.a, b := w.b, le := le-trans (pi w.a w.b) t t' w.le le, bp := w.bp, ina := w.ina, ents := w.ents] ;
+
+piFK (K : Nat) (A : Filt) (G : Ty -> Filt) : Filt = OmOr[PiWK K A G, piK-meet K A G, piK-up K A G].filt ;
+
+------------------------------------------------------------------------
+-- maps of the bounded operations: to a larger bound and larger filters
+
+appFK-map (K K' : Nat) (le : LeN K K') (F F' X X' : Filt) (iF : Incl F F') (iX : Incl X X') :
+    Incl (appFK K F X) (appFK K' F' X') =
+  \ t w -> new AppWKR[K', F', X', t, g := w.g, x := w.x, ing := iF w.g w.ing, inx := iX w.x w.inx, le := w.le,
+                     bg := bd-mono K K' le w.g w.bg, bx := bd-mono K K' le w.x w.bx] ;
+
+lamFK-map (K K' : Nat) (le : LeN K K') (A A' : Filt) (G G' : Ty -> Filt) (iA : Incl A A') (iG : FamInclK K A G G') :
+    Incl (lamFK K A G) (lamFK K' A' G') =
+  \ t w -> new LamWKR[K', A', G', t, f := w.f, le := w.le, bf := bd-mono K K' le w.f w.bf,
+                     ents := ents-map (EntRK K A G) (EntRK K' A' G') (entrk-map K K' le A A' G G' iA iG) w.f w.ents] ;
+
+piFK-map (K K' : Nat) (le : LeN K K') (A A' : Filt) (G G' : Ty -> Filt) (iA : Incl A A') (iG : FamInclK K A G G') :
+    Incl (piFK K A G) (piFK K' A' G') = \ t -> split {
+  inl e -> inl e ;
+  inr w -> inr (new PiWKR[K', A', G', t, a := w.a, b := w.b, le := w.le, bp := bd-mono K K' le (pi w.a w.b) w.bp,
+                          ina := iA w.a w.ina,
+                          ents := ents-map (EntRK K A G) (EntRK K' A' G') (entrk-map K K' le A A' G G' iA iG) w.b w.ents]) } ;
+
+-- forgetting the bound
+appFK-incl (K : Nat) (F F' X X' : Filt) (iF : Incl F F') (iX : Incl X X') : Incl (appFK K F X) (appF F' X') =
+  \ t w -> new AppWR[F', X', t, g := w.g, x := w.x, ing := iF w.g w.ing, inx := iX w.x w.inx, le := w.le] ;
+
+lamFK-incl (K : Nat) (A A' : Filt) (G G' : Ty -> Filt) (iA : Incl A A') (iG : FamInclK K A G G') :
+    Incl (lamFK K A G) (lamF A' G') =
+  \ t w -> new LamWR[A', G', t, f := w.f, le := w.le,
+                    ents := ents-map (EntRK K A G) (EntR A' G') (entrk-entr K A A' G G' iA iG) w.f w.ents] ;
+
+piFK-incl (K : Nat) (A A' : Filt) (G G' : Ty -> Filt) (iA : Incl A A') (iG : FamInclK K A G G') :
+    Incl (piFK K A G) (piF A' G') = \ t -> split {
+  inl e -> inl e ;
+  inr w -> inr (new PiWR[A', G', t, a := w.a, b := w.b, le := w.le, ina := iA w.a w.ina,
+                         ents := ents-map (EntRK K A G) (EntR A' G') (entrk-entr K A A' G G' iA iG) w.b w.ents]) } ;
+
+-- equivalences at a fixed bound
+FamEqK (K : Nat) (A : Filt) (G G' : Ty -> Filt) : U l = (x : Ty) -> TyInK K A x -> FEq (G x) (G' x) ;
+
+fameqk-back (K : Nat) (A A' : Filt) (G G' : Ty -> Filt) (eA : FEq A A') (eG : FamEqK K A G G') : FamInclK K A' G' G =
+  \ x h -> (eG x (tyink-map K K (leN-refl K) A' A eA.2 x h)).2 ;
+
+appFK-eq (K : Nat) (F F' X X' : Filt) (eF : FEq F F') (eX : FEq X X') : FEq (appFK K F X) (appFK K F' X') =
+  (appFK-map K K (leN-refl K) F F' X X' eF.1 eX.1, appFK-map K K (leN-refl K) F' F X' X eF.2 eX.2) ;
+
+lamFK-eq (K : Nat) (A A' : Filt) (G G' : Ty -> Filt) (eA : FEq A A') (eG : FamEqK K A G G') : FEq (lamFK K A G) (lamFK K A' G') =
+  (lamFK-map K K (leN-refl K) A A' G G' eA.1 (\ x h -> (eG x h).1),
+   lamFK-map K K (leN-refl K) A' A G' G eA.2 (fameqk-back K A A' G G' eA eG)) ;
+
+piFK-eq (K : Nat) (A A' : Filt) (G G' : Ty -> Filt) (eA : FEq A A') (eG : FamEqK K A G G') : FEq (piFK K A G) (piFK K A' G') =
+  (piFK-map K K (leN-refl K) A A' G G' eA.1 (\ x h -> (eG x h).1),
+   piFK-map K K (leN-refl K) A' A G' G eA.2 (fameqk-back K A A' G G' eA eG)) ;
+
+------------------------------------------------------------------------
+-- the bounded semantics
+
+semK (K : Nat) : (n : Nat) -> Tm n -> Env n -> Filt = split {
+  var n i -> \ rho -> rho i ;
+  uu n -> \ rho -> univF ;
+  pp n A B | rA rB -> \ rho -> piFK K (rA rho) (\ x -> rB (extE n rho (prin x))) ;
+  lam n A M | rA rM -> \ rho -> lamFK K (rA rho) (\ x -> rM (extE n rho (prin x))) ;
+  app n M N | rM rN -> \ rho -> appFK K (rM rho) (rN rho) } ;
+
+famK (K : Nat) (n : Nat) (B : Tm (suc n)) (rho : Env n) (x : Ty) : Filt = semK K (suc n) B (extE n rho (prin x)) ;
+
+-- into the semantics
+semK-incl (K : Nat) : (n : Nat) -> (M : Tm n) -> (rho : Env n) -> Incl (semK K n M rho) (sem n M rho) = split {
+  var n i -> \ rho -> (sem-var-eq n i rho).2 ;
+  uu n -> \ rho -> (sem-uu-eq n rho).2 ;
+  pp n A B | rA rB -> \ rho ->
+    incl-trans (semK K n (pp n A B) rho) (piF (sem n A rho) (fam n B rho)) (sem n (pp n A B) rho)
+      (piFK-incl K (semK K n A rho) (sem n A rho) (famK K n B rho) (fam n B rho) (rA rho)
+         (\ x hx -> rB (extE n rho (prin x))))
+      (sem-pp-eq n A B rho).2 ;
+  lam n A M | rA rM -> \ rho ->
+    incl-trans (semK K n (lam n A M) rho) (lamF (sem n A rho) (fam n M rho)) (sem n (lam n A M) rho)
+      (lamFK-incl K (semK K n A rho) (sem n A rho) (famK K n M rho) (fam n M rho) (rA rho)
+         (\ x hx -> rM (extE n rho (prin x))))
+      (sem-lam-eq n A M rho).2 ;
+  app n M N | rM rN -> \ rho ->
+    incl-trans (semK K n (app n M N) rho) (appF (sem n M rho) (sem n N rho)) (sem n (app n M N) rho)
+      (appFK-incl K (semK K n M rho) (sem n M rho) (semK K n N rho) (sem n N rho) (rM rho) (rN rho))
+      (sem-app-eq n M N rho).2 } ;
+
+-- monotone in the bound and in the environment
+semK-map (K K' : Nat) (le : LeN K K') : (n : Nat) -> (M : Tm n) -> (rho rho' : Env n) -> EnvIncl n rho rho' ->
+    Incl (semK K n M rho) (semK K' n M rho') = split {
+  var n i -> \ rho rho' h -> h i ;
+  uu n -> \ rho rho' h -> incl-refl univF ;
+  pp n A B | rA rB -> \ rho rho' h ->
+    piFK-map K K' le (semK K n A rho) (semK K' n A rho') (famK K n B rho) (famK K' n B rho') (rA rho rho' h)
+      (\ x hx -> rB (extE n rho (prin x)) (extE n rho' (prin x)) (extE-incl n rho rho' (prin x) (prin x) h (incl-refl (prin x)))) ;
+  lam n A M | rA rM -> \ rho rho' h ->
+    lamFK-map K K' le (semK K n A rho) (semK K' n A rho') (famK K n M rho) (famK K' n M rho') (rA rho rho' h)
+      (\ x hx -> rM (extE n rho (prin x)) (extE n rho' (prin x)) (extE-incl n rho rho' (prin x) (prin x) h (incl-refl (prin x)))) ;
+  app n M N | rM rN -> \ rho rho' h ->
+    appFK-map K K' le (semK K n M rho) (semK K' n M rho') (semK K n N rho) (semK K' n N rho') (rM rho rho' h) (rN rho rho' h) } ;
+
+semK-monoK (K K' : Nat) (le : LeN K K') (n : Nat) (M : Tm n) (rho : Env n) : Incl (semK K n M rho) (semK K' n M rho) =
+  semK-map K K' le n M rho rho (envincl-refl n rho) ;
+
+semK-mono (K : Nat) (n : Nat) (M : Tm n) (rho rho' : Env n) (h : EnvIncl n rho rho') : Incl (semK K n M rho) (semK K n M rho') =
+  semK-map K K (leN-refl K) n M rho rho' h ;
+
+semK-eq (K : Nat) (n : Nat) (M : Tm n) (rho rho' : Env n) (e : EnvEq n rho rho') : FEq (semK K n M rho) (semK K n M rho') =
+  (semK-mono K n M rho rho' (\ i -> (e i).1), semK-mono K n M rho' rho (\ i -> (e i).2)) ;
+
+famK-anti (K : Nat) (n : Nat) (B : Tm (suc n)) (rho : Env n) (x x' : Ty) (le : Le x' x) :
+    Incl (famK K n B rho x) (famK K n B rho x') =
+  semK-mono K (suc n) B (extE n rho (prin x)) (extE n rho (prin x'))
+    (extE-incl n rho rho (prin x) (prin x') (envincl-refl n rho) (prin-anti x' x le)) ;
+
+------------------------------------------------------------------------
+-- the traversal over a kit, at a fixed bound (as Sem.SemTrav)
+
+module SemTravK (Kb : Nat) (KT : Kit)
+    (law-z : (n : Nat) -> (rho : Env n) -> (X : Filt) -> FEq (semK Kb (suc n) (KT.vr (suc n) (KT.vz n)) (extE n rho X)) X)
+    (law-w : (n : Nat) -> (v : KT.V n) -> (rho : Env n) -> (X : Filt) ->
+       FEq (semK Kb (suc n) (KT.vr (suc n) (KT.wkv n v)) (extE n rho X)) (semK Kb n (KT.vr n v) rho)) {
+  module T = Trav[KT] ;
+
+  senv (m n : Nat) (s : Fin m -> KT.V n) (rho : Env n) : Env m = \ i -> semK Kb n (KT.vr n (s i)) rho ;
+
+  senv-lift (m n : Nat) (s : Fin m -> KT.V n) (rho : Env n) (X : Filt) :
+      EnvEq (suc m) (senv (suc m) (suc n) (T.lift m n s) (extE n rho X)) (extE m (senv m n s rho) X) = split {
+    none -> law-z n rho X ;
+    some i -> law-w n (s i) rho X } ;
+
+  bind (m n : Nat) (B : Tm (suc m)) (s : Fin m -> KT.V n) (rho : Env n)
+      (rB : (n' : Nat) -> (s' : Fin (suc m) -> KT.V n') -> (rho' : Env n') ->
+              FEq (semK Kb n' (T.trav (suc m) B n' s') rho') (semK Kb (suc m) B (senv (suc m) n' s' rho')))
+      (x : Ty) : FEq (famK Kb n (T.trav (suc m) B (suc n) (T.lift m n s)) rho x) (famK Kb m B (senv m n s rho) x) =
+    feq-trans (famK Kb n (T.trav (suc m) B (suc n) (T.lift m n s)) rho x)
+      (semK Kb (suc m) B (senv (suc m) (suc n) (T.lift m n s) (extE n rho (prin x))))
+      (famK Kb m B (senv m n s rho) x)
+      (rB (suc n) (T.lift m n s) (extE n rho (prin x)))
+      (semK-eq Kb (suc m) B (senv (suc m) (suc n) (T.lift m n s) (extE n rho (prin x))) (extE m (senv m n s rho) (prin x))
+         (senv-lift m n s rho (prin x))) ;
+
+  trav-sem : (m : Nat) -> (M : Tm m) -> (n : Nat) -> (s : Fin m -> KT.V n) -> (rho : Env n) ->
+      FEq (semK Kb n (T.trav m M n s) rho) (semK Kb m M (senv m n s rho)) = split {
+    var m i -> \ n s rho -> feq-refl (semK Kb n (KT.vr n (s i)) rho) ;
+    uu m -> \ n s rho -> feq-refl univF ;
+    pp m A B | rA rB -> \ n s rho ->
+      piFK-eq Kb (semK Kb n (T.trav m A n s) rho) (semK Kb m A (senv m n s rho))
+        (famK Kb n (T.trav (suc m) B (suc n) (T.lift m n s)) rho) (famK Kb m B (senv m n s rho))
+        (rA n s rho) (\ x hx -> bind m n B s rho rB x) ;
+    lam m A M | rA rM -> \ n s rho ->
+      lamFK-eq Kb (semK Kb n (T.trav m A n s) rho) (semK Kb m A (senv m n s rho))
+        (famK Kb n (T.trav (suc m) M (suc n) (T.lift m n s)) rho) (famK Kb m M (senv m n s rho))
+        (rA n s rho) (\ x hx -> bind m n M s rho rM x) ;
+    app m M N | rM rN -> \ n s rho ->
+      appFK-eq Kb (semK Kb n (T.trav m M n s) rho) (semK Kb m M (senv m n s rho))
+        (semK Kb n (T.trav m N n s) rho) (semK Kb m N (senv m n s rho)) (rM n s rho) (rN n s rho) } ;
+} ;
+
+wkK-sem (K : Nat) (n : Nat) (M : Tm n) (rho : Env n) (X : Filt) : FEq (semK K (suc n) (wk n M) (extE n rho X)) (semK K n M rho) =
+  SemTravK[K, renK, \ n rho X -> feq-refl X, \ n i rho X -> feq-refl (rho i)].trav-sem n M (suc n) (\ i -> fs n i) (extE n rho X) ;
+
+sub1K-env (K : Nat) (n : Nat) (N : Tm n) (rho : Env n) :
+    EnvEq (suc n) (SemTravK[K, subK, \ n rho X -> feq-refl X, \ n M rho X -> wkK-sem K n M rho X].senv (suc n) n (sub1 n N) rho) (extE n rho (semK K n N rho)) = split {
+  none -> feq-refl (semK K n N rho) ;
+  some i -> feq-refl (rho i) } ;
+
+subst1K-sem (K : Nat) (n : Nat) (M : Tm (suc n)) (N : Tm n) (rho : Env n) :
+    FEq (semK K n (subst1 n M N) rho) (semK K (suc n) M (extE n rho (semK K n N rho))) =
+  feq-trans (semK K n (subst1 n M N) rho) (semK K (suc n) M (SemTravK[K, subK, \ n rho X -> feq-refl X, \ n M rho X -> wkK-sem K n M rho X].senv (suc n) n (sub1 n N) rho))
+    (semK K (suc n) M (extE n rho (semK K n N rho)))
+    (SemTravK[K, subK, \ n rho X -> feq-refl X, \ n M rho X -> wkK-sem K n M rho X].trav-sem (suc n) M n (sub1 n N) rho)
+    (semK-eq K (suc n) M (SemTravK[K, subK, \ n rho X -> feq-refl X, \ n M rho X -> wkK-sem K n M rho X].senv (suc n) n (sub1 n N) rho) (extE n rho (semK K n N rho)) (sub1K-env K n N rho)) ;
+
+------------------------------------------------------------------------
+-- continuity with bounds (as Sem, Lemma 3.6): the compact approximation
+-- of the environment is made of witness types, so it is bounded when the
+-- target is
+
+record ApxKR { K : Nat ; n : Nat ; rho : Env n ; k : Fin n -> Ty ; ink : (i : Fin n) -> (rho i).mem (k i) ;
+  bk : (i : Fin n) -> Bd K (k i) ; } ;
+ApxK (K : Nat) (n : Nat) (rho : Env n) : U l = ApxKR[K, n, rho] ;
+
+apxk-apx (K : Nat) (n : Nat) (rho : Env n) (a : ApxK K n rho) : Apx n rho = new ApxR[n, rho, k := a.k, ink := a.ink] ;
+
+apxK-top (K : Nat) (n : Nat) (rho : Env n) : ApxK K n rho =
+  new ApxKR[K, n, rho, k := \ i -> om, ink := \ i -> (rho i).fom, bk := \ i -> tt] ;
+
+apxK-meet (K : Nat) (n : Nat) (rho : Env n) (a b : ApxK K n rho) : ApxK K n rho =
+  new ApxKR[K, n, rho, k := \ i -> meet (a.k i) (b.k i), ink := \ i -> (rho i).fmeet (a.k i) (b.k i) (a.ink i) (b.ink i),
+    bk := \ i -> bd-meet K (a.k i) (b.k i) (a.bk i) (b.bk i)] ;
+
+apxK-meet-l (K : Nat) (n : Nat) (rho : Env n) (a b : ApxK K n rho) : LeK n a.k (apxK-meet K n rho a b).k =
+  \ i -> le-meet-l (a.k i) (b.k i) ;
+apxK-meet-r (K : Nat) (n : Nat) (rho : Env n) (a b : ApxK K n rho) : LeK n b.k (apxK-meet K n rho a b).k =
+  \ i -> le-meet-r (a.k i) (b.k i) ;
+
+pt-bd (K : Nat) : (n : Nat) -> (i : Fin n) -> (t : Ty) -> Bd K t -> (j : Fin n) -> Bd K (pt n i t j) = split {
+  zero -> \ i -> efq i ;
+  suc n | r -> split {
+    none -> \ t b -> split { none -> b ; some j -> tt } ;
+    some i -> \ t b -> split { none -> tt ; some j -> r i t b j } } } ;
+
+ApxInK (K : Nat) (n : Nat) (M : Tm n) (rho : Env n) (t : Ty) : U l =
+  (a : ApxK K n rho) * (semK K n M (penv n a.k)).mem t ;
+
+module CollectK (K : Nat) (n : Nat) (rho : Env n) (Q : (Fin n -> Ty) -> Ty -> Ty -> U l)
+    (qmono : (k k' : Fin n -> Ty) -> LeK n k k' -> (x v : Ty) -> Q k x v -> Q k' x v) {
+  AQ (x v : Ty) : U l = (a : ApxK K n rho) * Q a.k x v ;
+  collect : (f : Ty) -> EntS AQ f -> (a : ApxK K n rho) * EntS (Q a.k) f = split {
+    es-om -> (apxK-top K n rho, es-om) ;
+    es-arr x v h -> (h.1, es-arr x v h.2) ;
+    es-meet f1 f2 h1 h2 | r1 r2 ->
+      (apxK-meet K n rho r1.1 r2.1,
+       es-meet f1 f2
+         (ents-map (Q r1.1.k) (Q (apxK-meet K n rho r1.1 r2.1).k)
+            (qmono r1.1.k (apxK-meet K n rho r1.1 r2.1).k (apxK-meet-l K n rho r1.1 r2.1)) f1 r1.2)
+         (ents-map (Q r2.1.k) (Q (apxK-meet K n rho r1.1 r2.1).k)
+            (qmono r2.1.k (apxK-meet K n rho r1.1 r2.1).k (apxK-meet-r K n rho r1.1 r2.1)) f2 r2.2)) } ;
+} ;
+
+BindQK (K : Nat) (n : Nat) (A : Tm n) (B : Tm (suc n)) (k : Fin n -> Ty) (x v : Ty) : U l =
+  EntRK K (semK K n A (penv n k)) (famK K n B (penv n k)) x v ;
+
+bindqk-mono (K : Nat) (n : Nat) (A : Tm n) (B : Tm (suc n)) (k k' : Fin n -> Ty) (h : LeK n k k') (x v : Ty)
+    (q : BindQK K n A B k x v) : BindQK K n A B k' x v =
+  entrk-map K K (leN-refl K) (semK K n A (penv n k)) (semK K n A (penv n k')) (famK K n B (penv n k)) (famK K n B (penv n k'))
+    (semK-mono K n A (penv n k) (penv n k') (penv-incl n k k' h))
+    (\ y hy -> semK-mono K (suc n) B (extE n (penv n k) (prin y)) (extE n (penv n k') (prin y))
+                 (extE-incl n (penv n k) (penv n k') (prin y) (prin y) (penv-incl n k k' h) (incl-refl (prin y))))
+    x v q ;
+
+apxK-tail (K : Nat) (n : Nat) (rho : Env n) (X : Filt) (a : ApxK K (suc n) (extE n rho X)) : ApxK K n rho =
+  new ApxKR[K, n, rho, k := \ i -> a.k (fs n i), ink := \ i -> a.ink (fs n i), bk := \ i -> a.bk (fs n i)] ;
+
+-- the recursive calls, with bounded targets
+ContA (K : Nat) (n : Nat) (A : Tm n) (rho : Env n) : U l =
+  (t : Ty) -> Bd K t -> (semK K n A rho).mem t -> ApxInK K n A rho t ;
+ContB (K : Nat) (n : Nat) (B : Tm (suc n)) : U l+ =
+  (rho' : Env (suc n)) -> (t : Ty) -> Bd K t -> (semK K (suc n) B rho').mem t -> ApxInK K (suc n) B rho' t ;
+
+bind-entryK (K : Nat) (n : Nat) (A : Tm n) (B : Tm (suc n)) (rho : Env n)
+    (rA : ContA K n A rho) (rB : ContB K n B)
+    (x v : Ty) (e : BdE K (EntRK K (semK K n A rho) (famK K n B rho)) x v) :
+    (a : ApxK K n rho) * BindQK K n A B a.k x v =
+  (apxK-meet K n rho p.1 q,
+   (tyink-map K K (leN-refl K) (semK K n A (penv n p.1.k)) (semK K n A (penv n (apxK-meet K n rho p.1 q).k))
+      (semK-mono K n A (penv n p.1.k) (penv n (apxK-meet K n rho p.1 q).k)
+         (penv-incl n p.1.k (apxK-meet K n rho p.1 q).k (apxK-meet-l K n rho p.1 q)))
+      x (new TyInKR[K, semK K n A (penv n p.1.k), x, a := e.1.1.a, ina := p.2, tp := e.1.1.tp]),
+    semK-mono K (suc n) B (penv (suc n) w.1.k) (extE n (penv n (apxK-meet K n rho p.1 q).k) (prin x))
+      (\ i -> incl-trans (penv (suc n) w.1.k i) (extE n (penv n q.k) (prin x) i)
+                (extE n (penv n (apxK-meet K n rho p.1 q).k) (prin x) i)
+                (body-incl n rho x (apxk-apx K (suc n) (extE n rho (prin x)) w.1) i)
+                (extE-incl n (penv n q.k) (penv n (apxK-meet K n rho p.1 q).k) (prin x) (prin x)
+                   (penv-incl n q.k (apxK-meet K n rho p.1 q).k (apxK-meet-r K n rho p.1 q)) (incl-refl (prin x)) i))
+      v w.2))
+  where {
+    p : ApxInK K n A rho e.1.1.a = rA e.1.1.a (tpk-bd-el K x e.1.1.a e.1.1.tp).2 e.1.1.ina ;
+    w : ApxInK K (suc n) B (extE n rho (prin x)) v = rB (extE n rho (prin x)) v e.2.2 e.1.2 ;
+    q : ApxK K n rho = apxK-tail K n rho (prin x) w.1 ; } ;
+
+bind-entsK (K : Nat) (n : Nat) (A : Tm n) (B : Tm (suc n)) (rho : Env n)
+    (rA : ContA K n A rho) (rB : ContB K n B)
+    (f : Ty) (bf : Bd K f) (e : EntS (EntRK K (semK K n A rho) (famK K n B rho)) f) :
+    (a : ApxK K n rho) * EntS (BindQK K n A B a.k) f =
+  CollectK[K, n, rho, BindQK K n A B, bindqk-mono K n A B].collect f
+    (ents-map (BdE K (EntRK K (semK K n A rho) (famK K n B rho))) (CollectK[K, n, rho, BindQK K n A B, bindqk-mono K n A B].AQ)
+       (bind-entryK K n A B rho rA rB) f (ents-bd K (EntRK K (semK K n A rho) (famK K n B rho)) f e bf)) ;
+
+cont-piK (K : Nat) (n : Nat) (A : Tm n) (B : Tm (suc n)) (rho : Env n) (rA : ContA K n A rho) (rB : ContB K n B)
+    (t : Ty) (w : PiWK K (semK K n A rho) (famK K n B rho) t) : ApxInK K n (pp n A B) rho t =
+  (apxK-meet K n rho p.1 q.1,
+   inr (new PiWKR[K, semK K n A (penv n (apxK-meet K n rho p.1 q.1).k), famK K n B (penv n (apxK-meet K n rho p.1 q.1).k), t,
+     a := w.a, b := w.b, le := w.le, bp := w.bp,
+     ina := semK-mono K n A (penv n p.1.k) (penv n (apxK-meet K n rho p.1 q.1).k)
+             (penv-incl n p.1.k (apxK-meet K n rho p.1 q.1).k (apxK-meet-l K n rho p.1 q.1)) w.a p.2,
+     ents := ents-map (BindQK K n A B q.1.k) (BindQK K n A B (apxK-meet K n rho p.1 q.1).k)
+              (bindqk-mono K n A B q.1.k (apxK-meet K n rho p.1 q.1).k (apxK-meet-r K n rho p.1 q.1)) w.b q.2]))
+  where {
+    p : ApxInK K n A rho w.a = rA w.a (bd-pi-l K w.a w.b w.bp) w.ina ;
+    q : (a : ApxK K n rho) * EntS (BindQK K n A B a.k) w.b =
+      bind-entsK K n A B rho rA rB w.b (bd-pi-r K w.a w.b w.bp) w.ents ; } ;
+
+cont-pi-byK (K : Nat) (n : Nat) (A : Tm n) (B : Tm (suc n)) (rho : Env n) (rA : ContA K n A rho) (rB : ContB K n B)
+    (t : Ty) : (semK K n (pp n A B) rho).mem t -> ApxInK K n (pp n A B) rho t = split {
+  inl e -> (apxK-top K n rho, inl e) ;
+  inr w -> cont-piK K n A B rho rA rB t w } ;
+
+cont-lamK (K : Nat) (n : Nat) (A : Tm n) (M : Tm (suc n)) (rho : Env n) (rA : ContA K n A rho) (rM : ContB K n M)
+    (t : Ty) (w : LamWK K (semK K n A rho) (famK K n M rho) t) : ApxInK K n (lam n A M) rho t =
+  (q.1, new LamWKR[K, semK K n A (penv n q.1.k), famK K n M (penv n q.1.k), t, f := w.f, le := w.le, bf := w.bf, ents := q.2])
+  where { q : (a : ApxK K n rho) * EntS (BindQK K n A M a.k) w.f = bind-entsK K n A M rho rA rM w.f w.bf w.ents ; } ;
+
+cont-appK (K : Nat) (n : Nat) (M N : Tm n) (rho : Env n) (rM : ContA K n M rho) (rN : ContA K n N rho)
+    (t : Ty) (w : AppWK K (semK K n M rho) (semK K n N rho) t) : ApxInK K n (app n M N) rho t =
+  (apxK-meet K n rho p.1 q.1,
+   new AppWKR[K, semK K n M (penv n (apxK-meet K n rho p.1 q.1).k), semK K n N (penv n (apxK-meet K n rho p.1 q.1).k), t,
+     g := w.g, x := w.x,
+     ing := semK-mono K n M (penv n p.1.k) (penv n (apxK-meet K n rho p.1 q.1).k)
+             (penv-incl n p.1.k (apxK-meet K n rho p.1 q.1).k (apxK-meet-l K n rho p.1 q.1)) w.g p.2,
+     inx := semK-mono K n N (penv n q.1.k) (penv n (apxK-meet K n rho p.1 q.1).k)
+             (penv-incl n q.1.k (apxK-meet K n rho p.1 q.1).k (apxK-meet-r K n rho p.1 q.1)) w.x q.2,
+     le := w.le, bg := w.bg, bx := w.bx])
+  where {
+    p : ApxInK K n M rho w.g = rM w.g w.bg w.ing ;
+    q : ApxInK K n N rho w.x = rN w.x w.bx w.inx ; } ;
+
+-- Lemma 3.6, bounded: a bounded target needs a bounded approximation
+contK (K : Nat) : (n : Nat) -> (M : Tm n) -> (rho : Env n) -> ContA K n M rho = split {
+  var n i -> \ rho t b h ->
+    (new ApxKR[K, n, rho, k := pt n i t, ink := pt-in n rho i t h, bk := pt-bd K n i t b], pt-self n i t) ;
+  uu n -> \ rho t b h -> (apxK-top K n rho, h) ;
+  pp n A B | rA rB -> \ rho t b -> cont-pi-byK K n A B rho (rA rho) rB t ;
+  lam n A M | rA rM -> \ rho t b -> cont-lamK K n A M rho (rA rho) rM t ;
+  app n M N | rM rN -> \ rho t b -> cont-appK K n M N rho (rM rho) (rN rho) t } ;
+
+-- the last variable: a bounded x in X suffices
+LastInK (K : Nat) (n : Nat) (M : Tm (suc n)) (rho : Env n) (X : Filt) (t : Ty) : U l =
+  (x : Ty) * (X.mem x * (Bd K x * (famK K n M rho x).mem t)) ;
+
+cont-lastK (K : Nat) (n : Nat) (M : Tm (suc n)) (rho : Env n) (X : Filt) (t : Ty) (b : Bd K t)
+    (h : (semK K (suc n) M (extE n rho X)).mem t) : LastInK K n M rho X t =
+  (c.1.k (fz n), (c.1.ink (fz n), (c.1.bk (fz n),
+    semK-mono K (suc n) M (penv (suc n) c.1.k) (extE n rho (prin (c.1.k (fz n))))
+      (last-incl n rho X (apxk-apx K (suc n) (extE n rho X) c.1)) t c.2)))
+  where { c : ApxInK K (suc n) M (extE n rho X) t = contK K (suc n) M (extE n rho X) t b h ; } ;
