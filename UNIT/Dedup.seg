@@ -1,0 +1,202 @@
+-- Strict multicoproducts from multicoproducts unique up to iso
+-- (any category of embeddings with Bishop-finite hom-sets).
+--
+-- Given a listing jt0 of cospans out of (a, b) that covers (jt-cover),
+-- whose factoring members are unique only UP TO ISO of cospans, and
+-- jointly epi: drop every entry that has an iso copy earlier in the list
+-- (decidable: finite hom-sets, decidable equality of maps).  The new
+-- listing still covers (the least iso copy of a covering entry is kept),
+-- is jointly epi (a sub-list), and is STRICTLY unique: two kept entries
+-- through which (f, g) factors are iso, so neither is earlier than the
+-- other -- same index, same entry.
+-- This turns uniqueness up to iso (the univalent statement, CospanUniq)
+-- into the strict field jt-uniq of CatEmbFin.CEF.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CE = CatEmb[l] ;
+module CF = CatEmbFin[l] ;
+module ST = StabTab[l] ;
+module SJ0 = StabJt0[l] ;
+module SH = StabHom[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+
+module Dedup (C : CE.CE)
+  (homN : (c d : C.Fin) -> W.N)
+  (hom : (c d : C.Fin) (i : W.N) -> CF.Lt i (homN c d) -> CF.Opt (C.Mor (C.fin c) (C.fin d)))
+  (hom-surj : (c d : C.Fin) -> CF.Enum (C.Mor (C.fin c) (C.fin d)) (homN c d) (hom c d))
+  (hom-dec : (c d : C.Fin) (k k' : C.Mor (C.fin c) (C.fin d)) ->
+    W.Or (Id (C.Mor (C.fin c) (C.fin d)) k k') (Id (C.Mor (C.fin c) (C.fin d)) k k' -> W.Empty))
+  (jtN : (a b : C.Fin) -> W.N)
+  (jt0 : (a b : C.Fin) (t : W.N) -> CF.Lt t (jtN a b) -> CF.Opt (CF.JT C a b))
+  (cover0 : (a b d : C.Fin) (f : C.Mor (C.fin a) (C.fin d)) (g : C.Mor (C.fin b) (C.fin d)) ->
+    Ex ((t : W.N) * ((h : CF.Lt t (jtN a b)) * ((j : CF.JT C a b) * (Id (CF.Opt (CF.JT C a b)) (jt0 a b t h) (inl j) * CF.JFac C a b d f g j)))))
+  (iuniq0 : (a b d : C.Fin) (f : C.Mor (C.fin a) (C.fin d)) (g : C.Mor (C.fin b) (C.fin d))
+    (t : W.N) (h : CF.Lt t (jtN a b)) (j : CF.JT C a b) (e : Id (CF.Opt (CF.JT C a b)) (jt0 a b t h) (inl j))
+    (t' : W.N) (h' : CF.Lt t' (jtN a b)) (j' : CF.JT C a b) (e' : Id (CF.Opt (CF.JT C a b)) (jt0 a b t' h') (inl j')) ->
+    CF.JFac C a b d f g j -> CF.JFac C a b d f g j' ->
+    (p : C.Mor (C.fin j.1) (C.fin j'.1)) * (Id (C.Mor (C.fin a) (C.fin j'.1)) (C.comp (C.fin a) (C.fin j.1) (C.fin j'.1) j.2.1 p) j'.2.1 *
+      Id (C.Mor (C.fin b) (C.fin j'.1)) (C.comp (C.fin b) (C.fin j.1) (C.fin j'.1) j.2.2 p) j'.2.2))
+  (epi0 : (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j : CF.JT C a b) (e : Id (CF.Opt (CF.JT C a b)) (jt0 a b t h) (inl j))
+    (d : C.Fin) (m m' : C.Mor (C.fin j.1) (C.fin d)) ->
+    Id (C.Mor (C.fin a) (C.fin d)) (C.comp (C.fin a) (C.fin j.1) (C.fin d) j.2.1 m) (C.comp (C.fin a) (C.fin j.1) (C.fin d) j.2.1 m') ->
+    Id (C.Mor (C.fin b) (C.fin d)) (C.comp (C.fin b) (C.fin j.1) (C.fin d) j.2.2 m) (C.comp (C.fin b) (C.fin j.1) (C.fin d) j.2.2 m') ->
+    Id (C.Mor (C.fin j.1) (C.fin d)) m m') {
+  JT (a b : C.Fin) : U l = CF.JT C a b ;
+  -- x ; (y ; z) = t  from  x ; y = w  and  w ; z = t
+  chain (X Y Z V : C.Obj) (x : C.Mor X Y) (y : C.Mor Y Z) (z : C.Mor Z V) (w : C.Mor X Z) (t : C.Mor X V)
+    (e1 : Id (C.Mor X Z) (C.comp X Y Z x y) w) (e2 : Id (C.Mor X V) (C.comp X Z V w z) t) :
+      Id (C.Mor X V) (C.comp X Y V x (C.comp Y Z V y z)) t =
+    PL.trans (C.Mor X V) (C.comp X Y V x (C.comp Y Z V y z)) (C.comp X Z V (C.comp X Y Z x y) z) t
+      (PL.sym (C.Mor X V) (C.comp X Z V (C.comp X Y Z x y) z) (C.comp X Y V x (C.comp Y Z V y z)) (C.assoc X Y Z V x y z))
+      (PL.trans (C.Mor X V) (C.comp X Z V (C.comp X Y Z x y) z) (C.comp X Z V w z) t
+        (PL.ap (C.Mor X Z) (C.Mor X V) (\ q -> C.comp X Z V q z) (C.comp X Y Z x y) w e1) e2) ;
+  -- maps of cospans and isos
+  Hm (a b : C.Fin) (j j' : JT a b) : U l =
+    (p : C.Mor (C.fin j.1) (C.fin j'.1)) * (Id (C.Mor (C.fin a) (C.fin j'.1)) (C.comp (C.fin a) (C.fin j.1) (C.fin j'.1) j.2.1 p) j'.2.1 *
+      Id (C.Mor (C.fin b) (C.fin j'.1)) (C.comp (C.fin b) (C.fin j.1) (C.fin j'.1) j.2.2 p) j'.2.2) ;
+  Iso (a b : C.Fin) (j j' : JT a b) : U l = Hm a b j j' * Hm a b j' j ;
+  hm-id (a b : C.Fin) (j : JT a b) : Hm a b j j =
+    (C.idm (C.fin j.1),(C.id-r (C.fin a) (C.fin j.1) j.2.1,C.id-r (C.fin b) (C.fin j.1) j.2.2)) ;
+  hm-comp (a b : C.Fin) (j1 j2 j3 : JT a b) (p : Hm a b j1 j2) (q : Hm a b j2 j3) : Hm a b j1 j3 =
+    (C.comp (C.fin j1.1) (C.fin j2.1) (C.fin j3.1) p.1 q.1,
+     (chain (C.fin a) (C.fin j1.1) (C.fin j2.1) (C.fin j3.1) j1.2.1 p.1 q.1 j2.2.1 j3.2.1 p.2.1 q.2.1,
+      chain (C.fin b) (C.fin j1.1) (C.fin j2.1) (C.fin j3.1) j1.2.2 p.1 q.1 j2.2.2 j3.2.2 p.2.2 q.2.2)) ;
+  iso-trans (a b : C.Fin) (j1 j2 j3 : JT a b) (p : Iso a b j1 j2) (q : Iso a b j2 j3) : Iso a b j1 j3 =
+    (hm-comp a b j1 j2 j3 p.1 q.1,hm-comp a b j3 j2 j1 q.2 p.2) ;
+  decHm (a b : C.Fin) (j j' : JT a b) : W.Or (Hm a b j j') (Hm a b j j' -> W.Empty) =
+    CF.EnumDec[C.Mor (C.fin j.1) (C.fin j'.1),homN j.1 j'.1,hom j.1 j'.1,hom-surj j.1 j'.1,
+      \ p -> Id (C.Mor (C.fin a) (C.fin j'.1)) (C.comp (C.fin a) (C.fin j.1) (C.fin j'.1) j.2.1 p) j'.2.1 *
+        Id (C.Mor (C.fin b) (C.fin j'.1)) (C.comp (C.fin b) (C.fin j.1) (C.fin j'.1) j.2.2 p) j'.2.2,
+      \ p -> SH.decPair (Id (C.Mor (C.fin a) (C.fin j'.1)) (C.comp (C.fin a) (C.fin j.1) (C.fin j'.1) j.2.1 p) j'.2.1)
+        (Id (C.Mor (C.fin b) (C.fin j'.1)) (C.comp (C.fin b) (C.fin j.1) (C.fin j'.1) j.2.2 p) j'.2.2)
+        (hom-dec a j'.1 (C.comp (C.fin a) (C.fin j.1) (C.fin j'.1) j.2.1 p) j'.2.1)
+        (hom-dec b j'.1 (C.comp (C.fin b) (C.fin j.1) (C.fin j'.1) j.2.2 p) j'.2.2)].result ;
+  decIso (a b : C.Fin) (j j' : JT a b) : W.Or (Iso a b j j') (Iso a b j j' -> W.Empty) =
+    SH.decPair (Hm a b j j') (Hm a b j' j) (decHm a b j j') (decHm a b j' j) ;
+
+  ltT (t0 t n : W.N) (h0 : CF.Lt t0 t) (h : CF.Lt t n) : CF.Lt t0 n = W.ltN-le-lt t0 t n (W.ltN-sucR t0 t h0) h ;
+  -- an earlier iso copy
+  EQ (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) (t0 : W.N) : U l =
+    (h0 : CF.Lt t0 t) * ((j0 : JT a b) * (Id (CF.Opt (JT a b)) (jt0 a b t0 (ltT t0 t (jtN a b) h0 h)) (inl j0) * Iso a b j0 j)) ;
+  Earlier (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) : U l = (t0 : W.N) * EQ a b t h j t0 ;
+  decEarlier (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) : W.Or (Earlier a b t h j) (Earlier a b t h j -> W.Empty) =
+    CF.or-elim (CF.Bnd t (EQ a b t h j)) (CF.None t (EQ a b t h j)) (W.Or (Earlier a b t h j) (Earlier a b t h j -> W.Empty))
+      (\ bb -> inl (bb.1,bb.2.2))
+      (\ no -> inr (\ w -> no w.1 w.2.1 w.2))
+      (CF.search t (EQ a b t h j) (\ t0 -> CF.dec-lt-sig t t0 (\ h0 -> (j0 : JT a b) *
+          (Id (CF.Opt (JT a b)) (jt0 a b t0 (ltT t0 t (jtN a b) h0 h)) (inl j0) * Iso a b j0 j))
+        (\ h0 -> SJ0.decOptEx (JT a b) (\ j0 -> Iso a b j0 j) (\ j0 -> decIso a b j0 j) (jt0 a b t0 (ltT t0 t (jtN a b) h0 h))))) ;
+  -- the deduplicated listing
+  keepO (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) : W.Or (Earlier a b t h j) (Earlier a b t h j -> W.Empty) -> CF.Opt (JT a b) = split {
+    inl w -> inr tt ; inr ne -> inl j } ;
+  keepJ (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) : CF.Opt (JT a b) -> CF.Opt (JT a b) = split {
+    inl j -> keepO a b t h j (decEarlier a b t h j) ; inr u -> inr u } ;
+  jt (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) : CF.Opt (JT a b) = keepJ a b t h (jt0 a b t h) ;
+  -- inversion and introduction
+  Kept (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) : U l =
+    Id (CF.Opt (JT a b)) (jt0 a b t h) (inl j) * (Earlier a b t h j -> W.Empty) ;
+  invO (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j j' : JT a b) (eo : Id (CF.Opt (JT a b)) (jt0 a b t h) (inl j)) :
+      (r : W.Or (Earlier a b t h j) (Earlier a b t h j -> W.Empty)) -> Id (CF.Opt (JT a b)) (keepO a b t h j r) (inl j') -> Kept a b t h j' = split {
+    inl w -> \ e -> CF.efq (Kept a b t h j') (CF.inl-inr (JT a b) j' tt (PL.sym (CF.Opt (JT a b)) (inr tt) (inl j') e)) ;
+    inr ne -> \ e -> PL.subst (JT a b) (Kept a b t h) j j' (CF.inl-inj (JT a b) j j' e) (eo,ne) } ;
+  invJ (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j' : JT a b) : (o : CF.Opt (JT a b)) -> Id (CF.Opt (JT a b)) (jt0 a b t h) o ->
+      Id (CF.Opt (JT a b)) (keepJ a b t h o) (inl j') -> Kept a b t h j' = split {
+    inl j -> \ eo e -> invO a b t h j j' eo (decEarlier a b t h j) e ;
+    inr u -> \ eo e -> CF.efq (Kept a b t h j') (CF.inl-inr (JT a b) j' u (PL.sym (CF.Opt (JT a b)) (inr u) (inl j') e)) } ;
+  inv (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) (e : Id (CF.Opt (JT a b)) (jt a b t h) (inl j)) : Kept a b t h j =
+    invJ a b t h j (jt0 a b t h) (refl (jt0 a b t h)) e ;
+  keepO-ne (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) (ne : Earlier a b t h j -> W.Empty) :
+      (r : W.Or (Earlier a b t h j) (Earlier a b t h j -> W.Empty)) -> Id (CF.Opt (JT a b)) (keepO a b t h j r) (inl j) = split {
+    inl w -> CF.efq (Id (CF.Opt (JT a b)) (inr tt) (inl j)) (ne w) ;
+    inr n -> refl (inl j) } ;
+  keepOf (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) (k : Kept a b t h j) : Id (CF.Opt (JT a b)) (jt a b t h) (inl j) =
+    PL.trans (CF.Opt (JT a b)) (jt a b t h) (keepJ a b t h (inl j)) (inl j)
+      (PL.ap (CF.Opt (JT a b)) (CF.Opt (JT a b)) (keepJ a b t h) (jt0 a b t h) (inl j) k.1)
+      (keepO-ne a b t h j k.2 (decEarlier a b t h j)) ;
+  -- the listing at equal indices
+  same (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) : (t' : W.N) -> Id W.N t t' -> (h' : CF.Lt t' (jtN a b)) ->
+      Id (CF.Opt (JT a b)) (jt0 a b t h) (jt0 a b t' h') = \ t' z ->
+    idJ W.N t (\ y z0 -> (h' : CF.Lt y (jtN a b)) -> Id (CF.Opt (JT a b)) (jt0 a b t h) (jt0 a b y h'))
+      (\ h' -> PL.ap (CF.Lt t (jtN a b)) (CF.Opt (JT a b)) (jt0 a b t) h h' (W.HB.uip (W.ltN t (jtN a b)) true h h')) t' z ;
+  -- strict uniqueness
+  module UQ (a b d : C.Fin) (f : C.Mor (C.fin a) (C.fin d)) (g : C.Mor (C.fin b) (C.fin d))
+    (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) (e : Id (CF.Opt (JT a b)) (jt a b t h) (inl j))
+    (t' : W.N) (h' : CF.Lt t' (jtN a b)) (j' : JT a b) (e' : Id (CF.Opt (JT a b)) (jt a b t' h') (inl j'))
+    (q : CF.JFac C a b d f g j) (q' : CF.JFac C a b d f g j') {
+    k : Kept a b t h j = inv a b t h j e ;
+    k' : Kept a b t' h' j' = inv a b t' h' j' e' ;
+    iso : Iso a b j j' = (iuniq0 a b d f g t h j k.1 t' h' j' k'.1 q q',iuniq0 a b d f g t' h' j' k'.1 t h j k.1 q' q) ;
+    at0 (t0 : W.N) (h0 : CF.Lt t0 t') (j0 : JT a b) (h1 : CF.Lt t0 (jtN a b)) (e0 : Id (CF.Opt (JT a b)) (jt0 a b t0 h1) (inl j0)) :
+        Id (CF.Opt (JT a b)) (jt0 a b t0 (ltT t0 t' (jtN a b) h0 h')) (inl j0) =
+      PL.trans (CF.Opt (JT a b)) (jt0 a b t0 (ltT t0 t' (jtN a b) h0 h')) (jt0 a b t0 h1) (inl j0)
+        (same a b t0 (ltT t0 t' (jtN a b) h0 h') t0 (refl t0) h1) e0 ;
+    at1 (t0 : W.N) (h0 : CF.Lt t0 t) (j0 : JT a b) (h1 : CF.Lt t0 (jtN a b)) (e0 : Id (CF.Opt (JT a b)) (jt0 a b t0 h1) (inl j0)) :
+        Id (CF.Opt (JT a b)) (jt0 a b t0 (ltT t0 t (jtN a b) h0 h)) (inl j0) =
+      PL.trans (CF.Opt (JT a b)) (jt0 a b t0 (ltT t0 t (jtN a b) h0 h)) (jt0 a b t0 h1) (inl j0)
+        (same a b t0 (ltT t0 t (jtN a b) h0 h) t0 (refl t0) h1) e0 ;
+    go : (o : W.O3) -> Id W.O3 (W.cmpN t t') o -> Id (JT a b) j j' = split {
+      lt -> \ c -> CF.efq (Id (JT a b) j j') (k'.2 (t,(ST.ltOf t t' c,(j,(at0 t (ST.ltOf t t' c) j h k.1,iso))))) ;
+      eq -> \ c -> CF.inl-inj (JT a b) j j'
+        (PL.trans (CF.Opt (JT a b)) (inl j) (jt0 a b t h) (inl j') (PL.sym (CF.Opt (JT a b)) (jt0 a b t h) (inl j) k.1)
+          (PL.trans (CF.Opt (JT a b)) (jt0 a b t h) (jt0 a b t' h') (inl j') (same a b t h t' (W.cmpN-eq t t' c) h') k'.1)) ;
+      gt -> \ c -> CF.efq (Id (JT a b) j j') (k.2 (t',(ST.ltOf t' t (PL.trans W.O3 (W.cmpN t' t) (W.flip (W.cmpN t t')) lt
+          (W.cmpN-flip t t') (PL.ap W.O3 W.O3 W.flip (W.cmpN t t') gt c)),
+        (j',(at1 t' (ST.ltOf t' t (PL.trans W.O3 (W.cmpN t' t) (W.flip (W.cmpN t t')) lt
+          (W.cmpN-flip t t') (PL.ap W.O3 W.O3 W.flip (W.cmpN t t') gt c))) j' h' k'.1,(iso.2,iso.1)))))) } ;
+    result : Id (JT a b) j j' = go (W.cmpN t t') (refl (W.cmpN t t')) ;
+  } ;
+  -- covering: the least iso copy of a covering entry is kept
+  CovT (a b d : C.Fin) (f : C.Mor (C.fin a) (C.fin d)) (g : C.Mor (C.fin b) (C.fin d)) : U l =
+    (t : W.N) * ((h : CF.Lt t (jtN a b)) * ((j : JT a b) * (Id (CF.Opt (JT a b)) (jt a b t h) (inl j) * CF.JFac C a b d f g j))) ;
+  module Cv (a b d : C.Fin) (f : C.Mor (C.fin a) (C.fin d)) (g : C.Mor (C.fin b) (C.fin d))
+    (w : (t : W.N) * ((h : CF.Lt t (jtN a b)) * ((j : JT a b) * (Id (CF.Opt (JT a b)) (jt0 a b t h) (inl j) * CF.JFac C a b d f g j)))) {
+    t : W.N = w.1 ;
+    h : CF.Lt t (jtN a b) = w.2.1 ;
+    j : JT a b = w.2.2.1 ;
+    lt0 (t0 : W.N) (h0 : CF.Lt t0 (suc t)) : CF.Lt t0 (jtN a b) = W.ltN-le-lt t0 t (jtN a b) h0 h ;
+    Q (t0 : W.N) : U l = (h0 : CF.Lt t0 (suc t)) * ((j0 : JT a b) * (Id (CF.Opt (JT a b)) (jt0 a b t0 (lt0 t0 h0)) (inl j0) * Iso a b j0 j)) ;
+    decQ (t0 : W.N) : W.Or (Q t0) (Q t0 -> W.Empty) =
+      CF.dec-lt-sig (suc t) t0 (\ h0 -> (j0 : JT a b) * (Id (CF.Opt (JT a b)) (jt0 a b t0 (lt0 t0 h0)) (inl j0) * Iso a b j0 j))
+        (\ h0 -> SJ0.decOptEx (JT a b) (\ j0 -> Iso a b j0 j) (\ j0 -> decIso a b j0 j) (jt0 a b t0 (lt0 t0 h0))) ;
+    qt : Q t = (W.ltN-suc t,(j,(PL.trans (CF.Opt (JT a b)) (jt0 a b t (lt0 t (W.ltN-suc t))) (jt0 a b t h) (inl j)
+      (same a b t (lt0 t (W.ltN-suc t)) t (refl t) h) w.2.2.2.1,(hm-id a b j,hm-id a b j)))) ;
+    least : (t0 : W.N) * ST.Lst (suc t) Q t0 =
+      CF.or-elim ((t0 : W.N) * ST.Lst (suc t) Q t0) (CF.None (suc t) Q) ((t0 : W.N) * ST.Lst (suc t) Q t0)
+        (\ r -> r) (\ no -> CF.efq ((t0 : W.N) * ST.Lst (suc t) Q t0) (no t (W.ltN-suc t) qt)) (ST.searchL (suc t) Q decQ) ;
+    t0 : W.N = least.1 ;
+    q0 : Q t0 = least.2.2.1 ;
+    h0 : CF.Lt t0 (jtN a b) = lt0 t0 q0.1 ;
+    j0 : JT a b = q0.2.1 ;
+    kept : Kept a b t0 h0 j0 = (q0.2.2.1,\ ea ->
+      least.2.2.2 ea.1 ea.2.1
+        (W.ltN-le-lt ea.1 t0 (suc t) (W.ltN-sucR ea.1 t0 ea.2.1) q0.1,
+         (ea.2.2.1,(PL.trans (CF.Opt (JT a b)) (jt0 a b ea.1 (lt0 ea.1 (W.ltN-le-lt ea.1 t0 (suc t) (W.ltN-sucR ea.1 t0 ea.2.1) q0.1)))
+             (jt0 a b ea.1 (ltT ea.1 t0 (jtN a b) ea.2.1 h0)) (inl ea.2.2.1)
+           (same a b ea.1 (lt0 ea.1 (W.ltN-le-lt ea.1 t0 (suc t) (W.ltN-sucR ea.1 t0 ea.2.1) q0.1)) ea.1 (refl ea.1) (ltT ea.1 t0 (jtN a b) ea.2.1 h0))
+           ea.2.2.2.1,
+          iso-trans a b ea.2.2.1 j0 j ea.2.2.2.2 q0.2.2.2)))) ;
+    fac : CF.JFac C a b d f g j = w.2.2.2.2 ;
+    p : C.Mor (C.fin j0.1) (C.fin j.1) = q0.2.2.2.1.1 ;
+    fac0 : CF.JFac C a b d f g j0 =
+      (C.comp (C.fin j0.1) (C.fin j.1) (C.fin d) p fac.1,
+       (chain (C.fin a) (C.fin j0.1) (C.fin j.1) (C.fin d) j0.2.1 p fac.1 j.2.1 f q0.2.2.2.1.2.1 fac.2.1,
+        chain (C.fin b) (C.fin j0.1) (C.fin j.1) (C.fin d) j0.2.2 p fac.1 j.2.2 g q0.2.2.2.1.2.2 fac.2.2)) ;
+    result : CovT a b d f g = (t0,(h0,(j0,(keepOf a b t0 h0 j0 kept,fac0)))) ;
+  } ;
+  jt-cover (a b d : C.Fin) (f : C.Mor (C.fin a) (C.fin d)) (g : C.Mor (C.fin b) (C.fin d)) : Ex (CovT a b d f g) =
+    TC.rec ((t : W.N) * ((h : CF.Lt t (jtN a b)) * ((j : JT a b) * (Id (CF.Opt (JT a b)) (jt0 a b t h) (inl j) * CF.JFac C a b d f g j))))
+      @l (Ex (CovT a b d f g)) (prop (CovT a b d f g)) (\ w -> inc (CovT a b d f g) Cv[a,b,d,f,g,w].result) (cover0 a b d f g) ;
+  jt-uniq (a b d : C.Fin) (f : C.Mor (C.fin a) (C.fin d)) (g : C.Mor (C.fin b) (C.fin d))
+    (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) (e : Id (CF.Opt (JT a b)) (jt a b t h) (inl j))
+    (t' : W.N) (h' : CF.Lt t' (jtN a b)) (j' : JT a b) (e' : Id (CF.Opt (JT a b)) (jt a b t' h') (inl j'))
+    (q : CF.JFac C a b d f g j) (q' : CF.JFac C a b d f g j') : Id (JT a b) j j' =
+    UQ[a,b,d,f,g,t,h,j,e,t',h',j',e',q,q'].result ;
+  jt-epi (a b : C.Fin) (t : W.N) (h : CF.Lt t (jtN a b)) (j : JT a b) (e : Id (CF.Opt (JT a b)) (jt a b t h) (inl j))
+    (d : C.Fin) (m m' : C.Mor (C.fin j.1) (C.fin d))
+    (e1 : Id (C.Mor (C.fin a) (C.fin d)) (C.comp (C.fin a) (C.fin j.1) (C.fin d) j.2.1 m) (C.comp (C.fin a) (C.fin j.1) (C.fin d) j.2.1 m'))
+    (e2 : Id (C.Mor (C.fin b) (C.fin d)) (C.comp (C.fin b) (C.fin j.1) (C.fin d) j.2.2 m) (C.comp (C.fin b) (C.fin j.1) (C.fin d) j.2.2 m')) :
+      Id (C.Mor (C.fin j.1) (C.fin d)) m m' =
+    epi0 a b t h j (inv a b t h j e).1 d m m' e1 e2 ;
+} ;

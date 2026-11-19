@@ -1,0 +1,107 @@
+-- Stab(C) is a CEF, second proof (parallel to StabCEF): the strict
+-- uniqueness of joint types is obtained GENERICALLY, from uniqueness up
+-- to iso of jointly surjective cospans (CospanUniq) and deduplication of
+-- the listing (Dedup).  Only the canonical listing CN and the covering
+-- (CovCan) of StabJt are used, with the facts uA / vB (the legs of a
+-- canonical entry are the injections); the determinacy proofs DetA
+-- (beyond uA, vB), DetB, CanP and Epi7 are not needed.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module SF = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module FL = FinList[l] ;
+module PL = Prelude[l] ;
+module SJ = StabJt[l] ;
+module CU = CospanUniq[l] ;
+
+module JS2 (F : CF.CEF) (K1 K2 : SC.Code[F]) {
+  module N = SJ.CN[F,K1,K2] ;
+  module L = N.L ;
+  module J = CU.JSC[F.C] ;
+  module O = J.O ;
+  D (K : SC.Code[F]) : SF.SF[F.C] = SC.Decode[F,K].obj ;
+  JSj (j : L.JT') : U l = J.JS (D K1) (D K2) (D j.1) j.2.1 j.2.2 ;
+  -- a canonical entry is jointly surjective (given any factorisation)
+  module E (x : L.E1) (cn : N.Cn x) (K3 : SC.Code[F]) (f : O.Mor (D K1) (D K3)) (g : O.Mor (D K2) (D K3))
+    (jf : CF.JFac L.C' K1 K2 K3 f g (L.toJT x)) {
+    module DA = SJ.DetA[F,K1,K2,K3,f,g,x,cn,jf] ;
+    module S = DA.S ;
+    module Dc = DA.Dc ;
+    VT (c : F.C.Fin) : U l = S.VT (F.C.fin c) ;
+    jsO (c : F.C.Fin) (p : Dc.Pt (F.C.fin c)) : (o : VT c) -> Id (VT c) (S.view (F.C.fin c) p) o ->
+        W.Or ((a : (SC.Decode[F,K1].Gt (F.C.fin c)).car) * Id (Dc.Pt (F.C.fin c)) ((DA.XX.u'.1 c).1 a) p)
+             ((b : (SC.Decode[F,K2].Gt (F.C.fin c)).car) * Id (Dc.Pt (F.C.fin c)) ((DA.XX.v'.1 c).1 b) p) = split {
+      inl a -> \ e -> inl (a,PL.trans (Dc.Pt (F.C.fin c)) ((DA.XX.u'.1 c).1 a) (S.in1 (F.C.fin c) a) p (DA.uA c a)
+        (PL.sym (Dc.Pt (F.C.fin c)) p (S.in1 (F.C.fin c) a)
+          (S.view-inj (F.C.fin c) p (S.in1 (F.C.fin c) a)
+            (PL.trans (VT c) (S.view (F.C.fin c) p) (inl a) (S.view (F.C.fin c) (S.in1 (F.C.fin c) a)) e
+              (PL.sym (VT c) (S.view (F.C.fin c) (S.in1 (F.C.fin c) a)) (inl a) (S.view-in1 (F.C.fin c) a)))))) ;
+      inr b -> \ e -> inr (DA.R.lift (F.C.fin c) b,PL.trans (Dc.Pt (F.C.fin c)) ((DA.XX.v'.1 c).1 (DA.R.lift (F.C.fin c) b)) (S.in2 (F.C.fin c) b) p
+        (DA.vB c b)
+        (PL.sym (Dc.Pt (F.C.fin c)) p (S.in2 (F.C.fin c) b)
+          (S.view-inj (F.C.fin c) p (S.in2 (F.C.fin c) b)
+            (PL.trans (VT c) (S.view (F.C.fin c) p) (inr b) (S.view (F.C.fin c) (S.in2 (F.C.fin c) b)) e
+              (PL.sym (VT c) (S.view (F.C.fin c) (S.in2 (F.C.fin c) b)) (inr b) (S.view-in2 (F.C.fin c) b)))))) } ;
+    result : JSj (L.toJT x) = \ c p -> jsO c p (S.view (F.C.fin c) p) (refl (S.view (F.C.fin c) p)) ;
+  } ;
+  XC : U l = (x : L.E1) * N.Cn x ;
+  -- every listed entry is jointly surjective (given any factorisation)
+  jsL (t : W.N) (h : CF.Lt t N.jtN) (j : L.JT') (e : Id (CF.Opt L.JT') (N.jt t h) (inl j))
+    (K3 : SC.Code[F]) (f : O.Mor (D K1) (D K3)) (g : O.Mor (D K2) (D K3)) (q : CF.JFac L.C' K1 K2 K3 f g j) : JSj j =
+    PL.subst L.JT' (\ j0 -> CF.JFac L.C' K1 K2 K3 f g j0 -> JSj j0)
+      (L.toJT (FL.mapO-inv XC L.JT' (\ xc -> L.toJT xc.1) (FL.filterS L.E1 N.Cn (\ x -> N.X[x].dCan) L.e1L) t j e).1.1) j
+      (FL.mapO-inv XC L.JT' (\ xc -> L.toJT xc.1) (FL.filterS L.E1 N.Cn (\ x -> N.X[x].dCan) L.e1L) t j e).2.2
+      (\ q0 -> E[(FL.mapO-inv XC L.JT' (\ xc -> L.toJT xc.1) (FL.filterS L.E1 N.Cn (\ x -> N.X[x].dCan) L.e1L) t j e).1.1,
+                 (FL.mapO-inv XC L.JT' (\ xc -> L.toJT xc.1) (FL.filterS L.E1 N.Cn (\ x -> N.X[x].dCan) L.e1L) t j e).1.2,
+                 K3,f,g,q0].result) q ;
+  selfFac (j : L.JT') : CF.JFac L.C' K1 K2 j.1 j.2.1 j.2.2 j =
+    (O.idS (D j.1),(O.id-r (D K1) (D j.1) j.2.1,O.id-r (D K2) (D j.1) j.2.2)) ;
+} ;
+
+module StabCEF2 (F : CF.CEF) {
+  module Z = StabCEF[l].StabCEF0[F] ;
+  module JF = SJ.JtFields[F] ;
+  module O = SF.Over[F.C] ;
+  C' : CatEmb[l].CE = Z.C' ;
+  D (K : SC.Code[F]) : SF.SF[F.C] = SC.Decode[F,K].obj ;
+  iuniq0 (a b d : SC.Code[F]) (f : O.Mor (D a) (D d)) (g : O.Mor (D b) (D d))
+    (t : W.N) (h : CF.Lt t (JF.jtN a b)) (j : CF.JT C' a b) (e : Id (CF.Opt (CF.JT C' a b)) (JF.jt a b t h) (inl j))
+    (t' : W.N) (h' : CF.Lt t' (JF.jtN a b)) (j' : CF.JT C' a b) (e' : Id (CF.Opt (CF.JT C' a b)) (JF.jt a b t' h') (inl j'))
+    (q : CF.JFac C' a b d f g j) (q' : CF.JFac C' a b d f g j') :
+      (p : O.Mor (D j.1) (D j'.1)) * (Id (O.Mor (D a) (D j'.1)) (O.compS (D a) (D j.1) (D j'.1) j.2.1 p) j'.2.1 *
+        Id (O.Mor (D b) (D j'.1)) (O.compS (D b) (D j.1) (D j'.1) j.2.2 p) j'.2.2) =
+    (CU.JSC[F.C].Med[D a,D b,D d,D j.1,D j'.1,j.2.1,j.2.2,JS2[F,a,b].jsL t h j e d f g q,j'.2.1,j'.2.2,q.1,q'.1,
+       PL.trans (O.Mor (D a) (D d)) (O.compS (D a) (D j.1) (D d) j.2.1 q.1) f (O.compS (D a) (D j'.1) (D d) j'.2.1 q'.1)
+         q.2.1 (PL.sym (O.Mor (D a) (D d)) (O.compS (D a) (D j'.1) (D d) j'.2.1 q'.1) f q'.2.1),
+       PL.trans (O.Mor (D b) (D d)) (O.compS (D b) (D j.1) (D d) j.2.2 q.1) g (O.compS (D b) (D j'.1) (D d) j'.2.2 q'.1)
+         q.2.2 (PL.sym (O.Mor (D b) (D d)) (O.compS (D b) (D j'.1) (D d) j'.2.2 q'.1) g q'.2.2)].mor,
+     (CU.JSC[F.C].Med[D a,D b,D d,D j.1,D j'.1,j.2.1,j.2.2,JS2[F,a,b].jsL t h j e d f g q,j'.2.1,j'.2.2,q.1,q'.1,
+       PL.trans (O.Mor (D a) (D d)) (O.compS (D a) (D j.1) (D d) j.2.1 q.1) f (O.compS (D a) (D j'.1) (D d) j'.2.1 q'.1)
+         q.2.1 (PL.sym (O.Mor (D a) (D d)) (O.compS (D a) (D j'.1) (D d) j'.2.1 q'.1) f q'.2.1),
+       PL.trans (O.Mor (D b) (D d)) (O.compS (D b) (D j.1) (D d) j.2.2 q.1) g (O.compS (D b) (D j'.1) (D d) j'.2.2 q'.1)
+         q.2.2 (PL.sym (O.Mor (D b) (D d)) (O.compS (D b) (D j'.1) (D d) j'.2.2 q'.1) g q'.2.2)].legU,
+      CU.JSC[F.C].Med[D a,D b,D d,D j.1,D j'.1,j.2.1,j.2.2,JS2[F,a,b].jsL t h j e d f g q,j'.2.1,j'.2.2,q.1,q'.1,
+       PL.trans (O.Mor (D a) (D d)) (O.compS (D a) (D j.1) (D d) j.2.1 q.1) f (O.compS (D a) (D j'.1) (D d) j'.2.1 q'.1)
+         q.2.1 (PL.sym (O.Mor (D a) (D d)) (O.compS (D a) (D j'.1) (D d) j'.2.1 q'.1) f q'.2.1),
+       PL.trans (O.Mor (D b) (D d)) (O.compS (D b) (D j.1) (D d) j.2.2 q.1) g (O.compS (D b) (D j'.1) (D d) j'.2.2 q'.1)
+         q.2.2 (PL.sym (O.Mor (D b) (D d)) (O.compS (D b) (D j'.1) (D d) j'.2.2 q'.1) g q'.2.2)].legV)) ;
+  epi0 (a b : SC.Code[F]) (t : W.N) (h : CF.Lt t (JF.jtN a b)) (j : CF.JT C' a b) (e : Id (CF.Opt (CF.JT C' a b)) (JF.jt a b t h) (inl j))
+    (d : SC.Code[F]) (m m' : O.Mor (D j.1) (D d))
+    (e1 : Id (O.Mor (D a) (D d)) (O.compS (D a) (D j.1) (D d) j.2.1 m) (O.compS (D a) (D j.1) (D d) j.2.1 m'))
+    (e2 : Id (O.Mor (D b) (D d)) (O.compS (D b) (D j.1) (D d) j.2.2 m) (O.compS (D b) (D j.1) (D d) j.2.2 m')) : Id (O.Mor (D j.1) (D d)) m m' =
+    CU.JSC[F.C].Epi[D a,D b,D j.1,D d,j.2.1,j.2.2,JS2[F,a,b].jsL t h j e j.1 j.2.1 j.2.2 (JS2[F,a,b].selfFac j),m,m',e1,e2].result ;
+  module DD = Dedup[l].Dedup[C',Z.cef0.homN,Z.cef0.hom,Z.cef0.hom-surj,Z.cef0.hom-dec,JF.jtN,JF.jt,JF.jt-cover,iuniq0,epi0] ;
+  cef : CF.CEF = new CF.CEF[C := C',
+    homN := Z.cef0.homN, hom := Z.cef0.hom, hom-surj := Z.cef0.hom-surj, hom-dec := Z.cef0.hom-dec,
+    subN := Z.cef0.subN, subo := Z.cef0.subo, subm := Z.cef0.subm, sub-cover := Z.cef0.sub-cover,
+    amalD := Z.cef0.amalD, amalw := Z.cef0.amalw, amalw' := Z.cef0.amalw', amal-sq := Z.cef0.amal-sq,
+    amal-t := Z.cef0.amal-t, amal-tp := Z.cef0.amal-tp,
+    jtN := JF.jtN, jt := DD.jt, jt-cover := DD.jt-cover, jt-uniq := DD.jt-uniq, jt-epi := DD.jt-epi,
+    rigid := Z.cef0.rigid, mor-set := Z.cef0.mor-set] ;
+} ;
+
+dilCEF2 : CF.CEF = StabCEF2[FinOrd[l].cef].cef ;
+ptyCEF2 : CF.CEF = StabCEF2[dilCEF2].cef ;
+pty3CEF2 : CF.CEF = StabCEF2[ptyCEF2].cef ;

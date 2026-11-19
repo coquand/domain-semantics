@@ -85,6 +85,17 @@ small : Replacement.Small FinLO  (FinLO ~ N).
   Fin = FinDil classes (rep), where iso => equality; (b) needs all
   StabCEF fields transported along rep (est. 300+ lines) -- no net
   saving in size, only in concepts.
+- DONE (2026-11-19) parallel route (a) WITHOUT changing the interface:
+  Dedup.seg (generic, any catemb with Bishop-finite homs): a listing
+  that covers, is jointly epi and unique UP TO ISO becomes strictly
+  unique by dropping entries with an earlier iso copy (iso decidable).
+  StabCEF2.seg: Stab(F) : CF.CEF again, uniqueness from CospanUniq.Med
+  (JS of canonical entries from DetA.uA/vB + view) and epi from
+  CospanUniq.Epi; dilCEF2, ptyCEF2, pty3CEF2.
+  Line count: Stab-specific 107 (StabCEF2) + generic 202 (Dedup) + 126
+  (CospanUniq) = 435, replacing ~290 lines of StabJt (DetA after vB,
+  DetB, CanP, Epi7).  Net: Stab-specific part 107 vs 290; the rest is
+  generic (reusable for any category), so no total size win.
 ## What should simplify
 - StabJt layer 7d (canonical entries CN, DetA, DetB, jt-uniq via funext on
   tables and J on code paths): "unique up to iso" becomes equality, the
