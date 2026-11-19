@@ -333,6 +333,31 @@ $\mathrm{Decode}:\mathrm{Codes}\to\Stab(C)$, small by replacement. Then
 \end{enumerate}
 \end{theorem}
 
+\paragraph{Dilators form a set.} The same mechanism applies beyond finite
+objects, exactly as for the ordinals (the type of ordinals is a set because
+a well-order has no non-trivial automorphism~\cite[\S10.3]{HoTT}). If $f,g$
+are mutually inverse order-preserving maps of a well-founded linear order,
+then $f=\mathrm{id}$, by accessibility induction: if $f(x)<x$ then
+$f(f(x))=f(x)$ by induction, so $f(x)=x$; if $f(x)>x$ then $g(x)<x$, and
+$f(g(x))=g(x)$ gives $g(x)=x$. For a dilator $X$, every $X([n])$ is
+well-founded, so two natural isomorphisms out of $X$ agree on the finite
+objects, hence everywhere.
+
+\begin{theorem}
+For a dilator $X$ and any stable functor $Y$ on $\LO$, the type of paths
+$X=Y$ is a proposition. Hence the type of dilators,
+$\sum_{X:\Stab(\LO)}\mathrm{IsDil}(X)$, is a set.
+\end{theorem}
+
+The type of pre-dilators is not a set: the constant functor with value
+$\mathbb{Z}$ has the shift as a non-trivial natural automorphism. Thus
+being a dilator, a well-foundedness condition, is what removes the higher
+structure. Note that the rigidity of finite linear orders is stronger: every
+order-preserving \emph{self-map} is the identity, which is what makes
+equality of finite stable functors decidable. At type~$2$ the argument does
+not apply directly, since a ptyx is evaluated also at finite pre-dilators
+that are not dilators.
+
 \paragraph{Enumeration.} A code has a comparison at \emph{every} finite
 level, so codes are not finite data. They are, up to isomorphism: by the
 multicoproducts, a code is determined by a finite \emph{table} giving, for
@@ -504,7 +529,8 @@ library; the files below take a few seconds each). Main files, in the
   \texttt{StabTabCov}, \texttt{StabEnum} (enumeration up to isomorphism),
   \texttt{MonoEnum} (canonical sequence of monotone codes),
   \texttt{FinDilCanon} (canonical representatives), \texttt{CospanUniq},
-  \texttt{Dedup}, \texttt{StabCEF2} (second proof of the main theorem);
+  \texttt{Dedup}, \texttt{StabCEF2} (second proof of the main theorem),
+  \texttt{DilSet} (dilators form a set);
 \item type 3 (in progress): \texttt{ThetaP3Term} (terms of $\Theta_P$ and a
   decidable comparison, defined with a fuel bound); a Python mirror of the candidate in
   \texttt{mirror/}.
@@ -556,6 +582,9 @@ colimits; it is subsumed by the abstract theorem.
   arXiv:2506.16491.
 \bibitem{TowPoly} H.~Towsner, Polymorphic ordinal notations,
   arXiv:2504.02131.
+\bibitem{HoTT} The Univalent Foundations Program, \emph{Homotopy Type
+  Theory: Univalent Foundations of Mathematics}, Institute for Advanced
+  Study, 2013.
 \bibitem{Rij} E.~Rijke, The join construction, arXiv:1701.07538.
 \bibitem{Win} G.~Winskel, Event structures, Cambridge University Computer
   Laboratory, Technical Report No.~95.

@@ -1,0 +1,96 @@
+-- With univalence, dilators form a SET (as the ordinals do, HoTT book
+-- 10.3): a well-founded linear order has no non-trivial automorphism, so
+-- the natural isomorphisms out of a dilator (determined by the finite
+-- levels, SFLocSmall) form a proposition, and so do its paths
+-- (SFUnivalent).  Pre-dilators do not form a set: the constant functor
+-- with value Z has the shift as a natural automorphism (not formalised).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module SF0 = StabFun[l] ;
+module PL = Prelude[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module LU = LOUnivalent[l] ;
+module FLS = FinLOSmall[l] ;
+module SLS = SFLocSmall[l] ;
+module EH = EquivalenceLemmas[l+] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module HL = Axioms[l].FunExtLemmas[fe @l] ;
+
+--------------------------------------------------------------------
+-- automorphisms of well-founded linear orders are trivial
+
+module Aut (A : DP.LO) (w : LW.WF A) (f g : DP.Map A A)
+  (gf : (x : A.car) -> Id A.car (g.1 (f.1 x)) x) (fg : (x : A.car) -> Id A.car (f.1 (g.1 x)) x) {
+  module AC = W.Acc[A.car,W.ltO A.car A.cmp] ;
+  P (x : A.car) : U l = Id A.car (f.1 x) x ;
+  ltOf (a b : A.car) (e : Id W.O3 (A.cmp a b) lt) : AC.Lt a b = PL.ap W.O3 W.Bool W.isLt (A.cmp a b) lt e ;
+  stepO (x : A.car) (ih : (y : A.car) -> AC.Lt y x -> P y) : (o : W.O3) -> Id W.O3 (A.cmp (f.1 x) x) o -> P x = split {
+    lt -> \ e -> DP.map-inj A A f (f.1 x) x (ih (f.1 x) (ltOf (f.1 x) x e)) ;
+    eq -> \ e -> A.ceq (f.1 x) x e ;
+    gt -> \ e ->
+      -- y = g x lies below x, and f y = y forces g x = x
+      PL.trans A.car (f.1 x) (f.1 (g.1 x)) x
+        (PL.ap A.car A.car f.1 x (g.1 x)
+          (PL.trans A.car x (f.1 (g.1 x)) (g.1 x) (PL.sym A.car (f.1 (g.1 x)) x (fg x))
+            (ih (g.1 x) (ltOf (g.1 x) x
+              (PL.trans W.O3 (A.cmp (g.1 x) x) (A.cmp (g.1 x) (g.1 (f.1 x))) lt
+                (PL.ap A.car W.O3 (A.cmp (g.1 x)) x (g.1 (f.1 x)) (PL.sym A.car (g.1 (f.1 x)) x (gf x)))
+                (PL.trans W.O3 (A.cmp (g.1 x) (g.1 (f.1 x))) (A.cmp x (f.1 x)) lt (g.2 x (f.1 x))
+                  (PL.trans W.O3 (A.cmp x (f.1 x)) (W.flip (A.cmp (f.1 x) x)) lt (A.cflip (f.1 x) x)
+                    (PL.ap W.O3 W.O3 W.flip (A.cmp (f.1 x) x) gt e))))))))
+        (fg x) } ;
+  result (x : A.car) : P x = AC.ind P (\ x0 ih -> stepO x0 ih (A.cmp (f.1 x0) x0) (refl (A.cmp (f.1 x0) x0))) x (w x) ;
+} ;
+
+-- finite ordinals are well-founded
+wf-ord (c : W.N) : LW.WF (LC.ord c) =
+  W.Pull[(LC.ord c).car,W.ltO (LC.ord c).car (LC.ord c).cmp,W.N,W.ltO W.N W.cmpN,\ p -> p.1,\ x y h -> h].pullWF W.wfN ;
+
+--------------------------------------------------------------------
+-- the paths out of a dilator form a proposition
+
+module DS (X Y : SF0.SF[LC.ce]) (dx : LW.IsDil X) {
+  module L = SLS.Loc[LC.ce,X,Y] ;
+  XG (c : W.N) : DP.LO = X.G (LC.ord c) ;
+  YG (c : W.N) : DP.LO = Y.G (LC.ord c) ;
+  autR (n n' : L.FinNI) (c : W.N) (x : (XG c).car) :
+      Id (XG c).car ((n'.1 c).1.2.sec ((n.1 c).1.1 x)) x =
+    Aut[XG c,dx (LC.ord c) (wf-ord c),
+      FLS.compM (XG c) (YG c) (XG c) (FLS.mapOf (XG c) (YG c) (n.1 c)) (FLS.invMap (XG c) (YG c) (n'.1 c)),
+      FLS.compM (XG c) (YG c) (XG c) (FLS.mapOf (XG c) (YG c) (n'.1 c)) (FLS.invMap (XG c) (YG c) (n.1 c)),
+      \ x -> PL.trans (XG c).car ((n.1 c).1.2.sec ((n'.1 c).1.1 ((n'.1 c).1.2.sec ((n.1 c).1.1 x)))) ((n.1 c).1.2.sec ((n.1 c).1.1 x)) x
+        (PL.ap (YG c).car (XG c).car (n.1 c).1.2.sec ((n'.1 c).1.1 ((n'.1 c).1.2.sec ((n.1 c).1.1 x))) ((n.1 c).1.1 x)
+          ((n'.1 c).1.2.sec-eq ((n.1 c).1.1 x)))
+        (PL.sec-ret (XG c).car (YG c).car (n.1 c).1.1 (n.1 c).1.2 x),
+      \ x -> PL.trans (XG c).car ((n'.1 c).1.2.sec ((n.1 c).1.1 ((n.1 c).1.2.sec ((n'.1 c).1.1 x)))) ((n'.1 c).1.2.sec ((n'.1 c).1.1 x)) x
+        (PL.ap (YG c).car (XG c).car (n'.1 c).1.2.sec ((n.1 c).1.1 ((n.1 c).1.2.sec ((n'.1 c).1.1 x))) ((n'.1 c).1.1 x)
+          ((n.1 c).1.2.sec-eq ((n'.1 c).1.1 x)))
+        (PL.sec-ret (XG c).car (YG c).car (n'.1 c).1.1 (n'.1 c).1.2 x)].result x ;
+  eqv (n n' : L.FinNI) (c : W.N) (y : (XG c).car) : Id (YG c).car ((n.1 c).1.1 y) ((n'.1 c).1.1 y) =
+    PL.trans (YG c).car ((n.1 c).1.1 y) ((n'.1 c).1.1 ((n'.1 c).1.2.sec ((n.1 c).1.1 y))) ((n'.1 c).1.1 y)
+      (PL.sym (YG c).car ((n'.1 c).1.1 ((n'.1 c).1.2.sec ((n.1 c).1.1 y))) ((n.1 c).1.1 y) ((n'.1 c).1.2.sec-eq ((n.1 c).1.1 y)))
+      (PL.ap (XG c).car (YG c).car (n'.1 c).1.1 ((n'.1 c).1.2.sec ((n.1 c).1.1 y)) y (autR n n' c y)) ;
+  niProp : PL.isProp L.FinNI = \ n n' ->
+    PL.Sigma-eq L.FI (\ e -> L.NatF e) n.1 n'.1 n.2 n'.2
+      (HL.funext W.N (\ c -> LU.LOIso (XG c) (YG c)) n.1 n'.1 (\ c -> FLS.isoEq (XG c) (YG c) (n.1 c) (n'.1 c) (eqv n n' c)))
+      (L.natF-prop n'.1) ;
+  eq : Equiv (Id SF0.SF[LC.ce] X Y) L.FinNI = EH.then (Id SF0.SF[LC.ce] X Y) (L.U1.NI Y) L.FinNI L.idNI L.niFin ;
+  idProp : isProp (Id SF0.SF[LC.ce] X Y) =
+    retract-prop (Id SF0.SF[LC.ce] X Y) L.FinNI eq.1 eq.2.sec (sec-ret (Id SF0.SF[LC.ce] X Y) L.FinNI eq.1 eq.2) niProp ;
+} ;
+
+--------------------------------------------------------------------
+-- the type of dilators is a set
+
+wf-prop (A : DP.LO) : PL.isProp (LW.WF A) =
+  HL.isProp-Pi A.car (\ x -> W.Acc[A.car,W.ltO A.car A.cmp].AccP x) (\ x -> ThetaWF[l].AccProp[A.car,W.ltO A.car A.cmp].accProp x) ;
+isDil-prop (X : SF0.SF[LC.ce]) : isProp (LW.IsDil X) =
+  H.isProp-Pi DP.LO (\ A -> LW.WF A -> LW.WF (X.G A)) (\ A ->
+    H.isProp-Pi (LW.WF A) (\ _ -> LW.WF (X.G A)) (\ _ -> wf-prop (X.G A))) ;
+Dil : U l+ = (X : SF0.SF[LC.ce]) * LW.IsDil X ;
+dil-set : isSet Dil = \ u ->
+  Hedberg[Dil,u,\ v -> Id SF0.SF[LC.ce] u.1 v.1,\ v -> DS[u.1,v.1,u.2].idProp,refl u.1,
+    \ v p -> Sigma-eq SF0.SF[LC.ce] LW.IsDil u.1 v.1 u.2 v.2 p (isDil-prop v.1)].hedberg ;
