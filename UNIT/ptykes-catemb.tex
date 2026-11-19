@@ -289,6 +289,131 @@ $\Pi^1_2$-$\mathrm{CA}_0$, the statement is not provable in it (a
 metatheorem, via G\"odel's second incompleteness theorem; not formalised).
 \end{corollary}
 
+\section{With univalence: finite objects up to isomorphism}
+
+In this section we assume in addition the univalence axiom and Rijke's
+replacement principle~\cite{Rij} (the image of a map from a small type
+into a locally small type is small), as in the treatment of Scott domains
+in the same library. The point is that \emph{rigidity} of finite objects
+interacts well with univalence: the finite objects up to isomorphism form a
+small \emph{set}, obtained without choosing codes, in the same way as the
+compact elements of a Scott domain form a small basis.
+
+\begin{theorem}[Univalence of $\Stab(C)$]
+For every category of embeddings $C$ and stable functors $X,Y$, the type of
+paths $X=Y$ is equivalent to the type of natural isomorphisms $X\cong Y$
+(isomorphisms of linear orders at every object, natural in $C$), and also
+to the type of natural isomorphisms between the restrictions of $X$ and $Y$
+to the finite objects. The latter type is small, so $\Stab(C)$ is locally
+small.
+\end{theorem}
+
+The first equivalence is the structure identity principle for the family
+of linear orders together with its action on maps: naturality forces the
+transported action to coincide with the given one, and the remaining
+components are propositions. For the second, a natural isomorphism on
+finite objects and its inverse extend to all objects (continuity), and the
+extensions are inverse by uniqueness of extensions. At level~$0$ the same
+argument shows that the finite linear orders form a small type equivalent
+to $\mathbb{N}$: since $[n]$ is rigid, an isomorphism $A\cong[n]$ is unique
+when it exists, so ``$A$ is finite'' needs no truncation.
+
+\begin{theorem}[Finite stable functors up to isomorphism]
+Let $C$ be a CEF and let $\mathrm{FinDil}_C$ be the image of
+$\mathrm{Decode}:\mathrm{Codes}\to\Stab(C)$, small by replacement. Then
+\begin{enumerate}
+\item $\mathrm{FinDil}_C$ is a set: since a decoded code is rigid, the
+  natural isomorphisms out of it form a proposition, hence so do its
+  paths;
+\item $\mathrm{FinDil}_C$ has decidable equality: by rigidity \emph{any}
+  pair of maps $\mathrm{Decode}\,K\rightleftarrows\mathrm{Decode}\,K'$ is
+  an isomorphism (both composites are endomorphisms, hence identities),
+  and the existence of such maps is decided by two searches in the finite
+  hom-sets.
+\end{enumerate}
+\end{theorem}
+
+\paragraph{Enumeration.} A code has a comparison at \emph{every} finite
+level, so codes are not finite data. They are, up to isomorphism: by the
+multicoproducts, a code is determined by a finite \emph{table} giving, for
+two generators $i,i'$ and a listed joint type $t$ of their finite objects,
+the comparison of the two normal forms at $t$. Two points at any level are
+compared at the least listed joint type through which they factor (found
+by search, and invariant under maps by uniqueness of factorisations).
+Validity of a table reduces to finitely many checks: reflexivity at the
+generators, flip and equality at the joint types of pairs of generators,
+transitivity at the iterated joint types of triples. Hence validity is
+decidable.
+
+\begin{theorem}[Enumeration up to isomorphism]
+If the finite objects of a CEF $C$ can be listed up to isomorphism (finite
+lists $L_0,L_1,\ldots$ such that every finite object has an isomorphic copy
+in some $L_b$), then so can the finite objects of $\Stab(C)$: list, at
+stage $B$, the valid tables with at most $B$ generators taken from
+$L_0,\ldots,L_B$. Every code is isomorphic to a listed one: move its
+generators to listed copies (rigidity makes the composites identities),
+read off its table, and find an agreeing table in the list.
+\end{theorem}
+
+Starting from the finite ordinals this enumerates finite pre-dilators,
+pre-ptykes of type~2, of type~3, \dots, up to isomorphism, and every element
+of $\mathrm{FinDil}_C$ occurs in the lists. Since equality in
+$\mathrm{FinDil}_C$ is decidable, the \emph{least} index hitting a given
+element is a proposition and can be extracted from the truncation:
+
+\begin{corollary}[Canonical representatives]
+$\mathrm{FinDil}_C$ is equivalent to a decidable subset of $\mathbb{N}$
+(the indices that are least in their class), and there is a section
+$\mathrm{FinDil}_C\to\mathrm{Codes}$.
+\end{corollary}
+
+Restricted to monotone codes over $\LO$, whose monotonicity is checked at the
+joint types of each generator with itself (decidably), this gives a
+canonical sequence of codes of finite dilators. It replaces the parameter
+of the $\Pi^1_4$ reduction: every monotone code is isomorphic to a member of
+the sequence.
+
+\paragraph{Uniqueness up to isomorphism.} In the proof of the main theorem,
+the multicoproducts of two decoded codes must be unique \emph{strictly}:
+two listed cospans through which a pair of maps factors must be equal
+\emph{as codes}. This is achieved by a canonical form for the listed
+cospans (which generators are kept, which comparisons are recorded, which
+maps are the legs) and a determinacy argument showing that a factoring
+cospan in canonical form is the covering one. The univalent statement is
+uniqueness up to unique isomorphism, and it has a short generic proof, valid
+in any category of embeddings. Call a cospan $u:X_1\to Z\leftarrow X_2:v$
+\emph{jointly surjective} if every point of $Z$ comes from $X_1$ or from
+$X_2$; listed sum codes have this property.
+
+\begin{proposition}
+Let $(u,v)$ be jointly surjective, and let a pair $(f,g)$ factor through it
+by $m:Z\to Y$, and through any cospan $(u',v')$ by $m':Z'\to Y$. Then there
+is a map $Z\to Z'$ compatible with the legs and with $m,m'$, and maps out
+of $Z$ are determined by their composites with $u$ and $v$.
+\end{proposition}
+
+The map sends a point $u(a)$ to $u'(a)$ and $v(b)$ to $v'(b)$. It is well
+defined because $m'$ is injective, and cartesian because $m$ is. With joint
+surjectivity on both sides and rigid decoded objects, the two mediating
+maps are inverse. Strict uniqueness is then recovered generically: if iso
+of listed cospans is decidable (it is, the hom-sets being finite), drop
+from the list every entry that has an isomorphic copy earlier in the list.
+The new list still covers (the least isomorphic copy of a covering entry is
+kept) and is strictly unique (two kept entries through which $(f,g)$
+factors are isomorphic, so neither comes before the other). This gives a
+second proof of the main theorem without the determinacy argument. The
+canonical forms are still used, to know that the legs of the covering
+cospan are the injections, but not their uniqueness.
+
+\begin{remark}
+In terms of size, the second proof is not shorter: the Stab-specific part
+drops from about 290 to about 110 lines, but the generic parts (mediation
+and deduplication) add about 330. The gain is conceptual. Uniqueness of
+codes is replaced by universal properties, and, because finite objects are
+rigid, uniqueness up to unique isomorphism becomes equality in the set
+$\mathrm{FinDil}_C$.
+\end{remark}
+
 \section{What one may hope for}
 
 \paragraph{A type-3 collapse.} Girard~\cite{GirH} conjectured that
@@ -373,6 +498,13 @@ library; the files below take a few seconds each). Main files, in the
   ($\varepsilon_X$), \texttt{ThetaTerm}, \texttt{ThetaLO},
   \texttt{ThetaLO2}, \texttt{ThetaLO3}, \texttt{ThetaFun},
   \texttt{ThetaWF}, \texttt{ThetaFun2} ($\vartheta$ as a type-2 ptyx);
+\item with univalence and replacement: \texttt{LOUnivalent},
+  \texttt{FinLOSmall}, \texttt{SFUnivalent}, \texttt{SFLocSmall},
+  \texttt{FinDil} (small set, decidable equality), \texttt{StabTab},
+  \texttt{StabTabCov}, \texttt{StabEnum} (enumeration up to isomorphism),
+  \texttt{MonoEnum} (canonical sequence of monotone codes),
+  \texttt{FinDilCanon} (canonical representatives), \texttt{CospanUniq},
+  \texttt{Dedup}, \texttt{StabCEF2} (second proof of the main theorem);
 \item type 3 (in progress): \texttt{ThetaP3Term} (terms of $\Theta_P$ and a
   decidable comparison, defined with a fuel bound); a Python mirror of the candidate in
   \texttt{mirror/}.
@@ -424,6 +556,7 @@ colimits; it is subsumed by the abstract theorem.
   arXiv:2506.16491.
 \bibitem{TowPoly} H.~Towsner, Polymorphic ordinal notations,
   arXiv:2504.02131.
+\bibitem{Rij} E.~Rijke, The join construction, arXiv:1701.07538.
 \bibitem{Win} G.~Winskel, Event structures, Cambridge University Computer
   Laboratory, Technical Report No.~95.
 \end{thebibliography}
