@@ -366,22 +366,33 @@ identities). It is not a preorder ($\mathrm{Id}\to\mathrm{Id}+\mathrm{Id}$
 has two embeddings).
 
 \paragraph{Ptykes of type 2.} To go one type up, the dilators must
-themselves form a category of embeddings, and here a \emph{size}
-obstruction appears: the finite objects must form a small type, but
-``$\mathrm{Decode}\,K$ is a dilator'' quantifies over all linear orders.
-Following Girard, whose predilators are monotone, we take as finite objects
-the \emph{monotone} codes (monotonicity is checked at the joint types of
-each generator with itself, so it is small and decidable, and monotone codes
-decode to dilators) and as objects the monotone dilators; classically these
-are all dilators. Monotonicity and well-foundedness pass to sub-functors,
-which gives pull-backs and directedness. A ptyx of type~2 in Girard's sense
-is then a stable functor on this category which is well-founded at every
-object, and:
+themselves form a category of embeddings, whose finite objects form a
+\emph{small} type. With the definition used so far (a stable functor
+preserving well-foundedness) this fails for size reasons: ``$\mathrm{Decode}\,K$
+is a dilator'' quantifies over all linear orders. Girard's definition avoids
+this: a \emph{predilator} is required to be \emph{monotone} (for a point $x$
+at a finite level and embeddings $k\le k'$ pointwise, $D(k)x\le D(k')x$), and
+a dilator is a predilator preserving well-orders. For a finite code,
+monotonicity is small and decidable (it is checked at the joint types of each
+generator with itself) and already implies well-foundedness. We therefore
+take Girard's definition: the finite objects are the monotone codes and the
+objects the monotone, well-foundedness preserving stable functors.
+Monotonicity and well-foundedness pass to sub-functors, which gives
+pull-backs and directedness. A ptyx of type~2 in Girard's sense is a stable
+functor on this category which is well-founded at every object, and:
 
 \begin{theorem}
 Ptykes of type 2 form a univalent gaunt category; the type of ptykes of
 type 2 is a set.
 \end{theorem}
+
+\begin{remark}
+Classically every stable functor preserving well-foundedness is monotone
+(Girard), so both definitions of dilator agree; whether this holds
+constructively is open. The size obstruction is an argument for Girard's
+definition: being a finite predilator is a small decidable property, being a
+finite dilator in the weaker sense is not.
+\end{remark}
 
 Going further up requires a small criterion for the finite objects of type
 2 (an analogue of monotonicity), which we do not have.
