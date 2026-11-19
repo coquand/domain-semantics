@@ -1,0 +1,150 @@
+-- Finitely presented stable functors form a small SET with decidable
+-- equality (univalence + replacement + rigidity).
+--
+-- Decode : Code[F] -> SF[F.C] has a locally small codomain (SFLocSmall),
+-- so replacement gives its image FinDil : U l, a SMALL type of finite
+-- stable functors, with no chosen codes and no quotient.
+--   * Rigidity (StabRigid.Rig): a decoded code has only the identity
+--     endomorphism, so the natural isos out of it form a proposition;
+--     by univalence (SFUnivalent + SFLocSmall) the paths out of it form
+--     a proposition, and FinDil is a set.
+--   * Rigidity again: any pair of morphisms D K -> D K', D K' -> D K is
+--     an isomorphism.  The hom-sets are Bishop-finite (StabHom), so
+--     "D K = D K'" is decidable by two finite searches; FinDil has
+--     decidable equality.
+-- At F = FinOrd this is the set of finite dilators up to iso.
+level l ;
+open Base ; open Prelude[l+] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module SF0 = StabFun[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module SH = StabHom[l] ;
+module SRg = StabRigid[l] ;
+module H = Axioms[l+].FunExtLemmas[fe @l+] ;
+module HL = Axioms[l].FunExtLemmas[fe @l] ;
+module LU = LOUnivalent[l] ;
+module FLS = FinLOSmall[l] ;
+module SLS = SFLocSmall[l] ;
+module R = Replacement[l,l+] ;
+module EH = EquivalenceLemmas[l+] ;
+
+-- decisions of a proposition are unique
+orDec-prop (P : U l) (pP : PL.isProp P) : PL.isProp (W.Or P (P -> W.Empty)) = split {
+  inl p -> split {
+    inl q -> PL.ap P (W.Or P (P -> W.Empty)) (\ z -> inl z) p q (pP p q) ;
+    inr n -> CF.efq (Id (W.Or P (P -> W.Empty)) (inl p) (inr n)) (n p) } ;
+  inr n -> split {
+    inl q -> CF.efq (Id (W.Or P (P -> W.Empty)) (inr n) (inl q)) (n q) ;
+    inr m -> PL.ap (P -> W.Empty) (W.Or P (P -> W.Empty)) (\ z -> inr z) n m
+      (HL.isProp-Pi P (\ _ -> W.Empty) (\ p -> CF.efq (PL.isProp W.Empty) (n p)) n m) } } ;
+-- decisions transported along a logical equivalence
+orDec-iff (P Q : U l) (f : P -> Q) (g : Q -> P) : W.Or P (P -> W.Empty) -> W.Or Q (Q -> W.Empty) = split {
+  inl p -> inl (f p) ;
+  inr n -> inr (\ q -> n (g q)) } ;
+
+module FD (F : CF.CEF) {
+  module O = SF0.Over[F.C] ;
+  SFC : U l+ = SF0.SF[F.C] ;
+  Code : U l = SC.Code[F] ;
+  dec (K : Code) : SFC = SC.Decode[F,K].obj ;
+
+  ------------------------------------------------------------------
+  -- rigidity: the paths out of a decoded code form a proposition
+  module Uniq (K : Code) (Y : SFC) {
+    X : SFC = dec K ;
+    module L = SLS.Loc[F.C,X,Y] ;
+    eqv (n n' : L.FinNI) (c : F.C.Fin) (y : (X.G (F.C.fin c)).car) :
+        Id (Y.G (F.C.fin c)).car ((n.1 c).1.1 y) ((n'.1 c).1.1 y) =
+      PL.trans (Y.G (F.C.fin c)).car ((n.1 c).1.1 y) ((n'.1 c).1.1 (L.Extend[n'].inv c ((n.1 c).1.1 y))) ((n'.1 c).1.1 y)
+        (PL.sym (Y.G (F.C.fin c)).car ((n'.1 c).1.1 (L.Extend[n'].inv c ((n.1 c).1.1 y))) ((n.1 c).1.1 y)
+          (L.Extend[n'].invR c ((n.1 c).1.1 y)))
+        (PL.ap (X.G (F.C.fin c)).car (Y.G (F.C.fin c)).car (n'.1 c).1.1 (L.Extend[n'].inv c ((n.1 c).1.1 y)) y
+          (PL.ap (O.Mor X X) (X.G (F.C.fin c)).car (\ M -> (M.1 c).1 y)
+            (O.compS X Y X L.Extend[n].m L.Extend[n'].mi) (O.idS X)
+            (SRg.Rig[F,K].rigid (O.compS X Y X L.Extend[n].m L.Extend[n'].mi)))) ;
+    niProp : PL.isProp L.FinNI = \ n n' ->
+      PL.Sigma-eq L.FI (\ e -> L.NatF e) n.1 n'.1 n.2 n'.2
+        (HL.funext F.C.Fin (\ c -> LU.LOIso (X.G (F.C.fin c)) (Y.G (F.C.fin c))) n.1 n'.1 (\ c ->
+          FLS.isoEq (X.G (F.C.fin c)) (Y.G (F.C.fin c)) (n.1 c) (n'.1 c) (eqv n n' c)))
+        (L.natF-prop n'.1) ;
+    eq : Equiv (Id SFC X Y) L.FinNI = EH.then (Id SFC X Y) (L.U1.NI Y) L.FinNI L.idNI L.niFin ;
+    idProp : isProp (Id SFC X Y) =
+      retract-prop (Id SFC X Y) L.FinNI eq.1 eq.2.sec (sec-ret (Id SFC X Y) L.FinNI eq.1 eq.2) niProp ;
+  } ;
+
+  ------------------------------------------------------------------
+  -- rigidity: maps both ways are inverse; isomorphism is decidable
+  module Iso (K K' : Code) {
+    X : SFC = dec K ;
+    Y : SFC = dec K' ;
+    module L = SLS.Loc[F.C,X,Y] ;
+    Both : U l = O.Mor X Y * O.Mor Y X ;
+    module ToNI (b : Both) {
+      fwd (c : F.C.Fin) (y : (Y.G (F.C.fin c)).car) : Id (Y.G (F.C.fin c)).car ((b.1.1 c).1 ((b.2.1 c).1 y)) y =
+        PL.ap (O.Mor Y Y) (Y.G (F.C.fin c)).car (\ M -> (M.1 c).1 y) (O.compS Y X Y b.2 b.1) (O.idS Y)
+          (SRg.Rig[F,K'].rigid (O.compS Y X Y b.2 b.1)) ;
+      bwd (c : F.C.Fin) (y : (X.G (F.C.fin c)).car) : Id (X.G (F.C.fin c)).car ((b.2.1 c).1 ((b.1.1 c).1 y)) y =
+        PL.ap (O.Mor X X) (X.G (F.C.fin c)).car (\ M -> (M.1 c).1 y) (O.compS X Y X b.1 b.2) (O.idS X)
+          (SRg.Rig[F,K].rigid (O.compS X Y X b.1 b.2)) ;
+      ni : L.FinNI =
+        (\ c -> (((b.1.1 c).1,PL.qinv (X.G (F.C.fin c)).car (Y.G (F.C.fin c)).car (b.1.1 c).1 (b.2.1 c).1 (fwd c) (bwd c)),(b.1.1 c).2),
+         b.1.2.1) ;
+    } ;
+    fromNI (n : L.FinNI) : Both = (L.Extend[n].m,L.Extend[n].mi) ;
+    unit : W.N -> U l = \ _ -> Id W.N zero zero ;
+    decMor (A B : Code) : W.Or ((a : O.Mor (dec A) (dec B)) * unit zero) (((a : O.Mor (dec A) (dec B)) * unit zero) -> W.Empty) =
+      CF.EnumDec[O.Mor (dec A) (dec B),SH.HomE[F,A,B].homN,SH.HomE[F,A,B].hom,SH.HomE[F,A,B].hom-surj,
+        \ _ -> unit zero,\ _ -> inl (refl zero)].result ;
+    decBoth : W.Or Both (Both -> W.Empty) =
+      orDec-iff (((a : O.Mor X Y) * unit zero) * ((a : O.Mor Y X) * unit zero)) Both
+        (\ p -> (p.1.1,p.2.1)) (\ b -> ((b.1,refl zero),(b.2,refl zero)))
+        (SH.decPair ((a : O.Mor X Y) * unit zero) ((a : O.Mor Y X) * unit zero) (decMor K K') (decMor K' K)) ;
+    decNI : W.Or L.FinNI (L.FinNI -> W.Empty) = orDec-iff Both L.FinNI (\ b -> ToNI[b].ni) fromNI decBoth ;
+    eq : Equiv (Id SFC X Y) L.FinNI = Uniq[K,Y].eq ;
+  } ;
+
+  ------------------------------------------------------------------
+  -- the small type of finitely presented stable functors
+  im : R.Image[Code,SFC,dec] = images @l @l+ Code SFC (SLS.locally-small F.C) dec ;
+  FinDil : U l = im.carrier ;
+  q (K : Code) : FinDil = im.quotient K ;
+  inc (x : FinDil) : SFC = im.inclusion x ;
+  -- elimination into propositions (replacement: surjectivity of q)
+  elim (P : FinDil -> U l) (pP : (x : FinDil) -> PL.isProp (P x)) (s : (K : Code) -> P (q K)) (x : FinDil) : P x =
+    (surjections @l @l+ @l Code SFC (SLS.locally-small F.C) dec P pP).sec s x ;
+
+  -- FinDil is a set
+  PathProp (x : FinDil) : U l+ = (Y : SFC) -> isProp (Id SFC (inc x) Y) ;
+  pathProp-q (K : Code) : PathProp (q K) = \ Y ->
+    subst SFC (\ Z -> isProp (Id SFC Z Y)) (dec K) (inc (q K)) (sym SFC (inc (q K)) (dec K) (im.triangle K)) Uniq[K,Y].idProp ;
+  pathProp (x : FinDil) : PathProp x =
+    (surjections @l @l+ @l+ Code SFC (SLS.locally-small F.C) dec PathProp
+      (\ z -> H.isProp-Pi SFC (\ Y -> isProp (Id SFC (inc z) Y)) (\ Y -> H.isProp-isProp (Id SFC (inc z) Y)))).sec pathProp-q x ;
+  set : isSet FinDil = \ x y ->
+    retract-prop (Id FinDil x y) (Id SFC (inc x) (inc y)) (ap FinDil SFC inc x y) (im.embedding x y).sec
+      (sec-ret (Id FinDil x y) (Id SFC (inc x) (inc y)) (ap FinDil SFC inc x y) (im.embedding x y)) (pathProp x (inc y)) ;
+
+  -- FinDil has decidable equality
+  DecEq (x y : FinDil) : U l = W.Or (Id FinDil x y) (Id FinDil x y -> W.Empty) ;
+  decEq-prop (x y : FinDil) : PL.isProp (DecEq x y) = orDec-prop (Id FinDil x y) (set x y) ;
+  decQ (K K' : Code) : DecEq (q K) (q K') =
+    orDec-iff Iso[K,K'].L.FinNI (Id FinDil (q K) (q K'))
+      (\ n -> (im.embedding (q K) (q K')).sec
+        (trans SFC (inc (q K)) (dec K) (inc (q K')) (im.triangle K)
+          (trans SFC (dec K) (dec K') (inc (q K')) (Iso[K,K'].eq.2.sec n) (sym SFC (inc (q K')) (dec K') (im.triangle K')))))
+      (\ p -> Iso[K,K'].eq.1 (trans SFC (dec K) (inc (q K)) (dec K') (sym SFC (inc (q K)) (dec K) (im.triangle K))
+        (trans SFC (inc (q K)) (inc (q K')) (dec K') (ap FinDil SFC inc (q K) (q K') p) (im.triangle K'))))
+      Iso[K,K'].decNI ;
+  decEq (x y : FinDil) : DecEq x y =
+    elim (\ z -> (w : FinDil) -> DecEq z w)
+      (\ z -> HL.isProp-Pi FinDil (\ w -> DecEq z w) (\ w -> decEq-prop z w))
+      (\ K -> elim (\ w -> DecEq (q K) w) (\ w -> decEq-prop (q K) w) (\ K' -> decQ K K'))
+      x y ;
+} ;
+
+-- finite dilators up to isomorphism: a small set with decidable equality
+FinDil0 : U l = FD[FinOrd[l].cef].FinDil ;
+finDil-set : isSet FinDil0 = FD[FinOrd[l].cef].set ;

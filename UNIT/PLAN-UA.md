@@ -28,12 +28,18 @@ small : Replacement.Small FinLO  (FinLO ~ N).
   a small type): restrict / extend (Over.Ext of the family and of its
   inverse; det shows the extensions are inverse); hence
   locally-small C : Replacement.LocallySmall SF[C].
-- NEXT:
-- rigidity of decoded codes (StabRigid.Rig) => the type FinDil of finitely
-  presented stable functors is a set;
-- replacement: FinDil is the image of Decode : Codes -> SF (SF locally
-  small by univalence), hence small; decidable iso of codes (StabHom) =>
-  decidable equality, an enumeration of finite dilators up to iso.
+- DONE (2026-11-19) FinDil.seg, module FD[F] for every CEF F:
+  FinDil : U l = replacement image of Decode : Code[F] -> SF[F.C]
+  (codomain locally small by SFLocSmall); elim = surjectivity of q.
+  Uniq: rigidity => FinNI (D K) Y is a prop => Id SF (D K) Y is a prop;
+  hence set : isSet FinDil.  Iso: rigidity => ANY pair of maps
+  D K -> D K', D K' -> D K is an iso, so iso = two finite hom searches
+  (StabHom + EnumDec); decEq : decidable equality on FinDil.
+  FinDil0 = finite dilators up to iso (F = FinOrd).
+- OPEN: enumeration N ->> FinDil.  Code[F] is NOT enumerable as it
+  stands (ord : (d : Fin) -> ... ranges over all finite levels); need
+  codes determined by a finite level (ord at the joint types of pairs of
+  generators, cf. StabHom.OrdN / jt), then Code ~ a decidable subset of N.
 ## What should simplify
 - StabJt layer 7d (canonical entries CN, DetA, DetB, jt-uniq via funext on
   tables and J on code paths): "unique up to iso" becomes equality, the
