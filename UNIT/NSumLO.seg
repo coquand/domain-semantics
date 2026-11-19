@@ -1,0 +1,109 @@
+-- The lexicographic sum of an N-indexed family of linear orders:
+-- points (n, x) with x in X n, ordered by n, then in X n.  Defined by
+-- recursion on n with the family shifted (X o suc), so that no transport
+-- along equalities of indices is needed.  Laws, maps of families, and
+-- well-foundedness (every X n well-founded => the sum is).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LW = LOWF[l] ;
+
+NFam : U l+ = W.N -> DP.LO ;
+nsh (X : NFam) : NFam = \ k -> X (suc k) ;
+NCar (X : NFam) : U l = (n : W.N) * (X n).car ;
+nup (X : NFam) (p : NCar (nsh X)) : NCar X = (suc p.1,p.2) ;
+
+o3-lt-eq (A : U l) (h : Id W.O3 lt eq) : A = CF.efq A (StabAmal[l].o3-ne lt eq (refl false) h) ;
+o3-gt-eq (A : U l) (h : Id W.O3 gt eq) : A = CF.efq A (StabAmal[l].o3-ne gt eq (refl false) h) ;
+o3-gt-lt (A : U l) (h : Id W.O3 gt lt) : A = CF.efq A (StabAmal[l].o3-ne gt lt (refl false) h) ;
+
+nsCmp : (n : W.N) (X : NFam) (m : W.N) -> (X n).car -> (X m).car -> W.O3 = split {
+  zero -> \ X -> split { zero -> \ x y -> (X zero).cmp x y ; suc m -> \ x y -> lt } ;
+  suc n | r -> \ X -> split { zero -> \ x y -> gt ; suc m -> \ x y -> r (nsh X) m x y } } ;
+
+nsRefl : (n : W.N) (X : NFam) (x : (X n).car) -> Id W.O3 (nsCmp n X n x x) eq = split {
+  zero -> \ X x -> (X zero).crefl x ;
+  suc n | r -> \ X x -> r (nsh X) x } ;
+
+nsFlip : (n : W.N) (X : NFam) (m : W.N) (x : (X n).car) (y : (X m).car) ->
+    Id W.O3 (nsCmp m X n y x) (W.flip (nsCmp n X m x y)) = split {
+  zero -> \ X -> split { zero -> \ x y -> (X zero).cflip x y ; suc m -> \ x y -> refl gt } ;
+  suc n | r -> \ X -> split { zero -> \ x y -> refl lt ; suc m -> \ x y -> r (nsh X) m x y } } ;
+
+nsTrans : (n : W.N) (X : NFam) (m k : W.N) (x : (X n).car) (y : (X m).car) (z : (X k).car) ->
+    Id W.O3 (nsCmp n X m x y) lt -> Id W.O3 (nsCmp m X k y z) lt -> Id W.O3 (nsCmp n X k x z) lt = split {
+  zero -> \ X -> split {
+    zero -> split {
+      zero -> \ x y z h1 h2 -> (X zero).ctrans x y z h1 h2 ;
+      suc k -> \ x y z h1 h2 -> refl lt } ;
+    suc m -> split {
+      zero -> \ x y z h1 h2 -> o3-gt-lt (Id W.O3 (nsCmp zero X zero x z) lt) h2 ;
+      suc k -> \ x y z h1 h2 -> refl lt } } ;
+  suc n | r -> \ X -> split {
+    zero -> \ k x y z h1 h2 -> o3-gt-lt (Id W.O3 (nsCmp (suc n) X k x z) lt) h1 ;
+    suc m -> split {
+      zero -> \ x y z h1 h2 -> o3-gt-lt (Id W.O3 (nsCmp (suc n) X zero x z) lt) h2 ;
+      suc k -> \ x y z h1 h2 -> r (nsh X) m k x y z h1 h2 } } } ;
+
+nsEq : (n : W.N) (X : NFam) (m : W.N) (x : (X n).car) (y : (X m).car) ->
+    Id W.O3 (nsCmp n X m x y) eq -> Id (NCar X) (n,x) (m,y) = split {
+  zero -> \ X -> split {
+    zero -> \ x y h -> PL.ap (X zero).car (NCar X) (\ u -> (zero,u)) x y ((X zero).ceq x y h) ;
+    suc m -> \ x y h -> o3-lt-eq (Id (NCar X) (zero,x) (suc m,y)) h } ;
+  suc n | r -> \ X -> split {
+    zero -> \ x y h -> o3-gt-eq (Id (NCar X) (suc n,x) (zero,y)) h ;
+    suc m -> \ x y h -> PL.ap (NCar (nsh X)) (NCar X) (nup X) (n,x) (m,y) (r (nsh X) m x y h) } } ;
+
+module NSum (X : NFam) {
+  Car : U l = NCar X ;
+  cmp (p q : Car) : W.O3 = nsCmp p.1 X q.1 p.2 q.2 ;
+  lo : DP.LO = new DP.LO[car := Car, cmp := cmp, ceq := \ p q h -> nsEq p.1 X q.1 p.2 q.2 h,
+    crefl := \ p -> nsRefl p.1 X p.2, cflip := \ p q -> nsFlip p.1 X q.1 p.2 q.2,
+    ctrans := \ p q r -> nsTrans p.1 X q.1 r.1 p.2 q.2 r.2] ;
+} ;
+
+-- maps of families act on the sum
+nsMap : (n : W.N) (X Y : NFam) (h : (k : W.N) -> DP.Map (X k) (Y k)) (m : W.N) (x : (X n).car) (y : (X m).car) ->
+    Id W.O3 (nsCmp n Y m ((h n).1 x) ((h m).1 y)) (nsCmp n X m x y) = split {
+  zero -> \ X Y h -> split { zero -> \ x y -> (h zero).2 x y ; suc m -> \ x y -> refl lt } ;
+  suc n | r -> \ X Y h -> split { zero -> \ x y -> refl gt ; suc m -> \ x y -> r (nsh X) (nsh Y) (\ k -> h (suc k)) m x y } } ;
+nsMapLO (X Y : NFam) (h : (k : W.N) -> DP.Map (X k) (Y k)) : DP.Map (NSum[X].lo) (NSum[Y].lo) =
+  (\ p -> (p.1,(h p.1).1 p.2),\ p q -> nsMap p.1 X Y h q.1 p.2 q.2) ;
+
+-- well-foundedness
+module NAcc (X : NFam) {
+  module AS = W.Acc[NCar X,W.ltO (NCar X) NSum[X].cmp] ;
+  module A0 = W.Acc[(X zero).car,W.ltO (X zero).car (X zero).cmp] ;
+  -- the first summand
+  baseC : (m : W.N) (y : (X m).car) (x1 : (X zero).car) (ih : (y : (X zero).car) -> A0.Lt y x1 -> AS.AccP (zero,y)) ->
+      AS.Lt (m,y) (zero,x1) -> AS.AccP (m,y) = split {
+    zero -> \ y x1 ih h -> ih y h ;
+    suc m -> \ y x1 ih h -> W.absurdB (AS.AccP (suc m,y)) h } ;
+  base0 (x : (X zero).car) (ax : A0.AccP x) : AS.AccP (zero,x) =
+    A0.ind (\ x1 -> AS.AccP (zero,x1))
+      (\ x1 ih -> AS.acc (zero,x1) (\ q h -> baseC q.1 q.2 x1 ih h))
+      x ax ;
+} ;
+-- the later summands, from the shifted family
+module NLift (X : NFam) {
+  module B = NAcc[X] ;
+  module AS = B.AS ;
+  module S = NAcc[nsh X] ;
+  stepC (n : W.N) (x : (X (suc n)).car) (all0 : (y : (X zero).car) -> AS.AccP (zero,y))
+    (ih : (q : NCar (nsh X)) -> S.AS.Lt q (n,x) -> AS.AccP (nup X q)) :
+      (m : W.N) (y : (X m).car) -> AS.Lt (m,y) (suc n,x) -> AS.AccP (m,y) = split {
+    zero -> \ y h -> all0 y ;
+    suc m -> \ y h -> ih (m,y) h } ;
+  liftS (p : NCar (nsh X)) (ap : S.AS.AccP p) (all0 : (y : (X zero).car) -> AS.AccP (zero,y)) : AS.AccP (nup X p) =
+    S.AS.ind (\ q -> AS.AccP (nup X q))
+      (\ q ih -> AS.acc (nup X q) (\ r h -> stepC q.1 q.2 all0 ih r.1 r.2 h))
+      p ap ;
+} ;
+
+nsAcc : (n : W.N) (X : NFam) (wf : (k : W.N) -> LW.WF (X k)) (x : (X n).car) -> NAcc[X].AS.AccP (n,x) = split {
+  zero -> \ X wf x -> NAcc[X].base0 x (wf zero x) ;
+  suc n | r -> \ X wf x -> NLift[X].liftS (n,x) (r (nsh X) (\ k -> wf (suc k)) x) (\ y -> NAcc[X].base0 y (wf zero y)) } ;
+nsWF (X : NFam) (wf : (k : W.N) -> LW.WF (X k)) : LW.WF (NSum[X].lo) = \ p -> nsAcc p.1 X wf p.2 ;

@@ -1,0 +1,122 @@
+-- Labelled trees over a type-2 pre-ptyx F, as functors on
+-- Stab(Stab(LO)): the points interface of LabTreeG one type up.
+--
+-- Fix a sequence code : N -> Fin of codes of finite dilators.  A trace
+-- point of F is (n, y) with y in F(Decode (code n)); trace points are
+-- ordered lexicographically (NSumLO: by n, then in F(Decode (code n))).
+-- The order is invariant under morphisms of type-2 pre-ptykes (they act
+-- on the finite part), and well-founded when F is a ptyx, provided every
+-- Decode (code n) is a dilator (hypothesis fd).  Supports: the covering
+-- theorem over the CEF of dilators; the initial finite object: the empty
+-- code; pull-backs: pointwise.
+-- LabTree3[code,fd,ok,inv,pcl] gives a type-3 pre-ptyx G with
+--   G is a type-3 ptyx  <=>  tree_F is well-founded for every 2-ptyx F.
+-- (Classically, for the completeness theorem, code should enumerate all
+-- finite dilators up to isomorphism; nothing here depends on that.)
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module SP = StabPb[l] ;
+module SC = StabCode[l] ;
+module SDi = StabDir[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module L2 = LabTree2[l] ;
+module NS = NSumLO[l] ;
+
+F2 : CF.CEF = LOCEF[l].dilLO ;
+C3 : CE.CE = SDi.StabCE[F2].ce ;
+PT2 : U l+ = SF.SF[LW.C2] ;
+IsPtyx3 (G : SF.SF[C3]) : U l+ = LW.Lift C3 LW.IsPtyx G ;
+module O3v = SF.Over[LW.C2] ;
+
+-- the empty code of dilators
+g3 (i : W.N) : F2.C.Fin = L2.K0 ;
+module PP3 = SC.Pts[F2,zero,g3] ;
+ord3 (d : F2.C.Fin) (p q : PP3.Pt (F2.C.fin d)) : W.O3 = W.ltN-zero-abs W.O3 p.1 p.2.1 ;
+K3 : SC.Code[F2] = new SC.Code[F2, m := zero, gen := g3, ord := ord3,
+  inv := \ d d' l0 p q -> W.ltN-zero-abs (Id W.O3 (ord3 d' (PP3.post (F2.C.fin d) (F2.C.fin d') l0 p) (PP3.post (F2.C.fin d) (F2.C.fin d') l0 q)) (ord3 d p q)) p.1 p.2.1,
+  orefl := \ d p -> W.ltN-zero-abs (Id W.O3 (ord3 d p p) eq) p.1 p.2.1,
+  oflip := \ d p q -> W.ltN-zero-abs (Id W.O3 (ord3 d q p) (W.flip (ord3 d p q))) p.1 p.2.1,
+  otrans := \ d p q r h h' -> W.ltN-zero-abs (Id W.O3 (ord3 d p r) lt) p.1 p.2.1,
+  oeq := \ d p q h -> W.ltN-zero-abs (Id (PP3.Pt (F2.C.fin d)) p q) p.1 p.2.1] ;
+module Init3 (F : PT2) {
+  X0 : PT2 = SC.Decode[F2,K3].obj ;
+  a (c : F2.C.Fin) : DP.Map (X0.G (F2.C.fin c)) (F.G (F2.C.fin c)) =
+    (\ p -> W.ltN-zero-abs (F.G (F2.C.fin c)).car p.1 p.2.1,
+     \ p q -> W.ltN-zero-abs (Id W.O3 ((F.G (F2.C.fin c)).cmp (W.ltN-zero-abs (F.G (F2.C.fin c)).car p.1 p.2.1)
+         (W.ltN-zero-abs (F.G (F2.C.fin c)).car q.1 q.2.1)) ((X0.G (F2.C.fin c)).cmp p q)) p.1 p.2.1) ;
+  mor : O3v.Mor X0 F =
+    (a,(\ c d k y -> W.ltN-zero-abs (Id (F.G (F2.C.fin d)).car ((F.arr (F2.C.fin c) (F2.C.fin d) k).1 ((a c).1 y))
+          ((a d).1 ((X0.arr (F2.C.fin c) (F2.C.fin d) k).1 y))) y.1 y.2.1,
+        \ c d k y r -> W.ltN-zero-abs (SF.Im (X0.G (F2.C.fin c)) (X0.G (F2.C.fin d)) (X0.arr (F2.C.fin c) (F2.C.fin d) k) y) y.1 y.2.1)) ;
+  result : Ex ((K : C3.Fin) * C3.Mor (C3.fin K) F) = inc ((K : C3.Fin) * C3.Mor (C3.fin K) F) (K3,mor) ;
+} ;
+
+module LabTree3 (code : W.N -> F2.C.Fin) (fd : (n : W.N) -> LW.IsDil (F2.C.fin (code n))) {
+  -- trace points
+  Fam (F : PT2) : NS.NFam = \ n -> F.G (F2.C.fin (code n)) ;
+  Pt3 (F : PT2) : DP.LO = NS.NSum[Fam F].lo ;
+  pm3 (F F' : PT2) (S : O3v.Mor F F') : DP.Map (Pt3 F) (Pt3 F') = NS.nsMapLO (Fam F) (Fam F') (\ n -> S.1 (code n)) ;
+  wf3 (F : PT2) (p : LW.IsPtyx F) : LW.WF (Pt3 F) = NS.nsWF (Fam F) (\ n -> p (F2.C.fin (code n)) (fd n)) ;
+
+  -- single-point supports: the covering theorem over the dilators
+  module Sup1 (F : PT2) (x : (Pt3 F).car) {
+    module CV = StabCover[l].Cover[F2,F,F2.C.fin (code x.1),x.2] ;
+    T : U l = (K : C3.Fin) * ((i : C3.Mor (C3.fin K) F) * SF.Im (Pt3 (C3.fin K)) (Pt3 F) (pm3 (C3.fin K) F i) x) ;
+    cvt (t : CV.Target) : T =
+      (t.1,(t.2.1,((x.1,t.2.2.1),
+        PL.ap (F.G (F2.C.fin (code x.1))).car (Pt3 F).car (\ u -> (x.1,u)) ((t.2.1.1 (code x.1)).1 t.2.2.1) x.2
+          (PL.trans (F.G (F2.C.fin (code x.1))).car ((t.2.1.1 (code x.1)).1 t.2.2.1)
+              (O3v.Ext[SC.Decode[F2,t.1].obj,F,t.2.1].f (F2.C.fin (code x.1)) t.2.2.1) x.2
+            (PL.sym (F.G (F2.C.fin (code x.1))).car (O3v.Ext[SC.Decode[F2,t.1].obj,F,t.2.1].f (F2.C.fin (code x.1)) t.2.2.1)
+              ((t.2.1.1 (code x.1)).1 t.2.2.1)
+              (O3v.Ext[SC.Decode[F2,t.1].obj,F,t.2.1].fin-eq (code x.1) t.2.2.1))
+            t.2.2.2)))) ;
+    result : Ex T = TC.map CV.Target T cvt CV.cover ;
+  } ;
+
+  -- pull-backs: pair two trace points with the same image
+  module Pbp (A B B' : PT2) (f : O3v.Mor B A) (f' : O3v.Mor B' A) {
+    module PB = SP.Pull[LW.C2,A,B,B',f,f'] ;
+    Goal (b : (Pt3 B).car) : U l = SF.Im (Pt3 PB.obj) (Pt3 B) (pm3 PB.obj B PB.pr1) b ;
+    core (c : W.N) (y : (B.G (F2.C.fin (code c))).car) (z : W.N) (q : Id W.N c z) : (y' : (B'.G (F2.C.fin (code z))).car) ->
+        Id (A.G (F2.C.fin (code z))).car (PL.subst W.N (\ k -> (A.G (F2.C.fin (code k))).car) c z q ((f.1 (code c)).1 y))
+          ((f'.1 (code z)).1 y') -> Goal (c,y) =
+      idJ W.N c (\ z1 q1 -> (y' : (B'.G (F2.C.fin (code z1))).car) ->
+          Id (A.G (F2.C.fin (code z1))).car (PL.subst W.N (\ k -> (A.G (F2.C.fin (code k))).car) c z1 q1 ((f.1 (code c)).1 y))
+            ((f'.1 (code z1)).1 y') -> Goal (c,y))
+        (\ y' h -> ((c,(y,(y',
+            PL.trans (A.G (F2.C.fin (code c))).car (PB.s (F2.C.fin (code c)) y) ((f.1 (code c)).1 y) (PB.s' (F2.C.fin (code c)) y')
+              (PB.E.fin-eq (code c) y)
+              (PL.trans (A.G (F2.C.fin (code c))).car ((f.1 (code c)).1 y) ((f'.1 (code c)).1 y') (PB.s' (F2.C.fin (code c)) y') h
+                (PL.sym (A.G (F2.C.fin (code c))).car (PB.s' (F2.C.fin (code c)) y') ((f'.1 (code c)).1 y') (PB.E'.fin-eq (code c) y')))))),
+          refl (c,y)))
+        z q ;
+    result (b : (Pt3 B).car) (b' : (Pt3 B').car)
+      (e : Id (Pt3 A).car ((pm3 B A f).1 b) ((pm3 B' A f').1 b')) : Goal b =
+      core b.1 b.2 b'.1 (PL.ap (Pt3 A).car W.N (\ t -> t.1) ((pm3 B A f).1 b) ((pm3 B' A f').1 b') e) b'.2
+        (PL.Sigma-snd W.N (\ k -> (A.G (F2.C.fin (code k))).car) b.1 b'.1 ((f.1 (code b.1)).1 b.2) ((f'.1 (code b'.1)).1 b'.2) e) ;
+  } ;
+
+  -- the instance
+  module Tree (ok : (F : PT2) -> LT.LL (Pt3 F) -> W.Bool)
+    (inv : (F F' : PT2) (g : O3v.Mor F F') (r : LT.LL (Pt3 F)) -> Id W.Bool (ok F' (LT.mapL (Pt3 F) (Pt3 F') (pm3 F F' g) r)) (ok F r))
+    (pcl : (F : PT2) (z r : LT.LL (Pt3 F)) -> Id W.Bool (ok F (KT.appL (LT.Lab (Pt3 F)).car z r)) true -> Id W.Bool (ok F r) true) {
+    module LG = LT.LabTreeG[C3, Pt3, pm3, \ F x -> refl x, \ F1 F2' F3 S T x -> refl (x.1,(T.1 (code x.1)).1 ((S.1 (code x.1)).1 x.2)),
+      \ F x -> Sup1[F,x].result, \ F -> Init3[F].result, \ A B B' f f' b b' e -> Pbp[A,B,B',f,f'].result b b' e,
+      ok, inv, pcl] ;
+    G (F : PT2) : DP.LO = LG.G F ;
+    pty : SF.SF[C3] = LG.dil ;
+    WFT (F : PT2) : U l = LG.WFT F ;
+    ptyx-wf (h : (F : PT2) -> LW.IsPtyx F -> WFT F) : IsPtyx3 pty = LG.WFs[LW.IsPtyx, wf3].dil-wf h ;
+    wf-ptyx (p : IsPtyx3 pty) (F : PT2) (d : LW.IsPtyx F) : WFT F = LG.WFs[LW.IsPtyx, wf3].wf-dil p F d ;
+  } ;
+} ;

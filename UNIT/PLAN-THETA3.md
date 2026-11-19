@@ -304,6 +304,46 @@ OPEN: fuel sufficiency (a measure that decreases: |s|+|t| with |sy i b|
 counted as 1 fails in the sym-vs-collapse case, which compares the bound
 b); the laws (step 4) must be stated for cmpF at sufficient fuel.
 
+## Step 2 of the plan (WF of Theta_P, informal) -- OBSTRUCTION (2026-11-19)
+Natural proof shape (type 2 analogue of Freund's accessible part W):
+W := the subfunctor of GOOD trace points, gamma good iff for every
+well-founded C and every instantiation of its variables in C the instance
+is accessible in Theta_P(C); show W is a dilator, then P(W) is WF (P a
+2-ptyx), then induction on P(W) as in ThetaWF.  "good" quantifies over
+ALL well-orders: Pi^1_2-comprehension, as expected for Pi^1_2-CA0.
+In the type theory: good : (trace point) -> U (l+1) (quantifies over LO
+in U l), so W is not an object of Stab(LO) at level l: SIZE, i.e.
+impredicativity.  This is not an accident: the seg type theory (universes,
+inductive types incl. Acc; no resizing) is predicative, of strength
+around Martin-Lof type theory with W-types and universes (KPi-like),
+far below Pi^1_2-CA0.  If the conjecture holds, the theorem
+"forall 2-ptyx P, Theta_P is a dilator" (classically implying
+Pi^1_2-CA0 over ACA0) is NOT provable in it.  (For theta at type 2,
+Pi^1_1-CA0 is below the type theory, consistent with ThetaWF.)
+Options: (a) prove it from an explicit impredicative hypothesis (resizing
+for the predicate good, or an axiom of induction on dilators) -- a
+relative result; (b) prove Theta_P a dilator for specific P (as for
+eps_X), which needs only the strength of that instance; (c) keep the
+type-3 work at the level of definitions + laws (steps 3-5), leaving
+step 6 as the conjecture.
+
+## A statement beyond the type theory implying Pi^1_2-CA0 (2026-11-19)
+User goal: a statement not provable in the type theory which implies
+Pi^1_2-CA0.  Route: Girard's completeness one type up (not Theta).
+DONE: NSumLO.seg (lexicographic N-sum of LOs, shifted recursion, WF);
+LabTree3.seg (C3 = Stab(Stab(LO)); trace points (n, y in F(Decode code_n))
+for a fixed code sequence with fd: each Decode code_n a dilator; empty
+code K3, covering over dilLO, pointwise pull-backs; Tree: type-3
+pre-ptyx, ptyx-wf/wf-ptyx); Girard3.seg (Agree2: Girard2 depends on its
+matrix only through short words; Girard3[T4,dec,e,code,fd,e3]: Gp :
+SF[C3]; ptyx-wf/wf-ptyx; ptyx-not3: F_f a 2-ptyx => Gp not a type-3
+ptyx).  All.seg 26,650, check.py exit 0.
+Classically: Gp type-3 ptyx => forall f, F_f not a 2-ptyx => S (Pi^1_4);
+with S the axiom of Pi^1_2-CA0, Gp ptyx => Pi^1_2-CA0, hence unprovable
+in the (predicative) type theory (Goedel; metatheorem).
+Not formalised: the classical steps; hypothesis fd (finite dilators are
+dilators) is a parameter, to be proved; coding the specific S.
+
 ## Status
 (2026-11-19) step 1 done; step 2 on paper: target (b) fixed as "BH
 collapse of 2-ptykes"; first candidate shown too weak (2a); reduction to

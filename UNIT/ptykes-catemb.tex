@@ -242,9 +242,32 @@ the dilator argument, compared on the listed joint types), which is a ptyx
 iff the corresponding trees are well-founded for every dilator.
 \end{theorem}
 
+\begin{theorem}[$\Pi^1_4$]
+Fix a sequence of codes of finite dilators, each decoding to a dilator. A
+$\Pi^1_4$ statement $\forall f\,\exists g\,\forall h\,\exists k\ldots$ gives a
+type-3 pre-ptyx $G$: its value at a type-2 pre-ptyx $F$ is the
+Kleene--Brouwer order of finite attempts to embed, naturally, the finite
+part of the type-2 pre-ptyx $F_u$ of the previous theorem into $F$
+(comparisons checked on the listed multicoproducts of codes). Then $G$ is a
+type-3 ptyx iff every 2-ptyx has a well-founded attempt tree; and if $F_f$
+is a 2-ptyx for some $f$, then $G$ is not a type-3 ptyx.
+\end{theorem}
+
 The converse directions use bar induction and are not formalised. A
 positive instance (the tree of strictly decreasing sequences) is proved to
 give a dilator.
+
+\begin{corollary}[A statement beyond the type theory]
+Take for $S$ the $\Pi^1_4$ axiom of $\Pi^1_2$-$\mathrm{CA}_0$ and let $G_S$ be
+the type-3 pre-ptyx of the previous theorem. The formalised implication
+``$G_S$ is a type-3 ptyx $\Rightarrow$ no $F_f$ is a 2-ptyx'', followed by
+the classical type-2 completeness theorem and Kleene's normal form, gives
+\[ G_S\ \text{is a type-3 ptyx}\ \Longrightarrow\ \Pi^1_2\text{-}\mathrm{CA}_0 .\]
+The statement ``$G_S$ is a type-3 ptyx'' is expressible in the type theory
+used here. Since this type theory is predicative, of strength well below
+$\Pi^1_2$-$\mathrm{CA}_0$, the statement is not provable in it (a
+metatheorem, via G\"odel's second incompleteness theorem; not formalised).
+\end{corollary}
 
 \section{What one may hope for}
 
@@ -305,7 +328,7 @@ $\varepsilon_X$.
 \section{What has been implemented}
 
 The development is written in a small dependently typed language and
-checked by its type checker (about 26{,}400 declarations for the whole
+checked by its type checker (about 26{,}600 declarations for the whole
 library; the files below take a few seconds each). Main files, in the
 \texttt{UNIT/} directory:
 \begin{itemize}
@@ -320,7 +343,8 @@ library; the files below take a few seconds each). Main files, in the
   \texttt{LOCat}, \texttt{LOFin}, \texttt{LOCEF};
   well-foundedness hierarchy: \texttt{LOWF};
 \item Girard's reductions: \texttt{KBTree}, \texttt{LabTree},
-  \texttt{Girard}, \texttt{GirardPos}, \texttt{LabTree2}, \texttt{Girard2};
+  \texttt{Girard}, \texttt{GirardPos}, \texttt{LabTree2}, \texttt{Girard2},
+  and at type 3 \texttt{NSumLO}, \texttt{LabTree3}, \texttt{Girard3};
 \item examples: \texttt{DilLO}, \texttt{LOEx} (polynomials, $2^X$,
   towers, evaluations), \texttt{EpsTerm}, \texttt{EpsFun}, \texttt{EpsWF}
   ($\varepsilon_X$), \texttt{ThetaTerm}, \texttt{ThetaLO},
