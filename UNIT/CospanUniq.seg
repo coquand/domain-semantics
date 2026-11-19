@@ -1,0 +1,126 @@
+-- Jointly surjective cospans of stable functors (any catemb C).
+--
+-- A cospan u : X1 -> Z <- X2 : v is jointly surjective (JS) if every
+-- point of Z at a finite level comes from X1 or from X2.  Then:
+--  * epi: maps out of Z are determined by their composites with u and v;
+--  * mediation: if (f, g) factors through Z (by m) and through any other
+--    cospan Z' (by m'), there is a map Z -> Z' compatible with the legs
+--    and with m, m' (defined by cases on JS, using that m' is injective
+--    and cartesian).
+-- With JS on both sides and rigid decoded objects these maps are
+-- inverse; so factoring cospans are unique up to (unique) iso -- the
+-- univalent content of StabJt.DetA/DetB and Epi7, without canonical
+-- forms.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CE = CatEmb[l] ;
+module SF = StabFun[l] ;
+module PL = Prelude[l] ;
+
+module JSC (C : CE.CE) {
+  module O = SF.Over[C] ;
+  Pt (X : SF.SF[C]) (c : C.Fin) : U l = (X.G (C.fin c)).car ;
+  JS (X1 X2 Z : SF.SF[C]) (u : O.Mor X1 Z) (v : O.Mor X2 Z) : U l =
+    (c : C.Fin) (z : Pt Z c) -> W.Or ((a : Pt X1 c) * Id (Pt Z c) ((u.1 c).1 a) z) ((b : Pt X2 c) * Id (Pt Z c) ((v.1 c).1 b) z) ;
+
+  -- joint epimorphy
+  module Epi (X1 X2 Z V : SF.SF[C]) (u : O.Mor X1 Z) (v : O.Mor X2 Z) (js : JS X1 X2 Z u v) (p p' : O.Mor Z V)
+    (eu : Id (O.Mor X1 V) (O.compS X1 Z V u p) (O.compS X1 Z V u p'))
+    (ev : Id (O.Mor X2 V) (O.compS X2 Z V v p) (O.compS X2 Z V v p')) {
+    at (c : C.Fin) (z : Pt Z c) : (r : W.Or ((a : Pt X1 c) * Id (Pt Z c) ((u.1 c).1 a) z) ((b : Pt X2 c) * Id (Pt Z c) ((v.1 c).1 b) z)) ->
+        Id (Pt V c) ((p.1 c).1 z) ((p'.1 c).1 z) = split {
+      inl w -> PL.subst (Pt Z c) (\ z0 -> Id (Pt V c) ((p.1 c).1 z0) ((p'.1 c).1 z0)) ((u.1 c).1 w.1) z w.2
+        (PL.ap (O.Mor X1 V) (Pt V c) (\ M -> (M.1 c).1 w.1) (O.compS X1 Z V u p) (O.compS X1 Z V u p') eu) ;
+      inr w -> PL.subst (Pt Z c) (\ z0 -> Id (Pt V c) ((p.1 c).1 z0) ((p'.1 c).1 z0)) ((v.1 c).1 w.1) z w.2
+        (PL.ap (O.Mor X2 V) (Pt V c) (\ M -> (M.1 c).1 w.1) (O.compS X2 Z V v p) (O.compS X2 Z V v p') ev) } ;
+    result : Id (O.Mor Z V) p p' = O.mor-eq Z V p p' (\ c z -> at c z (js c z)) ;
+  } ;
+
+  -- mediation between two factorisations
+  module Med (X1 X2 Y Z Z' : SF.SF[C]) (u : O.Mor X1 Z) (v : O.Mor X2 Z) (js : JS X1 X2 Z u v)
+    (u' : O.Mor X1 Z') (v' : O.Mor X2 Z') (m : O.Mor Z Y) (m' : O.Mor Z' Y)
+    (eu : Id (O.Mor X1 Y) (O.compS X1 Z Y u m) (O.compS X1 Z' Y u' m'))
+    (ev : Id (O.Mor X2 Y) (O.compS X2 Z Y v m) (O.compS X2 Z' Y v' m')) {
+    R (c : C.Fin) (z : Pt Z c) : U l = W.Or ((a : Pt X1 c) * Id (Pt Z c) ((u.1 c).1 a) z) ((b : Pt X2 c) * Id (Pt Z c) ((v.1 c).1 b) z) ;
+    phiO (c : C.Fin) (z : Pt Z c) : R c z -> Pt Z' c = split { inl w -> (u'.1 c).1 w.1 ; inr w -> (v'.1 c).1 w.1 } ;
+    phi (c : C.Fin) (z : Pt Z c) : Pt Z' c = phiO c z (js c z) ;
+    keyO (c : C.Fin) (z : Pt Z c) : (r : R c z) -> Id (Pt Y c) ((m'.1 c).1 (phiO c z r)) ((m.1 c).1 z) = split {
+      inl w -> PL.trans (Pt Y c) ((m'.1 c).1 ((u'.1 c).1 w.1)) ((m.1 c).1 ((u.1 c).1 w.1)) ((m.1 c).1 z)
+        (PL.sym (Pt Y c) ((m.1 c).1 ((u.1 c).1 w.1)) ((m'.1 c).1 ((u'.1 c).1 w.1))
+          (PL.ap (O.Mor X1 Y) (Pt Y c) (\ M -> (M.1 c).1 w.1) (O.compS X1 Z Y u m) (O.compS X1 Z' Y u' m') eu))
+        (PL.ap (Pt Z c) (Pt Y c) (m.1 c).1 ((u.1 c).1 w.1) z w.2) ;
+      inr w -> PL.trans (Pt Y c) ((m'.1 c).1 ((v'.1 c).1 w.1)) ((m.1 c).1 ((v.1 c).1 w.1)) ((m.1 c).1 z)
+        (PL.sym (Pt Y c) ((m.1 c).1 ((v.1 c).1 w.1)) ((m'.1 c).1 ((v'.1 c).1 w.1))
+          (PL.ap (O.Mor X2 Y) (Pt Y c) (\ M -> (M.1 c).1 w.1) (O.compS X2 Z Y v m) (O.compS X2 Z' Y v' m') ev))
+        (PL.ap (Pt Z c) (Pt Y c) (m.1 c).1 ((v.1 c).1 w.1) z w.2) } ;
+    key (c : C.Fin) (z : Pt Z c) : Id (Pt Y c) ((m'.1 c).1 (phi c z)) ((m.1 c).1 z) = keyO c z (js c z) ;
+    fam : O.Fam Z Z' = \ c -> (phi c,\ z1 z2 ->
+      PL.trans W.O3 ((Z'.G (C.fin c)).cmp (phi c z1) (phi c z2)) ((Y.G (C.fin c)).cmp ((m.1 c).1 z1) ((m.1 c).1 z2)) ((Z.G (C.fin c)).cmp z1 z2)
+        (PL.trans W.O3 ((Z'.G (C.fin c)).cmp (phi c z1) (phi c z2)) ((Y.G (C.fin c)).cmp ((m'.1 c).1 (phi c z1)) ((m'.1 c).1 (phi c z2)))
+            ((Y.G (C.fin c)).cmp ((m.1 c).1 z1) ((m.1 c).1 z2))
+          (PL.sym W.O3 ((Y.G (C.fin c)).cmp ((m'.1 c).1 (phi c z1)) ((m'.1 c).1 (phi c z2))) ((Z'.G (C.fin c)).cmp (phi c z1) (phi c z2))
+            ((m'.1 c).2 (phi c z1) (phi c z2)))
+          (W.ap2 (Pt Y c) (Pt Y c) W.O3 (Y.G (C.fin c)).cmp ((m'.1 c).1 (phi c z1)) ((m.1 c).1 z1) ((m'.1 c).1 (phi c z2)) ((m.1 c).1 z2)
+            (key c z1) (key c z2)))
+        ((m.1 c).2 z1 z2)) ;
+    nat : O.Nat Z Z' fam = \ c d k z ->
+      DP.map-inj (Z'.G (C.fin d)) (Y.G (C.fin d)) (m'.1 d) ((Z'.arr (C.fin c) (C.fin d) k).1 (phi c z)) (phi d ((Z.arr (C.fin c) (C.fin d) k).1 z))
+        (PL.trans (Pt Y d) ((m'.1 d).1 ((Z'.arr (C.fin c) (C.fin d) k).1 (phi c z))) ((Y.arr (C.fin c) (C.fin d) k).1 ((m'.1 c).1 (phi c z)))
+            ((m'.1 d).1 (phi d ((Z.arr (C.fin c) (C.fin d) k).1 z)))
+          (PL.sym (Pt Y d) ((Y.arr (C.fin c) (C.fin d) k).1 ((m'.1 c).1 (phi c z))) ((m'.1 d).1 ((Z'.arr (C.fin c) (C.fin d) k).1 (phi c z)))
+            (m'.2.1 c d k (phi c z)))
+          (PL.trans (Pt Y d) ((Y.arr (C.fin c) (C.fin d) k).1 ((m'.1 c).1 (phi c z))) ((Y.arr (C.fin c) (C.fin d) k).1 ((m.1 c).1 z))
+              ((m'.1 d).1 (phi d ((Z.arr (C.fin c) (C.fin d) k).1 z)))
+            (PL.ap (Pt Y c) (Pt Y d) (Y.arr (C.fin c) (C.fin d) k).1 ((m'.1 c).1 (phi c z)) ((m.1 c).1 z) (key c z))
+            (PL.trans (Pt Y d) ((Y.arr (C.fin c) (C.fin d) k).1 ((m.1 c).1 z)) ((m.1 d).1 ((Z.arr (C.fin c) (C.fin d) k).1 z))
+                ((m'.1 d).1 (phi d ((Z.arr (C.fin c) (C.fin d) k).1 z)))
+              (m.2.1 c d k z)
+              (PL.sym (Pt Y d) ((m'.1 d).1 (phi d ((Z.arr (C.fin c) (C.fin d) k).1 z))) ((m.1 d).1 ((Z.arr (C.fin c) (C.fin d) k).1 z))
+                (key d ((Z.arr (C.fin c) (C.fin d) k).1 z)))))) ;
+    cart : O.Cart Z Z' fam = \ c d k z r ->
+      m.2.2 c d k z ((m'.1 c).1 r.1,
+        PL.trans (Pt Y d) ((Y.arr (C.fin c) (C.fin d) k).1 ((m'.1 c).1 r.1)) ((m'.1 d).1 ((Z'.arr (C.fin c) (C.fin d) k).1 r.1)) ((m.1 d).1 z)
+          (m'.2.1 c d k r.1)
+          (PL.trans (Pt Y d) ((m'.1 d).1 ((Z'.arr (C.fin c) (C.fin d) k).1 r.1)) ((m'.1 d).1 (phi d z)) ((m.1 d).1 z)
+            (PL.ap (Pt Z' d) (Pt Y d) (m'.1 d).1 ((Z'.arr (C.fin c) (C.fin d) k).1 r.1) (phi d z) r.2)
+            (key d z))) ;
+    mor : O.Mor Z Z' = (fam,(nat,cart)) ;
+    -- compatibility with m, m' and with the legs
+    triM : Id (O.Mor Z Y) (O.compS Z Z' Y mor m') m = O.mor-eq Z Y (O.compS Z Z' Y mor m') m (\ c z -> key c z) ;
+    legU : Id (O.Mor X1 Z') (O.compS X1 Z Z' u mor) u' =
+      O.mor-eq X1 Z' (O.compS X1 Z Z' u mor) u' (\ c a ->
+        DP.map-inj (Z'.G (C.fin c)) (Y.G (C.fin c)) (m'.1 c) (phi c ((u.1 c).1 a)) ((u'.1 c).1 a)
+          (PL.trans (Pt Y c) ((m'.1 c).1 (phi c ((u.1 c).1 a))) ((m.1 c).1 ((u.1 c).1 a)) ((m'.1 c).1 ((u'.1 c).1 a))
+            (key c ((u.1 c).1 a))
+            (PL.ap (O.Mor X1 Y) (Pt Y c) (\ M -> (M.1 c).1 a) (O.compS X1 Z Y u m) (O.compS X1 Z' Y u' m') eu))) ;
+    legV : Id (O.Mor X2 Z') (O.compS X2 Z Z' v mor) v' =
+      O.mor-eq X2 Z' (O.compS X2 Z Z' v mor) v' (\ c b ->
+        DP.map-inj (Z'.G (C.fin c)) (Y.G (C.fin c)) (m'.1 c) (phi c ((v.1 c).1 b)) ((v'.1 c).1 b)
+          (PL.trans (Pt Y c) ((m'.1 c).1 (phi c ((v.1 c).1 b))) ((m.1 c).1 ((v.1 c).1 b)) ((m'.1 c).1 ((v'.1 c).1 b))
+            (key c ((v.1 c).1 b))
+            (PL.ap (O.Mor X2 Y) (Pt Y c) (\ M -> (M.1 c).1 b) (O.compS X2 Z Y v m) (O.compS X2 Z' Y v' m') ev))) ;
+  } ;
+} ;
+
+-- for decoded codes: two jointly surjective factoring cospans are
+-- isomorphic, compatibly with the legs (maps both ways; rigidity makes
+-- them inverse), hence equal in FinDil
+module Uniq (F : CatEmbFin[l].CEF) (K1 K2 K3 Kz Kz' : StabCode[l].Code[F]) {
+  module J = JSC[F.C] ;
+  module O = J.O ;
+  D (K : StabCode[l].Code[F]) : SF.SF[F.C] = StabCode[l].Decode[F,K].obj ;
+  module R (u : O.Mor (D K1) (D Kz)) (v : O.Mor (D K2) (D Kz)) (js : J.JS (D K1) (D K2) (D Kz) u v)
+    (u' : O.Mor (D K1) (D Kz')) (v' : O.Mor (D K2) (D Kz')) (js' : J.JS (D K1) (D K2) (D Kz') u' v')
+    (m : O.Mor (D Kz) (D K3)) (m' : O.Mor (D Kz') (D K3))
+    (eu : Id (O.Mor (D K1) (D K3)) (O.compS (D K1) (D Kz) (D K3) u m) (O.compS (D K1) (D Kz') (D K3) u' m'))
+    (ev : Id (O.Mor (D K2) (D K3)) (O.compS (D K2) (D Kz) (D K3) v m) (O.compS (D K2) (D Kz') (D K3) v' m')) {
+    module M1 = J.Med[D K1,D K2,D K3,D Kz,D Kz',u,v,js,u',v',m,m',eu,ev] ;
+    module M2 = J.Med[D K1,D K2,D K3,D Kz',D Kz,u',v',js',u,v,m',m,
+      PL.sym (O.Mor (D K1) (D K3)) (O.compS (D K1) (D Kz) (D K3) u m) (O.compS (D K1) (D Kz') (D K3) u' m') eu,
+      PL.sym (O.Mor (D K2) (D K3)) (O.compS (D K2) (D Kz) (D K3) v m) (O.compS (D K2) (D Kz') (D K3) v' m') ev] ;
+    -- the class of the factoring cospan is determined
+    same : Id FinDil[l].FD[F].FinDil (FinDil[l].FD[F].q Kz) (FinDil[l].FD[F].q Kz') = FinDil[l].FD[F].qEq Kz Kz' (M1.mor,M2.mor) ;
+  } ;
+} ;

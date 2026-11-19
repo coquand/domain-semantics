@@ -1,0 +1,83 @@
+-- Canonical representatives of finite stable functors, without canonical
+-- forms (univalence + replacement + enumeration).
+--
+-- FinDil (the replacement image of Decode) has decidable equality
+-- (FinDil.seg) and is covered by the enumeration (StabEnum).  Hence the
+-- LEAST index n with q (code n) = x is a proposition, and can be taken
+-- out of the truncation: a section rep : FinDil -> Code, and
+--     FinDil  ~  { n : N | no smaller index has the same class },
+-- a DECIDABLE subset of N.  This is the univalent replacement for the
+-- canonical entries of StabJt (CN: Can0 / CanU / CanV), which were
+-- designed so that equal objects are given by equal codes.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module CF = CatEmbFin[l] ;
+module SC = StabCode[l] ;
+module ST = StabTab[l] ;
+module SE = StabEnum[l] ;
+module FL = FinList[l] ;
+module PL = Prelude[l] ;
+module TC = TruncationCombinators[l] ;
+module HL = Axioms[l].FunExtLemmas[fe @l] ;
+
+module Canon (F : CF.CEF) (E : SE.EnumIso[F]) {
+  module FDm = FinDil[l].FD[F] ;
+  FD : U l = FDm.FinDil ;
+  LBb (b : W.N) : W.List (CF.Opt SC.Code[F]) = SE.Stage[F,E,b].LB ;
+  x0 : SC.Code[F] = SE.emptyCode F E.c0 ;
+  module FL2 = MonoEnum[l].Flat[SC.Code[F],x0,LBb] ;
+  seqC (n : W.N) : SC.Code[F] = FL2.seq n ;
+  P (x : FD) (n : W.N) : U l = Id FD (FDm.q (seqC n)) x ;
+  dP (x : FD) (n : W.N) : W.Or (P x n) (P x n -> W.Empty) = FDm.decEq (FDm.q (seqC n)) x ;
+  -- every element is hit by the sequence
+  Hit (x : FD) : U l = (b : W.N) * ((k : W.N) * ((h : CF.Lt k (FL.lenL SC.Code[F] (LBb b))) *
+    ((K : SC.Code[F]) * (Id (CF.Opt SC.Code[F]) (FL.nthO SC.Code[F] (LBb b) k) (inl K) * Id FD (FDm.q K) x)))) ;
+  hitN (x : FD) : Ex ((n : W.N) * P x n) =
+    TC.rec (Hit x) @l (Ex ((n : W.N) * P x n)) (prop ((n : W.N) * P x n))
+      (\ w -> inc ((n : W.N) * P x n)
+        (FL2.Cover[\ a K' -> Id FD (FDm.q K') x,x0,w.1,(w.2.1,(w.2.2.1,(w.2.2.2.1,(w.2.2.2.2.1,w.2.2.2.2.2))))].P,
+         FL2.Cover[\ a K' -> Id FD (FDm.q K') x,x0,w.1,(w.2.1,(w.2.2.1,(w.2.2.2.1,(w.2.2.2.2.1,w.2.2.2.2.2))))].result))
+      (StabEnum[l].FinDilEnum[F,E].hit x) ;
+  -- the least witness is a proposition
+  Min (x : FD) (n : W.N) : U l = (i : W.N) -> CF.Lt i n -> P x i -> W.Empty ;
+  LW (x : FD) : U l = (n : W.N) * (P x n * Min x n) ;
+  min-prop (x : FD) (n : W.N) : PL.isProp (Min x n) =
+    HL.isProp-Pi W.N (\ i -> CF.Lt i n -> P x i -> W.Empty) (\ i ->
+      HL.isProp-Pi (CF.Lt i n) (\ h -> P x i -> W.Empty) (\ h ->
+        HL.isProp-Pi (P x i) (\ p -> W.Empty) (\ p -> CF.empty-prop))) ;
+  lw-prop (x : FD) : PL.isProp (LW x) = \ u v ->
+    PL.Sigma-eq W.N (\ n -> P x n * Min x n) u.1 v.1 u.2 v.2
+      ST.LstUniq[suc u.1,suc v.1,P x,P x,\ i p -> p,\ i p -> p,u.1,v.1,(W.ltN-suc u.1,u.2),(W.ltN-suc v.1,v.2)].result
+      (PL.isProp-Sigma (P x v.1) (\ _ -> Min x v.1) (FDm.set (FDm.q (seqC v.1)) x) (\ _ -> min-prop x v.1)) ;
+  least (x : FD) (w : (n : W.N) * P x n) : LW x =
+    CF.or-elim ((t : W.N) * ST.Lst (suc w.1) (P x) t) (CF.None (suc w.1) (P x)) (LW x)
+      (\ r -> (r.1,r.2.2))
+      (\ no -> CF.efq (LW x) (no w.1 (W.ltN-suc w.1) w.2))
+      (ST.searchL (suc w.1) (P x) (dP x)) ;
+  canon (x : FD) : LW x = TC.rec ((n : W.N) * P x n) @l (LW x) (lw-prop x) (least x) (hitN x) ;
+  -- the section
+  rep (x : FD) : SC.Code[F] = seqC (canon x).1 ;
+  rep-q (x : FD) : Id FD (FDm.q (rep x)) x = (canon x).2.1 ;
+
+  -- FinDil is a decidable subset of N
+  IsLeast (n : W.N) : U l = (i : W.N) -> CF.Lt i n -> Id FD (FDm.q (seqC i)) (FDm.q (seqC n)) -> W.Empty ;
+  decIsLeast (n : W.N) : W.Or (IsLeast n) (IsLeast n -> W.Empty) =
+    FL.DecAll[n,\ i h -> Id FD (FDm.q (seqC i)) (FDm.q (seqC n)) -> W.Empty,
+      \ i h -> StabSum[l].decNot (Id FD (FDm.q (seqC i)) (FDm.q (seqC n))) (FDm.decEq (FDm.q (seqC i)) (FDm.q (seqC n)))].result ;
+  Sub : U l = (n : W.N) * IsLeast n ;
+  toSub (x : FD) : Sub =
+    ((canon x).1,\ i h e -> (canon x).2.2 i h (PL.trans FD (FDm.q (seqC i)) (FDm.q (seqC (canon x).1)) x e (canon x).2.1)) ;
+  fromSub (s : Sub) : FD = FDm.q (seqC s.1) ;
+  fromTo (x : FD) : Id FD (fromSub (toSub x)) x = rep-q x ;
+  toFrom (s : Sub) : Id Sub (toSub (fromSub s)) s =
+    PL.Sigma-eq W.N IsLeast (toSub (fromSub s)).1 s.1 (toSub (fromSub s)).2 s.2
+      (PL.ap (LW (fromSub s)) W.N (\ u -> u.1) (canon (fromSub s)) (s.1,(refl (fromSub s),s.2))
+        (lw-prop (fromSub s) (canon (fromSub s)) (s.1,(refl (fromSub s),s.2))))
+      (min-prop (fromSub s) s.1) ;
+  equiv : PL.Equiv FD Sub = (toSub,PL.qinv FD Sub toSub fromSub toFrom fromTo) ;
+} ;
+
+-- finite dilators up to iso form a decidable subset of N
+finDilSub : PL.Equiv FinDil[l].FD[FinOrd[l].cef].FinDil Canon[FinOrd[l].cef,StabEnum[l].enumFO].Sub =
+  Canon[FinOrd[l].cef,StabEnum[l].enumFO].equiv ;

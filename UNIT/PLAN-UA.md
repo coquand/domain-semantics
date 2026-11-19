@@ -60,6 +60,31 @@ small : Replacement.Small FinLO  (FinLO ~ N).
   monotone code is iso to some code n); Girard3E = FinDilWF.Girard3M
   over this sequence.  Remaining classical input for the Pi^1_4 theorem:
   every finite dilator is monotone (Girard), joint-type completeness, e3.
+- DONE (2026-11-19) FinDilCanon.seg: canonical representatives WITHOUT
+  canonical forms: least index of the enumeration in the class (a prop,
+  by decEq), rep : FinDil -> Code, FinDil ~ decidable subset of N
+  (finDilSub for dilators).
+- DONE CospanUniq.seg (any catemb C): jointly surjective (JS) cospans:
+  Epi (maps out of Z determined by the legs) and Med (a map between two
+  factorisations of (f,g), compatible with legs and m, m'); Uniq: for
+  decoded codes, JS factoring cospans give the same element of FinDil.
+## Measurement: StabJt layer 7d (2026-11-19)
+  Strict jt-uniq (equality of JT entries = equality of CODES) costs:
+  CN 76 + CovCan 30 + DetA 148 + DetB 123 + CanP 64 + Epi7 32 = ~470
+  lines (canonical-form filter, word/table/map determinacy).
+  Univalent replacement:
+  * canonical choice: FinDilCanon (~100 lines, generic, reusable);
+  * uniqueness up to iso + epi: CospanUniq (~130 lines, generic in C);
+  * still needed: JS for the listed sum entries (decidable via
+    generators; ~100 lines est., the content of DetA.uA/vB).
+  So uniqueness-up-to-iso costs ~250 lines instead of ~470, and is
+  conceptual (no word/table equality).  BUT the CEF interface demands
+  STRICT jt-uniq: to profit, either (a) change CatEmbFin.CEF.jt-uniq to
+  'unique up to iso of cospans' (users: StabTab.FJPost, StabSum.LI,
+  StabJt itself; FinOrd/LOCEF trivially), or (b) a univalent CEF with
+  Fin = FinDil classes (rep), where iso => equality; (b) needs all
+  StabCEF fields transported along rep (est. 300+ lines) -- no net
+  saving in size, only in concepts.
 ## What should simplify
 - StabJt layer 7d (canonical entries CN, DetA, DetB, jt-uniq via funext on
   tables and J on code paths): "unique up to iso" becomes equality, the
