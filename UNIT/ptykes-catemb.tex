@@ -172,19 +172,37 @@ finite objects.
 
 \section{Dilators and ptykes}
 
-\begin{definition}
-Following Girard~\cite{Gir81,GirPTLC,GN}, a pre-dilator is a stable functor
-on $\LO$; it is a \emph{dilator} if
-$D(A)$ is well-founded whenever $A$ is. A pre-ptyx of type~2 is a stable
-functor $F$ on $\Stab(\LO)$; it is a \emph{ptyx} if $F(D)$ is
-well-founded whenever $D$ is a dilator. Similarly at higher types.
+\begin{definition}\label{def:dil}
+A \emph{pre-dilator} is a stable functor $D$ on $\LO$. It is
+\emph{monotone} if for every point $x\in D([n])$ and embeddings
+$k,k':[n]\to A$ with $k(j)\le k'(j)$ for all $j<n$,
+\[ D(k)\,x\ \le\ D(k')\,x \quad\text{in } D(A). \]
+A pre-dilator $D$ is a \emph{dilator} if $D(A)$ is well-founded whenever
+$A$ is. A pre-ptyx of type~2 is a stable functor $F$ on $\Stab(\LO)$; it is
+a \emph{ptyx} if $F(D)$ is well-founded whenever $D$ is a dilator. Similarly
+at higher types.
 \end{definition}
 
+Girard's predilators~\cite{Gir81,GirPTLC,GN} are the \emph{monotone}
+pre-dilators, and his dilators the monotone pre-dilators preserving
+well-orders: monotonicity is part of his definition. Most of the
+development uses the weaker notion above; monotonicity is used where it
+matters, for finite pre-dilators (Section~\ref{sec:girard}) and for the
+category of dilators (Section~\ref{sec:ua}).
+
+\begin{remark}
+Classically every pre-dilator preserving well-orders is monotone (Girard),
+so the two notions of dilator agree. Whether this holds constructively is
+open. For a pre-dilator given by a code, monotonicity on the generators
+(if $k\le k'$ pointwise then $(i,k)\le(i,k')$) implies monotonicity on all
+points, since every point is the image of a generator.
+\end{remark}
+
 \begin{example}[First examples]
-The identity $X\mapsto X$ is a dilator; $X\mapsto X^{\mathrm{op}}$ is a
-pre-dilator that is not a dilator ($\omega^{\mathrm{op}}$ has no accessible
-point). Evaluation $D\mapsto D(Z)$ at a well-founded $Z$ is a type-2 ptyx,
-e.g.\ at $\omega$.
+The identity $X\mapsto X$ is a monotone dilator; $X\mapsto X^{\mathrm{op}}$
+is a pre-dilator that is neither monotone ($k<k'$ is reversed) nor a dilator
+($\omega^{\mathrm{op}}$ has no accessible point). Evaluation
+$D\mapsto D(Z)$ at a well-founded $Z$ is a type-2 ptyx, e.g.\ at $\omega$.
 \end{example}
 
 \begin{example}[Polynomial dilators and $2^X$]
@@ -222,7 +240,7 @@ well-founded, and argues by induction on the image of $\sigma$ in $D(W)$,
 with a semantic lemma identifying the term comparison with the comparison
 in $D$ of the image of a well-behaved sub-order.
 
-\section{Girard's completeness theorems, constructive halves}
+\section{Girard's completeness theorems, constructive halves}\label{sec:girard}
 
 Both theorems are due to Girard~\cite{Gir81,GirPTLC}; we formalise the
 directions that need no classical principle.
@@ -258,12 +276,11 @@ positive instance (the tree of strictly decreasing sequences) is proved to
 give a dilator.
 
 The hypothesis that the listed codes decode to dilators is discharged
-for \emph{monotone} codes (Girard's monotonicity of predilators on the
-generators: $k\le k'$ pointwise implies $(i,k)\le(i,k')$). Not every code
-is a dilator: $X\mapsto X^{\mathrm{op}}$ is a one-generator code which is
-not.
+for \emph{monotone} codes (Definition~\ref{def:dil}; for a code it suffices
+to check the generators). Not every code is a dilator:
+$X\mapsto X^{\mathrm{op}}$ is a one-generator code which is not.
 
-\begin{theorem}[Monotone finite predilators are dilators]
+\begin{theorem}[Monotone finite pre-dilators are dilators]
 If a code $K$ is monotone then $\mathrm{Decode}\,K$ is a dilator.
 \end{theorem}
 
@@ -289,7 +306,7 @@ $\Pi^1_2$-$\mathrm{CA}_0$, the statement is not provable in it (a
 metatheorem, via G\"odel's second incompleteness theorem; not formalised).
 \end{corollary}
 
-\section{With univalence: finite objects up to isomorphism}
+\section{With univalence: finite objects up to isomorphism}\label{sec:ua}
 
 In this section we assume in addition the univalence axiom and Rijke's
 replacement principle~\cite{Rij} (the image of a map from a small type
@@ -367,15 +384,13 @@ has two embeddings).
 
 \paragraph{Ptykes of type 2.} To go one type up, the dilators must
 themselves form a category of embeddings, whose finite objects form a
-\emph{small} type. With the definition used so far (a stable functor
-preserving well-foundedness) this fails for size reasons: ``$\mathrm{Decode}\,K$
-is a dilator'' quantifies over all linear orders. Girard's definition avoids
-this: a \emph{predilator} is required to be \emph{monotone} (for a point $x$
-at a finite level and embeddings $k\le k'$ pointwise, $D(k)x\le D(k')x$), and
-a dilator is a predilator preserving well-orders. For a finite code,
-monotonicity is small and decidable (it is checked at the joint types of each
-generator with itself) and already implies well-foundedness. We therefore
-take Girard's definition: the finite objects are the monotone codes and the
+\emph{small} type. With the weak notion of dilator this fails for size
+reasons: ``$\mathrm{Decode}\,K$ is a dilator'' quantifies over all linear
+orders. Girard's definition, with monotonicity
+(Definition~\ref{def:dil}), avoids this: for a finite code, monotonicity is
+small and decidable (it is checked at the joint types of each generator
+with itself) and already implies well-foundedness. We therefore take
+Girard's definition: the finite objects are the monotone codes and the
 objects the monotone, well-foundedness preserving stable functors.
 Monotonicity and well-foundedness pass to sub-functors, which gives
 pull-backs and directedness. A ptyx of type~2 in Girard's sense is a stable
@@ -387,11 +402,9 @@ categories; the type of dilators and the type of ptykes of type 2 are sets.
 \end{theorem}
 
 \begin{remark}
-Classically every stable functor preserving well-foundedness is monotone
-(Girard), so both definitions of dilator agree; whether this holds
-constructively is open. The size obstruction is an argument for Girard's
-definition: being a finite predilator is a small decidable property, being a
-finite dilator in the weaker sense is not.
+The size obstruction is an argument for Girard's definition: being a
+monotone finite pre-dilator is a small decidable property, being a finite
+dilator in the weak sense is not.
 \end{remark}
 
 Going further up requires a small criterion for the finite objects of type
@@ -555,7 +568,7 @@ library; the files below take a few seconds each). Main files, in the
   \texttt{Girard}, \texttt{GirardPos}, \texttt{LabTree2}, \texttt{Girard2},
   and at type 3 \texttt{NSumLO}, \texttt{LabTree3}, \texttt{Girard3};
 \item almost-full relations and the intuitionistic Ramsey theorem:
-  \texttt{AlmostFull}; monotone finite predilators are dilators:
+  \texttt{AlmostFull}; monotone finite pre-dilators are dilators:
   \texttt{FinDilWF};
 \item examples: \texttt{DilLO}, \texttt{LOEx} (polynomials, $2^X$,
   towers, evaluations), \texttt{EpsTerm}, \texttt{EpsFun}, \texttt{EpsWF}
