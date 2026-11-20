@@ -1,0 +1,492 @@
+-- Girard's beta-proofs, propositional version: constructive part.
+--
+-- Formulas are in negation normal form, with infinitary conjunctions and
+-- disjunctions indexed by the labels of a linear order A (Lab A = N x (1+A),
+-- as for LabTree): allF p is the conjunction over x : Lab A of p[x], exF p
+-- the disjunction.  Variables are positions in an environment, so a
+-- formula is a finite syntax tree independent of A, and an occurrence in a
+-- sequent at A is a CLOSURE (p, e) with e : List (Lab A).  Atoms are read
+-- by a parameter ev A k e : Bool (invariant under embeddings in the
+-- homogeneous part).
+--
+-- Rules (Tait, one-sided, principal formulas kept = built-in contraction,
+-- new closures appended at the end so indices are stable): axiom, and
+-- (two premises), or, all (one premise per label x), ex (a chosen
+-- witness), cut (two premises).
+--
+--  * a PRE-PROOF at A: a rule at every address (list of labels from the
+--    root) and an end sequent; its tree is the set of addresses whose
+--    steps are allowed branches, and it is locally correct when the rule
+--    at every node of the tree applies (decidable: appl is boolean).
+--    Pre-proofs may be ILL-FOUNDED.
+--  * a (homogeneous) pre-beta-proof: a pre-proof at every linear order;
+--    a BETA-PROOF (correct): its tree is well-founded (has a Brouwer
+--    bound, KBTree.WFT) at every WELL-FOUNDED linear order.
+--
+-- Semantics: refutation (falsity) predicate F in Goedel-Gentzen style
+-- (double negations at conjunctions and universal quantifiers), so that
+--     key :  not F p  ->  F (neg p)        (no excluded middle);
+-- a sequent is sound when its closures are not all false.
+--
+--  * sound: a locally correct pre-proof whose tree has a Brouwer bound
+--    proves a sound sequent (induction on the bound; cut by key);
+--  * BETA-PROOFS ARE SOUND at every well-order, hence CONSISTENT: no
+--    beta-proof of the empty sequent;
+--  * an ill-founded pre-beta-proof of a false sequent (exists x false):
+--    well-foundedness is essential (IllEx);
+--  * HOMOGENEITY (Hom): if the end sequents and rules are natural in
+--    embeddings, the trees form a pre-dilator (LabTree), and
+--        beta-proof  <=>  this pre-dilator is a dilator   (toDil, fromDil);
+--  * a cut-free beta-proof of  forall x (P x or not P x)  (EMEx), and its
+--    dilator.
+-- All constructive (no excluded middle, no choice).  Cut elimination is
+-- not done here.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module SF = StabFun[l] ;
+module LC = LOCat[l] ;
+module GR = Girard[l] ;
+
+Not (X : U l) : U l = X -> W.Empty ;
+
+-- formulas in negation normal form
+data Form : U l = atF (b : W.Bool) (k : W.N) | andF (p q : Form) | orF (p q : Form) | allF (p : Form) | exF (p : Form) ;
+neg : Form -> Form = split {
+  atF b k -> atF (W.notB b) k ;
+  andF p q | rp rq -> orF rp rq ;
+  orF p q | rp rq -> andF rp rq ;
+  allF p | rp -> exF rp ;
+  exF p | rp -> allF rp } ;
+pickF : W.N -> Form -> Form -> Form = split { zero -> \ p q -> p ; suc n -> \ p q -> q } ;
+isAndF : Form -> W.Bool = split { atF b k -> false ; andF p q -> true ; orF p q -> false ; allF p -> false ; exF p -> false } ;
+isOrF : Form -> W.Bool = split { atF b k -> false ; andF p q -> false ; orF p q -> true ; allF p -> false ; exF p -> false } ;
+isAllF : Form -> W.Bool = split { atF b k -> false ; andF p q -> false ; orF p q -> false ; allF p -> true ; exF p -> false } ;
+isExF : Form -> W.Bool = split { atF b k -> false ; andF p q -> false ; orF p q -> false ; allF p -> false ; exF p -> true } ;
+eqBo : W.Bool -> W.Bool -> W.Bool = split { false -> split { false -> true ; true -> false } ; true -> \ c -> c } ;
+
+-- rules, over a type of labels
+data RuleD (L : U l) : U l = axR (i : W.N) | andR (i : W.N) | orR (i : W.N) | allR (i : W.N) | exR (i : W.N) (w : L) | cutR (f : Form) (e : W.List L) ;
+
+-- boolean helpers
+isInl (X Y : U l) : W.Or X Y -> W.Bool = split { inl x -> true ; inr y -> false } ;
+isInr (X Y : U l) : W.Or X Y -> W.Bool = split { inl x -> false ; inr y -> true } ;
+isZeroN : W.N -> W.Bool = split { zero -> true ; suc n -> false } ;
+le1 : W.N -> W.Bool = split { zero -> true ; suc n -> isZeroN n } ;
+andTrue : (c d : W.Bool) -> Id W.Bool c true -> Id W.Bool (W.andB c d) d = split {
+  false -> \ d h -> W.absurdB (Id W.Bool false d) h ;
+  true -> \ d h -> refl d } ;
+tf (X : U l) (h : Id W.Bool true false) : X = W.absurdB X (PL.sym W.Bool true false h) ;
+-- an axiom cannot be refuted
+axC : (v b : W.Bool) -> Id W.Bool (eqBo v b) true -> Id W.Bool v (W.notB b) -> W.Empty = split {
+  false -> split { false -> \ h1 h2 -> W.absurdB W.Empty h2 ; true -> \ h1 h2 -> W.absurdB W.Empty h1 } ;
+  true -> split { false -> \ h1 h2 -> W.absurdB W.Empty h1 ; true -> \ h1 h2 -> tf W.Empty h2 } } ;
+-- the key lemma for atoms
+boolKey : (v b : W.Bool) ->
+    (Not (Id W.Bool v (W.notB b)) -> Id W.Bool v (W.notB (W.notB b))) * (Not (Id W.Bool v (W.notB (W.notB b))) -> Id W.Bool v (W.notB b)) = split {
+  false -> split {
+    false -> (\ k -> refl false, \ k -> CF.efq (Id W.Bool false true) (k (refl false))) ;
+    true -> (\ k -> CF.efq (Id W.Bool false true) (k (refl false)), \ k -> refl false) } ;
+  true -> split {
+    false -> (\ k -> CF.efq (Id W.Bool true false) (k (refl true)), \ k -> refl true) ;
+    true -> (\ k -> refl true, \ k -> CF.efq (Id W.Bool true false) (k (refl true))) } } ;
+
+module Beta (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) {
+  Lb (A : DP.LO) : U l = (LT.Lab A).car ;
+  lab0 (A : DP.LO) : Lb A = (zero,inl tt) ;
+  lab1 (A : DP.LO) : Lb A = (suc zero,inl tt) ;
+  isZeroL (A : DP.LO) (a : Lb A) : W.Bool = W.andB (isInl W.Unit A.car a.2) (isZeroN a.1) ;
+  isTwo (A : DP.LO) (a : Lb A) : W.Bool = W.andB (isInl W.Unit A.car a.2) (le1 a.1) ;
+
+  ----------------------------------------------------------------------
+  -- refutation semantics
+  F (A : DP.LO) : Form -> LT.LL A -> U l = split {
+    atF b k -> \ e -> Id W.Bool (ev A k e) (W.notB b) ;
+    andF p q | rp rq -> \ e -> Not (Not (W.Or (rp e) (rq e))) ;
+    orF p q | rp rq -> \ e -> rp e * rq e ;
+    allF p | rp -> \ e -> Not (Not ((x : Lb A) * rp (consL x e))) ;
+    exF p | rp -> \ e -> (x : Lb A) -> rp (consL x e) } ;
+  KeyT (A : DP.LO) (p : Form) : U l = (e : LT.LL A) -> (Not (F A p e) -> F A (neg p) e) * (Not (F A (neg p) e) -> F A p e) ;
+  key (A : DP.LO) : (p : Form) -> KeyT A p = split {
+    atF b k -> \ e -> boolKey (ev A k e) b ;
+    andF p q | rp rq -> \ e ->
+      (\ h -> ((rp e).1 (\ x -> h (\ k -> k (inl x))),(rq e).1 (\ y -> h (\ k -> k (inr y)))),
+       \ h k -> h ((rp e).1 (\ x -> k (inl x)),(rq e).1 (\ y -> k (inr y)))) ;
+    orF p q | rp rq -> \ e ->
+      (\ h k -> h ((rp e).2 (\ x -> k (inl x)),(rq e).2 (\ y -> k (inr y))),
+       \ h -> ((rp e).2 (\ x -> h (\ k -> k (inl x))),(rq e).2 (\ y -> h (\ k -> k (inr y))))) ;
+    allF p | rp -> \ e ->
+      (\ h x -> (rp (consL x e)).1 (\ fp -> h (\ k -> k (x,fp))),
+       \ h k -> h (\ x -> (rp (consL x e)).1 (\ fp -> k (x,fp)))) ;
+    exF p | rp -> \ e ->
+      (\ h k -> h (\ x -> (rp (consL x e)).2 (\ fn -> k (x,fn))),
+       \ h x -> (rp (consL x e)).2 (\ fn -> h (\ k -> k (x,fn)))) } ;
+
+  ----------------------------------------------------------------------
+  -- sequents of closures
+  Clo (A : DP.LO) : U l = Form * LT.LL A ;
+  Seq (A : DP.LO) : U l = W.List (Clo A) ;
+  OC (A : DP.LO) : U l = W.Or W.Unit (Clo A) ;
+  AllF (A : DP.LO) : Seq A -> U l = split { nilL -> W.Unit ; consL c cs | r -> F A c.1 c.2 * r } ;
+  Valid (A : DP.LO) (G : Seq A) : U l = Not (AllF A G) ;
+  app (A : DP.LO) (G S : Seq A) : Seq A = KT.appL (Clo A) G S ;
+  allF-app (A : DP.LO) (S : Seq A) : (G : Seq A) -> AllF A G -> AllF A S -> AllF A (app A G S) = split {
+    nilL -> \ g s -> s ;
+    consL c cs | r -> \ g s -> (g.1,r g.2 s) } ;
+  getM (A : DP.LO) : W.N -> Seq A -> OC A = split {
+    zero -> split { nilL -> inl tt ; consL c cs -> inr c } ;
+    suc i | r -> split { nilL -> inl tt ; consL c cs -> r cs } } ;
+  outR (A : DP.LO) (d : Clo A) : OC A -> Clo A = split { inl u -> d ; inr c -> c } ;
+  getF (A : DP.LO) : (i : W.N) (G : Seq A) (c : Clo A) -> Id (OC A) (getM A i G) (inr c) -> AllF A G -> F A c.1 c.2 = split {
+    zero -> split {
+      nilL -> \ c e g -> W.absurdB (F A c.1 c.2) (PL.ap (OC A) W.Bool (isInr W.Unit (Clo A)) (inl tt) (inr c) e) ;
+      consL c' cs -> \ c e g -> PL.subst (Clo A) (\ z -> F A z.1 z.2) c' c
+        (PL.ap (OC A) (Clo A) (outR A c') (inr c') (inr c) e) g.1 } ;
+    suc i | r -> split {
+      nilL -> \ c e g -> W.absurdB (F A c.1 c.2) (PL.ap (OC A) W.Bool (isInr W.Unit (Clo A)) (inl tt) (inr c) e) ;
+      consL c' cs -> \ c e g -> r cs c e g.2 } } ;
+
+  ----------------------------------------------------------------------
+  -- rules: added closures, allowed branches, applicability
+  Rule (A : DP.LO) : U l = RuleD (Lb A) ;
+  addAndF (A : DP.LO) : Form -> LT.LL A -> Lb A -> Seq A = split {
+    atF b k -> \ e a -> nilL ; andF p q -> \ e a -> consL (pickF a.1 p q,e) nilL ; orF p q -> \ e a -> nilL ;
+    allF p -> \ e a -> nilL ; exF p -> \ e a -> nilL } ;
+  addOrF (A : DP.LO) : Form -> LT.LL A -> Seq A = split {
+    atF b k -> \ e -> nilL ; andF p q -> \ e -> nilL ; orF p q -> \ e -> consL (p,e) (consL (q,e) nilL) ;
+    allF p -> \ e -> nilL ; exF p -> \ e -> nilL } ;
+  addAllF (A : DP.LO) : Form -> LT.LL A -> Lb A -> Seq A = split {
+    atF b k -> \ e a -> nilL ; andF p q -> \ e a -> nilL ; orF p q -> \ e a -> nilL ;
+    allF p -> \ e a -> consL (p,consL a e) nilL ; exF p -> \ e a -> nilL } ;
+  addExF (A : DP.LO) : Form -> LT.LL A -> Lb A -> Seq A = split {
+    atF b k -> \ e a -> nilL ; andF p q -> \ e a -> nilL ; orF p q -> \ e a -> nilL ;
+    allF p -> \ e a -> nilL ; exF p -> \ e a -> consL (p,consL a e) nilL } ;
+  isAxF (A : DP.LO) : Form -> LT.LL A -> W.Bool = split {
+    atF b k -> \ e -> eqBo (ev A k e) b ; andF p q -> \ e -> false ; orF p q -> \ e -> false ;
+    allF p -> \ e -> false ; exF p -> \ e -> false } ;
+  -- lifted to optional closures
+  addAnd (A : DP.LO) : OC A -> Lb A -> Seq A = split { inl u -> \ a -> nilL ; inr c -> addAndF A c.1 c.2 } ;
+  addOr (A : DP.LO) : OC A -> Seq A = split { inl u -> nilL ; inr c -> addOrF A c.1 c.2 } ;
+  addAll (A : DP.LO) : OC A -> Lb A -> Seq A = split { inl u -> \ a -> nilL ; inr c -> addAllF A c.1 c.2 } ;
+  addEx (A : DP.LO) : OC A -> Lb A -> Seq A = split { inl u -> \ a -> nilL ; inr c -> addExF A c.1 c.2 } ;
+  isO (A : DP.LO) (t : Form -> W.Bool) : OC A -> W.Bool = split { inl u -> false ; inr c -> t c.1 } ;
+  isAx (A : DP.LO) : OC A -> W.Bool = split { inl u -> false ; inr c -> isAxF A c.1 c.2 } ;
+
+  br (A : DP.LO) : Rule A -> Lb A -> W.Bool = split {
+    axR i -> \ a -> false ; andR i -> \ a -> isTwo A a ; orR i -> \ a -> isZeroL A a ;
+    allR i -> \ a -> true ; exR i w -> \ a -> isZeroL A a ; cutR f e -> \ a -> isTwo A a } ;
+  step (A : DP.LO) (G : Seq A) : Rule A -> Lb A -> Seq A = split {
+    axR i -> \ a -> G ;
+    andR i -> \ a -> app A G (addAnd A (getM A i G) a) ;
+    orR i -> \ a -> app A G (addOr A (getM A i G)) ;
+    allR i -> \ a -> app A G (addAll A (getM A i G) a) ;
+    exR i w -> \ a -> app A G (addEx A (getM A i G) w) ;
+    cutR f e -> \ a -> app A G (consL (pickF a.1 f (neg f),e) nilL) } ;
+  appl (A : DP.LO) (G : Seq A) : Rule A -> W.Bool = split {
+    axR i -> isAx A (getM A i G) ;
+    andR i -> isO A isAndF (getM A i G) ;
+    orR i -> isO A isOrF (getM A i G) ;
+    allR i -> isO A isAllF (getM A i G) ;
+    exR i w -> isO A isExF (getM A i G) ;
+    cutR f e -> true } ;
+
+  ----------------------------------------------------------------------
+  -- local soundness of each rule
+  FO (A : DP.LO) (o : OC A) : U l = (c : Clo A) -> Id (OC A) o (inr c) -> F A c.1 c.2 ;
+  Ch (A : DP.LO) (G : Seq A) (t : Lb A -> W.Bool) (S : Lb A -> Seq A) : U l =
+    (a : Lb A) -> Id W.Bool (t a) true -> Valid A (app A G (S a)) ;
+  child1 (A : DP.LO) (G : Seq A) (t : Lb A -> W.Bool) (S : Lb A -> Seq A) (ch : Ch A G t S) (g : AllF A G)
+    (a : Lb A) (h : Id W.Bool (t a) true) (s : AllF A (S a)) : W.Empty = ch a h (allF-app A (S a) G g s) ;
+
+  axF (A : DP.LO) : (f : Form) (e : LT.LL A) -> Id W.Bool (isAxF A f e) true -> F A f e -> W.Empty = split {
+    atF b k -> \ e h fe -> axC (ev A k e) b h fe ;
+    andF p q -> \ e h fe -> W.absurdB W.Empty h ; orF p q -> \ e h fe -> W.absurdB W.Empty h ;
+    allF p -> \ e h fe -> W.absurdB W.Empty h ; exF p -> \ e h fe -> W.absurdB W.Empty h } ;
+  axO (A : DP.LO) : (o : OC A) -> FO A o -> Id W.Bool (isAx A o) true -> W.Empty = split {
+    inl u -> \ fo h -> W.absurdB W.Empty h ;
+    inr c -> \ fo h -> axF A c.1 c.2 h (fo c (refl (inr c))) } ;
+
+  andF-s (A : DP.LO) (G : Seq A) (g : AllF A G) : (f : Form) (e : LT.LL A) -> Id W.Bool (isAndF f) true -> F A f e ->
+      Ch A G (isTwo A) (addAndF A f e) -> W.Empty = split {
+    atF b k -> \ e h fe ch -> W.absurdB W.Empty h ;
+    andF p q -> \ e h fe ch -> fe (CF.or-elim (F A p e) (F A q e) W.Empty
+      (\ x -> child1 A G (isTwo A) (addAndF A (andF p q) e) ch g (lab0 A) (refl true) (x,tt))
+      (\ y -> child1 A G (isTwo A) (addAndF A (andF p q) e) ch g (lab1 A) (refl true) (y,tt))) ;
+    orF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+    allF p -> \ e h fe ch -> W.absurdB W.Empty h ; exF p -> \ e h fe ch -> W.absurdB W.Empty h } ;
+  andO (A : DP.LO) (G : Seq A) (g : AllF A G) : (o : OC A) -> FO A o -> Id W.Bool (isO A isAndF o) true ->
+      Ch A G (isTwo A) (addAnd A o) -> W.Empty = split {
+    inl u -> \ fo h ch -> W.absurdB W.Empty h ;
+    inr c -> \ fo h ch -> andF-s A G g c.1 c.2 h (fo c (refl (inr c))) ch } ;
+
+  orF-s (A : DP.LO) (G : Seq A) (g : AllF A G) : (f : Form) (e : LT.LL A) -> Id W.Bool (isOrF f) true -> F A f e ->
+      Ch A G (isZeroL A) (\ a -> addOrF A f e) -> W.Empty = split {
+    atF b k -> \ e h fe ch -> W.absurdB W.Empty h ; andF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+    orF p q -> \ e h fe ch -> child1 A G (isZeroL A) (\ a -> addOrF A (orF p q) e) ch g (lab0 A) (refl true) (fe.1,(fe.2,tt)) ;
+    allF p -> \ e h fe ch -> W.absurdB W.Empty h ; exF p -> \ e h fe ch -> W.absurdB W.Empty h } ;
+  orO (A : DP.LO) (G : Seq A) (g : AllF A G) : (o : OC A) -> FO A o -> Id W.Bool (isO A isOrF o) true ->
+      Ch A G (isZeroL A) (\ a -> addOr A o) -> W.Empty = split {
+    inl u -> \ fo h ch -> W.absurdB W.Empty h ;
+    inr c -> \ fo h ch -> orF-s A G g c.1 c.2 h (fo c (refl (inr c))) ch } ;
+
+  allF-s (A : DP.LO) (G : Seq A) (g : AllF A G) : (f : Form) (e : LT.LL A) -> Id W.Bool (isAllF f) true -> F A f e ->
+      Ch A G (\ a -> true) (addAllF A f e) -> W.Empty = split {
+    atF b k -> \ e h fe ch -> W.absurdB W.Empty h ; andF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+    orF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+    allF p -> \ e h fe ch -> fe (\ s -> child1 A G (\ a -> true) (addAllF A (allF p) e) ch g s.1 (refl true) (s.2,tt)) ;
+    exF p -> \ e h fe ch -> W.absurdB W.Empty h } ;
+  allO (A : DP.LO) (G : Seq A) (g : AllF A G) : (o : OC A) -> FO A o -> Id W.Bool (isO A isAllF o) true ->
+      Ch A G (\ a -> true) (addAll A o) -> W.Empty = split {
+    inl u -> \ fo h ch -> W.absurdB W.Empty h ;
+    inr c -> \ fo h ch -> allF-s A G g c.1 c.2 h (fo c (refl (inr c))) ch } ;
+
+  exF-s (A : DP.LO) (G : Seq A) (g : AllF A G) (w : Lb A) : (f : Form) (e : LT.LL A) -> Id W.Bool (isExF f) true -> F A f e ->
+      Ch A G (isZeroL A) (\ a -> addExF A f e w) -> W.Empty = split {
+    atF b k -> \ e h fe ch -> W.absurdB W.Empty h ; andF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+    orF p q -> \ e h fe ch -> W.absurdB W.Empty h ; allF p -> \ e h fe ch -> W.absurdB W.Empty h ;
+    exF p -> \ e h fe ch -> child1 A G (isZeroL A) (\ a -> addExF A (exF p) e w) ch g (lab0 A) (refl true) (fe w,tt) } ;
+  exO (A : DP.LO) (G : Seq A) (g : AllF A G) (w : Lb A) : (o : OC A) -> FO A o -> Id W.Bool (isO A isExF o) true ->
+      Ch A G (isZeroL A) (\ a -> addEx A o w) -> W.Empty = split {
+    inl u -> \ fo h ch -> W.absurdB W.Empty h ;
+    inr c -> \ fo h ch -> exF-s A G g w c.1 c.2 h (fo c (refl (inr c))) ch } ;
+
+  -- every applicable rule with sound premises has a sound conclusion
+  LS (A : DP.LO) (G : Seq A) : (r : Rule A) -> Id W.Bool (appl A G r) true ->
+      ((a : Lb A) -> Id W.Bool (br A r a) true -> Valid A (step A G r a)) -> Valid A G = split {
+    axR i -> \ h ch g -> axO A (getM A i G) (\ c e -> getF A i G c e g) h ;
+    andR i -> \ h ch g -> andO A G g (getM A i G) (\ c e -> getF A i G c e g) h ch ;
+    orR i -> \ h ch g -> orO A G g (getM A i G) (\ c e -> getF A i G c e g) h ch ;
+    allR i -> \ h ch g -> allO A G g (getM A i G) (\ c e -> getF A i G c e g) h ch ;
+    exR i w -> \ h ch g -> exO A G g w (getM A i G) (\ c e -> getF A i G c e g) h ch ;
+    cutR f e -> \ h ch g ->
+      ch (lab1 A) (refl true) (allF-app A (consL (neg f,e) nilL) G g
+        ((key A f e).1 (\ x -> ch (lab0 A) (refl true) (allF-app A (consL (f,e) nilL) G g (x,tt))),tt)) } ;
+
+  ----------------------------------------------------------------------
+  -- pre-proofs at A: a rule at every address, an end sequent
+  Rl (A : DP.LO) : U l = LT.LL A -> Rule A ;
+  shift (A : DP.LO) (R : Rl A) (a : Lb A) : Rl A = \ zs -> R (consL a zs) ;
+  inTree (A : DP.LO) : LT.LL A -> Rl A -> Seq A -> W.Bool = split {
+    nilL -> \ R G -> true ;
+    consL a ys | r -> \ R G -> W.andB (br A (R nilL) a) (r (shift A R a) (step A G (R nilL) a)) } ;
+  seqAt (A : DP.LO) : LT.LL A -> Rl A -> Seq A -> Seq A = split {
+    nilL -> \ R G -> G ;
+    consL a ys | r -> \ R G -> r (shift A R a) (step A G (R nilL) a) } ;
+  LocOK (A : DP.LO) (R : Rl A) (G : Seq A) : U l =
+    (ys : LT.LL A) -> Id W.Bool (inTree A ys R G) true -> Id W.Bool (appl A (seqAt A ys R G) (R ys)) true ;
+  tree (A : DP.LO) (R : Rl A) (G : Seq A) : KT.KB[LT.Lab A].Tr = \ ys -> inTree A ys R G ;
+  WFP (A : DP.LO) (R : Rl A) (G : Seq A) : U l = KT.KB[LT.Lab A].WFT (tree A R G) ;
+
+  -- soundness, by induction on a Brouwer bound of the tree
+  module On (A : DP.LO) {
+    module K = KT.KB[LT.Lab A] ;
+    soundT : (b : K.BT) (R : Rl A) (G : Seq A) -> K.Bnd b (tree A R G) -> LocOK A R G -> Valid A G = split {
+      leaf -> \ R G hb lo -> tf (Valid A G) (hb nilL) ;
+      node f | r -> \ R G hb lo -> LS A G (R nilL) (lo nilL (refl true))
+        (\ a ha -> r a (shift A R a) (step A G (R nilL) a)
+          (K.bnd-ext (f a) (K.sub (tree A R G) a) (tree A (shift A R a) (step A G (R nilL) a))
+            (\ xs -> andTrue (br A (R nilL) a) (inTree A xs (shift A R a) (step A G (R nilL) a)) ha) (hb a))
+          (\ ys hv -> lo (consL a ys)
+            (PL.trans W.Bool (inTree A (consL a ys) R G) (inTree A ys (shift A R a) (step A G (R nilL) a)) true
+              (andTrue (br A (R nilL) a) (inTree A ys (shift A R a) (step A G (R nilL) a)) ha) hv))) } ;
+    soundW (R : Rl A) (G : Seq A) (w : WFP A R G) (lo : LocOK A R G) : Valid A G = soundT w.1 R G w.2 lo ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- pre-beta-proofs and beta-proofs
+  module Pre (G : (A : DP.LO) -> Seq A) (R : (A : DP.LO) -> Rl A) (lo : (A : DP.LO) -> LocOK A (R A) (G A)) {
+    Correct : U l+ = (A : DP.LO) -> LW.WF A -> WFP A (R A) (G A) ;
+    -- a beta-proof is sound at every well-order
+    soundB (c : Correct) (A : DP.LO) (w : LW.WF A) : Valid A (G A) = On[A].soundW (R A) (G A) (c A w) (lo A) ;
+  } ;
+  -- consistency: no beta-proof of the empty sequent
+  consistent (R : (A : DP.LO) -> Rl A) (lo : (A : DP.LO) -> LocOK A (R A) nilL)
+    (c : Pre[\ A -> nilL,R,lo].Correct) : W.Empty =
+    Pre[\ A -> nilL,R,lo].soundB c LW.omega LW.wf-omega tt ;
+
+  ----------------------------------------------------------------------
+  -- transport along an embedding g : A -> B
+  module Map (A B : DP.LO) (g : DP.Map A B) {
+    lm (a : Lb A) : Lb B = LT.lm A B g a ;
+    mE (e : LT.LL A) : LT.LL B = LT.mapL A B g e ;
+    mC (c : Clo A) : Clo B = (c.1,mE c.2) ;
+    mS (G : Seq A) : Seq B = W.map (Clo A) (Clo B) mC G ;
+    mO : OC A -> OC B = split { inl u -> inl u ; inr c -> inr (mC c) } ;
+    mR : Rule A -> Rule B = split {
+      axR i -> axR i ; andR i -> andR i ; orR i -> orR i ; allR i -> allR i ;
+      exR i w -> exR i (lm w) ; cutR f e -> cutR f (mE e) } ;
+    getMap : (i : W.N) (G : Seq A) -> Id (OC B) (getM B i (mS G)) (mO (getM A i G)) = split {
+      zero -> split { nilL -> refl (inl tt) ; consL c cs -> refl (inr (mC c)) } ;
+      suc i | r -> split { nilL -> refl (inl tt) ; consL c cs -> r cs } } ;
+    addAndM : (f : Form) (e : LT.LL A) (a : Lb A) -> Id (Seq B) (addAndF B f (mE e) (lm a)) (mS (addAndF A f e a)) = split {
+      atF b k -> \ e a -> refl nilL ; andF p q -> \ e a -> refl (consL (pickF a.1 p q,mE e) nilL) ;
+      orF p q -> \ e a -> refl nilL ; allF p -> \ e a -> refl nilL ; exF p -> \ e a -> refl nilL } ;
+    addOrM : (f : Form) (e : LT.LL A) -> Id (Seq B) (addOrF B f (mE e)) (mS (addOrF A f e)) = split {
+      atF b k -> \ e -> refl nilL ; andF p q -> \ e -> refl nilL ;
+      orF p q -> \ e -> refl (consL (p,mE e) (consL (q,mE e) nilL)) ; allF p -> \ e -> refl nilL ; exF p -> \ e -> refl nilL } ;
+    addAllM : (f : Form) (e : LT.LL A) (a : Lb A) -> Id (Seq B) (addAllF B f (mE e) (lm a)) (mS (addAllF A f e a)) = split {
+      atF b k -> \ e a -> refl nilL ; andF p q -> \ e a -> refl nilL ; orF p q -> \ e a -> refl nilL ;
+      allF p -> \ e a -> refl (consL (p,consL (lm a) (mE e)) nilL) ; exF p -> \ e a -> refl nilL } ;
+    addExM : (f : Form) (e : LT.LL A) (a : Lb A) -> Id (Seq B) (addExF B f (mE e) (lm a)) (mS (addExF A f e a)) = split {
+      atF b k -> \ e a -> refl nilL ; andF p q -> \ e a -> refl nilL ; orF p q -> \ e a -> refl nilL ;
+      allF p -> \ e a -> refl nilL ; exF p -> \ e a -> refl (consL (p,consL (lm a) (mE e)) nilL) } ;
+    addAndO (a : Lb A) : (o : OC A) -> Id (Seq B) (addAnd B (mO o) (lm a)) (mS (addAnd A o a)) = split {
+      inl u -> refl nilL ; inr c -> addAndM c.1 c.2 a } ;
+    addOrO : (o : OC A) -> Id (Seq B) (addOr B (mO o)) (mS (addOr A o)) = split {
+      inl u -> refl nilL ; inr c -> addOrM c.1 c.2 } ;
+    addAllO (a : Lb A) : (o : OC A) -> Id (Seq B) (addAll B (mO o) (lm a)) (mS (addAll A o a)) = split {
+      inl u -> refl nilL ; inr c -> addAllM c.1 c.2 a } ;
+    addExO (a : Lb A) : (o : OC A) -> Id (Seq B) (addEx B (mO o) (lm a)) (mS (addEx A o a)) = split {
+      inl u -> refl nilL ; inr c -> addExM c.1 c.2 a } ;
+    hstep (G : Seq A) (o' : OC B) (o : OC A) (S1 : OC B -> Seq B) (S2 : OC A -> Seq A)
+      (eo : Id (OC B) o' (mO o)) (es : Id (Seq B) (S1 (mO o)) (mS (S2 o))) :
+        Id (Seq B) (app B (mS G) (S1 o')) (mS (app A G (S2 o))) =
+      PL.trans (Seq B) (app B (mS G) (S1 o')) (app B (mS G) (mS (S2 o))) (mS (app A G (S2 o)))
+        (PL.ap (Seq B) (Seq B) (app B (mS G)) (S1 o') (mS (S2 o))
+          (PL.trans (Seq B) (S1 o') (S1 (mO o)) (mS (S2 o)) (PL.ap (OC B) (Seq B) S1 o' (mO o) eo) es))
+        (PL.sym (Seq B) (mS (app A G (S2 o))) (app B (mS G) (mS (S2 o))) (KT.map-app (Clo A) (Clo B) mC G (S2 o))) ;
+    stepMap (G : Seq A) : (r : Rule A) (a : Lb A) -> Id (Seq B) (step B (mS G) (mR r) (lm a)) (mS (step A G r a)) = split {
+      axR i -> \ a -> refl (mS G) ;
+      andR i -> \ a -> hstep G (getM B i (mS G)) (getM A i G) (\ o -> addAnd B o (lm a)) (\ o -> addAnd A o a) (getMap i G) (addAndO a (getM A i G)) ;
+      orR i -> \ a -> hstep G (getM B i (mS G)) (getM A i G) (addOr B) (addOr A) (getMap i G) (addOrO (getM A i G)) ;
+      allR i -> \ a -> hstep G (getM B i (mS G)) (getM A i G) (\ o -> addAll B o (lm a)) (\ o -> addAll A o a) (getMap i G) (addAllO a (getM A i G)) ;
+      exR i w -> \ a -> hstep G (getM B i (mS G)) (getM A i G) (\ o -> addEx B o (lm w)) (\ o -> addEx A o w) (getMap i G) (addExO w (getM A i G)) ;
+      cutR f e -> \ a -> PL.sym (Seq B) (mS (app A G (consL (pickF a.1 f (neg f),e) nilL))) (app B (mS G) (consL (pickF a.1 f (neg f),mE e) nilL))
+        (KT.map-app (Clo A) (Clo B) mC G (consL (pickF a.1 f (neg f),e) nilL)) } ;
+    inlMap : (x : W.Or W.Unit A.car) -> Id W.Bool (isInl W.Unit B.car (LT.omap A B g x)) (isInl W.Unit A.car x) = split {
+      inl u -> refl true ; inr x -> refl false } ;
+    twoMap (a : Lb A) : Id W.Bool (isTwo B (lm a)) (isTwo A a) =
+      PL.ap W.Bool W.Bool (\ c -> W.andB c (le1 a.1)) (isInl W.Unit B.car (LT.omap A B g a.2)) (isInl W.Unit A.car a.2) (inlMap a.2) ;
+    zeroMap (a : Lb A) : Id W.Bool (isZeroL B (lm a)) (isZeroL A a) =
+      PL.ap W.Bool W.Bool (\ c -> W.andB c (isZeroN a.1)) (isInl W.Unit B.car (LT.omap A B g a.2)) (isInl W.Unit A.car a.2) (inlMap a.2) ;
+    brMap : (r : Rule A) (a : Lb A) -> Id W.Bool (br B (mR r) (lm a)) (br A r a) = split {
+      axR i -> \ a -> refl false ; andR i -> \ a -> twoMap a ; orR i -> \ a -> zeroMap a ;
+      allR i -> \ a -> refl true ; exR i w -> \ a -> zeroMap a ; cutR f e -> \ a -> twoMap a } ;
+    -- the tree of a transported pre-proof is the transported tree
+    treeMap : (ys : LT.LL A) (RA : Rl A) (RB : Rl B) (GA : Seq A) (GB : Seq B)
+        (nr : (zs : LT.LL A) -> Id (Rule B) (RB (mE zs)) (mR (RA zs))) (ng : Id (Seq B) GB (mS GA)) ->
+        Id W.Bool (inTree B (mE ys) RB GB) (inTree A ys RA GA) = split {
+      nilL -> \ RA RB GA GB nr ng -> refl true ;
+      consL a ys | r -> \ RA RB GA GB nr ng ->
+        W.ap2 W.Bool W.Bool W.Bool W.andB (br B (RB nilL) (lm a)) (br A (RA nilL) a)
+          (inTree B (mE ys) (shift B RB (lm a)) (step B GB (RB nilL) (lm a))) (inTree A ys (shift A RA a) (step A GA (RA nilL) a))
+          (PL.trans W.Bool (br B (RB nilL) (lm a)) (br B (mR (RA nilL)) (lm a)) (br A (RA nilL) a)
+            (PL.ap (Rule B) W.Bool (\ r0 -> br B r0 (lm a)) (RB nilL) (mR (RA nilL)) (nr nilL)) (brMap (RA nilL) a))
+          (r (shift A RA a) (shift B RB (lm a)) (step A GA (RA nilL) a) (step B GB (RB nilL) (lm a)) (\ zs -> nr (consL a zs))
+            (PL.trans (Seq B) (step B GB (RB nilL) (lm a)) (step B (mS GA) (mR (RA nilL)) (lm a)) (mS (step A GA (RA nilL) a))
+              (W.ap2 (Seq B) (Rule B) (Seq B) (\ G0 r0 -> step B G0 r0 (lm a)) GB (mS GA) (RB nilL) (mR (RA nilL)) ng (nr nilL))
+              (stepMap GA (RA nilL) a))) } ;
+  } ;
+
+  -- trees are prefix-closed
+  pre (A : DP.LO) : (xs ys : LT.LL A) (R : Rl A) (G : Seq A) ->
+      Id W.Bool (inTree A (KT.appL (Lb A) xs ys) R G) true -> Id W.Bool (inTree A xs R G) true = split {
+    nilL -> \ ys R G h -> refl true ;
+    consL a xs | r -> \ ys R G h ->
+      PL.trans W.Bool (W.andB (br A (R nilL) a) (inTree A xs (shift A R a) (step A G (R nilL) a))) (inTree A xs (shift A R a) (step A G (R nilL) a)) true
+        (andTrue (br A (R nilL) a) (inTree A xs (shift A R a) (step A G (R nilL) a))
+          (W.andB-l (br A (R nilL) a) (inTree A (KT.appL (Lb A) xs ys) (shift A R a) (step A G (R nilL) a)) h))
+        (r ys (shift A R a) (step A G (R nilL) a)
+          (W.andB-r (br A (R nilL) a) (inTree A (KT.appL (Lb A) xs ys) (shift A R a) (step A G (R nilL) a)) h)) } ;
+
+  ----------------------------------------------------------------------
+  -- homogeneous pre-beta-proofs: their trees form a pre-dilator, and
+  --     beta-proof  <=>  this pre-dilator is a dilator
+  module Hom (G : (A : DP.LO) -> Seq A) (R : (A : DP.LO) -> Rl A)
+    (ng : (A B : DP.LO) (g : DP.Map A B) -> Id (Seq B) (G B) (Map[A,B,g].mS (G A)))
+    (nr : (A B : DP.LO) (g : DP.Map A B) (ys : LT.LL A) -> Id (Rule B) (R B (LT.mapL A B g ys)) (Map[A,B,g].mR (R A ys))) {
+    ok (A : DP.LO) (r : LT.LL A) : W.Bool = inTree A (KT.revL (Lb A) r) (R A) (G A) ;
+    inv (A B : DP.LO) (g : DP.Map A B) (r : LT.LL A) : Id W.Bool (ok B (LT.mapL A B g r)) (ok A r) =
+      PL.trans W.Bool (ok B (LT.mapL A B g r)) (inTree B (LT.mapL A B g (KT.revL (Lb A) r)) (R B) (G B)) (ok A r)
+        (PL.ap (LT.LL B) W.Bool (\ ys -> inTree B ys (R B) (G B)) (KT.revL (Lb B) (LT.mapL A B g r)) (LT.mapL A B g (KT.revL (Lb A) r))
+          (KT.rev-map (Lb A) (Lb B) (LT.lm A B g) r))
+        (Map[A,B,g].treeMap (KT.revL (Lb A) r) (R A) (R B) (G A) (G B) (nr A B g) (ng A B g)) ;
+    pcl (A : DP.LO) (z r : LT.LL A) (h : Id W.Bool (ok A (KT.appL (Lb A) z r)) true) : Id W.Bool (ok A r) true =
+      pre A (KT.revL (Lb A) r) (KT.revL (Lb A) z) (R A) (G A)
+        (PL.subst (LT.LL A) (\ t -> Id W.Bool (inTree A t (R A) (G A)) true)
+          (KT.revL (Lb A) (KT.appL (Lb A) z r)) (KT.appL (Lb A) (KT.revL (Lb A) r) (KT.revL (Lb A) z))
+          (KT.revL-app (Lb A) z r) h) ;
+    module LTr = LT.LabTree[ok,inv,pcl] ;
+    -- the pre-dilator of a homogeneous pre-beta-proof
+    dil : SF.SF[LC.ce] = LTr.dil ;
+    Correct : U l+ = (A : DP.LO) -> LW.WF A -> WFP A (R A) (G A) ;
+    pEq (A : DP.LO) (xs : LT.LL A) : Id W.Bool (LTr.P A xs) (inTree A xs (R A) (G A)) =
+      PL.ap (LT.LL A) W.Bool (\ ys -> inTree A ys (R A) (G A)) (KT.revL (Lb A) (KT.revL (Lb A) xs)) xs (GR.revrev (Lb A) xs) ;
+    toDil (c : Correct) : LW.IsDil dil =
+      LTr.dil-wf (\ A w -> ((c A w).1,KT.KB[LT.Lab A].bnd-ext (c A w).1 (tree A (R A) (G A)) (LTr.P A)
+        (\ xs -> PL.sym W.Bool (LTr.P A xs) (inTree A xs (R A) (G A)) (pEq A xs)) (c A w).2)) ;
+    fromDil (d : LW.IsDil dil) : Correct = \ A w ->
+      ((LTr.wf-dil d A w).1,KT.KB[LT.Lab A].bnd-ext (LTr.wf-dil d A w).1 (LTr.P A) (tree A (R A) (G A)) (pEq A) (LTr.wf-dil d A w).2) ;
+  } ;
+} ;
+
+------------------------------------------------------------------------
+-- an ill-founded pre-beta-proof of a false sequent: exists x (false)
+module IllEx {
+  ev0 (A : DP.LO) (k : W.N) (e : LT.LL A) : W.Bool = false ;
+  module B = Beta[ev0] ;
+  fl : Form = exF (atF true zero) ;
+  G (A : DP.LO) : B.Seq A = consL (fl,nilL) nilL ;
+  R (A : DP.LO) : B.Rl A = \ ys -> exR zero (B.lab0 A) ;
+  -- the exists-closure stays in front
+  hd (A : DP.LO) (c0 : B.Clo A) (h : Id W.Bool (isExF c0.1) true) : (ys : LT.LL A) (rest : B.Seq A) ->
+      Id W.Bool (B.appl A (B.seqAt A ys (R A) (consL c0 rest)) (R A ys)) true = split {
+    nilL -> \ rest -> h ;
+    consL a ys | r -> \ rest -> r (B.app A rest (B.addEx A (inr c0) (B.lab0 A))) } ;
+  lo (A : DP.LO) : B.LocOK A (R A) (G A) = \ ys hv -> hd A (fl,nilL) (refl true) ys nilL ;
+  -- the end sequent is refuted at every A
+  refuted (A : DP.LO) : B.AllF A (G A) = (\ x -> refl false,tt) ;
+  notCorrect (c : B.Pre[G,R,lo].Correct) : W.Empty = B.Pre[G,R,lo].soundB c LW.omega LW.wf-omega (refuted LW.omega) ;
+} ;
+
+------------------------------------------------------------------------
+-- a (cut-free, homogeneous) beta-proof of  forall x (P x or not P x),
+-- for any atom P x = ev A 0 [x] invariant under embeddings
+andFalse : (c : W.Bool) -> Id W.Bool (W.andB c false) false = split { false -> refl false ; true -> refl false } ;
+ifN : W.Bool -> W.N = split { false -> suc (suc (suc zero)) ; true -> suc (suc zero) } ;
+module EMEx (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool)
+  (evI : (A B : DP.LO) (g : DP.Map A B) (k : W.N) (e : LT.LL A) -> Id W.Bool (ev B k (LT.mapL A B g e)) (ev A k e)) {
+  module B = Beta[ev] ;
+  em : Form = allF (orF (atF true zero) (atF false zero)) ;
+  G (A : DP.LO) : B.Seq A = consL (em,nilL) nilL ;
+  R2 (A : DP.LO) (a : B.Lb A) : LT.LL A -> B.Rule A = split {
+    nilL -> orR (suc zero) ;
+    consL b zs -> axR (ifN (ev A zero (consL a nilL))) } ;
+  R (A : DP.LO) : B.Rl A = split { nilL -> allR zero ; consL a ys -> R2 A a ys } ;
+  -- the sequent after the all- and the or-rule
+  S2 (A : DP.LO) (a : B.Lb A) (b : B.Lb A) : B.Seq A = B.seqAt A (consL a (consL b nilL)) (R A) (G A) ;
+  axOK (A : DP.LO) (a b : B.Lb A) : (v : W.Bool) -> Id W.Bool (ev A zero (consL a nilL)) v ->
+      Id W.Bool (B.isAx A (B.getM A (ifN v) (S2 A a b))) true = split {
+    false -> \ e -> PL.ap W.Bool W.Bool (\ c -> eqBo c false) (ev A zero (consL a nilL)) false e ;
+    true -> \ e -> PL.ap W.Bool W.Bool (\ c -> eqBo c true) (ev A zero (consL a nilL)) true e } ;
+  lo3 (A : DP.LO) (a b : B.Lb A) : (zs : LT.LL A) -> Id W.Bool (B.inTree A (consL a (consL b zs)) (R A) (G A)) true ->
+      Id W.Bool (B.appl A (B.seqAt A (consL a (consL b zs)) (R A) (G A)) (R A (consL a (consL b zs)))) true = split {
+    nilL -> \ h -> axOK A a b (ev A zero (consL a nilL)) (refl (ev A zero (consL a nilL))) ;
+    consL c ws -> \ h -> W.absurdB (Id W.Bool (B.appl A (B.seqAt A (consL a (consL b (consL c ws))) (R A) (G A)) (R A (consL a (consL b (consL c ws))))) true)
+      (W.andB-r (B.isZeroL A b) false h) } ;
+  lo2 (A : DP.LO) (a : B.Lb A) : (ys : LT.LL A) -> Id W.Bool (B.inTree A (consL a ys) (R A) (G A)) true ->
+      Id W.Bool (B.appl A (B.seqAt A (consL a ys) (R A) (G A)) (R A (consL a ys))) true = split {
+    nilL -> \ h -> refl true ;
+    consL b zs -> lo3 A a b zs } ;
+  lo (A : DP.LO) : B.LocOK A (R A) (G A) = split { nilL -> \ h -> refl true ; consL a ys -> lo2 A a ys } ;
+  -- correct, with a bound of depth 3 at every linear order
+  module K (A : DP.LO) { module KB = KT.KB[LT.Lab A] ; b3 : KB.BT = node (\ a -> node (\ b -> node (\ c -> leaf))) ; } ;
+  wfp (A : DP.LO) : B.WFP A (R A) (G A) = (K[A].b3,\ a b c xs -> andFalse (B.isZeroL A b)) ;
+  correct : B.Pre[G,R,lo].Correct = \ A w -> wfp A ;
+  -- homogeneity, and the dilator of this beta-proof
+  nr2 (A C : DP.LO) (g : DP.Map A C) (a : B.Lb A) : (ys : LT.LL A) ->
+      Id (B.Rule C) (R C (LT.mapL A C g (consL a ys))) (B.Map[A,C,g].mR (R A (consL a ys))) = split {
+    nilL -> refl (orR (suc zero)) ;
+    consL b zs -> PL.ap W.Bool (B.Rule C) (\ v -> axR (ifN v)) (ev C zero (LT.mapL A C g (consL a nilL))) (ev A zero (consL a nilL))
+      (evI A C g zero (consL a nilL)) } ;
+  nr (A C : DP.LO) (g : DP.Map A C) : (ys : LT.LL A) -> Id (B.Rule C) (R C (LT.mapL A C g ys)) (B.Map[A,C,g].mR (R A ys)) = split {
+    nilL -> refl (allR zero) ; consL a ys -> nr2 A C g a ys } ;
+  module H = B.Hom[G,R,\ A C g -> refl (consL (em,nilL) nilL),nr] ;
+  isDil : LW.IsDil H.dil = H.toDil correct ;
+} ;
