@@ -1,0 +1,443 @@
+-- Higman's lemma over a set over a poset (Th. Coquand, "An inductive proof
+-- of Kruskal's theorem", Proposition 4), in the encoding of VarRamsey and
+-- VarOpen.
+--
+-- Y is a set over (C, le) with an increasing relation prec that is almost
+-- full (VarRamsey.AFR).  Words over Y (latest letter first) are embedded by
+-- the Higman embedding emb; histories are lists of words (latest first).
+-- The alphabetic order of VarOpen uses lt = "is the tail of", which is
+-- enough since only tails of words are compared.
+--
+-- C' (Cp) is M(B) seen as a poset: states (c, h) with h valid at c and
+-- M c h, ordered by le and "h' extends h".  A Z-letter (y, w, q) stands for
+-- the position of the word y w in the history, q being the history before
+-- it (positions as prefixes); Xz a z says that (y w) q is a prefix of the
+-- history of a.  R a z z': if q is shorter than q' then w embeds in w' or
+-- the history of a is good (K a).  Lengths decide the order of positions.
+--
+--   Map.barMap: bars are transported along maps of sets over posets, given
+--     a relation between the predicates that is stable under the steps.
+--   Esc.esc: if a bar secures Q or K (K increasing, K a giving Q on every
+--     pair), then one more step secures Q.
+--   afR: R is almost full (the map F of the paper: the bar for the history
+--     q1 w1, given by M since w1 is the tail of y1 w1, is mapped letterwise).
+--   afS: the product of prec and R (VarRamsey.afInter, after pulling both
+--     back along the projections).
+--   mainT: induction on a bar of the product; at each node, Proposition 1
+--     (VarOpen.prop); a new empty word gives a bar in one step, a new word
+--     y w is the letter (y, w, h) (the map G of the paper).
+--   higman: the corollary of open induction (well-founded induction on the
+--     alphabetic order): the embedding is almost full.
+level l ;
+module W = Dilator[l] ;
+module TB = TransBar[l] ;
+module VR = VarRamsey[l] ;
+module VO = VarOpen[l] ;
+
+oe (A B C : U l) (f : A -> C) (g : B -> C) (e : W.Or A B) : C = TB.orElim A B C f g e ;
+
+-- the strict order on natural numbers
+isPos : W.N -> U l = split { zero -> W.Empty ; suc n -> W.Unit } ;
+ltS (r : W.N -> U l) : W.N -> U l = split { zero -> W.Empty ; suc n -> r n } ;
+LtN : W.N -> W.N -> U l = split { zero -> isPos ; suc m | r -> ltS r } ;
+ltSuc : (n : W.N) -> LtN n (suc n) = split { zero -> tt ; suc n | r -> r } ;
+ltIrr : (n : W.N) -> LtN n n -> W.Empty = split { zero -> \ h -> h ; suc n | r -> r } ;
+posLtS (b : W.N) : (c : W.N) -> LtN (suc b) c -> isPos c = split { zero -> \ h -> h ; suc c -> \ h -> tt } ;
+posLt : (b c : W.N) -> LtN b c -> isPos c = split { zero -> \ c h -> h ; suc b -> posLtS b } ;
+ltTransSS (a : W.N) (r : (b c : W.N) -> LtN a b -> LtN b c -> LtN a c) (b : W.N) :
+  (c : W.N) -> LtN (suc a) (suc b) -> LtN (suc b) c -> LtN (suc a) c = split {
+  zero -> \ h1 h2 -> h2 ;
+  suc c -> \ h1 h2 -> r b c h1 h2 } ;
+ltTransS (a : W.N) (r : (b c : W.N) -> LtN a b -> LtN b c -> LtN a c) :
+  (b c : W.N) -> LtN (suc a) b -> LtN b c -> LtN (suc a) c = split {
+  zero -> \ c h1 h2 -> W.absurdE (LtN (suc a) c) h1 ;
+  suc b -> ltTransSS a r b } ;
+ltTrans : (a b c : W.N) -> LtN a b -> LtN b c -> LtN a c = split {
+  zero -> \ b c h1 h2 -> posLt b c h2 ;
+  suc a | r -> ltTransS a r } ;
+ltPredL (a b : W.N) (h : LtN (suc a) b) : LtN a b = ltTrans a (suc a) b (ltSuc a) h ;
+Dec (A : U l) : U l = W.Or A (A -> W.Empty) ;
+decLtZ : (b : W.N) -> Dec (LtN zero b) = split { zero -> inr (\ h -> h) ; suc b -> inl tt } ;
+decLtS (a : W.N) (r : (b : W.N) -> Dec (LtN a b)) : (b : W.N) -> Dec (LtN (suc a) b) = split {
+  zero -> inr (\ h -> h) ; suc b -> r b } ;
+decLt : (a b : W.N) -> Dec (LtN a b) = split { zero -> decLtZ ; suc a | r -> decLtS a r } ;
+
+-- transport of bars along a map of sets over posets (f on states, g on
+-- letters).  RelP B P a: above a, B at the image of a sequence gives P.
+module Map (C1 : U l) (le1 : C1 -> C1 -> U l) (r1 : (p : C1) -> le1 p p)
+  (t1 : (p q s : C1) -> le1 p q -> le1 q s -> le1 p s) (X01 : U l) (X1 : C1 -> X01 -> U l)
+  (C2 : U l) (le2 : C2 -> C2 -> U l) (r2 : (p : C2) -> le2 p p)
+  (t2 : (p q s : C2) -> le2 p q -> le2 q s -> le2 p s) (X02 : U l) (X2 : C2 -> X02 -> U l)
+  (X2-mono : (a b : C2) -> le2 a b -> (x : X02) -> X2 a x -> X2 b x)
+  (f : C2 -> C1) (fm : (a b : C2) -> le2 a b -> le1 (f a) (f b))
+  (g : X02 -> X01) (gX : (a : C2) (x : X02) -> X2 a x -> X1 (f a) (g x)) {
+  module V1 = VR.On[C1,le1,r1,t1,X01,X1] ;
+  module V2 = VR.On[C2,le2,r2,t2,X02,X2] ;
+  mapL : W.List X02 -> W.List X01 = split { nilL -> nilL ; consL x s | r -> consL (g x) r } ;
+  InvS (a : C2) : W.List X02 -> U l = split { nilL -> W.Unit ; consL x s -> X2 a x } ;
+  RelP (B : V1.Pred) (P : V2.Pred) (a : C2) : U l =
+    (a' : C2) -> le2 a a' -> (s : W.List X02) -> InvS a' s -> B (f a') (mapL s) -> P a' s ;
+  relUp (B : V1.Pred) (P : V2.Pred) (a : C2) (rel : RelP B P a) (a1 : C2) (l : le2 a a1) (x : X02) (m : X2 a1 x) :
+    RelP (V1.up B (g x)) (V2.up P x) a1 = \ a' l' s inv e ->
+    oe (B (f a') (mapL s)) (B (f a') (consL (g x) (mapL s))) (V2.up P x a' s)
+      (\ e1 -> inl (rel a' (t2 a a1 a' l l') s inv e1))
+      (\ e1 -> inr (rel a' (t2 a a1 a' l l') (consL x s) (X2-mono a1 a' l' x m) e1)) e ;
+  barMap : (t : V1.WT) (B : V1.Pred) (P : V2.Pred) (a : C2) -> V1.Sec t B (f a) -> RelP B P a -> V2.Bar P a = split {
+    z -> \ B P a s rel -> V2.leaf P a (rel a (r2 a) nilL tt s) ;
+    sp st0 k | rk -> \ B P a s rel -> V2.node P a (\ a1 x l m ->
+      rk (f a1) (g x) (t1 st0 (f a) (f a1) s.1 (fm a a1 l)) (gX a1 x m) (V1.up B (g x)) (V2.up P x) a1
+        (s.2 (f a1) (g x) (t1 st0 (f a) (f a1) s.1 (fm a a1 l)) (fm a a1 l) (gX a1 x m))
+        (relUp B P a rel a1 l x m)) } ;
+} ;
+
+-- escape: K is increasing and gives Q on every pair; a bar for Q or K
+-- after a nonempty sequence gives a bar for Q (one more step when K holds).
+module Esc (C : U l) (le : C -> C -> U l) (le-refl : (p : C) -> le p p)
+  (le-trans : (p q r : C) -> le p q -> le q r -> le p r) (X0 : U l) (X : C -> X0 -> U l)
+  (K : C -> U l) (kMono : (a b : C) -> le a b -> K a -> K b)
+  (Q : C -> W.List X0 -> U l) (qK : (a : C) (x y : X0) -> K a -> Q a (consL x (consL y nilL))) {
+  module V = VR.On[C,le,le-refl,le-trans,X0,X] ;
+  upL (B : V.Pred) : W.List X0 -> V.Pred = split { nilL -> B ; consL x s | r -> V.up r x } ;
+  upBaseL (B : V.Pred) : (zs : W.List X0) (a : C) (s : W.List X0) -> B a s -> upL B zs a s = split {
+    nilL -> \ a s e -> e ; consL x zs | r -> \ a s e -> inl (r a s e) } ;
+  Kp : V.Pred = \ a s -> K a ;
+  Qk : V.Pred = V.orP Q Kp ;
+  splitK : (zs : W.List X0) (a : C) (s : W.List X0) -> upL Qk zs a s -> W.Or (upL Q zs a s) (K a) = split {
+    nilL -> \ a s e -> e ;
+    consL x zs | r -> \ a s e -> oe (upL Qk zs a s) (upL Qk zs a (consL x s)) (W.Or (upL Q (consL x zs) a s) (K a))
+      (\ e1 -> oe (upL Q zs a s) (K a) (W.Or (upL Q (consL x zs) a s) (K a))
+        (\ e2 -> inl (inl e2)) (\ k -> inr k) (r a s e1))
+      (\ e1 -> oe (upL Q zs a (consL x s)) (K a) (W.Or (upL Q (consL x zs) a s) (K a))
+        (\ e2 -> inl (inr e2)) (\ k -> inr k) (r a (consL x s) e1)) e } ;
+  esc : (t : V.WT) (zs : W.List X0) (x0 : X0) (a : C) ->
+    V.Sec t (upL Qk (consL x0 zs)) a -> V.Bar (upL Q (consL x0 zs)) a = split {
+    z -> \ zs x0 a s -> oe (upL Q (consL x0 zs) a nilL) (K a) (V.Bar (upL Q (consL x0 zs)) a)
+      (\ e -> V.leaf (upL Q (consL x0 zs)) a e)
+      (\ k -> V.node (upL Q (consL x0 zs)) a (\ a1 y l m -> V.leaf (V.up (upL Q (consL x0 zs)) y) a1
+        (inr (inr (upBaseL Q zs a1 (consL x0 (consL y nilL)) (qK a1 x0 y (kMono a a1 l k)))))))
+      (splitK (consL x0 zs) a nilL s) ;
+    sp st0 f | r -> \ zs x0 a s -> V.node (upL Q (consL x0 zs)) a (\ a1 y l m ->
+      r a1 y (le-trans st0 a a1 s.1 l) m (consL x0 zs) y a1 (s.2 a1 y (le-trans st0 a a1 s.1 l) l m)) } ;
+} ;
+
+module Higman (C : U l) (le : C -> C -> U l)
+  (le-refl : (p : C) -> le p p) (le-trans : (p q r : C) -> le p q -> le q r -> le p r)
+  (Y0 : U l) (Y : C -> Y0 -> U l) (Y-mono : (p q : C) -> le p q -> (y : Y0) -> Y p y -> Y q y)
+  (prec : C -> Y0 -> Y0 -> U l) (prec-mono : (p q : C) -> le p q -> (x y : Y0) -> prec p x y -> prec q x y)
+  (af : VR.On[C,le,le-refl,le-trans,Y0,Y].AFR prec) {
+  module VRY = VR.On[C,le,le-refl,le-trans,Y0,Y] ;
+  L1 : U l = W.List Y0 ;
+  H : U l = W.List L1 ;
+
+  -- the Higman embedding
+  embC (c : C) (a : Y0) (u : L1) (r : L1 -> U l) : L1 -> U l = split {
+    nilL -> W.Empty ; consL b v | rv -> W.Or (prec c a b * r v) rv } ;
+  emb (c : C) : L1 -> L1 -> U l = split { nilL -> \ v -> W.Unit ; consL a u | r -> embC c a u r } ;
+  embMonoC (c c' : C) (h : le c c') (a : Y0) (u : L1) (r : (v : L1) -> emb c u v -> emb c' u v) :
+    (v : L1) -> emb c (consL a u) v -> emb c' (consL a u) v = split {
+    nilL -> \ e -> e ;
+    consL b v | rv -> \ e -> oe (prec c a b * emb c u v) (emb c (consL a u) v) (emb c' (consL a u) (consL b v))
+      (\ e1 -> inl (prec-mono c c' h a b e1.1,r v e1.2)) (\ e1 -> inr (rv e1)) e } ;
+  embMono (c c' : C) (h : le c c') : (u v : L1) -> emb c u v -> emb c' u v = split {
+    nilL -> \ v e -> tt ; consL a u | r -> embMonoC c c' h a u r } ;
+  embCons (c : C) : (x : L1) (y : Y0) (w : L1) -> emb c x w -> emb c x (consL y w) = split {
+    nilL -> \ y w e -> tt ; consL a u -> \ y w e -> inr e } ;
+
+  -- words valid at a state; the order "is the tail of" on words
+  All (c : C) : L1 -> U l = split { nilL -> W.Unit ; consL y w | r -> Y c y * r } ;
+  allMono (p q : C) (h : le p q) : (w : L1) -> All p w -> All q w = split {
+    nilL -> \ v -> tt ; consL y w | r -> \ v -> (Y-mono p q h y v.1,r v.2) } ;
+  lt (x y : L1) : U l = (a : Y0) * Id L1 y (consL a x) ;
+  isNilL : L1 -> W.Bool = split { nilL -> true ; consL a u -> false } ;
+  tlL : L1 -> L1 = split { nilL -> nilL ; consL a u -> u } ;
+  module AL = TB.AccU[L1,lt] ;
+  wfL : AL.WF = split {
+    nilL -> AL.acc nilL (\ y h -> W.absurdB (AL.AccP y)
+      (W.ap L1 W.Bool isNilL (consL h.1 y) nilL (W.sym L1 nilL (consL h.1 y) h.2))) ;
+    consL a u | r -> AL.acc (consL a u) (\ y h ->
+      W.subst L1 AL.AccP u y (W.ap L1 L1 tlL (consL a u) (consL h.1 y) h.2) r) } ;
+
+  module VRX = VR.On[C,le,le-refl,le-trans,L1,All] ;
+  embR (c : C) (x y : L1) : U l = emb c x y ;
+  embRMono : VRX.RelMono embR = \ p q h x y e -> embMono p q h x y e ;
+  A : VRX.Pred = VRX.rel2 embR ;
+  module VO1 = VO.On[C,le,le-refl,le-trans,L1,All,lt,wfL,A] ;
+
+  -- prefixes of histories
+  Pre (p h : H) : U l = VO1.WD.Pre p h ;
+  ValidH (c : C) (h : H) : U l = VO1.ValidH c h ;
+  validMono (p q : C) (lpq : le p q) : (h : H) -> ValidH p h -> ValidH q h = split {
+    nilL -> \ v -> tt ; consL u h | r -> \ v -> (allMono p q lpq u v.1,r v.2) } ;
+  preRefl : (h : H) -> Pre h h = split { nilL -> refl nilL ; consL u h -> inl (refl (consL u h)) } ;
+  preTrans (a b : H) : (c : H) -> Pre a b -> Pre b c -> Pre a c = split {
+    nilL -> \ p q -> W.subst H (\ x -> Pre a x) b nilL q p ;
+    consL y u | r -> \ p q -> oe (Id H b (consL y u)) (Pre b u) (Pre a (consL y u))
+      (\ e -> W.subst H (\ x -> Pre a x) b (consL y u) e p) (\ q1 -> inr (r p q1)) q } ;
+  preCons (h : H) (u : L1) : Pre h (consL u h) = inr (preRefl h) ;
+  validPre (c : C) : (h p : H) -> Pre p h -> ValidH c h -> ValidH c p = split {
+    nilL -> \ p e v -> W.subst H (ValidH c) nilL p (W.sym H p nilL e) v ;
+    consL x h | r -> \ p e v -> oe (Id H p (consL x h)) (Pre p h) (ValidH c p)
+      (\ e1 -> W.subst H (ValidH c) (consL x h) p (W.sym H p (consL x h) e1) v) (\ e1 -> r p e1 v.2) e } ;
+  len : H -> W.N = split { nilL -> zero ; consL u h | r -> suc r } ;
+  tlH : H -> H = split { nilL -> nilL ; consL u h -> h } ;
+  preLen : (h p : H) -> Pre p h -> LtN (len h) (len p) -> W.Empty = split {
+    nilL -> \ p e lt0 -> W.subst H (\ x -> LtN zero (len x) -> W.Empty) nilL p (W.sym H p nilL e) (\ x -> x) lt0 ;
+    consL x h | r -> \ p e lt0 -> oe (Id H p (consL x h)) (Pre p h) W.Empty
+      (\ e1 -> ltIrr (len p) (W.subst H (\ y -> LtN (len y) (len p)) (consL x h) p (W.sym H p (consL x h) e1) lt0))
+      (\ e1 -> r p e1 (ltPredL (len h) (len p) lt0)) e } ;
+  -- two prefixes of h: the shorter one is a prefix of the tail of the longer
+  tailsLt : (h p p' : H) -> Pre p h -> Pre p' h -> LtN (len p) (len p') -> Pre p (tlH p') = split {
+    nilL -> \ p p' e e' lt0 -> W.absurdE (Pre p (tlH p'))
+      (W.subst H (\ y -> isPos (len y)) p' nilL e' (posLt (len p) (len p') lt0)) ;
+    consL x h | r -> \ p p' e e' lt0 -> oe (Id H p' (consL x h)) (Pre p' h) (Pre p (tlH p'))
+      (\ e1' -> W.subst H (\ y -> Pre p (tlH y)) (consL x h) p' (W.sym H p' (consL x h) e1')
+        (oe (Id H p (consL x h)) (Pre p h) (Pre p h)
+          (\ e1 -> W.absurdE (Pre p h) (ltIrr (len (consL x h))
+            (W.subst H (\ y -> LtN (len (consL x h)) (len y)) p' (consL x h) e1'
+              (W.subst H (\ y -> LtN (len y) (len p')) p (consL x h) e1 lt0))))
+          (\ e2 -> e2) e))
+      (\ e2' -> r p p' (oe (Id H p (consL x h)) (Pre p h) (Pre p h)
+          (\ e1 -> W.absurdE (Pre p h) (preLen h p' e2' (ltPredL (len h) (len p')
+            (W.subst H (\ y -> LtN (len y) (len p')) p (consL x h) e1 lt0))))
+          (\ e2 -> e2) e) e2' lt0) e' } ;
+
+  -- goodness of histories
+  Gd (c : C) (h : H) : U l = VO1.upH h c nilL ;
+  upBase : (h : H) (c : C) (s : H) -> A c s -> VO1.upH h c s = split {
+    nilL -> \ c s a -> a ; consL x h | r -> \ c s a -> inl (r c s a) } ;
+  upPre : (h' h : H) (c : C) (s : H) -> Pre h h' -> VO1.upH h c s -> VO1.upH h' c s = split {
+    nilL -> \ h c s e g -> W.subst H (\ y -> VO1.upH y c s) h nilL e g ;
+    consL y u | r -> \ h c s e g -> oe (Id H h (consL y u)) (Pre h u) (VO1.upH (consL y u) c s)
+      (\ e1 -> W.subst H (\ x -> VO1.upH x c s) h (consL y u) e1 g)
+      (\ e1 -> inl (r h c s e1 g)) e } ;
+  -- a word x before a word y with x embedded in y makes h good
+  goodAt (h : H) (x : L1) (p0 q0 : H) (y : L1) (c : C) (pre : Pre (consL x p0) q0) (e : emb c x y)
+    (pre' : Pre (consL y q0) h) : Gd c h =
+    upPre h (consL y q0) c nilL pre'
+      (inr (upPre q0 (consL x p0) c (consL y nilL) pre
+        (inr (upBase p0 c (consL x (consL y nilL)) e)))) ;
+  monoA : VRX.Mono A = VRX.monoRel2 embR embRMono ;
+  upMono : (h : H) -> VRX.Mono (VO1.upH h) = split {
+    nilL -> monoA ; consL x h | r -> VRX.monoUp (VO1.upH h) r x } ;
+  -- a subsequence of q followed by t: q good, one word of q before t, or t
+  Pos (q : H) (c : C) (t : H) : U l = (x : L1) * ((p0 : H) * (Pre (consL x p0) q * VRX.rel1 embR x c t)) ;
+  Dcmp (q : H) (c : C) (t : H) : U l = W.Or (Gd c q) (W.Or (Pos q c t) (A c t)) ;
+  dLift (x : L1) (q : H) (c : C) (t : H) (d : Dcmp q c t) : Dcmp (consL x q) c t =
+    oe (Gd c q) (W.Or (Pos q c t) (A c t)) (Dcmp (consL x q) c t)
+      (\ g -> inl (inl g))
+      (\ d1 -> oe (Pos q c t) (A c t) (Dcmp (consL x q) c t)
+        (\ ps -> inr (inl (ps.1,(ps.2.1,(inr ps.2.2.1,ps.2.2.2)))))
+        (\ a -> inr (inr a)) d1) d ;
+  dShift (x : L1) (q : H) (c : C) (t : H) (d : Dcmp q c (consL x t)) : Dcmp (consL x q) c t =
+    oe (Gd c q) (W.Or (Pos q c (consL x t)) (A c (consL x t))) (Dcmp (consL x q) c t)
+      (\ g -> inl (inl g))
+      (\ d1 -> oe (Pos q c (consL x t)) (A c (consL x t)) (Dcmp (consL x q) c t)
+        (\ ps -> inl (goodAt (consL x q) ps.1 ps.2.1 q x c ps.2.2.1 ps.2.2.2 (preRefl (consL x q))))
+        (\ a -> inr (inl (x,(q,(preRefl (consL x q),a))))) d1) d ;
+  decomp : (q : H) (c : C) (t : H) -> VO1.upH q c t -> Dcmp q c t = split {
+    nilL -> \ c t a -> inr (inr a) ;
+    consL x q | r -> \ c t e -> oe (VO1.upH q c t) (VO1.upH q c (consL x t)) (Dcmp (consL x q) c t)
+      (\ e1 -> dLift x q c t (r c t e1)) (\ e1 -> dShift x q c t (r c (consL x t) e1)) e } ;
+  -- a new empty word: the next step is good
+  oneStep (c : C) (h : H) : VO1.E c (consL nilL h) =
+    VRX.node (VO1.upH (consL nilL h)) c (\ c1 x l m -> VRX.leaf (VRX.up (VO1.upH (consL nilL h)) x) c1
+      (inr (inr (upBase h c1 (consL nilL (consL x nilL)) tt)))) ;
+
+  -- the poset C' = M(B)
+  Cp : U l = (c : C) * ((h : H) * (ValidH c h * VO1.M c h)) ;
+  lep (a b : Cp) : U l = le a.1 b.1 * Pre a.2.1 b.2.1 ;
+  lep-refl (a : Cp) : lep a a = (le-refl a.1,preRefl a.2.1) ;
+  lep-trans (a b d : Cp) (p : lep a b) (q : lep b d) : lep a d =
+    (le-trans a.1 b.1 d.1 p.1 q.1,preTrans a.2.1 b.2.1 d.2.1 p.2 q.2) ;
+  K (a : Cp) : U l = Gd a.1 a.2.1 ;
+  kMono (a b : Cp) (p : lep a b) (k : K a) : K b =
+    upPre b.2.1 a.2.1 b.1 nilL p.2 (upMono a.2.1 a.1 b.1 p.1 nilL k) ;
+
+  -- Z-letters (y, w, q): the word y w with the history q before it
+  Zl : U l = Y0 * (L1 * H) ;
+  pz (x : Zl) : H = consL (consL x.1 x.2.1) x.2.2 ;
+  Xz (a : Cp) (x : Zl) : U l = Pre (pz x) a.2.1 ;
+  xzMono (a b : Cp) (p : lep a b) (x : Zl) (m : Xz a x) : Xz b x = preTrans (pz x) a.2.1 b.2.1 m p.2 ;
+  R (a : Cp) (x x' : Zl) : U l = LtN (len x.2.2) (len x'.2.2) -> W.Or (emb a.1 x.2.1 x'.2.1) (K a) ;
+  module VRZ = VR.On[Cp,lep,lep-refl,lep-trans,Zl,Xz] ;
+  rMono : VRZ.RelMono R = \ a b p x x' e lt0 ->
+    oe (emb a.1 x.2.1 x'.2.1) (K a) (W.Or (emb b.1 x.2.1 x'.2.1) (K b))
+      (\ e1 -> inl (embMono a.1 b.1 p.1 x.2.1 x'.2.1 e1)) (\ k -> inr (kMono a b p k)) (e lt0) ;
+  RR : VRZ.Pred = VRZ.rel2 R ;
+  qK (a : Cp) (x y : Zl) (k : K a) : RR a (consL x (consL y nilL)) = \ lt0 -> inr k ;
+  module EZ = Esc[Cp,lep,lep-refl,lep-trans,Zl,Xz,K,kMono,RR,qK] ;
+
+  -- the map F: a Z-letter goes to its word w, at the underlying state
+  fZ (a : Cp) : C = a.1 ;
+  fZm (a b : Cp) (p : lep a b) : le a.1 b.1 = p.1 ;
+  gZ (x : Zl) : L1 = x.2.1 ;
+  gZX (a : Cp) (x : Zl) (m : Xz a x) : All a.1 x.2.1 = (validPre a.1 a.2.1 (pz x) m a.2.2.1).1.2 ;
+  module MXZ = Map[C,le,le-refl,le-trans,L1,All,Cp,lep,lep-refl,lep-trans,Zl,Xz,xzMono,fZ,fZm,gZ,gZX] ;
+
+  module F (a1 : Cp) (z1 : Zl) (m1 : Xz a1 z1) {
+    y1 : Y0 = z1.1 ; w1 : L1 = z1.2.1 ; q1 : H = z1.2.2 ;
+    p1 : H = consL (consL z1.1 z1.2.1) z1.2.2 ;
+    Pz (a : Cp) (s : W.List Zl) : U l = EZ.upL EZ.Qk (consL z1 nilL) a s ;
+    preP1 (a : Cp) (l : lep a1 a) : Pre p1 a.2.1 = preTrans p1 a1.2.1 a.2.1 m1 l.2 ;
+    preQ1 (a : Cp) (l : lep a1 a) : Pre q1 a.2.1 = preTrans q1 p1 a.2.1 (preCons q1 (consL y1 w1)) (preP1 a l) ;
+    viaK (a : Cp) (s : W.List Zl) (k : K a) : Pz a s = inl (inr k) ;
+    viaS (a : Cp) (s : W.List Zl) (e : RR a s) : Pz a s = inl (inl e) ;
+    viaZ1 (a : Cp) (s : W.List Zl) (e : RR a (consL z1 s)) : Pz a s = inr (inl e) ;
+    kQ (a : Cp) (l : lep a1 a) (g : Gd a.1 q1) : K a = upPre a.2.1 q1 a.1 nilL (preQ1 a l) g ;
+    -- a word of q1 embeds in the first image word
+    posS (a : Cp) (l : lep a1 a) : (s : W.List Zl) -> MXZ.InvS a s -> Pos q1 a.1 (MXZ.mapL s) -> Pz a s = split {
+      nilL -> \ inv ps -> W.absurdE (Pz a nilL) ps.2.2.2 ;
+      consL x s -> \ inv ps -> oe (LtN (len q1) (len x.2.2)) (LtN (len q1) (len x.2.2) -> W.Empty) (Pz a (consL x s))
+        (\ lt0 -> viaK a (consL x s) (goodAt a.2.1 ps.1 ps.2.1 x.2.2 (consL x.1 x.2.1) a.1
+           (preTrans (consL ps.1 ps.2.1) q1 x.2.2 ps.2.2.1
+             (preTrans q1 p1 x.2.2 (preCons q1 (consL y1 w1)) (tailsLt a.2.1 p1 (pz x) (preP1 a l) inv lt0)))
+           (embCons a.1 ps.1 x.1 x.2.1 ps.2.2.2) inv))
+        (\ nlt -> viaZ1 a (consL x s) (\ lt0 -> W.absurdE (W.Or (emb a.1 w1 x.2.1) (K a)) (nlt lt0)))
+        (decLt (len q1) (len x.2.2)) } ;
+    -- a word of q1 embeds in w1
+    posW (a : Cp) (l : lep a1 a) (s : W.List Zl) (ps : Pos q1 a.1 (consL w1 (MXZ.mapL s))) : Pz a s =
+      viaK a s (goodAt a.2.1 ps.1 ps.2.1 q1 (consL y1 w1) a.1 ps.2.2.1 (embCons a.1 ps.1 y1 w1 ps.2.2.2) (preP1 a l)) ;
+    -- two image words
+    aS1 (a : Cp) (x : Zl) : (s : W.List Zl) -> VRX.rel1 embR x.2.1 a.1 (MXZ.mapL s) -> Pz a (consL x s) = split {
+      nilL -> \ e -> W.absurdE (Pz a (consL x nilL)) e ;
+      consL x' s -> \ e -> viaS a (consL x (consL x' s)) (\ lt0 -> inl e) } ;
+    aS (a : Cp) : (s : W.List Zl) -> A a.1 (MXZ.mapL s) -> Pz a s = split {
+      nilL -> \ e -> W.absurdE (Pz a nilL) e ; consL x s -> aS1 a x s } ;
+    -- w1 and an image word
+    aW (a : Cp) : (s : W.List Zl) -> VRX.rel1 embR w1 a.1 (MXZ.mapL s) -> Pz a s = split {
+      nilL -> \ e -> W.absurdE (Pz a nilL) e ;
+      consL x s -> \ e -> viaZ1 a (consL x s) (\ lt0 -> inl e) } ;
+    rel0 : MXZ.RelP (VO1.upH (consL w1 q1)) (EZ.upL EZ.Qk (consL z1 nilL)) a1 = \ a l s inv e ->
+      oe (VO1.upH q1 a.1 (MXZ.mapL s)) (VO1.upH q1 a.1 (consL w1 (MXZ.mapL s))) (Pz a s)
+        (\ e1 -> oe (Gd a.1 q1) (W.Or (Pos q1 a.1 (MXZ.mapL s)) (A a.1 (MXZ.mapL s))) (Pz a s)
+          (\ g -> viaK a s (kQ a l g))
+          (\ d -> oe (Pos q1 a.1 (MXZ.mapL s)) (A a.1 (MXZ.mapL s)) (Pz a s) (posS a l s inv) (aS a s) d)
+          (decomp q1 a.1 (MXZ.mapL s) e1))
+        (\ e1 -> oe (Gd a.1 q1) (W.Or (Pos q1 a.1 (consL w1 (MXZ.mapL s))) (A a.1 (consL w1 (MXZ.mapL s)))) (Pz a s)
+          (\ g -> viaK a s (kQ a l g))
+          (\ d -> oe (Pos q1 a.1 (consL w1 (MXZ.mapL s))) (A a.1 (consL w1 (MXZ.mapL s))) (Pz a s)
+            (posW a l s) (aW a s) d)
+          (decomp q1 a.1 (consL w1 (MXZ.mapL s)) e1)) e ;
+    -- q1 w1 is below the history of a1, hence secured (M)
+    ltw : VO1.WD.LtW (consL w1 q1) a1.2.1 =
+      (q1,(w1,(consL y1 w1,(refl (consL w1 q1),((y1,refl (consL y1 w1)),m1))))) ;
+    vv1 : ValidH a1.1 (consL w1 q1) =
+      ((validPre a1.1 a1.2.1 p1 m1 a1.2.2.1).1.2,(validPre a1.1 a1.2.1 p1 m1 a1.2.2.1).2) ;
+    eV : VO1.E a1.1 (consL w1 q1) = a1.2.2.2 a1.1 (le-refl a1.1) (consL w1 q1) ltw vv1 ;
+    bz : VRZ.Bar (EZ.upL EZ.Qk (consL z1 nilL)) a1 =
+      MXZ.barMap eV.1 (VO1.upH (consL w1 q1)) (EZ.upL EZ.Qk (consL z1 nilL)) a1 eV.2 rel0 ;
+    result : VRZ.Bar (VRZ.up RR z1) a1 = EZ.esc bz.1 nilL z1 a1 bz.2 ;
+  } ;
+  -- R is almost full
+  afR : VRZ.AFR R = \ a -> VRZ.node RR a (\ a1 z1 l m1 -> F[a1,z1,m1].result) ;
+
+  -- the product of prec and R
+  Xs (a : Cp) (x : Zl) : U l = Y a.1 x.1 * Xz a x ;
+  xsMono (a b : Cp) (p : lep a b) (x : Zl) (m : Xs a x) : Xs b x =
+    (Y-mono a.1 b.1 p.1 x.1 m.1,xzMono a b p x m.2) ;
+  module VRS = VR.On[Cp,lep,lep-refl,lep-trans,Zl,Xs] ;
+  S1 (a : Cp) (x x' : Zl) : U l = prec a.1 x.1 x'.1 ;
+  gY (x : Zl) : Y0 = x.1 ;
+  gYX (a : Cp) (x : Zl) (m : Xs a x) : Y a.1 x.1 = m.1 ;
+  module MYS = Map[C,le,le-refl,le-trans,Y0,Y,Cp,lep,lep-refl,lep-trans,Zl,Xs,xsMono,fZ,fZm,gY,gYX] ;
+  rel1Y (a : Cp) (x : Zl) : (s : W.List Zl) -> VRY.rel1 prec x.1 a.1 (MYS.mapL s) -> VRS.rel1 S1 x a s = split {
+    nilL -> \ e -> e ; consL x' s -> \ e -> e } ;
+  relY (a : Cp) : (s : W.List Zl) -> VRY.rel2 prec a.1 (MYS.mapL s) -> VRS.rel2 S1 a s = split {
+    nilL -> \ e -> e ; consL x s -> rel1Y a x s } ;
+  afS1 : VRS.AFR S1 = \ a -> MYS.barMap (af a.1).1 (VRY.rel2 prec) (VRS.rel2 S1) a (af a.1).2
+    (\ a' l s inv e -> relY a' s e) ;
+  idC (a : Cp) : Cp = a ;
+  idCm (a b : Cp) (p : lep a b) : lep a b = p ;
+  idZ (x : Zl) : Zl = x ;
+  gZS (a : Cp) (x : Zl) (m : Xs a x) : Xz a x = m.2 ;
+  module MZS = Map[Cp,lep,lep-refl,lep-trans,Zl,Xz,Cp,lep,lep-refl,lep-trans,Zl,Xs,xsMono,idC,idCm,idZ,gZS] ;
+  rel1Z (a : Cp) (x : Zl) : (s : W.List Zl) -> VRZ.rel1 R x a (MZS.mapL s) -> VRS.rel1 R x a s = split {
+    nilL -> \ e -> e ; consL x' s -> \ e -> e } ;
+  relZ (a : Cp) : (s : W.List Zl) -> VRZ.rel2 R a (MZS.mapL s) -> VRS.rel2 R a s = split {
+    nilL -> \ e -> e ; consL x s -> rel1Z a x s } ;
+  afS2 : VRS.AFR R = \ a -> MZS.barMap (afR a).1 RR (VRS.rel2 R) a (afR a).2 (\ a' l s inv e -> relZ a' s e) ;
+  s1Mono : VRS.RelMono S1 = \ a b p x y e -> prec-mono a.1 b.1 p.1 x.1 y.1 e ;
+  SS : VRS.Rel = VRS.inter S1 R ;
+  afS : VRS.AFR SS = VRS.afInter S1 R s1Mono rMono afS1 afS2 ;
+
+  -- the map G: the letters of a history
+  gW : L1 -> H -> W.List Zl -> W.List Zl = split { nilL -> \ h r -> r ; consL y w -> \ h r -> consL (y,(w,h)) r } ;
+  G : H -> W.List Zl = split { nilL -> nilL ; consL u h | r -> gW u h r } ;
+  upS (B : VRS.Pred) : W.List Zl -> VRS.Pred = split { nilL -> B ; consL x s | r -> VRS.up r x } ;
+  upBaseS (B : VRS.Pred) : (zs : W.List Zl) (a : Cp) (s : W.List Zl) -> B a s -> upS B zs a s = split {
+    nilL -> \ a s e -> e ; consL x zs | r -> \ a s e -> inl (r a s e) } ;
+  BS : VRS.Pred = VRS.rel2 SS ;
+
+  -- a product-good subsequence of G h1 (h1 a prefix of h) makes h good
+  Inv2 (h : H) (x : Zl) : W.List Zl -> U l = split {
+    nilL -> W.Unit ; consL x' s -> Pre (pz x') h * LtN (len (pz x)) (len (pz x')) } ;
+  InvG (h h1 : H) : W.List Zl -> U l = split {
+    nilL -> W.Unit ; consL x s -> Pre (pz x) h * (LtN (len h1) (len (pz x)) * Inv2 h x s) } ;
+  invWeak (h h1 h2 : H) (lt0 : LtN (len h2) (len h1)) : (s : W.List Zl) -> InvG h h1 s -> InvG h h2 s = split {
+    nilL -> \ i -> tt ;
+    consL x s -> \ i -> (i.1,(ltTrans (len h2) (len h1) (len (pz x)) lt0 i.2.1,i.2.2)) } ;
+  inv2From (h : H) (x0 : Zl) : (s : W.List Zl) -> InvG h (pz x0) s -> Inv2 h x0 s = split {
+    nilL -> \ i -> tt ; consL x' s -> \ i -> (i.1,i.2.1) } ;
+  base2 (a : Cp) (x : Zl) (i1 : Pre (pz x) a.2.1) : (s : W.List Zl) -> Inv2 a.2.1 x s -> VRS.rel1 SS x a s -> K a = split {
+    nilL -> \ i e -> W.absurdE (K a) e ;
+    consL x' s -> \ i e -> oe (emb a.1 x.2.1 x'.2.1) (K a) (K a)
+      (\ e1 -> goodAt a.2.1 (consL x.1 x.2.1) x.2.2 x'.2.2 (consL x'.1 x'.2.1) a.1
+         (tailsLt a.2.1 (pz x) (pz x') i1 i.1 i.2) (inl (e.1,e1)) i.1)
+      (\ k -> k) (e.2 i.2) } ;
+  base (a : Cp) : (s : W.List Zl) -> InvG a.2.1 nilL s -> VRS.rel2 SS a s -> K a = split {
+    nilL -> \ i e -> W.absurdE (K a) e ;
+    consL x s -> \ i e -> base2 a x i.1 s i.2.2 e } ;
+  leafU (a : Cp) (h2 : H)
+    (r : Pre h2 a.2.1 -> (s : W.List Zl) -> InvG a.2.1 h2 s -> upS BS (G h2) a s -> K a) :
+    (u : L1) -> Pre (consL u h2) a.2.1 -> (s : W.List Zl) -> InvG a.2.1 (consL u h2) s ->
+      upS BS (G (consL u h2)) a s -> K a = split {
+    nilL -> \ pre s i e -> r (preTrans h2 (consL nilL h2) a.2.1 (preCons h2 nilL) pre) s
+      (invWeak a.2.1 (consL nilL h2) h2 (ltSuc (len h2)) s i) e ;
+    consL y w -> \ pre s i e ->
+      oe (upS BS (G h2) a s) (upS BS (G h2) a (consL (y,(w,h2)) s)) (K a)
+        (\ e1 -> r (preTrans h2 (consL (consL y w) h2) a.2.1 (preCons h2 (consL y w)) pre) s
+          (invWeak a.2.1 (consL (consL y w) h2) h2 (ltSuc (len h2)) s i) e1)
+        (\ e1 -> r (preTrans h2 (consL (consL y w) h2) a.2.1 (preCons h2 (consL y w)) pre) (consL (y,(w,h2)) s)
+          (pre,(ltSuc (len h2),inv2From a.2.1 (y,(w,h2)) s i)) e1) e } ;
+  leafG (a : Cp) : (h1 : H) -> Pre h1 a.2.1 -> (s : W.List Zl) -> InvG a.2.1 h1 s -> upS BS (G h1) a s -> K a = split {
+    nilL -> \ pre s i e -> base a s i e ;
+    consL u h2 | r -> leafU a h2 r u } ;
+
+  -- induction on a bar of the product, Proposition 1 at each node
+  MainStmt (t : VRS.WT) : U l = (a : Cp) -> VRS.Sec t (upS BS (G a.2.1)) a -> VO1.E a.1 a.2.1 ;
+  newSt (a : Cp) (c1 : C) (l : le a.1 c1) (y : Y0) (w : L1) (vu : All c1 (consL y w))
+    (mu : VO1.M c1 (consL (consL y w) a.2.1)) : Cp =
+    (c1,(consL (consL y w) a.2.1,((vu,validMono a.1 c1 l a.2.1 a.2.2.1),mu))) ;
+  stepU (a : Cp) (st0 : Cp) (f : (c : Cp) (x : Zl) -> lep st0 c -> Xs c x -> VRS.WT)
+    (r : (c : Cp) (x : Zl) (l0 : lep st0 c) (m : Xs c x) -> MainStmt (f c x l0 m))
+    (s1 : lep st0 a)
+    (s2 : (c : Cp) (x : Zl) (l0 : lep st0 c) (l : lep a c) (m : Xs c x) ->
+      VRS.Sec (f c x l0 m) (VRS.up (upS BS (G a.2.1)) x) c)
+    (c1 : C) (l : le a.1 c1) :
+    (u : L1) -> All c1 u -> VO1.M c1 (consL u a.2.1) -> VO1.E c1 (consL u a.2.1) = split {
+    nilL -> \ vu mu -> oneStep c1 a.2.1 ;
+    consL y w -> \ vu mu ->
+      r (newSt a c1 l y w vu mu) (y,(w,a.2.1))
+        (lep-trans st0 a (newSt a c1 l y w vu mu) s1 (l,preCons a.2.1 (consL y w)))
+        (vu.1,inl (refl (consL (consL y w) a.2.1)))
+        (newSt a c1 l y w vu mu)
+        (s2 (newSt a c1 l y w vu mu) (y,(w,a.2.1))
+          (lep-trans st0 a (newSt a c1 l y w vu mu) s1 (l,preCons a.2.1 (consL y w)))
+          (l,preCons a.2.1 (consL y w))
+          (vu.1,inl (refl (consL (consL y w) a.2.1)))) } ;
+  mainT : (t : VRS.WT) -> MainStmt t = split {
+    z -> \ a s -> VRX.leaf (VO1.upH a.2.1) a.1 (leafG a a.2.1 (preRefl a.2.1) nilL tt s) ;
+    sp st0 f | r -> \ a s -> VO1.prop a.1 a.2.1 a.2.2.2 (\ c1 u l vu mu -> stepU a st0 f r s.1 s.2 c1 l u vu mu) } ;
+
+  -- the corollary of open induction
+  thmQ (h : H) : U l = (st : C) -> ValidH st h -> VO1.E st h ;
+  stA (h : H) (ih : (v : H) -> VO1.WD.LtW v h -> thmQ v) (st : C) (vh : ValidH st h) : Cp =
+    (st,(h,(vh,\ c l v hv vv -> ih v hv c vv))) ;
+  thmStep (h : H) (ih : (v : H) -> VO1.WD.LtW v h -> thmQ v) : thmQ h = \ st vh ->
+    mainT (afS (stA h ih st vh)).1 (stA h ih st vh)
+      (VRS.secMono (afS (stA h ih st vh)).1 BS (upS BS (G h)) (stA h ih st vh)
+        (\ q l s e -> upBaseS BS (G h) q s e) (afS (stA h ih st vh)).2) ;
+  thm (h : H) : thmQ h = VO1.WD.AW.ind thmQ thmStep h (VO1.WD.wfW h) ;
+  -- Proposition 4: the Higman embedding is almost full
+  higman : VRX.AFR embR = \ st -> thm nilL st tt ;
+} ;

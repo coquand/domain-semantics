@@ -12,6 +12,23 @@ Kruskal's theorem*), `~/CANONICITY/concomb.pdf` (open induction),
 - `VarRamsey.seg`: kruskal2 Prop 2 (port of `AlmostFull.ram` with states);
   `afInter` for variable binary relations.
 
+## Done: variable Higman, kruskal2 Prop 4 (`VarHigman.seg`, 2026-11-20)
+`Higman[C,le,..,Y0,Y,Y-mono,prec,prec-mono,af].higman : AFR emb` over
+words, postulate-free, in All.seg.  Deviations from the sketch below:
+- lt on words = "is the immediate tail of" (enough: only tails compared).
+- Z-letter = (y, w, q) meaning word y w with history q before it;
+  Xz a z = Pre ((y w) q) h_a.  Position order decided by `LtN` on lengths
+  (R a z z' := len q < len q' -> w ≼ w' ∨ K a), so non-increasing pairs
+  are vacuous without Lemma 2.
+- Generic `Map.barMap` (bars along maps of sets over posets with a stable
+  relation RelP between predicates) does F, both product pull-backs.
+- Generic `Esc.esc` handles "leaves with < 2 Z-letters": bar for Q ∨ K ⇒
+  bar for Q, one extra step.
+- G is not fed through the tree: the letters of h are put into the
+  predicate (`upS BS (G h)`, from `secMono`), and `mainT` recurses on the
+  product tree calling `VarOpen.prop` at each node; empty new words give a
+  bar in one step (`oneStep`), so G just skips empty words.
+
 ## Design decisions for Props 4–5
 - (commit after 53e8535) VarRamsey trees are **labelled and
   proof-dependent**: `sp st0 f` with `f c x : le st0 c -> X c x -> WT`, and
