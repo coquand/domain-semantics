@@ -54,6 +54,9 @@ atB : BP.Form -> W.Bool = split { atF b k -> b ; andF p q -> true ; orF p q -> t
 atK : BP.Form -> W.N = split { atF b k -> k ; andF p q -> zero ; orF p q -> zero ; allF p -> zero ; exF p -> zero } ;
 isAtF : BP.Form -> W.Bool = split { atF b k -> true ; andF p q -> false ; orF p q -> false ; allF p -> false ; exF p -> false } ;
 eqBoSelf : (b : W.Bool) -> Id W.Bool (BP.eqBo b b) true = split { false -> refl true ; true -> refl true } ;
+eqBoS : (v b : W.Bool) -> Id W.Bool (BP.eqBo v b) true -> Id W.Bool v b = split {
+  false -> split { false -> \ h -> refl false ; true -> \ h -> W.absurdB (Id W.Bool false true) h } ;
+  true -> split { false -> \ h -> W.absurdB (Id W.Bool true false) h ; true -> \ h -> refl true } } ;
 notBoth : (v b : W.Bool) -> Id W.Bool (BP.eqBo v b) true -> Id W.Bool (BP.eqBo v (W.notB b)) true -> W.Empty = split {
   false -> split { false -> \ h1 h2 -> W.absurdB W.Empty h2 ; true -> \ h1 h2 -> W.absurdB W.Empty h1 } ;
   true -> split { false -> \ h1 h2 -> W.absurdB W.Empty h1 ; true -> \ h1 h2 -> W.absurdB W.Empty h2 } } ;
@@ -108,6 +111,84 @@ module BCut (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) {
       r (consL (p,consL w e) H) (consL (p,consL w e) H') o.2 (subCons A (p,consL w e) H H' s)) } ;
 
   ----------------------------------------------------------------------
+  -- decidable equality of closures (the cut algorithm branches on data)
+  isEqS : (c : W.O3) -> Id W.Bool (W.isEq c) true -> Id W.O3 c eq = split {
+    lt -> \ h -> W.absurdB (Id W.O3 lt eq) h ; eq -> \ h -> refl eq ; gt -> \ h -> W.absurdB (Id W.O3 gt eq) h } ;
+  eqLb (A : DP.LO) (a a' : Lb A) : W.Bool = W.isEq ((LT.Lab A).cmp a a') ;
+  eqLbS (A : DP.LO) (a a' : Lb A) (h : Id W.Bool (eqLb A a a') true) : Id (Lb A) a a' =
+    (LT.Lab A).ceq a a' (isEqS ((LT.Lab A).cmp a a') h) ;
+  eqLbR (A : DP.LO) (a : Lb A) : Id W.Bool (eqLb A a a) true = PL.ap W.O3 W.Bool W.isEq ((LT.Lab A).cmp a a) eq ((LT.Lab A).crefl a) ;
+  eqL (A : DP.LO) : LT.LL A -> LT.LL A -> W.Bool = split {
+    nilL -> split { nilL -> true ; consL y ys -> false } ;
+    consL x xs | r -> split { nilL -> false ; consL y ys -> W.andB (eqLb A x y) (r ys) } } ;
+  eqLS (A : DP.LO) : (xs ys : LT.LL A) -> Id W.Bool (eqL A xs ys) true -> Id (LT.LL A) xs ys = split {
+    nilL -> split { nilL -> \ h -> refl nilL ; consL y ys -> \ h -> W.absurdB (Id (LT.LL A) nilL (consL y ys)) h } ;
+    consL x xs | r -> split {
+      nilL -> \ h -> W.absurdB (Id (LT.LL A) (consL x xs) nilL) h ;
+      consL y ys -> \ h -> W.ap2 (Lb A) (LT.LL A) (LT.LL A) (\ a t -> consL a t) x y xs ys
+        (eqLbS A x y (W.andB-l (eqLb A x y) (eqL A xs ys) h)) (r ys (W.andB-r (eqLb A x y) (eqL A xs ys) h)) } } ;
+  eqLR (A : DP.LO) : (xs : LT.LL A) -> Id W.Bool (eqL A xs xs) true = split {
+    nilL -> refl true ;
+    consL x xs | r -> PL.trans W.Bool (W.andB (eqLb A x x) (eqL A xs xs)) (eqL A xs xs) true
+      (BP.andTrue (eqLb A x x) (eqL A xs xs) (eqLbR A x)) r } ;
+  eqF : BP.Form -> BP.Form -> W.Bool = split {
+    atF b k -> split { atF b' k' -> W.andB (BP.eqBo b b') (W.eqN k k') ; andF p q -> false ; orF p q -> false ; allF p -> false ; exF p -> false } ;
+    andF p q | rp rq -> split { atF b k -> false ; andF p' q' -> W.andB (rp p') (rq q') ; orF p' q' -> false ; allF p' -> false ; exF p' -> false } ;
+    orF p q | rp rq -> split { atF b k -> false ; andF p' q' -> false ; orF p' q' -> W.andB (rp p') (rq q') ; allF p' -> false ; exF p' -> false } ;
+    allF p | rp -> split { atF b k -> false ; andF p' q' -> false ; orF p' q' -> false ; allF p' -> rp p' ; exF p' -> false } ;
+    exF p | rp -> split { atF b k -> false ; andF p' q' -> false ; orF p' q' -> false ; allF p' -> false ; exF p' -> rp p' } } ;
+  eqFS : (f f' : BP.Form) -> Id W.Bool (eqF f f') true -> Id BP.Form f f' = split {
+    atF b k -> split {
+      atF b' k' -> \ h -> W.ap2 W.Bool W.N BP.Form (\ x y -> atF x y) b b' k k'
+        (eqBoS b b' (W.andB-l (BP.eqBo b b') (W.eqN k k') h)) (W.eqN-sound k k' (W.andB-r (BP.eqBo b b') (W.eqN k k') h)) ;
+      andF p q -> \ h -> W.absurdB (Id BP.Form (atF b k) (andF p q)) h ; orF p q -> \ h -> W.absurdB (Id BP.Form (atF b k) (orF p q)) h ;
+      allF p -> \ h -> W.absurdB (Id BP.Form (atF b k) (allF p)) h ; exF p -> \ h -> W.absurdB (Id BP.Form (atF b k) (exF p)) h } ;
+    andF p q | rp rq -> split {
+      atF b k -> \ h -> W.absurdB (Id BP.Form (andF p q) (atF b k)) h ;
+      andF p' q' -> \ h -> W.ap2 BP.Form BP.Form BP.Form (\ x y -> andF x y) p p' q q'
+        (rp p' (W.andB-l (eqF p p') (eqF q q') h)) (rq q' (W.andB-r (eqF p p') (eqF q q') h)) ;
+      orF p' q' -> \ h -> W.absurdB (Id BP.Form (andF p q) (orF p' q')) h ;
+      allF p' -> \ h -> W.absurdB (Id BP.Form (andF p q) (allF p')) h ; exF p' -> \ h -> W.absurdB (Id BP.Form (andF p q) (exF p')) h } ;
+    orF p q | rp rq -> split {
+      atF b k -> \ h -> W.absurdB (Id BP.Form (orF p q) (atF b k)) h ;
+      andF p' q' -> \ h -> W.absurdB (Id BP.Form (orF p q) (andF p' q')) h ;
+      orF p' q' -> \ h -> W.ap2 BP.Form BP.Form BP.Form (\ x y -> orF x y) p p' q q'
+        (rp p' (W.andB-l (eqF p p') (eqF q q') h)) (rq q' (W.andB-r (eqF p p') (eqF q q') h)) ;
+      allF p' -> \ h -> W.absurdB (Id BP.Form (orF p q) (allF p')) h ; exF p' -> \ h -> W.absurdB (Id BP.Form (orF p q) (exF p')) h } ;
+    allF p | rp -> split {
+      atF b k -> \ h -> W.absurdB (Id BP.Form (allF p) (atF b k)) h ; andF p' q' -> \ h -> W.absurdB (Id BP.Form (allF p) (andF p' q')) h ;
+      orF p' q' -> \ h -> W.absurdB (Id BP.Form (allF p) (orF p' q')) h ;
+      allF p' -> \ h -> PL.ap BP.Form BP.Form (\ x -> allF x) p p' (rp p' h) ;
+      exF p' -> \ h -> W.absurdB (Id BP.Form (allF p) (exF p')) h } ;
+    exF p | rp -> split {
+      atF b k -> \ h -> W.absurdB (Id BP.Form (exF p) (atF b k)) h ; andF p' q' -> \ h -> W.absurdB (Id BP.Form (exF p) (andF p' q')) h ;
+      orF p' q' -> \ h -> W.absurdB (Id BP.Form (exF p) (orF p' q')) h ;
+      allF p' -> \ h -> W.absurdB (Id BP.Form (exF p) (allF p')) h ;
+      exF p' -> \ h -> PL.ap BP.Form BP.Form (\ x -> exF x) p p' (rp p' h) } } ;
+  eqFR : (f : BP.Form) -> Id W.Bool (eqF f f) true = split {
+    atF b k -> PL.trans W.Bool (W.andB (BP.eqBo b b) (W.eqN k k)) (W.eqN k k) true (BP.andTrue (BP.eqBo b b) (W.eqN k k) (eqBoSelf b)) (W.eqN-refl k) ;
+    andF p q | rp rq -> PL.trans W.Bool (W.andB (eqF p p) (eqF q q)) (eqF q q) true (BP.andTrue (eqF p p) (eqF q q) rp) rq ;
+    orF p q | rp rq -> PL.trans W.Bool (W.andB (eqF p p) (eqF q q)) (eqF q q) true (BP.andTrue (eqF p p) (eqF q q) rp) rq ;
+    allF p | rp -> rp ;
+    exF p | rp -> rp } ;
+  eqClo (A : DP.LO) (c c' : Clo A) : W.Bool = W.andB (eqF c.1 c'.1) (eqL A c.2 c'.2) ;
+  eqCloS (A : DP.LO) (c c' : Clo A) (h : Id W.Bool (eqClo A c c') true) : Id (Clo A) c c' =
+    W.prodEq BP.Form (LT.LL A) c c' (eqFS c.1 c'.1 (W.andB-l (eqF c.1 c'.1) (eqL A c.2 c'.2) h))
+      (eqLS A c.2 c'.2 (W.andB-r (eqF c.1 c'.1) (eqL A c.2 c'.2) h)) ;
+  eqCloR (A : DP.LO) (c : Clo A) : Id W.Bool (eqClo A c c) true =
+    PL.trans W.Bool (eqClo A c c) (eqL A c.2 c.2) true (BP.andTrue (eqF c.1 c.1) (eqL A c.2 c.2) (eqFR c.1)) (eqLR A c.2) ;
+  eqCloE (A : DP.LO) (c c' : Clo A) (e : Id (Clo A) c c') : Id W.Bool (eqClo A c c') true =
+    PL.subst (Clo A) (\ z -> Id W.Bool (eqClo A c z) true) c c' e (eqCloR A c) ;
+  -- is the principal closure c0 of a rule the cut closure C?  decided on data
+  decV (A : DP.LO) (C c0 : Clo A) (G : Seq A) (m : Mem A c0 (consL C G)) (X : U l) (yes : Id (Clo A) C c0 -> X)
+    (no : Mem A c0 G -> X) : (v : W.Bool) -> Id W.Bool (eqClo A C c0) v -> X = split {
+    false -> \ h -> CF.or-elim (Id (Clo A) C c0) (Mem A c0 G) X
+      (\ e -> W.absurdB X (PL.trans W.Bool false (eqClo A C c0) true (PL.sym W.Bool (eqClo A C c0) false h) (eqCloE A C c0 e))) no m ;
+    true -> \ h -> yes (eqCloS A C c0 h) } ;
+  decide (A : DP.LO) (C c0 : Clo A) (G : Seq A) (m : Mem A c0 (consL C G)) (X : U l) (yes : Id (Clo A) C c0 -> X)
+    (no : Mem A c0 G -> X) : X = decV A C c0 G m X yes no (eqClo A C c0) (refl (eqClo A C c0)) ;
+
+  ----------------------------------------------------------------------
   -- generic induction on one derivation of C::G, the other side being
   -- described by Oth; handlers for the case where C is principal
   IHG (A : DP.LO) (C : Clo A) (Oth : Seq A -> U l) (d : Cf (Lb A)) : U l =
@@ -140,25 +221,25 @@ module BCut (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) {
         Ok A d (consL C (consL c (consL c' G))) =
       wk A d (consL c (consL c' (consL C G))) (consL C (consL c (consL c' G))) o (sub3 A c c' C G) ;
     L : (d : Cf (Lb A)) (G : Seq A) -> Ok A d (consL C G) -> Oth G -> Res A G = split {
-      cAx b k e0 -> \ G o t -> CF.or-elim (Id (Clo A) C (atF b k,e0)) (Mem A (atF b k,e0) G) (Res A G)
-        (\ eq -> hAx b k e0 eq o.2 G t) (\ m -> (cAx b k e0,(m,o.2))) o.1 ;
-      cAnd p q e0 d0 d1 | r0 r1 -> \ G o t -> CF.or-elim (Id (Clo A) C (andF p q,e0)) (Mem A (andF p q,e0) G) (Res A G)
+      cAx b k e0 -> \ G o t -> decide A C (atF b k,e0) G o.1 (Res A G)
+        (\ eq -> hAx b k e0 eq o.2 G t) (\ m -> (cAx b k e0,(m,o.2))) ;
+      cAnd p q e0 d0 d1 | r0 r1 -> \ G o t -> decide A C (andF p q,e0) G o.1 (Res A G)
         (\ eq -> hAnd p q e0 d0 d1 eq r0 r1 G o.2.1 o.2.2 t)
         (\ m -> mkAnd A p q e0 G m
           (r0 (consL (p,e0) G) (front (p,e0) d0 G o.2.1) (oW G (p,e0) t))
-          (r1 (consL (q,e0) G) (front (q,e0) d1 G o.2.2) (oW G (q,e0) t))) o.1 ;
-      cOr p q e0 d | r -> \ G o t -> CF.or-elim (Id (Clo A) C (orF p q,e0)) (Mem A (orF p q,e0) G) (Res A G)
+          (r1 (consL (q,e0) G) (front (q,e0) d1 G o.2.2) (oW G (q,e0) t))) ;
+      cOr p q e0 d | r -> \ G o t -> decide A C (orF p q,e0) G o.1 (Res A G)
         (\ eq -> hOr p q e0 d eq r G o.2 t)
         (\ m -> mkOr A p q e0 G m
-          (r (consL (p,e0) (consL (q,e0) G)) (front2 (p,e0) (q,e0) d G o.2) (oW (consL (q,e0) G) (p,e0) (oW G (q,e0) t)))) o.1 ;
-      cAll p e0 k | r -> \ G o t -> CF.or-elim (Id (Clo A) C (allF p,e0)) (Mem A (allF p,e0) G) (Res A G)
+          (r (consL (p,e0) (consL (q,e0) G)) (front2 (p,e0) (q,e0) d G o.2) (oW (consL (q,e0) G) (p,e0) (oW G (q,e0) t)))) ;
+      cAll p e0 k | r -> \ G o t -> decide A C (allF p,e0) G o.1 (Res A G)
         (\ eq -> hAll p e0 k eq r G o.2 t)
         (\ m -> mkAll A p e0 G m
-          (\ y -> r y (consL (p,consL y e0) G) (front (p,consL y e0) (k y) G (o.2 y)) (oW G (p,consL y e0) t))) o.1 ;
-      cEx p e0 w d | r -> \ G o t -> CF.or-elim (Id (Clo A) C (exF p,e0)) (Mem A (exF p,e0) G) (Res A G)
+          (\ y -> r y (consL (p,consL y e0) G) (front (p,consL y e0) (k y) G (o.2 y)) (oW G (p,consL y e0) t))) ;
+      cEx p e0 w d | r -> \ G o t -> decide A C (exF p,e0) G o.1 (Res A G)
         (\ eq -> hEx p e0 w d eq r G o.2 t)
         (\ m -> mkEx A p e0 w G m
-          (r (consL (p,consL w e0) G) (front (p,consL w e0) d G o.2) (oW G (p,consL w e0) t))) o.1 } ;
+          (r (consL (p,consL w e0) G) (front (p,consL w e0) d G o.2) (oW G (p,consL w e0) t))) } ;
   } ;
 
   -- mismatched principal closures
@@ -245,28 +326,33 @@ module BCut (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) {
         (r2 : IHG A Cn Oth d2) (G : Seq A) (o2 : Ok A d2 (consL (np2,e2) (consL (nq2,e2) (consL Cn G)))) (t : Oth G) {
         d2n : Cf (Lb A) = cOr np2 nq2 e2 d2 ;
         o2n : Ok A d2n (consL Cn G) = (inl eq2,o2) ;
-        a1 : Res A (consL cp G) = r0 (consL cp G)
-          (wk A d10 (consL (p1,e1) (consL Ca G)) (consL Ca (consL cp G)) t.2.1
+        a1o1 : Ok A d10 (consL Ca (consL cp G)) =
+          wk A d10 (consL (p1,e1) (consL Ca G)) (consL Ca (consL cp G)) t.2.1
             (subT A (consL (p1,e1) (consL Ca G)) (consL cp (consL Ca G)) (consL Ca (consL cp G))
-              (eqSub A (p1,e1) cp (consL Ca G) (PL.ap (Clo A) (Clo A) (lC A) Ca (andF p1 q1,e1) eq1)) (sw A cp Ca G)))
-          (oWL A Cn G cp (d2n,o2n)) ;
-        a2 : Res A (consL cq G) = r1 (consL cq G)
-          (wk A d11 (consL (q1,e1) (consL Ca G)) (consL Ca (consL cq G)) t.2.2
+              (eqSub A (p1,e1) cp (consL Ca G) (PL.ap (Clo A) (Clo A) (lC A) Ca (andF p1 q1,e1) eq1)) (sw A cp Ca G)) ;
+        a1t : OthL A Cn (consL cp G) = oWL A Cn G cp (d2n,o2n) ;
+        a1 : Res A (consL cp G) = r0 (consL cp G) a1o1 a1t ;
+        a2o1 : Ok A d11 (consL Ca (consL cq G)) =
+          wk A d11 (consL (q1,e1) (consL Ca G)) (consL Ca (consL cq G)) t.2.2
             (subT A (consL (q1,e1) (consL Ca G)) (consL cq (consL Ca G)) (consL Ca (consL cq G))
-              (eqSub A (q1,e1) cq (consL Ca G) (PL.ap (Clo A) (Clo A) (rC A) Ca (andF p1 q1,e1) eq1)) (sw A cq Ca G)))
-          (oWL A Cn G cq (d2n,o2n)) ;
-        a3 : Res A (consL cnp (consL cnq G)) = r2 (consL cnp (consL cnq G))
-          (wk A d2 (consL (np2,e2) (consL (nq2,e2) (consL Cn G))) (consL Cn (consL cnp (consL cnq G))) o2
+              (eqSub A (q1,e1) cq (consL Ca G) (PL.ap (Clo A) (Clo A) (rC A) Ca (andF p1 q1,e1) eq1)) (sw A cq Ca G)) ;
+        a2t : OthL A Cn (consL cq G) = oWL A Cn G cq (d2n,o2n) ;
+        a2 : Res A (consL cq G) = r1 (consL cq G) a2o1 a2t ;
+        a3o1 : Ok A d2 (consL Cn (consL cnp (consL cnq G))) =
+          wk A d2 (consL (np2,e2) (consL (nq2,e2) (consL Cn G))) (consL Cn (consL cnp (consL cnq G))) o2
             (subT A (consL (np2,e2) (consL (nq2,e2) (consL Cn G))) (consL cnp (consL (nq2,e2) (consL Cn G))) (consL Cn (consL cnp (consL cnq G)))
               (eqSub A (np2,e2) cnp (consL (nq2,e2) (consL Cn G)) (PL.ap (Clo A) (Clo A) (lC A) Cn (orF np2 nq2,e2) eq2))
               (subT A (consL cnp (consL (nq2,e2) (consL Cn G))) (consL cnp (consL cnq (consL Cn G))) (consL Cn (consL cnp (consL cnq G)))
                 (subCons A cnp (consL (nq2,e2) (consL Cn G)) (consL cnq (consL Cn G))
                   (eqSub A (nq2,e2) cnq (consL Cn G) (PL.ap (Clo A) (Clo A) (rC A) Cn (orF np2 nq2,e2) eq2)))
-                (sub3 A cnp cnq Cn G))))
-          (oW (consL cnq G) cnp (oW G cnq t)) ;
-        a4 : Res A (consL cnp G) = rq e (consL cnp G) a2.1 a3.1
-          (wk A a2.1 (consL cq G) (consL cq (consL cnp G)) a2.2 (subCons A cq G (consL cnp G) (wk1 A cnp G)))
-          (wk A a3.1 (consL cnp (consL cnq G)) (consL cnq (consL cnp G)) a3.2 (sw A cnp cnq G)) ;
+                (sub3 A cnp cnq Cn G))) ;
+        a3t : Oth (consL cnp (consL cnq G)) = oW (consL cnq G) cnp (oW G cnq t) ;
+        a3 : Res A (consL cnp (consL cnq G)) = r2 (consL cnp (consL cnq G)) a3o1 a3t ;
+        a4o1 : Ok A a2.1 (consL cq (consL cnp G)) =
+          wk A a2.1 (consL cq G) (consL cq (consL cnp G)) a2.2 (subCons A cq G (consL cnp G) (wk1 A cnp G)) ;
+        a4o2 : Ok A a3.1 (consL cnq (consL cnp G)) =
+          wk A a3.1 (consL cnp (consL cnq G)) (consL cnq (consL cnp G)) a3.2 (sw A cnp cnq G) ;
+        a4 : Res A (consL cnp G) = rq e (consL cnp G) a2.1 a3.1 a4o1 a4o2 ;
         res : Res A G = rp e G a1.1 a4.1 a1.2 a4.2 ;
       } ;
       hOr (np2 nq2 : BP.Form) (e2 : LT.LL A) (d2 : Cf (Lb A)) (eq2 : Id (Clo A) Cn (orF np2 nq2,e2))
@@ -300,27 +386,31 @@ module BCut (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) {
         (o20 : Ok A d20 (consL (np2,e2) (consL Cn G))) (o21 : Ok A d21 (consL (nq2,e2) (consL Cn G))) (t : Oth G) {
         d2n : Cf (Lb A) = cAnd np2 nq2 e2 d20 d21 ;
         o2n : Ok A d2n (consL Cn G) = (inl eq2,(o20,o21)) ;
-        a1 : Res A (consL cp (consL cq G)) = r1 (consL cp (consL cq G))
-          (wk A d1 (consL (p1,e1) (consL (q1,e1) (consL Ca G))) (consL Ca (consL cp (consL cq G))) t.2
+        a1o1 : Ok A d1 (consL Ca (consL cp (consL cq G))) =
+          wk A d1 (consL (p1,e1) (consL (q1,e1) (consL Ca G))) (consL Ca (consL cp (consL cq G))) t.2
             (subT A (consL (p1,e1) (consL (q1,e1) (consL Ca G))) (consL cp (consL (q1,e1) (consL Ca G))) (consL Ca (consL cp (consL cq G)))
               (eqSub A (p1,e1) cp (consL (q1,e1) (consL Ca G)) (PL.ap (Clo A) (Clo A) (lC A) Ca (orF p1 q1,e1) eq1))
               (subT A (consL cp (consL (q1,e1) (consL Ca G))) (consL cp (consL cq (consL Ca G))) (consL Ca (consL cp (consL cq G)))
                 (subCons A cp (consL (q1,e1) (consL Ca G)) (consL cq (consL Ca G))
                   (eqSub A (q1,e1) cq (consL Ca G) (PL.ap (Clo A) (Clo A) (rC A) Ca (orF p1 q1,e1) eq1)))
-                (sub3 A cp cq Ca G))))
-          (oWL A Cn (consL cq G) cp (oWL A Cn G cq (d2n,o2n))) ;
-        a2 : Res A (consL cnp G) = r20 (consL cnp G)
-          (wk A d20 (consL (np2,e2) (consL Cn G)) (consL Cn (consL cnp G)) o20
+                (sub3 A cp cq Ca G))) ;
+        a1t : OthL A Cn (consL cp (consL cq G)) = oWL A Cn (consL cq G) cp (oWL A Cn G cq (d2n,o2n)) ;
+        a1 : Res A (consL cp (consL cq G)) = r1 (consL cp (consL cq G)) a1o1 a1t ;
+        a2o1 : Ok A d20 (consL Cn (consL cnp G)) =
+          wk A d20 (consL (np2,e2) (consL Cn G)) (consL Cn (consL cnp G)) o20
             (subT A (consL (np2,e2) (consL Cn G)) (consL cnp (consL Cn G)) (consL Cn (consL cnp G))
-              (eqSub A (np2,e2) cnp (consL Cn G) (PL.ap (Clo A) (Clo A) (lC A) Cn (andF np2 nq2,e2) eq2)) (sw A cnp Cn G)))
-          (oW G cnp t) ;
-        a3 : Res A (consL cnq G) = r21 (consL cnq G)
-          (wk A d21 (consL (nq2,e2) (consL Cn G)) (consL Cn (consL cnq G)) o21
+              (eqSub A (np2,e2) cnp (consL Cn G) (PL.ap (Clo A) (Clo A) (lC A) Cn (andF np2 nq2,e2) eq2)) (sw A cnp Cn G)) ;
+        a2t : Oth (consL cnp G) = oW G cnp t ;
+        a2 : Res A (consL cnp G) = r20 (consL cnp G) a2o1 a2t ;
+        a3o1 : Ok A d21 (consL Cn (consL cnq G)) =
+          wk A d21 (consL (nq2,e2) (consL Cn G)) (consL Cn (consL cnq G)) o21
             (subT A (consL (nq2,e2) (consL Cn G)) (consL cnq (consL Cn G)) (consL Cn (consL cnq G))
-              (eqSub A (nq2,e2) cnq (consL Cn G) (PL.ap (Clo A) (Clo A) (rC A) Cn (andF np2 nq2,e2) eq2)) (sw A cnq Cn G)))
-          (oW G cnq t) ;
-        a4 : Res A (consL cq G) = rp e (consL cq G) a1.1 a2.1 a1.2
-          (wk A a2.1 (consL cnp G) (consL cnp (consL cq G)) a2.2 (subCons A cnp G (consL cq G) (wk1 A cq G))) ;
+              (eqSub A (nq2,e2) cnq (consL Cn G) (PL.ap (Clo A) (Clo A) (rC A) Cn (andF np2 nq2,e2) eq2)) (sw A cnq Cn G)) ;
+        a3t : Oth (consL cnq G) = oW G cnq t ;
+        a3 : Res A (consL cnq G) = r21 (consL cnq G) a3o1 a3t ;
+        a4o1 : Ok A a2.1 (consL cnp (consL cq G)) =
+          wk A a2.1 (consL cnp G) (consL cnp (consL cq G)) a2.2 (subCons A cnp G (consL cq G) (wk1 A cq G)) ;
+        a4 : Res A (consL cq G) = rp e (consL cq G) a1.1 a2.1 a1.2 a4o1 ;
         res : Res A G = rq e G a4.1 a3.1 a4.2 a3.2 ;
       } ;
       hAnd (np2 nq2 : BP.Form) (e2 : LT.LL A) (d20 d21 : Cf (Lb A)) (eq2 : Id (Clo A) Cn (andF np2 nq2,e2))
@@ -354,16 +444,18 @@ module BCut (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) {
         cnw : Clo A = (BP.neg p,consL w e) ;
         d2n : Cf (Lb A) = cEx np2 e2 w d2 ;
         o2n : Ok A d2n (consL Cn G) = (inl eq2,o2) ;
-        a1 : Res A (consL cw G) = rk w (consL cw G)
-          (wk A (k1 w) (consL (p1,consL w e1) (consL Ca G)) (consL Ca (consL cw G)) (t.2 w)
+        a1o1 : Ok A (k1 w) (consL Ca (consL cw G)) =
+          wk A (k1 w) (consL (p1,consL w e1) (consL Ca G)) (consL Ca (consL cw G)) (t.2 w)
             (subT A (consL (p1,consL w e1) (consL Ca G)) (consL cw (consL Ca G)) (consL Ca (consL cw G))
-              (eqSub A (p1,consL w e1) cw (consL Ca G) (PL.ap (Clo A) (Clo A) (lCw A w) Ca (allF p1,e1) eq1)) (sw A cw Ca G)))
-          (oWL A Cn G cw (d2n,o2n)) ;
-        a2 : Res A (consL cnw G) = r2 (consL cnw G)
-          (wk A d2 (consL (np2,consL w e2) (consL Cn G)) (consL Cn (consL cnw G)) o2
+              (eqSub A (p1,consL w e1) cw (consL Ca G) (PL.ap (Clo A) (Clo A) (lCw A w) Ca (allF p1,e1) eq1)) (sw A cw Ca G)) ;
+        a1t : OthL A Cn (consL cw G) = oWL A Cn G cw (d2n,o2n) ;
+        a1 : Res A (consL cw G) = rk w (consL cw G) a1o1 a1t ;
+        a2o1 : Ok A d2 (consL Cn (consL cnw G)) =
+          wk A d2 (consL (np2,consL w e2) (consL Cn G)) (consL Cn (consL cnw G)) o2
             (subT A (consL (np2,consL w e2) (consL Cn G)) (consL cnw (consL Cn G)) (consL Cn (consL cnw G))
-              (eqSub A (np2,consL w e2) cnw (consL Cn G) (PL.ap (Clo A) (Clo A) (lCw A w) Cn (exF np2,e2) eq2)) (sw A cnw Cn G)))
-          (oW G cnw t) ;
+              (eqSub A (np2,consL w e2) cnw (consL Cn G) (PL.ap (Clo A) (Clo A) (lCw A w) Cn (exF np2,e2) eq2)) (sw A cnw Cn G)) ;
+        a2t : Oth (consL cnw G) = oW G cnw t ;
+        a2 : Res A (consL cnw G) = r2 (consL cnw G) a2o1 a2t ;
         res : Res A G = rp (consL w e) G a1.1 a2.1 a1.2 a2.2 ;
       } ;
       hEx (np2 : BP.Form) (e2 : LT.LL A) (w : Lb A) (d2 : Cf (Lb A)) (eq2 : Id (Clo A) Cn (exF np2,e2))
@@ -398,16 +490,18 @@ module BCut (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) {
         (o2 : (x : Lb A) -> Ok A (k2 x) (consL (np2,consL x e2) (consL Cn G))) (t : Oth G) {
         d2n : Cf (Lb A) = cAll np2 e2 k2 ;
         o2n : Ok A d2n (consL Cn G) = (inl eq2,o2) ;
-        a1 : Res A (consL cw G) = r1 (consL cw G)
-          (wk A d1 (consL (p1,consL w e1) (consL Ca G)) (consL Ca (consL cw G)) t.2
+        a1o1 : Ok A d1 (consL Ca (consL cw G)) =
+          wk A d1 (consL (p1,consL w e1) (consL Ca G)) (consL Ca (consL cw G)) t.2
             (subT A (consL (p1,consL w e1) (consL Ca G)) (consL cw (consL Ca G)) (consL Ca (consL cw G))
-              (eqSub A (p1,consL w e1) cw (consL Ca G) (PL.ap (Clo A) (Clo A) (lCw A w) Ca (exF p1,e1) eq1)) (sw A cw Ca G)))
-          (oWL A Cn G cw (d2n,o2n)) ;
-        a2 : Res A (consL cnw G) = rk2 w (consL cnw G)
-          (wk A (k2 w) (consL (np2,consL w e2) (consL Cn G)) (consL Cn (consL cnw G)) (o2 w)
+              (eqSub A (p1,consL w e1) cw (consL Ca G) (PL.ap (Clo A) (Clo A) (lCw A w) Ca (exF p1,e1) eq1)) (sw A cw Ca G)) ;
+        a1t : OthL A Cn (consL cw G) = oWL A Cn G cw (d2n,o2n) ;
+        a1 : Res A (consL cw G) = r1 (consL cw G) a1o1 a1t ;
+        a2o1 : Ok A (k2 w) (consL Cn (consL cnw G)) =
+          wk A (k2 w) (consL (np2,consL w e2) (consL Cn G)) (consL Cn (consL cnw G)) (o2 w)
             (subT A (consL (np2,consL w e2) (consL Cn G)) (consL cnw (consL Cn G)) (consL Cn (consL cnw G))
-              (eqSub A (np2,consL w e2) cnw (consL Cn G) (PL.ap (Clo A) (Clo A) (lCw A w) Cn (allF np2,e2) eq2)) (sw A cnw Cn G)))
-          (oW G cnw t) ;
+              (eqSub A (np2,consL w e2) cnw (consL Cn G) (PL.ap (Clo A) (Clo A) (lCw A w) Cn (allF np2,e2) eq2)) (sw A cnw Cn G)) ;
+        a2t : Oth (consL cnw G) = oW G cnw t ;
+        a2 : Res A (consL cnw G) = rk2 w (consL cnw G) a2o1 a2t ;
         res : Res A G = rp (consL w e) G a1.1 a2.1 a1.2 a2.2 ;
       } ;
       hAll (np2 : BP.Form) (e2 : LT.LL A) (k2 : Lb A -> Cf (Lb A)) (eq2 : Id (Clo A) Cn (allF np2,e2))
@@ -508,9 +602,6 @@ module BCut (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) {
       Id (B.OC A) o (inr (B.outR A (dflt A) o)) * Id W.Bool (B.isAxF A (B.outR A (dflt A) o).1 (B.outR A (dflt A) o).2) true = split {
     inl u -> \ h -> W.absurdB (Id (B.OC A) (inl u) (inr (dflt A)) * Id W.Bool (B.isAxF A (dflt A).1 (dflt A).2) true) h ;
     inr c -> \ h -> (refl (inr c),h) } ;
-  eqBoS : (v b : W.Bool) -> Id W.Bool (BP.eqBo v b) true -> Id W.Bool v b = split {
-    false -> split { false -> \ h -> refl false ; true -> \ h -> W.absurdB (Id W.Bool false true) h } ;
-    true -> split { false -> \ h -> W.absurdB (Id W.Bool true false) h ; true -> \ h -> refl true } } ;
   axShape (A : DP.LO) : (f : BP.Form) (e : LT.LL A) -> Id W.Bool (B.isAxF A f e) true ->
       Id BP.Form (atF (atB f) (atK f)) f * Id W.Bool (ev A (atK f) e) (atB f) = split {
     atF b k -> \ e h -> (refl (atF b k),eqBoS (ev A k e) b h) ;

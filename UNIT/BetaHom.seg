@@ -1,0 +1,741 @@
+-- Homogeneity of cut elimination for propositional beta-proofs.
+--
+-- For an embedding g : A -> B of linear orders, a derivation dB at B
+-- RESTRICTS to a derivation dA at A (RelF dA dB) when they have the same
+-- rules and formulas, the closures of dB are the images of those of dA,
+-- and the premises of a universal rule are related at the images g x
+-- (the premises of dB at labels outside the image are unconstrained).
+--
+-- The cut algorithm of BetaCut branches on data only (decidable equality
+-- of closures, preserved and reflected by embeddings), so it commutes
+-- with restriction: a relational ("parametricity") proof, mirroring the
+-- algorithm:
+--   * Dec: the decision "principal closure = cut closure" is the same at
+--     A and at B;
+--   * RInd: the generic double induction preserves the relation;
+--   * CAtR, CAndR, COrR, CAllR, CExR: the principal cases;
+--   * cutR : related premises of a cut give related cut-free derivations;
+--   * elimR : cut elimination commutes with restriction;
+--   * toDvR : so does the translation of pre-proofs (BetaCut.Tr);
+--   * homogeneous : for a homogeneous beta-proof (end sequents and rules
+--     natural in embeddings, as in BetaProof.Hom), the cut-free
+--     derivations given by BetaCut.pointwise form a HOMOGENEOUS family on
+--     well-orders: along any g : A -> B of well-orders the one at B
+--     restricts to the one at A.  This is Girard's notion of a beta-proof
+--     as a homogeneous family of ordinal-indexed proofs (10.1.14), so the
+--     cut elimination theorem for (propositional) beta-proofs holds
+--     constructively.
+-- Not done: presenting the cut-free family again as a pre-proof on ALL
+-- linear orders (extension to non-well-founded orders via supports).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module BP = BetaProof[l] ;
+module BC = BetaCut[l] ;
+
+module NH (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) {
+  module X = BC.BCut[ev] ;
+  module BB = BP.Beta[ev] ;
+  module Nat (A B : DP.LO) (g : DP.Map A B) {
+    module M = BB.Map[A,B,g] ;
+    lm (a : X.Lb A) : X.Lb B = M.lm a ;
+    mE (e : LT.LL A) : LT.LL B = M.mE e ;
+    mC (c : X.Clo A) : X.Clo B = M.mC c ;
+    mS (G : X.Seq A) : X.Seq B = M.mS G ;
+    FA : U l = BC.Cf (X.Lb A) ;
+    FB : U l = BC.Cf (X.Lb B) ;
+
+    -- restriction of derivations along g
+    RelF : BC.Cf (X.Lb A) -> FB -> U l = split {
+      cAx b k e -> \ dB -> Id FB dB (cAx b k (mE e)) ;
+      cAnd p q e d0 d1 | r0 r1 -> \ dB -> (d0' : FB) * ((d1' : FB) * (Id FB dB (cAnd p q (mE e) d0' d1') * (r0 d0' * r1 d1'))) ;
+      cOr p q e d | r -> \ dB -> (d' : FB) * (Id FB dB (cOr p q (mE e) d') * r d') ;
+      cAll p e k | r -> \ dB -> (k' : X.Lb B -> FB) * (Id FB dB (cAll p (mE e) k') * ((x : X.Lb A) -> r x (k' (lm x)))) ;
+      cEx p e w d | r -> \ dB -> (d' : FB) * (Id FB dB (cEx p (mE e) (lm w) d') * r d') } ;
+    jB (H : X.Seq B) (D dB : FB) (e : Id FB dB D) (P : (z : FB) -> X.Ok B z H -> U l)
+      (f : (o : X.Ok B D H) -> P D o) (o : X.Ok B dB H) : P dB o =
+      PL.subst FB (\ z -> (o' : X.Ok B z H) -> P z o') D dB (PL.sym FB dB D e) f o ;
+
+    -- equality of closures is preserved and reflected
+    eqLNat : (xs ys : LT.LL A) -> Id W.Bool (X.eqL B (mE xs) (mE ys)) (X.eqL A xs ys) = split {
+      nilL -> split { nilL -> refl true ; consL y ys -> refl false } ;
+      consL x xs | r -> split {
+        nilL -> refl false ;
+        consL y ys -> W.ap2 W.Bool W.Bool W.Bool W.andB (X.eqLb B (lm x) (lm y)) (X.eqLb A x y) (X.eqL B (mE xs) (mE ys)) (X.eqL A xs ys)
+          (PL.ap W.O3 W.Bool W.isEq ((LT.Lab B).cmp (lm x) (lm y)) ((LT.Lab A).cmp x y) ((LT.lmMap A B g).2 x y)) (r ys) } } ;
+    eqCloNat (c c' : X.Clo A) : Id W.Bool (X.eqClo B (mC c) (mC c')) (X.eqClo A c c') =
+      PL.ap W.Bool W.Bool (\ v -> W.andB (X.eqF c.1 c'.1) v) (X.eqL B (mE c.2) (mE c'.2)) (X.eqL A c.2 c'.2) (eqLNat c.2 c'.2) ;
+
+    -- the decision is the same at A and at B
+    module Dec (Cc c0 : X.Clo A) (G : X.Seq A) (XA : U l) (XB : U l) (Q : XA -> XB -> U l)
+      (yA : Id (X.Clo A) Cc c0 -> XA) (yB : Id (X.Clo B) (mC Cc) (mC c0) -> XB)
+      (nA : X.Mem A c0 G -> XA) (nB : X.Mem B (mC c0) (mS G) -> XB)
+      (ry : (eA : Id (X.Clo A) Cc c0) (eB : Id (X.Clo B) (mC Cc) (mC c0)) -> Q (yA eA) (yB eB))
+      (rn : (m1 : X.Mem A c0 G) (m2 : X.Mem B (mC c0) (mS G)) -> Q (nA m1) (nB m2)) {
+      orR (hA : Id W.Bool (X.eqClo A Cc c0) false) (hB : Id W.Bool (X.eqClo B (mC Cc) (mC c0)) false) :
+          (mA : W.Or (Id (X.Clo A) Cc c0) (X.Mem A c0 G)) (mB : W.Or (Id (X.Clo B) (mC Cc) (mC c0)) (X.Mem B (mC c0) (mS G))) ->
+          Q (X.decV A Cc c0 G mA XA yA nA false hA) (X.decV B (mC Cc) (mC c0) (mS G) mB XB yB nB false hB) = split {
+        inl eA -> \ mB -> W.absurdB (Q (X.decV A Cc c0 G (inl eA) XA yA nA false hA) (X.decV B (mC Cc) (mC c0) (mS G) mB XB yB nB false hB))
+          (PL.trans W.Bool false (X.eqClo A Cc c0) true (PL.sym W.Bool (X.eqClo A Cc c0) false hA) (X.eqCloE A Cc c0 eA)) ;
+        inr m1 -> split {
+          inl eB -> W.absurdB (Q (X.decV A Cc c0 G (inr m1) XA yA nA false hA) (X.decV B (mC Cc) (mC c0) (mS G) (inl eB) XB yB nB false hB))
+            (PL.trans W.Bool false (X.eqClo B (mC Cc) (mC c0)) true (PL.sym W.Bool (X.eqClo B (mC Cc) (mC c0)) false hB) (X.eqCloE B (mC Cc) (mC c0) eB)) ;
+          inr m2 -> rn m1 m2 } } ;
+      dV : (vA vB : W.Bool) (mA : X.Mem A c0 (consL Cc G)) (mB : X.Mem B (mC c0) (consL (mC Cc) (mS G)))
+          (hA : Id W.Bool (X.eqClo A Cc c0) vA) (hB : Id W.Bool (X.eqClo B (mC Cc) (mC c0)) vB) -> Id W.Bool vA vB ->
+          Q (X.decV A Cc c0 G mA XA yA nA vA hA) (X.decV B (mC Cc) (mC c0) (mS G) mB XB yB nB vB hB) = split {
+        false -> split {
+          false -> \ mA mB hA hB e -> orR hA hB mA mB ;
+          true -> \ mA mB hA hB e -> W.absurdB (Q (X.decV A Cc c0 G mA XA yA nA false hA) (X.decV B (mC Cc) (mC c0) (mS G) mB XB yB nB true hB)) e } ;
+        true -> split {
+          false -> \ mA mB hA hB e -> BP.tf (Q (X.decV A Cc c0 G mA XA yA nA true hA) (X.decV B (mC Cc) (mC c0) (mS G) mB XB yB nB false hB)) e ;
+          true -> \ mA mB hA hB e -> ry (X.eqCloS A Cc c0 hA) (X.eqCloS B (mC Cc) (mC c0) hB) } } ;
+      res (mA : X.Mem A c0 (consL Cc G)) (mB : X.Mem B (mC c0) (consL (mC Cc) (mS G))) :
+          Q (X.decide A Cc c0 G mA XA yA nA) (X.decide B (mC Cc) (mC c0) (mS G) mB XB yB nB) =
+        dV (X.eqClo A Cc c0) (X.eqClo B (mC Cc) (mC c0)) mA mB (refl (X.eqClo A Cc c0)) (refl (X.eqClo B (mC Cc) (mC c0)))
+          (PL.sym W.Bool (X.eqClo B (mC Cc) (mC c0)) (X.eqClo A Cc c0) (eqCloNat Cc c0)) ;
+    } ;
+
+    ----------------------------------------------------------------------
+    -- the generic induction preserves restriction
+    RIH (Cc : X.Clo A) (OA : X.Seq A -> U l) (OB : X.Seq B -> U l) (RO : (G : X.Seq A) -> OA G -> OB (mS G) -> U l)
+      (d : FA) (d' : FB) (rA : X.IHG A Cc OA d) (rB : X.IHG B (mC Cc) OB d') : U l =
+      (G : X.Seq A) (oA : X.Ok A d (consL Cc G)) (oB : X.Ok B d' (mS (consL Cc G))) (tA : OA G) (tB : OB (mS G)) ->
+        RO G tA tB -> RelF (rA G oA tA).1 (rB (mS G) oB tB).1 ;
+    module RInd (Cc : X.Clo A) (OA : X.Seq A -> U l) (OB : X.Seq B -> U l)
+      (oWA : (G : X.Seq A) (c : X.Clo A) -> OA G -> OA (consL c G))
+      (oWB : (G : X.Seq B) (c : X.Clo B) -> OB G -> OB (consL c G))
+      (RO : (G : X.Seq A) -> OA G -> OB (mS G) -> U l)
+      (roW : (G : X.Seq A) (c : X.Clo A) (tA : OA G) (tB : OB (mS G)) -> RO G tA tB -> RO (consL c G) (oWA G c tA) (oWB (mS G) (mC c) tB))
+      (hAxA : (b : W.Bool) (k : W.N) (e0 : LT.LL A) -> Id (X.Clo A) Cc (atF b k,e0) -> Id W.Bool (ev A k e0) b ->
+         (G : X.Seq A) -> OA G -> X.Res A G)
+      (hAndA : (p q : BP.Form) (e0 : LT.LL A) (d0 d1 : FA) -> Id (X.Clo A) Cc (andF p q,e0) ->
+         X.IHG A Cc OA d0 -> X.IHG A Cc OA d1 -> (G : X.Seq A) ->
+         X.Ok A d0 (consL (p,e0) (consL Cc G)) -> X.Ok A d1 (consL (q,e0) (consL Cc G)) -> OA G -> X.Res A G)
+      (hOrA : (p q : BP.Form) (e0 : LT.LL A) (d : FA) -> Id (X.Clo A) Cc (orF p q,e0) ->
+         X.IHG A Cc OA d -> (G : X.Seq A) -> X.Ok A d (consL (p,e0) (consL (q,e0) (consL Cc G))) -> OA G -> X.Res A G)
+      (hAllA : (p : BP.Form) (e0 : LT.LL A) (k : X.Lb A -> FA) -> Id (X.Clo A) Cc (allF p,e0) ->
+         ((x : X.Lb A) -> X.IHG A Cc OA (k x)) -> (G : X.Seq A) ->
+         ((x : X.Lb A) -> X.Ok A (k x) (consL (p,consL x e0) (consL Cc G))) -> OA G -> X.Res A G)
+      (hExA : (p : BP.Form) (e0 : LT.LL A) (w : X.Lb A) (d : FA) -> Id (X.Clo A) Cc (exF p,e0) ->
+         X.IHG A Cc OA d -> (G : X.Seq A) -> X.Ok A d (consL (p,consL w e0) (consL Cc G)) -> OA G -> X.Res A G)
+      (hAxB : (b : W.Bool) (k : W.N) (e0 : LT.LL B) -> Id (X.Clo B) (mC Cc) (atF b k,e0) -> Id W.Bool (ev B k e0) b ->
+         (G : X.Seq B) -> OB G -> X.Res B G)
+      (hAndB : (p q : BP.Form) (e0 : LT.LL B) (d0 d1 : FB) -> Id (X.Clo B) (mC Cc) (andF p q,e0) ->
+         X.IHG B (mC Cc) OB d0 -> X.IHG B (mC Cc) OB d1 -> (G : X.Seq B) ->
+         X.Ok B d0 (consL (p,e0) (consL (mC Cc) G)) -> X.Ok B d1 (consL (q,e0) (consL (mC Cc) G)) -> OB G -> X.Res B G)
+      (hOrB : (p q : BP.Form) (e0 : LT.LL B) (d : FB) -> Id (X.Clo B) (mC Cc) (orF p q,e0) ->
+         X.IHG B (mC Cc) OB d -> (G : X.Seq B) -> X.Ok B d (consL (p,e0) (consL (q,e0) (consL (mC Cc) G))) -> OB G -> X.Res B G)
+      (hAllB : (p : BP.Form) (e0 : LT.LL B) (k : X.Lb B -> FB) -> Id (X.Clo B) (mC Cc) (allF p,e0) ->
+         ((x : X.Lb B) -> X.IHG B (mC Cc) OB (k x)) -> (G : X.Seq B) ->
+         ((x : X.Lb B) -> X.Ok B (k x) (consL (p,consL x e0) (consL (mC Cc) G))) -> OB G -> X.Res B G)
+      (hExB : (p : BP.Form) (e0 : LT.LL B) (w : X.Lb B) (d : FB) -> Id (X.Clo B) (mC Cc) (exF p,e0) ->
+         X.IHG B (mC Cc) OB d -> (G : X.Seq B) -> X.Ok B d (consL (p,consL w e0) (consL (mC Cc) G)) -> OB G -> X.Res B G)
+      (rhAx : (b : W.Bool) (k : W.N) (e0 : LT.LL A) (eA : Id (X.Clo A) Cc (atF b k,e0)) (eB : Id (X.Clo B) (mC Cc) (atF b k,mE e0))
+         (hA : Id W.Bool (ev A k e0) b) (hB : Id W.Bool (ev B k (mE e0)) b) (G : X.Seq A) (tA : OA G) (tB : OB (mS G)) -> RO G tA tB ->
+         RelF (hAxA b k e0 eA hA G tA).1 (hAxB b k (mE e0) eB hB (mS G) tB).1)
+      (rhAnd : (p q : BP.Form) (e0 : LT.LL A) (d0 d1 : FA) (d0' d1' : FB) -> RelF d0 d0' -> RelF d1 d1' ->
+         (eA : Id (X.Clo A) Cc (andF p q,e0)) (eB : Id (X.Clo B) (mC Cc) (andF p q,mE e0))
+         (rA0 : X.IHG A Cc OA d0) (rA1 : X.IHG A Cc OA d1) (rB0 : X.IHG B (mC Cc) OB d0') (rB1 : X.IHG B (mC Cc) OB d1') ->
+         RIH Cc OA OB RO d0 d0' rA0 rB0 -> RIH Cc OA OB RO d1 d1' rA1 rB1 ->
+         (G : X.Seq A) (oA0 : X.Ok A d0 (consL (p,e0) (consL Cc G))) (oA1 : X.Ok A d1 (consL (q,e0) (consL Cc G)))
+         (oB0 : X.Ok B d0' (mS (consL (p,e0) (consL Cc G)))) (oB1 : X.Ok B d1' (mS (consL (q,e0) (consL Cc G))))
+         (tA : OA G) (tB : OB (mS G)) -> RO G tA tB ->
+         RelF (hAndA p q e0 d0 d1 eA rA0 rA1 G oA0 oA1 tA).1 (hAndB p q (mE e0) d0' d1' eB rB0 rB1 (mS G) oB0 oB1 tB).1)
+      (rhOr : (p q : BP.Form) (e0 : LT.LL A) (d : FA) (d' : FB) -> RelF d d' ->
+         (eA : Id (X.Clo A) Cc (orF p q,e0)) (eB : Id (X.Clo B) (mC Cc) (orF p q,mE e0))
+         (rA : X.IHG A Cc OA d) (rB : X.IHG B (mC Cc) OB d') -> RIH Cc OA OB RO d d' rA rB ->
+         (G : X.Seq A) (oA : X.Ok A d (consL (p,e0) (consL (q,e0) (consL Cc G))))
+         (oB : X.Ok B d' (mS (consL (p,e0) (consL (q,e0) (consL Cc G))))) (tA : OA G) (tB : OB (mS G)) -> RO G tA tB ->
+         RelF (hOrA p q e0 d eA rA G oA tA).1 (hOrB p q (mE e0) d' eB rB (mS G) oB tB).1)
+      (rhAll : (p : BP.Form) (e0 : LT.LL A) (k : X.Lb A -> FA) (k' : X.Lb B -> FB) -> ((x : X.Lb A) -> RelF (k x) (k' (lm x))) ->
+         (eA : Id (X.Clo A) Cc (allF p,e0)) (eB : Id (X.Clo B) (mC Cc) (allF p,mE e0))
+         (rA : (x : X.Lb A) -> X.IHG A Cc OA (k x)) (rB : (y : X.Lb B) -> X.IHG B (mC Cc) OB (k' y)) ->
+         ((x : X.Lb A) -> RIH Cc OA OB RO (k x) (k' (lm x)) (rA x) (rB (lm x))) ->
+         (G : X.Seq A) (oA : (x : X.Lb A) -> X.Ok A (k x) (consL (p,consL x e0) (consL Cc G)))
+         (oB : (y : X.Lb B) -> X.Ok B (k' y) (consL (p,consL y (mE e0)) (consL (mC Cc) (mS G))))
+         (tA : OA G) (tB : OB (mS G)) -> RO G tA tB ->
+         RelF (hAllA p e0 k eA rA G oA tA).1 (hAllB p (mE e0) k' eB rB (mS G) oB tB).1)
+      (rhEx : (p : BP.Form) (e0 : LT.LL A) (w : X.Lb A) (d : FA) (d' : FB) -> RelF d d' ->
+         (eA : Id (X.Clo A) Cc (exF p,e0)) (eB : Id (X.Clo B) (mC Cc) (exF p,mE e0))
+         (rA : X.IHG A Cc OA d) (rB : X.IHG B (mC Cc) OB d') -> RIH Cc OA OB RO d d' rA rB ->
+         (G : X.Seq A) (oA : X.Ok A d (consL (p,consL w e0) (consL Cc G)))
+         (oB : X.Ok B d' (mS (consL (p,consL w e0) (consL Cc G)))) (tA : OA G) (tB : OB (mS G)) -> RO G tA tB ->
+         RelF (hExA p e0 w d eA rA G oA tA).1 (hExB p (mE e0) (lm w) d' eB rB (mS G) oB tB).1) {
+      module IA = X.Ind[A,Cc,OA,oWA,hAxA,hAndA,hOrA,hAllA,hExA] ;
+      module IB = X.Ind[B,mC Cc,OB,oWB,hAxB,hAndB,hOrB,hAllB,hExB] ;
+      Goal (d : FA) : U l = (dB : FB) -> RelF d dB -> (G : X.Seq A) (oA : X.Ok A d (consL Cc G)) (tA : OA G) (tB : OB (mS G)) ->
+        RO G tA tB -> (oB : X.Ok B dB (mS (consL Cc G))) -> RelF (IA.L d G oA tA).1 (IB.L dB (mS G) oB tB).1 ;
+      toRIH (d : FA) (r : Goal d) (d' : FB) (rl : RelF d d') : RIH Cc OA OB RO d d' (IA.L d) (IB.L d') =
+        \ G oA oB tA tB ro -> r d' rl G oA tA tB ro oB ;
+      QR (G : X.Seq A) (x : X.Res A G) (y : X.Res B (mS G)) : U l = RelF x.1 y.1 ;
+      module KAx (b : W.Bool) (k : W.N) (e0 : LT.LL A) (G : X.Seq A) (oA : X.Ok A (cAx b k e0) (consL Cc G))
+        (tA : OA G) (tB : OB (mS G)) (ro : RO G tA tB) (o : X.Ok B (cAx b k (mE e0)) (mS (consL Cc G))) {
+        res : RelF (IA.L (cAx b k e0) G oA tA).1 (IB.L (cAx b k (mE e0)) (mS G) o tB).1 =
+          Dec[Cc,(atF b k,e0),G,X.Res A G,X.Res B (mS G),QR G,
+            \ eq -> hAxA b k e0 eq oA.2 G tA, \ eq -> hAxB b k (mE e0) eq o.2 (mS G) tB,
+            \ m -> (cAx b k e0,(m,oA.2)), \ m -> (cAx b k (mE e0),(m,o.2)),
+            \ eA eB -> rhAx b k e0 eA eB oA.2 o.2 G tA tB ro,
+            \ m1 m2 -> refl (cAx b k (mE e0))].res oA.1 o.1 ;
+      } ;
+      module KAnd (p q : BP.Form) (e0 : LT.LL A) (d0 d1 : FA) (r0 : Goal d0) (r1 : Goal d1) (d0' d1' : FB)
+        (rl0 : RelF d0 d0') (rl1 : RelF d1 d1') (G : X.Seq A) (oA : X.Ok A (cAnd p q e0 d0 d1) (consL Cc G))
+        (tA : OA G) (tB : OB (mS G)) (ro : RO G tA tB) (o : X.Ok B (cAnd p q (mE e0) d0' d1') (mS (consL Cc G))) {
+        xA0 : X.Res A (consL (p,e0) G) = IA.L d0 (consL (p,e0) G) (IA.front (p,e0) d0 G oA.2.1) (oWA G (p,e0) tA) ;
+        xA1 : X.Res A (consL (q,e0) G) = IA.L d1 (consL (q,e0) G) (IA.front (q,e0) d1 G oA.2.2) (oWA G (q,e0) tA) ;
+        xB0 : X.Res B (mS (consL (p,e0) G)) = IB.L d0' (consL (p,mE e0) (mS G)) (IB.front (p,mE e0) d0' (mS G) o.2.1) (oWB (mS G) (p,mE e0) tB) ;
+        xB1 : X.Res B (mS (consL (q,e0) G)) = IB.L d1' (consL (q,mE e0) (mS G)) (IB.front (q,mE e0) d1' (mS G) o.2.2) (oWB (mS G) (q,mE e0) tB) ;
+        R0 : RelF xA0.1 xB0.1 = r0 d0' rl0 (consL (p,e0) G) (IA.front (p,e0) d0 G oA.2.1) (oWA G (p,e0) tA) (oWB (mS G) (p,mE e0) tB)
+          (roW G (p,e0) tA tB ro) (IB.front (p,mE e0) d0' (mS G) o.2.1) ;
+        R1 : RelF xA1.1 xB1.1 = r1 d1' rl1 (consL (q,e0) G) (IA.front (q,e0) d1 G oA.2.2) (oWA G (q,e0) tA) (oWB (mS G) (q,mE e0) tB)
+          (roW G (q,e0) tA tB ro) (IB.front (q,mE e0) d1' (mS G) o.2.2) ;
+        res : RelF (IA.L (cAnd p q e0 d0 d1) G oA tA).1 (IB.L (cAnd p q (mE e0) d0' d1') (mS G) o tB).1 =
+          Dec[Cc,(andF p q,e0),G,X.Res A G,X.Res B (mS G),QR G,
+            \ eq -> hAndA p q e0 d0 d1 eq (IA.L d0) (IA.L d1) G oA.2.1 oA.2.2 tA,
+            \ eq -> hAndB p q (mE e0) d0' d1' eq (IB.L d0') (IB.L d1') (mS G) o.2.1 o.2.2 tB,
+            \ m -> X.mkAnd A p q e0 G m xA0 xA1, \ m -> X.mkAnd B p q (mE e0) (mS G) m xB0 xB1,
+            \ eA eB -> rhAnd p q e0 d0 d1 d0' d1' rl0 rl1 eA eB (IA.L d0) (IA.L d1) (IB.L d0') (IB.L d1')
+              (toRIH d0 r0 d0' rl0) (toRIH d1 r1 d1' rl1) G oA.2.1 oA.2.2 o.2.1 o.2.2 tA tB ro,
+            \ m1 m2 -> (xB0.1,(xB1.1,(refl (cAnd p q (mE e0) xB0.1 xB1.1),(R0,R1))))].res oA.1 o.1 ;
+      } ;
+      module KOr (p q : BP.Form) (e0 : LT.LL A) (d : FA) (r : Goal d) (d' : FB) (rl : RelF d d') (G : X.Seq A)
+        (oA : X.Ok A (cOr p q e0 d) (consL Cc G)) (tA : OA G) (tB : OB (mS G)) (ro : RO G tA tB)
+        (o : X.Ok B (cOr p q (mE e0) d') (mS (consL Cc G))) {
+        xA : X.Res A (consL (p,e0) (consL (q,e0) G)) = IA.L d (consL (p,e0) (consL (q,e0) G)) (IA.front2 (p,e0) (q,e0) d G oA.2)
+          (oWA (consL (q,e0) G) (p,e0) (oWA G (q,e0) tA)) ;
+        xB : X.Res B (mS (consL (p,e0) (consL (q,e0) G))) = IB.L d' (consL (p,mE e0) (consL (q,mE e0) (mS G)))
+          (IB.front2 (p,mE e0) (q,mE e0) d' (mS G) o.2) (oWB (consL (q,mE e0) (mS G)) (p,mE e0) (oWB (mS G) (q,mE e0) tB)) ;
+        R : RelF xA.1 xB.1 = r d' rl (consL (p,e0) (consL (q,e0) G)) (IA.front2 (p,e0) (q,e0) d G oA.2)
+          (oWA (consL (q,e0) G) (p,e0) (oWA G (q,e0) tA)) (oWB (consL (q,mE e0) (mS G)) (p,mE e0) (oWB (mS G) (q,mE e0) tB))
+          (roW (consL (q,e0) G) (p,e0) (oWA G (q,e0) tA) (oWB (mS G) (q,mE e0) tB) (roW G (q,e0) tA tB ro))
+          (IB.front2 (p,mE e0) (q,mE e0) d' (mS G) o.2) ;
+        res : RelF (IA.L (cOr p q e0 d) G oA tA).1 (IB.L (cOr p q (mE e0) d') (mS G) o tB).1 =
+          Dec[Cc,(orF p q,e0),G,X.Res A G,X.Res B (mS G),QR G,
+            \ eq -> hOrA p q e0 d eq (IA.L d) G oA.2 tA,
+            \ eq -> hOrB p q (mE e0) d' eq (IB.L d') (mS G) o.2 tB,
+            \ m -> X.mkOr A p q e0 G m xA, \ m -> X.mkOr B p q (mE e0) (mS G) m xB,
+            \ eA eB -> rhOr p q e0 d d' rl eA eB (IA.L d) (IB.L d') (toRIH d r d' rl) G oA.2 o.2 tA tB ro,
+            \ m1 m2 -> (xB.1,(refl (cOr p q (mE e0) xB.1),R))].res oA.1 o.1 ;
+      } ;
+      module KAll (p : BP.Form) (e0 : LT.LL A) (k : X.Lb A -> FA) (r : (x : X.Lb A) -> Goal (k x)) (k' : X.Lb B -> FB)
+        (rl : (x : X.Lb A) -> RelF (k x) (k' (lm x))) (G : X.Seq A)
+        (oA : X.Ok A (cAll p e0 k) (consL Cc G)) (tA : OA G) (tB : OB (mS G)) (ro : RO G tA tB)
+        (o : X.Ok B (cAll p (mE e0) k') (mS (consL Cc G))) {
+        xA (y : X.Lb A) : X.Res A (consL (p,consL y e0) G) =
+          IA.L (k y) (consL (p,consL y e0) G) (IA.front (p,consL y e0) (k y) G (oA.2 y)) (oWA G (p,consL y e0) tA) ;
+        xB (y : X.Lb B) : X.Res B (consL (p,consL y (mE e0)) (mS G)) =
+          IB.L (k' y) (consL (p,consL y (mE e0)) (mS G)) (IB.front (p,consL y (mE e0)) (k' y) (mS G) (o.2 y)) (oWB (mS G) (p,consL y (mE e0)) tB) ;
+        R (x : X.Lb A) : RelF (xA x).1 (xB (lm x)).1 =
+          r x (k' (lm x)) (rl x) (consL (p,consL x e0) G) (IA.front (p,consL x e0) (k x) G (oA.2 x)) (oWA G (p,consL x e0) tA)
+            (oWB (mS G) (p,consL (lm x) (mE e0)) tB) (roW G (p,consL x e0) tA tB ro)
+            (IB.front (p,consL (lm x) (mE e0)) (k' (lm x)) (mS G) (o.2 (lm x))) ;
+        res : RelF (IA.L (cAll p e0 k) G oA tA).1 (IB.L (cAll p (mE e0) k') (mS G) o tB).1 =
+          Dec[Cc,(allF p,e0),G,X.Res A G,X.Res B (mS G),QR G,
+            \ eq -> hAllA p e0 k eq (\ y -> IA.L (k y)) G oA.2 tA,
+            \ eq -> hAllB p (mE e0) k' eq (\ y -> IB.L (k' y)) (mS G) o.2 tB,
+            \ m -> X.mkAll A p e0 G m xA, \ m -> X.mkAll B p (mE e0) (mS G) m xB,
+            \ eA eB -> rhAll p e0 k k' rl eA eB (\ y -> IA.L (k y)) (\ y -> IB.L (k' y))
+              (\ x -> toRIH (k x) (r x) (k' (lm x)) (rl x)) G oA.2 o.2 tA tB ro,
+            \ m1 m2 -> (\ y -> (xB y).1,(refl (cAll p (mE e0) (\ y -> (xB y).1)),R))].res oA.1 o.1 ;
+      } ;
+      module KEx (p : BP.Form) (e0 : LT.LL A) (w : X.Lb A) (d : FA) (r : Goal d) (d' : FB) (rl : RelF d d') (G : X.Seq A)
+        (oA : X.Ok A (cEx p e0 w d) (consL Cc G)) (tA : OA G) (tB : OB (mS G)) (ro : RO G tA tB)
+        (o : X.Ok B (cEx p (mE e0) (lm w) d') (mS (consL Cc G))) {
+        xA : X.Res A (consL (p,consL w e0) G) = IA.L d (consL (p,consL w e0) G) (IA.front (p,consL w e0) d G oA.2) (oWA G (p,consL w e0) tA) ;
+        xB : X.Res B (mS (consL (p,consL w e0) G)) = IB.L d' (consL (p,consL (lm w) (mE e0)) (mS G))
+          (IB.front (p,consL (lm w) (mE e0)) d' (mS G) o.2) (oWB (mS G) (p,consL (lm w) (mE e0)) tB) ;
+        R : RelF xA.1 xB.1 = r d' rl (consL (p,consL w e0) G) (IA.front (p,consL w e0) d G oA.2) (oWA G (p,consL w e0) tA)
+          (oWB (mS G) (p,consL (lm w) (mE e0)) tB) (roW G (p,consL w e0) tA tB ro) (IB.front (p,consL (lm w) (mE e0)) d' (mS G) o.2) ;
+        res : RelF (IA.L (cEx p e0 w d) G oA tA).1 (IB.L (cEx p (mE e0) (lm w) d') (mS G) o tB).1 =
+          Dec[Cc,(exF p,e0),G,X.Res A G,X.Res B (mS G),QR G,
+            \ eq -> hExA p e0 w d eq (IA.L d) G oA.2 tA,
+            \ eq -> hExB p (mE e0) (lm w) d' eq (IB.L d') (mS G) o.2 tB,
+            \ m -> X.mkEx A p e0 w G m xA, \ m -> X.mkEx B p (mE e0) (lm w) (mS G) m xB,
+            \ eA eB -> rhEx p e0 w d d' rl eA eB (IA.L d) (IB.L d') (toRIH d r d' rl) G oA.2 o.2 tA tB ro,
+            \ m1 m2 -> (xB.1,(refl (cEx p (mE e0) (lm w) xB.1),R))].res oA.1 o.1 ;
+      } ;
+      L : (d : FA) -> Goal d = split {
+        cAx b k e0 -> \ dB rel G oA tA tB ro ->
+          jB (mS (consL Cc G)) (cAx b k (mE e0)) dB rel
+            (\ z o -> RelF (IA.L (cAx b k e0) G oA tA).1 (IB.L z (mS G) o tB).1)
+            (\ o -> KAx[b,k,e0,G,oA,tA,tB,ro,o].res) ;
+        cAnd p q e0 d0 d1 | r0 r1 -> \ dB rel G oA tA tB ro ->
+          jB (mS (consL Cc G)) (cAnd p q (mE e0) rel.1 rel.2.1) dB rel.2.2.1
+            (\ z o -> RelF (IA.L (cAnd p q e0 d0 d1) G oA tA).1 (IB.L z (mS G) o tB).1)
+            (\ o -> KAnd[p,q,e0,d0,d1,r0,r1,rel.1,rel.2.1,rel.2.2.2.1,rel.2.2.2.2,G,oA,tA,tB,ro,o].res) ;
+        cOr p q e0 d | r -> \ dB rel G oA tA tB ro ->
+          jB (mS (consL Cc G)) (cOr p q (mE e0) rel.1) dB rel.2.1
+            (\ z o -> RelF (IA.L (cOr p q e0 d) G oA tA).1 (IB.L z (mS G) o tB).1)
+            (\ o -> KOr[p,q,e0,d,r,rel.1,rel.2.2,G,oA,tA,tB,ro,o].res) ;
+        cAll p e0 k | r -> \ dB rel G oA tA tB ro ->
+          jB (mS (consL Cc G)) (cAll p (mE e0) rel.1) dB rel.2.1
+            (\ z o -> RelF (IA.L (cAll p e0 k) G oA tA).1 (IB.L z (mS G) o tB).1)
+            (\ o -> KAll[p,e0,k,r,rel.1,rel.2.2,G,oA,tA,tB,ro,o].res) ;
+        cEx p e0 w d | r -> \ dB rel G oA tA tB ro ->
+          jB (mS (consL Cc G)) (cEx p (mE e0) (lm w) rel.1) dB rel.2.1
+            (\ z o -> RelF (IA.L (cEx p e0 w d) G oA tA).1 (IB.L z (mS G) o tB).1)
+            (\ o -> KEx[p,e0,w,d,r,rel.1,rel.2.2,G,oA,tA,tB,ro,o].res) } ;
+    } ;
+    ----------------------------------------------------------------------
+    -- mismatched principal closures: impossible at A
+    module RMis (Cc : X.Clo A) (OA : X.Seq A -> U l) (OB : X.Seq B -> U l) (RO : (G : X.Seq A) -> OA G -> OB (mS G) -> U l)
+      (t : BP.Form -> W.Bool) (h1 : Id W.Bool (t Cc.1) true) {
+      module MA = X.Mis[A,Cc,OA,t,h1] ;
+      module MB = X.Mis[B,mC Cc,OB,t,h1] ;
+      rmAx (h2 : (b : W.Bool) (k : W.N) -> Id W.Bool (t (atF b k)) false) (b : W.Bool) (k : W.N) (e0 : LT.LL A)
+        (eA : Id (X.Clo A) Cc (atF b k,e0)) (eB : Id (X.Clo B) (mC Cc) (atF b k,mE e0))
+        (hA : Id W.Bool (ev A k e0) b) (hB : Id W.Bool (ev B k (mE e0)) b) (G : X.Seq A) (tA : OA G) (tB : OB (mS G)) (ro : RO G tA tB) :
+        RelF (MA.mAx h2 b k e0 eA hA G tA).1 (MB.mAx h2 b k (mE e0) eB hB (mS G) tB).1 =
+        CF.efq (RelF (MA.mAx h2 b k e0 eA hA G tA).1 (MB.mAx h2 b k (mE e0) eB hB (mS G) tB).1) (X.mis A t Cc (atF b k,e0) eA h1 (h2 b k) W.Empty) ;
+      rmAnd (h2 : (p q : BP.Form) -> Id W.Bool (t (andF p q)) false) (p q : BP.Form) (e0 : LT.LL A) (d0 d1 : FA) (d0' d1' : FB)
+        (rl0 : RelF d0 d0') (rl1 : RelF d1 d1') (eA : Id (X.Clo A) Cc (andF p q,e0)) (eB : Id (X.Clo B) (mC Cc) (andF p q,mE e0))
+        (rA0 : X.IHG A Cc OA d0) (rA1 : X.IHG A Cc OA d1) (rB0 : X.IHG B (mC Cc) OB d0') (rB1 : X.IHG B (mC Cc) OB d1')
+        (ir0 : RIH Cc OA OB RO d0 d0' rA0 rB0) (ir1 : RIH Cc OA OB RO d1 d1' rA1 rB1)
+        (G : X.Seq A) (oA0 : X.Ok A d0 (consL (p,e0) (consL Cc G))) (oA1 : X.Ok A d1 (consL (q,e0) (consL Cc G)))
+        (oB0 : X.Ok B d0' (mS (consL (p,e0) (consL Cc G)))) (oB1 : X.Ok B d1' (mS (consL (q,e0) (consL Cc G))))
+        (tA : OA G) (tB : OB (mS G)) (ro : RO G tA tB) :
+        RelF (MA.mAnd h2 p q e0 d0 d1 eA rA0 rA1 G oA0 oA1 tA).1 (MB.mAnd h2 p q (mE e0) d0' d1' eB rB0 rB1 (mS G) oB0 oB1 tB).1 =
+        CF.efq (RelF (MA.mAnd h2 p q e0 d0 d1 eA rA0 rA1 G oA0 oA1 tA).1 (MB.mAnd h2 p q (mE e0) d0' d1' eB rB0 rB1 (mS G) oB0 oB1 tB).1)
+          (X.mis A t Cc (andF p q,e0) eA h1 (h2 p q) W.Empty) ;
+      rmOr (h2 : (p q : BP.Form) -> Id W.Bool (t (orF p q)) false) (p q : BP.Form) (e0 : LT.LL A) (d : FA) (d' : FB) (rl : RelF d d')
+        (eA : Id (X.Clo A) Cc (orF p q,e0)) (eB : Id (X.Clo B) (mC Cc) (orF p q,mE e0))
+        (rA : X.IHG A Cc OA d) (rB : X.IHG B (mC Cc) OB d') (ir : RIH Cc OA OB RO d d' rA rB)
+        (G : X.Seq A) (oA : X.Ok A d (consL (p,e0) (consL (q,e0) (consL Cc G))))
+        (oB : X.Ok B d' (mS (consL (p,e0) (consL (q,e0) (consL Cc G))))) (tA : OA G) (tB : OB (mS G)) (ro : RO G tA tB) :
+        RelF (MA.mOr h2 p q e0 d eA rA G oA tA).1 (MB.mOr h2 p q (mE e0) d' eB rB (mS G) oB tB).1 =
+        CF.efq (RelF (MA.mOr h2 p q e0 d eA rA G oA tA).1 (MB.mOr h2 p q (mE e0) d' eB rB (mS G) oB tB).1)
+          (X.mis A t Cc (orF p q,e0) eA h1 (h2 p q) W.Empty) ;
+      rmAll (h2 : (p : BP.Form) -> Id W.Bool (t (allF p)) false) (p : BP.Form) (e0 : LT.LL A) (k : X.Lb A -> FA) (k' : X.Lb B -> FB)
+        (rl : (x : X.Lb A) -> RelF (k x) (k' (lm x))) (eA : Id (X.Clo A) Cc (allF p,e0)) (eB : Id (X.Clo B) (mC Cc) (allF p,mE e0))
+        (rA : (x : X.Lb A) -> X.IHG A Cc OA (k x)) (rB : (y : X.Lb B) -> X.IHG B (mC Cc) OB (k' y))
+        (ir : (x : X.Lb A) -> RIH Cc OA OB RO (k x) (k' (lm x)) (rA x) (rB (lm x)))
+        (G : X.Seq A) (oA : (x : X.Lb A) -> X.Ok A (k x) (consL (p,consL x e0) (consL Cc G)))
+        (oB : (y : X.Lb B) -> X.Ok B (k' y) (consL (p,consL y (mE e0)) (consL (mC Cc) (mS G))))
+        (tA : OA G) (tB : OB (mS G)) (ro : RO G tA tB) :
+        RelF (MA.mAll h2 p e0 k eA rA G oA tA).1 (MB.mAll h2 p (mE e0) k' eB rB (mS G) oB tB).1 =
+        CF.efq (RelF (MA.mAll h2 p e0 k eA rA G oA tA).1 (MB.mAll h2 p (mE e0) k' eB rB (mS G) oB tB).1)
+          (X.mis A t Cc (allF p,e0) eA h1 (h2 p) W.Empty) ;
+      rmEx (h2 : (p : BP.Form) -> Id W.Bool (t (exF p)) false) (p : BP.Form) (e0 : LT.LL A) (w : X.Lb A) (d : FA) (d' : FB) (rl : RelF d d')
+        (eA : Id (X.Clo A) Cc (exF p,e0)) (eB : Id (X.Clo B) (mC Cc) (exF p,mE e0))
+        (rA : X.IHG A Cc OA d) (rB : X.IHG B (mC Cc) OB d') (ir : RIH Cc OA OB RO d d' rA rB)
+        (G : X.Seq A) (oA : X.Ok A d (consL (p,consL w e0) (consL Cc G)))
+        (oB : X.Ok B d' (mS (consL (p,consL w e0) (consL Cc G)))) (tA : OA G) (tB : OB (mS G)) (ro : RO G tA tB) :
+        RelF (MA.mEx h2 p e0 w d eA rA G oA tA).1 (MB.mEx h2 p (mE e0) (lm w) d' eB rB (mS G) oB tB).1 =
+        CF.efq (RelF (MA.mEx h2 p e0 w d eA rA G oA tA).1 (MB.mEx h2 p (mE e0) (lm w) d' eB rB (mS G) oB tB).1)
+          (X.mis A t Cc (exF p,e0) eA h1 (h2 p) W.Empty) ;
+    } ;
+
+    ----------------------------------------------------------------------
+    -- the principal cases
+    CutRel (f : BP.Form) (cA : X.CutT A f) (cB : X.CutT B f) : U l =
+      (e : LT.LL A) (G : X.Seq A) (d1 d2 : FA) (d1' d2' : FB)
+      (o1 : X.Ok A d1 (consL (f,e) G)) (o2 : X.Ok A d2 (consL (BP.neg f,e) G))
+      (o1' : X.Ok B d1' (mS (consL (f,e) G))) (o2' : X.Ok B d2' (mS (consL (BP.neg f,e) G))) ->
+      RelF d1 d1' -> RelF d2 d2' -> RelF (cA e G d1 d2 o1 o2).1 (cB (mE e) (mS G) d1' d2' o1' o2').1 ;
+    ROL (Cn : X.Clo A) (G : X.Seq A) (tA : X.OthL A Cn G) (tB : X.OthL B (mC Cn) (mS G)) : U l = RelF tA.1 tB.1 ;
+
+    module CAtR (b : W.Bool) (k : W.N) (e : LT.LL A) {
+      module ZA = X.CAt[A,b,k,e] ;
+      module ZB = X.CAt[B,b,k,mE e] ;
+      module RR (b1 : W.Bool) (k1 : W.N) (e1 : LT.LL A) (eq1A : Id (X.Clo A) ZA.Ca (atF b1 k1,e1)) (eq1B : Id (X.Clo B) ZB.Ca (atF b1 k1,mE e1))
+        (h1A : Id W.Bool (ev A k1 e1) b1) (h1B : Id W.Bool (ev B k1 (mE e1)) b1) {
+        module YA = ZA.RA[b1,k1,e1,eq1A,h1A] ;
+        module YB = ZB.RA[b1,k1,mE e1,eq1B,h1B] ;
+        RO (G : X.Seq A) (tA : YA.Oth G) (tB : YB.Oth (mS G)) : U l = W.Unit ;
+        module RM = RMis[ZA.Cn,YA.Oth,YB.Oth,RO,BC.isAtF,refl true] ;
+        rhAx (b2 : W.Bool) (k2 : W.N) (e2 : LT.LL A) (eA : Id (X.Clo A) ZA.Cn (atF b2 k2,e2)) (eB : Id (X.Clo B) ZB.Cn (atF b2 k2,mE e2))
+          (hA : Id W.Bool (ev A k2 e2) b2) (hB : Id W.Bool (ev B k2 (mE e2)) b2) (G : X.Seq A) (tA : YA.Oth G) (tB : YB.Oth (mS G))
+          (ro : RO G tA tB) : RelF (YA.hAx b2 k2 e2 eA hA G tA).1 (YB.hAx b2 k2 (mE e2) eB hB (mS G) tB).1 =
+          CF.efq (RelF (YA.hAx b2 k2 e2 eA hA G tA).1 (YB.hAx b2 k2 (mE e2) eB hB (mS G) tB).1)
+            (BC.notBoth (ev A k e) b (ZA.vv ZA.Ca (atF b1 k1,e1) eq1A (ZA.vt b1 k1 e1 h1A)) (ZA.vv ZA.Cn (atF b2 k2,e2) eA (ZA.vt b2 k2 e2 hA))) ;
+        module IRR = RInd[ZA.Cn,YA.Oth,YB.Oth,X.oWR A ZA.Ca YA.dl,X.oWR B ZB.Ca YB.dl,RO,\ G c tA tB r -> tt,
+          YA.hAx,YA.MR.mAnd (\ p q -> refl false),YA.MR.mOr (\ p q -> refl false),YA.MR.mAll (\ p -> refl false),YA.MR.mEx (\ p -> refl false),
+          YB.hAx,YB.MR.mAnd (\ p q -> refl false),YB.MR.mOr (\ p q -> refl false),YB.MR.mAll (\ p -> refl false),YB.MR.mEx (\ p -> refl false),
+          rhAx,RM.rmAnd (\ p q -> refl false),RM.rmOr (\ p q -> refl false),RM.rmAll (\ p -> refl false),RM.rmEx (\ p -> refl false)] ;
+      } ;
+      module RML = RMis[ZA.Ca,X.OthL A ZA.Cn,X.OthL B ZB.Cn,ROL ZA.Cn,BC.isAtF,refl true] ;
+      rhAxL (b1 : W.Bool) (k1 : W.N) (e1 : LT.LL A) (eA : Id (X.Clo A) ZA.Ca (atF b1 k1,e1)) (eB : Id (X.Clo B) ZB.Ca (atF b1 k1,mE e1))
+        (hA : Id W.Bool (ev A k1 e1) b1) (hB : Id W.Bool (ev B k1 (mE e1)) b1) (G : X.Seq A) (tA : X.OthL A ZA.Cn G) (tB : X.OthL B ZB.Cn (mS G))
+        (ro : ROL ZA.Cn G tA tB) : RelF (ZA.hAxL b1 k1 e1 eA hA G tA).1 (ZB.hAxL b1 k1 (mE e1) eB hB (mS G) tB).1 =
+        RR[b1,k1,e1,eA,eB,hA,hB].IRR.L tA.1 tB.1 ro G tA.2 (inl eA,hA) (inl eB,hB) tt tB.2 ;
+      module IRL = RInd[ZA.Ca,X.OthL A ZA.Cn,X.OthL B ZB.Cn,X.oWL A ZA.Cn,X.oWL B ZB.Cn,ROL ZA.Cn,\ G c tA tB r -> r,
+        ZA.hAxL,ZA.ML.mAnd (\ p q -> refl false),ZA.ML.mOr (\ p q -> refl false),ZA.ML.mAll (\ p -> refl false),ZA.ML.mEx (\ p -> refl false),
+        ZB.hAxL,ZB.ML.mAnd (\ p q -> refl false),ZB.ML.mOr (\ p q -> refl false),ZB.ML.mAll (\ p -> refl false),ZB.ML.mEx (\ p -> refl false),
+        rhAxL,RML.rmAnd (\ p q -> refl false),RML.rmOr (\ p q -> refl false),RML.rmAll (\ p -> refl false),RML.rmEx (\ p -> refl false)] ;
+    } ;
+
+    module CAndR (p q : BP.Form) (rpA : X.CutT A p) (rqA : X.CutT A q) (rpB : X.CutT B p) (rqB : X.CutT B q)
+      (rpR : CutRel p rpA rpB) (rqR : CutRel q rqA rqB) (e : LT.LL A) {
+      module ZA = X.CAnd[A,p,q,rpA,rqA,e] ;
+      module ZB = X.CAnd[B,p,q,rpB,rqB,mE e] ;
+      module RR (p1 q1 : BP.Form) (e1 : LT.LL A) (d10 d11 : FA) (d10' d11' : FB)
+        (eq1A : Id (X.Clo A) ZA.Ca (andF p1 q1,e1)) (eq1B : Id (X.Clo B) ZB.Ca (andF p1 q1,mE e1))
+        (r0A : X.IHG A ZA.Ca (X.OthL A ZA.Cn) d10) (r1A : X.IHG A ZA.Ca (X.OthL A ZA.Cn) d11)
+        (r0B : X.IHG B ZB.Ca (X.OthL B ZB.Cn) d10') (r1B : X.IHG B ZB.Ca (X.OthL B ZB.Cn) d11')
+        (ir0 : RIH ZA.Ca (X.OthL A ZA.Cn) (X.OthL B ZB.Cn) (ROL ZA.Cn) d10 d10' r0A r0B)
+        (ir1 : RIH ZA.Ca (X.OthL A ZA.Cn) (X.OthL B ZB.Cn) (ROL ZA.Cn) d11 d11' r1A r1B) {
+        module YA = ZA.RA[p1,q1,e1,d10,d11,eq1A,r0A,r1A] ;
+        module YB = ZB.RA[p1,q1,mE e1,d10',d11',eq1B,r0B,r1B] ;
+        RO (G : X.Seq A) (tA : YA.Oth G) (tB : YB.Oth (mS G)) : U l = W.Unit ;
+        module RM = RMis[ZA.Cn,YA.Oth,YB.Oth,RO,BP.isOrF,refl true] ;
+        module PR (np2 nq2 : BP.Form) (e2 : LT.LL A) (d2 : FA) (d2' : FB) (rl2 : RelF d2 d2')
+          (eA : Id (X.Clo A) ZA.Cn (orF np2 nq2,e2)) (eB : Id (X.Clo B) ZB.Cn (orF np2 nq2,mE e2))
+          (r2A : X.IHG A ZA.Cn YA.Oth d2) (r2B : X.IHG B ZB.Cn YB.Oth d2') (ir2 : RIH ZA.Cn YA.Oth YB.Oth RO d2 d2' r2A r2B)
+          (G : X.Seq A) (oA : X.Ok A d2 (consL (np2,e2) (consL (nq2,e2) (consL ZA.Cn G))))
+          (oB : X.Ok B d2' (mS (consL (np2,e2) (consL (nq2,e2) (consL ZA.Cn G))))) (tA : YA.Oth G) (tB : YB.Oth (mS G)) {
+          module QA = YA.PC[np2,nq2,e2,d2,eA,r2A,G,oA,tA] ;
+          module QB = YB.PC[np2,nq2,mE e2,d2',eB,r2B,mS G,oB,tB] ;
+          rn : RelF QA.d2n QB.d2n = (d2',(refl QB.d2n,rl2)) ;
+          R1 : RelF QA.a1.1 QB.a1.1 = ir0 (consL ZA.cp G) QA.a1o1 QB.a1o1 QA.a1t QB.a1t rn ;
+          R2 : RelF QA.a2.1 QB.a2.1 = ir1 (consL ZA.cq G) QA.a2o1 QB.a2o1 QA.a2t QB.a2t rn ;
+          R3 : RelF QA.a3.1 QB.a3.1 = ir2 (consL ZA.cnp (consL ZA.cnq G)) QA.a3o1 QB.a3o1 QA.a3t QB.a3t tt ;
+          R4 : RelF QA.a4.1 QB.a4.1 = rqR e (consL ZA.cnp G) QA.a2.1 QA.a3.1 QB.a2.1 QB.a3.1 QA.a4o1 QA.a4o2 QB.a4o1 QB.a4o2 R2 R3 ;
+          res : RelF QA.res.1 QB.res.1 = rpR e G QA.a1.1 QA.a4.1 QB.a1.1 QB.a4.1 QA.a1.2 QA.a4.2 QB.a1.2 QB.a4.2 R1 R4 ;
+        } ;
+        rhOr (np2 nq2 : BP.Form) (e2 : LT.LL A) (d2 : FA) (d2' : FB) (rl2 : RelF d2 d2')
+          (eA : Id (X.Clo A) ZA.Cn (orF np2 nq2,e2)) (eB : Id (X.Clo B) ZB.Cn (orF np2 nq2,mE e2))
+          (r2A : X.IHG A ZA.Cn YA.Oth d2) (r2B : X.IHG B ZB.Cn YB.Oth d2') (ir2 : RIH ZA.Cn YA.Oth YB.Oth RO d2 d2' r2A r2B)
+          (G : X.Seq A) (oA : X.Ok A d2 (consL (np2,e2) (consL (nq2,e2) (consL ZA.Cn G))))
+          (oB : X.Ok B d2' (mS (consL (np2,e2) (consL (nq2,e2) (consL ZA.Cn G))))) (tA : YA.Oth G) (tB : YB.Oth (mS G)) (ro : RO G tA tB) :
+          RelF (YA.hOr np2 nq2 e2 d2 eA r2A G oA tA).1 (YB.hOr np2 nq2 (mE e2) d2' eB r2B (mS G) oB tB).1 =
+          PR[np2,nq2,e2,d2,d2',rl2,eA,eB,r2A,r2B,ir2,G,oA,oB,tA,tB].res ;
+        module IRR = RInd[ZA.Cn,YA.Oth,YB.Oth,YA.oW,YB.oW,RO,\ G c tA tB r -> tt,
+          YA.MR.mAx (\ b k -> refl false),YA.MR.mAnd (\ p0 q0 -> refl false),YA.hOr,YA.MR.mAll (\ p0 -> refl false),YA.MR.mEx (\ p0 -> refl false),
+          YB.MR.mAx (\ b k -> refl false),YB.MR.mAnd (\ p0 q0 -> refl false),YB.hOr,YB.MR.mAll (\ p0 -> refl false),YB.MR.mEx (\ p0 -> refl false),
+          RM.rmAx (\ b k -> refl false),RM.rmAnd (\ p0 q0 -> refl false),rhOr,RM.rmAll (\ p0 -> refl false),RM.rmEx (\ p0 -> refl false)] ;
+      } ;
+      module RML = RMis[ZA.Ca,X.OthL A ZA.Cn,X.OthL B ZB.Cn,ROL ZA.Cn,BP.isAndF,refl true] ;
+      rhAndL (p1 q1 : BP.Form) (e1 : LT.LL A) (d10 d11 : FA) (d10' d11' : FB) (rl0 : RelF d10 d10') (rl1 : RelF d11 d11')
+        (eA : Id (X.Clo A) ZA.Ca (andF p1 q1,e1)) (eB : Id (X.Clo B) ZB.Ca (andF p1 q1,mE e1))
+        (r0A : X.IHG A ZA.Ca (X.OthL A ZA.Cn) d10) (r1A : X.IHG A ZA.Ca (X.OthL A ZA.Cn) d11)
+        (r0B : X.IHG B ZB.Ca (X.OthL B ZB.Cn) d10') (r1B : X.IHG B ZB.Ca (X.OthL B ZB.Cn) d11')
+        (ir0 : RIH ZA.Ca (X.OthL A ZA.Cn) (X.OthL B ZB.Cn) (ROL ZA.Cn) d10 d10' r0A r0B)
+        (ir1 : RIH ZA.Ca (X.OthL A ZA.Cn) (X.OthL B ZB.Cn) (ROL ZA.Cn) d11 d11' r1A r1B)
+        (G : X.Seq A) (oA0 : X.Ok A d10 (consL (p1,e1) (consL ZA.Ca G))) (oA1 : X.Ok A d11 (consL (q1,e1) (consL ZA.Ca G)))
+        (oB0 : X.Ok B d10' (mS (consL (p1,e1) (consL ZA.Ca G)))) (oB1 : X.Ok B d11' (mS (consL (q1,e1) (consL ZA.Ca G))))
+        (tA : X.OthL A ZA.Cn G) (tB : X.OthL B ZB.Cn (mS G)) (ro : ROL ZA.Cn G tA tB) :
+        RelF (ZA.hAnd p1 q1 e1 d10 d11 eA r0A r1A G oA0 oA1 tA).1 (ZB.hAnd p1 q1 (mE e1) d10' d11' eB r0B r1B (mS G) oB0 oB1 tB).1 =
+        RR[p1,q1,e1,d10,d11,d10',d11',eA,eB,r0A,r1A,r0B,r1B,ir0,ir1].IRR.L tA.1 tB.1 ro G tA.2 (inl eA,(oA0,oA1)) (inl eB,(oB0,oB1)) tt tB.2 ;
+      module IRL = RInd[ZA.Ca,X.OthL A ZA.Cn,X.OthL B ZB.Cn,X.oWL A ZA.Cn,X.oWL B ZB.Cn,ROL ZA.Cn,\ G c tA tB r -> r,
+        ZA.ML.mAx (\ b k -> refl false),ZA.hAnd,ZA.ML.mOr (\ p0 q0 -> refl false),ZA.ML.mAll (\ p0 -> refl false),ZA.ML.mEx (\ p0 -> refl false),
+        ZB.ML.mAx (\ b k -> refl false),ZB.hAnd,ZB.ML.mOr (\ p0 q0 -> refl false),ZB.ML.mAll (\ p0 -> refl false),ZB.ML.mEx (\ p0 -> refl false),
+        RML.rmAx (\ b k -> refl false),rhAndL,RML.rmOr (\ p0 q0 -> refl false),RML.rmAll (\ p0 -> refl false),RML.rmEx (\ p0 -> refl false)] ;
+    } ;
+
+    module COrR (p q : BP.Form) (rpA : X.CutT A p) (rqA : X.CutT A q) (rpB : X.CutT B p) (rqB : X.CutT B q)
+      (rpR : CutRel p rpA rpB) (rqR : CutRel q rqA rqB) (e : LT.LL A) {
+      module ZA = X.COr[A,p,q,rpA,rqA,e] ;
+      module ZB = X.COr[B,p,q,rpB,rqB,mE e] ;
+      module RR (p1 q1 : BP.Form) (e1 : LT.LL A) (d1 : FA) (d1' : FB)
+        (eq1A : Id (X.Clo A) ZA.Ca (orF p1 q1,e1)) (eq1B : Id (X.Clo B) ZB.Ca (orF p1 q1,mE e1))
+        (r1A : X.IHG A ZA.Ca (X.OthL A ZA.Cn) d1) (r1B : X.IHG B ZB.Ca (X.OthL B ZB.Cn) d1')
+        (ir1 : RIH ZA.Ca (X.OthL A ZA.Cn) (X.OthL B ZB.Cn) (ROL ZA.Cn) d1 d1' r1A r1B) {
+        module YA = ZA.RA[p1,q1,e1,d1,eq1A,r1A] ;
+        module YB = ZB.RA[p1,q1,mE e1,d1',eq1B,r1B] ;
+        RO (G : X.Seq A) (tA : YA.Oth G) (tB : YB.Oth (mS G)) : U l = W.Unit ;
+        module RM = RMis[ZA.Cn,YA.Oth,YB.Oth,RO,BP.isAndF,refl true] ;
+        module PR (np2 nq2 : BP.Form) (e2 : LT.LL A) (d20 d21 : FA) (d20' d21' : FB) (rl20 : RelF d20 d20') (rl21 : RelF d21 d21')
+          (eA : Id (X.Clo A) ZA.Cn (andF np2 nq2,e2)) (eB : Id (X.Clo B) ZB.Cn (andF np2 nq2,mE e2))
+          (r20A : X.IHG A ZA.Cn YA.Oth d20) (r21A : X.IHG A ZA.Cn YA.Oth d21)
+          (r20B : X.IHG B ZB.Cn YB.Oth d20') (r21B : X.IHG B ZB.Cn YB.Oth d21')
+          (ir20 : RIH ZA.Cn YA.Oth YB.Oth RO d20 d20' r20A r20B) (ir21 : RIH ZA.Cn YA.Oth YB.Oth RO d21 d21' r21A r21B)
+          (G : X.Seq A) (oA0 : X.Ok A d20 (consL (np2,e2) (consL ZA.Cn G))) (oA1 : X.Ok A d21 (consL (nq2,e2) (consL ZA.Cn G)))
+          (oB0 : X.Ok B d20' (mS (consL (np2,e2) (consL ZA.Cn G)))) (oB1 : X.Ok B d21' (mS (consL (nq2,e2) (consL ZA.Cn G))))
+          (tA : YA.Oth G) (tB : YB.Oth (mS G)) {
+          module QA = YA.PC[np2,nq2,e2,d20,d21,eA,r20A,r21A,G,oA0,oA1,tA] ;
+          module QB = YB.PC[np2,nq2,mE e2,d20',d21',eB,r20B,r21B,mS G,oB0,oB1,tB] ;
+          rn : RelF QA.d2n QB.d2n = (d20',(d21',(refl QB.d2n,(rl20,rl21)))) ;
+          R1 : RelF QA.a1.1 QB.a1.1 = ir1 (consL ZA.cp (consL ZA.cq G)) QA.a1o1 QB.a1o1 QA.a1t QB.a1t rn ;
+          R2 : RelF QA.a2.1 QB.a2.1 = ir20 (consL ZA.cnp G) QA.a2o1 QB.a2o1 QA.a2t QB.a2t tt ;
+          R3 : RelF QA.a3.1 QB.a3.1 = ir21 (consL ZA.cnq G) QA.a3o1 QB.a3o1 QA.a3t QB.a3t tt ;
+          R4 : RelF QA.a4.1 QB.a4.1 = rpR e (consL ZA.cq G) QA.a1.1 QA.a2.1 QB.a1.1 QB.a2.1 QA.a1.2 QA.a4o1 QB.a1.2 QB.a4o1 R1 R2 ;
+          res : RelF QA.res.1 QB.res.1 = rqR e G QA.a4.1 QA.a3.1 QB.a4.1 QB.a3.1 QA.a4.2 QA.a3.2 QB.a4.2 QB.a3.2 R4 R3 ;
+        } ;
+        rhAnd (np2 nq2 : BP.Form) (e2 : LT.LL A) (d20 d21 : FA) (d20' d21' : FB) (rl20 : RelF d20 d20') (rl21 : RelF d21 d21')
+          (eA : Id (X.Clo A) ZA.Cn (andF np2 nq2,e2)) (eB : Id (X.Clo B) ZB.Cn (andF np2 nq2,mE e2))
+          (r20A : X.IHG A ZA.Cn YA.Oth d20) (r21A : X.IHG A ZA.Cn YA.Oth d21)
+          (r20B : X.IHG B ZB.Cn YB.Oth d20') (r21B : X.IHG B ZB.Cn YB.Oth d21')
+          (ir20 : RIH ZA.Cn YA.Oth YB.Oth RO d20 d20' r20A r20B) (ir21 : RIH ZA.Cn YA.Oth YB.Oth RO d21 d21' r21A r21B)
+          (G : X.Seq A) (oA0 : X.Ok A d20 (consL (np2,e2) (consL ZA.Cn G))) (oA1 : X.Ok A d21 (consL (nq2,e2) (consL ZA.Cn G)))
+          (oB0 : X.Ok B d20' (mS (consL (np2,e2) (consL ZA.Cn G)))) (oB1 : X.Ok B d21' (mS (consL (nq2,e2) (consL ZA.Cn G))))
+          (tA : YA.Oth G) (tB : YB.Oth (mS G)) (ro : RO G tA tB) :
+          RelF (YA.hAnd np2 nq2 e2 d20 d21 eA r20A r21A G oA0 oA1 tA).1 (YB.hAnd np2 nq2 (mE e2) d20' d21' eB r20B r21B (mS G) oB0 oB1 tB).1 =
+          PR[np2,nq2,e2,d20,d21,d20',d21',rl20,rl21,eA,eB,r20A,r21A,r20B,r21B,ir20,ir21,G,oA0,oA1,oB0,oB1,tA,tB].res ;
+        module IRR = RInd[ZA.Cn,YA.Oth,YB.Oth,YA.oW,YB.oW,RO,\ G c tA tB r -> tt,
+          YA.MR.mAx (\ b k -> refl false),YA.hAnd,YA.MR.mOr (\ p0 q0 -> refl false),YA.MR.mAll (\ p0 -> refl false),YA.MR.mEx (\ p0 -> refl false),
+          YB.MR.mAx (\ b k -> refl false),YB.hAnd,YB.MR.mOr (\ p0 q0 -> refl false),YB.MR.mAll (\ p0 -> refl false),YB.MR.mEx (\ p0 -> refl false),
+          RM.rmAx (\ b k -> refl false),rhAnd,RM.rmOr (\ p0 q0 -> refl false),RM.rmAll (\ p0 -> refl false),RM.rmEx (\ p0 -> refl false)] ;
+      } ;
+      module RML = RMis[ZA.Ca,X.OthL A ZA.Cn,X.OthL B ZB.Cn,ROL ZA.Cn,BP.isOrF,refl true] ;
+      rhOrL (p1 q1 : BP.Form) (e1 : LT.LL A) (d1 : FA) (d1' : FB) (rl : RelF d1 d1')
+        (eA : Id (X.Clo A) ZA.Ca (orF p1 q1,e1)) (eB : Id (X.Clo B) ZB.Ca (orF p1 q1,mE e1))
+        (r1A : X.IHG A ZA.Ca (X.OthL A ZA.Cn) d1) (r1B : X.IHG B ZB.Ca (X.OthL B ZB.Cn) d1')
+        (ir1 : RIH ZA.Ca (X.OthL A ZA.Cn) (X.OthL B ZB.Cn) (ROL ZA.Cn) d1 d1' r1A r1B)
+        (G : X.Seq A) (oA : X.Ok A d1 (consL (p1,e1) (consL (q1,e1) (consL ZA.Ca G))))
+        (oB : X.Ok B d1' (mS (consL (p1,e1) (consL (q1,e1) (consL ZA.Ca G)))))
+        (tA : X.OthL A ZA.Cn G) (tB : X.OthL B ZB.Cn (mS G)) (ro : ROL ZA.Cn G tA tB) :
+        RelF (ZA.hOr p1 q1 e1 d1 eA r1A G oA tA).1 (ZB.hOr p1 q1 (mE e1) d1' eB r1B (mS G) oB tB).1 =
+        RR[p1,q1,e1,d1,d1',eA,eB,r1A,r1B,ir1].IRR.L tA.1 tB.1 ro G tA.2 (inl eA,oA) (inl eB,oB) tt tB.2 ;
+      module IRL = RInd[ZA.Ca,X.OthL A ZA.Cn,X.OthL B ZB.Cn,X.oWL A ZA.Cn,X.oWL B ZB.Cn,ROL ZA.Cn,\ G c tA tB r -> r,
+        ZA.ML.mAx (\ b k -> refl false),ZA.ML.mAnd (\ p0 q0 -> refl false),ZA.hOr,ZA.ML.mAll (\ p0 -> refl false),ZA.ML.mEx (\ p0 -> refl false),
+        ZB.ML.mAx (\ b k -> refl false),ZB.ML.mAnd (\ p0 q0 -> refl false),ZB.hOr,ZB.ML.mAll (\ p0 -> refl false),ZB.ML.mEx (\ p0 -> refl false),
+        RML.rmAx (\ b k -> refl false),RML.rmAnd (\ p0 q0 -> refl false),rhOrL,RML.rmAll (\ p0 -> refl false),RML.rmEx (\ p0 -> refl false)] ;
+    } ;
+
+    module CAllR (p : BP.Form) (rpA : X.CutT A p) (rpB : X.CutT B p) (rpR : CutRel p rpA rpB) (e : LT.LL A) {
+      module ZA = X.CAll[A,p,rpA,e] ;
+      module ZB = X.CAll[B,p,rpB,mE e] ;
+      module RR (p1 : BP.Form) (e1 : LT.LL A) (k1 : X.Lb A -> FA) (k1' : X.Lb B -> FB)
+        (eq1A : Id (X.Clo A) ZA.Ca (allF p1,e1)) (eq1B : Id (X.Clo B) ZB.Ca (allF p1,mE e1))
+        (rkA : (x : X.Lb A) -> X.IHG A ZA.Ca (X.OthL A ZA.Cn) (k1 x)) (rkB : (y : X.Lb B) -> X.IHG B ZB.Ca (X.OthL B ZB.Cn) (k1' y))
+        (irk : (x : X.Lb A) -> RIH ZA.Ca (X.OthL A ZA.Cn) (X.OthL B ZB.Cn) (ROL ZA.Cn) (k1 x) (k1' (lm x)) (rkA x) (rkB (lm x))) {
+        module YA = ZA.RA[p1,e1,k1,eq1A,rkA] ;
+        module YB = ZB.RA[p1,mE e1,k1',eq1B,rkB] ;
+        RO (G : X.Seq A) (tA : YA.Oth G) (tB : YB.Oth (mS G)) : U l = W.Unit ;
+        module RM = RMis[ZA.Cn,YA.Oth,YB.Oth,RO,BP.isExF,refl true] ;
+        module PR (np2 : BP.Form) (e2 : LT.LL A) (w : X.Lb A) (d2 : FA) (d2' : FB) (rl2 : RelF d2 d2')
+          (eA : Id (X.Clo A) ZA.Cn (exF np2,e2)) (eB : Id (X.Clo B) ZB.Cn (exF np2,mE e2))
+          (r2A : X.IHG A ZA.Cn YA.Oth d2) (r2B : X.IHG B ZB.Cn YB.Oth d2') (ir2 : RIH ZA.Cn YA.Oth YB.Oth RO d2 d2' r2A r2B)
+          (G : X.Seq A) (oA : X.Ok A d2 (consL (np2,consL w e2) (consL ZA.Cn G)))
+          (oB : X.Ok B d2' (mS (consL (np2,consL w e2) (consL ZA.Cn G)))) (tA : YA.Oth G) (tB : YB.Oth (mS G)) {
+          module QA = YA.PC[np2,e2,w,d2,eA,r2A,G,oA,tA] ;
+          module QB = YB.PC[np2,mE e2,lm w,d2',eB,r2B,mS G,oB,tB] ;
+          rn : RelF QA.d2n QB.d2n = (d2',(refl QB.d2n,rl2)) ;
+          R1 : RelF QA.a1.1 QB.a1.1 = irk w (consL QA.cw G) QA.a1o1 QB.a1o1 QA.a1t QB.a1t rn ;
+          R2 : RelF QA.a2.1 QB.a2.1 = ir2 (consL QA.cnw G) QA.a2o1 QB.a2o1 QA.a2t QB.a2t tt ;
+          res : RelF QA.res.1 QB.res.1 = rpR (consL w e) G QA.a1.1 QA.a2.1 QB.a1.1 QB.a2.1 QA.a1.2 QA.a2.2 QB.a1.2 QB.a2.2 R1 R2 ;
+        } ;
+        rhEx (np2 : BP.Form) (e2 : LT.LL A) (w : X.Lb A) (d2 : FA) (d2' : FB) (rl2 : RelF d2 d2')
+          (eA : Id (X.Clo A) ZA.Cn (exF np2,e2)) (eB : Id (X.Clo B) ZB.Cn (exF np2,mE e2))
+          (r2A : X.IHG A ZA.Cn YA.Oth d2) (r2B : X.IHG B ZB.Cn YB.Oth d2') (ir2 : RIH ZA.Cn YA.Oth YB.Oth RO d2 d2' r2A r2B)
+          (G : X.Seq A) (oA : X.Ok A d2 (consL (np2,consL w e2) (consL ZA.Cn G)))
+          (oB : X.Ok B d2' (mS (consL (np2,consL w e2) (consL ZA.Cn G)))) (tA : YA.Oth G) (tB : YB.Oth (mS G)) (ro : RO G tA tB) :
+          RelF (YA.hEx np2 e2 w d2 eA r2A G oA tA).1 (YB.hEx np2 (mE e2) (lm w) d2' eB r2B (mS G) oB tB).1 =
+          PR[np2,e2,w,d2,d2',rl2,eA,eB,r2A,r2B,ir2,G,oA,oB,tA,tB].res ;
+        module IRR = RInd[ZA.Cn,YA.Oth,YB.Oth,YA.oW,YB.oW,RO,\ G c tA tB r -> tt,
+          YA.MR.mAx (\ b k -> refl false),YA.MR.mAnd (\ p0 q0 -> refl false),YA.MR.mOr (\ p0 q0 -> refl false),YA.MR.mAll (\ p0 -> refl false),YA.hEx,
+          YB.MR.mAx (\ b k -> refl false),YB.MR.mAnd (\ p0 q0 -> refl false),YB.MR.mOr (\ p0 q0 -> refl false),YB.MR.mAll (\ p0 -> refl false),YB.hEx,
+          RM.rmAx (\ b k -> refl false),RM.rmAnd (\ p0 q0 -> refl false),RM.rmOr (\ p0 q0 -> refl false),RM.rmAll (\ p0 -> refl false),rhEx] ;
+      } ;
+      module RML = RMis[ZA.Ca,X.OthL A ZA.Cn,X.OthL B ZB.Cn,ROL ZA.Cn,BP.isAllF,refl true] ;
+      rhAllL (p1 : BP.Form) (e1 : LT.LL A) (k1 : X.Lb A -> FA) (k1' : X.Lb B -> FB) (rlk : (x : X.Lb A) -> RelF (k1 x) (k1' (lm x)))
+        (eA : Id (X.Clo A) ZA.Ca (allF p1,e1)) (eB : Id (X.Clo B) ZB.Ca (allF p1,mE e1))
+        (rkA : (x : X.Lb A) -> X.IHG A ZA.Ca (X.OthL A ZA.Cn) (k1 x)) (rkB : (y : X.Lb B) -> X.IHG B ZB.Ca (X.OthL B ZB.Cn) (k1' y))
+        (irk : (x : X.Lb A) -> RIH ZA.Ca (X.OthL A ZA.Cn) (X.OthL B ZB.Cn) (ROL ZA.Cn) (k1 x) (k1' (lm x)) (rkA x) (rkB (lm x)))
+        (G : X.Seq A) (oA : (x : X.Lb A) -> X.Ok A (k1 x) (consL (p1,consL x e1) (consL ZA.Ca G)))
+        (oB : (y : X.Lb B) -> X.Ok B (k1' y) (consL (p1,consL y (mE e1)) (consL ZB.Ca (mS G))))
+        (tA : X.OthL A ZA.Cn G) (tB : X.OthL B ZB.Cn (mS G)) (ro : ROL ZA.Cn G tA tB) :
+        RelF (ZA.hAll p1 e1 k1 eA rkA G oA tA).1 (ZB.hAll p1 (mE e1) k1' eB rkB (mS G) oB tB).1 =
+        RR[p1,e1,k1,k1',eA,eB,rkA,rkB,irk].IRR.L tA.1 tB.1 ro G tA.2 (inl eA,oA) (inl eB,oB) tt tB.2 ;
+      module IRL = RInd[ZA.Ca,X.OthL A ZA.Cn,X.OthL B ZB.Cn,X.oWL A ZA.Cn,X.oWL B ZB.Cn,ROL ZA.Cn,\ G c tA tB r -> r,
+        ZA.ML.mAx (\ b k -> refl false),ZA.ML.mAnd (\ p0 q0 -> refl false),ZA.ML.mOr (\ p0 q0 -> refl false),ZA.hAll,ZA.ML.mEx (\ p0 -> refl false),
+        ZB.ML.mAx (\ b k -> refl false),ZB.ML.mAnd (\ p0 q0 -> refl false),ZB.ML.mOr (\ p0 q0 -> refl false),ZB.hAll,ZB.ML.mEx (\ p0 -> refl false),
+        RML.rmAx (\ b k -> refl false),RML.rmAnd (\ p0 q0 -> refl false),RML.rmOr (\ p0 q0 -> refl false),rhAllL,RML.rmEx (\ p0 -> refl false)] ;
+    } ;
+
+    module CExR (p : BP.Form) (rpA : X.CutT A p) (rpB : X.CutT B p) (rpR : CutRel p rpA rpB) (e : LT.LL A) {
+      module ZA = X.CEx[A,p,rpA,e] ;
+      module ZB = X.CEx[B,p,rpB,mE e] ;
+      module RR (p1 : BP.Form) (e1 : LT.LL A) (w : X.Lb A) (d1 : FA) (d1' : FB)
+        (eq1A : Id (X.Clo A) ZA.Ca (exF p1,e1)) (eq1B : Id (X.Clo B) ZB.Ca (exF p1,mE e1))
+        (r1A : X.IHG A ZA.Ca (X.OthL A ZA.Cn) d1) (r1B : X.IHG B ZB.Ca (X.OthL B ZB.Cn) d1')
+        (ir1 : RIH ZA.Ca (X.OthL A ZA.Cn) (X.OthL B ZB.Cn) (ROL ZA.Cn) d1 d1' r1A r1B) {
+        module YA = ZA.RA[p1,e1,w,d1,eq1A,r1A] ;
+        module YB = ZB.RA[p1,mE e1,lm w,d1',eq1B,r1B] ;
+        RO (G : X.Seq A) (tA : YA.Oth G) (tB : YB.Oth (mS G)) : U l = W.Unit ;
+        module RM = RMis[ZA.Cn,YA.Oth,YB.Oth,RO,BP.isAllF,refl true] ;
+        module PR (np2 : BP.Form) (e2 : LT.LL A) (k2 : X.Lb A -> FA) (k2' : X.Lb B -> FB) (rlk : (x : X.Lb A) -> RelF (k2 x) (k2' (lm x)))
+          (eA : Id (X.Clo A) ZA.Cn (allF np2,e2)) (eB : Id (X.Clo B) ZB.Cn (allF np2,mE e2))
+          (rk2A : (x : X.Lb A) -> X.IHG A ZA.Cn YA.Oth (k2 x)) (rk2B : (y : X.Lb B) -> X.IHG B ZB.Cn YB.Oth (k2' y))
+          (irk2 : (x : X.Lb A) -> RIH ZA.Cn YA.Oth YB.Oth RO (k2 x) (k2' (lm x)) (rk2A x) (rk2B (lm x)))
+          (G : X.Seq A) (oA : (x : X.Lb A) -> X.Ok A (k2 x) (consL (np2,consL x e2) (consL ZA.Cn G)))
+          (oB : (y : X.Lb B) -> X.Ok B (k2' y) (consL (np2,consL y (mE e2)) (consL ZB.Cn (mS G))))
+          (tA : YA.Oth G) (tB : YB.Oth (mS G)) {
+          module QA = YA.PC[np2,e2,k2,eA,rk2A,G,oA,tA] ;
+          module QB = YB.PC[np2,mE e2,k2',eB,rk2B,mS G,oB,tB] ;
+          rn : RelF QA.d2n QB.d2n = (k2',(refl QB.d2n,rlk)) ;
+          R1 : RelF QA.a1.1 QB.a1.1 = ir1 (consL YA.cw G) QA.a1o1 QB.a1o1 QA.a1t QB.a1t rn ;
+          R2 : RelF QA.a2.1 QB.a2.1 = irk2 w (consL YA.cnw G) QA.a2o1 QB.a2o1 QA.a2t QB.a2t tt ;
+          res : RelF QA.res.1 QB.res.1 = rpR (consL w e) G QA.a1.1 QA.a2.1 QB.a1.1 QB.a2.1 QA.a1.2 QA.a2.2 QB.a1.2 QB.a2.2 R1 R2 ;
+        } ;
+        rhAll (np2 : BP.Form) (e2 : LT.LL A) (k2 : X.Lb A -> FA) (k2' : X.Lb B -> FB) (rlk : (x : X.Lb A) -> RelF (k2 x) (k2' (lm x)))
+          (eA : Id (X.Clo A) ZA.Cn (allF np2,e2)) (eB : Id (X.Clo B) ZB.Cn (allF np2,mE e2))
+          (rk2A : (x : X.Lb A) -> X.IHG A ZA.Cn YA.Oth (k2 x)) (rk2B : (y : X.Lb B) -> X.IHG B ZB.Cn YB.Oth (k2' y))
+          (irk2 : (x : X.Lb A) -> RIH ZA.Cn YA.Oth YB.Oth RO (k2 x) (k2' (lm x)) (rk2A x) (rk2B (lm x)))
+          (G : X.Seq A) (oA : (x : X.Lb A) -> X.Ok A (k2 x) (consL (np2,consL x e2) (consL ZA.Cn G)))
+          (oB : (y : X.Lb B) -> X.Ok B (k2' y) (consL (np2,consL y (mE e2)) (consL ZB.Cn (mS G))))
+          (tA : YA.Oth G) (tB : YB.Oth (mS G)) (ro : RO G tA tB) :
+          RelF (YA.hAll np2 e2 k2 eA rk2A G oA tA).1 (YB.hAll np2 (mE e2) k2' eB rk2B (mS G) oB tB).1 =
+          PR[np2,e2,k2,k2',rlk,eA,eB,rk2A,rk2B,irk2,G,oA,oB,tA,tB].res ;
+        module IRR = RInd[ZA.Cn,YA.Oth,YB.Oth,YA.oW,YB.oW,RO,\ G c tA tB r -> tt,
+          YA.MR.mAx (\ b k -> refl false),YA.MR.mAnd (\ p0 q0 -> refl false),YA.MR.mOr (\ p0 q0 -> refl false),YA.hAll,YA.MR.mEx (\ p0 -> refl false),
+          YB.MR.mAx (\ b k -> refl false),YB.MR.mAnd (\ p0 q0 -> refl false),YB.MR.mOr (\ p0 q0 -> refl false),YB.hAll,YB.MR.mEx (\ p0 -> refl false),
+          RM.rmAx (\ b k -> refl false),RM.rmAnd (\ p0 q0 -> refl false),RM.rmOr (\ p0 q0 -> refl false),rhAll,RM.rmEx (\ p0 -> refl false)] ;
+      } ;
+      module RML = RMis[ZA.Ca,X.OthL A ZA.Cn,X.OthL B ZB.Cn,ROL ZA.Cn,BP.isExF,refl true] ;
+      rhExL (p1 : BP.Form) (e1 : LT.LL A) (w : X.Lb A) (d1 : FA) (d1' : FB) (rl : RelF d1 d1')
+        (eA : Id (X.Clo A) ZA.Ca (exF p1,e1)) (eB : Id (X.Clo B) ZB.Ca (exF p1,mE e1))
+        (r1A : X.IHG A ZA.Ca (X.OthL A ZA.Cn) d1) (r1B : X.IHG B ZB.Ca (X.OthL B ZB.Cn) d1')
+        (ir1 : RIH ZA.Ca (X.OthL A ZA.Cn) (X.OthL B ZB.Cn) (ROL ZA.Cn) d1 d1' r1A r1B)
+        (G : X.Seq A) (oA : X.Ok A d1 (consL (p1,consL w e1) (consL ZA.Ca G)))
+        (oB : X.Ok B d1' (mS (consL (p1,consL w e1) (consL ZA.Ca G))))
+        (tA : X.OthL A ZA.Cn G) (tB : X.OthL B ZB.Cn (mS G)) (ro : ROL ZA.Cn G tA tB) :
+        RelF (ZA.hEx p1 e1 w d1 eA r1A G oA tA).1 (ZB.hEx p1 (mE e1) (lm w) d1' eB r1B (mS G) oB tB).1 =
+        RR[p1,e1,w,d1,d1',eA,eB,r1A,r1B,ir1].IRR.L tA.1 tB.1 ro G tA.2 (inl eA,oA) (inl eB,oB) tt tB.2 ;
+      module IRL = RInd[ZA.Ca,X.OthL A ZA.Cn,X.OthL B ZB.Cn,X.oWL A ZA.Cn,X.oWL B ZB.Cn,ROL ZA.Cn,\ G c tA tB r -> r,
+        ZA.ML.mAx (\ b k -> refl false),ZA.ML.mAnd (\ p0 q0 -> refl false),ZA.ML.mOr (\ p0 q0 -> refl false),ZA.ML.mAll (\ p0 -> refl false),ZA.hEx,
+        ZB.ML.mAx (\ b k -> refl false),ZB.ML.mAnd (\ p0 q0 -> refl false),ZB.ML.mOr (\ p0 q0 -> refl false),ZB.ML.mAll (\ p0 -> refl false),ZB.hEx,
+        RML.rmAx (\ b k -> refl false),RML.rmAnd (\ p0 q0 -> refl false),RML.rmOr (\ p0 q0 -> refl false),RML.rmAll (\ p0 -> refl false),rhExL] ;
+    } ;
+
+    -- cut commutes with restriction
+    cutR : (f : BP.Form) -> CutRel f (X.cut A f) (X.cut B f) = split {
+      atF b k -> \ e G d1 d2 d1' d2' o1 o2 o1' o2' r1 r2 -> CAtR[b,k,e].IRL.L d1 d1' r1 G o1 (d2,o2) (d2',o2') r2 o1' ;
+      andF p q | rp rq -> \ e G d1 d2 d1' d2' o1 o2 o1' o2' r1 r2 ->
+        CAndR[p,q,X.cut A p,X.cut A q,X.cut B p,X.cut B q,rp,rq,e].IRL.L d1 d1' r1 G o1 (d2,o2) (d2',o2') r2 o1' ;
+      orF p q | rp rq -> \ e G d1 d2 d1' d2' o1 o2 o1' o2' r1 r2 ->
+        COrR[p,q,X.cut A p,X.cut A q,X.cut B p,X.cut B q,rp,rq,e].IRL.L d1 d1' r1 G o1 (d2,o2) (d2',o2') r2 o1' ;
+      allF p | rp -> \ e G d1 d2 d1' d2' o1 o2 o1' o2' r1 r2 ->
+        CAllR[p,X.cut A p,X.cut B p,rp,e].IRL.L d1 d1' r1 G o1 (d2,o2) (d2',o2') r2 o1' ;
+      exF p | rp -> \ e G d1 d2 d1' d2' o1 o2 o1' o2' r1 r2 ->
+        CExR[p,X.cut A p,X.cut B p,rp,e].IRL.L d1 d1' r1 G o1 (d2,o2) (d2',o2') r2 o1' } ;
+    ----------------------------------------------------------------------
+    -- elimination of cuts commutes with restriction
+    DA : U l = BC.Dv (X.Lb A) ;
+    DB : U l = BC.Dv (X.Lb B) ;
+    RelD : BC.Dv (X.Lb A) -> DB -> U l = split {
+      dAx b k e -> \ dB -> Id DB dB (dAx b k (mE e)) ;
+      dAnd p q e d0 d1 | r0 r1 -> \ dB -> (d0' : DB) * ((d1' : DB) * (Id DB dB (dAnd p q (mE e) d0' d1') * (r0 d0' * r1 d1'))) ;
+      dOr p q e d | r -> \ dB -> (d' : DB) * (Id DB dB (dOr p q (mE e) d') * r d') ;
+      dAll p e k | r -> \ dB -> (k' : X.Lb B -> DB) * (Id DB dB (dAll p (mE e) k') * ((x : X.Lb A) -> r x (k' (lm x)))) ;
+      dEx p e w d | r -> \ dB -> (d' : DB) * (Id DB dB (dEx p (mE e) (lm w) d') * r d') ;
+      dCut f e d0 d1 | r0 r1 -> \ dB -> (d0' : DB) * ((d1' : DB) * (Id DB dB (dCut f (mE e) d0' d1') * (r0 d0' * r1 d1'))) } ;
+    jD (H : X.Seq B) (D dB : DB) (e : Id DB dB D) (P : (z : DB) -> X.OkD B z H -> U l)
+      (f : (o : X.OkD B D H) -> P D o) (o : X.OkD B dB H) : P dB o =
+      PL.subst DB (\ z -> (o' : X.OkD B z H) -> P z o') D dB (PL.sym DB dB D e) f o ;
+    elimR : (d : DA) (dB : DB) -> RelD d dB -> (H : X.Seq A) (oA : X.OkD A d H) (oB : X.OkD B dB (mS H)) ->
+        RelF (X.elim A d H oA).1 (X.elim B dB (mS H) oB).1 = split {
+      dAx b k e -> \ dB rel H oA -> jD (mS H) (dAx b k (mE e)) dB rel
+        (\ z o -> RelF (X.elim A (dAx b k e) H oA).1 (X.elim B z (mS H) o).1) (\ o -> refl (cAx b k (mE e))) ;
+      dAnd p q e d0 d1 | r0 r1 -> \ dB rel H oA -> jD (mS H) (dAnd p q (mE e) rel.1 rel.2.1) dB rel.2.2.1
+        (\ z o -> RelF (X.elim A (dAnd p q e d0 d1) H oA).1 (X.elim B z (mS H) o).1)
+        (\ o -> ((X.elim B rel.1 (consL (p,mE e) (mS H)) o.2.1).1,((X.elim B rel.2.1 (consL (q,mE e) (mS H)) o.2.2).1,
+          (refl (cAnd p q (mE e) (X.elim B rel.1 (consL (p,mE e) (mS H)) o.2.1).1 (X.elim B rel.2.1 (consL (q,mE e) (mS H)) o.2.2).1),
+           (r0 rel.1 rel.2.2.2.1 (consL (p,e) H) oA.2.1 o.2.1,r1 rel.2.1 rel.2.2.2.2 (consL (q,e) H) oA.2.2 o.2.2))))) ;
+      dOr p q e d | r -> \ dB rel H oA -> jD (mS H) (dOr p q (mE e) rel.1) dB rel.2.1
+        (\ z o -> RelF (X.elim A (dOr p q e d) H oA).1 (X.elim B z (mS H) o).1)
+        (\ o -> ((X.elim B rel.1 (consL (p,mE e) (consL (q,mE e) (mS H))) o.2).1,
+          (refl (cOr p q (mE e) (X.elim B rel.1 (consL (p,mE e) (consL (q,mE e) (mS H))) o.2).1),
+           r rel.1 rel.2.2 (consL (p,e) (consL (q,e) H)) oA.2 o.2))) ;
+      dAll p e k | r -> \ dB rel H oA -> jD (mS H) (dAll p (mE e) rel.1) dB rel.2.1
+        (\ z o -> RelF (X.elim A (dAll p e k) H oA).1 (X.elim B z (mS H) o).1)
+        (\ o -> (\ y -> (X.elim B (rel.1 y) (consL (p,consL y (mE e)) (mS H)) (o.2 y)).1,
+          (refl (cAll p (mE e) (\ y -> (X.elim B (rel.1 y) (consL (p,consL y (mE e)) (mS H)) (o.2 y)).1)),
+           \ x -> r x (rel.1 (lm x)) (rel.2.2 x) (consL (p,consL x e) H) (oA.2 x) (o.2 (lm x))))) ;
+      dEx p e w d | r -> \ dB rel H oA -> jD (mS H) (dEx p (mE e) (lm w) rel.1) dB rel.2.1
+        (\ z o -> RelF (X.elim A (dEx p e w d) H oA).1 (X.elim B z (mS H) o).1)
+        (\ o -> ((X.elim B rel.1 (consL (p,consL (lm w) (mE e)) (mS H)) o.2).1,
+          (refl (cEx p (mE e) (lm w) (X.elim B rel.1 (consL (p,consL (lm w) (mE e)) (mS H)) o.2).1),
+           r rel.1 rel.2.2 (consL (p,consL w e) H) oA.2 o.2))) ;
+      dCut f e d0 d1 | r0 r1 -> \ dB rel H oA -> jD (mS H) (dCut f (mE e) rel.1 rel.2.1) dB rel.2.2.1
+        (\ z o -> RelF (X.elim A (dCut f e d0 d1) H oA).1 (X.elim B z (mS H) o).1)
+        (\ o -> cutR f e H (X.elim A d0 (consL (f,e) H) oA.1).1 (X.elim A d1 (consL (BP.neg f,e) H) oA.2).1
+          (X.elim B rel.1 (consL (f,mE e) (mS H)) o.1).1 (X.elim B rel.2.1 (consL (BP.neg f,mE e) (mS H)) o.2).1
+          (X.elim A d0 (consL (f,e) H) oA.1).2 (X.elim A d1 (consL (BP.neg f,e) H) oA.2).2
+          (X.elim B rel.1 (consL (f,mE e) (mS H)) o.1).2 (X.elim B rel.2.1 (consL (BP.neg f,mE e) (mS H)) o.2).2
+          (r0 rel.1 rel.2.2.2.1 (consL (f,e) H) oA.1 o.1) (r1 rel.2.1 rel.2.2.2.2 (consL (BP.neg f,e) H) oA.2 o.2)) } ;
+
+    ----------------------------------------------------------------------
+    -- the translation of pre-proofs commutes with restriction
+    outRMap : (o : BB.OC A) -> Id (X.Clo B) (BB.outR B (X.dflt B) (M.mO o)) (mC (BB.outR A (X.dflt A) o)) = split {
+      inl u -> refl (X.dflt B) ; inr c -> refl (mC c) } ;
+    cOfNat (i : W.N) (G : X.Seq A) : Id (X.Clo B) (X.cOf B i (mS G)) (mC (X.cOf A i G)) =
+      PL.trans (X.Clo B) (X.cOf B i (mS G)) (BB.outR B (X.dflt B) (M.mO (BB.getM A i G))) (mC (X.cOf A i G))
+        (PL.ap (BB.OC B) (X.Clo B) (BB.outR B (X.dflt B)) (BB.getM B i (mS G)) (M.mO (BB.getM A i G)) (M.getMap i G))
+        (outRMap (BB.getM A i G)) ;
+    CHR (rA : BB.Rule A) (chA : X.Lb A -> DA) (chB : X.Lb B -> DB) : U l =
+      (a : X.Lb A) -> Id W.Bool (BB.br A rA a) true -> RelD (chA a) (chB (lm a)) ;
+    ruleD0 (GA : X.Seq A) (chA : X.Lb A -> DA) (chB : X.Lb B -> DB) : (rA : BB.Rule A) -> CHR rA chA chB ->
+        RelD (X.ruleD A GA rA chA) (X.ruleD B (mS GA) (M.mR rA) chB) = split {
+      axR i -> \ h -> PL.ap (X.Clo B) DB (\ z -> dAx (BC.atB z.1) (BC.atK z.1) z.2) (X.cOf B i (mS GA)) (mC (X.cOf A i GA)) (cOfNat i GA) ;
+      andR i -> \ h -> (chB (BB.lab0 B),(chB (BB.lab1 B),
+        (PL.ap (X.Clo B) DB (\ z -> dAnd (BC.leftF z.1) (BC.rightF z.1) z.2 (chB (BB.lab0 B)) (chB (BB.lab1 B)))
+          (X.cOf B i (mS GA)) (mC (X.cOf A i GA)) (cOfNat i GA),
+         (h (BB.lab0 A) (refl true),h (BB.lab1 A) (refl true))))) ;
+      orR i -> \ h -> (chB (BB.lab0 B),
+        (PL.ap (X.Clo B) DB (\ z -> dOr (BC.leftF z.1) (BC.rightF z.1) z.2 (chB (BB.lab0 B))) (X.cOf B i (mS GA)) (mC (X.cOf A i GA)) (cOfNat i GA),
+         h (BB.lab0 A) (refl true))) ;
+      allR i -> \ h -> (chB,
+        (PL.ap (X.Clo B) DB (\ z -> dAll (BC.leftF z.1) z.2 chB) (X.cOf B i (mS GA)) (mC (X.cOf A i GA)) (cOfNat i GA),
+         \ x -> h x (refl true))) ;
+      exR i w -> \ h -> (chB (BB.lab0 B),
+        (PL.ap (X.Clo B) DB (\ z -> dEx (BC.leftF z.1) z.2 (lm w) (chB (BB.lab0 B))) (X.cOf B i (mS GA)) (mC (X.cOf A i GA)) (cOfNat i GA),
+         h (BB.lab0 A) (refl true))) ;
+      cutR f e -> \ h -> (chB (BB.lab0 B),(chB (BB.lab1 B),(refl (dCut f (mE e) (chB (BB.lab0 B)) (chB (BB.lab1 B))),
+        (h (BB.lab0 A) (refl true),h (BB.lab1 A) (refl true))))) } ;
+    ruleDR (rA : BB.Rule A) (rB : BB.Rule B) (er : Id (BB.Rule B) rB (M.mR rA)) (GA : X.Seq A) (GB : X.Seq B) (eg : Id (X.Seq B) GB (mS GA))
+      (chA : X.Lb A -> DA) (chB : X.Lb B -> DB) (h : CHR rA chA chB) : RelD (X.ruleD A GA rA chA) (X.ruleD B GB rB chB) =
+      PL.subst (BB.Rule B) (\ z -> RelD (X.ruleD A GA rA chA) (X.ruleD B GB z chB)) (M.mR rA) rB (PL.sym (BB.Rule B) rB (M.mR rA) er)
+        (PL.subst (X.Seq B) (\ z -> RelD (X.ruleD A GA rA chA) (X.ruleD B z (M.mR rA) chB)) (mS GA) GB (PL.sym (X.Seq B) GB (mS GA) eg)
+          (ruleD0 GA chA chB rA h)) ;
+    module TD {
+      module KA = KT.KB[LT.Lab A] ;
+      module KB = KT.KB[LT.Lab B] ;
+      toDvR : (bA : KA.BT) (bB : KB.BT) (RA : BB.Rl A) (RB : BB.Rl B) (GA : X.Seq A) (GB : X.Seq B)
+          (nr : (zs : LT.LL A) -> Id (BB.Rule B) (RB (mE zs)) (M.mR (RA zs))) (ng : Id (X.Seq B) GB (mS GA)) ->
+          KA.Bnd bA (BB.tree A RA GA) -> KB.Bnd bB (BB.tree B RB GB) ->
+          RelD (X.Tr[A].toDv bA RA GA) (X.Tr[B].toDv bB RB GB) = split {
+        leaf -> \ bB RA RB GA GB nr ng hA hB -> BP.tf (RelD (X.Tr[A].toDv leaf RA GA) (X.Tr[B].toDv bB RB GB)) (hA nilL) ;
+        node fA | r -> split {
+          leaf -> \ RA RB GA GB nr ng hA hB -> BP.tf (RelD (X.Tr[A].toDv (node fA) RA GA) (X.Tr[B].toDv leaf RB GB)) (hB nilL) ;
+          node fB -> \ RA RB GA GB nr ng hA hB ->
+            ruleDR (RA nilL) (RB nilL) (nr nilL) GA GB ng
+              (\ a -> X.Tr[A].toDv (fA a) (BB.shift A RA a) (BB.step A GA (RA nilL) a))
+              (\ y -> X.Tr[B].toDv (fB y) (BB.shift B RB y) (BB.step B GB (RB nilL) y))
+              (\ a ha -> r a (fB (lm a)) (BB.shift A RA a) (BB.shift B RB (lm a)) (BB.step A GA (RA nilL) a) (BB.step B GB (RB nilL) (lm a))
+                (\ zs -> nr (consL a zs))
+                (PL.trans (X.Seq B) (BB.step B GB (RB nilL) (lm a)) (BB.step B (mS GA) (M.mR (RA nilL)) (lm a)) (mS (BB.step A GA (RA nilL) a))
+                  (W.ap2 (X.Seq B) (BB.Rule B) (X.Seq B) (\ G0 r0 -> BB.step B G0 r0 (lm a)) GB (mS GA) (RB nilL) (M.mR (RA nilL)) ng (nr nilL))
+                  (M.stepMap GA (RA nilL) a))
+                (KA.bnd-ext (fA a) (KA.sub (BB.tree A RA GA) a) (BB.tree A (BB.shift A RA a) (BB.step A GA (RA nilL) a))
+                  (\ xs -> BP.andTrue (BB.br A (RA nilL) a) (BB.inTree A xs (BB.shift A RA a) (BB.step A GA (RA nilL) a)) ha) (hA a))
+                (KB.bnd-ext (fB (lm a)) (KB.sub (BB.tree B RB GB) (lm a)) (BB.tree B (BB.shift B RB (lm a)) (BB.step B GB (RB nilL) (lm a)))
+                  (\ xs -> BP.andTrue (BB.br B (RB nilL) (lm a)) (BB.inTree B xs (BB.shift B RB (lm a)) (BB.step B GB (RB nilL) (lm a)))
+                    (PL.trans W.Bool (BB.br B (RB nilL) (lm a)) (BB.br B (M.mR (RA nilL)) (lm a)) true
+                      (PL.ap (BB.Rule B) W.Bool (\ r0 -> BB.br B r0 (lm a)) (RB nilL) (M.mR (RA nilL)) (nr nilL))
+                      (PL.trans W.Bool (BB.br B (M.mR (RA nilL)) (lm a)) (BB.br A (RA nilL) a) true (M.brMap (RA nilL) a) ha)))
+                  (hB (lm a)))) } } ;
+    } ;
+
+    ----------------------------------------------------------------------
+    -- HOMOGENEITY: for a homogeneous beta-proof and an embedding g : A -> B
+    -- of well-orders, the cut-free derivation at B restricts to the one at A
+    module Fin (Gs : (C : DP.LO) -> X.Seq C) (Rs : (C : DP.LO) -> BB.Rl C) (lo : (C : DP.LO) -> BB.LocOK C (Rs C) (Gs C))
+      (cor : BB.Pre[Gs,Rs,lo].Correct)
+      (ng : Id (X.Seq B) (Gs B) (mS (Gs A))) (nr : (ys : LT.LL A) -> Id (BB.Rule B) (Rs B (mE ys)) (M.mR (Rs A ys)))
+      (wA : LW.WF A) (wB : LW.WF B) {
+      dA : DA = X.Tr[A].toDv (cor A wA).1 (Rs A) (Gs A) ;
+      dB : DB = X.Tr[B].toDv (cor B wB).1 (Rs B) (Gs B) ;
+      rel : RelD dA dB = TD.toDvR (cor A wA).1 (cor B wB).1 (Rs A) (Rs B) (Gs A) (Gs B) nr ng (cor A wA).2 (cor B wB).2 ;
+      oA : X.OkD A dA (Gs A) = X.Tr[A].toOk (cor A wA).1 (Rs A) (Gs A) (cor A wA).2 (lo A) (Gs A) (\ x m -> m) ;
+      oB : X.OkD B dB (Gs B) = X.Tr[B].toOk (cor B wB).1 (Rs B) (Gs B) (cor B wB).2 (lo B) (Gs B) (\ x m -> m) ;
+      nat : RelF (X.pointwise Gs Rs lo cor A wA).1 (X.pointwise Gs Rs lo cor B wB).1 =
+        PL.subst (X.Seq B) (\ z -> (o : X.OkD B dB z) -> RelF (X.elim A dA (Gs A) oA).1 (X.elim B dB z o).1)
+          (mS (Gs A)) (Gs B) (PL.sym (X.Seq B) (Gs B) (mS (Gs A)) ng) (elimR dA dB rel (Gs A) oA) oB ;
+    } ;
+  } ;
+  -- for a homogeneous beta-proof (BetaProof.Hom), the pointwise cut-free
+  -- derivations form a homogeneous family on well-orders
+  homogeneous (Gs : (C : DP.LO) -> X.Seq C) (Rs : (C : DP.LO) -> BB.Rl C) (lo : (C : DP.LO) -> BB.LocOK C (Rs C) (Gs C))
+    (ng : (C D : DP.LO) (g : DP.Map C D) -> Id (X.Seq D) (Gs D) (BB.Map[C,D,g].mS (Gs C)))
+    (nr : (C D : DP.LO) (g : DP.Map C D) (ys : LT.LL C) -> Id (BB.Rule D) (Rs D (LT.mapL C D g ys)) (BB.Map[C,D,g].mR (Rs C ys)))
+    (cor : BB.Pre[Gs,Rs,lo].Correct) (C D : DP.LO) (g : DP.Map C D) (wC : LW.WF C) (wD : LW.WF D) :
+    Nat[C,D,g].RelF (X.pointwise Gs Rs lo cor C wC).1 (X.pointwise Gs Rs lo cor D wD).1 =
+    Nat[C,D,g].Fin[Gs,Rs,lo,cor,ng C D g,nr C D g,wC,wD].nat ;
+} ;
