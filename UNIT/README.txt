@@ -2,6 +2,29 @@ Scott domains and definitional inversion in Unit
 ===============================================
 
 Start with scott-domains-revised.pdf (source: scott-domains-revised.tex).
+
+Independent Pi-injectivity via a displayed logical-relation section is
+formalised. It re-presents the existing reducibility argument; it is not
+a new proof. A cocan-style Artin-glued model is not pursued: its benefit,
+proof-relevant decorations, needs a predicative universe for U', which
+U:U excludes (see "Verdict on the glued-model route" in GLUEING.txt). GLUEING.txt
+describes the checked proof and the boundary with the experimental work.
+DisplayedSyntax and DisplayedSyntaxInitiality supply a constructor-preserving
+section and its pointwise uniqueness for the free derivation algebra.
+ScottGlueing instantiates it with the independent admissible relation;
+ScottGlueingInversion and ScottGlueingKripkeInversion return actual
+Pi-component derivations without importing earlier syntactic inversion
+or the assembled fundamental lemma. The comma category is not used by
+these inversion proofs. The default All.seg/check.py architecture excludes
+the experimental quotient-family and refinement constructions.
+
+ScottGlueingKripke ("hereditary points") stores stability under changes
+of test context as data; its inversion uses only the bottom point, where
+heredity follows from strictness, so it adds nothing to the result.
+The categorical and presheaf experiments (ArtinGlueing, SyntacticCategory,
+PresheafRefinement, RefinedNaturalModel, ScottQuotientCwF, ...) are not
+part of the committed development.
+
 ScottCUSLEquivalence.seg checks the equivalence between Scott domains with
 embedding-projection pairs and conditional upper semilattices (CUSLs).
 IndependentKleeneProjector.seg proves the recursive projector invariant by

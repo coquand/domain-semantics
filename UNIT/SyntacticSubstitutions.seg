@@ -1,0 +1,95 @@
+-- The category of well-formed contexts, before taking hom-set quotients.
+-- All equalities below are witnesses of judgemental substitution equality.
+-- No logical relation, soundness, or Pi inversion is used.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Syntax[l] ; open SynLemmas[l] ;
+open Weaken[l] ; open Subst[l] ; open Presup[l] ;
+module Crossed = Cross[l] ;
+record Context {
+  length : Nat ; types : Ctx length ; wellformed : Der length (jwf types) ;
+} ;
+record Arrow {
+  source : Context ; target : Context ;
+  terms : Fin target.length -> Tm source.length ;
+  typed : SubOk target.length source.length target.types source.types terms ;
+} ;
+Equality (G H : Context) (s t : Arrow[G,H]) : U l =
+  Crossed.SubEq H.length G.length H.types G.types s.terms t.terms ;
+identity (G : Context) : Arrow[G,G] = new Arrow[G,G,idS G.length,id-ok G.length G.types G.wellformed] ;
+reflexive (G H : Context) (s : Arrow[G,H]) : Equality G H s s = \ i ->
+  eq-refl G.length G.types (s.terms i) (Sub.trav H.length (lookup H.length H.types i) G.length s.terms) (s.typed i) ;
+type-equality (G H : Context) (s t : Arrow[G,H]) (e : Equality G H s t) (A : Tm H.length)
+  (a : Der H.length (jty H.types A (uu H.length))) :
+  Der G.length (jeq G.types (Sub.trav H.length A G.length s.terms)
+    (Sub.trav H.length A G.length t.terms) (uu G.length)) =
+  Crossed.subst-cross H.length G.length H.types G.types s.terms t.terms A (uu H.length)
+    a s.typed t.typed e G.wellformed ;
+symmetric (G H : Context) (s t : Arrow[G,H]) (e : Equality G H s t) : Equality G H t s = \ i ->
+  eq-conv G.length G.types (t.terms i) (s.terms i)
+    (Sub.trav H.length (lookup H.length H.types i) G.length s.terms)
+    (Sub.trav H.length (lookup H.length H.types i) G.length t.terms)
+    (eq-sym G.length G.types (s.terms i) (t.terms i)
+      (Sub.trav H.length (lookup H.length H.types i) G.length s.terms) (e i))
+    (type-equality G H s t e (lookup H.length H.types i) (lookup-ty H.length H.types H.wellformed i))
+    (sub-der H.length (jty H.types (lookup H.length H.types i) (uu H.length))
+      (lookup-ty H.length H.types H.wellformed i) G.length G.types t.terms t.typed G.wellformed) ;
+transitive (G H : Context) (s t u : Arrow[G,H]) (e : Equality G H s t) (f : Equality G H t u) :
+  Equality G H s u = \ i ->
+  eq-trans G.length G.types (s.terms i) (t.terms i) (u.terms i)
+    (Sub.trav H.length (lookup H.length H.types i) G.length s.terms) (e i)
+    (eq-conv G.length G.types (t.terms i) (u.terms i)
+      (Sub.trav H.length (lookup H.length H.types i) G.length t.terms)
+      (Sub.trav H.length (lookup H.length H.types i) G.length s.terms) (f i)
+      (type-equality G H t s (symmetric G H s t e) (lookup H.length H.types i)
+        (lookup-ty H.length H.types H.wellformed i))
+      (sub-der H.length (jty H.types (lookup H.length H.types i) (uu H.length))
+        (lookup-ty H.length H.types H.wellformed i) G.length G.types s.terms s.typed G.wellformed)) ;
+compose (G H K : Context) (s : Arrow[H,K]) (t : Arrow[G,H]) : Arrow[G,K] =
+  new Arrow[G,K,\ i -> Sub.trav H.length (s.terms i) G.length t.terms,\ i ->
+    der-ty-ty G.length G.types (Sub.trav H.length (s.terms i) G.length t.terms)
+      (Sub.trav H.length (Sub.trav K.length (lookup K.length K.types i) H.length s.terms) G.length t.terms)
+      (Sub.trav K.length (lookup K.length K.types i) G.length
+        (\ j -> Sub.trav H.length (s.terms j) G.length t.terms))
+      (sub-sub K.length (lookup K.length K.types i) H.length s.terms G.length t.terms)
+      (sub-der H.length (jty H.types (s.terms i)
+        (Sub.trav K.length (lookup K.length K.types i) H.length s.terms)) (s.typed i)
+        G.length G.types t.terms t.typed G.wellformed)] ;
+mixed (G H : Context) (s t : Arrow[G,H]) (e : Equality G H s t)
+  (M N A : Tm H.length) (d : Der H.length (jeq H.types M N A)) :
+  Der G.length (jeq G.types (Sub.trav H.length M G.length s.terms)
+    (Sub.trav H.length N G.length t.terms) (Sub.trav H.length A G.length s.terms)) =
+  eq-trans G.length G.types (Sub.trav H.length M G.length s.terms)
+    (Sub.trav H.length N G.length s.terms) (Sub.trav H.length N G.length t.terms)
+    (Sub.trav H.length A G.length s.terms)
+    (sub-der H.length (jeq H.types M N A) d G.length G.types s.terms s.typed G.wellformed)
+    (Crossed.subst-cross H.length G.length H.types G.types s.terms t.terms N A
+      (eq-pre H.length (jeq H.types M N A) d).2 s.typed t.typed e G.wellformed) ;
+compose-respects (G H K : Context) (s s' : Arrow[H,K]) (t t' : Arrow[G,H])
+  (e : Equality H K s s') (f : Equality G H t t') :
+  Equality G K (compose G H K s t) (compose G H K s' t') = \ i ->
+  der-eq-ty G.length G.types (Sub.trav H.length (s.terms i) G.length t.terms)
+    (Sub.trav H.length (s'.terms i) G.length t'.terms)
+    (Sub.trav H.length (Sub.trav K.length (lookup K.length K.types i) H.length s.terms) G.length t.terms)
+    (Sub.trav K.length (lookup K.length K.types i) G.length
+      (\ j -> Sub.trav H.length (s.terms j) G.length t.terms))
+    (sub-sub K.length (lookup K.length K.types i) H.length s.terms G.length t.terms)
+    (mixed G H t t' f (s.terms i) (s'.terms i)
+      (Sub.trav K.length (lookup K.length K.types i) H.length s.terms) (e i)) ;
+pointwise (G H : Context) (s t : Arrow[G,H])
+  (p : (i : Fin H.length) -> Id (Tm G.length) (s.terms i) (t.terms i)) : Equality G H s t = \ i ->
+  der-eq-r G.length G.types (s.terms i) (s.terms i) (t.terms i)
+    (Sub.trav H.length (lookup H.length H.types i) G.length s.terms) (p i) (reflexive G H s i) ;
+unit-left (G H : Context) (s : Arrow[G,H]) : Equality G H (compose G H H (identity H) s) s =
+  pointwise G H (compose G H H (identity H) s) s (\ i -> refl (s.terms i)) ;
+unit-right (G H : Context) (s : Arrow[G,H]) : Equality G H (compose G G H s (identity G)) s =
+  pointwise G H (compose G G H s (identity G)) s (\ i -> sub-id G.length (s.terms i)) ;
+associative (G H K L : Context) (s : Arrow[K,L]) (t : Arrow[H,K]) (u : Arrow[G,H]) :
+  Equality G L (compose G K L s (compose G H K t u)) (compose G H L (compose H K L s t) u) =
+  pointwise G L (compose G K L s (compose G H K t u)) (compose G H L (compose H K L s t) u)
+    (\ i -> sym (Tm G.length)
+      (Sub.trav H.length (Sub.trav K.length (s.terms i) H.length t.terms) G.length u.terms)
+      (Sub.trav K.length (s.terms i) G.length (\ j -> Sub.trav H.length (t.terms j) G.length u.terms))
+      (sub-sub K.length (s.terms i) H.length t.terms G.length u.terms)) ;
+empty : Context = new Context[zero,tt,wf-emp] ;
+terminal (G : Context) : Arrow[G,empty] = new Arrow[G,empty,\ i -> efq i,\ i -> efq i] ;
+terminal-unique (G : Context) (s t : Arrow[G,empty]) : Equality G empty s t = \ i -> efq i ;

@@ -279,10 +279,8 @@ module Theory
  import DisplayedSyntaxInitiality ;
  import ScottGlueing ;
  import ScottGlueingSubstitution ;
- import SmallQuotient ;
- import SyntacticSubstitutions ; import SyntacticFamilies ;
- import SyntacticCategory ; import CategoryPullback ; import SyntacticComprehension ;
- import ArtinGlueing ; import ScottGlueingCategory ;
+ -- Completed displayed-section inversion; categorical experiments have separate drivers.
+ import SyntacticSubstitutions ;
  import ScottGlueingKripke ; import ScottGlueingKripkeInversion ;
  import ScottGlueingInversion ;
  import IndependentFundamental ;

@@ -1,0 +1,145 @@
+-- Context fibres and their action on typed substitutions.
+-- Point equality compares the semantic and syntactic projections, without
+-- identifying the proof-relevant derivations stored in relatedness.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open SynLemmas[l] ;
+open Weaken[l] ; open Subst[l] ; open Presup[l] ;
+module S = Sem[l] ; module Raw = Filter[l] ; module Soundness = Sound[l] ;
+
+tail (k m : Nat) (t : Fin (suc k) -> Tm m) : Fin k -> Tm m = \ i -> t (fs k i) ;
+wk-tail (k m : Nat) (t : Fin (suc k) -> Tm m) (A : Tm k) :
+  Id (Tm m) (Sub.trav (suc k) (wk k A) m t) (Sub.trav k A m (tail k m t)) =
+  SL.trav-ren k A (suc k) (\ i -> fs k i) m t ;
+tail-ok (k m : Nat) (H : Ctx k) (A : Tm k) (G : Ctx m)
+  (t : Fin (suc k) -> Tm m) (ok : SubOk (suc k) m (ext k H A) G t) :
+  SubOk k m H G (tail k m t) = \ i ->
+  der-ty-ty m G (t (fs k i)) (Sub.trav (suc k) (wk k (lookup k H i)) m t)
+    (Sub.trav k (lookup k H i) m (tail k m t)) (wk-tail k m t (lookup k H i)) (ok (fs k i)) ;
+
+module FitsStep (k : Nat) (H : Ctx k) (A : Tm k) (dA : Der k (jty H A (uu k)))
+  (m : Nat) (G : Ctx m) (wg : Der m (jwf G)) (t : Fin (suc k) -> Tm m)
+  (ok : SubOk (suc k) m (ext k H A) G t) (rho : S.Env m) (fits : Soundness.Fits m G rho)
+  (previous : Soundness.Fits k H (S.SS.senv k m (tail k m t) rho)) {
+  t0 : Fin k -> Tm m = tail k m t ;
+  nu : S.Env k = S.SS.senv k m t0 rho ;
+  substituted : Tm m = Sub.trav k A m t0 ;
+  code : Der m (jty G substituted (uu m)) =
+    sub-der k (jty H A (uu k)) dA m G t0 (tail-ok k m H A G t ok) wg ;
+  code-typed : Soundness.TyU (S.sem k A nu) =
+    Soundness.hasty-eq (S.sem m substituted rho) (S.sem k A nu) Raw.univF Raw.univF
+      (S.SS.trav-sem k A m t0 rho) (Raw.incl-refl Raw.univF)
+      (Soundness.tyu-of m substituted rho (Soundness.soundness-ty m G substituted (uu m) code rho fits)) ;
+  argument : Der m (jty G (t (fz k)) substituted) =
+    der-ty-ty m G (t (fz k)) (Sub.trav (suc k) (wk k A) m t) substituted
+      (wk-tail k m t A) (ok (fz k)) ;
+  argument-typed : Soundness.HasTy (S.sem m (t (fz k)) rho) (S.sem k A nu) =
+    Soundness.hasty-conv (S.sem m (t (fz k)) rho) (S.sem m substituted rho) (S.sem k A nu)
+      (Soundness.soundness-ty m G (t (fz k)) substituted argument rho fits)
+      (S.SS.trav-sem k A m t0 rho).1 ;
+  result : Soundness.Fits (suc k) (ext k H A) (S.SS.senv (suc k) m t rho) =
+    (previous,(code-typed,argument-typed)) ;
+} ;
+fits-substitution : (k : Nat) -> (H : Ctx k) -> Der k (jwf H) ->
+  (m : Nat) -> (G : Ctx m) -> Der m (jwf G) -> (t : Fin k -> Tm m) -> SubOk k m H G t ->
+  (rho : S.Env m) -> Soundness.Fits m G rho -> Soundness.Fits k H (S.SS.senv k m t rho) = split {
+  zero -> \ H wh m G wg t ok rho fits -> tt ;
+  suc k | ih -> \ H wh m G wg t ok rho fits ->
+    FitsStep[k,H.1,H.2,wf-inv (suc k) (jwf H) wh,m,G,wg,t,ok,rho,fits,
+      ih H.1 (wf-of k (jty H.1 H.2 (uu k)) (wf-inv (suc k) (jwf H) wh))
+        m G wg (tail k m t) (tail-ok k m H.1 H.2 G t ok) rho fits].result } ;
+
+compose (k m n : Nat) (t : Fin k -> Tm m) (s : Fin m -> Tm n) : Fin k -> Tm n =
+  \ i -> Sub.trav m (t i) n s ;
+compose-ok (k m n : Nat) (H : Ctx k) (G : Ctx m) (Delta : Ctx n)
+  (t : Fin k -> Tm m) (s : Fin m -> Tm n) (ot : SubOk k m H G t) (os : SubOk m n G Delta s)
+  (wd : Der n (jwf Delta)) : SubOk k n H Delta (compose k m n t s) = \ i ->
+  der-ty-ty n Delta (Sub.trav m (t i) n s) (Sub.trav m (Sub.trav k (lookup k H i) m t) n s)
+    (Sub.trav k (lookup k H i) n (compose k m n t s)) (sub-sub k (lookup k H i) m t n s)
+    (sub-der m (jty G (t i) (Sub.trav k (lookup k H i) m t)) (ot i) n Delta s os wd) ;
+
+module At (n : Nat) (Delta : Ctx n) (wd : Der n (jwf Delta)) {
+  module Glue = ScottGlueing[l].At[n,Delta,wd] ;
+  module RS = IndependentRelationSubstitutions[l].At[n,Delta] ;
+  record PointEq {
+    m : Nat ; G : Ctx m ; p : Glue.Point[m,G] ; q : Glue.Point[m,G] ;
+    semantic : S.EnvEq m p.rho q.rho ;
+    left (i : Fin m) : Id (Tm n) (p.left i) (q.left i) ;
+    right (i : Fin m) : Id (Tm n) (p.right i) (q.right i) ;
+  } ;
+  point-refl (m : Nat) (G : Ctx m) (p : Glue.Point[m,G]) : PointEq[m,G,p,p] =
+    new PointEq[m,G,p,p,\ i -> Raw.feq-refl (p.rho i),\ i -> refl (p.left i),\ i -> refl (p.right i)] ;
+  point-sym (m : Nat) (G : Ctx m) (p q : Glue.Point[m,G]) (e : PointEq[m,G,p,q]) : PointEq[m,G,q,p] =
+    new PointEq[m,G,q,p,\ i -> Raw.feq-sym (p.rho i) (q.rho i) (e.semantic i),
+      \ i -> sym (Tm n) (p.left i) (q.left i) (e.left i),
+      \ i -> sym (Tm n) (p.right i) (q.right i) (e.right i)] ;
+  point-trans (m : Nat) (G : Ctx m) (p q r : Glue.Point[m,G])
+    (e : PointEq[m,G,p,q]) (f : PointEq[m,G,q,r]) : PointEq[m,G,p,r] =
+    new PointEq[m,G,p,r,\ i -> Raw.feq-trans (p.rho i) (q.rho i) (r.rho i) (e.semantic i) (f.semantic i),
+      \ i -> trans (Tm n) (p.left i) (q.left i) (r.left i) (e.left i) (f.left i),
+      \ i -> trans (Tm n) (p.right i) (q.right i) (r.right i) (e.right i) (f.right i)] ;
+  module Reindex (k : Nat) (H : Ctx k) (wh : Der k (jwf H))
+    (m : Nat) (G : Ctx m) (wg : Der m (jwf G)) (t : Fin k -> Tm m) (ok : SubOk k m H G t)
+    (p : Glue.Point[m,G]) {
+    nu : S.Env k = S.SS.senv k m t p.rho ;
+    left : Fin k -> Tm n = compose k m n t p.left ;
+    right : Fin k -> Tm n = compose k m n t p.right ;
+    equal (s s' : Fin m -> Tm n) (os : SubOk m n G Delta s) (os' : SubOk m n G Delta s')
+      (es : Cross[l].SubEq m n G Delta s s') :
+      Cross[l].SubEq k n H Delta (compose k m n t s) (compose k m n t s') = \ i ->
+      der-eq-ty n Delta (Sub.trav m (t i) n s) (Sub.trav m (t i) n s')
+        (Sub.trav m (Sub.trav k (lookup k H i) m t) n s)
+        (Sub.trav k (lookup k H i) n (compose k m n t s)) (sub-sub k (lookup k H i) m t n s)
+        (Cross[l].subst-cross m n G Delta s s' (t i) (Sub.trav k (lookup k H i) m t)
+          (ok i) os os' es wd) ;
+    variables (i : Fin k) : RS.Term (nu i) (Sub.trav k (lookup k H i) n left) (left i) (right i) *
+      RS.Term (nu i) (Sub.trav k (lookup k H i) n right) (left i) (right i) =
+      (RS.term-index (nu i) (Sub.trav m (Sub.trav k (lookup k H i) m t) n p.left)
+        (Sub.trav k (lookup k H i) n left) (left i) (right i) (sub-sub k (lookup k H i) m t n p.left)
+        (Glue.typing m G (t i) (Sub.trav k (lookup k H i) m t) (ok i) p.rho p.fits p.left p.right p.related).1,
+       RS.term-index (nu i) (Sub.trav m (Sub.trav k (lookup k H i) m t) n p.right)
+        (Sub.trav k (lookup k H i) n right) (left i) (right i) (sub-sub k (lookup k H i) m t n p.right)
+        (Glue.typing m G (t i) (Sub.trav k (lookup k H i) m t) (ok i) p.rho p.fits p.left p.right p.related).2) ;
+    related : RS.Related[k,H,nu,left,right] = new RS.Related[k,H,nu,left,right,
+      compose-ok k m n H G Delta t p.left ok p.related.ok wd,
+      compose-ok k m n H G Delta t p.right ok p.related.ok' wd,
+      equal p.left p.right p.related.ok p.related.ok' p.related.eq,
+      equal p.right p.left p.related.ok' p.related.ok p.related.eq',variables] ;
+    point : Glue.Point[k,H] = new Glue.Point[k,H,nu,
+      fits-substitution k H wh m G wg t ok p.rho p.fits,left,right,related] ;
+  } ;
+  module Congruence (k : Nat) (H : Ctx k) (wh : Der k (jwf H))
+    (m : Nat) (G : Ctx m) (wg : Der m (jwf G)) (t : Fin k -> Tm m) (ok : SubOk k m H G t)
+    (p q : Glue.Point[m,G]) (e : PointEq[m,G,p,q]) {
+    module P = Reindex[k,H,wh,m,G,wg,t,ok,p] ;
+    module Q = Reindex[k,H,wh,m,G,wg,t,ok,q] ;
+    equation : PointEq[k,H,P.point,Q.point] = new PointEq[k,H,P.point,Q.point,
+      \ i -> S.sem-eq m (t i) p.rho q.rho e.semantic,
+      \ i -> SL.trav-ext m (t i) n p.left q.left e.left,
+      \ i -> SL.trav-ext m (t i) n p.right q.right e.right] ;
+  } ;
+  module Identity (m : Nat) (G : Ctx m) (wg : Der m (jwf G)) (p : Glue.Point[m,G]) {
+    module R = Reindex[m,G,wg,m,G,wg,idS m,id-ok m G wg,p] ;
+    equation : PointEq[m,G,R.point,p] = new PointEq[m,G,R.point,p,
+      \ i -> S.sem-var-eq m i p.rho,\ i -> refl (p.left i),\ i -> refl (p.right i)] ;
+  } ;
+  module Composition (j : Nat) (K : Ctx j) (wk : Der j (jwf K))
+    (k : Nat) (H : Ctx k) (wh : Der k (jwf H)) (u : Fin j -> Tm k) (ou : SubOk j k K H u)
+    (m : Nat) (G : Ctx m) (wg : Der m (jwf G)) (t : Fin k -> Tm m) (ot : SubOk k m H G t)
+    (p : Glue.Point[m,G]) {
+    module First = Reindex[k,H,wh,m,G,wg,t,ot,p] ;
+    module Twice = Reindex[j,K,wk,k,H,wh,u,ou,First.point] ;
+    module Direct = Reindex[j,K,wk,m,G,wg,compose j k m u t,compose-ok j k m K H G u t ou ot wg,p] ;
+    equation : PointEq[j,K,Direct.point,Twice.point] = new PointEq[j,K,Direct.point,Twice.point,
+      \ i -> S.SS.trav-sem k (u i) m t p.rho,
+      \ i -> sub-sub k (u i) m t n p.left,\ i -> sub-sub k (u i) m t n p.right] ;
+  } ;
+  module Extension (m : Nat) (G : Ctx m) (A : Tm m) (dA : Der m (jty G A (uu m)))
+    (p : Glue.Point[m,G]) (N N' : Tm n) (en : Der n (jeq Delta N N' (Sub.trav m A n p.left)))
+    (x : Domain[l].D) (hx : IndependentRelationRules[l].At[n,Delta].Term x (Sub.trav m A n p.left) N N') {
+    module Under = IndependentFundamentalBinder[l].At[n,Delta,wd].Under[m,G,A,dA,
+      Glue.typing m G A (uu m) dA,p.rho,p.fits,p.left,p.right,p.related,N,N',en,x,hx] ;
+    point : Glue.Point[suc m,ext m G A] = new Glue.Point[suc m,ext m G A,Under.extended,Under.fitted,
+      IndependentRelationSubstitutions[l].extendS m n p.left N,
+      IndependentRelationSubstitutions[l].extendS m n p.right N',Under.Extension.related] ;
+  } ;
+} ;

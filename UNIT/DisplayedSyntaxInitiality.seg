@@ -1,0 +1,554 @@
+-- Initiality of the derivation algebra, expressed as uniqueness of
+-- constructor-preserving displayed sections. No logical relation or
+-- proof irrelevance is assumed; uniqueness is pointwise on derivations.
+-- This is not an initiality theorem for quotient CwFs.
+level l k ;
+open Base ; open Syntax[l] ;
+module Proof = Prelude[k] ;
+module On (E : DisplayedSyntax[l,k].Model) {
+  module Canonical = DisplayedSyntax[l,k].Section[E] ;
+  record Section {
+    decorate (n : Nat) (J : Jf n) (d : Der n J) : E.judgement n J ;
+    on-wf-emp  :
+      Id (E.judgement zero (jwf tt)) (decorate zero (jwf tt) (wf-emp ))
+        (E.on-wf-emp  ) ;
+    on-wf-ext (n : Nat) (G : Ctx n) (A : Tm n) (h : Der n (jty G A (uu n))) :
+      Id (E.judgement (suc n) (jwf (ext n G A))) (decorate (suc n) (jwf (ext n G A)) (wf-ext n G A h))
+        (E.on-wf-ext n G A h (decorate n (jty G A (uu n)) h)) ;
+    on-ty-var (n : Nat) (G : Ctx n) (i : Fin n) (h : Der n (jwf G)) :
+      Id (E.judgement n (jty G (var n i) (lookup n G i))) (decorate n (jty G (var n i) (lookup n G i)) (ty-var n G i
+        h))
+        (E.on-ty-var n G i h (decorate n (jwf G) h)) ;
+    on-ty-conv (n : Nat) (G : Ctx n) (M A B : Tm n) (h1 : Der n (jty G M A)) (h2 : Der n (jeq G A B (uu n))) (h3 :
+      Der n (jty G B (uu n))) :
+      Id (E.judgement n (jty G M B)) (decorate n (jty G M B) (ty-conv n G M A B h1 h2 h3))
+        (E.on-ty-conv n G M A B h1 h2 h3 (decorate n (jty G M A) h1) (decorate n (jeq G A B (uu n)) h2) (decorate n
+          (jty G B (uu n)) h3)) ;
+    on-ty-U (n : Nat) (G : Ctx n) (h : Der n (jwf G)) :
+      Id (E.judgement n (jty G (uu n) (uu n))) (decorate n (jty G (uu n) (uu n)) (ty-U n G h))
+        (E.on-ty-U n G h (decorate n (jwf G) h)) ;
+    on-ty-Pi (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc n) (jty
+      (ext n G A) B (uu (suc n)))) :
+      Id (E.judgement n (jty G (pp n A B) (uu n))) (decorate n (jty G (pp n A B) (uu n)) (ty-Pi n G A B h1 h2))
+        (E.on-ty-Pi n G A B h1 h2 (decorate n (jty G A (uu n)) h1) (decorate (suc n) (jty (ext n G A) B (uu (suc
+          n))) h2)) ;
+    on-ty-Lam (n : Nat) (G : Ctx n) (A : Tm n) (B M : Tm (suc n)) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc n)
+      (jty (ext n G A) B (uu (suc n)))) (h3 : Der (suc n) (jty (ext n G A) M B)) :
+      Id (E.judgement n (jty G (lam n A M) (pp n A B))) (decorate n (jty G (lam n A M) (pp n A B)) (ty-Lam n G A B M
+        h1 h2 h3))
+        (E.on-ty-Lam n G A B M h1 h2 h3 (decorate n (jty G A (uu n)) h1) (decorate (suc n) (jty (ext n G A) B (uu
+          (suc n))) h2) (decorate (suc n) (jty (ext n G A) M B) h3)) ;
+    on-ty-App (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f a : Tm n) (h1 : Der n (jty G A (uu n))) (h2 : Der
+      (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der n (jty G f (pp n A B))) (h4 : Der n (jty G a A)) :
+      Id (E.judgement n (jty G (app n f a) (subst1 n B a))) (decorate n (jty G (app n f a) (subst1 n B a)) (ty-App n
+        G A B f a h1 h2 h3 h4))
+        (E.on-ty-App n G A B f a h1 h2 h3 h4 (decorate n (jty G A (uu n)) h1) (decorate (suc n) (jty (ext n G A) B
+          (uu (suc n))) h2) (decorate n (jty G f (pp n A B)) h3) (decorate n (jty G a A) h4)) ;
+    on-eq-refl (n : Nat) (G : Ctx n) (M A : Tm n) (h : Der n (jty G M A)) :
+      Id (E.judgement n (jeq G M M A)) (decorate n (jeq G M M A) (eq-refl n G M A h))
+        (E.on-eq-refl n G M A h (decorate n (jty G M A) h)) ;
+    on-eq-sym (n : Nat) (G : Ctx n) (M N A : Tm n) (h : Der n (jeq G M N A)) :
+      Id (E.judgement n (jeq G N M A)) (decorate n (jeq G N M A) (eq-sym n G M N A h))
+        (E.on-eq-sym n G M N A h (decorate n (jeq G M N A) h)) ;
+    on-eq-trans (n : Nat) (G : Ctx n) (M N P A : Tm n) (h1 : Der n (jeq G M N A)) (h2 : Der n (jeq G N P A)) :
+      Id (E.judgement n (jeq G M P A)) (decorate n (jeq G M P A) (eq-trans n G M N P A h1 h2))
+        (E.on-eq-trans n G M N P A h1 h2 (decorate n (jeq G M N A) h1) (decorate n (jeq G N P A) h2)) ;
+    on-eq-conv (n : Nat) (G : Ctx n) (M N A B : Tm n) (h1 : Der n (jeq G M N A)) (h2 : Der n (jeq G A B (uu n))) (h3
+      : Der n (jty G B (uu n))) :
+      Id (E.judgement n (jeq G M N B)) (decorate n (jeq G M N B) (eq-conv n G M N A B h1 h2 h3))
+        (E.on-eq-conv n G M N A B h1 h2 h3 (decorate n (jeq G M N A) h1) (decorate n (jeq G A B (uu n)) h2)
+          (decorate n (jty G B (uu n)) h3)) ;
+    on-eq-beta (n : Nat) (G : Ctx n) (A : Tm n) (B M : Tm (suc n)) (a : Tm n) (h1 : Der n (jty G A (uu n))) (h2 :
+      Der (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der (suc n) (jty (ext n G A) M B)) (h4 : Der n (jty G a
+      A)) :
+      Id (E.judgement n (jeq G (app n (lam n A M) a) (subst1 n M a) (subst1 n B a))) (decorate n (jeq G (app n (lam
+        n A M) a) (subst1 n M a) (subst1 n B a)) (eq-beta n G A B M a h1 h2 h3 h4))
+        (E.on-eq-beta n G A B M a h1 h2 h3 h4 (decorate n (jty G A (uu n)) h1) (decorate (suc n) (jty (ext n G A) B
+          (uu (suc n))) h2) (decorate (suc n) (jty (ext n G A) M B) h3) (decorate n (jty G a A) h4)) ;
+    on-eq-Pi (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc n)
+      (jty (ext n G A) B (uu (suc n)))) (h3 : Der (suc n) (jty (ext n G A) B' (uu (suc n)))) (h4 : Der n (jeq G A A'
+      (uu n))) (h5 : Der (suc n) (jeq (ext n G A) B B' (uu (suc n)))) :
+      Id (E.judgement n (jeq G (pp n A B) (pp n A' B') (uu n))) (decorate n (jeq G (pp n A B) (pp n A' B') (uu n))
+        (eq-Pi n G A A' B B' h1 h2 h3 h4 h5))
+        (E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (decorate n (jty G A (uu n)) h1) (decorate (suc n) (jty (ext n G A)
+          B (uu (suc n))) h2) (decorate (suc n) (jty (ext n G A) B' (uu (suc n))) h3) (decorate n (jeq G A A' (uu
+          n)) h4) (decorate (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5)) ;
+    on-eq-funext (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f g : Tm n) (h1 : Der n (jty G A (uu n))) (h2 :
+      Der (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n)
+      (fz n))) B)) (h3 : Der n (jty G f (pp n A B))) (h4 : Der n (jty G g (pp n A B))) :
+      Id (E.judgement n (jeq G f g (pp n A B))) (decorate n (jeq G f g (pp n A B)) (eq-funext n G A B f g h1 h2 h3
+        h4))
+        (E.on-eq-funext n G A B f g h1 h2 h3 h4 (decorate n (jty G A (uu n)) h1) (decorate (suc n) (jeq (ext n G A)
+          (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2) (decorate n
+          (jty G f (pp n A B)) h3) (decorate n (jty G g (pp n A B)) h4)) ;
+    on-eq-app-fun (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f f' a : Tm n) (h1 : Der n (jty G A (uu n)))
+      (h2 : Der (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der n (jeq G f f' (pp n A B))) (h4 : Der n (jty G a
+      A)) :
+      Id (E.judgement n (jeq G (app n f a) (app n f' a) (subst1 n B a))) (decorate n (jeq G (app n f a) (app n f' a)
+        (subst1 n B a)) (eq-app-fun n G A B f f' a h1 h2 h3 h4))
+        (E.on-eq-app-fun n G A B f f' a h1 h2 h3 h4 (decorate n (jty G A (uu n)) h1) (decorate (suc n) (jty (ext n G
+          A) B (uu (suc n))) h2) (decorate n (jeq G f f' (pp n A B)) h3) (decorate n (jty G a A) h4)) ;
+    on-eq-app-arg (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f a a' : Tm n) (h1 : Der n (jty G A (uu n)))
+      (h2 : Der (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der n (jty G f (pp n A B))) (h4 : Der n (jeq G a a'
+      A)) :
+      Id (E.judgement n (jeq G (app n f a) (app n f a') (subst1 n B a))) (decorate n (jeq G (app n f a) (app n f a')
+        (subst1 n B a)) (eq-app-arg n G A B f a a' h1 h2 h3 h4))
+        (E.on-eq-app-arg n G A B f a a' h1 h2 h3 h4 (decorate n (jty G A (uu n)) h1) (decorate (suc n) (jty (ext n G
+          A) B (uu (suc n))) h2) (decorate n (jty G f (pp n A B)) h3) (decorate n (jeq G a a' A) h4)) ;
+  } ;
+  canonical : Section = new Section[decorate := Canonical.decoration,
+    on-wf-emp := refl (Canonical.decoration zero (jwf tt) (wf-emp )),
+    on-wf-ext := \ n G A h -> refl (Canonical.decoration (suc n) (jwf (ext n G A)) (wf-ext n G A h)),
+    on-ty-var := \ n G i h -> refl (Canonical.decoration n (jty G (var n i) (lookup n G i)) (ty-var n G i h)),
+    on-ty-conv := \ n G M A B h1 h2 h3 -> refl (Canonical.decoration n (jty G M B) (ty-conv n G M A B h1 h2 h3)),
+    on-ty-U := \ n G h -> refl (Canonical.decoration n (jty G (uu n) (uu n)) (ty-U n G h)),
+    on-ty-Pi := \ n G A B h1 h2 -> refl (Canonical.decoration n (jty G (pp n A B) (uu n)) (ty-Pi n G A B h1 h2)),
+    on-ty-Lam := \ n G A B M h1 h2 h3 -> refl (Canonical.decoration n (jty G (lam n A M) (pp n A B)) (ty-Lam n G A B
+      M h1 h2 h3)),
+    on-ty-App := \ n G A B f a h1 h2 h3 h4 -> refl (Canonical.decoration n (jty G (app n f a) (subst1 n B a))
+      (ty-App n G A B f a h1 h2 h3 h4)),
+    on-eq-refl := \ n G M A h -> refl (Canonical.decoration n (jeq G M M A) (eq-refl n G M A h)),
+    on-eq-sym := \ n G M N A h -> refl (Canonical.decoration n (jeq G N M A) (eq-sym n G M N A h)),
+    on-eq-trans := \ n G M N P A h1 h2 -> refl (Canonical.decoration n (jeq G M P A) (eq-trans n G M N P A h1 h2)),
+    on-eq-conv := \ n G M N A B h1 h2 h3 -> refl (Canonical.decoration n (jeq G M N B) (eq-conv n G M N A B h1 h2
+      h3)),
+    on-eq-beta := \ n G A B M a h1 h2 h3 h4 -> refl (Canonical.decoration n (jeq G (app n (lam n A M) a) (subst1 n M
+      a) (subst1 n B a)) (eq-beta n G A B M a h1 h2 h3 h4)),
+    on-eq-Pi := \ n G A A' B B' h1 h2 h3 h4 h5 -> refl (Canonical.decoration n (jeq G (pp n A B) (pp n A' B') (uu
+      n)) (eq-Pi n G A A' B B' h1 h2 h3 h4 h5)),
+    on-eq-funext := \ n G A B f g h1 h2 h3 h4 -> refl (Canonical.decoration n (jeq G f g (pp n A B)) (eq-funext n G
+      A B f g h1 h2 h3 h4)),
+    on-eq-app-fun := \ n G A B f f' a h1 h2 h3 h4 -> refl (Canonical.decoration n (jeq G (app n f a) (app n f' a)
+      (subst1 n B a)) (eq-app-fun n G A B f f' a h1 h2 h3 h4)),
+    on-eq-app-arg := \ n G A B f a a' h1 h2 h3 h4 -> refl (Canonical.decoration n (jeq G (app n f a) (app n f a')
+      (subst1 n B a)) (eq-app-arg n G A B f a a' h1 h2 h3 h4))] ;
+  module Unique (T : Section) {
+    pointwise : (n : Nat) -> (J : Jf n) -> (d : Der n J) ->
+      Id (E.judgement n J) (T.decorate n J d) (Canonical.decoration n J d) = split {
+      wf-emp  -> T.on-wf-emp  ;
+      wf-ext n G A h | ih-h -> Proof.trans (E.judgement (suc n) (jwf (ext n G A))) (T.decorate (suc n) (jwf (ext n G
+        A)) (wf-ext n G A h)) (E.on-wf-ext n G A h (T.decorate n (jty G A (uu n)) h)) (Canonical.decoration (suc n)
+        (jwf (ext n G A)) (wf-ext n G A h))
+          (T.on-wf-ext n G A h) (Proof.ap (E.judgement n (jty G A (uu n))) (E.judgement (suc n) (jwf (ext n G A)))
+            (\ new-decoration -> E.on-wf-ext n G A h new-decoration) (T.decorate n (jty G A (uu n)) h)
+            (Canonical.decoration n (jty G A (uu n)) h) ih-h) ;
+      ty-var n G i h | ih-h -> Proof.trans (E.judgement n (jty G (var n i) (lookup n G i))) (T.decorate n (jty G
+        (var n i) (lookup n G i)) (ty-var n G i h)) (E.on-ty-var n G i h (T.decorate n (jwf G) h))
+        (Canonical.decoration n (jty G (var n i) (lookup n G i)) (ty-var n G i h))
+          (T.on-ty-var n G i h) (Proof.ap (E.judgement n (jwf G)) (E.judgement n (jty G (var n i) (lookup n G i)))
+            (\ new-decoration -> E.on-ty-var n G i h new-decoration) (T.decorate n (jwf G) h) (Canonical.decoration
+            n (jwf G) h) ih-h) ;
+      ty-conv n G M A B h1 h2 h3 | ih-h1 ih-h2 ih-h3 -> Proof.trans (E.judgement n (jty G M B)) (T.decorate n (jty G
+        M B) (ty-conv n G M A B h1 h2 h3)) (E.on-ty-conv n G M A B h1 h2 h3 (T.decorate n (jty G M A) h1)
+        (T.decorate n (jeq G A B (uu n)) h2) (T.decorate n (jty G B (uu n)) h3)) (Canonical.decoration n (jty G M B)
+        (ty-conv n G M A B h1 h2 h3))
+          (T.on-ty-conv n G M A B h1 h2 h3) (Proof.trans (E.judgement n (jty G M B)) (E.on-ty-conv n G M A B h1 h2
+            h3 (T.decorate n (jty G M A) h1) (T.decorate n (jeq G A B (uu n)) h2) (T.decorate n (jty G B (uu n))
+            h3)) (E.on-ty-conv n G M A B h1 h2 h3 (Canonical.decoration n (jty G M A) h1) (T.decorate n (jeq G A B
+            (uu n)) h2) (T.decorate n (jty G B (uu n)) h3)) (Canonical.decoration n (jty G M B) (ty-conv n G M A B
+            h1 h2 h3))
+          (Proof.ap (E.judgement n (jty G M A)) (E.judgement n (jty G M B)) (\ new-decoration -> E.on-ty-conv n G M
+            A B h1 h2 h3 new-decoration (T.decorate n (jeq G A B (uu n)) h2) (T.decorate n (jty G B (uu n)) h3))
+            (T.decorate n (jty G M A) h1) (Canonical.decoration n (jty G M A) h1) ih-h1) (Proof.trans (E.judgement n
+            (jty G M B)) (E.on-ty-conv n G M A B h1 h2 h3 (Canonical.decoration n (jty G M A) h1) (T.decorate n (jeq
+            G A B (uu n)) h2) (T.decorate n (jty G B (uu n)) h3)) (E.on-ty-conv n G M A B h1 h2 h3
+            (Canonical.decoration n (jty G M A) h1) (Canonical.decoration n (jeq G A B (uu n)) h2) (T.decorate n
+            (jty G B (uu n)) h3)) (Canonical.decoration n (jty G M B) (ty-conv n G M A B h1 h2 h3))
+          (Proof.ap (E.judgement n (jeq G A B (uu n))) (E.judgement n (jty G M B)) (\ new-decoration -> E.on-ty-conv
+            n G M A B h1 h2 h3 (Canonical.decoration n (jty G M A) h1) new-decoration (T.decorate n (jty G B (uu n))
+            h3)) (T.decorate n (jeq G A B (uu n)) h2) (Canonical.decoration n (jeq G A B (uu n)) h2) ih-h2)
+            (Proof.ap (E.judgement n (jty G B (uu n))) (E.judgement n (jty G M B)) (\ new-decoration -> E.on-ty-conv
+            n G M A B h1 h2 h3 (Canonical.decoration n (jty G M A) h1) (Canonical.decoration n (jeq G A B (uu n))
+            h2) new-decoration) (T.decorate n (jty G B (uu n)) h3) (Canonical.decoration n (jty G B (uu n)) h3)
+            ih-h3))) ;
+      ty-U n G h | ih-h -> Proof.trans (E.judgement n (jty G (uu n) (uu n))) (T.decorate n (jty G (uu n) (uu n))
+        (ty-U n G h)) (E.on-ty-U n G h (T.decorate n (jwf G) h)) (Canonical.decoration n (jty G (uu n) (uu n)) (ty-U
+        n G h))
+          (T.on-ty-U n G h) (Proof.ap (E.judgement n (jwf G)) (E.judgement n (jty G (uu n) (uu n))) (\
+            new-decoration -> E.on-ty-U n G h new-decoration) (T.decorate n (jwf G) h) (Canonical.decoration n (jwf
+            G) h) ih-h) ;
+      ty-Pi n G A B h1 h2 | ih-h1 ih-h2 -> Proof.trans (E.judgement n (jty G (pp n A B) (uu n))) (T.decorate n (jty
+        G (pp n A B) (uu n)) (ty-Pi n G A B h1 h2)) (E.on-ty-Pi n G A B h1 h2 (T.decorate n (jty G A (uu n)) h1)
+        (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2)) (Canonical.decoration n (jty G (pp n A B) (uu n))
+        (ty-Pi n G A B h1 h2))
+          (T.on-ty-Pi n G A B h1 h2) (Proof.trans (E.judgement n (jty G (pp n A B) (uu n))) (E.on-ty-Pi n G A B h1
+            h2 (T.decorate n (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2))
+            (E.on-ty-Pi n G A B h1 h2 (Canonical.decoration n (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G
+            A) B (uu (suc n))) h2)) (Canonical.decoration n (jty G (pp n A B) (uu n)) (ty-Pi n G A B h1 h2))
+          (Proof.ap (E.judgement n (jty G A (uu n))) (E.judgement n (jty G (pp n A B) (uu n))) (\ new-decoration ->
+            E.on-ty-Pi n G A B h1 h2 new-decoration (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2))
+            (T.decorate n (jty G A (uu n)) h1) (Canonical.decoration n (jty G A (uu n)) h1) ih-h1) (Proof.ap
+            (E.judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (E.judgement n (jty G (pp n A B) (uu n))) (\
+            new-decoration -> E.on-ty-Pi n G A B h1 h2 (Canonical.decoration n (jty G A (uu n)) h1) new-decoration)
+            (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (Canonical.decoration (suc n) (jty (ext n G A)
+            B (uu (suc n))) h2) ih-h2)) ;
+      ty-Lam n G A B M h1 h2 h3 | ih-h1 ih-h2 ih-h3 -> Proof.trans (E.judgement n (jty G (lam n A M) (pp n A B)))
+        (T.decorate n (jty G (lam n A M) (pp n A B)) (ty-Lam n G A B M h1 h2 h3)) (E.on-ty-Lam n G A B M h1 h2 h3
+        (T.decorate n (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc
+        n) (jty (ext n G A) M B) h3)) (Canonical.decoration n (jty G (lam n A M) (pp n A B)) (ty-Lam n G A B M h1 h2
+        h3))
+          (T.on-ty-Lam n G A B M h1 h2 h3) (Proof.trans (E.judgement n (jty G (lam n A M) (pp n A B))) (E.on-ty-Lam
+            n G A B M h1 h2 h3 (T.decorate n (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc
+            n))) h2) (T.decorate (suc n) (jty (ext n G A) M B) h3)) (E.on-ty-Lam n G A B M h1 h2 h3
+            (Canonical.decoration n (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2)
+            (T.decorate (suc n) (jty (ext n G A) M B) h3)) (Canonical.decoration n (jty G (lam n A M) (pp n A B))
+            (ty-Lam n G A B M h1 h2 h3))
+          (Proof.ap (E.judgement n (jty G A (uu n))) (E.judgement n (jty G (lam n A M) (pp n A B))) (\
+            new-decoration -> E.on-ty-Lam n G A B M h1 h2 h3 new-decoration (T.decorate (suc n) (jty (ext n G A) B
+            (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) M B) h3)) (T.decorate n (jty G A (uu n)) h1)
+            (Canonical.decoration n (jty G A (uu n)) h1) ih-h1) (Proof.trans (E.judgement n (jty G (lam n A M) (pp n
+            A B))) (E.on-ty-Lam n G A B M h1 h2 h3 (Canonical.decoration n (jty G A (uu n)) h1) (T.decorate (suc n)
+            (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) M B) h3)) (E.on-ty-Lam n G A B
+            M h1 h2 h3 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B
+            (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) M B) h3)) (Canonical.decoration n (jty G (lam n A
+            M) (pp n A B)) (ty-Lam n G A B M h1 h2 h3))
+          (Proof.ap (E.judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (E.judgement n (jty G (lam n A M) (pp n A
+            B))) (\ new-decoration -> E.on-ty-Lam n G A B M h1 h2 h3 (Canonical.decoration n (jty G A (uu n)) h1)
+            new-decoration (T.decorate (suc n) (jty (ext n G A) M B) h3)) (T.decorate (suc n) (jty (ext n G A) B (uu
+            (suc n))) h2) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) ih-h2) (Proof.ap
+            (E.judgement (suc n) (jty (ext n G A) M B)) (E.judgement n (jty G (lam n A M) (pp n A B))) (\
+            new-decoration -> E.on-ty-Lam n G A B M h1 h2 h3 (Canonical.decoration n (jty G A (uu n)) h1)
+            (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) new-decoration) (T.decorate (suc n)
+            (jty (ext n G A) M B) h3) (Canonical.decoration (suc n) (jty (ext n G A) M B) h3) ih-h3))) ;
+      ty-App n G A B f a h1 h2 h3 h4 | ih-h1 ih-h2 ih-h3 ih-h4 -> Proof.trans (E.judgement n (jty G (app n f a)
+        (subst1 n B a))) (T.decorate n (jty G (app n f a) (subst1 n B a)) (ty-App n G A B f a h1 h2 h3 h4))
+        (E.on-ty-App n G A B f a h1 h2 h3 h4 (T.decorate n (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A)
+        B (uu (suc n))) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G a A) h4))
+        (Canonical.decoration n (jty G (app n f a) (subst1 n B a)) (ty-App n G A B f a h1 h2 h3 h4))
+          (T.on-ty-App n G A B f a h1 h2 h3 h4) (Proof.trans (E.judgement n (jty G (app n f a) (subst1 n B a)))
+            (E.on-ty-App n G A B f a h1 h2 h3 h4 (T.decorate n (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n
+            G A) B (uu (suc n))) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G a A) h4))
+            (E.on-ty-App n G A B f a h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (T.decorate (suc n)
+            (jty (ext n G A) B (uu (suc n))) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G a A)
+            h4)) (Canonical.decoration n (jty G (app n f a) (subst1 n B a)) (ty-App n G A B f a h1 h2 h3 h4))
+          (Proof.ap (E.judgement n (jty G A (uu n))) (E.judgement n (jty G (app n f a) (subst1 n B a))) (\
+            new-decoration -> E.on-ty-App n G A B f a h1 h2 h3 h4 new-decoration (T.decorate (suc n) (jty (ext n G
+            A) B (uu (suc n))) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G a A) h4)) (T.decorate
+            n (jty G A (uu n)) h1) (Canonical.decoration n (jty G A (uu n)) h1) ih-h1) (Proof.trans (E.judgement n
+            (jty G (app n f a) (subst1 n B a))) (E.on-ty-App n G A B f a h1 h2 h3 h4 (Canonical.decoration n (jty G
+            A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate n (jty G f (pp n A
+            B)) h3) (T.decorate n (jty G a A) h4)) (E.on-ty-App n G A B f a h1 h2 h3 h4 (Canonical.decoration n (jty
+            G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate n (jty G
+            f (pp n A B)) h3) (T.decorate n (jty G a A) h4)) (Canonical.decoration n (jty G (app n f a) (subst1 n B
+            a)) (ty-App n G A B f a h1 h2 h3 h4))
+          (Proof.ap (E.judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (E.judgement n (jty G (app n f a) (subst1
+            n B a))) (\ new-decoration -> E.on-ty-App n G A B f a h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu
+            n)) h1) new-decoration (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G a A) h4)) (T.decorate
+            (suc n) (jty (ext n G A) B (uu (suc n))) h2) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc
+            n))) h2) ih-h2) (Proof.trans (E.judgement n (jty G (app n f a) (subst1 n B a))) (E.on-ty-App n G A B f a
+            h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A)
+            B (uu (suc n))) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G a A) h4)) (E.on-ty-App n
+            G A B f a h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty
+            (ext n G A) B (uu (suc n))) h2) (Canonical.decoration n (jty G f (pp n A B)) h3) (T.decorate n (jty G a
+            A) h4)) (Canonical.decoration n (jty G (app n f a) (subst1 n B a)) (ty-App n G A B f a h1 h2 h3 h4))
+          (Proof.ap (E.judgement n (jty G f (pp n A B))) (E.judgement n (jty G (app n f a) (subst1 n B a))) (\
+            new-decoration -> E.on-ty-App n G A B f a h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1)
+            (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) new-decoration (T.decorate n (jty G a
+            A) h4)) (T.decorate n (jty G f (pp n A B)) h3) (Canonical.decoration n (jty G f (pp n A B)) h3) ih-h3)
+            (Proof.ap (E.judgement n (jty G a A)) (E.judgement n (jty G (app n f a) (subst1 n B a))) (\
+            new-decoration -> E.on-ty-App n G A B f a h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1)
+            (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) (Canonical.decoration n (jty G f (pp
+            n A B)) h3) new-decoration) (T.decorate n (jty G a A) h4) (Canonical.decoration n (jty G a A) h4)
+            ih-h4)))) ;
+      eq-refl n G M A h | ih-h -> Proof.trans (E.judgement n (jeq G M M A)) (T.decorate n (jeq G M M A) (eq-refl n G
+        M A h)) (E.on-eq-refl n G M A h (T.decorate n (jty G M A) h)) (Canonical.decoration n (jeq G M M A) (eq-refl
+        n G M A h))
+          (T.on-eq-refl n G M A h) (Proof.ap (E.judgement n (jty G M A)) (E.judgement n (jeq G M M A)) (\
+            new-decoration -> E.on-eq-refl n G M A h new-decoration) (T.decorate n (jty G M A) h)
+            (Canonical.decoration n (jty G M A) h) ih-h) ;
+      eq-sym n G M N A h | ih-h -> Proof.trans (E.judgement n (jeq G N M A)) (T.decorate n (jeq G N M A) (eq-sym n G
+        M N A h)) (E.on-eq-sym n G M N A h (T.decorate n (jeq G M N A) h)) (Canonical.decoration n (jeq G N M A)
+        (eq-sym n G M N A h))
+          (T.on-eq-sym n G M N A h) (Proof.ap (E.judgement n (jeq G M N A)) (E.judgement n (jeq G N M A)) (\
+            new-decoration -> E.on-eq-sym n G M N A h new-decoration) (T.decorate n (jeq G M N A) h)
+            (Canonical.decoration n (jeq G M N A) h) ih-h) ;
+      eq-trans n G M N P A h1 h2 | ih-h1 ih-h2 -> Proof.trans (E.judgement n (jeq G M P A)) (T.decorate n (jeq G M P
+        A) (eq-trans n G M N P A h1 h2)) (E.on-eq-trans n G M N P A h1 h2 (T.decorate n (jeq G M N A) h1)
+        (T.decorate n (jeq G N P A) h2)) (Canonical.decoration n (jeq G M P A) (eq-trans n G M N P A h1 h2))
+          (T.on-eq-trans n G M N P A h1 h2) (Proof.trans (E.judgement n (jeq G M P A)) (E.on-eq-trans n G M N P A h1
+            h2 (T.decorate n (jeq G M N A) h1) (T.decorate n (jeq G N P A) h2)) (E.on-eq-trans n G M N P A h1 h2
+            (Canonical.decoration n (jeq G M N A) h1) (T.decorate n (jeq G N P A) h2)) (Canonical.decoration n (jeq
+            G M P A) (eq-trans n G M N P A h1 h2))
+          (Proof.ap (E.judgement n (jeq G M N A)) (E.judgement n (jeq G M P A)) (\ new-decoration -> E.on-eq-trans n
+            G M N P A h1 h2 new-decoration (T.decorate n (jeq G N P A) h2)) (T.decorate n (jeq G M N A) h1)
+            (Canonical.decoration n (jeq G M N A) h1) ih-h1) (Proof.ap (E.judgement n (jeq G N P A)) (E.judgement n
+            (jeq G M P A)) (\ new-decoration -> E.on-eq-trans n G M N P A h1 h2 (Canonical.decoration n (jeq G M N
+            A) h1) new-decoration) (T.decorate n (jeq G N P A) h2) (Canonical.decoration n (jeq G N P A) h2) ih-h2))
+            ;
+      eq-conv n G M N A B h1 h2 h3 | ih-h1 ih-h2 ih-h3 -> Proof.trans (E.judgement n (jeq G M N B)) (T.decorate n
+        (jeq G M N B) (eq-conv n G M N A B h1 h2 h3)) (E.on-eq-conv n G M N A B h1 h2 h3 (T.decorate n (jeq G M N A)
+        h1) (T.decorate n (jeq G A B (uu n)) h2) (T.decorate n (jty G B (uu n)) h3)) (Canonical.decoration n (jeq G
+        M N B) (eq-conv n G M N A B h1 h2 h3))
+          (T.on-eq-conv n G M N A B h1 h2 h3) (Proof.trans (E.judgement n (jeq G M N B)) (E.on-eq-conv n G M N A B
+            h1 h2 h3 (T.decorate n (jeq G M N A) h1) (T.decorate n (jeq G A B (uu n)) h2) (T.decorate n (jty G B (uu
+            n)) h3)) (E.on-eq-conv n G M N A B h1 h2 h3 (Canonical.decoration n (jeq G M N A) h1) (T.decorate n (jeq
+            G A B (uu n)) h2) (T.decorate n (jty G B (uu n)) h3)) (Canonical.decoration n (jeq G M N B) (eq-conv n G
+            M N A B h1 h2 h3))
+          (Proof.ap (E.judgement n (jeq G M N A)) (E.judgement n (jeq G M N B)) (\ new-decoration -> E.on-eq-conv n
+            G M N A B h1 h2 h3 new-decoration (T.decorate n (jeq G A B (uu n)) h2) (T.decorate n (jty G B (uu n))
+            h3)) (T.decorate n (jeq G M N A) h1) (Canonical.decoration n (jeq G M N A) h1) ih-h1) (Proof.trans
+            (E.judgement n (jeq G M N B)) (E.on-eq-conv n G M N A B h1 h2 h3 (Canonical.decoration n (jeq G M N A)
+            h1) (T.decorate n (jeq G A B (uu n)) h2) (T.decorate n (jty G B (uu n)) h3)) (E.on-eq-conv n G M N A B
+            h1 h2 h3 (Canonical.decoration n (jeq G M N A) h1) (Canonical.decoration n (jeq G A B (uu n)) h2)
+            (T.decorate n (jty G B (uu n)) h3)) (Canonical.decoration n (jeq G M N B) (eq-conv n G M N A B h1 h2
+            h3))
+          (Proof.ap (E.judgement n (jeq G A B (uu n))) (E.judgement n (jeq G M N B)) (\ new-decoration ->
+            E.on-eq-conv n G M N A B h1 h2 h3 (Canonical.decoration n (jeq G M N A) h1) new-decoration (T.decorate n
+            (jty G B (uu n)) h3)) (T.decorate n (jeq G A B (uu n)) h2) (Canonical.decoration n (jeq G A B (uu n))
+            h2) ih-h2) (Proof.ap (E.judgement n (jty G B (uu n))) (E.judgement n (jeq G M N B)) (\ new-decoration ->
+            E.on-eq-conv n G M N A B h1 h2 h3 (Canonical.decoration n (jeq G M N A) h1) (Canonical.decoration n (jeq
+            G A B (uu n)) h2) new-decoration) (T.decorate n (jty G B (uu n)) h3) (Canonical.decoration n (jty G B
+            (uu n)) h3) ih-h3))) ;
+      eq-beta n G A B M a h1 h2 h3 h4 | ih-h1 ih-h2 ih-h3 ih-h4 -> Proof.trans (E.judgement n (jeq G (app n (lam n A
+        M) a) (subst1 n M a) (subst1 n B a))) (T.decorate n (jeq G (app n (lam n A M) a) (subst1 n M a) (subst1 n B
+        a)) (eq-beta n G A B M a h1 h2 h3 h4)) (E.on-eq-beta n G A B M a h1 h2 h3 h4 (T.decorate n (jty G A (uu n))
+        h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) M B) h3)
+        (T.decorate n (jty G a A) h4)) (Canonical.decoration n (jeq G (app n (lam n A M) a) (subst1 n M a) (subst1 n
+        B a)) (eq-beta n G A B M a h1 h2 h3 h4))
+          (T.on-eq-beta n G A B M a h1 h2 h3 h4) (Proof.trans (E.judgement n (jeq G (app n (lam n A M) a) (subst1 n
+            M a) (subst1 n B a))) (E.on-eq-beta n G A B M a h1 h2 h3 h4 (T.decorate n (jty G A (uu n)) h1)
+            (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) M B) h3)
+            (T.decorate n (jty G a A) h4)) (E.on-eq-beta n G A B M a h1 h2 h3 h4 (Canonical.decoration n (jty G A
+            (uu n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G
+            A) M B) h3) (T.decorate n (jty G a A) h4)) (Canonical.decoration n (jeq G (app n (lam n A M) a) (subst1
+            n M a) (subst1 n B a)) (eq-beta n G A B M a h1 h2 h3 h4))
+          (Proof.ap (E.judgement n (jty G A (uu n))) (E.judgement n (jeq G (app n (lam n A M) a) (subst1 n M a)
+            (subst1 n B a))) (\ new-decoration -> E.on-eq-beta n G A B M a h1 h2 h3 h4 new-decoration (T.decorate
+            (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) M B) h3) (T.decorate n
+            (jty G a A) h4)) (T.decorate n (jty G A (uu n)) h1) (Canonical.decoration n (jty G A (uu n)) h1) ih-h1)
+            (Proof.trans (E.judgement n (jeq G (app n (lam n A M) a) (subst1 n M a) (subst1 n B a))) (E.on-eq-beta n
+            G A B M a h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A)
+            B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) M B) h3) (T.decorate n (jty G a A) h4))
+            (E.on-eq-beta n G A B M a h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration
+            (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) M B) h3) (T.decorate n
+            (jty G a A) h4)) (Canonical.decoration n (jeq G (app n (lam n A M) a) (subst1 n M a) (subst1 n B a))
+            (eq-beta n G A B M a h1 h2 h3 h4))
+          (Proof.ap (E.judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (E.judgement n (jeq G (app n (lam n A M)
+            a) (subst1 n M a) (subst1 n B a))) (\ new-decoration -> E.on-eq-beta n G A B M a h1 h2 h3 h4
+            (Canonical.decoration n (jty G A (uu n)) h1) new-decoration (T.decorate (suc n) (jty (ext n G A) M B)
+            h3) (T.decorate n (jty G a A) h4)) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2)
+            (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) ih-h2) (Proof.trans (E.judgement n
+            (jeq G (app n (lam n A M) a) (subst1 n M a) (subst1 n B a))) (E.on-eq-beta n G A B M a h1 h2 h3 h4
+            (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc
+            n))) h2) (T.decorate (suc n) (jty (ext n G A) M B) h3) (T.decorate n (jty G a A) h4)) (E.on-eq-beta n G
+            A B M a h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext
+            n G A) B (uu (suc n))) h2) (Canonical.decoration (suc n) (jty (ext n G A) M B) h3) (T.decorate n (jty G
+            a A) h4)) (Canonical.decoration n (jeq G (app n (lam n A M) a) (subst1 n M a) (subst1 n B a)) (eq-beta n
+            G A B M a h1 h2 h3 h4))
+          (Proof.ap (E.judgement (suc n) (jty (ext n G A) M B)) (E.judgement n (jeq G (app n (lam n A M) a) (subst1
+            n M a) (subst1 n B a))) (\ new-decoration -> E.on-eq-beta n G A B M a h1 h2 h3 h4 (Canonical.decoration
+            n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) new-decoration
+            (T.decorate n (jty G a A) h4)) (T.decorate (suc n) (jty (ext n G A) M B) h3) (Canonical.decoration (suc
+            n) (jty (ext n G A) M B) h3) ih-h3) (Proof.ap (E.judgement n (jty G a A)) (E.judgement n (jeq G (app n
+            (lam n A M) a) (subst1 n M a) (subst1 n B a))) (\ new-decoration -> E.on-eq-beta n G A B M a h1 h2 h3 h4
+            (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc
+            n))) h2) (Canonical.decoration (suc n) (jty (ext n G A) M B) h3) new-decoration) (T.decorate n (jty G a
+            A) h4) (Canonical.decoration n (jty G a A) h4) ih-h4)))) ;
+      eq-Pi n G A A' B B' h1 h2 h3 h4 h5 | ih-h1 ih-h2 ih-h3 ih-h4 ih-h5 -> Proof.trans (E.judgement n (jeq G (pp n
+        A B) (pp n A' B') (uu n))) (T.decorate n (jeq G (pp n A B) (pp n A' B') (uu n)) (eq-Pi n G A A' B B' h1 h2
+        h3 h4 h5)) (E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (T.decorate n (jty G A (uu n)) h1) (T.decorate (suc n)
+        (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) B' (uu (suc n))) h3) (T.decorate n
+        (jeq G A A' (uu n)) h4) (T.decorate (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5)) (Canonical.decoration n
+        (jeq G (pp n A B) (pp n A' B') (uu n)) (eq-Pi n G A A' B B' h1 h2 h3 h4 h5))
+          (T.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5) (Proof.trans (E.judgement n (jeq G (pp n A B) (pp n A' B') (uu
+            n))) (E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (T.decorate n (jty G A (uu n)) h1) (T.decorate (suc n)
+            (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) B' (uu (suc n))) h3)
+            (T.decorate n (jeq G A A' (uu n)) h4) (T.decorate (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5))
+            (E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (Canonical.decoration n (jty G A (uu n)) h1) (T.decorate (suc
+            n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) B' (uu (suc n))) h3)
+            (T.decorate n (jeq G A A' (uu n)) h4) (T.decorate (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5))
+            (Canonical.decoration n (jeq G (pp n A B) (pp n A' B') (uu n)) (eq-Pi n G A A' B B' h1 h2 h3 h4 h5))
+          (Proof.ap (E.judgement n (jty G A (uu n))) (E.judgement n (jeq G (pp n A B) (pp n A' B') (uu n))) (\
+            new-decoration -> E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 new-decoration (T.decorate (suc n) (jty (ext n
+            G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) B' (uu (suc n))) h3) (T.decorate n (jeq G
+            A A' (uu n)) h4) (T.decorate (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5)) (T.decorate n (jty G A (uu
+            n)) h1) (Canonical.decoration n (jty G A (uu n)) h1) ih-h1) (Proof.trans (E.judgement n (jeq G (pp n A
+            B) (pp n A' B') (uu n))) (E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (Canonical.decoration n (jty G A (uu
+            n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) B'
+            (uu (suc n))) h3) (T.decorate n (jeq G A A' (uu n)) h4) (T.decorate (suc n) (jeq (ext n G A) B B' (uu
+            (suc n))) h5)) (E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (Canonical.decoration n (jty G A (uu n)) h1)
+            (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A)
+            B' (uu (suc n))) h3) (T.decorate n (jeq G A A' (uu n)) h4) (T.decorate (suc n) (jeq (ext n G A) B B' (uu
+            (suc n))) h5)) (Canonical.decoration n (jeq G (pp n A B) (pp n A' B') (uu n)) (eq-Pi n G A A' B B' h1 h2
+            h3 h4 h5))
+          (Proof.ap (E.judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (E.judgement n (jeq G (pp n A B) (pp n A'
+            B') (uu n))) (\ new-decoration -> E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (Canonical.decoration n (jty G
+            A (uu n)) h1) new-decoration (T.decorate (suc n) (jty (ext n G A) B' (uu (suc n))) h3) (T.decorate n
+            (jeq G A A' (uu n)) h4) (T.decorate (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5)) (T.decorate (suc n)
+            (jty (ext n G A) B (uu (suc n))) h2) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2)
+            ih-h2) (Proof.trans (E.judgement n (jeq G (pp n A B) (pp n A' B') (uu n))) (E.on-eq-Pi n G A A' B B' h1
+            h2 h3 h4 h5 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A)
+            B (uu (suc n))) h2) (T.decorate (suc n) (jty (ext n G A) B' (uu (suc n))) h3) (T.decorate n (jeq G A A'
+            (uu n)) h4) (T.decorate (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5)) (E.on-eq-Pi n G A A' B B' h1 h2
+            h3 h4 h5 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B
+            (uu (suc n))) h2) (Canonical.decoration (suc n) (jty (ext n G A) B' (uu (suc n))) h3) (T.decorate n (jeq
+            G A A' (uu n)) h4) (T.decorate (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5)) (Canonical.decoration n
+            (jeq G (pp n A B) (pp n A' B') (uu n)) (eq-Pi n G A A' B B' h1 h2 h3 h4 h5))
+          (Proof.ap (E.judgement (suc n) (jty (ext n G A) B' (uu (suc n)))) (E.judgement n (jeq G (pp n A B) (pp n
+            A' B') (uu n))) (\ new-decoration -> E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (Canonical.decoration n
+            (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) new-decoration
+            (T.decorate n (jeq G A A' (uu n)) h4) (T.decorate (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5))
+            (T.decorate (suc n) (jty (ext n G A) B' (uu (suc n))) h3) (Canonical.decoration (suc n) (jty (ext n G A)
+            B' (uu (suc n))) h3) ih-h3) (Proof.trans (E.judgement n (jeq G (pp n A B) (pp n A' B') (uu n)))
+            (E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (Canonical.decoration n (jty G A (uu n)) h1)
+            (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) (Canonical.decoration (suc n) (jty
+            (ext n G A) B' (uu (suc n))) h3) (T.decorate n (jeq G A A' (uu n)) h4) (T.decorate (suc n) (jeq (ext n G
+            A) B B' (uu (suc n))) h5)) (E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (Canonical.decoration n (jty G A (uu
+            n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) (Canonical.decoration (suc n)
+            (jty (ext n G A) B' (uu (suc n))) h3) (Canonical.decoration n (jeq G A A' (uu n)) h4) (T.decorate (suc
+            n) (jeq (ext n G A) B B' (uu (suc n))) h5)) (Canonical.decoration n (jeq G (pp n A B) (pp n A' B') (uu
+            n)) (eq-Pi n G A A' B B' h1 h2 h3 h4 h5))
+          (Proof.ap (E.judgement n (jeq G A A' (uu n))) (E.judgement n (jeq G (pp n A B) (pp n A' B') (uu n))) (\
+            new-decoration -> E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (Canonical.decoration n (jty G A (uu n)) h1)
+            (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) (Canonical.decoration (suc n) (jty
+            (ext n G A) B' (uu (suc n))) h3) new-decoration (T.decorate (suc n) (jeq (ext n G A) B B' (uu (suc n)))
+            h5)) (T.decorate n (jeq G A A' (uu n)) h4) (Canonical.decoration n (jeq G A A' (uu n)) h4) ih-h4)
+            (Proof.ap (E.judgement (suc n) (jeq (ext n G A) B B' (uu (suc n)))) (E.judgement n (jeq G (pp n A B) (pp
+            n A' B') (uu n))) (\ new-decoration -> E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 (Canonical.decoration n
+            (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2)
+            (Canonical.decoration (suc n) (jty (ext n G A) B' (uu (suc n))) h3) (Canonical.decoration n (jeq G A A'
+            (uu n)) h4) new-decoration) (T.decorate (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5)
+            (Canonical.decoration (suc n) (jeq (ext n G A) B B' (uu (suc n))) h5) ih-h5))))) ;
+      eq-funext n G A B f g h1 h2 h3 h4 | ih-h1 ih-h2 ih-h3 ih-h4 -> Proof.trans (E.judgement n (jeq G f g (pp n A
+        B))) (T.decorate n (jeq G f g (pp n A B)) (eq-funext n G A B f g h1 h2 h3 h4)) (E.on-eq-funext n G A B f g
+        h1 h2 h3 h4 (T.decorate n (jty G A (uu n)) h1) (T.decorate (suc n) (jeq (ext n G A) (app (suc n) (wk n f)
+        (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2) (T.decorate n (jty G f (pp n A B))
+        h3) (T.decorate n (jty G g (pp n A B)) h4)) (Canonical.decoration n (jeq G f g (pp n A B)) (eq-funext n G A
+        B f g h1 h2 h3 h4))
+          (T.on-eq-funext n G A B f g h1 h2 h3 h4) (Proof.trans (E.judgement n (jeq G f g (pp n A B)))
+            (E.on-eq-funext n G A B f g h1 h2 h3 h4 (T.decorate n (jty G A (uu n)) h1) (T.decorate (suc n) (jeq (ext
+            n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2)
+            (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G g (pp n A B)) h4)) (E.on-eq-funext n G A B f
+            g h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (T.decorate (suc n) (jeq (ext n G A) (app
+            (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2) (T.decorate n
+            (jty G f (pp n A B)) h3) (T.decorate n (jty G g (pp n A B)) h4)) (Canonical.decoration n (jeq G f g (pp
+            n A B)) (eq-funext n G A B f g h1 h2 h3 h4))
+          (Proof.ap (E.judgement n (jty G A (uu n))) (E.judgement n (jeq G f g (pp n A B))) (\ new-decoration ->
+            E.on-eq-funext n G A B f g h1 h2 h3 h4 new-decoration (T.decorate (suc n) (jeq (ext n G A) (app (suc n)
+            (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2) (T.decorate n (jty G f
+            (pp n A B)) h3) (T.decorate n (jty G g (pp n A B)) h4)) (T.decorate n (jty G A (uu n)) h1)
+            (Canonical.decoration n (jty G A (uu n)) h1) ih-h1) (Proof.trans (E.judgement n (jeq G f g (pp n A B)))
+            (E.on-eq-funext n G A B f g h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (T.decorate (suc n)
+            (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n)))
+            B) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G g (pp n A B)) h4)) (E.on-eq-funext n
+            G A B f g h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jeq
+            (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B)
+            h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G g (pp n A B)) h4)) (Canonical.decoration
+            n (jeq G f g (pp n A B)) (eq-funext n G A B f g h1 h2 h3 h4))
+          (Proof.ap (E.judgement (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n)
+            (wk n g) (var (suc n) (fz n))) B)) (E.judgement n (jeq G f g (pp n A B))) (\ new-decoration ->
+            E.on-eq-funext n G A B f g h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) new-decoration
+            (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G g (pp n A B)) h4)) (T.decorate (suc n) (jeq
+            (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B)
+            h2) (Canonical.decoration (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc
+            n) (wk n g) (var (suc n) (fz n))) B) h2) ih-h2) (Proof.trans (E.judgement n (jeq G f g (pp n A B)))
+            (E.on-eq-funext n G A B f g h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1)
+            (Canonical.decoration (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n)
+            (wk n g) (var (suc n) (fz n))) B) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jty G g (pp
+            n A B)) h4)) (E.on-eq-funext n G A B f g h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1)
+            (Canonical.decoration (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n)
+            (wk n g) (var (suc n) (fz n))) B) h2) (Canonical.decoration n (jty G f (pp n A B)) h3) (T.decorate n
+            (jty G g (pp n A B)) h4)) (Canonical.decoration n (jeq G f g (pp n A B)) (eq-funext n G A B f g h1 h2 h3
+            h4))
+          (Proof.ap (E.judgement n (jty G f (pp n A B))) (E.judgement n (jeq G f g (pp n A B))) (\ new-decoration ->
+            E.on-eq-funext n G A B f g h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1)
+            (Canonical.decoration (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n)
+            (wk n g) (var (suc n) (fz n))) B) h2) new-decoration (T.decorate n (jty G g (pp n A B)) h4)) (T.decorate
+            n (jty G f (pp n A B)) h3) (Canonical.decoration n (jty G f (pp n A B)) h3) ih-h3) (Proof.ap
+            (E.judgement n (jty G g (pp n A B))) (E.judgement n (jeq G f g (pp n A B))) (\ new-decoration ->
+            E.on-eq-funext n G A B f g h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1)
+            (Canonical.decoration (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n)
+            (wk n g) (var (suc n) (fz n))) B) h2) (Canonical.decoration n (jty G f (pp n A B)) h3) new-decoration)
+            (T.decorate n (jty G g (pp n A B)) h4) (Canonical.decoration n (jty G g (pp n A B)) h4) ih-h4)))) ;
+      eq-app-fun n G A B f f' a h1 h2 h3 h4 | ih-h1 ih-h2 ih-h3 ih-h4 -> Proof.trans (E.judgement n (jeq G (app n f
+        a) (app n f' a) (subst1 n B a))) (T.decorate n (jeq G (app n f a) (app n f' a) (subst1 n B a)) (eq-app-fun n
+        G A B f f' a h1 h2 h3 h4)) (E.on-eq-app-fun n G A B f f' a h1 h2 h3 h4 (T.decorate n (jty G A (uu n)) h1)
+        (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate n (jeq G f f' (pp n A B)) h3)
+        (T.decorate n (jty G a A) h4)) (Canonical.decoration n (jeq G (app n f a) (app n f' a) (subst1 n B a))
+        (eq-app-fun n G A B f f' a h1 h2 h3 h4))
+          (T.on-eq-app-fun n G A B f f' a h1 h2 h3 h4) (Proof.trans (E.judgement n (jeq G (app n f a) (app n f' a)
+            (subst1 n B a))) (E.on-eq-app-fun n G A B f f' a h1 h2 h3 h4 (T.decorate n (jty G A (uu n)) h1)
+            (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate n (jeq G f f' (pp n A B)) h3)
+            (T.decorate n (jty G a A) h4)) (E.on-eq-app-fun n G A B f f' a h1 h2 h3 h4 (Canonical.decoration n (jty
+            G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate n (jeq G f f' (pp n
+            A B)) h3) (T.decorate n (jty G a A) h4)) (Canonical.decoration n (jeq G (app n f a) (app n f' a) (subst1
+            n B a)) (eq-app-fun n G A B f f' a h1 h2 h3 h4))
+          (Proof.ap (E.judgement n (jty G A (uu n))) (E.judgement n (jeq G (app n f a) (app n f' a) (subst1 n B a)))
+            (\ new-decoration -> E.on-eq-app-fun n G A B f f' a h1 h2 h3 h4 new-decoration (T.decorate (suc n) (jty
+            (ext n G A) B (uu (suc n))) h2) (T.decorate n (jeq G f f' (pp n A B)) h3) (T.decorate n (jty G a A) h4))
+            (T.decorate n (jty G A (uu n)) h1) (Canonical.decoration n (jty G A (uu n)) h1) ih-h1) (Proof.trans
+            (E.judgement n (jeq G (app n f a) (app n f' a) (subst1 n B a))) (E.on-eq-app-fun n G A B f f' a h1 h2 h3
+            h4 (Canonical.decoration n (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2)
+            (T.decorate n (jeq G f f' (pp n A B)) h3) (T.decorate n (jty G a A) h4)) (E.on-eq-app-fun n G A B f f' a
+            h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A)
+            B (uu (suc n))) h2) (T.decorate n (jeq G f f' (pp n A B)) h3) (T.decorate n (jty G a A) h4))
+            (Canonical.decoration n (jeq G (app n f a) (app n f' a) (subst1 n B a)) (eq-app-fun n G A B f f' a h1 h2
+            h3 h4))
+          (Proof.ap (E.judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (E.judgement n (jeq G (app n f a) (app n
+            f' a) (subst1 n B a))) (\ new-decoration -> E.on-eq-app-fun n G A B f f' a h1 h2 h3 h4
+            (Canonical.decoration n (jty G A (uu n)) h1) new-decoration (T.decorate n (jeq G f f' (pp n A B)) h3)
+            (T.decorate n (jty G a A) h4)) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2)
+            (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) ih-h2) (Proof.trans (E.judgement n
+            (jeq G (app n f a) (app n f' a) (subst1 n B a))) (E.on-eq-app-fun n G A B f f' a h1 h2 h3 h4
+            (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc
+            n))) h2) (T.decorate n (jeq G f f' (pp n A B)) h3) (T.decorate n (jty G a A) h4)) (E.on-eq-app-fun n G A
+            B f f' a h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty
+            (ext n G A) B (uu (suc n))) h2) (Canonical.decoration n (jeq G f f' (pp n A B)) h3) (T.decorate n (jty G
+            a A) h4)) (Canonical.decoration n (jeq G (app n f a) (app n f' a) (subst1 n B a)) (eq-app-fun n G A B f
+            f' a h1 h2 h3 h4))
+          (Proof.ap (E.judgement n (jeq G f f' (pp n A B))) (E.judgement n (jeq G (app n f a) (app n f' a) (subst1 n
+            B a))) (\ new-decoration -> E.on-eq-app-fun n G A B f f' a h1 h2 h3 h4 (Canonical.decoration n (jty G A
+            (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) new-decoration
+            (T.decorate n (jty G a A) h4)) (T.decorate n (jeq G f f' (pp n A B)) h3) (Canonical.decoration n (jeq G
+            f f' (pp n A B)) h3) ih-h3) (Proof.ap (E.judgement n (jty G a A)) (E.judgement n (jeq G (app n f a) (app
+            n f' a) (subst1 n B a))) (\ new-decoration -> E.on-eq-app-fun n G A B f f' a h1 h2 h3 h4
+            (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc
+            n))) h2) (Canonical.decoration n (jeq G f f' (pp n A B)) h3) new-decoration) (T.decorate n (jty G a A)
+            h4) (Canonical.decoration n (jty G a A) h4) ih-h4)))) ;
+      eq-app-arg n G A B f a a' h1 h2 h3 h4 | ih-h1 ih-h2 ih-h3 ih-h4 -> Proof.trans (E.judgement n (jeq G (app n f
+        a) (app n f a') (subst1 n B a))) (T.decorate n (jeq G (app n f a) (app n f a') (subst1 n B a)) (eq-app-arg n
+        G A B f a a' h1 h2 h3 h4)) (E.on-eq-app-arg n G A B f a a' h1 h2 h3 h4 (T.decorate n (jty G A (uu n)) h1)
+        (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate
+        n (jeq G a a' A) h4)) (Canonical.decoration n (jeq G (app n f a) (app n f a') (subst1 n B a)) (eq-app-arg n
+        G A B f a a' h1 h2 h3 h4))
+          (T.on-eq-app-arg n G A B f a a' h1 h2 h3 h4) (Proof.trans (E.judgement n (jeq G (app n f a) (app n f a')
+            (subst1 n B a))) (E.on-eq-app-arg n G A B f a a' h1 h2 h3 h4 (T.decorate n (jty G A (uu n)) h1)
+            (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate n (jty G f (pp n A B)) h3)
+            (T.decorate n (jeq G a a' A) h4)) (E.on-eq-app-arg n G A B f a a' h1 h2 h3 h4 (Canonical.decoration n
+            (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2) (T.decorate n (jty G f (pp
+            n A B)) h3) (T.decorate n (jeq G a a' A) h4)) (Canonical.decoration n (jeq G (app n f a) (app n f a')
+            (subst1 n B a)) (eq-app-arg n G A B f a a' h1 h2 h3 h4))
+          (Proof.ap (E.judgement n (jty G A (uu n))) (E.judgement n (jeq G (app n f a) (app n f a') (subst1 n B a)))
+            (\ new-decoration -> E.on-eq-app-arg n G A B f a a' h1 h2 h3 h4 new-decoration (T.decorate (suc n) (jty
+            (ext n G A) B (uu (suc n))) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jeq G a a' A) h4))
+            (T.decorate n (jty G A (uu n)) h1) (Canonical.decoration n (jty G A (uu n)) h1) ih-h1) (Proof.trans
+            (E.judgement n (jeq G (app n f a) (app n f a') (subst1 n B a))) (E.on-eq-app-arg n G A B f a a' h1 h2 h3
+            h4 (Canonical.decoration n (jty G A (uu n)) h1) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2)
+            (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jeq G a a' A) h4)) (E.on-eq-app-arg n G A B f a a'
+            h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A)
+            B (uu (suc n))) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jeq G a a' A) h4))
+            (Canonical.decoration n (jeq G (app n f a) (app n f a') (subst1 n B a)) (eq-app-arg n G A B f a a' h1 h2
+            h3 h4))
+          (Proof.ap (E.judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (E.judgement n (jeq G (app n f a) (app n
+            f a') (subst1 n B a))) (\ new-decoration -> E.on-eq-app-arg n G A B f a a' h1 h2 h3 h4
+            (Canonical.decoration n (jty G A (uu n)) h1) new-decoration (T.decorate n (jty G f (pp n A B)) h3)
+            (T.decorate n (jeq G a a' A) h4)) (T.decorate (suc n) (jty (ext n G A) B (uu (suc n))) h2)
+            (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) ih-h2) (Proof.trans (E.judgement n
+            (jeq G (app n f a) (app n f a') (subst1 n B a))) (E.on-eq-app-arg n G A B f a a' h1 h2 h3 h4
+            (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc
+            n))) h2) (T.decorate n (jty G f (pp n A B)) h3) (T.decorate n (jeq G a a' A) h4)) (E.on-eq-app-arg n G A
+            B f a a' h1 h2 h3 h4 (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty
+            (ext n G A) B (uu (suc n))) h2) (Canonical.decoration n (jty G f (pp n A B)) h3) (T.decorate n (jeq G a
+            a' A) h4)) (Canonical.decoration n (jeq G (app n f a) (app n f a') (subst1 n B a)) (eq-app-arg n G A B f
+            a a' h1 h2 h3 h4))
+          (Proof.ap (E.judgement n (jty G f (pp n A B))) (E.judgement n (jeq G (app n f a) (app n f a') (subst1 n B
+            a))) (\ new-decoration -> E.on-eq-app-arg n G A B f a a' h1 h2 h3 h4 (Canonical.decoration n (jty G A
+            (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc n))) h2) new-decoration
+            (T.decorate n (jeq G a a' A) h4)) (T.decorate n (jty G f (pp n A B)) h3) (Canonical.decoration n (jty G
+            f (pp n A B)) h3) ih-h3) (Proof.ap (E.judgement n (jeq G a a' A)) (E.judgement n (jeq G (app n f a) (app
+            n f a') (subst1 n B a))) (\ new-decoration -> E.on-eq-app-arg n G A B f a a' h1 h2 h3 h4
+            (Canonical.decoration n (jty G A (uu n)) h1) (Canonical.decoration (suc n) (jty (ext n G A) B (uu (suc
+            n))) h2) (Canonical.decoration n (jty G f (pp n A B)) h3) new-decoration) (T.decorate n (jeq G a a' A)
+            h4) (Canonical.decoration n (jeq G a a' A) h4) ih-h4)))) } ;
+  } ;
+} ;

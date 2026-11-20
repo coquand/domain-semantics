@@ -1,0 +1,68 @@
+-- Scott-domain admissible relational glueing, at the judgemental level.
+-- The generic displayed section supplies the derivation induction; this
+-- module uses individual rule proofs, not IndependentFundamental.
+level l ;
+open Base ; open Prelude[l] ; open Syntax[l] ; open Subst[l] ; open Presup[l] ;
+module S = Sem[l] ; module Soundness = Sound[l] ;
+module At (n : Nat) (Delta : Ctx n) (wellformed : Der n (jwf Delta)) {
+  module RS = IndependentRelationSubstitutions[l].At[n,Delta] ;
+  module F = IndependentFundamentalRules[l].At[n,Delta,wellformed] ;
+  module Structural = IndependentFundamentalStructural[l].At[n,Delta,wellformed] ;
+  module Applications = IndependentFundamentalApplication[l].At[n,Delta,wellformed] ;
+  module Pi = IndependentFundamentalPi[l].At[n,Delta,wellformed] ;
+  module Lambdas = IndependentFundamentalLambda[l].At[n,Delta,wellformed] ;
+  module Extensionality = IndependentFundamentalExtensionality[l].At[n,Delta,wellformed] ;
+
+  -- The fibre over a context: a fitting semantic environment together with
+  -- two typed, related syntactic substitutions into the fixed test context.
+  record Point {
+    m : Nat ; G : Ctx m ;
+    rho : S.Env m ; fits : Soundness.Fits m G rho ;
+    left : Fin m -> Tm n ; right : Fin m -> Tm n ;
+    related : RS.Related[m,G,rho,left,right] ;
+  } ;
+  Decoration (m : Nat) : Jf m -> U l+ = split {
+    jwf G -> Top ;
+    jty G M A -> F.Fundamental m G M M A ;
+    jeq G M N A -> F.Fundamental m G M N A } ;
+  model : DisplayedSyntax[l,l+].Model = new DisplayedSyntax[l,l+].Model[
+    judgement := Decoration,
+    on-wf-emp := tt,
+    on-wf-ext := \ m G A h r-h -> tt,
+    on-ty-var := \ m G i h r-h -> F.variable m G i,
+    on-ty-conv := \ m G M A B h1 h2 h3 r-h1 r-h2 r-h3 -> Structural.conversion m G M M A B h1 r-h1 r-h2,
+    on-ty-U := \ m G h r-h -> F.universe m G,
+    on-ty-Pi := \ m G A B h1 h2 r-h1 r-h2 -> Pi.formation m G A B h1 h2 r-h1 r-h2,
+    on-ty-Lam := \ m G A B M h1 h2 h3 r-h1 r-h2 r-h3 -> Lambdas.lambda m G A B M h1 h2 h3 r-h1 r-h3,
+    on-ty-App := \ m G A B f a h1 h2 h3 h4 r-h1 r-h2 r-h3 r-h4 -> Applications.application m G A B f f a a h1 h2 h3
+      (eq-refl m G a A h4) r-h3 r-h4 r-h2,
+    on-eq-refl := \ m G M A h r-h -> r-h,
+    on-eq-sym := \ m G M N A h r-h -> Structural.symmetry m G M N A h r-h,
+    on-eq-trans := \ m G M N P A h1 h2 r-h1 r-h2 -> Structural.transitivity m G M N P A h1 r-h1 r-h2,
+    on-eq-conv := \ m G M N A B h1 h2 h3 r-h1 r-h2 r-h3 -> Structural.conversion m G M N A B (eq-pre m (jeq G M N A)
+      h1).1 r-h1 r-h2,
+    on-eq-beta := \ m G A B M a h1 h2 h3 h4 r-h1 r-h2 r-h3 r-h4 -> F.beta m G A B M a h1 h2 h3 h4 r-h3 r-h4,
+    on-eq-Pi := \ m G A A' B B' h1 h2 h3 h4 h5 r-h1 r-h2 r-h3 r-h4 r-h5 -> Pi.equality m G A A' B B' h1 h2 h3 h4 h5 r-h1
+      r-h4 r-h2 r-h5,
+    on-eq-funext := \ m G A B f g h1 h2 h3 h4 r-h1 r-h2 r-h3 r-h4 -> Extensionality.extensionality m G A B f g h1 h2 h3
+      h4 r-h1 r-h2,
+    on-eq-app-fun := \ m G A B f f' a h1 h2 h3 h4 r-h1 r-h2 r-h3 r-h4 -> Applications.application m G A B f f' a a h1 h2
+      (eq-pre m (jeq G f f' (pp m A B)) h3).1 (eq-refl m G a A h4) r-h3 r-h4 r-h2,
+    on-eq-app-arg := \ m G A B f a a' h1 h2 h3 h4 r-h1 r-h2 r-h3 r-h4 -> Applications.application m G A B f f a a' h1 h2
+      h3 h4 r-h3 r-h4 r-h2
+ ] ;
+  module Total = DisplayedSyntax[l,l+].Total[model] ;
+  module Section = DisplayedSyntax[l,l+].Section[model] ;
+  module Initiality = DisplayedSyntaxInitiality[l,l+].On[model] ;
+  section-laws : Initiality.Section = Initiality.canonical ;
+  -- These are projections of the section, not applications of the old
+  -- fundamental lemma. The raw derivation is unchanged by erasure.
+  typing (m : Nat) (G : Ctx m) (M A : Tm m) (d : Der m (jty G M A)) :
+    F.Fundamental m G M M A = Section.decoration m (jty G M A) d ;
+  equality (m : Nat) (G : Ctx m) (M N A : Tm m) (d : Der m (jeq G M N A)) :
+    F.Fundamental m G M N A = Section.decoration m (jeq G M N A) d ;
+  at-point (m : Nat) (G : Ctx m) (M N A : Tm m) (d : Der m (jeq G M N A)) (p : Point[m,G]) :
+    RS.Term (S.sem m M p.rho) (Sub.trav m A n p.left) (Sub.trav m M n p.left) (Sub.trav m N n p.right) *
+    RS.Term (S.sem m M p.rho) (Sub.trav m A n p.right) (Sub.trav m M n p.left) (Sub.trav m N n p.right) =
+    equality m G M N A d p.rho p.fits p.left p.right p.related ;
+} ;

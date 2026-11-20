@@ -93,6 +93,55 @@ def main():
     }
     if forbidden:
         sys.exit(f"New inversion/subject-reduction check imports old proofs: {sorted(forbidden)}")
+    # Check the glueing route with the assembled fundamental lemma and all
+    # existing syntactic inversion results absent, including nested imports.
+    def import_closure(source):
+        pending, visited = [source], set()
+        while pending:
+            current = pending.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            code = re.sub(r"--[^\n]*", "", (root / current).read_text())
+            pending.extend(name + ".seg" for name in re.findall(r"\bimport\s+(\w+)\s*;", code))
+        return {Path(name).stem for name in visited}
+
+    glueing_imports = import_closure("ScottGlueingCheck.seg")
+    forbidden_glueing = {
+        "RelC", "LawsC", "AdeqBase", "AdeqPi", "AdeqLam", "AdeqApp", "AdeqFun",
+        "Adequacy", "Consequences", "SubjRed", "LogicalRelation", "DomainLogicalRelation",
+        "DomainAdequacy", "DomainRelationInversion", "IndependentFundamental",
+        "IndependentAdequacy", "IndependentInversion", "IndependentProofRelevant",
+        "IndependentSubjectReduction", "All",
+    }
+    forbidden = glueing_imports & forbidden_glueing
+    if forbidden:
+        sys.exit(f"Glueing independence check imports existing proofs: {sorted(forbidden)}")
+    required_glueing = {
+        "DisplayedSyntax", "ScottGlueing", "ScottGlueingSubstitution", "ScottGlueingInversion",
+        "DisplayedSyntaxInitiality", "ScottGlueingKripke",
+    }
+    if not required_glueing <= glueing_imports:
+        sys.exit(f"Glueing check omits required modules: {sorted(required_glueing - glueing_imports)}")
+    generic_imports = import_closure("DisplayedSyntaxCheck.seg")
+    if generic_imports - {"Base", "Prelude", "Lib", "Syntax", "DisplayedSyntax", "DisplayedSyntaxInitiality", "DisplayedSyntaxCheck"}:
+        sys.exit("Generic displayed-syntax check imports domain or relation modules.")
+    kripke_imports = import_closure("ScottGlueingKripkeCheck.seg")
+    forbidden = kripke_imports & (forbidden_glueing | {"ScottGlueingInversion"})
+    if forbidden:
+        sys.exit(f"Hereditary glueing check imports previous inversion proofs: {sorted(forbidden)}")
+    if not {"ScottGlueingKripke", "ScottGlueingKripkeInversion", "DisplayedSyntaxInitiality"} <= kripke_imports:
+        sys.exit("Hereditary glueing check omits required modules.")
+    experimental = {
+        "ArtinGlueing", "CategoryPullback", "SmallQuotient", "SyntacticCategory", "SyntacticFamilies",
+        "SyntacticComprehension", "ScottGlueingCategory", "CwF", "NaturalModelCwF", "Presheaf",
+        "PresheafLift", "PresheafPullback", "PresheafRefinement", "QuotientPresheaf",
+        "RefinedNaturalModel", "ScottQuotientCwF", "SyntacticCwF", "SyntacticQuotientFamilies",
+    }
+    for source in ("All.seg", "ScottGlueingCheck.seg", "ScottGlueingKripkeCheck.seg"):
+        mixed = import_closure(source) & experimental
+        if mixed:
+            sys.exit(f"Main inversion architecture imports experimental glueing modules: {source}: {sorted(mixed)}")
     # Typing.seg also contains order-equivalence helpers used by the basis
     # library. The new projector/typed-law proofs must not use its typing
     # family, constructors or elimination lemmas, even though it is in scope.
@@ -112,7 +161,9 @@ def main():
     for source in ("All.seg", "CUSLFpCheck.seg", "IndependentDependentProductCheck.seg",
                    "IndependentProjectorCheck.seg", "StructuralTypedLawsCheck.seg",
                    "IndependentLogicalRelationCheck.seg", "WitnessSearchCheck.seg",
-                   "DerivationSearchCheck.seg", "FinEnvCheck.seg"):
+                   "DerivationSearchCheck.seg", "FinEnvCheck.seg",
+                   "DisplayedSyntaxCheck.seg", "ScottGlueingCheck.seg",
+                   "ScottGlueingKripkeCheck.seg"):
         try:
             result = subprocess.run([str(checker), source], cwd=root,
                                     text=True, capture_output=True, timeout=60)

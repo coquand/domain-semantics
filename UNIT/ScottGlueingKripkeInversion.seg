@@ -1,0 +1,51 @@
+-- Pi inversion from the hereditary Scott glueing section.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Syntax[l] ;
+open SynLemmas[l] ; open Subst[l] ; open Presup[l] ; open ExtFilter[l] ; open Domain[l] ;
+module R = SyntacticSubstitutions[l] ; module Kripke = ScottGlueingKripke[l] ;
+module S = Sem[l] ; module Raw = Filter[l] ;
+module At (n : Nat) (G : Ctx n) (wg : Der n (jwf G)) {
+  context : R.Context = new R.Context[n,G,wg] ;
+  point : Kripke.Point[context,context] = Kripke.Bottom[context,context,R.identity context].point ;
+  module I = IndependentLogicalRelation[l].At[n,G] ;
+  module Rules = IndependentRelationRules[l].At[n,G] ;
+  module Products (A A' : Tm n) (B B' : Tm (suc n)) (T : Tm n) (d : Der n (jeq G (pp n A B) (pp n A' B') T)) {
+    key : K = (pi om om,((tt,(tt,tt)),cons-pi om om cons-om cons-om)) ;
+    seen : (S.sem n (pp n A B) (Kripke.bottom-env n)).mem key.1 = (S.sem-pp-eq n A B (Kripke.bottom-env n)).2 key.1
+      (inr (new Raw.PiWR[S.sem n A (Kripke.bottom-env n),S.fam n B (Kripke.bottom-env n),pi om om,om,om,le-refl (pi om om),
+        (S.sem n A (Kripke.bottom-env n)).fom,es-om])) ;
+    observed : Rules.Type (principal key) (Sub.trav n (pp n A B) n (idS n)) (Sub.trav n (pp n A' B') n (idS n)) =
+      Rules.to-type (principal key) (Sub.trav n T n (idS n)) (Sub.trav n (pp n A B) n (idS n)) (Sub.trav n (pp n A' B')
+        n (idS n))
+        ((Kripke.Interpretation[context,pp n A B,pp n A' B',T,d,context,point,context,R.identity context].result).1 key seen) ;
+    types : Rules.Type (principal key) (pp n A B) (pp n A' B') =
+      subst (Tm n) (\ V -> Rules.Type (principal key) (pp n A B) V) (Sub.trav n (pp n A' B') n (idS n)) (pp n A' B')
+        (sub-id n (pp n A' B'))
+        (subst (Tm n) (\ V -> Rules.Type (principal key) V (Sub.trav n (pp n A' B') n (idS n)))
+          (Sub.trav n (pp n A B) n (idS n)) (pp n A B) (sub-id n (pp n A B)) observed) ;
+    components : Ex (Der n (jeq G A A' (uu n)) * Der (suc n) (jeq (ext n G A) B B' (uu (suc n)))) =
+      I.Inversion.Products[A,A',B,B'].components (principal key) types (prin-in (pi om om)) ;
+  } ;
+} ;
+mere-pi-injectivity (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (T : Tm n)
+  (d : Der n (jeq G (pp n A B) (pp n A' B') T)) :
+  Ex (Der n (jeq G A A' (uu n)) * Der (suc n) (jeq (ext n G A) B B' (uu (suc n)))) =
+  At[n,G,wf-of n (jeq G (pp n A B) (pp n A' B') T) d].Products[A,A',B,B',T,d].components ;
+
+-- Recover the two actual derivations independently of the earlier
+-- proof-relevant inversion module.
+module Products (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (V : Tm n)
+  (d : Der n (jeq G (pp n A B) (pp n A' B') V)) {
+  Dom : U l = Der n (jeq G A A' (uu n)) ;
+  Cod : U l = Der (suc n) (jeq (ext n G A) B B' (uu (suc n))) ;
+  mere : Ex (Dom * Cod) = mere-pi-injectivity n G A A' B B' V d ;
+  domain : Dom = DerivationRecovery[l].recover n (jeq G A A' (uu n))
+    (TruncationCombinators[l].map (Dom * Cod) Dom (\ p -> p.1) mere) ;
+  codomain : Cod = DerivationRecovery[l].recover (suc n) (jeq (ext n G A) B B' (uu (suc n)))
+    (TruncationCombinators[l].map (Dom * Cod) Cod (\ p -> p.2) mere) ;
+  components : Dom * Cod = (domain,codomain) ;
+} ;
+pi-injectivity (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (V : Tm n)
+  (d : Der n (jeq G (pp n A B) (pp n A' B') V)) :
+  Der n (jeq G A A' (uu n)) * Der (suc n) (jeq (ext n G A) B B' (uu (suc n))) =
+  Products[n,G,A,A',B,B',V,d].components ;

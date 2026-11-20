@@ -1,0 +1,164 @@
+-- Hereditary related points: stability under changes of test context is
+-- part of the data, not an unproved property of the fixed-context relation.
+-- Restriction, source reindexing, and their interchange are constructed.
+-- Source reindexing uses the existing displayed section; this is not an
+-- independent naturality theorem for a glued CwF before initiality.
+level l ;
+open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
+open Syntax[l] ; open SynLemmas[l] ; open Subst[l] ; open Presup[l] ; open ExtFilter[l] ; open Domain[l] ;
+module R = SyntacticSubstitutions[l] ; module S = Sem[l] ; module Raw = Filter[l] ; module Soundness = Sound[l] ;
+module FE = Axioms[l].FunExtLemmas[fe @l] ;
+record Point {
+  source : R.Context ; test : R.Context ;
+  rho : S.Env source.length ; fits : Soundness.Fits source.length source.types rho ;
+  left : R.Arrow[test,source] ; right : R.Arrow[test,source] ;
+  related (Theta : R.Context) (u : R.Arrow[Theta,test]) :
+    IndependentRelationSubstitutions[l].At[Theta.length,Theta.types].Related[
+      source.length,source.types,rho,(R.compose Theta test source left u).terms,(R.compose Theta test source right u).terms] ;
+} ;
+module Realise (G D : R.Context) (p : Point[G,D]) (Theta : R.Context) (u : R.Arrow[Theta,D]) {
+  module Glue = ScottGlueing[l].At[Theta.length,Theta.types,Theta.wellformed] ;
+  point : Glue.Point[G.length,G.types] = new Glue.Point[G.length,G.types,p.rho,p.fits,
+    (R.compose Theta D G p.left u).terms,(R.compose Theta D G p.right u).terms,p.related Theta u] ;
+} ;
+module Move (G D : R.Context) (rho : S.Env G.length)
+  (s s' t t' : Fin G.length -> Tm D.length)
+  (es : (i : Fin G.length) -> Id (Tm D.length) (s i) (t i))
+  (es' : (i : Fin G.length) -> Id (Tm D.length) (s' i) (t' i)) {
+  module RS = IndependentRelationSubstitutions[l].At[D.length,D.types] ;
+  result (r : RS.Related[G.length,G.types,rho,s,s']) : RS.Related[G.length,G.types,rho,t,t'] =
+    subst (Fin G.length -> Tm D.length) (\ a -> RS.Related[G.length,G.types,rho,t,a]) s' t'
+      (FE.funext (Fin G.length) (\ _ -> Tm D.length) s' t' es')
+      (subst (Fin G.length -> Tm D.length) (\ a -> RS.Related[G.length,G.types,rho,a,s']) s t
+        (FE.funext (Fin G.length) (\ _ -> Tm D.length) s t es) r) ;
+} ;
+module Restrict (G D E : R.Context) (v : R.Arrow[E,D]) (p : Point[G,D]) {
+  left : R.Arrow[E,G] = R.compose E D G p.left v ;
+  right : R.Arrow[E,G] = R.compose E D G p.right v ;
+  module At (Theta : R.Context) (u : R.Arrow[Theta,E]) {
+    original : R.Arrow[Theta,D] = R.compose Theta E D v u ;
+    module Transport = Move[G,Theta,p.rho,
+      (R.compose Theta D G p.left original).terms,(R.compose Theta D G p.right original).terms,
+      (R.compose Theta E G left u).terms,(R.compose Theta E G right u).terms,
+      \ i -> sym (Tm Theta.length)
+        (Sub.trav E.length (Sub.trav D.length (p.left.terms i) E.length v.terms) Theta.length u.terms)
+        (Sub.trav D.length (p.left.terms i) Theta.length original.terms)
+        (sub-sub D.length (p.left.terms i) E.length v.terms Theta.length u.terms),
+      \ i -> sym (Tm Theta.length)
+        (Sub.trav E.length (Sub.trav D.length (p.right.terms i) E.length v.terms) Theta.length u.terms)
+        (Sub.trav D.length (p.right.terms i) Theta.length original.terms)
+        (sub-sub D.length (p.right.terms i) E.length v.terms Theta.length u.terms)] ;
+  } ;
+  point : Point[G,E] = new Point[G,E,p.rho,p.fits,left,right,
+    \ Theta u -> At[Theta,u].Transport.result (p.related Theta (R.compose Theta E D v u))] ;
+} ;
+module Reindex (G H D : R.Context) (t : R.Arrow[G,H]) (p : Point[G,D]) {
+  rho : S.Env H.length = S.SS.senv H.length G.length t.terms p.rho ;
+  fits : Soundness.Fits H.length H.types rho = ScottGlueingSubstitution[l].fits-substitution H.length H.types H.wellformed
+    G.length G.types G.wellformed t.terms t.typed p.rho p.fits ;
+  left : R.Arrow[D,H] = R.compose D G H t p.left ;
+  right : R.Arrow[D,H] = R.compose D G H t p.right ;
+  module At (Theta : R.Context) (u : R.Arrow[Theta,D]) {
+    module Input = Realise[G,D,p,Theta,u] ;
+    module Output = ScottGlueingSubstitution[l].At[Theta.length,Theta.types,Theta.wellformed].Reindex[
+      H.length,H.types,H.wellformed,G.length,G.types,G.wellformed,t.terms,t.typed,Input.point] ;
+    module Transport = Move[H,Theta,rho,Output.left,Output.right,
+      (R.compose Theta D H left u).terms,(R.compose Theta D H right u).terms,
+      \ i -> sym (Tm Theta.length)
+        (Sub.trav D.length (Sub.trav G.length (t.terms i) D.length p.left.terms) Theta.length u.terms)
+        (Sub.trav G.length (t.terms i) Theta.length (R.compose Theta D G p.left u).terms)
+        (sub-sub G.length (t.terms i) D.length p.left.terms Theta.length u.terms),
+      \ i -> sym (Tm Theta.length)
+        (Sub.trav D.length (Sub.trav G.length (t.terms i) D.length p.right.terms) Theta.length u.terms)
+        (Sub.trav G.length (t.terms i) Theta.length (R.compose Theta D G p.right u).terms)
+        (sub-sub G.length (t.terms i) D.length p.right.terms Theta.length u.terms)] ;
+  } ;
+  point : Point[H,D] = new Point[H,D,rho,fits,left,right,\ Theta u -> At[Theta,u].Transport.result At[Theta,u].Output.related] ;
+} ;
+Equality (G D : R.Context) (p q : Point[G,D]) : U l =
+  S.EnvEq G.length p.rho q.rho * (R.Equality D G p.left q.left * R.Equality D G p.right q.right) ;
+reflexive (G D : R.Context) (p : Point[G,D]) : Equality G D p p =
+  (\ i -> Raw.feq-refl (p.rho i),(R.reflexive D G p.left,R.reflexive D G p.right)) ;
+symmetric (G D : R.Context) (p q : Point[G,D]) (e : Equality G D p q) : Equality G D q p =
+  (\ i -> Raw.feq-sym (p.rho i) (q.rho i) (e.1 i),
+    (R.symmetric D G p.left q.left e.2.1,R.symmetric D G p.right q.right e.2.2)) ;
+transitive (G D : R.Context) (p q r : Point[G,D]) (e : Equality G D p q) (f : Equality G D q r) : Equality G D p r =
+  (\ i -> Raw.feq-trans (p.rho i) (q.rho i) (r.rho i) (e.1 i) (f.1 i),
+    (R.transitive D G p.left q.left r.left e.2.1 f.2.1,R.transitive D G p.right q.right r.right e.2.2 f.2.2)) ;
+restrict-identity (G D : R.Context) (p : Point[G,D]) : Equality G D Restrict[G,D,D,R.identity D,p].point p =
+  (\ i -> Raw.feq-refl (p.rho i),(R.unit-right D G p.left,R.unit-right D G p.right)) ;
+restrict-composition (G D E T : R.Context) (v : R.Arrow[E,D]) (u : R.Arrow[T,E]) (p : Point[G,D]) :
+  Equality G T Restrict[G,D,T,R.compose T E D v u,p].point Restrict[G,E,T,u,Restrict[G,D,E,v,p].point].point =
+  (\ i -> Raw.feq-refl (p.rho i),(R.associative T E D G p.left v u,R.associative T E D G p.right v u)) ;
+reindex-identity (G D : R.Context) (p : Point[G,D]) : Equality G D Reindex[G,G,D,R.identity G,p].point p =
+  (\ i -> S.sem-var-eq G.length i p.rho,(R.unit-left D G p.left,R.unit-left D G p.right)) ;
+reindex-composition (G H K D : R.Context) (s : R.Arrow[H,K]) (t : R.Arrow[G,H]) (p : Point[G,D]) :
+  Equality K D Reindex[G,K,D,R.compose G H K s t,p].point Reindex[H,K,D,s,Reindex[G,H,D,t,p].point].point =
+  (\ i -> S.SS.trav-sem H.length (s.terms i) G.length t.terms p.rho,
+    (R.symmetric D K (R.compose D H K s (R.compose D G H t p.left))
+      (R.compose D G K (R.compose G H K s t) p.left) (R.associative D G H K s t p.left),
+     R.symmetric D K (R.compose D H K s (R.compose D G H t p.right))
+      (R.compose D G K (R.compose G H K s t) p.right) (R.associative D G H K s t p.right))) ;
+interchange (G H D E : R.Context) (t : R.Arrow[G,H]) (v : R.Arrow[E,D]) (p : Point[G,D]) :
+  Equality H E Reindex[G,H,E,t,Restrict[G,D,E,v,p].point].point Restrict[H,D,E,v,Reindex[G,H,D,t,p].point].point =
+  (\ i -> Raw.feq-refl (S.sem G.length (t.terms i) p.rho),
+    (R.associative E D G H t p.left v,R.associative E D G H t p.right v)) ;
+module Interpretation (G : R.Context) (M N A : Tm G.length) (d : Der G.length (jeq G.types M N A))
+  (D : R.Context) (p : Point[G,D]) (Theta : R.Context) (u : R.Arrow[Theta,D]) {
+  module Here = Realise[G,D,p,Theta,u] ;
+  module Glue = ScottGlueing[l].At[Theta.length,Theta.types,Theta.wellformed] ;
+  module RS = IndependentRelationSubstitutions[l].At[Theta.length,Theta.types] ;
+  result : RS.Term (S.sem G.length M p.rho)
+    (Sub.trav G.length A Theta.length (R.compose Theta D G p.left u).terms)
+    (Sub.trav G.length M Theta.length (R.compose Theta D G p.left u).terms)
+    (Sub.trav G.length N Theta.length (R.compose Theta D G p.right u).terms) *
+    RS.Term (S.sem G.length M p.rho)
+    (Sub.trav G.length A Theta.length (R.compose Theta D G p.right u).terms)
+    (Sub.trav G.length M Theta.length (R.compose Theta D G p.left u).terms)
+    (Sub.trav G.length N Theta.length (R.compose Theta D G p.right u).terms) =
+    Glue.at-point G.length G.types M N A d Here.point ;
+} ;
+
+-- Explicit hereditary points at bottom: the preceding constructions are
+-- inhabited, including for the identity substitution of every context.
+bottom-env : (n : Nat) -> S.Env n = split {
+  zero -> \ i -> Prelude[l+].absurd Raw.Filt i ;
+  suc n | rho -> S.extE n rho (Raw.prin om) } ;
+bottom-entry : (n : Nat) -> (i : Fin n) -> Raw.Incl (bottom-env n i) (Raw.prin om) = split {
+  zero -> \ i -> efq i ;
+  suc n | ih -> split { none -> Raw.incl-refl (Raw.prin om) ; some i -> ih i } } ;
+module BottomExtend (n : Nat) (G : Ctx n) (A : Tm n) (dA : Der n (jty G A (uu n))) (fits : Soundness.Fits n G (bottom-env n))
+  {
+  hA : Soundness.TyU (S.sem n A (bottom-env n)) =
+    Soundness.tyu-of n A (bottom-env n) (Soundness.soundness-ty n G A (uu n) dA (bottom-env n) fits) ;
+  result : Soundness.Fits (suc n) (ext n G A) (bottom-env (suc n)) =
+    Soundness.fits-ext n G A (bottom-env n) om fits hA
+      (new Raw.TyInR[S.sem n A (bottom-env n),om,om,(S.sem n A (bottom-env n)).fom,tp-omom]) ;
+} ;
+bottom-fits : (n : Nat) -> (G : Ctx n) -> Der n (jwf G) -> Soundness.Fits n G (bottom-env n) = split {
+  zero -> \ G wg -> tt ;
+  suc n | ih -> \ G wg -> BottomExtend[n,G.1,G.2,wf-inv (suc n) (jwf G) wg,
+    ih G.1 (wf-of n (jty G.1 G.2 (uu n)) (wf-inv (suc n) (jwf G) wg))].result } ;
+
+module Bottom (G D : R.Context) (s : R.Arrow[D,G]) {
+  rho : S.Env G.length = bottom-env G.length ;
+  module At (Theta : R.Context) (u : R.Arrow[Theta,D]) {
+    module I = IndependentLogicalRelation[l].At[Theta.length,Theta.types] ;
+    module RS = IndependentRelationSubstitutions[l].At[Theta.length,Theta.types] ;
+    substitution : R.Arrow[Theta,G] = R.compose Theta D G s u ;
+    variable (i : Fin G.length) : RS.Term (rho i)
+      (Sub.trav G.length (lookup G.length G.types i) Theta.length substitution.terms)
+      (substitution.terms i) (substitution.terms i) = \ k hk ->
+      (I.relation.tm (Sub.trav G.length (lookup G.length G.types i) Theta.length substitution.terms)
+        (substitution.terms i) (substitution.terms i)).lower (principal k) bottom
+        (prin-anti om k.1 (bottom-entry G.length i k.1 hk))
+        (I.strict.2 (Sub.trav G.length (lookup G.length G.types i) Theta.length substitution.terms)
+          (substitution.terms i) (substitution.terms i)) ;
+    related : RS.Related[G.length,G.types,rho,substitution.terms,substitution.terms] =
+      new RS.Related[G.length,G.types,rho,substitution.terms,substitution.terms,
+        substitution.typed,substitution.typed,R.reflexive Theta G substitution,R.reflexive Theta G substitution,
+        \ i -> (variable i,variable i)] ;
+  } ;
+  point : Point[G,D] = new Point[G,D,rho,bottom-fits G.length G.types G.wellformed,s,s,
+    \ Theta u -> At[Theta,u].related] ;
+} ;

@@ -1,0 +1,245 @@
+-- A displayed rule algebra over the judgemental syntax, and its total algebra.
+-- This is the derivation-level interface: no quotient CwF or arbitrary-model
+-- Artin glueing is assumed. Decorations can live in a separate universe.
+-- The section is constructed here, independently of any logical relation.
+level l k ;
+open Base ; open Syntax[l] ;
+record Model {
+  judgement (n : Nat) (J : Jf n) : U k ;
+  on-wf-emp  : judgement zero (jwf tt) ;
+  on-wf-ext (n : Nat) (G : Ctx n) (A : Tm n) (h : Der n (jty G A (uu n))) (r-h : judgement n (jty G A (uu n))) :
+    judgement (suc n) (jwf (ext n G A)) ;
+  on-ty-var (n : Nat) (G : Ctx n) (i : Fin n) (h : Der n (jwf G)) (r-h : judgement n (jwf G)) : judgement n (jty G (var
+    n i) (lookup n G i)) ;
+  on-ty-conv (n : Nat) (G : Ctx n) (M A B : Tm n) (h1 : Der n (jty G M A)) (h2 : Der n (jeq G A B (uu n))) (h3 : Der n
+    (jty G B (uu n))) (r-h1 : judgement n (jty G M A)) (r-h2 : judgement n (jeq G A B (uu n))) (r-h3 : judgement n (jty
+    G B (uu n))) : judgement n (jty G M B) ;
+  on-ty-U (n : Nat) (G : Ctx n) (h : Der n (jwf G)) (r-h : judgement n (jwf G)) : judgement n (jty G (uu n) (uu n)) ;
+  on-ty-Pi (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc n) (jty (ext n
+    G A) B (uu (suc n)))) (r-h1 : judgement n (jty G A (uu n))) (r-h2 : judgement (suc n) (jty (ext n G A) B (uu (suc
+    n)))) : judgement n (jty G (pp n A B) (uu n)) ;
+  on-ty-Lam (n : Nat) (G : Ctx n) (A : Tm n) (B M : Tm (suc n)) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc n) (jty
+    (ext n G A) B (uu (suc n)))) (h3 : Der (suc n) (jty (ext n G A) M B)) (r-h1 : judgement n (jty G A (uu n))) (r-h2 :
+    judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (r-h3 : judgement (suc n) (jty (ext n G A) M B)) : judgement n
+    (jty G (lam n A M) (pp n A B)) ;
+  on-ty-App (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f a : Tm n) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc
+    n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der n (jty G f (pp n A B))) (h4 : Der n (jty G a A)) (r-h1 : judgement n
+    (jty G A (uu n))) (r-h2 : judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (r-h3 : judgement n (jty G f (pp n A
+    B))) (r-h4 : judgement n (jty G a A)) : judgement n (jty G (app n f a) (subst1 n B a)) ;
+  on-eq-refl (n : Nat) (G : Ctx n) (M A : Tm n) (h : Der n (jty G M A)) (r-h : judgement n (jty G M A)) : judgement n
+    (jeq G M M A) ;
+  on-eq-sym (n : Nat) (G : Ctx n) (M N A : Tm n) (h : Der n (jeq G M N A)) (r-h : judgement n (jeq G M N A)) : judgement
+    n (jeq G N M A) ;
+  on-eq-trans (n : Nat) (G : Ctx n) (M N P A : Tm n) (h1 : Der n (jeq G M N A)) (h2 : Der n (jeq G N P A)) (r-h1 :
+    judgement n (jeq G M N A)) (r-h2 : judgement n (jeq G N P A)) : judgement n (jeq G M P A) ;
+  on-eq-conv (n : Nat) (G : Ctx n) (M N A B : Tm n) (h1 : Der n (jeq G M N A)) (h2 : Der n (jeq G A B (uu n))) (h3 : Der
+    n (jty G B (uu n))) (r-h1 : judgement n (jeq G M N A)) (r-h2 : judgement n (jeq G A B (uu n))) (r-h3 : judgement n
+    (jty G B (uu n))) : judgement n (jeq G M N B) ;
+  on-eq-beta (n : Nat) (G : Ctx n) (A : Tm n) (B M : Tm (suc n)) (a : Tm n) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc
+    n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der (suc n) (jty (ext n G A) M B)) (h4 : Der n (jty G a A)) (r-h1 :
+    judgement n (jty G A (uu n))) (r-h2 : judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (r-h3 : judgement (suc n)
+    (jty (ext n G A) M B)) (r-h4 : judgement n (jty G a A)) : judgement n (jeq G (app n (lam n A M) a) (subst1 n M a)
+    (subst1 n B a)) ;
+  on-eq-Pi (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc n) (jty
+    (ext n G A) B (uu (suc n)))) (h3 : Der (suc n) (jty (ext n G A) B' (uu (suc n)))) (h4 : Der n (jeq G A A' (uu n)))
+    (h5 : Der (suc n) (jeq (ext n G A) B B' (uu (suc n)))) (r-h1 : judgement n (jty G A (uu n))) (r-h2 : judgement (suc
+    n) (jty (ext n G A) B (uu (suc n)))) (r-h3 : judgement (suc n) (jty (ext n G A) B' (uu (suc n)))) (r-h4 : judgement
+    n (jeq G A A' (uu n))) (r-h5 : judgement (suc n) (jeq (ext n G A) B B' (uu (suc n)))) : judgement n (jeq G (pp n A
+    B) (pp n A' B') (uu n)) ;
+  on-eq-funext (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f g : Tm n) (h1 : Der n (jty G A (uu n))) (h2 : Der
+    (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B))
+    (h3 : Der n (jty G f (pp n A B))) (h4 : Der n (jty G g (pp n A B))) (r-h1 : judgement n (jty G A (uu n))) (r-h2 :
+    judgement (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n)
+    (fz n))) B)) (r-h3 : judgement n (jty G f (pp n A B))) (r-h4 : judgement n (jty G g (pp n A B))) : judgement n (jeq
+    G f g (pp n A B)) ;
+  on-eq-app-fun (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f f' a : Tm n) (h1 : Der n (jty G A (uu n))) (h2 :
+    Der (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der n (jeq G f f' (pp n A B))) (h4 : Der n (jty G a A)) (r-h1 :
+    judgement n (jty G A (uu n))) (r-h2 : judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (r-h3 : judgement n (jeq G
+    f f' (pp n A B))) (r-h4 : judgement n (jty G a A)) : judgement n (jeq G (app n f a) (app n f' a) (subst1 n B a)) ;
+  on-eq-app-arg (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f a a' : Tm n) (h1 : Der n (jty G A (uu n))) (h2 :
+    Der (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der n (jty G f (pp n A B))) (h4 : Der n (jeq G a a' A)) (r-h1 :
+    judgement n (jty G A (uu n))) (r-h2 : judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (r-h3 : judgement n (jty G
+    f (pp n A B))) (r-h4 : judgement n (jeq G a a' A)) : judgement n (jeq G (app n f a) (app n f a') (subst1 n B a)) ;
+} ;
+
+module Total (E : Model) {
+  Judgement (n : Nat) (J : Jf n) : U (l \/ k) = Der n J * E.judgement n J ;
+  glue-wf-emp  : Judgement zero (jwf tt) =
+    (wf-emp , E.on-wf-emp  ) ;
+  glue-wf-ext (n : Nat) (G : Ctx n) (A : Tm n) (h : Judgement n (jty G A (uu n))) : Judgement (suc n) (jwf (ext n G A))
+    =
+    (wf-ext n G A h.1, E.on-wf-ext n G A h.1 h.2) ;
+  glue-ty-var (n : Nat) (G : Ctx n) (i : Fin n) (h : Judgement n (jwf G)) : Judgement n (jty G (var n i) (lookup n G i))
+    =
+    (ty-var n G i h.1, E.on-ty-var n G i h.1 h.2) ;
+  glue-ty-conv (n : Nat) (G : Ctx n) (M A B : Tm n) (h1 : Judgement n (jty G M A)) (h2 : Judgement n (jeq G A B (uu n)))
+    (h3 : Judgement n (jty G B (uu n))) : Judgement n (jty G M B) =
+    (ty-conv n G M A B h1.1 h2.1 h3.1, E.on-ty-conv n G M A B h1.1 h2.1 h3.1 h1.2 h2.2 h3.2) ;
+  glue-ty-U (n : Nat) (G : Ctx n) (h : Judgement n (jwf G)) : Judgement n (jty G (uu n) (uu n)) =
+    (ty-U n G h.1, E.on-ty-U n G h.1 h.2) ;
+  glue-ty-Pi (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (h1 : Judgement n (jty G A (uu n))) (h2 : Judgement (suc
+    n) (jty (ext n G A) B (uu (suc n)))) : Judgement n (jty G (pp n A B) (uu n)) =
+    (ty-Pi n G A B h1.1 h2.1, E.on-ty-Pi n G A B h1.1 h2.1 h1.2 h2.2) ;
+  glue-ty-Lam (n : Nat) (G : Ctx n) (A : Tm n) (B M : Tm (suc n)) (h1 : Judgement n (jty G A (uu n))) (h2 : Judgement
+    (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Judgement (suc n) (jty (ext n G A) M B)) : Judgement n (jty G (lam n
+    A M) (pp n A B)) =
+    (ty-Lam n G A B M h1.1 h2.1 h3.1, E.on-ty-Lam n G A B M h1.1 h2.1 h3.1 h1.2 h2.2 h3.2) ;
+  glue-ty-App (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f a : Tm n) (h1 : Judgement n (jty G A (uu n))) (h2 :
+    Judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Judgement n (jty G f (pp n A B))) (h4 : Judgement n (jty G
+    a A)) : Judgement n (jty G (app n f a) (subst1 n B a)) =
+    (ty-App n G A B f a h1.1 h2.1 h3.1 h4.1, E.on-ty-App n G A B f a h1.1 h2.1 h3.1 h4.1 h1.2 h2.2 h3.2 h4.2) ;
+  glue-eq-refl (n : Nat) (G : Ctx n) (M A : Tm n) (h : Judgement n (jty G M A)) : Judgement n (jeq G M M A) =
+    (eq-refl n G M A h.1, E.on-eq-refl n G M A h.1 h.2) ;
+  glue-eq-sym (n : Nat) (G : Ctx n) (M N A : Tm n) (h : Judgement n (jeq G M N A)) : Judgement n (jeq G N M A) =
+    (eq-sym n G M N A h.1, E.on-eq-sym n G M N A h.1 h.2) ;
+  glue-eq-trans (n : Nat) (G : Ctx n) (M N P A : Tm n) (h1 : Judgement n (jeq G M N A)) (h2 : Judgement n (jeq G N P A))
+    : Judgement n (jeq G M P A) =
+    (eq-trans n G M N P A h1.1 h2.1, E.on-eq-trans n G M N P A h1.1 h2.1 h1.2 h2.2) ;
+  glue-eq-conv (n : Nat) (G : Ctx n) (M N A B : Tm n) (h1 : Judgement n (jeq G M N A)) (h2 : Judgement n (jeq G A B (uu
+    n))) (h3 : Judgement n (jty G B (uu n))) : Judgement n (jeq G M N B) =
+    (eq-conv n G M N A B h1.1 h2.1 h3.1, E.on-eq-conv n G M N A B h1.1 h2.1 h3.1 h1.2 h2.2 h3.2) ;
+  glue-eq-beta (n : Nat) (G : Ctx n) (A : Tm n) (B M : Tm (suc n)) (a : Tm n) (h1 : Judgement n (jty G A (uu n))) (h2 :
+    Judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Judgement (suc n) (jty (ext n G A) M B)) (h4 : Judgement n
+    (jty G a A)) : Judgement n (jeq G (app n (lam n A M) a) (subst1 n M a) (subst1 n B a)) =
+    (eq-beta n G A B M a h1.1 h2.1 h3.1 h4.1, E.on-eq-beta n G A B M a h1.1 h2.1 h3.1 h4.1 h1.2 h2.2 h3.2 h4.2) ;
+  glue-eq-Pi (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (h1 : Judgement n (jty G A (uu n))) (h2 : Judgement
+    (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Judgement (suc n) (jty (ext n G A) B' (uu (suc n)))) (h4 : Judgement
+    n (jeq G A A' (uu n))) (h5 : Judgement (suc n) (jeq (ext n G A) B B' (uu (suc n)))) : Judgement n (jeq G (pp n A B)
+    (pp n A' B') (uu n)) =
+    (eq-Pi n G A A' B B' h1.1 h2.1 h3.1 h4.1 h5.1, E.on-eq-Pi n G A A' B B' h1.1 h2.1 h3.1 h4.1 h5.1 h1.2 h2.2 h3.2 h4.2
+      h5.2) ;
+  glue-eq-funext (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f g : Tm n) (h1 : Judgement n (jty G A (uu n))) (h2
+    : Judgement (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n)
+    (fz n))) B)) (h3 : Judgement n (jty G f (pp n A B))) (h4 : Judgement n (jty G g (pp n A B))) : Judgement n (jeq G f
+    g (pp n A B)) =
+    (eq-funext n G A B f g h1.1 h2.1 h3.1 h4.1, E.on-eq-funext n G A B f g h1.1 h2.1 h3.1 h4.1 h1.2 h2.2 h3.2 h4.2) ;
+  glue-eq-app-fun (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f f' a : Tm n) (h1 : Judgement n (jty G A (uu n)))
+    (h2 : Judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Judgement n (jeq G f f' (pp n A B))) (h4 : Judgement
+    n (jty G a A)) : Judgement n (jeq G (app n f a) (app n f' a) (subst1 n B a)) =
+    (eq-app-fun n G A B f f' a h1.1 h2.1 h3.1 h4.1, E.on-eq-app-fun n G A B f f' a h1.1 h2.1 h3.1 h4.1 h1.2 h2.2 h3.2
+      h4.2) ;
+  glue-eq-app-arg (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f a a' : Tm n) (h1 : Judgement n (jty G A (uu n)))
+    (h2 : Judgement (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Judgement n (jty G f (pp n A B))) (h4 : Judgement n
+    (jeq G a a' A)) : Judgement n (jeq G (app n f a) (app n f a') (subst1 n B a)) =
+    (eq-app-arg n G A B f a a' h1.1 h2.1 h3.1 h4.1, E.on-eq-app-arg n G A B f a a' h1.1 h2.1 h3.1 h4.1 h1.2 h2.2 h3.2
+      h4.2) ;
+  erase (n : Nat) (J : Jf n) (d : Judgement n J) : Der n J = d.1 ;
+} ;
+
+module Section (E : Model) {
+  module T = Total[E] ;
+  decoration : (n : Nat) -> (J : Jf n) -> Der n J -> E.judgement n J = split {
+    wf-emp -> E.on-wf-emp   ;
+    wf-ext n G A h | r-h -> E.on-wf-ext n G A h r-h ;
+    ty-var n G i h | r-h -> E.on-ty-var n G i h r-h ;
+    ty-conv n G M A B h1 h2 h3 | r-h1 r-h2 r-h3 -> E.on-ty-conv n G M A B h1 h2 h3 r-h1 r-h2 r-h3 ;
+    ty-U n G h | r-h -> E.on-ty-U n G h r-h ;
+    ty-Pi n G A B h1 h2 | r-h1 r-h2 -> E.on-ty-Pi n G A B h1 h2 r-h1 r-h2 ;
+    ty-Lam n G A B M h1 h2 h3 | r-h1 r-h2 r-h3 -> E.on-ty-Lam n G A B M h1 h2 h3 r-h1 r-h2 r-h3 ;
+    ty-App n G A B f a h1 h2 h3 h4 | r-h1 r-h2 r-h3 r-h4 -> E.on-ty-App n G A B f a h1 h2 h3 h4 r-h1 r-h2 r-h3 r-h4 ;
+    eq-refl n G M A h | r-h -> E.on-eq-refl n G M A h r-h ;
+    eq-sym n G M N A h | r-h -> E.on-eq-sym n G M N A h r-h ;
+    eq-trans n G M N P A h1 h2 | r-h1 r-h2 -> E.on-eq-trans n G M N P A h1 h2 r-h1 r-h2 ;
+    eq-conv n G M N A B h1 h2 h3 | r-h1 r-h2 r-h3 -> E.on-eq-conv n G M N A B h1 h2 h3 r-h1 r-h2 r-h3 ;
+    eq-beta n G A B M a h1 h2 h3 h4 | r-h1 r-h2 r-h3 r-h4 -> E.on-eq-beta n G A B M a h1 h2 h3 h4 r-h1 r-h2 r-h3 r-h4 ;
+    eq-Pi n G A A' B B' h1 h2 h3 h4 h5 | r-h1 r-h2 r-h3 r-h4 r-h5 -> E.on-eq-Pi n G A A' B B' h1 h2 h3 h4 h5 r-h1 r-h2
+      r-h3 r-h4 r-h5 ;
+    eq-funext n G A B f g h1 h2 h3 h4 | r-h1 r-h2 r-h3 r-h4 -> E.on-eq-funext n G A B f g h1 h2 h3 h4 r-h1 r-h2 r-h3
+      r-h4 ;
+    eq-app-fun n G A B f f' a h1 h2 h3 h4 | r-h1 r-h2 r-h3 r-h4 -> E.on-eq-app-fun n G A B f f' a h1 h2 h3 h4 r-h1 r-h2
+      r-h3 r-h4 ;
+    eq-app-arg n G A B f a a' h1 h2 h3 h4 | r-h1 r-h2 r-h3 r-h4 -> E.on-eq-app-arg n G A B f a a' h1 h2 h3 h4 r-h1 r-h2
+      r-h3 r-h4 } ;
+  lift (n : Nat) (J : Jf n) (d : Der n J) : T.Judgement n J = (d,decoration n J d) ;
+  section (n : Nat) (J : Jf n) (d : Der n J) : Id (Der n J) (T.erase n J (lift n J d)) d = refl d ;
+  -- Constructor preservation: the section is a homomorphism of rule algebras.
+  preserves-wf-emp  :
+    Id (T.Judgement zero (jwf tt)) (lift zero (jwf tt) (wf-emp)) (T.glue-wf-emp ) =
+    refl (lift zero (jwf tt) (wf-emp)) ;
+  preserves-wf-ext (n : Nat) (G : Ctx n) (A : Tm n) (h : Der n (jty G A (uu n))) :
+    Id (T.Judgement (suc n) (jwf (ext n G A))) (lift (suc n) (jwf (ext n G A)) (wf-ext n G A h)) (T.glue-wf-ext n G A
+      (lift n (jty G A (uu n)) h)) =
+    refl (lift (suc n) (jwf (ext n G A)) (wf-ext n G A h)) ;
+  preserves-ty-var (n : Nat) (G : Ctx n) (i : Fin n) (h : Der n (jwf G)) :
+    Id (T.Judgement n (jty G (var n i) (lookup n G i))) (lift n (jty G (var n i) (lookup n G i)) (ty-var n G i h))
+      (T.glue-ty-var n G i (lift n (jwf G) h)) =
+    refl (lift n (jty G (var n i) (lookup n G i)) (ty-var n G i h)) ;
+  preserves-ty-conv (n : Nat) (G : Ctx n) (M A B : Tm n) (h1 : Der n (jty G M A)) (h2 : Der n (jeq G A B (uu n))) (h3 :
+    Der n (jty G B (uu n))) :
+    Id (T.Judgement n (jty G M B)) (lift n (jty G M B) (ty-conv n G M A B h1 h2 h3)) (T.glue-ty-conv n G M A B (lift n
+      (jty G M A) h1) (lift n (jeq G A B (uu n)) h2) (lift n (jty G B (uu n)) h3)) =
+    refl (lift n (jty G M B) (ty-conv n G M A B h1 h2 h3)) ;
+  preserves-ty-U (n : Nat) (G : Ctx n) (h : Der n (jwf G)) :
+    Id (T.Judgement n (jty G (uu n) (uu n))) (lift n (jty G (uu n) (uu n)) (ty-U n G h)) (T.glue-ty-U n G (lift n (jwf
+      G) h)) =
+    refl (lift n (jty G (uu n) (uu n)) (ty-U n G h)) ;
+  preserves-ty-Pi (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc n) (jty
+    (ext n G A) B (uu (suc n)))) :
+    Id (T.Judgement n (jty G (pp n A B) (uu n))) (lift n (jty G (pp n A B) (uu n)) (ty-Pi n G A B h1 h2)) (T.glue-ty-Pi
+      n G A B (lift n (jty G A (uu n)) h1) (lift (suc n) (jty (ext n G A) B (uu (suc n))) h2)) =
+    refl (lift n (jty G (pp n A B) (uu n)) (ty-Pi n G A B h1 h2)) ;
+  preserves-ty-Lam (n : Nat) (G : Ctx n) (A : Tm n) (B M : Tm (suc n)) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc n)
+    (jty (ext n G A) B (uu (suc n)))) (h3 : Der (suc n) (jty (ext n G A) M B)) :
+    Id (T.Judgement n (jty G (lam n A M) (pp n A B))) (lift n (jty G (lam n A M) (pp n A B)) (ty-Lam n G A B M h1 h2
+      h3)) (T.glue-ty-Lam n G A B M (lift n (jty G A (uu n)) h1) (lift (suc n) (jty (ext n G A) B (uu (suc n))) h2)
+      (lift (suc n) (jty (ext n G A) M B) h3)) =
+    refl (lift n (jty G (lam n A M) (pp n A B)) (ty-Lam n G A B M h1 h2 h3)) ;
+  preserves-ty-App (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f a : Tm n) (h1 : Der n (jty G A (uu n))) (h2 :
+    Der (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der n (jty G f (pp n A B))) (h4 : Der n (jty G a A)) :
+    Id (T.Judgement n (jty G (app n f a) (subst1 n B a))) (lift n (jty G (app n f a) (subst1 n B a)) (ty-App n G A B f a
+      h1 h2 h3 h4)) (T.glue-ty-App n G A B f a (lift n (jty G A (uu n)) h1) (lift (suc n) (jty (ext n G A) B (uu (suc
+      n))) h2) (lift n (jty G f (pp n A B)) h3) (lift n (jty G a A) h4)) =
+    refl (lift n (jty G (app n f a) (subst1 n B a)) (ty-App n G A B f a h1 h2 h3 h4)) ;
+  preserves-eq-refl (n : Nat) (G : Ctx n) (M A : Tm n) (h : Der n (jty G M A)) :
+    Id (T.Judgement n (jeq G M M A)) (lift n (jeq G M M A) (eq-refl n G M A h)) (T.glue-eq-refl n G M A (lift n (jty G M
+      A) h)) =
+    refl (lift n (jeq G M M A) (eq-refl n G M A h)) ;
+  preserves-eq-sym (n : Nat) (G : Ctx n) (M N A : Tm n) (h : Der n (jeq G M N A)) :
+    Id (T.Judgement n (jeq G N M A)) (lift n (jeq G N M A) (eq-sym n G M N A h)) (T.glue-eq-sym n G M N A (lift n (jeq G
+      M N A) h)) =
+    refl (lift n (jeq G N M A) (eq-sym n G M N A h)) ;
+  preserves-eq-trans (n : Nat) (G : Ctx n) (M N P A : Tm n) (h1 : Der n (jeq G M N A)) (h2 : Der n (jeq G N P A)) :
+    Id (T.Judgement n (jeq G M P A)) (lift n (jeq G M P A) (eq-trans n G M N P A h1 h2)) (T.glue-eq-trans n G M N P A
+      (lift n (jeq G M N A) h1) (lift n (jeq G N P A) h2)) =
+    refl (lift n (jeq G M P A) (eq-trans n G M N P A h1 h2)) ;
+  preserves-eq-conv (n : Nat) (G : Ctx n) (M N A B : Tm n) (h1 : Der n (jeq G M N A)) (h2 : Der n (jeq G A B (uu n)))
+    (h3 : Der n (jty G B (uu n))) :
+    Id (T.Judgement n (jeq G M N B)) (lift n (jeq G M N B) (eq-conv n G M N A B h1 h2 h3)) (T.glue-eq-conv n G M N A B
+      (lift n (jeq G M N A) h1) (lift n (jeq G A B (uu n)) h2) (lift n (jty G B (uu n)) h3)) =
+    refl (lift n (jeq G M N B) (eq-conv n G M N A B h1 h2 h3)) ;
+  preserves-eq-beta (n : Nat) (G : Ctx n) (A : Tm n) (B M : Tm (suc n)) (a : Tm n) (h1 : Der n (jty G A (uu n))) (h2 :
+    Der (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der (suc n) (jty (ext n G A) M B)) (h4 : Der n (jty G a A)) :
+    Id (T.Judgement n (jeq G (app n (lam n A M) a) (subst1 n M a) (subst1 n B a))) (lift n (jeq G (app n (lam n A M) a)
+      (subst1 n M a) (subst1 n B a)) (eq-beta n G A B M a h1 h2 h3 h4)) (T.glue-eq-beta n G A B M a (lift n (jty G A (uu
+      n)) h1) (lift (suc n) (jty (ext n G A) B (uu (suc n))) h2) (lift (suc n) (jty (ext n G A) M B) h3) (lift n (jty G
+      a A) h4)) =
+    refl (lift n (jeq G (app n (lam n A M) a) (subst1 n M a) (subst1 n B a)) (eq-beta n G A B M a h1 h2 h3 h4)) ;
+  preserves-eq-Pi (n : Nat) (G : Ctx n) (A A' : Tm n) (B B' : Tm (suc n)) (h1 : Der n (jty G A (uu n))) (h2 : Der (suc
+    n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der (suc n) (jty (ext n G A) B' (uu (suc n)))) (h4 : Der n (jeq G A A'
+    (uu n))) (h5 : Der (suc n) (jeq (ext n G A) B B' (uu (suc n)))) :
+    Id (T.Judgement n (jeq G (pp n A B) (pp n A' B') (uu n))) (lift n (jeq G (pp n A B) (pp n A' B') (uu n)) (eq-Pi n G
+      A A' B B' h1 h2 h3 h4 h5)) (T.glue-eq-Pi n G A A' B B' (lift n (jty G A (uu n)) h1) (lift (suc n) (jty (ext n G A)
+      B (uu (suc n))) h2) (lift (suc n) (jty (ext n G A) B' (uu (suc n))) h3) (lift n (jeq G A A' (uu n)) h4) (lift (suc
+      n) (jeq (ext n G A) B B' (uu (suc n))) h5)) =
+    refl (lift n (jeq G (pp n A B) (pp n A' B') (uu n)) (eq-Pi n G A A' B B' h1 h2 h3 h4 h5)) ;
+  preserves-eq-funext (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f g : Tm n) (h1 : Der n (jty G A (uu n))) (h2 :
+    Der (suc n) (jeq (ext n G A) (app (suc n) (wk n f) (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n)))
+    B)) (h3 : Der n (jty G f (pp n A B))) (h4 : Der n (jty G g (pp n A B))) :
+    Id (T.Judgement n (jeq G f g (pp n A B))) (lift n (jeq G f g (pp n A B)) (eq-funext n G A B f g h1 h2 h3 h4))
+      (T.glue-eq-funext n G A B f g (lift n (jty G A (uu n)) h1) (lift (suc n) (jeq (ext n G A) (app (suc n) (wk n f)
+      (var (suc n) (fz n))) (app (suc n) (wk n g) (var (suc n) (fz n))) B) h2) (lift n (jty G f (pp n A B)) h3) (lift n
+      (jty G g (pp n A B)) h4)) =
+    refl (lift n (jeq G f g (pp n A B)) (eq-funext n G A B f g h1 h2 h3 h4)) ;
+  preserves-eq-app-fun (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f f' a : Tm n) (h1 : Der n (jty G A (uu n)))
+    (h2 : Der (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der n (jeq G f f' (pp n A B))) (h4 : Der n (jty G a A)) :
+    Id (T.Judgement n (jeq G (app n f a) (app n f' a) (subst1 n B a))) (lift n (jeq G (app n f a) (app n f' a) (subst1 n
+      B a)) (eq-app-fun n G A B f f' a h1 h2 h3 h4)) (T.glue-eq-app-fun n G A B f f' a (lift n (jty G A (uu n)) h1)
+      (lift (suc n) (jty (ext n G A) B (uu (suc n))) h2) (lift n (jeq G f f' (pp n A B)) h3) (lift n (jty G a A) h4)) =
+    refl (lift n (jeq G (app n f a) (app n f' a) (subst1 n B a)) (eq-app-fun n G A B f f' a h1 h2 h3 h4)) ;
+  preserves-eq-app-arg (n : Nat) (G : Ctx n) (A : Tm n) (B : Tm (suc n)) (f a a' : Tm n) (h1 : Der n (jty G A (uu n)))
+    (h2 : Der (suc n) (jty (ext n G A) B (uu (suc n)))) (h3 : Der n (jty G f (pp n A B))) (h4 : Der n (jeq G a a' A)) :
+    Id (T.Judgement n (jeq G (app n f a) (app n f a') (subst1 n B a))) (lift n (jeq G (app n f a) (app n f a') (subst1 n
+      B a)) (eq-app-arg n G A B f a a' h1 h2 h3 h4)) (T.glue-eq-app-arg n G A B f a a' (lift n (jty G A (uu n)) h1)
+      (lift (suc n) (jty (ext n G A) B (uu (suc n))) h2) (lift n (jty G f (pp n A B)) h3) (lift n (jeq G a a' A) h4)) =
+    refl (lift n (jeq G (app n f a) (app n f a') (subst1 n B a)) (eq-app-arg n G A B f a a' h1 h2 h3 h4)) ;
+} ;

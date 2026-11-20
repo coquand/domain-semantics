@@ -1,0 +1,195 @@
+Pi-injectivity via a displayed logical-relation section
+======================================================
+
+Agreed status
+-------------
+
+Independent Pi-injectivity via a displayed logical-relation section is
+formalised. The Artin-glued model formulation is not pursued further;
+see "Verdict on the glued-model route" below.
+
+This is the existing Coquand-Huber reducibility argument, organised as a
+displayed algebra over derivations and its section. It is a re-checked,
+modular presentation, not a new proof: ScottGlueingInversion follows
+IndependentInversion step for step (bottom environment, identity
+substitutions, observation pi(om,om), DerivationRecovery). What is new is
+that the induction is the generic DisplayedSyntax section, and that the
+assembled IndependentFundamental module is not imported.
+
+The checked inversion does not use the comma category, an already
+assembled fundamental lemma, or an existing syntactic Pi-inversion theorem.
+It uses the independent strict lower admissible fixed point, the individual
+typed rule proofs, a displayed section constructed by derivation induction,
+and the compact observation pi(om,om). DerivationRecovery converts the
+resulting mere component equalities into actual derivations.
+
+The comparison with CANONICITY/cocan.pdf is a proposed algebraic
+reformulation. We have not constructed its full dependent glued model,
+lifted Pi and U:U to that model, or obtained its section by CwF initiality.
+The generic initiality result below concerns the free derivation algebra.
+
+Checked inversion architecture
+------------------------------
+
+DisplayedSyntax.seg defines a displayed algebra over the 17 constructors
+of Der, independently of any domain or logical relation. The total algebra
+pairs a derivation with its decoration. Section.lift supplies a section of
+erasure, and the preserves-* declarations prove constructor preservation.
+DisplayedSyntaxInitiality.seg proves pointwise uniqueness among such
+constructor-preserving sections. It does not identify distinct derivations
+of a judgement or prove initiality of a quotient syntactic CwF.
+
+ScottGlueing.seg instantiates that displayed algebra using the independent
+admissible relation. The individual IndependentFundamental* rule modules
+supply its operations; IndependentFundamental itself is absent from the
+standalone check. ScottGlueing.typing, equality and at-point expose the
+resulting section. The legacy filename does not mean that a type-theoretic
+Artin glueing construction has been completed.
+
+ScottGlueingSubstitution.seg proves the action on fitting related
+environments, identity/composition on their projections, and binder
+extension. SyntacticSubstitutions.seg supplies the required purely
+syntactic substitution laws.
+
+ScottGlueingInversion.seg constructs a fitting bottom environment with
+related identity substitutions. Applying the section to a product equality
+and observing pi(om,om) gives the component equalities. Its pi-injectivity
+accepts any classifier T and returns actual derivations of
+
+    G |- A = A' : U
+    G,A |- B = B' : U.
+
+ScottGlueingKripke.seg defines hereditary points, requiring relatedness
+after every typed change of test context. It constructs restriction,
+source reindexing, their identity/composition laws, and interchange.
+ScottGlueingKripkeInversion.seg derives the same actual inversion through
+an explicitly constructed hereditary bottom point.
+
+This hereditary interface is useful, but it does not prove the missing
+naturality theorem for an independently built glued model. In particular,
+its source reindexing currently uses the existing displayed section.
+There is no claim that every fixed-context related point extends to a
+hereditary point.
+
+Checks and independence
+-----------------------
+
+Run the completed development from DOMAIN:
+
+    python3 UNIT/check.py
+
+The default checks include DisplayedSyntaxCheck.seg, ScottGlueingCheck.seg
+and ScottGlueingKripkeCheck.seg. The last excludes ScottGlueingInversion
+as well as all earlier syntactic inversion modules. check.py audits the
+transitive import closures for these boundaries. The old relation RelC,
+its laws and adequacy, and the assembled IndependentFundamental,
+IndependentAdequacy, IndependentInversion, IndependentProofRelevant and
+IndependentSubjectReduction modules are absent from the new proof drivers.
+The existing domain/projector results and raw semantic soundness remain
+part of the foundations.
+
+All.seg and the inversion drivers exclude the experimental categorical,
+quotient-family and refinement constructions. check.py enforces this
+separation. Vendor files and their 40 frozen hashes are unchanged.
+
+Verdict on the glued-model route (20 November 2026)
+--------------------------------------------------
+
+1. No Kripke structure is needed for Pi-injectivity. The proof fixes the
+   test context Delta; the lambda case only tests arguments in Delta.
+   Substitution stability of the fixed-context relation is needed only to
+   make the decorations a presheaf in a varying test context. It is not
+   provable by rank induction: the function clause is contravariant and
+   tests arbitrary arguments of the new context, not substitution
+   instances. No counterexample is known either. Making the relation
+   itself Kripke would only serve the glued presentation.
+
+2. The cocan analogue glues along Hom(Delta,-) instead of Hom((),-):
+   points of Gamma are (rho,s,s') with s,s' : Delta -> Gamma; substitutions
+   act by precomposition, so Delta never changes and no Kripke structure
+   arises. Contexts, reindexing and extension already exist
+   (ScottGlueingSubstitution, ScottGlueingCategory).
+
+3. The point of cocan is proof relevance: A' is arbitrary data in
+   |A| -> U_n, so no relation on syntax and no invariance under conversion
+   is needed, and the initial map handles all equations. This requires a
+   predicative universe U_{n+1} to hold U'. Under U:U, U' would have to
+   contain every A', including its own (Girard). This is exactly why the
+   Scott proof uses a relation fixed by a semantic code in D.
+
+4. With decorations forced to be that relation, the glued model either
+   (a) works on representatives and coincides with the displayed algebra
+   already formalised, or (b) works on conversion classes and then needs
+   invariance of the relation under judgemental equality. The relation
+   is defined through head reduction (and the term relation depends on
+   the syntactic type through FunctionTest[T]), so (b) needs either
+   Pi-injectivity (circular) or the decoration of the equality derivation,
+   i.e. the section itself supplied in advance. It would also need
+   initiality of a quotient syntactic CwF for Pi + U:U with eta, which is
+   not available; the checked initiality concerns the derivation algebra.
+
+Conclusion: for U:U the domain-plus-relation proof is the right
+formulation, and a cocan-style glued model would add only vocabulary.
+A proof-relevant glueing belongs to a theory with a universe hierarchy,
+where cocan already applies. The experimental categorical files are kept
+outside the committed proof route and are not developed further.
+
+The U:U obligation: semantic codes (superseded by the verdict above)
+--------------------------------------------------------------------
+
+The proposed type decoration over a glued context fibre should be data:
+a semantic code a(rho) in D, continuous in the fitting semantic environment
+rho, together with the relation supplied at that code by the existing
+strict admissible fixed point. This does not require a universe of all
+arbitrary predicates. Propositional logical relations are not the problem;
+assuming a realizer for every code in advance would assume the desired
+section rather than construct it by initiality.
+
+D is the ambient code domain. The existing universe-typing/projector
+condition must still be respected when selecting universe codes. The Scott
+construction already provides the semantic domain and self-typed universe;
+the proposed universe decoration uses that domain and its relation. The
+new obligation is to make this code-and-relation interpretation into the
+universe of the glued model, including the U:U and Pi clauses. It is not
+an additional powerset universe or a size-collapse assumption. The existing
+semantic U:U result alone does not prove these decorated-model laws.
+
+For Pi, use the existing semantic Pi constructor and relation clause over
+hereditary points, retaining argument conversion, all self/cross comparisons,
+and the component equalities visible at pi(om,om).
+
+The main mathematical issue is context naturality. A function clause tests
+arguments available in its current syntactic context; a substitution or
+new test context can change those available arguments. Hereditary points
+make the intended stability explicit, but independent closure, continuity
+of the semantic code family, compatibility with conversion, and the
+universe/Pi operations still require proofs before a CwF section can be
+invoked. They must not be supplied by assuming a global TypeRealizer or
+by reusing the already assembled displayed section as the existence proof.
+
+Once those operations and CwF laws are established, syntactic initiality
+should supply the computability section. The compact Pi observation would
+then extract injectivity from that section. This final categorical route
+is the open problem, not a checked result of the current files.
+
+Experimental work, outside the proof route
+-----------------------------------------
+
+ArtinGlueing.seg correctly constructs the comma category Set/F on contexts.
+ScottGlueingCategory.seg gives a fixed-test Scott instance. The graph
+section is a categorical construction on contexts; it is not the missing
+computability section of a model of Pi and U:U.
+
+SyntacticFamilies, SyntacticCategory and SyntacticComprehension provide
+representative CwF operations, quotient substitution hom-sets and actual
+comprehension pullbacks. The presheaf/quotient-family files explore further
+basic CwF infrastructure. These have optional drivers and are not imported
+by All.seg or needed for the independent inversion result.
+
+PresheafRefinement.seg and RefinedNaturalModel.seg are explicitly labelled
+EXPERIMENTAL REPACKAGING. Their global realizers are parameters, making
+erasure an isomorphism. ScottQuotientCwF.seg supplies its realizers from
+the existing displayed section. These files reorganise an existing result;
+they do not establish an Artin-glued model or a new proof of Pi injectivity.
+Their isomorphism proofs are not evidence that arbitrary propositional
+logical-predicate glueing is uninformative.
