@@ -1,0 +1,50 @@
+-- Open induction over a set over a poset, in the encoding of VarRamsey
+-- (Th. Coquand, "An inductive proof of Kruskal's theorem", Prop. 1, for
+-- the transition system P(X) with the alphabetic order on histories).
+--
+-- The letters X0 carry a well-founded relation lt.  A history h is a word
+-- (latest letter first); upH h is the predicate A relativised along h, and
+-- E st h (h is secured from state st) is a VarRamsey bar of upH h.
+-- M st h: every history v below h (alphabetic order of OpenInduction),
+-- valid at a state c above st, is secured from c.
+-- prop (Proposition 1): E is hereditary on M: if M st h and E c (x h) for
+-- every admissible choice (c, x) with M c (x h), then E st h.  The proof is
+-- well-founded induction on the new letter x, for all states at once.
+level l ;
+module W = Dilator[l] ;
+module TB = TransBar[l] ;
+module OI = OpenInduction[l] ;
+
+module On (C : U l) (le : C -> C -> U l)
+  (le-refl : (p : C) -> le p p) (le-trans : (p q r : C) -> le p q -> le q r -> le p r)
+  (X0 : U l) (X : C -> X0 -> U l)
+  (lt : X0 -> X0 -> U l) (wfX : TB.AccU[X0,lt].WF) (A : C -> W.List X0 -> U l) {
+  module VR = VarRamsey[l].On[C,le,le-refl,le-trans,X0,X] ;
+  module WD = OI.Words[X0,lt,wfX,\ u -> W.Unit] ;
+  module AX = TB.AccU[X0,lt] ;
+  L : U l = W.List X0 ;
+  upH : L -> VR.Pred = split { nilL -> A ; consL x h | r -> VR.up r x } ;
+  E (st : C) (h : L) : U l = VR.Bar (upH h) st ;
+  ValidH (c : C) : L -> U l = split { nilL -> W.Unit ; consL x h | r -> X c x * r } ;
+  M (st : C) (h : L) : U l = (c : C) -> le st c -> (v : L) -> WD.LtW v h -> ValidH c v -> E c v ;
+  -- nothing is below the empty history
+  mNil (st : C) : M st nilL = \ c l v h vv -> WD.consNil (E c v) h.2.2.1 h.1 h.2.2.2.2.2 ;
+
+  module Here (st : C) (h : L) (mh : M st h)
+    (hyp : (c : C) (x : X0) -> le st c -> X c x -> M c (consL x h) -> E c (consL x h)) {
+    Q (x : X0) : U l = (c : C) -> le st c -> X c x -> E c (consL x h) ;
+    stepQ (x : X0) (ih : (y : X0) -> lt y x -> Q y) : Q x = \ c lc mx ->
+      hyp c x lc mx (\ c' l' v hv vv ->
+        WD.Below[h,x,v,hv].split-case (E c' v)
+          (\ ly e -> W.subst L (E c') (consL WD.Below[h,x,v,hv].c h) v
+            (W.sym L v (consL WD.Below[h,x,v,hv].c h) e)
+            (ih WD.Below[h,x,v,hv].c ly c' (le-trans st c c' lc l')
+              (W.subst L (ValidH c') v (consL WD.Below[h,x,v,hv].c h) e vv).1))
+          (\ p -> mh c' (le-trans st c c' lc l') v p vv)) ;
+    result : E st h = VR.node (upH h) st (\ c x lc mx -> AX.ind Q stepQ x (wfX x) c lc mx) ;
+  } ;
+  -- Proposition 1: E is hereditary on M
+  prop (st : C) (h : L) (mh : M st h)
+    (hyp : (c : C) (x : X0) -> le st c -> X c x -> M c (consL x h) -> E c (consL x h)) : E st h =
+    Here[st,h,mh,hyp].result ;
+} ;
