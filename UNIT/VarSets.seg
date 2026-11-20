@@ -1,0 +1,72 @@
+-- Sets over a poset ("variable structures"), after Th. Coquand, "An
+-- inductive proof of Kruskal's theorem", section 3.
+--
+-- A set over (C, le) is an increasing family X p of subsets of a fixed
+-- carrier X0.  P(X) is the transition system of pairs (p, u), u a word
+-- (latest letter first), with (p, u) -> (q, u x) when p <= q and x in X q.
+-- Valid (p, u): every letter of u is in X p; steps preserve validity.
+--
+-- A k-ary relation over X is an increasing family R p of predicates on
+-- words of length k (latest argument first).  GoodK k R u: some
+-- subsequence of u of length k satisfies R.  B(R) (p, u) = GoodK k (R p) u,
+-- and R is almost full iff B(R) is a bar at every valid state.
+level l ;
+module W = Dilator[l] ;
+module TB = TransBar[l] ;
+
+module Words (X0 : U l) {
+  L : U l = W.List X0 ;
+  goodS (r : (L -> U l) -> L -> U l) (R : L -> U l) : L -> U l = split {
+    nilL -> W.Empty ;
+    consL x u | ru -> W.Or ru (r (\ w -> R (consL x w)) u) } ;
+  GoodK : W.N -> (L -> U l) -> L -> U l = split {
+    zero -> \ R u -> R nilL ;
+    suc k | r -> goodS r } ;
+  -- goodness survives appending a letter
+  extend : (k : W.N) (R : L -> U l) (u : L) (x : X0) -> GoodK k R u -> GoodK k R (consL x u) = split {
+    zero -> \ R u x h -> h ;
+    suc k -> \ R u x h -> inl h } ;
+  -- goodness is monotone in the relation
+  Incl (R S : L -> U l) : U l = (w : L) -> R w -> S w ;
+  monoS (k : W.N) (rec : (R S : L -> U l) -> Incl R S -> (u : L) -> GoodK k R u -> GoodK k S u)
+    (R S : L -> U l) (h : Incl R S) : (u : L) -> GoodK (suc k) R u -> GoodK (suc k) S u = split {
+    nilL -> \ g -> g ;
+    consL x u | ru -> \ g -> TB.orElim (GoodK (suc k) R u) (GoodK k (\ w -> R (consL x w)) u)
+      (GoodK (suc k) S (consL x u))
+      (\ g1 -> inl (ru g1))
+      (\ g2 -> inr (rec (\ w -> R (consL x w)) (\ w -> S (consL x w)) (\ w -> h (consL x w)) u g2)) g } ;
+  mono : (k : W.N) (R S : L -> U l) -> Incl R S -> (u : L) -> GoodK k R u -> GoodK k S u = split {
+    zero -> \ R S h u g -> h nilL g ;
+    suc k | rec -> \ R S h -> monoS k rec R S h } ;
+} ;
+
+module On (C : U l) (le : C -> C -> U l)
+  (le-refl : (p : C) -> le p p) (le-trans : (p q r : C) -> le p q -> le q r -> le p r)
+  (X0 : U l) (X : C -> X0 -> U l) (X-mono : (p q : C) -> le p q -> (x : X0) -> X p x -> X q x) {
+  module Wd = Words[X0] ;
+  L : U l = Wd.L ;
+  P : U l = C * L ;
+  step (a b : P) : U l = le a.1 b.1 * ((x : X0) * (X b.1 x * Id L b.2 (consL x a.2))) ;
+
+  -- validity: all letters of the word lie in the set at the state
+  All (p : C) : L -> U l = split { nilL -> W.Unit ; consL x u | r -> X p x * r } ;
+  allMono (p q : C) (h : le p q) : (u : L) -> All p u -> All q u = split {
+    nilL -> \ a -> tt ;
+    consL x u | r -> \ a -> (X-mono p q h x a.1,r a.2) } ;
+  Valid (a : P) : U l = All a.1 a.2 ;
+  validStep (a b : P) (s : step a b) (v : Valid a) : Valid b =
+    W.subst L (All b.1) (consL s.2.1 a.2) b.2 (W.sym L b.2 (consL s.2.1 a.2) s.2.2.2)
+      (s.2.2.1,allMono a.1 b.1 s.1 a.2 v) ;
+
+  -- k-ary relations over X and almost-fullness
+  record Rel (k : W.N) {
+    R : C -> L -> U l ;
+    inc : (p q : C) -> le p q -> Wd.Incl (R p) (R q) ;
+  } ;
+  BR (k : W.N) (R : Rel[k]) (a : P) : U l = Wd.GoodK k (R.R a.1) a.2 ;
+  -- B(R) is monotone along steps
+  brStep (k : W.N) (R : Rel[k]) (a b : P) (s : step a b) (h : BR k R a) : BR k R b =
+    W.subst L (Wd.GoodK k (R.R b.1)) (consL s.2.1 a.2) b.2 (W.sym L b.2 (consL s.2.1 a.2) s.2.2.2)
+      (Wd.extend k (R.R b.1) a.2 s.2.1 (Wd.mono k (R.R a.1) (R.R b.1) (R.inc a.1 b.1 s.1) a.2 h)) ;
+  AF (k : W.N) (R : Rel[k]) : U l = (a : P) -> Valid a -> TB.Bars[P,step,BR k R].I.Bar a ;
+} ;

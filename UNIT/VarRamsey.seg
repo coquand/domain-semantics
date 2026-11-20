@@ -1,0 +1,236 @@
+-- The intuitionistic Ramsey theorem over a set over a poset (variable
+-- structures): Th. Coquand, "An inductive proof of Kruskal's theorem",
+-- Proposition 2, in the formulation of AlmostFull.seg (Coquand 2010 note),
+-- with a state threaded through.
+--
+-- A set over (C, le) is an increasing family X c of subsets of X0.  A
+-- choice is a pair (c, x) with c above the current state and x in X c; c
+-- becomes the new state.  Predicates A c s on finite sequences (earliest
+-- letter first) depend on the state and are increasing in it (Mono).
+-- up A x: the predicate after the choice of x (A on s, or on x s); Sec t A c:
+-- the tree t secures A from state c.
+--
+-- ram: if p secures A v R and q secures B v S from c, R, S n-ary, then
+-- tens n p q secures (A v B) v (R & S) from c.  Corollary (afInter):
+-- almost-full binary relations over a set over a poset are closed under
+-- intersection.
+level l ;
+module W = Dilator[l] ;
+module TB = TransBar[l] ;
+
+module On (C : U l) (le : C -> C -> U l)
+  (le-refl : (p : C) -> le p p) (le-trans : (p q r : C) -> le p q -> le q r -> le p r)
+  (X0 : U l) (X : C -> X0 -> U l) {
+  L : U l = W.List X0 ;
+  Pred : U l+ = C -> L -> U l ;
+  up (A : Pred) (x : X0) : Pred = \ q s -> W.Or (A q s) (A q (consL x s)) ;
+  sh (A : Pred) (x : X0) : Pred = \ q s -> A q (consL x s) ;
+  orP (A B : Pred) : Pred = \ q s -> W.Or (A q s) (B q s) ;
+  andP (A B : Pred) : Pred = \ q s -> A q s * B q s ;
+  oe (A0 B0 C0 : U l) (f : A0 -> C0) (g : B0 -> C0) (e : W.Or A0 B0) : C0 = TB.orElim A0 B0 C0 f g e ;
+
+  -- increasing predicates
+  Mono (A : Pred) : U l = (p q : C) -> le p q -> (s : L) -> A p s -> A q s ;
+  monoUp (A : Pred) (m : Mono A) (x : X0) : Mono (up A x) = \ p q h s e ->
+    oe (A p s) (A p (consL x s)) (up A x q s) (\ a -> inl (m p q h s a)) (\ a -> inr (m p q h (consL x s) a)) e ;
+  monoSh (A : Pred) (m : Mono A) (x : X0) : Mono (sh A x) = \ p q h s -> m p q h (consL x s) ;
+  monoOr (A B : Pred) (ma : Mono A) (mb : Mono B) : Mono (orP A B) = \ p q h s e ->
+    oe (A p s) (B p s) (orP A B q s) (\ a -> inl (ma p q h s a)) (\ b -> inr (mb p q h s b)) e ;
+  monoAnd (A B : Pred) (ma : Mono A) (mb : Mono B) : Mono (andP A B) = \ p q h s e ->
+    (ma p q h s e.1,mb p q h s e.2) ;
+
+  -- inclusions above a state
+  SubF (st : C) (A B : Pred) : U l = (q : C) -> le st q -> (s : L) -> A q s -> B q s ;
+  everywhere (st : C) (A B : Pred) (h : (q : C) (s : L) -> A q s -> B q s) : SubF st A B = \ q l s -> h q s ;
+  subUp (st : C) (A B : Pred) (h : SubF st A B) (x : X0) : SubF st (up A x) (up B x) = \ q l s e ->
+    oe (A q s) (A q (consL x s)) (up B x q s) (\ a -> inl (h q l s a)) (\ a -> inr (h q l (consL x s) a)) e ;
+  subRestrict (st c : C) (A B : Pred) (l : le st c) (h : SubF st A B) : SubF c A B = \ q l' s e ->
+    h q (le-trans st c q l l') s e ;
+
+  -- trees and securing
+  data WT : U l = z | sp (f : C -> X0 -> WT) ;
+  Sec : WT -> Pred -> C -> U l = split {
+    z -> \ A st -> A st nilL ;
+    sp f | r -> \ A st -> (c : C) (x : X0) -> le st c -> X c x -> r c x (up A x) c } ;
+  secMono : (t : WT) (A B : Pred) (st : C) -> SubF st A B -> Sec t A st -> Sec t B st = split {
+    z -> \ A B st h s -> h st (le-refl st) nilL s ;
+    sp f | r -> \ A B st h s c x l mx ->
+      r c x (up A x) (up B x) c (subUp c A B (subRestrict st c A B l h) x) (s c x l mx) } ;
+  secState : (t : WT) (A : Pred) -> Mono A -> (st c : C) -> le st c -> Sec t A st -> Sec t A c = split {
+    z -> \ A m st c l s -> m st c l nilL s ;
+    sp f -> \ A m st c l s c' x l' mx -> s c' x (le-trans st c c' l l') mx } ;
+  secTop : (t : WT) (A : Pred) -> Mono A -> (st : C) -> A st nilL -> Sec t A st = split {
+    z -> \ A m st h -> h ;
+    sp f | r -> \ A m st h c x l mx -> r c x (up A x) (monoUp A m x) c (inl (m st c l nilL h)) } ;
+
+  -- arities
+  Ar : W.N -> Pred -> U l = split {
+    zero -> \ R -> (q : C) (s : L) -> (R q s -> R q nilL) * (R q nilL -> R q s) ;
+    suc n | r -> \ R -> ((q : C) -> R q nilL -> W.Empty) * ((x : X0) -> r (sh R x)) } ;
+
+  -- the product of trees
+  tens0 : WT -> WT -> WT = split {
+    z -> \ q -> q ;
+    sp f | r -> \ q -> sp (\ c x -> r c x q) } ;
+  tQ (rec : WT -> WT -> WT) (f : C -> X0 -> WT) (rf : C -> X0 -> WT -> WT) : WT -> WT = split {
+    z -> z ;
+    sp g | rg -> sp (\ c x -> rec (rf c x (sp g)) (rg c x)) } ;
+  tP (rec : WT -> WT -> WT) : WT -> WT -> WT = split {
+    z -> \ q -> z ;
+    sp f | rf -> tQ rec f rf } ;
+  tens : W.N -> WT -> WT -> WT = split {
+    zero -> tens0 ;
+    suc m | r -> tP r } ;
+
+  Goal (A B R S : Pred) : Pred = orP (orP A B) (andP R S) ;
+  Monos (A B R S : Pred) : U l = Mono A * (Mono B * (Mono R * Mono S)) ;
+  monoGoal (A B R S : Pred) (m : Monos A B R S) : Mono (Goal A B R S) =
+    monoOr (orP A B) (andP R S) (monoOr A B m.1 m.2.1) (monoAnd R S m.2.2.1 m.2.2.2) ;
+  Stmt (n : W.N) (p q : WT) : U l+ = (A B R S : Pred) -> Monos A B R S -> Ar n R -> Ar n S ->
+    (st : C) -> Sec p (orP A R) st -> Sec q (orP B S) st -> Sec (tens n p q) (Goal A B R S) st ;
+
+  gA (A B R S : Pred) (q : C) (s : L) (h : A q s) : Goal A B R S q s = inl (inl h) ;
+  gB (A B R S : Pred) (q : C) (s : L) (h : B q s) : Goal A B R S q s = inl (inr h) ;
+  gRS (A B R S : Pred) (q : C) (s : L) (h1 : R q s) (h2 : S q s) : Goal A B R S q s = inr (h1,h2) ;
+
+  -- n = 0
+  shift0 (A R : Pred) (aR : Ar zero R) (x : X0) (q : C) (s : L) (e : up (orP A R) x q s) : orP (up A x) R q s =
+    oe (orP A R q s) (orP A R q (consL x s)) (orP (up A x) R q s)
+      (\ e1 -> oe (A q s) (R q s) (orP (up A x) R q s) (\ a -> inl (inl a)) (\ r -> inr r) e1)
+      (\ e1 -> oe (A q (consL x s)) (R q (consL x s)) (orP (up A x) R q s) (\ a -> inl (inr a))
+        (\ r -> inr ((aR q s).2 ((aR q (consL x s)).1 r))) e1)
+      e ;
+  goal0 (A B R S : Pred) (x : X0) (q : C) (s : L) (e : Goal (up A x) B R S q s) : up (Goal A B R S) x q s =
+    oe (orP (up A x) B q s) (andP R S q s) (up (Goal A B R S) x q s)
+      (\ e1 -> oe (up A x q s) (B q s) (up (Goal A B R S) x q s)
+        (\ e2 -> oe (A q s) (A q (consL x s)) (up (Goal A B R S) x q s)
+          (\ a -> inl (gA A B R S q s a)) (\ a -> inr (gA A B R S q (consL x s) a)) e2)
+        (\ b -> inl (gB A B R S q s b)) e1)
+      (\ e1 -> inl (inr e1)) e ;
+  ram0 : (p q : WT) -> Stmt zero p q = split {
+    z -> \ q A B R S m aR aS st hp hq ->
+      oe (A st nilL) (R st nilL) (Sec q (Goal A B R S) st)
+        (\ a -> secTop q (Goal A B R S) (monoGoal A B R S m) st (gA A B R S st nilL a))
+        (\ r -> secMono q (orP B S) (Goal A B R S) st
+          (\ q' l s e -> oe (B q' s) (S q' s) (Goal A B R S q' s)
+            (\ b -> gB A B R S q' s b)
+            (\ c -> gRS A B R S q' s ((aR q' s).2 (m.2.2.1 st q' l nilL r)) c) e)
+          hq)
+        hp ;
+    sp f | rf -> \ q A B R S m aR aS st hp hq c x l mx ->
+      secMono (tens0 (f c x) q) (Goal (up A x) B R S) (up (Goal A B R S) x) c
+        (everywhere c (Goal (up A x) B R S) (up (Goal A B R S) x) (goal0 A B R S x))
+        (rf c x q (up A x) B R S (monoUp A m.1 x,m.2) aR aS c
+          (secMono (f c x) (up (orP A R) x) (orP (up A x) R) c
+            (everywhere c (up (orP A R) x) (orP (up A x) R) (shift0 A R aR x)) (hp c x l mx))
+          (secState q (orP B S) (monoOr B S m.2.1 m.2.2.2) st c l hq)) } ;
+
+  -- n = m + 1: rearrangements
+  hypUp (A R : Pred) (x : X0) (q : C) (s : L) (e : up (orP A R) x q s) : orP (orP (up A x) (sh R x)) R q s =
+    oe (orP A R q s) (orP A R q (consL x s)) (orP (orP (up A x) (sh R x)) R q s)
+      (\ e1 -> oe (A q s) (R q s) (orP (orP (up A x) (sh R x)) R q s) (\ a -> inl (inl (inl a))) (\ r -> inr r) e1)
+      (\ e1 -> oe (A q (consL x s)) (R q (consL x s)) (orP (orP (up A x) (sh R x)) R q s)
+        (\ a -> inl (inl (inr a))) (\ r -> inl (inr r)) e1)
+      e ;
+  reA (A' B R S : Pred) (x : X0) (q : C) (s : L) (e : Goal (orP A' (sh R x)) B R S q s) :
+    orP (Goal A' B R S) (sh R x) q s =
+    oe (orP (orP A' (sh R x)) B q s) (andP R S q s) (orP (Goal A' B R S) (sh R x) q s)
+      (\ e1 -> oe (orP A' (sh R x) q s) (B q s) (orP (Goal A' B R S) (sh R x) q s)
+        (\ e2 -> oe (A' q s) (sh R x q s) (orP (Goal A' B R S) (sh R x) q s)
+          (\ a -> inl (gA A' B R S q s a)) (\ r -> inr r) e2)
+        (\ b -> inl (gB A' B R S q s b)) e1)
+      (\ e1 -> inl (inr e1)) e ;
+  reB (A B' R S : Pred) (x : X0) (q : C) (s : L) (e : Goal A (orP B' (sh S x)) R S q s) :
+    orP (Goal A B' R S) (sh S x) q s =
+    oe (orP A (orP B' (sh S x)) q s) (andP R S q s) (orP (Goal A B' R S) (sh S x) q s)
+      (\ e1 -> oe (A q s) (orP B' (sh S x) q s) (orP (Goal A B' R S) (sh S x) q s)
+        (\ a -> inl (gA A B' R S q s a))
+        (\ e2 -> oe (B' q s) (sh S x q s) (orP (Goal A B' R S) (sh S x) q s)
+          (\ b -> inl (gB A B' R S q s b)) (\ c -> inr c) e2) e1)
+      (\ e1 -> inl (inr e1)) e ;
+  fin (A B R S : Pred) (x : X0) (q : C) (s : L)
+    (e : Goal (Goal (up A x) B R S) (Goal A (up B x) R S) (sh R x) (sh S x) q s) : up (Goal A B R S) x q s =
+    oe (orP (Goal (up A x) B R S) (Goal A (up B x) R S) q s) (andP (sh R x) (sh S x) q s) (up (Goal A B R S) x q s)
+      (\ e1 -> oe (Goal (up A x) B R S q s) (Goal A (up B x) R S q s) (up (Goal A B R S) x q s)
+        (\ e2 -> goal0 A B R S x q s e2)
+        (\ e2 -> oe (orP A (up B x) q s) (andP R S q s) (up (Goal A B R S) x q s)
+          (\ e3 -> oe (A q s) (up B x q s) (up (Goal A B R S) x q s)
+            (\ a -> inl (gA A B R S q s a))
+            (\ e4 -> oe (B q s) (B q (consL x s)) (up (Goal A B R S) x q s)
+              (\ b -> inl (gB A B R S q s b)) (\ b -> inr (gB A B R S q (consL x s) b)) e4) e3)
+          (\ e3 -> inl (inr e3)) e2) e1)
+      (\ e1 -> inr (gRS A B R S q (consL x s) e1.1 e1.2)) e ;
+
+  ramQ (m : W.N) (ih : (p q : WT) -> Stmt m p q) (f : C -> X0 -> WT) (rf : (c : C) (x : X0) (q : WT) -> Stmt (suc m) (f c x) q) :
+      (q : WT) -> Stmt (suc m) (sp f) q = split {
+    z -> \ A B R S mo aR aS st hp hq ->
+      oe (B st nilL) (S st nilL) (Goal A B R S st nilL)
+        (\ b -> gB A B R S st nilL b) (\ c -> W.absurdE (Goal A B R S st nilL) (aS.1 st c)) hq ;
+    sp g | rg -> \ A B R S mo aR aS st hp hq c x l mx ->
+      secMono (tens m (tens (suc m) (f c x) (sp g)) (tens (suc m) (sp f) (g c x)))
+        (Goal (Goal (up A x) B R S) (Goal A (up B x) R S) (sh R x) (sh S x)) (up (Goal A B R S) x) c
+        (everywhere c (Goal (Goal (up A x) B R S) (Goal A (up B x) R S) (sh R x) (sh S x)) (up (Goal A B R S) x) (fin A B R S x))
+        (ih (tens (suc m) (f c x) (sp g)) (tens (suc m) (sp f) (g c x))
+          (Goal (up A x) B R S) (Goal A (up B x) R S) (sh R x) (sh S x)
+          (monoGoal (up A x) B R S (monoUp A mo.1 x,mo.2),
+           (monoGoal A (up B x) R S (mo.1,(monoUp B mo.2.1 x,mo.2.2)),
+            (monoSh R mo.2.2.1 x,monoSh S mo.2.2.2 x)))
+          (aR.2 x) (aS.2 x) c
+          (secMono (tens (suc m) (f c x) (sp g)) (Goal (orP (up A x) (sh R x)) B R S) (orP (Goal (up A x) B R S) (sh R x)) c
+            (everywhere c (Goal (orP (up A x) (sh R x)) B R S) (orP (Goal (up A x) B R S) (sh R x)) (reA (up A x) B R S x))
+            (rf c x (sp g) (orP (up A x) (sh R x)) B R S
+              (monoOr (up A x) (sh R x) (monoUp A mo.1 x) (monoSh R mo.2.2.1 x),mo.2) aR aS c
+              (secMono (f c x) (up (orP A R) x) (orP (orP (up A x) (sh R x)) R) c
+                (everywhere c (up (orP A R) x) (orP (orP (up A x) (sh R x)) R) (hypUp A R x)) (hp c x l mx))
+              (secState (sp g) (orP B S) (monoOr B S mo.2.1 mo.2.2.2) st c l hq)))
+          (secMono (tens (suc m) (sp f) (g c x)) (Goal A (orP (up B x) (sh S x)) R S) (orP (Goal A (up B x) R S) (sh S x)) c
+            (everywhere c (Goal A (orP (up B x) (sh S x)) R S) (orP (Goal A (up B x) R S) (sh S x)) (reB A (up B x) R S x))
+            (rg c x A (orP (up B x) (sh S x)) R S
+              (mo.1,(monoOr (up B x) (sh S x) (monoUp B mo.2.1 x) (monoSh S mo.2.2.2 x),mo.2.2)) aR aS c
+              (secState (sp f) (orP A R) (monoOr A R mo.1 mo.2.2.1) st c l hp)
+              (secMono (g c x) (up (orP B S) x) (orP (orP (up B x) (sh S x)) S) c
+                (everywhere c (up (orP B S) x) (orP (orP (up B x) (sh S x)) S) (hypUp B S x)) (hq c x l mx))))) } ;
+  ramP (m : W.N) (ih : (p q : WT) -> Stmt m p q) : (p q : WT) -> Stmt (suc m) p q = split {
+    z -> \ q A B R S mo aR aS st hp hq ->
+      oe (A st nilL) (R st nilL) (Goal A B R S st nilL)
+        (\ a -> gA A B R S st nilL a) (\ c -> W.absurdE (Goal A B R S st nilL) (aR.1 st c)) hp ;
+    sp f | rf -> ramQ m ih f rf } ;
+  ram : (n : W.N) (p q : WT) -> Stmt n p q = split {
+    zero -> ram0 ;
+    suc m | r -> ramP m r } ;
+
+  -- binary relations over the set over the poset
+  Rel : U l+ = C -> X0 -> X0 -> U l ;
+  RelMono (r : Rel) : U l = (p q : C) -> le p q -> (x y : X0) -> r p x y -> r q x y ;
+  rel1 (r : Rel) (x : X0) (q : C) : L -> U l = split { nilL -> W.Empty ; consL y s -> r q x y } ;
+  rel2 (r : Rel) (q : C) : L -> U l = split { nilL -> W.Empty ; consL x s -> rel1 r x q s } ;
+  ar2 (r : Rel) : Ar (suc (suc zero)) (rel2 r) =
+    (\ q e -> e,\ x -> (\ q e -> e,\ y -> \ q s -> (\ e -> e,\ e -> e))) ;
+  monoRel1 (r : Rel) (mr : RelMono r) (x : X0) (p q : C) (h : le p q) : (s : L) -> rel1 r x p s -> rel1 r x q s = split {
+    nilL -> \ e -> e ; consL y s -> \ e -> mr p q h x y e } ;
+  monoRel2' (r : Rel) (mr : RelMono r) (p q : C) (h : le p q) : (s : L) -> rel2 r p s -> rel2 r q s = split {
+    nilL -> \ e -> e ; consL x s -> monoRel1 r mr x p q h s } ;
+  monoRel2 (r : Rel) (mr : RelMono r) : Mono (rel2 r) = monoRel2' r mr ;
+  AFR (r : Rel) : U l = (st : C) -> (t : WT) * Sec t (rel2 r) st ;
+  inter (r1 r2 : Rel) : Rel = \ q x y -> r1 q x y * r2 q x y ;
+  falseP : Pred = \ q s -> W.Empty ;
+  andRel1 (r1 r2 : Rel) (x : X0) (q : C) : (s : L) -> andP (rel1 r1 x) (rel1 r2 x) q s -> rel1 (inter r1 r2) x q s = split {
+    nilL -> \ e -> e.1 ;
+    consL y s -> \ e -> e } ;
+  andRel (r1 r2 : Rel) (q : C) : (s : L) -> andP (rel2 r1) (rel2 r2) q s -> rel2 (inter r1 r2) q s = split {
+    nilL -> \ e -> e.1 ;
+    consL x s -> andRel1 r1 r2 x q s } ;
+  -- almost-full relations over a set over a poset are closed under intersection
+  afInter (r1 r2 : Rel) (m1 : RelMono r1) (m2 : RelMono r2) (a1 : AFR r1) (a2 : AFR r2) : AFR (inter r1 r2) = \ st ->
+    (tens (suc (suc zero)) (a1 st).1 (a2 st).1,
+     secMono (tens (suc (suc zero)) (a1 st).1 (a2 st).1) (Goal falseP falseP (rel2 r1) (rel2 r2)) (rel2 (inter r1 r2)) st
+       (\ q l s e -> oe (orP falseP falseP q s) (andP (rel2 r1) (rel2 r2) q s) (rel2 (inter r1 r2) q s)
+         (\ e1 -> oe W.Empty W.Empty (rel2 (inter r1 r2) q s) (W.absurdE (rel2 (inter r1 r2) q s))
+           (W.absurdE (rel2 (inter r1 r2) q s)) e1)
+         (\ e1 -> andRel r1 r2 q s e1) e)
+       (ram (suc (suc zero)) (a1 st).1 (a2 st).1 falseP falseP (rel2 r1) (rel2 r2)
+         (\ p q h s e -> e,(\ p q h s e -> e,(monoRel2 r1 m1,monoRel2 r2 m2)))
+         (ar2 r1) (ar2 r2) st
+         (secMono (a1 st).1 (rel2 r1) (orP falseP (rel2 r1)) st (\ q l s e -> inr e) (a1 st).2)
+         (secMono (a2 st).1 (rel2 r2) (orP falseP (rel2 r2)) st (\ q l s e -> inr e) (a2 st).2))) ;
+} ;

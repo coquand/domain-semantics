@@ -1,0 +1,75 @@
+-- Bars on transition systems (Th. Coquand, "An inductive proof of
+-- Kruskal's theorem", section 1).
+--
+-- A transition system is a type P with a relation step.  For predicates
+-- E and B on P, In[E].Bar a is the hereditary closure of B in E: either
+-- B a, or Bar b for every b with a -> b and E b.  It is encoded, as the
+-- accessibility predicate of Dilator.Acc, by a plain tree whose nodes carry
+-- their state and branch over the evidence, together with a recursive
+-- predicate; ind is its induction principle.  With E = everything this is
+-- I_B; "B is a bar on E" means In[E].Bar a for every a in E.
+--
+-- Lemma 1: A /\ I_B is included in the hereditary closure of B in A.
+-- Lemma 2: if A2 is included in A1 \/ I_B and B is a bar on A1, then B
+-- is a bar on A2.
+-- AccU: accessibility for a type-valued relation, with its induction.
+level l ;
+module W = Dilator[l] ;
+
+orElim (A B C : U l) (f : A -> C) (g : B -> C) : W.Or A B -> C = split { inl a -> f a ; inr b -> g b } ;
+
+module AccU (A : U l) (R : A -> A -> U l) {
+  data AT : U l = node (x : A) (f : (y : A) -> R y x -> AT) ;
+  Good : AT -> A -> U l = split {
+    node x0 f | r -> \ x -> Id A x0 x * ((y : A) (h : R y x0) -> r y h y) } ;
+  AccP (x : A) : U l = (t : AT) * Good t x ;
+  WF : U l = (x : A) -> AccP x ;
+  acc (x : A) (k : (y : A) -> R y x -> AccP y) : AccP x =
+    (node x (\ y h -> (k y h).1),(refl x,\ y h -> (k y h).2)) ;
+  indT (Q : A -> U l) (st : (x : A) -> ((y : A) -> R y x -> Q y) -> Q x) :
+    (t : AT) (x : A) -> Good t x -> Q x = split {
+    node x0 f | r -> \ x g -> W.subst A Q x0 x g.1 (st x0 (\ y h -> r y h y (g.2 y h))) } ;
+  ind (Q : A -> U l) (st : (x : A) -> ((y : A) -> R y x -> Q y) -> Q x) (x : A) (ax : AccP x) : Q x =
+    indT Q st ax.1 x ax.2 ;
+  accPred (x : A) (ax : AccP x) : (y : A) -> R y x -> AccP y =
+    ind (\ x1 -> (y : A) -> R y x1 -> AccP y) (\ x1 ih y h -> acc y (ih y h)) x ax ;
+} ;
+
+module Bars (P : U l) (step : P -> P -> U l) (B : P -> U l) {
+  module In (E : P -> U l) {
+    data T : U l = leaf | node (a : P) (f : (b : P) -> step a b -> E b -> T) ;
+    Sec : T -> P -> U l = split {
+      leaf -> \ a -> B a ;
+      node a0 f | r -> \ a -> Id P a0 a * ((b : P) (s : step a0 b) (e : E b) -> r b s e b) } ;
+    Bar (a : P) : U l = (t : T) * Sec t a ;
+    base (a : P) (h : B a) : Bar a = (leaf,h) ;
+    hered (a : P) (h : (b : P) -> step a b -> E b -> Bar b) : Bar a =
+      (node a (\ b s e -> (h b s e).1),(refl a,\ b s e -> (h b s e).2)) ;
+    indT (Q : P -> U l) (qb : (a : P) -> B a -> Q a)
+      (qh : (a : P) -> ((b : P) -> step a b -> E b -> Q b) -> Q a) :
+      (t : T) (a : P) -> Sec t a -> Q a = split {
+      leaf -> \ a h -> qb a h ;
+      node a0 f | r -> \ a g -> W.subst P Q a0 a g.1 (qh a0 (\ b s e -> r b s e b (g.2 b s e))) } ;
+    ind (Q : P -> U l) (qb : (a : P) -> B a -> Q a)
+      (qh : (a : P) -> ((b : P) -> step a b -> E b -> Q b) -> Q a) (a : P) (h : Bar a) : Q a =
+      indT Q qb qh h.1 a h.2 ;
+  } ;
+  Everything (a : P) : U l = W.Unit ;
+  module I = In[Everything] ;
+  BarOn (E : P -> U l) : U l = (a : P) -> E a -> In[E].Bar a ;
+  IsBar : U l = (a : P) -> I.Bar a ;
+
+  lemma1 (A : P -> U l) (a : P) (h : I.Bar a) : In[A].Bar a =
+    I.ind (\ a1 -> In[A].Bar a1) (\ a1 b -> In[A].base a1 b)
+      (\ a1 ih -> In[A].hered a1 (\ b s e -> ih b s tt)) a h ;
+
+  module Lemma2 (A1 A2 : P -> U l) (cover : (a : P) -> A2 a -> W.Or (A1 a) (I.Bar a)) {
+    convert (a : P) (h : In[A1].Bar a) : In[A2].Bar a =
+      In[A1].ind (\ a1 -> In[A2].Bar a1) (\ a1 b -> In[A2].base a1 b)
+        (\ a1 ih -> In[A2].hered a1 (\ b s e2 ->
+          orElim (A1 b) (I.Bar b) (In[A2].Bar b) (\ e1 -> ih b s e1) (\ i -> lemma1 A2 b i) (cover b e2)))
+        a h ;
+    result (bar1 : BarOn A1) : BarOn A2 = \ a e2 ->
+      orElim (A1 a) (I.Bar a) (In[A2].Bar a) (\ e1 -> convert a (bar1 a e1)) (\ i -> lemma1 A2 a i) (cover a e2) ;
+  } ;
+} ;

@@ -1,0 +1,110 @@
+-- Open induction, point-free (Th. Coquand, "Constructive topology and
+-- combinatorics" (1992), section 2, and "An inductive proof of Kruskal's
+-- theorem", section 2).
+--
+-- Open: a transition system (P, step) with a well-founded relation lt
+-- such that x -> y and z < y imply x -> z or z < x.  For B on P, I is the
+-- hereditary closure of B (TransBar) and M x says that every y < x is in I.
+--   prop1: I is hereditary on M (well-founded induction on y);
+--   fromM: the hereditary closure of B in M is included in I on M;
+--   corollary: if B is a bar on M, then B is a bar.
+-- This is the positive form of Nash-Williams' minimal bad sequence
+-- argument; only inductive definitions are used.
+--
+-- Words: the instance of finite words over a well-founded alphabet X
+-- (latest letter first), u -> u x, with the alphabetic order
+-- v < u iff v = w x and u extends w y with x < y.  It is well-founded,
+-- and it satisfies the condition.  open-induction: if B is a bar on M from
+-- the empty word, then the empty word is secured (concomb, Corollary).
+level l ;
+module W = Dilator[l] ;
+module TB = TransBar[l] ;
+
+module Open (P : U l) (step : P -> P -> U l) (lt : P -> P -> U l) (wf : TB.AccU[P,lt].WF)
+  (cond : (x y z : P) -> step x y -> lt z y -> W.Or (step x z) (lt z x)) (B : P -> U l) {
+  module Br = TB.Bars[P,step,B] ;
+  module Ac = TB.AccU[P,lt] ;
+  I (a : P) : U l = Br.I.Bar a ;
+  M (x : P) : U l = (y : P) -> lt y x -> I y ;
+
+  -- Proposition 1: I is hereditary on M
+  prop1 (x : P) (mx : M x) (h : (y : P) -> step x y -> M y -> I y) : I x =
+    Br.I.hered x (\ y s t -> Ac.ind (\ y1 -> step x y1 -> I y1)
+      (\ y1 ih s1 -> h y1 s1 (\ z l -> TB.orElim (step x z) (lt z x) (I z)
+        (\ s2 -> ih z l s2) (\ l2 -> mx z l2) (cond x y1 z s1 l)))
+      y (wf y) s) ;
+
+  module BM = Br.In[M] ;
+  fromM (x : P) (b : BM.Bar x) : M x -> I x =
+    BM.ind (\ x1 -> M x1 -> I x1) (\ x1 hb mx -> Br.I.base x1 hb)
+      (\ x1 ih mx -> prop1 x1 mx (\ y s my -> ih y s my my)) x b ;
+
+  -- Corollary: if B is a bar on M, then B is a bar
+  corollary (bar : Br.BarOn M) : Br.IsBar = \ x ->
+    Ac.ind I (\ x1 ih -> fromM x1 (bar x1 ih) ih) x (wf x) ;
+} ;
+
+module Words (X : U l) (lt : X -> X -> U l) (wfX : TB.AccU[X,lt].WF) (B : W.List X -> U l) {
+  L : U l = W.List X ;
+  step (u v : L) : U l = (x : X) * Id L v (consL x u) ;
+
+  -- prefixes and the alphabetic order
+  Pre (w : L) : L -> U l = split {
+    nilL -> Id L w nilL ;
+    consL y u | r -> W.Or (Id L w (consL y u)) r } ;
+  LtW (v u : L) : U l = (w : L) * ((x : X) * ((y : X) *
+    (Id L v (consL x w) * (lt x y * Pre (consL y w) u)))) ;
+
+  -- consL is injective; consL is not nilL
+  hdOr (d : X) : L -> X = split { nilL -> d ; consL x u -> x } ;
+  tlL : L -> L = split { nilL -> nilL ; consL x u -> u } ;
+  isNil : L -> W.Bool = split { nilL -> true ; consL x u -> false } ;
+  hdEq (a b : X) (w u : L) (e : Id L (consL a w) (consL b u)) : Id X a b =
+    W.ap L X (hdOr a) (consL a w) (consL b u) e ;
+  tlEq (a b : X) (w u : L) (e : Id L (consL a w) (consL b u)) : Id L w u =
+    W.ap L L tlL (consL a w) (consL b u) e ;
+  consNil (A0 : U l) (a : X) (w : L) (e : Id L (consL a w) nilL) : A0 =
+    W.absurdB A0 (W.ap L W.Bool isNil (consL a w) nilL e) ;
+  -- if consL y w = consL x u then consL c w = consL c u
+  reCons (c y x : X) (w u v : L) (ev : Id L v (consL c w)) (e : Id L (consL y w) (consL x u)) :
+    Id L v (consL c u) =
+    W.trans L v (consL c w) (consL c u) ev (W.ap L L (\ t -> consL c t) w u (tlEq y x w u e)) ;
+
+  -- the words below u x: either u c with c < x, or below u
+  module Below (u : L) (x : X) (z : L) (h : LtW z (consL x u)) {
+    w : L = h.1 ; c : X = h.2.1 ; y : X = h.2.2.1 ;
+    ez : Id L z (consL c w) = h.2.2.2.1 ; lcy : lt c y = h.2.2.2.2.1 ;
+    split-case (C : U l) (f : lt c x -> Id L z (consL c u) -> C) (g : LtW z u -> C) : C =
+      TB.orElim (Id L (consL y w) (consL x u)) (Pre (consL y w) u) C
+        (\ e -> f (W.subst X (\ t -> lt c t) y x (hdEq y x w u e) lcy) (reCons c y x w u z ez e))
+        (\ p -> g (w,(c,(y,(ez,(lcy,p))))))
+        h.2.2.2.2.2 ;
+  } ;
+
+  -- the alphabetic order is well-founded
+  module AW = TB.AccU[L,LtW] ;
+  module AX = TB.AccU[X,lt] ;
+  accCons (u : L) (au : AW.AccP u) (x : X) : AW.AccP (consL x u) =
+    AX.ind (\ x1 -> AW.AccP (consL x1 u))
+      (\ x1 ih -> AW.acc (consL x1 u) (\ z h -> Below[u,x1,z,h].split-case (AW.AccP z)
+        (\ l e -> W.subst L AW.AccP (consL Below[u,x1,z,h].c u) z
+          (W.sym L z (consL Below[u,x1,z,h].c u) e) (ih Below[u,x1,z,h].c l))
+        (\ p -> AW.accPred u au z p)))
+      x (wfX x) ;
+  wfW : AW.WF = split {
+    nilL -> AW.acc nilL (\ z h -> consNil (AW.AccP z) h.2.2.1 h.1 h.2.2.2.2.2) ;
+    consL x u | r -> accCons u r x } ;
+
+  -- the condition of section 2
+  cond (u v z : L) (s : step u v) (h : LtW z v) : W.Or (step u z) (LtW z u) =
+    Below[u,s.1,z,W.subst L (\ t -> LtW z t) v (consL s.1 u) s.2 h].split-case (W.Or (step u z) (LtW z u))
+      (\ l e -> inl (Below[u,s.1,z,W.subst L (\ t -> LtW z t) v (consL s.1 u) s.2 h].c,e))
+      (\ p -> inr p) ;
+
+  module O = Open[L,step,LtW,wfW,cond,B] ;
+
+  -- nothing is below the empty word
+  mNil : O.M nilL = \ v h -> consNil (O.I v) h.2.2.1 h.1 h.2.2.2.2.2 ;
+  -- concomb, Corollary: a bar on M from the empty word secures it
+  open-induction (b : O.BM.Bar nilL) : O.I nilL = O.fromM nilL b mNil ;
+} ;
