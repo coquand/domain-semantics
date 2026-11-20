@@ -1,0 +1,160 @@
+-- PLAN-ID1 S2 (milestone 1): Girard's reduction of a Phi-bar cut
+-- (ptlc2 11.4, pp. 300-310), pointwise.
+--
+-- Situation.  A1 = k(X) with top topX (Girard: F(alpha) with alpha), A2 =
+-- k(k X) with top topK, eta : A1 -> A2 the unit at kX: an initial segment
+-- whose image lies below topK (F = Id + 1 + F').  A Phi-bar cut on the
+-- closure c = (xF true s k, e) (its predicate at s is Phi-bar) has premises
+--     L : a pre-proof at (A1, topX) of  G, Phi-bar(t)        (the family at X)
+--     R : a pre-proof at (A2, topK) of  eta G, not Phi-bar(t) (the family at kX)
+-- ("the proof as a whole": the right premise is taken at k(alpha)).
+--
+-- Construction (out):
+--  1. map L along eta (BetaIDTr): a pre-proof at (A2, eta topX) of eta G, Phi-bar(t);
+--     its choices of stages are images, hence < topK;
+--  2. Lemma 11.4.5: rename its Phi-bar(t) into I^topK(t) (RenP);
+--  3. Lemma 11.4.7: rename Phi-bar(t) in R into I^topK(t) (RenN): l-bar and
+--     lI^topK have the same premises at top = topK;
+--  4. chop R from topK down to eta topX (Chop): the remaining l-bar rules
+--     lose their premises >= eta topX, the renamed rule keeps all of them;
+--  5. cut on I^topK(t) at the root.
+-- Result: a locally correct pre-proof of eta G at (A2, eta topX) with a
+-- Brouwer bound, whose only new cut is on the stage atom I^topK(t) (kind II).
+-- Correctness uses L well-founded at X and R well-founded at kX.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BT = BetaIDTr[l] ;
+module BC = BetaIDCut[l] ;
+
+pickR (X : U l) : W.N -> X -> X -> X = split { zero -> \ x y -> x ; suc n -> \ x y -> y } ;
+
+module S2 (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form)
+  (A1 A2 : DP.LO) (eta : DP.Map A1 A2) (rho : A2.car -> A1.car)
+  (hr : (b : A2.car) (a : A1.car) -> Id W.O3 (A2.cmp b (eta.1 a)) lt -> Id A2.car (eta.1 (rho b)) b)
+  (evI : (k : W.N) (e : LT.LL A1) -> Id W.Bool (ev A2 k (LT.mapL A1 A2 eta e)) (ev A1 k e))
+  (topX : A1.car) (topK : A2.car)
+  (etaBelow : (x : A1.car) -> Id W.O3 (A2.cmp (eta.1 x) topK) lt)
+  (G : W.List (BI.ID[ev,phi].Clo A1)) (s k : W.N) (e : LT.LL A1)
+  (hbar : Id (W.Or W.Unit A1.car) (BI.ID[ev,phi].nthL A1 s e).2 (inl tt)) {
+  module I = BI.ID[ev,phi] ;
+  module T = BT.Tr[ev,phi,A1,A2,eta,rho,hr,evI,topX] ;
+  module TM = BT.Mp[ev,phi,A1,A2,eta,evI,topX] ;
+  module O = BC.Ops[ev,phi,A2] ;
+  topT : A2.car = eta.1 topX ;
+  G2 : I.Seq A2 = TM.mS G ;
+  e2 : LT.LL A2 = TM.mE e ;
+  cL : I.Clo A1 = (xF true s k,e) ;
+  cL2 : I.Clo A2 = (xF true s k,e2) ;
+  cR2 : I.Clo A2 = (xF false s k,e2) ;
+  lenS : I.Seq A2 -> W.N = split { nilL -> zero ; consL c cs | r -> suc r } ;
+  p : W.N = lenS G2 ;
+  -- the stage atom of the new cut: I^topK(t)
+  env' : LT.LL A2 = I.envP A2 (I.nthL A2 k e2) (I.stg A2 topK) ;
+  f : BI.Form = xF true (suc zero) zero ;
+  GL : I.Seq A2 = I.app A2 G2 (consL (f,env') nilL) ;
+  GR : I.Seq A2 = I.app A2 G2 (consL (BI.neg f,env') nilL) ;
+
+  getLast : (S : I.Seq A2) (d : I.Clo A2) -> Id (I.OC A2) (I.getM A2 (lenS S) (I.app A2 S (consL d nilL))) (inr d) = split {
+    nilL -> \ d -> refl (inr d) ;
+    consL c cs | r -> \ d -> r d } ;
+  repLast : (S : I.Seq A2) (d c' : I.Clo A2) -> Id (I.Seq A2) (O.repL (lenS S) (I.app A2 S (consL d nilL)) c') (I.app A2 S (consL c' nilL)) = split {
+    nilL -> \ d c' -> refl (consL c' nilL) ;
+    consL c cs | r -> \ d c' -> PL.ap (I.Seq A2) (I.Seq A2) (\ z -> consL c z) (O.repL (lenS cs) (I.app A2 cs (consL d nilL)) c') (I.app A2 cs (consL c' nilL)) (r d c') } ;
+  -- transport of the data of a pre-proof along an equality of end sequents
+  loEq (A : DP.LO) (top : A.car) (R : I.Rl A) (S S' : I.Seq A) (q : Id (I.Seq A) S S') (lo : I.LocOK A top R S) : I.LocOK A top R S' =
+    PL.subst (I.Seq A) (\ Z -> I.LocOK A top R Z) S S' q lo ;
+  wfEq (A : DP.LO) (top : A.car) (R : I.Rl A) (S S' : I.Seq A) (q : Id (I.Seq A) S S') (w : I.WFP A top R S) : I.WFP A top R S' =
+    PL.subst (I.Seq A) (\ Z -> I.WFP A top R Z) S S' q w ;
+
+  ----------------------------------------------------------------------
+  -- 1-2. the left premise, mapped and renamed
+  mapEnd : Id (I.Seq A2) (TM.mS (I.app A1 G (consL cL nilL))) (I.app A2 G2 (consL cL2 nilL)) =
+    KT.map-app (I.Clo A1) (I.Clo A2) TM.mC G (consL cL nilL) ;
+  xrOKm : (r : I.Rule A1) -> Id W.Bool (O.xrOK topK (TM.mR r)) true = split {
+    axR i -> refl true ; andR i -> refl true ; orR i -> refl true ; allR i -> refl true ; exR i w -> refl true ;
+    cutR f0 e0 -> refl true ; xlR i o -> refl true ;
+    xrR i mu -> PL.ap W.O3 W.Bool W.isLt (A2.cmp (eta.1 mu) topK) lt (etaBelow mu) } ;
+  module P = O.RenP[topT,p,s,k,e2,topK] ;
+  module Left (RL : I.Rl A1) (loL : I.LocOK A1 topX RL (I.app A1 G (consL cL nilL))) (wL : I.WFP A1 topX RL (I.app A1 G (consL cL nilL))) {
+    R1 : I.Rl A2 = T.Rt RL ;
+    lo1 : I.LocOK A2 topT R1 (I.app A2 G2 (consL cL2 nilL)) =
+      loEq A2 topT R1 (TM.mS (I.app A1 G (consL cL nilL))) (I.app A2 G2 (consL cL2 nilL)) mapEnd (T.trLo RL (I.app A1 G (consL cL nilL)) loL) ;
+    w1 : I.WFP A2 topT R1 (I.app A2 G2 (consL cL2 nilL)) =
+      wfEq A2 topT R1 (TM.mS (I.app A1 G (consL cL nilL))) (I.app A2 G2 (consL cL2 nilL)) mapEnd (T.trWf RL (I.app A1 G (consL cL nilL)) wL) ;
+    hp : P.N.Hp (I.app A2 G2 (consL cL2 nilL)) = getLast G2 cL2 ;
+    RLf : I.Rl A2 = P.N.rR R1 ;
+    loF : I.LocOK A2 topT RLf GL =
+      loEq A2 topT RLf (O.repL p (I.app A2 G2 (consL cL2 nilL)) P.N.c') GL (repLast G2 cL2 P.N.c')
+        (P.lo R1 (I.app A2 G2 (consL cL2 nilL)) hp lo1 (\ ys -> xrOKm (RL (T.pE ys)))) ;
+    wF : I.WFP A2 topT RLf GL =
+      wfEq A2 topT RLf (O.repL p (I.app A2 G2 (consL cL2 nilL)) P.N.c') GL (repLast G2 cL2 P.N.c')
+        (P.wf R1 (I.app A2 G2 (consL cL2 nilL)) hp w1) ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- 3-4. the right premise (taken at kX), renamed and chopped
+  hbar2 : Id (W.Or W.Unit A2.car) (I.nthL A2 s e2).2 (inl tt) =
+    PL.trans (W.Or W.Unit A2.car) (I.nthL A2 s e2).2 (TM.lm (I.nthL A1 s e)).2 (inl tt)
+      (PL.ap (I.Lb A2) (W.Or W.Unit A2.car) (\ t -> t.2) (I.nthL A2 s e2) (TM.lm (I.nthL A1 s e)) (TM.nthMap s e))
+      (PL.ap (W.Or W.Unit A1.car) (W.Or W.Unit A2.car) TM.om (I.nthL A1 s e).2 (inl tt) hbar) ;
+  module NR = O.RenN[topK,p,s,k,e2,hbar2] ;
+  leT (x : A2.car) (hx : Id W.Bool (I.ltB A2 x topT) true) : Id W.Bool (I.ltB A2 x topK) true =
+    PL.ap W.O3 W.Bool W.isLt (A2.cmp x topK) lt (A2.ctrans x topT topK (W.isLt-sound (A2.cmp x topT) hx) (etaBelow topX)) ;
+  module C = O.Chop[topT,topK,leT] ;
+  module Right (RR : I.Rl A2) (loR : I.LocOK A2 topK RR (I.app A2 G2 (consL cR2 nilL))) (wR : I.WFP A2 topK RR (I.app A2 G2 (consL cR2 nilL))) {
+    hp : NR.N.Hp (I.app A2 G2 (consL cR2 nilL)) = getLast G2 cR2 ;
+    RRf : I.Rl A2 = NR.N.rR RR ;
+    loN : I.LocOK A2 topK RRf GR =
+      loEq A2 topK RRf (O.repL p (I.app A2 G2 (consL cR2 nilL)) NR.N.c') GR (repLast G2 cR2 NR.N.c') (NR.lo RR (I.app A2 G2 (consL cR2 nilL)) hp loR) ;
+    wN : I.WFP A2 topK RRf GR =
+      wfEq A2 topK RRf (O.repL p (I.app A2 G2 (consL cR2 nilL)) NR.N.c') GR (repLast G2 cR2 NR.N.c') (NR.wf RR (I.app A2 G2 (consL cR2 nilL)) hp wR) ;
+    loF : I.LocOK A2 topT RRf GR = C.loChop RRf GR loN ;
+    wF : I.WFP A2 topT RRf GR = C.wfChop RRf GR wN ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- 5. the cut on I^topK(t)
+  module Out (RL : I.Rl A1) (loL : I.LocOK A1 topX RL (I.app A1 G (consL cL nilL))) (wL : I.WFP A1 topX RL (I.app A1 G (consL cL nilL)))
+    (RR : I.Rl A2) (loR : I.LocOK A2 topK RR (I.app A2 G2 (consL cR2 nilL))) (wR : I.WFP A2 topK RR (I.app A2 G2 (consL cR2 nilL))) {
+    module L = Left[RL,loL,wL] ;
+    module Rg = Right[RR,loR,wR] ;
+    Rf : I.Rl A2 = split { nilL -> cutR f env' ; consL a zs -> pickR (I.Rule A2) a.1 (L.RLf zs) (Rg.RRf zs) } ;
+    tw (n : W.N) (o : W.Or W.Unit A2.car) (X : U l) (hh : Id W.Bool (I.isTwo A2 (suc (suc n),o)) true) : X =
+      W.absurdB X (PL.trans W.Bool false (I.isTwo A2 (suc (suc n),o)) true
+        (PL.sym W.Bool (I.isTwo A2 (suc (suc n),o)) false (W.andB-false (BP.isInl W.Unit A2.car o))) hh) ;
+    AplT (ys : LT.LL A2) : U l = Id W.Bool (I.appl A2 (I.seqAt A2 ys Rf G2) (Rf ys)) true ;
+    InT (ys : LT.LL A2) : U l = Id W.Bool (I.inTree A2 topT ys Rf G2) true ;
+    loS (o : W.Or W.Unit A2.car) (zs : LT.LL A2) : (m : W.N) -> InT (consL (suc m,o) zs) -> AplT (consL (suc m,o) zs) = split {
+      zero -> \ hv -> Rg.loF zs (W.andB-r (I.isTwo A2 (suc zero,o)) (I.inTree A2 topT zs Rg.RRf GR) hv) ;
+      suc n -> \ hv -> tw n o (AplT (consL (suc (suc n),o) zs))
+        (W.andB-l (I.isTwo A2 (suc (suc n),o)) (I.inTree A2 topT zs Rg.RRf (I.app A2 G2 (consL (BI.pickF (suc (suc n)) f (BI.neg f),env') nilL))) hv) } ;
+    loC (o : W.Or W.Unit A2.car) (zs : LT.LL A2) : (n : W.N) -> InT (consL (n,o) zs) -> AplT (consL (n,o) zs) = split {
+      zero -> \ hv -> L.loF zs (W.andB-r (I.isTwo A2 (zero,o)) (I.inTree A2 topT zs L.RLf GL) hv) ;
+      suc m -> loS o zs m } ;
+    lo : I.LocOK A2 topT Rf G2 = split {
+      nilL -> \ hv -> refl true ;
+      consL a zs -> \ hv -> loC a.2 zs a.1 hv } ;
+    module K = KT.KB[LT.Lab A2] ;
+    bnd : K.BT = node (\ a -> pickR K.BT a.1 L.wF.1 Rg.wF.1) ;
+    bS (o : W.Or W.Unit A2.car) : (m : W.N) -> K.Bnd (pickR K.BT (suc m) L.wF.1 Rg.wF.1) (K.sub (I.tree A2 topT Rf G2) (suc m,o)) = split {
+      zero -> K.bnd-mono Rg.wF.1 (K.sub (I.tree A2 topT Rf G2) (suc zero,o)) (I.tree A2 topT Rg.RRf GR)
+        (\ xs hv -> W.andB-r (I.isTwo A2 (suc zero,o)) (I.inTree A2 topT xs Rg.RRf GR) hv) Rg.wF.2 ;
+      suc n -> K.bnd-mono Rg.wF.1 (K.sub (I.tree A2 topT Rf G2) (suc (suc n),o)) (I.tree A2 topT Rg.RRf GR)
+        (\ xs hv -> tw n o (Id W.Bool (I.inTree A2 topT xs Rg.RRf GR) true)
+          (W.andB-l (I.isTwo A2 (suc (suc n),o)) (I.inTree A2 topT xs Rg.RRf (I.app A2 G2 (consL (BI.pickF (suc (suc n)) f (BI.neg f),env') nilL))) hv)) Rg.wF.2 } ;
+    bC (o : W.Or W.Unit A2.car) : (n : W.N) -> K.Bnd (pickR K.BT n L.wF.1 Rg.wF.1) (K.sub (I.tree A2 topT Rf G2) (n,o)) = split {
+      zero -> K.bnd-mono L.wF.1 (K.sub (I.tree A2 topT Rf G2) (zero,o)) (I.tree A2 topT L.RLf GL)
+        (\ xs hv -> W.andB-r (I.isTwo A2 (zero,o)) (I.inTree A2 topT xs L.RLf GL) hv) L.wF.2 ;
+      suc m -> bS o m } ;
+    wf : I.WFP A2 topT Rf G2 = (bnd,\ a -> bC a.2 a.1) ;
+    -- the root is the cut on I^topK(t)
+    root : Id (I.Rule A2) (Rf nilL) (cutR f env') = refl (cutR f env') ;
+  } ;
+} ;

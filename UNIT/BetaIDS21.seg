@@ -1,0 +1,112 @@
+-- PLAN-ID1: S2 + S1 together.  Elimination of a Phi-bar cut whose
+-- premises are cut-free, pointwise (Girard 11.4, the case of a cut of
+-- kind III between cut-free proofs):
+--
+--   L cut-free at (kX, topX) proving  G, Phi-bar(t)
+--   R cut-free at (k(kX), topK) proving  eta G, not Phi-bar(t)
+--   ==> a CUT-FREE (inductive) derivation of  eta G  at (k(kX), eta topX),
+--
+-- provided k(kX) is well-founded and phi is of kind II at its stage
+-- (wfPhi).  Proof: S2 (BetaIDS2.S2.Out) gives a locally correct, bounded
+-- pre-proof whose root is a cut on I^topK(t) and whose other nodes are
+-- rules of L (mapped) and of R (renamed, chopped), hence not cuts; the
+-- root cut is of kind II at stage topK; S1 (BetaIDCfTr.CT.cutFree)
+-- eliminates it.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module BP = BetaProof[l] ;
+module LW = LOWF[l] ;
+module BI = BetaID[l] ;
+module BC2 = BetaIDCut[l] ;
+module BF = BetaIDCf[l] ;
+module BK = BetaIDCfCut[l] ;
+module BTr = BetaIDCfTr[l] ;
+module BS2 = BetaIDS2[l] ;
+
+-- no cut
+NC (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) : BI.ID[ev,phi].Rule A -> U l = split {
+  axR i -> W.Unit ; andR i -> W.Unit ; orR i -> W.Unit ; allR i -> W.Unit ; exR i w -> W.Unit ;
+  cutR f e -> W.Empty ; xrR i mu -> W.Unit ; xlR i o -> W.Unit } ;
+
+module S21 (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form)
+  (A1 A2 : DP.LO) (eta : DP.Map A1 A2) (rho : A2.car -> A1.car)
+  (hr : (b : A2.car) (a : A1.car) -> Id W.O3 (A2.cmp b (eta.1 a)) lt -> Id A2.car (eta.1 (rho b)) b)
+  (evI : (k : W.N) (e : LT.LL A1) -> Id W.Bool (ev A2 k (LT.mapL A1 A2 eta e)) (ev A1 k e))
+  (topX : A1.car) (topK : A2.car)
+  (etaBelow : (x : A1.car) -> Id W.O3 (A2.cmp (eta.1 x) topK) lt)
+  (G : W.List (BI.ID[ev,phi].Clo A1)) (s k : W.N) (e : LT.LL A1)
+  (hbar : Id (W.Or W.Unit A1.car) (BI.ID[ev,phi].nthL A1 s e).2 (inl tt))
+  (wA2 : LW.WF A2)
+  (wfPhi : (t : BI.ID[ev,phi].Lb A2) (mu : A2.car) ->
+     BK.CK[ev,phi,A2,eta.1 topX].StOK mu phi (BI.ID[ev,phi].envP A2 t (BI.ID[ev,phi].stg A2 mu)))
+  (RL : BI.ID[ev,phi].Rl A1)
+  (loL : BI.ID[ev,phi].LocOK A1 topX RL (BI.ID[ev,phi].app A1 G (consL (xF true s k,e) nilL)))
+  (wL : BI.ID[ev,phi].WFP A1 topX RL (BI.ID[ev,phi].app A1 G (consL (xF true s k,e) nilL)))
+  (ncL : (ys : LT.LL A1) -> Id W.Bool (BI.ID[ev,phi].inTree A1 topX ys RL (BI.ID[ev,phi].app A1 G (consL (xF true s k,e) nilL))) true ->
+     NC ev phi A1 (RL ys))
+  (RR : BI.ID[ev,phi].Rl A2) {
+  module I = BI.ID[ev,phi] ;
+  module S = BS2.S2[ev,phi,A1,A2,eta,rho,hr,evI,topX,topK,etaBelow,G,s,k,e,hbar] ;
+  module Fin (loR : I.LocOK A2 topK RR (I.app A2 S.G2 (consL S.cR2 nilL))) (wR : I.WFP A2 topK RR (I.app A2 S.G2 (consL S.cR2 nilL)))
+    (ncR : (ys : LT.LL A2) -> Id W.Bool (I.inTree A2 topK ys RR (I.app A2 S.G2 (consL S.cR2 nilL))) true -> NC ev phi A2 (RR ys)) {
+    module O = S.Out[RL,loL,wL,RR,loR,wR] ;
+    module CTm = BTr.CT[ev,phi,A2,S.topT,wA2,wfPhi] ;
+    -- rule transformations keep "no cut"
+    ncMR : (r : I.Rule A1) -> NC ev phi A1 r -> NC ev phi A2 (S.TM.mR r) = split {
+      axR i -> \ h -> tt ; andR i -> \ h -> tt ; orR i -> \ h -> tt ; allR i -> \ h -> tt ; exR i w -> \ h -> tt ;
+      cutR f0 e0 -> \ h -> h ; xrR i mu -> \ h -> tt ; xlR i o -> \ h -> tt } ;
+    ncFix : (r : I.Rule A2) -> NC ev phi A2 r -> NC ev phi A2 (S.O.fixR topK S.p r) = split {
+      axR i -> \ h -> tt ; andR i -> \ h -> tt ; orR i -> \ h -> tt ; allR i -> \ h -> tt ; exR i w -> \ h -> tt ;
+      cutR f0 e0 -> \ h -> h ; xrR i mu -> \ h -> tt ; xlR i o -> \ h -> tt } ;
+    ncCut (la : A2.car) : (r : I.Rule A2) -> NC ev phi A2 r -> CTm.CutOK la r = split {
+      axR i -> \ h -> tt ; andR i -> \ h -> tt ; orR i -> \ h -> tt ; allR i -> \ h -> tt ; exR i w -> \ h -> tt ;
+      cutR f0 e0 -> \ h -> CF.efq (CTm.CutOK la (cutR f0 e0)) h ; xrR i mu -> \ h -> tt ; xlR i o -> \ h -> tt } ;
+    -- the nodes of the left part come from L
+    ncLeft (zs : LT.LL A2) (hv : Id W.Bool (I.inTree A2 S.topT zs O.L.RLf S.GL) true) : NC ev phi A2 (O.L.RLf zs) =
+      ncMR (RL (S.T.pE zs)) (ncL (S.T.pE zs)
+        (S.T.treeL zs RL (I.app A1 G (consL S.cL nilL))
+          (PL.subst (I.Seq A2) (\ Z -> Id W.Bool (I.inTree A2 S.topT zs O.L.R1 Z) true)
+            (I.app A2 S.G2 (consL S.cL2 nilL)) (S.TM.mS (I.app A1 G (consL S.cL nilL)))
+            (PL.sym (I.Seq A2) (S.TM.mS (I.app A1 G (consL S.cL nilL))) (I.app A2 S.G2 (consL S.cL2 nilL)) S.mapEnd)
+            (PL.trans W.Bool (I.inTree A2 S.topT zs O.L.R1 (I.app A2 S.G2 (consL S.cL2 nilL)))
+                (I.inTree A2 S.topT zs O.L.RLf (S.O.repL S.p (I.app A2 S.G2 (consL S.cL2 nilL)) S.P.N.c')) true
+              (PL.sym W.Bool (I.inTree A2 S.topT zs O.L.RLf (S.O.repL S.p (I.app A2 S.G2 (consL S.cL2 nilL)) S.P.N.c'))
+                (I.inTree A2 S.topT zs O.L.R1 (I.app A2 S.G2 (consL S.cL2 nilL)))
+                (S.P.N.treeRep zs O.L.R1 (I.app A2 S.G2 (consL S.cL2 nilL)) O.L.hp).1)
+              (PL.subst (I.Seq A2) (\ Z -> Id W.Bool (I.inTree A2 S.topT zs O.L.RLf Z) true)
+                S.GL (S.O.repL S.p (I.app A2 S.G2 (consL S.cL2 nilL)) S.P.N.c')
+                (PL.sym (I.Seq A2) (S.O.repL S.p (I.app A2 S.G2 (consL S.cL2 nilL)) S.P.N.c') S.GL (S.repLast S.G2 S.cL2 S.P.N.c')) hv)))).1) ;
+    -- the nodes of the right part come from R
+    ncRight (zs : LT.LL A2) (hv : Id W.Bool (I.inTree A2 S.topT zs O.Rg.RRf S.GR) true) : NC ev phi A2 (O.Rg.RRf zs) =
+      ncFix (RR zs) (ncR zs
+        (PL.trans W.Bool (I.inTree A2 topK zs RR (I.app A2 S.G2 (consL S.cR2 nilL)))
+            (I.inTree A2 topK zs O.Rg.RRf (S.O.repL S.p (I.app A2 S.G2 (consL S.cR2 nilL)) S.NR.N.c')) true
+          (PL.sym W.Bool (I.inTree A2 topK zs O.Rg.RRf (S.O.repL S.p (I.app A2 S.G2 (consL S.cR2 nilL)) S.NR.N.c'))
+            (I.inTree A2 topK zs RR (I.app A2 S.G2 (consL S.cR2 nilL)))
+            (S.NR.N.treeRep zs RR (I.app A2 S.G2 (consL S.cR2 nilL)) O.Rg.hp).1)
+          (PL.subst (I.Seq A2) (\ Z -> Id W.Bool (I.inTree A2 topK zs O.Rg.RRf Z) true)
+            S.GR (S.O.repL S.p (I.app A2 S.G2 (consL S.cR2 nilL)) S.NR.N.c')
+            (PL.sym (I.Seq A2) (S.O.repL S.p (I.app A2 S.G2 (consL S.cR2 nilL)) S.NR.N.c') S.GR (S.repLast S.G2 S.cR2 S.NR.N.c'))
+            (S.C.inChop zs O.Rg.RRf S.GR hv)))) ;
+    -- every cut of the S2 output is of kind II at stage topK
+    rootOK : CTm.CutOK topK (cutR S.f S.env') = PL.ap W.O3 W.Bool W.isLt (A2.cmp topK topK) eq (A2.crefl topK) ;
+    kS (o : W.Or W.Unit A2.car) (zs : LT.LL A2) : (m : W.N) -> O.InT (consL (suc m,o) zs) -> CTm.CutOK topK (O.Rf (consL (suc m,o) zs)) = split {
+      zero -> \ hv -> ncCut topK (O.Rg.RRf zs) (ncRight zs (W.andB-r (I.isTwo A2 (suc zero,o)) (I.inTree A2 S.topT zs O.Rg.RRf S.GR) hv)) ;
+      suc n -> \ hv -> O.tw n o (CTm.CutOK topK (O.Rf (consL (suc (suc n),o) zs)))
+        (W.andB-l (I.isTwo A2 (suc (suc n),o))
+          (I.inTree A2 S.topT zs O.Rg.RRf (I.app A2 S.G2 (consL (BI.pickF (suc (suc n)) S.f (BI.neg S.f),S.env') nilL))) hv) } ;
+    kC (o : W.Or W.Unit A2.car) (zs : LT.LL A2) : (n : W.N) -> O.InT (consL (n,o) zs) -> CTm.CutOK topK (O.Rf (consL (n,o) zs)) = split {
+      zero -> \ hv -> ncCut topK (O.L.RLf zs) (ncLeft zs (W.andB-r (I.isTwo A2 (zero,o)) (I.inTree A2 S.topT zs O.L.RLf S.GL) hv)) ;
+      suc m -> kS o zs m } ;
+    kw : CTm.KW O.Rf S.G2 (\ ys -> topK) = split {
+      nilL -> \ hv -> rootOK ;
+      consL a zs -> \ hv -> kC a.2 zs a.1 hv } ;
+    -- the cut-free derivation of eta G at (k(kX), eta topX)
+    cutFree : BF.CI[ev,phi,A2,S.topT].Res S.G2 = CTm.cutFree O.Rf S.G2 (\ ys -> topK) O.wf O.lo kw ;
+  } ;
+} ;

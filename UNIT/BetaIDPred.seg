@@ -1,0 +1,133 @@
+-- PLAN-ID1 S4(a), the cheap test: the recursion structure of Girard's
+-- 11.4.4 ("induction on pi, 10.2.9") for inductive logic, constructively,
+-- with FINITE shifts only.
+--
+--  (a) FObj: a homogeneous F-proof of inductive logic (BetaID) -- k with
+--      action km, a natural top, natural end sequents and rules -- is an
+--      object of BetaPred (its trees are natural: Mp.treeMap).
+--  (b) Absorption: a finite well-order D (an embedding into omega bounded
+--      by some n) satisfies D + omega -> omega (absF).  Hence BetaPred.Cons
+--      at Z = omega gives, WITHOUT excluded middle or choice, induction
+--      along all finite-shift predecessors, for every data-valued property,
+--      for every correct object (FinInd).
+--  (c) The premises of an l-bar rule at the root ARE finite-shift
+--      predecessors: for a finite D with a point d, the label
+--      eta_{D+X}(inl d) is natural in X and is a branch of the l-bar rule
+--      (it lies below top); the shifted object is the premise family at
+--      that point (stepL).
+-- What is NOT shown here: that Girard's construction of the cut-free
+-- proof can be rebuilt from its values on finite-shift predecessors (the
+-- remaining part of the claim in PLAN-ID1 "S4(a) analysis").
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module LW = LOWF[l] ;
+module LC = LOCat[l] ;
+module PS = PtyxSum[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BT = BetaIDTr[l] ;
+module BPd = BetaPred[l] ;
+
+------------------------------------------------------------------------
+-- (b) finite well-orders are absorbed by omega
+Fin (D : DP.LO) : U l = (n : W.N) * ((f : DP.Map D LW.omega) * ((d : D.car) -> Id W.O3 (W.cmpN (f.1 d) n) lt)) ;
+ltPlus : (n a j : W.N) -> Id W.O3 (W.cmpN a n) lt -> Id W.O3 (W.cmpN a (W.plus n j)) lt = split {
+  zero -> split {
+    zero -> \ j hh -> W.absurdB (Id W.O3 (W.cmpN zero j) lt) (PL.ap W.O3 W.Bool W.isEq lt eq (PL.sym W.O3 eq lt hh)) ;
+    suc a -> \ j hh -> W.absurdB (Id W.O3 (W.cmpN (suc a) j) lt) (PL.ap W.O3 W.Bool W.isLt gt lt hh) } ;
+  suc n | r -> split {
+    zero -> \ j hh -> refl lt ;
+    suc a -> \ j hh -> r a j hh } } ;
+cmpPlus : (n i j : W.N) -> Id W.O3 (W.cmpN (W.plus n i) (W.plus n j)) (W.cmpN i j) = split {
+  zero -> \ i j -> refl (W.cmpN i j) ;
+  suc n | r -> r } ;
+module Abs (D : DP.LO) (fd : Fin D) {
+  module S = PS.SumLO[D,LW.omega] ;
+  n : W.N = fd.1 ;
+  f : DP.Map D LW.omega = fd.2.1 ;
+  F : S.C -> W.N = split { inl d -> f.1 d ; inr j -> W.plus n j } ;
+  mono : (x y : S.C) -> Id W.O3 (W.cmpN (F x) (F y)) (S.cmp x y) = split {
+    inl x -> split {
+      inl y -> f.2 x y ;
+      inr j -> ltPlus n (f.1 x) j (fd.2.2 x) } ;
+    inr i -> split {
+      inl y -> PL.trans W.O3 (W.cmpN (W.plus n i) (f.1 y)) (W.flip (W.cmpN (f.1 y) (W.plus n i))) gt
+        (W.cmpN-flip (f.1 y) (W.plus n i))
+        (PL.ap W.O3 W.O3 W.flip (W.cmpN (f.1 y) (W.plus n i)) lt (ltPlus n (f.1 y) i (fd.2.2 y))) ;
+      inr j -> cmpPlus n i j } } ;
+  map : DP.Map (BPd.Sm D LW.omega) LW.omega = (F,mono) ;
+} ;
+absF (D : DP.LO) (fd : Fin D) : DP.Map (BPd.Sm D LW.omega) LW.omega = Abs[D,fd].map ;
+-- a finite order is well-founded
+wfPull (A B : DP.LO) (f : DP.Map A B) (w : LW.WF B) : LW.WF A =
+  W.Pull[A.car,W.ltO A.car A.cmp,B.car,W.ltO B.car B.cmp,f.1,
+    \ x y h -> PL.trans W.Bool (W.isLt (B.cmp (f.1 x) (f.1 y))) (W.isLt (A.cmp x y)) true
+      (PL.ap W.O3 W.Bool W.isLt (B.cmp (f.1 x) (f.1 y)) (A.cmp x y) (f.2 x y)) h].pullWF w ;
+wfFin (D : DP.LO) (fd : Fin D) : LW.WF D = wfPull D LW.omega fd.2.1 LW.wf-omega ;
+
+-- induction along finite-shift predecessors, constructively (Cons at omega)
+module FinInd (Q : BPd.Obj -> U l+)
+  (cl : (x : BPd.Obj) -> ((st : BPd.Step x) -> Fin st.1 -> Q (BPd.shift x st)) -> Q x) (x0 : BPd.Obj) {
+  module C = BPd.Cons[LW.omega,Q,\ x ih -> cl x (\ st fd -> ih st (absF st.1 fd)),x0] ;
+  main (c : BPd.CorrO x0) : Q x0 = C.mainCorr c LW.wf-omega ;
+} ;
+
+------------------------------------------------------------------------
+-- (a) homogeneous F-proofs of inductive logic are objects
+andTrue' : (c : W.Bool) -> Id W.Bool (W.andB c true) c = split { false -> refl false ; true -> refl true } ;
+module FObj (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form)
+  (k : DP.LO -> DP.LO) (km : (X Y : DP.LO) -> DP.Map X Y -> DP.Map (k X) (k Y))
+  (top : (X : DP.LO) -> (k X).car)
+  (ntop : (X Y : DP.LO) (g : DP.Map X Y) -> Id (k Y).car ((km X Y g).1 (top X)) (top Y))
+  (evI : (X Y : DP.LO) (g : DP.Map X Y) (n : W.N) (e : LT.LL (k X)) -> Id W.Bool (ev (k Y) n (LT.mapL (k X) (k Y) (km X Y g) e)) (ev (k X) n e))
+  (G : (X : DP.LO) -> BI.ID[ev,phi].Seq (k X)) (R : (X : DP.LO) -> BI.ID[ev,phi].Rl (k X))
+  (ng : (X Y : DP.LO) (g : DP.Map X Y) -> Id (BI.ID[ev,phi].Seq (k Y)) (G Y) (BT.Mp[ev,phi,k X,k Y,km X Y g,evI X Y g,top X].mS (G X)))
+  (nr : (X Y : DP.LO) (g : DP.Map X Y) (zs : LT.LL (k X)) ->
+     Id (BI.ID[ev,phi].Rule (k Y)) (R Y (LT.mapL (k X) (k Y) (km X Y g) zs)) (BT.Mp[ev,phi,k X,k Y,km X Y g,evI X Y g,top X].mR (R X zs))) {
+  module I = BI.ID[ev,phi] ;
+  P (X : DP.LO) (ys : LT.LL (k X)) : W.Bool = I.inTree (k X) (top X) ys (R X) (G X) ;
+  nat (X Y : DP.LO) (g : DP.Map X Y) (ys : LT.LL (k X)) : Id W.Bool (P Y (LT.mapL (k X) (k Y) (km X Y g) ys)) (P X ys) =
+    PL.trans W.Bool (P Y (LT.mapL (k X) (k Y) (km X Y g) ys)) (I.inTree (k Y) ((km X Y g).1 (top X)) (LT.mapL (k X) (k Y) (km X Y g) ys) (R Y) (G Y)) (P X ys)
+      (PL.ap (k Y).car W.Bool (\ t -> I.inTree (k Y) t (LT.mapL (k X) (k Y) (km X Y g) ys) (R Y) (G Y)) (top Y) ((km X Y g).1 (top X))
+        (PL.sym (k Y).car ((km X Y g).1 (top X)) (top Y) (ntop X Y g)))
+      (BT.Mp[ev,phi,k X,k Y,km X Y g,evI X Y g,top X].treeMap ys (R X) (R Y) (G X) (G Y) (nr X Y g) (ng X Y g)) ;
+  obj : BPd.Obj = (k,(km,(P,nat))) ;
+  -- correctness of the F-proof is correctness of the object
+  corr (c : (X : DP.LO) -> LW.WF X -> I.WFP (k X) (top X) (R X) (G X)) : BPd.CorrO obj = c ;
+
+  --------------------------------------------------------------------
+  -- (c) the premises of a root l-bar rule are finite-shift predecessors
+  module LBar (eta : (X : DP.LO) -> DP.Map X (k X))
+    (neta : (X Y : DP.LO) (g : DP.Map X Y) (x : X.car) -> Id (k Y).car ((km X Y g).1 ((eta X).1 x)) ((eta Y).1 (g.1 x)))
+    (etaTop : (X : DP.LO) (x : X.car) -> Id W.O3 ((k X).cmp ((eta X).1 x) (top X)) lt)
+    (i : W.N) (rootL : (X : DP.LO) -> Id (I.Rule (k X)) (R X nilL) (xlR i (inl tt)))
+    (D : DP.LO) (fd : Fin D) (d : D.car) {
+    lab (X : DP.LO) : BPd.LbO obj (BPd.Sm D X) = (zero,inr ((eta (BPd.Sm D X)).1 (inl d))) ;
+    labNat (X Y : DP.LO) (g : DP.Map X Y) :
+        Id (BPd.LbO obj (BPd.Sm D Y)) (LT.lm (k (BPd.Sm D X)) (k (BPd.Sm D Y)) (km (BPd.Sm D X) (BPd.Sm D Y) (BPd.smap D X Y g)) (lab X)) (lab Y) =
+      PL.ap (k (BPd.Sm D Y)).car (BPd.LbO obj (BPd.Sm D Y)) (\ z -> (zero,inr z))
+        ((km (BPd.Sm D X) (BPd.Sm D Y) (BPd.smap D X Y g)).1 ((eta (BPd.Sm D X)).1 (inl d))) ((eta (BPd.Sm D Y)).1 (inl d))
+        (neta (BPd.Sm D X) (BPd.Sm D Y) (BPd.smap D X Y g) (inl d)) ;
+    -- the label is a branch of the l-bar rule: it lies below top
+    node (X : DP.LO) : Id W.Bool (P (BPd.Sm D X) (consL (lab X) nilL)) true =
+      PL.trans W.Bool (P (BPd.Sm D X) (consL (lab X) nilL)) (I.br (k (BPd.Sm D X)) (top (BPd.Sm D X)) (R (BPd.Sm D X) nilL) (lab X)) true
+        (andTrue' (I.br (k (BPd.Sm D X)) (top (BPd.Sm D X)) (R (BPd.Sm D X) nilL) (lab X)))
+        (PL.trans W.Bool (I.br (k (BPd.Sm D X)) (top (BPd.Sm D X)) (R (BPd.Sm D X) nilL) (lab X))
+            (I.br (k (BPd.Sm D X)) (top (BPd.Sm D X)) (xlR i (inl tt)) (lab X)) true
+          (PL.ap (I.Rule (k (BPd.Sm D X))) W.Bool (\ r -> I.br (k (BPd.Sm D X)) (top (BPd.Sm D X)) r (lab X))
+            (R (BPd.Sm D X) nilL) (xlR i (inl tt)) (rootL (BPd.Sm D X)))
+          (PL.ap W.O3 W.Bool W.isLt ((k (BPd.Sm D X)).cmp ((eta (BPd.Sm D X)).1 (inl d)) (top (BPd.Sm D X))) lt
+            (etaTop (BPd.Sm D X) (inl d)))) ;
+    stepL : BPd.Step obj = (D,(wfFin D fd,(lab,(labNat,node)))) ;
+    -- the shifted object is the premise family at eta(inl d) ...
+    premise (X : DP.LO) (ys : LT.LL (k (BPd.Sm D X))) :
+        Id W.Bool (BPd.PO (BPd.shift obj stepL) X ys) (P (BPd.Sm D X) (consL (lab X) ys)) = refl (P (BPd.Sm D X) (consL (lab X) ys)) ;
+    -- ... and it is absorbed by omega
+    absorbed : DP.Map (BPd.Sm D LW.omega) LW.omega = absF D fd ;
+  } ;
+} ;

@@ -1,0 +1,298 @@
+-- PLAN-ID1 S2: building blocks (C) chop and (N) renaming, for pre-proofs of
+-- inductive logic (BetaID) at a fixed linear order A.
+--
+-- (C) CHOP (Girard ptlc2 p. 310: "chop all premises of index >= a + alpha").
+--     The l-bar rule (xl i (inl tt)) branches below the current top, read
+--     in br.  Lowering top to top' <= top only removes branches: the tree at
+--     top' is contained in the tree at top, the sequents and rules at its
+--     addresses are the same.  So local correctness and Brouwer bounds pass
+--     from top to top' (loChop, wfChop).
+--
+-- (N) RENAMING (Lemmas 11.4.5 and 11.4.7).  Let the closure at index p of
+--     the end sequent be the X-atom c = (xF b s k, e) whose predicate is
+--     Phi-bar, with argument t = e[k].  Replace it by
+--         c' = (xF b 1 0, (t, xi)),        xi the label of the stage c0.
+--     Steps append closures at the end, so index p keeps denoting this
+--     occurrence; every rule adds the same closures for c and c' (they have
+--     the same argument), hence the sequent at each address is the old one
+--     with c replaced by c' (treeRep), and the trees coincide when the
+--     renamed rules have the same branches.
+--     * positive (11.4.5, b = true): rules unchanged; (xr p mu) stays
+--       applicable for I^c0 when mu < c0, which is assumed of every rule;
+--     * negative (11.4.7, b = false, c0 = top): (xl p (inl tt)) becomes
+--       (xl p (inr top)), with the same branches (below top).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+
+module Ops (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) {
+  module I = BI.ID[ev,phi] ;
+  module KA = KT.KB[LT.Lab A] ;
+  absOC (X : U l) (c : I.Clo A) (h : Id (I.OC A) (inl tt) (inr c)) : X =
+    W.absurdB X (PL.ap (I.OC A) W.Bool (BP.isInr W.Unit (I.Clo A)) (inl tt) (inr c) h) ;
+
+  ----------------------------------------------------------------------
+  -- (C) chop
+  module Chop (top' top : A.car) (le : (x : A.car) -> Id W.Bool (I.ltB A x top') true -> Id W.Bool (I.ltB A x top) true) {
+    belowChop (n : W.N) : (o : W.Or W.Unit A.car) -> Id W.Bool (W.andB (BP.isZeroN n) (I.ltO A top' o)) true ->
+        Id W.Bool (W.andB (BP.isZeroN n) (I.ltO A top o)) true = split {
+      inl u -> \ hh -> hh ;
+      inr mu -> \ hh -> W.andB-intro (BP.isZeroN n) (I.ltB A mu top) (W.andB-l (BP.isZeroN n) (I.ltB A mu top') hh)
+        (le mu (W.andB-r (BP.isZeroN n) (I.ltB A mu top') hh)) } ;
+    boundChop : (o : W.Or W.Unit A.car) (a : I.Lb A) -> Id W.Bool (I.below A (I.bound A top' o) a) true ->
+        Id W.Bool (I.below A (I.bound A top o) a) true = split {
+      inl u -> \ a hh -> belowChop a.1 a.2 hh ;
+      inr la -> \ a hh -> hh } ;
+    brChop : (r : I.Rule A) (a : I.Lb A) -> Id W.Bool (I.br A top' r a) true -> Id W.Bool (I.br A top r a) true = split {
+      axR i -> \ a hh -> hh ; andR i -> \ a hh -> hh ; orR i -> \ a hh -> hh ; allR i -> \ a hh -> hh ;
+      exR i w -> \ a hh -> hh ; cutR f e -> \ a hh -> hh ; xrR i mu -> \ a hh -> hh ;
+      xlR i o -> boundChop o } ;
+    inChop : (ys : LT.LL A) (R : I.Rl A) (G : I.Seq A) -> Id W.Bool (I.inTree A top' ys R G) true -> Id W.Bool (I.inTree A top ys R G) true = split {
+      nilL -> \ R G hh -> refl true ;
+      consL a ys | r -> \ R G hh ->
+        W.andB-intro (I.br A top (R nilL) a) (I.inTree A top ys (I.shift A R a) (I.step A G (R nilL) a))
+          (brChop (R nilL) a (W.andB-l (I.br A top' (R nilL) a) (I.inTree A top' ys (I.shift A R a) (I.step A G (R nilL) a)) hh))
+          (r (I.shift A R a) (I.step A G (R nilL) a)
+            (W.andB-r (I.br A top' (R nilL) a) (I.inTree A top' ys (I.shift A R a) (I.step A G (R nilL) a)) hh)) } ;
+    loChop (R : I.Rl A) (G : I.Seq A) (lo : I.LocOK A top R G) : I.LocOK A top' R G = \ ys hv -> lo ys (inChop ys R G hv) ;
+    wfChop (R : I.Rl A) (G : I.Seq A) (w : I.WFP A top R G) : I.WFP A top' R G =
+      (w.1,KA.bnd-mono w.1 (I.tree A top' R G) (I.tree A top R G) (\ xs -> inChop xs R G) w.2) ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- (N) replacing the closure at index p
+  repL : W.N -> I.Seq A -> I.Clo A -> I.Seq A = split {
+    zero -> split { nilL -> \ c' -> nilL ; consL d ds -> \ c' -> consL c' ds } ;
+    suc p | r -> split { nilL -> \ c' -> nilL ; consL d ds -> \ c' -> consL d (r ds c') } } ;
+  getRepSame : (p : W.N) (S : I.Seq A) (c c' : I.Clo A) -> Id (I.OC A) (I.getM A p S) (inr c) ->
+      Id (I.OC A) (I.getM A p (repL p S c')) (inr c') = split {
+    zero -> split {
+      nilL -> \ c c' hh -> absOC (Id (I.OC A) (inl tt) (inr c')) c hh ;
+      consL d ds -> \ c c' hh -> refl (inr c') } ;
+    suc p | r -> split {
+      nilL -> \ c c' hh -> absOC (Id (I.OC A) (inl tt) (inr c')) c hh ;
+      consL d ds -> \ c c' hh -> r ds c c' hh } } ;
+  gro0 (p : W.N) : (S : I.Seq A) (c' : I.Clo A) -> Id (I.OC A) (I.getM A zero (repL (suc p) S c')) (I.getM A zero S) = split {
+    nilL -> \ c' -> refl (inl tt) ; consL d ds -> \ c' -> refl (inr d) } ;
+  gro1 (i : W.N) : (S : I.Seq A) (c' : I.Clo A) -> Id (I.OC A) (I.getM A (suc i) (repL zero S c')) (I.getM A (suc i) S) = split {
+    nilL -> \ c' -> refl (inl tt) ; consL d ds -> \ c' -> refl (I.getM A i ds) } ;
+  gro2 (i p : W.N) (rec : (S : I.Seq A) (c' : I.Clo A) -> Id W.Bool (W.eqN i p) false -> Id (I.OC A) (I.getM A i (repL p S c')) (I.getM A i S)) :
+      (S : I.Seq A) (c' : I.Clo A) -> Id W.Bool (W.eqN i p) false -> Id (I.OC A) (I.getM A (suc i) (repL (suc p) S c')) (I.getM A (suc i) S) = split {
+    nilL -> \ c' hh -> refl (inl tt) ; consL d ds -> \ c' hh -> rec ds c' hh } ;
+  getRepOther : (i p : W.N) (S : I.Seq A) (c' : I.Clo A) -> Id W.Bool (W.eqN i p) false ->
+      Id (I.OC A) (I.getM A i (repL p S c')) (I.getM A i S) = split {
+    zero -> split {
+      zero -> \ S c' hh -> BP.tf (Id (I.OC A) (I.getM A zero (repL zero S c')) (I.getM A zero S)) hh ;
+      suc p -> \ S c' hh -> gro0 p S c' } ;
+    suc i | r -> split {
+      zero -> \ S c' hh -> gro1 i S c' ;
+      suc p -> \ S c' hh -> gro2 i p (r p) S c' hh } } ;
+  getApp : (p : W.N) (S T : I.Seq A) (c : I.Clo A) -> Id (I.OC A) (I.getM A p S) (inr c) -> Id (I.OC A) (I.getM A p (I.app A S T)) (inr c) = split {
+    zero -> split {
+      nilL -> \ T c hh -> absOC (Id (I.OC A) (I.getM A zero T) (inr c)) c hh ;
+      consL d ds -> \ T c hh -> hh } ;
+    suc p | r -> split {
+      nilL -> \ T c hh -> absOC (Id (I.OC A) (I.getM A (suc p) T) (inr c)) c hh ;
+      consL d ds -> \ T c hh -> r ds T c hh } } ;
+  appRep : (p : W.N) (S T : I.Seq A) (c c' : I.Clo A) -> Id (I.OC A) (I.getM A p S) (inr c) ->
+      Id (I.Seq A) (I.app A (repL p S c') T) (repL p (I.app A S T) c') = split {
+    zero -> split {
+      nilL -> \ T c c' hh -> absOC (Id (I.Seq A) T (repL zero T c')) c hh ;
+      consL d ds -> \ T c c' hh -> refl (consL c' (I.app A ds T)) } ;
+    suc p | r -> split {
+      nilL -> \ T c c' hh -> absOC (Id (I.Seq A) T (repL (suc p) T c')) c hh ;
+      consL d ds -> \ T c c' hh -> PL.ap (I.Seq A) (I.Seq A) (\ z -> consL d z) (I.app A (repL p ds c') T) (repL p (I.app A ds T) c')
+        (r ds T c c' hh) } } ;
+  getStep (p : W.N) (S : I.Seq A) (c : I.Clo A) (hp : Id (I.OC A) (I.getM A p S) (inr c)) :
+      (r : I.Rule A) (a : I.Lb A) -> Id (I.OC A) (I.getM A p (I.step A S r a)) (inr c) = split {
+    axR i -> \ a -> hp ;
+    andR i -> \ a -> getApp p S (I.addAnd A (I.getM A i S) a) c hp ;
+    orR i -> \ a -> getApp p S (I.addOr A (I.getM A i S)) c hp ;
+    allR i -> \ a -> getApp p S (I.addAll A (I.getM A i S) a) c hp ;
+    exR i w -> \ a -> getApp p S (I.addEx A (I.getM A i S) w) c hp ;
+    cutR f e -> \ a -> getApp p S (consL (BI.pickF a.1 f (BI.neg f),e) nilL) c hp ;
+    xrR i mu -> \ a -> getApp p S (I.addXr A mu (I.getM A i S)) c hp ;
+    xlR i o -> \ a -> getApp p S (I.addXl A (I.getM A i S) a) c hp } ;
+
+  module Ren (top : A.car) (p : W.N) (b : W.Bool) (s k : W.N) (e : LT.LL A) (xi : I.Lb A) (renR : I.Rule A -> I.Rule A)
+    (hstepR : (S : I.Seq A) (r : I.Rule A) (a : I.Lb A) -> Id (I.Seq A) (I.step A S (renR r) a) (I.step A S r a))
+    (hbrR : (r : I.Rule A) (a : I.Lb A) -> Id W.Bool (I.br A top (renR r) a) (I.br A top r a)) {
+    c : I.Clo A = (xF b s k,e) ;
+    c' : I.Clo A = (xF b (suc zero) zero,I.envP A (I.nthL A k e) xi) ;
+    rR (R : I.Rl A) : I.Rl A = \ zs -> renR (R zs) ;
+    Hp (S : I.Seq A) : U l = Id (I.OC A) (I.getM A p S) (inr c) ;
+    -- every function of the principal closure agrees on c and c'
+    atP (S : I.Seq A) (hp : Hp S) (Z : U l) (X : I.OC A -> Z) (sx : Id Z (X (inr c')) (X (inr c))) :
+        Id Z (X (I.getM A p (repL p S c'))) (X (I.getM A p S)) =
+      PL.trans Z (X (I.getM A p (repL p S c'))) (X (inr c')) (X (I.getM A p S))
+        (PL.ap (I.OC A) Z X (I.getM A p (repL p S c')) (inr c') (getRepSame p S c c' hp))
+        (PL.trans Z (X (inr c')) (X (inr c)) (X (I.getM A p S)) sx
+          (PL.ap (I.OC A) Z X (inr c) (I.getM A p S) (PL.sym (I.OC A) (I.getM A p S) (inr c) hp))) ;
+    gs (S : I.Seq A) (hp : Hp S) (i : W.N) (Z : U l) (X : I.OC A -> Z) (sx : Id Z (X (inr c')) (X (inr c))) :
+        (bv : W.Bool) -> Id W.Bool (W.eqN i p) bv -> Id Z (X (I.getM A i (repL p S c'))) (X (I.getM A i S)) = split {
+      false -> \ eb -> PL.ap (I.OC A) Z X (I.getM A i (repL p S c')) (I.getM A i S) (getRepOther i p S c' eb) ;
+      true -> \ eb -> PL.subst W.N (\ j -> Id Z (X (I.getM A j (repL p S c'))) (X (I.getM A j S))) p i
+        (PL.sym W.N i p (W.eqN-sound i p eb)) (atP S hp Z X sx) } ;
+    getSame (S : I.Seq A) (hp : Hp S) (i : W.N) (Z : U l) (X : I.OC A -> Z) (sx : Id Z (X (inr c')) (X (inr c))) :
+        Id Z (X (I.getM A i (repL p S c'))) (X (I.getM A i S)) = gs S hp i Z X sx (W.eqN i p) (refl (W.eqN i p)) ;
+    viaApp (S : I.Seq A) (hp : Hp S) (X : I.OC A -> I.Seq A) (i : W.N) (sx : Id (I.Seq A) (X (inr c')) (X (inr c))) :
+        Id (I.Seq A) (I.app A (repL p S c') (X (I.getM A i (repL p S c')))) (repL p (I.app A S (X (I.getM A i S))) c') =
+      PL.trans (I.Seq A) (I.app A (repL p S c') (X (I.getM A i (repL p S c')))) (I.app A (repL p S c') (X (I.getM A i S)))
+        (repL p (I.app A S (X (I.getM A i S))) c')
+        (PL.ap (I.Seq A) (I.Seq A) (I.app A (repL p S c')) (X (I.getM A i (repL p S c'))) (X (I.getM A i S)) (getSame S hp i (I.Seq A) X sx))
+        (appRep p S (X (I.getM A i S)) c c' hp) ;
+    stepRep0 (S : I.Seq A) (hp : Hp S) : (r : I.Rule A) (a : I.Lb A) -> Id (I.Seq A) (I.step A (repL p S c') r a) (repL p (I.step A S r a) c') = split {
+      axR i -> \ a -> refl (repL p S c') ;
+      andR i -> \ a -> viaApp S hp (\ o -> I.addAnd A o a) i (refl nilL) ;
+      orR i -> \ a -> viaApp S hp (I.addOr A) i (refl nilL) ;
+      allR i -> \ a -> viaApp S hp (\ o -> I.addAll A o a) i (refl nilL) ;
+      exR i w -> \ a -> viaApp S hp (\ o -> I.addEx A o w) i (refl nilL) ;
+      cutR f e2 -> \ a -> appRep p S (consL (BI.pickF a.1 f (BI.neg f),e2) nilL) c c' hp ;
+      xrR i mu -> \ a -> viaApp S hp (I.addXr A mu) i (refl (I.addXr A mu (inr c))) ;
+      xlR i o -> \ a -> viaApp S hp (\ o' -> I.addXl A o' a) i (refl (I.addXl A (inr c) a)) } ;
+    stepRep (S : I.Seq A) (hp : Hp S) (r : I.Rule A) (a : I.Lb A) : Id (I.Seq A) (I.step A (repL p S c') (renR r) a) (repL p (I.step A S r a) c') =
+      PL.trans (I.Seq A) (I.step A (repL p S c') (renR r) a) (I.step A (repL p S c') r a) (repL p (I.step A S r a) c')
+        (hstepR (repL p S c') r a) (stepRep0 S hp r a) ;
+
+    -- the trees and the sequents correspond
+    TR (R : I.Rl A) (G : I.Seq A) (ys : LT.LL A) : U l =
+      Id W.Bool (I.inTree A top ys (rR R) (repL p G c')) (I.inTree A top ys R G) *
+      Id (I.Seq A) (I.seqAt A ys (rR R) (repL p G c')) (repL p (I.seqAt A ys R G) c') ;
+    treeRepC (a : I.Lb A) (ys : LT.LL A) (R : I.Rl A) (G : I.Seq A) (hp : Hp G)
+      (ih : TR (I.shift A R a) (I.step A G (R nilL) a) ys) : TR R G (consL a ys) =
+      (W.ap2 W.Bool W.Bool W.Bool W.andB (I.br A top (renR (R nilL)) a) (I.br A top (R nilL) a)
+         (I.inTree A top ys (rR (I.shift A R a)) (I.step A (repL p G c') (renR (R nilL)) a)) (I.inTree A top ys (I.shift A R a) (I.step A G (R nilL) a))
+         (hbrR (R nilL) a)
+         (PL.trans W.Bool (I.inTree A top ys (rR (I.shift A R a)) (I.step A (repL p G c') (renR (R nilL)) a))
+           (I.inTree A top ys (rR (I.shift A R a)) (repL p (I.step A G (R nilL) a) c')) (I.inTree A top ys (I.shift A R a) (I.step A G (R nilL) a))
+           (PL.ap (I.Seq A) W.Bool (I.inTree A top ys (rR (I.shift A R a))) (I.step A (repL p G c') (renR (R nilL)) a) (repL p (I.step A G (R nilL) a) c')
+             (stepRep G hp (R nilL) a))
+           ih.1),
+       PL.trans (I.Seq A) (I.seqAt A ys (rR (I.shift A R a)) (I.step A (repL p G c') (renR (R nilL)) a))
+         (I.seqAt A ys (rR (I.shift A R a)) (repL p (I.step A G (R nilL) a) c')) (repL p (I.seqAt A ys (I.shift A R a) (I.step A G (R nilL) a)) c')
+         (PL.ap (I.Seq A) (I.Seq A) (I.seqAt A ys (rR (I.shift A R a))) (I.step A (repL p G c') (renR (R nilL)) a) (repL p (I.step A G (R nilL) a) c')
+           (stepRep G hp (R nilL) a))
+         ih.2) ;
+    treeRep : (ys : LT.LL A) (R : I.Rl A) (G : I.Seq A) (hp : Hp G) -> TR R G ys = split {
+      nilL -> \ R G hp -> (refl true,refl (repL p G c')) ;
+      consL a ys | rec -> \ R G hp -> treeRepC a ys R G hp (rec (I.shift A R a) (I.step A G (R nilL) a) (getStep p G c hp (R nilL) a)) } ;
+    getSeqAt : (ys : LT.LL A) (R : I.Rl A) (G : I.Seq A) (hp : Hp G) -> Hp (I.seqAt A ys R G) = split {
+      nilL -> \ R G hp -> hp ;
+      consL a ys | rec -> \ R G hp -> rec (I.shift A R a) (I.step A G (R nilL) a) (getStep p G c hp (R nilL) a) } ;
+    wfRen (R : I.Rl A) (G : I.Seq A) (hp : Hp G) (w : I.WFP A top R G) : I.WFP A top (rR R) (repL p G c') =
+      (w.1,KA.bnd-ext w.1 (I.tree A top R G) (I.tree A top (rR R) (repL p G c'))
+        (\ xs -> PL.sym W.Bool (I.inTree A top xs (rR R) (repL p G c')) (I.inTree A top xs R G) (treeRep xs R G hp).1) w.2) ;
+    -- local correctness, given that the renamed rules stay applicable
+    loRen (R : I.Rl A) (G : I.Seq A) (hp : Hp G) (lo : I.LocOK A top R G)
+      (happl : (ys : LT.LL A) -> Hp (I.seqAt A ys R G) -> Id W.Bool (I.appl A (I.seqAt A ys R G) (R ys)) true ->
+         Id W.Bool (I.appl A (repL p (I.seqAt A ys R G) c') (renR (R ys))) true) :
+        I.LocOK A top (rR R) (repL p G c') = \ ys hv ->
+      PL.subst (I.Seq A) (\ S -> Id W.Bool (I.appl A S (renR (R ys))) true) (repL p (I.seqAt A ys R G) c') (I.seqAt A ys (rR R) (repL p G c'))
+        (PL.sym (I.Seq A) (I.seqAt A ys (rR R) (repL p G c')) (repL p (I.seqAt A ys R G) c') (treeRep ys R G hp).2)
+        (happl ys (getSeqAt ys R G hp)
+          (lo ys (PL.trans W.Bool (I.inTree A top ys R G) (I.inTree A top ys (rR R) (repL p G c')) true
+            (PL.sym W.Bool (I.inTree A top ys (rR R) (repL p G c')) (I.inTree A top ys R G) (treeRep ys R G hp).1) hv))) ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- (N+) Lemma 11.4.5: positive Phi-bar at p becomes I^c0; every (xr) choice is < c0
+  xrOK (c0 : A.car) : I.Rule A -> W.Bool = split {
+    axR i -> true ; andR i -> true ; orR i -> true ; allR i -> true ; exR i w -> true ; cutR f e -> true ;
+    xrR i mu -> I.ltB A mu c0 ; xlR i o -> true } ;
+  module RenP (top : A.car) (p : W.N) (s k : W.N) (e : LT.LL A) (c0 : A.car) {
+    module N = Ren[top,p,true,s,k,e,I.stg A c0,\ r -> r,\ S r a -> refl (I.step A S r a),\ r a -> refl (I.br A top r a)] ;
+    xrP (S : I.Seq A) (hp : N.Hp S) (i : W.N) (mu : A.car) (hx : Id W.Bool (I.ltB A mu c0) true)
+      (hh : Id W.Bool (I.okXr A mu (I.getM A i S)) true) :
+        (bv : W.Bool) -> Id W.Bool (W.eqN i p) bv -> Id W.Bool (I.okXr A mu (I.getM A i (repL p S N.c'))) true = split {
+      false -> \ eb -> PL.trans W.Bool (I.okXr A mu (I.getM A i (repL p S N.c'))) (I.okXr A mu (I.getM A i S)) true
+        (PL.ap (I.OC A) W.Bool (I.okXr A mu) (I.getM A i (repL p S N.c')) (I.getM A i S) (getRepOther i p S N.c' eb)) hh ;
+      true -> \ eb -> PL.subst W.N (\ j -> Id W.Bool (I.okXr A mu (I.getM A j (repL p S N.c'))) true) p i
+        (PL.sym W.N i p (W.eqN-sound i p eb))
+        (PL.trans W.Bool (I.okXr A mu (I.getM A p (repL p S N.c'))) (I.okXr A mu (inr N.c')) true
+          (PL.ap (I.OC A) W.Bool (I.okXr A mu) (I.getM A p (repL p S N.c')) (inr N.c') (getRepSame p S N.c N.c' hp)) hx) } ;
+    viaB (S : I.Seq A) (hp : N.Hp S) (i : W.N) (Y : I.OC A -> W.Bool) (sx : Id W.Bool (Y (inr N.c')) (Y (inr N.c)))
+      (hh : Id W.Bool (Y (I.getM A i S)) true) : Id W.Bool (Y (I.getM A i (repL p S N.c'))) true =
+      PL.trans W.Bool (Y (I.getM A i (repL p S N.c'))) (Y (I.getM A i S)) true (N.getSame S hp i W.Bool Y sx) hh ;
+    applP (S : I.Seq A) (hp : N.Hp S) : (r : I.Rule A) -> Id W.Bool (xrOK c0 r) true -> Id W.Bool (I.appl A S r) true ->
+        Id W.Bool (I.appl A (repL p S N.c') r) true = split {
+      axR i -> \ hx hh -> viaB S hp i (I.isAx A) (refl (I.isAx A (inr N.c))) hh ;
+      andR i -> \ hx hh -> viaB S hp i (I.isO A BI.isAndF) (refl false) hh ;
+      orR i -> \ hx hh -> viaB S hp i (I.isO A BI.isOrF) (refl false) hh ;
+      allR i -> \ hx hh -> viaB S hp i (I.isO A BI.isAllF) (refl false) hh ;
+      exR i w -> \ hx hh -> viaB S hp i (\ o -> W.andB (I.isO A BI.isExF o) (I.isNum A w)) (refl false) hh ;
+      cutR f e2 -> \ hx hh -> refl true ;
+      xrR i mu -> \ hx hh -> xrP S hp i mu hx hh (W.eqN i p) (refl (W.eqN i p)) ;
+      xlR i o -> \ hx hh -> viaB S hp i (I.okXl A o) (refl (I.okXl A o (inr N.c))) hh } ;
+    lo (R : I.Rl A) (G : I.Seq A) (hp : N.Hp G) (lo0 : I.LocOK A top R G)
+      (hxR : (ys : LT.LL A) -> Id W.Bool (xrOK c0 (R ys)) true) : I.LocOK A top (N.rR R) (repL p G N.c') =
+      N.loRen R G hp lo0 (\ ys hq hh -> applP (I.seqAt A ys R G) hq (R ys) (hxR ys) hh) ;
+    wf (R : I.Rl A) (G : I.Seq A) (hp : N.Hp G) (w : I.WFP A top R G) : I.WFP A top (N.rR R) (repL p G N.c') = N.wfRen R G hp w ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- (N-) Lemma 11.4.7: negative Phi-bar at p becomes I^top; (xl p (inl tt))
+  -- becomes (xl p (inr top)), with the same premises
+  fixIf (top : A.car) : W.Bool -> W.Or W.Unit A.car -> W.Or W.Unit A.car = split {
+    false -> \ o -> o ;
+    true -> split { inl u -> inr top ; inr la -> inr la } } ;
+  boundFix (top : A.car) : (bv : W.Bool) (o : W.Or W.Unit A.car) -> Id A.car (I.bound A top (fixIf top bv o)) (I.bound A top o) = split {
+    false -> \ o -> refl (I.bound A top o) ;
+    true -> split { inl u -> refl top ; inr la -> refl la } } ;
+  fixR (top : A.car) (p : W.N) : I.Rule A -> I.Rule A = split {
+    axR i -> axR i ; andR i -> andR i ; orR i -> orR i ; allR i -> allR i ; exR i w -> exR i w ; cutR f e -> cutR f e ;
+    xrR i mu -> xrR i mu ; xlR i o -> xlR i (fixIf top (W.eqN i p) o) } ;
+  fixStep (top : A.car) (p : W.N) (S : I.Seq A) : (r : I.Rule A) (a : I.Lb A) -> Id (I.Seq A) (I.step A S (fixR top p r) a) (I.step A S r a) = split {
+    axR i -> \ a -> refl (I.step A S (axR i) a) ; andR i -> \ a -> refl (I.step A S (andR i) a) ;
+    orR i -> \ a -> refl (I.step A S (orR i) a) ; allR i -> \ a -> refl (I.step A S (allR i) a) ;
+    exR i w -> \ a -> refl (I.step A S (exR i w) a) ; cutR f e -> \ a -> refl (I.step A S (cutR f e) a) ;
+    xrR i mu -> \ a -> refl (I.step A S (xrR i mu) a) ; xlR i o -> \ a -> refl (I.step A S (xlR i o) a) } ;
+  fixBr (top : A.car) (p : W.N) : (r : I.Rule A) (a : I.Lb A) -> Id W.Bool (I.br A top (fixR top p r) a) (I.br A top r a) = split {
+    axR i -> \ a -> refl false ; andR i -> \ a -> refl (I.isTwo A a) ; orR i -> \ a -> refl (I.isZeroL A a) ;
+    allR i -> \ a -> refl (I.isNum A a) ; exR i w -> \ a -> refl (I.isZeroL A a) ; cutR f e -> \ a -> refl (I.isTwo A a) ;
+    xrR i mu -> \ a -> refl (I.isZeroL A a) ;
+    xlR i o -> \ a -> PL.ap A.car W.Bool (\ x -> I.below A x a) (I.bound A top (fixIf top (W.eqN i p) o)) (I.bound A top o) (boundFix top (W.eqN i p) o) } ;
+  module RenN (top : A.car) (p : W.N) (s k : W.N) (e : LT.LL A) (hbar : Id (W.Or W.Unit A.car) (I.nthL A s e).2 (inl tt)) {
+    module N = Ren[top,p,false,s,k,e,I.stg A top,fixR top p,fixStep top p,fixBr top p] ;
+    xlNo : (o : W.Or W.Unit A.car) -> Id W.Bool (I.sameO A o (inl tt)) true -> Id W.Bool (I.sameO A (fixIf top true o) (inr top)) true = split {
+      inl u -> \ hh -> PL.ap W.O3 W.Bool W.isEq (A.cmp top top) eq (A.crefl top) ;
+      inr la -> \ hh -> W.absurdB (Id W.Bool (I.sameO A (inr la) (inr top)) true) hh } ;
+    xlAtP (S : I.Seq A) (hp : N.Hp S) (o : W.Or W.Unit A.car) (hh : Id W.Bool (I.okXl A o (I.getM A p S)) true) :
+        Id W.Bool (I.okXl A (fixIf top true o) (I.getM A p (repL p S N.c'))) true =
+      PL.trans W.Bool (I.okXl A (fixIf top true o) (I.getM A p (repL p S N.c'))) (I.okXl A (fixIf top true o) (inr N.c')) true
+        (PL.ap (I.OC A) W.Bool (I.okXl A (fixIf top true o)) (I.getM A p (repL p S N.c')) (inr N.c') (getRepSame p S N.c N.c' hp))
+        (xlNo o
+          (PL.trans W.Bool (I.sameO A o (inl tt)) (I.okXl A o (I.getM A p S)) true
+            (PL.trans W.Bool (I.sameO A o (inl tt)) (I.okXl A o (inr N.c)) (I.okXl A o (I.getM A p S))
+              (PL.ap (W.Or W.Unit A.car) W.Bool (I.sameO A o) (inl tt) (I.nthL A s e).2 (PL.sym (W.Or W.Unit A.car) (I.nthL A s e).2 (inl tt) hbar))
+              (PL.ap (I.OC A) W.Bool (I.okXl A o) (inr N.c) (I.getM A p S) (PL.sym (I.OC A) (I.getM A p S) (inr N.c) hp)))
+            hh)) ;
+    xlN (S : I.Seq A) (hp : N.Hp S) (o : W.Or W.Unit A.car) (i : W.N) (hh : Id W.Bool (I.okXl A o (I.getM A i S)) true) :
+        (bv : W.Bool) -> Id W.Bool (W.eqN i p) bv -> Id W.Bool (I.okXl A (fixIf top bv o) (I.getM A i (repL p S N.c'))) true = split {
+      false -> \ eb -> PL.trans W.Bool (I.okXl A o (I.getM A i (repL p S N.c'))) (I.okXl A o (I.getM A i S)) true
+        (PL.ap (I.OC A) W.Bool (I.okXl A o) (I.getM A i (repL p S N.c')) (I.getM A i S) (getRepOther i p S N.c' eb)) hh ;
+      true -> \ eb -> PL.subst W.N (\ j -> Id W.Bool (I.okXl A o (I.getM A j S)) true -> Id W.Bool (I.okXl A (fixIf top true o) (I.getM A j (repL p S N.c'))) true)
+        p i (PL.sym W.N i p (W.eqN-sound i p eb)) (xlAtP S hp o) hh } ;
+    viaB (S : I.Seq A) (hp : N.Hp S) (i : W.N) (Y : I.OC A -> W.Bool) (sx : Id W.Bool (Y (inr N.c')) (Y (inr N.c)))
+      (hh : Id W.Bool (Y (I.getM A i S)) true) : Id W.Bool (Y (I.getM A i (repL p S N.c'))) true =
+      PL.trans W.Bool (Y (I.getM A i (repL p S N.c'))) (Y (I.getM A i S)) true (N.getSame S hp i W.Bool Y sx) hh ;
+    applN (S : I.Seq A) (hp : N.Hp S) : (r : I.Rule A) -> Id W.Bool (I.appl A S r) true ->
+        Id W.Bool (I.appl A (repL p S N.c') (fixR top p r)) true = split {
+      axR i -> \ hh -> viaB S hp i (I.isAx A) (refl (I.isAx A (inr N.c))) hh ;
+      andR i -> \ hh -> viaB S hp i (I.isO A BI.isAndF) (refl false) hh ;
+      orR i -> \ hh -> viaB S hp i (I.isO A BI.isOrF) (refl false) hh ;
+      allR i -> \ hh -> viaB S hp i (I.isO A BI.isAllF) (refl false) hh ;
+      exR i w -> \ hh -> viaB S hp i (\ o -> W.andB (I.isO A BI.isExF o) (I.isNum A w)) (refl false) hh ;
+      cutR f e2 -> \ hh -> refl true ;
+      xrR i mu -> \ hh -> viaB S hp i (I.okXr A mu) (refl (I.okXr A mu (inr N.c))) hh ;
+      xlR i o -> \ hh -> xlN S hp o i hh (W.eqN i p) (refl (W.eqN i p)) } ;
+    lo (R : I.Rl A) (G : I.Seq A) (hp : N.Hp G) (lo0 : I.LocOK A top R G) : I.LocOK A top (N.rR R) (repL p G N.c') =
+      N.loRen R G hp lo0 (\ ys hq hh -> applN (I.seqAt A ys R G) hq (R ys) hh) ;
+    wf (R : I.Rl A) (G : I.Seq A) (hp : N.Hp G) (w : I.WFP A top R G) : I.WFP A top (N.rR R) (repL p G N.c') = N.wfRen R G hp w ;
+  } ;
+} ;

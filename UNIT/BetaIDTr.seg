@@ -1,0 +1,284 @@
+-- PLAN-ID1 S2, building block (T): transport of pre-proofs of inductive
+-- logic (BetaID) along an INITIAL-SEGMENT embedding.
+--
+-- Data: an embedding h : A -> B of linear orders, a map rho : B -> A with
+-- h (rho b) = b whenever b < h a (every point below a point of the image
+-- is in the image), and atoms invariant under h.  A pre-proof (R, G) at
+-- (A, top) gives the pre-proof
+--     Rt R = ys |-> h(R (rho ys))   at (B, h top),   end sequent h(G).
+-- Informal proof.
+--  (1) Rules, added closures, branching and applicability commute with h
+--      (stepMap, brMap, applMap; as BetaProof.Map, plus the x-rules).
+--  (2) Every allowed branch a of a mapped rule is in the image:
+--      a = h(rho a) (brImg).  Number labels are fixed by h; a stage label
+--      below h(bound) is in the image because h is an initial segment.
+--  (3) Hence every address ys of the tree at B is the image of rho ys, which
+--      is in the tree at A, and the sequents correspond (treeL), by
+--      induction on ys.
+--  (4) Local correctness transfers by (1) and (3) (trLo); a Brouwer bound
+--      b at A gives the bound b o rho at B (pullBnd, trWf).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+
+-- (1) for any embedding h (not only initial segments)
+module Mp (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form)
+  (A B : DP.LO) (h : DP.Map A B)
+  (evI : (k : W.N) (e : LT.LL A) -> Id W.Bool (ev B k (LT.mapL A B h e)) (ev A k e)) (topA : A.car) {
+  module I = BI.ID[ev,phi] ;
+  topB : B.car = h.1 topA ;
+  lm (a : I.Lb A) : I.Lb B = LT.lm A B h a ;
+  om (o : W.Or W.Unit A.car) : W.Or W.Unit B.car = LT.omap A B h o ;
+  mE (e : LT.LL A) : LT.LL B = LT.mapL A B h e ;
+  mC (c : I.Clo A) : I.Clo B = (c.1,mE c.2) ;
+  mS (G : I.Seq A) : I.Seq B = W.map (I.Clo A) (I.Clo B) mC G ;
+  mO : I.OC A -> I.OC B = split { inl u -> inl u ; inr c -> inr (mC c) } ;
+  mR : I.Rule A -> I.Rule B = split {
+    axR i -> axR i ; andR i -> andR i ; orR i -> orR i ; allR i -> allR i ;
+    exR i w -> exR i (lm w) ; cutR f e -> cutR f (mE e) ; xrR i mu -> xrR i (h.1 mu) ; xlR i o -> xlR i (om o) } ;
+
+  ----------------------------------------------------------------------
+  -- (1) the rules commute with h
+  nthMap : (s : W.N) (e : LT.LL A) -> Id (I.Lb B) (I.nthL B s (mE e)) (lm (I.nthL A s e)) = split {
+    zero -> split { nilL -> refl (I.lab0 B) ; consL a e -> refl (lm a) } ;
+    suc s | r -> split { nilL -> refl (I.lab0 B) ; consL a e -> r e } } ;
+  getMap : (i : W.N) (G : I.Seq A) -> Id (I.OC B) (I.getM B i (mS G)) (mO (I.getM A i G)) = split {
+    zero -> split { nilL -> refl (inl tt) ; consL c cs -> refl (inr (mC c)) } ;
+    suc i | r -> split { nilL -> refl (inl tt) ; consL c cs -> r cs } } ;
+  addAndM : (f : BI.Form) (e : LT.LL A) (a : I.Lb A) -> Id (I.Seq B) (I.addAndF B f (mE e) (lm a)) (mS (I.addAndF A f e a)) = split {
+    atF b k -> \ e a -> refl nilL ; andF p q -> \ e a -> refl (consL (BI.pickF a.1 p q,mE e) nilL) ;
+    orF p q -> \ e a -> refl nilL ; allF p -> \ e a -> refl nilL ; exF p -> \ e a -> refl nilL ; xF b s k -> \ e a -> refl nilL } ;
+  addOrM : (f : BI.Form) (e : LT.LL A) -> Id (I.Seq B) (I.addOrF B f (mE e)) (mS (I.addOrF A f e)) = split {
+    atF b k -> \ e -> refl nilL ; andF p q -> \ e -> refl nilL ;
+    orF p q -> \ e -> refl (consL (p,mE e) (consL (q,mE e) nilL)) ; allF p -> \ e -> refl nilL ; exF p -> \ e -> refl nilL ;
+    xF b s k -> \ e -> refl nilL } ;
+  addAllM : (f : BI.Form) (e : LT.LL A) (a : I.Lb A) -> Id (I.Seq B) (I.addAllF B f (mE e) (lm a)) (mS (I.addAllF A f e a)) = split {
+    atF b k -> \ e a -> refl nilL ; andF p q -> \ e a -> refl nilL ; orF p q -> \ e a -> refl nilL ;
+    allF p -> \ e a -> refl (consL (p,consL (lm a) (mE e)) nilL) ; exF p -> \ e a -> refl nilL ; xF b s k -> \ e a -> refl nilL } ;
+  addExM : (f : BI.Form) (e : LT.LL A) (a : I.Lb A) -> Id (I.Seq B) (I.addExF B f (mE e) (lm a)) (mS (I.addExF A f e a)) = split {
+    atF b k -> \ e a -> refl nilL ; andF p q -> \ e a -> refl nilL ; orF p q -> \ e a -> refl nilL ;
+    allF p -> \ e a -> refl nilL ; exF p -> \ e a -> refl (consL (p,consL (lm a) (mE e)) nilL) ; xF b s k -> \ e a -> refl nilL } ;
+  addXrM (mu : A.car) : (f : BI.Form) (e : LT.LL A) -> Id (I.Seq B) (I.addXrF B (h.1 mu) f (mE e)) (mS (I.addXrF A mu f e)) = split {
+    atF b k -> \ e -> refl nilL ; andF p q -> \ e -> refl nilL ; orF p q -> \ e -> refl nilL ;
+    allF p -> \ e -> refl nilL ; exF p -> \ e -> refl nilL ;
+    xF b s k -> \ e -> PL.ap (I.Lb B) (I.Seq B) (\ t -> consL (phi,I.envP B t (I.stg B (h.1 mu))) nilL)
+      (I.nthL B k (mE e)) (lm (I.nthL A k e)) (nthMap k e) } ;
+  addXlM : (f : BI.Form) (e : LT.LL A) (a : I.Lb A) -> Id (I.Seq B) (I.addXlF B f (mE e) (lm a)) (mS (I.addXlF A f e a)) = split {
+    atF b k -> \ e a -> refl nilL ; andF p q -> \ e a -> refl nilL ; orF p q -> \ e a -> refl nilL ;
+    allF p -> \ e a -> refl nilL ; exF p -> \ e a -> refl nilL ;
+    xF b s k -> \ e a -> PL.ap (I.Lb B) (I.Seq B) (\ t -> consL (BI.neg phi,I.envP B t (lm a)) nilL)
+      (I.nthL B k (mE e)) (lm (I.nthL A k e)) (nthMap k e) } ;
+  addAndO (a : I.Lb A) : (o : I.OC A) -> Id (I.Seq B) (I.addAnd B (mO o) (lm a)) (mS (I.addAnd A o a)) = split {
+    inl u -> refl nilL ; inr c -> addAndM c.1 c.2 a } ;
+  addOrO : (o : I.OC A) -> Id (I.Seq B) (I.addOr B (mO o)) (mS (I.addOr A o)) = split {
+    inl u -> refl nilL ; inr c -> addOrM c.1 c.2 } ;
+  addAllO (a : I.Lb A) : (o : I.OC A) -> Id (I.Seq B) (I.addAll B (mO o) (lm a)) (mS (I.addAll A o a)) = split {
+    inl u -> refl nilL ; inr c -> addAllM c.1 c.2 a } ;
+  addExO (a : I.Lb A) : (o : I.OC A) -> Id (I.Seq B) (I.addEx B (mO o) (lm a)) (mS (I.addEx A o a)) = split {
+    inl u -> refl nilL ; inr c -> addExM c.1 c.2 a } ;
+  addXrO (mu : A.car) : (o : I.OC A) -> Id (I.Seq B) (I.addXr B (h.1 mu) (mO o)) (mS (I.addXr A mu o)) = split {
+    inl u -> refl nilL ; inr c -> addXrM mu c.1 c.2 } ;
+  addXlO (a : I.Lb A) : (o : I.OC A) -> Id (I.Seq B) (I.addXl B (mO o) (lm a)) (mS (I.addXl A o a)) = split {
+    inl u -> refl nilL ; inr c -> addXlM c.1 c.2 a } ;
+  hstep (G : I.Seq A) (o' : I.OC B) (o : I.OC A) (S1 : I.OC B -> I.Seq B) (S2 : I.OC A -> I.Seq A)
+    (eo : Id (I.OC B) o' (mO o)) (es : Id (I.Seq B) (S1 (mO o)) (mS (S2 o))) :
+      Id (I.Seq B) (I.app B (mS G) (S1 o')) (mS (I.app A G (S2 o))) =
+    PL.trans (I.Seq B) (I.app B (mS G) (S1 o')) (I.app B (mS G) (mS (S2 o))) (mS (I.app A G (S2 o)))
+      (PL.ap (I.Seq B) (I.Seq B) (I.app B (mS G)) (S1 o') (mS (S2 o))
+        (PL.trans (I.Seq B) (S1 o') (S1 (mO o)) (mS (S2 o)) (PL.ap (I.OC B) (I.Seq B) S1 o' (mO o) eo) es))
+      (PL.sym (I.Seq B) (mS (I.app A G (S2 o))) (I.app B (mS G) (mS (S2 o))) (KT.map-app (I.Clo A) (I.Clo B) mC G (S2 o))) ;
+  stepMap (G : I.Seq A) : (r : I.Rule A) (a : I.Lb A) -> Id (I.Seq B) (I.step B (mS G) (mR r) (lm a)) (mS (I.step A G r a)) = split {
+    axR i -> \ a -> refl (mS G) ;
+    andR i -> \ a -> hstep G (I.getM B i (mS G)) (I.getM A i G) (\ o -> I.addAnd B o (lm a)) (\ o -> I.addAnd A o a) (getMap i G) (addAndO a (I.getM A i G)) ;
+    orR i -> \ a -> hstep G (I.getM B i (mS G)) (I.getM A i G) (I.addOr B) (I.addOr A) (getMap i G) (addOrO (I.getM A i G)) ;
+    allR i -> \ a -> hstep G (I.getM B i (mS G)) (I.getM A i G) (\ o -> I.addAll B o (lm a)) (\ o -> I.addAll A o a) (getMap i G) (addAllO a (I.getM A i G)) ;
+    exR i w -> \ a -> hstep G (I.getM B i (mS G)) (I.getM A i G) (\ o -> I.addEx B o (lm w)) (\ o -> I.addEx A o w) (getMap i G) (addExO w (I.getM A i G)) ;
+    cutR f e -> \ a -> PL.sym (I.Seq B) (mS (I.app A G (consL (BI.pickF a.1 f (BI.neg f),e) nilL))) (I.app B (mS G) (consL (BI.pickF a.1 f (BI.neg f),mE e) nilL))
+      (KT.map-app (I.Clo A) (I.Clo B) mC G (consL (BI.pickF a.1 f (BI.neg f),e) nilL)) ;
+    xrR i mu -> \ a -> hstep G (I.getM B i (mS G)) (I.getM A i G) (I.addXr B (h.1 mu)) (I.addXr A mu) (getMap i G) (addXrO mu (I.getM A i G)) ;
+    xlR i o -> \ a -> hstep G (I.getM B i (mS G)) (I.getM A i G) (\ o' -> I.addXl B o' (lm a)) (\ o' -> I.addXl A o' a) (getMap i G) (addXlO a (I.getM A i G)) } ;
+
+  inlMap : (x : W.Or W.Unit A.car) -> Id W.Bool (BP.isInl W.Unit B.car (om x)) (BP.isInl W.Unit A.car x) = split {
+    inl u -> refl true ; inr x -> refl false } ;
+  twoMap (a : I.Lb A) : Id W.Bool (I.isTwo B (lm a)) (I.isTwo A a) =
+    PL.ap W.Bool W.Bool (\ c -> W.andB c (BP.le1 a.1)) (BP.isInl W.Unit B.car (om a.2)) (BP.isInl W.Unit A.car a.2) (inlMap a.2) ;
+  zeroMap (a : I.Lb A) : Id W.Bool (I.isZeroL B (lm a)) (I.isZeroL A a) =
+    PL.ap W.Bool W.Bool (\ c -> W.andB c (BP.isZeroN a.1)) (BP.isInl W.Unit B.car (om a.2)) (BP.isInl W.Unit A.car a.2) (inlMap a.2) ;
+  numMap (a : I.Lb A) : Id W.Bool (I.isNum B (lm a)) (I.isNum A a) = inlMap a.2 ;
+  ltOMap (bd : A.car) : (o : W.Or W.Unit A.car) -> Id W.Bool (I.ltO B (h.1 bd) (om o)) (I.ltO A bd o) = split {
+    inl u -> refl false ;
+    inr mu -> PL.ap W.O3 W.Bool W.isLt (B.cmp (h.1 mu) (h.1 bd)) (A.cmp mu bd) (h.2 mu bd) } ;
+  belowMap (bd : A.car) (a : I.Lb A) : Id W.Bool (I.below B (h.1 bd) (lm a)) (I.below A bd a) =
+    PL.ap W.Bool W.Bool (\ c -> W.andB (BP.isZeroN a.1) c) (I.ltO B (h.1 bd) (om a.2)) (I.ltO A bd a.2) (ltOMap bd a.2) ;
+  boundMap : (o : W.Or W.Unit A.car) -> Id B.car (I.bound B topB (om o)) (h.1 (I.bound A topA o)) = split {
+    inl u -> refl topB ; inr la -> refl (h.1 la) } ;
+  brMap : (r : I.Rule A) (a : I.Lb A) -> Id W.Bool (I.br B topB (mR r) (lm a)) (I.br A topA r a) = split {
+    axR i -> \ a -> refl false ; andR i -> \ a -> twoMap a ; orR i -> \ a -> zeroMap a ;
+    allR i -> \ a -> numMap a ; exR i w -> \ a -> zeroMap a ; cutR f e -> \ a -> twoMap a ;
+    xrR i mu -> \ a -> zeroMap a ;
+    xlR i o -> \ a -> PL.trans W.Bool (I.below B (I.bound B topB (om o)) (lm a)) (I.below B (h.1 (I.bound A topA o)) (lm a)) (I.below A (I.bound A topA o) a)
+      (PL.ap B.car W.Bool (\ x -> I.below B x (lm a)) (I.bound B topB (om o)) (h.1 (I.bound A topA o)) (boundMap o))
+      (belowMap (I.bound A topA o) a) } ;
+
+  isAxM : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (I.isAxF B f (mE e)) (I.isAxF A f e) = split {
+    atF b k -> \ e -> PL.ap W.Bool W.Bool (\ c -> BP.eqBo c b) (ev B k (mE e)) (ev A k e) (evI k e) ;
+    andF p q -> \ e -> refl false ; orF p q -> \ e -> refl false ; allF p -> \ e -> refl false ;
+    exF p -> \ e -> refl false ; xF b s k -> \ e -> refl false } ;
+  allowRM (mu : A.car) : (o : W.Or W.Unit A.car) -> Id W.Bool (I.allowR B (h.1 mu) (om o)) (I.allowR A mu o) = split {
+    inl u -> refl true ;
+    inr la -> PL.ap W.O3 W.Bool W.isLt (B.cmp (h.1 mu) (h.1 la)) (A.cmp mu la) (h.2 mu la) } ;
+  sameOM : (o o' : W.Or W.Unit A.car) -> Id W.Bool (I.sameO B (om o) (om o')) (I.sameO A o o') = split {
+    inl u -> split { inl v -> refl true ; inr la -> refl false } ;
+    inr mu -> split { inl v -> refl false ; inr la -> PL.ap W.O3 W.Bool W.isEq (B.cmp (h.1 mu) (h.1 la)) (A.cmp mu la) (h.2 mu la) } } ;
+  okXrM (mu : A.car) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (I.okXrF B (h.1 mu) f (mE e)) (I.okXrF A mu f e) = split {
+    atF b k -> \ e -> refl false ; andF p q -> \ e -> refl false ; orF p q -> \ e -> refl false ;
+    allF p -> \ e -> refl false ; exF p -> \ e -> refl false ;
+    xF b s k -> \ e -> PL.trans W.Bool (W.andB (BP.eqBo b true) (I.allowR B (h.1 mu) (I.nthL B s (mE e)).2))
+        (W.andB (BP.eqBo b true) (I.allowR B (h.1 mu) (om (I.nthL A s e).2))) (W.andB (BP.eqBo b true) (I.allowR A mu (I.nthL A s e).2))
+      (PL.ap (I.Lb B) W.Bool (\ t -> W.andB (BP.eqBo b true) (I.allowR B (h.1 mu) t.2)) (I.nthL B s (mE e)) (lm (I.nthL A s e)) (nthMap s e))
+      (PL.ap W.Bool W.Bool (\ c -> W.andB (BP.eqBo b true) c) (I.allowR B (h.1 mu) (om (I.nthL A s e).2)) (I.allowR A mu (I.nthL A s e).2)
+        (allowRM mu (I.nthL A s e).2)) } ;
+  okXlM (o : W.Or W.Unit A.car) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (I.okXlF B (om o) f (mE e)) (I.okXlF A o f e) = split {
+    atF b k -> \ e -> refl false ; andF p q -> \ e -> refl false ; orF p q -> \ e -> refl false ;
+    allF p -> \ e -> refl false ; exF p -> \ e -> refl false ;
+    xF b s k -> \ e -> PL.trans W.Bool (W.andB (BP.eqBo b false) (I.sameO B (om o) (I.nthL B s (mE e)).2))
+        (W.andB (BP.eqBo b false) (I.sameO B (om o) (om (I.nthL A s e).2))) (W.andB (BP.eqBo b false) (I.sameO A o (I.nthL A s e).2))
+      (PL.ap (I.Lb B) W.Bool (\ t -> W.andB (BP.eqBo b false) (I.sameO B (om o) t.2)) (I.nthL B s (mE e)) (lm (I.nthL A s e)) (nthMap s e))
+      (PL.ap W.Bool W.Bool (\ c -> W.andB (BP.eqBo b false) c) (I.sameO B (om o) (om (I.nthL A s e).2)) (I.sameO A o (I.nthL A s e).2)
+        (sameOM o (I.nthL A s e).2)) } ;
+  isOM (t : BI.Form -> W.Bool) : (o : I.OC A) -> Id W.Bool (I.isO B t (mO o)) (I.isO A t o) = split {
+    inl u -> refl false ; inr c -> refl (t c.1) } ;
+  isAxO : (o : I.OC A) -> Id W.Bool (I.isAx B (mO o)) (I.isAx A o) = split {
+    inl u -> refl false ; inr c -> isAxM c.1 c.2 } ;
+  okXrO (mu : A.car) : (o : I.OC A) -> Id W.Bool (I.okXr B (h.1 mu) (mO o)) (I.okXr A mu o) = split {
+    inl u -> refl false ; inr c -> okXrM mu c.1 c.2 } ;
+  okXlO (o : W.Or W.Unit A.car) : (oc : I.OC A) -> Id W.Bool (I.okXl B (om o) (mO oc)) (I.okXl A o oc) = split {
+    inl u -> refl false ; inr c -> okXlM o c.1 c.2 } ;
+  viaGet (i : W.N) (G : I.Seq A) (X : I.OC B -> W.Bool) (Y : I.OC A -> W.Bool) (lift : (o : I.OC A) -> Id W.Bool (X (mO o)) (Y o)) :
+      Id W.Bool (X (I.getM B i (mS G))) (Y (I.getM A i G)) =
+    PL.trans W.Bool (X (I.getM B i (mS G))) (X (mO (I.getM A i G))) (Y (I.getM A i G))
+      (PL.ap (I.OC B) W.Bool X (I.getM B i (mS G)) (mO (I.getM A i G)) (getMap i G)) (lift (I.getM A i G)) ;
+  applMap (G : I.Seq A) : (r : I.Rule A) -> Id W.Bool (I.appl B (mS G) (mR r)) (I.appl A G r) = split {
+    axR i -> viaGet i G (I.isAx B) (I.isAx A) isAxO ;
+    andR i -> viaGet i G (I.isO B BI.isAndF) (I.isO A BI.isAndF) (isOM BI.isAndF) ;
+    orR i -> viaGet i G (I.isO B BI.isOrF) (I.isO A BI.isOrF) (isOM BI.isOrF) ;
+    allR i -> viaGet i G (I.isO B BI.isAllF) (I.isO A BI.isAllF) (isOM BI.isAllF) ;
+    exR i w -> W.ap2 W.Bool W.Bool W.Bool W.andB (I.isO B BI.isExF (I.getM B i (mS G))) (I.isO A BI.isExF (I.getM A i G))
+      (I.isNum B (lm w)) (I.isNum A w) (viaGet i G (I.isO B BI.isExF) (I.isO A BI.isExF) (isOM BI.isExF)) (numMap w) ;
+    cutR f e -> refl true ;
+    xrR i mu -> viaGet i G (I.okXr B (h.1 mu)) (I.okXr A mu) (okXrO mu) ;
+    xlR i o -> viaGet i G (I.okXl B (om o)) (I.okXl A o) (okXlO o) } ;
+
+  -- the tree of a transported pre-proof is the transported tree (naturality)
+  treeMap : (ys : LT.LL A) (RA : I.Rl A) (RB : I.Rl B) (GA : I.Seq A) (GB : I.Seq B)
+      (nr : (zs : LT.LL A) -> Id (I.Rule B) (RB (mE zs)) (mR (RA zs))) (ng : Id (I.Seq B) GB (mS GA)) ->
+      Id W.Bool (I.inTree B topB (mE ys) RB GB) (I.inTree A topA ys RA GA) = split {
+    nilL -> \ RA RB GA GB nr ng -> refl true ;
+    consL a ys | r -> \ RA RB GA GB nr ng ->
+      W.ap2 W.Bool W.Bool W.Bool W.andB (I.br B topB (RB nilL) (lm a)) (I.br A topA (RA nilL) a)
+        (I.inTree B topB (mE ys) (I.shift B RB (lm a)) (I.step B GB (RB nilL) (lm a))) (I.inTree A topA ys (I.shift A RA a) (I.step A GA (RA nilL) a))
+        (PL.trans W.Bool (I.br B topB (RB nilL) (lm a)) (I.br B topB (mR (RA nilL)) (lm a)) (I.br A topA (RA nilL) a)
+          (PL.ap (I.Rule B) W.Bool (\ r0 -> I.br B topB r0 (lm a)) (RB nilL) (mR (RA nilL)) (nr nilL)) (brMap (RA nilL) a))
+        (r (I.shift A RA a) (I.shift B RB (lm a)) (I.step A GA (RA nilL) a) (I.step B GB (RB nilL) (lm a)) (\ zs -> nr (consL a zs))
+          (PL.trans (I.Seq B) (I.step B GB (RB nilL) (lm a)) (I.step B (mS GA) (mR (RA nilL)) (lm a)) (mS (I.step A GA (RA nilL) a))
+            (W.ap2 (I.Seq B) (I.Rule B) (I.Seq B) (\ G0 r0 -> I.step B G0 r0 (lm a)) GB (mS GA) (RB nilL) (mR (RA nilL)) ng (nr nilL))
+            (stepMap GA (RA nilL) a))) } ;
+} ;
+
+-- (2)-(4) for initial segments
+module Tr (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form)
+  (A B : DP.LO) (h : DP.Map A B) (rho : B.car -> A.car)
+  (hr : (b : B.car) (a : A.car) -> Id W.O3 (B.cmp b (h.1 a)) lt -> Id B.car (h.1 (rho b)) b)
+  (evI : (k : W.N) (e : LT.LL A) -> Id W.Bool (ev B k (LT.mapL A B h e)) (ev A k e)) (topA : A.car) {
+  open Mp[ev,phi,A,B,h,evI,topA] ;
+  ----------------------------------------------------------------------
+  -- (2) allowed branches of mapped rules are in the image
+  plO : W.Or W.Unit B.car -> W.Or W.Unit A.car = split { inl u -> inl u ; inr y -> inr (rho y) } ;
+  pl (a : I.Lb B) : I.Lb A = (a.1,plO a.2) ;
+  pE (ys : LT.LL B) : LT.LL A = W.map (I.Lb B) (I.Lb A) pl ys ;
+  Rt (R : I.Rl A) : I.Rl B = \ zs -> mR (R (pE zs)) ;
+  imgInl (n : W.N) : (o : W.Or W.Unit B.car) -> Id W.Bool (BP.isInl W.Unit B.car o) true -> Id (I.Lb B) (n,om (plO o)) (n,o) = split {
+    inl u -> \ hh -> refl (n,inl u) ;
+    inr y -> \ hh -> W.absurdB (Id (I.Lb B) (n,inr (h.1 (rho y))) (n,inr y)) hh } ;
+  imgLt (bd : A.car) (n : W.N) : (o : W.Or W.Unit B.car) -> Id W.Bool (I.ltO B (h.1 bd) o) true -> Id (I.Lb B) (n,om (plO o)) (n,o) = split {
+    inl u -> \ hh -> W.absurdB (Id (I.Lb B) (n,inl u) (n,inl u)) hh ;
+    inr y -> \ hh -> PL.ap B.car (I.Lb B) (\ z -> (n,inr z)) (h.1 (rho y)) y (hr y bd (W.isLt-sound (B.cmp y (h.1 bd)) hh)) } ;
+  img2 (a : I.Lb B) (hh : Id W.Bool (W.andB (BP.isInl W.Unit B.car a.2) (BP.le1 a.1)) true) : Id (I.Lb B) (lm (pl a)) a =
+    imgInl a.1 a.2 (W.andB-l (BP.isInl W.Unit B.car a.2) (BP.le1 a.1) hh) ;
+  img0 (a : I.Lb B) (hh : Id W.Bool (W.andB (BP.isInl W.Unit B.car a.2) (BP.isZeroN a.1)) true) : Id (I.Lb B) (lm (pl a)) a =
+    imgInl a.1 a.2 (W.andB-l (BP.isInl W.Unit B.car a.2) (BP.isZeroN a.1) hh) ;
+  brImg : (r : I.Rule A) (a : I.Lb B) -> Id W.Bool (I.br B topB (mR r) a) true -> Id (I.Lb B) (lm (pl a)) a = split {
+    axR i -> \ a hh -> W.absurdB (Id (I.Lb B) (lm (pl a)) a) hh ;
+    andR i -> img2 ; orR i -> img0 ;
+    allR i -> \ a hh -> imgInl a.1 a.2 hh ;
+    exR i w -> img0 ; cutR f e -> img2 ; xrR i mu -> img0 ;
+    xlR i o -> \ a hh -> imgLt (I.bound A topA o) a.1 a.2
+      (W.andB-r (BP.isZeroN a.1) (I.ltO B (h.1 (I.bound A topA o)) a.2)
+        (PL.subst B.car (\ x -> Id W.Bool (I.below B x a) true) (I.bound B topB (om o)) (h.1 (I.bound A topA o)) (boundMap o) hh)) } ;
+
+  ----------------------------------------------------------------------
+  -- (3) addresses of the tree at B come from the tree at A
+  TL (R : I.Rl A) (G : I.Seq A) (ys : LT.LL B) : U l =
+    Id W.Bool (I.inTree A topA (pE ys) R G) true * Id (I.Seq B) (I.seqAt B ys (Rt R) (mS G)) (mS (I.seqAt A (pE ys) R G)) ;
+  -- the first step of an address
+  brA (r : I.Rule A) (a : I.Lb B) (hb : Id W.Bool (I.br B topB (mR r) a) true) : Id W.Bool (I.br A topA r (pl a)) true =
+    PL.trans W.Bool (I.br A topA r (pl a)) (I.br B topB (mR r) (lm (pl a))) true
+      (PL.sym W.Bool (I.br B topB (mR r) (lm (pl a))) (I.br A topA r (pl a)) (brMap r (pl a)))
+      (PL.trans W.Bool (I.br B topB (mR r) (lm (pl a))) (I.br B topB (mR r) a) true
+        (PL.ap (I.Lb B) W.Bool (I.br B topB (mR r)) (lm (pl a)) a (brImg r a hb)) hb) ;
+  stepEq (G : I.Seq A) (r : I.Rule A) (a : I.Lb B) (hb : Id W.Bool (I.br B topB (mR r) a) true) :
+      Id (I.Seq B) (I.step B (mS G) (mR r) a) (mS (I.step A G r (pl a))) =
+    PL.trans (I.Seq B) (I.step B (mS G) (mR r) a) (I.step B (mS G) (mR r) (lm (pl a))) (mS (I.step A G r (pl a)))
+      (PL.ap (I.Lb B) (I.Seq B) (I.step B (mS G) (mR r)) a (lm (pl a)) (PL.sym (I.Lb B) (lm (pl a)) a (brImg r a hb)))
+      (stepMap G r (pl a)) ;
+  treeHb (a : I.Lb B) (ys : LT.LL B) (R : I.Rl A) (G : I.Seq A)
+    (hv : Id W.Bool (I.inTree B topB (consL a ys) (Rt R) (mS G)) true) : Id W.Bool (I.br B topB (mR (R nilL)) a) true =
+    W.andB-l (I.br B topB (mR (R nilL)) a) (I.inTree B topB ys (I.shift B (Rt R) a) (I.step B (mS G) (mR (R nilL)) a)) hv ;
+  treeIh (a : I.Lb B) (ys : LT.LL B) (R : I.Rl A) (G : I.Seq A)
+    (hv : Id W.Bool (I.inTree B topB (consL a ys) (Rt R) (mS G)) true)
+    (rec : (R' : I.Rl A) (G' : I.Seq A) -> Id W.Bool (I.inTree B topB ys (Rt R') (mS G')) true -> TL R' G' ys) :
+      TL (I.shift A R (pl a)) (I.step A G (R nilL) (pl a)) ys =
+    rec (I.shift A R (pl a)) (I.step A G (R nilL) (pl a))
+      (PL.subst (I.Seq B) (\ S -> Id W.Bool (I.inTree B topB ys (Rt (I.shift A R (pl a))) S) true)
+        (I.step B (mS G) (mR (R nilL)) a) (mS (I.step A G (R nilL) (pl a))) (stepEq G (R nilL) a (treeHb a ys R G hv))
+        (W.andB-r (I.br B topB (mR (R nilL)) a) (I.inTree B topB ys (I.shift B (Rt R) a) (I.step B (mS G) (mR (R nilL)) a)) hv)) ;
+  treeD (a : I.Lb B) (ys : LT.LL B) (R : I.Rl A) (G : I.Seq A) (hb : Id W.Bool (I.br B topB (mR (R nilL)) a) true)
+    (ih : TL (I.shift A R (pl a)) (I.step A G (R nilL) (pl a)) ys) : TL R G (consL a ys) =
+    (W.andB-intro (I.br A topA (R nilL) (pl a)) (I.inTree A topA (pE ys) (I.shift A R (pl a)) (I.step A G (R nilL) (pl a)))
+       (brA (R nilL) a hb) ih.1,
+     PL.trans (I.Seq B) (I.seqAt B ys (Rt (I.shift A R (pl a))) (I.step B (mS G) (mR (R nilL)) a))
+       (I.seqAt B ys (Rt (I.shift A R (pl a))) (mS (I.step A G (R nilL) (pl a)))) (mS (I.seqAt A (pE ys) (I.shift A R (pl a)) (I.step A G (R nilL) (pl a))))
+       (PL.ap (I.Seq B) (I.Seq B) (I.seqAt B ys (Rt (I.shift A R (pl a)))) (I.step B (mS G) (mR (R nilL)) a) (mS (I.step A G (R nilL) (pl a)))
+         (stepEq G (R nilL) a hb))
+       ih.2) ;
+  treeC (a : I.Lb B) (ys : LT.LL B) (R : I.Rl A) (G : I.Seq A)
+    (hv : Id W.Bool (I.inTree B topB (consL a ys) (Rt R) (mS G)) true)
+    (rec : (R' : I.Rl A) (G' : I.Seq A) -> Id W.Bool (I.inTree B topB ys (Rt R') (mS G')) true -> TL R' G' ys) :
+      TL R G (consL a ys) = treeD a ys R G (treeHb a ys R G hv) (treeIh a ys R G hv rec) ;
+  treeL : (ys : LT.LL B) (R : I.Rl A) (G : I.Seq A) -> Id W.Bool (I.inTree B topB ys (Rt R) (mS G)) true -> TL R G ys = split {
+    nilL -> \ R G hv -> (refl true,refl (mS G)) ;
+    consL a ys | r -> \ R G hv -> treeC a ys R G hv r } ;
+
+  ----------------------------------------------------------------------
+  -- (4) local correctness and Brouwer bounds transfer
+  trLo (R : I.Rl A) (G : I.Seq A) (lo : I.LocOK A topA R G) : I.LocOK B topB (Rt R) (mS G) = \ ys hv ->
+    PL.trans W.Bool (I.appl B (I.seqAt B ys (Rt R) (mS G)) (mR (R (pE ys)))) (I.appl B (mS (I.seqAt A (pE ys) R G)) (mR (R (pE ys)))) true
+      (PL.ap (I.Seq B) W.Bool (\ S -> I.appl B S (mR (R (pE ys)))) (I.seqAt B ys (Rt R) (mS G)) (mS (I.seqAt A (pE ys) R G)) (treeL ys R G hv).2)
+      (PL.trans W.Bool (I.appl B (mS (I.seqAt A (pE ys) R G)) (mR (R (pE ys)))) (I.appl A (I.seqAt A (pE ys) R G) (R (pE ys))) true
+        (applMap (I.seqAt A (pE ys) R G) (R (pE ys))) (lo (pE ys) (treeL ys R G hv).1)) ;
+  module KA = KT.KB[LT.Lab A] ;
+  module KB2 = KT.KB[LT.Lab B] ;
+  pullBT : KA.BT -> KB2.BT = split { leaf -> leaf ; node f | r -> node (\ a -> r (pl a)) } ;
+  pullBnd : (b : KA.BT) (P : KA.Tr) (Q : KB2.Tr) -> ((xs : LT.LL B) -> Id W.Bool (Q xs) true -> Id W.Bool (P (pE xs)) true) ->
+      KA.Bnd b P -> KB2.Bnd (pullBT b) Q = split {
+    leaf -> \ P Q m hb xs -> KT.notTrue0 (Q xs) (\ h' -> PL.trans W.Bool false (P (pE xs)) true (PL.sym W.Bool (P (pE xs)) false (hb (pE xs))) (m xs h')) ;
+    node f | r -> \ P Q m hb a -> r (pl a) (KA.sub P (pl a)) (KB2.sub Q a) (\ xs -> m (consL a xs)) (hb (pl a)) } ;
+  trWf (R : I.Rl A) (G : I.Seq A) (w : I.WFP A topA R G) : I.WFP B topB (Rt R) (mS G) =
+    (pullBT w.1,pullBnd w.1 (I.tree A topA R G) (I.tree B topB (Rt R) (mS G)) (\ xs hv -> (treeL xs R G hv).1) w.2) ;
+} ;

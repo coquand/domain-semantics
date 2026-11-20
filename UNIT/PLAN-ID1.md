@@ -1,0 +1,452 @@
+# Constructive cut elimination for ID1 in beta-logic — plan
+
+Sources:
+- `~/CANONICITY/GHerbrand.pdf` (Girard 1982), §1: the problem. Omega-logic
+  cut elimination for ID1 (Pohlers, Buchholz, Sieg) only works when the
+  inductive predicate occurs positively in the conclusion. Pi^1_2-logic
+  gives full cut elimination and a subformula property.
+- `~/DOMAIN/girard1.pdf` (Synthese 1985) §§6–8: sketch.
+- `~/COLL/GIRARD/ptlc2.pdf` ch. 11: the full proof. The references below are
+  to it.
+  - 11.3.1: inductive logic T^{alpha beta}.
+  - 11.4.1: the theorem.
+  - 11.4.3: cuts of kinds I/II/III and the degree d0, with
+    d0(I^lambda(n)) = omega . lambda.
+  - 11.4.4: the main construction (pi, F) |-> (pi~, F + F'').
+  - Lemmas 11.4.5–11.4.7.
+  - 11.4.4 is proved "by induction on pi (10.2.9)".
+- `~/DOMAIN/extomega.pdf` (Akiyoshi–Mints 2016): for contrast.
+  - They get complete cut elimination for arbitrary sequents in omega-logic
+    (extended Omega-rule, ID1 strength), with an inductive metalogic.
+  - They have NO subformula property: the rule for "not forall X" takes an
+    arbitrary instance T.
+  - They have no completeness: cut-free provability is Pi^1_1, and
+    "t notin I" is Sigma^1_1-complete.
+
+## Target
+
+Fix a positive operator Phi(X, x): a formula in NNF in which X occurs only
+positively. The data are:
+- a homogeneous F-proof pi of a sequent of L[Phi-bar, I^t];
+- correctness of pi: its trees are well-founded at every well-order.
+
+The construction should give, constructively (no LEM, no choice):
+- a functor F~ with F <= F~ that preserves well-orders;
+- a cut-free homogeneous F~-proof of the same sequent. Atoms are decidable
+  (ev), so all cuts go, including the cuts of kind I.
+
+Every formula of a cut-free proof is then a subformula of the end sequent,
+up to the stage formulas I^mu(t) and Phi(I^mu, t). This subformula property
+is syntactic, hence constructive.
+
+NOT goals (both classical, see the memory note on Girard's ID1 cut
+elimination):
+- completeness (girard1 7.1, ptlc2 11.3.6): every true sequent has a
+  beta-proof. Its proof uses the search tree plus "no countermodel ⇒
+  well-founded", i.e. bar induction. It also cannot be inductive: provability
+  by a first-level inductive definition is Pi^1_1.
+- the reversal 11.6.4 (Cut-E ⇒ Pi^1_1-CA), which goes through completeness.
+
+## Representation (reuse)
+
+- **F-proofs = BetaPred.Obj.** k : LO -> LO, with km on embeddings and a
+  family of trees over the labels of k X, natural in X. For an F-proof,
+  pi_alpha has ordinal parameters in F(alpha). Homogeneity is
+  F(f)^-1(pi_beta) = pi_alpha.
+- **Extra structure on F (record `Pref`).** Girard's form is
+  F = a + Id + 1 + F':
+  - a natural embedding eta_X : X -> k X, the "Id" part;
+  - a natural point top_X in k X above eta_X(X), the "+1" part;
+  - preservation of well-foundedness.
+
+  The constant prefix a matters only for 11.4.4(i)1, so start with a = 0.
+- **Formulas as in BetaProof.** Closures (p, e), with e a list of labels.
+  New atoms:
+  - Ibar(n) / not-Ibar(n), standing for Phi-bar;
+  - I(s, n) / not-I(s, n), where s is a stage given as an environment index
+    whose value is a point of k X.
+- **Rules** (one-sided Tait form, principal formula kept, as in BetaProof):
+  - omega-rule for number quantifiers;
+  - (rI) I(lambda, n): one premise Phi(I^mu, n), for a chosen mu < lambda;
+  - (lI) not-I(lambda, n): a premise not-Phi(I^mu, n) for every
+    mu < lambda in k X;
+  - (r-bar) Ibar(n): one premise Phi(I^mu, n), for a chosen mu in k X;
+  - (l-bar) not-Ibar(n): a premise not-Phi(I^nu, n) for every nu in X,
+    labelled by eta(nu). This is the asymmetry: it has premises only for
+    nu < alpha, not for all of k(alpha).
+- **Composition** of the k's is ordinary function composition. F o G is
+  needed for 11.4.4.
+
+## Steps
+
+**S0 (syntax, soundness) — DONE 2026-11-20 (core).** `BetaID.seg`: formulas, rules, pre-proofs and
+F-proofs over Pref.
+- Soundness at every well-order alpha, with the standard interpretation:
+  I^mu = the mu-th stage, Phi-bar between I^alpha and I^{k alpha}.
+- Use the Goedel–Gentzen refutation semantics as in BetaProof.
+- Consistency.
+
+Sanity check: the asymmetric rules make each T^{alpha, F(alpha)} inconsistent
+on its own (11.3.2). Exhibit a small pre-proof that is correct at one alpha
+only, to see why homogeneity is essential.
+
+**S1 (kind II cuts, 11.4.3).** Pointwise and homogeneous elimination of cuts
+whose cut formula contains I^lambda but not Phi-bar. Reuse the pattern of
+BetaCut/BetaHom: generic double induction `Ind` and branching on decEq.
+- The measure is d0(I^lambda(n)) = omega . lambda (11.4.3):
+  Phi(I^mu, n) with mu < lambda has smaller degree.
+- Constructively this is a lexicographic induction: Acc of lambda in k X,
+  then the size of the formula.
+- Homogeneity holds because d0 is functorial.
+
+**S2 = MILESTONE 1 (the Phi-bar cut; ptlc2 pp. 300–310) — DONE pointwise 2026-11-20.** Girard does
+NOT reduce a Phi-bar cut by recursion. Revised after reading the proof of
+11.4.4:
+- **Input.** Two families: L proves G, Phi-bar(t) and R proves
+  G, not Phi-bar(t). Here G is parameter-free and the cut formula sits at
+  index p.
+- **11.4.5.** In L, rename the positive Phi-bar(t) at index p to I^c(t).
+  - Every (r-bar) choice mu on p becomes an (rI^c) choice, valid when
+    mu < c.
+  - With principal formulas kept (Tait), the only "ancestor" of the occurrence
+    is the same closure, so renaming touches only index p.
+- **11.4.7.** In R, rename the negative Phi-bar(t) to I^c(t) with c = top:
+  (l-bar) and (lI^top) have the same premises.
+- **Evaluate R at k(X), with c = top_{kX}.** Map L along
+  eta_{kX} : kX -> k(kX). This is an initial segment, so transport is
+  trivial, and its choices are < top_{kX}.
+- **Chop R** to top~ = eta_{kX}(top_X). Since the l-bar bound is read from
+  top in br, this only lowers top: the tree shrinks, so LocOK and the
+  Brouwer bound are inherited. The renamed rule (now lI^c) is not chopped.
+- **Output.** At (k(kX), eta_{kX}(top_X)), a pre-proof of G whose root is a
+  cut on the stage atom I^{top_{kX}}(t) (kind II, left to S1).
+- **Correctness at X** needs L correct at X and R correct at kX, hence
+  k preserves WF. This is where "the proof as a whole" is used.
+- **Homogeneity** of the output (S2b) comes after.
+
+Design decisions made in S0 for this:
+- (xl i o) names its predicate o; the bound of l-bar is top, read in br.
+- Number quantifiers range over N (labels (n, inl tt)), so ordinal
+  parameters enter only through stages.
+- Pref: eta_X : X -> kX is an initial segment with image {< top_X}
+  (Girard's F = Id + 1 + F', prefix a = 0).
+
+Building blocks:
+- (T) transport of pre-proofs along initial-segment embeddings.
+- (C) chop.
+- (N) renaming at an index.
+- (A) cut assembly.
+
+**S3 (Lemmas 11.4.5, 11.4.6, 11.4.7 with functoriality).** The bookkeeping
+around S2:
+- ancestors of an occurrence of Phi-bar;
+- the transfer T(pi) along T in I^1(F, G);
+- naturality in T.
+
+**S4 (11.4.4: the global construction; THE CRUX).** Girard proves 11.4.4 by
+induction on pi along the predecessor relation of 10.2.9, and F~ is built
+during that recursion.
+
+Constructive status (BetaPred.seg):
+- Classically, 10.2.9 holds via LEM2/DC2 (`Cl.main`).
+- Constructively (`Cons`), induction along predecessors holds when their
+  shifts D are absorbed by one well-order Z (D + Z -> Z). The proof is by
+  induction on the Brouwer bound at Z.
+- The full constructive 10.2.9 is OPEN. It needs a large absorbing
+  well-order, i.e. lifting homogeneous trees to level l+.
+
+Plan for S4:
+- (a) Check which predecessors 11.4.4 actually uses:
+  - immediate premises (D empty);
+  - (l-bar)/(lI) premises (shift D = beta + 1);
+  - the re-evaluation at k(alpha) in the Phi-bar case. Does it still go to a
+    predecessor in the 10.2.9 sense? Find out.
+- (b) If (a) shows that every shift is absorbed by a fixed Z, then S4
+  follows from `Cons`, possibly evaluated at Z = k^omega-type orders.
+- (c) Otherwise this is exactly where the Pi^1_1-CA strength of 11.6.4
+  should enter. Try a nested inductive definition, as in the Lambda plan
+  (`~/CANONICITY/unit/dilators/PLAN-LAMBDA.md`, open step "every IsDil is
+  accessible"), and record precisely what is assumed.
+
+**S5.** Kind I cuts: atoms are decidable, so ordinary propositional cut
+elimination via BetaCut. Then the subformula property, as a theorem by
+induction on the cut-free trees.
+
+**S6 (optional).** girard1 §8: a cut-free proof of
+forall x in Phi-bar exists y in Phi-bar A gives bounds by the dilator F~.
+
+
+## S4(a) analysis (2026-11-20, on paper, NOT formalised)
+
+**What Girard uses.**
+- 11.4.4 is proved by induction along the predecessors of 10.2.8/10.2.24.
+- Premises of unary and binary rules, cuts, and the omega-rule have shift
+  D = 0.
+- Premises of ordinal-branching rules (lI^lambda, l-bar) are
+  chi^beta_alpha = pi_{c_beta + alpha} at (z; x; c_beta + alpha). The shift
+  D = c_beta is the initial segment up to the support of beta, an
+  ARBITRARY well-order. That is why 10.2.9 needs omega^a (classically), or
+  a large absorbing order (constructively: BetaPred, OPEN).
+
+**Claim.** Finite shifts suffice.
+- Homogeneous proofs are determined by their restrictions to finite
+  suborders (as in BetaPre: the rule at an address is computed in the
+  finite suborder spanned by its points).
+- For a finite suborder S containing the support x of nu, write S = S1 + S2
+  with S1 = points <= max x. Then nu is a natural label in k(S1 + Y), so
+  it gives a predecessor with FINITE shift D = S1.
+- Finite D is absorbed by Z = omega (n + omega -> omega). BetaPred.Cons at
+  Z = omega therefore gives the induction constructively, by induction on
+  the Brouwer bound of the tree of pi at omega (a countably branching
+  tree).
+
+**Consequence (if the claim holds).**
+- The termination of 11.4.4 needs no large ordinal.
+- The Pi^1_1-CA strength (11.6.4) sits in the MOTIVE: the cut-free
+  F~-proof is correct at ALL well-orders, i.e. F~ is a dilator. This is an
+  elimination of the tree at omega into U l+, quantifying over all
+  well-orders.
+
+**Formalised (2026-11-20, `BetaIDPred.seg`, in All.seg, green).**
+- (a) Homogeneous ID F-proofs are BetaPred objects (FObj; naturality via
+  BetaIDTr.Mp.treeMap).
+- (b) Finite D is absorbed by omega (absF). FinInd: induction along
+  finite-shift predecessors for every data-valued Q and every correct
+  object, with no LEM or choice (Cons at Z = omega).
+- (c) The premises of a root l-bar rule are finite-shift predecessors
+  (LBar.stepL). The label eta_{D+X}(inl d) is natural and below top, and
+  the shifted object is the premise family.
+
+**Test 1 (2026-11-20, on paper): the claim FAILS for correctness.**
+- Data is fine: rules at addresses are computed in finite suborders
+  (BetaPre-style), so finite shifts and Z = omega suffice for the
+  construction and its homogeneity.
+- Correctness, i.e. well-foundedness at INFINITE well-orders, is not
+  carried by finite-shift predecessors.
+  - At X = omega+1, the l-bar premise at x = omega lives over the initial
+    segment X_{<=omega}, which is infinite.
+  - No finite-shift object covers it: mutilation goes from bigger to
+    smaller orders, and well-foundedness at X is not determined by finite
+    suborders.
+- Counterexample to FinInd carrying CorrO (k = id). Take the tree of
+  sequences  x0, then strictly increasing points below x0.
+  - It is natural.
+  - Every finite-shift predecessor is correct at all well-orders (below
+    inl d there are finitely many points).
+  - The object itself is not correct: at omega+1 with x0 = omega the branch
+    omega, 0, 1, 2, ... is infinite.
+  - It is correct at omega, so Cons at omega cannot prove "correct at all
+    well-orders".
+- Consequence.
+  - Correctness of the output (and "F~ is a dilator") needs the induction
+    along predecessors with ARBITRARY shifts c_beta: the full 10.2.9.
+    Constructively this needs a large absorbing well-order, as in
+    BetaPred, which is OPEN.
+  - This is where the Pi^1_1-CA strength of 11.6.4 shows up. The original
+    crux of S4 stands.
+  - Alternative (also open): a simulation of the output tree at X into the
+    input tree at F~(X). That still needs F~ to be a dilator, which is the
+    same obstruction.
+
+**To check (superseded by Test 1).**
+- The 11.4.4 construction (with its F~) must be compatible with the
+  finite-support presentation: does F~ itself come from finite data?
+- Rebuilding the premise at X from the IH on finite-shift predecessors
+  needs the BetaPre-style extension for the OUTPUT families.
+
+
+## Option 1: full constructive 10.2.9 (2026-11-20, analysis, STUCK)
+
+Routes examined:
+- **Large absorbing Z** (BetaPred's plan). Cons needs a DECIDABLE linear
+  order Z, well-founded, with embeddings D + Z -> Z for every small
+  well-order D.
+  - Candidates fail. A sum over all small well-orders needs a decidable
+    linear order on the index (well-orders lack decidable equality).
+  - E*omega with E universal for small well-orders has the same problem
+    for E.
+  - Brouwer ordinals are well-founded but not decidably comparable.
+  - I see no construction, and suspect none exists, but have NO proof of
+    impossibility.
+- **Z relative to the target order Y** (Z = Lab(Y), with D in copy 0
+  absorbed by shifting copies). This works for the l-bar premises.
+  It breaks at the Phi-bar case: the composition F~'' o (Id+1+F~') needs
+  F~'' correct at F~'(Y), which escapes any Z fixed in advance. Choosing
+  Z after F~ is circular, because "F~ is a dilator" is itself the
+  correctness at stake.
+- **Bar induction.** What is constructive today: BetaPred.Chain (an
+  infinite chain contradicts correctness) and Cons (absorbed shifts). Going
+  from "no infinite chain" to "accessible" is bar induction over
+  predecessor chains, a spread over a LARGE type. This is not available in
+  type theory.
+
+Option (a) result (`BetaIDAbs.seg`, formalised, in All.seg).
+- The conditional "absorbing Z => full predecessor induction" IS
+  BetaPred.Cons.
+- noAbsorb: no well-founded Z of level l absorbs every well-founded D of
+  level l. Take D = Z + 1: a strictly increasing self-map bounded by a
+  point is impossible (Burali-Forti).
+- So the absorbing order must live at level l+, and the level-l
+  beta-proofs must be evaluated there. The precise open hypothesis is the
+  LIFTING: a homogeneous family correct at all small well-orders is
+  correct at a large absorbing well-order.
+  - Classically this holds via "a branch is countable, hence bounded"
+    (the large order has uncountable cofinality).
+  - Constructively it meets the same "no infinite branch => Brouwer bound"
+    gap.
+
+Verdict: stuck on the step from "no infinite chain of predecessors" to
+"accessible for predecessors". This is presumably where the Pi^1_1-CA
+strength of 11.6.4 is spent: impredicativity, or BI over large spreads.
+
+
+## Analysis of the lifting (2026-11-20, on paper)
+
+**Statement.** A homogeneous family P that is correct (Brouwer-bounded) at
+every small well-order is correct at a large well-order Omega that absorbs
+all small ones.
+
+**Two independent obstructions to the "large absorbing order" route.**
+- (L1) Omega must be a DECIDABLE linear order (rules, labels and the
+  bounds in br compare points). No construction is known, even at level l+:
+  - sums over all small well-orders need a decidable order on the index;
+  - a universal E needs the same;
+  - Brouwer ordinals are not decidably comparable.
+  Not refuted either: an absorbing Omega does not obviously decide
+  comparisons of well-orders.
+- (L2) Even given Omega, passing correctness from small orders to Omega is
+  "no infinite branch => Brouwer bound". Classically a branch is countable,
+  hence lies in a small suborder. Constructively nothing turns this into a
+  bound.
+- Level-polymorphic correctness (seg has [j] types) would remove (L2), but
+  not (L1).
+
+**Equivalences (classical, Girard).** The lifting, full 10.2.9, and
+"every correct object is accessible for the predecessor relation" (the
+analogue for beta-proofs of the 9.4 open step in PLAN-LAMBDA) are the same
+content: a BAR THEOREM over a large spread (chains of predecessors indexed
+by all small well-orders). This is where LEM + DC (Pi^1_1-CA, 11.6.4)
+enter.
+
+**Constructive reformulation (proposed).** Replace "correct beta-proof"
+(semantic, Pi^1_2) by "ACCESSIBLE beta-proof": the inductive (large)
+accessibility predicate along BetaPred predecessors, with all shifts D.
+- accessible => correct at EVERY well-order (constructive, uniform in X).
+  - A child a of the root at X is a predecessor: D = X_{<=x}, label
+    (n, inr (inl x)), evaluated at X_{>x}, using X = D + X_{>x}
+    (decidable split). Number labels give D = 0.
+  - Recurse on the accessibility proof, building the Brouwer bound at all
+    X at once. For general k this needs supports (k = a + Id is fine).
+- correct => accessible is exactly the classical 10.2.9 (BetaPred.Cl with
+  Q = accessibility, up to propositional truncation).
+- Cut elimination (S4) by induction on ACCESSIBILITY needs no lifting. The
+  induction hypothesis covers all shifts, and the S2 evaluation at kX is
+  just application of the induction result. The output should again be
+  accessible.
+
+Formalised (`BetaAcc.seg`, in All.seg, green):
+- AccO: large inductive accessibility along BetaPred predecessors.
+- accCorr (CONSTRUCTIVE): accessible + k functorial (FC, FE) + trees
+  prefix-closed (PC) => correct at every well-order.
+  - Trick: no splitting of X is needed. A node a at X is the predecessor
+    with shift D = X and label k(inl)(a); evaluated at the EMPTY order it
+    is the subtree at a, read along k(inl).
+  - FC/FE/PC pass to predecessors (Inh).
+- Classical.corrAcc: with LEM2 + DC2 + AC2 (choice over predecessors),
+  correct => merely accessible, via BetaPred.Cl.
+
+Expected constructive theorem: cut elimination for ACCESSIBLE ID1
+beta-proofs, output accessible, hence correct. Girard's version follows
+classically via 10.2.9. The Pi^1_1-CA content is isolated as one bar
+theorem: correct => accessible.
+
+
+## S4 under accessibility (2026-11-20, on paper)
+
+**Key point.** In Girard's 11.4.4 the induction hypothesis is used ONLY on
+predecessors of the INPUT. The outputs are combined (e.g. pi~'' evaluated
+at F~'(alpha)) but never recursed on.
+- So induct on the accessibility of the input, with motive
+  Q(o) := cut-free output family + output correct at every well-order
+  + F~ a dilator.
+- Outputs need not be accessible, which removes the composition problem
+  (R o k has no predecessors of the BetaPred form).
+
+**Cases.**
+- Commuting rule at the root (e.g. l-bar).
+  - Output at X: same root rule. The child at a is the induction output of
+    the predecessor "shift by X, label k(inl)(a)" at the empty order,
+    pulled back along k(inl).
+  - The Brouwer bound comes as in accCorr.
+- Phi-bar cut at the root: exactly S2 (BetaIDS2), fed with the induction
+  outputs of the two premises (predecessors with D = 0).
+  - Correctness at X needs the left output correct at X and the right
+    output correct at kX. Both are given by the induction hypothesis
+    (correct at all well-orders, kX well-founded).
+  - The new cut is on I^c (kind II): S1 eliminates it at the order k(kX).
+    That is a pointwise induction on the tree and the degree omega*c, with
+    no recursion on predecessors.
+
+**What remains.**
+- S1: elimination of kind II cuts.
+- Homogeneity / functoriality of the construction (11.4.4 (ii)-(iii)):
+  outputs must form natural families, compatible across predecessors
+  related by maps (10.2.25). This is bookkeeping, but large.
+- Bookkeeping of F~ (sums and compositions of dilators; dilators are
+  closed under these).
+- I see no remaining conceptual obstruction. This is NOT yet checked
+  formally beyond S2, BetaIDPred and BetaAcc.
+
+## S1 DONE pointwise + S2+S1 combined (2026-11-20, in All.seg, green)
+- `BetaIDCf.seg`: inductive derivations Cf with the x-rules (cXr, cXl),
+  weakening, the generic double induction Ind (branching on membership
+  proofs), and Mis.
+- `BetaIDCfCut.seg`: StOK (kind II at stage lambda), cut cases CAt, CAnd,
+  COr, CAll, CEx, and CX (stage atom: a cut on I^lambda'(t) becomes a cut
+  on phi(I^mu, t) with mu < lambda'). cutAll: induction on the stage (A
+  well-founded), then on the formula. Dv and elim.
+  - Hypothesis wfPhi: phi(I^mu, t) is of kind II at stage mu.
+- `BetaIDCfTr.seg`: translation from BetaID pre-proofs with a Brouwer
+  bound to Dv. cutFree: pointwise elimination of kind II cuts (CutOK
+  witnesses at in-tree cut nodes).
+- `BetaIDS21.seg`: S21.Fin.cutFree. For L, R cut-free (NC), the S2
+  output's only cut (I^topK, kind II) is eliminated, giving a CUT-FREE
+  derivation of eta G at (k(kX), eta topX). This is a pointwise, end-to-end
+  elimination of a Phi-bar cut between cut-free proofs.
+- Still open: homogeneity (outputs as natural families, BetaHom-style with
+  `decide`), F~ bookkeeping, and the global induction on accessibility (S4).
+
+## Expected outcome / what would be new
+
+- A constructive, checked reconstruction of Girard's ID1 cut elimination,
+  with a genuine subformula property. This is what Akiyoshi–Mints lack.
+- The constructive principle that makes S4 terminate, set against
+  11.6.4 (Pi^1_1-CA).
+- If S4 needs more than `Cons`, that is itself the answer to "where does the
+  strength go?".
+
+## Status
+- 2026-11-20: plan written.
+- 2026-11-20: S1 (pointwise) and S2+S1 DONE (see section above).
+- 2026-11-20: S0 core and S2 (pointwise) DONE, in All.seg, check.py green
+  (All.seg 31115 declarations). Not committed.
+  - `BetaID.seg` (S0): syntax with X-atoms whose predicate is read from
+    the environment (inl = Phi-bar, inr mu = I^mu), x-rules, pre-proofs at
+    (A, top), refutation semantics relative to a model (CondR/CondL),
+    LS, soundW.
+  - `BetaIDTr.seg` (T): transport along initial-segment embeddings (trLo,
+    trWf).
+  - `BetaIDCut.seg`: (C) Chop (loChop, wfChop); (N) Ren (generic
+    renaming at index p), RenP (11.4.5), RenN (11.4.7).
+  - `BetaIDS2.seg` (S2): `S2.Out.lo` / `S2.Out.wf`. From L at (kX, top_X)
+    and R at (k(kX), top_kX) we get a locally correct, Brouwer-bounded
+    pre-proof of eta G at (k(kX), eta top_X) whose root is the cut on
+    I^{top_kX}(t).
+  - Dev loop: `_devid.seg` (3.7 s).
+- Open next:
+  - S1: kind II elimination, needed to remove the new I^c cut. A port of
+    BetaCut with a measure (stage, formula).
+  - S2b: homogeneity of the S2 output.
+  - S3 / S4 as above.
+- Assumption used in S2: the right premise at kX has end sequent
+  eta G, not Phi-bar(t) (true for natural, parameter-free G).

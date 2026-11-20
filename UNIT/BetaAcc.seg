@@ -1,0 +1,197 @@
+-- PLAN-ID1, "Analysis of the lifting": ACCESSIBLE beta-proofs.
+--
+-- AccO o: the inductive (large) accessibility predicate of an object of
+-- BetaPred along ALL its immediate predecessors (shifts by every
+-- well-order D).
+--
+-- Theorem (accCorr, constructive).  An accessible object whose functor k is
+-- functorial (FC, FE) and whose trees are prefix-closed (PC) is CORRECT:
+-- its tree at every well-order X has a Brouwer bound.
+-- Proof, by induction on accessibility (the three hypotheses pass to
+-- predecessors).  At X, a label a with a node [a] gives the predecessor
+-- with shift D = X itself and label k(inl)(a) in k(X + Y) (natural in Y by
+-- FC/FE; a node by naturality along inl).  Evaluated at the EMPTY order,
+-- this predecessor is the subtree at a, read along k(inl) : kX -> k(X+0):
+--     P_X (a :: ys) = P'_0 (k(inl) ys).
+-- Its Brouwer bound (induction hypothesis at 0) is pulled back along k(inl);
+-- a label without node has an empty subtree (PC).
+-- No lifting, no absorbing order, no excluded middle; the bound is built
+-- for all X at once.
+--
+-- The converse (correct => accessible) is Girard's 10.2.9 (BetaPred.Cl,
+-- with excluded middle and dependent choice; to obtain the DATA AccO one
+-- also needs choice over the predecessors).  So the Pi^1_1-CA content of
+-- 11.6.4 is the bar theorem  correct => accessible.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module P1 = Prelude[l+] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module LW = LOWF[l] ;
+module LC = LOCat[l] ;
+module BPd = BetaPred[l] ;
+
+------------------------------------------------------------------------
+-- accessibility along a large step relation
+module AccR (A : U l+) (St : A -> U l+) (sh : (a : A) -> St a -> A) {
+  data AT : U l+ = node (x : A) (f : (s : St x) -> AT) ;
+  Good : AT -> A -> U l+ = split {
+    node x0 f | r -> \ x -> Id A x0 x * ((s : St x0) -> r s (sh x0 s)) } ;
+  AccP (x : A) : U l+ = (t : AT) * Good t x ;
+  acc (x : A) (k : (s : St x) -> AccP (sh x s)) : AccP x =
+    (node x (\ s -> (k s).1),refl x,\ s -> (k s).2) ;
+  indT (P : A -> U l+) (step : (x : A) -> ((s : St x) -> P (sh x s)) -> P x) : (t : AT) (x : A) -> Good t x -> P x = split {
+    node x0 f | r -> \ x g -> P1.subst A P x0 x g.1 (step x0 (\ s -> r s (sh x0 s) (g.2 s))) } ;
+  ind (P : A -> U l+) (step : (x : A) -> ((s : St x) -> P (sh x s)) -> P x) (x : A) (ax : AccP x) : P x =
+    indT P step ax.1 x ax.2 ;
+} ;
+module AO = AccR[BPd.Obj,BPd.Step,BPd.shift] ;
+AccO (o : BPd.Obj) : U l+ = AO.AccP o ;
+
+------------------------------------------------------------------------
+-- the empty order, and the inclusion X -> X + Y
+E0 : DP.LO = new DP.LO[car := W.Empty, cmp := \ x y -> CF.efq W.O3 x, ceq := \ x y h -> CF.efq (Id W.Empty x y) x,
+  crefl := \ x -> CF.efq (Id W.O3 (CF.efq W.O3 x) eq) x, cflip := \ x y -> CF.efq (Id W.O3 (CF.efq W.O3 y) (W.flip (CF.efq W.O3 x))) x,
+  ctrans := \ x y z h k -> CF.efq (Id W.O3 (CF.efq W.O3 x) lt) x] ;
+wfE0 : LW.WF E0 = \ x -> CF.efq (W.Acc[E0.car,W.ltO E0.car E0.cmp].AccP x) x ;
+inlM (X Y : DP.LO) : DP.Map X (BPd.Sm X Y) = (\ x -> inl x,\ x y -> refl (X.cmp x y)) ;
+
+------------------------------------------------------------------------
+-- hypotheses on an object: functoriality of k, prefix-closed trees
+FC (o : BPd.Obj) : U l+ = (X Y Z : DP.LO) (f : DP.Map X Y) (g : DP.Map Y Z) (p : (BPd.kO o X).car) ->
+  Id (BPd.kO o Z).car ((BPd.kmO o X Z (LC.compMap X Y Z f g)).1 p) ((BPd.kmO o Y Z g).1 ((BPd.kmO o X Y f).1 p)) ;
+FE (o : BPd.Obj) : U l+ = (X Y : DP.LO) (f f' : DP.Map X Y) -> ((x : X.car) -> Id Y.car (f.1 x) (f'.1 x)) ->
+  (p : (BPd.kO o X).car) -> Id (BPd.kO o Y).car ((BPd.kmO o X Y f).1 p) ((BPd.kmO o X Y f').1 p) ;
+PC (o : BPd.Obj) : U l+ = (X : DP.LO) (xs ys : LT.LL (BPd.kO o X)) ->
+  Id W.Bool (BPd.PO o X (KT.appL (BPd.LbO o X) xs ys)) true -> Id W.Bool (BPd.PO o X xs) true ;
+
+-- they pass to predecessors
+smapPw (D Y Y' : DP.LO) (f f' : DP.Map Y Y') (pw : (y : Y.car) -> Id Y'.car (f.1 y) (f'.1 y)) :
+    (z : (BPd.Sm D Y).car) -> Id (BPd.Sm D Y').car ((BPd.smap D Y Y' f).1 z) ((BPd.smap D Y Y' f').1 z) = split {
+  inl d -> refl (inl d) ;
+  inr y -> PL.ap Y'.car (BPd.Sm D Y').car (\ u -> inr u) (f.1 y) (f'.1 y) (pw y) } ;
+smapComp (D Y1 Y2 Y3 : DP.LO) (f : DP.Map Y1 Y2) (g : DP.Map Y2 Y3) :
+    (z : (BPd.Sm D Y1).car) -> Id (BPd.Sm D Y3).car ((BPd.smap D Y1 Y3 (LC.compMap Y1 Y2 Y3 f g)).1 z)
+      ((LC.compMap (BPd.Sm D Y1) (BPd.Sm D Y2) (BPd.Sm D Y3) (BPd.smap D Y1 Y2 f) (BPd.smap D Y2 Y3 g)).1 z) = split {
+  inl d -> refl (inl d) ;
+  inr y -> refl (inr (g.1 (f.1 y))) } ;
+module Inh (o : BPd.Obj) (st : BPd.Step o) {
+  D : DP.LO = st.1 ;
+  o' : BPd.Obj = BPd.shift o st ;
+  pcH (h : PC o) : PC o' = \ Y xs ys hh -> h (BPd.Sm D Y) (consL (st.2.2.1 Y) xs) ys hh ;
+  feH (h : FE o) : FE o' = \ Y Y' f f' pw p ->
+    h (BPd.Sm D Y) (BPd.Sm D Y') (BPd.smap D Y Y' f) (BPd.smap D Y Y' f') (smapPw D Y Y' f f' pw) p ;
+  fcH (hc : FC o) (he : FE o) : FC o' = \ Y1 Y2 Y3 f g p ->
+    PL.trans (BPd.kO o (BPd.Sm D Y3)).car
+      ((BPd.kmO o (BPd.Sm D Y1) (BPd.Sm D Y3) (BPd.smap D Y1 Y3 (LC.compMap Y1 Y2 Y3 f g))).1 p)
+      ((BPd.kmO o (BPd.Sm D Y1) (BPd.Sm D Y3) (LC.compMap (BPd.Sm D Y1) (BPd.Sm D Y2) (BPd.Sm D Y3) (BPd.smap D Y1 Y2 f) (BPd.smap D Y2 Y3 g))).1 p)
+      ((BPd.kmO o (BPd.Sm D Y2) (BPd.Sm D Y3) (BPd.smap D Y2 Y3 g)).1 ((BPd.kmO o (BPd.Sm D Y1) (BPd.Sm D Y2) (BPd.smap D Y1 Y2 f)).1 p))
+      (he (BPd.Sm D Y1) (BPd.Sm D Y3) (BPd.smap D Y1 Y3 (LC.compMap Y1 Y2 Y3 f g))
+        (LC.compMap (BPd.Sm D Y1) (BPd.Sm D Y2) (BPd.Sm D Y3) (BPd.smap D Y1 Y2 f) (BPd.smap D Y2 Y3 g)) (smapComp D Y1 Y2 Y3 f g) p)
+      (hc (BPd.Sm D Y1) (BPd.Sm D Y2) (BPd.Sm D Y3) (BPd.smap D Y1 Y2 f) (BPd.smap D Y2 Y3 g) p) ;
+} ;
+
+------------------------------------------------------------------------
+-- pulling a Brouwer bound back along a map of labels
+module PullB (L1 L2 : DP.LO) (pl : L1.car -> L2.car) {
+  module K1 = KT.KB[L1] ;
+  module K2 = KT.KB[L2] ;
+  pE (xs : W.List L1.car) : W.List L2.car = W.map L1.car L2.car pl xs ;
+  pullBT : K2.BT -> K1.BT = split { leaf -> leaf ; node f | r -> node (\ a -> r (pl a)) } ;
+  pullBnd : (b : K2.BT) (P : K2.Tr) (Q : K1.Tr) -> ((xs : W.List L1.car) -> Id W.Bool (Q xs) true -> Id W.Bool (P (pE xs)) true) ->
+      K2.Bnd b P -> K1.Bnd (pullBT b) Q = split {
+    leaf -> \ P Q m hb xs -> KT.notTrue0 (Q xs) (\ h' -> PL.trans W.Bool false (P (pE xs)) true (PL.sym W.Bool (P (pE xs)) false (hb (pE xs))) (m xs h')) ;
+    node f | r -> \ P Q m hb a -> r (pl a) (K2.sub P (pl a)) (K1.sub Q a) (\ xs -> m (consL a xs)) (hb (pl a)) } ;
+} ;
+
+------------------------------------------------------------------------
+-- a node [a] at X gives the predecessor with shift X and label k(inl)(a)
+module StepX (o : BPd.Obj) (fcH : FC o) (feH : FE o) (X : DP.LO) (wX : LW.WF X) (a : BPd.LbO o X)
+  (ha : Id W.Bool (BPd.PO o X (consL a nilL)) true) {
+  kin (Y : DP.LO) : DP.Map (BPd.kO o X) (BPd.kO o (BPd.Sm X Y)) = BPd.kmO o X (BPd.Sm X Y) (inlM X Y) ;
+  lab (Y : DP.LO) : BPd.LbO o (BPd.Sm X Y) = LT.lm (BPd.kO o X) (BPd.kO o (BPd.Sm X Y)) (kin Y) a ;
+  ptNat (Y Y' : DP.LO) (g : DP.Map Y Y') (p : (BPd.kO o X).car) :
+      Id (BPd.kO o (BPd.Sm X Y')).car ((BPd.kmO o (BPd.Sm X Y) (BPd.Sm X Y') (BPd.smap X Y Y' g)).1 ((kin Y).1 p)) ((kin Y').1 p) =
+    PL.trans (BPd.kO o (BPd.Sm X Y')).car
+      ((BPd.kmO o (BPd.Sm X Y) (BPd.Sm X Y') (BPd.smap X Y Y' g)).1 ((kin Y).1 p))
+      ((BPd.kmO o X (BPd.Sm X Y') (LC.compMap X (BPd.Sm X Y) (BPd.Sm X Y') (inlM X Y) (BPd.smap X Y Y' g))).1 p)
+      ((kin Y').1 p)
+      (PL.sym (BPd.kO o (BPd.Sm X Y')).car
+        ((BPd.kmO o X (BPd.Sm X Y') (LC.compMap X (BPd.Sm X Y) (BPd.Sm X Y') (inlM X Y) (BPd.smap X Y Y' g))).1 p)
+        ((BPd.kmO o (BPd.Sm X Y) (BPd.Sm X Y') (BPd.smap X Y Y' g)).1 ((kin Y).1 p))
+        (fcH X (BPd.Sm X Y) (BPd.Sm X Y') (inlM X Y) (BPd.smap X Y Y' g) p))
+      (feH X (BPd.Sm X Y') (LC.compMap X (BPd.Sm X Y) (BPd.Sm X Y') (inlM X Y) (BPd.smap X Y Y' g)) (inlM X Y')
+        (\ x -> refl (inl x)) p) ;
+  optNat (Y Y' : DP.LO) (g : DP.Map Y Y') : (q : W.Or W.Unit (BPd.kO o X).car) ->
+      Id (W.Or W.Unit (BPd.kO o (BPd.Sm X Y')).car)
+        (LT.omap (BPd.kO o (BPd.Sm X Y)) (BPd.kO o (BPd.Sm X Y')) (BPd.kmO o (BPd.Sm X Y) (BPd.Sm X Y') (BPd.smap X Y Y' g))
+          (LT.omap (BPd.kO o X) (BPd.kO o (BPd.Sm X Y)) (kin Y) q))
+        (LT.omap (BPd.kO o X) (BPd.kO o (BPd.Sm X Y')) (kin Y') q) = split {
+    inl u -> refl (inl u) ;
+    inr p -> PL.ap (BPd.kO o (BPd.Sm X Y')).car (W.Or W.Unit (BPd.kO o (BPd.Sm X Y')).car) (\ z -> inr z)
+      ((BPd.kmO o (BPd.Sm X Y) (BPd.Sm X Y') (BPd.smap X Y Y' g)).1 ((kin Y).1 p)) ((kin Y').1 p) (ptNat Y Y' g p) } ;
+  labNat (Y Y' : DP.LO) (g : DP.Map Y Y') :
+      Id (BPd.LbO o (BPd.Sm X Y')) (LT.lm (BPd.kO o (BPd.Sm X Y)) (BPd.kO o (BPd.Sm X Y')) (BPd.kmO o (BPd.Sm X Y) (BPd.Sm X Y') (BPd.smap X Y Y' g)) (lab Y)) (lab Y') =
+    PL.ap (W.Or W.Unit (BPd.kO o (BPd.Sm X Y')).car) (BPd.LbO o (BPd.Sm X Y')) (\ q -> (a.1,q))
+      (LT.omap (BPd.kO o (BPd.Sm X Y)) (BPd.kO o (BPd.Sm X Y')) (BPd.kmO o (BPd.Sm X Y) (BPd.Sm X Y') (BPd.smap X Y Y' g))
+        (LT.omap (BPd.kO o X) (BPd.kO o (BPd.Sm X Y)) (kin Y) a.2))
+      (LT.omap (BPd.kO o X) (BPd.kO o (BPd.Sm X Y')) (kin Y') a.2) (optNat Y Y' g a.2) ;
+  node (Y : DP.LO) : Id W.Bool (BPd.PO o (BPd.Sm X Y) (consL (lab Y) nilL)) true =
+    PL.trans W.Bool (BPd.PO o (BPd.Sm X Y) (consL (lab Y) nilL)) (BPd.PO o X (consL a nilL)) true
+      (BPd.natO o X (BPd.Sm X Y) (inlM X Y) (consL a nilL)) ha ;
+  st : BPd.Step o = (X,(wX,(lab,(labNat,node)))) ;
+  o' : BPd.Obj = BPd.shift o st ;
+  -- the subtree at a is the predecessor at the empty order, read along k(inl)
+  sub (ys : LT.LL (BPd.kO o X)) (hh : Id W.Bool (BPd.PO o X (consL a ys)) true) :
+      Id W.Bool (BPd.PO o' E0 (LT.mapL (BPd.kO o X) (BPd.kO o (BPd.Sm X E0)) (kin E0) ys)) true =
+    PL.trans W.Bool (BPd.PO o' E0 (LT.mapL (BPd.kO o X) (BPd.kO o (BPd.Sm X E0)) (kin E0) ys)) (BPd.PO o X (consL a ys)) true
+      (BPd.natO o X (BPd.Sm X E0) (inlM X E0) (consL a ys)) hh ;
+} ;
+
+------------------------------------------------------------------------
+-- the theorem: accessible => correct
+M (o : BPd.Obj) : U l+ = FC o -> FE o -> PC o -> BPd.CorrO o ;
+module Cor (o : BPd.Obj) (ih : (s : BPd.Step o) -> M (BPd.shift o s)) (fcH : FC o) (feH : FE o) (pcH : PC o) (X : DP.LO) (wX : LW.WF X) {
+  module K = KT.KB[LT.Lab (BPd.kO o X)] ;
+  P (ys : LT.LL (BPd.kO o X)) : W.Bool = BPd.PO o X ys ;
+  module SX (a : BPd.LbO o X) (ha : Id W.Bool (P (consL a nilL)) true) {
+    module S = StepX[o,fcH,feH,X,wX,a,ha] ;
+    module PB = PullB[LT.Lab (BPd.kO o X),LT.Lab (BPd.kO o (BPd.Sm X E0)),LT.lm (BPd.kO o X) (BPd.kO o (BPd.Sm X E0)) (S.kin E0)] ;
+    w : KT.KB[LT.Lab (BPd.kO o (BPd.Sm X E0))].WFT (BPd.PO S.o' E0) =
+      ih S.st (Inh[o,S.st].fcH fcH feH) (Inh[o,S.st].feH feH) (Inh[o,S.st].pcH pcH) E0 wfE0 ;
+    b : K.BT = PB.pullBT w.1 ;
+    bnd : K.Bnd b (K.sub P a) = PB.pullBnd w.1 (BPd.PO S.o' E0) (K.sub P a) S.sub w.2 ;
+  } ;
+  bC (a : BPd.LbO o X) : (bv : W.Bool) -> Id W.Bool (P (consL a nilL)) bv -> K.BT = split {
+    false -> \ e -> leaf ;
+    true -> \ e -> SX[a,e].b } ;
+  bndC (a : BPd.LbO o X) : (bv : W.Bool) (e : Id W.Bool (P (consL a nilL)) bv) -> K.Bnd (bC a bv e) (K.sub P a) = split {
+    false -> \ e ys -> KT.notTrue0 (P (consL a ys))
+      (\ hh -> PL.trans W.Bool false (P (consL a nilL)) true (PL.sym W.Bool (P (consL a nilL)) false e) (pcH X (consL a nilL) ys hh)) ;
+    true -> \ e -> SX[a,e].bnd } ;
+  wft : K.WFT P = (node (\ a -> bC a (P (consL a nilL)) (refl (P (consL a nilL)))),
+    \ a -> bndC a (P (consL a nilL)) (refl (P (consL a nilL)))) ;
+} ;
+corStep (o : BPd.Obj) (ih : (s : BPd.Step o) -> M (BPd.shift o s)) : M o =
+  \ fcH feH pcH X wX -> Cor[o,ih,fcH,feH,pcH,X,wX].wft ;
+accCorr (o : BPd.Obj) (ac : AccO o) : M o = AO.ind M corStep o ac ;
+
+------------------------------------------------------------------------
+-- the converse, classically: correct => MERELY accessible, from Girard's
+-- 10.2.9 (BetaPred.Cl: excluded middle, dependent choice) and choice over
+-- the predecessors (to collect the accessibility proofs of all of them)
+module SO1 = ScottOrder[l+] ;
+module TC1 = TruncationCombinators[l+] ;
+AC2 : U l++ = (A : U l+) (B : A -> U l+) -> ((a : A) -> SO1.Ex (B a)) -> SO1.Ex ((a : A) -> B a) ;
+module Classical (lem : BPd.LEM2) (dc : BPd.DC2) (ac : AC2) {
+  Q (o : BPd.Obj) : U l+ = SO1.Ex (AccO o) ;
+  qp (o : BPd.Obj) : P1.isProp (Q o) = SO1.prop (AccO o) ;
+  cl (x : BPd.Obj) (ih : (st : BPd.Step x) -> Q (BPd.shift x st)) : Q x =
+    TC1.map ((st : BPd.Step x) -> AccO (BPd.shift x st)) (AccO x) (AO.acc x)
+      (ac (BPd.Step x) (\ st -> AccO (BPd.shift x st)) ih) ;
+  corrAcc (x0 : BPd.Obj) (c0 : BPd.CorrO x0) : Q x0 = BPd.Cl[lem,dc,Q,qp,cl].main x0 c0 ;
+} ;

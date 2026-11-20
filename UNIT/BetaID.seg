@@ -1,0 +1,407 @@
+-- Girard's inductive logic (PTLC 11.3): beta-proofs for a theory of one
+-- inductive definition ID1, with the inductive predicate allowed in both
+-- polarities.  Step S0 of PLAN-ID1.md: syntax, rules, pre-proofs,
+-- soundness relative to a model.
+--
+-- Fix a positive operator phi(X, x): a formula whose free variables are
+-- the argument x (environment position 0) and the stage of X (position 1);
+-- its X-atoms are positive (not checked here: positivity is only used for
+-- the standard model, not for soundness).
+--
+-- Labels are those of BetaProof: Lab A = N x (1 + A), where A is the
+-- linear order of ordinal parameters (for an F-proof at alpha, A = F(alpha)).
+-- An X-atom  xF b s k  reads its predicate from the label at position s:
+--     (n, inl tt)  ->  Phi-bar (the fixed point),
+--     (n, inr mu)  ->  I^mu (the mu-th stage),
+-- and its argument is the number of the label at position k; b is the
+-- polarity.  So one formula may mention Phi-bar and several stages.
+--
+-- Rules (one-sided, Tait style, principal formula kept, as in BetaProof),
+-- with a distinguished point top of A (top = alpha in F(alpha) = alpha+1+..):
+--   (xr i mu)  principal  xF true s k  with predicate xi:
+--        xi = I^lambda : mu < lambda      (Girard rI^lambda)
+--        xi = Phi-bar  : any mu in A      (Girard r-bar: mu < F(alpha))
+--      one premise  phi(I^mu, t).
+--   (xl i o)   principal  xF false s k  whose predicate is o
+--        o = inr lambda : I^lambda, bound lambda      (Girard lI^lambda)
+--        o = inl tt     : Phi-bar,  bound top         (Girard l-bar: nu < alpha only)
+--      premises  not phi(I^nu, t)  for all nu below the bound.
+-- The asymmetry: Phi-bar is introduced on the right with any mu in A but
+-- eliminated on the left only below top.  The bound of l-bar is read from
+-- top in br (not stored in the rule), so lowering top only removes
+-- premises: this is Girard's "chop" (BetaIDCut).
+-- Number quantifiers range over N (labels (n, inl tt)); ordinal parameters
+-- enter sequents only through stages.
+--
+-- Semantics: refutation predicate F (Goedel-Gentzen, as in BetaProof),
+-- relative to an interpretation M of the X-atoms (label |-> predicate on N);
+--     F (xF true)  = not M,     F (xF false) = not not M,
+-- so that  key : not F p -> F (neg p)  holds without excluded middle.
+-- A MODEL at (A, top) is M with the two conditions saying that the x-rules
+-- are sound (condR: phi(I^mu) is contained in M xi when mu is allowed;
+-- condL: M xi is contained in the union of phi(I^nu), nu below the bound); for the
+-- standard interpretation they say that I^lambda is the union of the
+-- phi(I^mu), mu < lambda, and I^top <= Phi-bar <= I^A (Girard 11.3.2).
+--
+--  * LS: every applicable rule with valid premises has a valid conclusion;
+--  * soundW: a locally correct pre-proof with a Brouwer bound proves a
+--    valid sequent, in every model.
+-- All constructive.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module BP = BetaProof[l] ;
+
+Not (X : U l) : U l = X -> W.Empty ;
+
+-- formulas in negation normal form, with X-atoms
+data Form : U l = atF (b : W.Bool) (k : W.N) | andF (p q : Form) | orF (p q : Form) | allF (p : Form) | exF (p : Form)
+  | xF (b : W.Bool) (s k : W.N) ;
+neg : Form -> Form = split {
+  atF b k -> atF (W.notB b) k ;
+  andF p q | rp rq -> orF rp rq ;
+  orF p q | rp rq -> andF rp rq ;
+  allF p | rp -> exF rp ;
+  exF p | rp -> allF rp ;
+  xF b s k -> xF (W.notB b) s k } ;
+pickF : W.N -> Form -> Form -> Form = split { zero -> \ p q -> p ; suc n -> \ p q -> q } ;
+isAndF : Form -> W.Bool = split { atF b k -> false ; andF p q -> true ; orF p q -> false ; allF p -> false ; exF p -> false ; xF b s k -> false } ;
+isOrF : Form -> W.Bool = split { atF b k -> false ; andF p q -> false ; orF p q -> true ; allF p -> false ; exF p -> false ; xF b s k -> false } ;
+isAllF : Form -> W.Bool = split { atF b k -> false ; andF p q -> false ; orF p q -> false ; allF p -> true ; exF p -> false ; xF b s k -> false } ;
+isExF : Form -> W.Bool = split { atF b k -> false ; andF p q -> false ; orF p q -> false ; allF p -> false ; exF p -> true ; xF b s k -> false } ;
+
+-- rules, over a type L of labels and a type P of ordinal parameters
+data RuleD (L P : U l) : U l = axR (i : W.N) | andR (i : W.N) | orR (i : W.N) | allR (i : W.N) | exR (i : W.N) (w : L)
+  | cutR (f : Form) (e : W.List L) | xrR (i : W.N) (mu : P) | xlR (i : W.N) (o : W.Or W.Unit P) ;
+
+-- refutation of an X-atom of polarity b, for a membership type m
+xsF : W.Bool -> U l -> U l = split { false -> \ m -> Not (Not m) ; true -> \ m -> Not m } ;
+
+module ID (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : Form) {
+  Lb (A : DP.LO) : U l = (LT.Lab A).car ;
+  lab0 (A : DP.LO) : Lb A = (zero,inl tt) ;
+  lab1 (A : DP.LO) : Lb A = (suc zero,inl tt) ;
+  isZeroL (A : DP.LO) (a : Lb A) : W.Bool = W.andB (BP.isInl W.Unit A.car a.2) (BP.isZeroN a.1) ;
+  isTwo (A : DP.LO) (a : Lb A) : W.Bool = W.andB (BP.isInl W.Unit A.car a.2) (BP.le1 a.1) ;
+  -- the label of the stage mu
+  stg (A : DP.LO) (mu : A.car) : Lb A = (zero,inr mu) ;
+  -- the label at a position of an environment (default: lab0)
+  nthL (A : DP.LO) : W.N -> LT.LL A -> Lb A = split {
+    zero -> split { nilL -> lab0 A ; consL a e -> a } ;
+    suc i | r -> split { nilL -> lab0 A ; consL a e -> r e } } ;
+  -- the environment of an instance phi(xi, t): argument t at 0, stage xi at 1
+  envP (A : DP.LO) (t xi : Lb A) : LT.LL A = consL t (consL xi nilL) ;
+
+  ----------------------------------------------------------------------
+  -- conditions on ordinal parameters
+  ltB (A : DP.LO) (x y : A.car) : W.Bool = W.isLt (A.cmp x y) ;
+  eqB (A : DP.LO) (x y : A.car) : W.Bool = W.isEq (A.cmp x y) ;
+  -- mu may be chosen in (xr) for the predicate o (inl: Phi-bar, inr lambda: I^lambda)
+  allowR (A : DP.LO) (mu : A.car) : W.Or W.Unit A.car -> W.Bool = split { inl u -> true ; inr la -> ltB A mu la } ;
+  -- the predicate named in (xl i o) is the predicate of the principal formula
+  sameO (A : DP.LO) : W.Or W.Unit A.car -> W.Or W.Unit A.car -> W.Bool = split {
+    inl u -> split { inl v -> true ; inr la -> false } ;
+    inr mu -> split { inl v -> false ; inr la -> eqB A mu la } } ;
+  -- the bound of (xl i o): top for Phi-bar, lambda for I^lambda
+  bound (A : DP.LO) (top : A.car) : W.Or W.Unit A.car -> A.car = split { inl u -> top ; inr la -> la } ;
+  isNum (A : DP.LO) (a : Lb A) : W.Bool = BP.isInl W.Unit A.car a.2 ;
+  -- the premises of (xl): stage labels below bd
+  ltO (A : DP.LO) (bd : A.car) : W.Or W.Unit A.car -> W.Bool = split { inl u -> false ; inr mu -> ltB A mu bd } ;
+  below (A : DP.LO) (bd : A.car) (a : Lb A) : W.Bool = W.andB (BP.isZeroN a.1) (ltO A bd a.2) ;
+
+  ----------------------------------------------------------------------
+  -- sequents of closures
+  Clo (A : DP.LO) : U l = Form * LT.LL A ;
+  Seq (A : DP.LO) : U l = W.List (Clo A) ;
+  OC (A : DP.LO) : U l = W.Or W.Unit (Clo A) ;
+  app (A : DP.LO) (G S : Seq A) : Seq A = KT.appL (Clo A) G S ;
+  getM (A : DP.LO) : W.N -> Seq A -> OC A = split {
+    zero -> split { nilL -> inl tt ; consL c cs -> inr c } ;
+    suc i | r -> split { nilL -> inl tt ; consL c cs -> r cs } } ;
+
+  ----------------------------------------------------------------------
+  -- rules: added closures, allowed branches, applicability
+  Rule (A : DP.LO) : U l = RuleD (Lb A) A.car ;
+  addAndF (A : DP.LO) : Form -> LT.LL A -> Lb A -> Seq A = split {
+    atF b k -> \ e a -> nilL ; andF p q -> \ e a -> consL (pickF a.1 p q,e) nilL ; orF p q -> \ e a -> nilL ;
+    allF p -> \ e a -> nilL ; exF p -> \ e a -> nilL ; xF b s k -> \ e a -> nilL } ;
+  addOrF (A : DP.LO) : Form -> LT.LL A -> Seq A = split {
+    atF b k -> \ e -> nilL ; andF p q -> \ e -> nilL ; orF p q -> \ e -> consL (p,e) (consL (q,e) nilL) ;
+    allF p -> \ e -> nilL ; exF p -> \ e -> nilL ; xF b s k -> \ e -> nilL } ;
+  addAllF (A : DP.LO) : Form -> LT.LL A -> Lb A -> Seq A = split {
+    atF b k -> \ e a -> nilL ; andF p q -> \ e a -> nilL ; orF p q -> \ e a -> nilL ;
+    allF p -> \ e a -> consL (p,consL a e) nilL ; exF p -> \ e a -> nilL ; xF b s k -> \ e a -> nilL } ;
+  addExF (A : DP.LO) : Form -> LT.LL A -> Lb A -> Seq A = split {
+    atF b k -> \ e a -> nilL ; andF p q -> \ e a -> nilL ; orF p q -> \ e a -> nilL ;
+    allF p -> \ e a -> nilL ; exF p -> \ e a -> consL (p,consL a e) nilL ; xF b s k -> \ e a -> nilL } ;
+  -- (xr): the premise phi(I^mu, t);  (xl): the premise not phi(I^nu, t), a = stage label of nu
+  addXrF (A : DP.LO) (mu : A.car) : Form -> LT.LL A -> Seq A = split {
+    atF b k -> \ e -> nilL ; andF p q -> \ e -> nilL ; orF p q -> \ e -> nilL ;
+    allF p -> \ e -> nilL ; exF p -> \ e -> nilL ;
+    xF b s k -> \ e -> consL (phi,envP A (nthL A k e) (stg A mu)) nilL } ;
+  addXlF (A : DP.LO) : Form -> LT.LL A -> Lb A -> Seq A = split {
+    atF b k -> \ e a -> nilL ; andF p q -> \ e a -> nilL ; orF p q -> \ e a -> nilL ;
+    allF p -> \ e a -> nilL ; exF p -> \ e a -> nilL ;
+    xF b s k -> \ e a -> consL (neg phi,envP A (nthL A k e) a) nilL } ;
+  isAxF (A : DP.LO) : Form -> LT.LL A -> W.Bool = split {
+    atF b k -> \ e -> BP.eqBo (ev A k e) b ; andF p q -> \ e -> false ; orF p q -> \ e -> false ;
+    allF p -> \ e -> false ; exF p -> \ e -> false ; xF b s k -> \ e -> false } ;
+  okXrF (A : DP.LO) (mu : A.car) : Form -> LT.LL A -> W.Bool = split {
+    atF b k -> \ e -> false ; andF p q -> \ e -> false ; orF p q -> \ e -> false ;
+    allF p -> \ e -> false ; exF p -> \ e -> false ;
+    xF b s k -> \ e -> W.andB (BP.eqBo b true) (allowR A mu (nthL A s e).2) } ;
+  okXlF (A : DP.LO) (o : W.Or W.Unit A.car) : Form -> LT.LL A -> W.Bool = split {
+    atF b k -> \ e -> false ; andF p q -> \ e -> false ; orF p q -> \ e -> false ;
+    allF p -> \ e -> false ; exF p -> \ e -> false ;
+    xF b s k -> \ e -> W.andB (BP.eqBo b false) (sameO A o (nthL A s e).2) } ;
+  -- lifted to optional closures
+  addAnd (A : DP.LO) : OC A -> Lb A -> Seq A = split { inl u -> \ a -> nilL ; inr c -> addAndF A c.1 c.2 } ;
+  addOr (A : DP.LO) : OC A -> Seq A = split { inl u -> nilL ; inr c -> addOrF A c.1 c.2 } ;
+  addAll (A : DP.LO) : OC A -> Lb A -> Seq A = split { inl u -> \ a -> nilL ; inr c -> addAllF A c.1 c.2 } ;
+  addEx (A : DP.LO) : OC A -> Lb A -> Seq A = split { inl u -> \ a -> nilL ; inr c -> addExF A c.1 c.2 } ;
+  addXr (A : DP.LO) (mu : A.car) : OC A -> Seq A = split { inl u -> nilL ; inr c -> addXrF A mu c.1 c.2 } ;
+  addXl (A : DP.LO) : OC A -> Lb A -> Seq A = split { inl u -> \ a -> nilL ; inr c -> addXlF A c.1 c.2 } ;
+  isO (A : DP.LO) (t : Form -> W.Bool) : OC A -> W.Bool = split { inl u -> false ; inr c -> t c.1 } ;
+  isAx (A : DP.LO) : OC A -> W.Bool = split { inl u -> false ; inr c -> isAxF A c.1 c.2 } ;
+  okXr (A : DP.LO) (mu : A.car) : OC A -> W.Bool = split { inl u -> false ; inr c -> okXrF A mu c.1 c.2 } ;
+  okXl (A : DP.LO) (o : W.Or W.Unit A.car) : OC A -> W.Bool = split { inl u -> false ; inr c -> okXlF A o c.1 c.2 } ;
+
+  -- allowed branches; top enters only through (xl i (inl tt)), the l-bar rule
+  br (A : DP.LO) (top : A.car) : Rule A -> Lb A -> W.Bool = split {
+    axR i -> \ a -> false ; andR i -> \ a -> isTwo A a ; orR i -> \ a -> isZeroL A a ;
+    allR i -> isNum A ; exR i w -> \ a -> isZeroL A a ; cutR f e -> \ a -> isTwo A a ;
+    xrR i mu -> \ a -> isZeroL A a ; xlR i o -> below A (bound A top o) } ;
+  step (A : DP.LO) (G : Seq A) : Rule A -> Lb A -> Seq A = split {
+    axR i -> \ a -> G ;
+    andR i -> \ a -> app A G (addAnd A (getM A i G) a) ;
+    orR i -> \ a -> app A G (addOr A (getM A i G)) ;
+    allR i -> \ a -> app A G (addAll A (getM A i G) a) ;
+    exR i w -> \ a -> app A G (addEx A (getM A i G) w) ;
+    cutR f e -> \ a -> app A G (consL (pickF a.1 f (neg f),e) nilL) ;
+    xrR i mu -> \ a -> app A G (addXr A mu (getM A i G)) ;
+    xlR i o -> \ a -> app A G (addXl A (getM A i G) a) } ;
+  appl (A : DP.LO) (G : Seq A) : Rule A -> W.Bool = split {
+    axR i -> isAx A (getM A i G) ;
+    andR i -> isO A isAndF (getM A i G) ;
+    orR i -> isO A isOrF (getM A i G) ;
+    allR i -> isO A isAllF (getM A i G) ;
+    exR i w -> W.andB (isO A isExF (getM A i G)) (isNum A w) ;
+    cutR f e -> true ;
+    xrR i mu -> okXr A mu (getM A i G) ;
+    xlR i o -> okXl A o (getM A i G) } ;
+
+  ----------------------------------------------------------------------
+  -- pre-proofs at (A, top): a rule at every address, an end sequent
+  Rl (A : DP.LO) : U l = LT.LL A -> Rule A ;
+  shift (A : DP.LO) (R : Rl A) (a : Lb A) : Rl A = \ zs -> R (consL a zs) ;
+  inTree (A : DP.LO) (top : A.car) : LT.LL A -> Rl A -> Seq A -> W.Bool = split {
+    nilL -> \ R G -> true ;
+    consL a ys | r -> \ R G -> W.andB (br A top (R nilL) a) (r (shift A R a) (step A G (R nilL) a)) } ;
+  seqAt (A : DP.LO) : LT.LL A -> Rl A -> Seq A -> Seq A = split {
+    nilL -> \ R G -> G ;
+    consL a ys | r -> \ R G -> r (shift A R a) (step A G (R nilL) a) } ;
+  LocOK (A : DP.LO) (top : A.car) (R : Rl A) (G : Seq A) : U l =
+    (ys : LT.LL A) -> Id W.Bool (inTree A top ys R G) true -> Id W.Bool (appl A (seqAt A ys R G) (R ys)) true ;
+  tree (A : DP.LO) (top : A.car) (R : Rl A) (G : Seq A) : KT.KB[LT.Lab A].Tr = \ ys -> inTree A top ys R G ;
+  WFP (A : DP.LO) (top : A.car) (R : Rl A) (G : Seq A) : U l = KT.KB[LT.Lab A].WFT (tree A top R G) ;
+
+  ----------------------------------------------------------------------
+  -- refutation semantics, for an interpretation M of the X-atoms
+  module Ref (A : DP.LO) (M : Lb A -> W.N -> U l) {
+    F : Form -> LT.LL A -> U l = split {
+      atF b k -> \ e -> Id W.Bool (ev A k e) (W.notB b) ;
+      andF p q | rp rq -> \ e -> Not (Not (W.Or (rp e) (rq e))) ;
+      orF p q | rp rq -> \ e -> rp e * rq e ;
+      allF p | rp -> \ e -> Not (Not ((n : W.N) * rp (consL (n,inl tt) e))) ;
+      exF p | rp -> \ e -> (n : W.N) -> rp (consL (n,inl tt) e) ;
+      xF b s k -> \ e -> xsF b (M (nthL A s e) (nthL A k e).1) } ;
+    KeyT (p : Form) : U l = (e : LT.LL A) -> (Not (F p e) -> F (neg p) e) * (Not (F (neg p) e) -> F p e) ;
+    keyX (m : U l) : (b : W.Bool) -> (Not (xsF b m) -> xsF (W.notB b) m) * (Not (xsF (W.notB b) m) -> xsF b m) = split {
+      false -> (\ h k -> h (\ k2 -> k2 k),\ h -> h) ;
+      true -> (\ h -> h,\ h k -> h (\ k2 -> k2 k)) } ;
+    key : (p : Form) -> KeyT p = split {
+      atF b k -> \ e -> BP.boolKey (ev A k e) b ;
+      andF p q | rp rq -> \ e ->
+        (\ h -> ((rp e).1 (\ x -> h (\ k -> k (inl x))),(rq e).1 (\ y -> h (\ k -> k (inr y)))),
+         \ h k -> h ((rp e).1 (\ x -> k (inl x)),(rq e).1 (\ y -> k (inr y)))) ;
+      orF p q | rp rq -> \ e ->
+        (\ h k -> h ((rp e).2 (\ x -> k (inl x)),(rq e).2 (\ y -> k (inr y))),
+         \ h -> ((rp e).2 (\ x -> h (\ k -> k (inl x))),(rq e).2 (\ y -> h (\ k -> k (inr y))))) ;
+      allF p | rp -> \ e ->
+        (\ h x -> (rp (consL (x,inl tt) e)).1 (\ fp -> h (\ k -> k (x,fp))),
+         \ h k -> h (\ x -> (rp (consL (x,inl tt) e)).1 (\ fp -> k (x,fp)))) ;
+      exF p | rp -> \ e ->
+        (\ h k -> h (\ x -> (rp (consL (x,inl tt) e)).2 (\ fn -> k (x,fn))),
+         \ h x -> (rp (consL (x,inl tt) e)).2 (\ fn -> h (\ k -> k (x,fn)))) ;
+      xF b s k -> \ e -> keyX (M (nthL A s e) (nthL A k e).1) b } ;
+
+    AllF : Seq A -> U l = split { nilL -> W.Unit ; consL c cs | r -> F c.1 c.2 * r } ;
+    Valid (G : Seq A) : U l = Not (AllF G) ;
+    allF-app (S : Seq A) : (G : Seq A) -> AllF G -> AllF S -> AllF (app A G S) = split {
+      nilL -> \ g s -> s ;
+      consL c cs | r -> \ g s -> (g.1,r g.2 s) } ;
+    outR (d : Clo A) : OC A -> Clo A = split { inl u -> d ; inr c -> c } ;
+    getF : (i : W.N) (G : Seq A) (c : Clo A) -> Id (OC A) (getM A i G) (inr c) -> AllF G -> F c.1 c.2 = split {
+      zero -> split {
+        nilL -> \ c e g -> W.absurdB (F c.1 c.2) (PL.ap (OC A) W.Bool (BP.isInr W.Unit (Clo A)) (inl tt) (inr c) e) ;
+        consL c' cs -> \ c e g -> PL.subst (Clo A) (\ z -> F z.1 z.2) c' c
+          (PL.ap (OC A) (Clo A) (outR c') (inr c') (inr c) e) g.1 } ;
+      suc i | r -> split {
+        nilL -> \ c e g -> W.absurdB (F c.1 c.2) (PL.ap (OC A) W.Bool (BP.isInr W.Unit (Clo A)) (inl tt) (inr c) e) ;
+        consL c' cs -> \ c e g -> r cs c e g.2 } } ;
+    FO (o : OC A) : U l = (c : Clo A) -> Id (OC A) o (inr c) -> F c.1 c.2 ;
+    Ch (G : Seq A) (t : Lb A -> W.Bool) (S : Lb A -> Seq A) : U l =
+      (a : Lb A) -> Id W.Bool (t a) true -> Valid (app A G (S a)) ;
+    child1 (G : Seq A) (t : Lb A -> W.Bool) (S : Lb A -> Seq A) (ch : Ch G t S) (g : AllF G)
+      (a : Lb A) (h : Id W.Bool (t a) true) (s : AllF (S a)) : W.Empty = ch a h (allF-app (S a) G g s) ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- a model at (A, top): the x-rules are sound
+  CondR (A : DP.LO) (M : Lb A -> W.N -> U l) : U l =
+    (xi t : Lb A) (mu : A.car) -> Id W.Bool (allowR A mu xi.2) true -> Not (M xi t.1) -> Ref[A,M].F phi (envP A t (stg A mu)) ;
+  CondL (A : DP.LO) (top : A.car) (M : Lb A -> W.N -> U l) : U l =
+    (xi t : Lb A) (o : W.Or W.Unit A.car) -> Id W.Bool (sameO A o xi.2) true ->
+      ((a : Lb A) -> Id W.Bool (below A (bound A top o) a) true -> Ref[A,M].F phi (envP A t a)) -> Not (M xi t.1) ;
+
+  module Snd (A : DP.LO) (top : A.car) (M : Lb A -> W.N -> U l) (condR : CondR A M) (condL : CondL A top M) {
+    module S = Ref[A,M] ;
+    axF : (f : Form) (e : LT.LL A) -> Id W.Bool (isAxF A f e) true -> S.F f e -> W.Empty = split {
+      atF b k -> \ e h fe -> BP.axC (ev A k e) b h fe ;
+      andF p q -> \ e h fe -> W.absurdB W.Empty h ; orF p q -> \ e h fe -> W.absurdB W.Empty h ;
+      allF p -> \ e h fe -> W.absurdB W.Empty h ; exF p -> \ e h fe -> W.absurdB W.Empty h ;
+      xF b s k -> \ e h fe -> W.absurdB W.Empty h } ;
+    axO : (o : OC A) -> S.FO o -> Id W.Bool (isAx A o) true -> W.Empty = split {
+      inl u -> \ fo h -> W.absurdB W.Empty h ;
+      inr c -> \ fo h -> axF c.1 c.2 h (fo c (refl (inr c))) } ;
+
+    andF-s (G : Seq A) (g : S.AllF G) : (f : Form) (e : LT.LL A) -> Id W.Bool (isAndF f) true -> S.F f e ->
+        S.Ch G (isTwo A) (addAndF A f e) -> W.Empty = split {
+      atF b k -> \ e h fe ch -> W.absurdB W.Empty h ;
+      andF p q -> \ e h fe ch -> fe (CF.or-elim (S.F p e) (S.F q e) W.Empty
+        (\ x -> S.child1 G (isTwo A) (addAndF A (andF p q) e) ch g (lab0 A) (refl true) (x,tt))
+        (\ y -> S.child1 G (isTwo A) (addAndF A (andF p q) e) ch g (lab1 A) (refl true) (y,tt))) ;
+      orF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+      allF p -> \ e h fe ch -> W.absurdB W.Empty h ; exF p -> \ e h fe ch -> W.absurdB W.Empty h ;
+      xF b s k -> \ e h fe ch -> W.absurdB W.Empty h } ;
+    andO (G : Seq A) (g : S.AllF G) : (o : OC A) -> S.FO o -> Id W.Bool (isO A isAndF o) true ->
+        S.Ch G (isTwo A) (addAnd A o) -> W.Empty = split {
+      inl u -> \ fo h ch -> W.absurdB W.Empty h ;
+      inr c -> \ fo h ch -> andF-s G g c.1 c.2 h (fo c (refl (inr c))) ch } ;
+
+    orF-s (G : Seq A) (g : S.AllF G) : (f : Form) (e : LT.LL A) -> Id W.Bool (isOrF f) true -> S.F f e ->
+        S.Ch G (isZeroL A) (\ a -> addOrF A f e) -> W.Empty = split {
+      atF b k -> \ e h fe ch -> W.absurdB W.Empty h ; andF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+      orF p q -> \ e h fe ch -> S.child1 G (isZeroL A) (\ a -> addOrF A (orF p q) e) ch g (lab0 A) (refl true) (fe.1,(fe.2,tt)) ;
+      allF p -> \ e h fe ch -> W.absurdB W.Empty h ; exF p -> \ e h fe ch -> W.absurdB W.Empty h ;
+      xF b s k -> \ e h fe ch -> W.absurdB W.Empty h } ;
+    orO (G : Seq A) (g : S.AllF G) : (o : OC A) -> S.FO o -> Id W.Bool (isO A isOrF o) true ->
+        S.Ch G (isZeroL A) (\ a -> addOr A o) -> W.Empty = split {
+      inl u -> \ fo h ch -> W.absurdB W.Empty h ;
+      inr c -> \ fo h ch -> orF-s G g c.1 c.2 h (fo c (refl (inr c))) ch } ;
+
+    allF-s (G : Seq A) (g : S.AllF G) : (f : Form) (e : LT.LL A) -> Id W.Bool (isAllF f) true -> S.F f e ->
+        S.Ch G (isNum A) (addAllF A f e) -> W.Empty = split {
+      atF b k -> \ e h fe ch -> W.absurdB W.Empty h ; andF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+      orF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+      allF p -> \ e h fe ch -> fe (\ s -> S.child1 G (isNum A) (addAllF A (allF p) e) ch g (s.1,inl tt) (refl true) (s.2,tt)) ;
+      exF p -> \ e h fe ch -> W.absurdB W.Empty h ; xF b s k -> \ e h fe ch -> W.absurdB W.Empty h } ;
+    allO (G : Seq A) (g : S.AllF G) : (o : OC A) -> S.FO o -> Id W.Bool (isO A isAllF o) true ->
+        S.Ch G (isNum A) (addAll A o) -> W.Empty = split {
+      inl u -> \ fo h ch -> W.absurdB W.Empty h ;
+      inr c -> \ fo h ch -> allF-s G g c.1 c.2 h (fo c (refl (inr c))) ch } ;
+
+    -- a number label is (n, inl tt)
+    ttEq (n : W.N) : (u : W.Unit) -> Id (Lb A) (n,inl tt) (n,inl u) = split { tt -> refl (n,inl tt) } ;
+    numEq' (n : W.N) : (o : W.Or W.Unit A.car) -> Id W.Bool (BP.isInl W.Unit A.car o) true -> Id (Lb A) (n,inl tt) (n,o) = split {
+      inl u -> \ h -> ttEq n u ;
+      inr x -> \ h -> W.absurdB (Id (Lb A) (n,inl tt) (n,inr x)) h } ;
+    numEq (w : Lb A) (h : Id W.Bool (isNum A w) true) : Id (Lb A) (w.1,inl tt) w = numEq' w.1 w.2 h ;
+    exF-s (G : Seq A) (g : S.AllF G) (w : Lb A) (hw : Id W.Bool (isNum A w) true) : (f : Form) (e : LT.LL A) -> Id W.Bool (isExF f) true -> S.F f e ->
+        S.Ch G (isZeroL A) (\ a -> addExF A f e w) -> W.Empty = split {
+      atF b k -> \ e h fe ch -> W.absurdB W.Empty h ; andF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+      orF p q -> \ e h fe ch -> W.absurdB W.Empty h ; allF p -> \ e h fe ch -> W.absurdB W.Empty h ;
+      exF p -> \ e h fe ch -> S.child1 G (isZeroL A) (\ a -> addExF A (exF p) e w) ch g (lab0 A) (refl true)
+        (PL.subst (Lb A) (\ x -> S.F p (consL x e)) (w.1,inl tt) w (numEq w hw) (fe w.1),tt) ;
+      xF b s k -> \ e h fe ch -> W.absurdB W.Empty h } ;
+    exO (G : Seq A) (g : S.AllF G) (w : Lb A) (hw : Id W.Bool (isNum A w) true) : (o : OC A) -> S.FO o -> Id W.Bool (isO A isExF o) true ->
+        S.Ch G (isZeroL A) (\ a -> addEx A o w) -> W.Empty = split {
+      inl u -> \ fo h ch -> W.absurdB W.Empty h ;
+      inr c -> \ fo h ch -> exF-s G g w hw c.1 c.2 h (fo c (refl (inr c))) ch } ;
+
+    -- (xr): the premise phi(I^mu, t) would be refuted by condR
+    xrB (G : Seq A) (g : S.AllF G) (mu : A.car) (s k : W.N) (e : LT.LL A)
+        (ch : S.Ch G (isZeroL A) (\ a -> addXrF A mu (xF true s k) e)) :
+        (b : W.Bool) -> Id W.Bool (W.andB (BP.eqBo b true) (allowR A mu (nthL A s e).2)) true ->
+        xsF b (M (nthL A s e) (nthL A k e).1) -> W.Empty = split {
+      false -> \ h fe -> W.absurdB W.Empty h ;
+      true -> \ h fe -> S.child1 G (isZeroL A) (\ a -> addXrF A mu (xF true s k) e) ch g (lab0 A) (refl true)
+        (condR (nthL A s e) (nthL A k e) mu h fe,tt) } ;
+    xr-s (G : Seq A) (g : S.AllF G) (mu : A.car) : (f : Form) (e : LT.LL A) -> Id W.Bool (okXrF A mu f e) true -> S.F f e ->
+        S.Ch G (isZeroL A) (\ a -> addXrF A mu f e) -> W.Empty = split {
+      atF b k -> \ e h fe ch -> W.absurdB W.Empty h ; andF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+      orF p q -> \ e h fe ch -> W.absurdB W.Empty h ; allF p -> \ e h fe ch -> W.absurdB W.Empty h ;
+      exF p -> \ e h fe ch -> W.absurdB W.Empty h ;
+      xF b s k -> \ e h fe ch -> xrB G g mu s k e ch b h fe } ;
+    xrO (G : Seq A) (g : S.AllF G) (mu : A.car) : (o : OC A) -> S.FO o -> Id W.Bool (okXr A mu o) true ->
+        S.Ch G (isZeroL A) (\ a -> addXr A mu o) -> W.Empty = split {
+      inl u -> \ fo h ch -> W.absurdB W.Empty h ;
+      inr c -> \ fo h ch -> xr-s G g mu c.1 c.2 h (fo c (refl (inr c))) ch } ;
+
+    -- (xl): every premise not phi(I^nu, t) is refuted, so phi(I^nu, t) is
+    -- refuted for all nu below the bound (key), and condL refutes the
+    -- principal formula
+    xlB (G : Seq A) (g : S.AllF G) (o : W.Or W.Unit A.car) (s k : W.N) (e : LT.LL A)
+        (ch : S.Ch G (below A (bound A top o)) (addXlF A (xF false s k) e)) :
+        (b : W.Bool) -> Id W.Bool (W.andB (BP.eqBo b false) (sameO A o (nthL A s e).2)) true ->
+        xsF b (M (nthL A s e) (nthL A k e).1) -> W.Empty = split {
+      false -> \ h fe -> fe (condL (nthL A s e) (nthL A k e) o h
+        (\ a ha -> (S.key phi (envP A (nthL A k e) a)).2
+          (\ fn -> S.child1 G (below A (bound A top o)) (addXlF A (xF false s k) e) ch g a ha (fn,tt)))) ;
+      true -> \ h fe -> W.absurdB W.Empty h } ;
+    xl-s (G : Seq A) (g : S.AllF G) (o : W.Or W.Unit A.car) : (f : Form) (e : LT.LL A) -> Id W.Bool (okXlF A o f e) true -> S.F f e ->
+        S.Ch G (below A (bound A top o)) (addXlF A f e) -> W.Empty = split {
+      atF b k -> \ e h fe ch -> W.absurdB W.Empty h ; andF p q -> \ e h fe ch -> W.absurdB W.Empty h ;
+      orF p q -> \ e h fe ch -> W.absurdB W.Empty h ; allF p -> \ e h fe ch -> W.absurdB W.Empty h ;
+      exF p -> \ e h fe ch -> W.absurdB W.Empty h ;
+      xF b s k -> \ e h fe ch -> xlB G g o s k e ch b h fe } ;
+    xlO (G : Seq A) (g : S.AllF G) (o : W.Or W.Unit A.car) : (oc : OC A) -> S.FO oc -> Id W.Bool (okXl A o oc) true ->
+        S.Ch G (below A (bound A top o)) (addXl A oc) -> W.Empty = split {
+      inl u -> \ fo h ch -> W.absurdB W.Empty h ;
+      inr c -> \ fo h ch -> xl-s G g o c.1 c.2 h (fo c (refl (inr c))) ch } ;
+
+    -- every applicable rule with valid premises has a valid conclusion
+    LS (G : Seq A) : (r : Rule A) -> Id W.Bool (appl A G r) true ->
+        ((a : Lb A) -> Id W.Bool (br A top r a) true -> S.Valid (step A G r a)) -> S.Valid G = split {
+      axR i -> \ h ch g -> axO (getM A i G) (\ c e -> S.getF i G c e g) h ;
+      andR i -> \ h ch g -> andO G g (getM A i G) (\ c e -> S.getF i G c e g) h ch ;
+      orR i -> \ h ch g -> orO G g (getM A i G) (\ c e -> S.getF i G c e g) h ch ;
+      allR i -> \ h ch g -> allO G g (getM A i G) (\ c e -> S.getF i G c e g) h ch ;
+      exR i w -> \ h ch g -> exO G g w (W.andB-r (isO A isExF (getM A i G)) (isNum A w) h) (getM A i G) (\ c e -> S.getF i G c e g)
+        (W.andB-l (isO A isExF (getM A i G)) (isNum A w) h) ch ;
+      cutR f e -> \ h ch g ->
+        ch (lab1 A) (refl true) (S.allF-app (consL (neg f,e) nilL) G g
+          ((S.key f e).1 (\ x -> ch (lab0 A) (refl true) (S.allF-app (consL (f,e) nilL) G g (x,tt))),tt)) ;
+      xrR i mu -> \ h ch g -> xrO G g mu (getM A i G) (\ c e -> S.getF i G c e g) h ch ;
+      xlR i o -> \ h ch g -> xlO G g o (getM A i G) (\ c e -> S.getF i G c e g) h ch } ;
+
+    -- soundness, by induction on a Brouwer bound of the tree
+    module K = KT.KB[LT.Lab A] ;
+    soundT : (b : K.BT) (R : Rl A) (G : Seq A) -> K.Bnd b (tree A top R G) -> LocOK A top R G -> S.Valid G = split {
+      leaf -> \ R G hb lo -> BP.tf (S.Valid G) (hb nilL) ;
+      node f | r -> \ R G hb lo -> LS G (R nilL) (lo nilL (refl true))
+        (\ a ha -> r a (shift A R a) (step A G (R nilL) a)
+          (K.bnd-ext (f a) (K.sub (tree A top R G) a) (tree A top (shift A R a) (step A G (R nilL) a))
+            (\ xs -> BP.andTrue (br A top (R nilL) a) (inTree A top xs (shift A R a) (step A G (R nilL) a)) ha) (hb a))
+          (\ ys hv -> lo (consL a ys)
+            (PL.trans W.Bool (inTree A top (consL a ys) R G) (inTree A top ys (shift A R a) (step A G (R nilL) a)) true
+              (BP.andTrue (br A top (R nilL) a) (inTree A top ys (shift A R a) (step A G (R nilL) a)) ha) hv))) } ;
+    soundW (R : Rl A) (G : Seq A) (w : WFP A top R G) (lo : LocOK A top R G) : S.Valid G = soundT w.1 R G w.2 lo ;
+  } ;
+} ;

@@ -1,0 +1,68 @@
+-- PLAN-ID1, option (a): the conditional "an absorbing well-order gives the
+-- full predecessor induction (Girard 10.2.9) constructively" is BetaPred.Cons
+-- itself; here we show that its hypothesis can only hold ONE UNIVERSE UP.
+--
+-- Theorem (noAbsorb, Burali-Forti for absorption).  No well-founded linear
+-- order Z (of level l) admits embeddings D + Z -> Z for all well-founded D
+-- (of level l).
+-- Proof.  Take D = Z + 1 (well-founded, wfSucc) and restrict the embedding
+-- to D: h = (x |-> ab(inl (inl x))) : Z -> Z is strictly increasing and
+-- bounded by t = ab(inl (inr *)).  A strictly increasing self-map of a
+-- well-order never goes down (noSelf, by induction: if h x < x then
+-- h (h x) < h x with h x < x), but h t < t.
+--
+-- Consequence for PLAN-ID1 S4: a full constructive 10.2.9 by evaluation at
+-- an absorbing Z needs Z at level l+ and the objects (beta-proofs over
+-- level-l orders) evaluated there, i.e. the LIFTING of correctness from
+-- small well-orders to a large one -- which is the open problem.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LW = LOWF[l] ;
+module PS = PtyxSum[l] ;
+module BPd = BetaPred[l] ;
+
+Not (X : U l) : U l = X -> W.Empty ;
+LtZ (Z : DP.LO) (x y : Z.car) : U l = Id W.Bool (W.isLt (Z.cmp x y)) true ;
+
+-- a strictly increasing self-map of a well-order never goes down
+module NoSelf (Z : DP.LO) (wz : LW.WF Z) (h : DP.Map Z Z) {
+  module AZ = W.Acc[Z.car,W.ltO Z.car Z.cmp] ;
+  step (x : Z.car) (ih : (y : Z.car) -> AZ.Lt y x -> Not (LtZ Z (h.1 y) y)) : Not (LtZ Z (h.1 x) x) = \ hx ->
+    ih (h.1 x) hx
+      (PL.trans W.Bool (W.isLt (Z.cmp (h.1 (h.1 x)) (h.1 x))) (W.isLt (Z.cmp (h.1 x) x)) true
+        (PL.ap W.O3 W.Bool W.isLt (Z.cmp (h.1 (h.1 x)) (h.1 x)) (Z.cmp (h.1 x) x) (h.2 (h.1 x) x)) hx) ;
+  noSelf (x : Z.car) : Not (LtZ Z (h.1 x) x) = AZ.ind (\ y -> Not (LtZ Z (h.1 y) y)) step x (wz x) ;
+} ;
+
+-- Z + 1 is well-founded
+module Succ (Z : DP.LO) (wz : LW.WF Z) {
+  S : DP.LO = BPd.Sm Z LT.one ;
+  module AZ = W.Acc[Z.car,W.ltO Z.car Z.cmp] ;
+  module AS = W.Acc[S.car,W.ltO S.car S.cmp] ;
+  predL (x : Z.car) (ih : (y : Z.car) -> AZ.Lt y x -> AS.AccP (inl y)) : (y : S.car) -> AS.Lt y (inl x) -> AS.AccP y = split {
+    inl y -> \ hh -> ih y hh ;
+    inr u -> \ hh -> W.absurdB (AS.AccP (inr u)) hh } ;
+  accL (x : Z.car) : AS.AccP (inl x) =
+    AZ.ind (\ y -> AS.AccP (inl y)) (\ x0 ih -> AS.acc (inl x0) (predL x0 ih)) x (wz x) ;
+  predR (u : W.Unit) : (y : S.car) -> AS.Lt y (inr u) -> AS.AccP y = split {
+    inl y -> \ hh -> accL y ;
+    inr v -> \ hh -> W.absurdB (AS.AccP (inr v)) hh } ;
+  wf : LW.WF S = split { inl x -> accL x ; inr u -> AS.acc (inr u) (predR u) } ;
+} ;
+
+-- no well-order absorbs its own successor
+module NoSucc (Z : DP.LO) (wz : LW.WF Z) (ab : DP.Map (BPd.Sm (BPd.Sm Z LT.one) Z) Z) {
+  hF (x : Z.car) : Z.car = ab.1 (inl (inl x)) ;
+  h : DP.Map Z Z = (hF,\ x y -> ab.2 (inl (inl x)) (inl (inl y))) ;
+  t : Z.car = ab.1 (inl (inr tt)) ;
+  bound (x : Z.car) : Id W.O3 (Z.cmp (hF x) t) lt = ab.2 (inl (inl x)) (inl (inr tt)) ;
+  contra : W.Empty = NoSelf[Z,wz,h].noSelf t (PL.ap W.O3 W.Bool W.isLt (Z.cmp (hF t) t) lt (bound t)) ;
+} ;
+
+-- Theorem: no well-order of level l absorbs every well-order of level l
+noAbsorb (Z : DP.LO) (wz : LW.WF Z) (abs : (D : DP.LO) -> LW.WF D -> DP.Map (BPd.Sm D Z) Z) : W.Empty =
+  NoSucc[Z,wz,abs (BPd.Sm Z LT.one) (Succ[Z,wz].wf)].contra ;

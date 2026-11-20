@@ -1,0 +1,245 @@
+-- PLAN-ID1 S1, part A: inductive derivations for inductive logic (BetaID)
+-- at a fixed linear order A with top, and the generic machinery of the cut
+-- elimination (port of BetaCut, pointwise).
+--
+-- Derivations are INDUCTIVE trees; every rule names its principal closure,
+-- which must be a MEMBER of the sequent (so weakening keeps derivations),
+-- and the principal closure is kept in the premises:
+--   Cf : cut-free derivations,  Dv : derivations with cut.
+-- New rules (BetaID): cXr (positive X-atom, one premise phi(I^mu, t)) and
+-- cXl (negative X-atom, premises not phi(I^nu, t) for the labels below the
+-- bound of its predicate).  Quantifiers range over numbers: the premises of
+-- cAll and the witness of cEx are number labels (as in BetaID).
+-- The double induction on the two derivations of a cut (Ind) branches on
+-- the membership proof of the principal closure (pointwise version).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module BP = BetaProof[l] ;
+module KT = KBTree[l] ;
+module LW = LOWF[l] ;
+module BI = BetaID[l] ;
+
+data Cf (L P : U l) : U l = cAx (b : W.Bool) (k : W.N) (e : W.List L)
+  | cAnd (p q : BI.Form) (e : W.List L) (d0 d1 : Cf L P)
+  | cOr (p q : BI.Form) (e : W.List L) (d : Cf L P)
+  | cAll (p : BI.Form) (e : W.List L) (kk : L -> Cf L P)
+  | cEx (p : BI.Form) (e : W.List L) (w : L) (d : Cf L P)
+  | cXr (s k : W.N) (e : W.List L) (mu : P) (d : Cf L P)
+  | cXl (s k : W.N) (e : W.List L) (o : W.Or W.Unit P) (kk : L -> Cf L P) ;
+
+-- shape tests
+isAtF : BI.Form -> W.Bool = split { atF b k -> true ; andF p q -> false ; orF p q -> false ; allF p -> false ; exF p -> false ; xF b s k -> false } ;
+isXP : BI.Form -> W.Bool = split { atF b k -> false ; andF p q -> false ; orF p q -> false ; allF p -> false ; exF p -> false ; xF b s k -> BP.eqBo b true } ;
+isXN : BI.Form -> W.Bool = split { atF b k -> false ; andF p q -> false ; orF p q -> false ; allF p -> false ; exF p -> false ; xF b s k -> BP.eqBo b false } ;
+
+module CI (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) (top : A.car) {
+  module I = BI.ID[ev,phi] ;
+  Lb : U l = I.Lb A ;
+  Clo : U l = I.Clo A ;
+  Seq : U l = I.Seq A ;
+  C0 : U l = Cf Lb A.car ;
+  Mem (c : Clo) (H : Seq) : U l = LT.memG Clo c H ;
+  arg (k : W.N) (e : LT.LL A) : Lb = I.nthL A k e ;
+  -- the premise closures of the x-rules
+  cR (k : W.N) (e : LT.LL A) (mu : A.car) : Clo = (phi,I.envP A (arg k e) (I.stg A mu)) ;
+  cL (k : W.N) (e : LT.LL A) (a : Lb) : Clo = (BI.neg phi,I.envP A (arg k e) a) ;
+  Ok : C0 -> Seq -> U l = split {
+    cAx b k e -> \ H -> Mem (atF b k,e) H * Id W.Bool (ev A k e) b ;
+    cAnd p q e d0 d1 | r0 r1 -> \ H -> Mem (andF p q,e) H * (r0 (consL (p,e) H) * r1 (consL (q,e) H)) ;
+    cOr p q e d | r -> \ H -> Mem (orF p q,e) H * r (consL (p,e) (consL (q,e) H)) ;
+    cAll p e kk | r -> \ H -> Mem (allF p,e) H * ((x : Lb) -> Id W.Bool (I.isNum A x) true -> r x (consL (p,consL x e) H)) ;
+    cEx p e w d | r -> \ H -> Mem (exF p,e) H * (Id W.Bool (I.isNum A w) true * r (consL (p,consL w e) H)) ;
+    cXr s k e mu d | r -> \ H -> Mem (xF true s k,e) H * (Id W.Bool (I.allowR A mu (I.nthL A s e).2) true * r (consL (cR k e mu) H)) ;
+    cXl s k e o kk | r -> \ H -> Mem (xF false s k,e) H * (Id W.Bool (I.sameO A o (I.nthL A s e).2) true *
+        ((a : Lb) -> Id W.Bool (I.below A (I.bound A top o) a) true -> r a (consL (cL k e a) H))) } ;
+  Res (H : Seq) : U l = (d : C0) * Ok d H ;
+
+  ----------------------------------------------------------------------
+  -- inclusions of sequents, weakening
+  Sub (H H' : Seq) : U l = (c : Clo) -> Mem c H -> Mem c H' ;
+  subT (H1 H2 H3 : Seq) (s : Sub H1 H2) (t : Sub H2 H3) : Sub H1 H3 = \ x m -> t x (s x m) ;
+  subCons (c : Clo) (H H' : Seq) (s : Sub H H') : Sub (consL c H) (consL c H') =
+    \ x m -> CF.or-elim (Id Clo c x) (Mem x H) (Mem x (consL c H')) (\ e -> inl e) (\ m' -> inr (s x m')) m ;
+  wk1 (c : Clo) (H : Seq) : Sub H (consL c H) = \ x m -> inr m ;
+  sw (a b : Clo) (H : Seq) : Sub (consL a (consL b H)) (consL b (consL a H)) =
+    \ x m -> CF.or-elim (Id Clo a x) (Mem x (consL b H)) (Mem x (consL b (consL a H)))
+      (\ e -> inr (inl e))
+      (\ m1 -> CF.or-elim (Id Clo b x) (Mem x H) (Mem x (consL b (consL a H)))
+        (\ e -> inl e) (\ m2 -> inr (inr m2)) m1) m ;
+  sub3 (a b c : Clo) (H : Seq) : Sub (consL a (consL b (consL c H))) (consL c (consL a (consL b H))) =
+    \ x m -> CF.or-elim (Id Clo a x) (Mem x (consL b (consL c H))) (Mem x (consL c (consL a (consL b H))))
+      (\ e -> inr (inl e))
+      (\ m1 -> CF.or-elim (Id Clo b x) (Mem x (consL c H)) (Mem x (consL c (consL a (consL b H))))
+        (\ e -> inr (inr (inl e)))
+        (\ m2 -> CF.or-elim (Id Clo c x) (Mem x H) (Mem x (consL c (consL a (consL b H))))
+          (\ e -> inl e) (\ m3 -> inr (inr (inr m3))) m2) m1) m ;
+  eqSub (c c' : Clo) (H : Seq) (e : Id Clo c' c) : Sub (consL c H) (consL c' H) =
+    \ x m -> CF.or-elim (Id Clo c x) (Mem x H) (Mem x (consL c' H))
+      (\ e0 -> inl (PL.trans Clo c' c x e e0)) (\ m' -> inr m') m ;
+  wk : (d : C0) (H H' : Seq) -> Ok d H -> Sub H H' -> Ok d H' = split {
+    cAx b k e -> \ H H' o s -> (s (atF b k,e) o.1,o.2) ;
+    cAnd p q e d0 d1 | r0 r1 -> \ H H' o s -> (s (andF p q,e) o.1,
+      (r0 (consL (p,e) H) (consL (p,e) H') o.2.1 (subCons (p,e) H H' s),
+       r1 (consL (q,e) H) (consL (q,e) H') o.2.2 (subCons (q,e) H H' s))) ;
+    cOr p q e d | r -> \ H H' o s -> (s (orF p q,e) o.1,
+      r (consL (p,e) (consL (q,e) H)) (consL (p,e) (consL (q,e) H')) o.2
+        (subCons (p,e) (consL (q,e) H) (consL (q,e) H') (subCons (q,e) H H' s))) ;
+    cAll p e kk | r -> \ H H' o s -> (s (allF p,e) o.1,
+      \ x hx -> r x (consL (p,consL x e) H) (consL (p,consL x e) H') (o.2 x hx) (subCons (p,consL x e) H H' s)) ;
+    cEx p e w d | r -> \ H H' o s -> (s (exF p,e) o.1,
+      (o.2.1,r (consL (p,consL w e) H) (consL (p,consL w e) H') o.2.2 (subCons (p,consL w e) H H' s))) ;
+    cXr s0 k e mu d | r -> \ H H' o s -> (s (xF true s0 k,e) o.1,
+      (o.2.1,r (consL (cR k e mu) H) (consL (cR k e mu) H') o.2.2 (subCons (cR k e mu) H H' s))) ;
+    cXl s0 k e oo kk | r -> \ H H' o s -> (s (xF false s0 k,e) o.1,
+      (o.2.1,\ a ha -> r a (consL (cL k e a) H) (consL (cL k e a) H') (o.2.2 a ha) (subCons (cL k e a) H H' s))) } ;
+
+  ----------------------------------------------------------------------
+  -- rebuilding a rule whose principal closure is in the context
+  mkAnd (p q : BI.Form) (e0 : LT.LL A) (G : Seq) (m : Mem (andF p q,e0) G)
+    (x0 : Res (consL (p,e0) G)) (x1 : Res (consL (q,e0) G)) : Res G = (cAnd p q e0 x0.1 x1.1,(m,(x0.2,x1.2))) ;
+  mkOr (p q : BI.Form) (e0 : LT.LL A) (G : Seq) (m : Mem (orF p q,e0) G)
+    (x : Res (consL (p,e0) (consL (q,e0) G))) : Res G = (cOr p q e0 x.1,(m,x.2)) ;
+  -- (the premise at a non-number label is irrelevant: a dummy axiom)
+  numD (y : Lb) : (bv : W.Bool) -> Id W.Bool (I.isNum A y) bv -> (Id W.Bool (I.isNum A y) true -> C0) -> C0 = split {
+    false -> \ e f -> cAx true zero nilL ;
+    true -> \ e f -> f e } ;
+  numO (p : BI.Form) (e0 : LT.LL A) (G : Seq) (y : Lb) (x : (y : Lb) -> Id W.Bool (I.isNum A y) true -> Res (consL (p,consL y e0) G)) :
+      (bv : W.Bool) (e : Id W.Bool (I.isNum A y) bv) -> Id W.Bool bv true ->
+      Ok (numD y bv e (\ hy -> (x y hy).1)) (consL (p,consL y e0) G) = split {
+    false -> \ e h -> W.absurdB (Ok (cAx true zero nilL) (consL (p,consL y e0) G)) h ;
+    true -> \ e h -> (x y e).2 } ;
+  mkAllD (p : BI.Form) (e0 : LT.LL A) (G : Seq) (y : Lb) (x : (y : Lb) -> Id W.Bool (I.isNum A y) true -> Res (consL (p,consL y e0) G)) : C0 =
+    numD y (I.isNum A y) (refl (I.isNum A y)) (\ hy -> (x y hy).1) ;
+  mkAllO (p : BI.Form) (e0 : LT.LL A) (G : Seq) (y : Lb) (x : (y : Lb) -> Id W.Bool (I.isNum A y) true -> Res (consL (p,consL y e0) G))
+    (hy : Id W.Bool (I.isNum A y) true) : Ok (mkAllD p e0 G y x) (consL (p,consL y e0) G) =
+    numO p e0 G y x (I.isNum A y) (refl (I.isNum A y)) hy ;
+  mkAll (p : BI.Form) (e0 : LT.LL A) (G : Seq) (m : Mem (allF p,e0) G)
+    (x : (y : Lb) -> Id W.Bool (I.isNum A y) true -> Res (consL (p,consL y e0) G)) : Res G =
+    (cAll p e0 (\ y -> mkAllD p e0 G y x),(m,\ y hy -> mkAllO p e0 G y x hy)) ;
+  mkEx (p : BI.Form) (e0 : LT.LL A) (w : Lb) (G : Seq) (m : Mem (exF p,e0) G) (hw : Id W.Bool (I.isNum A w) true)
+    (x : Res (consL (p,consL w e0) G)) : Res G = (cEx p e0 w x.1,(m,(hw,x.2))) ;
+  mkXr (s k : W.N) (e0 : LT.LL A) (mu : A.car) (G : Seq) (m : Mem (xF true s k,e0) G)
+    (hm : Id W.Bool (I.allowR A mu (I.nthL A s e0).2) true) (x : Res (consL (cR k e0 mu) G)) : Res G =
+    (cXr s k e0 mu x.1,(m,(hm,x.2))) ;
+  -- (xl): premises off the bound are irrelevant
+  belD (o : W.Or W.Unit A.car) (y : Lb) : (bv : W.Bool) -> Id W.Bool (I.below A (I.bound A top o) y) bv ->
+      (Id W.Bool (I.below A (I.bound A top o) y) true -> C0) -> C0 = split {
+    false -> \ e f -> cAx true zero nilL ;
+    true -> \ e f -> f e } ;
+  belO (o : W.Or W.Unit A.car) (y : Lb) (H : Seq) (x : Id W.Bool (I.below A (I.bound A top o) y) true -> Res H) :
+      (bv : W.Bool) (e : Id W.Bool (I.below A (I.bound A top o) y) bv) -> Id W.Bool bv true ->
+      Ok (belD o y bv e (\ hy -> (x hy).1)) H = split {
+    false -> \ e h -> W.absurdB (Ok (cAx true zero nilL) H) h ;
+    true -> \ e h -> (x e).2 } ;
+  mkXl (s k : W.N) (e0 : LT.LL A) (o : W.Or W.Unit A.car) (G : Seq) (m : Mem (xF false s k,e0) G)
+    (hm : Id W.Bool (I.sameO A o (I.nthL A s e0).2) true)
+    (x : (a : Lb) -> Id W.Bool (I.below A (I.bound A top o) a) true -> Res (consL (cL k e0 a) G)) : Res G =
+    (cXl s k e0 o (\ a -> belD o a (I.below A (I.bound A top o) a) (refl (I.below A (I.bound A top o) a)) (\ ha -> (x a ha).1)),
+     (m,(hm,\ a ha -> belO o a (consL (cL k e0 a) G) (x a) (I.below A (I.bound A top o) a) (refl (I.below A (I.bound A top o) a)) ha))) ;
+
+  ----------------------------------------------------------------------
+  -- generic induction on one derivation of C::G, the other side being
+  -- described by Oth; handlers for the case where C is principal
+  IHG (C : Clo) (Oth : Seq -> U l) (d : C0) : U l = (G' : Seq) -> Ok d (consL C G') -> Oth G' -> Res G' ;
+  module Ind (C : Clo) (Oth : Seq -> U l)
+    (oW : (G : Seq) (c : Clo) -> Oth G -> Oth (consL c G))
+    (hAx : (b : W.Bool) (k : W.N) (e0 : LT.LL A) -> Id Clo C (atF b k,e0) -> Id W.Bool (ev A k e0) b ->
+       (G : Seq) -> Oth G -> Res G)
+    (hAnd : (p q : BI.Form) (e0 : LT.LL A) (d0 d1 : C0) -> Id Clo C (andF p q,e0) ->
+       IHG C Oth d0 -> IHG C Oth d1 -> (G : Seq) ->
+       Ok d0 (consL (p,e0) (consL C G)) -> Ok d1 (consL (q,e0) (consL C G)) -> Oth G -> Res G)
+    (hOr : (p q : BI.Form) (e0 : LT.LL A) (d : C0) -> Id Clo C (orF p q,e0) ->
+       IHG C Oth d -> (G : Seq) -> Ok d (consL (p,e0) (consL (q,e0) (consL C G))) -> Oth G -> Res G)
+    (hAll : (p : BI.Form) (e0 : LT.LL A) (kk : Lb -> C0) -> Id Clo C (allF p,e0) ->
+       ((x : Lb) -> IHG C Oth (kk x)) -> (G : Seq) ->
+       ((x : Lb) -> Id W.Bool (I.isNum A x) true -> Ok (kk x) (consL (p,consL x e0) (consL C G))) -> Oth G -> Res G)
+    (hEx : (p : BI.Form) (e0 : LT.LL A) (w : Lb) (d : C0) -> Id Clo C (exF p,e0) -> Id W.Bool (I.isNum A w) true ->
+       IHG C Oth d -> (G : Seq) -> Ok d (consL (p,consL w e0) (consL C G)) -> Oth G -> Res G)
+    (hXr : (s k : W.N) (e0 : LT.LL A) (mu : A.car) (d : C0) -> Id Clo C (xF true s k,e0) ->
+       Id W.Bool (I.allowR A mu (I.nthL A s e0).2) true ->
+       IHG C Oth d -> (G : Seq) -> Ok d (consL (cR k e0 mu) (consL C G)) -> Oth G -> Res G)
+    (hXl : (s k : W.N) (e0 : LT.LL A) (o : W.Or W.Unit A.car) (kk : Lb -> C0) -> Id Clo C (xF false s k,e0) ->
+       Id W.Bool (I.sameO A o (I.nthL A s e0).2) true ->
+       ((x : Lb) -> IHG C Oth (kk x)) -> (G : Seq) ->
+       ((a : Lb) -> Id W.Bool (I.below A (I.bound A top o) a) true -> Ok (kk a) (consL (cL k e0 a) (consL C G))) -> Oth G -> Res G) {
+    front (c : Clo) (d : C0) (G : Seq) (o : Ok d (consL c (consL C G))) : Ok d (consL C (consL c G)) =
+      wk d (consL c (consL C G)) (consL C (consL c G)) o (sw c C G) ;
+    front2 (c c' : Clo) (d : C0) (G : Seq) (o : Ok d (consL c (consL c' (consL C G)))) : Ok d (consL C (consL c (consL c' G))) =
+      wk d (consL c (consL c' (consL C G))) (consL C (consL c (consL c' G))) o (sub3 c c' C G) ;
+    L : (d : C0) (G : Seq) -> Ok d (consL C G) -> Oth G -> Res G = split {
+      cAx b k e0 -> \ G o t -> CF.or-elim (Id Clo C (atF b k,e0)) (Mem (atF b k,e0) G) (Res G)
+        (\ eq -> hAx b k e0 eq o.2 G t) (\ m -> (cAx b k e0,(m,o.2))) o.1 ;
+      cAnd p q e0 d0 d1 | r0 r1 -> \ G o t -> CF.or-elim (Id Clo C (andF p q,e0)) (Mem (andF p q,e0) G) (Res G)
+        (\ eq -> hAnd p q e0 d0 d1 eq r0 r1 G o.2.1 o.2.2 t)
+        (\ m -> mkAnd p q e0 G m
+          (r0 (consL (p,e0) G) (front (p,e0) d0 G o.2.1) (oW G (p,e0) t))
+          (r1 (consL (q,e0) G) (front (q,e0) d1 G o.2.2) (oW G (q,e0) t))) o.1 ;
+      cOr p q e0 d | r -> \ G o t -> CF.or-elim (Id Clo C (orF p q,e0)) (Mem (orF p q,e0) G) (Res G)
+        (\ eq -> hOr p q e0 d eq r G o.2 t)
+        (\ m -> mkOr p q e0 G m
+          (r (consL (p,e0) (consL (q,e0) G)) (front2 (p,e0) (q,e0) d G o.2) (oW (consL (q,e0) G) (p,e0) (oW G (q,e0) t)))) o.1 ;
+      cAll p e0 kk | r -> \ G o t -> CF.or-elim (Id Clo C (allF p,e0)) (Mem (allF p,e0) G) (Res G)
+        (\ eq -> hAll p e0 kk eq r G o.2 t)
+        (\ m -> mkAll p e0 G m
+          (\ y hy -> r y (consL (p,consL y e0) G) (front (p,consL y e0) (kk y) G (o.2 y hy)) (oW G (p,consL y e0) t))) o.1 ;
+      cEx p e0 w d | r -> \ G o t -> CF.or-elim (Id Clo C (exF p,e0)) (Mem (exF p,e0) G) (Res G)
+        (\ eq -> hEx p e0 w d eq o.2.1 r G o.2.2 t)
+        (\ m -> mkEx p e0 w G m o.2.1
+          (r (consL (p,consL w e0) G) (front (p,consL w e0) d G o.2.2) (oW G (p,consL w e0) t))) o.1 ;
+      cXr s k e0 mu d | r -> \ G o t -> CF.or-elim (Id Clo C (xF true s k,e0)) (Mem (xF true s k,e0) G) (Res G)
+        (\ eq -> hXr s k e0 mu d eq o.2.1 r G o.2.2 t)
+        (\ m -> mkXr s k e0 mu G m o.2.1
+          (r (consL (cR k e0 mu) G) (front (cR k e0 mu) d G o.2.2) (oW G (cR k e0 mu) t))) o.1 ;
+      cXl s k e0 oo kk | r -> \ G o t -> CF.or-elim (Id Clo C (xF false s k,e0)) (Mem (xF false s k,e0) G) (Res G)
+        (\ eq -> hXl s k e0 oo kk eq o.2.1 r G o.2.2 t)
+        (\ m -> mkXl s k e0 oo G m o.2.1
+          (\ a ha -> r a (consL (cL k e0 a) G) (front (cL k e0 a) (kk a) G (o.2.2 a ha)) (oW G (cL k e0 a) t))) o.1 } ;
+  } ;
+
+  -- mismatched principal closures
+  mis (t : BI.Form -> W.Bool) (C c0 : Clo) (eq : Id Clo C c0)
+    (h1 : Id W.Bool (t C.1) true) (h2 : Id W.Bool (t c0.1) false) (X : U l) : X =
+    BP.tf X (PL.trans W.Bool true (t C.1) false (PL.sym W.Bool (t C.1) true h1)
+      (PL.trans W.Bool (t C.1) (t c0.1) false (PL.ap Clo W.Bool (\ c -> t c.1) C c0 eq) h2)) ;
+  module Mis (C : Clo) (Oth : Seq -> U l) (t : BI.Form -> W.Bool) (h1 : Id W.Bool (t C.1) true) {
+    mAx (h2 : (b : W.Bool) (k : W.N) -> Id W.Bool (t (atF b k)) false) (b : W.Bool) (k : W.N) (e0 : LT.LL A)
+      (eq : Id Clo C (atF b k,e0)) (h : Id W.Bool (ev A k e0) b) (G : Seq) (o : Oth G) : Res G =
+      mis t C (atF b k,e0) eq h1 (h2 b k) (Res G) ;
+    mAnd (h2 : (p q : BI.Form) -> Id W.Bool (t (andF p q)) false) (p q : BI.Form) (e0 : LT.LL A) (d0 d1 : C0)
+      (eq : Id Clo C (andF p q,e0)) (r0 : IHG C Oth d0) (r1 : IHG C Oth d1) (G : Seq)
+      (o0 : Ok d0 (consL (p,e0) (consL C G))) (o1 : Ok d1 (consL (q,e0) (consL C G))) (o : Oth G) : Res G =
+      mis t C (andF p q,e0) eq h1 (h2 p q) (Res G) ;
+    mOr (h2 : (p q : BI.Form) -> Id W.Bool (t (orF p q)) false) (p q : BI.Form) (e0 : LT.LL A) (d : C0)
+      (eq : Id Clo C (orF p q,e0)) (r : IHG C Oth d) (G : Seq)
+      (o0 : Ok d (consL (p,e0) (consL (q,e0) (consL C G)))) (o : Oth G) : Res G =
+      mis t C (orF p q,e0) eq h1 (h2 p q) (Res G) ;
+    mAll (h2 : (p : BI.Form) -> Id W.Bool (t (allF p)) false) (p : BI.Form) (e0 : LT.LL A) (kk : Lb -> C0)
+      (eq : Id Clo C (allF p,e0)) (r : (x : Lb) -> IHG C Oth (kk x)) (G : Seq)
+      (o0 : (x : Lb) -> Id W.Bool (I.isNum A x) true -> Ok (kk x) (consL (p,consL x e0) (consL C G))) (o : Oth G) : Res G =
+      mis t C (allF p,e0) eq h1 (h2 p) (Res G) ;
+    mEx (h2 : (p : BI.Form) -> Id W.Bool (t (exF p)) false) (p : BI.Form) (e0 : LT.LL A) (w : Lb) (d : C0)
+      (eq : Id Clo C (exF p,e0)) (hw : Id W.Bool (I.isNum A w) true) (r : IHG C Oth d) (G : Seq)
+      (o0 : Ok d (consL (p,consL w e0) (consL C G))) (o : Oth G) : Res G =
+      mis t C (exF p,e0) eq h1 (h2 p) (Res G) ;
+    mXr (h2 : (s k : W.N) -> Id W.Bool (t (xF true s k)) false) (s k : W.N) (e0 : LT.LL A) (mu : A.car) (d : C0)
+      (eq : Id Clo C (xF true s k,e0)) (hm : Id W.Bool (I.allowR A mu (I.nthL A s e0).2) true) (r : IHG C Oth d) (G : Seq)
+      (o0 : Ok d (consL (cR k e0 mu) (consL C G))) (o : Oth G) : Res G =
+      mis t C (xF true s k,e0) eq h1 (h2 s k) (Res G) ;
+    mXl (h2 : (s k : W.N) -> Id W.Bool (t (xF false s k)) false) (s k : W.N) (e0 : LT.LL A) (o : W.Or W.Unit A.car) (kk : Lb -> C0)
+      (eq : Id Clo C (xF false s k,e0)) (hm : Id W.Bool (I.sameO A o (I.nthL A s e0).2) true) (r : (x : Lb) -> IHG C Oth (kk x)) (G : Seq)
+      (o0 : (a : Lb) -> Id W.Bool (I.below A (I.bound A top o) a) true -> Ok (kk a) (consL (cL k e0 a) (consL C G))) (oth : Oth G) : Res G =
+      mis t C (xF false s k,e0) eq h1 (h2 s k) (Res G) ;
+  } ;
+
+  -- the other side of a cut, and weakening of both sides
+  OthL (C' : Clo) (G : Seq) : U l = (d : C0) * Ok d (consL C' G) ;
+  oWL (C' : Clo) (G : Seq) (c : Clo) (t : OthL C' G) : OthL C' (consL c G) =
+    (t.1,wk t.1 (consL C' G) (consL C' (consL c G)) t.2 (subCons C' G (consL c G) (wk1 c G))) ;
+  oWR (C : Clo) (dl : C0) (G : Seq) (c : Clo) (t : Ok dl (consL C G)) : Ok dl (consL C (consL c G)) =
+    wk dl (consL C G) (consL C (consL c G)) t (subCons C G (consL c G) (wk1 c G)) ;
+} ;

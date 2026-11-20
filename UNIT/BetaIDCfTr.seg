@@ -1,0 +1,294 @@
+-- PLAN-ID1 S1, part C: from pre-proofs of inductive logic (BetaID) with a
+-- Brouwer bound to derivations (BetaIDCfCut.Dv), and POINTWISE ELIMINATION
+-- OF KIND II CUTS: a locally correct pre-proof at a well-founded (A, top),
+-- with a Brouwer bound, all of whose cuts are of kind II (CutOK, with a
+-- chosen stage laOf), has a cut-free derivation of its end sequent.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module BP = BetaProof[l] ;
+module BC = BetaCut[l] ;
+module KT = KBTree[l] ;
+module LW = LOWF[l] ;
+module BI = BetaID[l] ;
+module BF = BetaIDCf[l] ;
+module BK = BetaIDCfCut[l] ;
+
+atB : BI.Form -> W.Bool = split { atF b k -> b ; andF p q -> true ; orF p q -> true ; allF p -> true ; exF p -> true ; xF b s k -> true } ;
+atK : BI.Form -> W.N = split { atF b k -> k ; andF p q -> zero ; orF p q -> zero ; allF p -> zero ; exF p -> zero ; xF b s k -> zero } ;
+
+module CT (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) (top : A.car) (wA : LW.WF A)
+  (wfPhi : (t : BI.ID[ev,phi].Lb A) (mu : A.car) -> BK.CK[ev,phi,A,top].StOK mu phi (BI.ID[ev,phi].envP A t (BI.ID[ev,phi].stg A mu))) {
+  open BF.CI[ev,phi,A,top] ;
+  module K = BK.CK[ev,phi,A,top] ;
+  module KC = K.Cut[wA,wfPhi] ;
+  D0 : U l = KC.D0 ;
+  OkD (d : D0) (H : Seq) : U l = KC.OkD d H ;
+  -- cuts of kind II at the stage la
+  CutOK (la : A.car) : I.Rule A -> U l = split {
+    axR i -> W.Unit ; andR i -> W.Unit ; orR i -> W.Unit ; allR i -> W.Unit ; exR i w -> W.Unit ;
+    cutR f e -> K.StOK la f e ; xrR i mu -> W.Unit ; xlR i o -> W.Unit } ;
+
+  dflt : Clo = (atF true zero,nilL) ;
+  outR (c : Clo) : I.OC A -> Clo = split { inl u -> c ; inr c' -> c' } ;
+  cOf (i : W.N) (G : Seq) : Clo = outR dflt (I.getM A i G) ;
+  ruleD (G : Seq) (la : A.car) : I.Rule A -> (Lb -> D0) -> D0 = split {
+    axR i -> \ ch -> dAx (atB (cOf i G).1) (atK (cOf i G).1) (cOf i G).2 ;
+    andR i -> \ ch -> dAnd (BK.leftF (cOf i G).1) (BK.rightF (cOf i G).1) (cOf i G).2 (ch (I.lab0 A)) (ch (I.lab1 A)) ;
+    orR i -> \ ch -> dOr (BK.leftF (cOf i G).1) (BK.rightF (cOf i G).1) (cOf i G).2 (ch (I.lab0 A)) ;
+    allR i -> \ ch -> dAll (BK.leftF (cOf i G).1) (cOf i G).2 ch ;
+    exR i w -> \ ch -> dEx (BK.leftF (cOf i G).1) (cOf i G).2 w (ch (I.lab0 A)) ;
+    cutR f e -> \ ch -> dCut f e la (ch (I.lab0 A)) (ch (I.lab1 A)) ;
+    xrR i mu -> \ ch -> dXr (BK.sOf (cOf i G).1) (BK.kOf (cOf i G).1) (cOf i G).2 mu (ch (I.lab0 A)) ;
+    xlR i o -> \ ch -> dXl (BK.sOf (cOf i G).1) (BK.kOf (cOf i G).1) (cOf i G).2 o ch } ;
+
+  ----------------------------------------------------------------------
+  -- membership in appended sequents
+  app (G S : Seq) : Seq = I.app A G S ;
+  memApp (S : Seq) (x : Clo) : (G : Seq) -> Mem x (app G S) -> W.Or (Mem x G) (Mem x S) = split {
+    nilL -> \ m -> inr m ;
+    consL c cs | r -> \ m -> CF.or-elim (Id Clo c x) (Mem x (app cs S)) (W.Or (Mem x (consL c cs)) (Mem x S))
+      (\ e -> inl (inl e)) (\ m' -> CF.or-elim (Mem x cs) (Mem x S) (W.Or (Mem x (consL c cs)) (Mem x S))
+        (\ m1 -> inl (inr m1)) (\ m2 -> inr m2) (r m')) m } ;
+  memAppL (H : Seq) (x : Clo) : (S : Seq) -> Mem x S -> Mem x (app S H) = split {
+    nilL -> \ m -> CF.efq (Mem x H) m ;
+    consL c cs | r -> \ m -> CF.or-elim (Id Clo c x) (Mem x cs) (Mem x (app (consL c cs) H)) (\ e -> inl e) (\ m' -> inr (r m')) m } ;
+  memAppR (H : Seq) (x : Clo) : (S : Seq) -> Mem x H -> Mem x (app S H) = split {
+    nilL -> \ m -> m ;
+    consL c cs | r -> \ m -> inr (r m) } ;
+  subStep (G H S S' : Seq) (s : Sub G H) (t : Sub S S') : Sub (app G S) (app S' H) =
+    \ x m -> CF.or-elim (Mem x G) (Mem x S) (Mem x (app S' H))
+      (\ m1 -> memAppR H x S' (s x m1)) (\ m2 -> memAppL H x S' (t x m2)) (memApp S x G m) ;
+  subEq (S S' : Seq) (e : Id Seq S S') : Sub S S' = \ x m -> PL.subst Seq (\ z -> Mem x z) S S' e m ;
+  hSub (G H : Seq) (s : Sub G H) (o : I.OC A) (c : Clo) (eo : Id (I.OC A) o (inr c))
+    (F : I.OC A -> Seq) (S' : Seq) (ef : Id Seq (F (inr c)) S') : Sub (app G (F o)) (app S' H) =
+    subStep G H (F o) S' s (subEq (F o) S' (PL.trans Seq (F o) (F (inr c)) S' (PL.ap (I.OC A) Seq F o (inr c) eo) ef)) ;
+  getMem : (i : W.N) (G : Seq) (c : Clo) -> Id (I.OC A) (I.getM A i G) (inr c) -> Mem c G = split {
+    zero -> split {
+      nilL -> \ c e -> W.absurdB (Mem c nilL) (PL.ap (I.OC A) W.Bool (BP.isInr W.Unit Clo) (inl tt) (inr c) e) ;
+      consL c' cs -> \ c e -> inl (PL.ap (I.OC A) Clo (outR c') (inr c') (inr c) e) } ;
+    suc i | r -> split {
+      nilL -> \ c e -> W.absurdB (Mem c nilL) (PL.ap (I.OC A) W.Bool (BP.isInr W.Unit Clo) (inl tt) (inr c) e) ;
+      consL c' cs -> \ c e -> inr (r cs c e) } } ;
+  memP (G H : Seq) (s : Sub G H) (c : Clo) (f' : BI.Form) (eta : Id BI.Form f' c.1) (m : Mem c G) : Mem (f',c.2) H =
+    s (f',c.2) (PL.subst Clo (\ z -> Mem z G) c (f',c.2) (PL.ap BI.Form Clo (\ g -> (g,c.2)) c.1 f' (PL.sym BI.Form f' c.1 eta)) m) ;
+  -- applicable rules have their principal closure
+  inrOf (t : BI.Form -> W.Bool) : (o : I.OC A) -> Id W.Bool (I.isO A t o) true ->
+      Id (I.OC A) o (inr (outR dflt o)) * Id W.Bool (t (outR dflt o).1) true = split {
+    inl u -> \ h -> W.absurdB (Id (I.OC A) (inl u) (inr dflt) * Id W.Bool (t dflt.1) true) h ;
+    inr c -> \ h -> (refl (inr c),h) } ;
+  inrAx : (o : I.OC A) -> Id W.Bool (I.isAx A o) true ->
+      Id (I.OC A) o (inr (outR dflt o)) * Id W.Bool (I.isAxF A (outR dflt o).1 (outR dflt o).2) true = split {
+    inl u -> \ h -> W.absurdB (Id (I.OC A) (inl u) (inr dflt) * Id W.Bool (I.isAxF A dflt.1 dflt.2) true) h ;
+    inr c -> \ h -> (refl (inr c),h) } ;
+  inrXr (mu : A.car) : (o : I.OC A) -> Id W.Bool (I.okXr A mu o) true ->
+      Id (I.OC A) o (inr (outR dflt o)) * Id W.Bool (I.okXrF A mu (outR dflt o).1 (outR dflt o).2) true = split {
+    inl u -> \ h -> W.absurdB (Id (I.OC A) (inl u) (inr dflt) * Id W.Bool (I.okXrF A mu dflt.1 dflt.2) true) h ;
+    inr c -> \ h -> (refl (inr c),h) } ;
+  inrXl (oo : W.Or W.Unit A.car) : (o : I.OC A) -> Id W.Bool (I.okXl A oo o) true ->
+      Id (I.OC A) o (inr (outR dflt o)) * Id W.Bool (I.okXlF A oo (outR dflt o).1 (outR dflt o).2) true = split {
+    inl u -> \ h -> W.absurdB (Id (I.OC A) (inl u) (inr dflt) * Id W.Bool (I.okXlF A oo dflt.1 dflt.2) true) h ;
+    inr c -> \ h -> (refl (inr c),h) } ;
+  -- shapes
+  axShape : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (I.isAxF A f e) true ->
+      Id BI.Form (atF (atB f) (atK f)) f * Id W.Bool (ev A (atK f) e) (atB f) = split {
+    atF b k -> \ e h -> (refl (atF b k),BC.eqBoS (ev A k e) b h) ;
+    andF p q -> \ e h -> W.absurdB (Id BI.Form (atF true zero) (andF p q) * Id W.Bool (ev A zero e) true) h ;
+    orF p q -> \ e h -> W.absurdB (Id BI.Form (atF true zero) (orF p q) * Id W.Bool (ev A zero e) true) h ;
+    allF p -> \ e h -> W.absurdB (Id BI.Form (atF true zero) (allF p) * Id W.Bool (ev A zero e) true) h ;
+    exF p -> \ e h -> W.absurdB (Id BI.Form (atF true zero) (exF p) * Id W.Bool (ev A zero e) true) h ;
+    xF b s k -> \ e h -> W.absurdB (Id BI.Form (atF true zero) (xF b s k) * Id W.Bool (ev A zero e) true) h } ;
+  etaAnd : (f : BI.Form) -> Id W.Bool (BI.isAndF f) true -> Id BI.Form (andF (BK.leftF f) (BK.rightF f)) f = split {
+    atF b k -> \ h -> W.absurdB (Id BI.Form (andF (atF b k) (atF b k)) (atF b k)) h ; andF p q -> \ h -> refl (andF p q) ;
+    orF p q -> \ h -> W.absurdB (Id BI.Form (andF p q) (orF p q)) h ; allF p -> \ h -> W.absurdB (Id BI.Form (andF p p) (allF p)) h ;
+    exF p -> \ h -> W.absurdB (Id BI.Form (andF p p) (exF p)) h ;
+    xF b s k -> \ h -> W.absurdB (Id BI.Form (andF (xF b s k) (xF b s k)) (xF b s k)) h } ;
+  etaOr : (f : BI.Form) -> Id W.Bool (BI.isOrF f) true -> Id BI.Form (orF (BK.leftF f) (BK.rightF f)) f = split {
+    atF b k -> \ h -> W.absurdB (Id BI.Form (orF (atF b k) (atF b k)) (atF b k)) h ; andF p q -> \ h -> W.absurdB (Id BI.Form (orF p q) (andF p q)) h ;
+    orF p q -> \ h -> refl (orF p q) ; allF p -> \ h -> W.absurdB (Id BI.Form (orF p p) (allF p)) h ;
+    exF p -> \ h -> W.absurdB (Id BI.Form (orF p p) (exF p)) h ;
+    xF b s k -> \ h -> W.absurdB (Id BI.Form (orF (xF b s k) (xF b s k)) (xF b s k)) h } ;
+  etaAll : (f : BI.Form) -> Id W.Bool (BI.isAllF f) true -> Id BI.Form (allF (BK.leftF f)) f = split {
+    atF b k -> \ h -> W.absurdB (Id BI.Form (allF (atF b k)) (atF b k)) h ; andF p q -> \ h -> W.absurdB (Id BI.Form (allF p) (andF p q)) h ;
+    orF p q -> \ h -> W.absurdB (Id BI.Form (allF p) (orF p q)) h ; allF p -> \ h -> refl (allF p) ;
+    exF p -> \ h -> W.absurdB (Id BI.Form (allF p) (exF p)) h ;
+    xF b s k -> \ h -> W.absurdB (Id BI.Form (allF (xF b s k)) (xF b s k)) h } ;
+  etaEx : (f : BI.Form) -> Id W.Bool (BI.isExF f) true -> Id BI.Form (exF (BK.leftF f)) f = split {
+    atF b k -> \ h -> W.absurdB (Id BI.Form (exF (atF b k)) (atF b k)) h ; andF p q -> \ h -> W.absurdB (Id BI.Form (exF p) (andF p q)) h ;
+    orF p q -> \ h -> W.absurdB (Id BI.Form (exF p) (orF p q)) h ; allF p -> \ h -> W.absurdB (Id BI.Form (exF p) (allF p)) h ;
+    exF p -> \ h -> refl (exF p) ;
+    xF b s k -> \ h -> W.absurdB (Id BI.Form (exF (xF b s k)) (xF b s k)) h } ;
+  -- x-rules: shapes and conditions
+  xrB (mu : A.car) (s k : W.N) (e : LT.LL A) : (b : W.Bool) -> Id W.Bool (W.andB (BP.eqBo b true) (I.allowR A mu (I.nthL A s e).2)) true ->
+      Id BI.Form (xF true s k) (xF b s k) * Id W.Bool (I.allowR A mu (I.nthL A s e).2) true = split {
+    false -> \ h -> W.absurdB (Id BI.Form (xF true s k) (xF false s k) * Id W.Bool (I.allowR A mu (I.nthL A s e).2) true) h ;
+    true -> \ h -> (refl (xF true s k),h) } ;
+  xrShape (mu : A.car) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (I.okXrF A mu f e) true ->
+      Id BI.Form (xF true (BK.sOf f) (BK.kOf f)) f * Id W.Bool (I.allowR A mu (I.nthL A (BK.sOf f) e).2) true = split {
+    atF b k -> \ e h -> W.absurdB (Id BI.Form (xF true zero zero) (atF b k) * Id W.Bool (I.allowR A mu (I.nthL A zero e).2) true) h ;
+    andF p q -> \ e h -> W.absurdB (Id BI.Form (xF true zero zero) (andF p q) * Id W.Bool (I.allowR A mu (I.nthL A zero e).2) true) h ;
+    orF p q -> \ e h -> W.absurdB (Id BI.Form (xF true zero zero) (orF p q) * Id W.Bool (I.allowR A mu (I.nthL A zero e).2) true) h ;
+    allF p -> \ e h -> W.absurdB (Id BI.Form (xF true zero zero) (allF p) * Id W.Bool (I.allowR A mu (I.nthL A zero e).2) true) h ;
+    exF p -> \ e h -> W.absurdB (Id BI.Form (xF true zero zero) (exF p) * Id W.Bool (I.allowR A mu (I.nthL A zero e).2) true) h ;
+    xF b s k -> \ e h -> xrB mu s k e b h } ;
+  xlB (oo : W.Or W.Unit A.car) (s k : W.N) (e : LT.LL A) : (b : W.Bool) -> Id W.Bool (W.andB (BP.eqBo b false) (I.sameO A oo (I.nthL A s e).2)) true ->
+      Id BI.Form (xF false s k) (xF b s k) * Id W.Bool (I.sameO A oo (I.nthL A s e).2) true = split {
+    false -> \ h -> (refl (xF false s k),h) ;
+    true -> \ h -> W.absurdB (Id BI.Form (xF false s k) (xF true s k) * Id W.Bool (I.sameO A oo (I.nthL A s e).2) true) h } ;
+  xlShape (oo : W.Or W.Unit A.car) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (I.okXlF A oo f e) true ->
+      Id BI.Form (xF false (BK.sOf f) (BK.kOf f)) f * Id W.Bool (I.sameO A oo (I.nthL A (BK.sOf f) e).2) true = split {
+    atF b k -> \ e h -> W.absurdB (Id BI.Form (xF false zero zero) (atF b k) * Id W.Bool (I.sameO A oo (I.nthL A zero e).2) true) h ;
+    andF p q -> \ e h -> W.absurdB (Id BI.Form (xF false zero zero) (andF p q) * Id W.Bool (I.sameO A oo (I.nthL A zero e).2) true) h ;
+    orF p q -> \ e h -> W.absurdB (Id BI.Form (xF false zero zero) (orF p q) * Id W.Bool (I.sameO A oo (I.nthL A zero e).2) true) h ;
+    allF p -> \ e h -> W.absurdB (Id BI.Form (xF false zero zero) (allF p) * Id W.Bool (I.sameO A oo (I.nthL A zero e).2) true) h ;
+    exF p -> \ e h -> W.absurdB (Id BI.Form (xF false zero zero) (exF p) * Id W.Bool (I.sameO A oo (I.nthL A zero e).2) true) h ;
+    xF b s k -> \ e h -> xlB oo s k e b h } ;
+  -- added closures
+  addAndE (a : Lb) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (BI.isAndF f) true ->
+      Id Seq (I.addAndF A f e a) (consL (BI.pickF a.1 (BK.leftF f) (BK.rightF f),e) nilL) = split {
+    atF b k -> \ e h -> W.absurdB (Id Seq nilL (consL (BI.pickF a.1 (atF b k) (atF b k),e) nilL)) h ;
+    andF p q -> \ e h -> refl (consL (BI.pickF a.1 p q,e) nilL) ;
+    orF p q -> \ e h -> W.absurdB (Id Seq nilL (consL (BI.pickF a.1 p q,e) nilL)) h ;
+    allF p -> \ e h -> W.absurdB (Id Seq nilL (consL (BI.pickF a.1 p p,e) nilL)) h ;
+    exF p -> \ e h -> W.absurdB (Id Seq nilL (consL (BI.pickF a.1 p p,e) nilL)) h ;
+    xF b s k -> \ e h -> W.absurdB (Id Seq nilL (consL (BI.pickF a.1 (xF b s k) (xF b s k),e) nilL)) h } ;
+  addOrE : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (BI.isOrF f) true ->
+      Id Seq (I.addOrF A f e) (consL (BK.leftF f,e) (consL (BK.rightF f,e) nilL)) = split {
+    atF b k -> \ e h -> W.absurdB (Id Seq nilL (consL (atF b k,e) (consL (atF b k,e) nilL))) h ;
+    andF p q -> \ e h -> W.absurdB (Id Seq nilL (consL (p,e) (consL (q,e) nilL))) h ;
+    orF p q -> \ e h -> refl (consL (p,e) (consL (q,e) nilL)) ;
+    allF p -> \ e h -> W.absurdB (Id Seq nilL (consL (p,e) (consL (p,e) nilL))) h ;
+    exF p -> \ e h -> W.absurdB (Id Seq nilL (consL (p,e) (consL (p,e) nilL))) h ;
+    xF b s k -> \ e h -> W.absurdB (Id Seq nilL (consL (xF b s k,e) (consL (xF b s k,e) nilL))) h } ;
+  addAllE (a : Lb) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (BI.isAllF f) true ->
+      Id Seq (I.addAllF A f e a) (consL (BK.leftF f,consL a e) nilL) = split {
+    atF b k -> \ e h -> W.absurdB (Id Seq nilL (consL (atF b k,consL a e) nilL)) h ;
+    andF p q -> \ e h -> W.absurdB (Id Seq nilL (consL (p,consL a e) nilL)) h ;
+    orF p q -> \ e h -> W.absurdB (Id Seq nilL (consL (p,consL a e) nilL)) h ;
+    allF p -> \ e h -> refl (consL (p,consL a e) nilL) ;
+    exF p -> \ e h -> W.absurdB (Id Seq nilL (consL (p,consL a e) nilL)) h ;
+    xF b s k -> \ e h -> W.absurdB (Id Seq nilL (consL (xF b s k,consL a e) nilL)) h } ;
+  addExE (a : Lb) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (BI.isExF f) true ->
+      Id Seq (I.addExF A f e a) (consL (BK.leftF f,consL a e) nilL) = split {
+    atF b k -> \ e h -> W.absurdB (Id Seq nilL (consL (atF b k,consL a e) nilL)) h ;
+    andF p q -> \ e h -> W.absurdB (Id Seq nilL (consL (p,consL a e) nilL)) h ;
+    orF p q -> \ e h -> W.absurdB (Id Seq nilL (consL (p,consL a e) nilL)) h ;
+    allF p -> \ e h -> W.absurdB (Id Seq nilL (consL (p,consL a e) nilL)) h ;
+    exF p -> \ e h -> refl (consL (p,consL a e) nilL) ;
+    xF b s k -> \ e h -> W.absurdB (Id Seq nilL (consL (xF b s k,consL a e) nilL)) h } ;
+  addXrE (mu : A.car) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (I.okXrF A mu f e) true ->
+      Id Seq (I.addXrF A mu f e) (consL (cR (BK.kOf f) e mu) nilL) = split {
+    atF b k -> \ e h -> W.absurdB (Id Seq nilL (consL (cR zero e mu) nilL)) h ;
+    andF p q -> \ e h -> W.absurdB (Id Seq nilL (consL (cR zero e mu) nilL)) h ;
+    orF p q -> \ e h -> W.absurdB (Id Seq nilL (consL (cR zero e mu) nilL)) h ;
+    allF p -> \ e h -> W.absurdB (Id Seq nilL (consL (cR zero e mu) nilL)) h ;
+    exF p -> \ e h -> W.absurdB (Id Seq nilL (consL (cR zero e mu) nilL)) h ;
+    xF b s k -> \ e h -> refl (consL (cR k e mu) nilL) } ;
+  addXlE (a : Lb) (oo : W.Or W.Unit A.car) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (I.okXlF A oo f e) true ->
+      Id Seq (I.addXlF A f e a) (consL (cL (BK.kOf f) e a) nilL) = split {
+    atF b k -> \ e h -> W.absurdB (Id Seq nilL (consL (cL zero e a) nilL)) h ;
+    andF p q -> \ e h -> W.absurdB (Id Seq nilL (consL (cL zero e a) nilL)) h ;
+    orF p q -> \ e h -> W.absurdB (Id Seq nilL (consL (cL zero e a) nilL)) h ;
+    allF p -> \ e h -> W.absurdB (Id Seq nilL (consL (cL zero e a) nilL)) h ;
+    exF p -> \ e h -> W.absurdB (Id Seq nilL (consL (cL zero e a) nilL)) h ;
+    xF b s k -> \ e h -> refl (consL (cL k e a) nilL) } ;
+
+  ----------------------------------------------------------------------
+  -- every rule translates correctly, given correct premises
+  CH (G : Seq) (r : I.Rule A) (ch : Lb -> D0) : U l =
+    (a : Lb) -> Id W.Bool (I.br A top r a) true -> (H' : Seq) -> Sub (I.step A G r a) H' -> OkD (ch a) H' ;
+  module RuleOk (G H : Seq) (s : Sub G H) (i : W.N) {
+    c : Clo = cOf i G ;
+    okAx (h : Id W.Bool (I.isAx A (I.getM A i G)) true) : OkD (dAx (atB c.1) (atK c.1) c.2) H =
+      (memP G H s c (atF (atB c.1) (atK c.1)) (axShape c.1 c.2 (inrAx (I.getM A i G) h).2).1 (getMem i G c (inrAx (I.getM A i G) h).1),
+       (axShape c.1 c.2 (inrAx (I.getM A i G) h).2).2) ;
+    okAnd (h : Id W.Bool (I.isO A BI.isAndF (I.getM A i G)) true) (ch : Lb -> D0) (ih : CH G (andR i) ch) :
+        OkD (dAnd (BK.leftF c.1) (BK.rightF c.1) c.2 (ch (I.lab0 A)) (ch (I.lab1 A))) H =
+      (memP G H s c (andF (BK.leftF c.1) (BK.rightF c.1)) (etaAnd c.1 (inrOf BI.isAndF (I.getM A i G) h).2) (getMem i G c (inrOf BI.isAndF (I.getM A i G) h).1),
+       (ih (I.lab0 A) (refl true) (consL (BK.leftF c.1,c.2) H)
+          (hSub G H s (I.getM A i G) c (inrOf BI.isAndF (I.getM A i G) h).1 (\ o -> I.addAnd A o (I.lab0 A))
+            (consL (BK.leftF c.1,c.2) nilL) (addAndE (I.lab0 A) c.1 c.2 (inrOf BI.isAndF (I.getM A i G) h).2)),
+        ih (I.lab1 A) (refl true) (consL (BK.rightF c.1,c.2) H)
+          (hSub G H s (I.getM A i G) c (inrOf BI.isAndF (I.getM A i G) h).1 (\ o -> I.addAnd A o (I.lab1 A))
+            (consL (BK.rightF c.1,c.2) nilL) (addAndE (I.lab1 A) c.1 c.2 (inrOf BI.isAndF (I.getM A i G) h).2)))) ;
+    okOr (h : Id W.Bool (I.isO A BI.isOrF (I.getM A i G)) true) (ch : Lb -> D0) (ih : CH G (orR i) ch) :
+        OkD (dOr (BK.leftF c.1) (BK.rightF c.1) c.2 (ch (I.lab0 A))) H =
+      (memP G H s c (orF (BK.leftF c.1) (BK.rightF c.1)) (etaOr c.1 (inrOf BI.isOrF (I.getM A i G) h).2) (getMem i G c (inrOf BI.isOrF (I.getM A i G) h).1),
+       ih (I.lab0 A) (refl true) (consL (BK.leftF c.1,c.2) (consL (BK.rightF c.1,c.2) H))
+         (hSub G H s (I.getM A i G) c (inrOf BI.isOrF (I.getM A i G) h).1 (I.addOr A)
+           (consL (BK.leftF c.1,c.2) (consL (BK.rightF c.1,c.2) nilL)) (addOrE c.1 c.2 (inrOf BI.isOrF (I.getM A i G) h).2))) ;
+    okAll (h : Id W.Bool (I.isO A BI.isAllF (I.getM A i G)) true) (ch : Lb -> D0) (ih : CH G (allR i) ch) :
+        OkD (dAll (BK.leftF c.1) c.2 ch) H =
+      (memP G H s c (allF (BK.leftF c.1)) (etaAll c.1 (inrOf BI.isAllF (I.getM A i G) h).2) (getMem i G c (inrOf BI.isAllF (I.getM A i G) h).1),
+       \ x hx -> ih x hx (consL (BK.leftF c.1,consL x c.2) H)
+         (hSub G H s (I.getM A i G) c (inrOf BI.isAllF (I.getM A i G) h).1 (\ o -> I.addAll A o x)
+           (consL (BK.leftF c.1,consL x c.2) nilL) (addAllE x c.1 c.2 (inrOf BI.isAllF (I.getM A i G) h).2))) ;
+    okEx (w : Lb) (h : Id W.Bool (W.andB (I.isO A BI.isExF (I.getM A i G)) (I.isNum A w)) true) (ch : Lb -> D0) (ih : CH G (exR i w) ch) :
+        OkD (dEx (BK.leftF c.1) c.2 w (ch (I.lab0 A))) H =
+      (memP G H s c (exF (BK.leftF c.1))
+         (etaEx c.1 (inrOf BI.isExF (I.getM A i G) (W.andB-l (I.isO A BI.isExF (I.getM A i G)) (I.isNum A w) h)).2)
+         (getMem i G c (inrOf BI.isExF (I.getM A i G) (W.andB-l (I.isO A BI.isExF (I.getM A i G)) (I.isNum A w) h)).1),
+       (W.andB-r (I.isO A BI.isExF (I.getM A i G)) (I.isNum A w) h,
+        ih (I.lab0 A) (refl true) (consL (BK.leftF c.1,consL w c.2) H)
+          (hSub G H s (I.getM A i G) c (inrOf BI.isExF (I.getM A i G) (W.andB-l (I.isO A BI.isExF (I.getM A i G)) (I.isNum A w) h)).1 (\ o -> I.addEx A o w)
+            (consL (BK.leftF c.1,consL w c.2) nilL)
+            (addExE w c.1 c.2 (inrOf BI.isExF (I.getM A i G) (W.andB-l (I.isO A BI.isExF (I.getM A i G)) (I.isNum A w) h)).2)))) ;
+    okXr (mu : A.car) (h : Id W.Bool (I.okXr A mu (I.getM A i G)) true) (ch : Lb -> D0) (ih : CH G (xrR i mu) ch) :
+        OkD (dXr (BK.sOf c.1) (BK.kOf c.1) c.2 mu (ch (I.lab0 A))) H =
+      (memP G H s c (xF true (BK.sOf c.1) (BK.kOf c.1)) (xrShape mu c.1 c.2 (inrXr mu (I.getM A i G) h).2).1 (getMem i G c (inrXr mu (I.getM A i G) h).1),
+       ((xrShape mu c.1 c.2 (inrXr mu (I.getM A i G) h).2).2,
+        ih (I.lab0 A) (refl true) (consL (cR (BK.kOf c.1) c.2 mu) H)
+          (hSub G H s (I.getM A i G) c (inrXr mu (I.getM A i G) h).1 (I.addXr A mu)
+            (consL (cR (BK.kOf c.1) c.2 mu) nilL) (addXrE mu c.1 c.2 (inrXr mu (I.getM A i G) h).2)))) ;
+    okXl (oo : W.Or W.Unit A.car) (h : Id W.Bool (I.okXl A oo (I.getM A i G)) true) (ch : Lb -> D0) (ih : CH G (xlR i oo) ch) :
+        OkD (dXl (BK.sOf c.1) (BK.kOf c.1) c.2 oo ch) H =
+      (memP G H s c (xF false (BK.sOf c.1) (BK.kOf c.1)) (xlShape oo c.1 c.2 (inrXl oo (I.getM A i G) h).2).1 (getMem i G c (inrXl oo (I.getM A i G) h).1),
+       ((xlShape oo c.1 c.2 (inrXl oo (I.getM A i G) h).2).2,
+        \ a ha -> ih a ha (consL (cL (BK.kOf c.1) c.2 a) H)
+          (hSub G H s (I.getM A i G) c (inrXl oo (I.getM A i G) h).1 (\ o -> I.addXl A o a)
+            (consL (cL (BK.kOf c.1) c.2 a) nilL) (addXlE a oo c.1 c.2 (inrXl oo (I.getM A i G) h).2)))) ;
+  } ;
+  okRule (G H : Seq) (s : Sub G H) (la : A.car) : (r : I.Rule A) -> Id W.Bool (I.appl A G r) true -> CutOK la r ->
+      (ch : Lb -> D0) -> CH G r ch -> OkD (ruleD G la r ch) H = split {
+    axR i -> \ h kw ch ih -> RuleOk[G,H,s,i].okAx h ;
+    andR i -> \ h kw ch ih -> RuleOk[G,H,s,i].okAnd h ch ih ;
+    orR i -> \ h kw ch ih -> RuleOk[G,H,s,i].okOr h ch ih ;
+    allR i -> \ h kw ch ih -> RuleOk[G,H,s,i].okAll h ch ih ;
+    exR i w -> \ h kw ch ih -> RuleOk[G,H,s,i].okEx w h ch ih ;
+    cutR f e -> \ h kw ch ih ->
+      (kw,(ih (I.lab0 A) (refl true) (consL (f,e) H) (subStep G H (consL (f,e) nilL) (consL (f,e) nilL) s (\ x m -> m)),
+       ih (I.lab1 A) (refl true) (consL (BI.neg f,e) H) (subStep G H (consL (BI.neg f,e) nilL) (consL (BI.neg f,e) nilL) s (\ x m -> m)))) ;
+    xrR i mu -> \ h kw ch ih -> RuleOk[G,H,s,i].okXr mu h ch ih ;
+    xlR i o -> \ h kw ch ih -> RuleOk[G,H,s,i].okXl o h ch ih } ;
+
+  ----------------------------------------------------------------------
+  -- translation of a bounded pre-proof, and pointwise cut elimination
+  module KA = KT.KB[LT.Lab A] ;
+  shiftL (laF : LT.LL A -> A.car) (a : Lb) : LT.LL A -> A.car = \ zs -> laF (consL a zs) ;
+  toDv : (b : KA.BT) (R : I.Rl A) (G : Seq) (laF : LT.LL A -> A.car) -> D0 = split {
+    leaf -> \ R G laF -> dAx true zero nilL ;
+    node f | r -> \ R G laF -> ruleD G (laF nilL) (R nilL) (\ a -> r a (I.shift A R a) (I.step A G (R nilL) a) (shiftL laF a)) } ;
+  KW (R : I.Rl A) (G : Seq) (laF : LT.LL A -> A.car) : U l =
+    (ys : LT.LL A) -> Id W.Bool (I.inTree A top ys R G) true -> CutOK (laF ys) (R ys) ;
+  toOk : (b : KA.BT) (R : I.Rl A) (G : Seq) (laF : LT.LL A -> A.car) -> KA.Bnd b (I.tree A top R G) -> I.LocOK A top R G ->
+      KW R G laF -> (H : Seq) -> Sub G H -> OkD (toDv b R G laF) H = split {
+    leaf -> \ R G laF hb lo kw H s -> BP.tf (OkD (toDv leaf R G laF) H) (hb nilL) ;
+    node f | r -> \ R G laF hb lo kw H s -> okRule G H s (laF nilL) (R nilL) (lo nilL (refl true)) (kw nilL (refl true))
+      (\ a -> toDv (f a) (I.shift A R a) (I.step A G (R nilL) a) (shiftL laF a))
+      (\ a ha -> r a (I.shift A R a) (I.step A G (R nilL) a) (shiftL laF a)
+        (KA.bnd-ext (f a) (KA.sub (I.tree A top R G) a) (I.tree A top (I.shift A R a) (I.step A G (R nilL) a))
+          (\ xs -> BP.andTrue (I.br A top (R nilL) a) (I.inTree A top xs (I.shift A R a) (I.step A G (R nilL) a)) ha) (hb a))
+        (\ ys hv -> lo (consL a ys)
+          (PL.trans W.Bool (I.inTree A top (consL a ys) R G) (I.inTree A top ys (I.shift A R a) (I.step A G (R nilL) a)) true
+            (BP.andTrue (I.br A top (R nilL) a) (I.inTree A top ys (I.shift A R a) (I.step A G (R nilL) a)) ha) hv))
+        (\ ys hv -> kw (consL a ys)
+          (PL.trans W.Bool (I.inTree A top (consL a ys) R G) (I.inTree A top ys (I.shift A R a) (I.step A G (R nilL) a)) true
+            (BP.andTrue (I.br A top (R nilL) a) (I.inTree A top ys (I.shift A R a) (I.step A G (R nilL) a)) ha) hv))) } ;
+  -- POINTWISE ELIMINATION OF KIND II CUTS
+  cutFree (R : I.Rl A) (G : Seq) (laF : LT.LL A -> A.car) (w : I.WFP A top R G) (lo : I.LocOK A top R G) (kw : KW R G laF) : Res G =
+    KC.elim (toDv w.1 R G laF) G (toOk w.1 R G laF w.2 lo kw G (\ x m -> m)) ;
+} ;

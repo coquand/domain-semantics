@@ -1,0 +1,418 @@
+-- PLAN-ID1 S1, part B: admissibility of kind II cuts (Girard 11.4.3) for
+-- inductive logic, at a WELL-FOUNDED order A with top.
+--
+-- A closure (f, e) is of kind II at stage lambda (StOK lambda f e) when every
+-- X-atom of f reads, in its environment, a stage I^mu with mu <= lambda
+-- (never Phi-bar).  Theorem (cutAll): for every lambda, cuts on closures
+-- of kind II at stage lambda are admissible for cut-free derivations.
+-- Proof: induction on lambda (A well-founded), then on the formula, then
+-- (Ind, as in BetaCut) a double induction on the two derivations.  The new
+-- principal case is the stage atom: (xr mu) on I^lambda'(t) against
+-- (xl lambda') on not I^lambda'(t), mu < lambda' <= lambda; it is replaced by
+-- a cut on phi(I^mu, t), which is of kind II at stage mu < lambda (wfPhi),
+-- between the two premises (Girard's degree omega.lambda, 11.4.3).
+-- Hypothesis wfPhi: phi(I^mu, t) is of kind II at stage mu (the X-atoms
+-- of phi read the stage position).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module BP = BetaProof[l] ;
+module BC = BetaCut[l] ;
+module LW = LOWF[l] ;
+module BI = BetaID[l] ;
+module BF = BetaIDCf[l] ;
+
+
+leftF : BI.Form -> BI.Form = split { atF b k -> atF b k ; andF p q -> p ; orF p q -> p ; allF p -> p ; exF p -> p ; xF b s k -> xF b s k } ;
+rightF : BI.Form -> BI.Form = split { atF b k -> atF b k ; andF p q -> q ; orF p q -> q ; allF p -> p ; exF p -> p ; xF b s k -> xF b s k } ;
+kOf : BI.Form -> W.N = split { atF b k -> zero ; andF p q -> zero ; orF p q -> zero ; allF p -> zero ; exF p -> zero ; xF b s k -> k } ;
+sOf : BI.Form -> W.N = split { atF b k -> zero ; andF p q -> zero ; orF p q -> zero ; allF p -> zero ; exF p -> zero ; xF b s k -> s } ;
+
+data Dv (L P : U l) : U l = dAx (b : W.Bool) (k : W.N) (e : W.List L)
+  | dAnd (p q : BI.Form) (e : W.List L) (d0 d1 : Dv L P)
+  | dOr (p q : BI.Form) (e : W.List L) (d : Dv L P)
+  | dAll (p : BI.Form) (e : W.List L) (kk : L -> Dv L P)
+  | dEx (p : BI.Form) (e : W.List L) (w : L) (d : Dv L P)
+  | dXr (s k : W.N) (e : W.List L) (mu : P) (d : Dv L P)
+  | dXl (s k : W.N) (e : W.List L) (o : W.Or W.Unit P) (kk : L -> Dv L P)
+  | dCut (f : BI.Form) (e : W.List L) (la : P) (d0 d1 : Dv L P) ;
+
+module CK (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) (top : A.car) {
+  open BF.CI[ev,phi,A,top] ;
+  lC (c : Clo) : Clo = (leftF c.1,c.2) ;
+  rC (c : Clo) : Clo = (rightF c.1,c.2) ;
+  lCw (w : Lb) (c : Clo) : Clo = (leftF c.1,consL w c.2) ;
+
+  ----------------------------------------------------------------------
+  -- kind II closures
+  LeS (la : A.car) : W.Or W.Unit A.car -> U l = split { inl u -> W.Empty ; inr mu -> Id W.Bool (I.ltB A la mu) false } ;
+  StOK (la : A.car) : BI.Form -> LT.LL A -> U l = split {
+    atF b k -> \ e -> W.Unit ;
+    andF p q | rp rq -> \ e -> rp e * rq e ;
+    orF p q | rp rq -> \ e -> rp e * rq e ;
+    allF p | rp -> \ e -> (x : Lb) -> Id W.Bool (I.isNum A x) true -> rp (consL x e) ;
+    exF p | rp -> \ e -> (x : Lb) -> Id W.Bool (I.isNum A x) true -> rp (consL x e) ;
+    xF b s k -> \ e -> LeS la (I.nthL A s e).2 } ;
+  CutT (f : BI.Form) (e : LT.LL A) : U l = (G : Seq) (d1 d2 : C0) -> Ok d1 (consL (f,e) G) -> Ok d2 (consL (BI.neg f,e) G) -> Res G ;
+
+  ----------------------------------------------------------------------
+  -- atoms: an axiom on C and an axiom on neg C contradict each other
+  atVF : BI.Form -> LT.LL A -> W.Bool = split {
+    atF b k -> \ e -> BP.eqBo (ev A k e) b ; andF p q -> \ e -> false ; orF p q -> \ e -> false ;
+    allF p -> \ e -> false ; exF p -> \ e -> false ; xF b s k -> \ e -> false } ;
+  module CAt (b : W.Bool) (k : W.N) (e : LT.LL A) {
+    Ca : Clo = (atF b k,e) ;
+    Cn : Clo = (atF (W.notB b) k,e) ;
+    atV (c : Clo) : W.Bool = atVF c.1 c.2 ;
+    vt (b1 : W.Bool) (k1 : W.N) (e1 : LT.LL A) (h : Id W.Bool (ev A k1 e1) b1) : Id W.Bool (atV (atF b1 k1,e1)) true =
+      PL.subst W.Bool (\ z -> Id W.Bool (BP.eqBo z b1) true) b1 (ev A k1 e1) (PL.sym W.Bool (ev A k1 e1) b1 h) (BC.eqBoSelf b1) ;
+    vv (c c0 : Clo) (eq : Id Clo c c0) (h : Id W.Bool (atV c0) true) : Id W.Bool (atV c) true =
+      PL.trans W.Bool (atV c) (atV c0) true (PL.ap Clo W.Bool atV c c0 eq) h ;
+    module RA (b1 : W.Bool) (k1 : W.N) (e1 : LT.LL A) (eq1 : Id Clo Ca (atF b1 k1,e1)) (h1 : Id W.Bool (ev A k1 e1) b1) {
+      dl : C0 = cAx b1 k1 e1 ;
+      Oth (G : Seq) : U l = Ok dl (consL Ca G) ;
+      module MR = Mis[Cn,Oth,BF.isAtF,refl true] ;
+      hAx (b2 : W.Bool) (k2 : W.N) (e2 : LT.LL A) (eq2 : Id Clo Cn (atF b2 k2,e2)) (h2 : Id W.Bool (ev A k2 e2) b2)
+        (G : Seq) (t : Oth G) : Res G =
+        CF.efq (Res G) (BC.notBoth (ev A k e) b (vv Ca (atF b1 k1,e1) eq1 (vt b1 k1 e1 h1)) (vv Cn (atF b2 k2,e2) eq2 (vt b2 k2 e2 h2))) ;
+      module IR = Ind[Cn,Oth,oWR Ca dl,hAx,MR.mAnd (\ p q -> refl false),MR.mOr (\ p q -> refl false),
+        MR.mAll (\ p -> refl false),MR.mEx (\ p -> refl false),MR.mXr (\ s0 k0 -> refl false),MR.mXl (\ s0 k0 -> refl false)] ;
+    } ;
+    module ML = Mis[Ca,OthL Cn,BF.isAtF,refl true] ;
+    hAxL (b1 : W.Bool) (k1 : W.N) (e1 : LT.LL A) (eq1 : Id Clo Ca (atF b1 k1,e1)) (h1 : Id W.Bool (ev A k1 e1) b1)
+      (G : Seq) (t : OthL Cn G) : Res G = RA[b1,k1,e1,eq1,h1].IR.L t.1 G t.2 (inl eq1,h1) ;
+    module IL = Ind[Ca,OthL Cn,oWL Cn,hAxL,ML.mAnd (\ p q -> refl false),ML.mOr (\ p q -> refl false),
+      ML.mAll (\ p -> refl false),ML.mEx (\ p -> refl false),ML.mXr (\ s0 k0 -> refl false),ML.mXl (\ s0 k0 -> refl false)] ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- conjunction against disjunction
+  module CAnd (p q : BI.Form) (e : LT.LL A) (rp : CutT p e) (rq : CutT q e) {
+    Ca : Clo = (andF p q,e) ;
+    Cn : Clo = (orF (BI.neg p) (BI.neg q),e) ;
+    cp : Clo = (p,e) ; cq : Clo = (q,e) ; cnp : Clo = (BI.neg p,e) ; cnq : Clo = (BI.neg q,e) ;
+    module RA (p1 q1 : BI.Form) (e1 : LT.LL A) (d10 d11 : C0) (eq1 : Id Clo Ca (andF p1 q1,e1))
+      (r0 : IHG Ca (OthL Cn) d10) (r1 : IHG Ca (OthL Cn) d11) {
+      dl : C0 = cAnd p1 q1 e1 d10 d11 ;
+      Oth (G : Seq) : U l = Ok dl (consL Ca G) ;
+      oW (G : Seq) (c : Clo) (t : Oth G) : Oth (consL c G) = oWR Ca dl G c t ;
+      module MR = Mis[Cn,Oth,BI.isOrF,refl true] ;
+      module PC (np2 nq2 : BI.Form) (e2 : LT.LL A) (d2 : C0) (eq2 : Id Clo Cn (orF np2 nq2,e2))
+        (r2 : IHG Cn Oth d2) (G : Seq) (o2 : Ok d2 (consL (np2,e2) (consL (nq2,e2) (consL Cn G)))) (t : Oth G) {
+        d2n : C0 = cOr np2 nq2 e2 d2 ;
+        o2n : Ok d2n (consL Cn G) = (inl eq2,o2) ;
+        a1o1 : Ok d10 (consL Ca (consL cp G)) =
+          wk d10 (consL (p1,e1) (consL Ca G)) (consL Ca (consL cp G)) t.2.1
+            (subT (consL (p1,e1) (consL Ca G)) (consL cp (consL Ca G)) (consL Ca (consL cp G))
+              (eqSub (p1,e1) cp (consL Ca G) (PL.ap Clo Clo lC Ca (andF p1 q1,e1) eq1)) (sw cp Ca G)) ;
+        a1 : Res (consL cp G) = r0 (consL cp G) a1o1 (oWL Cn G cp (d2n,o2n)) ;
+        a2o1 : Ok d11 (consL Ca (consL cq G)) =
+          wk d11 (consL (q1,e1) (consL Ca G)) (consL Ca (consL cq G)) t.2.2
+            (subT (consL (q1,e1) (consL Ca G)) (consL cq (consL Ca G)) (consL Ca (consL cq G))
+              (eqSub (q1,e1) cq (consL Ca G) (PL.ap Clo Clo rC Ca (andF p1 q1,e1) eq1)) (sw cq Ca G)) ;
+        a2 : Res (consL cq G) = r1 (consL cq G) a2o1 (oWL Cn G cq (d2n,o2n)) ;
+        a3o1 : Ok d2 (consL Cn (consL cnp (consL cnq G))) =
+          wk d2 (consL (np2,e2) (consL (nq2,e2) (consL Cn G))) (consL Cn (consL cnp (consL cnq G))) o2
+            (subT (consL (np2,e2) (consL (nq2,e2) (consL Cn G))) (consL cnp (consL (nq2,e2) (consL Cn G))) (consL Cn (consL cnp (consL cnq G)))
+              (eqSub (np2,e2) cnp (consL (nq2,e2) (consL Cn G)) (PL.ap Clo Clo lC Cn (orF np2 nq2,e2) eq2))
+              (subT (consL cnp (consL (nq2,e2) (consL Cn G))) (consL cnp (consL cnq (consL Cn G))) (consL Cn (consL cnp (consL cnq G)))
+                (subCons cnp (consL (nq2,e2) (consL Cn G)) (consL cnq (consL Cn G))
+                  (eqSub (nq2,e2) cnq (consL Cn G) (PL.ap Clo Clo rC Cn (orF np2 nq2,e2) eq2)))
+                (sub3 cnp cnq Cn G))) ;
+        a3 : Res (consL cnp (consL cnq G)) = r2 (consL cnp (consL cnq G)) a3o1 (oW (consL cnq G) cnp (oW G cnq t)) ;
+        a4 : Res (consL cnp G) = rq (consL cnp G) a2.1 a3.1
+          (wk a2.1 (consL cq G) (consL cq (consL cnp G)) a2.2 (subCons cq G (consL cnp G) (wk1 cnp G)))
+          (wk a3.1 (consL cnp (consL cnq G)) (consL cnq (consL cnp G)) a3.2 (sw cnp cnq G)) ;
+        res : Res G = rp G a1.1 a4.1 a1.2 a4.2 ;
+      } ;
+      hOr (np2 nq2 : BI.Form) (e2 : LT.LL A) (d2 : C0) (eq2 : Id Clo Cn (orF np2 nq2,e2))
+        (r2 : IHG Cn Oth d2) (G : Seq) (o2 : Ok d2 (consL (np2,e2) (consL (nq2,e2) (consL Cn G)))) (t : Oth G) : Res G =
+        PC[np2,nq2,e2,d2,eq2,r2,G,o2,t].res ;
+      module IR = Ind[Cn,Oth,oW,MR.mAx (\ b k -> refl false),MR.mAnd (\ p0 q0 -> refl false),hOr,
+        MR.mAll (\ p0 -> refl false),MR.mEx (\ p0 -> refl false),MR.mXr (\ s0 k0 -> refl false),MR.mXl (\ s0 k0 -> refl false)] ;
+    } ;
+    module ML = Mis[Ca,OthL Cn,BI.isAndF,refl true] ;
+    hAnd (p1 q1 : BI.Form) (e1 : LT.LL A) (d10 d11 : C0) (eq1 : Id Clo Ca (andF p1 q1,e1))
+      (r0 : IHG Ca (OthL Cn) d10) (r1 : IHG Ca (OthL Cn) d11) (G : Seq)
+      (o0 : Ok d10 (consL (p1,e1) (consL Ca G))) (o1 : Ok d11 (consL (q1,e1) (consL Ca G))) (t : OthL Cn G) : Res G =
+      RA[p1,q1,e1,d10,d11,eq1,r0,r1].IR.L t.1 G t.2 (inl eq1,(o0,o1)) ;
+    module IL = Ind[Ca,OthL Cn,oWL Cn,ML.mAx (\ b k -> refl false),hAnd,ML.mOr (\ p0 q0 -> refl false),
+      ML.mAll (\ p0 -> refl false),ML.mEx (\ p0 -> refl false),ML.mXr (\ s0 k0 -> refl false),ML.mXl (\ s0 k0 -> refl false)] ;
+  } ;
+
+  -- disjunction against conjunction
+  module COr (p q : BI.Form) (e : LT.LL A) (rp : CutT p e) (rq : CutT q e) {
+    Ca : Clo = (orF p q,e) ;
+    Cn : Clo = (andF (BI.neg p) (BI.neg q),e) ;
+    cp : Clo = (p,e) ; cq : Clo = (q,e) ; cnp : Clo = (BI.neg p,e) ; cnq : Clo = (BI.neg q,e) ;
+    module RA (p1 q1 : BI.Form) (e1 : LT.LL A) (d1 : C0) (eq1 : Id Clo Ca (orF p1 q1,e1)) (r1 : IHG Ca (OthL Cn) d1) {
+      dl : C0 = cOr p1 q1 e1 d1 ;
+      Oth (G : Seq) : U l = Ok dl (consL Ca G) ;
+      oW (G : Seq) (c : Clo) (t : Oth G) : Oth (consL c G) = oWR Ca dl G c t ;
+      module MR = Mis[Cn,Oth,BI.isAndF,refl true] ;
+      module PC (np2 nq2 : BI.Form) (e2 : LT.LL A) (d20 d21 : C0) (eq2 : Id Clo Cn (andF np2 nq2,e2))
+        (r20 : IHG Cn Oth d20) (r21 : IHG Cn Oth d21) (G : Seq)
+        (o20 : Ok d20 (consL (np2,e2) (consL Cn G))) (o21 : Ok d21 (consL (nq2,e2) (consL Cn G))) (t : Oth G) {
+        d2n : C0 = cAnd np2 nq2 e2 d20 d21 ;
+        o2n : Ok d2n (consL Cn G) = (inl eq2,(o20,o21)) ;
+        a1o1 : Ok d1 (consL Ca (consL cp (consL cq G))) =
+          wk d1 (consL (p1,e1) (consL (q1,e1) (consL Ca G))) (consL Ca (consL cp (consL cq G))) t.2
+            (subT (consL (p1,e1) (consL (q1,e1) (consL Ca G))) (consL cp (consL (q1,e1) (consL Ca G))) (consL Ca (consL cp (consL cq G)))
+              (eqSub (p1,e1) cp (consL (q1,e1) (consL Ca G)) (PL.ap Clo Clo lC Ca (orF p1 q1,e1) eq1))
+              (subT (consL cp (consL (q1,e1) (consL Ca G))) (consL cp (consL cq (consL Ca G))) (consL Ca (consL cp (consL cq G)))
+                (subCons cp (consL (q1,e1) (consL Ca G)) (consL cq (consL Ca G))
+                  (eqSub (q1,e1) cq (consL Ca G) (PL.ap Clo Clo rC Ca (orF p1 q1,e1) eq1)))
+                (sub3 cp cq Ca G))) ;
+        a1 : Res (consL cp (consL cq G)) = r1 (consL cp (consL cq G)) a1o1 (oWL Cn (consL cq G) cp (oWL Cn G cq (d2n,o2n))) ;
+        a2o1 : Ok d20 (consL Cn (consL cnp G)) =
+          wk d20 (consL (np2,e2) (consL Cn G)) (consL Cn (consL cnp G)) o20
+            (subT (consL (np2,e2) (consL Cn G)) (consL cnp (consL Cn G)) (consL Cn (consL cnp G))
+              (eqSub (np2,e2) cnp (consL Cn G) (PL.ap Clo Clo lC Cn (andF np2 nq2,e2) eq2)) (sw cnp Cn G)) ;
+        a2 : Res (consL cnp G) = r20 (consL cnp G) a2o1 (oW G cnp t) ;
+        a3o1 : Ok d21 (consL Cn (consL cnq G)) =
+          wk d21 (consL (nq2,e2) (consL Cn G)) (consL Cn (consL cnq G)) o21
+            (subT (consL (nq2,e2) (consL Cn G)) (consL cnq (consL Cn G)) (consL Cn (consL cnq G))
+              (eqSub (nq2,e2) cnq (consL Cn G) (PL.ap Clo Clo rC Cn (andF np2 nq2,e2) eq2)) (sw cnq Cn G)) ;
+        a3 : Res (consL cnq G) = r21 (consL cnq G) a3o1 (oW G cnq t) ;
+        a4 : Res (consL cq G) = rp (consL cq G) a1.1 a2.1 a1.2
+          (wk a2.1 (consL cnp G) (consL cnp (consL cq G)) a2.2 (subCons cnp G (consL cq G) (wk1 cq G))) ;
+        res : Res G = rq G a4.1 a3.1 a4.2 a3.2 ;
+      } ;
+      hAnd (np2 nq2 : BI.Form) (e2 : LT.LL A) (d20 d21 : C0) (eq2 : Id Clo Cn (andF np2 nq2,e2))
+        (r20 : IHG Cn Oth d20) (r21 : IHG Cn Oth d21) (G : Seq)
+        (o20 : Ok d20 (consL (np2,e2) (consL Cn G))) (o21 : Ok d21 (consL (nq2,e2) (consL Cn G))) (t : Oth G) : Res G =
+        PC[np2,nq2,e2,d20,d21,eq2,r20,r21,G,o20,o21,t].res ;
+      module IR = Ind[Cn,Oth,oW,MR.mAx (\ b k -> refl false),hAnd,MR.mOr (\ p0 q0 -> refl false),
+        MR.mAll (\ p0 -> refl false),MR.mEx (\ p0 -> refl false),MR.mXr (\ s0 k0 -> refl false),MR.mXl (\ s0 k0 -> refl false)] ;
+    } ;
+    module ML = Mis[Ca,OthL Cn,BI.isOrF,refl true] ;
+    hOr (p1 q1 : BI.Form) (e1 : LT.LL A) (d1 : C0) (eq1 : Id Clo Ca (orF p1 q1,e1))
+      (r1 : IHG Ca (OthL Cn) d1) (G : Seq) (o1 : Ok d1 (consL (p1,e1) (consL (q1,e1) (consL Ca G)))) (t : OthL Cn G) : Res G =
+      RA[p1,q1,e1,d1,eq1,r1].IR.L t.1 G t.2 (inl eq1,o1) ;
+    module IL = Ind[Ca,OthL Cn,oWL Cn,ML.mAx (\ b k -> refl false),ML.mAnd (\ p0 q0 -> refl false),hOr,
+      ML.mAll (\ p0 -> refl false),ML.mEx (\ p0 -> refl false),ML.mXr (\ s0 k0 -> refl false),ML.mXl (\ s0 k0 -> refl false)] ;
+  } ;
+
+  -- universal against existential (over numbers)
+  module CAll (p : BI.Form) (e : LT.LL A) (rp : (w : Lb) -> Id W.Bool (I.isNum A w) true -> CutT p (consL w e)) {
+    Ca : Clo = (allF p,e) ;
+    Cn : Clo = (exF (BI.neg p),e) ;
+    module RA (p1 : BI.Form) (e1 : LT.LL A) (k1 : Lb -> C0) (eq1 : Id Clo Ca (allF p1,e1))
+      (rk : (x : Lb) -> IHG Ca (OthL Cn) (k1 x)) {
+      dl : C0 = cAll p1 e1 k1 ;
+      Oth (G : Seq) : U l = Ok dl (consL Ca G) ;
+      oW (G : Seq) (c : Clo) (t : Oth G) : Oth (consL c G) = oWR Ca dl G c t ;
+      module MR = Mis[Cn,Oth,BI.isExF,refl true] ;
+      module PC (np2 : BI.Form) (e2 : LT.LL A) (w : Lb) (d2 : C0) (eq2 : Id Clo Cn (exF np2,e2)) (hw : Id W.Bool (I.isNum A w) true)
+        (r2 : IHG Cn Oth d2) (G : Seq) (o2 : Ok d2 (consL (np2,consL w e2) (consL Cn G))) (t : Oth G) {
+        cw : Clo = (p,consL w e) ;
+        cnw : Clo = (BI.neg p,consL w e) ;
+        d2n : C0 = cEx np2 e2 w d2 ;
+        o2n : Ok d2n (consL Cn G) = (inl eq2,(hw,o2)) ;
+        a1o1 : Ok (k1 w) (consL Ca (consL cw G)) =
+          wk (k1 w) (consL (p1,consL w e1) (consL Ca G)) (consL Ca (consL cw G)) (t.2 w hw)
+            (subT (consL (p1,consL w e1) (consL Ca G)) (consL cw (consL Ca G)) (consL Ca (consL cw G))
+              (eqSub (p1,consL w e1) cw (consL Ca G) (PL.ap Clo Clo (lCw w) Ca (allF p1,e1) eq1)) (sw cw Ca G)) ;
+        a1 : Res (consL cw G) = rk w (consL cw G) a1o1 (oWL Cn G cw (d2n,o2n)) ;
+        a2o1 : Ok d2 (consL Cn (consL cnw G)) =
+          wk d2 (consL (np2,consL w e2) (consL Cn G)) (consL Cn (consL cnw G)) o2
+            (subT (consL (np2,consL w e2) (consL Cn G)) (consL cnw (consL Cn G)) (consL Cn (consL cnw G))
+              (eqSub (np2,consL w e2) cnw (consL Cn G) (PL.ap Clo Clo (lCw w) Cn (exF np2,e2) eq2)) (sw cnw Cn G)) ;
+        a2 : Res (consL cnw G) = r2 (consL cnw G) a2o1 (oW G cnw t) ;
+        res : Res G = rp w hw G a1.1 a2.1 a1.2 a2.2 ;
+      } ;
+      hEx (np2 : BI.Form) (e2 : LT.LL A) (w : Lb) (d2 : C0) (eq2 : Id Clo Cn (exF np2,e2)) (hw : Id W.Bool (I.isNum A w) true)
+        (r2 : IHG Cn Oth d2) (G : Seq) (o2 : Ok d2 (consL (np2,consL w e2) (consL Cn G))) (t : Oth G) : Res G =
+        PC[np2,e2,w,d2,eq2,hw,r2,G,o2,t].res ;
+      module IR = Ind[Cn,Oth,oW,MR.mAx (\ b k -> refl false),MR.mAnd (\ p0 q0 -> refl false),MR.mOr (\ p0 q0 -> refl false),
+        MR.mAll (\ p0 -> refl false),hEx,MR.mXr (\ s0 k0 -> refl false),MR.mXl (\ s0 k0 -> refl false)] ;
+    } ;
+    module ML = Mis[Ca,OthL Cn,BI.isAllF,refl true] ;
+    hAll (p1 : BI.Form) (e1 : LT.LL A) (k1 : Lb -> C0) (eq1 : Id Clo Ca (allF p1,e1))
+      (rk : (x : Lb) -> IHG Ca (OthL Cn) (k1 x)) (G : Seq)
+      (o1 : (x : Lb) -> Id W.Bool (I.isNum A x) true -> Ok (k1 x) (consL (p1,consL x e1) (consL Ca G))) (t : OthL Cn G) : Res G =
+      RA[p1,e1,k1,eq1,rk].IR.L t.1 G t.2 (inl eq1,o1) ;
+    module IL = Ind[Ca,OthL Cn,oWL Cn,ML.mAx (\ b k -> refl false),ML.mAnd (\ p0 q0 -> refl false),
+      ML.mOr (\ p0 q0 -> refl false),hAll,ML.mEx (\ p0 -> refl false),ML.mXr (\ s0 k0 -> refl false),ML.mXl (\ s0 k0 -> refl false)] ;
+  } ;
+
+  -- existential against universal
+  module CEx (p : BI.Form) (e : LT.LL A) (rp : (w : Lb) -> Id W.Bool (I.isNum A w) true -> CutT p (consL w e)) {
+    Ca : Clo = (exF p,e) ;
+    Cn : Clo = (allF (BI.neg p),e) ;
+    module RA (p1 : BI.Form) (e1 : LT.LL A) (w : Lb) (d1 : C0) (eq1 : Id Clo Ca (exF p1,e1)) (hw : Id W.Bool (I.isNum A w) true)
+      (r1 : IHG Ca (OthL Cn) d1) {
+      dl : C0 = cEx p1 e1 w d1 ;
+      Oth (G : Seq) : U l = Ok dl (consL Ca G) ;
+      oW (G : Seq) (c : Clo) (t : Oth G) : Oth (consL c G) = oWR Ca dl G c t ;
+      module MR = Mis[Cn,Oth,BI.isAllF,refl true] ;
+      cw : Clo = (p,consL w e) ;
+      cnw : Clo = (BI.neg p,consL w e) ;
+      module PC (np2 : BI.Form) (e2 : LT.LL A) (k2 : Lb -> C0) (eq2 : Id Clo Cn (allF np2,e2))
+        (rk2 : (x : Lb) -> IHG Cn Oth (k2 x)) (G : Seq)
+        (o2 : (x : Lb) -> Id W.Bool (I.isNum A x) true -> Ok (k2 x) (consL (np2,consL x e2) (consL Cn G))) (t : Oth G) {
+        d2n : C0 = cAll np2 e2 k2 ;
+        o2n : Ok d2n (consL Cn G) = (inl eq2,o2) ;
+        a1o1 : Ok d1 (consL Ca (consL cw G)) =
+          wk d1 (consL (p1,consL w e1) (consL Ca G)) (consL Ca (consL cw G)) t.2.2
+            (subT (consL (p1,consL w e1) (consL Ca G)) (consL cw (consL Ca G)) (consL Ca (consL cw G))
+              (eqSub (p1,consL w e1) cw (consL Ca G) (PL.ap Clo Clo (lCw w) Ca (exF p1,e1) eq1)) (sw cw Ca G)) ;
+        a1 : Res (consL cw G) = r1 (consL cw G) a1o1 (oWL Cn G cw (d2n,o2n)) ;
+        a2o1 : Ok (k2 w) (consL Cn (consL cnw G)) =
+          wk (k2 w) (consL (np2,consL w e2) (consL Cn G)) (consL Cn (consL cnw G)) (o2 w hw)
+            (subT (consL (np2,consL w e2) (consL Cn G)) (consL cnw (consL Cn G)) (consL Cn (consL cnw G))
+              (eqSub (np2,consL w e2) cnw (consL Cn G) (PL.ap Clo Clo (lCw w) Cn (allF np2,e2) eq2)) (sw cnw Cn G)) ;
+        a2 : Res (consL cnw G) = rk2 w (consL cnw G) a2o1 (oW G cnw t) ;
+        res : Res G = rp w hw G a1.1 a2.1 a1.2 a2.2 ;
+      } ;
+      hAll (np2 : BI.Form) (e2 : LT.LL A) (k2 : Lb -> C0) (eq2 : Id Clo Cn (allF np2,e2))
+        (rk2 : (x : Lb) -> IHG Cn Oth (k2 x)) (G : Seq)
+        (o2 : (x : Lb) -> Id W.Bool (I.isNum A x) true -> Ok (k2 x) (consL (np2,consL x e2) (consL Cn G))) (t : Oth G) : Res G =
+        PC[np2,e2,k2,eq2,rk2,G,o2,t].res ;
+      module IR = Ind[Cn,Oth,oW,MR.mAx (\ b k -> refl false),MR.mAnd (\ p0 q0 -> refl false),MR.mOr (\ p0 q0 -> refl false),
+        hAll,MR.mEx (\ p0 -> refl false),MR.mXr (\ s0 k0 -> refl false),MR.mXl (\ s0 k0 -> refl false)] ;
+    } ;
+    module ML = Mis[Ca,OthL Cn,BI.isExF,refl true] ;
+    hEx (p1 : BI.Form) (e1 : LT.LL A) (w : Lb) (d1 : C0) (eq1 : Id Clo Ca (exF p1,e1)) (hw : Id W.Bool (I.isNum A w) true)
+      (r1 : IHG Ca (OthL Cn) d1) (G : Seq) (o1 : Ok d1 (consL (p1,consL w e1) (consL Ca G))) (t : OthL Cn G) : Res G =
+      RA[p1,e1,w,d1,eq1,hw,r1].IR.L t.1 G t.2 (inl eq1,(hw,o1)) ;
+    module IL = Ind[Ca,OthL Cn,oWL Cn,ML.mAx (\ b k -> refl false),ML.mAnd (\ p0 q0 -> refl false),
+      ML.mOr (\ p0 q0 -> refl false),ML.mAll (\ p0 -> refl false),hEx,ML.mXr (\ s0 k0 -> refl false),ML.mXl (\ s0 k0 -> refl false)] ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- the stage atom (kind II): a cut on I^lambda'(t), lambda' <= lambda
+  isEqS : (c : W.O3) -> Id W.Bool (W.isEq c) true -> Id W.O3 c eq = split {
+    lt -> \ h -> W.absurdB (Id W.O3 lt eq) h ; eq -> \ h -> refl eq ; gt -> \ h -> W.absurdB (Id W.O3 gt eq) h } ;
+  -- mu < lambda' and lambda' <= lambda give mu < lambda
+  leT (mu la la' : A.car) (h : Id W.O3 (A.cmp mu la') lt) :
+      (c : W.O3) -> Id W.O3 (A.cmp la la') c -> Id W.Bool (W.isLt c) false -> Id W.Bool (I.ltB A mu la) true = split {
+    lt -> \ ec hf -> BP.tf (Id W.Bool (I.ltB A mu la) true) hf ;
+    eq -> \ ec hf -> PL.ap W.O3 W.Bool W.isLt (A.cmp mu la) lt
+      (PL.subst A.car (\ z -> Id W.O3 (A.cmp mu z) lt) la' la (PL.sym A.car la la' (A.ceq la la' ec)) h) ;
+    gt -> \ ec hf -> PL.ap W.O3 W.Bool W.isLt (A.cmp mu la) lt
+      (A.ctrans mu la' la h (PL.trans W.O3 (A.cmp la' la) (W.flip (A.cmp la la')) lt (A.cflip la la')
+        (PL.ap W.O3 W.O3 W.flip (A.cmp la la') gt ec))) } ;
+  ltLe (la mu : A.car) : (o : W.Or W.Unit A.car) -> Id W.Bool (I.allowR A mu o) true -> LeS la o -> Id W.Bool (I.ltB A mu la) true = split {
+    inl u -> \ h st -> CF.efq (Id W.Bool (I.ltB A mu la) true) st ;
+    inr la' -> \ h st -> leT mu la la' (W.isLt-sound (A.cmp mu la') h) (A.cmp la la') (refl (A.cmp la la')) st } ;
+  belowOK (la mu : A.car) : (o o2 : W.Or W.Unit A.car) -> Id W.Bool (I.sameO A o o2) true -> Id W.Bool (I.allowR A mu o2) true ->
+      LeS la o2 -> Id W.Bool (I.below A (I.bound A top o) (I.stg A mu)) true = split {
+    inl u -> split {
+      inl v -> \ h ha st -> CF.efq (Id W.Bool (I.below A top (I.stg A mu)) true) st ;
+      inr l2 -> \ h ha st -> W.absurdB (Id W.Bool (I.below A top (I.stg A mu)) true) h } ;
+    inr l1 -> split {
+      inl v -> \ h ha st -> W.absurdB (Id W.Bool (I.ltB A mu l1) true) h ;
+      inr l2 -> \ h ha st -> PL.subst A.car (\ z -> Id W.Bool (I.ltB A mu z) true) l2 l1
+        (PL.sym A.car l1 l2 (A.ceq l1 l2 (isEqS (A.cmp l1 l2) h))) ha } } ;
+  cR' (c : Clo) (mu : A.car) : Clo = (phi,I.envP A (I.nthL A (kOf c.1) c.2) (I.stg A mu)) ;
+  cL' (c : Clo) (a : Lb) : Clo = (BI.neg phi,I.envP A (I.nthL A (kOf c.1) c.2) a) ;
+  stOf (c : Clo) : W.Or W.Unit A.car = (I.nthL A (sOf c.1) c.2).2 ;
+
+  StCut (la : A.car) : U l = (f : BI.Form) (e : LT.LL A) -> StOK la f e -> CutT f e ;
+  module CX (s k : W.N) (e : LT.LL A) (la : A.car) (st : LeS la (I.nthL A s e).2)
+    (ihS : (mu : A.car) -> Id W.Bool (I.ltB A mu la) true -> StCut mu)
+    (wfPhi : (t : Lb) (mu : A.car) -> StOK mu phi (I.envP A t (I.stg A mu))) {
+    Ca : Clo = (xF true s k,e) ;
+    Cn : Clo = (xF false s k,e) ;
+    module RA (s1 k1 : W.N) (e1 : LT.LL A) (mu : A.car) (d1 : C0) (eq1 : Id Clo Ca (xF true s1 k1,e1))
+      (hm : Id W.Bool (I.allowR A mu (I.nthL A s1 e1).2) true) (r1 : IHG Ca (OthL Cn) d1) {
+      dl : C0 = cXr s1 k1 e1 mu d1 ;
+      Oth (G : Seq) : U l = Ok dl (consL Ca G) ;
+      oW (G : Seq) (c : Clo) (t : Oth G) : Oth (consL c G) = oWR Ca dl G c t ;
+      module MR = Mis[Cn,Oth,BF.isXN,refl true] ;
+      sEq : Id (W.Or W.Unit A.car) (I.nthL A s1 e1).2 (I.nthL A s e).2 =
+        PL.ap Clo (W.Or W.Unit A.car) stOf (xF true s1 k1,e1) Ca (PL.sym Clo Ca (xF true s1 k1,e1) eq1) ;
+      hm' : Id W.Bool (I.allowR A mu (I.nthL A s e).2) true =
+        PL.subst (W.Or W.Unit A.car) (\ z -> Id W.Bool (I.allowR A mu z) true) (I.nthL A s1 e1).2 (I.nthL A s e).2 sEq hm ;
+      muLt : Id W.Bool (I.ltB A mu la) true = ltLe la mu (I.nthL A s e).2 hm' st ;
+      cRe : Id Clo (cR k e mu) (cR k1 e1 mu) = PL.ap Clo Clo (\ c -> cR' c mu) Ca (xF true s1 k1,e1) eq1 ;
+      module PC (s2 k2 : W.N) (e2 : LT.LL A) (o : W.Or W.Unit A.car) (kk : Lb -> C0) (eq2 : Id Clo Cn (xF false s2 k2,e2))
+        (hm2 : Id W.Bool (I.sameO A o (I.nthL A s2 e2).2) true) (rk : (x : Lb) -> IHG Cn Oth (kk x)) (G : Seq)
+        (o2 : (a : Lb) -> Id W.Bool (I.below A (I.bound A top o) a) true -> Ok (kk a) (consL (cL k2 e2 a) (consL Cn G))) (t : Oth G) {
+        a0 : Lb = I.stg A mu ;
+        sEq2 : Id (W.Or W.Unit A.car) (I.nthL A s2 e2).2 (I.nthL A s e).2 =
+          PL.ap Clo (W.Or W.Unit A.car) stOf (xF false s2 k2,e2) Cn (PL.sym Clo Cn (xF false s2 k2,e2) eq2) ;
+        hbel : Id W.Bool (I.below A (I.bound A top o) a0) true =
+          belowOK la mu o (I.nthL A s e).2
+            (PL.subst (W.Or W.Unit A.car) (\ z -> Id W.Bool (I.sameO A o z) true) (I.nthL A s2 e2).2 (I.nthL A s e).2 sEq2 hm2) hm' st ;
+        cLe : Id Clo (cL k e a0) (cL k2 e2 a0) = PL.ap Clo Clo (\ c -> cL' c a0) Cn (xF false s2 k2,e2) eq2 ;
+        cRc : Clo = cR k e mu ;
+        cLc : Clo = cL k e a0 ;
+        d2n : C0 = cXl s2 k2 e2 o kk ;
+        o2n : Ok d2n (consL Cn G) = (inl eq2,(hm2,o2)) ;
+        a1o1 : Ok d1 (consL Ca (consL cRc G)) =
+          wk d1 (consL (cR k1 e1 mu) (consL Ca G)) (consL Ca (consL cRc G)) t.2.2
+            (subT (consL (cR k1 e1 mu) (consL Ca G)) (consL cRc (consL Ca G)) (consL Ca (consL cRc G))
+              (eqSub (cR k1 e1 mu) cRc (consL Ca G) cRe) (sw cRc Ca G)) ;
+        a1 : Res (consL cRc G) = r1 (consL cRc G) a1o1 (oWL Cn G cRc (d2n,o2n)) ;
+        a2o1 : Ok (kk a0) (consL Cn (consL cLc G)) =
+          wk (kk a0) (consL (cL k2 e2 a0) (consL Cn G)) (consL Cn (consL cLc G)) (o2 a0 hbel)
+            (subT (consL (cL k2 e2 a0) (consL Cn G)) (consL cLc (consL Cn G)) (consL Cn (consL cLc G))
+              (eqSub (cL k2 e2 a0) cLc (consL Cn G) cLe) (sw cLc Cn G)) ;
+        a2 : Res (consL cLc G) = rk a0 (consL cLc G) a2o1 (oW G cLc t) ;
+        -- the cut on phi(I^mu, t), of kind II at stage mu < lambda
+        res : Res G = ihS mu muLt phi (I.envP A (I.nthL A k e) a0) (wfPhi (I.nthL A k e) mu) G a1.1 a2.1 a1.2 a2.2 ;
+      } ;
+      hXl (s2 k2 : W.N) (e2 : LT.LL A) (o : W.Or W.Unit A.car) (kk : Lb -> C0) (eq2 : Id Clo Cn (xF false s2 k2,e2))
+        (hm2 : Id W.Bool (I.sameO A o (I.nthL A s2 e2).2) true) (rk : (x : Lb) -> IHG Cn Oth (kk x)) (G : Seq)
+        (o2 : (a : Lb) -> Id W.Bool (I.below A (I.bound A top o) a) true -> Ok (kk a) (consL (cL k2 e2 a) (consL Cn G))) (t : Oth G) : Res G =
+        PC[s2,k2,e2,o,kk,eq2,hm2,rk,G,o2,t].res ;
+      module IR = Ind[Cn,Oth,oW,MR.mAx (\ b k0 -> refl false),MR.mAnd (\ p0 q0 -> refl false),MR.mOr (\ p0 q0 -> refl false),
+        MR.mAll (\ p0 -> refl false),MR.mEx (\ p0 -> refl false),MR.mXr (\ s0 k0 -> refl false),hXl] ;
+    } ;
+    module ML = Mis[Ca,OthL Cn,BF.isXP,refl true] ;
+    hXr (s1 k1 : W.N) (e1 : LT.LL A) (mu : A.car) (d1 : C0) (eq1 : Id Clo Ca (xF true s1 k1,e1))
+      (hm : Id W.Bool (I.allowR A mu (I.nthL A s1 e1).2) true) (r1 : IHG Ca (OthL Cn) d1) (G : Seq)
+      (o1 : Ok d1 (consL (cR k1 e1 mu) (consL Ca G))) (t : OthL Cn G) : Res G =
+      RA[s1,k1,e1,mu,d1,eq1,hm,r1].IR.L t.1 G t.2 (inl eq1,(hm,o1)) ;
+    module IL = Ind[Ca,OthL Cn,oWL Cn,ML.mAx (\ b k0 -> refl false),ML.mAnd (\ p0 q0 -> refl false),ML.mOr (\ p0 q0 -> refl false),
+      ML.mAll (\ p0 -> refl false),ML.mEx (\ p0 -> refl false),hXr,ML.mXl (\ s0 k0 -> refl false)] ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- admissibility of kind II cuts: induction on the stage, then on the formula
+  module Cut (wA : LW.WF A) (wfPhi : (t : Lb) (mu : A.car) -> StOK mu phi (I.envP A t (I.stg A mu))) {
+    cutX (la : A.car) (ihS : (mu : A.car) -> Id W.Bool (I.ltB A mu la) true -> StCut mu) :
+        (b : W.Bool) (s k : W.N) (e : LT.LL A) -> LeS la (I.nthL A s e).2 -> CutT (xF b s k) e = split {
+      false -> \ s k e st G d1 d2 o1 o2 -> CX[s,k,e,la,st,ihS,wfPhi].IL.L d2 G o2 (d1,o1) ;
+      true -> \ s k e st G d1 d2 o1 o2 -> CX[s,k,e,la,st,ihS,wfPhi].IL.L d1 G o1 (d2,o2) } ;
+    cutS (la : A.car) (ihS : (mu : A.car) -> Id W.Bool (I.ltB A mu la) true -> StCut mu) : StCut la = split {
+      atF b k -> \ e st G d1 d2 o1 o2 -> CAt[b,k,e].IL.L d1 G o1 (d2,o2) ;
+      andF p q | rp rq -> \ e st G d1 d2 o1 o2 -> CAnd[p,q,e,rp e st.1,rq e st.2].IL.L d1 G o1 (d2,o2) ;
+      orF p q | rp rq -> \ e st G d1 d2 o1 o2 -> COr[p,q,e,rp e st.1,rq e st.2].IL.L d1 G o1 (d2,o2) ;
+      allF p | rp -> \ e st G d1 d2 o1 o2 -> CAll[p,e,\ w hw -> rp (consL w e) (st w hw)].IL.L d1 G o1 (d2,o2) ;
+      exF p | rp -> \ e st G d1 d2 o1 o2 -> CEx[p,e,\ w hw -> rp (consL w e) (st w hw)].IL.L d1 G o1 (d2,o2) ;
+      xF b s k -> \ e st -> cutX la ihS b s k e st } ;
+    module AZ = W.Acc[A.car,W.ltO A.car A.cmp] ;
+    cutAll (la : A.car) : StCut la = AZ.ind StCut cutS la (wA la) ;
+
+    -- derivations with kind II cuts, and cut elimination
+    D0 : U l = Dv Lb A.car ;
+    OkD : D0 -> Seq -> U l = split {
+      dAx b k e -> \ H -> Mem (atF b k,e) H * Id W.Bool (ev A k e) b ;
+      dAnd p q e d0 d1 | r0 r1 -> \ H -> Mem (andF p q,e) H * (r0 (consL (p,e) H) * r1 (consL (q,e) H)) ;
+      dOr p q e d | r -> \ H -> Mem (orF p q,e) H * r (consL (p,e) (consL (q,e) H)) ;
+      dAll p e kk | r -> \ H -> Mem (allF p,e) H * ((x : Lb) -> Id W.Bool (I.isNum A x) true -> r x (consL (p,consL x e) H)) ;
+      dEx p e w d | r -> \ H -> Mem (exF p,e) H * (Id W.Bool (I.isNum A w) true * r (consL (p,consL w e) H)) ;
+      dXr s k e mu d | r -> \ H -> Mem (xF true s k,e) H * (Id W.Bool (I.allowR A mu (I.nthL A s e).2) true * r (consL (cR k e mu) H)) ;
+      dXl s k e o kk | r -> \ H -> Mem (xF false s k,e) H * (Id W.Bool (I.sameO A o (I.nthL A s e).2) true *
+          ((a : Lb) -> Id W.Bool (I.below A (I.bound A top o) a) true -> r a (consL (cL k e a) H))) ;
+      dCut f e la d0 d1 | r0 r1 -> \ H -> StOK la f e * (r0 (consL (f,e) H) * r1 (consL (BI.neg f,e) H)) } ;
+    elim : (d : D0) (H : Seq) -> OkD d H -> Res H = split {
+      dAx b k e -> \ H o -> (cAx b k e,o) ;
+      dAnd p q e d0 d1 | r0 r1 -> \ H o -> mkAnd p q e H o.1 (r0 (consL (p,e) H) o.2.1) (r1 (consL (q,e) H) o.2.2) ;
+      dOr p q e d | r -> \ H o -> mkOr p q e H o.1 (r (consL (p,e) (consL (q,e) H)) o.2) ;
+      dAll p e kk | r -> \ H o -> mkAll p e H o.1 (\ y hy -> r y (consL (p,consL y e) H) (o.2 y hy)) ;
+      dEx p e w d | r -> \ H o -> mkEx p e w H o.1 o.2.1 (r (consL (p,consL w e) H) o.2.2) ;
+      dXr s k e mu d | r -> \ H o -> mkXr s k e mu H o.1 o.2.1 (r (consL (cR k e mu) H) o.2.2) ;
+      dXl s k e oo kk | r -> \ H o -> mkXl s k e oo H o.1 o.2.1 (\ a ha -> r a (consL (cL k e a) H) (o.2.2 a ha)) ;
+      dCut f e la d0 d1 | r0 r1 -> \ H o ->
+        cutAll la f e o.1 H (r0 (consL (f,e) H) o.2.1).1 (r1 (consL (BI.neg f,e) H) o.2.2).1
+          (r0 (consL (f,e) H) o.2.1).2 (r1 (consL (BI.neg f,e) H) o.2.2).2 } ;
+  } ;
+} ;
