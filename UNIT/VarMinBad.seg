@@ -1,0 +1,207 @@
+-- The common part of the minimal-bad-sequence arguments of Th. Coquand,
+-- "An inductive proof of Kruskal's theorem" (Propositions 4 and 5), over a
+-- set X over a poset (C, le).
+--
+-- Data: a well-founded relation lt on X0 ("v is a component of u": the
+-- tail of a word, an immediate subtree of a tree), closed for validity, and
+-- an increasing relation e on X0 such that e c x v and lt v u give e c x u.
+-- B is goodness for e; E, M are those of VarOpen.
+--
+-- C' (Cp) is M(B) seen as a poset: states (c, h) with h valid at c and
+-- M c h, ordered by le and "h' extends h".  A Z-letter (v, u, q) is a
+-- component v of the word u at the position u q of the history (q is the
+-- history before it).  R a z z': if q is shorter than q' then e v v', or
+-- the history of a is good (K a).  Lengths decide the order of positions.
+--
+-- afR: R is almost full (the map F of the paper): from a first letter
+-- (v1, u1, q1), the history q1 v1 is below the history (lt v1 u1), hence
+-- secured by M; its bar is mapped letterwise (VarHigman.Map) and an extra
+-- step is added where the history became good (VarHigman.Esc).
+level l ;
+module W = Dilator[l] ;
+module TB = TransBar[l] ;
+module VR = VarRamsey[l] ;
+module VO = VarOpen[l] ;
+module VH = VarHigman[l] ;
+
+oe (A B C : U l) (f : A -> C) (g : B -> C) (e : W.Or A B) : C = TB.orElim A B C f g e ;
+
+module On (C : U l) (le : C -> C -> U l)
+  (le-refl : (p : C) -> le p p) (le-trans : (p q r : C) -> le p q -> le q r -> le p r)
+  (X0 : U l) (X : C -> X0 -> U l) (X-mono : (p q : C) -> le p q -> (x : X0) -> X p x -> X q x)
+  (lt : X0 -> X0 -> U l) (wfX : TB.AccU[X0,lt].WF)
+  (lt-valid : (c : C) (v u : X0) -> lt v u -> X c u -> X c v)
+  (e : C -> X0 -> X0 -> U l) (e-mono : (p q : C) -> le p q -> (x y : X0) -> e p x y -> e q x y)
+  (eSub : (c : C) (x v u : X0) -> lt v u -> e c x v -> e c x u) {
+  module VRX = VR.On[C,le,le-refl,le-trans,X0,X] ;
+  A : VRX.Pred = VRX.rel2 e ;
+  module VO1 = VO.On[C,le,le-refl,le-trans,X0,X,lt,wfX,A] ;
+  H : U l = W.List X0 ;
+
+  -- prefixes of histories
+  Pre (p h : H) : U l = VO1.WD.Pre p h ;
+  ValidH (c : C) (h : H) : U l = VO1.ValidH c h ;
+  validMono (p q : C) (lpq : le p q) : (h : H) -> ValidH p h -> ValidH q h = split {
+    nilL -> \ v -> tt ; consL u h | r -> \ v -> (X-mono p q lpq u v.1,r v.2) } ;
+  preRefl : (h : H) -> Pre h h = split { nilL -> refl nilL ; consL u h -> inl (refl (consL u h)) } ;
+  preTrans (a b : H) : (c : H) -> Pre a b -> Pre b c -> Pre a c = split {
+    nilL -> \ p q -> W.subst H (\ x -> Pre a x) b nilL q p ;
+    consL y u | r -> \ p q -> oe (Id H b (consL y u)) (Pre b u) (Pre a (consL y u))
+      (\ e1 -> W.subst H (\ x -> Pre a x) b (consL y u) e1 p) (\ q1 -> inr (r p q1)) q } ;
+  preCons (h : H) (u : X0) : Pre h (consL u h) = inr (preRefl h) ;
+  validPre (c : C) : (h p : H) -> Pre p h -> ValidH c h -> ValidH c p = split {
+    nilL -> \ p e1 v -> W.subst H (ValidH c) nilL p (W.sym H p nilL e1) v ;
+    consL x h | r -> \ p e1 v -> oe (Id H p (consL x h)) (Pre p h) (ValidH c p)
+      (\ e2 -> W.subst H (ValidH c) (consL x h) p (W.sym H p (consL x h) e2) v) (\ e2 -> r p e2 v.2) e1 } ;
+  len : H -> W.N = split { nilL -> zero ; consL u h | r -> suc r } ;
+  tlH : H -> H = split { nilL -> nilL ; consL u h -> h } ;
+  preLen : (h p : H) -> Pre p h -> VH.LtN (len h) (len p) -> W.Empty = split {
+    nilL -> \ p e1 lt0 -> W.subst H (\ x -> VH.LtN zero (len x) -> W.Empty) nilL p (W.sym H p nilL e1) (\ x -> x) lt0 ;
+    consL x h | r -> \ p e1 lt0 -> oe (Id H p (consL x h)) (Pre p h) W.Empty
+      (\ e2 -> VH.ltIrr (len p) (W.subst H (\ y -> VH.LtN (len y) (len p)) (consL x h) p (W.sym H p (consL x h) e2) lt0))
+      (\ e2 -> r p e2 (VH.ltPredL (len h) (len p) lt0)) e1 } ;
+  -- two prefixes of h: the shorter one is a prefix of the tail of the longer
+  tailsLt : (h p p' : H) -> Pre p h -> Pre p' h -> VH.LtN (len p) (len p') -> Pre p (tlH p') = split {
+    nilL -> \ p p' e1 e1' lt0 -> W.absurdE (Pre p (tlH p'))
+      (W.subst H (\ y -> VH.isPos (len y)) p' nilL e1' (VH.posLt (len p) (len p') lt0)) ;
+    consL x h | r -> \ p p' e1 e1' lt0 -> oe (Id H p' (consL x h)) (Pre p' h) (Pre p (tlH p'))
+      (\ e2' -> W.subst H (\ y -> Pre p (tlH y)) (consL x h) p' (W.sym H p' (consL x h) e2')
+        (oe (Id H p (consL x h)) (Pre p h) (Pre p h)
+          (\ e2 -> W.absurdE (Pre p h) (VH.ltIrr (len (consL x h))
+            (W.subst H (\ y -> VH.LtN (len (consL x h)) (len y)) p' (consL x h) e2'
+              (W.subst H (\ y -> VH.LtN (len y) (len p')) p (consL x h) e2 lt0))))
+          (\ e3 -> e3) e1))
+      (\ e3' -> r p p' (oe (Id H p (consL x h)) (Pre p h) (Pre p h)
+          (\ e2 -> W.absurdE (Pre p h) (preLen h p' e3' (VH.ltPredL (len h) (len p')
+            (W.subst H (\ y -> VH.LtN (len y) (len p')) p (consL x h) e2 lt0))))
+          (\ e3 -> e3) e1) e3' lt0) e1' } ;
+
+  -- goodness of histories
+  Gd (c : C) (h : H) : U l = VO1.upH h c nilL ;
+  upBase : (h : H) (c : C) (s : H) -> A c s -> VO1.upH h c s = split {
+    nilL -> \ c s a -> a ; consL x h | r -> \ c s a -> inl (r c s a) } ;
+  upPre : (h' h : H) (c : C) (s : H) -> Pre h h' -> VO1.upH h c s -> VO1.upH h' c s = split {
+    nilL -> \ h c s e1 g -> W.subst H (\ y -> VO1.upH y c s) h nilL e1 g ;
+    consL y u | r -> \ h c s e1 g -> oe (Id H h (consL y u)) (Pre h u) (VO1.upH (consL y u) c s)
+      (\ e2 -> W.subst H (\ x -> VO1.upH x c s) h (consL y u) e2 g)
+      (\ e2 -> inl (r h c s e2 g)) e1 } ;
+  -- an element x before an element y with e x y makes h good
+  goodAt (h : H) (x : X0) (p0 q0 : H) (y : X0) (c : C) (pre : Pre (consL x p0) q0) (ee : e c x y)
+    (pre' : Pre (consL y q0) h) : Gd c h =
+    upPre h (consL y q0) c nilL pre'
+      (inr (upPre q0 (consL x p0) c (consL y nilL) pre
+        (inr (upBase p0 c (consL x (consL y nilL)) ee)))) ;
+  monoA : VRX.Mono A = VRX.monoRel2 e e-mono ;
+  upMono : (h : H) -> VRX.Mono (VO1.upH h) = split {
+    nilL -> monoA ; consL x h | r -> VRX.monoUp (VO1.upH h) r x } ;
+  -- a subsequence of q followed by t: q good, one element of q before t, or t
+  Pos (q : H) (c : C) (t : H) : U l = (x : X0) * ((p0 : H) * (Pre (consL x p0) q * VRX.rel1 e x c t)) ;
+  Dcmp (q : H) (c : C) (t : H) : U l = W.Or (Gd c q) (W.Or (Pos q c t) (A c t)) ;
+  dLift (x : X0) (q : H) (c : C) (t : H) (d : Dcmp q c t) : Dcmp (consL x q) c t =
+    oe (Gd c q) (W.Or (Pos q c t) (A c t)) (Dcmp (consL x q) c t)
+      (\ g -> inl (inl g))
+      (\ d1 -> oe (Pos q c t) (A c t) (Dcmp (consL x q) c t)
+        (\ ps -> inr (inl (ps.1,(ps.2.1,(inr ps.2.2.1,ps.2.2.2)))))
+        (\ a -> inr (inr a)) d1) d ;
+  dShift (x : X0) (q : H) (c : C) (t : H) (d : Dcmp q c (consL x t)) : Dcmp (consL x q) c t =
+    oe (Gd c q) (W.Or (Pos q c (consL x t)) (A c (consL x t))) (Dcmp (consL x q) c t)
+      (\ g -> inl (inl g))
+      (\ d1 -> oe (Pos q c (consL x t)) (A c (consL x t)) (Dcmp (consL x q) c t)
+        (\ ps -> inl (goodAt (consL x q) ps.1 ps.2.1 q x c ps.2.2.1 ps.2.2.2 (preRefl (consL x q))))
+        (\ a -> inr (inl (x,(q,(preRefl (consL x q),a))))) d1) d ;
+  decomp : (q : H) (c : C) (t : H) -> VO1.upH q c t -> Dcmp q c t = split {
+    nilL -> \ c t a -> inr (inr a) ;
+    consL x q | r -> \ c t e1 -> oe (VO1.upH q c t) (VO1.upH q c (consL x t)) (Dcmp (consL x q) c t)
+      (\ e2 -> dLift x q c t (r c t e2)) (\ e2 -> dShift x q c t (r c (consL x t) e2)) e1 } ;
+
+  -- the poset C' = M(B)
+  Cp : U l = (c : C) * ((h : H) * (ValidH c h * VO1.M c h)) ;
+  lep (a b : Cp) : U l = le a.1 b.1 * Pre a.2.1 b.2.1 ;
+  lep-refl (a : Cp) : lep a a = (le-refl a.1,preRefl a.2.1) ;
+  lep-trans (a b d : Cp) (p : lep a b) (q : lep b d) : lep a d =
+    (le-trans a.1 b.1 d.1 p.1 q.1,preTrans a.2.1 b.2.1 d.2.1 p.2 q.2) ;
+  K (a : Cp) : U l = Gd a.1 a.2.1 ;
+  kMono (a b : Cp) (p : lep a b) (k : K a) : K b =
+    upPre b.2.1 a.2.1 b.1 nilL p.2 (upMono a.2.1 a.1 b.1 p.1 nilL k) ;
+  -- a new state: the history of a extended by a valid u at c1 above
+  newSt (a : Cp) (c1 : C) (l : le a.1 c1) (u : X0) (vu : X c1 u) (mu : VO1.M c1 (consL u a.2.1)) : Cp =
+    (c1,(consL u a.2.1,((vu,validMono a.1 c1 l a.2.1 a.2.2.1),mu))) ;
+
+  -- Z-letters (v, u, q): v a component of the element u at position u q
+  Zl : U l = X0 * (X0 * H) ;
+  pz (x : Zl) : H = consL x.2.1 x.2.2 ;
+  Xz (a : Cp) (x : Zl) : U l = Pre (pz x) a.2.1 * lt x.1 x.2.1 ;
+  xzMono (a b : Cp) (p : lep a b) (x : Zl) (m : Xz a x) : Xz b x = (preTrans (pz x) a.2.1 b.2.1 m.1 p.2,m.2) ;
+  R (a : Cp) (x x' : Zl) : U l = VH.LtN (len x.2.2) (len x'.2.2) -> W.Or (e a.1 x.1 x'.1) (K a) ;
+  module VRZ = VR.On[Cp,lep,lep-refl,lep-trans,Zl,Xz] ;
+  rMono : VRZ.RelMono R = \ a b p x x' r lt0 ->
+    oe (e a.1 x.1 x'.1) (K a) (W.Or (e b.1 x.1 x'.1) (K b))
+      (\ e1 -> inl (e-mono a.1 b.1 p.1 x.1 x'.1 e1)) (\ k -> inr (kMono a b p k)) (r lt0) ;
+  RR : VRZ.Pred = VRZ.rel2 R ;
+  qK (a : Cp) (x y : Zl) (k : K a) : RR a (consL x (consL y nilL)) = \ lt0 -> inr k ;
+  module EZ = VH.Esc[Cp,lep,lep-refl,lep-trans,Zl,Xz,K,kMono,RR,qK] ;
+
+  -- the map F: a Z-letter goes to its component v, at the underlying state
+  fZ (a : Cp) : C = a.1 ;
+  fZm (a b : Cp) (p : lep a b) : le a.1 b.1 = p.1 ;
+  gZ (x : Zl) : X0 = x.1 ;
+  gZX (a : Cp) (x : Zl) (m : Xz a x) : X a.1 x.1 =
+    lt-valid a.1 x.1 x.2.1 m.2 (validPre a.1 a.2.1 (pz x) m.1 a.2.2.1).1 ;
+  module MXZ = VH.Map[C,le,le-refl,le-trans,X0,X,Cp,lep,lep-refl,lep-trans,Zl,Xz,xzMono,fZ,fZm,gZ,gZX] ;
+
+  module F (a1 : Cp) (z1 : Zl) (m1 : Xz a1 z1) {
+    v1 : X0 = z1.1 ; u1 : X0 = z1.2.1 ; q1 : H = z1.2.2 ;
+    p1 : H = consL z1.2.1 z1.2.2 ;
+    Pz (a : Cp) (s : W.List Zl) : U l = EZ.upL EZ.Qk (consL z1 nilL) a s ;
+    preP1 (a : Cp) (l : lep a1 a) : Pre p1 a.2.1 = preTrans p1 a1.2.1 a.2.1 m1.1 l.2 ;
+    preQ1 (a : Cp) (l : lep a1 a) : Pre q1 a.2.1 = preTrans q1 p1 a.2.1 (preCons q1 u1) (preP1 a l) ;
+    viaK (a : Cp) (s : W.List Zl) (k : K a) : Pz a s = inl (inr k) ;
+    viaS (a : Cp) (s : W.List Zl) (r : RR a s) : Pz a s = inl (inl r) ;
+    viaZ1 (a : Cp) (s : W.List Zl) (r : RR a (consL z1 s)) : Pz a s = inr (inl r) ;
+    kQ (a : Cp) (l : lep a1 a) (g : Gd a.1 q1) : K a = upPre a.2.1 q1 a.1 nilL (preQ1 a l) g ;
+    -- an element of q1 below the first image component
+    posS (a : Cp) (l : lep a1 a) : (s : W.List Zl) -> MXZ.InvS a s -> Pos q1 a.1 (MXZ.mapL s) -> Pz a s = split {
+      nilL -> \ inv ps -> W.absurdE (Pz a nilL) ps.2.2.2 ;
+      consL x s -> \ inv ps -> oe (VH.LtN (len q1) (len x.2.2)) (VH.LtN (len q1) (len x.2.2) -> W.Empty) (Pz a (consL x s))
+        (\ lt0 -> viaK a (consL x s) (goodAt a.2.1 ps.1 ps.2.1 x.2.2 x.2.1 a.1
+           (preTrans (consL ps.1 ps.2.1) q1 x.2.2 ps.2.2.1
+             (preTrans q1 p1 x.2.2 (preCons q1 u1) (tailsLt a.2.1 p1 (pz x) (preP1 a l) inv.1 lt0)))
+           (eSub a.1 ps.1 x.1 x.2.1 inv.2 ps.2.2.2) inv.1))
+        (\ nlt -> viaZ1 a (consL x s) (\ lt0 -> W.absurdE (W.Or (e a.1 v1 x.1) (K a)) (nlt lt0)))
+        (VH.decLt (len q1) (len x.2.2)) } ;
+    -- an element of q1 below v1
+    posW (a : Cp) (l : lep a1 a) (s : W.List Zl) (ps : Pos q1 a.1 (consL v1 (MXZ.mapL s))) : Pz a s =
+      viaK a s (goodAt a.2.1 ps.1 ps.2.1 q1 u1 a.1 ps.2.2.1 (eSub a.1 ps.1 v1 u1 m1.2 ps.2.2.2) (preP1 a l)) ;
+    -- two image components
+    aS1 (a : Cp) (x : Zl) : (s : W.List Zl) -> VRX.rel1 e x.1 a.1 (MXZ.mapL s) -> Pz a (consL x s) = split {
+      nilL -> \ r -> W.absurdE (Pz a (consL x nilL)) r ;
+      consL x' s -> \ r -> viaS a (consL x (consL x' s)) (\ lt0 -> inl r) } ;
+    aS (a : Cp) : (s : W.List Zl) -> A a.1 (MXZ.mapL s) -> Pz a s = split {
+      nilL -> \ r -> W.absurdE (Pz a nilL) r ; consL x s -> aS1 a x s } ;
+    -- v1 and an image component
+    aW (a : Cp) : (s : W.List Zl) -> VRX.rel1 e v1 a.1 (MXZ.mapL s) -> Pz a s = split {
+      nilL -> \ r -> W.absurdE (Pz a nilL) r ;
+      consL x s -> \ r -> viaZ1 a (consL x s) (\ lt0 -> inl r) } ;
+    rel0 : MXZ.RelP (VO1.upH (consL v1 q1)) (EZ.upL EZ.Qk (consL z1 nilL)) a1 = \ a l s inv r ->
+      oe (VO1.upH q1 a.1 (MXZ.mapL s)) (VO1.upH q1 a.1 (consL v1 (MXZ.mapL s))) (Pz a s)
+        (\ e1 -> oe (Gd a.1 q1) (W.Or (Pos q1 a.1 (MXZ.mapL s)) (A a.1 (MXZ.mapL s))) (Pz a s)
+          (\ g -> viaK a s (kQ a l g))
+          (\ d -> oe (Pos q1 a.1 (MXZ.mapL s)) (A a.1 (MXZ.mapL s)) (Pz a s) (posS a l s inv) (aS a s) d)
+          (decomp q1 a.1 (MXZ.mapL s) e1))
+        (\ e1 -> oe (Gd a.1 q1) (W.Or (Pos q1 a.1 (consL v1 (MXZ.mapL s))) (A a.1 (consL v1 (MXZ.mapL s)))) (Pz a s)
+          (\ g -> viaK a s (kQ a l g))
+          (\ d -> oe (Pos q1 a.1 (consL v1 (MXZ.mapL s))) (A a.1 (consL v1 (MXZ.mapL s))) (Pz a s)
+            (posW a l s) (aW a s) d)
+          (decomp q1 a.1 (consL v1 (MXZ.mapL s)) e1)) r ;
+    -- q1 v1 is below the history of a1, hence secured (M)
+    ltw : VO1.WD.LtW (consL v1 q1) a1.2.1 = (q1,(v1,(u1,(refl (consL v1 q1),(m1.2,m1.1))))) ;
+    vv1 : ValidH a1.1 (consL v1 q1) =
+      (lt-valid a1.1 v1 u1 m1.2 (validPre a1.1 a1.2.1 p1 m1.1 a1.2.2.1).1,(validPre a1.1 a1.2.1 p1 m1.1 a1.2.2.1).2) ;
+    eV : VO1.E a1.1 (consL v1 q1) = a1.2.2.2 a1.1 (le-refl a1.1) (consL v1 q1) ltw vv1 ;
+    bz : VRZ.Bar (EZ.upL EZ.Qk (consL z1 nilL)) a1 =
+      MXZ.barMap eV.1 (VO1.upH (consL v1 q1)) (EZ.upL EZ.Qk (consL z1 nilL)) a1 eV.2 rel0 ;
+    result : VRZ.Bar (VRZ.up RR z1) a1 = EZ.esc bz.1 nilL z1 a1 bz.2 ;
+  } ;
+  -- R is almost full
+  afR : VRZ.AFR R = \ a -> VRZ.node RR a (\ a1 z1 l m1 -> F[a1,z1,m1].result) ;
+} ;

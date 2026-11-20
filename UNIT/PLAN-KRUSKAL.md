@@ -29,6 +29,28 @@ words, postulate-free, in All.seg.  Deviations from the sketch below:
   product tree calling `VarOpen.prop` at each node; empty new words give a
   bar in one step (`oneStep`), so G just skips empty words.
 
+## Done: variable Kruskal, kruskal2 Prop 5 (`VarMinBad.seg`, `VarKruskal.seg`, 2026-11-20)
+`Kruskal[C,le,..,Y0,Y,Y-mono,prec,prec-mono,af].kruskal : AFR embT` for
+finite trees with labels in a set Y over C (the paper only states the
+ordinary version; the variable one costs nothing here).  Postulate-free.
+- `VarMinBad.On`: the part shared by Props 4 and 5, generic in a
+  well-founded "component" relation lt (closed for validity) and an
+  increasing e with `eSub : lt v u -> e x v -> e x u`: prefixes/lengths,
+  goodness, C' = M(B), Z-letters (v, u, q) with `lt v u`, R, `afR` (map F).
+  VarHigman predates it and keeps its own copy (not ported).
+- Trees: `data F = fnil | fcons y k r` (forests), `Tr = Y0 * F`; lt =
+  "immediate subtree"; `embT` by recursion on the target forest (`opsF`
+  returns the Higman embedding into it and "embeds in one of its trees").
+- R^W almost full: `VarHigman.Higman` instantiated on Z over C'.
+- Product letters (u, q) (tree + position), components root and the word
+  `ws` of Z-letters of its immediate subtrees; `afInter` after pull-backs.
+- `KZ.kzEmb`: R^W between words of positions in order => forests embed or
+  K; `mainT`/`thm` as in VarHigman, no empty-word case.
+
+## Then (updated)
+- Uniform version (freund1 Thm 3.10): replace "forests + Higman on Z" by a
+  dilator-like W with "W preserves almost-fullness over variable sets".
+
 ## Design decisions for Props 4–5
 - (commit after 53e8535) VarRamsey trees are **labelled and
   proof-dependent**: `sp st0 f` with `f c x : le st0 c -> X c x -> WT`, and

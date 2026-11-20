@@ -1,0 +1,247 @@
+-- Kruskal's tree theorem over a set over a poset (Th. Coquand, "An
+-- inductive proof of Kruskal's theorem", Proposition 5, here in the
+-- variable form), in the encoding of VarRamsey and VarOpen.
+--
+-- Y is a set over (C, le) with an increasing relation prec that is almost
+-- full.  Finite trees with labels in Y are pairs (root, forest); forests
+-- are the inductive type F (fcons y k r: the tree (y, k) followed by the
+-- forest r).  embT is the homeomorphic embedding: t embeds in (y', k') if
+-- the roots are related and the forest of t embeds in k' (Higman, embF),
+-- or t embeds in an immediate subtree; it is defined by recursion on the
+-- target forest (opsF).  The order for open induction is "is an immediate
+-- subtree of".
+--
+-- VarMinBad gives the poset C' = M(B), the Z-letters (immediate subtree v
+-- of the tree u at the position u q) and the almost-full relation R on Z.
+-- Variable Higman (VarHigman) on Z over C' gives that R^W is almost full.
+-- A product letter (u, q) is a tree with its position; its components are
+-- the root of u and the word ws (u, q) of the Z-letters of its immediate
+-- subtrees.  The product of prec and R^W is almost full (afInter after
+-- pull-backs); mainT recurses on a bar of the product, calling
+-- Proposition 1 at each node (a new tree u is the letter (u, h): the map G
+-- of the paper); a product-good pair of letters makes the history good
+-- (kzEmb: R^W between the words of two positions in order gives the
+-- embedding of the forests, or the history is already good).
+level l ;
+module W = Dilator[l] ;
+module TB = TransBar[l] ;
+module VR = VarRamsey[l] ;
+module VH = VarHigman[l] ;
+module MBd = VarMinBad[l] ;
+
+oe (A B C : U l) (f : A -> C) (g : B -> C) (e : W.Or A B) : C = TB.orElim A B C f g e ;
+
+module Kruskal (C : U l) (le : C -> C -> U l)
+  (le-refl : (p : C) -> le p p) (le-trans : (p q r : C) -> le p q -> le q r -> le p r)
+  (Y0 : U l) (Y : C -> Y0 -> U l) (Y-mono : (p q : C) -> le p q -> (y : Y0) -> Y p y -> Y q y)
+  (prec : C -> Y0 -> Y0 -> U l) (prec-mono : (p q : C) -> le p q -> (x y : Y0) -> prec p x y -> prec q x y)
+  (af : VR.On[C,le,le-refl,le-trans,Y0,Y].AFR prec) {
+  module VRY = VR.On[C,le,le-refl,le-trans,Y0,Y] ;
+
+  -- trees and forests
+  data F : U l = fnil | fcons (y : Y0) (k : F) (r : F) ;
+  Tr : U l = Y0 * F ;
+  Elem (t : Tr) : F -> U l = split { fnil -> W.Empty ; fcons y k r | rk rr -> W.Or (Id Tr t (y,k)) rr } ;
+  ltT (v u : Tr) : U l = Elem v u.2 ;
+  module AT = TB.AccU[Tr,ltT] ;
+  accF : (ks : F) (x : Tr) -> Elem x ks -> AT.AccP x = split {
+    fnil -> \ x e -> W.absurdE (AT.AccP x) e ;
+    fcons y k r | rk rr -> \ x e -> oe (Id Tr x (y,k)) (Elem x r) (AT.AccP x)
+      (\ e1 -> W.subst Tr AT.AccP (y,k) x (W.sym Tr x (y,k) e1) (AT.acc (y,k) (\ z1 ez -> rk z1 ez)))
+      (\ e1 -> rr x e1) e } ;
+  wfT : AT.WF = \ t -> AT.acc t (\ x ex -> accF t.2 x ex) ;
+
+  -- labels valid at a state
+  AllF (c : C) : F -> U l = split { fnil -> W.Unit ; fcons y k r | rk rr -> Y c y * (rk * rr) } ;
+  AllT (c : C) (t : Tr) : U l = Y c t.1 * AllF c t.2 ;
+  allFMono (p q : C) (h : le p q) : (ks : F) -> AllF p ks -> AllF q ks = split {
+    fnil -> \ v -> tt ;
+    fcons y k r | rk rr -> \ v -> (Y-mono p q h y v.1,(rk v.2.1,rr v.2.2)) } ;
+  allTMono (p q : C) (h : le p q) (t : Tr) (v : AllT p t) : AllT q t =
+    (Y-mono p q h t.1 v.1,allFMono p q h t.2 v.2) ;
+  elemValid (c : C) (t : Tr) : (ks : F) -> Elem t ks -> AllF c ks -> AllT c t = split {
+    fnil -> \ e v -> W.absurdE (AllT c t) e ;
+    fcons y k r | rk rr -> \ e v -> oe (Id Tr t (y,k)) (Elem t r) (AllT c t)
+      (\ e1 -> W.subst Tr (AllT c) (y,k) t (W.sym Tr t (y,k) e1) (v.1,v.2.1)) (\ e1 -> rr e1 v.2.2) e } ;
+  ltValid (c : C) (v u : Tr) (l : ltT v u) (vu : AllT c u) : AllT c v = elemValid c v u.2 l vu.2 ;
+
+  -- the homeomorphic embedding, by recursion on the target forest:
+  -- (opsF c ks').1 ks is the Higman embedding of ks in ks', and
+  -- (opsF c ks').2 t says that t embeds in a tree of ks'.
+  Ops : U l+ = (F -> U l) * (Tr -> U l) ;
+  embTop (c : C) (y' : Y0) (o : Ops) (t : Tr) : U l = W.Or (prec c t.1 y' * o.1 t.2) (o.2 t) ;
+  embF0 : F -> U l = split { fnil -> W.Unit ; fcons y k r -> W.Empty } ;
+  embFC (T : Tr -> U l) (o : Ops) : F -> U l = split {
+    fnil -> W.Unit ; fcons y k r -> W.Or (T (y,k) * o.1 r) (o.1 (fcons y k r)) } ;
+  opsF (c : C) : F -> Ops = split {
+    fnil -> (embF0,\ t -> W.Empty) ;
+    fcons y' k' r' | rk rr -> (embFC (embTop c y' rk) rr,\ t -> W.Or (embTop c y' rk t) (rr.2 t)) } ;
+  embT (c : C) (t t' : Tr) : U l = embTop c t'.1 (opsF c t'.2) t ;
+  embF (c : C) (ks ks' : F) : U l = (opsF c ks').1 ks ;
+
+  -- embedding in an immediate subtree
+  anySub (c : C) (x : Tr) : (ks : F) (v : Tr) -> Elem v ks -> embT c x v -> (opsF c ks).2 x = split {
+    fnil -> \ v e ee -> W.absurdE W.Empty e ;
+    fcons y k r | rk rr -> \ v e ee -> oe (Id Tr v (y,k)) (Elem v r) ((opsF c (fcons y k r)).2 x)
+      (\ e1 -> inl (W.subst Tr (\ w -> embT c x w) v (y,k) e1 ee)) (\ e1 -> inr (rr v e1 ee)) e } ;
+  embSub (c : C) (x v u : Tr) (l : ltT v u) (ee : embT c x v) : embT c x u = inr (anySub c x u.2 v l ee) ;
+
+  -- the embedding is increasing in the state
+  MonoP (c c' : C) (ks' : F) : U l =
+    ((ks : F) -> (opsF c ks').1 ks -> (opsF c' ks').1 ks) * ((t : Tr) -> (opsF c ks').2 t -> (opsF c' ks').2 t) ;
+  topMono (c c' : C) (h : le c c') (y' : Y0) (k' : F) (mk : MonoP c c' k') (t : Tr)
+    (ee : embTop c y' (opsF c k') t) : embTop c' y' (opsF c' k') t =
+    oe (prec c t.1 y' * (opsF c k').1 t.2) ((opsF c k').2 t) (embTop c' y' (opsF c' k') t)
+      (\ p -> inl (prec-mono c c' h t.1 y' p.1,mk.1 t.2 p.2)) (\ q -> inr (mk.2 t q)) ee ;
+  embFCMono (T T' : Tr -> U l) (o o' : Ops) (tm : (t : Tr) -> T t -> T' t) (om : (ks : F) -> o.1 ks -> o'.1 ks) :
+    (ks : F) -> embFC T o ks -> embFC T' o' ks = split {
+    fnil -> \ ee -> ee ;
+    fcons y k r -> \ ee -> oe (T (y,k) * o.1 r) (o.1 (fcons y k r)) (embFC T' o' (fcons y k r))
+      (\ p -> inl (tm (y,k) p.1,om r p.2)) (\ q -> inr (om (fcons y k r) q)) ee } ;
+  opsMono (c c' : C) (h : le c c') : (ks' : F) -> MonoP c c' ks' = split {
+    fnil -> (\ ks ee -> ee,\ t ee -> ee) ;
+    fcons y' k' r' | rk rr ->
+      (embFCMono (embTop c y' (opsF c k')) (embTop c' y' (opsF c' k')) (opsF c r') (opsF c' r')
+         (topMono c c' h y' k' rk) rr.1,
+       \ t ee -> oe (embTop c y' (opsF c k') t) ((opsF c r').2 t) ((opsF c' (fcons y' k' r')).2 t)
+         (\ p -> inl (topMono c c' h y' k' rk t p)) (\ q -> inr (rr.2 t q)) ee) } ;
+  embTMono (p q : C) (h : le p q) (x y : Tr) (ee : embT p x y) : embT q x y =
+    topMono p q h y.1 y.2 (opsMono p q h y.2) x ee ;
+
+  -- the generic part: C' = M(B), Z-letters, R almost full
+  module MB = MBd.On[C,le,le-refl,le-trans,Tr,AllT,allTMono,ltT,wfT,ltValid,embT,embTMono,embSub] ;
+  -- variable Higman on Z over C': R^W is almost full
+  module HW = VH.Higman[MB.Cp,MB.lep,MB.lep-refl,MB.lep-trans,MB.Zl,MB.Xz,MB.xzMono,MB.R,MB.rMono,MB.afR] ;
+
+  -- the word of the immediate subtrees of u, at the position u q
+  kz (u : Tr) (q : MB.H) : F -> W.List MB.Zl = split {
+    fnil -> nilL ; fcons y k r | rk rr -> consL ((y,k),(u,q)) rr } ;
+  kzAll (a : MB.Cp) (u : Tr) (q : MB.H) (pre : MB.Pre (consL u q) a.2.1) :
+    (ks : F) -> ((v : Tr) -> Elem v ks -> Elem v u.2) -> HW.All a (kz u q ks) = split {
+    fnil -> \ sub -> tt ;
+    fcons y k r | rk rr -> \ sub -> ((pre,sub (y,k) (inl (refl (y,k)))),rr (\ v ev -> sub v (inr ev))) } ;
+
+  -- product letters: trees with their positions
+  PL : U l = Tr * MB.H ;
+  ws (p : PL) : W.List MB.Zl = kz p.1 p.2 p.1.2 ;
+  Xs (a : MB.Cp) (p : PL) : U l = Y a.1 p.1.1 * HW.All a (ws p) ;
+  xsMono (a b : MB.Cp) (h : MB.lep a b) (p : PL) (m : Xs a p) : Xs b p =
+    (Y-mono a.1 b.1 h.1 p.1.1 m.1,HW.allMono a b h (ws p) m.2) ;
+  module VRS = VR.On[MB.Cp,MB.lep,MB.lep-refl,MB.lep-trans,PL,Xs] ;
+  S1 (a : MB.Cp) (p p' : PL) : U l = prec a.1 p.1.1 p'.1.1 ;
+  S2 (a : MB.Cp) (p p' : PL) : U l = HW.emb a (ws p) (ws p') ;
+  -- pull-back of prec along the roots
+  gY (p : PL) : Y0 = p.1.1 ;
+  gYX (a : MB.Cp) (p : PL) (m : Xs a p) : Y a.1 p.1.1 = m.1 ;
+  module MYS = VH.Map[C,le,le-refl,le-trans,Y0,Y,MB.Cp,MB.lep,MB.lep-refl,MB.lep-trans,PL,Xs,xsMono,MB.fZ,MB.fZm,gY,gYX] ;
+  rel1Y (a : MB.Cp) (x : PL) : (s : W.List PL) -> VRY.rel1 prec x.1.1 a.1 (MYS.mapL s) -> VRS.rel1 S1 x a s = split {
+    nilL -> \ e -> e ; consL x' s -> \ e -> e } ;
+  relY (a : MB.Cp) : (s : W.List PL) -> VRY.rel2 prec a.1 (MYS.mapL s) -> VRS.rel2 S1 a s = split {
+    nilL -> \ e -> e ; consL x s -> rel1Y a x s } ;
+  afS1 : VRS.AFR S1 = \ a -> MYS.barMap (af a.1).1 (VRY.rel2 prec) (VRS.rel2 S1) a (af a.1).2
+    (\ a' l s inv e -> relY a' s e) ;
+  -- pull-back of R^W along the words of subtrees
+  idC (a : MB.Cp) : MB.Cp = a ;
+  idCm (a b : MB.Cp) (h : MB.lep a b) : MB.lep a b = h ;
+  gWS (a : MB.Cp) (p : PL) (m : Xs a p) : HW.All a (ws p) = m.2 ;
+  module MWS = VH.Map[MB.Cp,MB.lep,MB.lep-refl,MB.lep-trans,HW.L1,HW.All,MB.Cp,MB.lep,MB.lep-refl,MB.lep-trans,PL,Xs,xsMono,idC,idCm,ws,gWS] ;
+  rel1W (a : MB.Cp) (x : PL) : (s : W.List PL) -> HW.VRX.rel1 HW.embR (ws x) a (MWS.mapL s) -> VRS.rel1 S2 x a s = split {
+    nilL -> \ e -> e ; consL x' s -> \ e -> e } ;
+  relW (a : MB.Cp) : (s : W.List PL) -> HW.VRX.rel2 HW.embR a (MWS.mapL s) -> VRS.rel2 S2 a s = split {
+    nilL -> \ e -> e ; consL x s -> rel1W a x s } ;
+  afS2 : VRS.AFR S2 = \ a -> MWS.barMap (HW.higman a).1 (HW.VRX.rel2 HW.embR) (VRS.rel2 S2) a (HW.higman a).2
+    (\ a' l s inv e -> relW a' s e) ;
+  s1Mono : VRS.RelMono S1 = \ a b h x y e -> prec-mono a.1 b.1 h.1 x.1.1 y.1.1 e ;
+  s2Mono : VRS.RelMono S2 = \ a b h x y e -> HW.embMono a b h (ws x) (ws y) e ;
+  SS : VRS.Rel = VRS.inter S1 S2 ;
+  afS : VRS.AFR SS = VRS.afInter S1 S2 s1Mono s2Mono afS1 afS2 ;
+
+  -- R^W between the words of two positions in order: the forests embed,
+  -- or the history is good
+  Goal (a : MB.Cp) (ks ks' : F) : U l = W.Or (MB.K a) (embF a.1 ks ks') ;
+  module KZ (a : MB.Cp) (u : Tr) (q : MB.H) (u' : Tr) (q' : MB.H) (lq : VH.LtN (MB.len q) (MB.len q')) {
+    kzE0 : (ks : F) -> HW.emb a (kz u q ks) nilL -> Goal a ks fnil = split {
+      fnil -> \ ee -> inr tt ; fcons y k r -> \ ee -> W.absurdE (Goal a (fcons y k r) fnil) ee } ;
+    kzEC (y' : Y0) (k' r' : F) (rr : (ks : F) -> HW.emb a (kz u q ks) (kz u' q' r') -> Goal a ks r') :
+      (ks : F) -> HW.emb a (kz u q ks) (kz u' q' (fcons y' k' r')) -> Goal a ks (fcons y' k' r') = split {
+      fnil -> \ ee -> inr tt ;
+      fcons y k r -> \ ee ->
+        oe (MB.R a ((y,k),(u,q)) ((y',k'),(u',q')) * HW.emb a (kz u q r) (kz u' q' r'))
+          (HW.emb a (kz u q (fcons y k r)) (kz u' q' r')) (Goal a (fcons y k r) (fcons y' k' r'))
+          (\ p -> oe (embT a.1 (y,k) (y',k')) (MB.K a) (Goal a (fcons y k r) (fcons y' k' r'))
+            (\ t -> oe (MB.K a) (embF a.1 r r') (Goal a (fcons y k r) (fcons y' k' r'))
+              (\ k0 -> inl k0) (\ f -> inr (inl (t,f))) (rr r p.2))
+            (\ k0 -> inl k0) (p.1 lq))
+          (\ p -> oe (MB.K a) (embF a.1 (fcons y k r) r') (Goal a (fcons y k r) (fcons y' k' r'))
+            (\ k0 -> inl k0) (\ f -> inr (inr f)) (rr (fcons y k r) p))
+          ee } ;
+    kzEmb : (ks' ks : F) -> HW.emb a (kz u q ks) (kz u' q' ks') -> Goal a ks ks' = split {
+      fnil -> kzE0 ;
+      fcons y' k' r' | rk rr -> kzEC y' k' r' rr } ;
+  } ;
+
+  -- the map G: the letters of a history
+  G : MB.H -> W.List PL = split { nilL -> nilL ; consL u h | r -> consL (u,h) r } ;
+  upS (B : VRS.Pred) : W.List PL -> VRS.Pred = split { nilL -> B ; consL x s | r -> VRS.up r x } ;
+  upBaseS (B : VRS.Pred) : (zs : W.List PL) (a : MB.Cp) (s : W.List PL) -> B a s -> upS B zs a s = split {
+    nilL -> \ a s e -> e ; consL x zs | r -> \ a s e -> inl (r a s e) } ;
+  BS : VRS.Pred = VRS.rel2 SS ;
+
+  -- a product-good subsequence of G h1 (h1 a prefix of h) makes h good
+  pp (p : PL) : MB.H = consL p.1 p.2 ;
+  Inv2 (h : MB.H) (x : PL) : W.List PL -> U l = split {
+    nilL -> W.Unit ; consL x' s -> MB.Pre (pp x') h * VH.LtN (MB.len (pp x)) (MB.len (pp x')) } ;
+  InvG (h h1 : MB.H) : W.List PL -> U l = split {
+    nilL -> W.Unit ; consL x s -> MB.Pre (pp x) h * (VH.LtN (MB.len h1) (MB.len (pp x)) * Inv2 h x s) } ;
+  invWeak (h h1 h2 : MB.H) (lt0 : VH.LtN (MB.len h2) (MB.len h1)) : (s : W.List PL) -> InvG h h1 s -> InvG h h2 s = split {
+    nilL -> \ i -> tt ;
+    consL x s -> \ i -> (i.1,(VH.ltTrans (MB.len h2) (MB.len h1) (MB.len (pp x)) lt0 i.2.1,i.2.2)) } ;
+  inv2From (h : MB.H) (x0 : PL) : (s : W.List PL) -> InvG h (pp x0) s -> Inv2 h x0 s = split {
+    nilL -> \ i -> tt ; consL x' s -> \ i -> (i.1,i.2.1) } ;
+  base2 (a : MB.Cp) (x : PL) (i1 : MB.Pre (pp x) a.2.1) : (s : W.List PL) -> Inv2 a.2.1 x s -> VRS.rel1 SS x a s -> MB.K a = split {
+    nilL -> \ i e -> W.absurdE (MB.K a) e ;
+    consL x' s -> \ i e -> oe (MB.K a) (embF a.1 x.1.2 x'.1.2) (MB.K a)
+      (\ k -> k)
+      (\ f -> MB.goodAt a.2.1 x.1 x.2 x'.2 x'.1 a.1 (MB.tailsLt a.2.1 (pp x) (pp x') i1 i.1 i.2) (inl (e.1,f)) i.1)
+      (KZ[a,x.1,x.2,x'.1,x'.2,i.2].kzEmb x'.1.2 x.1.2 e.2) } ;
+  base (a : MB.Cp) : (s : W.List PL) -> InvG a.2.1 nilL s -> VRS.rel2 SS a s -> MB.K a = split {
+    nilL -> \ i e -> W.absurdE (MB.K a) e ;
+    consL x s -> \ i e -> base2 a x i.1 s i.2.2 e } ;
+  leafG (a : MB.Cp) : (h1 : MB.H) -> MB.Pre h1 a.2.1 -> (s : W.List PL) -> InvG a.2.1 h1 s -> upS BS (G h1) a s -> MB.K a = split {
+    nilL -> \ pre s i e -> base a s i e ;
+    consL u h2 | r -> \ pre s i e ->
+      oe (upS BS (G h2) a s) (upS BS (G h2) a (consL (u,h2) s)) (MB.K a)
+        (\ e1 -> r (MB.preTrans h2 (consL u h2) a.2.1 (MB.preCons h2 u) pre) s
+          (invWeak a.2.1 (consL u h2) h2 (VH.ltSuc (MB.len h2)) s i) e1)
+        (\ e1 -> r (MB.preTrans h2 (consL u h2) a.2.1 (MB.preCons h2 u) pre) (consL (u,h2) s)
+          (pre,(VH.ltSuc (MB.len h2),inv2From a.2.1 (u,h2) s i)) e1) e } ;
+
+  -- induction on a bar of the product, Proposition 1 at each node
+  MainStmt (t : VRS.WT) : U l = (a : MB.Cp) -> VRS.Sec t (upS BS (G a.2.1)) a -> MB.VO1.E a.1 a.2.1 ;
+  memb (a : MB.Cp) (c1 : C) (l : le a.1 c1) (u : Tr) (vu : AllT c1 u) (mu : MB.VO1.M c1 (consL u a.2.1)) :
+    Xs (MB.newSt a c1 l u vu mu) (u,a.2.1) =
+    (vu.1,kzAll (MB.newSt a c1 l u vu mu) u a.2.1 (MB.preRefl (consL u a.2.1)) u.2 (\ v ev -> ev)) ;
+  mainT : (t : VRS.WT) -> MainStmt t = split {
+    z -> \ a s -> MB.VRX.leaf (MB.VO1.upH a.2.1) a.1 (leafG a a.2.1 (MB.preRefl a.2.1) nilL tt s) ;
+    sp st0 f | r -> \ a s -> MB.VO1.prop a.1 a.2.1 a.2.2.2 (\ c1 u l vu mu ->
+      r (MB.newSt a c1 l u vu mu) (u,a.2.1)
+        (MB.lep-trans st0 a (MB.newSt a c1 l u vu mu) s.1 (l,MB.preCons a.2.1 u))
+        (memb a c1 l u vu mu)
+        (MB.newSt a c1 l u vu mu)
+        (s.2 (MB.newSt a c1 l u vu mu) (u,a.2.1)
+          (MB.lep-trans st0 a (MB.newSt a c1 l u vu mu) s.1 (l,MB.preCons a.2.1 u))
+          (l,MB.preCons a.2.1 u)
+          (memb a c1 l u vu mu))) } ;
+
+  -- the corollary of open induction
+  thmQ (h : MB.H) : U l = (st : C) -> MB.ValidH st h -> MB.VO1.E st h ;
+  stA (h : MB.H) (ih : (v : MB.H) -> MB.VO1.WD.LtW v h -> thmQ v) (st : C) (vh : MB.ValidH st h) : MB.Cp =
+    (st,(h,(vh,\ c l v hv vv -> ih v hv c vv))) ;
+  thmStep (h : MB.H) (ih : (v : MB.H) -> MB.VO1.WD.LtW v h -> thmQ v) : thmQ h = \ st vh ->
+    mainT (afS (stA h ih st vh)).1 (stA h ih st vh)
+      (VRS.secMono (afS (stA h ih st vh)).1 BS (upS BS (G h)) (stA h ih st vh)
+        (\ q l s e -> upBaseS BS (G h) q s e) (afS (stA h ih st vh)).2) ;
+  thm (h : MB.H) : thmQ h = MB.VO1.WD.AW.ind thmQ thmStep h (MB.VO1.WD.wfW h) ;
+  -- Proposition 5: the homeomorphic embedding of trees is almost full
+  kruskal : MB.VRX.AFR embT = \ st -> thm nilL st tt ;
+} ;
