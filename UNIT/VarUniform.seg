@@ -1,0 +1,186 @@
+-- A uniform Kruskal theorem (after Freund, Rathjen and Weiermann, "A
+-- uniform Kruskal theorem", Theorem 3.10), proved by the inductive method
+-- of Th. Coquand, "An inductive proof of Kruskal's theorem": the variable
+-- Higman lemma used in Proposition 5 is replaced by the hypothesis that W
+-- preserves almost-fullness of relations over sets over posets.
+--
+-- W is a container: shapes S, positions P s; W Z0 = (s : S) * (P s -> Z0).
+-- A relation R : Z0 -> Z1 -> U is lifted to Wl R between W Z0 and W Z1.
+-- Hypotheses on the lifting:
+--   wl-mono  monotone in R;
+--   wl-pull  natural: Wl R (h0 . g) (h1 . g') gives Wl (R . (h0 x h1)) g g';
+--   wl-or    Wl (R \/ K) gives K or Wl R, for a proposition K not depending
+--            on the arguments (classically a consequence of wl-mono);
+--   waf      for every set Z over a poset C and increasing almost-full R,
+--            the pointwise lifting is almost full on W Z (an element is
+--            valid at c when all its entries are).
+-- Terms: the W-type sup s f, ordered by the Kruskal rule (FRW Def. 3.4,
+-- or the Kruskal fixed point of Def. 3.7): x <= sup s' f' if x <= f' p for
+-- some position p, or the lifting of <= relates x (as an element of W T)
+-- and sup s' f'.  No normality is needed: the order is not required to be
+-- a partial order.
+--
+-- The proof is VarKruskal with W in place of "root and forest": VarMinBad
+-- over the trivial poset with lt = "immediate subterm"; a product letter
+-- (u, q) (term at its position) is sent to its element of W Z, the entry at
+-- p being the Z-letter (kid u p, u, q); waf gives that the lifting of R is
+-- almost full; wleaf: the lifting of R between two positions in order gives
+-- that the terms embed, or the history is good.
+level l ;
+module W = Dilator[l] ;
+module TB = TransBar[l] ;
+module VR = VarRamsey[l] ;
+module VH = VarHigman[l] ;
+module MBd = VarMinBad[l] ;
+
+oe (A B C : U l) (f : A -> C) (g : B -> C) (e : W.Or A B) : C = TB.orElim A B C f g e ;
+
+WZ (S : U l) (P : S -> U l) (Z0 : U l) : U l = (s : S) * (P s -> Z0) ;
+VW (S : U l) (P : S -> U l) (C : U l) (Z0 : U l) (Z : C -> Z0 -> U l) (c : C) (w : WZ S P Z0) : U l =
+  (p : P w.1) -> Z c (w.2 p) ;
+
+module Uniform (S : U l) (P : S -> U l)
+  (Wl : (Z0 Z1 : U l) -> (Z0 -> Z1 -> U l) -> (s : S) -> (P s -> Z0) -> (s' : S) -> (P s' -> Z1) -> U l)
+  (wl-mono : (Z0 Z1 : U l) (R R' : Z0 -> Z1 -> U l) -> ((x : Z0) (y : Z1) -> R x y -> R' x y) ->
+     (s : S) (g : P s -> Z0) (s' : S) (g' : P s' -> Z1) -> Wl Z0 Z1 R s g s' g' -> Wl Z0 Z1 R' s g s' g')
+  (wl-pull : (Z0 Z1 Z0' Z1' : U l) (h0 : Z0' -> Z0) (h1 : Z1' -> Z1) (R : Z0 -> Z1 -> U l)
+     (s : S) (g : P s -> Z0') (s' : S) (g' : P s' -> Z1') ->
+     Wl Z0 Z1 R s (\ p -> h0 (g p)) s' (\ p -> h1 (g' p)) -> Wl Z0' Z1' (\ x y -> R (h0 x) (h1 y)) s g s' g')
+  (wl-or : (Z0 Z1 : U l) (R : Z0 -> Z1 -> U l) (K : U l) (s : S) (g : P s -> Z0) (s' : S) (g' : P s' -> Z1) ->
+     Wl Z0 Z1 (\ x y -> W.Or (R x y) K) s g s' g' -> W.Or K (Wl Z0 Z1 R s g s' g'))
+  (waf : (C : U l) (le : C -> C -> U l) (le-refl : (p : C) -> le p p)
+     (le-trans : (p q r : C) -> le p q -> le q r -> le p r)
+     (Z0 : U l) (Z : C -> Z0 -> U l) (Z-mono : (p q : C) -> le p q -> (x : Z0) -> Z p x -> Z q x)
+     (R : C -> Z0 -> Z0 -> U l) (R-mono : (p q : C) -> le p q -> (x y : Z0) -> R p x y -> R q x y) ->
+     VR.On[C,le,le-refl,le-trans,Z0,Z].AFR R ->
+     VR.On[C,le,le-refl,le-trans,WZ S P Z0,VW S P C Z0 Z].AFR (\ c w w' -> Wl Z0 Z0 (R c) w.1 w.2 w'.1 w'.2)) {
+
+  -- terms
+  data T : U l = sup (s : S) (f : P s -> T) ;
+  sh : T -> S = split { sup s f -> s } ;
+  kid : (x : T) -> P (sh x) -> T = split { sup s f -> f } ;
+  ltT (v u : T) : U l = (p : P (sh u)) * Id T (kid u p) v ;
+  module AT = TB.AccU[T,ltT] ;
+  wfT : AT.WF = split {
+    sup s f | r -> AT.acc (sup s f) (\ y h -> W.subst T AT.AccP (f h.1) y h.2 (r h.1)) } ;
+
+  -- the Kruskal order, by recursion on the target
+  embR : T -> T -> U l = split {
+    sup s' f' | r -> \ x -> W.Or ((p : P s') * r p x) (Wl T (P s') (\ v p -> r p v) (sh x) (kid x) s' (\ p -> p)) } ;
+  embT (x y : T) : U l = embR y x ;
+  eSubT : (u : T) (x v : T) -> ltT v u -> embT x v -> embT x u = split {
+    sup s f -> \ x v l ee -> inl (l.1,W.subst T (\ w -> embR w x) v (f l.1) (W.sym T (f l.1) v l.2) ee) } ;
+  idT (v : T) : T = v ;
+  -- the lifting of the order between the entries gives the order
+  toEmb : (y : T) (x : T) -> Wl T T (\ v v' -> embT v v') (sh x) (kid x) (sh y) (kid y) -> embT x y = split {
+    sup s' f' -> \ x w -> inr (wl-pull T T T (P s') idT f' (\ v v' -> embT v v') (sh x) (kid x) s' (\ p -> p) w) } ;
+
+  -- the trivial poset
+  Cu : U l = W.Unit ;
+  leu (p q : Cu) : U l = W.Unit ;
+  leu-refl (p : Cu) : leu p p = tt ;
+  leu-trans (p q r : Cu) (a : leu p q) (b : leu q r) : leu p r = tt ;
+  Xu (c : Cu) (x : T) : U l = W.Unit ;
+  xuMono (p q : Cu) (h : leu p q) (x : T) (v : Xu p x) : Xu q x = tt ;
+  ltValid (c : Cu) (v u : T) (l : ltT v u) (vu : Xu c u) : Xu c v = tt ;
+  eC (c : Cu) (x y : T) : U l = embT x y ;
+  eMono (p q : Cu) (h : leu p q) (x y : T) (ee : eC p x y) : eC q x y = ee ;
+  eSub (c : Cu) (x v u : T) (l : ltT v u) (ee : eC c x v) : eC c x u = eSubT u x v l ee ;
+  module MB = MBd.On[Cu,leu,leu-refl,leu-trans,T,Xu,xuMono,ltT,wfT,ltValid,eC,eMono,eSub] ;
+
+  -- product letters: terms with their positions, sent to W Z
+  PL : U l = T * MB.H ;
+  pp (x : PL) : MB.H = consL x.1 x.2 ;
+  img (x : PL) : WZ S P MB.Zl = (sh x.1,\ p -> (kid x.1 p,(x.1,x.2))) ;
+  Xs (a : MB.Cp) (x : PL) : U l = MB.Pre (pp x) a.2.1 ;
+  xsMono (a b : MB.Cp) (h : MB.lep a b) (x : PL) (m : Xs a x) : Xs b x = MB.preTrans (pp x) a.2.1 b.2.1 m h.2 ;
+  module VRS = VR.On[MB.Cp,MB.lep,MB.lep-refl,MB.lep-trans,PL,Xs] ;
+  WR (a : MB.Cp) (w w' : WZ S P MB.Zl) : U l = Wl MB.Zl MB.Zl (MB.R a) w.1 w.2 w'.1 w'.2 ;
+  VWZ (a : MB.Cp) (w : WZ S P MB.Zl) : U l = VW S P MB.Cp MB.Zl MB.Xz a w ;
+  module VRW = VR.On[MB.Cp,MB.lep,MB.lep-refl,MB.lep-trans,WZ S P MB.Zl,VWZ] ;
+  -- the hypothesis on W, at C' = M(B) with the almost-full R
+  afW : VRW.AFR WR = waf MB.Cp MB.lep MB.lep-refl MB.lep-trans MB.Zl MB.Xz MB.xzMono MB.R MB.rMono MB.afR ;
+  SR (a : MB.Cp) (x x' : PL) : U l = WR a (img x) (img x') ;
+  idC (a : MB.Cp) : MB.Cp = a ;
+  idCm (a b : MB.Cp) (h : MB.lep a b) : MB.lep a b = h ;
+  gX (a : MB.Cp) (x : PL) (m : Xs a x) : VWZ a (img x) = \ p -> (m,(p,refl (kid x.1 p))) ;
+  module MWS = VH.Map[MB.Cp,MB.lep,MB.lep-refl,MB.lep-trans,WZ S P MB.Zl,VWZ,MB.Cp,MB.lep,MB.lep-refl,MB.lep-trans,PL,Xs,xsMono,idC,idCm,img,gX] ;
+  rel1W (a : MB.Cp) (x : PL) : (s : W.List PL) -> VRW.rel1 WR (img x) a (MWS.mapL s) -> VRS.rel1 SR x a s = split {
+    nilL -> \ e -> e ; consL x' s -> \ e -> e } ;
+  relW (a : MB.Cp) : (s : W.List PL) -> VRW.rel2 WR a (MWS.mapL s) -> VRS.rel2 SR a s = split {
+    nilL -> \ e -> e ; consL x s -> rel1W a x s } ;
+  afS : VRS.AFR SR = \ a -> MWS.barMap (afW a).1 (VRW.rel2 WR) (VRS.rel2 SR) a (afW a).2 (\ a' l s inv e -> relW a' s e) ;
+
+  -- the lifting of R between two positions in order: the terms embed, or
+  -- the history is good
+  h0 (x : PL) (v : T) : MB.Zl = (v,(x.1,x.2)) ;
+  wleaf (a : MB.Cp) (x x' : PL) (lq : VH.LtN (MB.len x.2) (MB.len x'.2)) (ee : SR a x x') :
+    W.Or (MB.K a) (embT x.1 x'.1) =
+    oe (MB.K a) (Wl T T (\ v v' -> embT v v') (sh x.1) (kid x.1) (sh x'.1) (kid x'.1)) (W.Or (MB.K a) (embT x.1 x'.1))
+      (\ k -> inl k) (\ w -> inr (toEmb x'.1 x.1 w))
+      (wl-or T T (\ v v' -> embT v v') (MB.K a) (sh x.1) (kid x.1) (sh x'.1) (kid x'.1)
+        (wl-mono T T (\ v v' -> MB.R a (h0 x v) (h0 x' v')) (\ v v' -> W.Or (embT v v') (MB.K a))
+          (\ v v' r -> r lq) (sh x.1) (kid x.1) (sh x'.1) (kid x'.1)
+          (wl-pull MB.Zl MB.Zl T T (h0 x) (h0 x') (MB.R a) (sh x.1) (kid x.1) (sh x'.1) (kid x'.1) ee))) ;
+
+  -- the map G: the letters of a history
+  G : MB.H -> W.List PL = split { nilL -> nilL ; consL u h | r -> consL (u,h) r } ;
+  upS (B : VRS.Pred) : W.List PL -> VRS.Pred = split { nilL -> B ; consL x s | r -> VRS.up r x } ;
+  upBaseS (B : VRS.Pred) : (zs : W.List PL) (a : MB.Cp) (s : W.List PL) -> B a s -> upS B zs a s = split {
+    nilL -> \ a s e -> e ; consL x zs | r -> \ a s e -> inl (r a s e) } ;
+  BS : VRS.Pred = VRS.rel2 SR ;
+
+  -- a good subsequence of G h1 (h1 a prefix of h) makes h good
+  Inv2 (h : MB.H) (x : PL) : W.List PL -> U l = split {
+    nilL -> W.Unit ; consL x' s -> MB.Pre (pp x') h * VH.LtN (MB.len (pp x)) (MB.len (pp x')) } ;
+  InvG (h h1 : MB.H) : W.List PL -> U l = split {
+    nilL -> W.Unit ; consL x s -> MB.Pre (pp x) h * (VH.LtN (MB.len h1) (MB.len (pp x)) * Inv2 h x s) } ;
+  invWeak (h h1 h2 : MB.H) (lt0 : VH.LtN (MB.len h2) (MB.len h1)) : (s : W.List PL) -> InvG h h1 s -> InvG h h2 s = split {
+    nilL -> \ i -> tt ;
+    consL x s -> \ i -> (i.1,(VH.ltTrans (MB.len h2) (MB.len h1) (MB.len (pp x)) lt0 i.2.1,i.2.2)) } ;
+  inv2From (h : MB.H) (x0 : PL) : (s : W.List PL) -> InvG h (pp x0) s -> Inv2 h x0 s = split {
+    nilL -> \ i -> tt ; consL x' s -> \ i -> (i.1,i.2.1) } ;
+  base2 (a : MB.Cp) (x : PL) (i1 : MB.Pre (pp x) a.2.1) : (s : W.List PL) -> Inv2 a.2.1 x s -> VRS.rel1 SR x a s -> MB.K a = split {
+    nilL -> \ i e -> W.absurdE (MB.K a) e ;
+    consL x' s -> \ i e -> oe (MB.K a) (embT x.1 x'.1) (MB.K a)
+      (\ k -> k)
+      (\ f -> MB.goodAt a.2.1 x.1 x.2 x'.2 x'.1 a.1 (MB.tailsLt a.2.1 (pp x) (pp x') i1 i.1 i.2) f i.1)
+      (wleaf a x x' i.2 e) } ;
+  base (a : MB.Cp) : (s : W.List PL) -> InvG a.2.1 nilL s -> VRS.rel2 SR a s -> MB.K a = split {
+    nilL -> \ i e -> W.absurdE (MB.K a) e ;
+    consL x s -> \ i e -> base2 a x i.1 s i.2.2 e } ;
+  leafG (a : MB.Cp) : (h1 : MB.H) -> MB.Pre h1 a.2.1 -> (s : W.List PL) -> InvG a.2.1 h1 s -> upS BS (G h1) a s -> MB.K a = split {
+    nilL -> \ pre s i e -> base a s i e ;
+    consL u h2 | r -> \ pre s i e ->
+      oe (upS BS (G h2) a s) (upS BS (G h2) a (consL (u,h2) s)) (MB.K a)
+        (\ e1 -> r (MB.preTrans h2 (consL u h2) a.2.1 (MB.preCons h2 u) pre) s
+          (invWeak a.2.1 (consL u h2) h2 (VH.ltSuc (MB.len h2)) s i) e1)
+        (\ e1 -> r (MB.preTrans h2 (consL u h2) a.2.1 (MB.preCons h2 u) pre) (consL (u,h2) s)
+          (pre,(VH.ltSuc (MB.len h2),inv2From a.2.1 (u,h2) s i)) e1) e } ;
+
+  -- induction on a bar of the lifted relation, Proposition 1 at each node
+  MainStmt (t : VRS.WT) : U l = (a : MB.Cp) -> VRS.Sec t (upS BS (G a.2.1)) a -> MB.VO1.E a.1 a.2.1 ;
+  mainT : (t : VRS.WT) -> MainStmt t = split {
+    z -> \ a s -> MB.VRX.leaf (MB.VO1.upH a.2.1) a.1 (leafG a a.2.1 (MB.preRefl a.2.1) nilL tt s) ;
+    sp st0 f | r -> \ a s -> MB.VO1.prop a.1 a.2.1 a.2.2.2 (\ c1 u l vu mu ->
+      r (MB.newSt a c1 l u vu mu) (u,a.2.1)
+        (MB.lep-trans st0 a (MB.newSt a c1 l u vu mu) s.1 (l,MB.preCons a.2.1 u))
+        (MB.preRefl (consL u a.2.1))
+        (MB.newSt a c1 l u vu mu)
+        (s.2 (MB.newSt a c1 l u vu mu) (u,a.2.1)
+          (MB.lep-trans st0 a (MB.newSt a c1 l u vu mu) s.1 (l,MB.preCons a.2.1 u))
+          (l,MB.preCons a.2.1 u)
+          (MB.preRefl (consL u a.2.1)))) } ;
+
+  -- the corollary of open induction
+  thmQ (h : MB.H) : U l = (st : Cu) -> MB.ValidH st h -> MB.VO1.E st h ;
+  stA (h : MB.H) (ih : (v : MB.H) -> MB.VO1.WD.LtW v h -> thmQ v) (st : Cu) (vh : MB.ValidH st h) : MB.Cp =
+    (st,(h,(vh,\ c l v hv vv -> ih v hv c vv))) ;
+  thmStep (h : MB.H) (ih : (v : MB.H) -> MB.VO1.WD.LtW v h -> thmQ v) : thmQ h = \ st vh ->
+    mainT (afS (stA h ih st vh)).1 (stA h ih st vh)
+      (VRS.secMono (afS (stA h ih st vh)).1 BS (upS BS (G h)) (stA h ih st vh)
+        (\ q l s e -> upBaseS BS (G h) q s e) (afS (stA h ih st vh)).2) ;
+  thm (h : MB.H) : thmQ h = MB.VO1.WD.AW.ind thmQ thmStep h (MB.VO1.WD.wfW h) ;
+  -- the uniform Kruskal theorem: the Kruskal order on terms is almost full
+  kruskalU : MB.VRX.AFR eC = \ st -> thm nilL st tt ;
+} ;
