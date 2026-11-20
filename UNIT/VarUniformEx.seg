@@ -1,0 +1,192 @@
+-- The uniform Kruskal theorem (VarUniform) applies to the container of
+-- Kruskal's theorem: W X = Y0 x (lists over X), with shapes (label, arity)
+-- and positions Fin n.  The lifting of R relates (y, g) and (y', g') when
+-- prec y y' and the entries embed in the sense of Higman (hf).  The four
+-- hypotheses of VarUniform.Uniform hold:
+--   hfMono, hfPull, hfOr: by induction on the arities;
+--   wafK: preservation of almost-fullness over a set over a poset, from
+--     the variable Higman lemma (transported along toL, the list of
+--     entries) and the almost-fullness of prec (pulled back from the
+--     trivial poset), by VarRamsey.afInter.
+-- kruskalFin: the Kruskal order on finite trees with labels in Y0 and
+-- ordered children (the W-type) is almost full, for prec almost full.
+level l ;
+module W = Dilator[l] ;
+module TB = TransBar[l] ;
+module VR = VarRamsey[l] ;
+module VH = VarHigman[l] ;
+module VU = VarUniform[l] ;
+
+oe (A B C : U l) (f : A -> C) (g : B -> C) (e : W.Or A B) : C = TB.orElim A B C f g e ;
+
+Fin : W.N -> U l = split { zero -> W.Empty ; suc n | r -> W.Or W.Unit r } ;
+f0 (n : W.N) : Fin (suc n) = inl tt ;
+fs (n : W.N) (p : Fin n) : Fin (suc n) = inr p ;
+
+-- the Higman embedding of two finite families
+hfS (Z0 Z1 : U l) (R : Z0 -> Z1 -> U l) (n : W.N)
+  (r : (Fin n -> Z0) -> (n' : W.N) -> (Fin n' -> Z1) -> U l) (g : Fin (suc n) -> Z0) :
+  (n' : W.N) -> (Fin n' -> Z1) -> U l = split {
+  zero -> \ g' -> W.Empty ;
+  suc n' | rr -> \ g' -> W.Or (R (g (f0 n)) (g' (f0 n')) * r (\ p -> g (fs n p)) n' (\ p -> g' (fs n' p)))
+    (rr (\ p -> g' (fs n' p))) } ;
+hf (Z0 Z1 : U l) (R : Z0 -> Z1 -> U l) : (n : W.N) -> (Fin n -> Z0) -> (n' : W.N) -> (Fin n' -> Z1) -> U l = split {
+  zero -> \ g n' g' -> W.Unit ;
+  suc n | r -> hfS Z0 Z1 R n r } ;
+
+-- monotone in the relation
+hfMonoS (Z0 Z1 : U l) (R R' : Z0 -> Z1 -> U l) (m : (x : Z0) (y : Z1) -> R x y -> R' x y) (n : W.N)
+  (r : (g : Fin n -> Z0) (n' : W.N) (g' : Fin n' -> Z1) -> hf Z0 Z1 R n g n' g' -> hf Z0 Z1 R' n g n' g')
+  (g : Fin (suc n) -> Z0) :
+  (n' : W.N) (g' : Fin n' -> Z1) -> hf Z0 Z1 R (suc n) g n' g' -> hf Z0 Z1 R' (suc n) g n' g' = split {
+  zero -> \ g' h -> h ;
+  suc n' | rr -> \ g' h ->
+    oe (R (g (f0 n)) (g' (f0 n')) * hf Z0 Z1 R n (\ p -> g (fs n p)) n' (\ p -> g' (fs n' p)))
+      (hf Z0 Z1 R (suc n) g n' (\ p -> g' (fs n' p))) (hf Z0 Z1 R' (suc n) g (suc n') g')
+      (\ q -> inl (m (g (f0 n)) (g' (f0 n')) q.1,r (\ p -> g (fs n p)) n' (\ p -> g' (fs n' p)) q.2))
+      (\ q -> inr (rr (\ p -> g' (fs n' p)) q)) h } ;
+hfMono (Z0 Z1 : U l) (R R' : Z0 -> Z1 -> U l) (m : (x : Z0) (y : Z1) -> R x y -> R' x y) :
+  (n : W.N) (g : Fin n -> Z0) (n' : W.N) (g' : Fin n' -> Z1) -> hf Z0 Z1 R n g n' g' -> hf Z0 Z1 R' n g n' g' = split {
+  zero -> \ g n' g' h -> tt ;
+  suc n | r -> hfMonoS Z0 Z1 R R' m n r } ;
+
+-- natural
+hfPullS (Z0 Z1 Z0' Z1' : U l) (h0 : Z0' -> Z0) (h1 : Z1' -> Z1) (R : Z0 -> Z1 -> U l) (n : W.N)
+  (r : (g : Fin n -> Z0') (n' : W.N) (g' : Fin n' -> Z1') ->
+    hf Z0 Z1 R n (\ p -> h0 (g p)) n' (\ p -> h1 (g' p)) -> hf Z0' Z1' (\ x y -> R (h0 x) (h1 y)) n g n' g')
+  (g : Fin (suc n) -> Z0') :
+  (n' : W.N) (g' : Fin n' -> Z1') ->
+    hf Z0 Z1 R (suc n) (\ p -> h0 (g p)) n' (\ p -> h1 (g' p)) -> hf Z0' Z1' (\ x y -> R (h0 x) (h1 y)) (suc n) g n' g' = split {
+  zero -> \ g' h -> h ;
+  suc n' | rr -> \ g' h ->
+    oe (R (h0 (g (f0 n))) (h1 (g' (f0 n'))) * hf Z0 Z1 R n (\ p -> h0 (g (fs n p))) n' (\ p -> h1 (g' (fs n' p))))
+      (hf Z0 Z1 R (suc n) (\ p -> h0 (g p)) n' (\ p -> h1 (g' (fs n' p))))
+      (hf Z0' Z1' (\ x y -> R (h0 x) (h1 y)) (suc n) g (suc n') g')
+      (\ q -> inl (q.1,r (\ p -> g (fs n p)) n' (\ p -> g' (fs n' p)) q.2))
+      (\ q -> inr (rr (\ p -> g' (fs n' p)) q)) h } ;
+hfPull (Z0 Z1 Z0' Z1' : U l) (h0 : Z0' -> Z0) (h1 : Z1' -> Z1) (R : Z0 -> Z1 -> U l) :
+  (n : W.N) (g : Fin n -> Z0') (n' : W.N) (g' : Fin n' -> Z1') ->
+    hf Z0 Z1 R n (\ p -> h0 (g p)) n' (\ p -> h1 (g' p)) -> hf Z0' Z1' (\ x y -> R (h0 x) (h1 y)) n g n' g' = split {
+  zero -> \ g n' g' h -> tt ;
+  suc n | r -> hfPullS Z0 Z1 Z0' Z1' h0 h1 R n r } ;
+
+-- a constant disjunct escapes
+hfOrS (Z0 Z1 : U l) (R : Z0 -> Z1 -> U l) (K : U l) (n : W.N)
+  (r : (g : Fin n -> Z0) (n' : W.N) (g' : Fin n' -> Z1) ->
+    hf Z0 Z1 (\ x y -> W.Or (R x y) K) n g n' g' -> W.Or K (hf Z0 Z1 R n g n' g'))
+  (g : Fin (suc n) -> Z0) :
+  (n' : W.N) (g' : Fin n' -> Z1) ->
+    hf Z0 Z1 (\ x y -> W.Or (R x y) K) (suc n) g n' g' -> W.Or K (hf Z0 Z1 R (suc n) g n' g') = split {
+  zero -> \ g' h -> W.absurdE (W.Or K W.Empty) h ;
+  suc n' | rr -> \ g' h ->
+    oe (W.Or (R (g (f0 n)) (g' (f0 n'))) K * hf Z0 Z1 (\ x y -> W.Or (R x y) K) n (\ p -> g (fs n p)) n' (\ p -> g' (fs n' p)))
+      (hf Z0 Z1 (\ x y -> W.Or (R x y) K) (suc n) g n' (\ p -> g' (fs n' p)))
+      (W.Or K (hf Z0 Z1 R (suc n) g (suc n') g'))
+      (\ q -> oe (R (g (f0 n)) (g' (f0 n'))) K (W.Or K (hf Z0 Z1 R (suc n) g (suc n') g'))
+        (\ a -> oe K (hf Z0 Z1 R n (\ p -> g (fs n p)) n' (\ p -> g' (fs n' p))) (W.Or K (hf Z0 Z1 R (suc n) g (suc n') g'))
+          (\ k -> inl k) (\ b -> inr (inl (a,b))) (r (\ p -> g (fs n p)) n' (\ p -> g' (fs n' p)) q.2))
+        (\ k -> inl k) q.1)
+      (\ q -> oe K (hf Z0 Z1 R (suc n) g n' (\ p -> g' (fs n' p))) (W.Or K (hf Z0 Z1 R (suc n) g (suc n') g'))
+        (\ k -> inl k) (\ b -> inr (inr b)) (rr (\ p -> g' (fs n' p)) q)) h } ;
+hfOr (Z0 Z1 : U l) (R : Z0 -> Z1 -> U l) (K : U l) :
+  (n : W.N) (g : Fin n -> Z0) (n' : W.N) (g' : Fin n' -> Z1) ->
+    hf Z0 Z1 (\ x y -> W.Or (R x y) K) n g n' g' -> W.Or K (hf Z0 Z1 R n g n' g') = split {
+  zero -> \ g n' g' h -> inr tt ;
+  suc n | r -> hfOrS Z0 Z1 R K n r } ;
+
+module KruskalW (Y0 : U l) (prec : Y0 -> Y0 -> U l)
+  (af0 : VR.On[W.Unit,\ p q -> W.Unit,\ p -> tt,\ p q r a b -> tt,Y0,\ c y -> W.Unit].AFR (\ c -> prec)) {
+  S : U l = Y0 * W.N ;
+  P (s : S) : U l = Fin s.2 ;
+  Wl (Z0 Z1 : U l) (R : Z0 -> Z1 -> U l) (s : S) (g : P s -> Z0) (s' : S) (g' : P s' -> Z1) : U l =
+    prec s.1 s'.1 * hf Z0 Z1 R s.2 g s'.2 g' ;
+  wlMono (Z0 Z1 : U l) (R R' : Z0 -> Z1 -> U l) (m : (x : Z0) (y : Z1) -> R x y -> R' x y)
+    (s : S) (g : P s -> Z0) (s' : S) (g' : P s' -> Z1) (w : Wl Z0 Z1 R s g s' g') : Wl Z0 Z1 R' s g s' g' =
+    (w.1,hfMono Z0 Z1 R R' m s.2 g s'.2 g' w.2) ;
+  wlPull (Z0 Z1 Z0' Z1' : U l) (h0 : Z0' -> Z0) (h1 : Z1' -> Z1) (R : Z0 -> Z1 -> U l)
+    (s : S) (g : P s -> Z0') (s' : S) (g' : P s' -> Z1')
+    (w : Wl Z0 Z1 R s (\ p -> h0 (g p)) s' (\ p -> h1 (g' p))) : Wl Z0' Z1' (\ x y -> R (h0 x) (h1 y)) s g s' g' =
+    (w.1,hfPull Z0 Z1 Z0' Z1' h0 h1 R s.2 g s'.2 g' w.2) ;
+  wlOr (Z0 Z1 : U l) (R : Z0 -> Z1 -> U l) (K : U l) (s : S) (g : P s -> Z0) (s' : S) (g' : P s' -> Z1)
+    (w : Wl Z0 Z1 (\ x y -> W.Or (R x y) K) s g s' g') : W.Or K (Wl Z0 Z1 R s g s' g') =
+    oe K (hf Z0 Z1 R s.2 g s'.2 g') (W.Or K (Wl Z0 Z1 R s g s' g'))
+      (\ k -> inl k) (\ b -> inr (w.1,b)) (hfOr Z0 Z1 R K s.2 g s'.2 g' w.2) ;
+
+  -- preservation of almost-fullness over a set over a poset
+  module WAF (C : U l) (le : C -> C -> U l) (le-refl : (p : C) -> le p p)
+    (le-trans : (p q r : C) -> le p q -> le q r -> le p r)
+    (Z0 : U l) (Z : C -> Z0 -> U l) (Z-mono : (p q : C) -> le p q -> (x : Z0) -> Z p x -> Z q x)
+    (R : C -> Z0 -> Z0 -> U l) (R-mono : (p q : C) -> le p q -> (x y : Z0) -> R p x y -> R q x y)
+    (af : VR.On[C,le,le-refl,le-trans,Z0,Z].AFR R) {
+    module HV = VH.Higman[C,le,le-refl,le-trans,Z0,Z,Z-mono,R,R-mono,af] ;
+    WZ0 : U l = VU.WZ S P Z0 ;
+    VWc (c : C) (w : WZ0) : U l = VU.VW S P C Z0 Z c w ;
+    module VRW = VR.On[C,le,le-refl,le-trans,WZ0,VWc] ;
+    vwMono (p q : C) (h : le p q) (w : WZ0) (v : VWc p w) : VWc q w = \ x -> Z-mono p q h (w.2 x) (v x) ;
+    -- the entries as a list
+    toL : (n : W.N) -> (Fin n -> Z0) -> W.List Z0 = split {
+      zero -> \ g -> nilL ; suc n | r -> \ g -> consL (g (f0 n)) (r (\ p -> g (fs n p))) } ;
+    allL (c : C) : (n : W.N) (g : Fin n -> Z0) -> ((p : Fin n) -> Z c (g p)) -> HV.All c (toL n g) = split {
+      zero -> \ g v -> tt ;
+      suc n | r -> \ g v -> (v (f0 n),r (\ p -> g (fs n p)) (\ p -> v (fs n p))) } ;
+    embHfS (c : C) (n : W.N)
+      (r : (g : Fin n -> Z0) (n' : W.N) (g' : Fin n' -> Z0) -> HV.emb c (toL n g) (toL n' g') -> hf Z0 Z0 (R c) n g n' g')
+      (g : Fin (suc n) -> Z0) :
+      (n' : W.N) (g' : Fin n' -> Z0) -> HV.emb c (toL (suc n) g) (toL n' g') -> hf Z0 Z0 (R c) (suc n) g n' g' = split {
+      zero -> \ g' e -> e ;
+      suc n' | rr -> \ g' e ->
+        oe (R c (g (f0 n)) (g' (f0 n')) * HV.emb c (toL n (\ p -> g (fs n p))) (toL n' (\ p -> g' (fs n' p))))
+          (HV.emb c (toL (suc n) g) (toL n' (\ p -> g' (fs n' p)))) (hf Z0 Z0 (R c) (suc n) g (suc n') g')
+          (\ q -> inl (q.1,r (\ p -> g (fs n p)) n' (\ p -> g' (fs n' p)) q.2))
+          (\ q -> inr (rr (\ p -> g' (fs n' p)) q)) e } ;
+    embHf (c : C) : (n : W.N) (g : Fin n -> Z0) (n' : W.N) (g' : Fin n' -> Z0) ->
+      HV.emb c (toL n g) (toL n' g') -> hf Z0 Z0 (R c) n g n' g' = split {
+      zero -> \ g n' g' e -> tt ;
+      suc n | r -> embHfS c n r } ;
+    -- the entries: Higman, transported along toL
+    gL (w : WZ0) : W.List Z0 = toL w.1.2 w.2 ;
+    gLX (c : C) (w : WZ0) (v : VWc c w) : HV.All c (gL w) = allL c w.1.2 w.2 v ;
+    idC (c : C) : C = c ;
+    idCm (p q : C) (h : le p q) : le p q = h ;
+    module MH = VH.Map[C,le,le-refl,le-trans,W.List Z0,HV.All,C,le,le-refl,le-trans,WZ0,VWc,vwMono,idC,idCm,gL,gLX] ;
+    S2 (c : C) (w w' : WZ0) : U l = hf Z0 Z0 (R c) w.1.2 w.2 w'.1.2 w'.2 ;
+    rel1H (c : C) (w : WZ0) : (s : W.List WZ0) -> HV.VRX.rel1 HV.embR (gL w) c (MH.mapL s) -> VRW.rel1 S2 w c s = split {
+      nilL -> \ e -> e ; consL w' s -> \ e -> embHf c w.1.2 w.2 w'.1.2 w'.2 e } ;
+    relH (c : C) : (s : W.List WZ0) -> HV.VRX.rel2 HV.embR c (MH.mapL s) -> VRW.rel2 S2 c s = split {
+      nilL -> \ e -> e ; consL w s -> rel1H c w s } ;
+    afS2 : VRW.AFR S2 = \ c -> MH.barMap (HV.higman c).1 (HV.VRX.rel2 HV.embR) (VRW.rel2 S2) c (HV.higman c).2
+      (\ c' l s inv e -> relH c' s e) ;
+    s2Mono : VRW.RelMono S2 = \ p q h w w' e -> hfMono Z0 Z0 (R p) (R q) (R-mono p q h) w.1.2 w.2 w'.1.2 w'.2 e ;
+    -- the labels: prec, pulled back from the trivial poset
+    leu (p q : W.Unit) : U l = W.Unit ;
+    leu-refl (p : W.Unit) : leu p p = tt ;
+    leu-trans (p q r : W.Unit) (a : leu p q) (b : leu q r) : leu p r = tt ;
+    Yu (c : W.Unit) (y : Y0) : U l = W.Unit ;
+    toU (c : C) : W.Unit = tt ;
+    toUm (p q : C) (h : le p q) : leu tt tt = tt ;
+    gY (w : WZ0) : Y0 = w.1.1 ;
+    gYX (c : C) (w : WZ0) (v : VWc c w) : Yu tt w.1.1 = tt ;
+    module MY = VH.Map[W.Unit,leu,leu-refl,leu-trans,Y0,Yu,C,le,le-refl,le-trans,WZ0,VWc,vwMono,toU,toUm,gY,gYX] ;
+    S1 (c : C) (w w' : WZ0) : U l = prec w.1.1 w'.1.1 ;
+    rel1Y (c : C) (w : WZ0) : (s : W.List WZ0) -> MY.V1.rel1 (\ c0 -> prec) w.1.1 tt (MY.mapL s) -> VRW.rel1 S1 w c s = split {
+      nilL -> \ e -> e ; consL w' s -> \ e -> e } ;
+    relY (c : C) : (s : W.List WZ0) -> MY.V1.rel2 (\ c0 -> prec) tt (MY.mapL s) -> VRW.rel2 S1 c s = split {
+      nilL -> \ e -> e ; consL w s -> rel1Y c w s } ;
+    afS1 : VRW.AFR S1 = \ c -> MY.barMap (af0 tt).1 (MY.V1.rel2 (\ c0 -> prec)) (VRW.rel2 S1) c (af0 tt).2
+      (\ c' l s inv e -> relY c' s e) ;
+    s1Mono : VRW.RelMono S1 = \ p q h w w' e -> e ;
+    result : VRW.AFR (VRW.inter S1 S2) = VRW.afInter S1 S2 s1Mono s2Mono afS1 afS2 ;
+  } ;
+  wafK (C : U l) (le : C -> C -> U l) (le-refl : (p : C) -> le p p)
+    (le-trans : (p q r : C) -> le p q -> le q r -> le p r)
+    (Z0 : U l) (Z : C -> Z0 -> U l) (Z-mono : (p q : C) -> le p q -> (x : Z0) -> Z p x -> Z q x)
+    (R : C -> Z0 -> Z0 -> U l) (R-mono : (p q : C) -> le p q -> (x y : Z0) -> R p x y -> R q x y)
+    (af : VR.On[C,le,le-refl,le-trans,Z0,Z].AFR R) :
+    VR.On[C,le,le-refl,le-trans,VU.WZ S P Z0,VU.VW S P C Z0 Z].AFR (\ c w w' -> Wl Z0 Z0 (R c) w.1 w.2 w'.1 w'.2) =
+    WAF[C,le,le-refl,le-trans,Z0,Z,Z-mono,R,R-mono,af].result ;
+
+  module UK = VU.Uniform[S,P,Wl,wlMono,wlPull,wlOr,wafK] ;
+  -- Kruskal's theorem for finite trees with ordered children, as an
+  -- instance of the uniform theorem
+  kruskalFin : UK.MB.VRX.AFR UK.eC = UK.kruskalU ;
+} ;

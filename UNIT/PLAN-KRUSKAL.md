@@ -47,9 +47,24 @@ ordinary version; the variable one costs nothing here).  Postulate-free.
 - `KZ.kzEmb`: R^W between words of positions in order => forests embed or
   K; `mainT`/`thm` as in VarHigman, no empty-word case.
 
-## Then (updated)
-- Uniform version (freund1 Thm 3.10): replace "forests + Higman on Z" by a
-  dilator-like W with "W preserves almost-fullness over variable sets".
+## Done: uniform Kruskal (`VarUniform.seg`, `VarUniformEx.seg`, 2026-11-20)
+`Uniform[S,P,Wl,wl-mono,wl-pull,wl-or,waf].kruskalU`: W a container
+(shapes S, positions P), Wl a relation lifting; terms = W-type `sup s f`
+with the Kruskal order (FRW Def. 3.4 / Kruskal fixed point Def. 3.7).
+Hypotheses: Wl monotone, natural (pull-back along maps of entries),
+escapes a constant disjunct (classically follows from monotone), and
+`waf`: preserves AF over every set over a poset (the variable analogue of
+"WPO-dilator").  No normality, no support functions, order not required
+to be a partial order.  Conclusion: AF over the trivial poset (ordinary).
+`VarUniformEx.KruskalW`: the hypotheses hold for W X = Y0 x lists (shapes
+(label, arity), positions Fin n), via VarHigman + afInter; `kruskalFin`
+= Kruskal for finite trees with ordered children, as an instance.
+
+## Open / next
+- Variable uniform version (labels valid at states, base poset C).
+- Relate the container hypotheses to FRW's normal WPO-dilators (supports
+  = positions; does "WPO-dilator" imply `waf` constructively?  `waf` is a
+  Pi^1_1-free, inductive replacement; FRW show Thm 3.10 needs Pi^1_1-CA0).
 
 ## Design decisions for Props 4–5
 - (commit after 53e8535) VarRamsey trees are **labelled and
