@@ -1,0 +1,571 @@
+-- Cut-free beta-proofs as pre-proofs on ALL linear orders.
+--
+-- BetaHom gives, for a homogeneous beta-proof, a homogeneous family of
+-- cut-free derivations on well-orders.  Here this family is presented
+-- again as a (homogeneous, cut-free) pre-proof on all linear orders:
+-- the rule at an address ys of an arbitrary X is computed in the FINITE
+-- suborder spanned by the points of ys (well-founded), and mapped back.
+--
+-- Main theorem (PP.Out): for a homogeneous beta-proof (Gs, Rs) -- with
+-- cuts, atoms invariant under embeddings -- the rules
+--     Rc Y ys = rule at ys of the cut-free derivation at the finite
+--               suborder of Y spanned by the points of ys, mapped to Y
+-- form a homogeneous (natural), locally correct, CUT-FREE pre-proof of the
+-- same end sequent, well-founded at every well-order (correct), hence a
+-- cut-free beta-proof; its trees form a dilator (isDil).
+-- Ingredients: agreement (Ag: any well-order through which an address
+-- factors gives the same rule; from BetaHom.homogeneous and walkNat),
+-- relabelling into suborders and preimages along embeddings.
+--
+-- Part 1: finite suborders.  For a list of points of X, the suborder of
+-- the listed points is a decidable linear order (membership is boolean),
+-- and it is well-founded: x |-> #{listed points < x} is strictly
+-- monotone into omega.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module BP = BetaProof[l] ;
+module BC = BetaCut[l] ;
+module BH = BetaHom[l] ;
+module LC = LOCat[l] ;
+module SF = StabFun[l] ;
+
+-- arithmetic: leB m n = m <= n
+leB (m n : W.N) : W.Bool = W.ltN m (suc n) ;
+cntC : W.Bool -> W.N -> W.N = split { false -> \ n -> n ; true -> \ n -> suc n } ;
+wkC : (b1 b2 : W.Bool) -> (Id W.Bool b1 true -> Id W.Bool b2 true) -> (m n : W.N) ->
+    Id W.Bool (leB m n) true -> Id W.Bool (leB (cntC b1 m) (cntC b2 n)) true = split {
+  false -> split {
+    false -> \ imp m n h -> h ;
+    true -> \ imp m n h -> W.ltN-sucR m (suc n) h } ;
+  true -> split {
+    false -> \ imp m n h -> W.absurdB (Id W.Bool (leB (suc m) n) true) (imp (refl true)) ;
+    true -> \ imp m n h -> h } } ;
+stC1 : (b1 b2 : W.Bool) -> Id W.Bool b1 false -> Id W.Bool b2 true -> (m n : W.N) ->
+    Id W.Bool (leB m n) true -> Id W.Bool (W.ltN (cntC b1 m) (cntC b2 n)) true = split {
+  false -> split {
+    false -> \ e1 e2 m n h -> W.absurdB (Id W.Bool (W.ltN m n) true) e2 ;
+    true -> \ e1 e2 m n h -> h } ;
+  true -> \ b2 e1 e2 m n h -> BP.tf (Id W.Bool (W.ltN (suc m) (cntC b2 n)) true) e1 } ;
+stC2 : (b1 b2 : W.Bool) -> (Id W.Bool b1 true -> Id W.Bool b2 true) -> (m n : W.N) ->
+    Id W.Bool (W.ltN m n) true -> Id W.Bool (W.ltN (cntC b1 m) (cntC b2 n)) true = split {
+  false -> split {
+    false -> \ imp m n h -> h ;
+    true -> \ imp m n h -> W.ltN-sucR m n h } ;
+  true -> split {
+    false -> \ imp m n h -> W.absurdB (Id W.Bool (W.ltN (suc m) n) true) (imp (refl true)) ;
+    true -> \ imp m n h -> h } } ;
+leRefl : (n : W.N) -> Id W.Bool (leB n n) true = split { zero -> refl true ; suc n | r -> r } ;
+
+module FS (X : DP.LO) {
+  Pts : U l = W.List X.car ;
+  memB (x : X.car) : Pts -> W.Bool = split { nilL -> false ; consL z l | r -> W.orB (W.isEq (X.cmp z x)) r } ;
+  Car (pts : Pts) : U l = (x : X.car) * Id W.Bool (memB x pts) true ;
+  sub (pts : Pts) : DP.LO = new DP.LO[car := Car pts, cmp := \ p q -> X.cmp p.1 q.1,
+    ceq := \ p q h -> PL.Sigma-eq X.car (\ x -> Id W.Bool (memB x pts) true) p.1 q.1 p.2 q.2 (X.ceq p.1 q.1 h) (W.HB.uip (memB q.1 pts) true),
+    crefl := \ p -> X.crefl p.1, cflip := \ p q -> X.cflip p.1 q.1, ctrans := \ p q r h k -> X.ctrans p.1 q.1 r.1 h k] ;
+  incl (pts : Pts) : DP.Map (sub pts) X = (\ p -> p.1,\ p q -> refl (X.cmp p.1 q.1)) ;
+
+  -- the rank of a point among the listed points
+  cnt (x : X.car) : Pts -> W.N = split { nilL -> zero ; consL z l | r -> cntC (W.isLt (X.cmp z x)) r } ;
+  ltT (x y z : X.car) (h : Id W.O3 (X.cmp y x) lt) (k : Id W.Bool (W.isLt (X.cmp z y)) true) : Id W.Bool (W.isLt (X.cmp z x)) true =
+    PL.ap W.O3 W.Bool W.isLt (X.cmp z x) lt (X.ctrans z y x (W.isLt-sound (X.cmp z y) k) h) ;
+  weak (x y : X.car) (h : Id W.O3 (X.cmp y x) lt) : (l : Pts) -> Id W.Bool (leB (cnt y l) (cnt x l)) true = split {
+    nilL -> refl true ;
+    consL z l | r -> wkC (W.isLt (X.cmp z y)) (W.isLt (X.cmp z x)) (ltT x y z h) (cnt y l) (cnt x l) r } ;
+  isEqS : (c : W.O3) -> Id W.Bool (W.isEq c) true -> Id W.O3 c eq = split {
+    lt -> \ h -> W.absurdB (Id W.O3 lt eq) h ; eq -> \ h -> refl eq ; gt -> \ h -> W.absurdB (Id W.O3 gt eq) h } ;
+  stEq (x y z : X.car) (h : Id W.O3 (X.cmp y x) lt) (l : Pts) (ez : Id W.O3 (X.cmp z y) eq) :
+      Id W.Bool (W.ltN (cnt y (consL z l)) (cnt x (consL z l))) true =
+    stC1 (W.isLt (X.cmp z y)) (W.isLt (X.cmp z x)) (PL.ap W.O3 W.Bool W.isLt (X.cmp z y) eq ez)
+      (PL.ap W.O3 W.Bool W.isLt (X.cmp z x) lt
+        (PL.subst X.car (\ u -> Id W.O3 (X.cmp u x) lt) y z (PL.sym X.car z y (X.ceq z y ez)) h))
+      (cnt y l) (cnt x l) (weak x y h l) ;
+  strictC (x y z : X.car) (h : Id W.O3 (X.cmp y x) lt) (l : Pts) (ih : Id W.Bool (memB y l) true -> Id W.Bool (W.ltN (cnt y l) (cnt x l)) true) :
+      (c : W.Bool) -> Id W.Bool (W.isEq (X.cmp z y)) c -> Id W.Bool (W.orB c (memB y l)) true ->
+      Id W.Bool (W.ltN (cnt y (consL z l)) (cnt x (consL z l))) true = split {
+    true -> \ e m -> stEq x y z h l (isEqS (X.cmp z y) e) ;
+    false -> \ e m -> stC2 (W.isLt (X.cmp z y)) (W.isLt (X.cmp z x)) (ltT x y z h) (cnt y l) (cnt x l) (ih m) } ;
+  strict (x y : X.car) (h : Id W.O3 (X.cmp y x) lt) : (l : Pts) -> Id W.Bool (memB y l) true ->
+      Id W.Bool (W.ltN (cnt y l) (cnt x l)) true = split {
+    nilL -> \ m -> W.absurdB (Id W.Bool (W.ltN zero zero) true) m ;
+    consL z l | r -> \ m -> strictC x y z h l r (W.isEq (X.cmp z y)) (refl (W.isEq (X.cmp z y))) m } ;
+  -- finite suborders are well-founded
+  wfSub (pts : Pts) : LW.WF (sub pts) =
+    W.Pull[Car pts,W.ltO (Car pts) (sub pts).cmp,W.N,W.ltO W.N W.cmpN,\ p -> cnt p.1 pts,
+      \ p q h -> PL.trans W.Bool (W.isLt (W.cmpN (cnt p.1 pts) (cnt q.1 pts))) (W.ltN (cnt p.1 pts) (cnt q.1 pts)) true
+        (W.ltN-cmp (cnt p.1 pts) (cnt q.1 pts)) (strict q.1 p.1 (W.isLt-sound (X.cmp p.1 q.1) h) pts p.2)].pullWF W.wfN ;
+} ;
+
+------------------------------------------------------------------------
+-- Part 4a: the points of an address, and relabelling into the suborder
+andIntro : (b c : W.Bool) -> Id W.Bool b true -> Id W.Bool c true -> Id W.Bool (W.andB b c) true = split {
+  false -> \ c h k -> h ; true -> \ c h k -> k } ;
+orTrueR : (c : W.Bool) -> Id W.Bool (W.orB c true) true = split { false -> refl true ; true -> refl true } ;
+module Pts (X : DP.LO) {
+  module F = FS[X] ;
+  ptC : W.Or W.Unit X.car -> F.Pts -> F.Pts = split { inl u -> \ l -> l ; inr x -> \ l -> consL x l } ;
+  ptsOf : LT.LL X -> F.Pts = split { nilL -> nilL ; consL a ys | r -> ptC a.2 r } ;
+  labIn (P : F.Pts) : W.Or W.Unit X.car -> W.Bool = split { inl u -> true ; inr x -> F.memB x P } ;
+  allIn (P : F.Pts) : LT.LL X -> W.Bool = split { nilL -> true ; consL a ys | r -> W.andB (labIn P a.2) r } ;
+  memCons (x z : X.car) (P : F.Pts) (h : Id W.Bool (F.memB x P) true) : Id W.Bool (F.memB x (consL z P)) true =
+    PL.trans W.Bool (W.orB (W.isEq (X.cmp z x)) (F.memB x P)) (W.orB (W.isEq (X.cmp z x)) true) true
+      (PL.ap W.Bool W.Bool (\ v -> W.orB (W.isEq (X.cmp z x)) v) (F.memB x P) true h) (orTrueR (W.isEq (X.cmp z x))) ;
+  memSelf (x : X.car) (P : F.Pts) : Id W.Bool (F.memB x (consL x P)) true =
+    PL.ap W.O3 W.Bool (\ o -> W.orB (W.isEq o) (F.memB x P)) (X.cmp x x) eq (X.crefl x) ;
+  labMono (P : F.Pts) (z : X.car) : (m : W.Or W.Unit X.car) -> Id W.Bool (labIn P m) true -> Id W.Bool (labIn (consL z P) m) true = split {
+    inl u -> \ h -> h ; inr x -> \ h -> memCons x z P h } ;
+  allMono (P : F.Pts) (z : X.car) : (ys : LT.LL X) -> Id W.Bool (allIn P ys) true -> Id W.Bool (allIn (consL z P) ys) true = split {
+    nilL -> \ h -> h ;
+    consL a ys | r -> \ h -> andIntro (labIn (consL z P) a.2) (allIn (consL z P) ys)
+      (labMono P z a.2 (W.andB-l (labIn P a.2) (allIn P ys) h)) (r (W.andB-r (labIn P a.2) (allIn P ys) h)) } ;
+  allSelfC (ys : LT.LL X) (r : Id W.Bool (allIn (ptsOf ys) ys) true) : (m : W.Or W.Unit X.car) ->
+      Id W.Bool (W.andB (labIn (ptC m (ptsOf ys)) m) (allIn (ptC m (ptsOf ys)) ys)) true = split {
+    inl u -> r ;
+    inr x -> andIntro (F.memB x (consL x (ptsOf ys))) (allIn (consL x (ptsOf ys)) ys) (memSelf x (ptsOf ys)) (allMono (ptsOf ys) x ys r) } ;
+  allSelf : (ys : LT.LL X) -> Id W.Bool (allIn (ptsOf ys) ys) true = split {
+    nilL -> refl true ;
+    consL a ys | r -> allSelfC ys r a.2 } ;
+  relL (P : F.Pts) : (m : W.Or W.Unit X.car) -> Id W.Bool (labIn P m) true -> W.Or W.Unit (F.Car P) = split {
+    inl u -> \ h -> inl u ; inr x -> \ h -> inr (x,h) } ;
+  rel (P : F.Pts) : (ys : LT.LL X) -> Id W.Bool (allIn P ys) true -> LT.LL (F.sub P) = split {
+    nilL -> \ h -> nilL ;
+    consL a ys | r -> \ h -> consL (a.1,relL P a.2 (W.andB-l (labIn P a.2) (allIn P ys) h)) (r (W.andB-r (labIn P a.2) (allIn P ys) h)) } ;
+  relLI (P : F.Pts) : (m : W.Or W.Unit X.car) (h : Id W.Bool (labIn P m) true) ->
+      Id (W.Or W.Unit X.car) (LT.omap (F.sub P) X (F.incl P) (relL P m h)) m = split {
+    inl u -> \ h -> refl (inl u) ; inr x -> \ h -> refl (inr x) } ;
+  relIncl (P : F.Pts) : (ys : LT.LL X) (h : Id W.Bool (allIn P ys) true) -> Id (LT.LL X) (LT.mapL (F.sub P) X (F.incl P) (rel P ys h)) ys = split {
+    nilL -> \ h -> refl nilL ;
+    consL a ys | r -> \ h -> W.ap2 (W.Or W.Unit X.car) (LT.LL X) (LT.LL X) (\ m t -> consL (a.1,m) t)
+      (LT.omap (F.sub P) X (F.incl P) (relL P a.2 (W.andB-l (labIn P a.2) (allIn P ys) h))) a.2
+      (LT.mapL (F.sub P) X (F.incl P) (rel P ys (W.andB-r (labIn P a.2) (allIn P ys) h))) ys
+      (relLI P a.2 (W.andB-l (labIn P a.2) (allIn P ys) h)) (r (W.andB-r (labIn P a.2) (allIn P ys) h)) } ;
+  -- the canonical suborder of an address
+  sup (ys : LT.LL X) : DP.LO = F.sub (ptsOf ys) ;
+  relS (ys : LT.LL X) : LT.LL (sup ys) = rel (ptsOf ys) ys (allSelf ys) ;
+} ;
+
+-- Part 4b: preimages along an embedding
+module PreIm (T X : DP.LO) (i : DP.Map T X) {
+  module F = FS[X] ;
+  module PX = Pts[X] ;
+  module PT = Pts[T] ;
+  inj (t t' : T.car) (e : Id X.car (i.1 t) (i.1 t')) : Id T.car t t' =
+    T.ceq t t' (PL.trans W.O3 (T.cmp t t') (X.cmp (i.1 t) (i.1 t')) eq (PL.sym W.O3 (X.cmp (i.1 t) (i.1 t')) (T.cmp t t') (i.2 t t'))
+      (PL.trans W.O3 (X.cmp (i.1 t) (i.1 t')) (X.cmp (i.1 t') (i.1 t')) eq (PL.ap X.car W.O3 (\ z -> X.cmp z (i.1 t')) (i.1 t) (i.1 t') e) (X.crefl (i.1 t')))) ;
+  findC (x : X.car) (t : T.car) (l : W.List T.car) (r : Id W.Bool (F.memB x (W.map T.car X.car i.1 l)) true -> T.car) :
+      (c : W.Bool) -> Id W.Bool (W.isEq (X.cmp (i.1 t) x)) c -> Id W.Bool (W.orB c (F.memB x (W.map T.car X.car i.1 l))) true -> T.car = split {
+    true -> \ e m -> t ; false -> \ e m -> r m } ;
+  find (x : X.car) : (l : W.List T.car) -> Id W.Bool (F.memB x (W.map T.car X.car i.1 l)) true -> T.car = split {
+    nilL -> \ m -> W.absurdB T.car m ;
+    consL t l | r -> \ m -> findC x t l r (W.isEq (X.cmp (i.1 t) x)) (refl (W.isEq (X.cmp (i.1 t) x))) m } ;
+  findOkC (x : X.car) (t : T.car) (l : W.List T.car) (r : Id W.Bool (F.memB x (W.map T.car X.car i.1 l)) true -> T.car)
+    (rk : (m : Id W.Bool (F.memB x (W.map T.car X.car i.1 l)) true) -> Id X.car (i.1 (r m)) x) :
+      (c : W.Bool) (e : Id W.Bool (W.isEq (X.cmp (i.1 t) x)) c) (m : Id W.Bool (W.orB c (F.memB x (W.map T.car X.car i.1 l))) true) ->
+      Id X.car (i.1 (findC x t l r c e m)) x = split {
+    true -> \ e m -> X.ceq (i.1 t) x (F.isEqS (X.cmp (i.1 t) x) e) ; false -> \ e m -> rk m } ;
+  findOk (x : X.car) : (l : W.List T.car) (m : Id W.Bool (F.memB x (W.map T.car X.car i.1 l)) true) -> Id X.car (i.1 (find x l m)) x = split {
+    nilL -> \ m -> W.absurdB (Id X.car (i.1 (W.absurdB T.car m)) x) m ;
+    consL t l | r -> \ m -> findOkC x t l (find x l) r (W.isEq (X.cmp (i.1 t) x)) (refl (W.isEq (X.cmp (i.1 t) x))) m } ;
+  ptsMapC (zs : LT.LL T) (r : Id F.Pts (PX.ptsOf (LT.mapL T X i zs)) (W.map T.car X.car i.1 (PT.ptsOf zs))) :
+      (m : W.Or W.Unit T.car) -> Id F.Pts (PX.ptC (LT.omap T X i m) (PX.ptsOf (LT.mapL T X i zs))) (W.map T.car X.car i.1 (PT.ptC m (PT.ptsOf zs))) = split {
+    inl u -> r ;
+    inr t -> PL.ap F.Pts F.Pts (\ v -> consL (i.1 t) v) (PX.ptsOf (LT.mapL T X i zs)) (W.map T.car X.car i.1 (PT.ptsOf zs)) r } ;
+  ptsMap : (zs : LT.LL T) -> Id F.Pts (PX.ptsOf (LT.mapL T X i zs)) (W.map T.car X.car i.1 (PT.ptsOf zs)) = split {
+    nilL -> refl nilL ;
+    consL a zs | r -> ptsMapC zs r a.2 } ;
+  -- the suborder of the image of zs maps back into T
+  module H (zs : LT.LL T) {
+    P : F.Pts = PX.ptsOf (LT.mapL T X i zs) ;
+    hf (p : F.Car P) : T.car = find p.1 (PT.ptsOf zs)
+      (PL.subst F.Pts (\ z -> Id W.Bool (F.memB p.1 z) true) P (W.map T.car X.car i.1 (PT.ptsOf zs)) (ptsMap zs) p.2) ;
+    hok (p : F.Car P) : Id X.car (i.1 (hf p)) p.1 = findOk p.1 (PT.ptsOf zs)
+      (PL.subst F.Pts (\ z -> Id W.Bool (F.memB p.1 z) true) P (W.map T.car X.car i.1 (PT.ptsOf zs)) (ptsMap zs) p.2) ;
+    h : DP.Map (F.sub P) T = (hf,\ p q -> PL.trans W.O3 (T.cmp (hf p) (hf q)) (X.cmp (i.1 (hf p)) (i.1 (hf q))) (X.cmp p.1 q.1)
+      (PL.sym W.O3 (X.cmp (i.1 (hf p)) (i.1 (hf q))) (T.cmp (hf p) (hf q)) (i.2 (hf p) (hf q)))
+      (W.ap2 X.car X.car W.O3 X.cmp (i.1 (hf p)) p.1 (i.1 (hf q)) q.1 (hok p) (hok q))) ;
+    hL : (m : W.Or W.Unit T.car) (hh : Id W.Bool (PX.labIn P (LT.omap T X i m)) true) ->
+        Id (W.Or W.Unit T.car) (LT.omap (F.sub P) T h (PX.relL P (LT.omap T X i m) hh)) m = split {
+      inl u -> \ hh -> refl (inl u) ;
+      inr t -> \ hh -> PL.ap T.car (W.Or W.Unit T.car) (\ v -> inr v) (hf (i.1 t,hh)) t (inj (hf (i.1 t,hh)) t (hok (i.1 t,hh))) } ;
+    hRel : (ws : LT.LL T) (hh : Id W.Bool (PX.allIn P (LT.mapL T X i ws)) true) ->
+        Id (LT.LL T) (LT.mapL (F.sub P) T h (PX.rel P (LT.mapL T X i ws) hh)) ws = split {
+      nilL -> \ hh -> refl nilL ;
+      consL a ws | r -> \ hh -> W.ap2 (W.Or W.Unit T.car) (LT.LL T) (LT.LL T) (\ m t -> consL (a.1,m) t)
+        (LT.omap (F.sub P) T h (PX.relL P (LT.omap T X i a.2) (W.andB-l (PX.labIn P (LT.omap T X i a.2)) (PX.allIn P (LT.mapL T X i ws)) hh))) a.2
+        (LT.mapL (F.sub P) T h (PX.rel P (LT.mapL T X i ws) (W.andB-r (PX.labIn P (LT.omap T X i a.2)) (PX.allIn P (LT.mapL T X i ws)) hh))) ws
+        (hL a.2 (W.andB-l (PX.labIn P (LT.omap T X i a.2)) (PX.allIn P (LT.mapL T X i ws)) hh))
+        (r (W.andB-r (PX.labIn P (LT.omap T X i a.2)) (PX.allIn P (LT.mapL T X i ws)) hh)) } ;
+  } ;
+} ;
+
+------------------------------------------------------------------------
+-- Part 2: a cut-free derivation, read as a pre-proof (walk).  The rule at
+-- an address names its principal closure by its FIRST index in the
+-- current sequent (natural, since equality of closures is decidable and
+-- preserved by embeddings).
+pickN (Z : U l) : W.N -> Z -> Z -> Z = split { zero -> \ a b -> a ; suc n -> \ a b -> b } ;
+idxC : W.Bool -> W.N -> W.N = split { false -> \ n -> suc n ; true -> \ n -> zero } ;
+module PP (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) {
+  module X = BC.BCut[ev] ;
+  module BB = BP.Beta[ev] ;
+  module NHm = BH.NH[ev] ;
+  Cf (A : DP.LO) : U l = BC.Cf (X.Lb A) ;
+  idxOf (A : DP.LO) (c : X.Clo A) : X.Seq A -> W.N = split { nilL -> zero ; consL d G | r -> idxC (X.eqClo A d c) r } ;
+  getIdxC (A : DP.LO) (c d : X.Clo A) (G : X.Seq A)
+    (ih : X.Mem A c G -> Id (BB.OC A) (BB.getM A (idxOf A c G) G) (inr c)) :
+      (b : W.Bool) -> Id W.Bool (X.eqClo A d c) b -> X.Mem A c (consL d G) ->
+      Id (BB.OC A) (BB.getM A (idxC b (idxOf A c G)) (consL d G)) (inr c) = split {
+    true -> \ e m -> PL.ap (X.Clo A) (BB.OC A) (\ z -> inr z) d c (X.eqCloS A d c e) ;
+    false -> \ e m -> CF.or-elim (Id (X.Clo A) d c) (X.Mem A c G) (Id (BB.OC A) (BB.getM A (idxOf A c G) G) (inr c))
+      (\ e0 -> W.absurdB (Id (BB.OC A) (BB.getM A (idxOf A c G) G) (inr c))
+        (PL.trans W.Bool false (X.eqClo A d c) true (PL.sym W.Bool (X.eqClo A d c) false e) (X.eqCloE A d c e0))) ih m } ;
+  getIdx (A : DP.LO) (c : X.Clo A) : (G : X.Seq A) -> X.Mem A c G -> Id (BB.OC A) (BB.getM A (idxOf A c G) G) (inr c) = split {
+    nilL -> \ m -> CF.efq (Id (BB.OC A) (BB.getM A zero nilL) (inr c)) m ;
+    consL d G | r -> \ m -> getIdxC A c d G r (X.eqClo A d c) (refl (X.eqClo A d c)) m } ;
+  ruleOf (A : DP.LO) : Cf A -> X.Seq A -> BB.Rule A = split {
+    cAx b k e -> \ G -> axR (idxOf A (atF b k,e) G) ;
+    cAnd p q e d0 d1 -> \ G -> andR (idxOf A (andF p q,e) G) ;
+    cOr p q e d -> \ G -> orR (idxOf A (orF p q,e) G) ;
+    cAll p e k -> \ G -> allR (idxOf A (allF p,e) G) ;
+    cEx p e w d -> \ G -> exR (idxOf A (exF p,e) G) w } ;
+  child (A : DP.LO) : Cf A -> X.Lb A -> Cf A = split {
+    cAx b k e -> \ a -> cAx b k e ;
+    cAnd p q e d0 d1 -> \ a -> pickN (Cf A) a.1 d0 d1 ;
+    cOr p q e d -> \ a -> d ;
+    cAll p e k -> \ a -> k a ;
+    cEx p e w d -> \ a -> d } ;
+  walk (A : DP.LO) : LT.LL A -> Cf A -> X.Seq A -> BB.Rule A = split {
+    nilL -> \ d G -> ruleOf A d G ;
+    consL a ys | r -> \ d G -> r (child A d a) (BB.step A G (ruleOf A d G) a) } ;
+  walkR (A : DP.LO) (d : Cf A) (G : X.Seq A) : BB.Rl A = \ ys -> walk A ys d G ;
+
+  -- local correctness
+  eqBoT (v b : W.Bool) (h : Id W.Bool v b) : Id W.Bool (BP.eqBo v b) true =
+    PL.subst W.Bool (\ z -> Id W.Bool (BP.eqBo z b) true) b v (PL.sym W.Bool v b h) (BC.eqBoSelf b) ;
+  applOk (A : DP.LO) : (d : Cf A) (G : X.Seq A) -> X.Ok A d G -> Id W.Bool (BB.appl A G (ruleOf A d G)) true = split {
+    cAx b k e -> \ G o -> PL.trans W.Bool (BB.isAx A (BB.getM A (idxOf A (atF b k,e) G) G)) (BB.isAx A (inr (atF b k,e))) true
+      (PL.ap (BB.OC A) W.Bool (BB.isAx A) (BB.getM A (idxOf A (atF b k,e) G) G) (inr (atF b k,e)) (getIdx A (atF b k,e) G o.1))
+      (eqBoT (ev A k e) b o.2) ;
+    cAnd p q e d0 d1 -> \ G o -> PL.ap (BB.OC A) W.Bool (BB.isO A BP.isAndF) (BB.getM A (idxOf A (andF p q,e) G) G) (inr (andF p q,e))
+      (getIdx A (andF p q,e) G o.1) ;
+    cOr p q e d -> \ G o -> PL.ap (BB.OC A) W.Bool (BB.isO A BP.isOrF) (BB.getM A (idxOf A (orF p q,e) G) G) (inr (orF p q,e))
+      (getIdx A (orF p q,e) G o.1) ;
+    cAll p e k -> \ G o -> PL.ap (BB.OC A) W.Bool (BB.isO A BP.isAllF) (BB.getM A (idxOf A (allF p,e) G) G) (inr (allF p,e))
+      (getIdx A (allF p,e) G o.1) ;
+    cEx p e w d -> \ G o -> PL.ap (BB.OC A) W.Bool (BB.isO A BP.isExF) (BB.getM A (idxOf A (exF p,e) G) G) (inr (exF p,e))
+      (getIdx A (exF p,e) G o.1) } ;
+  -- the sequent of a premise contains the context of the premise
+  hSubR (A : DP.LO) (G : X.Seq A) (o : BB.OC A) (c : X.Clo A) (eo : Id (BB.OC A) o (inr c))
+    (F : BB.OC A -> X.Seq A) (S' : X.Seq A) (ef : Id (X.Seq A) (F (inr c)) S') : X.Sub A (X.app A S' G) (X.app A G (F o)) =
+    \ x m -> CF.or-elim (X.Mem A x S') (X.Mem A x G) (X.Mem A x (X.app A G (F o)))
+      (\ m1 -> X.memAppR A (F o) x G
+        (PL.subst (X.Seq A) (\ z -> X.Mem A x z) S' (F o)
+          (PL.sym (X.Seq A) (F o) S' (PL.trans (X.Seq A) (F o) (F (inr c)) S' (PL.ap (BB.OC A) (X.Seq A) F o (inr c) eo) ef)) m1))
+      (\ m2 -> X.memAppL A (F o) x G m2) (X.memApp A G x S' m) ;
+  okPick (A : DP.LO) (p q : BP.Form) (e : LT.LL A) (d0 d1 : Cf A) (G : X.Seq A)
+    (o0 : X.Ok A d0 (consL (p,e) G)) (o1 : X.Ok A d1 (consL (q,e) G)) : (n : W.N) ->
+    X.Ok A (pickN (Cf A) n d0 d1) (consL (BP.pickF n p q,e) G) = split { zero -> o0 ; suc n -> o1 } ;
+  childOk (A : DP.LO) : (d : Cf A) (G : X.Seq A) -> X.Ok A d G -> (a : X.Lb A) -> Id W.Bool (BB.br A (ruleOf A d G) a) true ->
+      X.Ok A (child A d a) (BB.step A G (ruleOf A d G) a) = split {
+    cAx b k e -> \ G o a h -> W.absurdB (X.Ok A (cAx b k e) G) h ;
+    cAnd p q e d0 d1 -> \ G o a h -> X.wk A (pickN (Cf A) a.1 d0 d1) (consL (BP.pickF a.1 p q,e) G)
+      (X.app A G (BB.addAnd A (BB.getM A (idxOf A (andF p q,e) G) G) a))
+      (okPick A p q e d0 d1 G o.2.1 o.2.2 a.1)
+      (hSubR A G (BB.getM A (idxOf A (andF p q,e) G) G) (andF p q,e) (getIdx A (andF p q,e) G o.1)
+        (\ o' -> BB.addAnd A o' a) (consL (BP.pickF a.1 p q,e) nilL) (refl (consL (BP.pickF a.1 p q,e) nilL))) ;
+    cOr p q e d -> \ G o a h -> X.wk A d (consL (p,e) (consL (q,e) G)) (X.app A G (BB.addOr A (BB.getM A (idxOf A (orF p q,e) G) G))) o.2
+      (hSubR A G (BB.getM A (idxOf A (orF p q,e) G) G) (orF p q,e) (getIdx A (orF p q,e) G o.1)
+        (BB.addOr A) (consL (p,e) (consL (q,e) nilL)) (refl (consL (p,e) (consL (q,e) nilL)))) ;
+    cAll p e k -> \ G o a h -> X.wk A (k a) (consL (p,consL a e) G) (X.app A G (BB.addAll A (BB.getM A (idxOf A (allF p,e) G) G) a)) (o.2 a)
+      (hSubR A G (BB.getM A (idxOf A (allF p,e) G) G) (allF p,e) (getIdx A (allF p,e) G o.1)
+        (\ o' -> BB.addAll A o' a) (consL (p,consL a e) nilL) (refl (consL (p,consL a e) nilL))) ;
+    cEx p e w d -> \ G o a h -> X.wk A d (consL (p,consL w e) G) (X.app A G (BB.addEx A (BB.getM A (idxOf A (exF p,e) G) G) w)) o.2
+      (hSubR A G (BB.getM A (idxOf A (exF p,e) G) G) (exF p,e) (getIdx A (exF p,e) G o.1)
+        (\ o' -> BB.addEx A o' w) (consL (p,consL w e) nilL) (refl (consL (p,consL w e) nilL))) } ;
+  loW (A : DP.LO) : (ys : LT.LL A) (d : Cf A) (G : X.Seq A) -> X.Ok A d G -> Id W.Bool (BB.inTree A ys (walkR A d G) G) true ->
+      Id W.Bool (BB.appl A (BB.seqAt A ys (walkR A d G) G) (walk A ys d G)) true = split {
+    nilL -> \ d G o h -> applOk A d G o ;
+    consL a ys | r -> \ d G o h -> r (child A d a) (BB.step A G (ruleOf A d G) a)
+      (childOk A d G o a (W.andB-l (BB.br A (ruleOf A d G) a) (BB.inTree A ys (walkR A (child A d a) (BB.step A G (ruleOf A d G) a)) (BB.step A G (ruleOf A d G) a)) h))
+      (W.andB-r (BB.br A (ruleOf A d G) a) (BB.inTree A ys (walkR A (child A d a) (BB.step A G (ruleOf A d G) a)) (BB.step A G (ruleOf A d G) a)) h) } ;
+  loc (A : DP.LO) (d : Cf A) (G : X.Seq A) (o : X.Ok A d G) : BB.LocOK A (walkR A d G) G = \ ys h -> loW A ys d G o h ;
+
+  -- a Brouwer bound read off the derivation
+  module Bd (A : DP.LO) {
+    module K = KT.KB[LT.Lab A] ;
+    bnd : Cf A -> K.BT = split {
+      cAx b k e -> node (\ a -> leaf) ;
+      cAnd p q e d0 d1 | r0 r1 -> node (\ a -> pickN K.BT a.1 r0 r1) ;
+      cOr p q e d | r -> node (\ a -> r) ;
+      cAll p e k | r -> node r ;
+      cEx p e w d | r -> node (\ a -> r) } ;
+    bndAnd (b : K.BT) (c : W.Bool) (P : K.Tr) (h : K.Bnd b P) : K.Bnd b (\ xs -> W.andB c (P xs)) =
+      K.bnd-mono b (\ xs -> W.andB c (P xs)) P (\ xs k -> W.andB-r c (P xs) k) h ;
+    bPick (G : X.Seq A) (d0 d1 : Cf A) (r0 : (G' : X.Seq A) -> K.Bnd (bnd d0) (BB.tree A (walkR A d0 G') G'))
+      (r1 : (G' : X.Seq A) -> K.Bnd (bnd d1) (BB.tree A (walkR A d1 G') G')) (G' : X.Seq A) :
+      (n : W.N) -> K.Bnd (pickN K.BT n (bnd d0) (bnd d1)) (BB.tree A (walkR A (pickN (Cf A) n d0 d1) G') G') = split {
+      zero -> r0 G' ; suc n -> r1 G' } ;
+    bndOk : (d : Cf A) (G : X.Seq A) -> K.Bnd (bnd d) (BB.tree A (walkR A d G) G) = split {
+      cAx b k e -> \ G a xs -> refl false ;
+      cAnd p q e d0 d1 | r0 r1 -> \ G a -> bndAnd (pickN K.BT a.1 (bnd d0) (bnd d1)) (BB.isTwo A a)
+        (BB.tree A (walkR A (pickN (Cf A) a.1 d0 d1) (BB.step A G (andR (idxOf A (andF p q,e) G)) a)) (BB.step A G (andR (idxOf A (andF p q,e) G)) a))
+        (bPick G d0 d1 r0 r1 (BB.step A G (andR (idxOf A (andF p q,e) G)) a) a.1) ;
+      cOr p q e d | r -> \ G a -> bndAnd (bnd d) (BB.isZeroL A a)
+        (BB.tree A (walkR A d (BB.step A G (orR (idxOf A (orF p q,e) G)) a)) (BB.step A G (orR (idxOf A (orF p q,e) G)) a))
+        (r (BB.step A G (orR (idxOf A (orF p q,e) G)) a)) ;
+      cAll p e k | r -> \ G a -> r a (BB.step A G (allR (idxOf A (allF p,e) G)) a) ;
+      cEx p e w d | r -> \ G a -> bndAnd (bnd d) (BB.isZeroL A a)
+        (BB.tree A (walkR A d (BB.step A G (exR (idxOf A (exF p,e) G) w) a)) (BB.step A G (exR (idxOf A (exF p,e) G) w) a))
+        (r (BB.step A G (exR (idxOf A (exF p,e) G) w) a)) } ;
+    wfp (d : Cf A) (G : X.Seq A) : BB.WFP A (walkR A d G) G = (bnd d,bndOk d G) ;
+  } ;
+  -- walk never produces a cut
+  isCut (A : DP.LO) : BB.Rule A -> W.Bool = split {
+    axR i -> false ; andR i -> false ; orR i -> false ; allR i -> false ; exR i w -> false ; cutR f e -> true } ;
+  ruleNoCut (A : DP.LO) : (d : Cf A) (G : X.Seq A) -> Id W.Bool (isCut A (ruleOf A d G)) false = split {
+    cAx b k e -> \ G -> refl false ; cAnd p q e d0 d1 -> \ G -> refl false ; cOr p q e d -> \ G -> refl false ;
+    cAll p e k -> \ G -> refl false ; cEx p e w d -> \ G -> refl false } ;
+  walkNoCut (A : DP.LO) : (ys : LT.LL A) (d : Cf A) (G : X.Seq A) -> Id W.Bool (isCut A (walk A ys d G)) false = split {
+    nilL -> \ d G -> ruleNoCut A d G ;
+    consL a ys | r -> \ d G -> r (child A d a) (BB.step A G (ruleOf A d G) a) } ;
+
+  --------------------------------------------------------------------
+  -- Part 3: walk commutes with restriction
+  module WN (A B : DP.LO) (g : DP.Map A B) {
+    module N = NHm.Nat[A,B,g] ;
+    module M = BB.Map[A,B,g] ;
+    idxNat (c : X.Clo A) : (G : X.Seq A) -> Id W.N (idxOf B (N.mC c) (N.mS G)) (idxOf A c G) = split {
+      nilL -> refl zero ;
+      consL d G | r -> W.ap2 W.Bool W.N W.N idxC (X.eqClo B (N.mC d) (N.mC c)) (X.eqClo A d c) (idxOf B (N.mC c) (N.mS G)) (idxOf A c G)
+        (N.eqCloNat d c) r } ;
+    ruleRel0 (G : X.Seq A) : (dA : Cf A) (dB : Cf B) -> N.RelF dA dB -> Id (BB.Rule B) (ruleOf B dB (N.mS G)) (M.mR (ruleOf A dA G)) = split {
+      cAx b k e -> \ dB rel -> PL.subst (Cf B) (\ z -> Id (BB.Rule B) (ruleOf B z (N.mS G)) (M.mR (ruleOf A (cAx b k e) G)))
+        (cAx b k (N.mE e)) dB (PL.sym (Cf B) dB (cAx b k (N.mE e)) rel)
+        (PL.ap W.N (BB.Rule B) (\ i -> axR i) (idxOf B (N.mC (atF b k,e)) (N.mS G)) (idxOf A (atF b k,e) G) (idxNat (atF b k,e) G)) ;
+      cAnd p q e d0 d1 -> \ dB rel -> PL.subst (Cf B) (\ z -> Id (BB.Rule B) (ruleOf B z (N.mS G)) (M.mR (ruleOf A (cAnd p q e d0 d1) G)))
+        (cAnd p q (N.mE e) rel.1 rel.2.1) dB (PL.sym (Cf B) dB (cAnd p q (N.mE e) rel.1 rel.2.1) rel.2.2.1)
+        (PL.ap W.N (BB.Rule B) (\ i -> andR i) (idxOf B (N.mC (andF p q,e)) (N.mS G)) (idxOf A (andF p q,e) G) (idxNat (andF p q,e) G)) ;
+      cOr p q e d -> \ dB rel -> PL.subst (Cf B) (\ z -> Id (BB.Rule B) (ruleOf B z (N.mS G)) (M.mR (ruleOf A (cOr p q e d) G)))
+        (cOr p q (N.mE e) rel.1) dB (PL.sym (Cf B) dB (cOr p q (N.mE e) rel.1) rel.2.1)
+        (PL.ap W.N (BB.Rule B) (\ i -> orR i) (idxOf B (N.mC (orF p q,e)) (N.mS G)) (idxOf A (orF p q,e) G) (idxNat (orF p q,e) G)) ;
+      cAll p e k -> \ dB rel -> PL.subst (Cf B) (\ z -> Id (BB.Rule B) (ruleOf B z (N.mS G)) (M.mR (ruleOf A (cAll p e k) G)))
+        (cAll p (N.mE e) rel.1) dB (PL.sym (Cf B) dB (cAll p (N.mE e) rel.1) rel.2.1)
+        (PL.ap W.N (BB.Rule B) (\ i -> allR i) (idxOf B (N.mC (allF p,e)) (N.mS G)) (idxOf A (allF p,e) G) (idxNat (allF p,e) G)) ;
+      cEx p e w d -> \ dB rel -> PL.subst (Cf B) (\ z -> Id (BB.Rule B) (ruleOf B z (N.mS G)) (M.mR (ruleOf A (cEx p e w d) G)))
+        (cEx p (N.mE e) (N.lm w) rel.1) dB (PL.sym (Cf B) dB (cEx p (N.mE e) (N.lm w) rel.1) rel.2.1)
+        (PL.ap W.N (BB.Rule B) (\ i -> exR i (N.lm w)) (idxOf B (N.mC (exF p,e)) (N.mS G)) (idxOf A (exF p,e) G) (idxNat (exF p,e) G)) } ;
+    ruleRel (dA : Cf A) (dB : Cf B) (rel : N.RelF dA dB) (GA : X.Seq A) (GB : X.Seq B) (eg : Id (X.Seq B) GB (N.mS GA)) :
+        Id (BB.Rule B) (ruleOf B dB GB) (M.mR (ruleOf A dA GA)) =
+      PL.subst (X.Seq B) (\ z -> Id (BB.Rule B) (ruleOf B dB z) (M.mR (ruleOf A dA GA))) (N.mS GA) GB (PL.sym (X.Seq B) GB (N.mS GA) eg)
+        (ruleRel0 GA dA dB rel) ;
+    pickRel (d0 d1 : Cf A) (d0' d1' : Cf B) (r0 : N.RelF d0 d0') (r1 : N.RelF d1 d1') : (n : W.N) ->
+        N.RelF (pickN (Cf A) n d0 d1) (pickN (Cf B) n d0' d1') = split { zero -> r0 ; suc n -> r1 } ;
+    childRel (a : X.Lb A) : (dA : Cf A) (dB : Cf B) -> N.RelF dA dB -> N.RelF (child A dA a) (child B dB (N.lm a)) = split {
+      cAx b k e -> \ dB rel -> PL.subst (Cf B) (\ z -> N.RelF (child A (cAx b k e) a) (child B z (N.lm a)))
+        (cAx b k (N.mE e)) dB (PL.sym (Cf B) dB (cAx b k (N.mE e)) rel) (refl (cAx b k (N.mE e))) ;
+      cAnd p q e d0 d1 -> \ dB rel -> PL.subst (Cf B) (\ z -> N.RelF (child A (cAnd p q e d0 d1) a) (child B z (N.lm a)))
+        (cAnd p q (N.mE e) rel.1 rel.2.1) dB (PL.sym (Cf B) dB (cAnd p q (N.mE e) rel.1 rel.2.1) rel.2.2.1)
+        (pickRel d0 d1 rel.1 rel.2.1 rel.2.2.2.1 rel.2.2.2.2 a.1) ;
+      cOr p q e d -> \ dB rel -> PL.subst (Cf B) (\ z -> N.RelF (child A (cOr p q e d) a) (child B z (N.lm a)))
+        (cOr p q (N.mE e) rel.1) dB (PL.sym (Cf B) dB (cOr p q (N.mE e) rel.1) rel.2.1) rel.2.2 ;
+      cAll p e k -> \ dB rel -> PL.subst (Cf B) (\ z -> N.RelF (child A (cAll p e k) a) (child B z (N.lm a)))
+        (cAll p (N.mE e) rel.1) dB (PL.sym (Cf B) dB (cAll p (N.mE e) rel.1) rel.2.1) (rel.2.2 a) ;
+      cEx p e w d -> \ dB rel -> PL.subst (Cf B) (\ z -> N.RelF (child A (cEx p e w d) a) (child B z (N.lm a)))
+        (cEx p (N.mE e) (N.lm w) rel.1) dB (PL.sym (Cf B) dB (cEx p (N.mE e) (N.lm w) rel.1) rel.2.1) rel.2.2 } ;
+    walkNat : (ys : LT.LL A) (dA : Cf A) (dB : Cf B) -> N.RelF dA dB -> (GA : X.Seq A) (GB : X.Seq B) -> Id (X.Seq B) GB (N.mS GA) ->
+        Id (BB.Rule B) (walk B (N.mE ys) dB GB) (M.mR (walk A ys dA GA)) = split {
+      nilL -> \ dA dB rel GA GB eg -> ruleRel dA dB rel GA GB eg ;
+      consL a ys | r -> \ dA dB rel GA GB eg -> r (child A dA a) (child B dB (N.lm a)) (childRel a dA dB rel)
+        (BB.step A GA (ruleOf A dA GA) a) (BB.step B GB (ruleOf B dB GB) (N.lm a))
+        (PL.trans (X.Seq B) (BB.step B GB (ruleOf B dB GB) (N.lm a)) (BB.step B (N.mS GA) (M.mR (ruleOf A dA GA)) (N.lm a))
+          (N.mS (BB.step A GA (ruleOf A dA GA) a))
+          (W.ap2 (X.Seq B) (BB.Rule B) (X.Seq B) (\ G0 r0 -> BB.step B G0 r0 (N.lm a)) GB (N.mS GA) (ruleOf B dB GB) (M.mR (ruleOf A dA GA))
+            eg (ruleRel dA dB rel GA GB eg))
+          (M.stepMap GA (ruleOf A dA GA) a)) } ;
+  } ;
+  --------------------------------------------------------------------
+  -- Part 4c: transport of rules is functorial
+  module Fun (A B D : DP.LO) (f : DP.Map A B) (g : DP.Map B D) {
+    module MF = BB.Map[A,B,f] ;
+    module MG = BB.Map[B,D,g] ;
+    module MC = BB.Map[A,D,LC.compMap A B D f g] ;
+    lmC (a : X.Lb A) : Id (X.Lb D) (MG.lm (MF.lm a)) (MC.lm a) =
+      PL.ap (W.Or W.Unit D.car) (X.Lb D) (\ m -> (a.1,m)) (LT.omap B D g (LT.omap A B f a.2)) (LT.omap A D (LC.compMap A B D f g) a.2)
+        (LT.omap-comp A B D f g a.2) ;
+    mRC : (r : BB.Rule A) -> Id (BB.Rule D) (MG.mR (MF.mR r)) (MC.mR r) = split {
+      axR i -> refl (axR i) ; andR i -> refl (andR i) ; orR i -> refl (orR i) ; allR i -> refl (allR i) ;
+      exR i w -> PL.ap (X.Lb D) (BB.Rule D) (\ v -> exR i v) (MG.lm (MF.lm w)) (MC.lm w) (lmC w) ;
+      cutR f0 e -> PL.ap (LT.LL D) (BB.Rule D) (\ v -> cutR f0 v) (MG.mE (MF.mE e)) (MC.mE e) (LT.mapL-comp A B D f g e) } ;
+  } ;
+  module Ext (A B : DP.LO) (f f' : DP.Map A B) (pw : (x : A.car) -> Id B.car (f.1 x) (f'.1 x)) {
+    omapE : (m : W.Or W.Unit A.car) -> Id (W.Or W.Unit B.car) (LT.omap A B f m) (LT.omap A B f' m) = split {
+      inl u -> refl (inl u) ; inr x -> PL.ap B.car (W.Or W.Unit B.car) (\ v -> inr v) (f.1 x) (f'.1 x) (pw x) } ;
+    lmE (a : X.Lb A) : Id (X.Lb B) (LT.lm A B f a) (LT.lm A B f' a) =
+      PL.ap (W.Or W.Unit B.car) (X.Lb B) (\ m -> (a.1,m)) (LT.omap A B f a.2) (LT.omap A B f' a.2) (omapE a.2) ;
+    mRE : (r : BB.Rule A) -> Id (BB.Rule B) (BB.Map[A,B,f].mR r) (BB.Map[A,B,f'].mR r) = split {
+      axR i -> refl (axR i) ; andR i -> refl (andR i) ; orR i -> refl (orR i) ; allR i -> refl (allR i) ;
+      exR i w -> PL.ap (X.Lb B) (BB.Rule B) (\ v -> exR i v) (LT.lm A B f w) (LT.lm A B f' w) (lmE w) ;
+      cutR f0 e -> PL.ap (LT.LL B) (BB.Rule B) (\ v -> cutR f0 v) (LT.mapL A B f e) (LT.mapL A B f' e)
+        (KT.map-ext (X.Lb A) (X.Lb B) (LT.lm A B f) (LT.lm A B f') lmE e) } ;
+  } ;
+  -- sequents and applicability are transported (atoms invariant)
+  module SM (evI : (A B : DP.LO) (g : DP.Map A B) (k : W.N) (e : LT.LL A) -> Id W.Bool (ev B k (LT.mapL A B g e)) (ev A k e))
+    (A B : DP.LO) (g : DP.Map A B) {
+    module M = BB.Map[A,B,g] ;
+    seqMap : (ys : LT.LL A) (RA : BB.Rl A) (RB : BB.Rl B) (GA : X.Seq A) (GB : X.Seq B)
+        (nr : (zs : LT.LL A) -> Id (BB.Rule B) (RB (M.mE zs)) (M.mR (RA zs))) (ng : Id (X.Seq B) GB (M.mS GA)) ->
+        Id (X.Seq B) (BB.seqAt B (M.mE ys) RB GB) (M.mS (BB.seqAt A ys RA GA)) = split {
+      nilL -> \ RA RB GA GB nr ng -> ng ;
+      consL a ys | r -> \ RA RB GA GB nr ng -> r (BB.shift A RA a) (BB.shift B RB (M.lm a)) (BB.step A GA (RA nilL) a) (BB.step B GB (RB nilL) (M.lm a))
+        (\ zs -> nr (consL a zs))
+        (PL.trans (X.Seq B) (BB.step B GB (RB nilL) (M.lm a)) (BB.step B (M.mS GA) (M.mR (RA nilL)) (M.lm a)) (M.mS (BB.step A GA (RA nilL) a))
+          (W.ap2 (X.Seq B) (BB.Rule B) (X.Seq B) (\ G0 r0 -> BB.step B G0 r0 (M.lm a)) GB (M.mS GA) (RB nilL) (M.mR (RA nilL)) ng (nr nilL))
+          (M.stepMap GA (RA nilL) a)) } ;
+    isOMap (t : BP.Form -> W.Bool) : (o : BB.OC A) -> Id W.Bool (BB.isO B t (M.mO o)) (BB.isO A t o) = split {
+      inl u -> refl false ; inr c -> refl (t c.1) } ;
+    isAxFMap : (f : BP.Form) (e : LT.LL A) -> Id W.Bool (BB.isAxF B f (M.mE e)) (BB.isAxF A f e) = split {
+      atF b k -> \ e -> PL.ap W.Bool W.Bool (\ v -> BP.eqBo v b) (ev B k (M.mE e)) (ev A k e) (evI A B g k e) ;
+      andF p q -> \ e -> refl false ; orF p q -> \ e -> refl false ; allF p -> \ e -> refl false ; exF p -> \ e -> refl false } ;
+    isAxMap : (o : BB.OC A) -> Id W.Bool (BB.isAx B (M.mO o)) (BB.isAx A o) = split {
+      inl u -> refl false ; inr c -> isAxFMap c.1 c.2 } ;
+    applMap (G : X.Seq A) : (r : BB.Rule A) -> Id W.Bool (BB.appl B (M.mS G) (M.mR r)) (BB.appl A G r) = split {
+      axR i -> PL.trans W.Bool (BB.isAx B (BB.getM B i (M.mS G))) (BB.isAx B (M.mO (BB.getM A i G))) (BB.isAx A (BB.getM A i G))
+        (PL.ap (BB.OC B) W.Bool (BB.isAx B) (BB.getM B i (M.mS G)) (M.mO (BB.getM A i G)) (M.getMap i G)) (isAxMap (BB.getM A i G)) ;
+      andR i -> PL.trans W.Bool (BB.isO B BP.isAndF (BB.getM B i (M.mS G))) (BB.isO B BP.isAndF (M.mO (BB.getM A i G))) (BB.isO A BP.isAndF (BB.getM A i G))
+        (PL.ap (BB.OC B) W.Bool (BB.isO B BP.isAndF) (BB.getM B i (M.mS G)) (M.mO (BB.getM A i G)) (M.getMap i G)) (isOMap BP.isAndF (BB.getM A i G)) ;
+      orR i -> PL.trans W.Bool (BB.isO B BP.isOrF (BB.getM B i (M.mS G))) (BB.isO B BP.isOrF (M.mO (BB.getM A i G))) (BB.isO A BP.isOrF (BB.getM A i G))
+        (PL.ap (BB.OC B) W.Bool (BB.isO B BP.isOrF) (BB.getM B i (M.mS G)) (M.mO (BB.getM A i G)) (M.getMap i G)) (isOMap BP.isOrF (BB.getM A i G)) ;
+      allR i -> PL.trans W.Bool (BB.isO B BP.isAllF (BB.getM B i (M.mS G))) (BB.isO B BP.isAllF (M.mO (BB.getM A i G))) (BB.isO A BP.isAllF (BB.getM A i G))
+        (PL.ap (BB.OC B) W.Bool (BB.isO B BP.isAllF) (BB.getM B i (M.mS G)) (M.mO (BB.getM A i G)) (M.getMap i G)) (isOMap BP.isAllF (BB.getM A i G)) ;
+      exR i w -> PL.trans W.Bool (BB.isO B BP.isExF (BB.getM B i (M.mS G))) (BB.isO B BP.isExF (M.mO (BB.getM A i G))) (BB.isO A BP.isExF (BB.getM A i G))
+        (PL.ap (BB.OC B) W.Bool (BB.isO B BP.isExF) (BB.getM B i (M.mS G)) (M.mO (BB.getM A i G)) (M.getMap i G)) (isOMap BP.isExF (BB.getM A i G)) ;
+      cutR f e -> refl true } ;
+    isCutMap : (r : BB.Rule A) -> Id W.Bool (isCut B (M.mR r)) (isCut A r) = split {
+      axR i -> refl false ; andR i -> refl false ; orR i -> refl false ; allR i -> refl false ; exR i w -> refl false ; cutR f e -> refl true } ;
+  } ;
+  --------------------------------------------------------------------
+  -- Part 5: the cut-free beta-proof on all linear orders
+  module Out (evI : (A B : DP.LO) (g : DP.Map A B) (k : W.N) (e : LT.LL A) -> Id W.Bool (ev B k (LT.mapL A B g e)) (ev A k e))
+    (Gs : (C : DP.LO) -> X.Seq C) (Rs : (C : DP.LO) -> BB.Rl C) (lo : (C : DP.LO) -> BB.LocOK C (Rs C) (Gs C))
+    (ng : (C D : DP.LO) (g : DP.Map C D) -> Id (X.Seq D) (Gs D) (BB.Map[C,D,g].mS (Gs C)))
+    (nr : (C D : DP.LO) (g : DP.Map C D) (ys : LT.LL C) -> Id (BB.Rule D) (Rs D (LT.mapL C D g ys)) (BB.Map[C,D,g].mR (Rs C ys)))
+    (cor : BB.Pre[Gs,Rs,lo].Correct) {
+    dOf (S : DP.LO) (w : LW.WF S) : Cf S = (X.pointwise Gs Rs lo cor S w).1 ;
+    okOf (S : DP.LO) (w : LW.WF S) : X.Ok S (dOf S w) (Gs S) = (X.pointwise Gs Rs lo cor S w).2 ;
+    -- the rule at an address ys of any linear order Y: computed in the
+    -- finite suborder spanned by the points of ys
+    Wk (Y : DP.LO) (ys : LT.LL Y) : BB.Rule (Pts[Y].sup ys) =
+      walk (Pts[Y].sup ys) (Pts[Y].relS ys) (dOf (Pts[Y].sup ys) (FS[Y].wfSub (Pts[Y].ptsOf ys))) (Gs (Pts[Y].sup ys)) ;
+    Rc (Y : DP.LO) (ys : LT.LL Y) : BB.Rule Y = BB.Map[Pts[Y].sup ys,Y,FS[Y].incl (Pts[Y].ptsOf ys)].mR (Wk Y ys) ;
+
+    -- agreement: if ys factors through a well-order T, the rule is the one of
+    -- the cut-free derivation at T
+    module Ag (T : DP.LO) (wT : LW.WF T) (Y : DP.LO) (i : DP.Map T Y) (zs : LT.LL T) {
+      module Q = PreIm[T,Y,i] ;
+      module QH = Q.H[zs] ;
+      ys : LT.LL Y = LT.mapL T Y i zs ;
+      S : DP.LO = Pts[Y].sup ys ;
+      wS : LW.WF S = FS[Y].wfSub (Pts[Y].ptsOf ys) ;
+      inc : DP.Map S Y = FS[Y].incl (Pts[Y].ptsOf ys) ;
+      W0 : BB.Rule S = Wk Y ys ;
+      relh : NHm.Nat[S,T,QH.h].RelF (dOf S wS) (dOf T wT) = NHm.homogeneous Gs Rs lo ng nr cor S T QH.h wS wT ;
+      wn : Id (BB.Rule T) (walk T (LT.mapL S T QH.h (Pts[Y].relS ys)) (dOf T wT) (Gs T)) (BB.Map[S,T,QH.h].mR W0) =
+        WN[S,T,QH.h].walkNat (Pts[Y].relS ys) (dOf S wS) (dOf T wT) relh (Gs S) (Gs T) (ng S T QH.h) ;
+      wn2 : Id (BB.Rule T) (walk T zs (dOf T wT) (Gs T)) (BB.Map[S,T,QH.h].mR W0) =
+        PL.subst (LT.LL T) (\ z -> Id (BB.Rule T) (walk T z (dOf T wT) (Gs T)) (BB.Map[S,T,QH.h].mR W0))
+          (LT.mapL S T QH.h (Pts[Y].relS ys)) zs (QH.hRel zs (Pts[Y].allSelf ys)) wn ;
+      res : Id (BB.Rule Y) (Rc Y ys) (BB.Map[T,Y,i].mR (walk T zs (dOf T wT) (Gs T))) =
+        PL.trans (BB.Rule Y) (Rc Y ys) (BB.Map[S,Y,LC.compMap S T Y QH.h i].mR W0) (BB.Map[T,Y,i].mR (walk T zs (dOf T wT) (Gs T)))
+          (Ext[S,Y,inc,LC.compMap S T Y QH.h i,\ p -> PL.sym Y.car (i.1 (QH.hf p)) p.1 (QH.hok p)].mRE W0)
+          (PL.trans (BB.Rule Y) (BB.Map[S,Y,LC.compMap S T Y QH.h i].mR W0) (BB.Map[T,Y,i].mR (BB.Map[S,T,QH.h].mR W0))
+             (BB.Map[T,Y,i].mR (walk T zs (dOf T wT) (Gs T)))
+            (PL.sym (BB.Rule Y) (BB.Map[T,Y,i].mR (BB.Map[S,T,QH.h].mR W0)) (BB.Map[S,Y,LC.compMap S T Y QH.h i].mR W0) (Fun[S,T,Y,QH.h,i].mRC W0))
+            (PL.ap (BB.Rule T) (BB.Rule Y) (BB.Map[T,Y,i].mR) (BB.Map[S,T,QH.h].mR W0) (walk T zs (dOf T wT) (Gs T))
+              (PL.sym (BB.Rule T) (walk T zs (dOf T wT) (Gs T)) (BB.Map[S,T,QH.h].mR W0) wn2))) ;
+    } ;
+
+    -- naturality of the new rules
+    module Nr (Y Z : DP.LO) (g : DP.Map Y Z) (ys : LT.LL Y) {
+      S : DP.LO = Pts[Y].sup ys ;
+      inc : DP.Map S Y = FS[Y].incl (Pts[Y].ptsOf ys) ;
+      i : DP.Map S Z = LC.compMap S Y Z inc g ;
+      zs : LT.LL S = Pts[Y].relS ys ;
+      eArg : Id (LT.LL Z) (LT.mapL S Z i zs) (LT.mapL Y Z g ys) =
+        PL.trans (LT.LL Z) (LT.mapL S Z i zs) (LT.mapL Y Z g (LT.mapL S Y inc zs)) (LT.mapL Y Z g ys)
+          (PL.sym (LT.LL Z) (LT.mapL Y Z g (LT.mapL S Y inc zs)) (LT.mapL S Z i zs) (LT.mapL-comp S Y Z inc g zs))
+          (PL.ap (LT.LL Y) (LT.LL Z) (LT.mapL Y Z g) (LT.mapL S Y inc zs) ys (Pts[Y].relIncl (Pts[Y].ptsOf ys) ys (Pts[Y].allSelf ys))) ;
+      res : Id (BB.Rule Z) (Rc Z (LT.mapL Y Z g ys)) (BB.Map[Y,Z,g].mR (Rc Y ys)) =
+        PL.trans (BB.Rule Z) (Rc Z (LT.mapL Y Z g ys)) (Rc Z (LT.mapL S Z i zs)) (BB.Map[Y,Z,g].mR (Rc Y ys))
+          (PL.ap (LT.LL Z) (BB.Rule Z) (Rc Z) (LT.mapL Y Z g ys) (LT.mapL S Z i zs) (PL.sym (LT.LL Z) (LT.mapL S Z i zs) (LT.mapL Y Z g ys) eArg))
+          (PL.trans (BB.Rule Z) (Rc Z (LT.mapL S Z i zs)) (BB.Map[S,Z,i].mR (Wk Y ys)) (BB.Map[Y,Z,g].mR (Rc Y ys))
+            (Ag[S,FS[Y].wfSub (Pts[Y].ptsOf ys),Z,i,zs].res)
+            (PL.sym (BB.Rule Z) (BB.Map[Y,Z,g].mR (Rc Y ys)) (BB.Map[S,Z,i].mR (Wk Y ys)) (Fun[S,Y,Z,inc,g].mRC (Wk Y ys)))) ;
+    } ;
+    nrOut (Y Z : DP.LO) (g : DP.Map Y Z) (ys : LT.LL Y) : Id (BB.Rule Z) (Rc Z (LT.mapL Y Z g ys)) (BB.Map[Y,Z,g].mR (Rc Y ys)) =
+      Nr[Y,Z,g,ys].res ;
+
+    -- local correctness at every linear order
+    module Lo (Y : DP.LO) (ys : LT.LL Y) (h : Id W.Bool (BB.inTree Y ys (Rc Y) (Gs Y)) true) {
+      T : DP.LO = Pts[Y].sup ys ;
+      wT : LW.WF T = FS[Y].wfSub (Pts[Y].ptsOf ys) ;
+      inc : DP.Map T Y = FS[Y].incl (Pts[Y].ptsOf ys) ;
+      zs : LT.LL T = Pts[Y].relS ys ;
+      e0 : Id (LT.LL Y) (LT.mapL T Y inc zs) ys = Pts[Y].relIncl (Pts[Y].ptsOf ys) ys (Pts[Y].allSelf ys) ;
+      dT : Cf T = dOf T wT ;
+      nrT (zs' : LT.LL T) : Id (BB.Rule Y) (Rc Y (LT.mapL T Y inc zs')) (BB.Map[T,Y,inc].mR (walkR T dT (Gs T) zs')) = Ag[T,wT,Y,inc,zs'].res ;
+      tEq : Id W.Bool (BB.inTree Y (LT.mapL T Y inc zs) (Rc Y) (Gs Y)) (BB.inTree T zs (walkR T dT (Gs T)) (Gs T)) =
+        BB.Map[T,Y,inc].treeMap zs (walkR T dT (Gs T)) (Rc Y) (Gs T) (Gs Y) nrT (ng T Y inc) ;
+      h' : Id W.Bool (BB.inTree Y (LT.mapL T Y inc zs) (Rc Y) (Gs Y)) true =
+        PL.subst (LT.LL Y) (\ z -> Id W.Bool (BB.inTree Y z (Rc Y) (Gs Y)) true) ys (LT.mapL T Y inc zs) (PL.sym (LT.LL Y) (LT.mapL T Y inc zs) ys e0) h ;
+      l0 : Id W.Bool (BB.appl T (BB.seqAt T zs (walkR T dT (Gs T)) (Gs T)) (walk T zs dT (Gs T))) true =
+        loc T dT (Gs T) (okOf T wT) zs (PL.trans W.Bool (BB.inTree T zs (walkR T dT (Gs T)) (Gs T)) (BB.inTree Y (LT.mapL T Y inc zs) (Rc Y) (Gs Y)) true
+          (PL.sym W.Bool (BB.inTree Y (LT.mapL T Y inc zs) (Rc Y) (Gs Y)) (BB.inTree T zs (walkR T dT (Gs T)) (Gs T)) tEq) h') ;
+      sEq : Id (X.Seq Y) (BB.seqAt Y (LT.mapL T Y inc zs) (Rc Y) (Gs Y)) (BB.Map[T,Y,inc].mS (BB.seqAt T zs (walkR T dT (Gs T)) (Gs T))) =
+        SM[evI,T,Y,inc].seqMap zs (walkR T dT (Gs T)) (Rc Y) (Gs T) (Gs Y) nrT (ng T Y inc) ;
+      l1 : Id W.Bool (BB.appl Y (BB.seqAt Y (LT.mapL T Y inc zs) (Rc Y) (Gs Y)) (Rc Y (LT.mapL T Y inc zs))) true =
+        PL.trans W.Bool (BB.appl Y (BB.seqAt Y (LT.mapL T Y inc zs) (Rc Y) (Gs Y)) (Rc Y (LT.mapL T Y inc zs)))
+            (BB.appl Y (BB.Map[T,Y,inc].mS (BB.seqAt T zs (walkR T dT (Gs T)) (Gs T))) (BB.Map[T,Y,inc].mR (walk T zs dT (Gs T)))) true
+          (W.ap2 (X.Seq Y) (BB.Rule Y) W.Bool (BB.appl Y) (BB.seqAt Y (LT.mapL T Y inc zs) (Rc Y) (Gs Y))
+            (BB.Map[T,Y,inc].mS (BB.seqAt T zs (walkR T dT (Gs T)) (Gs T))) (Rc Y (LT.mapL T Y inc zs)) (BB.Map[T,Y,inc].mR (walk T zs dT (Gs T)))
+            sEq (nrT zs))
+          (PL.trans W.Bool (BB.appl Y (BB.Map[T,Y,inc].mS (BB.seqAt T zs (walkR T dT (Gs T)) (Gs T))) (BB.Map[T,Y,inc].mR (walk T zs dT (Gs T))))
+              (BB.appl T (BB.seqAt T zs (walkR T dT (Gs T)) (Gs T)) (walk T zs dT (Gs T))) true
+            (SM[evI,T,Y,inc].applMap (BB.seqAt T zs (walkR T dT (Gs T)) (Gs T)) (walk T zs dT (Gs T))) l0) ;
+      res : Id W.Bool (BB.appl Y (BB.seqAt Y ys (Rc Y) (Gs Y)) (Rc Y ys)) true =
+        PL.subst (LT.LL Y) (\ z -> Id W.Bool (BB.appl Y (BB.seqAt Y z (Rc Y) (Gs Y)) (Rc Y z)) true) (LT.mapL T Y inc zs) ys e0 l1 ;
+    } ;
+    loOut (Y : DP.LO) : BB.LocOK Y (Rc Y) (Gs Y) = \ ys h -> Lo[Y,ys,h].res ;
+
+    -- well-founded at every well-order: the tree is the one of the cut-free derivation
+    module Cr (Y : DP.LO) (wY : LW.WF Y) {
+      module K = KT.KB[LT.Lab Y] ;
+      dY : Cf Y = dOf Y wY ;
+      nrI (zs : LT.LL Y) : Id (BB.Rule Y) (Rc Y (LT.mapL Y Y (LC.idMap Y) zs)) (BB.Map[Y,Y,LC.idMap Y].mR (walkR Y dY (Gs Y) zs)) =
+        Ag[Y,wY,Y,LC.idMap Y,zs].res ;
+      tEq (xs : LT.LL Y) : Id W.Bool (BB.inTree Y xs (walkR Y dY (Gs Y)) (Gs Y)) (BB.inTree Y xs (Rc Y) (Gs Y)) =
+        PL.trans W.Bool (BB.inTree Y xs (walkR Y dY (Gs Y)) (Gs Y)) (BB.inTree Y (LT.mapL Y Y (LC.idMap Y) xs) (Rc Y) (Gs Y)) (BB.inTree Y xs (Rc Y) (Gs Y))
+          (PL.sym W.Bool (BB.inTree Y (LT.mapL Y Y (LC.idMap Y) xs) (Rc Y) (Gs Y)) (BB.inTree Y xs (walkR Y dY (Gs Y)) (Gs Y))
+            (BB.Map[Y,Y,LC.idMap Y].treeMap xs (walkR Y dY (Gs Y)) (Rc Y) (Gs Y) (Gs Y) nrI (ng Y Y (LC.idMap Y))))
+          (PL.ap (LT.LL Y) W.Bool (\ z -> BB.inTree Y z (Rc Y) (Gs Y)) (LT.mapL Y Y (LC.idMap Y) xs) xs (LT.mapL-id Y xs)) ;
+      wfp : BB.WFP Y (Rc Y) (Gs Y) =
+        (Bd[Y].bnd dY,K.bnd-ext (Bd[Y].bnd dY) (BB.tree Y (walkR Y dY (Gs Y)) (Gs Y)) (BB.tree Y (Rc Y) (Gs Y)) tEq (Bd[Y].bndOk dY (Gs Y))) ;
+    } ;
+    -- CUT ELIMINATION FOR BETA-PROOFS: (Gs, Rc) is a homogeneous, cut-free
+    -- beta-proof of the same end sequent
+    correct : BB.Pre[Gs,Rc,loOut].Correct = \ Y wY -> Cr[Y,wY].wfp ;
+    cutFree (Y : DP.LO) (ys : LT.LL Y) : Id W.Bool (isCut Y (Rc Y ys)) false =
+      PL.trans W.Bool (isCut Y (Rc Y ys)) (isCut (Pts[Y].sup ys) (Wk Y ys)) false
+        (SM[evI,Pts[Y].sup ys,Y,FS[Y].incl (Pts[Y].ptsOf ys)].isCutMap (Wk Y ys))
+        (walkNoCut (Pts[Y].sup ys) (Pts[Y].relS ys) (dOf (Pts[Y].sup ys) (FS[Y].wfSub (Pts[Y].ptsOf ys))) (Gs (Pts[Y].sup ys))) ;
+    natural : (Y Z : DP.LO) (g : DP.Map Y Z) (ys : LT.LL Y) -> Id (BB.Rule Z) (Rc Z (LT.mapL Y Z g ys)) (BB.Map[Y,Z,g].mR (Rc Y ys)) = nrOut ;
+    dil : SF.SF[LC.ce] = BB.Hom[Gs,Rc,ng,nrOut].dil ;
+    isDil : LW.IsDil dil = BB.Hom[Gs,Rc,ng,nrOut].toDil correct ;
+  } ;
+} ;
