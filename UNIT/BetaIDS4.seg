@@ -244,13 +244,30 @@ module Obj (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN :
   P (Cst : DP.LO) (Fp : DP.LO -> DP.LO) (Y : DP.LO) : DP.LO = Sm (Sm Cst Y) (Sm LT.one (Fp Y)) ;
   tp (Cst : DP.LO) (Fp : DP.LO -> DP.LO) (Y : DP.LO) : (P Cst Fp Y).car = inr (inl tt) ;
   smapC (C X Y : DP.LO) (f : DP.Map X Y) : DP.Map (Sm C X) (Sm C Y) = PS.SumMap[C,X,C,Y,LC.idMap C,f].map ;
-  -- cuts of kind I (no X-atom) or III (a Phi-bar atom)
+  -- cuts of kind III (a Phi-bar atom)
   barAt (A : DP.LO) : BI.Form -> LT.LL A -> W.Bool = split {
     atF b k -> \ e -> false ; andF p q -> \ e -> false ; orF p q -> \ e -> false ; allF p -> \ e -> false ; exF p -> \ e -> false ;
     xF b s k -> \ e -> BP.isInl W.Unit A.car (I.nthL A s e).2 } ;
-  KindOK (A : DP.LO) : I.Rule A -> U l = split {
+  -- cuts of kind II BELOW TOP: every X-atom reads a stage below top (kind I
+  -- is the case without X-atoms, noxLow)
+  LowS (A : DP.LO) (top : A.car) : W.Or W.Unit A.car -> U l = split { inl u -> W.Empty ; inr mu -> Id W.Bool (I.ltB A mu top) true } ;
+  StLow (A : DP.LO) (top : A.car) : BI.Form -> LT.LL A -> U l = split {
+    atF b k -> \ e -> W.Unit ;
+    andF p q | rp rq -> \ e -> rp e * rq e ;
+    orF p q | rp rq -> \ e -> rp e * rq e ;
+    allF p | rp -> \ e -> (x : I.Lb A) -> Id W.Bool (I.isNum A x) true -> rp (consL x e) ;
+    exF p | rp -> \ e -> (x : I.Lb A) -> Id W.Bool (I.isNum A x) true -> rp (consL x e) ;
+    xF b s k -> \ e -> LowS A top (I.nthL A s e).2 } ;
+  noxLow (A : DP.LO) (top : A.car) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (noX f) true -> StLow A top f e = split {
+    atF b k -> \ e h -> tt ;
+    andF p q | rp rq -> \ e h -> (rp e (W.andB-l (noX p) (noX q) h),rq e (W.andB-r (noX p) (noX q) h)) ;
+    orF p q | rp rq -> \ e h -> (rp e (W.andB-l (noX p) (noX q) h),rq e (W.andB-r (noX p) (noX q) h)) ;
+    allF p | rp -> \ e h x hx -> rp (consL x e) h ;
+    exF p | rp -> \ e h x hx -> rp (consL x e) h ;
+    xF b s k -> \ e h -> W.absurdB (StLow A top (xF b s k) e) h } ;
+  KindOK (A : DP.LO) (top : A.car) : I.Rule A -> U l = split {
     axR i -> W.Unit ; andR i -> W.Unit ; orR i -> W.Unit ; allR i -> W.Unit ; exR i w -> W.Unit ;
-    cutR f e -> W.Or (Id W.Bool (noX f) true) (Id W.Bool (barAt A f e) true) ;
+    cutR f e -> W.Or (StLow A top f e) (Id W.Bool (barAt A f e) true) ;
     xrR i mu -> W.Unit ; xlR i o -> W.Unit } ;
   record IObj {
     k : DP.LO -> DP.LO ;
@@ -274,7 +291,7 @@ module Obj (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN :
       Id (I.Rule (k Y)) (R Y (LT.mapL (k X) (k Y) (km X Y f) zs))
         (BT.Mp[ev,phi,k X,k Y,km X Y f,evMap ev evN (k X) (k Y) (km X Y f),(sgi X).1 (tp Cst Fp X)].mR (R X zs)) ;
     lo : (Y : DP.LO) -> I.LocOK (k Y) ((sgi Y).1 (tp Cst Fp Y)) (R Y) (G Y) ;
-    kd : (Y : DP.LO) (zs : LT.LL (k Y)) -> Id W.Bool (I.inTree (k Y) ((sgi Y).1 (tp Cst Fp Y)) zs (R Y) (G Y)) true -> KindOK (k Y) (R Y zs) ;
+    kd : (Y : DP.LO) (zs : LT.LL (k Y)) -> Id W.Bool (I.inTree (k Y) ((sgi Y).1 (tp Cst Fp Y)) zs (R Y) (G Y)) true -> KindOK (k Y) ((sgi Y).1 (tp Cst Fp Y)) (R Y zs) ;
   } ;
   topO (o : IObj) (Y : DP.LO) : (o.k Y).car = (o.sgi Y).1 (tp o.Cst o.Fp Y) ;
 } ;
@@ -1097,6 +1114,31 @@ module RepR (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN 
     allF p | rp -> \ e h x hx -> rp (consL x e) h ;
     exF p | rp -> \ e h x hx -> rp (consL x e) h ;
     xF b s k -> \ e h -> W.absurdB (BK.CK[ev,phi,B,inl top].StOK la (xF b s k) e) h } ;
+  -- cut formulas of kind II below top: rep keeps them of kind II at inl top
+  module OL = Obj[ev,phi,evN] ;
+  lowX (mu : A.car) (h : Id W.Bool (I.ltB A mu top) true) : (b : W.Bool) -> Id W.Bool (I.ltB A mu top) b ->
+      BK.CK[ev,phi,B,inl top].LeS (inl top) (BO.pickB (W.Or W.Unit B.car) b (inr (inl mu)) (inl tt)) = split {
+    true -> \ e -> PL.ap W.O3 W.Bool W.isLt (A.cmp top mu) gt
+      (PL.trans W.O3 (A.cmp top mu) (W.flip (A.cmp mu top)) gt (A.cflip mu top)
+        (PL.ap W.O3 W.O3 W.flip (A.cmp mu top) lt (W.isLt-sound (A.cmp mu top) h))) ;
+    false -> \ e -> W.absurdB (BK.CK[ev,phi,B,inl top].LeS (inl top) (BO.pickB (W.Or W.Unit B.car) false (inr (inl mu)) (inl tt)))
+      (PL.trans W.Bool false (I.ltB A mu top) true (PL.sym W.Bool (I.ltB A mu top) false e) h) } ;
+  lowO : (oo : W.Or W.Unit A.car) -> OL.LowS A top oo -> BK.CK[ev,phi,B,inl top].LeS (inl top) (R.rO oo) = split {
+    inl u -> \ h -> CF.efq (BK.CK[ev,phi,B,inl top].LeS (inl top) (inl u)) h ;
+    inr mu -> \ h -> lowX mu h (I.ltB A mu top) (refl (I.ltB A mu top)) } ;
+  numLow (p : BI.Form) (rp : (e1 : LT.LL A) -> OL.StLow A top p e1 -> BK.CK[ev,phi,B,inl top].StOK (inl top) p (R.rE e1)) (e : LT.LL A)
+      (h : (x : I.Lb A) -> Id W.Bool (I.isNum A x) true -> OL.StLow A top p (consL x e)) (n : W.N) :
+      (oo : W.Or W.Unit B.car) -> Id W.Bool (I.isNum B (n,oo)) true -> BK.CK[ev,phi,B,inl top].StOK (inl top) p (consL (n,oo) (R.rE e)) = split {
+    inl u -> \ hx -> rp (consL (n,inl u) e) (h (n,inl u) (refl true)) ;
+    inr z -> \ hx -> W.absurdB (BK.CK[ev,phi,B,inl top].StOK (inl top) p (consL (n,inr z) (R.rE e))) hx } ;
+  stLow : (f : BI.Form) (e : LT.LL A) -> OL.StLow A top f e -> BK.CK[ev,phi,B,inl top].StOK (inl top) f (R.rE e) = split {
+    atF b k -> \ e h -> tt ;
+    andF p q | rp rq -> \ e h -> (rp e h.1,rq e h.2) ;
+    orF p q | rp rq -> \ e h -> (rp e h.1,rq e h.2) ;
+    allF p | rp -> \ e h x hx -> numLow p (\ e1 h1 -> rp e1 h1) e h x.1 x.2 hx ;
+    exF p | rp -> \ e h x hx -> numLow p (\ e1 h1 -> rp e1 h1) e h x.1 x.2 hx ;
+    xF b s k -> \ e h -> PL.subst (I.Lb B) (\ z -> BK.CK[ev,phi,B,inl top].LeS (inl top) z.2) (R.rL (I.nthL A s e)) (I.nthL B s (R.rE e))
+      (PL.sym (I.Lb B) (I.nthL B s (R.rE e)) (R.rL (I.nthL A s e)) (R.nthR s e)) (lowO (I.nthL A s e).2 h) } ;
 } ;
 
 ------------------------------------------------------------------------
@@ -1773,14 +1815,13 @@ module Disp (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN 
   xrC (i : W.N) (mu : A.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) : (b : W.Bool) -> Id W.Bool (I.ltB A mu top) b -> OutG = split {
     true -> \ h -> simple (xrR i mu) eY (\ n nu -> refl false) h tt ;
     false -> \ h -> RBar[ev,phi,evN,hPos,o,ih,Y,wY,i,mu,eY,h].out } ;
-  -- cuts: kind I or kind III
+  -- cuts: kind II below top (kind I included) or kind III
   cutC (f : BI.Form) (e : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f e)) :
-      W.Or (Id W.Bool (noX f) true) (Id W.Bool (O.barAt A f e) true) -> OutG = split {
+      W.Or (O.StLow A top f e) (Id W.Bool (O.barAt A f e) true) -> OutG = split {
     inl h -> simple (cutR f e) eY (\ n nu -> refl false) tt
-      (RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,spAbs (cutR f e) eY (\ n nu -> refl false)].RR.noXSt (inl top) f
-        (RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,spAbs (cutR f e) eY (\ n nu -> refl false)].RR.R.rE e) h) ;
+      (RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,spAbs (cutR f e) eY (\ n nu -> refl false)].RR.stLow f e h) ;
     inr h -> K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e].out f eY h } ;
-  kdY : O.KindOK A (o.R Y nilL) = o.kd Y nilL (refl true) ;
+  kdY : O.KindOK A top (o.R Y nilL) = o.kd Y nilL (refl true) ;
   disp : (rr : I.Rule (o.k BA.E0)) -> Id (I.Rule (o.k BA.E0)) N0.r0 rr -> OutG = split {
     axR i -> \ e -> simple (axR i) (eYof (axR i) e) (\ n nu -> refl false) tt tt ;
     andR i -> \ e -> simple (andR i) (eYof (andR i) e) (\ n nu -> refl false) tt tt ;
@@ -1788,7 +1829,7 @@ module Disp (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN 
     allR i -> \ e -> simple (allR i) (eYof (allR i) e) (\ n nu -> refl false) tt tt ;
     exR i w -> \ e -> simple (exR i (MY.lm w)) (eYof (exR i w) e) (\ n nu -> refl false) tt tt ;
     cutR f e0 -> \ e -> cutC f (MY.mE e0) (eYof (cutR f e0) e)
-      (PL.subst (I.Rule A) (\ z -> O.KindOK A z) (o.R Y nilL) (cutR f (MY.mE e0)) (eYof (cutR f e0) e) kdY) ;
+      (PL.subst (I.Rule A) (\ z -> O.KindOK A top z) (o.R Y nilL) (cutR f (MY.mE e0)) (eYof (cutR f e0) e) kdY) ;
     xrR i mu0 -> \ e -> xrC i ((o.km BA.E0 Y (M.e0 Y)).1 mu0) (eYof (xrR i mu0) e)
       (I.ltB A ((o.km BA.E0 Y (M.e0 Y)).1 mu0) top) (refl (I.ltB A ((o.km BA.E0 Y (M.e0 Y)).1 mu0) top)) ;
     xlR i oo0 -> \ e -> regOut (spXl i oo0 e) (xlR i (MY.om oo0)) (eYof (xlR i oo0) e) tt tt } ;
@@ -1797,7 +1838,8 @@ module Disp (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN 
 
 ------------------------------------------------------------------------
 -- THE THEOREM (pointwise cut elimination for accessible inputs): an
--- accessible homogeneous F-proof (input family o, cuts of kind I or III)
+-- accessible homogeneous F-proof (input family o, cuts below top -- kind I
+-- or kind II with all stages below top -- or of kind III)
 -- has, at every well-order Y, a well-founded extension E and a CUT-FREE
 -- derivation of rep G_Y at (kY + E, top_Y).
 module Thm (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : EvN ev)

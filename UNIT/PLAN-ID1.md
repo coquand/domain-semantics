@@ -714,19 +714,25 @@ Gamma~: stages >= top are replaced by Phi-bar.
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
-## Kind II input cuts: first test (2026-11-21)
+## Cuts below top DONE (2026-11-21, All.seg 35525 declarations, green)
 
-`BetaIDS4Kind2.Low.stLow` (in All.seg, green): a cut whose X-atoms all read
-stages below top (never Phi-bar) is of kind II at (A + Dl, inl top) after
-rep. So the kept-rule node of S4 (RegAsm.Fin: okRule, then KC.elim) handles
-it as it stands, and the premises are input predecessors, so there is no
-need to eliminate kind II cuts for families first (no accessibility of an
-elimination output).
-- TODO: add this disjunct to O.KindOK and thread it through Disp.cutC,
-  NodeD.cutH, DiagNode.cutHD (mechanical).
-- Not covered: atoms at stages >= top (rep makes them Phi-bar), compound
-  cut formulas mixing stage and Phi-bar atoms. Check whether input
-  environments can carry stages >= top at all (the NegOK invariant).
+The input kind condition is now `Obj.KindOK A top`: every cut is BELOW TOP
+(`Obj.StLow`: every X-atom of the cut formula reads a stage mu < top, never
+Phi-bar; compound formulas and number quantifiers allowed; kind I is the
+case without X-atoms, `noxLow`) or of kind III (`barAt`). The pointwise
+theorem (Thm.thm), homogeneity (Hom.hom) and the diagonal law (diagId)
+all hold for these inputs.
+- Pointwise: `Disp.cutC` sends a cut below top to the kept-rule node, with
+  `RepR.stLow` (rep keeps it of kind II at inl top) as the CutOK witness
+  for RegAsm.Fin (okRule, then KC.elim). Premises are input predecessors;
+  no elimination of kind II cuts for families.
+- Homogeneity: `NodeD.cutH`; the cross cases are excluded by `lowBar`,
+  `barLow` (the target environment is the beta-image, `eEnv`).
+- Not covered: atoms at stages >= top (rep makes them Phi-bar; these occur
+  in unrestricted inputs, e.g. a cut on I^{top_Y}(0) beside a true
+  arithmetic atom) and compound formulas mixing stage and Phi-bar atoms.
+  Next test: the atomic high-stage case via the kind III construction
+  with an interface asking only that the REPRESENTED occurrence be Phi-bar.
 - Write-up: UNIT/id1-cut-elim.tex (6 pages).
 
 ## Diagonal identity law for S4 homogeneity DONE (2026-11-21, All.seg 35471 declarations, green)

@@ -113,8 +113,8 @@ module DNode (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
     omZ (oo0 : W.Or W.Unit K0.car) : Id (W.Or W.Unit K0.car) oo0 (ND.MZ.om oo0) =
       PL.sym (W.Or W.Unit K0.car) (ND.MZ.om oo0) oo0 (DBs.omId K0 (tau BA.E0) (ht BA.E0) oo0) ;
     kmY (mu0 : K0.car) : A.car = (o.km BA.E0 Y (S4.Main[ev,phi,evN,hPos].e0 Y)).1 mu0 ;
-    kdS (f0 : BI.Form) (e1 : LT.LL K0) (q1 : Id RK r0 (cutR f0 e1)) : W.Or (Id W.Bool (S4.noX f0) true) (Id W.Bool (O.barAt A f0 (D.MY.mE e1)) true) =
-      PL.subst (I.Rule A) (\ z -> O.KindOK A z) (o.R Y nilL) (cutR f0 (D.MY.mE e1)) (D.eYof (cutR f0 e1) q1) D.kdY ;
+    kdS (f0 : BI.Form) (e1 : LT.LL K0) (q1 : Id RK r0 (cutR f0 e1)) : W.Or (O.StLow A top f0 (D.MY.mE e1)) (Id W.Bool (O.barAt A f0 (D.MY.mE e1)) true) =
+      PL.subst (I.Rule A) (\ z -> O.KindOK A top z) (o.R Y nilL) (cutR f0 (D.MY.mE e1)) (D.eYof (cutR f0 e1) q1) D.kdY ;
     -- the (xr) choice and the cut kinds, in the diagonal
     xrHD (i : W.N) (mu : A.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) :
         (b : W.Bool) (h : Id W.Bool (I.ltB A mu top) b) (x : (D.xrC i mu eY b h).1.car) ->
@@ -122,13 +122,11 @@ module DNode (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
       true -> \ h x -> simD (xrR i mu) eY (\ n nu -> refl false) h tt h tt x ;
       false -> \ h x -> rbLaw i mu eY h x } ;
     cutHD (f0 : BI.Form) (e0 : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) :
-        (k : W.Or (Id W.Bool (S4.noX f0) true) (Id W.Bool (O.barAt A f0 e0) true)) (x : (D.cutC f0 e0 eY k).1.car) ->
+        (k : W.Or (O.StLow A top f0 e0) (Id W.Bool (O.barAt A f0 e0) true)) (x : (D.cutC f0 e0 eY k).1.car) ->
         Id (D.cutC f0 e0 eY k).1.car ((CS.cutH f0 e0 e0 eY eY k k).1.1 x) x = split {
       inl h -> \ x -> simD (cutR f0 e0) eY (\ n nu -> refl false) tt
-        (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.noXSt (inl top) f0
-          (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.R.rE e0) h) tt
-        (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.noXSt (inl top) f0
-          (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.R.rE e0) h) x ;
+        (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.stLow f0 e0 h) tt
+        (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.stLow f0 e0 h) x ;
       inr h -> \ x -> k3Law f0 e0 eY h x } ;
     -- the case split at the rule of E0
     dispD : (rr : RK) (e : Id RK r0 rr) (e' : Id RK r0 (ND.MZ.mR rr)) (x : F rr e) ->
