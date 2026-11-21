@@ -181,3 +181,111 @@ module RenMRel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (e
       ((\ y -> RN'.renD (rd.1 y) (mapM M)),(refl (cXl s k (N.mE e0) (N.om oo) (\ y -> RN'.renD (rd.1 y) (mapM M))),
         \ y -> i y (rd.1 (N.lm y)) (rd.2.2 y) M)) } ;
 } ;
+
+------------------------------------------------------------------------
+-- the atom renamings of Lemmas 11.4.5 / 11.4.7 (RenPC, RenNC) commute
+-- with embeddings
+module RenPCRel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (A A' : DP.LO) (u : DP.Map A A') (top : A.car) (top' : A'.car) (eT : Id A'.car (u.1 top) top')
+  (s k : W.N) (e : LT.LL A) (s' k' : W.N) (e' : LT.LL A) (c : A.car)
+  (eArg : Id (BI.ID[ev,phi].Lb A) (BI.ID[ev,phi].nthL A k' e') (BI.ID[ev,phi].nthL A k e))
+  (hc : Id (W.Or W.Unit A.car) (BI.ID[ev,phi].nthL A s' e').2 (inr c))
+  (eB : LT.LL A') (eE : Id (LT.LL A') eB (LT.mapL A A' u e)) (eB' : LT.LL A') (eE' : Id (LT.LL A') eB' (LT.mapL A A' u e')) (cB : A'.car)
+  (eArgB : Id (BI.ID[ev,phi].Lb A') (BI.ID[ev,phi].nthL A' k' eB') (BI.ID[ev,phi].nthL A' k eB))
+  (hcB : Id (W.Or W.Unit A'.car) (BI.ID[ev,phi].nthL A' s' eB').2 (inr cB)) {
+  module N = BH.NH[ev,phi,A,A',u,S4.evMap ev evN A A' u,top,top',eT] ;
+  module P = BO.RenPC[ev,phi,A,top,s,k,e,s',k',e',c,eArg,hc] ;
+  module P' = BO.RenPC[ev,phi,A',top',s,k,eB,s',k',eB',cB,eArgB,hcB] ;
+  decEq (s0 k0 : W.N) (e0 : LT.LL A) : Id W.Bool (N.MB.eqClo (xF true s k,eB) (xF true s0 k0,N.mE e0)) (N.MA.eqClo (xF true s k,e) (xF true s0 k0,e0)) =
+    PL.trans W.Bool (N.MB.eqClo (xF true s k,eB) (xF true s0 k0,N.mE e0)) (N.MB.eqClo (xF true s k,N.mE e) (xF true s0 k0,N.mE e0))
+      (N.MA.eqClo (xF true s k,e) (xF true s0 k0,e0))
+      (PL.ap (LT.LL A') W.Bool (\ z -> N.MB.eqClo (xF true s k,z) (xF true s0 k0,N.mE e0)) eB (N.mE e) eE)
+      (N.eqCloNat (xF true s k,e) (xF true s0 k0,e0)) ;
+  xrF (s0 k0 : W.N) (e0 : LT.LL A) (mu : A.car) (r : N.FA) (r' : N.FB) (rr : N.RelF r r') :
+      (v' : W.Bool) -> Id W.Bool v' false ->
+      N.RelF (BO.pickB N.FA false (cXr s' k' e' mu r) (cXr s0 k0 e0 mu r)) (BO.pickB N.FB v' (cXr s' k' eB' (u.1 mu) r') (cXr s0 k0 (N.mE e0) (u.1 mu) r')) = split {
+    false -> \ h -> (r',(refl (cXr s0 k0 (N.mE e0) (u.1 mu) r'),rr)) ;
+    true -> \ h -> W.absurdB (N.RelF (cXr s0 k0 e0 mu r) (cXr s' k' eB' (u.1 mu) r')) (PL.sym W.Bool true false h) } ;
+  xrT (s0 k0 : W.N) (e0 : LT.LL A) (mu : A.car) (r : N.FA) (r' : N.FB) (rr : N.RelF r r') :
+      (v' : W.Bool) -> Id W.Bool v' true ->
+      N.RelF (BO.pickB N.FA true (cXr s' k' e' mu r) (cXr s0 k0 e0 mu r)) (BO.pickB N.FB v' (cXr s' k' eB' (u.1 mu) r') (cXr s0 k0 (N.mE e0) (u.1 mu) r')) = split {
+    false -> \ h -> W.absurdB (N.RelF (cXr s' k' e' mu r) (cXr s0 k0 (N.mE e0) (u.1 mu) r')) h ;
+    true -> \ h -> (r',(PL.ap (LT.LL A') N.FB (\ z -> cXr s' k' z (u.1 mu) r') eB' (N.mE e') eE',rr)) } ;
+  xrP (s0 k0 : W.N) (e0 : LT.LL A) (mu : A.car) (r : N.FA) (r' : N.FB) (rr : N.RelF r r') :
+      (v : W.Bool) (v' : W.Bool) -> Id W.Bool v' v ->
+      N.RelF (BO.pickB N.FA v (cXr s' k' e' mu r) (cXr s0 k0 e0 mu r)) (BO.pickB N.FB v' (cXr s' k' eB' (u.1 mu) r') (cXr s0 k0 (N.mE e0) (u.1 mu) r')) = split {
+    false -> xrF s0 k0 e0 mu r r' rr ; true -> xrT s0 k0 e0 mu r r' rr } ;
+  jT (d : N.FA) (D d' : N.FB) (q : Id N.FB d' D) (v : N.RelF (P.renD d) (P'.renD D)) : N.RelF (P.renD d) (P'.renD d') =
+    PL.subst N.FB (\ z -> N.RelF (P.renD d) (P'.renD z)) D d' (PL.sym N.FB d' D q) v ;
+  renR : (d : N.FA) (d' : N.FB) -> N.RelF d d' -> N.RelF (P.renD d) (P'.renD d') = split {
+    cAx b k0 e0 -> \ d' rd -> jT (cAx b k0 e0) (cAx b k0 (N.mE e0)) d' rd (refl (cAx b k0 (N.mE e0))) ;
+    cAnd p q e0 d0 d1 | i0 i1 -> \ d' rd -> jT (cAnd p q e0 d0 d1) (cAnd p q (N.mE e0) rd.1 rd.2.1) d' rd.2.2.1
+      (P'.renD rd.1,(P'.renD rd.2.1,(refl (cAnd p q (N.mE e0) (P'.renD rd.1) (P'.renD rd.2.1)),(i0 rd.1 rd.2.2.2.1,i1 rd.2.1 rd.2.2.2.2)))) ;
+    cOr p q e0 d | i -> \ d' rd -> jT (cOr p q e0 d) (cOr p q (N.mE e0) rd.1) d' rd.2.1
+      (P'.renD rd.1,(refl (cOr p q (N.mE e0) (P'.renD rd.1)),i rd.1 rd.2.2)) ;
+    cAll p e0 kk | i -> \ d' rd -> jT (cAll p e0 kk) (cAll p (N.mE e0) rd.1) d' rd.2.1
+      ((\ y -> P'.renD (rd.1 y)),(refl (cAll p (N.mE e0) (\ y -> P'.renD (rd.1 y))),\ y -> i y (rd.1 (N.lm y)) (rd.2.2 y))) ;
+    cEx p e0 w d | i -> \ d' rd -> jT (cEx p e0 w d) (cEx p (N.mE e0) (N.lm w) rd.1) d' rd.2.1
+      (P'.renD rd.1,(refl (cEx p (N.mE e0) (N.lm w) (P'.renD rd.1)),i rd.1 rd.2.2)) ;
+    cXr s0 k0 e0 mu d | i -> \ d' rd -> jT (cXr s0 k0 e0 mu d) (cXr s0 k0 (N.mE e0) (u.1 mu) rd.1) d' rd.2.1
+      (xrP s0 k0 e0 mu (P.renD d) (P'.renD rd.1) (i rd.1 rd.2.2)
+        (N.MA.eqClo (xF true s k,e) (xF true s0 k0,e0)) (N.MB.eqClo (xF true s k,eB) (xF true s0 k0,N.mE e0)) (decEq s0 k0 e0)) ;
+    cXl s0 k0 e0 oo kk | i -> \ d' rd -> jT (cXl s0 k0 e0 oo kk) (cXl s0 k0 (N.mE e0) (N.om oo) rd.1) d' rd.2.1
+      ((\ y -> P'.renD (rd.1 y)),(refl (cXl s0 k0 (N.mE e0) (N.om oo) (\ y -> P'.renD (rd.1 y))),\ y -> i y (rd.1 (N.lm y)) (rd.2.2 y))) } ;
+} ;
+
+module RenNCRel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (A A' : DP.LO) (u : DP.Map A A') (top : A.car) (top' : A'.car) (eT : Id A'.car (u.1 top) top')
+  (s k : W.N) (e : LT.LL A) (s' k' : W.N) (e' : LT.LL A)
+  (eArg : Id (BI.ID[ev,phi].Lb A) (BI.ID[ev,phi].nthL A k' e') (BI.ID[ev,phi].nthL A k e))
+  (hbar : Id (W.Or W.Unit A.car) (BI.ID[ev,phi].nthL A s e).2 (inl tt))
+  (hc : Id (W.Or W.Unit A.car) (BI.ID[ev,phi].nthL A s' e').2 (inr top))
+  (eB : LT.LL A') (eE : Id (LT.LL A') eB (LT.mapL A A' u e)) (eB' : LT.LL A') (eE' : Id (LT.LL A') eB' (LT.mapL A A' u e'))
+  (eArgB : Id (BI.ID[ev,phi].Lb A') (BI.ID[ev,phi].nthL A' k' eB') (BI.ID[ev,phi].nthL A' k eB))
+  (hbarB : Id (W.Or W.Unit A'.car) (BI.ID[ev,phi].nthL A' s eB).2 (inl tt))
+  (hcB : Id (W.Or W.Unit A'.car) (BI.ID[ev,phi].nthL A' s' eB').2 (inr top')) {
+  module N = BH.NH[ev,phi,A,A',u,S4.evMap ev evN A A' u,top,top',eT] ;
+  module P = BO.RenNC[ev,phi,A,top,s,k,e,s',k',e',eArg,hbar,hc] ;
+  module P' = BO.RenNC[ev,phi,A',top',s,k,eB,s',k',eB',eArgB,hbarB,hcB] ;
+  decEq (s0 k0 : W.N) (e0 : LT.LL A) : Id W.Bool (N.MB.eqClo (xF false s k,eB) (xF false s0 k0,N.mE e0)) (N.MA.eqClo (xF false s k,e) (xF false s0 k0,e0)) =
+    PL.trans W.Bool (N.MB.eqClo (xF false s k,eB) (xF false s0 k0,N.mE e0)) (N.MB.eqClo (xF false s k,N.mE e) (xF false s0 k0,N.mE e0))
+      (N.MA.eqClo (xF false s k,e) (xF false s0 k0,e0))
+      (PL.ap (LT.LL A') W.Bool (\ z -> N.MB.eqClo (xF false s k,z) (xF false s0 k0,N.mE e0)) eB (N.mE e) eE)
+      (N.eqCloNat (xF false s k,e) (xF false s0 k0,e0)) ;
+  KR (kk : N.LA -> N.FA) (kk' : N.LB -> N.FB) : U l = (y : N.LA) -> N.RelF (kk y) (kk' (N.lm y)) ;
+  xlF (s0 k0 : W.N) (e0 : LT.LL A) (oo : W.Or W.Unit A.car) (kk : N.LA -> N.FA) (kk' : N.LB -> N.FB) (rr : KR kk kk') :
+      (v' : W.Bool) -> Id W.Bool v' false ->
+      N.RelF (BO.pickB N.FA false (cXl s' k' e' (inr top) kk) (cXl s0 k0 e0 oo kk))
+        (BO.pickB N.FB v' (cXl s' k' eB' (inr top') kk') (cXl s0 k0 (N.mE e0) (N.om oo) kk')) = split {
+    false -> \ h -> (kk',(refl (cXl s0 k0 (N.mE e0) (N.om oo) kk'),rr)) ;
+    true -> \ h -> W.absurdB (N.RelF (cXl s0 k0 e0 oo kk) (cXl s' k' eB' (inr top') kk')) (PL.sym W.Bool true false h) } ;
+  xlT (s0 k0 : W.N) (e0 : LT.LL A) (oo : W.Or W.Unit A.car) (kk : N.LA -> N.FA) (kk' : N.LB -> N.FB) (rr : KR kk kk') :
+      (v' : W.Bool) -> Id W.Bool v' true ->
+      N.RelF (BO.pickB N.FA true (cXl s' k' e' (inr top) kk) (cXl s0 k0 e0 oo kk))
+        (BO.pickB N.FB v' (cXl s' k' eB' (inr top') kk') (cXl s0 k0 (N.mE e0) (N.om oo) kk')) = split {
+    false -> \ h -> W.absurdB (N.RelF (cXl s' k' e' (inr top) kk) (cXl s0 k0 (N.mE e0) (N.om oo) kk')) h ;
+    true -> \ h -> (kk',(W.ap2 (LT.LL A') (W.Or W.Unit A'.car) N.FB (\ z w -> cXl s' k' z w kk') eB' (N.mE e') (inr top') (N.om (inr top)) eE'
+        (PL.ap A'.car (W.Or W.Unit A'.car) (\ z -> inr z) top' (u.1 top) (PL.sym A'.car (u.1 top) top' eT)),rr)) } ;
+  xlP (s0 k0 : W.N) (e0 : LT.LL A) (oo : W.Or W.Unit A.car) (kk : N.LA -> N.FA) (kk' : N.LB -> N.FB) (rr : KR kk kk') :
+      (v : W.Bool) (v' : W.Bool) -> Id W.Bool v' v ->
+      N.RelF (BO.pickB N.FA v (cXl s' k' e' (inr top) kk) (cXl s0 k0 e0 oo kk))
+        (BO.pickB N.FB v' (cXl s' k' eB' (inr top') kk') (cXl s0 k0 (N.mE e0) (N.om oo) kk')) = split {
+    false -> xlF s0 k0 e0 oo kk kk' rr ; true -> xlT s0 k0 e0 oo kk kk' rr } ;
+  jT (d : N.FA) (D d' : N.FB) (q : Id N.FB d' D) (v : N.RelF (P.renD d) (P'.renD D)) : N.RelF (P.renD d) (P'.renD d') =
+    PL.subst N.FB (\ z -> N.RelF (P.renD d) (P'.renD z)) D d' (PL.sym N.FB d' D q) v ;
+  renR : (d : N.FA) (d' : N.FB) -> N.RelF d d' -> N.RelF (P.renD d) (P'.renD d') = split {
+    cAx b k0 e0 -> \ d' rd -> jT (cAx b k0 e0) (cAx b k0 (N.mE e0)) d' rd (refl (cAx b k0 (N.mE e0))) ;
+    cAnd p q e0 d0 d1 | i0 i1 -> \ d' rd -> jT (cAnd p q e0 d0 d1) (cAnd p q (N.mE e0) rd.1 rd.2.1) d' rd.2.2.1
+      (P'.renD rd.1,(P'.renD rd.2.1,(refl (cAnd p q (N.mE e0) (P'.renD rd.1) (P'.renD rd.2.1)),(i0 rd.1 rd.2.2.2.1,i1 rd.2.1 rd.2.2.2.2)))) ;
+    cOr p q e0 d | i -> \ d' rd -> jT (cOr p q e0 d) (cOr p q (N.mE e0) rd.1) d' rd.2.1
+      (P'.renD rd.1,(refl (cOr p q (N.mE e0) (P'.renD rd.1)),i rd.1 rd.2.2)) ;
+    cAll p e0 kk | i -> \ d' rd -> jT (cAll p e0 kk) (cAll p (N.mE e0) rd.1) d' rd.2.1
+      ((\ y -> P'.renD (rd.1 y)),(refl (cAll p (N.mE e0) (\ y -> P'.renD (rd.1 y))),\ y -> i y (rd.1 (N.lm y)) (rd.2.2 y))) ;
+    cEx p e0 w d | i -> \ d' rd -> jT (cEx p e0 w d) (cEx p (N.mE e0) (N.lm w) rd.1) d' rd.2.1
+      (P'.renD rd.1,(refl (cEx p (N.mE e0) (N.lm w) (P'.renD rd.1)),i rd.1 rd.2.2)) ;
+    cXr s0 k0 e0 mu d | i -> \ d' rd -> jT (cXr s0 k0 e0 mu d) (cXr s0 k0 (N.mE e0) (u.1 mu) rd.1) d' rd.2.1
+      (P'.renD rd.1,(refl (cXr s0 k0 (N.mE e0) (u.1 mu) (P'.renD rd.1)),i rd.1 rd.2.2)) ;
+    cXl s0 k0 e0 oo kk | i -> \ d' rd -> jT (cXl s0 k0 e0 oo kk) (cXl s0 k0 (N.mE e0) (N.om oo) rd.1) d' rd.2.1
+      (xlP s0 k0 e0 oo (\ y -> P.renD (kk y)) (\ y -> P'.renD (rd.1 y)) (\ y -> i y (rd.1 (N.lm y)) (rd.2.2 y))
+        (N.MA.eqClo (xF false s k,e) (xF false s0 k0,e0)) (N.MB.eqClo (xF false s k,eB) (xF false s0 k0,N.mE e0)) (decEq s0 k0 e0)) } ;
+} ;

@@ -212,3 +212,63 @@ module K3Sq (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN 
           (PL.ap (S4.Sm A E3).car (S4.Sm A' E3').car v3.1 (hI.1.1 (hI.2.1.1 w)) w (hI.2.2 w))
           (PL.sym (S4.Sm A' E3').car (hI'.1.1 (hI'.2.1.1 (v3.1 w))) (v3.1 w) (hI'.2.2 (v3.1 w))))) ;
 } ;
+
+------------------------------------------------------------------------
+-- S2C commutes with embeddings: for squares g' u1 = u2 g, u1 rho = rho' u2
+-- preserving the tops, related inputs give related cut-free outputs
+module S2CRel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (A1 A2 : DP.LO) (g : DP.Map A1 A2) (rho : A2.car -> A1.car)
+  (hr : (b : A2.car) (a : A1.car) -> Id W.O3 (A2.cmp b (g.1 a)) lt -> Id A2.car (g.1 (rho b)) b)
+  (topA : A1.car) (topK : A2.car) (gBelow : (x : A1.car) -> Id W.O3 (A2.cmp (g.1 x) topK) lt) (wA2 : LW.WF A2)
+  (H : BI.ID[ev,phi].Seq A1) (s k : W.N) (e : LT.LL A1) (hbar : Id (W.Or W.Unit A1.car) (BI.ID[ev,phi].nthL A1 s e).2 (inl tt))
+  (A1' A2' : DP.LO) (g' : DP.Map A1' A2') (rho' : A2'.car -> A1'.car)
+  (hr' : (b : A2'.car) (a : A1'.car) -> Id W.O3 (A2'.cmp b (g'.1 a)) lt -> Id A2'.car (g'.1 (rho' b)) b)
+  (topA' : A1'.car) (topK' : A2'.car) (gBelow' : (x : A1'.car) -> Id W.O3 (A2'.cmp (g'.1 x) topK') lt) (wA2' : LW.WF A2')
+  (H' : BI.ID[ev,phi].Seq A1') (e' : LT.LL A1') (hbar' : Id (W.Or W.Unit A1'.car) (BI.ID[ev,phi].nthL A1' s e').2 (inl tt))
+  (u1 : DP.Map A1 A1') (u2 : DP.Map A2 A2')
+  (F : (a : A1.car) -> Id A2'.car (g'.1 (u1.1 a)) (u2.1 (g.1 a)))
+  (Gr : (b : A2.car) -> Id A1'.car (u1.1 (rho b)) (rho' (u2.1 b)))
+  (eA : Id A1'.car (u1.1 topA) topA') (eK : Id A2'.car (u2.1 topK) topK') (eE : Id (LT.LL A1') e' (LT.mapL A1 A1' u1 e)) {
+  module I = BI.ID[ev,phi] ;
+  module S = BO.S2C[ev,phi,A1,A2,g,rho,hr,S4.evMap ev evN A1 A2 g,topA,topK,gBelow,wA2,
+    BO.Inv[ev,phi,A2,g.1 topA,hPos].wfPhi,H,s,k,e,hbar] ;
+  module S' = BO.S2C[ev,phi,A1',A2',g',rho',hr',S4.evMap ev evN A1' A2' g',topA',topK',gBelow',wA2',
+    BO.Inv[ev,phi,A2',g'.1 topA',hPos].wfPhi,H',s,k,e',hbar'] ;
+  module SQ = TrCSquare[l].Square[ev,phi,evN,A1,A2,A1',A2',g,g',u1,u2,rho,rho',topA,topA',eA,F,Gr,
+    \ la -> W.Unit,\ la -> W.Unit,\ la uu b hb -> hr b la hb,\ la uu b hb -> hr' b la hb] ;
+  module U1 = BH.NH[ev,phi,A1,A1',u1,S4.evMap ev evN A1 A1' u1,topA,topA',eA] ;
+  module UK = BH.NH[ev,phi,A2,A2',u2,S4.evMap ev evN A2 A2' u2,topK,topK',eK] ;
+  module UT = BH.NH[ev,phi,A2,A2',u2,S4.evMap ev evN A2 A2' u2,S.topT,S'.topT,SQ.topSq] ;
+  -- the environments correspond
+  eE2 : Id (LT.LL A2') S'.e2 (UT.mE S.e2) =
+    PL.trans (LT.LL A2') S'.e2 (S'.Tr.M.mE (U1.mE e)) (UT.mE S.e2)
+      (PL.ap (LT.LL A1') (LT.LL A2') S'.Tr.M.mE e' (U1.mE e) eE) (SQ.envs e) ;
+  nthE : Id (I.Lb A2') (I.nthL A2' k S'.e2) (UT.lm (I.nthL A2 k S.e2)) =
+    PL.trans (I.Lb A2') (I.nthL A2' k S'.e2) (I.nthL A2' k (UT.mE S.e2)) (UT.lm (I.nthL A2 k S.e2))
+      (PL.ap (LT.LL A2') (I.Lb A2') (I.nthL A2' k) S'.e2 (UT.mE S.e2) eE2) (UT.M.nthMap k S.e2) ;
+  eEnv : Id (LT.LL A2') S'.env' (UT.mE S.env') =
+    W.ap2 (I.Lb A2') (I.Lb A2') (LT.LL A2') (\ a b -> consL a (consL b nilL)) (I.nthL A2' k S'.e2) (UT.lm (I.nthL A2 k S.e2))
+      (I.stg A2' topK') (UT.lm (I.stg A2 topK)) nthE
+      (PL.ap A2'.car (I.Lb A2') (\ z -> (zero,inr z)) topK' (u2.1 topK) (PL.sym A2'.car (u2.1 topK) topK' eK)) ;
+  module RPR = BetaIDS4HomRen[l].RenPCRel[ev,phi,evN,A2,A2',u2,S.topT,S'.topT,SQ.topSq,s,k,S.e2,suc zero,zero,S.env',topK,
+    refl (I.nthL A2 k S.e2),refl (inr topK),S'.e2,eE2,S'.env',eEnv,topK',refl (I.nthL A2' k S'.e2),refl (inr topK')] ;
+  module RNR = BetaIDS4HomRen[l].RenNCRel[ev,phi,evN,A2,A2',u2,topK,topK',eK,s,k,S.e2,suc zero,zero,S.env',
+    refl (I.nthL A2 k S.e2),S.hbar2,refl (inr topK),S'.e2,eE2,S'.env',eEnv,refl (I.nthL A2' k S'.e2),S'.hbar2,refl (inr topK')] ;
+  module CR = UT.St[wA2,wA2',BO.Inv[ev,phi,A2,g.1 topA,hPos].wfPhi,BO.Inv[ev,phi,A2',g'.1 topA',hPos].wfPhi] ;
+  cutK : UT.RelH topK topK' (CR.KCA.cutAll topK) (CR.KCB.cutAll topK') =
+    idJ A2'.car (u2.1 topK) (\ z q -> UT.RelH topK z (CR.KCA.cutAll topK) (CR.KCB.cutAll z)) (CR.cutAllR topK) topK' eK ;
+  rel (dL : S.C1.C0) (oL : S.C1.Ok dL (consL (xF true s k,e) H)) (dR : S.CK.C0) (oR : S.CK.Ok dR (consL (xF false s k,S.e2) S.H2))
+      (dL' : S'.C1.C0) (oL' : S'.C1.Ok dL' (consL (xF true s k,e') H')) (dR' : S'.CK.C0) (oR' : S'.CK.Ok dR' (consL (xF false s k,S'.e2) S'.H2))
+      (rL : U1.RelF dL dL') (rR : UK.RelF dR dR') :
+      UT.RelF (S.out dL oL dR oR).1 (S'.out dL' oL' dR' oR').1 =
+    cutK S.f S.env' S'.env' (PL.sym (LT.LL A2') S'.env' (UT.mE S.env') eEnv) S.stK S'.stK S.H2 S'.H2
+      (S.RP.renD (S.Tr.mD dL)) (S.RN.renD dR) (S'.RP.renD (S'.Tr.mD dL')) (S'.RN.renD dR')
+      (S.RP.ren S.H2 (S.Tr.mD dL) (S.Tr.okMap dL (consL (xF true s k,e) H) oL (S.Tr.bdAll (\ la -> tt) dL)) (S.Tr.chMap topK S.ltK dL))
+      (S.Ch.chop (S.RN.renD dR) (consL (BI.neg S.f,S.env') S.H2) (S.RN.ren S.H2 dR oR))
+      (S'.RP.ren S'.H2 (S'.Tr.mD dL') (S'.Tr.okMap dL' (consL (xF true s k,e') H') oL' (S'.Tr.bdAll (\ la -> tt) dL')) (S'.Tr.chMap topK' S'.ltK dL'))
+      (S'.Ch.chop (S'.RN.renD dR') (consL (BI.neg S'.f,S'.env') S'.H2) (S'.RN.ren S'.H2 dR' oR'))
+      (RPR.renR (S.Tr.mD dL) (S'.Tr.mD dL') (SQ.alg dL dL' rL))
+      (HR.RelConvT[ev,phi,A2,A2',u2,S4.evMap ev evN A2 A2' u2,topK,topK',eK,S.topT,S'.topT,SQ.topSq].relC
+        (S.RN.renD dR) (S'.RN.renD dR') (RNR.renR dR dR' rR)) ;
+} ;
