@@ -11,7 +11,9 @@
 -- bound of its predicate).  Quantifiers range over numbers: the premises of
 -- cAll and the witness of cEx are number labels (as in BetaID).
 -- The double induction on the two derivations of a cut (Ind) branches on
--- the membership proof of the principal closure (pointwise version).
+-- DATA: decidable equality of the principal closure with the cut closure
+-- (decide, as in BetaCut), so that it commutes with embeddings
+-- (BetaIDHom).
 level l ;
 open Base ; open Prelude[l+] ; open ScottOrder[l] ;
 module W = Dilator[l] ;
@@ -23,6 +25,7 @@ module BP = BetaProof[l] ;
 module KT = KBTree[l] ;
 module LW = LOWF[l] ;
 module BI = BetaID[l] ;
+module BC = BetaCut[l] ;
 
 data Cf (L P : U l) : U l = cAx (b : W.Bool) (k : W.N) (e : W.List L)
   | cAnd (p q : BI.Form) (e : W.List L) (d0 d1 : Cf L P)
@@ -36,6 +39,68 @@ data Cf (L P : U l) : U l = cAx (b : W.Bool) (k : W.N) (e : W.List L)
 isAtF : BI.Form -> W.Bool = split { atF b k -> true ; andF p q -> false ; orF p q -> false ; allF p -> false ; exF p -> false ; xF b s k -> false } ;
 isXP : BI.Form -> W.Bool = split { atF b k -> false ; andF p q -> false ; orF p q -> false ; allF p -> false ; exF p -> false ; xF b s k -> BP.eqBo b true } ;
 isXN : BI.Form -> W.Bool = split { atF b k -> false ; andF p q -> false ; orF p q -> false ; allF p -> false ; exF p -> false ; xF b s k -> BP.eqBo b false } ;
+
+-- decidable equality of formulas (the cut algorithm branches on data)
+eqF : BI.Form -> BI.Form -> W.Bool = split {
+  atF b k -> split { atF b' k' -> W.andB (BP.eqBo b b') (W.eqN k k') ; andF p' q' -> false ; orF p' q' -> false ; allF p' -> false ; exF p' -> false ; xF b' s' k' -> false } ;
+  andF p q | rp rq -> split { atF b' k' -> false ; andF p' q' -> W.andB (rp p') (rq q') ; orF p' q' -> false ; allF p' -> false ; exF p' -> false ; xF b' s' k' -> false } ;
+  orF p q | rp rq -> split { atF b' k' -> false ; andF p' q' -> false ; orF p' q' -> W.andB (rp p') (rq q') ; allF p' -> false ; exF p' -> false ; xF b' s' k' -> false } ;
+  allF p | rp -> split { atF b' k' -> false ; andF p' q' -> false ; orF p' q' -> false ; allF p' -> rp p' ; exF p' -> false ; xF b' s' k' -> false } ;
+  exF p | rp -> split { atF b' k' -> false ; andF p' q' -> false ; orF p' q' -> false ; allF p' -> false ; exF p' -> rp p' ; xF b' s' k' -> false } ;
+  xF b s k -> split { atF b' k' -> false ; andF p' q' -> false ; orF p' q' -> false ; allF p' -> false ; exF p' -> false ; xF b' s' k' -> W.andB (BP.eqBo b b') (W.andB (W.eqN s s') (W.eqN k k')) } } ;
+eqFS : (f f' : BI.Form) -> Id W.Bool (eqF f f') true -> Id BI.Form f f' = split {
+  atF b k -> split {
+    atF b' k' -> \ h -> W.ap2 W.Bool W.N BI.Form (\ x y -> atF x y) b b' k k' (BC.eqBoS b b' (W.andB-l (BP.eqBo b b') (W.eqN k k') h)) (W.eqN-sound k k' (W.andB-r (BP.eqBo b b') (W.eqN k k') h)) ;
+    andF p' q' -> \ h -> W.absurdB (Id BI.Form (atF b k) (andF p' q')) h ;
+    orF p' q' -> \ h -> W.absurdB (Id BI.Form (atF b k) (orF p' q')) h ;
+    allF p' -> \ h -> W.absurdB (Id BI.Form (atF b k) (allF p')) h ;
+    exF p' -> \ h -> W.absurdB (Id BI.Form (atF b k) (exF p')) h ;
+    xF b' s' k' -> \ h -> W.absurdB (Id BI.Form (atF b k) (xF b' s' k')) h } ;
+  andF p q | rp rq -> split {
+    atF b' k' -> \ h -> W.absurdB (Id BI.Form (andF p q) (atF b' k')) h ;
+    andF p' q' -> \ h -> W.ap2 BI.Form BI.Form BI.Form (\ x y -> andF x y) p p' q q' (rp p' (W.andB-l (eqF p p') (eqF q q') h)) (rq q' (W.andB-r (eqF p p') (eqF q q') h)) ;
+    orF p' q' -> \ h -> W.absurdB (Id BI.Form (andF p q) (orF p' q')) h ;
+    allF p' -> \ h -> W.absurdB (Id BI.Form (andF p q) (allF p')) h ;
+    exF p' -> \ h -> W.absurdB (Id BI.Form (andF p q) (exF p')) h ;
+    xF b' s' k' -> \ h -> W.absurdB (Id BI.Form (andF p q) (xF b' s' k')) h } ;
+  orF p q | rp rq -> split {
+    atF b' k' -> \ h -> W.absurdB (Id BI.Form (orF p q) (atF b' k')) h ;
+    andF p' q' -> \ h -> W.absurdB (Id BI.Form (orF p q) (andF p' q')) h ;
+    orF p' q' -> \ h -> W.ap2 BI.Form BI.Form BI.Form (\ x y -> orF x y) p p' q q' (rp p' (W.andB-l (eqF p p') (eqF q q') h)) (rq q' (W.andB-r (eqF p p') (eqF q q') h)) ;
+    allF p' -> \ h -> W.absurdB (Id BI.Form (orF p q) (allF p')) h ;
+    exF p' -> \ h -> W.absurdB (Id BI.Form (orF p q) (exF p')) h ;
+    xF b' s' k' -> \ h -> W.absurdB (Id BI.Form (orF p q) (xF b' s' k')) h } ;
+  allF p | rp -> split {
+    atF b' k' -> \ h -> W.absurdB (Id BI.Form (allF p) (atF b' k')) h ;
+    andF p' q' -> \ h -> W.absurdB (Id BI.Form (allF p) (andF p' q')) h ;
+    orF p' q' -> \ h -> W.absurdB (Id BI.Form (allF p) (orF p' q')) h ;
+    allF p' -> \ h -> PL.ap BI.Form BI.Form (\ x -> allF x) p p' (rp p' h) ;
+    exF p' -> \ h -> W.absurdB (Id BI.Form (allF p) (exF p')) h ;
+    xF b' s' k' -> \ h -> W.absurdB (Id BI.Form (allF p) (xF b' s' k')) h } ;
+  exF p | rp -> split {
+    atF b' k' -> \ h -> W.absurdB (Id BI.Form (exF p) (atF b' k')) h ;
+    andF p' q' -> \ h -> W.absurdB (Id BI.Form (exF p) (andF p' q')) h ;
+    orF p' q' -> \ h -> W.absurdB (Id BI.Form (exF p) (orF p' q')) h ;
+    allF p' -> \ h -> W.absurdB (Id BI.Form (exF p) (allF p')) h ;
+    exF p' -> \ h -> PL.ap BI.Form BI.Form (\ x -> exF x) p p' (rp p' h) ;
+    xF b' s' k' -> \ h -> W.absurdB (Id BI.Form (exF p) (xF b' s' k')) h } ;
+  xF b s k -> split {
+    atF b' k' -> \ h -> W.absurdB (Id BI.Form (xF b s k) (atF b' k')) h ;
+    andF p' q' -> \ h -> W.absurdB (Id BI.Form (xF b s k) (andF p' q')) h ;
+    orF p' q' -> \ h -> W.absurdB (Id BI.Form (xF b s k) (orF p' q')) h ;
+    allF p' -> \ h -> W.absurdB (Id BI.Form (xF b s k) (allF p')) h ;
+    exF p' -> \ h -> W.absurdB (Id BI.Form (xF b s k) (exF p')) h ;
+    xF b' s' k' -> \ h -> PL.trans BI.Form (xF b s k) (xF b' s' k) (xF b' s' k') (W.ap2 W.Bool W.N BI.Form (\ x y -> xF x y k) b b' s s' (BC.eqBoS b b' (W.andB-l (BP.eqBo b b') (W.andB (W.eqN s s') (W.eqN k k')) h)) (W.eqN-sound s s' (W.andB-l (W.eqN s s') (W.eqN k k') (W.andB-r (BP.eqBo b b') (W.andB (W.eqN s s') (W.eqN k k')) h)))) (PL.ap W.N BI.Form (\ z -> xF b' s' z) k k' (W.eqN-sound k k' (W.andB-r (W.eqN s s') (W.eqN k k') (W.andB-r (BP.eqBo b b') (W.andB (W.eqN s s') (W.eqN k k')) h)))) } } ;
+eqFR : (f : BI.Form) -> Id W.Bool (eqF f f) true = split {
+  atF b k -> PL.trans W.Bool (W.andB (BP.eqBo b b) (W.eqN k k)) (W.eqN k k) true (BP.andTrue (BP.eqBo b b) (W.eqN k k) (BC.eqBoSelf b)) (W.eqN-refl k) ;
+  andF p q | rp rq -> PL.trans W.Bool (W.andB (eqF p p) (eqF q q)) (eqF q q) true (BP.andTrue (eqF p p) (eqF q q) rp) rq ;
+  orF p q | rp rq -> PL.trans W.Bool (W.andB (eqF p p) (eqF q q)) (eqF q q) true (BP.andTrue (eqF p p) (eqF q q) rp) rq ;
+  allF p | rp -> rp ;
+  exF p | rp -> rp ;
+  xF b s k -> PL.trans W.Bool (W.andB (BP.eqBo b b) (W.andB (W.eqN s s) (W.eqN k k))) (W.andB (W.eqN s s) (W.eqN k k)) true
+    (BP.andTrue (BP.eqBo b b) (W.andB (W.eqN s s) (W.eqN k k)) (BC.eqBoSelf b))
+    (PL.trans W.Bool (W.andB (W.eqN s s) (W.eqN k k)) (W.eqN k k) true (BP.andTrue (W.eqN s s) (W.eqN k k) (W.eqN-refl s)) (W.eqN-refl k)) } ;
+
 
 module CI (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) (top : A.car) {
   module I = BI.ID[ev,phi] ;
@@ -143,6 +208,27 @@ module CI (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP
      (m,(hm,\ a ha -> belO o a (consL (cL k e0 a) G) (x a) (I.below A (I.bound A top o) a) (refl (I.below A (I.bound A top o) a)) ha))) ;
 
   ----------------------------------------------------------------------
+  -- decidable equality of closures: is the principal closure c0 of a
+  -- rule the cut closure C?  decided on DATA (so the decision commutes
+  -- with embeddings, BetaIDHom)
+  module BX = BC.BCut[ev] ;
+  eqClo (c c' : Clo) : W.Bool = W.andB (eqF c.1 c'.1) (BX.eqL A c.2 c'.2) ;
+  eqCloS (c c' : Clo) (h : Id W.Bool (eqClo c c') true) : Id Clo c c' =
+    W.prodEq BI.Form (LT.LL A) c c' (eqFS c.1 c'.1 (W.andB-l (eqF c.1 c'.1) (BX.eqL A c.2 c'.2) h))
+      (BX.eqLS A c.2 c'.2 (W.andB-r (eqF c.1 c'.1) (BX.eqL A c.2 c'.2) h)) ;
+  eqCloR (c : Clo) : Id W.Bool (eqClo c c) true =
+    PL.trans W.Bool (eqClo c c) (BX.eqL A c.2 c.2) true (BP.andTrue (eqF c.1 c.1) (BX.eqL A c.2 c.2) (eqFR c.1)) (BX.eqLR A c.2) ;
+  eqCloE (c c' : Clo) (e : Id Clo c c') : Id W.Bool (eqClo c c') true =
+    PL.subst Clo (\ z -> Id W.Bool (eqClo c z) true) c c' e (eqCloR c) ;
+  decV (C c0 : Clo) (G : Seq) (m : Mem c0 (consL C G)) (X : U l) (yes : Id Clo C c0 -> X)
+    (no : Mem c0 G -> X) : (v : W.Bool) -> Id W.Bool (eqClo C c0) v -> X = split {
+    false -> \ h -> CF.or-elim (Id Clo C c0) (Mem c0 G) X
+      (\ e -> W.absurdB X (PL.trans W.Bool false (eqClo C c0) true (PL.sym W.Bool (eqClo C c0) false h) (eqCloE C c0 e))) no m ;
+    true -> \ h -> yes (eqCloS C c0 h) } ;
+  decide (C c0 : Clo) (G : Seq) (m : Mem c0 (consL C G)) (X : U l) (yes : Id Clo C c0 -> X)
+    (no : Mem c0 G -> X) : X = decV C c0 G m X yes no (eqClo C c0) (refl (eqClo C c0)) ;
+
+  ----------------------------------------------------------------------
   -- generic induction on one derivation of C::G, the other side being
   -- described by Oth; handlers for the case where C is principal
   IHG (C : Clo) (Oth : Seq -> U l) (d : C0) : U l = (G' : Seq) -> Ok d (consL C G') -> Oth G' -> Res G' ;
@@ -172,33 +258,33 @@ module CI (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP
     front2 (c c' : Clo) (d : C0) (G : Seq) (o : Ok d (consL c (consL c' (consL C G)))) : Ok d (consL C (consL c (consL c' G))) =
       wk d (consL c (consL c' (consL C G))) (consL C (consL c (consL c' G))) o (sub3 c c' C G) ;
     L : (d : C0) (G : Seq) -> Ok d (consL C G) -> Oth G -> Res G = split {
-      cAx b k e0 -> \ G o t -> CF.or-elim (Id Clo C (atF b k,e0)) (Mem (atF b k,e0) G) (Res G)
-        (\ eq -> hAx b k e0 eq o.2 G t) (\ m -> (cAx b k e0,(m,o.2))) o.1 ;
-      cAnd p q e0 d0 d1 | r0 r1 -> \ G o t -> CF.or-elim (Id Clo C (andF p q,e0)) (Mem (andF p q,e0) G) (Res G)
+      cAx b k e0 -> \ G o t -> decide C (atF b k,e0) G o.1 (Res G)
+        (\ eq -> hAx b k e0 eq o.2 G t) (\ m -> (cAx b k e0,(m,o.2))) ;
+      cAnd p q e0 d0 d1 | r0 r1 -> \ G o t -> decide C (andF p q,e0) G o.1 (Res G)
         (\ eq -> hAnd p q e0 d0 d1 eq r0 r1 G o.2.1 o.2.2 t)
         (\ m -> mkAnd p q e0 G m
           (r0 (consL (p,e0) G) (front (p,e0) d0 G o.2.1) (oW G (p,e0) t))
-          (r1 (consL (q,e0) G) (front (q,e0) d1 G o.2.2) (oW G (q,e0) t))) o.1 ;
-      cOr p q e0 d | r -> \ G o t -> CF.or-elim (Id Clo C (orF p q,e0)) (Mem (orF p q,e0) G) (Res G)
+          (r1 (consL (q,e0) G) (front (q,e0) d1 G o.2.2) (oW G (q,e0) t))) ;
+      cOr p q e0 d | r -> \ G o t -> decide C (orF p q,e0) G o.1 (Res G)
         (\ eq -> hOr p q e0 d eq r G o.2 t)
         (\ m -> mkOr p q e0 G m
-          (r (consL (p,e0) (consL (q,e0) G)) (front2 (p,e0) (q,e0) d G o.2) (oW (consL (q,e0) G) (p,e0) (oW G (q,e0) t)))) o.1 ;
-      cAll p e0 kk | r -> \ G o t -> CF.or-elim (Id Clo C (allF p,e0)) (Mem (allF p,e0) G) (Res G)
+          (r (consL (p,e0) (consL (q,e0) G)) (front2 (p,e0) (q,e0) d G o.2) (oW (consL (q,e0) G) (p,e0) (oW G (q,e0) t)))) ;
+      cAll p e0 kk | r -> \ G o t -> decide C (allF p,e0) G o.1 (Res G)
         (\ eq -> hAll p e0 kk eq r G o.2 t)
         (\ m -> mkAll p e0 G m
-          (\ y hy -> r y (consL (p,consL y e0) G) (front (p,consL y e0) (kk y) G (o.2 y hy)) (oW G (p,consL y e0) t))) o.1 ;
-      cEx p e0 w d | r -> \ G o t -> CF.or-elim (Id Clo C (exF p,e0)) (Mem (exF p,e0) G) (Res G)
+          (\ y hy -> r y (consL (p,consL y e0) G) (front (p,consL y e0) (kk y) G (o.2 y hy)) (oW G (p,consL y e0) t))) ;
+      cEx p e0 w d | r -> \ G o t -> decide C (exF p,e0) G o.1 (Res G)
         (\ eq -> hEx p e0 w d eq o.2.1 r G o.2.2 t)
         (\ m -> mkEx p e0 w G m o.2.1
-          (r (consL (p,consL w e0) G) (front (p,consL w e0) d G o.2.2) (oW G (p,consL w e0) t))) o.1 ;
-      cXr s k e0 mu d | r -> \ G o t -> CF.or-elim (Id Clo C (xF true s k,e0)) (Mem (xF true s k,e0) G) (Res G)
+          (r (consL (p,consL w e0) G) (front (p,consL w e0) d G o.2.2) (oW G (p,consL w e0) t))) ;
+      cXr s k e0 mu d | r -> \ G o t -> decide C (xF true s k,e0) G o.1 (Res G)
         (\ eq -> hXr s k e0 mu d eq o.2.1 r G o.2.2 t)
         (\ m -> mkXr s k e0 mu G m o.2.1
-          (r (consL (cR k e0 mu) G) (front (cR k e0 mu) d G o.2.2) (oW G (cR k e0 mu) t))) o.1 ;
-      cXl s k e0 oo kk | r -> \ G o t -> CF.or-elim (Id Clo C (xF false s k,e0)) (Mem (xF false s k,e0) G) (Res G)
+          (r (consL (cR k e0 mu) G) (front (cR k e0 mu) d G o.2.2) (oW G (cR k e0 mu) t))) ;
+      cXl s k e0 oo kk | r -> \ G o t -> decide C (xF false s k,e0) G o.1 (Res G)
         (\ eq -> hXl s k e0 oo kk eq o.2.1 r G o.2.2 t)
         (\ m -> mkXl s k e0 oo G m o.2.1
-          (\ a ha -> r a (consL (cL k e0 a) G) (front (cL k e0 a) (kk a) G (o.2.2 a ha)) (oW G (cL k e0 a) t))) o.1 } ;
+          (\ a ha -> r a (consL (cL k e0 a) G) (front (cL k e0 a) (kk a) G (o.2.2 a ha)) (oW G (cL k e0 a) t))) } ;
   } ;
 
   -- mismatched principal closures

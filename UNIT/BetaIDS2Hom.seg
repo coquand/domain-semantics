@@ -1,0 +1,255 @@
+-- PLAN-ID1 S2b: homogeneity of the elimination of a Phi-bar cut between
+-- cut-free premises (BetaIDS21), along a map of the data.
+--
+-- Two instances of S2, "at X" (A1 = kX, A2 = k(kX), eta, rho, topX, topK)
+-- and "at Y" (B1, B2, etaY, rhoY, topY, topKY), and maps h1 : A1 -> B1,
+-- h2 : A2 -> B2 (Girard: k f and k(k f)) with
+--   * eta natural:   h2 (eta x) = etaY (h1 x);
+--   * rhoY a retraction on the image:  rhoY (etaY y) = y;
+--   * tops natural:  h1 topX = topY,  h2 topK = topKY;
+--   * the data at Y are the images:  G_Y = h1 G,  e_Y = h1 e;
+--   * the premises natural at the addresses of their trees:
+--       RL_Y (h1 zs) = h1 (RL zs),   RR_Y (h2 zs) = h2 (RR zs).
+-- Then the S2 output pre-proof is natural along h2 at the addresses of its
+-- tree (nr), its end sequent and the stage of its cut are natural (ng, nl),
+-- so (BetaIDHom, homogeneity of S1) the cut-free derivations of eta G at
+-- k(kX) and at k(kY) given by S21 are related along h2 (Hom.nat).
+-- Proof of nr: the root cut on I^topK(t) is natural (envNat, nthMap);
+-- left part (transported L): the addresses of the tree are images of
+-- eta, so pulling back commutes with h (pENat), then nrL and ruleNat;
+-- right part (renamed, chopped R): nrR and fixNat (renaming Phi-bar into
+-- I^topK commutes with h2 since h2 topK = topKY).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module KT = KBTree[l] ;
+module LT = LabTree[l] ;
+module LW = LOWF[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BT = BetaIDTr[l] ;
+module BC2 = BetaIDCut[l] ;
+module BK = BetaIDCfCut[l] ;
+module BS2 = BetaIDS2[l] ;
+module BS21 = BetaIDS21[l] ;
+module BH = BetaIDHom[l] ;
+
+module S2N (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form)
+  (A1 A2 : DP.LO) (eta : DP.Map A1 A2) (rho : A2.car -> A1.car)
+  (hr : (b : A2.car) (a : A1.car) -> Id W.O3 (A2.cmp b (eta.1 a)) lt -> Id A2.car (eta.1 (rho b)) b)
+  (evI : (k : W.N) (e : LT.LL A1) -> Id W.Bool (ev A2 k (LT.mapL A1 A2 eta e)) (ev A1 k e))
+  (topX : A1.car) (topK : A2.car)
+  (etaBelow : (x : A1.car) -> Id W.O3 (A2.cmp (eta.1 x) topK) lt)
+  (B1 B2 : DP.LO) (etaY : DP.Map B1 B2) (rhoY : B2.car -> B1.car)
+  (hrY : (b : B2.car) (a : B1.car) -> Id W.O3 (B2.cmp b (etaY.1 a)) lt -> Id B2.car (etaY.1 (rhoY b)) b)
+  (evIY : (k : W.N) (e : LT.LL B1) -> Id W.Bool (ev B2 k (LT.mapL B1 B2 etaY e)) (ev B1 k e))
+  (topY : B1.car) (topKY : B2.car)
+  (etaBelowY : (x : B1.car) -> Id W.O3 (B2.cmp (etaY.1 x) topKY) lt)
+  (h1 : DP.Map A1 B1) (h2 : DP.Map A2 B2)
+  (evI1 : (k : W.N) (e : LT.LL A1) -> Id W.Bool (ev B1 k (LT.mapL A1 B1 h1 e)) (ev A1 k e))
+  (evI2 : (k : W.N) (e : LT.LL A2) -> Id W.Bool (ev B2 k (LT.mapL A2 B2 h2 e)) (ev A2 k e))
+  (nEta : (x : A1.car) -> Id B2.car (h2.1 (eta.1 x)) (etaY.1 (h1.1 x)))
+  (rhoEtaY : (y : B1.car) -> Id B1.car (rhoY (etaY.1 y)) y)
+  (nTop : Id B1.car (h1.1 topX) topY) (nTopK : Id B2.car (h2.1 topK) topKY)
+  (G : W.List (BI.ID[ev,phi].Clo A1)) (s k : W.N) (e : LT.LL A1)
+  (hbar : Id (W.Or W.Unit A1.car) (BI.ID[ev,phi].nthL A1 s e).2 (inl tt)) {
+  module I = BI.ID[ev,phi] ;
+  module SX = BS2.S2[ev,phi,A1,A2,eta,rho,hr,evI,topX,topK,etaBelow,G,s,k,e,hbar] ;
+  module M1 = BT.Mp[ev,phi,A1,B1,h1,evI1,topX] ;
+  module M2 = BT.Mp[ev,phi,A2,B2,h2,evI2,SX.topT] ;
+  hbarY : Id (W.Or W.Unit B1.car) (I.nthL B1 s (M1.mE e)).2 (inl tt) =
+    PL.trans (W.Or W.Unit B1.car) (I.nthL B1 s (M1.mE e)).2 (M1.lm (I.nthL A1 s e)).2 (inl tt)
+      (PL.ap (I.Lb B1) (W.Or W.Unit B1.car) (\ t -> t.2) (I.nthL B1 s (M1.mE e)) (M1.lm (I.nthL A1 s e)) (M1.nthMap s e))
+      (PL.ap (W.Or W.Unit A1.car) (W.Or W.Unit B1.car) M1.om (I.nthL A1 s e).2 (inl tt) hbar) ;
+  module SY = BS2.S2[ev,phi,B1,B2,etaY,rhoY,hrY,evIY,topY,topKY,etaBelowY,M1.mS G,s,k,M1.mE e,hbarY] ;
+
+  ----------------------------------------------------------------------
+  -- the square h2 o eta = etaY o h1 on labels, environments, sequents, rules
+  labNatO : (o : W.Or W.Unit A1.car) -> Id (W.Or W.Unit B2.car) (M2.om (SX.TM.om o)) (SY.TM.om (M1.om o)) = split {
+    inl u -> refl (inl u) ;
+    inr x -> PL.ap B2.car (W.Or W.Unit B2.car) (\ z -> inr z) (h2.1 (eta.1 x)) (etaY.1 (h1.1 x)) (nEta x) } ;
+  labNat (a : I.Lb A1) : Id (I.Lb B2) (M2.lm (SX.TM.lm a)) (SY.TM.lm (M1.lm a)) =
+    PL.ap (W.Or W.Unit B2.car) (I.Lb B2) (\ o -> (a.1,o)) (M2.om (SX.TM.om a.2)) (SY.TM.om (M1.om a.2)) (labNatO a.2) ;
+  envNat : (e0 : LT.LL A1) -> Id (LT.LL B2) (M2.mE (SX.TM.mE e0)) (SY.TM.mE (M1.mE e0)) = split {
+    nilL -> refl nilL ;
+    consL a e0 | r -> W.ap2 (I.Lb B2) (LT.LL B2) (LT.LL B2) (\ x t -> consL x t) (M2.lm (SX.TM.lm a)) (SY.TM.lm (M1.lm a))
+      (M2.mE (SX.TM.mE e0)) (SY.TM.mE (M1.mE e0)) (labNat a) r } ;
+  seqNat : (S : I.Seq A1) -> Id (I.Seq B2) (M2.mS (SX.TM.mS S)) (SY.TM.mS (M1.mS S)) = split {
+    nilL -> refl nilL ;
+    consL c cs | r -> W.ap2 (I.Clo B2) (I.Seq B2) (I.Seq B2) (\ x t -> consL x t) (M2.mC (SX.TM.mC c)) (SY.TM.mC (M1.mC c))
+      (M2.mS (SX.TM.mS cs)) (SY.TM.mS (M1.mS cs))
+      (PL.ap (LT.LL B2) (I.Clo B2) (\ z -> (c.1,z)) (M2.mE (SX.TM.mE c.2)) (SY.TM.mE (M1.mE c.2)) (envNat c.2)) r } ;
+  ruleNat : (r : I.Rule A1) -> Id (I.Rule B2) (SY.TM.mR (M1.mR r)) (M2.mR (SX.TM.mR r)) = split {
+    axR i -> refl (axR i) ; andR i -> refl (andR i) ; orR i -> refl (orR i) ; allR i -> refl (allR i) ;
+    exR i w -> PL.ap (I.Lb B2) (I.Rule B2) (\ z -> exR i z) (SY.TM.lm (M1.lm w)) (M2.lm (SX.TM.lm w))
+      (PL.sym (I.Lb B2) (M2.lm (SX.TM.lm w)) (SY.TM.lm (M1.lm w)) (labNat w)) ;
+    cutR f0 e0 -> PL.ap (LT.LL B2) (I.Rule B2) (\ z -> cutR f0 z) (SY.TM.mE (M1.mE e0)) (M2.mE (SX.TM.mE e0))
+      (PL.sym (LT.LL B2) (M2.mE (SX.TM.mE e0)) (SY.TM.mE (M1.mE e0)) (envNat e0)) ;
+    xrR i mu -> PL.ap B2.car (I.Rule B2) (\ z -> xrR i z) (etaY.1 (h1.1 mu)) (h2.1 (eta.1 mu))
+      (PL.sym B2.car (h2.1 (eta.1 mu)) (etaY.1 (h1.1 mu)) (nEta mu)) ;
+    xlR i o -> PL.ap (W.Or W.Unit B2.car) (I.Rule B2) (\ z -> xlR i z) (SY.TM.om (M1.om o)) (M2.om (SX.TM.om o))
+      (PL.sym (W.Or W.Unit B2.car) (M2.om (SX.TM.om o)) (SY.TM.om (M1.om o)) (labNatO o)) } ;
+
+  ----------------------------------------------------------------------
+  -- pulling back along eta commutes with h, on the image of eta
+  plEtaO : (o : W.Or W.Unit B1.car) -> Id (W.Or W.Unit B1.car) (SY.T.plO (SY.TM.om o)) o = split {
+    inl u -> refl (inl u) ;
+    inr y -> PL.ap B1.car (W.Or W.Unit B1.car) (\ z -> inr z) (rhoY (etaY.1 y)) y (rhoEtaY y) } ;
+  plEta (d : I.Lb B1) : Id (I.Lb B1) (SY.T.pl (SY.TM.lm d)) d =
+    PL.ap (W.Or W.Unit B1.car) (I.Lb B1) (\ o -> (d.1,o)) (SY.T.plO (SY.TM.om d.2)) d.2 (plEtaO d.2) ;
+  plNat (a : I.Lb A2) (img : Id (I.Lb A2) (SX.TM.lm (SX.T.pl a)) a) : Id (I.Lb B1) (SY.T.pl (M2.lm a)) (M1.lm (SX.T.pl a)) =
+    PL.trans (I.Lb B1) (SY.T.pl (M2.lm a)) (SY.T.pl (M2.lm (SX.TM.lm (SX.T.pl a)))) (M1.lm (SX.T.pl a))
+      (PL.ap (I.Lb A2) (I.Lb B1) (\ z -> SY.T.pl (M2.lm z)) a (SX.TM.lm (SX.T.pl a)) (PL.sym (I.Lb A2) (SX.TM.lm (SX.T.pl a)) a img))
+      (PL.trans (I.Lb B1) (SY.T.pl (M2.lm (SX.TM.lm (SX.T.pl a)))) (SY.T.pl (SY.TM.lm (M1.lm (SX.T.pl a)))) (M1.lm (SX.T.pl a))
+        (PL.ap (I.Lb B2) (I.Lb B1) SY.T.pl (M2.lm (SX.TM.lm (SX.T.pl a))) (SY.TM.lm (M1.lm (SX.T.pl a))) (labNat (SX.T.pl a)))
+        (plEta (M1.lm (SX.T.pl a)))) ;
+  pENat : (zs : LT.LL A2) (R : I.Rl A1) (S : I.Seq A1) -> Id W.Bool (I.inTree A2 SX.topT zs (SX.T.Rt R) (SX.TM.mS S)) true ->
+      Id (LT.LL B1) (SY.T.pE (M2.mE zs)) (M1.mE (SX.T.pE zs)) = split {
+    nilL -> \ R S hv -> refl nilL ;
+    consL a ys | r -> \ R S hv ->
+      W.ap2 (I.Lb B1) (LT.LL B1) (LT.LL B1) (\ x t -> consL x t) (SY.T.pl (M2.lm a)) (M1.lm (SX.T.pl a))
+        (SY.T.pE (M2.mE ys)) (M1.mE (SX.T.pE ys))
+        (plNat a (SX.T.brImg (R nilL) a (SX.T.treeHb a ys R S hv)))
+        (r (I.shift A1 R (SX.T.pl a)) (I.step A1 S (R nilL) (SX.T.pl a))
+          (PL.subst (I.Seq A2) (\ Z -> Id W.Bool (I.inTree A2 SX.topT ys (SX.T.Rt (I.shift A1 R (SX.T.pl a))) Z) true)
+            (I.step A2 (SX.TM.mS S) (SX.TM.mR (R nilL)) a) (SX.TM.mS (I.step A1 S (R nilL) (SX.T.pl a)))
+            (SX.T.stepEq S (R nilL) a (SX.T.treeHb a ys R S hv))
+            (W.andB-r (I.br A2 SX.topT (SX.TM.mR (R nilL)) a)
+              (I.inTree A2 SX.topT ys (I.shift A2 (SX.T.Rt R) a) (I.step A2 (SX.TM.mS S) (SX.TM.mR (R nilL)) a)) hv))) } ;
+
+  ----------------------------------------------------------------------
+  -- renaming Phi-bar into I^topK commutes with h2
+  lenEq : (S : I.Seq A1) -> Id W.N (SY.lenS (SY.TM.mS (M1.mS S))) (SX.lenS (SX.TM.mS S)) = split {
+    nilL -> refl zero ;
+    consL c cs | r -> PL.ap W.N W.N (\ n -> suc n) (SY.lenS (SY.TM.mS (M1.mS cs))) (SX.lenS (SX.TM.mS cs)) r } ;
+  fixIfNat : (bv : W.Bool) (o : W.Or W.Unit A2.car) -> Id (W.Or W.Unit B2.car) (SY.O.fixIf topKY bv (M2.om o)) (M2.om (SX.O.fixIf topK bv o)) = split {
+    false -> \ o -> refl (M2.om o) ;
+    true -> split {
+      inl u -> PL.ap B2.car (W.Or W.Unit B2.car) (\ z -> inr z) topKY (h2.1 topK) (PL.sym B2.car (h2.1 topK) topKY nTopK) ;
+      inr la -> refl (inr (h2.1 la)) } } ;
+  fixNat : (r : I.Rule A2) -> Id (I.Rule B2) (SY.O.fixR topKY SY.p (M2.mR r)) (M2.mR (SX.O.fixR topK SX.p r)) = split {
+    axR i -> refl (axR i) ; andR i -> refl (andR i) ; orR i -> refl (orR i) ; allR i -> refl (allR i) ;
+    exR i w -> refl (exR i (M2.lm w)) ; cutR f0 e0 -> refl (cutR f0 (M2.mE e0)) ; xrR i mu -> refl (xrR i (h2.1 mu)) ;
+    xlR i o -> PL.ap (W.Or W.Unit B2.car) (I.Rule B2) (\ z -> xlR i z) (SY.O.fixIf topKY (W.eqN i SY.p) (M2.om o)) (M2.om (SX.O.fixIf topK (W.eqN i SX.p) o))
+      (PL.trans (W.Or W.Unit B2.car) (SY.O.fixIf topKY (W.eqN i SY.p) (M2.om o)) (SY.O.fixIf topKY (W.eqN i SX.p) (M2.om o))
+        (M2.om (SX.O.fixIf topK (W.eqN i SX.p) o))
+        (PL.ap W.N (W.Or W.Unit B2.car) (\ q -> SY.O.fixIf topKY (W.eqN i q) (M2.om o)) SY.p SX.p (lenEq G))
+        (fixIfNat (W.eqN i SX.p) o)) } ;
+
+  ----------------------------------------------------------------------
+  -- the root cut on I^topK(t) is natural
+  envRoot : Id (LT.LL B2) SY.env' (M2.mE SX.env') =
+    W.ap2 (I.Lb B2) (I.Lb B2) (LT.LL B2) (\ x y -> consL x (consL y nilL))
+      (I.nthL B2 k SY.e2) (M2.lm (I.nthL A2 k SX.e2)) (I.stg B2 topKY) (I.stg B2 (h2.1 topK))
+      (PL.trans (I.Lb B2) (I.nthL B2 k SY.e2) (SY.TM.lm (I.nthL B1 k (M1.mE e))) (M2.lm (I.nthL A2 k SX.e2))
+        (SY.TM.nthMap k (M1.mE e))
+        (PL.trans (I.Lb B2) (SY.TM.lm (I.nthL B1 k (M1.mE e))) (SY.TM.lm (M1.lm (I.nthL A1 k e))) (M2.lm (I.nthL A2 k SX.e2))
+          (PL.ap (I.Lb B1) (I.Lb B2) SY.TM.lm (I.nthL B1 k (M1.mE e)) (M1.lm (I.nthL A1 k e)) (M1.nthMap k e))
+          (PL.trans (I.Lb B2) (SY.TM.lm (M1.lm (I.nthL A1 k e))) (M2.lm (SX.TM.lm (I.nthL A1 k e))) (M2.lm (I.nthL A2 k SX.e2))
+            (PL.sym (I.Lb B2) (M2.lm (SX.TM.lm (I.nthL A1 k e))) (SY.TM.lm (M1.lm (I.nthL A1 k e))) (labNat (I.nthL A1 k e)))
+            (PL.ap (I.Lb A2) (I.Lb B2) M2.lm (SX.TM.lm (I.nthL A1 k e)) (I.nthL A2 k SX.e2)
+              (PL.sym (I.Lb A2) (I.nthL A2 k SX.e2) (SX.TM.lm (I.nthL A1 k e)) (SX.TM.nthMap k e))))))
+      (PL.ap B2.car (I.Lb B2) (\ z -> I.stg B2 z) topKY (h2.1 topK) (PL.sym B2.car (h2.1 topK) topKY nTopK)) ;
+  -- the end sequents
+  ng : Id (I.Seq B2) SY.G2 (M2.mS SX.G2) = PL.sym (I.Seq B2) (M2.mS SX.G2) SY.G2 (seqNat G) ;
+
+  ----------------------------------------------------------------------
+  -- the premises, natural at the addresses of their trees
+  module Prem (RL : I.Rl A1) (loL : I.LocOK A1 topX RL (I.app A1 G (consL SX.cL nilL))) (wL : I.WFP A1 topX RL (I.app A1 G (consL SX.cL nilL)))
+    (RR : I.Rl A2) (loR : I.LocOK A2 topK RR (I.app A2 SX.G2 (consL SX.cR2 nilL))) (wR : I.WFP A2 topK RR (I.app A2 SX.G2 (consL SX.cR2 nilL)))
+    (RLY : I.Rl B1) (loLY : I.LocOK B1 topY RLY (I.app B1 (M1.mS G) (consL SY.cL nilL))) (wLY : I.WFP B1 topY RLY (I.app B1 (M1.mS G) (consL SY.cL nilL)))
+    (RRY : I.Rl B2) (loRY : I.LocOK B2 topKY RRY (I.app B2 SY.G2 (consL SY.cR2 nilL))) (wRY : I.WFP B2 topKY RRY (I.app B2 SY.G2 (consL SY.cR2 nilL)))
+    (nrL : (zs : LT.LL A1) -> Id W.Bool (I.inTree A1 topX zs RL (I.app A1 G (consL SX.cL nilL))) true ->
+       Id (I.Rule B1) (RLY (M1.mE zs)) (M1.mR (RL zs)))
+    (nrR : (zs : LT.LL A2) -> Id W.Bool (I.inTree A2 topK zs RR (I.app A2 SX.G2 (consL SX.cR2 nilL))) true ->
+       Id (I.Rule B2) (RRY (M2.mE zs)) (M2.mR (RR zs))) {
+    module OX = SX.Out[RL,loL,wL,RR,loR,wR] ;
+    module OY = SY.Out[RLY,loLY,wLY,RRY,loRY,wRY] ;
+    -- left part: an address of the renamed tree is an address of the mapped L
+    hvL (zs : LT.LL A2) (hv : Id W.Bool (I.inTree A2 SX.topT zs OX.L.RLf SX.GL) true) :
+        Id W.Bool (I.inTree A2 SX.topT zs OX.L.R1 (SX.TM.mS (I.app A1 G (consL SX.cL nilL)))) true =
+      PL.subst (I.Seq A2) (\ Z -> Id W.Bool (I.inTree A2 SX.topT zs OX.L.R1 Z) true)
+        (I.app A2 SX.G2 (consL SX.cL2 nilL)) (SX.TM.mS (I.app A1 G (consL SX.cL nilL)))
+        (PL.sym (I.Seq A2) (SX.TM.mS (I.app A1 G (consL SX.cL nilL))) (I.app A2 SX.G2 (consL SX.cL2 nilL)) SX.mapEnd)
+        (PL.trans W.Bool (I.inTree A2 SX.topT zs OX.L.R1 (I.app A2 SX.G2 (consL SX.cL2 nilL)))
+            (I.inTree A2 SX.topT zs OX.L.RLf (SX.O.repL SX.p (I.app A2 SX.G2 (consL SX.cL2 nilL)) SX.P.N.c')) true
+          (PL.sym W.Bool (I.inTree A2 SX.topT zs OX.L.RLf (SX.O.repL SX.p (I.app A2 SX.G2 (consL SX.cL2 nilL)) SX.P.N.c'))
+            (I.inTree A2 SX.topT zs OX.L.R1 (I.app A2 SX.G2 (consL SX.cL2 nilL)))
+            (SX.P.N.treeRep zs OX.L.R1 (I.app A2 SX.G2 (consL SX.cL2 nilL)) OX.L.hp).1)
+          (PL.subst (I.Seq A2) (\ Z -> Id W.Bool (I.inTree A2 SX.topT zs OX.L.RLf Z) true)
+            SX.GL (SX.O.repL SX.p (I.app A2 SX.G2 (consL SX.cL2 nilL)) SX.P.N.c')
+            (PL.sym (I.Seq A2) (SX.O.repL SX.p (I.app A2 SX.G2 (consL SX.cL2 nilL)) SX.P.N.c') SX.GL (SX.repLast SX.G2 SX.cL2 SX.P.N.c')) hv)) ;
+    nrLeft (zs : LT.LL A2) (hv : Id W.Bool (I.inTree A2 SX.topT zs OX.L.RLf SX.GL) true) :
+        Id (I.Rule B2) (OY.L.RLf (M2.mE zs)) (M2.mR (OX.L.RLf zs)) =
+      PL.trans (I.Rule B2) (SY.TM.mR (RLY (SY.T.pE (M2.mE zs)))) (SY.TM.mR (RLY (M1.mE (SX.T.pE zs)))) (M2.mR (SX.TM.mR (RL (SX.T.pE zs))))
+        (PL.ap (LT.LL B1) (I.Rule B2) (\ z -> SY.TM.mR (RLY z)) (SY.T.pE (M2.mE zs)) (M1.mE (SX.T.pE zs))
+          (pENat zs RL (I.app A1 G (consL SX.cL nilL)) (hvL zs hv)))
+        (PL.trans (I.Rule B2) (SY.TM.mR (RLY (M1.mE (SX.T.pE zs)))) (SY.TM.mR (M1.mR (RL (SX.T.pE zs)))) (M2.mR (SX.TM.mR (RL (SX.T.pE zs))))
+          (PL.ap (I.Rule B1) (I.Rule B2) SY.TM.mR (RLY (M1.mE (SX.T.pE zs))) (M1.mR (RL (SX.T.pE zs)))
+            (nrL (SX.T.pE zs) (SX.T.treeL zs RL (I.app A1 G (consL SX.cL nilL)) (hvL zs hv)).1))
+          (ruleNat (RL (SX.T.pE zs)))) ;
+    -- right part: an address of the chopped tree is an address of R
+    hvR (zs : LT.LL A2) (hv : Id W.Bool (I.inTree A2 SX.topT zs OX.Rg.RRf SX.GR) true) :
+        Id W.Bool (I.inTree A2 topK zs RR (I.app A2 SX.G2 (consL SX.cR2 nilL))) true =
+      PL.trans W.Bool (I.inTree A2 topK zs RR (I.app A2 SX.G2 (consL SX.cR2 nilL)))
+          (I.inTree A2 topK zs OX.Rg.RRf (SX.O.repL SX.p (I.app A2 SX.G2 (consL SX.cR2 nilL)) SX.NR.N.c')) true
+        (PL.sym W.Bool (I.inTree A2 topK zs OX.Rg.RRf (SX.O.repL SX.p (I.app A2 SX.G2 (consL SX.cR2 nilL)) SX.NR.N.c'))
+          (I.inTree A2 topK zs RR (I.app A2 SX.G2 (consL SX.cR2 nilL)))
+          (SX.NR.N.treeRep zs RR (I.app A2 SX.G2 (consL SX.cR2 nilL)) OX.Rg.hp).1)
+        (PL.subst (I.Seq A2) (\ Z -> Id W.Bool (I.inTree A2 topK zs OX.Rg.RRf Z) true)
+          SX.GR (SX.O.repL SX.p (I.app A2 SX.G2 (consL SX.cR2 nilL)) SX.NR.N.c')
+          (PL.sym (I.Seq A2) (SX.O.repL SX.p (I.app A2 SX.G2 (consL SX.cR2 nilL)) SX.NR.N.c') SX.GR (SX.repLast SX.G2 SX.cR2 SX.NR.N.c'))
+          (SX.C.inChop zs OX.Rg.RRf SX.GR hv)) ;
+    nrRight (zs : LT.LL A2) (hv : Id W.Bool (I.inTree A2 SX.topT zs OX.Rg.RRf SX.GR) true) :
+        Id (I.Rule B2) (OY.Rg.RRf (M2.mE zs)) (M2.mR (OX.Rg.RRf zs)) =
+      PL.trans (I.Rule B2) (SY.O.fixR topKY SY.p (RRY (M2.mE zs))) (SY.O.fixR topKY SY.p (M2.mR (RR zs))) (M2.mR (SX.O.fixR topK SX.p (RR zs)))
+        (PL.ap (I.Rule B2) (I.Rule B2) (SY.O.fixR topKY SY.p) (RRY (M2.mE zs)) (M2.mR (RR zs)) (nrR zs (hvR zs hv)))
+        (fixNat (RR zs)) ;
+    -- the output: natural at the addresses of its tree
+    nrS (o : W.Or W.Unit A2.car) (zs : LT.LL A2) : (m : W.N) -> OX.InT (consL (suc m,o) zs) ->
+        Id (I.Rule B2) (OY.Rf (M2.mE (consL (suc m,o) zs))) (M2.mR (OX.Rf (consL (suc m,o) zs))) = split {
+      zero -> \ hv -> nrRight zs (W.andB-r (I.isTwo A2 (suc zero,o)) (I.inTree A2 SX.topT zs OX.Rg.RRf SX.GR) hv) ;
+      suc n -> \ hv -> OX.tw n o (Id (I.Rule B2) (OY.Rf (M2.mE (consL (suc (suc n),o) zs))) (M2.mR (OX.Rf (consL (suc (suc n),o) zs))))
+        (W.andB-l (I.isTwo A2 (suc (suc n),o))
+          (I.inTree A2 SX.topT zs OX.Rg.RRf (I.app A2 SX.G2 (consL (BI.pickF (suc (suc n)) SX.f (BI.neg SX.f),SX.env') nilL))) hv) } ;
+    nrC (o : W.Or W.Unit A2.car) (zs : LT.LL A2) : (n : W.N) -> OX.InT (consL (n,o) zs) ->
+        Id (I.Rule B2) (OY.Rf (M2.mE (consL (n,o) zs))) (M2.mR (OX.Rf (consL (n,o) zs))) = split {
+      zero -> \ hv -> nrLeft zs (W.andB-r (I.isTwo A2 (zero,o)) (I.inTree A2 SX.topT zs OX.L.RLf SX.GL) hv) ;
+      suc m -> nrS o zs m } ;
+    nr : (zs : LT.LL A2) -> OX.InT zs -> Id (I.Rule B2) (OY.Rf (M2.mE zs)) (M2.mR (OX.Rf zs)) = split {
+      nilL -> \ hv -> PL.ap (LT.LL B2) (I.Rule B2) (\ z -> cutR SX.f z) SY.env' (M2.mE SX.env') envRoot ;
+      consL a zs -> \ hv -> nrC a.2 zs a.1 hv } ;
+    nl (zs : LT.LL A2) (hv : OX.InT zs) : Id B2.car topKY (h2.1 topK) = PL.sym B2.car (h2.1 topK) topKY nTopK ;
+  } ;
+
+  ----------------------------------------------------------------------
+  -- HOMOGENEITY OF S2+S1: the cut-free derivations of eta G at k(kX) and
+  -- of etaY G_Y at k(kY) (BetaIDS21) are related along h2
+  eT : Id B2.car (h2.1 SX.topT) SY.topT =
+    PL.trans B2.car (h2.1 (eta.1 topX)) (etaY.1 (h1.1 topX)) (etaY.1 topY) (nEta topX)
+      (PL.ap B1.car B2.car etaY.1 (h1.1 topX) topY nTop) ;
+  module Hom (wA2 : LW.WF A2) (wB2 : LW.WF B2)
+    (wfA : (t : I.Lb A2) (mu : A2.car) -> BK.CK[ev,phi,A2,SX.topT].StOK mu phi (I.envP A2 t (I.stg A2 mu)))
+    (wfB : (t : I.Lb B2) (mu : B2.car) -> BK.CK[ev,phi,B2,SY.topT].StOK mu phi (I.envP B2 t (I.stg B2 mu)))
+    (RL : I.Rl A1) (loL : I.LocOK A1 topX RL (I.app A1 G (consL SX.cL nilL))) (wL : I.WFP A1 topX RL (I.app A1 G (consL SX.cL nilL)))
+    (ncL : (ys : LT.LL A1) -> Id W.Bool (I.inTree A1 topX ys RL (I.app A1 G (consL SX.cL nilL))) true -> BS21.NC ev phi A1 (RL ys))
+    (RR : I.Rl A2) (loR : I.LocOK A2 topK RR (I.app A2 SX.G2 (consL SX.cR2 nilL))) (wR : I.WFP A2 topK RR (I.app A2 SX.G2 (consL SX.cR2 nilL)))
+    (ncR : (ys : LT.LL A2) -> Id W.Bool (I.inTree A2 topK ys RR (I.app A2 SX.G2 (consL SX.cR2 nilL))) true -> BS21.NC ev phi A2 (RR ys))
+    (RLY : I.Rl B1) (loLY : I.LocOK B1 topY RLY (I.app B1 (M1.mS G) (consL SY.cL nilL))) (wLY : I.WFP B1 topY RLY (I.app B1 (M1.mS G) (consL SY.cL nilL)))
+    (ncLY : (ys : LT.LL B1) -> Id W.Bool (I.inTree B1 topY ys RLY (I.app B1 (M1.mS G) (consL SY.cL nilL))) true -> BS21.NC ev phi B1 (RLY ys))
+    (RRY : I.Rl B2) (loRY : I.LocOK B2 topKY RRY (I.app B2 SY.G2 (consL SY.cR2 nilL))) (wRY : I.WFP B2 topKY RRY (I.app B2 SY.G2 (consL SY.cR2 nilL)))
+    (ncRY : (ys : LT.LL B2) -> Id W.Bool (I.inTree B2 topKY ys RRY (I.app B2 SY.G2 (consL SY.cR2 nilL))) true -> BS21.NC ev phi B2 (RRY ys))
+    (nrL : (zs : LT.LL A1) -> Id W.Bool (I.inTree A1 topX zs RL (I.app A1 G (consL SX.cL nilL))) true ->
+       Id (I.Rule B1) (RLY (M1.mE zs)) (M1.mR (RL zs)))
+    (nrR : (zs : LT.LL A2) -> Id W.Bool (I.inTree A2 topK zs RR (I.app A2 SX.G2 (consL SX.cR2 nilL))) true ->
+       Id (I.Rule B2) (RRY (M2.mE zs)) (M2.mR (RR zs))) {
+    module ZX = BS21.S21[ev,phi,A1,A2,eta,rho,hr,evI,topX,topK,etaBelow,G,s,k,e,hbar,wA2,wfA,RL,loL,wL,ncL,RR].Fin[loR,wR,ncR] ;
+    module ZY = BS21.S21[ev,phi,B1,B2,etaY,rhoY,hrY,evIY,topY,topKY,etaBelowY,M1.mS G,s,k,M1.mE e,hbarY,wB2,wfB,RLY,loLY,wLY,ncLY,RRY].Fin[loRY,wRY,ncRY] ;
+    module PP = Prem[RL,loL,wL,RR,loR,wR,RLY,loLY,wLY,RRY,loRY,wRY,nrL,nrR] ;
+    module HF = BH.NH[ev,phi,A2,B2,h2,evI2,SX.topT,SY.topT,eT].St[wA2,wB2,wfA,wfB].Fin[ZX.O.Rf,SX.G2,\ ys -> topK,ZX.O.wf,ZX.O.lo,ZX.kw,ZY.O.Rf,SY.G2,\ ys -> topKY,ZY.O.wf,ZY.O.lo,ZY.kw,PP.nr,PP.nl,ng] ;
+    nat : BH.NH[ev,phi,A2,B2,h2,evI2,SX.topT,SY.topT,eT].RelF ZX.cutFree.1 ZY.cutFree.1 = HF.nat ;
+  } ;
+} ;

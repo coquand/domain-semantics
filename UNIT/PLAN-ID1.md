@@ -416,6 +416,51 @@ at F~'(alpha)) but never recursed on.
 - Still open: homogeneity (outputs as natural families, BetaHom-style with
   `decide`), F~ bookkeeping, and the global induction on accessibility (S4).
 
+## Homogeneity of S1 and S2 DONE (2026-11-20, in All.seg, green)
+
+- `BetaIDCf.Ind` now branches on DATA: `decide`, i.e. decidable equality
+  of closures (`eqF` on formulas with X-atoms, `eqL` from BetaCut). It no
+  longer branches on membership proofs. Downstream files are unchanged.
+- `BetaIDHom.seg` (S1, port of BetaHom). Data: an embedding g : A -> B
+  with g(topA) = topB and atoms invariant under g.
+  - `RelF`: a cut-free derivation at B restricts to one at A.
+  - `RInd`: the generic double induction preserves restriction. The other
+    side is related by an arbitrary RO, and the sequents at A and B are
+    NOT related, since the output trees never depend on them. This avoids
+    the `nthMap` mismatch on the closures of the x-rules.
+  - `numR`, `belR`: the dummy premises (off the numbers, off the bound)
+    agree.
+  - Cut cases CAtR, CAndR, COrR, CAllR, CExR, and CXR (the stage atom: the
+    induction hypothesis at mu < la on A, g mu < laB on B).
+  - Stage induction (`St.Step`, `indR`, `cutAllR`): recursion on the
+    accessibility tree at A, with the tree at B split along it. A
+    `W.subst` lemma handles `indT`.
+  - `elimR`, `toDvR`.
+  - `St.Fin.nat`: for pre-proofs whose rules and cut stages are natural AT
+    THE ADDRESSES OF THE TREE at A, and whose end sequents are natural, the
+    derivations from `BetaIDCfTr.CT.cutFree` are related along g.
+- `BetaIDS2Hom.seg` (S2b). Data: two S2 instances, at X and at Y, and maps
+  h1 : kX -> kY, h2 : k(kX) -> k(kY). Hypotheses:
+  - h2 o eta = etaY o h1;
+  - rhoY o etaY = id;
+  - h1 topX = topY and h2 topK = topKY;
+  - the data at Y are the images (G_Y := h1 G, e_Y := h1 e, literally);
+  - the premises L, R are natural at the addresses of their trees.
+  Then the S2 output is natural at the addresses of its tree (`Prem.nr`):
+  - root: `envRoot`;
+  - left: the addresses are images of eta (`pENat`), then `ruleNat`;
+  - right: `fixNat`.
+  `S2N.Hom.nat`: the cut-free derivations of S21 at k(kX) and k(kY) are
+  related along h2.
+- Caveats.
+  - Naturality is relational (restriction), as in BetaHom. The outputs are
+    not presented as one pre-proof on all linear orders.
+  - In S2b the Y data are the images literally. A family that is natural
+    only up to propositional equality needs one transport (not done).
+- Next: the bookkeeping of F~, and S4 (cut elimination by induction on
+  accessibility), combining BetaAcc, S2/S21 and the two homogeneity
+  results.
+
 ## Expected outcome / what would be new
 
 - A constructive, checked reconstruction of Girard's ID1 cut elimination,
@@ -428,6 +473,8 @@ at F~'(alpha)) but never recursed on.
 ## Status
 - 2026-11-20: plan written.
 - 2026-11-20: S1 (pointwise) and S2+S1 DONE (see section above).
+- 2026-11-20: homogeneity of S1 (BetaIDHom) and of S2+S1 (BetaIDS2Hom) DONE;
+  All.seg 32589 declarations, green. Not committed.
 - 2026-11-20: S0 core and S2 (pointwise) DONE, in All.seg, check.py green
   (All.seg 31115 declarations). Not committed.
   - `BetaID.seg` (S0): syntax with X-atoms whose predicate is read from
