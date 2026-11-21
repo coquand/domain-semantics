@@ -714,6 +714,36 @@ Gamma~: stages >= top are replaced by Phi-bar.
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
+## S6 for Part 3's bar predicate (2026-11-21, BetaIDS4Bar, checked)
+
+phi(X,s) = G(s) or forall t (not ch(s,t) or X(t)), G and ch decidable
+(ev reads them from the environment numbers; EvN by ap; posX by refl).
+- ORDINARY stages B^lambda(s) = Sigma mu<lambda. phi(B^mu)(s): CondR for the
+  hereditary clause is the obligation `HerB mu la s`: not B^la(s) ->
+  not not exists n (ch(s,n) & not B^mu(n)). `WithDNS.herB`: it follows
+  from the double-negation shift over N; `herToShift`: with
+  forall n not not (ch -> B^mu n) it gives not not B^la(s). So ordinary
+  stage evidence works exactly up to the shift.
+- STABLE stages J^lambda(s) = not not Sigma mu<lambda. phi(J^mu)(s), by
+  recursion on accessibility trees (`Jn`, tree irrelevance `jIrr`,
+  `jIn`/`jOut`, `jStab`). `Model.condR`, `Model.condL`: a split model on
+  ANY well-order with top (J at stages, negative Phi-bar = J^top,
+  positive Phi-bar = Jall = not not exists mu phi(J^mu)). No shift needed:
+  J^mu(t) is not-not-stable.
+- J vs B: `bToJ` (B^la -> J^la); `WithDNS.jToB` (J^la -> not not B^la,
+  given the shift). So a bound on J is a CLASSICAL stage bound for bar
+  evidence; it gives ordinary bar evidence only up to not not and the
+  shift.
+- `Bar.Cor.stageBound`: for an accessible family proving
+  forall x (B(x) -> exists y (A(x,y) & B(y))), at every WF Y (E returned
+  by normalisation): J^{top_Y}(n) -> not forall m not not (F A(n,m) or
+  not Jall(m)), Jall = J after all of kY + E.
+- Example `Ex` (G = nonempty, children nonempty, on omega): `enter1`
+  (nonempty in J^1), `notEnter1` (empty not in J^1), `enter2` (empty in
+  J^2); the stage-1 version of enter2 fails (indexing check).
+- Next: the benchmark B(s) -> B(sw) for monotone G (direct proof keeps
+  the stage) against the bound normalisation returns.
+
 ## S6 stage bound: first corollary (2026-11-21, BetaIDS4Stage)
 
 - Obstruction found: BetaID.Snd needs ONE predicate M(Phi-bar) with
