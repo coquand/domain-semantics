@@ -1,0 +1,118 @@
+-- PLAN-ID1, homogeneity of S4: the (r-bar) case with a choice >= top.
+-- The premise outputs are related by the induction hypothesis; the
+-- one-point extension commutes (Square.alg), the renaming commutes
+-- (RenMRel), and the target principal closure is the image of the source
+-- one (G' = beta G).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module PS = PtyxSum[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BT = BetaIDTr[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module SH = BetaIDS4Hom[l] ;
+module BH = BetaIDHom[l] ;
+module HR = BetaIDS4HomReg[l] ;
+module HT = BetaIDS4HomThm[l] ;
+
+module RBarRel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o o' : S4.Obj[ev,phi,evN].IObj)
+  (ih : (s : S4.SSteps[ev,phi,evN].Step o) -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o s))
+  (ih' : (s : S4.SSteps[ev,phi,evN].Step o') -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o' s))
+  (ihr : HT.Stmt[ev,phi,evN,hPos].IHR o o' ih ih')
+  (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z)) (rl : SH.Rel[ev,phi,evN].RelIn o o' c tau)
+  (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y')
+  (i : W.N) (mu : (o.k Y).car) (eY : Id (BI.ID[ev,phi].Rule (o.k Y)) (o.R Y nilL) (xrR i mu))
+  (h : Id W.Bool (BI.ID[ev,phi].ltB (o.k Y) mu (S4.Obj[ev,phi,evN].topO o Y)) false)
+  (mu' : (o'.k Y').car) (eY' : Id (BI.ID[ev,phi].Rule (o'.k Y')) (o'.R Y' nilL) (xrR i mu'))
+  (h' : Id W.Bool (BI.ID[ev,phi].ltB (o'.k Y') mu' (S4.Obj[ev,phi,evN].topO o' Y')) false) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module ST = HT.Stmt[ev,phi,evN,hPos] ;
+  module RB = S4.RBar[ev,phi,evN,hPos,o,ih,Y,wY,i,mu,eY,h] ;
+  module RB' = S4.RBar[ev,phi,evN,hPos,o',ih',Y',wY',i,mu',eY',h'] ;
+  A : DP.LO = o.k Y ;
+  A' : DP.LO = o'.k Y' ;
+  top : A.car = O.topO o Y ;
+  top' : A'.car = O.topO o' Y' ;
+  beta : DP.Map A A' = ST.baseF o o' tau Y Y' f ;
+  bt : Id A'.car (beta.1 top) top' = ST.baseTop o o' c tau rl Y Y' f ;
+  module MB = BT.Mp[ev,phi,A,A',beta,S4.evMap ev evN A A' beta,top] ;
+  -- the premise outputs (label 0), by the induction hypothesis
+  xr : ST.HomOut A A' top top' beta bt (I.step A (o.G Y) (o.R Y nilL) (zero,inl tt)) (I.step A' (o'.G Y') (o'.R Y' nilL) (zero,inl tt)) RB.x RB'.x =
+    ihr (inl (RB.N0.stNum zero tt RB.hbr)) (inl (RB'.N0.stNum zero tt RB'.hbr)) c tau
+      (HR.PShRel[ev,phi,evN,o,o',c,tau,rl,RB.N0.stNum zero tt RB.hbr,RB'.N0.stNum zero tt RB'.hbr,\ Z -> refl (zero,inl tt)].rel) Y Y' wY wY' f ;
+  e1 : DP.Map RB.E1 RB'.E1 = xr.1 ;
+  u1 : DP.Map (S4.Sm A RB.E1) (S4.Sm A' RB'.E1) = ST.extM A A' RB.E1 RB'.E1 beta e1 ;
+  e2 : DP.Map RB.E2 RB'.E2 = PS.SumMap[RB.E1,LT.one,RB'.E1,LT.one,e1,LC.idMap LT.one].map ;
+  u2 : DP.Map RB.B2 RB'.B2 = ST.extM A A' RB.E2 RB'.E2 beta e2 ;
+  et1 : Id (S4.Sm A' RB'.E1).car (u1.1 (inl top)) (inl top') = ST.extTop A A' RB.E1 RB'.E1 beta e1 top top' bt ;
+  et2 : Id RB'.B2.car (u2.1 (inl top)) (inl top') = ST.extTop A A' RB.E2 RB'.E2 beta e2 top top' bt ;
+  -- the one-point extension commutes
+  F : (z : (S4.Sm A RB.E1).car) -> Id RB'.B2.car (RB'.iota.1 (u1.1 z)) (u2.1 (RB.iota.1 z)) = split {
+    inl p -> refl (inl (beta.1 p)) ; inr y -> refl (inr (inl (e1.1 y))) } ;
+  Gr : (z : RB.E2.car) -> Id (S4.Sm A' RB'.E1).car (u1.1 (RB.rho2 (inr z))) (RB'.rho2 (u2.1 (inr z))) = split {
+    inl y -> refl (inr (e1.1 y)) ;
+    inr uu -> PL.ap A'.car (S4.Sm A' RB'.E1).car (\ q -> inl q) (beta.1 top) top' bt } ;
+  G : (b : RB.B2.car) -> Id (S4.Sm A' RB'.E1).car (u1.1 (RB.rho2 b)) (RB'.rho2 (u2.1 b)) = split {
+    inl p -> refl (inl (beta.1 p)) ; inr z -> Gr z } ;
+  module SQ = TrCSquare[l].Square[ev,phi,evN,S4.Sm A RB.E1,RB.B2,S4.Sm A' RB'.E1,RB'.B2,RB.iota,RB'.iota,u1,u2,RB.rho2,RB'.rho2,
+    inl top,inl top',et1,F,G,\ la -> W.Unit,\ la -> W.Unit,\ la uu b hb -> RB.hr2 b la hb,\ la uu b hb -> RB'.hr2 b la hb] ;
+  rel2 : BH.NH[ev,phi,RB.B2,RB'.B2,u2,S4.evMap ev evN RB.B2 RB'.B2 u2,inl top,inl top',et2].RelF RB.d2 RB'.d2 =
+    HR.RelConvT[ev,phi,RB.B2,RB'.B2,u2,S4.evMap ev evN RB.B2 RB'.B2 u2,RB.iota.1 (inl top),RB'.iota.1 (inl top'),SQ.topSq,inl top,inl top',et2].relC
+      RB.d2 RB'.d2 (SQ.alg RB.x.2.2.1 RB'.x.2.2.1 xr.2) ;
+  -- the principal closures correspond
+  module MG = HR.MpComp[ev,phi,evN,A,o.k Y',A',o.km Y Y' f,tau Y',top,O.topO o Y'] ;
+  eG : Id (I.Seq A') (o'.G Y') (MB.mS (o.G Y)) =
+    PL.trans (I.Seq A') (o'.G Y') (MG.MH.mS (o.G Y')) (MB.mS (o.G Y)) (rl.2.1 Y')
+      (PL.trans (I.Seq A') (MG.MH.mS (o.G Y')) (MG.MH.mS (MG.MG.mS (o.G Y))) (MB.mS (o.G Y))
+        (PL.ap (I.Seq (o.k Y')) (I.Seq A') MG.MH.mS (o.G Y') (MG.MG.mS (o.G Y)) (o.ng Y Y' f)) (MG.mSC (o.G Y))) ;
+  outRm : (x : I.OC A) -> Id (I.Clo A') (RB'.CTA.outR RB'.CTA.dflt (MB.mO x)) (MB.mC (RB.CTA.outR RB.CTA.dflt x)) = split {
+    inl u -> refl (atF true zero,nilL) ; inr cc -> refl (MB.mC cc) } ;
+  cEq : Id (I.Clo A') RB'.c' (MB.mC RB.c') =
+    PL.trans (I.Clo A') RB'.c' (RB'.CTA.outR RB'.CTA.dflt (MB.mO RB.oc)) (MB.mC RB.c')
+      (PL.ap (I.OC A') (I.Clo A') (RB'.CTA.outR RB'.CTA.dflt) RB'.oc (MB.mO RB.oc)
+        (PL.trans (I.OC A') RB'.oc (I.getM A' i (MB.mS (o.G Y))) (MB.mO RB.oc)
+          (PL.ap (I.Seq A') (I.OC A') (I.getM A' i) (o'.G Y') (MB.mS (o.G Y)) eG) (MB.getMap i (o.G Y))))
+      (outRm RB.oc) ;
+  sEq : Id W.N RB'.s RB.s = PL.ap (I.Clo A') W.N (\ z -> BetaIDCfCut[l].sOf z.1) RB'.c' (MB.mC RB.c') cEq ;
+  kEq : Id W.N RB'.k RB.k = PL.ap (I.Clo A') W.N (\ z -> BetaIDCfCut[l].kOf z.1) RB'.c' (MB.mC RB.c') cEq ;
+  eEq : Id (LT.LL A') RB'.e (MB.mE RB.e) = PL.ap (I.Clo A') (LT.LL A') (\ z -> z.2) RB'.c' (MB.mC RB.c') cEq ;
+  module RN = HR.RepNat[ev,phi,evN,A,A',top,top',beta,bt,RB.E2,RB'.E2,e2] ;
+  envEq : Id (LT.LL RB'.B2) (RB'.R2.rE RB'.e) (RN.MV.mE (RB.R2.rE RB.e)) =
+    PL.trans (LT.LL RB'.B2) (RB'.R2.rE RB'.e) (RB'.R2.rE (MB.mE RB.e)) (RN.MV.mE (RB.R2.rE RB.e))
+      (PL.ap (LT.LL A') (LT.LL RB'.B2) RB'.R2.rE RB'.e (MB.mE RB.e) eEq) (RN.eN RB.e) ;
+  tEq : Id (I.Lb RB'.B2) (RN.MV.lm RB.t2) RB'.t2 =
+    PL.sym (I.Lb RB'.B2) RB'.t2 (RN.MV.lm RB.t2)
+      (PL.trans (I.Lb RB'.B2) RB'.t2 (RB'.R2.rL (I.nthL A' RB.k (MB.mE RB.e))) (RN.MV.lm RB.t2)
+        (W.ap2 W.N (LT.LL A') (I.Lb RB'.B2) (\ kk ee -> RB'.R2.rL (I.nthL A' kk ee)) RB'.k RB.k RB'.e (MB.mE RB.e) kEq eEq)
+        (PL.trans (I.Lb RB'.B2) (RB'.R2.rL (I.nthL A' RB.k (MB.mE RB.e))) (RB'.R2.rL (MB.lm (I.nthL A RB.k RB.e))) (RN.MV.lm RB.t2)
+          (PL.ap (I.Lb A') (I.Lb RB'.B2) RB'.R2.rL (I.nthL A' RB.k (MB.mE RB.e)) (MB.lm (I.nthL A RB.k RB.e)) (MB.nthMap RB.k RB.e))
+          (RN.lN (I.nthL A RB.k RB.e)))) ;
+  -- the renaming commutes
+  module RR = BetaIDS4HomRen[l].RenMRel[ev,phi,evN,hPos,RB.B2,RB'.B2,inl top,inl top',u2,et2,RB.c2,RB'.c2,refl RB'.c2,
+    RB.t2,RB.xb2,RB'.t2,RB'.xb2,tEq,refl RB'.xb2,
+    \ pre kk -> evN RB.B2 RB.B2 kk (KT.appL (I.Lb RB.B2) pre (consL RB.t2 (consL (I.stg RB.B2 RB.c2) nilL))) (KT.appL (I.Lb RB.B2) pre (consL RB.t2 (consL RB.xb2 nilL)))
+      (S4.fstAp RB.B2 (consL RB.t2 (consL (I.stg RB.B2 RB.c2) nilL)) (consL RB.t2 (consL RB.xb2 nilL)) (refl (consL RB.t2.1 (consL zero nilL))) pre),
+    \ pre kk -> evN RB'.B2 RB'.B2 kk (KT.appL (I.Lb RB'.B2) pre (consL RB'.t2 (consL (I.stg RB'.B2 RB'.c2) nilL))) (KT.appL (I.Lb RB'.B2) pre (consL RB'.t2 (consL RB'.xb2 nilL)))
+      (S4.fstAp RB'.B2 (consL RB'.t2 (consL (I.stg RB'.B2 RB'.c2) nilL)) (consL RB'.t2 (consL RB'.xb2 nilL)) (refl (consL RB'.t2.1 (consL zero nilL))) pre)] ;
+  rel3 : RR.N.RelF RB.d3 RB'.d3 = RR.renR RB.d2 RB'.d2 rel2 (consL (phi,nilL) nilL) ;
+  -- the (r-bar) rules
+  out : ST.HomOut A A' top top' beta bt (o.G Y) (o'.G Y') RB.out RB'.out =
+    (e2,(RB'.d3,
+      (PL.trans RR.N.FB (cXr RB'.s RB'.k (RB'.R2.rE RB'.e) RB'.c2 RB'.d3) (cXr RB.s RB.k (RB'.R2.rE RB'.e) RB'.c2 RB'.d3)
+          (cXr RB.s RB.k (RN.MV.mE (RB.R2.rE RB.e)) RB'.c2 RB'.d3)
+        (W.ap2 W.N W.N RR.N.FB (\ ss kk -> cXr ss kk (RB'.R2.rE RB'.e) RB'.c2 RB'.d3) RB'.s RB.s RB'.k RB.k sEq kEq)
+        (PL.ap (LT.LL RB'.B2) RR.N.FB (\ z -> cXr RB.s RB.k z RB'.c2 RB'.d3) (RB'.R2.rE RB'.e) (RN.MV.mE (RB.R2.rE RB.e)) envEq),
+       rel3))) ;
+} ;
