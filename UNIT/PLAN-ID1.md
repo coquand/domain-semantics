@@ -707,11 +707,55 @@ Gamma~: stages >= top are replaced by Phi-bar.
 - Hypotheses: EvN (atoms see only the numbers of labels) and
   posX phi 0 = true. No LEM, no choice.
 - Not covered:
-  - homogeneity of the outputs (F~ natural; 11.4.4 ii-iii);
+  - homogeneity of the outputs: DONE afterwards (next section);
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
-## Homogeneity of S4, in progress (2026-11-21)
+## Homogeneity of S4 DONE (2026-11-21, All.seg 35005 declarations, green)
+
+**Theorem** (`BetaIDS4HomFin.Hom[ev,phi,evN,hPos].hom : Stmt.Goal`).
+Hypotheses: EvN ev and posX phi 0 = true, the same as Thm.thm. Let o, o'
+be input families related by (c, tau) (`RelIn`), with accessibility
+certificates ac : AccI o and ac' : AccI o'. Let Y, Y' be well-orders and
+f : Y -> Y'. Put (E, d) = thm o ac Y wY and (E', d') = thm o' ac' Y' wY'.
+Then there is an embedding e : E -> E' with RelF d d' along
+beta + e : kY + E -> k'Y' + E', where beta = tau_Y' o k(f). The base map
+preserves top (`baseTop`) and the tops are inl top_Y, inl top'_Y'.
+
+- Same family (`homSame`): o' = o, c = id, tau = id, with `relId : RelIn
+  o o id id` proved from mapL-id/omap-id. Any two certificates and any f
+  give e with RelF along k(f) + e.
+- No holes, no postulates, no classical assumptions. The pointwise
+  theorem and its hypotheses are unchanged.
+- Files:
+  - BetaIDS4Hom (RelIn, ShiftRel, VrSq);
+  - TrCSquare, AssemblyRel;
+  - BetaIDS4HomThm (Goal, IHR, NodeT, Ind.thm by recursion on ac.1 with
+    the target tree split);
+  - BetaIDS4HomReg (kept rules: RegPrem/RegHom);
+  - BetaIDS4HomNode (dispatcher NodeD.Cases);
+  - BetaIDS4HomXl ((xl) stage premises, constant and variable);
+  - BetaIDS4HomRen (RenMRel: compound renaming 11.4.5; RenPCRel, RenNCRel:
+    atom renamings 11.4.5/11.4.7);
+  - BetaIDS4HomRb (r-bar above top);
+  - BetaIDS4HomK3 (tail map t from beta, SgNat: sg' beta = Phi sg; K3Sq:
+    g' u1 = u2 g, theta naturality, rho' u2 = u1 rho, h' u2 = v3 h;
+    S2CRel);
+  - BetaIDS4HomK3N (K3NodeRel, K3SelRel);
+  - BetaIDS4HomFin.
+- Kind III: the positive premise gives e1 : E1 -> E1' by the IH at
+  (Y, Y', f). Then f1 = f + ((1 + t) + e1) : V1 -> V1', and the negative
+  premise gives e2 by the IH at (V1, V1', f1). The output map is
+  e3 = e1 + ((1 + t1) + e2), with t1 the tail map of beta1 = tau_V1' o k(f1).
+- r-bar: the IH (label 0) gives e1. Then e2 = e1 + id_1, and the target
+  principal closure is the beta-image (G' = beta G).
+- What this is NOT: the identity and composition laws of 11.4.4(iii), i.e.
+  that the e's form a functor (e_id = id, e_{f g} = e_f e_g), and any
+  trace-range law. Only existence of a related e along each f is proved.
+  Kind II elimination for families and correct => accessible remain
+  separate tasks.
+
+## Homogeneity of S4: development notes (2026-11-21)
 
 `BetaIDS4Hom.seg` and `TrCSquare.seg` (in All.seg, green):
 - `Rel.RelIn o o' c tau`: related input families. tau_Z preserves top,
@@ -757,6 +801,8 @@ Gamma~: stages >= top are replaced by Phi-bar.
   strength go?".
 
 ## Status
+- 2026-11-21 (night): homogeneity of the S4 outputs DONE (bf6ba47, see
+  "Homogeneity of S4 DONE").
 - 2026-11-21: homogeneity committed (a3374f0). S4 design fixed (section
   above). `DSumLO.seg` and `BetaIDCfOps.seg` (TrC/TrL, ChopC, RenPC/RenNC/
   RenM, Inv, S2C) are in All.seg, green. Not committed.
