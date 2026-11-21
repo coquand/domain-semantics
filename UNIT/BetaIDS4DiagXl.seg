@@ -1,0 +1,285 @@
+-- PLAN-ID1, diagonal identity law: the (xl) stage law SPRD.  Points of a
+-- stage premise live in the total space TW over (v, hm, hlt, w, ew); the
+-- map pWH (J on weq, split on w) moves a point at nu to the same point at
+-- beta nu: contract both to the canonical stage sigma^-1(inl w) (based J),
+-- then J on c0 = c c0 (constant stage) or y = f y (variable stage) and
+-- UIP, then the induction hypothesis (the variable stage at E0, through
+-- the shift, with the tail map an identity).  The bridge to the summands
+-- of the kept rule is a transport over a proposition.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module P1 = Prelude[l+] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module PS = PtyxSum[l] ;
+module LW = LOWF[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module SH = BetaIDS4Hom[l] ;
+module HT = BetaIDS4HomThm[l] ;
+module HR = BetaIDS4HomReg[l] ;
+module HX = BetaIDS4HomXl[l] ;
+module PF = PtyxFinite[l] ;
+module DBs = BetaIDS4DiagBase[l] ;
+module DR = BetaIDS4DiagReg[l] ;
+
+module DXl (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o : S4.Obj[ev,phi,evN].IObj)
+  (ih : (s : S4.SSteps[ev,phi,evN].Step o) -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o s))
+  (ihr : HT.Stmt[ev,phi,evN,hPos].IHR o o ih ih)
+  (c : DP.Map o.Cst o.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o.k Z)) (rl : SH.Rel[ev,phi,evN].RelIn o o c tau)
+  (Y : DP.LO) (wY : LW.WF Y) (f : DP.Map Y Y)
+  (ihd : DBs.DB[ev,phi,evN,hPos].IHD o ih ihr) (hk : DBs.DB[ev,phi,evN,hPos].KmId o)
+  (hc : DBs.DB[ev,phi,evN,hPos].CId o c) (ht : DBs.DB[ev,phi,evN,hPos].TId o tau) (hf : DBs.DB[ev,phi,evN,hPos].FId Y f)
+  (i : W.N) (oo0 : W.Or W.Unit (o.k BetaAcc[l].E0).car)
+  (er0 : Id (BI.ID[ev,phi].Rule (o.k BetaAcc[l].E0)) (o.R BetaAcc[l].E0 nilL) (xlR i oo0)) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module BA = BetaAcc[l] ;
+  module DD = DBs.DB[ev,phi,evN,hPos] ;
+  module R = SH.Rel[ev,phi,evN] ;
+  module SS = S4.SSteps[ev,phi,evN] ;
+  module XR = HX.XlRel[ev,phi,evN,hPos,o,o,ih,ih,ihr,c,tau,rl,Y,Y,wY,wY,f,i,oo0,oo0,er0,er0] ;
+  module X = XR.X ;
+  module DSP = S4.Disp[ev,phi,evN,hPos,o,ih,Y,wY] ;
+  module KD = DR.DKept[ev,phi,evN,hPos,o,ih,ihr,c,tau,rl,Y,wY,f,DSP.spXl i oo0 er0,XR.spr] ;
+  A : DP.LO = o.k Y ;
+  top : A.car = O.topO o Y ;
+  SmCY : DP.LO = S4.Sm o.Cst Y ;
+  sgW (w : SmCY.car) : A.car = (o.sgi Y).1 (inl w) ;
+  bd : A.car = X.X0.bdZ Y ;
+  hltT (v : A.car) : U l = Id W.O3 (A.cmp v bd) lt ;
+  substL (v s : A.car) (ew : Id A.car v s) (hlt : hltT v) : hltT s = PL.subst A.car (\ z -> Id W.O3 ((o.k Y).cmp z (X.X0.bdZ Y)) lt) v s ew hlt ;
+  -- sigma^-1 is injective
+  sgiInjZ (Z : DP.LO) (x y : (O.P o.Cst o.Fp Z).car) (h : Id (o.k Z).car ((o.sgi Z).1 x) ((o.sgi Z).1 y)) : Id (O.P o.Cst o.Fp Z).car x y =
+    PL.trans (O.P o.Cst o.Fp Z).car x ((o.sg Z).1 ((o.sgi Z).1 y)) y
+      (PL.trans (O.P o.Cst o.Fp Z).car x ((o.sg Z).1 ((o.sgi Z).1 x)) ((o.sg Z).1 ((o.sgi Z).1 y))
+        (PL.sym (O.P o.Cst o.Fp Z).car ((o.sg Z).1 ((o.sgi Z).1 x)) x (o.ret Z x))
+        (PL.ap (o.k Z).car (O.P o.Cst o.Fp Z).car (o.sg Z).1 ((o.sgi Z).1 x) ((o.sgi Z).1 y) h))
+      (o.ret Z y) ;
+  -- the shifted comparison data of a variable stage (they do not depend on the labels)
+  smId (Z : DP.LO) : DD.FId (S4.Sm Y Z) (O.smapC Y Z Z (LC.idMap Z)) = split { inl y -> refl (inl y) ; inr z -> refl (inr z) } ;
+  fZ (Z : DP.LO) : DP.Map (S4.Sm Y Z) (S4.Sm Y Z) = PS.SumMap[Y,Z,Y,Z,f,LC.idMap Z].map ;
+  fZId (Z : DP.LO) : DD.FId (S4.Sm Y Z) (fZ Z) = split {
+    inl y -> PL.ap Y.car (S4.Sm Y Z).car (\ q -> inl q) (f.1 y) y (hf y) ; inr z -> refl (inr z) } ;
+  csV : DP.Map SmCY SmCY = PS.SumMap[o.Cst,Y,o.Cst,Y,c,f].map ;
+  csId : (w : SmCY.car) -> Id SmCY.car (csV.1 w) w = split {
+    inl a -> PL.ap o.Cst.car SmCY.car (\ q -> inl q) (c.1 a) a (hc a) ;
+    inr y -> PL.ap Y.car SmCY.car (\ q -> inr q) (f.1 y) y (hf y) } ;
+  tausV (Z : DP.LO) : DP.Map (o.k (S4.Sm Y Z)) (o.k (S4.Sm Y Z)) =
+    LC.compMap (o.k (S4.Sm Y Z)) (o.k (S4.Sm Y Z)) (o.k (S4.Sm Y Z)) (o.km (S4.Sm Y Z) (S4.Sm Y Z) (fZ Z)) (tau (S4.Sm Y Z)) ;
+  tausId (Z : DP.LO) (p : (o.k (S4.Sm Y Z)).car) : Id (o.k (S4.Sm Y Z)).car ((tausV Z).1 p) p =
+    PL.trans (o.k (S4.Sm Y Z)).car ((tausV Z).1 p) ((o.km (S4.Sm Y Z) (S4.Sm Y Z) (fZ Z)).1 p) p
+      (ht (S4.Sm Y Z) ((o.km (S4.Sm Y Z) (S4.Sm Y Z) (fZ Z)).1 p)) (DD.kmF o hk (S4.Sm Y Z) (fZ Z) (fZId Z) p) ;
+  kmS (Z : DP.LO) (p : (o.k (S4.Sm Y Z)).car) : Id (o.k (S4.Sm Y Z)).car ((o.km (S4.Sm Y Z) (S4.Sm Y Z) (O.smapC Y Z Z (LC.idMap Z))).1 p) p =
+    DD.kmF o hk (S4.Sm Y Z) (O.smapC Y Z Z (LC.idMap Z)) (smId Z) p ;
+  e0Id : DD.FId BA.E0 (S4.Main[ev,phi,evN,hPos].e0 BA.E0) = \ x -> CF.efq (Id BA.E0.car ((S4.Main[ev,phi,evN,hPos].e0 BA.E0).1 x) x) x ;
+  sm0Id : DD.FId (S4.Sm Y BA.E0) (O.smapC Y BA.E0 BA.E0 (S4.Main[ev,phi,evN,hPos].e0 BA.E0)) = split {
+    inl y -> refl (inl y) ;
+    inr x -> CF.efq (Id (S4.Sm Y BA.E0).car ((O.smapC Y BA.E0 BA.E0 (S4.Main[ev,phi,evN,hPos].e0 BA.E0)).1 (inr x)) (inr x)) x } ;
+  -- the base map of the shifted children at E0 is a pointwise identity
+  bId (p : (o.k (S4.Sm Y BA.E0)).car) :
+      Id (o.k (S4.Sm Y BA.E0)).car ((tausV BA.E0).1 ((o.km (S4.Sm Y BA.E0) (S4.Sm Y BA.E0) (O.smapC Y BA.E0 BA.E0 (S4.Main[ev,phi,evN,hPos].e0 BA.E0))).1 p)) p =
+    PL.trans (o.k (S4.Sm Y BA.E0)).car
+      ((tausV BA.E0).1 ((o.km (S4.Sm Y BA.E0) (S4.Sm Y BA.E0) (O.smapC Y BA.E0 BA.E0 (S4.Main[ev,phi,evN,hPos].e0 BA.E0))).1 p))
+      ((o.km (S4.Sm Y BA.E0) (S4.Sm Y BA.E0) (O.smapC Y BA.E0 BA.E0 (S4.Main[ev,phi,evN,hPos].e0 BA.E0))).1 p) p
+      (tausId BA.E0 ((o.km (S4.Sm Y BA.E0) (S4.Sm Y BA.E0) (O.smapC Y BA.E0 BA.E0 (S4.Main[ev,phi,evN,hPos].e0 BA.E0))).1 p))
+      (DD.kmF o hk (S4.Sm Y BA.E0) (O.smapC Y BA.E0 BA.E0 (S4.Main[ev,phi,evN,hPos].e0 BA.E0)) sm0Id p) ;
+
+  module N (n : W.N) {
+    HM : U l = Id W.Bool (BP.isZeroN n) true ;
+    IX (v : A.car) : U l = HM * (hltT v * ((w : SmCY.car) * Id A.car v (sgW w))) ;
+    Fv (v : A.car) (a : IX v) : U l = (X.pW n a.1 v a.2.1 a.2.2.1 a.2.2.2).1.car ;
+    TW : U l = (v : A.car) * ((a : IX v) * Fv v a) ;
+    kC (c1 : o.Cst.car) (hY : hltT (sgW (inl c1))) (hm : HM) (z : (X.X0.Cn[c1,hY].out n hm).1.car) : TW =
+      (sgW (inl c1),((hm,(hY,(inl c1,refl (sgW (inl c1))))),z)) ;
+    kV (y1 : Y.car) (hY : hltT (sgW (inr y1))) (hm : HM) (z : (X.Vr[y1,hY].out n hm).1.car) : TW =
+      (sgW (inr y1),((hm,(hY,(inr y1,refl (sgW (inr y1))))),z)) ;
+    -- contraction to the canonical stage
+    contrC (c1 : o.Cst.car) (hm : HM) (v : A.car) (ew : Id A.car v (sgW (inl c1))) : (hlt : hltT v) (z : Fv v (hm,(hlt,(inl c1,ew)))) ->
+        Id TW (v,((hm,(hlt,(inl c1,ew))),z)) (kC c1 (substL v (sgW (inl c1)) ew hlt) hm z) =
+      DBs.JE A.car (sgW (inl c1)) (\ v0 ew0 -> (hlt : hltT v0) (z : Fv v0 (hm,(hlt,(inl c1,ew0)))) ->
+          Id TW (v0,((hm,(hlt,(inl c1,ew0))),z)) (kC c1 (substL v0 (sgW (inl c1)) ew0 hlt) hm z))
+        (\ hlt z -> refl (sgW (inl c1),((hm,(hlt,(inl c1,refl (sgW (inl c1))))),z))) v ew ;
+    contrV (y1 : Y.car) (hm : HM) (v : A.car) (ew : Id A.car v (sgW (inr y1))) : (hlt : hltT v) (z : Fv v (hm,(hlt,(inr y1,ew)))) ->
+        Id TW (v,((hm,(hlt,(inr y1,ew))),z)) (kV y1 (substL v (sgW (inr y1)) ew hlt) hm z) =
+      DBs.JE A.car (sgW (inr y1)) (\ v0 ew0 -> (hlt : hltT v0) (z : Fv v0 (hm,(hlt,(inr y1,ew0)))) ->
+          Id TW (v0,((hm,(hlt,(inr y1,ew0))),z)) (kV y1 (substL v0 (sgW (inr y1)) ew0 hlt) hm z))
+        (\ hlt z -> refl (sgW (inr y1),((hm,(hlt,(inr y1,refl (sgW (inr y1))))),z))) v ew ;
+    -- the constant child: J on c0 = c1, UIP, the induction hypothesis
+    chC2 (c0 : o.Cst.car) (hY : hltT (sgW (inl c0))) (hm : HM) (x : (X.X0.Cn[c0,hY].out n hm).1.car)
+        (hY' : hltT (sgW (inl c0))) (s1 : Id (hltT (sgW (inl c0))) hY hY') : (hm' : HM) (s2 : Id HM hm hm')
+        (rs : R.RelIn (SS.shiftO o (inl (X.X0.Cn[c0,hY].st n hm))) (SS.shiftO o (inl (X.X0.Cn[c0,hY'].st n hm'))) c tau) ->
+        Id TW (kC c0 hY' hm' ((ihr (inl (X.X0.Cn[c0,hY].st n hm)) (inl (X.X0.Cn[c0,hY'].st n hm')) c tau rs Y Y wY wY f).1.1 x)) (kC c0 hY hm x) =
+      idJ (hltT (sgW (inl c0))) hY (\ h2 q2 -> (hm' : HM) (s2 : Id HM hm hm')
+          (rs : R.RelIn (SS.shiftO o (inl (X.X0.Cn[c0,hY].st n hm))) (SS.shiftO o (inl (X.X0.Cn[c0,h2].st n hm'))) c tau) ->
+          Id TW (kC c0 h2 hm' ((ihr (inl (X.X0.Cn[c0,hY].st n hm)) (inl (X.X0.Cn[c0,h2].st n hm')) c tau rs Y Y wY wY f).1.1 x)) (kC c0 hY hm x))
+        (\ hm' s2 -> idJ HM hm (\ h3 q3 ->
+            (rs : R.RelIn (SS.shiftO o (inl (X.X0.Cn[c0,hY].st n hm))) (SS.shiftO o (inl (X.X0.Cn[c0,hY].st n h3))) c tau) ->
+            Id TW (kC c0 hY h3 ((ihr (inl (X.X0.Cn[c0,hY].st n hm)) (inl (X.X0.Cn[c0,hY].st n h3)) c tau rs Y Y wY wY f).1.1 x)) (kC c0 hY hm x))
+          (\ rs -> PL.ap (X.X0.Cn[c0,hY].out n hm).1.car TW (\ q -> kC c0 hY hm q)
+            ((ihr (inl (X.X0.Cn[c0,hY].st n hm)) (inl (X.X0.Cn[c0,hY].st n hm)) c tau rs Y Y wY wY f).1.1 x) x
+            (ihd (inl (X.X0.Cn[c0,hY].st n hm)) c tau rs Y wY f hk hc ht hf x)) hm' s2) hY' s1 ;
+    chC (c0 : o.Cst.car) (hY : hltT (sgW (inl c0))) (hm : HM) (x : (X.X0.Cn[c0,hY].out n hm).1.car) (c1 : o.Cst.car) (pi : Id o.Cst.car c0 c1) :
+        (hY' : hltT (sgW (inl c1))) (hm' : HM)
+        (rs : R.RelIn (SS.shiftO o (inl (X.X0.Cn[c0,hY].st n hm))) (SS.shiftO o (inl (X.X0.Cn[c1,hY'].st n hm'))) c tau) ->
+        Id TW (kC c1 hY' hm' ((ihr (inl (X.X0.Cn[c0,hY].st n hm)) (inl (X.X0.Cn[c1,hY'].st n hm')) c tau rs Y Y wY wY f).1.1 x)) (kC c0 hY hm x) =
+      idJ o.Cst.car c0 (\ c2 p2 -> (hY' : hltT (sgW (inl c2))) (hm' : HM)
+          (rs : R.RelIn (SS.shiftO o (inl (X.X0.Cn[c0,hY].st n hm))) (SS.shiftO o (inl (X.X0.Cn[c2,hY'].st n hm'))) c tau) ->
+          Id TW (kC c2 hY' hm' ((ihr (inl (X.X0.Cn[c0,hY].st n hm)) (inl (X.X0.Cn[c2,hY'].st n hm')) c tau rs Y Y wY wY f).1.1 x)) (kC c0 hY hm x))
+        (\ hY' hm' rs -> chC2 c0 hY hm x hY' (PF.o3-set (A.cmp (sgW (inl c0)) bd) lt hY hY') hm' (DBs.uipB (BP.isZeroN n) true hm hm') rs) c1 pi ;
+    -- the variable child at E0
+    chV2 (y0 : Y.car) (hY : hltT (sgW (inr y0))) (hm : HM) (x : (X.Vr[y0,hY].x0 n hm).1.car)
+        (hY' : hltT (sgW (inr y0))) (s1 : Id (hltT (sgW (inr y0))) hY hY') : (hm' : HM) (s2 : Id HM hm hm')
+        (rs : R.RelIn (SS.shiftO o (inr (X.Vr[y0,hY].st n hm))) (SS.shiftO o (inr (X.Vr[y0,hY'].st n hm'))) csV tausV) ->
+        Id TW (kV y0 hY' hm' (inr ((ihr (inr (X.Vr[y0,hY].st n hm)) (inr (X.Vr[y0,hY'].st n hm')) csV tausV rs BA.E0 BA.E0 BA.wfE0 BA.wfE0
+          (S4.Main[ev,phi,evN,hPos].e0 BA.E0)).1.1 x))) (kV y0 hY hm (inr x)) =
+      idJ (hltT (sgW (inr y0))) hY (\ h2 q2 -> (hm' : HM) (s2 : Id HM hm hm')
+          (rs : R.RelIn (SS.shiftO o (inr (X.Vr[y0,hY].st n hm))) (SS.shiftO o (inr (X.Vr[y0,h2].st n hm'))) csV tausV) ->
+          Id TW (kV y0 h2 hm' (inr ((ihr (inr (X.Vr[y0,hY].st n hm)) (inr (X.Vr[y0,h2].st n hm')) csV tausV rs BA.E0 BA.E0 BA.wfE0 BA.wfE0
+            (S4.Main[ev,phi,evN,hPos].e0 BA.E0)).1.1 x))) (kV y0 hY hm (inr x)))
+        (\ hm' s2 -> idJ HM hm (\ h3 q3 ->
+            (rs : R.RelIn (SS.shiftO o (inr (X.Vr[y0,hY].st n hm))) (SS.shiftO o (inr (X.Vr[y0,hY].st n h3))) csV tausV) ->
+            Id TW (kV y0 hY h3 (inr ((ihr (inr (X.Vr[y0,hY].st n hm)) (inr (X.Vr[y0,hY].st n h3)) csV tausV rs BA.E0 BA.E0 BA.wfE0 BA.wfE0
+              (S4.Main[ev,phi,evN,hPos].e0 BA.E0)).1.1 x))) (kV y0 hY hm (inr x)))
+          (\ rs -> PL.ap (X.Vr[y0,hY].x0 n hm).1.car TW (\ q -> kV y0 hY hm (inr q))
+            ((ihr (inr (X.Vr[y0,hY].st n hm)) (inr (X.Vr[y0,hY].st n hm)) csV tausV rs BA.E0 BA.E0 BA.wfE0 BA.wfE0 (S4.Main[ev,phi,evN,hPos].e0 BA.E0)).1.1 x) x
+            (ihd (inr (X.Vr[y0,hY].st n hm)) csV tausV rs BA.E0 BA.wfE0 (S4.Main[ev,phi,evN,hPos].e0 BA.E0) kmS csId tausId e0Id x)) hm' s2) hY' s1 ;
+    chV (y0 : Y.car) (hY : hltT (sgW (inr y0))) (hm : HM) (x : (X.Vr[y0,hY].x0 n hm).1.car) (y1 : Y.car) (pi : Id Y.car y0 y1) :
+        (hY' : hltT (sgW (inr y1))) (hm' : HM)
+        (rs : R.RelIn (SS.shiftO o (inr (X.Vr[y0,hY].st n hm))) (SS.shiftO o (inr (X.Vr[y1,hY'].st n hm'))) csV tausV) ->
+        Id TW (kV y1 hY' hm' (inr ((ihr (inr (X.Vr[y0,hY].st n hm)) (inr (X.Vr[y1,hY'].st n hm')) csV tausV rs BA.E0 BA.E0 BA.wfE0 BA.wfE0
+          (S4.Main[ev,phi,evN,hPos].e0 BA.E0)).1.1 x))) (kV y0 hY hm (inr x)) =
+      idJ Y.car y0 (\ y2 p2 -> (hY' : hltT (sgW (inr y2))) (hm' : HM)
+          (rs : R.RelIn (SS.shiftO o (inr (X.Vr[y0,hY].st n hm))) (SS.shiftO o (inr (X.Vr[y2,hY'].st n hm'))) csV tausV) ->
+          Id TW (kV y2 hY' hm' (inr ((ihr (inr (X.Vr[y0,hY].st n hm)) (inr (X.Vr[y2,hY'].st n hm')) csV tausV rs BA.E0 BA.E0 BA.wfE0 BA.wfE0
+            (S4.Main[ev,phi,evN,hPos].e0 BA.E0)).1.1 x))) (kV y0 hY hm (inr x)))
+        (\ hY' hm' rs -> chV2 y0 hY hm x hY' (PF.o3-set (A.cmp (sgW (inr y0)) bd) lt hY hY') hm' (DBs.uipB (BP.isZeroN n) true hm hm') rs) y1 pi ;
+    -- the upper-tail part does not depend on the stage
+    extC2 (y0 : Y.car) (hY : hltT (sgW (inr y0))) (hm : HM) (t : X.Ext.car) (hY' : hltT (sgW (inr y0))) (s1 : Id (hltT (sgW (inr y0))) hY hY') :
+        (hm' : HM) (s2 : Id HM hm hm') -> Id TW (kV y0 hY' hm' (inl t)) (kV y0 hY hm (inl t)) =
+      idJ (hltT (sgW (inr y0))) hY (\ h2 q2 -> (hm' : HM) (s2 : Id HM hm hm') -> Id TW (kV y0 h2 hm' (inl t)) (kV y0 hY hm (inl t)))
+        (\ hm' s2 -> idJ HM hm (\ h3 q3 -> Id TW (kV y0 hY h3 (inl t)) (kV y0 hY hm (inl t))) (refl (kV y0 hY hm (inl t))) hm' s2) hY' s1 ;
+    extC (y0 : Y.car) (hY : hltT (sgW (inr y0))) (hm : HM) (t : X.Ext.car) (y1 : Y.car) (pi : Id Y.car y0 y1) :
+        (hY' : hltT (sgW (inr y1))) (hm' : HM) -> Id TW (kV y1 hY' hm' (inl t)) (kV y0 hY hm (inl t)) =
+      idJ Y.car y0 (\ y2 p2 -> (hY' : hltT (sgW (inr y2))) (hm' : HM) -> Id TW (kV y2 hY' hm' (inl t)) (kV y0 hY hm (inl t)))
+        (\ hY' hm' -> extC2 y0 hY hm t hY' (PF.o3-set (A.cmp (sgW (inr y0)) bd) lt hY hY') hm' (DBs.uipB (BP.isZeroN n) true hm hm')) y1 pi ;
+    -- the variable stage
+    module VL (y0 : Y.car) (hY : hltT (sgW (inr y0))) (hY' : hltT (sgW (inr (f.1 y0)))) (hm hm' : HM) {
+      module VR = XR.VrR[y0,hY,hY',n,hm,hm'] ;
+      module VX = VR.VV.X ;
+      tlId (t : X.Ext.car) : Id X.Ext.car (VX.tl t) t =
+        PL.sym X.Ext.car t (VX.tl t)
+          (PS.SumLO[LT.one,X.Ext].inr-inj t (VX.tl t)
+            (PS.SumLO[S4.Sm o.Cst X.YE,S4.Sm LT.one X.Ext].inr-inj (inr t) (inr (VX.tl t))
+              (sgiInjZ X.YE (inr (inr t)) (inr (inr (VX.tl t)))
+                (PL.trans (o.k X.YE).car ((o.sgi X.YE).1 (inr (inr t))) (VR.b.1 (VX.pT t)) ((o.sgi X.YE).1 (inr (inr (VX.tl t))))
+                  (PL.sym (o.k X.YE).car (VR.b.1 (VX.pT t)) (VX.pT t) (bId (VX.pT t))) (VX.tlp t).2)))) ;
+      law : (z : (X.Vr[y0,hY].out n hm).1.car) -> Id TW (kV (f.1 y0) hY' hm' (VR.out.1.1 z)) (kV y0 hY hm z) = split {
+        inl t -> PL.trans TW (kV (f.1 y0) hY' hm' (inl (VX.tl t))) (kV (f.1 y0) hY' hm' (inl t)) (kV y0 hY hm (inl t))
+          (PL.ap X.Ext.car TW (\ q -> kV (f.1 y0) hY' hm' (inl q)) (VX.tl t) t (tlId t))
+          (extC y0 hY hm t (f.1 y0) (PL.sym Y.car (f.1 y0) y0 (hf y0)) hY' hm') ;
+        inr x -> chV y0 hY hm x (f.1 y0) (PL.sym Y.car (f.1 y0) y0 (hf y0)) hY' hm' VR.rel } ;
+    } ;
+    -- the stage map pWH: J on weq, split on w
+    C0 (nu : A.car) (hm hm' : HM) (hlt : hltT nu) (hlt' : hltT (XR.beta.1 nu)) : (w : SmCY.car) (ew : Id A.car nu (sgW w))
+        (ew' : Id A.car (XR.beta.1 nu) (sgW (XR.cf.1 w))) (x : Fv nu (hm,(hlt,(w,ew)))) ->
+        Id TW (XR.beta.1 nu,((hm',(hlt',(XR.cf.1 w,ew'))),(XR.pWH0 n hm hm' nu hlt hlt' w ew ew').1.1 x)) (nu,((hm,(hlt,(w,ew))),x)) = split {
+      inl c0 -> \ ew ew' x ->
+        PL.trans TW (XR.beta.1 nu,((hm',(hlt',(inl (c.1 c0),ew'))),(XR.pWH0 n hm hm' nu hlt hlt' (inl c0) ew ew').1.1 x))
+          (kC (c.1 c0) (substL (XR.beta.1 nu) (sgW (inl (c.1 c0))) ew' hlt') hm' ((XR.pWH0 n hm hm' nu hlt hlt' (inl c0) ew ew').1.1 x))
+          (nu,((hm,(hlt,(inl c0,ew))),x))
+          (contrC (c.1 c0) hm' (XR.beta.1 nu) ew' hlt' ((XR.pWH0 n hm hm' nu hlt hlt' (inl c0) ew ew').1.1 x))
+          (PL.trans TW (kC (c.1 c0) (substL (XR.beta.1 nu) (sgW (inl (c.1 c0))) ew' hlt') hm' ((XR.pWH0 n hm hm' nu hlt hlt' (inl c0) ew ew').1.1 x))
+            (kC c0 (substL nu (sgW (inl c0)) ew hlt) hm x) (nu,((hm,(hlt,(inl c0,ew))),x))
+            (chC c0 (substL nu (sgW (inl c0)) ew hlt) hm x (c.1 c0) (PL.sym o.Cst.car (c.1 c0) c0 (hc c0))
+              (substL (XR.beta.1 nu) (sgW (inl (c.1 c0))) ew' hlt') hm'
+              (HR.PShRel[ev,phi,evN,o,o,c,tau,rl,X.X0.Cn[c0,substL nu (sgW (inl c0)) ew hlt].st n hm,
+                 X.X0.Cn[c.1 c0,substL (XR.beta.1 nu) (sgW (inl (c.1 c0))) ew' hlt'].st n hm',
+                 \ Z -> PL.ap (o.k Z).car (I.Lb (o.k Z)) (\ q -> (n,inr q)) ((tau Z).1 ((o.sgi Z).1 (inl (inl c0)))) ((o.sgi Z).1 (inl (inl (c.1 c0))))
+                   (rl.2.2.2 Z (inl c0))].rel))
+            (PL.sym TW (nu,((hm,(hlt,(inl c0,ew))),x)) (kC c0 (substL nu (sgW (inl c0)) ew hlt) hm x) (contrC c0 hm nu ew hlt x))) ;
+      inr y0 -> \ ew ew' x ->
+        PL.trans TW (XR.beta.1 nu,((hm',(hlt',(inr (f.1 y0),ew'))),(XR.pWH0 n hm hm' nu hlt hlt' (inr y0) ew ew').1.1 x))
+          (kV (f.1 y0) (substL (XR.beta.1 nu) (sgW (inr (f.1 y0))) ew' hlt') hm' ((XR.pWH0 n hm hm' nu hlt hlt' (inr y0) ew ew').1.1 x))
+          (nu,((hm,(hlt,(inr y0,ew))),x))
+          (contrV (f.1 y0) hm' (XR.beta.1 nu) ew' hlt' ((XR.pWH0 n hm hm' nu hlt hlt' (inr y0) ew ew').1.1 x))
+          (PL.trans TW (kV (f.1 y0) (substL (XR.beta.1 nu) (sgW (inr (f.1 y0))) ew' hlt') hm' ((XR.pWH0 n hm hm' nu hlt hlt' (inr y0) ew ew').1.1 x))
+            (kV y0 (substL nu (sgW (inr y0)) ew hlt) hm x) (nu,((hm,(hlt,(inr y0,ew))),x))
+            (VL[y0,substL nu (sgW (inr y0)) ew hlt,substL (XR.beta.1 nu) (sgW (inr (f.1 y0))) ew' hlt',hm,hm'].law x)
+            (PL.sym TW (nu,((hm,(hlt,(inr y0,ew))),x)) (kV y0 (substL nu (sgW (inr y0)) ew hlt) hm x) (contrV y0 hm nu ew hlt x))) } ;
+    C1 (nu : A.car) (hm hm' : HM) (hlt : hltT nu) (hlt' : hltT (XR.beta.1 nu)) (w : SmCY.car) (ew : Id A.car nu (sgW w))
+        (x : Fv nu (hm,(hlt,(w,ew)))) (w' : SmCY.car) (q : Id SmCY.car (XR.cf.1 w) w') : (ew' : Id A.car (XR.beta.1 nu) (sgW w')) ->
+        Id TW (XR.beta.1 nu,((hm',(hlt',(w',ew'))),
+          (PL.subst SmCY.car (\ w0 -> (ew0 : Id A.car (XR.beta.1 nu) ((o.sgi Y).1 (inl w0))) ->
+              XR.HOs n nu (XR.beta.1 nu) (X.pW n hm nu hlt w ew) (X.pW n hm' (XR.beta.1 nu) hlt' w0 ew0))
+            (XR.cf.1 w) w' q (XR.pWH0 n hm hm' nu hlt hlt' w ew) ew').1.1 x)) (nu,((hm,(hlt,(w,ew))),x)) =
+      idJ SmCY.car (XR.cf.1 w) (\ w0 q0 -> (ew' : Id A.car (XR.beta.1 nu) (sgW w0)) ->
+          Id TW (XR.beta.1 nu,((hm',(hlt',(w0,ew'))),
+            (PL.subst SmCY.car (\ w1 -> (ew0 : Id A.car (XR.beta.1 nu) ((o.sgi Y).1 (inl w1))) ->
+                XR.HOs n nu (XR.beta.1 nu) (X.pW n hm nu hlt w ew) (X.pW n hm' (XR.beta.1 nu) hlt' w1 ew0))
+              (XR.cf.1 w) w0 q0 (XR.pWH0 n hm hm' nu hlt hlt' w ew) ew').1.1 x)) (nu,((hm,(hlt,(w,ew))),x)))
+        (\ ew' -> C0 nu hm hm' hlt hlt' w ew ew' x) w' q ;
+    C (nu : A.car) (hm hm' : HM) (hlt : hltT nu) (hlt' : hltT (XR.beta.1 nu)) (w : SmCY.car) (ew : Id A.car nu (sgW w))
+        (w' : SmCY.car) (ew' : Id A.car (XR.beta.1 nu) (sgW w')) (x : Fv nu (hm,(hlt,(w,ew)))) :
+        Id TW (XR.beta.1 nu,((hm',(hlt',(w',ew'))),(XR.pWH n hm hm' nu hlt hlt' w ew w' ew').1.1 x)) (nu,((hm,(hlt,(w,ew))),x)) =
+      C1 nu hm hm' hlt hlt' w ew x w' (XR.weq nu w ew w' ew') ew' ;
+    ----------------------------------------------------------------------
+    -- the bridge to the summands of the kept rule
+    eB (v : A.car) (a : IX v) : Id W.Bool (I.br A top (o.R Y nilL) (n,inr v)) true =
+      PL.trans W.Bool (I.br A top (o.R Y nilL) (n,inr v)) (I.below A bd (n,inr v)) true
+        (PL.ap (I.Rule A) W.Bool (\ z -> I.br A top z (n,inr v)) (o.R Y nilL) (xlR i (X.X0.omZ Y)) (X.X0.ruleZ Y))
+        (X.X0.belowMk Y bd n v a.1 a.2.1) ;
+    ecB (v : A.car) (a : IX v) : Id W.Bool (I.ltB A v top) true =
+      PL.ap W.O3 W.Bool W.isLt (A.cmp v top) lt
+        (PL.subst A.car (\ z -> Id W.O3 (A.cmp z top) lt) (sgW a.2.2.1) v (PL.sym A.car v (sgW a.2.2.1) a.2.2.2) (X.SY.ltTop a.2.2.1)) ;
+    can (v : A.car) (e1 : Id W.Bool (I.br A top (o.R Y nilL) (n,inr v)) true) (ec : Id W.Bool (I.ltB A v top) true) : IX v =
+      (W.andB-l (BP.isZeroN n) (I.ltB A v bd) (XR.hbC n v e1),
+       (W.isLt-sound (A.cmp v bd) (W.andB-r (BP.isZeroN n) (I.ltB A v bd) (XR.hbC n v e1)),X.SY.belowW v (W.isLt-sound (A.cmp v top) ec))) ;
+    wEq (v : A.car) (p q : (w : SmCY.car) * Id A.car v (sgW w)) : Id ((w : SmCY.car) * Id A.car v (sgW w)) p q =
+      PL.Sigma-eq SmCY.car (\ w -> Id A.car v (sgW w)) p.1 q.1 p.2 q.2
+        (PS.SumLO[S4.Sm o.Cst Y,S4.Sm LT.one (o.Fp Y)].inl-inj p.1 q.1
+          (sgiInjZ Y (inl p.1) (inl q.1) (PL.trans A.car (sgW p.1) v (sgW q.1) (PL.sym A.car v (sgW p.1) p.2) q.2)))
+        (\ r r' -> DBs.uipLO A v (sgW q.1) r r') ;
+    prIX (v : A.car) (a b : IX v) : Id (IX v) a b =
+      W.prodEq HM (hltT v * ((w : SmCY.car) * Id A.car v (sgW w))) a b (DBs.uipB (BP.isZeroN n) true a.1 b.1)
+        (W.prodEq (hltT v) ((w : SmCY.car) * Id A.car v (sgW w)) a.2 b.2 (PF.o3-set (A.cmp v bd) lt a.2.1 b.2.1) (wEq v a.2.2 b.2.2)) ;
+    Gt (t : TW) : KD.DCar =
+      KD.iS n t.1 (eB t.1 t.2.1) (ecB t.1 t.2.1)
+        (DBs.PropFam[IX t.1,Fv t.1,prIX t.1].tr t.2.1 (can t.1 (eB t.1 t.2.1) (ecB t.1 t.2.1)) t.2.2) ;
+    F1g (v : A.car) (e1 : Id W.Bool (I.br A top (o.R Y nilL) (n,inr v)) true) (ec : Id W.Bool (I.ltB A v top) true) (y : Fv v (can v e1 ec))
+        (e2 : Id W.Bool (I.br A top (o.R Y nilL) (n,inr v)) true) (s1 : Id (Id W.Bool (I.br A top (o.R Y nilL) (n,inr v)) true) e1 e2) :
+        (ec2 : Id W.Bool (I.ltB A v top) true) (s2 : Id (Id W.Bool (I.ltB A v top) true) ec ec2) ->
+        Id KD.DCar (KD.iS n v e1 ec y) (KD.iS n v e2 ec2 (DBs.PropFam[IX v,Fv v,prIX v].tr (can v e1 ec) (can v e2 ec2) y)) =
+      idJ (Id W.Bool (I.br A top (o.R Y nilL) (n,inr v)) true) e1 (\ e3 q3 -> (ec2 : Id W.Bool (I.ltB A v top) true) (s2 : Id (Id W.Bool (I.ltB A v top) true) ec ec2) ->
+          Id KD.DCar (KD.iS n v e1 ec y) (KD.iS n v e3 ec2 (DBs.PropFam[IX v,Fv v,prIX v].tr (can v e1 ec) (can v e3 ec2) y)))
+        (\ ec2 s2 -> idJ (Id W.Bool (I.ltB A v top) true) ec (\ ec3 q3 ->
+            Id KD.DCar (KD.iS n v e1 ec y) (KD.iS n v e1 ec3 (DBs.PropFam[IX v,Fv v,prIX v].tr (can v e1 ec) (can v e1 ec3) y)))
+          (PL.ap (Fv v (can v e1 ec)) KD.DCar (\ q -> KD.iS n v e1 ec q) y
+            (DBs.PropFam[IX v,Fv v,prIX v].tr (can v e1 ec) (can v e1 ec) y)
+            (PL.sym (Fv v (can v e1 ec)) (DBs.PropFam[IX v,Fv v,prIX v].tr (can v e1 ec) (can v e1 ec) y) y
+              (DBs.PropFam[IX v,Fv v,prIX v].trRefl (can v e1 ec) y))) ec2 s2) e2 s1 ;
+    F1 (v : A.car) (e1 : Id W.Bool (I.br A top (o.R Y nilL) (n,inr v)) true) (ec : Id W.Bool (I.ltB A v top) true) (y : Fv v (can v e1 ec)) :
+        Id KD.DCar (KD.iS n v e1 ec y) (Gt (v,(can v e1 ec,y))) =
+      F1g v e1 ec y (eB v (can v e1 ec)) (DBs.uipB (I.br A top (o.R Y nilL) (n,inr v)) true e1 (eB v (can v e1 ec)))
+        (ecB v (can v e1 ec)) (DBs.uipB (I.ltB A v top) true ec (ecB v (can v e1 ec))) ;
+  } ;
+  -- THE (xl) STAGE LAW
+  sprd : KD.SPRD = \ n nu e1 ec e1' ec' x ->
+    PL.trans KD.DCar (KD.iS n (XR.beta.1 nu) e1' ec' ((XR.spr n nu e1 ec e1' ec').1.1 x))
+      (N[n].Gt (XR.beta.1 nu,(N[n].can (XR.beta.1 nu) e1' ec',(XR.spr n nu e1 ec e1' ec').1.1 x))) (KD.iS n nu e1 ec x)
+      (N[n].F1 (XR.beta.1 nu) e1' ec' ((XR.spr n nu e1 ec e1' ec').1.1 x))
+      (PL.trans KD.DCar (N[n].Gt (XR.beta.1 nu,(N[n].can (XR.beta.1 nu) e1' ec',(XR.spr n nu e1 ec e1' ec').1.1 x)))
+        (N[n].Gt (nu,(N[n].can nu e1 ec,x))) (KD.iS n nu e1 ec x)
+        (PL.ap N[n].TW KD.DCar N[n].Gt (XR.beta.1 nu,(N[n].can (XR.beta.1 nu) e1' ec',(XR.spr n nu e1 ec e1' ec').1.1 x)) (nu,(N[n].can nu e1 ec,x))
+          (N[n].C nu (N[n].can nu e1 ec).1 (N[n].can (XR.beta.1 nu) e1' ec').1 (N[n].can nu e1 ec).2.1 (N[n].can (XR.beta.1 nu) e1' ec').2.1
+            (N[n].can nu e1 ec).2.2.1 (N[n].can nu e1 ec).2.2.2 (N[n].can (XR.beta.1 nu) e1' ec').2.2.1 (N[n].can (XR.beta.1 nu) e1' ec').2.2.2 x))
+        (PL.sym KD.DCar (KD.iS n nu e1 ec x) (N[n].Gt (nu,(N[n].can nu e1 ec,x))) (N[n].F1 nu e1 ec x))) ;
+} ;

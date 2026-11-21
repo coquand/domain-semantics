@@ -3,6 +3,11 @@
 -- computed extension when o' = o, ac' = ac, Y' = Y, wY' = wY and
 -- c, tau_Z, f are pointwise identities, given the pointwise km identity
 -- law (a clean sufficient hypothesis; minimality open).
+--
+-- Wrap: the accessibility wrapper (the shared Good root equation is
+-- eliminated once).  Fin: the node law from BetaIDS4DiagNode (dispatcher),
+-- DiagReg (kept rules), DiagRbK3 ((r-bar), kind III), DiagXl ((xl)
+-- stages), and THE THEOREM Fin.diagId.
 level l ;
 open Base ; open Prelude[l+] ; open ScottOrder[l] ;
 module P1 = Prelude[l+] ;
@@ -28,10 +33,11 @@ module Wrap (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN 
   module IT = ST.Ind[nodeH] ;
   module A = SS.AO ;
   -- the pointwise hypotheses
-  KmId (x : O.IObj) : U l+ = (Z : DP.LO) (p : (x.k Z).car) -> Id (x.k Z).car ((x.km Z Z (LC.idMap Z)).1 p) p ;
-  CId (x : O.IObj) (c : DP.Map x.Cst x.Cst) : U l = (w : x.Cst.car) -> Id x.Cst.car (c.1 w) w ;
-  TId (x : O.IObj) (tau : (Z : DP.LO) -> DP.Map (x.k Z) (x.k Z)) : U l+ = (Z : DP.LO) (p : (x.k Z).car) -> Id (x.k Z).car ((tau Z).1 p) p ;
-  FId (Y : DP.LO) (f : DP.Map Y Y) : U l = (y : Y.car) -> Id Y.car (f.1 y) y ;
+  module DD = BetaIDS4DiagBase[l].DB[ev,phi,evN,hPos] ;
+  KmId (x : O.IObj) : U l+ = DD.KmId x ;
+  CId (x : O.IObj) (c : DP.Map x.Cst x.Cst) : U l = DD.CId x c ;
+  TId (x : O.IObj) (tau : (Z : DP.LO) -> DP.Map (x.k Z) (x.k Z)) : U l+ = DD.TId x tau ;
+  FId (Y : DP.LO) (f : DP.Map Y Y) : U l = DD.FId Y f ;
   -- the diagonal statement for a tree
   DiagT (t : A.AT) : U l+ = (x : O.IObj) (g : A.Good t x) (c : DP.Map x.Cst x.Cst) (tau : (Z : DP.LO) -> DP.Map (x.k Z) (x.k Z))
     (rl : R.RelIn x x c tau) (Y : DP.LO) (wY : LW.WF Y) (f : DP.Map Y Y) ->
@@ -67,4 +73,53 @@ module Wrap (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN 
       (hk : KmId o) (hc : CId o c) (ht : TId o tau) (hf : FId Y f) (z : (ST.T.thm o ac Y wY).1.car) :
       Id (ST.T.thm o ac Y wY).1.car ((IT.thm o o c tau rl ac ac Y Y wY wY f).1.1 z) z = diag ac.1 o ac.2 c tau rl Y wY f hk hc ht hf z ;
   } ;
+} ;
+
+------------------------------------------------------------------------
+-- THE THEOREM
+module Fin (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true) {
+  module O = S4.Obj[ev,phi,evN] ;
+  module H = BetaIDS4HomFin[l].Hom[ev,phi,evN,hPos] ;
+  module WR = Wrap[ev,phi,evN,hPos,H.nodeH] ;
+  module ST = WR.ST ;
+  module SS = ST.SS ;
+  module A = SS.AO ;
+  module R = SH.Rel[ev,phi,evN] ;
+  -- the node law at every node, from the diagonal law of the subtrees
+  ndAll (x0 : O.IObj) (fs : (s : SS.Step x0) -> A.AT) (g2 : (s : SS.Step x0) -> A.Good (fs s) (SS.shiftO x0 s))
+      (r : (s : SS.Step x0) -> WR.DiagT (fs s)) : WR.NodeDiag x0 fs g2 =
+    \ c tau rl Y wY f hk hc ht hf z ->
+      BetaIDS4DiagNode[l].DNode[ev,phi,evN,hPos,x0,\ s -> WR.IT.ev0 (fs s) (SS.shiftO x0 s) (g2 s),
+        \ s s' cs taus rs -> WR.IT.goalT (fs s) (SS.shiftO x0 s) (g2 s) (SS.shiftO x0 s') (fs s') (g2 s') cs taus rs,
+        c,tau,rl,Y,wY,f,
+        \ i oo0 oo0' e e' -> BetaIDS4HomXl[l].XlRel[ev,phi,evN,hPos,x0,x0,\ s -> WR.IT.ev0 (fs s) (SS.shiftO x0 s) (g2 s),\ s -> WR.IT.ev0 (fs s) (SS.shiftO x0 s) (g2 s),
+          \ s s' cs taus rs -> WR.IT.goalT (fs s) (SS.shiftO x0 s) (g2 s) (SS.shiftO x0 s') (fs s') (g2 s') cs taus rs,c,tau,rl,Y,Y,wY,wY,f,i,oo0,oo0',e,e'].spr,
+        \ i mu eY h mu' eY' h' -> BetaIDS4HomRb[l].RBarRel[ev,phi,evN,hPos,x0,x0,\ s -> WR.IT.ev0 (fs s) (SS.shiftO x0 s) (g2 s),\ s -> WR.IT.ev0 (fs s) (SS.shiftO x0 s) (g2 s),
+          \ s s' cs taus rs -> WR.IT.goalT (fs s) (SS.shiftO x0 s) (g2 s) (SS.shiftO x0 s') (fs s') (g2 s') cs taus rs,c,tau,rl,Y,Y,wY,wY,f,i,mu,eY,h,mu',eY',h'].out,
+        BetaIDS4HomK3N[l].K3SelRel[ev,phi,evN,hPos,x0,x0,\ s -> WR.IT.ev0 (fs s) (SS.shiftO x0 s) (g2 s),\ s -> WR.IT.ev0 (fs s) (SS.shiftO x0 s) (g2 s),
+          \ s s' cs taus rs -> WR.IT.goalT (fs s) (SS.shiftO x0 s) (g2 s) (SS.shiftO x0 s') (fs s') (g2 s') cs taus rs,c,tau,rl,Y,Y,wY,wY,f].hk3].Laws[
+        \ s cs taus rs Y0 wY0 f0 hk0 hc0 ht0 hf0 z0 -> r s (SS.shiftO x0 s) (g2 s) cs taus rs Y0 wY0 f0 hk0 hc0 ht0 hf0 z0,hk,hc,ht,hf,
+        \ i oo0 e -> BetaIDS4DiagXl[l].DXl[ev,phi,evN,hPos,x0,\ s -> WR.IT.ev0 (fs s) (SS.shiftO x0 s) (g2 s),
+          \ s s' cs taus rs -> WR.IT.goalT (fs s) (SS.shiftO x0 s) (g2 s) (SS.shiftO x0 s') (fs s') (g2 s') cs taus rs,c,tau,rl,Y,wY,f,
+          \ s cs taus rs Y0 wY0 f0 hk0 hc0 ht0 hf0 z0 -> r s (SS.shiftO x0 s) (g2 s) cs taus rs Y0 wY0 f0 hk0 hc0 ht0 hf0 z0,hk,hc,ht,hf,i,oo0,e].sprd,
+        \ i mu eY h z0 -> BetaIDS4DiagRbK3[l].DRbK3[ev,phi,evN,hPos,x0,\ s -> WR.IT.ev0 (fs s) (SS.shiftO x0 s) (g2 s),
+          \ s s' cs taus rs -> WR.IT.goalT (fs s) (SS.shiftO x0 s) (g2 s) (SS.shiftO x0 s') (fs s') (g2 s') cs taus rs,c,tau,rl,Y,wY,f,
+          \ s cs taus rs Y0 wY0 f0 hk0 hc0 ht0 hf0 z1 -> r s (SS.shiftO x0 s) (g2 s) cs taus rs Y0 wY0 f0 hk0 hc0 ht0 hf0 z1,hk,hc,ht,hf].Rb[i,mu,eY,h].law z0,
+        \ f0 e0 eY hb z0 -> BetaIDS4DiagRbK3[l].DRbK3[ev,phi,evN,hPos,x0,\ s -> WR.IT.ev0 (fs s) (SS.shiftO x0 s) (g2 s),
+          \ s s' cs taus rs -> WR.IT.goalT (fs s) (SS.shiftO x0 s) (g2 s) (SS.shiftO x0 s') (fs s') (g2 s') cs taus rs,c,tau,rl,Y,wY,f,
+          \ s cs taus rs Y0 wY0 f1 hk0 hc0 ht0 hf0 z1 -> r s (SS.shiftO x0 s) (g2 s) cs taus rs Y0 wY0 f1 hk0 hc0 ht0 hf0 z1,hk,hc,ht,hf].k3D f0 e0 eY hb z0].outD z ;
+  -- THE DIAGONAL IDENTITY LAW: the first projection of hom fixes every
+  -- point of the computed extension, for the same family, certificate and
+  -- order on both sides, pointwise identities c, tau, f, and any supplied
+  -- relation rl, given the pointwise km identity law hk.
+  diagId (o : O.IObj) (ac : SS.AccI o) (c : DP.Map o.Cst o.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o.k Z))
+      (rl : R.RelIn o o c tau) (Y : DP.LO) (wY : LW.WF Y) (f : DP.Map Y Y)
+      (hk : (Z : DP.LO) (p : (o.k Z).car) -> Id (o.k Z).car ((o.km Z Z (LC.idMap Z)).1 p) p)
+      (hc : (w : o.Cst.car) -> Id o.Cst.car (c.1 w) w)
+      (ht : (Z : DP.LO) (p : (o.k Z).car) -> Id (o.k Z).car ((tau Z).1 p) p)
+      (hf : (y : Y.car) -> Id Y.car (f.1 y) y)
+      (z : (ST.T.thm o ac Y wY).1.car) :
+      Id (ST.T.thm o ac Y wY).1.car ((H.hom o o c tau rl ac ac Y Y wY wY f).1.1 z) z =
+    WR.Lift[ndAll].thm o ac c tau rl Y wY f hk hc ht hf z ;
 } ;

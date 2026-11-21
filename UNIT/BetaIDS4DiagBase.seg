@@ -123,3 +123,18 @@ lmId (A : DP.LO) (h : DP.Map A A) (hh : (x : A.car) -> Id A.car (h.1 x) x) (a : 
 mEId (A : DP.LO) (h : DP.Map A A) (hh : (x : A.car) -> Id A.car (h.1 x) x) (e : LT.LL A) : Id (LT.LL A) (LT.mapL A A h e) e =
   PL.trans (LT.LL A) (LT.mapL A A h e) (LT.mapL A A (LC.idMap A) e) e
     (PL.ap (DP.Map A A) (LT.LL A) (\ g -> LT.mapL A A g e) h (LC.idMap A) (mapId A h hh)) (LT.mapL-id A e) ;
+
+------------------------------------------------------------------------
+-- based path induction at the endpoint
+contrE (A : U l) (s v : A) (ew : Id A v s) : Id ((v0 : A) * Id A v0 s) (s,refl s) (v,ew) =
+  idJ A v (\ s0 q0 -> Id ((v0 : A) * Id A v0 s0) (s0,refl s0) (v,q0)) (refl (v,refl v)) s ew ;
+JE (A : U l) (s : A) (P : (v : A) -> Id A v s -> U l) (d : P s (refl s)) (v : A) (ew : Id A v s) : P v ew =
+  PL.subst ((v0 : A) * Id A v0 s) (\ p -> P p.1 p.2) (s,refl s) (v,ew) (contrE A s v ew) d ;
+-- transport in a family over a proposition, normalised to fix every point
+module PropFam (J : U l) (F : J -> U l) (pr : (a b : J) -> Id J a b) {
+  pn (a b : J) : Id J a b = PL.trans J a a b (PL.sym J a a (pr a a)) (pr a b) ;
+  tr (a b : J) (y : F a) : F b = PL.subst J F a b (pn a b) y ;
+  trRefl (a : J) (y : F a) : Id (F a) (tr a a y) y =
+    PL.ap (Id J a a) (F a) (\ p -> PL.subst J F a a p y) (pn a a) (refl a) (PL.trans-sym-l J a a (pr a a)) ;
+} ;
+uipB (b c : W.Bool) (p q : Id W.Bool b c) : Id (Id W.Bool b c) p q = W.HB.uip b c p q ;
