@@ -1,0 +1,171 @@
+-- PLAN-ID1, diagonal identity law: the node dispatcher.  The target rule
+-- at E0 is the tau-image of the source one (J on relE0 in NodeD.Cases.out),
+-- so the comparison at a node is between two points of the singleton
+-- (z, e' : Id r0 z); its map is the transport Tr2 along the singleton
+-- path, proved by splitting the rule, J on the mapped rule parameter, and
+-- UIP for rules.  The kept rules reduce to DKept, (r-bar), kind III and
+-- (xl) to their own laws (hypotheses here).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module P1 = Prelude[l+] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module BI = BetaID[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module SH = BetaIDS4Hom[l] ;
+module HT = BetaIDS4HomThm[l] ;
+module HN = BetaIDS4HomNode[l] ;
+module DBs = BetaIDS4DiagBase[l] ;
+module DR = BetaIDS4DiagReg[l] ;
+
+module DNode (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o : S4.Obj[ev,phi,evN].IObj)
+  (ih : (s : S4.SSteps[ev,phi,evN].Step o) -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o s))
+  (ihr : HT.Stmt[ev,phi,evN,hPos].IHR o o ih ih)
+  (c : DP.Map o.Cst o.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o.k Z)) (rl : SH.Rel[ev,phi,evN].RelIn o o c tau)
+  (Y : DP.LO) (wY : LW.WF Y) (f : DP.Map Y Y)
+  (hxlG : (i : W.N) (oo0 oo0' : W.Or W.Unit (o.k BetaAcc[l].E0).car)
+     (e : Id (BI.ID[ev,phi].Rule (o.k BetaAcc[l].E0)) (o.R BetaAcc[l].E0 nilL) (xlR i oo0))
+     (e' : Id (BI.ID[ev,phi].Rule (o.k BetaAcc[l].E0)) (o.R BetaAcc[l].E0 nilL) (xlR i oo0')) ->
+     HN.NodeD[ev,phi,evN,hPos,o,o,ih,ih,ihr,c,tau,rl,Y,Y,wY,wY,f].SPR
+       (S4.Disp[ev,phi,evN,hPos,o,ih,Y,wY].spXl i oo0 e) (S4.Disp[ev,phi,evN,hPos,o,ih,Y,wY].spXl i oo0' e'))
+  (hrb : HN.NodeD[ev,phi,evN,hPos,o,o,ih,ih,ihr,c,tau,rl,Y,Y,wY,wY,f].HrbT)
+  (hk3 : HN.NodeD[ev,phi,evN,hPos,o,o,ih,ih,ihr,c,tau,rl,Y,Y,wY,wY,f].Hk3T) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module BA = BetaAcc[l] ;
+  module DD = DBs.DB[ev,phi,evN,hPos] ;
+  module ND = HN.NodeD[ev,phi,evN,hPos,o,o,ih,ih,ihr,c,tau,rl,Y,Y,wY,wY,f] ;
+  module D = ND.D ;
+  module CS = ND.Cases[\ i oo0 e e' -> hxlG i oo0 (ND.MZ.om oo0) e e',hrb,hk3] ;
+  module RS = DBs.RuleSet[ev,phi,o.k BA.E0] ;
+  A : DP.LO = o.k Y ;
+  top : A.car = O.topO o Y ;
+  K0 : DP.LO = o.k BA.E0 ;
+  RK : U l = I.Rule K0 ;
+  r0 : RK = D.N0.r0 ;
+  -- the singleton family and its transports
+  F (z : RK) (e' : Id RK r0 z) : U l = (D.disp z e').1.car ;
+  Tr (z : RK) (e' : Id RK r0 z) : F r0 (refl r0) -> F z e' = idJ RK r0 (\ z0 q0 -> F r0 (refl r0) -> F z0 q0) (\ x -> x) z e' ;
+  Tr2 (z1 : RK) (e1 : Id RK r0 z1) : (z2 : RK) (e2 : Id RK r0 z2) -> F z1 e1 -> F z2 e2 =
+    idJ RK r0 (\ z0 q0 -> (z2 : RK) (e2 : Id RK r0 z2) -> F z0 q0 -> F z2 e2) (\ z2 e2 x -> Tr z2 e2 x) z1 e1 ;
+  TrD (z : RK) (e : Id RK r0 z) : (x : F z e) -> Id (F z e) (Tr2 z e z e x) x =
+    idJ RK r0 (\ z0 q0 -> (x : F z0 q0) -> Id (F z0 q0) (Tr2 z0 q0 z0 q0 x) x) (\ x -> refl x) z e ;
+  -- UIP on the rule path, then J on a mapped parameter of the rule
+  JU (z : RK) (e : Id RK r0 z) (m : (e' : Id RK r0 z) -> F z e -> F z e') (hm : (x : F z e) -> Id (F z e) (m e x) x)
+      (e' : Id RK r0 z) (x : F z e) : Id (F z e') (m e' x) (Tr2 z e z e' x) =
+    idJ (Id RK r0 z) e (\ e0 s0 -> Id (F z e0) (m e0 x) (Tr2 z e z e0 x))
+      (PL.trans (F z e) (m e x) x (Tr2 z e z e x) (hm x) (PL.sym (F z e) (Tr2 z e z e x) x (TrD z e x))) e' (RS.uipR r0 z e e') ;
+  JP (Pm : U l) (Kf : Pm -> RK) (w : Pm) (e : Id RK r0 (Kf w))
+      (m : (w' : Pm) (e' : Id RK r0 (Kf w')) -> F (Kf w) e -> F (Kf w') e') (hm : (x : F (Kf w) e) -> Id (F (Kf w) e) (m w e x) x)
+      (w' : Pm) (pi : Id Pm w w') : (e' : Id RK r0 (Kf w')) (x : F (Kf w) e) -> Id (F (Kf w') e') (m w' e' x) (Tr2 (Kf w) e (Kf w') e' x) =
+    idJ Pm w (\ w0 p0 -> (e' : Id RK r0 (Kf w0)) (x : F (Kf w) e) -> Id (F (Kf w0) e') (m w0 e' x) (Tr2 (Kf w) e (Kf w0) e' x))
+      (\ e' x -> JU (Kf w) e (m w) hm e' x) w' pi ;
+  module Laws (ihd : DD.IHD o ih ihr) (hk : DD.KmId o) (hc : DD.CId o c) (ht : DD.TId o tau) (hf : DD.FId Y f)
+    (xlLaw : (i : W.N) (oo0 : W.Or W.Unit K0.car) (e : Id RK r0 (xlR i oo0)) ->
+       DR.DKept[ev,phi,evN,hPos,o,ih,ihr,c,tau,rl,Y,wY,f,D.spXl i oo0 e,hxlG i oo0 oo0 e e].SPRD)
+    (rbLaw : (i : W.N) (mu : A.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) (h : Id W.Bool (I.ltB A mu top) false)
+       (z : (S4.RBar[ev,phi,evN,hPos,o,ih,Y,wY,i,mu,eY,h].out).1.car) ->
+       Id (S4.RBar[ev,phi,evN,hPos,o,ih,Y,wY,i,mu,eY,h].out).1.car ((hrb i mu eY h mu eY h).1.1 z) z)
+    (k3Law : (f0 : BI.Form) (e0 : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) (hb : Id W.Bool (O.barAt A f0 e0) true)
+       (z : (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out f0 eY hb).1.car) ->
+       Id (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out f0 eY hb).1.car ((hk3 f0 e0 e0 eY eY hb hb).1.1 z) z) {
+    -- kept rules in the diagonal
+    regD (sp : D.SP) (spr : ND.SPR sp sp) (sprd : DR.DKept[ev,phi,evN,hPos,o,ih,ihr,c,tau,rl,Y,wY,f,sp,spr].SPRD)
+        (rr rr' : I.Rule A) (eY : Id (I.Rule A) (o.R Y nilL) rr) (eY' : Id (I.Rule A) (o.R Y nilL) rr')
+        (rg : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].RR.Reg rr)
+        (kw : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].CTB.CutOK (inl top) (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].RR.rR rr))
+        (rg' : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].RR.Reg rr')
+        (kw' : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].CTB.CutOK (inl top) (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].RR.rR rr'))
+        (x : (D.regOut sp rr eY rg kw).1.car) :
+        Id (D.regOut sp rr eY rg kw).1.car ((ND.regCase sp sp spr rr rr' eY eY' rg kw rg' kw').1.1 x) x =
+      DR.DKept[ev,phi,evN,hPos,o,ih,ihr,c,tau,rl,Y,wY,f,sp,spr].Law[ihd,hk,hc,ht,hf,sprd].kId x ;
+    -- no stage branch: the stage law is vacuous
+    absD (rr : I.Rule A) (eY : Id (I.Rule A) (o.R Y nilL) rr) (hf0 : (n : W.N) (nu : A.car) -> Id W.Bool (I.br A top rr (n,inr nu)) false) :
+        DR.DKept[ev,phi,evN,hPos,o,ih,ihr,c,tau,rl,Y,wY,f,D.spAbs rr eY hf0,ND.sprAbs rr eY hf0 (D.spAbs rr eY hf0)].SPRD =
+      \ n nu e ec e' ec' x -> W.absurdB
+        (Id DR.DKept[ev,phi,evN,hPos,o,ih,ihr,c,tau,rl,Y,wY,f,D.spAbs rr eY hf0,ND.sprAbs rr eY hf0 (D.spAbs rr eY hf0)].DCar
+          (DR.DKept[ev,phi,evN,hPos,o,ih,ihr,c,tau,rl,Y,wY,f,D.spAbs rr eY hf0,ND.sprAbs rr eY hf0 (D.spAbs rr eY hf0)].iS n (ND.beta.1 nu) e' ec'
+            ((ND.sprAbs rr eY hf0 (D.spAbs rr eY hf0) n nu e ec e' ec').1.1 x))
+          (DR.DKept[ev,phi,evN,hPos,o,ih,ihr,c,tau,rl,Y,wY,f,D.spAbs rr eY hf0,ND.sprAbs rr eY hf0 (D.spAbs rr eY hf0)].iS n nu e ec x))
+        (PL.trans W.Bool false (I.br A top rr (n,inr nu)) true (PL.sym W.Bool (I.br A top rr (n,inr nu)) false (hf0 n nu))
+          (PL.trans W.Bool (I.br A top rr (n,inr nu)) (I.br A top (o.R Y nilL) (n,inr nu)) true
+            (PL.ap (I.Rule A) W.Bool (\ z -> I.br A top z (n,inr nu)) rr (o.R Y nilL) (PL.sym (I.Rule A) (o.R Y nilL) rr eY)) e)) ;
+    simD (rr : I.Rule A) (eY : Id (I.Rule A) (o.R Y nilL) rr)
+        (hf0 : (n : W.N) (nu : A.car) -> Id W.Bool (I.br A top rr (n,inr nu)) false)
+        (rg : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs rr eY hf0].RR.Reg rr)
+        (kw : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs rr eY hf0].CTB.CutOK (inl top) (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs rr eY hf0].RR.rR rr))
+        (rg' : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs rr eY hf0].RR.Reg rr)
+        (kw' : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs rr eY hf0].CTB.CutOK (inl top) (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs rr eY hf0].RR.rR rr))
+        (x : (D.simple rr eY hf0 rg kw).1.car) : Id (D.simple rr eY hf0 rg kw).1.car ((ND.simpleCase rr rr eY eY hf0 hf0 rg kw rg' kw').1.1 x) x =
+      DR.DKept[ev,phi,evN,hPos,o,ih,ihr,c,tau,rl,Y,wY,f,D.spAbs rr eY hf0,ND.sprAbs rr eY hf0 (D.spAbs rr eY hf0)].Law[ihd,hk,hc,ht,hf,absD rr eY hf0].kId x ;
+    -- the paths of the mapped rule parameters at E0
+    lmZ (w : I.Lb K0) : Id (I.Lb K0) w (ND.MZ.lm w) = PL.sym (I.Lb K0) (ND.MZ.lm w) w (DBs.lmId K0 (tau BA.E0) (ht BA.E0) w) ;
+    mEZ (e0 : LT.LL K0) : Id (LT.LL K0) e0 (ND.MZ.mE e0) = PL.sym (LT.LL K0) (ND.MZ.mE e0) e0 (DBs.mEId K0 (tau BA.E0) (ht BA.E0) e0) ;
+    muZ (mu0 : K0.car) : Id K0.car mu0 ((tau BA.E0).1 mu0) = PL.sym K0.car ((tau BA.E0).1 mu0) mu0 (ht BA.E0 mu0) ;
+    omZ (oo0 : W.Or W.Unit K0.car) : Id (W.Or W.Unit K0.car) oo0 (ND.MZ.om oo0) =
+      PL.sym (W.Or W.Unit K0.car) (ND.MZ.om oo0) oo0 (DBs.omId K0 (tau BA.E0) (ht BA.E0) oo0) ;
+    kmY (mu0 : K0.car) : A.car = (o.km BA.E0 Y (S4.Main[ev,phi,evN,hPos].e0 Y)).1 mu0 ;
+    kdS (f0 : BI.Form) (e1 : LT.LL K0) (q1 : Id RK r0 (cutR f0 e1)) : W.Or (Id W.Bool (S4.noX f0) true) (Id W.Bool (O.barAt A f0 (D.MY.mE e1)) true) =
+      PL.subst (I.Rule A) (\ z -> O.KindOK A z) (o.R Y nilL) (cutR f0 (D.MY.mE e1)) (D.eYof (cutR f0 e1) q1) D.kdY ;
+    -- the (xr) choice and the cut kinds, in the diagonal
+    xrHD (i : W.N) (mu : A.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) :
+        (b : W.Bool) (h : Id W.Bool (I.ltB A mu top) b) (x : (D.xrC i mu eY b h).1.car) ->
+        Id (D.xrC i mu eY b h).1.car ((CS.xrH i mu eY mu eY b h b h).1.1 x) x = split {
+      true -> \ h x -> simD (xrR i mu) eY (\ n nu -> refl false) h tt h tt x ;
+      false -> \ h x -> rbLaw i mu eY h x } ;
+    cutHD (f0 : BI.Form) (e0 : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) :
+        (k : W.Or (Id W.Bool (S4.noX f0) true) (Id W.Bool (O.barAt A f0 e0) true)) (x : (D.cutC f0 e0 eY k).1.car) ->
+        Id (D.cutC f0 e0 eY k).1.car ((CS.cutH f0 e0 e0 eY eY k k).1.1 x) x = split {
+      inl h -> \ x -> simD (cutR f0 e0) eY (\ n nu -> refl false) tt
+        (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.noXSt (inl top) f0
+          (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.R.rE e0) h) tt
+        (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.noXSt (inl top) f0
+          (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.R.rE e0) h) x ;
+      inr h -> \ x -> k3Law f0 e0 eY h x } ;
+    -- the case split at the rule of E0
+    dispD : (rr : RK) (e : Id RK r0 rr) (e' : Id RK r0 (ND.MZ.mR rr)) (x : F rr e) ->
+        Id (F (ND.MZ.mR rr) e') ((CS.dispH rr e e').1.1 x) (Tr2 rr e (ND.MZ.mR rr) e' x) = split {
+      axR i -> \ e e' x -> JU (axR i) e (\ e1 y -> (CS.dispH (axR i) e e1).1.1 y)
+        (\ y -> simD (axR i) (D.eYof (axR i) e) (\ n nu -> refl false) tt tt tt tt y) e' x ;
+      andR i -> \ e e' x -> JU (andR i) e (\ e1 y -> (CS.dispH (andR i) e e1).1.1 y)
+        (\ y -> simD (andR i) (D.eYof (andR i) e) (\ n nu -> refl false) tt tt tt tt y) e' x ;
+      orR i -> \ e e' x -> JU (orR i) e (\ e1 y -> (CS.dispH (orR i) e e1).1.1 y)
+        (\ y -> simD (orR i) (D.eYof (orR i) e) (\ n nu -> refl false) tt tt tt tt y) e' x ;
+      allR i -> \ e e' x -> JU (allR i) e (\ e1 y -> (CS.dispH (allR i) e e1).1.1 y)
+        (\ y -> simD (allR i) (D.eYof (allR i) e) (\ n nu -> refl false) tt tt tt tt y) e' x ;
+      exR i w -> \ e e' x -> JP (I.Lb K0) (\ w0 -> exR i w0) w e
+        (\ w1 e1 y -> (ND.simpleCase (exR i (D.MY.lm w)) (exR i (D.MY.lm w1)) (D.eYof (exR i w) e) (D.eYof (exR i w1) e1)
+           (\ n nu -> refl false) (\ n nu -> refl false) tt tt tt tt).1.1 y)
+        (\ y -> simD (exR i (D.MY.lm w)) (D.eYof (exR i w) e) (\ n nu -> refl false) tt tt tt tt y) (ND.MZ.lm w) (lmZ w) e' x ;
+      cutR f0 e0 -> \ e e' x -> JP (LT.LL K0) (\ e1 -> cutR f0 e1) e0 e
+        (\ e1 q1 y -> (CS.cutH f0 (D.MY.mE e0) (D.MY.mE e1) (D.eYof (cutR f0 e0) e) (D.eYof (cutR f0 e1) q1) (kdS f0 e0 e) (kdS f0 e1 q1)).1.1 y)
+        (\ y -> cutHD f0 (D.MY.mE e0) (D.eYof (cutR f0 e0) e) (kdS f0 e0 e) y) (ND.MZ.mE e0) (mEZ e0) e' x ;
+      xrR i mu0 -> \ e e' x -> JP K0.car (\ m -> xrR i m) mu0 e
+        (\ m1 q1 y -> (CS.xrH i (kmY mu0) (D.eYof (xrR i mu0) e) (kmY m1) (D.eYof (xrR i m1) q1)
+           (I.ltB A (kmY mu0) top) (refl (I.ltB A (kmY mu0) top)) (I.ltB A (kmY m1) top) (refl (I.ltB A (kmY m1) top))).1.1 y)
+        (\ y -> xrHD i (kmY mu0) (D.eYof (xrR i mu0) e) (I.ltB A (kmY mu0) top) (refl (I.ltB A (kmY mu0) top)) y) ((tau BA.E0).1 mu0) (muZ mu0) e' x ;
+      xlR i oo0 -> \ e e' x -> JP (W.Or W.Unit K0.car) (\ oo -> xlR i oo) oo0 e
+        (\ oo1 q1 y -> (ND.regCase (D.spXl i oo0 e) (D.spXl i oo1 q1) (hxlG i oo0 oo1 e q1) (xlR i (D.MY.om oo0)) (xlR i (D.MY.om oo1))
+           (D.eYof (xlR i oo0) e) (D.eYof (xlR i oo1) q1) tt tt tt tt).1.1 y)
+        (\ y -> regD (D.spXl i oo0 e) (hxlG i oo0 oo0 e e) (xlLaw i oo0 e) (xlR i (D.MY.om oo0)) (xlR i (D.MY.om oo0))
+           (D.eYof (xlR i oo0) e) (D.eYof (xlR i oo0) e) tt tt tt tt y) (ND.MZ.om oo0) (omZ oo0) e' x } ;
+    -- J on relE0, generalised
+    outG (x : F r0 (refl r0)) (z : RK) (q : Id RK (ND.MZ.mR r0) z) : (e' : Id RK r0 z) ->
+        Id (F z e') ((idJ RK (ND.MZ.mR r0) (\ z0 q0 -> (e1 : Id RK r0 z0) -> ND.HO (D.disp r0 (refl r0)) (D.disp z0 e1))
+          (CS.dispH r0 (refl r0)) z q e').1.1 x) (Tr z e' x) =
+      idJ RK (ND.MZ.mR r0) (\ z0 q0 -> (e1 : Id RK r0 z0) ->
+          Id (F z0 e1) ((idJ RK (ND.MZ.mR r0) (\ z1 q1 -> (e2 : Id RK r0 z1) -> ND.HO (D.disp r0 (refl r0)) (D.disp z1 e2))
+            (CS.dispH r0 (refl r0)) z0 q0 e1).1.1 x) (Tr z0 e1 x))
+        (\ e1 -> dispD r0 (refl r0) e1 x) z q ;
+    -- THE NODE LAW
+    outD (x : F r0 (refl r0)) : Id (F r0 (refl r0)) (CS.out.1.1 x) x = outG x r0 (PL.sym RK r0 (ND.MZ.mR r0) ND.relE0) (refl r0) ;
+  } ;
+} ;

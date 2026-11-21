@@ -1,0 +1,100 @@
+-- PLAN-ID1, diagonal identity law: kept rules.  In the diagonal (o' = o,
+-- ih' = ih, Y' = Y, the same stage provider sp) the map DSumMap(lmap, em)
+-- of RegPrem fixes every point, given the induction hypothesis (number
+-- labels: the same plain step on both sides) and the stage law SPRD
+-- (stage labels nu -> beta nu).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module P1 = Prelude[l+] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module DS = DSumLO[l] ;
+module BI = BetaID[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module SH = BetaIDS4Hom[l] ;
+module HT = BetaIDS4HomThm[l] ;
+module HR = BetaIDS4HomReg[l] ;
+module DBs = BetaIDS4DiagBase[l] ;
+
+module DKept (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o : S4.Obj[ev,phi,evN].IObj)
+  (ih : (s : S4.SSteps[ev,phi,evN].Step o) -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o s))
+  (ihr : HT.Stmt[ev,phi,evN,hPos].IHR o o ih ih)
+  (c : DP.Map o.Cst o.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o.k Z)) (rl : SH.Rel[ev,phi,evN].RelIn o o c tau)
+  (Y : DP.LO) (wY : LW.WF Y) (f : DP.Map Y Y)
+  (sp : (n : W.N) (nu : (o.k Y).car) -> Id W.Bool (BI.ID[ev,phi].br (o.k Y) (S4.Obj[ev,phi,evN].topO o Y) (o.R Y nilL) (n,inr nu)) true ->
+     Id W.Bool (BI.ID[ev,phi].ltB (o.k Y) nu (S4.Obj[ev,phi,evN].topO o Y)) true ->
+     S4.OutM[ev,phi,o.k Y,S4.Obj[ev,phi,evN].topO o Y].Out (BI.ID[ev,phi].step (o.k Y) (o.G Y) (o.R Y nilL) (n,inr nu)))
+  (spr : BetaIDS4HomNode[l].NodeD[ev,phi,evN,hPos,o,o,ih,ih,ihr,c,tau,rl,Y,Y,wY,wY,f].SPR sp sp) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module D = DBs.DB[ev,phi,evN,hPos] ;
+  module ST = D.ST ;
+  module RA = S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp] ;
+  module RP = HR.RegPrem[ev,phi,evN,hPos,o,o,ih,ih,ihr,c,tau,rl,Y,Y,wY,wY,f,sp,sp,spr] ;
+  module N0 = S4.Main[ev,phi,evN,hPos].Node[o,ih,Y,wY] ;
+  A : DP.LO = o.k Y ;
+  top : A.car = O.topO o Y ;
+  r : I.Rule A = o.R Y nilL ;
+  beta : DP.Map A A = ST.baseF o o tau Y Y f ;
+  lmap : DP.Map (LT.Lab A) (LT.Lab A) = LT.lmMap A A beta ;
+  module DM = TrCSquare[l].DSumMap[LT.Lab A,LT.Lab A,RA.Ex,RA.Ex,lmap,RP.em] ;
+  DCar : U l = DM.D1.Car ;
+  -- the embeddings of the split providers into the summands
+  ib (n : W.N) (v : A.car) (b : W.Bool) (e : Id W.Bool (I.br A top r (n,inr v)) b) : (RA.pvS n v b e).1.car -> (RA.Ex (n,inr v)).car =
+    idJ W.Bool (I.br A top r (n,inr v)) (\ b0 e0 -> (RA.pvS n v b0 e0).1.car -> (RA.Ex (n,inr v)).car) (\ y -> y) b e ;
+  i2 (n : W.N) (v : A.car) (e : Id W.Bool (I.br A top r (n,inr v)) true) (cb : W.Bool) (ec : Id W.Bool (I.ltB A v top) cb) :
+      (RA.pvS2 n v e cb ec).1.car -> (RA.pvS n v true e).1.car =
+    idJ W.Bool (I.ltB A v top) (\ c0 q0 -> (RA.pvS2 n v e c0 q0).1.car -> (RA.pvS n v true e).1.car) (\ y -> y) cb ec ;
+  iS (n : W.N) (v : A.car) (e : Id W.Bool (I.br A top r (n,inr v)) true) (ec : Id W.Bool (I.ltB A v top) true) (y : (sp n v e ec).1.car) : DCar =
+    ((n,inr v),ib n v true e (i2 n v e true ec y)) ;
+  -- the stage law: spr moves a point of the summand at nu to the same point at beta nu
+  SPRD : U l = (n : W.N) (nu : A.car) (e : Id W.Bool (I.br A top r (n,inr nu)) true) (ec : Id W.Bool (I.ltB A nu top) true)
+    (e' : Id W.Bool (I.br A top r (n,inr (beta.1 nu))) true) (ec' : Id W.Bool (I.ltB A (beta.1 nu) top) true) (x : (sp n nu e ec).1.car) ->
+    Id DCar (iS n (beta.1 nu) e' ec' ((spr n nu e ec e' ec').1.1 x)) (iS n nu e ec x) ;
+  module Law (ihd : D.IHD o ih ihr) (hk : D.KmId o) (hc : D.CId o c) (ht : D.TId o tau) (hf : D.FId Y f) (sprd : SPRD) {
+    -- number labels: the same plain step on both sides
+    nC (n : W.N) (u : W.Unit) : (b : W.Bool) (e : Id W.Bool (I.br A top r (n,inl u)) b) (x : (RA.pvN n u b e).1.car) ->
+        Id (RA.pvN n u b e).1.car ((RP.emN n u b e b e).1 x) x = split {
+      false -> \ e x -> CF.efq (Id (RA.pvN n u false e).1.car ((RP.emN n u false e false e).1 x) x) x ;
+      true -> \ e x -> ihd (inl (N0.stNum n u e)) c tau
+        (HR.PShRel[ev,phi,evN,o,o,c,tau,rl,N0.stNum n u e,N0.stNum n u e,\ Z -> refl (n,inl u)].rel) Y wY f hk hc ht hf x } ;
+    -- stage labels, after the two splits of the provider
+    sC2 (n : W.N) (nu : A.car) (e : Id W.Bool (I.br A top r (n,inr nu)) true) (e' : Id W.Bool (I.br A top r (n,inr (beta.1 nu))) true) :
+        (cb : W.Bool) (ec : Id W.Bool (I.ltB A nu top) cb) (cb' : W.Bool) (ec' : Id W.Bool (I.ltB A (beta.1 nu) top) cb')
+        (x : (RA.pvS2 n nu e cb ec).1.car) ->
+        Id DCar ((n,inr (beta.1 nu)),ib n (beta.1 nu) true e' (i2 n (beta.1 nu) e' cb' ec' ((RP.emS2 n nu e e' cb ec cb' ec').1 x)))
+          ((n,inr nu),ib n nu true e (i2 n nu e cb ec x)) = split {
+      false -> \ ec cb' ec' x -> CF.efq (Id DCar ((n,inr (beta.1 nu)),ib n (beta.1 nu) true e' (i2 n (beta.1 nu) e' cb' ec' ((RP.emS2 n nu e e' false ec cb' ec').1 x)))
+          ((n,inr nu),ib n nu true e (i2 n nu e false ec x))) x ;
+      true -> \ ec -> split {
+        false -> \ ec' x -> W.absurdB (Id DCar ((n,inr (beta.1 nu)),ib n (beta.1 nu) true e' (i2 n (beta.1 nu) e' false ec' ((RP.emS2 n nu e e' true ec false ec').1 x)))
+            ((n,inr nu),ib n nu true e (i2 n nu e true ec x)))
+          (PL.trans W.Bool false (I.ltB A (beta.1 nu) top) true (PL.sym W.Bool (I.ltB A (beta.1 nu) top) false ec')
+            (PL.trans W.Bool (I.ltB A (beta.1 nu) top) (I.ltB A nu top) true (RP.ltBeta nu) ec)) ;
+        true -> \ ec' x -> sprd n nu e ec e' ec' x } } ;
+    sC (n : W.N) (nu : A.car) : (b : W.Bool) (e : Id W.Bool (I.br A top r (n,inr nu)) b)
+        (b' : W.Bool) (e' : Id W.Bool (I.br A top r (n,inr (beta.1 nu))) b') (x : (RA.pvS n nu b e).1.car) ->
+        Id DCar ((n,inr (beta.1 nu)),ib n (beta.1 nu) b' e' ((RP.emS n nu b e b' e').1 x)) ((n,inr nu),ib n nu b e x) = split {
+      false -> \ e b' e' x -> CF.efq (Id DCar ((n,inr (beta.1 nu)),ib n (beta.1 nu) b' e' ((RP.emS n nu false e b' e').1 x)) ((n,inr nu),ib n nu false e x)) x ;
+      true -> \ e -> split {
+        false -> \ e' x -> W.absurdB (Id DCar ((n,inr (beta.1 nu)),ib n (beta.1 nu) false e' ((RP.emS n nu true e false e').1 x)) ((n,inr nu),ib n nu true e x))
+          (PL.trans W.Bool false (I.br A top r (n,inr (beta.1 nu))) true (PL.sym W.Bool (I.br A top r (n,inr (beta.1 nu))) false e')
+            (PL.trans W.Bool (I.br A top r (n,inr (beta.1 nu))) (I.br A top r (n,inr nu)) true (RP.brE (n,inr nu)) e)) ;
+        true -> \ e' x -> sC2 n nu e e' (I.ltB A nu top) (refl (I.ltB A nu top)) (I.ltB A (beta.1 nu) top) (refl (I.ltB A (beta.1 nu) top)) x } } ;
+    kO (n : W.N) : (oo : W.Or W.Unit A.car) (x : (RA.Ex (n,oo)).car) -> Id DCar (DM.dm ((n,oo),x)) ((n,oo),x) = split {
+      inl u -> \ x -> PL.ap (RA.Ex (n,inl u)).car DCar (\ y -> ((n,inl u),y)) ((RP.em (n,inl u)).1 x) x
+        (nC n u (I.br A top r (n,inl u)) (refl (I.br A top r (n,inl u))) x) ;
+      inr nu -> \ x -> sC n nu (I.br A top r (n,inr nu)) (refl (I.br A top r (n,inr nu)))
+        (I.br A top r (n,inr (beta.1 nu))) (refl (I.br A top r (n,inr (beta.1 nu)))) x } ;
+    -- THE KEPT-RULE LAW
+    kId (p : DCar) : Id DCar (DM.dm p) p = kO p.1.1 p.1.2 p.2 ;
+  } ;
+} ;
