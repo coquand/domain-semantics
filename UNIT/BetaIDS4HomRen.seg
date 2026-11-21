@@ -1,0 +1,183 @@
+-- PLAN-ID1, homogeneity of S4: the renamings of Lemma 11.4.5 (compound,
+-- BetaIDCfOps.RenM) commute with embeddings.  The marks are mapped
+-- (formula, prefix) |-> (formula, g prefix), and the decision "marked?"
+-- corresponds by eqCloNat.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module KT = KBTree[l] ;
+module BI = BetaID[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module BH = BetaIDHom[l] ;
+
+module RenMRel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (A A' : DP.LO) (top : A.car) (top' : A'.car) (g : DP.Map A A') (gt : Id A'.car (g.1 top) top')
+  (c : A.car) (c' : A'.car) (gc : Id A'.car (g.1 c) c')
+  (t xb : BI.ID[ev,phi].Lb A) (t' xb' : BI.ID[ev,phi].Lb A')
+  (eT : Id (BI.ID[ev,phi].Lb A') (LT.lm A A' g t) t') (eX : Id (BI.ID[ev,phi].Lb A') (LT.lm A A' g xb) xb')
+  (evB : (pre : LT.LL A) (k : W.N) -> Id W.Bool (ev A k (KT.appL (BI.ID[ev,phi].Lb A) pre (consL t (consL (BI.ID[ev,phi].stg A c) nilL))))
+     (ev A k (KT.appL (BI.ID[ev,phi].Lb A) pre (consL t (consL xb nilL)))))
+  (evB' : (pre : LT.LL A') (k : W.N) -> Id W.Bool (ev A' k (KT.appL (BI.ID[ev,phi].Lb A') pre (consL t' (consL (BI.ID[ev,phi].stg A' c') nilL))))
+     (ev A' k (KT.appL (BI.ID[ev,phi].Lb A') pre (consL t' (consL xb' nilL))))) {
+  module I = BI.ID[ev,phi] ;
+  module RN = BO.RenM[ev,phi,A,top,hPos,c,t,xb,evB] ;
+  module RN' = BO.RenM[ev,phi,A',top',hPos,c',t',xb',evB'] ;
+  module N = BH.NH[ev,phi,A,A',g,S4.evMap ev evN A A' g,top,top',gt] ;
+  mapMk (m : RN.Mk) : RN'.Mk = (m.1,N.mE m.2) ;
+  mapM (M : W.List RN.Mk) : W.List RN'.Mk = W.map RN.Mk RN'.Mk mapMk M ;
+  -- the two bases correspond
+  bEq : Id (LT.LL A') (N.mE RN.base) RN'.base =
+    W.ap2 (I.Lb A') (I.Lb A') (LT.LL A') (\ a b -> consL a (consL b nilL)) (N.lm t) t' (N.lm xb) xb' eT eX ;
+  bEq' : Id (LT.LL A') (N.mE RN.base') RN'.base' =
+    W.ap2 (I.Lb A') (I.Lb A') (LT.LL A') (\ a b -> consL a (consL b nilL)) (N.lm t) t' (N.lm RN.xc) RN'.xc eT
+      (PL.ap A'.car (I.Lb A') (\ z -> (zero,inr z)) (g.1 c) c' gc) ;
+  apEq (pre : LT.LL A) : Id (LT.LL A') (RN'.apB (N.mE pre)) (N.mE (RN.apB pre)) =
+    PL.trans (LT.LL A') (RN'.apB (N.mE pre)) (KT.appL (I.Lb A') (N.mE pre) (N.mE RN.base)) (N.mE (RN.apB pre))
+      (PL.ap (LT.LL A') (LT.LL A') (\ z -> KT.appL (I.Lb A') (N.mE pre) z) RN'.base (N.mE RN.base) (PL.sym (LT.LL A') (N.mE RN.base) RN'.base bEq))
+      (PL.sym (LT.LL A') (N.mE (RN.apB pre)) (KT.appL (I.Lb A') (N.mE pre) (N.mE RN.base)) (KT.map-app (I.Lb A) (I.Lb A') N.lm pre RN.base)) ;
+  apEq' (pre : LT.LL A) : Id (LT.LL A') (RN'.apB' (N.mE pre)) (N.mE (RN.apB' pre)) =
+    PL.trans (LT.LL A') (RN'.apB' (N.mE pre)) (KT.appL (I.Lb A') (N.mE pre) (N.mE RN.base')) (N.mE (RN.apB' pre))
+      (PL.ap (LT.LL A') (LT.LL A') (\ z -> KT.appL (I.Lb A') (N.mE pre) z) RN'.base' (N.mE RN.base') (PL.sym (LT.LL A') (N.mE RN.base') RN'.base' bEq'))
+      (PL.sym (LT.LL A') (N.mE (RN.apB' pre)) (KT.appL (I.Lb A') (N.mE pre) (N.mE RN.base')) (KT.map-app (I.Lb A) (I.Lb A') N.lm pre RN.base')) ;
+  clN (m : RN.Mk) : Id N.CB (RN'.cl (mapMk m)) (N.mC (RN.cl m)) = PL.ap (LT.LL A') N.CB (\ z -> (m.1,z)) (RN'.apB (N.mE m.2)) (N.mE (RN.apB m.2)) (apEq m.2) ;
+  eqN (m : RN.Mk) (c0 : N.CA) : Id W.Bool (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0)) (N.MA.eqClo (RN.cl m) c0) =
+    PL.trans W.Bool (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0)) (N.MB.eqClo (N.mC (RN.cl m)) (N.mC c0)) (N.MA.eqClo (RN.cl m) c0)
+      (PL.ap N.CB W.Bool (\ z -> N.MB.eqClo z (N.mC c0)) (RN'.cl (mapMk m)) (N.mC (RN.cl m)) (clN m)) (N.eqCloNat (RN.cl m) c0) ;
+  ----------------------------------------------------------------------
+  -- the decisions correspond
+  RFDl (c0 : N.CA) (M : W.List RN.Mk) (u : (m : RN.Mk) * (LT.memG RN.Mk m M * Id N.CA (RN.cl m) c0)) : RN'.FD (N.mC c0) (mapM M) -> U l = split {
+    inl u' -> Id (LT.LL A') u'.1.2 (N.mE u.1.2) ; inr nf -> W.Empty } ;
+  RFDr (c0 : N.CA) (M : W.List RN.Mk) : RN'.FD (N.mC c0) (mapM M) -> U l = split { inl u' -> W.Empty ; inr nf -> W.Unit } ;
+  RFD (c0 : N.CA) (M : W.List RN.Mk) : RN.FD c0 M -> RN'.FD (N.mC c0) (mapM M) -> U l = split {
+    inl u -> RFDl c0 M u ; inr nf -> RFDr c0 M } ;
+  fdF (c0 : N.CA) (m : RN.Mk) (ms : W.List RN.Mk) (h : Id W.Bool (N.MA.eqClo (RN.cl m) c0) false)
+      (h' : Id W.Bool (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0)) false) :
+      (x : RN.FD c0 ms) (x' : RN'.FD (N.mC c0) (mapM ms)) -> RFD c0 ms x x' ->
+      RFD c0 (consL m ms) (RN.fdV c0 m ms x false h) (RN'.fdV (N.mC c0) (mapMk m) (mapM ms) x' false h') = split {
+    inl u -> split { inl u' -> \ rx -> rx ; inr nf -> \ rx -> CF.efq (RFD c0 (consL m ms) (RN.fdV c0 m ms (inl u) false h) (RN'.fdV (N.mC c0) (mapMk m) (mapM ms) (inr nf) false h')) rx } ;
+    inr nf -> split { inl u' -> \ rx -> CF.efq (RFD c0 (consL m ms) (RN.fdV c0 m ms (inr nf) false h) (RN'.fdV (N.mC c0) (mapMk m) (mapM ms) (inl u') false h')) rx ;
+                      inr nf' -> \ rx -> tt } } ;
+  fdR (c0 : N.CA) (m : RN.Mk) (ms : W.List RN.Mk) (x : RN.FD c0 ms) (x' : RN'.FD (N.mC c0) (mapM ms)) (rx : RFD c0 ms x x') :
+      (v : W.Bool) (h : Id W.Bool (N.MA.eqClo (RN.cl m) c0) v) (v' : W.Bool) (h' : Id W.Bool (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0)) v') ->
+      RFD c0 (consL m ms) (RN.fdV c0 m ms x v h) (RN'.fdV (N.mC c0) (mapMk m) (mapM ms) x' v' h') = split {
+    false -> \ h -> split {
+      false -> \ h' -> fdF c0 m ms h h' x x' rx ;
+      true -> \ h' -> W.absurdB (RFD c0 (consL m ms) (RN.fdV c0 m ms x false h) (RN'.fdV (N.mC c0) (mapMk m) (mapM ms) x' true h'))
+        (PL.trans W.Bool false (N.MA.eqClo (RN.cl m) c0) true (PL.sym W.Bool (N.MA.eqClo (RN.cl m) c0) false h)
+          (PL.trans W.Bool (N.MA.eqClo (RN.cl m) c0) (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0)) true
+            (PL.sym W.Bool (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0)) (N.MA.eqClo (RN.cl m) c0) (eqN m c0)) h')) } ;
+    true -> \ h -> split {
+      false -> \ h' -> W.absurdB (RFD c0 (consL m ms) (RN.fdV c0 m ms x true h) (RN'.fdV (N.mC c0) (mapMk m) (mapM ms) x' false h'))
+        (PL.trans W.Bool false (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0)) true (PL.sym W.Bool (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0)) false h')
+          (PL.trans W.Bool (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0)) (N.MA.eqClo (RN.cl m) c0) true (eqN m c0) h)) ;
+      true -> \ h' -> refl (N.mE m.2) } } ;
+  rfd (c0 : N.CA) : (M : W.List RN.Mk) -> RFD c0 M (RN.findD c0 M) (RN'.findD (N.mC c0) (mapM M)) = split {
+    nilL -> tt ;
+    consL m ms | r -> fdR c0 m ms (RN.findD c0 ms) (RN'.findD (N.mC c0) (mapM ms)) r
+      (N.MA.eqClo (RN.cl m) c0) (refl (N.MA.eqClo (RN.cl m) c0)) (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0)) (refl (N.MB.eqClo (RN'.cl (mapMk m)) (N.mC c0))) } ;
+  ----------------------------------------------------------------------
+  -- the renamed derivations are related
+  M' (M : W.List RN.Mk) : W.List RN'.Mk = mapM M ;
+  IH (d : N.FA) : U l = (d' : N.FB) -> N.RelF d d' -> (M : W.List RN.Mk) -> N.RelF (RN.renD d M) (RN'.renD d' (mapM M)) ;
+  -- rewrite the target prefix
+  preT (pre : LT.LL A) (pre' : LT.LL A') (rx : Id (LT.LL A') pre' (N.mE pre)) (P : LT.LL A' -> U l) (v : P (N.mE pre)) : P pre' =
+    PL.subst (LT.LL A') P (N.mE pre) pre' (PL.sym (LT.LL A') pre' (N.mE pre) rx) v ;
+  envT (pre : LT.LL A) (pre' : LT.LL A') (rx : Id (LT.LL A') pre' (N.mE pre)) : Id (LT.LL A') (RN'.apB' pre') (N.mE (RN.apB' pre)) =
+    PL.trans (LT.LL A') (RN'.apB' pre') (RN'.apB' (N.mE pre)) (N.mE (RN.apB' pre)) (PL.ap (LT.LL A') (LT.LL A') RN'.apB' pre' (N.mE pre) rx) (apEq' pre) ;
+  brAxR (b : W.Bool) (k : W.N) (e0 : LT.LL A) (M : W.List RN.Mk) : (x : RN.FD (atF b k,e0) M) (x' : RN'.FD (atF b k,N.mE e0) (mapM M)) ->
+      RFD (atF b k,e0) M x x' -> N.RelF (RN.brAx b k e0 M x) (RN'.brAx b k (N.mE e0) (mapM M) x') = split {
+    inl u -> split {
+      inl u' -> \ rx -> PL.ap (LT.LL A') N.FB (\ z -> cAx b k z) (RN'.apB' u'.1.2) (N.mE (RN.apB' u.1.2)) (envT u.1.2 u'.1.2 rx) ;
+      inr nf -> \ rx -> CF.efq (N.RelF (RN.brAx b k e0 M (inl u)) (RN'.brAx b k (N.mE e0) (mapM M) (inr nf))) rx } ;
+    inr nf -> split {
+      inl u' -> \ rx -> CF.efq (N.RelF (RN.brAx b k e0 M (inr nf)) (RN'.brAx b k (N.mE e0) (mapM M) (inl u'))) rx ;
+      inr nf' -> \ rx -> refl (cAx b k (N.mE e0)) } } ;
+  brAndR (p q : BI.Form) (e0 : LT.LL A) (d0 d1 : N.FA) (i0 : IH d0) (i1 : IH d1) (d0' d1' : N.FB) (r0 : N.RelF d0 d0') (r1 : N.RelF d1 d1') (M : W.List RN.Mk) :
+      (x : RN.FD (andF p q,e0) M) (x' : RN'.FD (andF p q,N.mE e0) (mapM M)) -> RFD (andF p q,e0) M x x' ->
+      N.RelF (RN.brAnd p q e0 (RN.renD d0) (RN.renD d1) M x) (RN'.brAnd p q (N.mE e0) (RN'.renD d0') (RN'.renD d1') (mapM M) x') = split {
+    inl u -> split {
+      inl u' -> \ rx -> (RN'.renD d0' (consL (p,u'.1.2) (mapM M)),(RN'.renD d1' (consL (q,u'.1.2) (mapM M)),
+        (PL.ap (LT.LL A') N.FB (\ z -> cAnd p q z (RN'.renD d0' (consL (p,u'.1.2) (mapM M))) (RN'.renD d1' (consL (q,u'.1.2) (mapM M))))
+          (RN'.apB' u'.1.2) (N.mE (RN.apB' u.1.2)) (envT u.1.2 u'.1.2 rx),
+         (preT u.1.2 u'.1.2 rx (\ z -> N.RelF (RN.renD d0 (consL (p,u.1.2) M)) (RN'.renD d0' (consL (p,z) (mapM M)))) (i0 d0' r0 (consL (p,u.1.2) M)),
+          preT u.1.2 u'.1.2 rx (\ z -> N.RelF (RN.renD d1 (consL (q,u.1.2) M)) (RN'.renD d1' (consL (q,z) (mapM M)))) (i1 d1' r1 (consL (q,u.1.2) M)))))) ;
+      inr nf -> \ rx -> CF.efq (N.RelF (RN.brAnd p q e0 (RN.renD d0) (RN.renD d1) M (inl u)) (RN'.brAnd p q (N.mE e0) (RN'.renD d0') (RN'.renD d1') (mapM M) (inr nf))) rx } ;
+    inr nf -> split {
+      inl u' -> \ rx -> CF.efq (N.RelF (RN.brAnd p q e0 (RN.renD d0) (RN.renD d1) M (inr nf)) (RN'.brAnd p q (N.mE e0) (RN'.renD d0') (RN'.renD d1') (mapM M) (inl u'))) rx ;
+      inr nf' -> \ rx -> (RN'.renD d0' (mapM M),(RN'.renD d1' (mapM M),(refl (cAnd p q (N.mE e0) (RN'.renD d0' (mapM M)) (RN'.renD d1' (mapM M))),
+        (i0 d0' r0 M,i1 d1' r1 M)))) } } ;
+  brOrR (p q : BI.Form) (e0 : LT.LL A) (d : N.FA) (i : IH d) (d' : N.FB) (r : N.RelF d d') (M : W.List RN.Mk) :
+      (x : RN.FD (orF p q,e0) M) (x' : RN'.FD (orF p q,N.mE e0) (mapM M)) -> RFD (orF p q,e0) M x x' ->
+      N.RelF (RN.brOr p q e0 (RN.renD d) M x) (RN'.brOr p q (N.mE e0) (RN'.renD d') (mapM M) x') = split {
+    inl u -> split {
+      inl u' -> \ rx -> (RN'.renD d' (consL (p,u'.1.2) (consL (q,u'.1.2) (mapM M))),
+        (PL.ap (LT.LL A') N.FB (\ z -> cOr p q z (RN'.renD d' (consL (p,u'.1.2) (consL (q,u'.1.2) (mapM M))))) (RN'.apB' u'.1.2) (N.mE (RN.apB' u.1.2)) (envT u.1.2 u'.1.2 rx),
+         preT u.1.2 u'.1.2 rx (\ z -> N.RelF (RN.renD d (consL (p,u.1.2) (consL (q,u.1.2) M))) (RN'.renD d' (consL (p,z) (consL (q,z) (mapM M)))))
+           (i d' r (consL (p,u.1.2) (consL (q,u.1.2) M))))) ;
+      inr nf -> \ rx -> CF.efq (N.RelF (RN.brOr p q e0 (RN.renD d) M (inl u)) (RN'.brOr p q (N.mE e0) (RN'.renD d') (mapM M) (inr nf))) rx } ;
+    inr nf -> split {
+      inl u' -> \ rx -> CF.efq (N.RelF (RN.brOr p q e0 (RN.renD d) M (inr nf)) (RN'.brOr p q (N.mE e0) (RN'.renD d') (mapM M) (inl u'))) rx ;
+      inr nf' -> \ rx -> (RN'.renD d' (mapM M),(refl (cOr p q (N.mE e0) (RN'.renD d' (mapM M))),i d' r M)) } } ;
+  brAllR (p : BI.Form) (e0 : LT.LL A) (kk : N.LA -> N.FA) (i : (x : N.LA) -> IH (kk x)) (kk' : N.LB -> N.FB)
+      (r : (x : N.LA) -> N.RelF (kk x) (kk' (N.lm x))) (M : W.List RN.Mk) :
+      (x : RN.FD (allF p,e0) M) (x' : RN'.FD (allF p,N.mE e0) (mapM M)) -> RFD (allF p,e0) M x x' ->
+      N.RelF (RN.brAll p e0 (\ y -> RN.renD (kk y)) M x) (RN'.brAll p (N.mE e0) (\ y -> RN'.renD (kk' y)) (mapM M) x') = split {
+    inl u -> split {
+      inl u' -> \ rx -> ((\ y -> RN'.renD (kk' y) (consL (p,consL y u'.1.2) (mapM M))),
+        (PL.ap (LT.LL A') N.FB (\ z -> cAll p z (\ y -> RN'.renD (kk' y) (consL (p,consL y u'.1.2) (mapM M))))
+          (RN'.apB' u'.1.2) (N.mE (RN.apB' u.1.2)) (envT u.1.2 u'.1.2 rx),
+         \ y -> preT u.1.2 u'.1.2 rx (\ z -> N.RelF (RN.renD (kk y) (consL (p,consL y u.1.2) M)) (RN'.renD (kk' (N.lm y)) (consL (p,consL (N.lm y) z) (mapM M))))
+           (i y (kk' (N.lm y)) (r y) (consL (p,consL y u.1.2) M)))) ;
+      inr nf -> \ rx -> CF.efq (N.RelF (RN.brAll p e0 (\ y -> RN.renD (kk y)) M (inl u)) (RN'.brAll p (N.mE e0) (\ y -> RN'.renD (kk' y)) (mapM M) (inr nf))) rx } ;
+    inr nf -> split {
+      inl u' -> \ rx -> CF.efq (N.RelF (RN.brAll p e0 (\ y -> RN.renD (kk y)) M (inr nf)) (RN'.brAll p (N.mE e0) (\ y -> RN'.renD (kk' y)) (mapM M) (inl u'))) rx ;
+      inr nf' -> \ rx -> ((\ y -> RN'.renD (kk' y) (mapM M)),(refl (cAll p (N.mE e0) (\ y -> RN'.renD (kk' y) (mapM M))),\ y -> i y (kk' (N.lm y)) (r y) M)) } } ;
+  brExR (p : BI.Form) (e0 : LT.LL A) (w : N.LA) (d : N.FA) (i : IH d) (d' : N.FB) (r : N.RelF d d') (M : W.List RN.Mk) :
+      (x : RN.FD (exF p,e0) M) (x' : RN'.FD (exF p,N.mE e0) (mapM M)) -> RFD (exF p,e0) M x x' ->
+      N.RelF (RN.brEx p e0 w (RN.renD d) M x) (RN'.brEx p (N.mE e0) (N.lm w) (RN'.renD d') (mapM M) x') = split {
+    inl u -> split {
+      inl u' -> \ rx -> (RN'.renD d' (consL (p,consL (N.lm w) u'.1.2) (mapM M)),
+        (PL.ap (LT.LL A') N.FB (\ z -> cEx p z (N.lm w) (RN'.renD d' (consL (p,consL (N.lm w) u'.1.2) (mapM M))))
+          (RN'.apB' u'.1.2) (N.mE (RN.apB' u.1.2)) (envT u.1.2 u'.1.2 rx),
+         preT u.1.2 u'.1.2 rx (\ z -> N.RelF (RN.renD d (consL (p,consL w u.1.2) M)) (RN'.renD d' (consL (p,consL (N.lm w) z) (mapM M))))
+           (i d' r (consL (p,consL w u.1.2) M)))) ;
+      inr nf -> \ rx -> CF.efq (N.RelF (RN.brEx p e0 w (RN.renD d) M (inl u)) (RN'.brEx p (N.mE e0) (N.lm w) (RN'.renD d') (mapM M) (inr nf))) rx } ;
+    inr nf -> split {
+      inl u' -> \ rx -> CF.efq (N.RelF (RN.brEx p e0 w (RN.renD d) M (inr nf)) (RN'.brEx p (N.mE e0) (N.lm w) (RN'.renD d') (mapM M) (inl u'))) rx ;
+      inr nf' -> \ rx -> (RN'.renD d' (mapM M),(refl (cEx p (N.mE e0) (N.lm w) (RN'.renD d' (mapM M))),i d' r M)) } } ;
+  brXrR (s k : W.N) (e0 : LT.LL A) (mu : A.car) (d : N.FA) (i : IH d) (d' : N.FB) (r : N.RelF d d') (M : W.List RN.Mk) :
+      (x : RN.FD (xF true s k,e0) M) (x' : RN'.FD (xF true s k,N.mE e0) (mapM M)) -> RFD (xF true s k,e0) M x x' ->
+      N.RelF (RN.brXr s k e0 mu (RN.renD d) M x) (RN'.brXr s k (N.mE e0) (g.1 mu) (RN'.renD d') (mapM M) x') = split {
+    inl u -> split {
+      inl u' -> \ rx -> (RN'.renD d' (mapM M),
+        (PL.ap (LT.LL A') N.FB (\ z -> cXr s k z (g.1 mu) (RN'.renD d' (mapM M))) (RN'.apB' u'.1.2) (N.mE (RN.apB' u.1.2)) (envT u.1.2 u'.1.2 rx),i d' r M)) ;
+      inr nf -> \ rx -> CF.efq (N.RelF (RN.brXr s k e0 mu (RN.renD d) M (inl u)) (RN'.brXr s k (N.mE e0) (g.1 mu) (RN'.renD d') (mapM M) (inr nf))) rx } ;
+    inr nf -> split {
+      inl u' -> \ rx -> CF.efq (N.RelF (RN.brXr s k e0 mu (RN.renD d) M (inr nf)) (RN'.brXr s k (N.mE e0) (g.1 mu) (RN'.renD d') (mapM M) (inl u'))) rx ;
+      inr nf' -> \ rx -> (RN'.renD d' (mapM M),(refl (cXr s k (N.mE e0) (g.1 mu) (RN'.renD d' (mapM M))),i d' r M)) } } ;
+  -- move the target to the image constructor
+  jT (d : N.FA) (D d' : N.FB) (e : Id N.FB d' D) (M : W.List RN.Mk) (v : N.RelF (RN.renD d M) (RN'.renD D (mapM M))) : N.RelF (RN.renD d M) (RN'.renD d' (mapM M)) =
+    PL.subst N.FB (\ z -> N.RelF (RN.renD d M) (RN'.renD z (mapM M))) D d' (PL.sym N.FB d' D e) v ;
+  renR : (d : N.FA) -> IH d = split {
+    cAx b k e0 -> \ d' rd M -> jT (cAx b k e0) (cAx b k (N.mE e0)) d' rd M
+      (brAxR b k e0 M (RN.findD (atF b k,e0) M) (RN'.findD (atF b k,N.mE e0) (mapM M)) (rfd (atF b k,e0) M)) ;
+    cAnd p q e0 d0 d1 | i0 i1 -> \ d' rd M -> jT (cAnd p q e0 d0 d1) (cAnd p q (N.mE e0) rd.1 rd.2.1) d' rd.2.2.1 M
+      (brAndR p q e0 d0 d1 i0 i1 rd.1 rd.2.1 rd.2.2.2.1 rd.2.2.2.2 M (RN.findD (andF p q,e0) M) (RN'.findD (andF p q,N.mE e0) (mapM M)) (rfd (andF p q,e0) M)) ;
+    cOr p q e0 d | i -> \ d' rd M -> jT (cOr p q e0 d) (cOr p q (N.mE e0) rd.1) d' rd.2.1 M
+      (brOrR p q e0 d i rd.1 rd.2.2 M (RN.findD (orF p q,e0) M) (RN'.findD (orF p q,N.mE e0) (mapM M)) (rfd (orF p q,e0) M)) ;
+    cAll p e0 kk | i -> \ d' rd M -> jT (cAll p e0 kk) (cAll p (N.mE e0) rd.1) d' rd.2.1 M
+      (brAllR p e0 kk i rd.1 rd.2.2 M (RN.findD (allF p,e0) M) (RN'.findD (allF p,N.mE e0) (mapM M)) (rfd (allF p,e0) M)) ;
+    cEx p e0 w d | i -> \ d' rd M -> jT (cEx p e0 w d) (cEx p (N.mE e0) (N.lm w) rd.1) d' rd.2.1 M
+      (brExR p e0 w d i rd.1 rd.2.2 M (RN.findD (exF p,e0) M) (RN'.findD (exF p,N.mE e0) (mapM M)) (rfd (exF p,e0) M)) ;
+    cXr s k e0 mu d | i -> \ d' rd M -> jT (cXr s k e0 mu d) (cXr s k (N.mE e0) (g.1 mu) rd.1) d' rd.2.1 M
+      (brXrR s k e0 mu d i rd.1 rd.2.2 M (RN.findD (xF true s k,e0) M) (RN'.findD (xF true s k,N.mE e0) (mapM M)) (rfd (xF true s k,e0) M)) ;
+    cXl s k e0 oo kk | i -> \ d' rd M -> jT (cXl s k e0 oo kk) (cXl s k (N.mE e0) (N.om oo) rd.1) d' rd.2.1 M
+      ((\ y -> RN'.renD (rd.1 y) (mapM M)),(refl (cXl s k (N.mE e0) (N.om oo) (\ y -> RN'.renD (rd.1 y) (mapM M))),
+        \ y -> i y (rd.1 (N.lm y)) (rd.2.2 y) M)) } ;
+} ;
