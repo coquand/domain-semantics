@@ -1,0 +1,160 @@
+-- Tree subdivision: a worked example of a functorial rank bound.
+--
+-- A rooted tree is the forest of the children of its root (Fo: fnil, or
+-- fcons ch sib = a vertex with children ch, followed by the siblings sib).
+-- An X-ranking assigns a point of X to every vertex, strictly decreasing
+-- from parent to child; it is a labelling (LabF) together with the proof
+-- of the inequalities (OkF), so the tree does not depend on the ranking.
+-- S(T) inserts a vertex in every edge; D(X) = X x {0 < 1}, lexicographic.
+--   (1) lift_X : Rank_X(T) -> Rank_{D X}(S T): an old vertex labelled x gets
+--       (x,0), the vertex inserted above a child labelled y gets (y,1).
+--   (2) naturality: lift_Y (f . r) = D(f) . lift_X r, pointwise.
+--   (3) support: (x,i) is in the image of D(f) iff x is in the image of f;
+--       so {x} is the least support of (x,i).
+--   (4) sharpness: the path of n edges subdivides to the path of 2n edges,
+--       rankable in 2n+1 points and not in 2n points.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module PS = PtyxSum[l] ;
+
+data Fo : U l = fnil | fcons (ch sib : Fo) ;
+-- subdivision
+subF : Fo -> Fo = split {
+  fnil -> fnil ;
+  fcons ch sib | rc rs -> fcons (fcons rc fnil) rs } ;
+-- rankings: labels, and the decreasing condition below a parent label p
+Lt (X : DP.LO) (a b : X.car) : U l = Id W.Bool (W.isLt (X.cmp a b)) true ;
+LabF (X : DP.LO) : Fo -> U l = split { fnil -> W.Unit ; fcons ch sib | rc rs -> X.car * (rc * rs) } ;
+OkF (X : DP.LO) : (c : Fo) -> X.car -> LabF X c -> U l = split {
+  fnil -> \ p L -> W.Unit ;
+  fcons ch sib | rc rs -> \ p L -> Lt X L.1 p * (rc L.1 L.2.1 * rs p L.2.2) } ;
+-- an X-ranking of the tree whose root has children T
+Rank (X : DP.LO) (T : Fo) : U l = (x : X.car) * ((L : LabF X T) * OkF X T x L) ;
+-- relabelling along a map
+mapL (X Y : DP.LO) (f : DP.Map X Y) : (c : Fo) -> LabF X c -> LabF Y c = split {
+  fnil -> \ L -> tt ;
+  fcons ch sib | rc rs -> \ L -> (f.1 L.1,(rc L.2.1,rs L.2.2)) } ;
+ltMap (X Y : DP.LO) (f : DP.Map X Y) (a b : X.car) (h : Lt X a b) : Lt Y (f.1 a) (f.1 b) =
+  PL.trans W.Bool (W.isLt (Y.cmp (f.1 a) (f.1 b))) (W.isLt (X.cmp a b)) true
+    (PL.ap W.O3 W.Bool W.isLt (Y.cmp (f.1 a) (f.1 b)) (X.cmp a b) (f.2 a b)) h ;
+mapOk (X Y : DP.LO) (f : DP.Map X Y) : (c : Fo) (p : X.car) (L : LabF X c) -> OkF X c p L -> OkF Y c (f.1 p) (mapL X Y f c L) = split {
+  fnil -> \ p L o -> tt ;
+  fcons ch sib | rc rs -> \ p L o -> (ltMap X Y f L.1 p o.1,(rc L.1 L.2.1 o.2.1,rs p L.2.2 o.2.2)) } ;
+mapRank (X Y : DP.LO) (f : DP.Map X Y) (T : Fo) (r : Rank X T) : Rank Y T = (f.1 r.1,(mapL X Y f T r.2.1,mapOk X Y f T r.1 r.2.1 r.2.2)) ;
+
+------------------------------------------------------------------------
+-- D(X) = X x {0 < 1}, lexicographic; D(f)(x,i) = (f x,i)
+two : DP.LO = PS.SumLO[LT.one,LT.one].lo ;
+D (X : DP.LO) : DP.LO = LT.Lex[X,two].lo ;
+p0 (X : DP.LO) (x : X.car) : (D X).car = (x,inl tt) ;
+p1 (X : DP.LO) (x : X.car) : (D X).car = (x,inr tt) ;
+Dm (X Y : DP.LO) (f : DP.Map X Y) : DP.Map (D X) (D Y) =
+  (\ p -> (f.1 p.1,p.2),\ p q -> PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (two.cmp p.2 q.2)) (Y.cmp (f.1 p.1) (f.1 q.1)) (X.cmp p.1 q.1) (f.2 p.1 q.1)) ;
+-- the two inequalities along a subdivided edge
+ltNew (X : DP.LO) (y x : X.car) (h : Lt X y x) : Lt (D X) (p1 X y) (p0 X x) =
+  PL.trans W.Bool (W.isLt (W.lexO3 (X.cmp y x) gt)) (W.isLt (W.lexO3 lt gt)) true
+    (PL.ap W.O3 W.Bool (\ o -> W.isLt (W.lexO3 o gt)) (X.cmp y x) lt (W.isLt-sound (X.cmp y x) h)) (refl true) ;
+ltOld (X : DP.LO) (y : X.car) : Lt (D X) (p0 X y) (p1 X y) =
+  PL.ap W.O3 W.Bool (\ o -> W.isLt (W.lexO3 o lt)) (X.cmp y y) eq (X.crefl y) ;
+
+------------------------------------------------------------------------
+-- (1) THE RANKING OF THE SUBDIVIDED TREE
+liftL (X : DP.LO) : (c : Fo) -> LabF X c -> LabF (D X) (subF c) = split {
+  fnil -> \ L -> tt ;
+  fcons ch sib | rc rs -> \ L -> (p1 X L.1,((p0 X L.1,(rc L.2.1,tt)),rs L.2.2)) } ;
+liftOk (X : DP.LO) : (c : Fo) (p : X.car) (L : LabF X c) -> OkF X c p L -> OkF (D X) (subF c) (p0 X p) (liftL X c L) = split {
+  fnil -> \ p L o -> tt ;
+  fcons ch sib | rc rs -> \ p L o -> (ltNew X L.1 p o.1,((ltOld X L.1,(rc L.1 L.2.1 o.2.1,tt)),rs p L.2.2 o.2.2)) } ;
+lift (X : DP.LO) (T : Fo) (r : Rank X T) : Rank (D X) (subF T) = (p0 X r.1,(liftL X T r.2.1,liftOk X T r.1 r.2.1 r.2.2)) ;
+
+------------------------------------------------------------------------
+-- (2) NATURALITY: lift_Y (f . r) = D(f) . lift_X r at every vertex
+natL (X Y : DP.LO) (f : DP.Map X Y) : (c : Fo) (L : LabF X c) ->
+    Id (LabF (D Y) (subF c)) (liftL Y c (mapL X Y f c L)) (mapL (D X) (D Y) (Dm X Y f) (subF c) (liftL X c L)) = split {
+  fnil -> \ L -> refl tt ;
+  fcons ch sib | rc rs -> \ L -> W.ap2 (LabF (D Y) (subF ch)) (LabF (D Y) (subF sib)) (LabF (D Y) (subF (fcons ch sib)))
+    (\ a b -> (p1 Y (f.1 L.1),((p0 Y (f.1 L.1),(a,tt)),b)))
+    (liftL Y ch (mapL X Y f ch L.2.1)) (mapL (D X) (D Y) (Dm X Y f) (subF ch) (liftL X ch L.2.1))
+    (liftL Y sib (mapL X Y f sib L.2.2)) (mapL (D X) (D Y) (Dm X Y f) (subF sib) (liftL X sib L.2.2))
+    (rc L.2.1) (rs L.2.2) } ;
+natRoot (X Y : DP.LO) (f : DP.Map X Y) (T : Fo) (r : Rank X T) :
+    Id (D Y).car (lift Y T (mapRank X Y f T r)).1 ((Dm X Y f).1 (lift X T r).1) = refl (p0 Y (f.1 r.1)) ;
+natLab (X Y : DP.LO) (f : DP.Map X Y) (T : Fo) (r : Rank X T) :
+    Id (LabF (D Y) (subF T)) (lift Y T (mapRank X Y f T r)).2.1 (mapRank (D X) (D Y) (Dm X Y f) (subF T) (lift X T r)).2.1 =
+  natL X Y f T r.2.1 ;
+
+------------------------------------------------------------------------
+-- (3) SUPPORT
+Im (A B : DP.LO) (g : DP.Map A B) (b : B.car) : U l = (a : A.car) * Id B.car (g.1 a) b ;
+suppTo (X Y : DP.LO) (f : DP.Map X Y) (y : Y.car) (i : two.car) (h : Im (D X) (D Y) (Dm X Y f) (y,i)) : Im X Y f y =
+  (h.1.1,PL.ap (D Y).car Y.car (\ z -> z.1) (f.1 h.1.1,h.1.2) (y,i) h.2) ;
+suppFrom (X Y : DP.LO) (f : DP.Map X Y) (y : Y.car) (i : two.car) (h : Im X Y f y) : Im (D X) (D Y) (Dm X Y f) (y,i) =
+  ((h.1,i),PL.ap Y.car (D Y).car (\ z -> (z,i)) (f.1 h.1) y h.2) ;
+-- the one-point suborder {x}
+pt (Y : DP.LO) (y : Y.car) : DP.Map LT.one Y = (\ u -> y,\ u v -> Y.crefl y) ;
+-- {x} supports (x,i) ...
+suppPt (Y : DP.LO) (y : Y.car) (i : two.car) : Im (D LT.one) (D Y) (Dm LT.one Y (pt Y y)) (y,i) =
+  suppFrom LT.one Y (pt Y y) y i (tt,refl y) ;
+-- ... and is contained in every support: if (x,i) factors through f,
+-- the point {x} factors through f
+suppLeast (X Y : DP.LO) (f : DP.Map X Y) (y : Y.car) (i : two.car) (h : Im (D X) (D Y) (Dm X Y f) (y,i)) :
+    (g : DP.Map LT.one X) * ((u : W.Unit) -> Id Y.car (f.1 (g.1 u)) ((pt Y y).1 u)) =
+  (pt X (suppTo X Y f y i h).1,\ u -> (suppTo X Y f y i h).2) ;
+
+------------------------------------------------------------------------
+-- (4) SHARPNESS ON PATHS.  Pk = the path of k edges.
+P : W.N -> Fo = split { zero -> fnil ; suc k | r -> fcons r fnil } ;
+dbl : W.N -> W.N = split { zero -> zero ; suc k | r -> suc (suc r) } ;
+subP : (n : W.N) -> Id Fo (subF (P n)) (P (dbl n)) = split {
+  zero -> refl fnil ;
+  suc n | r -> PL.ap Fo Fo (\ t -> fcons (fcons t fnil) fnil) (subF (P n)) (P (dbl n)) r } ;
+-- the finite order {0,...,m-1}
+ltN (a b : W.N) : W.Bool = W.isLt (W.cmpN a b) ;
+Fin (m : W.N) : DP.LO = new DP.LO[car := (k : W.N) * Id W.Bool (ltN k m) true, cmp := \ p q -> W.cmpN p.1 q.1,
+  ceq := \ p q h -> PL.Sigma-eq W.N (\ k -> Id W.Bool (ltN k m) true) p.1 q.1 p.2 q.2 (W.cmpN-eq p.1 q.1 h) (W.HB.uip (ltN q.1 m) true),
+  crefl := \ p -> W.cmpN-refl p.1, cflip := \ p q -> W.cmpN-flip p.1 q.1, ctrans := \ p q r h k -> W.cmpN-trans p.1 q.1 r.1 h k] ;
+ltSuc : (k : W.N) -> Id W.Bool (ltN k (suc k)) true = split { zero -> refl true ; suc k | r -> r } ;
+ltTr (a b c : W.N) (h : Id W.Bool (ltN a b) true) (h' : Id W.Bool (ltN b c) true) : Id W.Bool (ltN a c) true =
+  PL.ap W.O3 W.Bool W.isLt (W.cmpN a c) lt (W.cmpN-trans a b c (W.isLt-sound (W.cmpN a b) h) (W.isLt-sound (W.cmpN b c) h')) ;
+-- upper bound: the path of k edges in k+1 points (labels k, k-1, ..., 0)
+labP (m : W.N) : (k : W.N) -> Id W.Bool (ltN k m) true -> LabF (Fin m) (P k) = split {
+  zero -> \ h -> tt ;
+  suc k | r -> \ h -> ((k,ltTr k (suc k) m (ltSuc k) h),(r (ltTr k (suc k) m (ltSuc k) h),tt)) } ;
+okP (m : W.N) : (k : W.N) (h : Id W.Bool (ltN k m) true) -> OkF (Fin m) (P k) (k,h) (labP m k h) = split {
+  zero -> \ h -> tt ;
+  suc k | r -> \ h -> (ltSuc k,(r (ltTr k (suc k) m (ltSuc k) h),tt)) } ;
+rankPath (k : W.N) : Rank (Fin (suc k)) (P k) = ((k,ltSuc k),(labP (suc k) k (ltSuc k),okP (suc k) k (ltSuc k))) ;
+-- the subdivided path of n edges in 2n+1 points
+upper (n : W.N) : Rank (Fin (suc (dbl n))) (subF (P n)) =
+  PL.subst Fo (\ t -> Rank (Fin (suc (dbl n))) t) (P (dbl n)) (subF (P n)) (PL.sym Fo (subF (P n)) (P (dbl n)) (subP n)) (rankPath (dbl n)) ;
+-- lower bound: a ranking of the path of k edges has its root label >= k
+leN : W.N -> W.N -> W.Bool = split {
+  zero -> \ n -> true ;
+  suc k | r -> split { zero -> false ; suc n -> r n } } ;
+ltLe : (a b : W.N) -> Id W.Bool (ltN a b) true -> Id W.Bool (leN (suc a) b) true = split {
+  zero -> split { zero -> \ h -> W.absurdB (Id W.Bool (leN (suc zero) zero) true) h ; suc b -> \ h -> refl true } ;
+  suc a | r -> split { zero -> \ h -> W.absurdB (Id W.Bool (leN (suc (suc a)) zero) true) h ; suc b -> \ h -> r b h } } ;
+leTr : (k a b : W.N) -> Id W.Bool (leN k a) true -> Id W.Bool (leN a b) true -> Id W.Bool (leN k b) true = split {
+  zero -> \ a b h h' -> refl true ;
+  suc k | r -> split {
+    zero -> \ b h h' -> W.absurdB (Id W.Bool (leN (suc k) b) true) h ;
+    suc a -> split {
+      zero -> \ h h' -> W.absurdB (Id W.Bool (leN (suc k) zero) true) h' ;
+      suc b -> \ h h' -> r a b h h' } } } ;
+notSucLe : (m : W.N) -> Id W.Bool (leN (suc m) m) true -> W.Empty = split {
+  zero -> \ h -> W.absurdB W.Empty h ;
+  suc m | r -> \ h -> r h } ;
+depth (m : W.N) : (k : W.N) (p : (Fin m).car) (L : LabF (Fin m) (P k)) -> OkF (Fin m) (P k) p L -> Id W.Bool (leN k p.1) true = split {
+  zero -> \ p L o -> refl true ;
+  suc k | r -> \ p L o -> leTr (suc k) (suc L.1.1) p.1 (r L.1 L.2.1 o.2.1) (ltLe L.1.1 p.1 o.1) } ;
+-- no ranking of the path of k edges in k points
+noRank (k : W.N) (r : Rank (Fin k) (P k)) : W.Empty =
+  notSucLe k (leTr (suc k) (suc r.1.1) k (depth k k r.1 r.2.1 r.2.2) (ltLe r.1.1 k r.1.2)) ;
+-- the subdivided path of n edges in 2n points: impossible
+lower (n : W.N) (r : Rank (Fin (dbl n)) (subF (P n))) : W.Empty =
+  noRank (dbl n) (PL.subst Fo (\ t -> Rank (Fin (dbl n)) t) (subF (P n)) (P (dbl n)) (subP n) r) ;
