@@ -1,0 +1,85 @@
+-- PLAN-ID1, homogeneity of S4 (Girard 11.4.4(iii), the action on maps of
+-- the outputs actually computed by BetaIDS4.Thm.thm).
+--
+--   hom : for IObj o, o' related by (c, tau) (RelIn: tops, end sequents,
+--   rules natural, sigma natural below top), accessibility certificates
+--   ac, ac', well-orders Y, Y' and f : Y -> Y', there is
+--   e : E -> E' between the two computed extensions with
+--   RelF (d, d') along beta + e : kY + E -> k'Y' + E', where
+--   beta = tau Y' . km f, for (E, d) = thm o ac Y wY and
+--   (E', d') = thm o' ac' Y' wY'.
+--
+-- The node relation NodeT is assembled from the case analysis
+-- (BetaIDS4HomNode.Cases) and its three special cases: (xl) stage
+-- premises (BetaIDS4HomXl), (r-bar) above top (BetaIDS4HomRb), kind III
+-- (BetaIDS4HomK3N); the accessibility induction is Stmt.Ind.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module BI = BetaID[l] ;
+module BT = BetaIDTr[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module SH = BetaIDS4Hom[l] ;
+module HT = BetaIDS4HomThm[l] ;
+
+module Hom (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module ST = HT.Stmt[ev,phi,evN,hPos] ;
+  module R = SH.Rel[ev,phi,evN] ;
+  -- the node relation
+  nodeH : ST.NodeT = \ o o' ih ih' ihr c tau rl Y Y' wY wY' f ->
+    BetaIDS4HomNode[l].NodeD[ev,phi,evN,hPos,o,o',ih,ih',ihr,c,tau,rl,Y,Y',wY,wY',f].Cases[
+      \ i oo0 e e' -> BetaIDS4HomXl[l].XlRel[ev,phi,evN,hPos,o,o',ih,ih',ihr,c,tau,rl,Y,Y',wY,wY',f,i,oo0,
+        BetaIDS4HomNode[l].NodeD[ev,phi,evN,hPos,o,o',ih,ih',ihr,c,tau,rl,Y,Y',wY,wY',f].MZ.om oo0,e,e'].spr,
+      \ i mu eY h mu' eY' h' -> BetaIDS4HomRb[l].RBarRel[ev,phi,evN,hPos,o,o',ih,ih',ihr,c,tau,rl,Y,Y',wY,wY',f,i,mu,eY,h,mu',eY',h'].out,
+      BetaIDS4HomK3N[l].K3SelRel[ev,phi,evN,hPos,o,o',ih,ih',ihr,c,tau,rl,Y,Y',wY,wY',f].hk3].out ;
+  module IT = ST.Ind[nodeH] ;
+  -- THE THEOREM: homogeneity of the computed outputs
+  hom : ST.Goal = IT.thm ;
+
+  ----------------------------------------------------------------------
+  -- the same family: o' = o, c = id, tau = id
+  module IdM (A : DP.LO) (t : A.car) {
+    module M = BT.Mp[ev,phi,A,A,LC.idMap A,S4.evMap ev evN A A (LC.idMap A),t] ;
+    lmId (a : I.Lb A) : Id (I.Lb A) (M.lm a) a =
+      PL.ap (W.Or W.Unit A.car) (I.Lb A) (\ m -> (a.1,m)) (LT.omap A A (LC.idMap A) a.2) a.2 (LT.omap-id A a.2) ;
+    cId (c0 : I.Clo A) : Id (I.Clo A) (M.mC c0) c0 = PL.ap (LT.LL A) (I.Clo A) (\ z -> (c0.1,z)) (M.mE c0.2) c0.2 (LT.mapL-id A c0.2) ;
+    sId (G : I.Seq A) : Id (I.Seq A) (M.mS G) G =
+      PL.trans (I.Seq A) (M.mS G) (W.map (I.Clo A) (I.Clo A) (\ x -> x) G) G
+        (KT.map-ext (I.Clo A) (I.Clo A) M.mC (\ x -> x) cId G) (W.map-id (I.Clo A) G) ;
+    rId : (r : I.Rule A) -> Id (I.Rule A) (M.mR r) r = split {
+      axR i -> refl (axR i) ; andR i -> refl (andR i) ; orR i -> refl (orR i) ; allR i -> refl (allR i) ;
+      exR i w -> PL.ap (I.Lb A) (I.Rule A) (\ z -> exR i z) (M.lm w) w (lmId w) ;
+      cutR f0 e -> PL.ap (LT.LL A) (I.Rule A) (\ z -> cutR f0 z) (M.mE e) e (LT.mapL-id A e) ;
+      xrR i mu -> refl (xrR i mu) ;
+      xlR i oo -> PL.ap (W.Or W.Unit A.car) (I.Rule A) (\ z -> xlR i z) (M.om oo) oo (LT.omap-id A oo) } ;
+  } ;
+  cZid (C Z : DP.LO) : (w : (S4.Sm C Z).car) -> Id (S4.Sm C Z).car ((R.cZ C C (LC.idMap C) Z).1 w) w = split {
+    inl x -> refl (inl x) ; inr z -> refl (inr z) } ;
+  tauId (o : O.IObj) (Z : DP.LO) : DP.Map (o.k Z) (o.k Z) = LC.idMap (o.k Z) ;
+  relId (o : O.IObj) : R.RelIn o o (LC.idMap o.Cst) (tauId o) =
+    ((\ Z -> refl (O.topO o Z)),
+     ((\ Z -> PL.sym (I.Seq (o.k Z)) (IdM[o.k Z,O.topO o Z].M.mS (o.G Z)) (o.G Z) (IdM[o.k Z,O.topO o Z].sId (o.G Z))),
+      ((\ Z zs -> PL.trans (I.Rule (o.k Z)) (o.R Z (LT.mapL (o.k Z) (o.k Z) (LC.idMap (o.k Z)) zs)) (o.R Z zs)
+           (IdM[o.k Z,O.topO o Z].M.mR (o.R Z zs))
+           (PL.ap (LT.LL (o.k Z)) (I.Rule (o.k Z)) (o.R Z) (LT.mapL (o.k Z) (o.k Z) (LC.idMap (o.k Z)) zs) zs (LT.mapL-id (o.k Z) zs))
+           (PL.sym (I.Rule (o.k Z)) (IdM[o.k Z,O.topO o Z].M.mR (o.R Z zs)) (o.R Z zs) (IdM[o.k Z,O.topO o Z].rId (o.R Z zs)))),
+       (\ Z w -> PL.ap (S4.Sm o.Cst Z).car (o.k Z).car (\ z -> (o.sgi Z).1 (inl z)) w ((R.cZ o.Cst o.Cst (LC.idMap o.Cst) Z).1 w)
+           (PL.sym (S4.Sm o.Cst Z).car ((R.cZ o.Cst o.Cst (LC.idMap o.Cst) Z).1 w) w (cZid o.Cst Z w)))))) ;
+  -- SAME-FAMILY COROLLARY: two accessibility certificates of one o and
+  -- f : Y -> Y'; the base map is km f (followed by the identity)
+  homSame (o : O.IObj) (ac ac' : ST.SS.AccI o) (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') :
+      ST.HomOut (o.k Y) (o.k Y') (O.topO o Y) (O.topO o Y') (ST.baseF o o (tauId o) Y Y' f)
+        (ST.baseTop o o (LC.idMap o.Cst) (tauId o) (relId o) Y Y' f) (o.G Y) (o.G Y')
+        (ST.T.thm o ac Y wY) (ST.T.thm o ac' Y' wY') =
+    hom o o (LC.idMap o.Cst) (tauId o) (relId o) ac ac' Y Y' wY wY' f ;
+} ;

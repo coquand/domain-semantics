@@ -1,0 +1,165 @@
+-- PLAN-ID1, homogeneity of S4: kind III nodes (K3Node / K3Sel).
+-- The positive premise is compared at (Y, Y', f) by the induction
+-- hypothesis, giving e1 : E1 -> E1'; this determines
+-- f1 = f + ((1 + t) + e1) : V1 -> V1', t the upper-tail map of beta; the
+-- negative premise is compared at (V1, V1', f1), giving e2.  S2C commutes
+-- (S2CRel) and so does the transport back along h (Square), so the output
+-- extensions E3 = E1 + (T1 + E2) are related by e1 + ((1 + t1) + e2).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module PS = PtyxSum[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BT = BetaIDTr[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module SH = BetaIDS4Hom[l] ;
+module BH = BetaIDHom[l] ;
+module HR = BetaIDS4HomReg[l] ;
+module HT = BetaIDS4HomThm[l] ;
+module K3 = BetaIDS4HomK3[l] ;
+
+module K3NodeRel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o o' : S4.Obj[ev,phi,evN].IObj)
+  (ih : (s : S4.SSteps[ev,phi,evN].Step o) -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o s))
+  (ih' : (s : S4.SSteps[ev,phi,evN].Step o') -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o' s))
+  (ihr : HT.Stmt[ev,phi,evN,hPos].IHR o o' ih ih')
+  (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z)) (rl : SH.Rel[ev,phi,evN].RelIn o o' c tau)
+  (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y')
+  (nP nN s k : W.N) (e0 : LT.LL (o.k Y))
+  (hbP : Id W.Bool (BI.ID[ev,phi].br (o.k Y) (S4.Obj[ev,phi,evN].topO o Y) (o.R Y nilL) (nP,inl tt)) true)
+  (hbN : Id W.Bool (BI.ID[ev,phi].br (o.k Y) (S4.Obj[ev,phi,evN].topO o Y) (o.R Y nilL) (nN,inl tt)) true)
+  (eP : Id (BI.ID[ev,phi].Seq (o.k Y)) (BI.ID[ev,phi].step (o.k Y) (o.G Y) (o.R Y nilL) (nP,inl tt))
+     (BI.ID[ev,phi].app (o.k Y) (o.G Y) (consL (xF true s k,e0) nilL)))
+  (eN : Id (BI.ID[ev,phi].Seq (o.k Y)) (BI.ID[ev,phi].step (o.k Y) (o.G Y) (o.R Y nilL) (nN,inl tt))
+     (BI.ID[ev,phi].app (o.k Y) (o.G Y) (consL (xF false s k,e0) nilL)))
+  (hbar : Id (W.Or W.Unit (o.k Y).car) (BI.ID[ev,phi].nthL (o.k Y) s e0).2 (inl tt))
+  (e0' : LT.LL (o'.k Y'))
+  (hbP' : Id W.Bool (BI.ID[ev,phi].br (o'.k Y') (S4.Obj[ev,phi,evN].topO o' Y') (o'.R Y' nilL) (nP,inl tt)) true)
+  (hbN' : Id W.Bool (BI.ID[ev,phi].br (o'.k Y') (S4.Obj[ev,phi,evN].topO o' Y') (o'.R Y' nilL) (nN,inl tt)) true)
+  (eP' : Id (BI.ID[ev,phi].Seq (o'.k Y')) (BI.ID[ev,phi].step (o'.k Y') (o'.G Y') (o'.R Y' nilL) (nP,inl tt))
+     (BI.ID[ev,phi].app (o'.k Y') (o'.G Y') (consL (xF true s k,e0') nilL)))
+  (eN' : Id (BI.ID[ev,phi].Seq (o'.k Y')) (BI.ID[ev,phi].step (o'.k Y') (o'.G Y') (o'.R Y' nilL) (nN,inl tt))
+     (BI.ID[ev,phi].app (o'.k Y') (o'.G Y') (consL (xF false s k,e0') nilL)))
+  (hbar' : Id (W.Or W.Unit (o'.k Y').car) (BI.ID[ev,phi].nthL (o'.k Y') s e0').2 (inl tt))
+  (eE0 : Id (LT.LL (o'.k Y')) e0' (LT.mapL (o.k Y) (o'.k Y') (HT.Stmt[ev,phi,evN,hPos].baseF o o' tau Y Y' f) e0)) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module ST = HT.Stmt[ev,phi,evN,hPos] ;
+  module KN = S4.K3Node[ev,phi,evN,hPos,o,ih,Y,wY,nP,nN,s,k,e0,hbP,hbN,eP,eN,hbar] ;
+  module KN' = S4.K3Node[ev,phi,evN,hPos,o',ih',Y',wY',nP,nN,s,k,e0',hbP',hbN',eP',eN',hbar'] ;
+  A : DP.LO = o.k Y ;
+  A' : DP.LO = o'.k Y' ;
+  top : A.car = O.topO o Y ;
+  top' : A'.car = O.topO o' Y' ;
+  beta : DP.Map A A' = ST.baseF o o' tau Y Y' f ;
+  bt : Id A'.car (beta.1 top) top' = ST.baseTop o o' c tau rl Y Y' f ;
+  -- the positive premises, at (Y, Y', f)
+  xr : ST.HomOut A A' top top' beta bt (I.step A (o.G Y) (o.R Y nilL) (nP,inl tt)) (I.step A' (o'.G Y') (o'.R Y' nilL) (nP,inl tt)) KN.x KN'.x =
+    ihr (inl (KN.N0.stNum nP tt hbP)) (inl (KN'.N0.stNum nP tt hbP')) c tau
+      (HR.PShRel[ev,phi,evN,o,o',c,tau,rl,KN.N0.stNum nP tt hbP,KN'.N0.stNum nP tt hbP',\ Z -> refl (nP,inl tt)].rel) Y Y' wY wY' f ;
+  e1 : DP.Map KN.E1 KN'.E1 = xr.1 ;
+  -- the map of the intermediate orders V1 -> V1'
+  module SN = K3.SgNat[ev,phi,evN,hPos,o,o',c,tau,rl,Y,Y',f] ;
+  f1 : DP.Map KN.V1 KN'.V1 = PS.SumMap[Y,S4.Sm KN.C0.T0 KN.E1,Y',S4.Sm KN'.C0.T0 KN'.E1,f,
+    PS.SumMap[KN.C0.T0,KN.E1,KN'.C0.T0,KN'.E1,SN.T.tT,e1].map].map ;
+  -- the negative premises, at (V1, V1', f1)
+  yr : ST.HomOut (o.k KN.V1) (o'.k KN'.V1) (O.topO o KN.V1) (O.topO o' KN'.V1) (ST.baseF o o' tau KN.V1 KN'.V1 f1)
+      (ST.baseTop o o' c tau rl KN.V1 KN'.V1 f1)
+      (I.step (o.k KN.V1) (o.G KN.V1) (o.R KN.V1 nilL) (nN,inl tt)) (I.step (o'.k KN'.V1) (o'.G KN'.V1) (o'.R KN'.V1 nilL) (nN,inl tt)) KN.y KN'.y =
+    ihr (inl (KN.N0.stNum nN tt hbN)) (inl (KN'.N0.stNum nN tt hbN')) c tau
+      (HR.PShRel[ev,phi,evN,o,o',c,tau,rl,KN.N0.stNum nN tt hbN,KN'.N0.stNum nN tt hbN',\ Z -> refl (nN,inl tt)].rel)
+      KN.V1 KN'.V1 KN.wV1 KN'.wV1 f1 ;
+  e2 : DP.Map KN.E2 KN'.E2 = yr.1 ;
+  module Q = K3.K3Sq[ev,phi,evN,hPos,o,o',c,tau,rl,Y,Y',f,KN.E1,KN'.E1,e1,KN.E2,KN'.E2,e2] ;
+  eA : Id KN'.C.A1.car (Q.u1.1 (inl top)) (inl top') = ST.extTop A A' KN.E1 KN'.E1 beta e1 top top' bt ;
+  eK : Id KN'.C.A2.car (Q.u2.1 (inl KN.C.topV)) (inl KN'.C.topV) =
+    ST.extTop (o.k KN.V1) (o'.k KN'.V1) KN.E2 KN'.E2 Q.beta1 e2 (O.topO o KN.V1) (O.topO o' KN'.V1) (ST.baseTop o o' c tau rl KN.V1 KN'.V1 f1) ;
+  -- the displayed environment
+  module RN = HR.RepNat[ev,phi,evN,A,A',top,top',beta,bt,KN.E1,KN'.E1,e1] ;
+  eE : Id (LT.LL KN'.C.A1) KN'.e1 (LT.mapL KN.C.A1 KN'.C.A1 Q.u1 KN.e1) =
+    PL.trans (LT.LL KN'.C.A1) KN'.e1 (KN'.R1.rE (RN.MB.mE e0)) (LT.mapL KN.C.A1 KN'.C.A1 Q.u1 KN.e1)
+      (PL.ap (LT.LL A') (LT.LL KN'.C.A1) KN'.R1.rE e0' (RN.MB.mE e0) eE0) (RN.eN e0) ;
+  -- S2C
+  module SR = K3.S2CRel[ev,phi,evN,hPos,KN.C.A1,KN.C.A2,KN.C.g,KN.C.rho,KN.C.hr,inl top,inl KN.C.topV,KN.C.gTop,KN.wA2,KN.H,s,k,KN.e1,KN.hbar1,
+    KN'.C.A1,KN'.C.A2,KN'.C.g,KN'.C.rho,KN'.C.hr,inl top',inl KN'.C.topV,KN'.C.gTop,KN'.wA2,KN'.H,KN'.e1,KN'.hbar1,
+    Q.u1,Q.u2,Q.F,Q.Gr,eA,eK,eE] ;
+  relRes : SR.UT.RelF KN.res.1 KN'.res.1 =
+    SR.rel KN.x.2.2.1 KN.okL KN.y.2.2.1 KN.okR KN'.x.2.2.1 KN'.okL KN'.y.2.2.1 KN'.okR xr.2 yr.2 ;
+  -- the transport back along h
+  module SQ = TrCSquare[l].Square[ev,phi,evN,KN.C.A2,S4.Sm A Q.E3,KN'.C.A2,S4.Sm A' Q.E3',Q.hI.1,Q.hI'.1,Q.u2,Q.v3,Q.hI.2.1.1,Q.hI'.2.1.1,
+    KN.C.g.1 (inl top),KN'.C.g.1 (inl top'),SR.SQ.topSq,Q.hN,Q.hInvN,\ la -> W.Unit,\ la -> W.Unit,
+    \ la uu b hb -> S4.isoHr KN.C.A2 (S4.Sm A Q.E3) Q.hI b la hb,\ la uu b hb -> S4.isoHr KN'.C.A2 (S4.Sm A' Q.E3') Q.hI' b la hb] ;
+  out : ST.HomOut A A' top top' beta bt (o.G Y) (o'.G Y') KN.out KN'.out =
+    (Q.e3,HR.RelConvT[ev,phi,S4.Sm A Q.E3,S4.Sm A' Q.E3',Q.v3,S4.evMap ev evN (S4.Sm A Q.E3) (S4.Sm A' Q.E3') Q.v3,
+        Q.hI.1.1 (KN.C.g.1 (inl top)),Q.hI'.1.1 (KN'.C.g.1 (inl top')),SQ.topSq,inl top,inl top',ST.extTop A A' Q.E3 Q.E3' beta Q.e3 top top' bt].relC
+      (KN.Th.mD KN.res.1) (KN'.Th.mD KN'.res.1) (SQ.alg KN.res.1 KN'.res.1 relRes)) ;
+} ;
+
+------------------------------------------------------------------------
+-- the choice of p+ / p- by the sign of the displayed atom is the same on
+-- both sides (the cut formulas agree), and the displayed environments
+-- correspond (e0' = beta e0)
+module K3SelRel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o o' : S4.Obj[ev,phi,evN].IObj)
+  (ih : (s : S4.SSteps[ev,phi,evN].Step o) -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o s))
+  (ih' : (s : S4.SSteps[ev,phi,evN].Step o') -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o' s))
+  (ihr : HT.Stmt[ev,phi,evN,hPos].IHR o o' ih ih')
+  (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z)) (rl : SH.Rel[ev,phi,evN].RelIn o o' c tau)
+  (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module ND = BetaIDS4HomNode[l].NodeD[ev,phi,evN,hPos,o,o',ih,ih',ihr,c,tau,rl,Y,Y',wY,wY',f] ;
+  A : DP.LO = ND.A ;
+  A' : DP.LO = ND.A' ;
+  cutEnv (B : DP.LO) : I.Rule B -> LT.LL B = split {
+    axR i -> nilL ; andR i -> nilL ; orR i -> nilL ; allR i -> nilL ; exR i w -> nilL ; cutR f0 e -> e ; xrR i m -> nilL ; xlR i oo -> nilL } ;
+  eEnv (f0 : BI.Form) (e0 : LT.LL A) (e0' : LT.LL A') (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0))
+      (eY' : Id (I.Rule A') (o'.R Y' nilL) (cutR f0 e0')) : Id (LT.LL A') e0' (LT.mapL A A' ND.beta e0) =
+    PL.ap (I.Rule A') (LT.LL A') (cutEnv A') (cutR f0 e0') (cutR f0 (LT.mapL A A' ND.beta e0))
+      (PL.trans (I.Rule A') (cutR f0 e0') (o'.R Y' nilL) (cutR f0 (LT.mapL A A' ND.beta e0)) (PL.sym (I.Rule A') (o'.R Y' nilL) (cutR f0 e0') eY')
+        (PL.trans (I.Rule A') (o'.R Y' nilL) (ND.MC.MC.mR (o.R Y nilL)) (cutR f0 (LT.mapL A A' ND.beta e0)) ND.er
+          (PL.ap (I.Rule A) (I.Rule A') ND.MC.MC.mR (o.R Y nilL) (cutR f0 e0) eY))) ;
+  sgnR (s k : W.N) (e0 : LT.LL A) (e0' : LT.LL A')
+      (hbar : Id (W.Or W.Unit A.car) (I.nthL A s e0).2 (inl tt)) (hbar' : Id (W.Or W.Unit A'.car) (I.nthL A' s e0').2 (inl tt)) :
+      (b : W.Bool) (er : Id (I.Rule A) (o.R Y nilL) (cutR (xF b s k) e0)) (er' : Id (I.Rule A') (o'.R Y' nilL) (cutR (xF b s k) e0')) ->
+      ND.HO (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].sgn s k hbar b er) (S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].sgn s k hbar' b er') = split {
+    true -> \ er er' -> K3NodeRel[ev,phi,evN,hPos,o,o',ih,ih',ihr,c,tau,rl,Y,Y',wY,wY',f,zero,suc zero,s,k,e0,
+        S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].brL (xF true s k) er zero,S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].brL (xF true s k) er (suc zero),
+        S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].stL (xF true s k) er zero,S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].stL (xF true s k) er (suc zero),hbar,
+        e0',
+        S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].brL (xF true s k) er' zero,S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].brL (xF true s k) er' (suc zero),
+        S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].stL (xF true s k) er' zero,S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].stL (xF true s k) er' (suc zero),hbar',
+        eEnv (xF true s k) e0 e0' er er'].out ;
+    false -> \ er er' -> K3NodeRel[ev,phi,evN,hPos,o,o',ih,ih',ihr,c,tau,rl,Y,Y',wY,wY',f,suc zero,zero,s,k,e0,
+        S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].brL (xF false s k) er (suc zero),S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].brL (xF false s k) er zero,
+        S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].stL (xF false s k) er (suc zero),S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].stL (xF false s k) er zero,hbar,
+        e0',
+        S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].brL (xF false s k) er' (suc zero),S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].brL (xF false s k) er' zero,
+        S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].stL (xF false s k) er' (suc zero),S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].stL (xF false s k) er' zero,hbar',
+        eEnv (xF false s k) e0 e0' er er'].out } ;
+  hk3 : ND.Hk3T = split {
+    atF b k -> \ e0 e0' eY eY' hb hb' -> W.absurdB (ND.HO (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out (atF b k) eY hb)
+      (S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].out (atF b k) eY' hb')) hb ;
+    andF p q -> \ e0 e0' eY eY' hb hb' -> W.absurdB (ND.HO (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out (andF p q) eY hb)
+      (S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].out (andF p q) eY' hb')) hb ;
+    orF p q -> \ e0 e0' eY eY' hb hb' -> W.absurdB (ND.HO (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out (orF p q) eY hb)
+      (S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].out (orF p q) eY' hb')) hb ;
+    allF p -> \ e0 e0' eY eY' hb hb' -> W.absurdB (ND.HO (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out (allF p) eY hb)
+      (S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].out (allF p) eY' hb')) hb ;
+    exF p -> \ e0 e0' eY eY' hb hb' -> W.absurdB (ND.HO (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out (exF p) eY hb)
+      (S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].out (exF p) eY' hb')) hb ;
+    xF b s k -> \ e0 e0' eY eY' hb hb' -> sgnR s k e0 e0'
+      (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].inlEq (I.nthL A s e0).2 hb) (S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].inlEq (I.nthL A' s e0').2 hb')
+      b eY eY' } ;
+} ;
