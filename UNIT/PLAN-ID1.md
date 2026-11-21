@@ -354,6 +354,9 @@ Formalised (`BetaAcc.seg`, in All.seg, green):
   - FC/FE/PC pass to predecessors (Inh).
 - Classical.corrAcc: with LEM2 + DC2 + AC2 (choice over predecessors),
   correct => merely accessible, via BetaPred.Cl.
+- 2026-11-21: certificates are unique (AccR.accProp, funext; J on the
+  root equation), so ClassicalAcc.corrAcc gives the DATA AccO from
+  correctness with LEM2 + DC2 only (no AC2). Still classical.
 
 Expected constructive theorem: cut elimination for ACCESSIBLE ID1
 beta-proofs, output accessible, hence correct. Girard's version follows
@@ -760,9 +763,14 @@ Proof structure (files `BetaIDS4Diag*.seg`, about 960 lines):
     through the shift data c + f, tau . k(f + id), with the upper-tail map
     an identity). The bridge TW -> summands is PropFam over the
     proposition (hm, hlt, w, ew).
-- Remaining: composition across three certificates, inverse laws,
-  certificate independence up to a specified isomorphism, the trace-range
-  laws of 11.4.4(iii); minimality of the km hypothesis.
+- Certificate independence (`BetaIDS4DiagIso.At`, 2026-11-21; argument
+  supplied by the user): certificates are unique (BetaAcc.AccR.accProp),
+  so `outputEq` gives equality of the computed outputs at two certificates
+  (no km hypothesis). Under the km law, `Laws.round` shows that the maps
+  e_ab computed by homSame (at id_Y) are mutually inverse: transport along
+  a = b, then diagId twice. `Laws.iso` is the specified isomorphism.
+- Remaining: composition along arbitrary parameter embeddings, the
+  trace-range laws of 11.4.4(iii); minimality of the km hypothesis.
 
 ## Homogeneity of S4 DONE (2026-11-21, All.seg 35005 declarations, green)
 

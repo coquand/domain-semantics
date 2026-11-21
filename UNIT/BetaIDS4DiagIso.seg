@@ -1,0 +1,43 @@
+-- PLAN-ID1: certificate independence of the S4 outputs.  Certificates are
+-- unique (BetaAcc.AccR.accProp), so the computed outputs at two
+-- certificates are equal (outputEq, no km hypothesis).  Under the
+-- pointwise km identity law, the maps e_ab computed by homSame (at the
+-- identity of Y) are mutually inverse: transport along a = b reduces
+-- e_ba . e_ab to e_aa . e_aa, and diagId applies twice.
+level l ;
+open Base ; open Prelude[l+] ;
+module DP = DilPtyx[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module LT = LabTree[l] ;
+module BI = BetaID[l] ;
+module S4 = BetaIDS4[l] ;
+module W = Dilator[l] ;
+module BO = BetaIDCfOps[l] ;
+
+module At (ev : (X : DP.LO) -> W.N -> LT.LL X -> W.Bool) (phi : BI.Form)
+  (evN : S4.EvN ev) (hp : Id W.Bool (BO.posX phi zero) true)
+  (o : S4.Obj[ev,phi,evN].IObj) (Y : DP.LO) (wY : LW.WF Y) {
+  module SS = S4.SSteps[ev,phi,evN] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module T = S4.Thm[ev,phi,evN,hp] ;
+  module H = BetaIDS4HomFin[l].Hom[ev,phi,evN,hp] ;
+  module Diag = BetaIDS4Diag[l].Fin[ev,phi,evN,hp] ;
+  Cert : U l+ = SS.AccI o ;
+  E (a : Cert) : DP.LO = (T.thm o a Y wY).1 ;
+  -- the outputs do not depend on the certificate
+  outputEq (a b : Cert) : Id (S4.OutM[ev,phi,o.k Y,O.topO o Y].Out (o.G Y)) (T.thm o a Y wY) (T.thm o b Y wY) =
+    ap Cert (S4.OutM[ev,phi,o.k Y,O.topO o Y].Out (o.G Y)) (\ h -> T.thm o h Y wY) a b (SS.AO.accProp o a b) ;
+  module Laws (hk : (Z : DP.LO) (p : (o.k Z).car) -> Id (o.k Z).car ((o.km Z Z (LC.idMap Z)).1 p) p) {
+    e (a b : Cert) : DP.Map (E a) (E b) = (H.homSame o a b Y Y wY wY (LC.idMap Y)).1 ;
+    diag (a : Cert) (z : (E a).car) : Id (E a).car ((e a a).1 z) z =
+      Diag.diagId o a (LC.idMap o.Cst) (H.tauId o) (H.relId o) Y wY (LC.idMap Y) hk
+        (\ w -> refl w) (\ Z p -> refl p) (\ y -> refl y) z ;
+    -- THE INVERSE LAWS
+    round (a b : Cert) : (z : (E a).car) -> Id (E a).car ((e b a).1 ((e a b).1 z)) z =
+      subst Cert (\ h -> (z : (E a).car) -> Id (E a).car ((e h a).1 ((e a h).1 z)) z) a b (SS.AO.accProp o a b)
+        (\ z -> trans (E a).car ((e a a).1 ((e a a).1 z)) ((e a a).1 z) z (diag a ((e a a).1 z)) (diag a z)) ;
+    -- the specified isomorphism between the outputs at two certificates
+    iso (a b : Cert) : S4.Iso (E a) (E b) = (e a b,(e b a,round b a)) ;
+  } ;
+} ;
