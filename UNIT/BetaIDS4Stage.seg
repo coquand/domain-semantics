@@ -1,0 +1,124 @@
+-- PLAN-ID1, S6: the stage-bound corollary.  The model conditions of
+-- BetaID.Snd ask one predicate M(Phi-bar) to contain every phi(I^mu),
+-- mu in A, and to be contained in the union below top: on the output order
+-- kY + E this forces the hierarchy to be stationary from top_Y, losing the
+-- bound.  So Phi-bar is read BY POLARITY (Girard): a negative occurrence
+-- (eliminated below top) by M false, a positive one (introduced at any mu)
+-- by M true.  Cut-free derivations are sound for such split models
+-- (soundCf; no key lemma, the conditions are stated with F(neg phi)).
+-- Applied to the S4 output: from an accessible family proving
+--     forall x (B(x) -> exists y (A(x,y) & B(y)))
+-- we get, at every well-order Y, for the order kY + E returned by
+-- normalisation and every split model,
+--     forall n. M-(n) -> not forall m. not not (F A(n,m) or not M+(m)),
+-- with M- any predicate below the stages < top_Y and M+ any predicate
+-- containing all stages of kY + E: a classical existential bound for y.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LW = LOWF[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BF = BetaIDCf[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+
+notBneq : (b : W.Bool) -> Id W.Bool b (W.notB b) -> W.Empty = split {
+  false -> \ h -> W.absurdB W.Empty h ;
+  true -> \ h -> W.absurdB W.Empty (PL.sym W.Bool true false h) } ;
+
+------------------------------------------------------------------------
+-- refutation semantics with Phi-bar read by polarity
+module PN (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) (top : A.car)
+  (M : W.Bool -> BI.ID[ev,phi].Lb A -> W.N -> U l) {
+  module I = BI.ID[ev,phi] ;
+  module CI = BF.CI[ev,phi,A,top] ;
+  F : BI.Form -> LT.LL A -> U l = split {
+    atF b k -> \ e -> Id W.Bool (ev A k e) (W.notB b) ;
+    andF p q | rp rq -> \ e -> BI.Not (BI.Not (W.Or (rp e) (rq e))) ;
+    orF p q | rp rq -> \ e -> rp e * rq e ;
+    allF p | rp -> \ e -> BI.Not (BI.Not ((n : W.N) * rp (consL (n,inl tt) e))) ;
+    exF p | rp -> \ e -> (n : W.N) -> rp (consL (n,inl tt) e) ;
+    xF b s k -> \ e -> BI.xsF b (M b (I.nthL A s e) (I.nthL A k e).1) } ;
+  AllF : I.Seq A -> U l = split { nilL -> W.Unit ; consL c cs | r -> F c.1 c.2 * r } ;
+  Valid (G : I.Seq A) : U l = BI.Not (AllF G) ;
+  -- a split model: positive occurrences contain the unfoldings at allowed
+  -- stages, negative ones are contained in the union below the bound
+  CondR : U l = (xi t : I.Lb A) (mu : A.car) -> Id W.Bool (I.allowR A mu xi.2) true -> BI.Not (M true xi t.1) ->
+    F phi (I.envP A t (I.stg A mu)) ;
+  CondL : U l = (xi t : I.Lb A) (o : W.Or W.Unit A.car) -> Id W.Bool (I.sameO A o xi.2) true ->
+    ((a : I.Lb A) -> Id W.Bool (I.below A (I.bound A top o) a) true -> BI.Not (F (BI.neg phi) (I.envP A t a))) -> BI.Not (M false xi t.1) ;
+  memF (c : I.Clo A) : (H : I.Seq A) -> CI.Mem c H -> AllF H -> F c.1 c.2 = split {
+    nilL -> \ m g -> CF.efq (F c.1 c.2) m ;
+    consL x xs | r -> \ m g -> CF.or-elim (Id (I.Clo A) x c) (LT.memG (I.Clo A) c xs) (F c.1 c.2)
+      (\ p -> PL.subst (I.Clo A) (\ z -> F z.1 z.2) x c p g.1) (\ m' -> r m' g.2) m } ;
+  numF (p : BI.Form) (e : LT.LL A) (fe : (n : W.N) -> F p (consL (n,inl tt) e)) (n : W.N) :
+      (oo : W.Or W.Unit A.car) -> Id W.Bool (BP.isInl W.Unit A.car oo) true -> F p (consL (n,oo) e) = split {
+    inl u -> \ h -> PL.subst W.Unit (\ v -> F p (consL (n,inl v) e)) tt u (LT.unitEq tt u) (fe n) ;
+    inr z -> \ h -> W.absurdB (F p (consL (n,inr z) e)) h } ;
+  module Snd (condR : CondR) (condL : CondL) {
+    -- SOUNDNESS OF CUT-FREE DERIVATIONS
+    soundCf : (d : CI.C0) (H : I.Seq A) -> CI.Ok d H -> AllF H -> W.Empty = split {
+      cAx b k e -> \ H ok g -> notBneq b
+        (PL.trans W.Bool b (ev A k e) (W.notB b) (PL.sym W.Bool (ev A k e) b ok.2) (memF (atF b k,e) H ok.1 g)) ;
+      cAnd p q e d0 d1 | r0 r1 -> \ H ok g -> memF (andF p q,e) H ok.1 g
+        (\ x -> CF.or-elim (F p e) (F q e) W.Empty (\ fp -> r0 (consL (p,e) H) ok.2.1 (fp,g)) (\ fq -> r1 (consL (q,e) H) ok.2.2 (fq,g)) x) ;
+      cOr p q e d | r -> \ H ok g -> r (consL (p,e) (consL (q,e) H)) ok.2
+        ((memF (orF p q,e) H ok.1 g).1,((memF (orF p q,e) H ok.1 g).2,g)) ;
+      cAll p e kk | r -> \ H ok g -> memF (allF p,e) H ok.1 g
+        (\ z -> r (z.1,inl tt) (consL (p,consL (z.1,inl tt) e) H) (ok.2 (z.1,inl tt) (refl true)) (z.2,g)) ;
+      cEx p e w d | r -> \ H ok g -> r (consL (p,consL w e) H) ok.2.2
+        (numF p e (memF (exF p,e) H ok.1 g) w.1 w.2 ok.2.1,g) ;
+      cXr s k e mu d | r -> \ H ok g -> r (consL (CI.cR k e mu) H) ok.2.2
+        (condR (I.nthL A s e) (I.nthL A k e) mu ok.2.1 (memF (xF true s k,e) H ok.1 g),g) ;
+      cXl s k e o kk | r -> \ H ok g -> memF (xF false s k,e) H ok.1 g
+        (condL (I.nthL A s e) (I.nthL A k e) o ok.2.1 (\ a ha fn -> r a (consL (CI.cL k e a) H) (ok.2.2 a ha) (fn,g))) } ;
+  } ;
+} ;
+
+------------------------------------------------------------------------
+-- the corollary for the S4 output
+module Cor (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o : S4.Obj[ev,phi,evN].IObj) (ac : S4.SSteps[ev,phi,evN].AccI o) (Y : DP.LO) (wY : LW.WF Y) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  A : DP.LO = o.k Y ;
+  top : A.car = O.topO o Y ;
+  -- the output of normalisation at Y
+  out : S4.OutM[ev,phi,A,top].Out (o.G Y) = S4.Thm[ev,phi,evN,hPos].thm o ac Y wY ;
+  E : DP.LO = out.1 ;
+  B : DP.LO = S4.Sm A E ;
+  module R = S4.Rep[ev,phi,A,top,B,S4.inlS A E] ;
+  -- every split model on (kY + E, inl top_Y) validates rep G_Y
+  bound (M : W.Bool -> I.Lb B -> W.N -> U l) (condR : PN[ev,phi,B,inl top,M].CondR) (condL : PN[ev,phi,B,inl top,M].CondL) :
+      PN[ev,phi,B,inl top,M].Valid (R.rS (o.G Y)) =
+    PN[ev,phi,B,inl top,M].Snd[condR,condL].soundCf out.2.2.1 (R.rS (o.G Y)) out.2.2.2 ;
+  ----------------------------------------------------------------------
+  -- the mixed sequent  forall x (B(x) -> exists y (A(x,y) & B(y)))
+  -- in the environment e0 = [bN, bP] (both Phi-bar in the input): the
+  -- negative occurrence reads bN (position 1 under x), the positive one bP
+  -- (position 3 under y, x); pA is any formula, read under y :: x :: e0.
+  module Mixed (pA : BI.Form) (nN nP : W.N)
+    (eG : Id (I.Seq A) (o.G Y) (consL (allF (orF (xF false (suc zero) zero) (exF (andF pA (xF true (suc (suc (suc zero))) zero)))),
+       consL (nN,inl tt) (consL (nP,inl tt) nilL)) nilL)) {
+    fB : BI.Form = allF (orF (xF false (suc zero) zero) (exF (andF pA (xF true (suc (suc (suc zero))) zero)))) ;
+    e0 : LT.LL B = consL (nN,inl tt) (consL (nP,inl tt) nilL) ;
+    module Bd (M : W.Bool -> I.Lb B -> W.N -> U l) (condR : PN[ev,phi,B,inl top,M].CondR) (condL : PN[ev,phi,B,inl top,M].CondL) {
+      module S = PN[ev,phi,B,inl top,M] ;
+      vB : BI.Not (S.F fB e0) = \ f -> bound M condR condL
+        (PL.subst (I.Seq A) (\ G -> S.AllF (R.rS G)) (consL (fB,consL (nN,inl tt) (consL (nP,inl tt) nilL)) nilL) (o.G Y)
+          (PL.sym (I.Seq A) (o.G Y) (consL (fB,consL (nN,inl tt) (consL (nP,inl tt) nilL)) nilL) eG) (f,tt)) ;
+      -- THE STAGE BOUND: x entered below top_Y (M false); then it is
+      -- refutable that every y fails A(x,y) or lies outside the positive
+      -- interpretation, which contains every stage of kY + E
+      stageBound (n : W.N) (hx : M false (nN,inl tt) n) :
+          BI.Not ((m : W.N) -> BI.Not (BI.Not (W.Or (S.F pA (consL (m,inl tt) (consL (n,inl tt) e0))) (BI.Not (M true (nP,inl tt) m))))) =
+        \ hall -> vB (\ k -> k (n,(\ nh -> nh hx,hall))) ;
+    } ;
+  } ;
+} ;

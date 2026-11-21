@@ -714,6 +714,33 @@ Gamma~: stages >= top are replaced by Phi-bar.
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
+## S6 stage bound: first corollary (2026-11-21, BetaIDS4Stage)
+
+- Obstruction found: BetaID.Snd needs ONE predicate M(Phi-bar) with
+  U_{mu in A} phi(I^mu) <= M(Phi-bar) <= U_{nu < top} phi(I^nu). On the
+  output order kY + E (top' = inl top_Y) this forces the hierarchy to be
+  stationary from top_Y: the existing semantics cannot express the bound.
+- Fix (Girard's reading): Phi-bar BY POLARITY. `PN` is the refutation
+  semantics with F(xF b s k) = xsF b (M b label arg); `CondR` constrains
+  M true (positive: contains the unfoldings at allowed stages), `CondL`
+  constrains M false (negative: below the bound, stated with
+  not F(neg phi), so no key lemma). `PN.Snd.soundCf`: cut-free (Cf)
+  derivations are sound for such split models (induction on Cf).
+- `Cor.bound`: for an accessible family o, at every WF Y, every split model
+  on (kY + E, inl top_Y), E the order returned by Thm.thm, validates
+  rep G_Y (Valid = Not AllF).
+- `Cor.Mixed.Bd.stageBound`, for G_Y = forall x (B(x) -> exists y (A(x,y)
+  & B(y))) with both B Phi-bar in the input:
+      M-(n) -> not forall m. not not (F A(n,m) or not M+(m)),
+  M- below the stages < top_Y, M+ containing the unfoldings at every stage
+  of kY + E. Constructively a DOUBLE-NEGATED existential: no witness.
+- CAVEAT: relative to split models; the trivial model (M+ = all, M- =
+  nothing) satisfies the conditions. Teeth need the STANDARD model
+  (I^lambda = U_{mu<lambda} phi(I^mu) by WF recursion on kY + E, with
+  locality of F and wfPhi): not yet constructed.
+- Next: the standard split model; witness extraction from the cut-free
+  derivation (a separate theorem); the coded-tree example.
+
 ## Atomic cuts represented as Phi-bar DONE (2026-11-21)
 
 `Obj.KindOK A top` cut case: `StLow` (below top) or `BarR` (an atom whose
