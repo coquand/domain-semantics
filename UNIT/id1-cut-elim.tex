@@ -1,0 +1,384 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=27mm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[hidelinks]{hyperref}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+\newcommand{\id}{\mathrm{id}}
+\newcommand{\Phib}{\overline{\Phi}}
+\newcommand{\Cst}{\mathrm{Cst}}
+\newcommand{\Acc}{\mathrm{Acc}}
+\newcommand{\Out}{\mathrm{Out}}
+\newcommand{\rep}{\mathrm{rep}}
+\renewcommand{\tt}[1]{\texttt{#1}}
+\title{Cut elimination for $\mathrm{ID}_1$ in $\beta$-logic:\\ a constructive reading of Girard's construction}
+\author{}
+\date{21 November 2026}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We report on a machine-checked, constructive reconstruction of the core of
+Girard's cut elimination for the inductive logic of $\mathrm{ID}_1$ in
+$\beta$-logic \cite[\S11.4]{ptlc2}. The input is a homogeneous family of
+proofs, presented by a functor on well-orders, and the induction is on an
+explicit \emph{accessibility certificate} of this family. For inputs whose
+cuts are of kind I or III, we obtain at every well-order $Y$ a cut-free
+derivation on $kY+E$, where the well-order $E$ is itself an output of the
+construction. Embeddings of the parameter are carried to explicit
+embeddings of these outputs. The central point is Girard's treatment of
+the cut on the completed predicate $\Phib$: the positive premise is
+normalised first, and its output determines the larger order at which the
+negative premise is evaluated. All results below are checked in the Unit
+development (files \tt{BetaIDS4*.seg}, \tt{BetaAcc.seg}); no excluded
+middle and no choice are used, except where stated.
+\end{abstract}
+
+\section{The problem and the setting}
+
+For a positive operator $\Phi(X,x)$, cut elimination for $\mathrm{ID}_1$
+in $\omega$-logic (Pohlers, Buchholz, Sieg) works when the inductive
+predicate occurs only positively in the conclusion. Girard's
+$\Pi^1_2$-logic, or $\beta$-logic, gives full cut elimination with a
+genuine subformula property, at the price of a proof theory built on
+dilators \cite[ch.~11]{ptlc2}. Akiyoshi and Mints \cite{am} obtain complete
+cut elimination for arbitrary sequents in $\omega$-logic with an extended
+$\Omega$-rule, but without a subformula property: the rule for
+$\neg\forall X$ admits an arbitrary instance. Our question is how much of
+Girard's construction is constructive, and where its strength
+(11.6.4: cut elimination implies $\Pi^1_1$-$\mathrm{CA}$) actually enters.
+
+\paragraph{Syntax.} Formulas are built from decidable atoms, $\wedge$,
+$\vee$, number quantifiers, and $X$-atoms whose predicate is read from an
+environment label: either $\Phib$ (the completed fixed point) or a stage
+$I^\mu$ with $\mu$ in a linear order. Rules are the logical rules, the
+$x$-rules $(xr)$ (introduce $I^\mu(t)$ from $\Phi(I^{<\mu},t)$, with a
+choice $\nu<\mu$ recorded as a point) and $(xl)$ (an $\omega$- and
+ordinal-branching rule with a bound), the barred rules for $\Phib$, and
+cuts. Following 11.4.3, a cut is of \emph{kind I} if its formula has no
+$X$-atom, of \emph{kind II} if it is on a stage atom $I^\mu(t)$, and of
+\emph{kind III} if it is on $\Phib(t)$.
+
+\paragraph{Two standing hypotheses.} Atoms depend only on the numbers of
+the labels (\tt{EvN}). The operator satisfies $\mathrm{posX}\,\phi\,0$: the
+$X$-atoms of $\phi$ are positive, read the stage position, and never use
+it as an argument. This gives the invariant ``negative stages lie below
+top'' for cut-free derivations, which is what makes Girard's transfer
+lemma 11.4.6 go through (\tt{BetaIDCfOps.Inv}, \tt{TrL}).
+
+\paragraph{Input families.} An input is a homogeneous $F$-proof, presented
+as a record \tt{IObj}:
+\begin{itemize}
+\item a functor $k$ on linear orders, with maps $k(f):kX\to kY$ for
+embeddings $f$;
+\item a decomposition $\sigma_Y : kY\cong(\Cst+Y)+(1+F'Y)$, natural below
+top, with $\mathrm{top}_Y=\sigma_Y^{-1}(\mathrm{inr}\,(\mathrm{inl}\,\ast))$ and
+$k(f)(\mathrm{top}_X)=\mathrm{top}_Y$;
+\item at each $Y$, an end sequent $G_Y$ and a rule function $R_Y$ on
+addresses, natural in $Y$, locally correct, with every cut of kind I or
+III.
+\end{itemize}
+No functor laws for $k$ are assumed. The decomposition $\sigma$ replaces
+Girard's subfunctor bookkeeping: shifting by an order $D$ gives the family
+$k(D+-)$ with constants $\Cst+D$, and $\sigma$ is re-associated.
+
+\paragraph{Accessibility instead of correctness.} Girard proves 11.4.4 by
+induction on $\pi$ along the predecessor relation of 10.2.9. A predecessor
+of a family is either a plain step (a natural label at the root) or a
+shifted step (a variable ordinal premise, the shift by $D$). Constructively
+we take the inductive accessibility predicate along all predecessors as
+\emph{data}: a well-founded tree whose nodes are the predecessors, with a
+root equation (\tt{BetaAcc.AccR}, \tt{AccP}).
+
+\begin{theorem}[\tt{BetaAcc.accCorr}]
+An accessible object whose functor is functorial and whose trees are
+prefix-closed is correct: its tree at every well-order has a Brouwer
+bound. The proof is constructive.
+\end{theorem}
+
+The trick is that no splitting of the order is needed: a node $a$ at $X$
+is the predecessor with shift $D=X$ and label $k(\mathrm{inl})(a)$, and
+evaluated at the empty order it is the subtree at $a$. The converse is
+Girard's 10.2.9 and is classical.
+
+\begin{theorem}[\tt{BetaAcc.ClassicalAcc.corrAcc}]
+Assuming excluded middle and dependent choice (both at the level of
+large types), every correct object has an accessibility certificate.
+\end{theorem}
+
+An earlier version also needed choice over the predecessors, to collect
+certificates of all children. That hypothesis is gone because certificates
+are unique (Theorem~\ref{thm:accprop} below), so the bar argument of
+\tt{BetaPred.Cl} can eliminate directly into $\Acc$. We read this as
+locating the $\Pi^1_1$-$\mathrm{CA}$ content of Girard's theorem in the
+bar theorem ``correct $\Rightarrow$ accessible''. The rest of this note is
+about what one gets once a certificate is given.
+
+\section{The pointwise theorem}
+
+\paragraph{Outputs.} Fix an input $o$ and a well-order $Y$. Put
+$A=kY$, $\mathrm{top}=\mathrm{top}_Y$. An \emph{output} is a well-order $E$ together with
+a cut-free derivation (an inductive object, \tt{Cf}) of $\rep(G_Y)$ in the
+context $(A+E,\ \mathrm{inl}\,\mathrm{top})$. Here $\rep$ replaces every stage
+label $\ge\mathrm{top}$ by $\Phib$ and keeps the stages below top; this is
+Girard's $\widetilde\Gamma$. The extension $E$ lies above top: it collects
+the ordinal material created by normalisation.
+
+\begin{theorem}[\tt{BetaIDS4.Thm.thm}]\label{thm:pointwise}
+Let $o$ be an input family whose cuts are of kind I or III, and let
+$ac$ be an accessibility certificate for $o$. For every well-order $Y$
+there is a well-order $E$ and a cut-free derivation of $\rep(G_Y)$ on
+$(kY+E,\mathrm{inl}\,\mathrm{top}_Y)$. No excluded middle or choice is used.
+\end{theorem}
+
+The proof is by recursion on the certificate, with a case split on the
+root rule. The rule is read off at the empty order, so that the premise
+steps are natural at every order.
+\begin{itemize}
+\item \emph{Kept rules} (axioms, logical rules, $(xr)$ with choice below
+top, $(xl)$, kind I cuts). The premise outputs live on $A+E_a$, one for
+each label $a$ of $A$. They are combined over the dependent
+lexicographic sum $B=A+\sum_{a}E_a$ (Girard's integral of dilators,
+\tt{DSumLO}), transported to $B$ along maps that are initial only below
+top (Lemma 11.4.6), and the rule is applied. For a kind I cut, the cut
+between cut-free derivations is then eliminated (\texttt{BetaIDCfCut}). The
+premises at constant stages are plain steps. The premises at variable
+stages $\nu=\sigma^{-1}(\mathrm{inl}(\mathrm{inr}\,y))$ are shifts by
+$D=Y$, evaluated at the empty order, and moved back along the
+$\sigma$-map $k(Y+0)\to kY+F'(Y+0)$ (\tt{OutBack}).
+\item \emph{$(\overline{r})$ above top.} If the choice $\mu$ of an
+$(xr)$ rule is $\ge\mathrm{top}$, the premise output proves $\Phi(\Phib,t)$. We add
+one point $c$ on top of the extension, rename the marked $\Phib$ into
+$I^c$ (Lemma 11.4.5, compound case) and apply $(\overline r)$ with
+choice $c$ (\tt{RBar}).
+\item \emph{Kind III cuts.} This is the main case, described next.
+\end{itemize}
+
+\subsection{The cut on the completed predicate}
+
+Consider a cut on $\Phib(t)$, with positive premise $\pi'$ (proving
+$\Gamma,\Phib(t)$) and negative premise $\pi''$ (proving
+$\Gamma,\neg\Phib(t)$). In Girard's construction the negative premise is
+not evaluated at the same order as the positive one. The idea is to
+normalise the positive premise \emph{first}.
+\begin{enumerate}
+\item The induction hypothesis at $(\pi',Y)$ gives an output $E_1$ and a
+cut-free $\widetilde L$ on $A_1=kY+E_1$.
+\item Put
+\[
+ V_1 \;=\; Y+\bigl((1+F'Y)+E_1\bigr).
+\]
+By re-association, $A_1=(\Cst+Y)+(1+F'Y)+E_1$ is $\Cst+V_1$. So the whole
+of $A_1$, including the new material $E_1$ above top, becomes a part of
+the \emph{parameter} of the negative premise.
+\item The induction hypothesis at $(\pi'',V_1)$ gives an output $E_2$ and
+a cut-free $\widetilde R$ on $A_2=kV_1+E_2$.
+\item The embedding $g=\mathrm{inl}\circ\sigma_{V_1}^{-1}\circ
+\mathrm{inl}\circ\alpha\circ(\sigma_Y+\id):A_1\to A_2$ is initial below
+top, and the context of $\widetilde R$ is the $g$-image of that of
+$\widetilde L$: below top by naturality of $\sigma$, at and above top both
+sides are $\Phib$.
+\item Now the stage $\mathrm{top}_{V_1}$ lies above all of $A_1$. The $\Phib$-cut
+between $\widetilde L$ (transported along $g$) and $\widetilde R$ becomes
+a cut on the stage atom $I^{\mathrm{top}_{V_1}}(t)$ (Lemmas 11.4.5 and 11.4.7),
+and that cut is eliminated between cut-free derivations by recursion on
+the stage and then the formula (\tt{S2C}, \texttt{BetaIDCfCut}).
+\item Finally $A_2=kY+(E_1+((1+F'V_1)+E_2))$ by explicit isomorphisms, so
+the result is an output at $Y$ with $E_3=E_1+((1+F'V_1)+E_2)$.
+\end{enumerate}
+This is the constructive content of Girard's treatment: there is no fixed
+order large enough in advance. The order at which the negative premise is
+read is \emph{computed} from the normal form of the positive premise. The
+recursion is legitimate because both $\pi'$ and $\pi''$ are predecessors
+in the accessibility certificate, and the induction hypothesis is stated
+for \emph{all} well-orders.
+
+\begin{remark}
+Correctness of the outputs is automatic, since cut-free derivations are
+inductive objects. The induction hypothesis is used only on input
+predecessors, so the outputs need not be accessible themselves.
+\end{remark}
+
+\section{Homogeneity}
+
+Theorem~\ref{thm:pointwise} alone does not yield a dilator. Girard's
+output $F+F''$ must act on embeddings, and the difficulty is visible in the
+kind III case: the order $V_1$ at which the negative premise is read
+depends on the output $E_1$. To compare two evaluations we must therefore
+compare the outputs of the positive premise first, and then use the
+resulting map as part of the parameter map of the negative premise.
+
+\paragraph{Related inputs.} Two input families $o,o'$ are \emph{related}
+along $c:\Cst\to\Cst'$ and $\tau_Z:kZ\to k'Z$ (\tt{RelIn}) if $\tau$
+preserves top, the end sequents and the rules, and
+$\tau_Z\sigma^{-1}(\mathrm{inl}\,w)=\sigma'^{-1}(\mathrm{inl}((c+\id)w))$.
+For an embedding $f:Y\to Y'$ write $\beta_f=\tau_{Y'}\circ k(f)$.
+
+\paragraph{Relation of derivations.} For $u:A+E\to A'+E'$, a cut-free
+derivation $d'$ \emph{restricts} to $d$ along $u$ (\tt{RelF}) if $d'$ is
+literally the image of $d$: the same rule at each node, with labels,
+points and environments mapped by $u$.
+
+\begin{theorem}[\tt{BetaIDS4HomFin.Hom.hom}]\label{thm:hom}
+Let $o,o'$ be related along $(c,\tau)$, with certificates $ac,ac'$. Let
+$f:Y\to Y'$ be an embedding of well-orders, and let $(E,d)$ and $(E',d')$
+be the outputs of Theorem~\ref{thm:pointwise} at $(o,ac,Y)$ and
+$(o',ac',Y')$. There is an explicitly computed embedding $e:E\to E'$ such
+that $d'$ restricts to $d$ along $\beta_f+e$.
+\end{theorem}
+
+The proof is a second recursion on the certificate, with the target
+certificate split in step. In each case $e$ is assembled from the maps of
+the premises:
+\begin{itemize}
+\item kept rules: $e=\sum_a e_a$ over the label map induced by $\beta_f$
+(\tt{TrCSquare.DSumMap});
+\item $(\overline r)$: $e_2=e_1+\id_1$;
+\item kind III: $e_1:E_1\to E_1'$ comes from the positive premise at
+$(Y,Y',f)$. Then
+\[
+ f_1 \;=\; f+\bigl((1+t)+e_1\bigr)\;:\;V_1\to V_1',
+\]
+where $t$ is the upper-tail map read off $\beta_f$. The negative premise
+is compared at $(V_1,V_1',f_1)$, which gives $e_2$, and
+$e_3=e_1+((1+t_1)+e_2)$.
+\end{itemize}
+The kind III case is where homogeneity is genuinely needed. The parameter
+map $f_1$ of the second comparison is built from the output map $e_1$ of
+the first, so the theorem must be proved for arbitrary embeddings and
+arbitrary related inputs, not only for the identity. The cut itself
+commutes with the maps (\tt{S2CRel}, \tt{BetaIDS4HomRen}), as do the
+renamings 11.4.5 and 11.4.7.
+
+\section{Certificates, identity and inverse laws}
+
+\begin{theorem}[\tt{BetaAcc.AccR.accProp}]\label{thm:accprop}
+For the generic accessibility encoding, any two certificates of the same
+object are equal.
+\end{theorem}
+
+A certificate at $x$ is a tree $\mathrm{node}\,x_0\,fs$ with a proof of
+$x_0=x$ and the certificates of the children. The pair consisting of $x_0$
+and this proof lies in a singleton type, so the root equation is handled
+by path induction, without any assumption that the type of objects is a
+set. Induction on the tree identifies corresponding children, and function
+extensionality identifies the two child families. (The argument is due to
+the reader of a first draft.)
+
+\begin{corollary}[\tt{BetaIDS4DiagIso.At.outputEq}]
+For fixed $o$ and $Y$, the outputs of Theorem~\ref{thm:pointwise} at any
+two certificates are equal. No further hypothesis is needed.
+\end{corollary}
+
+So once accessibility is obtained, the choice of certificate is
+immaterial. The comparison maps of Theorem~\ref{thm:hom} are a separate
+matter: they are computed by recursion, and equality of the outputs does
+not by itself say what the maps are.
+
+\begin{theorem}[\tt{BetaIDS4Diag.Fin.diagId}]\label{thm:diag}
+Assume the pointwise identity law $k(\id_Z)(p)=p$ for $o$. Let $c$,
+$\tau_Z$ and $f:Y\to Y$ be pointwise identities and let the relation
+$rl:\mathrm{RelIn}(o,o,c,\tau)$ be arbitrary. Then the first component of
+$\mathrm{hom}(o,o,c,\tau,rl,ac,ac,Y,Y,f)$ fixes every point of the
+computed extension.
+\end{theorem}
+
+The relation $rl$ must be arbitrary because the recursive calls construct
+their own relations (shifted and plain predecessors). The statement is
+about the map that $\mathrm{hom}$ computes, not about a
+re-implementation, and this has a cost: the recursion is \emph{not}
+diagonal definitionally, even when the input is. The dispatcher compares
+the root rule with its $\tau$-image along a path that is not reflexivity.
+The stage labels of a kept rule move from $\nu$ to $\beta\nu$, and the
+$(xl)$ children are called at $c(c_0)$ and $f(y)$ rather than at $c_0$ and
+$y$. The proof therefore establishes a heterogeneous law at each node: the
+computed map is the transport along a path of indices, or equivalently a
+path in a total space. It uses:
+\begin{itemize}
+\item uniqueness of identity proofs for rules (by decidable equality and
+Hedberg's theorem), for Booleans, for the three-valued comparisons, and
+for carriers of linear orders;
+\item based path induction at an endpoint, to contract a stage
+$\nu=\sigma^{-1}(\mathrm{inl}\,w)$ to the canonical one;
+\item transport over a proposition, normalised to fix every point, to pass
+between the summands of the kept rule and the total space of a stage;
+\item for kind III, the fact that the tail maps $t,t_1$ of a pointwise
+identity are identities (from injectivity of $\sigma^{-1}$, without
+computing the decision that defines them).
+\end{itemize}
+Function extensionality enters only through equality of maps of linear
+orders. The km identity law is a clean sufficient hypothesis. Whether it
+is necessary is open: on invalid branches and on stage labels above top
+the construction puts the empty order, so necessity is not established on
+every label.
+
+\begin{corollary}[\tt{BetaIDS4DiagIso.At.Laws}]
+Under the km identity law, for certificates $a,b$ of $o$, let
+$e_{ab}:E_a\to E_b$ be the map computed by $\mathrm{homSame}$ at $\id_Y$.
+Then $e_{ba}\circ e_{ab}=\id$, and $(e_{ab},e_{ba})$ is an isomorphism.
+\end{corollary}
+
+Transport along the equality $a=b$ of Theorem~\ref{thm:accprop} reduces
+$e_{ba}(e_{ab}(z))=z$ to $e_{aa}(e_{aa}(z))=z$, which is
+Theorem~\ref{thm:diag} applied twice.
+
+\section{What remains}
+
+\paragraph{Composition.} For embeddings $f:Y\to Y'$ and $g:Y'\to Y''$ and
+three certificates, does the map computed for $g\circ f$ agree with the
+composite of the two computed maps? This is the next step towards
+Girard's functorial output dilator $F+F''$, together with the trace-range
+laws of 11.4.4(iii). We expect the same heterogeneous technique to apply,
+with the additional difficulty that in the kind III case the composite
+parameter map $f_1$ must itself be compared with a composite. This is not
+done.
+
+\paragraph{Kind II cuts.} The present theorem excludes cuts on stage
+atoms in the input. Girard removes them first (11.4.3) and then applies
+11.4.4. For families, the output of that elimination would have to be an
+input family again, with an accessibility certificate built by the same
+recursion, since its subtrees are not subtrees of the input.
+
+A first test suggests that this detour is not needed for kind II cuts
+whose $X$-atoms all read stages \emph{below} $\mathrm{top}_Y$.
+Such a cut is kept as a kind II cut at $(kY+E,\mathrm{inl}\,\mathrm{top}_Y)$ by
+$\mathrm{rep}$ (\texttt{BetaIDS4Kind2.Low.stLow}, checked), and the
+kept-rule node of Theorem~\ref{thm:pointwise} already ends with the
+pointwise elimination of kind II cuts (\texttt{BetaIDCfCut}) on the
+assembled rule. The premises are input predecessors, so the
+induction on accessibility is unaffected. What is not yet done: relaxing
+the kind condition of the input families to include these cuts, and
+threading the new case through the pointwise, homogeneity and diagonal
+theorems; and the cuts not covered, namely atoms reading stages
+$\geq\mathrm{top}$ (which $\mathrm{rep}$ turns into $\bar\Phi$) and compound
+cut formulas mixing stage and $\bar\Phi$ atoms.
+
+\paragraph{Where the strength sits.} Under the restrictions above,
+everything after the certificate is constructive: normalisation,
+homogeneity, certificate independence and the identity and inverse
+laws. The certificate itself comes from correctness by a bar argument with
+excluded middle and dependent choice. This is consistent with Girard's
+11.6.4, by which full cut elimination implies $\Pi^1_1$-$\mathrm{CA}$. The
+outputs are cut-free, so the constructive part has the subformula property
+up to the closure rules for the inductive predicate.
+
+\paragraph{Status.} All theorems stated here are checked in Unit; the
+development has no holes and no postulates. The two standing hypotheses,
+the restriction to cuts of kind I and III, and (for
+Theorem~\ref{thm:diag} and its corollary) the km identity law are as
+stated. The remark on composition is an expectation, not a result; for kind II
+only the lemma \texttt{stLow} is checked.
+
+\begin{thebibliography}{9}
+\bibitem{ptlc2} J.-Y.~Girard, \emph{Proof Theory and Logical Complexity},
+vol.~II, chapter~11 (\S11.4: cut elimination for the inductive logic;
+11.6.4: the reversal).
+\bibitem{am} R.~Akiyoshi and G.~Mints, \emph{An extension of the
+$\Omega$-rule}, Archive for Mathematical Logic, 2016.
+\end{thebibliography}
+
+\end{document}
