@@ -711,6 +711,27 @@ Gamma~: stages >= top are replaced by Phi-bar.
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
+## Homogeneity of S4, in progress (2026-11-21)
+
+`BetaIDS4Hom.seg` and `TrCSquare.seg` (in All.seg, green):
+- `Rel.RelIn o o' c tau`: related input families. tau_Z preserves top,
+  the root sequent and the rules. Below top,
+  tau_Z (sigma^-1 (inl w)) = sigma'^-1 (inl ((c + id) w)).
+- `Rel.ShiftRel`: shifts of related families along f : Y -> Y' are
+  related along (c + f, tau_{Y'+Z} o k(f + id)), given matching labels
+  (`Lab.rel`). The variable-premise labels match (`varLab`).
+- `BetaIDS4.SigMaps`: the sigma-maps of XLV, which XLV now aliases (so
+  they are convertible).
+- `VrSq`: the upper-tail map tl, read off the child base map, and the two
+  squares v o J = J' o u (`sq1`) and u o rho = rho' o v (`sq2`).
+- `TrCSquare.Square.alg` (written by the user): TrC.mD preserves RelF given
+  the two squares. `Variable.Back.backRel`: the two OutBack.back
+  derivations of a variable ordinal premise are related, given the child
+  RelF witness.
+- Next: the same for the other operations (Comb.move, RepR/CT.okRule plus
+  elim via BetaIDHom, RBar/RenM, K3Node/S2C), then the induction on
+  ac.1 with Good, with arbitrary f and the target certificate quantified.
+
 ## Expected outcome / what would be new
 
 - A constructive, checked reconstruction of Girard's ID1 cut elimination,

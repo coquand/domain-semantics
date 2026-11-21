@@ -730,25 +730,16 @@ module XL (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : 
   } ;
 } ;
 
-module XLV (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : EvN ev)
-  (hPos : Id W.Bool (BO.posX phi zero) true)
-  (o : Obj[ev,phi,evN].IObj) (ih : (s : SSteps[ev,phi,evN].Step o) -> Main[ev,phi,evN,hPos].Q (SSteps[ev,phi,evN].shiftO o s))
-  (Y : DP.LO) (wY : LW.WF Y) (i : W.N) (oo0 : W.Or W.Unit (o.k BetaAcc[l].E0).car)
-  (er0 : Id (BI.ID[ev,phi].Rule (o.k BetaAcc[l].E0)) (o.R BetaAcc[l].E0 nilL) (xlR i oo0)) {
+------------------------------------------------------------------------
+-- the sigma-maps of a variable ordinal premise (as in XLV), standalone
+module SigMaps (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : EvN ev) (o : Obj[ev,phi,evN].IObj) (Y : DP.LO) {
   module I = BI.ID[ev,phi] ;
   module O = Obj[ev,phi,evN] ;
-  module SS = SSteps[ev,phi,evN] ;
   module BA = BetaAcc[l] ;
-  module M = Main[ev,phi,evN,hPos] ;
-  module M2 = Main2[ev,phi,evN,hPos] ;
-  module X0 = XL[ev,phi,evN,hPos,o,ih,Y,wY,i,oo0,er0] ;
   module SY = Sig[ev,phi,evN,o,Y] ;
-  module S0 = Sig[ev,phi,evN,o,BA.E0] ;
   YE : DP.LO = Sm Y BA.E0 ;
-  module SE = Sig[ev,phi,evN,o,YE] ;
   topY : (o.k Y).car = O.topO o Y ;
   topE : (o.k YE).car = O.topO o YE ;
-  OnEY (E : DP.LO) (X : I.Seq (o.k Y)) : U l = OutM[ev,phi,o.k Y,topY].OnE E X ;
 
   ----------------------------------------------------------------------
   -- the map k(Y + 0) -> kY + Fp(Y + 0), by sigma
@@ -804,6 +795,41 @@ module XLV (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN :
     inl u -> (o.sgi YE).1 (inl (fwd u.1)) ;
     inr u -> topE } ;
   rhoJ : T.car -> (o.k YE).car = split { inl q -> rq q (SY.dec q) ; inr f -> topE } ;
+} ;
+
+module XLV (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o : Obj[ev,phi,evN].IObj) (ih : (s : SSteps[ev,phi,evN].Step o) -> Main[ev,phi,evN,hPos].Q (SSteps[ev,phi,evN].shiftO o s))
+  (Y : DP.LO) (wY : LW.WF Y) (i : W.N) (oo0 : W.Or W.Unit (o.k BetaAcc[l].E0).car)
+  (er0 : Id (BI.ID[ev,phi].Rule (o.k BetaAcc[l].E0)) (o.R BetaAcc[l].E0 nilL) (xlR i oo0)) {
+  module I = BI.ID[ev,phi] ;
+  module O = Obj[ev,phi,evN] ;
+  module SS = SSteps[ev,phi,evN] ;
+  module BA = BetaAcc[l] ;
+  module M = Main[ev,phi,evN,hPos] ;
+  module M2 = Main2[ev,phi,evN,hPos] ;
+  module X0 = XL[ev,phi,evN,hPos,o,ih,Y,wY,i,oo0,er0] ;
+  module SY = Sig[ev,phi,evN,o,Y] ;
+  module S0 = Sig[ev,phi,evN,o,BA.E0] ;
+  module VB0 = SigMaps[ev,phi,evN,o,Y] ;
+  YE : DP.LO = VB0.YE ;
+  module SE = Sig[ev,phi,evN,o,YE] ;
+  topY : (o.k Y).car = VB0.topY ;
+  topE : (o.k YE).car = VB0.topE ;
+  OnEY (E : DP.LO) (X : I.Seq (o.k Y)) : U l = OutM[ev,phi,o.k Y,topY].OnE E X ;
+  h : DP.Map (o.k Y) (o.k YE) = VB0.h ;
+  Ext : DP.LO = VB0.Ext ;
+  T : DP.LO = VB0.T ;
+  fwd (w : (Sm o.Cst Y).car) : (Sm o.Cst YE).car = VB0.fwd w ;
+  backW (w : (Sm o.Cst YE).car) : (Sm o.Cst Y).car = VB0.backW w ;
+  bf (w : (Sm o.Cst Y).car) : Id (Sm o.Cst Y).car (backW (fwd w)) w = VB0.bf w ;
+  jP (q : (O.P o.Cst o.Fp YE).car) : T.car = VB0.jP q ;
+  j : DP.Map (o.k YE) T = VB0.j ;
+  jsgi (q : (O.P o.Cst o.Fp YE).car) : Id T.car (j.1 ((o.sgi YE).1 q)) (jP q) = VB0.jsgi q ;
+  jh (mu : (o.k Y).car) (hmu : Id W.Bool (I.ltB (o.k Y) mu topY) true) : Id T.car (j.1 (h.1 mu)) (inl mu) = VB0.jh mu hmu ;
+  jt : Id T.car (j.1 topE) (inl topY) = VB0.jt ;
+  rq (q : (o.k Y).car) (d : SY.DecP q) : (o.k YE).car = VB0.rq q d ;
+  rhoJ (z : T.car) : (o.k YE).car = VB0.rhoJ z ;
   hrq (q : (o.k Y).car) (hq : Id W.O3 ((o.k Y).cmp q topY) lt) : (d : SY.DecP q) -> Id T.car (j.1 (rq q d)) (inl q) = split {
     inl u -> PL.trans T.car (j.1 ((o.sgi YE).1 (inl (fwd u.1)))) (inl ((o.sgi Y).1 (inl (backW (fwd u.1))))) (inl q)
       (jsgi (inl (fwd u.1)))
