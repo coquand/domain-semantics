@@ -1198,7 +1198,29 @@ module RegAsm (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (ev
     inl u -> \ h -> ((n,inl u),(refl (n,inl u),(PL.trans W.Bool (I.br A top r (n,inl u)) (I.br B (inl top) (RR.rR r) (n,inl u)) true
       (PL.sym W.Bool (I.br B (inl top) (RR.rR r) (n,inl u)) (I.br A top r (n,inl u)) (RR.brN n u r)) h,tt))) ;
     inr z -> \ h -> preS n z r h } ;
-  pre (a' : I.Lb B) (h : Id W.Bool (I.br B (inl top) (RR.rR r) a') true) : PreD a' = preO a'.1 a'.2 h ;
+  pre0 (a' : I.Lb B) (h : Id W.Bool (I.br B (inl top) (RR.rR r) a') true) : PreD a' = preO a'.1 a'.2 h ;
+  -- the selected label as an explicit function of the branch label
+  projL : B.car -> A.car = split { inl nu -> nu ; inr q -> top } ;
+  preLO : W.Or W.Unit B.car -> W.Or W.Unit A.car = split { inl u -> inl u ; inr z -> inr (projL z) } ;
+  preLab (a' : I.Lb B) : I.Lb A = (a'.1,preLO a'.2) ;
+  rLpick (nu : A.car) (z : B.car) : (b : W.Bool) -> Id W.Bool (I.ltB A nu top) b ->
+      Id (W.Or W.Unit B.car) (BO.pickB (W.Or W.Unit B.car) b (inr (inl nu)) (inl tt)) (inr z) -> Id A.car nu (projL z) = split {
+    false -> \ hb h -> W.absurdB (Id A.car nu (projL z)) (PL.ap (W.Or W.Unit B.car) W.Bool (BP.isInr W.Unit B.car) (inl tt) (inr z) h) ;
+    true -> \ hb h -> PL.ap B.car A.car projL (inl nu) z (PS.SumLO[LT.one,B].inr-inj (inl nu) z h) } ;
+  rLinvO (z : B.car) : (x : W.Or W.Unit A.car) -> Id (W.Or W.Unit B.car) (RR.R.rO x) (inr z) -> Id (W.Or W.Unit A.car) x (inr (projL z)) = split {
+    inl u -> \ h -> W.absurdB (Id (W.Or W.Unit A.car) (inl u) (inr (projL z))) (PL.ap (W.Or W.Unit B.car) W.Bool (BP.isInr W.Unit B.car) (inl u) (inr z) h) ;
+    inr nu -> \ h -> PL.ap A.car (W.Or W.Unit A.car) (\ q -> inr q) nu (projL z) (rLpick nu z (I.ltB A nu top) (refl (I.ltB A nu top)) h) } ;
+  rLinv (n : W.N) (z : B.car) (a : I.Lb A) (h : Id (I.Lb B) (RR.R.rL a) (n,inr z)) : Id (I.Lb A) a (n,inr (projL z)) =
+    W.ap2 W.N (W.Or W.Unit A.car) (I.Lb A) (\ m y -> (m,y)) a.1 n a.2 (inr (projL z))
+      (PL.ap (I.Lb B) W.N (\ q -> q.1) (RR.R.rL a) (n,inr z) h) (rLinvO z a.2 (PL.ap (I.Lb B) (W.Or W.Unit B.car) (\ q -> q.2) (RR.R.rL a) (n,inr z) h)) ;
+  preEqO (n : W.N) : (x : W.Or W.Unit B.car) (h : Id W.Bool (I.br B (inl top) (RR.rR r) (n,x)) true) -> Id (I.Lb A) (preO n x h).1 (n,preLO x) = split {
+    inl u -> \ h -> refl (n,inl u) ;
+    inr z -> \ h -> rLinv n z (preO n (inr z) h).1 (preO n (inr z) h).2.1 } ;
+  preEq (a' : I.Lb B) (h : Id W.Bool (I.br B (inl top) (RR.rR r) a') true) : Id (I.Lb A) (pre0 a' h).1 (preLab a') =
+    preEqO a'.1 a'.2 h ;
+  pre (a' : I.Lb B) (h : Id W.Bool (I.br B (inl top) (RR.rR r) a') true) : PreD a' =
+    (preLab a',PL.subst (I.Lb A) (\ a -> Id (I.Lb B) (RR.R.rL a) a' * (Id W.Bool (I.br A top r a) true * StCO a.2)) (pre0 a' h).1 (preLab a') (preEq a' h)
+      (pre0 a' h).2) ;
   module CB = BF.CI[ev,phi,B,inl top] ;
   module Fin (rg : RR.Reg r) (kw : CTB.CutOK (inl top) (RR.rR r)) {
     prem (a' : I.Lb B) (h : Id W.Bool (I.br B (inl top) (RR.rR r) a') true) : CB.Res (I.step B H (RR.rR r) a') =

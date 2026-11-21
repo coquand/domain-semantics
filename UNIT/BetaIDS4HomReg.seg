@@ -1,0 +1,262 @@
+-- PLAN-ID1, homogeneity of S4: the library for the node comparison, and the
+-- comparison of two kept-rule nodes (RegAsm.Fin.out).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module PS = PtyxSum[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BT = BetaIDTr[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module SH = BetaIDS4Hom[l] ;
+module BH = BetaIDHom[l] ;
+
+------------------------------------------------------------------------
+-- RelF does not depend on the proof that the top is sent to the top
+module RelConv (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A B : DP.LO) (g : DP.Map A B)
+  (evI : (k : W.N) (e : LT.LL A) -> Id W.Bool (ev B k (LT.mapL A B g e)) (ev A k e))
+  (tA : A.car) (tB : B.car) (e1 e2 : Id B.car (g.1 tA) tB) {
+  module N1 = BH.NH[ev,phi,A,B,g,evI,tA,tB,e1] ;
+  module N2 = BH.NH[ev,phi,A,B,g,evI,tA,tB,e2] ;
+  relC : (d : N1.FA) (d' : N1.FB) -> N1.RelF d d' -> N2.RelF d d' = split {
+    cAx b k e -> \ d' r -> r ;
+    cAnd p q e d0 d1 | r0 r1 -> \ d' z -> (z.1,(z.2.1,(z.2.2.1,(r0 z.1 z.2.2.2.1,r1 z.2.1 z.2.2.2.2)))) ;
+    cOr p q e d | r -> \ d' z -> (z.1,(z.2.1,r z.1 z.2.2)) ;
+    cAll p e kk | r -> \ d' z -> (z.1,(z.2.1,\ x -> r x (z.1 (N1.lm x)) (z.2.2 x))) ;
+    cEx p e w d | r -> \ d' z -> (z.1,(z.2.1,r z.1 z.2.2)) ;
+    cXr s k e mu d | r -> \ d' z -> (z.1,(z.2.1,r z.1 z.2.2)) ;
+    cXl s k e o kk | r -> \ d' z -> (z.1,(z.2.1,\ x -> r x (z.1 (N1.lm x)) (z.2.2 x))) } ;
+} ;
+
+------------------------------------------------------------------------
+-- composition of the maps of sequents and rules
+module MpComp (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (A B C : DP.LO) (g : DP.Map A B) (h : DP.Map B C) (tA : A.car) (tB : B.car) {
+  module I = BI.ID[ev,phi] ;
+  gh : DP.Map A C = LC.compMap A B C g h ;
+  module MG = BT.Mp[ev,phi,A,B,g,S4.evMap ev evN A B g,tA] ;
+  module MH = BT.Mp[ev,phi,B,C,h,S4.evMap ev evN B C h,tB] ;
+  module MC = BT.Mp[ev,phi,A,C,gh,S4.evMap ev evN A C gh,tA] ;
+  lmC (a : I.Lb A) : Id (I.Lb C) (MH.lm (MG.lm a)) (MC.lm a) =
+    PL.ap (W.Or W.Unit C.car) (I.Lb C) (\ q -> (a.1,q)) (LT.omap B C h (LT.omap A B g a.2)) (LT.omap A C gh a.2) (LT.omap-comp A B C g h a.2) ;
+  mSC (X : I.Seq A) : Id (I.Seq C) (MH.mS (MG.mS X)) (MC.mS X) =
+    PL.trans (I.Seq C) (MH.mS (MG.mS X)) (W.map (I.Clo A) (I.Clo C) (\ x -> MH.mC (MG.mC x)) X) (MC.mS X)
+      (W.map-comp (I.Clo A) (I.Clo B) (I.Clo C) MG.mC MH.mC X)
+      (KT.map-ext (I.Clo A) (I.Clo C) (\ x -> MH.mC (MG.mC x)) MC.mC
+        (\ x -> PL.ap (LT.LL C) (I.Clo C) (\ z -> (x.1,z)) (MH.mE (MG.mE x.2)) (MC.mE x.2) (LT.mapL-comp A B C g h x.2)) X) ;
+  mRC : (r : I.Rule A) -> Id (I.Rule C) (MH.mR (MG.mR r)) (MC.mR r) = split {
+    axR i -> refl (axR i) ; andR i -> refl (andR i) ; orR i -> refl (orR i) ; allR i -> refl (allR i) ;
+    exR i w -> PL.ap (I.Lb C) (I.Rule C) (\ v -> exR i v) (MH.lm (MG.lm w)) (MC.lm w) (lmC w) ;
+    cutR f e -> PL.ap (LT.LL C) (I.Rule C) (\ v -> cutR f v) (MH.mE (MG.mE e)) (MC.mE e) (LT.mapL-comp A B C g h e) ;
+    xrR i mu -> refl (xrR i (gh.1 mu)) ;
+    xlR i oo -> PL.ap (W.Or W.Unit C.car) (I.Rule C) (\ v -> xlR i v) (LT.omap B C h (LT.omap A B g oo)) (LT.omap A C gh oo)
+      (LT.omap-comp A B C g h oo) } ;
+} ;
+
+------------------------------------------------------------------------
+-- rep commutes with beta + dm (beta preserves the comparison with top)
+module RepNat (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (A A' : DP.LO) (top : A.car) (top' : A'.car) (beta : DP.Map A A') (bt : Id A'.car (beta.1 top) top')
+  (Dl Dl' : DP.LO) (dm : DP.Map Dl Dl') {
+  module I = BI.ID[ev,phi] ;
+  B : DP.LO = S4.Sm A Dl ;
+  B' : DP.LO = S4.Sm A' Dl' ;
+  v : DP.Map B B' = PS.SumMap[A,Dl,A',Dl',beta,dm].map ;
+  module R = S4.Rep[ev,phi,A,top,B,S4.inlS A Dl] ;
+  module R' = S4.Rep[ev,phi,A',top',B',S4.inlS A' Dl'] ;
+  module MB = BT.Mp[ev,phi,A,A',beta,S4.evMap ev evN A A' beta,top] ;
+  module MV = BT.Mp[ev,phi,B,B',v,S4.evMap ev evN B B' v,inl top] ;
+  module RR = S4.RepR[ev,phi,evN,A,top,Dl] ;
+  module RR' = S4.RepR[ev,phi,evN,A',top',Dl'] ;
+  ltBeta (mu : A.car) : Id W.Bool (I.ltB A' (beta.1 mu) top') (I.ltB A mu top) =
+    PL.trans W.Bool (I.ltB A' (beta.1 mu) top') (I.ltB A' (beta.1 mu) (beta.1 top)) (I.ltB A mu top)
+      (PL.ap A'.car W.Bool (\ z -> I.ltB A' (beta.1 mu) z) top' (beta.1 top) (PL.sym A'.car (beta.1 top) top' bt))
+      (PL.ap W.O3 W.Bool W.isLt (A'.cmp (beta.1 mu) (beta.1 top)) (A.cmp mu top) (beta.2 mu top)) ;
+  pickN (mu : A.car) : (b : W.Bool) ->
+      Id (W.Or W.Unit B'.car) (BO.pickB (W.Or W.Unit B'.car) b (inr (inl (beta.1 mu))) (inl tt))
+        (LT.omap B B' v (BO.pickB (W.Or W.Unit B.car) b (inr (inl mu)) (inl tt))) = split {
+    false -> refl (inl tt) ; true -> refl (inr (inl (beta.1 mu))) } ;
+  labN : (x : W.Or W.Unit A.car) -> Id (W.Or W.Unit B'.car) (R'.rO (LT.omap A A' beta x)) (LT.omap B B' v (R.rO x)) = split {
+    inl u -> refl (inl u) ;
+    inr mu -> PL.subst W.Bool
+      (\ b -> Id (W.Or W.Unit B'.car) (BO.pickB (W.Or W.Unit B'.car) b (inr (inl (beta.1 mu))) (inl tt))
+          (LT.omap B B' v (BO.pickB (W.Or W.Unit B.car) (I.ltB A mu top) (inr (inl mu)) (inl tt))))
+      (I.ltB A mu top) (I.ltB A' (beta.1 mu) top') (PL.sym W.Bool (I.ltB A' (beta.1 mu) top') (I.ltB A mu top) (ltBeta mu))
+      (pickN mu (I.ltB A mu top)) } ;
+  lN (x : I.Lb A) : Id (I.Lb B') (R'.rL (MB.lm x)) (MV.lm (R.rL x)) =
+    PL.ap (W.Or W.Unit B'.car) (I.Lb B') (\ q -> (x.1,q)) (R'.rO (LT.omap A A' beta x.2)) (LT.omap B B' v (R.rO x.2)) (labN x.2) ;
+  eN (e : LT.LL A) : Id (LT.LL B') (R'.rE (MB.mE e)) (MV.mE (R.rE e)) =
+    PL.trans (LT.LL B') (R'.rE (MB.mE e)) (W.map (I.Lb A) (I.Lb B') (\ x -> R'.rL (MB.lm x)) e) (MV.mE (R.rE e))
+      (W.map-comp (I.Lb A) (I.Lb A') (I.Lb B') MB.lm R'.rL e)
+      (PL.trans (LT.LL B') (W.map (I.Lb A) (I.Lb B') (\ x -> R'.rL (MB.lm x)) e) (W.map (I.Lb A) (I.Lb B') (\ x -> MV.lm (R.rL x)) e) (MV.mE (R.rE e))
+        (KT.map-ext (I.Lb A) (I.Lb B') (\ x -> R'.rL (MB.lm x)) (\ x -> MV.lm (R.rL x)) lN e)
+        (PL.sym (LT.LL B') (MV.mE (R.rE e)) (W.map (I.Lb A) (I.Lb B') (\ x -> MV.lm (R.rL x)) e) (W.map-comp (I.Lb A) (I.Lb B) (I.Lb B') R.rL MV.lm e))) ;
+  sN (G : I.Seq A) : Id (I.Seq B') (R'.rS (MB.mS G)) (MV.mS (R.rS G)) =
+    PL.trans (I.Seq B') (R'.rS (MB.mS G)) (W.map (I.Clo A) (I.Clo B') (\ c -> R'.rC (MB.mC c)) G) (MV.mS (R.rS G))
+      (W.map-comp (I.Clo A) (I.Clo A') (I.Clo B') MB.mC R'.rC G)
+      (PL.trans (I.Seq B') (W.map (I.Clo A) (I.Clo B') (\ c -> R'.rC (MB.mC c)) G) (W.map (I.Clo A) (I.Clo B') (\ c -> MV.mC (R.rC c)) G) (MV.mS (R.rS G))
+        (KT.map-ext (I.Clo A) (I.Clo B') (\ c -> R'.rC (MB.mC c)) (\ c -> MV.mC (R.rC c))
+          (\ c -> PL.ap (LT.LL B') (I.Clo B') (\ z -> (c.1,z)) (R'.rE (MB.mE c.2)) (MV.mE (R.rE c.2)) (eN c.2)) G)
+        (PL.sym (I.Seq B') (MV.mS (R.rS G)) (W.map (I.Clo A) (I.Clo B') (\ c -> MV.mC (R.rC c)) G) (W.map-comp (I.Clo A) (I.Clo B) (I.Clo B') R.rC MV.mC G))) ;
+  rRN : (r : I.Rule A) -> Id (I.Rule B') (RR'.rR (MB.mR r)) (MV.mR (RR.rR r)) = split {
+    axR i -> refl (axR i) ; andR i -> refl (andR i) ; orR i -> refl (orR i) ; allR i -> refl (allR i) ;
+    exR i w -> PL.ap (I.Lb B') (I.Rule B') (\ z -> exR i z) (R'.rL (MB.lm w)) (MV.lm (R.rL w)) (lN w) ;
+    cutR f e -> PL.ap (LT.LL B') (I.Rule B') (\ z -> cutR f z) (R'.rE (MB.mE e)) (MV.mE (R.rE e)) (eN e) ;
+    xrR i mu -> refl (xrR i (inl (beta.1 mu))) ;
+    xlR i o -> PL.ap (W.Or W.Unit B'.car) (I.Rule B') (\ z -> xlR i z) (R'.rO (LT.omap A A' beta o)) (LT.omap B B' v (R.rO o)) (labN o) } ;
+} ;
+
+------------------------------------------------------------------------
+-- plain predecessors of related families, with corresponding labels
+module PShRel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (o o' : S4.Obj[ev,phi,evN].IObj) (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z))
+  (rl : SH.Rel[ev,phi,evN].RelIn o o' c tau)
+  (st : S4.Steps[ev,phi,evN].PStep o) (st' : S4.Steps[ev,phi,evN].PStep o')
+  (hl : (Z : DP.LO) -> Id (BI.ID[ev,phi].Lb (o'.k Z)) (LT.lm (o.k Z) (o'.k Z) (tau Z) (st.1 Z)) (st'.1 Z)) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module P1 = S4.Steps[ev,phi,evN].PSh[o,st] ;
+  module P2 = S4.Steps[ev,phi,evN].PSh[o',st'] ;
+  rel : SH.Rel[ev,phi,evN].RelIn P1.obj P2.obj c tau =
+    (rl.1,
+     (\ Z -> S4.SSteps[ev,phi,evN].ngGen (o.k Z) (o'.k Z) (tau Z) (O.topO o Z) (o.G Z) (o'.G Z) (o.R Z) (o'.R Z)
+         (rl.2.1 Z) (rl.2.2.1 Z nilL) (st.1 Z) (st'.1 Z) (hl Z),
+      (\ Z zs -> PL.trans (I.Rule (o'.k Z)) (o'.R Z (consL (st'.1 Z) (LT.mapL (o.k Z) (o'.k Z) (tau Z) zs)))
+          (o'.R Z (LT.mapL (o.k Z) (o'.k Z) (tau Z) (consL (st.1 Z) zs)))
+          (BT.Mp[ev,phi,o.k Z,o'.k Z,tau Z,S4.evMap ev evN (o.k Z) (o'.k Z) (tau Z),O.topO o Z].mR (o.R Z (consL (st.1 Z) zs)))
+          (PL.ap (I.Lb (o'.k Z)) (I.Rule (o'.k Z)) (\ q -> o'.R Z (consL q (LT.mapL (o.k Z) (o'.k Z) (tau Z) zs)))
+            (st'.1 Z) (LT.lm (o.k Z) (o'.k Z) (tau Z) (st.1 Z)) (PL.sym (I.Lb (o'.k Z)) (LT.lm (o.k Z) (o'.k Z) (tau Z) (st.1 Z)) (st'.1 Z) (hl Z)))
+          (rl.2.2.1 Z (consL (st.1 Z) zs)),
+       rl.2.2.2))) ;
+} ;
+
+------------------------------------------------------------------------
+-- the comparison of two kept-rule nodes, given the extension maps em and
+-- the relations prr between the premise outputs, label by label
+module RegHom (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o o' : S4.Obj[ev,phi,evN].IObj)
+  (ih : (s : S4.SSteps[ev,phi,evN].Step o) -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o s))
+  (ih' : (s : S4.SSteps[ev,phi,evN].Step o') -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o' s))
+  (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z)) (rl : SH.Rel[ev,phi,evN].RelIn o o' c tau)
+  (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y')
+  (sp : (n : W.N) (nu : (o.k Y).car) -> Id W.Bool (BI.ID[ev,phi].br (o.k Y) (S4.Obj[ev,phi,evN].topO o Y) (o.R Y nilL) (n,inr nu)) true ->
+     Id W.Bool (BI.ID[ev,phi].ltB (o.k Y) nu (S4.Obj[ev,phi,evN].topO o Y)) true ->
+     S4.OutM[ev,phi,o.k Y,S4.Obj[ev,phi,evN].topO o Y].Out (BI.ID[ev,phi].step (o.k Y) (o.G Y) (o.R Y nilL) (n,inr nu)))
+  (sp' : (n : W.N) (nu : (o'.k Y').car) -> Id W.Bool (BI.ID[ev,phi].br (o'.k Y') (S4.Obj[ev,phi,evN].topO o' Y') (o'.R Y' nilL) (n,inr nu)) true ->
+     Id W.Bool (BI.ID[ev,phi].ltB (o'.k Y') nu (S4.Obj[ev,phi,evN].topO o' Y')) true ->
+     S4.OutM[ev,phi,o'.k Y',S4.Obj[ev,phi,evN].topO o' Y'].Out (BI.ID[ev,phi].step (o'.k Y') (o'.G Y') (o'.R Y' nilL) (n,inr nu)))
+  (rg : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].RR.Reg (o.R Y nilL))
+  (kw : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].CTB.CutOK (inl (S4.Obj[ev,phi,evN].topO o Y)) (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].RR.rR (o.R Y nilL)))
+  (rg' : S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'].RR.Reg (o'.R Y' nilL))
+  (kw' : S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'].CTB.CutOK (inl (S4.Obj[ev,phi,evN].topO o' Y'))
+     (S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'].RR.rR (o'.R Y' nilL)))
+  (em : (a : (LT.Lab (o.k Y)).car) -> DP.Map (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].Ex a)
+     (S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'].Ex
+       ((LT.lmMap (o.k Y) (o'.k Y') (BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos].baseF o o' tau Y Y' f)).1 a))) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module ST = BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos] ;
+  module RA = S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp] ;
+  module RA' = S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'] ;
+  A : DP.LO = o.k Y ;
+  A' : DP.LO = o'.k Y' ;
+  top : A.car = O.topO o Y ;
+  top' : A'.car = O.topO o' Y' ;
+  beta : DP.Map A A' = ST.baseF o o' tau Y Y' f ;
+  bt : Id A'.car (beta.1 top) top' = ST.baseTop o o' c tau rl Y Y' f ;
+  lmap : DP.Map (LT.Lab A) (LT.Lab A') = LT.lmMap A A' beta ;
+  module DM = TrCSquare[l].DSumMap[LT.Lab A,LT.Lab A',RA.Ex,RA'.Ex,lmap,em] ;
+  module RN = RepNat[ev,phi,evN,A,A',top,top',beta,bt,RA.Dl,RA'.Dl,DM.map] ;
+  et : Id RA'.B.car (RN.v.1 (inl top)) (inl top') = ST.extTop A A' RA.Dl RA'.Dl beta DM.map top top' bt ;
+  module CMP = AssemblyRel[l].Compare[ev,phi,evN,RA.B,RA'.B,RN.v,inl top,inl top',et] ;
+  module WFc = CMP.WF[RA.wB,RA'.wB,RA.VB.wfPhi,RA'.VB.wfPhi] ;
+  module FN = RA.Fin[rg,kw] ;
+  module FN' = RA'.Fin[rg',kw'] ;
+  -- the root rules and sequents correspond
+  module MC = MpComp[ev,phi,evN,A,o.k Y',A',o.km Y Y' f,tau Y',top,O.topO o Y'] ;
+  er : Id (I.Rule A') (o'.R Y' nilL) (RN.MB.mR (o.R Y nilL)) =
+    PL.trans (I.Rule A') (o'.R Y' nilL) (MC.MH.mR (o.R Y' nilL)) (RN.MB.mR (o.R Y nilL)) (rl.2.2.1 Y' nilL)
+      (PL.trans (I.Rule A') (MC.MH.mR (o.R Y' nilL)) (MC.MH.mR (MC.MG.mR (o.R Y nilL))) (RN.MB.mR (o.R Y nilL))
+        (PL.ap (I.Rule (o.k Y')) (I.Rule A') MC.MH.mR (o.R Y' nilL) (MC.MG.mR (o.R Y nilL)) (o.nr Y Y' f nilL))
+        (MC.mRC (o.R Y nilL))) ;
+  eG : Id (I.Seq A') (o'.G Y') (RN.MB.mS (o.G Y)) =
+    PL.trans (I.Seq A') (o'.G Y') (MC.MH.mS (o.G Y')) (RN.MB.mS (o.G Y)) (rl.2.1 Y')
+      (PL.trans (I.Seq A') (MC.MH.mS (o.G Y')) (MC.MH.mS (MC.MG.mS (o.G Y))) (RN.MB.mS (o.G Y))
+        (PL.ap (I.Seq (o.k Y')) (I.Seq A') MC.MH.mS (o.G Y') (MC.MG.mS (o.G Y)) (o.ng Y Y' f))
+        (MC.mSC (o.G Y))) ;
+  erB : Id (I.Rule RA'.B) (RA'.RR.rR (o'.R Y' nilL)) (RN.MV.mR (RA.RR.rR (o.R Y nilL))) =
+    PL.trans (I.Rule RA'.B) (RA'.RR.rR (o'.R Y' nilL)) (RA'.RR.rR (RN.MB.mR (o.R Y nilL))) (RN.MV.mR (RA.RR.rR (o.R Y nilL)))
+      (PL.ap (I.Rule A') (I.Rule RA'.B) RA'.RR.rR (o'.R Y' nilL) (RN.MB.mR (o.R Y nilL)) er) (RN.rRN (o.R Y nilL)) ;
+  egB : Id (I.Seq RA'.B) RA'.H (RN.MV.mS RA.H) =
+    PL.trans (I.Seq RA'.B) RA'.H (RA'.RR.R.rS (RN.MB.mS (o.G Y))) (RN.MV.mS RA.H)
+      (PL.ap (I.Seq A') (I.Seq RA'.B) RA'.RR.R.rS (o'.G Y') (RN.MB.mS (o.G Y)) eG) (RN.sN (o.G Y)) ;
+  -- the branches correspond
+  brEq (a' : I.Lb RA.B) : Id W.Bool (I.br RA'.B (inl top') (RA'.RR.rR (o'.R Y' nilL)) (RN.MV.lm a')) (I.br RA.B (inl top) (RA.RR.rR (o.R Y nilL)) a') =
+    PL.trans W.Bool (I.br RA'.B (inl top') (RA'.RR.rR (o'.R Y' nilL)) (RN.MV.lm a')) (I.br RA'.B (inl top') (RN.MV.mR (RA.RR.rR (o.R Y nilL))) (RN.MV.lm a'))
+      (I.br RA.B (inl top) (RA.RR.rR (o.R Y nilL)) a')
+      (PL.ap (I.Rule RA'.B) W.Bool (\ z -> I.br RA'.B (inl top') z (RN.MV.lm a')) (RA'.RR.rR (o'.R Y' nilL)) (RN.MV.mR (RA.RR.rR (o.R Y nilL))) erB)
+      (CMP.N.brNat (RA.RR.rR (o.R Y nilL)) a') ;
+  -- an impossible branch label: rL never produces inr (inr q)
+  noInr (n : W.N) (q : RA.Dl.car) : (b : W.Bool) -> Id W.Bool (I.ltB A top top) b ->
+      Id (W.Or W.Unit RA.B.car) (BO.pickB (W.Or W.Unit RA.B.car) b (inr (inl top)) (inl tt)) (inr (inr q)) -> W.Empty = split {
+    false -> \ e h -> W.absurdB W.Empty (PL.ap (W.Or W.Unit RA.B.car) W.Bool (BP.isInr W.Unit RA.B.car) (inl tt) (inr (inr q)) h) ;
+    true -> \ e h -> PS.SumLO[A,RA.Dl].lr W.Empty top q (PS.SumLO[LT.one,RA.B].inr-inj (inl top) (inr q) h) } ;
+  module WithPrr (prr : (a : I.Lb A) (h1 : Id W.Bool (I.br A top (o.R Y nilL) a) true) (h2 : RA.StCO a.2)
+      (h1' : Id W.Bool (I.br A' top' (o'.R Y' nilL) (lmap.1 a)) true) (h2' : RA'.StCO (lmap.1 a).2) ->
+      TrCSquare[l].CombRel[ev,phi,evN,hPos,A,A',top,top',beta,bt,RA.Ex,RA'.Ex,lmap,em,a].H.U0.RelF
+        ((RA.pv a).2.2 h1 h2).1 ((RA'.pv (lmap.1 a)).2.2 h1' h2').1) {
+    premA (a : I.Lb A) (h1 : Id W.Bool (I.br A top (o.R Y nilL) a) true) (h2 : RA.StCO a.2)
+        (h1' : Id W.Bool (I.br A' top' (o'.R Y' nilL) (lmap.1 a)) true) (h2' : RA'.StCO (lmap.1 a).2) :
+        CMP.N.RelF (RA.Cb.move a (I.step A (o.G Y) (o.R Y nilL) a) ((RA.pv a).2.2 h1 h2)).1
+          (RA'.Cb.move (lmap.1 a) (I.step A' (o'.G Y') (o'.R Y' nilL) (lmap.1 a)) ((RA'.pv (lmap.1 a)).2.2 h1' h2')).1 =
+      RelConv[ev,phi,RA.B,RA'.B,RN.v,S4.evMap ev evN RA.B RA'.B RN.v,inl top,inl top',
+          TrCSquare[l].CombRel[ev,phi,evN,hPos,A,A',top,top',beta,bt,RA.Ex,RA'.Ex,lmap,em,a].H.topSq,et].relC
+        (RA.Cb.move a (I.step A (o.G Y) (o.R Y nilL) a) ((RA.pv a).2.2 h1 h2)).1
+        (RA'.Cb.move (lmap.1 a) (I.step A' (o'.G Y') (o'.R Y' nilL) (lmap.1 a)) ((RA'.pv (lmap.1 a)).2.2 h1' h2')).1
+        (TrCSquare[l].CombRel[ev,phi,evN,hPos,A,A',top,top',beta,bt,RA.Ex,RA'.Ex,lmap,em,a].moveRel
+          (I.step A (o.G Y) (o.R Y nilL) a) (I.step A' (o'.G Y') (o'.R Y' nilL) (lmap.1 a))
+          ((RA.pv a).2.2 h1 h2) ((RA'.pv (lmap.1 a)).2.2 h1' h2') (prr a h1 h2 h1' h2')) ;
+    -- prem at a branch label and at its image
+    premS (n : W.N) : (z : RA.B.car) (e : Id W.Bool (I.br RA.B (inl top) (RA.RR.rR (o.R Y nilL)) (n,inr z)) true)
+        (e' : Id W.Bool (I.br RA'.B (inl top') (RA'.RR.rR (o'.R Y' nilL)) (n,inr (RN.v.1 z))) true) ->
+        CMP.N.RelF (FN.prem (n,inr z) e).1 (FN'.prem (n,inr (RN.v.1 z)) e').1 = split {
+      inl nu -> \ e e' -> premA (n,inr nu) (RA.pre (n,inr (inl nu)) e).2.2.1 (RA.pre (n,inr (inl nu)) e).2.2.2
+        (RA'.pre (n,inr (inl (beta.1 nu))) e').2.2.1 (RA'.pre (n,inr (inl (beta.1 nu))) e').2.2.2 ;
+      inr q -> \ e e' -> CF.efq (CMP.N.RelF (FN.prem (n,inr (inr q)) e).1 (FN'.prem (n,inr (RN.v.1 (inr q))) e').1)
+        (noInr n q (I.ltB A top top) (refl (I.ltB A top top))
+          (PL.ap (I.Lb RA.B) (W.Or W.Unit RA.B.car) (\ w -> w.2) (RA.RR.R.rL (n,inr top)) (n,inr (inr q)) (RA.pre (n,inr (inr q)) e).2.1)) } ;
+    premO (n : W.N) : (x : W.Or W.Unit RA.B.car) (e : Id W.Bool (I.br RA.B (inl top) (RA.RR.rR (o.R Y nilL)) (n,x)) true)
+        (e' : Id W.Bool (I.br RA'.B (inl top') (RA'.RR.rR (o'.R Y' nilL)) (n,LT.omap RA.B RA'.B RN.v x)) true) ->
+        CMP.N.RelF (FN.prem (n,x) e).1 (FN'.prem (n,LT.omap RA.B RA'.B RN.v x) e').1 = split {
+      inl u -> \ e e' -> premA (n,inl u) (RA.pre (n,inl u) e).2.2.1 (RA.pre (n,inl u) e).2.2.2
+        (RA'.pre (n,inl u) e').2.2.1 (RA'.pre (n,inl u) e').2.2.2 ;
+      inr z -> premS n z } ;
+    -- the children
+    chR (a' : I.Lb RA.B) : (b : W.Bool) (e : Id W.Bool (I.br RA.B (inl top) (RA.RR.rR (o.R Y nilL)) a') b)
+        (b' : W.Bool) (e' : Id W.Bool (I.br RA'.B (inl top') (RA'.RR.rR (o'.R Y' nilL)) (RN.MV.lm a')) b') -> Id W.Bool b true ->
+        CMP.N.RelD (FN.chV a' b e) (FN'.chV (RN.MV.lm a') b' e') = split {
+      false -> \ e b' e' hb -> W.absurdB (CMP.N.RelD (FN.chV a' false e) (FN'.chV (RN.MV.lm a') b' e')) hb ;
+      true -> \ e -> split {
+        false -> \ e' hb -> W.absurdB (CMP.N.RelD (FN.chV a' true e) (FN'.chV (RN.MV.lm a') false e'))
+          (PL.trans W.Bool false (I.br RA'.B (inl top') (RA'.RR.rR (o'.R Y' nilL)) (RN.MV.lm a')) true
+            (PL.sym W.Bool (I.br RA'.B (inl top') (RA'.RR.rR (o'.R Y' nilL)) (RN.MV.lm a')) false e')
+            (PL.trans W.Bool (I.br RA'.B (inl top') (RA'.RR.rR (o'.R Y' nilL)) (RN.MV.lm a')) (I.br RA.B (inl top) (RA.RR.rR (o.R Y nilL)) a') true
+              (brEq a') e)) ;
+        true -> \ e' hb -> WFc.cf2dvR (FN.prem a' e).1 (FN'.prem (RN.MV.lm a') e').1 (premO a'.1 a'.2 e e') } } ;
+    children : WFc.St.CHR (RA.RR.rR (o.R Y nilL)) FN.ch FN'.ch =
+      \ a' h -> chR a' (I.br RA.B (inl top) (RA.RR.rR (o.R Y nilL)) a') (refl (I.br RA.B (inl top) (RA.RR.rR (o.R Y nilL)) a'))
+        (I.br RA'.B (inl top') (RA'.RR.rR (o'.R Y' nilL)) (RN.MV.lm a')) (refl (I.br RA'.B (inl top') (RA'.RR.rR (o'.R Y' nilL)) (RN.MV.lm a'))) h ;
+    -- the two outputs are related
+    out : ST.HomOut A A' top top' beta bt (o.G Y) (o'.G Y') FN.out FN'.out =
+      (DM.map,WFc.assemble (RA.RR.rR (o.R Y nilL)) (RA'.RR.rR (o'.R Y' nilL)) erB RA.H RA'.H egB FN.ch FN'.ch children FN.okR FN'.okR) ;
+  } ;
+} ;
