@@ -1,0 +1,255 @@
+-- PLAN-ID1, from pointwise cut elimination to cut-free PRE-PROOFS.
+-- Part 1 (this file, M1/M2): a cut-free ID derivation (BetaIDCf.Cf) read as
+-- a pre-proof ("walk", as BetaPre for the propositional calculus, now with
+-- the x-rules): the rule at an address names its principal closure by its
+-- first index in the current sequent.  walk is locally correct, cut-free,
+-- and has a Brouwer bound read off the derivation (well-founded); it
+-- commutes with the relation RelF of BetaIDHom (walkNat), so the walk of
+-- the S4 outputs is natural along the maps beta + e computed by hom.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BT = BetaIDTr[l] ;
+module BF = BetaIDCf[l] ;
+module BH = BetaIDHom[l] ;
+
+pickN (Z : U l) : W.N -> Z -> Z -> Z = split { zero -> \ a b -> a ; suc n -> \ a b -> b } ;
+idxC : W.Bool -> W.N -> W.N = split { false -> \ n -> suc n ; true -> \ n -> zero } ;
+eqBoT (v b : W.Bool) (h : Id W.Bool v b) : Id W.Bool (BP.eqBo v b) true =
+  PL.subst W.Bool (\ z -> Id W.Bool (BP.eqBo z b) true) b v (PL.sym W.Bool v b h) (BetaCut[l].eqBoSelf b) ;
+
+module Walk (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) (top : A.car) {
+  module I = BI.ID[ev,phi] ;
+  open BF.CI[ev,phi,A,top] ;
+  module K = KT.KB[LT.Lab A] ;
+  -- membership in appended sequents
+  memApp (S : Seq) (x : Clo) : (G : Seq) -> Mem x (I.app A G S) -> W.Or (Mem x G) (Mem x S) = split {
+    nilL -> \ m -> inr m ;
+    consL c cs | r -> \ m -> CF.or-elim (Id Clo c x) (Mem x (I.app A cs S)) (W.Or (Mem x (consL c cs)) (Mem x S))
+      (\ e -> inl (inl e)) (\ m' -> CF.or-elim (Mem x cs) (Mem x S) (W.Or (Mem x (consL c cs)) (Mem x S))
+        (\ m1 -> inl (inr m1)) (\ m2 -> inr m2) (r m')) m } ;
+  memAppL (H : Seq) (x : Clo) : (S : Seq) -> Mem x S -> Mem x (I.app A S H) = split {
+    nilL -> \ m -> CF.efq (Mem x H) m ;
+    consL c cs | r -> \ m -> CF.or-elim (Id Clo c x) (Mem x cs) (Mem x (I.app A (consL c cs) H)) (\ e -> inl e) (\ m' -> inr (r m')) m } ;
+  memAppR (H : Seq) (x : Clo) : (S : Seq) -> Mem x H -> Mem x (I.app A S H) = split {
+    nilL -> \ m -> m ;
+    consL c cs | r -> \ m -> inr (r m) } ;
+  -- the sequent of a premise contains the context of the premise
+  hSubR (G : Seq) (o : I.OC A) (c : Clo) (eo : Id (I.OC A) o (inr c)) (F : I.OC A -> Seq) (S' : Seq) (ef : Id Seq (F (inr c)) S') :
+      Sub (I.app A S' G) (I.app A G (F o)) =
+    \ x m -> CF.or-elim (Mem x S') (Mem x G) (Mem x (I.app A G (F o)))
+      (\ m1 -> memAppR (F o) x G
+        (PL.subst Seq (\ z -> Mem x z) S' (F o) (PL.sym Seq (F o) S' (PL.trans Seq (F o) (F (inr c)) S' (PL.ap (I.OC A) Seq F o (inr c) eo) ef)) m1))
+      (\ m2 -> memAppL (F o) x G m2) (memApp G x S' m) ;
+  -- the first index of a closure
+  idxOf (c : Clo) : Seq -> W.N = split { nilL -> zero ; consL d G | r -> idxC (eqClo d c) r } ;
+  getIdxC (c d : Clo) (G : Seq) (ih : Mem c G -> Id (I.OC A) (I.getM A (idxOf c G) G) (inr c)) :
+      (b : W.Bool) -> Id W.Bool (eqClo d c) b -> Mem c (consL d G) -> Id (I.OC A) (I.getM A (idxC b (idxOf c G)) (consL d G)) (inr c) = split {
+    true -> \ e m -> PL.ap Clo (I.OC A) (\ z -> inr z) d c (eqCloS d c e) ;
+    false -> \ e m -> CF.or-elim (Id Clo d c) (Mem c G) (Id (I.OC A) (I.getM A (idxOf c G) G) (inr c))
+      (\ e0 -> W.absurdB (Id (I.OC A) (I.getM A (idxOf c G) G) (inr c))
+        (PL.trans W.Bool false (eqClo d c) true (PL.sym W.Bool (eqClo d c) false e) (eqCloE d c e0))) ih m } ;
+  getIdx (c : Clo) : (G : Seq) -> Mem c G -> Id (I.OC A) (I.getM A (idxOf c G) G) (inr c) = split {
+    nilL -> \ m -> CF.efq (Id (I.OC A) (I.getM A zero nilL) (inr c)) m ;
+    consL d G | r -> \ m -> getIdxC c d G r (eqClo d c) (refl (eqClo d c)) m } ;
+  ----------------------------------------------------------------------
+  -- the walk
+  ruleOf : C0 -> Seq -> I.Rule A = split {
+    cAx b k e -> \ G -> axR (idxOf (atF b k,e) G) ;
+    cAnd p q e d0 d1 -> \ G -> andR (idxOf (andF p q,e) G) ;
+    cOr p q e d -> \ G -> orR (idxOf (orF p q,e) G) ;
+    cAll p e kk -> \ G -> allR (idxOf (allF p,e) G) ;
+    cEx p e w d -> \ G -> exR (idxOf (exF p,e) G) w ;
+    cXr s k e mu d -> \ G -> xrR (idxOf (xF true s k,e) G) mu ;
+    cXl s k e o kk -> \ G -> xlR (idxOf (xF false s k,e) G) o } ;
+  child : C0 -> Lb -> C0 = split {
+    cAx b k e -> \ a -> cAx b k e ;
+    cAnd p q e d0 d1 -> \ a -> pickN C0 a.1 d0 d1 ;
+    cOr p q e d -> \ a -> d ;
+    cAll p e kk -> \ a -> kk a ;
+    cEx p e w d -> \ a -> d ;
+    cXr s k e mu d -> \ a -> d ;
+    cXl s k e o kk -> \ a -> kk a } ;
+  walk : LT.LL A -> C0 -> Seq -> I.Rule A = split {
+    nilL -> \ d G -> ruleOf d G ;
+    consL a ys | r -> \ d G -> r (child d a) (I.step A G (ruleOf d G) a) } ;
+  walkR (d : C0) (G : Seq) : I.Rl A = \ ys -> walk ys d G ;
+  ----------------------------------------------------------------------
+  -- local correctness
+  applOk : (d : C0) (G : Seq) -> Ok d G -> Id W.Bool (I.appl A G (ruleOf d G)) true = split {
+    cAx b k e -> \ G o -> PL.trans W.Bool (I.isAx A (I.getM A (idxOf (atF b k,e) G) G)) (I.isAx A (inr (atF b k,e))) true
+      (PL.ap (I.OC A) W.Bool (I.isAx A) (I.getM A (idxOf (atF b k,e) G) G) (inr (atF b k,e)) (getIdx (atF b k,e) G o.1))
+      (eqBoT (ev A k e) b o.2) ;
+    cAnd p q e d0 d1 -> \ G o -> PL.ap (I.OC A) W.Bool (I.isO A BI.isAndF) (I.getM A (idxOf (andF p q,e) G) G) (inr (andF p q,e))
+      (getIdx (andF p q,e) G o.1) ;
+    cOr p q e d -> \ G o -> PL.ap (I.OC A) W.Bool (I.isO A BI.isOrF) (I.getM A (idxOf (orF p q,e) G) G) (inr (orF p q,e))
+      (getIdx (orF p q,e) G o.1) ;
+    cAll p e kk -> \ G o -> PL.ap (I.OC A) W.Bool (I.isO A BI.isAllF) (I.getM A (idxOf (allF p,e) G) G) (inr (allF p,e))
+      (getIdx (allF p,e) G o.1) ;
+    cEx p e w d -> \ G o -> PL.trans W.Bool (W.andB (I.isO A BI.isExF (I.getM A (idxOf (exF p,e) G) G)) (I.isNum A w))
+        (W.andB (I.isO A BI.isExF (inr (exF p,e))) (I.isNum A w)) true
+      (PL.ap (I.OC A) W.Bool (\ z -> W.andB (I.isO A BI.isExF z) (I.isNum A w)) (I.getM A (idxOf (exF p,e) G) G) (inr (exF p,e))
+        (getIdx (exF p,e) G o.1)) o.2.1 ;
+    cXr s k e mu d -> \ G o -> PL.trans W.Bool (I.okXr A mu (I.getM A (idxOf (xF true s k,e) G) G)) (I.okXr A mu (inr (xF true s k,e))) true
+      (PL.ap (I.OC A) W.Bool (I.okXr A mu) (I.getM A (idxOf (xF true s k,e) G) G) (inr (xF true s k,e)) (getIdx (xF true s k,e) G o.1)) o.2.1 ;
+    cXl s k e oo kk -> \ G o -> PL.trans W.Bool (I.okXl A oo (I.getM A (idxOf (xF false s k,e) G) G)) (I.okXl A oo (inr (xF false s k,e))) true
+      (PL.ap (I.OC A) W.Bool (I.okXl A oo) (I.getM A (idxOf (xF false s k,e) G) G) (inr (xF false s k,e)) (getIdx (xF false s k,e) G o.1)) o.2.1 } ;
+  okPick (p q : BI.Form) (e : LT.LL A) (d0 d1 : C0) (G : Seq) (o0 : Ok d0 (consL (p,e) G)) (o1 : Ok d1 (consL (q,e) G)) :
+      (n : W.N) -> Ok (pickN C0 n d0 d1) (consL (BI.pickF n p q,e) G) = split { zero -> o0 ; suc n -> o1 } ;
+  childOk : (d : C0) (G : Seq) -> Ok d G -> (a : Lb) -> Id W.Bool (I.br A top (ruleOf d G) a) true ->
+      Ok (child d a) (I.step A G (ruleOf d G) a) = split {
+    cAx b k e -> \ G o a h -> W.absurdB (Ok (cAx b k e) (I.step A G (ruleOf (cAx b k e) G) a)) h ;
+    cAnd p q e d0 d1 -> \ G o a h -> wk (pickN C0 a.1 d0 d1) (consL (BI.pickF a.1 p q,e) G)
+      (I.app A G (I.addAnd A (I.getM A (idxOf (andF p q,e) G) G) a)) (okPick p q e d0 d1 G o.2.1 o.2.2 a.1)
+      (hSubR G (I.getM A (idxOf (andF p q,e) G) G) (andF p q,e) (getIdx (andF p q,e) G o.1)
+        (\ o' -> I.addAnd A o' a) (consL (BI.pickF a.1 p q,e) nilL) (refl (consL (BI.pickF a.1 p q,e) nilL))) ;
+    cOr p q e d -> \ G o a h -> wk d (consL (p,e) (consL (q,e) G)) (I.app A G (I.addOr A (I.getM A (idxOf (orF p q,e) G) G))) o.2
+      (hSubR G (I.getM A (idxOf (orF p q,e) G) G) (orF p q,e) (getIdx (orF p q,e) G o.1)
+        (I.addOr A) (consL (p,e) (consL (q,e) nilL)) (refl (consL (p,e) (consL (q,e) nilL)))) ;
+    cAll p e kk -> \ G o a h -> wk (kk a) (consL (p,consL a e) G) (I.app A G (I.addAll A (I.getM A (idxOf (allF p,e) G) G) a)) (o.2 a h)
+      (hSubR G (I.getM A (idxOf (allF p,e) G) G) (allF p,e) (getIdx (allF p,e) G o.1)
+        (\ o' -> I.addAll A o' a) (consL (p,consL a e) nilL) (refl (consL (p,consL a e) nilL))) ;
+    cEx p e w d -> \ G o a h -> wk d (consL (p,consL w e) G) (I.app A G (I.addEx A (I.getM A (idxOf (exF p,e) G) G) w)) o.2.2
+      (hSubR G (I.getM A (idxOf (exF p,e) G) G) (exF p,e) (getIdx (exF p,e) G o.1)
+        (\ o' -> I.addEx A o' w) (consL (p,consL w e) nilL) (refl (consL (p,consL w e) nilL))) ;
+    cXr s k e mu d -> \ G o a h -> wk d (consL (cR k e mu) G) (I.app A G (I.addXr A mu (I.getM A (idxOf (xF true s k,e) G) G))) o.2.2
+      (hSubR G (I.getM A (idxOf (xF true s k,e) G) G) (xF true s k,e) (getIdx (xF true s k,e) G o.1)
+        (I.addXr A mu) (consL (cR k e mu) nilL) (refl (consL (cR k e mu) nilL))) ;
+    cXl s k e oo kk -> \ G o a h -> wk (kk a) (consL (cL k e a) G) (I.app A G (I.addXl A (I.getM A (idxOf (xF false s k,e) G) G) a)) (o.2.2 a h)
+      (hSubR G (I.getM A (idxOf (xF false s k,e) G) G) (xF false s k,e) (getIdx (xF false s k,e) G o.1)
+        (\ o' -> I.addXl A o' a) (consL (cL k e a) nilL) (refl (consL (cL k e a) nilL))) } ;
+  loW : (ys : LT.LL A) (d : C0) (G : Seq) -> Ok d G -> Id W.Bool (I.inTree A top ys (walkR d G) G) true ->
+      Id W.Bool (I.appl A (I.seqAt A ys (walkR d G) G) (walk ys d G)) true = split {
+    nilL -> \ d G o h -> applOk d G o ;
+    consL a ys | r -> \ d G o h -> r (child d a) (I.step A G (ruleOf d G) a)
+      (childOk d G o a (W.andB-l (I.br A top (ruleOf d G) a) (I.inTree A top ys (walkR (child d a) (I.step A G (ruleOf d G) a)) (I.step A G (ruleOf d G) a)) h))
+      (W.andB-r (I.br A top (ruleOf d G) a) (I.inTree A top ys (walkR (child d a) (I.step A G (ruleOf d G) a)) (I.step A G (ruleOf d G) a)) h) } ;
+  -- LOCAL CORRECTNESS of the walk
+  loc (d : C0) (G : Seq) (o : Ok d G) : I.LocOK A top (walkR d G) G = \ ys h -> loW ys d G o h ;
+  ----------------------------------------------------------------------
+  -- a Brouwer bound read off the derivation
+  bnd : C0 -> K.BT = split {
+    cAx b k e -> node (\ a -> leaf) ;
+    cAnd p q e d0 d1 | r0 r1 -> node (\ a -> pickN K.BT a.1 r0 r1) ;
+    cOr p q e d | r -> node (\ a -> r) ;
+    cAll p e kk | r -> node r ;
+    cEx p e w d | r -> node (\ a -> r) ;
+    cXr s k e mu d | r -> node (\ a -> r) ;
+    cXl s k e o kk | r -> node r } ;
+  bndAnd (b : K.BT) (c : W.Bool) (P : K.Tr) (h : K.Bnd b P) : K.Bnd b (\ xs -> W.andB c (P xs)) =
+    K.bnd-mono b (\ xs -> W.andB c (P xs)) P (\ xs k -> W.andB-r c (P xs) k) h ;
+  bPick (d0 d1 : C0) (r0 : (G' : Seq) -> K.Bnd (bnd d0) (I.tree A top (walkR d0 G') G'))
+      (r1 : (G' : Seq) -> K.Bnd (bnd d1) (I.tree A top (walkR d1 G') G')) (G' : Seq) :
+      (n : W.N) -> K.Bnd (pickN K.BT n (bnd d0) (bnd d1)) (I.tree A top (walkR (pickN C0 n d0 d1) G') G') = split {
+    zero -> r0 G' ; suc n -> r1 G' } ;
+  bndOk : (d : C0) (G : Seq) -> K.Bnd (bnd d) (I.tree A top (walkR d G) G) = split {
+    cAx b k e -> \ G a xs -> refl false ;
+    cAnd p q e d0 d1 | r0 r1 -> \ G a -> bndAnd (pickN K.BT a.1 (bnd d0) (bnd d1)) (I.isTwo A a)
+      (I.tree A top (walkR (pickN C0 a.1 d0 d1) (I.step A G (andR (idxOf (andF p q,e) G)) a)) (I.step A G (andR (idxOf (andF p q,e) G)) a))
+      (bPick d0 d1 r0 r1 (I.step A G (andR (idxOf (andF p q,e) G)) a) a.1) ;
+    cOr p q e d | r -> \ G a -> bndAnd (bnd d) (I.isZeroL A a)
+      (I.tree A top (walkR d (I.step A G (orR (idxOf (orF p q,e) G)) a)) (I.step A G (orR (idxOf (orF p q,e) G)) a))
+      (r (I.step A G (orR (idxOf (orF p q,e) G)) a)) ;
+    cAll p e kk | r -> \ G a -> bndAnd (bnd (kk a)) (I.isNum A a)
+      (I.tree A top (walkR (kk a) (I.step A G (allR (idxOf (allF p,e) G)) a)) (I.step A G (allR (idxOf (allF p,e) G)) a))
+      (r a (I.step A G (allR (idxOf (allF p,e) G)) a)) ;
+    cEx p e w d | r -> \ G a -> bndAnd (bnd d) (I.isZeroL A a)
+      (I.tree A top (walkR d (I.step A G (exR (idxOf (exF p,e) G) w) a)) (I.step A G (exR (idxOf (exF p,e) G) w) a))
+      (r (I.step A G (exR (idxOf (exF p,e) G) w) a)) ;
+    cXr s k e mu d | r -> \ G a -> bndAnd (bnd d) (I.isZeroL A a)
+      (I.tree A top (walkR d (I.step A G (xrR (idxOf (xF true s k,e) G) mu) a)) (I.step A G (xrR (idxOf (xF true s k,e) G) mu) a))
+      (r (I.step A G (xrR (idxOf (xF true s k,e) G) mu) a)) ;
+    cXl s k e o kk | r -> \ G a -> bndAnd (bnd (kk a)) (I.below A (I.bound A top o) a)
+      (I.tree A top (walkR (kk a) (I.step A G (xlR (idxOf (xF false s k,e) G) o) a)) (I.step A G (xlR (idxOf (xF false s k,e) G) o) a))
+      (r a (I.step A G (xlR (idxOf (xF false s k,e) G) o) a)) } ;
+  -- WELL-FOUNDED: the walk has a Brouwer bound
+  wfp (d : C0) (G : Seq) : I.WFP A top (walkR d G) G = (bnd d,bndOk d G) ;
+  -- CUT-FREE
+  isCut : I.Rule A -> W.Bool = split {
+    axR i -> false ; andR i -> false ; orR i -> false ; allR i -> false ; exR i w -> false ; cutR f e -> true ; xrR i mu -> false ; xlR i o -> false } ;
+  ruleNoCut : (d : C0) (G : Seq) -> Id W.Bool (isCut (ruleOf d G)) false = split {
+    cAx b k e -> \ G -> refl false ; cAnd p q e d0 d1 -> \ G -> refl false ; cOr p q e d -> \ G -> refl false ;
+    cAll p e kk -> \ G -> refl false ; cEx p e w d -> \ G -> refl false ; cXr s k e mu d -> \ G -> refl false ; cXl s k e o kk -> \ G -> refl false } ;
+  walkNoCut : (ys : LT.LL A) (d : C0) (G : Seq) -> Id W.Bool (isCut (walk ys d G)) false = split {
+    nilL -> \ d G -> ruleNoCut d G ;
+    consL a ys | r -> \ d G -> r (child d a) (I.step A G (ruleOf d G) a) } ;
+} ;
+
+------------------------------------------------------------------------
+-- walk commutes with the relation RelF along g (BetaIDHom.NH)
+module WN (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A B : DP.LO) (g : DP.Map A B)
+  (evI : (k : W.N) (e : LT.LL A) -> Id W.Bool (ev B k (LT.mapL A B g e)) (ev A k e))
+  (topA : A.car) (topB : B.car) (eT : Id B.car (g.1 topA) topB) {
+  module I = BI.ID[ev,phi] ;
+  module N = BH.NH[ev,phi,A,B,g,evI,topA,topB,eT] ;
+  module M = N.M ;
+  module WA = Walk[ev,phi,A,topA] ;
+  module WB = Walk[ev,phi,B,topB] ;
+  idxNat (c : I.Clo A) : (G : I.Seq A) -> Id W.N (WB.idxOf (N.mC c) (M.mS G)) (WA.idxOf c G) = split {
+    nilL -> refl zero ;
+    consL d G | r -> W.ap2 W.Bool W.N W.N idxC (N.MB.eqClo (N.mC d) (N.mC c)) (N.MA.eqClo d c) (WB.idxOf (N.mC c) (M.mS G)) (WA.idxOf c G)
+      (N.eqCloNat d c) r } ;
+  ruleRel0 (G : I.Seq A) : (dA : N.FA) (dB : N.FB) -> N.RelF dA dB -> Id (I.Rule B) (WB.ruleOf dB (M.mS G)) (M.mR (WA.ruleOf dA G)) = split {
+    cAx b k e -> \ dB rel -> PL.subst N.FB (\ z -> Id (I.Rule B) (WB.ruleOf z (M.mS G)) (M.mR (WA.ruleOf (cAx b k e) G)))
+      (cAx b k (N.mE e)) dB (PL.sym N.FB dB (cAx b k (N.mE e)) rel)
+      (PL.ap W.N (I.Rule B) (\ i -> axR i) (WB.idxOf (N.mC (atF b k,e)) (M.mS G)) (WA.idxOf (atF b k,e) G) (idxNat (atF b k,e) G)) ;
+    cAnd p q e d0 d1 -> \ dB rel -> PL.subst N.FB (\ z -> Id (I.Rule B) (WB.ruleOf z (M.mS G)) (M.mR (WA.ruleOf (cAnd p q e d0 d1) G)))
+      (cAnd p q (N.mE e) rel.1 rel.2.1) dB (PL.sym N.FB dB (cAnd p q (N.mE e) rel.1 rel.2.1) rel.2.2.1)
+      (PL.ap W.N (I.Rule B) (\ i -> andR i) (WB.idxOf (N.mC (andF p q,e)) (M.mS G)) (WA.idxOf (andF p q,e) G) (idxNat (andF p q,e) G)) ;
+    cOr p q e d -> \ dB rel -> PL.subst N.FB (\ z -> Id (I.Rule B) (WB.ruleOf z (M.mS G)) (M.mR (WA.ruleOf (cOr p q e d) G)))
+      (cOr p q (N.mE e) rel.1) dB (PL.sym N.FB dB (cOr p q (N.mE e) rel.1) rel.2.1)
+      (PL.ap W.N (I.Rule B) (\ i -> orR i) (WB.idxOf (N.mC (orF p q,e)) (M.mS G)) (WA.idxOf (orF p q,e) G) (idxNat (orF p q,e) G)) ;
+    cAll p e kk -> \ dB rel -> PL.subst N.FB (\ z -> Id (I.Rule B) (WB.ruleOf z (M.mS G)) (M.mR (WA.ruleOf (cAll p e kk) G)))
+      (cAll p (N.mE e) rel.1) dB (PL.sym N.FB dB (cAll p (N.mE e) rel.1) rel.2.1)
+      (PL.ap W.N (I.Rule B) (\ i -> allR i) (WB.idxOf (N.mC (allF p,e)) (M.mS G)) (WA.idxOf (allF p,e) G) (idxNat (allF p,e) G)) ;
+    cEx p e w d -> \ dB rel -> PL.subst N.FB (\ z -> Id (I.Rule B) (WB.ruleOf z (M.mS G)) (M.mR (WA.ruleOf (cEx p e w d) G)))
+      (cEx p (N.mE e) (N.lm w) rel.1) dB (PL.sym N.FB dB (cEx p (N.mE e) (N.lm w) rel.1) rel.2.1)
+      (PL.ap W.N (I.Rule B) (\ i -> exR i (N.lm w)) (WB.idxOf (N.mC (exF p,e)) (M.mS G)) (WA.idxOf (exF p,e) G) (idxNat (exF p,e) G)) ;
+    cXr s k e mu d -> \ dB rel -> PL.subst N.FB (\ z -> Id (I.Rule B) (WB.ruleOf z (M.mS G)) (M.mR (WA.ruleOf (cXr s k e mu d) G)))
+      (cXr s k (N.mE e) (g.1 mu) rel.1) dB (PL.sym N.FB dB (cXr s k (N.mE e) (g.1 mu) rel.1) rel.2.1)
+      (PL.ap W.N (I.Rule B) (\ i -> xrR i (g.1 mu)) (WB.idxOf (N.mC (xF true s k,e)) (M.mS G)) (WA.idxOf (xF true s k,e) G) (idxNat (xF true s k,e) G)) ;
+    cXl s k e o kk -> \ dB rel -> PL.subst N.FB (\ z -> Id (I.Rule B) (WB.ruleOf z (M.mS G)) (M.mR (WA.ruleOf (cXl s k e o kk) G)))
+      (cXl s k (N.mE e) (N.om o) rel.1) dB (PL.sym N.FB dB (cXl s k (N.mE e) (N.om o) rel.1) rel.2.1)
+      (PL.ap W.N (I.Rule B) (\ i -> xlR i (N.om o)) (WB.idxOf (N.mC (xF false s k,e)) (M.mS G)) (WA.idxOf (xF false s k,e) G) (idxNat (xF false s k,e) G)) } ;
+  ruleRel (dA : N.FA) (dB : N.FB) (rel : N.RelF dA dB) (GA : I.Seq A) (GB : I.Seq B) (eg : Id (I.Seq B) GB (M.mS GA)) :
+      Id (I.Rule B) (WB.ruleOf dB GB) (M.mR (WA.ruleOf dA GA)) =
+    PL.subst (I.Seq B) (\ z -> Id (I.Rule B) (WB.ruleOf dB z) (M.mR (WA.ruleOf dA GA))) (M.mS GA) GB (PL.sym (I.Seq B) GB (M.mS GA) eg)
+      (ruleRel0 GA dA dB rel) ;
+  pickRel (d0 d1 : N.FA) (d0' d1' : N.FB) (r0 : N.RelF d0 d0') (r1 : N.RelF d1 d1') : (n : W.N) ->
+      N.RelF (pickN N.FA n d0 d1) (pickN N.FB n d0' d1') = split { zero -> r0 ; suc n -> r1 } ;
+  childRel (a : I.Lb A) : (dA : N.FA) (dB : N.FB) -> N.RelF dA dB -> N.RelF (WA.child dA a) (WB.child dB (N.lm a)) = split {
+    cAx b k e -> \ dB rel -> PL.subst N.FB (\ z -> N.RelF (WA.child (cAx b k e) a) (WB.child z (N.lm a)))
+      (cAx b k (N.mE e)) dB (PL.sym N.FB dB (cAx b k (N.mE e)) rel) (refl (cAx b k (N.mE e))) ;
+    cAnd p q e d0 d1 -> \ dB rel -> PL.subst N.FB (\ z -> N.RelF (WA.child (cAnd p q e d0 d1) a) (WB.child z (N.lm a)))
+      (cAnd p q (N.mE e) rel.1 rel.2.1) dB (PL.sym N.FB dB (cAnd p q (N.mE e) rel.1 rel.2.1) rel.2.2.1)
+      (pickRel d0 d1 rel.1 rel.2.1 rel.2.2.2.1 rel.2.2.2.2 a.1) ;
+    cOr p q e d -> \ dB rel -> PL.subst N.FB (\ z -> N.RelF (WA.child (cOr p q e d) a) (WB.child z (N.lm a)))
+      (cOr p q (N.mE e) rel.1) dB (PL.sym N.FB dB (cOr p q (N.mE e) rel.1) rel.2.1) rel.2.2 ;
+    cAll p e kk -> \ dB rel -> PL.subst N.FB (\ z -> N.RelF (WA.child (cAll p e kk) a) (WB.child z (N.lm a)))
+      (cAll p (N.mE e) rel.1) dB (PL.sym N.FB dB (cAll p (N.mE e) rel.1) rel.2.1) (rel.2.2 a) ;
+    cEx p e w d -> \ dB rel -> PL.subst N.FB (\ z -> N.RelF (WA.child (cEx p e w d) a) (WB.child z (N.lm a)))
+      (cEx p (N.mE e) (N.lm w) rel.1) dB (PL.sym N.FB dB (cEx p (N.mE e) (N.lm w) rel.1) rel.2.1) rel.2.2 ;
+    cXr s k e mu d -> \ dB rel -> PL.subst N.FB (\ z -> N.RelF (WA.child (cXr s k e mu d) a) (WB.child z (N.lm a)))
+      (cXr s k (N.mE e) (g.1 mu) rel.1) dB (PL.sym N.FB dB (cXr s k (N.mE e) (g.1 mu) rel.1) rel.2.1) rel.2.2 ;
+    cXl s k e o kk -> \ dB rel -> PL.subst N.FB (\ z -> N.RelF (WA.child (cXl s k e o kk) a) (WB.child z (N.lm a)))
+      (cXl s k (N.mE e) (N.om o) rel.1) dB (PL.sym N.FB dB (cXl s k (N.mE e) (N.om o) rel.1) rel.2.1) (rel.2.2 a) } ;
+  -- THE WALK IS NATURAL along related derivations
+  walkNat : (ys : LT.LL A) (dA : N.FA) (dB : N.FB) -> N.RelF dA dB -> (GA : I.Seq A) (GB : I.Seq B) -> Id (I.Seq B) GB (M.mS GA) ->
+      Id (I.Rule B) (WB.walk (N.mE ys) dB GB) (M.mR (WA.walk ys dA GA)) = split {
+    nilL -> \ dA dB rel GA GB eg -> ruleRel dA dB rel GA GB eg ;
+    consL a ys | r -> \ dA dB rel GA GB eg -> r (WA.child dA a) (WB.child dB (N.lm a)) (childRel a dA dB rel)
+      (I.step A GA (WA.ruleOf dA GA) a) (I.step B GB (WB.ruleOf dB GB) (N.lm a))
+      (PL.trans (I.Seq B) (I.step B GB (WB.ruleOf dB GB) (N.lm a)) (I.step B (M.mS GA) (M.mR (WA.ruleOf dA GA)) (N.lm a))
+        (M.mS (I.step A GA (WA.ruleOf dA GA) a))
+        (W.ap2 (I.Seq B) (I.Rule B) (I.Seq B) (\ G0 r0 -> I.step B G0 r0 (N.lm a)) GB (M.mS GA) (WB.ruleOf dB GB) (M.mR (WA.ruleOf dA GA))
+          eg (ruleRel dA dB rel GA GB eg))
+        (M.stepMap GA (WA.ruleOf dA GA) a)) } ;
+} ;
