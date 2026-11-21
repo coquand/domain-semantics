@@ -19,8 +19,9 @@
 -- for all X at once.
 --
 -- The converse (correct => accessible) is Girard's 10.2.9 (BetaPred.Cl,
--- with excluded middle and dependent choice; to obtain the DATA AccO one
--- also needs choice over the predecessors).  So the Pi^1_1-CA content of
+-- with excluded middle and dependent choice).  Certificates are unique
+-- (AccR.accProp), so Cl gives the DATA AccO directly (ClassicalAcc, no
+-- choice over the predecessors; Classical with AC2 is the older route).  So the Pi^1_1-CA content of
 -- 11.6.4 is the bar theorem  correct => accessible.
 level l ;
 open Base ; open Prelude[l+] ; open ScottOrder[l] ;
@@ -34,6 +35,7 @@ module LT = LabTree[l] ;
 module LW = LOWF[l] ;
 module LC = LOCat[l] ;
 module BPd = BetaPred[l] ;
+module Ext = Axioms[l+].FunExtLemmas[fe @l+] ;
 
 ------------------------------------------------------------------------
 -- accessibility along a large step relation
@@ -48,6 +50,24 @@ module AccR (A : U l+) (St : A -> U l+) (sh : (a : A) -> St a -> A) {
     node x0 f | r -> \ x g -> P1.subst A P x0 x g.1 (step x0 (\ s -> r s (sh x0 s) (g.2 s))) } ;
   ind (P : A -> U l+) (step : (x : A) -> ((s : St x) -> P (sh x s)) -> P x) (x : A) (ax : AccP x) : P x =
     indT P step ax.1 x ax.2 ;
+  -- accessibility certificates are unique (funext; J on the root equation)
+  Kids (x : A) : U l+ = (s : St x) -> AccP (sh x s) ;
+  View (x : A) (v : AccP x) : U l+ = (k : Kids x) * Id (AccP x) (acc x k) v ;
+  viewT : (t : AT) (x : A) (g : Good t x) -> View x (t,g) = split {
+    node y fs -> \ x g ->
+      idJ A y (\ z q -> View z (node y fs,(q,g.2)))
+        ((\ s -> (fs s,g.2 s)),refl (node y fs,(refl y,g.2))) x g.1 } ;
+  UP (x : A) (v : AccP x) : U l+ = (w : AccP x) -> Id (AccP x) v w ;
+  uStep (x : A) (k : Kids x) (ih : (s : St x) -> UP (sh x s) (k s)) (w : AccP x) : Id (AccP x) (acc x k) w =
+    P1.trans (AccP x) (acc x k) (acc x (viewT w.1 x w.2).1) w
+      (P1.ap (Kids x) (AccP x) (acc x) k (viewT w.1 x w.2).1
+        (Ext.funext (St x) (\ s -> AccP (sh x s)) k (viewT w.1 x w.2).1 (\ s -> ih s ((viewT w.1 x w.2).1 s))))
+      (viewT w.1 x w.2).2 ;
+  uniqueT : (t : AT) (x : A) (g : Good t x) -> UP x (t,g) = split {
+    node y fs | rec -> \ x g ->
+      idJ A y (\ z q -> UP z (node y fs,(q,g.2)))
+        (uStep y (\ s -> (fs s,g.2 s)) (\ s -> rec s (sh y s) (g.2 s))) x g.1 } ;
+  accProp (x : A) : P1.isProp (AccP x) = \ a -> uniqueT a.1 x a.2 ;
 } ;
 module AO = AccR[BPd.Obj,BPd.Step,BPd.shift] ;
 AccO (o : BPd.Obj) : U l+ = AO.AccP o ;
@@ -194,4 +214,9 @@ module Classical (lem : BPd.LEM2) (dc : BPd.DC2) (ac : AC2) {
     TC1.map ((st : BPd.Step x) -> AccO (BPd.shift x st)) (AccO x) (AO.acc x)
       (ac (BPd.Step x) (\ st -> AccO (BPd.shift x st)) ih) ;
   corrAcc (x0 : BPd.Obj) (c0 : BPd.CorrO x0) : Q x0 = BPd.Cl[lem,dc,Q,qp,cl].main x0 c0 ;
+} ;
+-- since AccO is a proposition, Cl eliminates into AccO itself: the DATA of
+-- accessibility from correctness, with LEM2 and DC2 only (no AC2)
+module ClassicalAcc (lem : BPd.LEM2) (dc : BPd.DC2) {
+  corrAcc (x0 : BPd.Obj) (c0 : BPd.CorrO x0) : AccO x0 = BPd.Cl[lem,dc,AccO,AO.accProp,AO.acc].main x0 c0 ;
 } ;
