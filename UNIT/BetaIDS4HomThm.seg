@@ -1,0 +1,135 @@
+-- PLAN-ID1: homogeneity of the S4 outputs (Girard 11.4.4 (ii), the part
+-- about the outputs actually computed by BetaIDS4.Thm.thm).
+--
+-- TARGET.  Let o, o' be input families related along (c, tau)
+-- (BetaIDS4Hom.Rel.RelIn), with accessibility certificates ac, ac', and
+-- let f : Y -> Y' be an embedding of well-orders.  Write
+--     (E, d)   = Thm.thm o ac Y wY,     (E', d') = Thm.thm o' ac' Y' wY',
+--     beta_f   = tau_Y' o k_o(f) : kY -> k'Y'.
+-- Then there is an embedding e : E -> E' such that d' restricts to d along
+--     beta_f + e : kY + E -> k'Y' + E'
+-- (BetaIDHom.NH.RelF).  The same-family case: o' = o, c = id, tau = id.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module P1 = Prelude[l+] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module PS = PtyxSum[l] ;
+module LW = LOWF[l] ;
+module BI = BetaID[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module SH = BetaIDS4Hom[l] ;
+module BH = BetaIDHom[l] ;
+
+module Stmt (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module SS = S4.SSteps[ev,phi,evN] ;
+  module R = SH.Rel[ev,phi,evN] ;
+  module T = S4.Thm[ev,phi,evN,hPos] ;
+  -- the base map at the parameters
+  baseF (o o' : O.IObj) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z)) (Y Y' : DP.LO) (f : DP.Map Y Y') : DP.Map (o.k Y) (o'.k Y') =
+    LC.compMap (o.k Y) (o.k Y') (o'.k Y') (o.km Y Y' f) (tau Y') ;
+  baseTop (o o' : O.IObj) (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z)) (rl : R.RelIn o o' c tau)
+      (Y Y' : DP.LO) (f : DP.Map Y Y') : Id (o'.k Y').car ((baseF o o' tau Y Y' f).1 (O.topO o Y)) (O.topO o' Y') =
+    PL.trans (o'.k Y').car ((baseF o o' tau Y Y' f).1 (O.topO o Y)) ((tau Y').1 (O.topO o Y')) (O.topO o' Y')
+      (PL.ap (o.k Y').car (o'.k Y').car (tau Y').1 ((o.km Y Y' f).1 (O.topO o Y)) (O.topO o Y') (o.ntop Y Y' f)) (rl.1 Y') ;
+  -- the extended map
+  extM (A A' E E' : DP.LO) (b : DP.Map A A') (e : DP.Map E E') : DP.Map (S4.Sm A E) (S4.Sm A' E') = PS.SumMap[A,E,A',E',b,e].map ;
+  extTop (A A' E E' : DP.LO) (b : DP.Map A A') (e : DP.Map E E') (t : A.car) (t' : A'.car) (h : Id A'.car (b.1 t) t') :
+      Id (S4.Sm A' E').car ((extM A A' E E' b e).1 (inl t)) (inl t') = PL.ap A'.car (S4.Sm A' E').car (\ z -> inl z) (b.1 t) t' h ;
+  -- two outputs related along b
+  HomOut (A A' : DP.LO) (t : A.car) (t' : A'.car) (b : DP.Map A A') (bt : Id A'.car (b.1 t) t')
+      (G : I.Seq A) (G' : I.Seq A') (x : S4.OutM[ev,phi,A,t].Out G) (x' : S4.OutM[ev,phi,A',t'].Out G') : U l =
+    (e : DP.Map x.1 x'.1) *
+      BH.NH[ev,phi,S4.Sm A x.1,S4.Sm A' x'.1,extM A A' x.1 x'.1 b e,
+        S4.evMap ev evN (S4.Sm A x.1) (S4.Sm A' x'.1) (extM A A' x.1 x'.1 b e),inl t,inl t',extTop A A' x.1 x'.1 b e t t' bt].RelF x.2.2.1 x'.2.2.1 ;
+  -- the theorem to prove
+  Goal : U l+ = (o o' : O.IObj) (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z)) (rl : R.RelIn o o' c tau)
+    (ac : SS.AccI o) (ac' : SS.AccI o') (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') ->
+    HomOut (o.k Y) (o'.k Y') (O.topO o Y) (O.topO o' Y') (baseF o o' tau Y Y' f) (baseTop o o' c tau rl Y Y' f) (o.G Y) (o'.G Y')
+      (T.thm o ac Y wY) (T.thm o' ac' Y' wY') ;
+
+  ----------------------------------------------------------------------
+  -- the node-level comparison (proved separately), and the induction
+  Q (o : O.IObj) : U l+ = T.M.Q o ;
+  stp (o : O.IObj) (ih : (s : SS.Step o) -> Q (SS.shiftO o s)) : Q o = \ Y wY -> S4.Disp[ev,phi,evN,hPos,o,ih,Y,wY].out ;
+  IHR (o o' : O.IObj) (ih : (s : SS.Step o) -> Q (SS.shiftO o s)) (ih' : (s : SS.Step o') -> Q (SS.shiftO o' s)) : U l+ =
+    (s : SS.Step o) (s' : SS.Step o') (cs : DP.Map (SS.shiftO o s).Cst (SS.shiftO o' s').Cst)
+    (taus : (Z : DP.LO) -> DP.Map ((SS.shiftO o s).k Z) ((SS.shiftO o' s').k Z))
+    (rs : R.RelIn (SS.shiftO o s) (SS.shiftO o' s') cs taus)
+    (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') ->
+    HomOut ((SS.shiftO o s).k Y) ((SS.shiftO o' s').k Y') (O.topO (SS.shiftO o s) Y) (O.topO (SS.shiftO o' s') Y')
+      (baseF (SS.shiftO o s) (SS.shiftO o' s') taus Y Y' f) (baseTop (SS.shiftO o s) (SS.shiftO o' s') cs taus rs Y Y' f)
+      ((SS.shiftO o s).G Y) ((SS.shiftO o' s').G Y') (ih s Y wY) (ih' s' Y' wY') ;
+  NodeT : U l+ = (o o' : O.IObj) (ih : (s : SS.Step o) -> Q (SS.shiftO o s)) (ih' : (s : SS.Step o') -> Q (SS.shiftO o' s))
+    (ihr : IHR o o' ih ih') (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z)) (rl : R.RelIn o o' c tau)
+    (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') ->
+    HomOut (o.k Y) (o'.k Y') (O.topO o Y) (O.topO o' Y') (baseF o o' tau Y Y' f) (baseTop o o' c tau rl Y Y' f) (o.G Y) (o'.G Y')
+      (stp o ih Y wY) (stp o' ih' Y' wY') ;
+  module Ind (nodeH : NodeT) {
+    module A = SS.AO ;
+    ev0 (t : A.AT) (x : O.IObj) (g : A.Good t x) : Q x = A.indT Q stp t x g ;
+    GoalT (t : A.AT) : U l+ = (x : O.IObj) (g : A.Good t x) (x' : O.IObj) (t' : A.AT) (g' : A.Good t' x')
+      (c : DP.Map x.Cst x'.Cst) (tau : (Z : DP.LO) -> DP.Map (x.k Z) (x'.k Z)) (rl : R.RelIn x x' c tau)
+      (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') ->
+      HomOut (x.k Y) (x'.k Y') (O.topO x Y) (O.topO x' Y') (baseF x x' tau Y Y' f) (baseTop x x' c tau rl Y Y' f) (x.G Y) (x'.G Y')
+        (ev0 t x g Y wY) (ev0 t' x' g' Y' wY') ;
+    -- both trees are nodes; transport along the two Good equations
+    nodes (x0 : O.IObj) (fs : (s : SS.Step x0) -> A.AT) (rec : (s : SS.Step x0) -> GoalT (fs s))
+        (g2 : (s : SS.Step x0) -> A.Good (fs s) (SS.shiftO x0 s))
+        (x0' : O.IObj) (fs' : (s : SS.Step x0') -> A.AT) (g2' : (s : SS.Step x0') -> A.Good (fs' s) (SS.shiftO x0' s))
+        (c : DP.Map x0.Cst x0'.Cst) (tau : (Z : DP.LO) -> DP.Map (x0.k Z) (x0'.k Z)) (rl : R.RelIn x0 x0' c tau)
+        (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') :
+        HomOut (x0.k Y) (x0'.k Y') (O.topO x0 Y) (O.topO x0' Y') (baseF x0 x0' tau Y Y' f) (baseTop x0 x0' c tau rl Y Y' f) (x0.G Y) (x0'.G Y')
+          (stp x0 (\ s -> ev0 (fs s) (SS.shiftO x0 s) (g2 s)) Y wY) (stp x0' (\ s -> ev0 (fs' s) (SS.shiftO x0' s) (g2' s)) Y' wY') =
+      nodeH x0 x0' (\ s -> ev0 (fs s) (SS.shiftO x0 s) (g2 s)) (\ s -> ev0 (fs' s) (SS.shiftO x0' s) (g2' s))
+        (\ s s' cs taus rs -> rec s (SS.shiftO x0 s) (g2 s) (SS.shiftO x0' s') (fs' s') (g2' s') cs taus rs)
+        c tau rl Y Y' wY wY' f ;
+    -- J on the target equation
+    tgtJ (x0 : O.IObj) (fs : (s : SS.Step x0) -> A.AT) (rec : (s : SS.Step x0) -> GoalT (fs s))
+        (g2 : (s : SS.Step x0) -> A.Good (fs s) (SS.shiftO x0 s))
+        (x0' : O.IObj) (fs' : (s : SS.Step x0') -> A.AT) (g2' : (s : SS.Step x0') -> A.Good (fs' s) (SS.shiftO x0' s)) :
+        (x' : O.IObj) (e' : Id O.IObj x0' x') -> (c : DP.Map x0.Cst x'.Cst) (tau : (Z : DP.LO) -> DP.Map (x0.k Z) (x'.k Z)) (rl : R.RelIn x0 x' c tau)
+        (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') ->
+        HomOut (x0.k Y) (x'.k Y') (O.topO x0 Y) (O.topO x' Y') (baseF x0 x' tau Y Y' f) (baseTop x0 x' c tau rl Y Y' f) (x0.G Y) (x'.G Y')
+          (stp x0 (\ s -> ev0 (fs s) (SS.shiftO x0 s) (g2 s)) Y wY)
+          (P1.subst O.IObj Q x0' x' e' (stp x0' (\ s -> ev0 (fs' s) (SS.shiftO x0' s) (g2' s))) Y' wY') =
+      \ x' e' -> idJ O.IObj x0' (\ z q -> (c : DP.Map x0.Cst z.Cst) (tau : (Z : DP.LO) -> DP.Map (x0.k Z) (z.k Z)) (rl : R.RelIn x0 z c tau)
+          (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') ->
+          HomOut (x0.k Y) (z.k Y') (O.topO x0 Y) (O.topO z Y') (baseF x0 z tau Y Y' f) (baseTop x0 z c tau rl Y Y' f) (x0.G Y) (z.G Y')
+            (stp x0 (\ s -> ev0 (fs s) (SS.shiftO x0 s) (g2 s)) Y wY)
+            (P1.subst O.IObj Q x0' z q (stp x0' (\ s -> ev0 (fs' s) (SS.shiftO x0' s) (g2' s))) Y' wY'))
+        (nodes x0 fs rec g2 x0' fs' g2') x' e' ;
+    -- J on the source equation
+    srcJ (x0 : O.IObj) (fs : (s : SS.Step x0) -> A.AT) (rec : (s : SS.Step x0) -> GoalT (fs s))
+        (g2 : (s : SS.Step x0) -> A.Good (fs s) (SS.shiftO x0 s))
+        (x0' : O.IObj) (fs' : (s : SS.Step x0') -> A.AT) (g2' : (s : SS.Step x0') -> A.Good (fs' s) (SS.shiftO x0' s))
+        (x' : O.IObj) (e' : Id O.IObj x0' x') :
+        (x : O.IObj) (e : Id O.IObj x0 x) -> (c : DP.Map x.Cst x'.Cst) (tau : (Z : DP.LO) -> DP.Map (x.k Z) (x'.k Z)) (rl : R.RelIn x x' c tau)
+        (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') ->
+        HomOut (x.k Y) (x'.k Y') (O.topO x Y) (O.topO x' Y') (baseF x x' tau Y Y' f) (baseTop x x' c tau rl Y Y' f) (x.G Y) (x'.G Y')
+          (P1.subst O.IObj Q x0 x e (stp x0 (\ s -> ev0 (fs s) (SS.shiftO x0 s) (g2 s))) Y wY)
+          (P1.subst O.IObj Q x0' x' e' (stp x0' (\ s -> ev0 (fs' s) (SS.shiftO x0' s) (g2' s))) Y' wY') =
+      \ x e -> idJ O.IObj x0 (\ z q -> (c : DP.Map z.Cst x'.Cst) (tau : (Z : DP.LO) -> DP.Map (z.k Z) (x'.k Z)) (rl : R.RelIn z x' c tau)
+          (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') ->
+          HomOut (z.k Y) (x'.k Y') (O.topO z Y) (O.topO x' Y') (baseF z x' tau Y Y' f) (baseTop z x' c tau rl Y Y' f) (z.G Y) (x'.G Y')
+            (P1.subst O.IObj Q x0 z q (stp x0 (\ s -> ev0 (fs s) (SS.shiftO x0 s) (g2 s))) Y wY)
+            (P1.subst O.IObj Q x0' x' e' (stp x0' (\ s -> ev0 (fs' s) (SS.shiftO x0' s) (g2' s))) Y' wY'))
+        (tgtJ x0 fs rec g2 x0' fs' g2' x' e') x e ;
+    tgtT (x0 : O.IObj) (fs : (s : SS.Step x0) -> A.AT) (rec : (s : SS.Step x0) -> GoalT (fs s)) (x : O.IObj) (g : A.Good (node x0 fs) x)
+        (x' : O.IObj) : (t' : A.AT) (g' : A.Good t' x') -> (c : DP.Map x.Cst x'.Cst) (tau : (Z : DP.LO) -> DP.Map (x.k Z) (x'.k Z)) (rl : R.RelIn x x' c tau)
+        (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') ->
+        HomOut (x.k Y) (x'.k Y') (O.topO x Y) (O.topO x' Y') (baseF x x' tau Y Y' f) (baseTop x x' c tau rl Y Y' f) (x.G Y) (x'.G Y')
+          (ev0 (node x0 fs) x g Y wY) (ev0 t' x' g' Y' wY') = split {
+      node x0' fs' -> \ g' -> srcJ x0 fs rec g.2 x0' fs' g'.2 x' g'.1 x g.1 } ;
+    goalT : (t : A.AT) -> GoalT t = split {
+      node x0 fs | rec -> \ x g x' t' g' -> tgtT x0 fs rec x g x' t' g' } ;
+    thm : Goal = \ o o' c tau rl ac ac' -> goalT ac.1 o ac.2 o' ac'.1 ac'.2 c tau rl ;
+  } ;
+} ;

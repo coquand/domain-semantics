@@ -736,6 +736,13 @@ Gamma~: stages >= top are replaced by Phi-bar.
   `selStage`: the target preX selects the image of the source stage.
 - OPEN for RegAsm: the concrete CHR witness, i.e. the related pv
   providers, moveRel, cf2dvR, and the selection of target labels.
+- `BetaIDS4HomThm.seg`: the TARGET `Stmt.Goal` (related accessible
+  inputs, both certificates, arbitrary f : Y -> Y'; an embedding of the
+  computed extensions and RelF along (tau_Y' o k(f)) + e), and `Ind.thm`:
+  Goal from the node comparison NodeT (recursion on the source tree with
+  Good, a split of the target tree, J on both Good equations). OPEN: NodeT.
+- Note: in Fin.prem, ch reads only the first projection, so the stepRep
+  transports of correctness proofs need no comparison.
 - Next: the same for the other operations (Comb.move, RepR/CT.okRule plus
   elim via BetaIDHom, RBar/RenM, K3Node/S2C), then the induction on
   ac.1 with Good, with arbitrary f and the target certificate quantified.
