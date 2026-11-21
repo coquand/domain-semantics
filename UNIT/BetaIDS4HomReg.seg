@@ -260,3 +260,157 @@ module RegHom (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (ev
       (DM.map,WFc.assemble (RA.RR.rR (o.R Y nilL)) (RA'.RR.rR (o'.R Y' nilL)) erB RA.H RA'.H egB FN.ch FN'.ch children FN.okR FN'.okR) ;
   } ;
 } ;
+
+------------------------------------------------------------------------
+-- the extension maps em and the premise relations prr of a kept-rule
+-- node, from the induction hypothesis (numbers) and a stage relation spr
+module RegPrem (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o o' : S4.Obj[ev,phi,evN].IObj)
+  (ih : (s : S4.SSteps[ev,phi,evN].Step o) -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o s))
+  (ih' : (s : S4.SSteps[ev,phi,evN].Step o') -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o' s))
+  (ihr : BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos].IHR o o' ih ih')
+  (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z)) (rl : SH.Rel[ev,phi,evN].RelIn o o' c tau)
+  (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y')
+  (sp : (n : W.N) (nu : (o.k Y).car) -> Id W.Bool (BI.ID[ev,phi].br (o.k Y) (S4.Obj[ev,phi,evN].topO o Y) (o.R Y nilL) (n,inr nu)) true ->
+     Id W.Bool (BI.ID[ev,phi].ltB (o.k Y) nu (S4.Obj[ev,phi,evN].topO o Y)) true ->
+     S4.OutM[ev,phi,o.k Y,S4.Obj[ev,phi,evN].topO o Y].Out (BI.ID[ev,phi].step (o.k Y) (o.G Y) (o.R Y nilL) (n,inr nu)))
+  (sp' : (n : W.N) (nu : (o'.k Y').car) -> Id W.Bool (BI.ID[ev,phi].br (o'.k Y') (S4.Obj[ev,phi,evN].topO o' Y') (o'.R Y' nilL) (n,inr nu)) true ->
+     Id W.Bool (BI.ID[ev,phi].ltB (o'.k Y') nu (S4.Obj[ev,phi,evN].topO o' Y')) true ->
+     S4.OutM[ev,phi,o'.k Y',S4.Obj[ev,phi,evN].topO o' Y'].Out (BI.ID[ev,phi].step (o'.k Y') (o'.G Y') (o'.R Y' nilL) (n,inr nu)))
+  (spr : (n : W.N) (nu : (o.k Y).car)
+     (e : Id W.Bool (BI.ID[ev,phi].br (o.k Y) (S4.Obj[ev,phi,evN].topO o Y) (o.R Y nilL) (n,inr nu)) true)
+     (ec : Id W.Bool (BI.ID[ev,phi].ltB (o.k Y) nu (S4.Obj[ev,phi,evN].topO o Y)) true)
+     (e' : Id W.Bool (BI.ID[ev,phi].br (o'.k Y') (S4.Obj[ev,phi,evN].topO o' Y') (o'.R Y' nilL)
+        (n,inr ((BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos].baseF o o' tau Y Y' f).1 nu))) true)
+     (ec' : Id W.Bool (BI.ID[ev,phi].ltB (o'.k Y') ((BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos].baseF o o' tau Y Y' f).1 nu)
+        (S4.Obj[ev,phi,evN].topO o' Y')) true) ->
+     BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos].HomOut (o.k Y) (o'.k Y') (S4.Obj[ev,phi,evN].topO o Y) (S4.Obj[ev,phi,evN].topO o' Y')
+       (BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos].baseF o o' tau Y Y' f) (BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos].baseTop o o' c tau rl Y Y' f)
+       (BI.ID[ev,phi].step (o.k Y) (o.G Y) (o.R Y nilL) (n,inr nu))
+       (BI.ID[ev,phi].step (o'.k Y') (o'.G Y') (o'.R Y' nilL) (n,inr ((BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos].baseF o o' tau Y Y' f).1 nu)))
+       (sp n nu e ec) (sp' n ((BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos].baseF o o' tau Y Y' f).1 nu) e' ec')) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module BA = BetaAcc[l] ;
+  module ST = BetaIDS4HomThm[l].Stmt[ev,phi,evN,hPos] ;
+  module RA = S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp] ;
+  module RA' = S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'] ;
+  module N0 = S4.Main[ev,phi,evN,hPos].Node[o,ih,Y,wY] ;
+  module N0' = S4.Main[ev,phi,evN,hPos].Node[o',ih',Y',wY'] ;
+  A : DP.LO = o.k Y ;
+  A' : DP.LO = o'.k Y' ;
+  top : A.car = O.topO o Y ;
+  top' : A'.car = O.topO o' Y' ;
+  beta : DP.Map A A' = ST.baseF o o' tau Y Y' f ;
+  bt : Id A'.car (beta.1 top) top' = ST.baseTop o o' c tau rl Y Y' f ;
+  r : I.Rule A = o.R Y nilL ;
+  r' : I.Rule A' = o'.R Y' nilL ;
+  -- the branches correspond (er from the relation)
+  module MC = MpComp[ev,phi,evN,A,o.k Y',A',o.km Y Y' f,tau Y',top,O.topO o Y'] ;
+  er : Id (I.Rule A') r' (MC.MC.mR r) =
+    PL.trans (I.Rule A') r' (MC.MH.mR (o.R Y' nilL)) (MC.MC.mR r) (rl.2.2.1 Y' nilL)
+      (PL.trans (I.Rule A') (MC.MH.mR (o.R Y' nilL)) (MC.MH.mR (MC.MG.mR r)) (MC.MC.mR r)
+        (PL.ap (I.Rule (o.k Y')) (I.Rule A') MC.MH.mR (o.R Y' nilL) (MC.MG.mR r) (o.nr Y Y' f nilL)) (MC.mRC r)) ;
+  module NB = BH.NH[ev,phi,A,A',beta,S4.evMap ev evN A A' beta,top,top',bt] ;
+  brE (a : I.Lb A) : Id W.Bool (I.br A' top' r' (LT.lm A A' beta a)) (I.br A top r a) =
+    PL.trans W.Bool (I.br A' top' r' (LT.lm A A' beta a)) (I.br A' top' (MC.MC.mR r) (LT.lm A A' beta a)) (I.br A top r a)
+      (PL.ap (I.Rule A') W.Bool (\ z -> I.br A' top' z (LT.lm A A' beta a)) r' (MC.MC.mR r) er) (NB.brNat r a) ;
+  contra (X : U l) (a : I.Lb A) (e : Id W.Bool (I.br A top r a) true) (e' : Id W.Bool (I.br A' top' r' (LT.lm A A' beta a)) false) : X =
+    W.absurdB X (PL.trans W.Bool false (I.br A' top' r' (LT.lm A A' beta a)) true (PL.sym W.Bool (I.br A' top' r' (LT.lm A A' beta a)) false e')
+      (PL.trans W.Bool (I.br A' top' r' (LT.lm A A' beta a)) (I.br A top r a) true (brE a) e)) ;
+  efqM (E E' : DP.LO) (h : E.car -> W.Empty) : DP.Map E E' = (\ x -> CF.efq E'.car (h x),\ x y -> CF.efq (Id W.O3 (E'.cmp (CF.efq E'.car (h x)) (CF.efq E'.car (h y))) (E.cmp x y)) (h x)) ;
+  -- numbers: plain steps with the same label, related along (c, tau)
+  stN (n : W.N) (u : W.Unit) (e : Id W.Bool (I.br A top r (n,inl u)) true) (e' : Id W.Bool (I.br A' top' r' (n,inl u)) true) :
+      ST.HomOut A A' top top' beta bt (I.step A (o.G Y) r (n,inl u)) (I.step A' (o'.G Y') r' (n,inl u)) (N0.pNum n u e) (N0'.pNum n u e') =
+    ihr (inl (N0.stNum n u e)) (inl (N0'.stNum n u e')) c tau
+      (PShRel[ev,phi,evN,o,o',c,tau,rl,N0.stNum n u e,N0'.stNum n u e',\ Z -> refl (n,inl u)].rel) Y Y' wY wY' f ;
+  emN (n : W.N) (u : W.Unit) : (b : W.Bool) (e : Id W.Bool (I.br A top r (n,inl u)) b) (b' : W.Bool) (e' : Id W.Bool (I.br A' top' r' (n,inl u)) b') ->
+      DP.Map (RA.pvN n u b e).1 (RA'.pvN n u b' e').1 = split {
+    false -> \ e b' e' -> efqM BA.E0 (RA'.pvN n u b' e').1 (\ x -> x) ;
+    true -> \ e -> split {
+      false -> \ e' -> contra (DP.Map (RA.pvN n u true e).1 (RA'.pvN n u false e').1) (n,inl u) e e' ;
+      true -> \ e' -> (stN n u e e').1 } } ;
+  -- stages
+  ltBeta (nu : A.car) : Id W.Bool (I.ltB A' (beta.1 nu) top') (I.ltB A nu top) =
+    PL.trans W.Bool (I.ltB A' (beta.1 nu) top') (I.ltB A' (beta.1 nu) (beta.1 top)) (I.ltB A nu top)
+      (PL.ap A'.car W.Bool (\ z -> I.ltB A' (beta.1 nu) z) top' (beta.1 top) (PL.sym A'.car (beta.1 top) top' bt))
+      (PL.ap W.O3 W.Bool W.isLt (A'.cmp (beta.1 nu) (beta.1 top)) (A.cmp nu top) (beta.2 nu top)) ;
+  emS2 (n : W.N) (nu : A.car) (e : Id W.Bool (I.br A top r (n,inr nu)) true) (e' : Id W.Bool (I.br A' top' r' (n,inr (beta.1 nu))) true) :
+      (cb : W.Bool) (ec : Id W.Bool (I.ltB A nu top) cb) (cb' : W.Bool) (ec' : Id W.Bool (I.ltB A' (beta.1 nu) top') cb') ->
+      DP.Map (RA.pvS2 n nu e cb ec).1 (RA'.pvS2 n (beta.1 nu) e' cb' ec').1 = split {
+    false -> \ ec cb' ec' -> efqM BA.E0 (RA'.pvS2 n (beta.1 nu) e' cb' ec').1 (\ x -> x) ;
+    true -> \ ec -> split {
+      false -> \ ec' -> W.absurdB (DP.Map (RA.pvS2 n nu e true ec).1 (RA'.pvS2 n (beta.1 nu) e' false ec').1)
+        (PL.trans W.Bool false (I.ltB A' (beta.1 nu) top') true (PL.sym W.Bool (I.ltB A' (beta.1 nu) top') false ec')
+          (PL.trans W.Bool (I.ltB A' (beta.1 nu) top') (I.ltB A nu top) true (ltBeta nu) ec)) ;
+      true -> \ ec' -> (spr n nu e ec e' ec').1 } } ;
+  emS (n : W.N) (nu : A.car) : (b : W.Bool) (e : Id W.Bool (I.br A top r (n,inr nu)) b) (b' : W.Bool) (e' : Id W.Bool (I.br A' top' r' (n,inr (beta.1 nu))) b') ->
+      DP.Map (RA.pvS n nu b e).1 (RA'.pvS n (beta.1 nu) b' e').1 = split {
+    false -> \ e b' e' -> efqM BA.E0 (RA'.pvS n (beta.1 nu) b' e').1 (\ x -> x) ;
+    true -> \ e -> split {
+      false -> \ e' -> contra (DP.Map (RA.pvS n nu true e).1 (RA'.pvS n (beta.1 nu) false e').1) (n,inr nu) e e' ;
+      true -> \ e' -> emS2 n nu e e' (I.ltB A nu top) (refl (I.ltB A nu top)) (I.ltB A' (beta.1 nu) top') (refl (I.ltB A' (beta.1 nu) top')) } } ;
+  emO (n : W.N) : (x : W.Or W.Unit A.car) -> DP.Map (RA.pvO n x).1 (RA'.pvO n (LT.omap A A' beta x)).1 = split {
+    inl u -> emN n u (I.br A top r (n,inl u)) (refl (I.br A top r (n,inl u))) (I.br A' top' r' (n,inl u)) (refl (I.br A' top' r' (n,inl u))) ;
+    inr nu -> emS n nu (I.br A top r (n,inr nu)) (refl (I.br A top r (n,inr nu)))
+      (I.br A' top' r' (n,inr (beta.1 nu))) (refl (I.br A' top' r' (n,inr (beta.1 nu)))) } ;
+  em (a : I.Lb A) : DP.Map (RA.Ex a) (RA'.Ex ((LT.lmMap A A' beta).1 a)) = emO a.1 a.2 ;
+  -- the premise relations, with the same splits
+  RelE (E E' : DP.LO) (e : DP.Map E E') (x : BetaIDCf[l].Cf (LT.Lab (S4.Sm A E)).car (S4.Sm A E).car) (x' : BetaIDCf[l].Cf (LT.Lab (S4.Sm A' E')).car (S4.Sm A' E').car) : U l =
+    BH.NH[ev,phi,S4.Sm A E,S4.Sm A' E',PS.SumMap[A,E,A',E',beta,e].map,S4.evMap ev evN (S4.Sm A E) (S4.Sm A' E') (PS.SumMap[A,E,A',E',beta,e].map),
+      inl top,inl top',PL.ap A'.car (S4.Sm A' E').car (\ z -> inl z) (beta.1 top) top' bt].RelF x x' ;
+  prrN (n : W.N) (u : W.Unit) : (b : W.Bool) (e : Id W.Bool (I.br A top r (n,inl u)) b) (b' : W.Bool) (e' : Id W.Bool (I.br A' top' r' (n,inl u)) b')
+      (h1 : Id W.Bool (I.br A top r (n,inl u)) true) (h2 : W.Unit) (h1' : Id W.Bool (I.br A' top' r' (n,inl u)) true) (h2' : W.Unit) ->
+      RelE (RA.pvN n u b e).1 (RA'.pvN n u b' e').1 (emN n u b e b' e') ((RA.pvN n u b e).2.2 h1 h2).1 ((RA'.pvN n u b' e').2.2 h1' h2').1 = split {
+    false -> \ e b' e' h1 h2 h1' h2' -> W.absurdB (RelE (RA.pvN n u false e).1 (RA'.pvN n u b' e').1 (emN n u false e b' e')
+        ((RA.pvN n u false e).2.2 h1 h2).1 ((RA'.pvN n u b' e').2.2 h1' h2').1)
+      (PL.trans W.Bool false (I.br A top r (n,inl u)) true (PL.sym W.Bool (I.br A top r (n,inl u)) false e) h1) ;
+    true -> \ e -> split {
+      false -> \ e' h1 h2 h1' h2' -> W.absurdB (RelE (RA.pvN n u true e).1 (RA'.pvN n u false e').1 (emN n u true e false e')
+          ((RA.pvN n u true e).2.2 h1 h2).1 ((RA'.pvN n u false e').2.2 h1' h2').1)
+        (PL.trans W.Bool false (I.br A' top' r' (n,inl u)) true (PL.sym W.Bool (I.br A' top' r' (n,inl u)) false e') h1') ;
+      true -> \ e' h1 h2 h1' h2' -> (stN n u e e').2 } } ;
+  prrS2 (n : W.N) (nu : A.car) (e : Id W.Bool (I.br A top r (n,inr nu)) true) (e' : Id W.Bool (I.br A' top' r' (n,inr (beta.1 nu))) true) :
+      (cb : W.Bool) (ec : Id W.Bool (I.ltB A nu top) cb) (cb' : W.Bool) (ec' : Id W.Bool (I.ltB A' (beta.1 nu) top') cb')
+      (h1 : Id W.Bool (I.br A top r (n,inr nu)) true) (h2 : Id W.Bool (I.ltB A nu top) true)
+      (h1' : Id W.Bool (I.br A' top' r' (n,inr (beta.1 nu))) true) (h2' : Id W.Bool (I.ltB A' (beta.1 nu) top') true) ->
+      RelE (RA.pvS2 n nu e cb ec).1 (RA'.pvS2 n (beta.1 nu) e' cb' ec').1 (emS2 n nu e e' cb ec cb' ec')
+        ((RA.pvS2 n nu e cb ec).2.2 h1 h2).1 ((RA'.pvS2 n (beta.1 nu) e' cb' ec').2.2 h1' h2').1 = split {
+    false -> \ ec cb' ec' h1 h2 h1' h2' -> W.absurdB (RelE (RA.pvS2 n nu e false ec).1 (RA'.pvS2 n (beta.1 nu) e' cb' ec').1 (emS2 n nu e e' false ec cb' ec')
+        ((RA.pvS2 n nu e false ec).2.2 h1 h2).1 ((RA'.pvS2 n (beta.1 nu) e' cb' ec').2.2 h1' h2').1)
+      (PL.trans W.Bool false (I.ltB A nu top) true (PL.sym W.Bool (I.ltB A nu top) false ec) h2) ;
+    true -> \ ec -> split {
+      false -> \ ec' h1 h2 h1' h2' -> W.absurdB (RelE (RA.pvS2 n nu e true ec).1 (RA'.pvS2 n (beta.1 nu) e' false ec').1 (emS2 n nu e e' true ec false ec')
+          ((RA.pvS2 n nu e true ec).2.2 h1 h2).1 ((RA'.pvS2 n (beta.1 nu) e' false ec').2.2 h1' h2').1)
+        (PL.trans W.Bool false (I.ltB A' (beta.1 nu) top') true (PL.sym W.Bool (I.ltB A' (beta.1 nu) top') false ec') h2') ;
+      true -> \ ec' h1 h2 h1' h2' -> (spr n nu e ec e' ec').2 } } ;
+  prrS (n : W.N) (nu : A.car) : (b : W.Bool) (e : Id W.Bool (I.br A top r (n,inr nu)) b) (b' : W.Bool) (e' : Id W.Bool (I.br A' top' r' (n,inr (beta.1 nu))) b')
+      (h1 : Id W.Bool (I.br A top r (n,inr nu)) true) (h2 : Id W.Bool (I.ltB A nu top) true)
+      (h1' : Id W.Bool (I.br A' top' r' (n,inr (beta.1 nu))) true) (h2' : Id W.Bool (I.ltB A' (beta.1 nu) top') true) ->
+      RelE (RA.pvS n nu b e).1 (RA'.pvS n (beta.1 nu) b' e').1 (emS n nu b e b' e') ((RA.pvS n nu b e).2.2 h1 h2).1 ((RA'.pvS n (beta.1 nu) b' e').2.2 h1' h2').1 = split {
+    false -> \ e b' e' h1 h2 h1' h2' -> W.absurdB (RelE (RA.pvS n nu false e).1 (RA'.pvS n (beta.1 nu) b' e').1 (emS n nu false e b' e')
+        ((RA.pvS n nu false e).2.2 h1 h2).1 ((RA'.pvS n (beta.1 nu) b' e').2.2 h1' h2').1)
+      (PL.trans W.Bool false (I.br A top r (n,inr nu)) true (PL.sym W.Bool (I.br A top r (n,inr nu)) false e) h1) ;
+    true -> \ e -> split {
+      false -> \ e' h1 h2 h1' h2' -> W.absurdB (RelE (RA.pvS n nu true e).1 (RA'.pvS n (beta.1 nu) false e').1 (emS n nu true e false e')
+          ((RA.pvS n nu true e).2.2 h1 h2).1 ((RA'.pvS n (beta.1 nu) false e').2.2 h1' h2').1)
+        (PL.trans W.Bool false (I.br A' top' r' (n,inr (beta.1 nu))) true (PL.sym W.Bool (I.br A' top' r' (n,inr (beta.1 nu))) false e') h1') ;
+      true -> \ e' -> prrS2 n nu e e' (I.ltB A nu top) (refl (I.ltB A nu top)) (I.ltB A' (beta.1 nu) top') (refl (I.ltB A' (beta.1 nu) top')) } } ;
+  prrO (n : W.N) : (x : W.Or W.Unit A.car) (h1 : Id W.Bool (I.br A top r (n,x)) true) (h2 : RA.StCO x)
+      (h1' : Id W.Bool (I.br A' top' r' (n,LT.omap A A' beta x)) true) (h2' : RA'.StCO (LT.omap A A' beta x)) ->
+      RelE (RA.pvO n x).1 (RA'.pvO n (LT.omap A A' beta x)).1 (emO n x) ((RA.pvO n x).2.2 h1 h2).1 ((RA'.pvO n (LT.omap A A' beta x)).2.2 h1' h2').1 = split {
+    inl u -> prrN n u (I.br A top r (n,inl u)) (refl (I.br A top r (n,inl u))) (I.br A' top' r' (n,inl u)) (refl (I.br A' top' r' (n,inl u))) ;
+    inr nu -> prrS n nu (I.br A top r (n,inr nu)) (refl (I.br A top r (n,inr nu)))
+      (I.br A' top' r' (n,inr (beta.1 nu))) (refl (I.br A' top' r' (n,inr (beta.1 nu)))) } ;
+  prr (a : I.Lb A) (h1 : Id W.Bool (I.br A top r a) true) (h2 : RA.StCO a.2)
+      (h1' : Id W.Bool (I.br A' top' r' ((LT.lmMap A A' beta).1 a)) true) (h2' : RA'.StCO ((LT.lmMap A A' beta).1 a).2) :
+      TrCSquare[l].CombRel[ev,phi,evN,hPos,A,A',top,top',beta,bt,RA.Ex,RA'.Ex,LT.lmMap A A' beta,em,a].H.U0.RelF
+        ((RA.pv a).2.2 h1 h2).1 ((RA'.pv ((LT.lmMap A A' beta).1 a)).2.2 h1' h2').1 =
+    prrO a.1 a.2 h1 h2 h1' h2' ;
+  -- the kept-rule node
+  module Node (rg : RA.RR.Reg r) (kw : RA.CTB.CutOK (inl top) (RA.RR.rR r)) (rg' : RA'.RR.Reg r') (kw' : RA'.CTB.CutOK (inl top') (RA'.RR.rR r')) {
+    out : ST.HomOut A A' top top' beta bt (o.G Y) (o'.G Y') RA.Fin[rg,kw].out RA'.Fin[rg',kw'].out =
+      RegHom[ev,phi,evN,hPos,o,o',ih,ih',c,tau,rl,Y,Y',wY,wY',f,sp,sp',rg,kw,rg',kw',em].WithPrr[prr].out ;
+  } ;
+} ;

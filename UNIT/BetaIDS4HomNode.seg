@@ -1,0 +1,172 @@
+-- PLAN-ID1, homogeneity of S4: the node comparison (Disp).  The rule at
+-- the empty order is split on the source side; the target rule there is
+-- its tau-image (J on that equation).  Kept rules go through RegPrem;
+-- the (xl) stage relation, the (r-bar) case and kind III are separate.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module P1 = Prelude[l+] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module PS = PtyxSum[l] ;
+module LW = LOWF[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BT = BetaIDTr[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module SH = BetaIDS4Hom[l] ;
+module BH = BetaIDHom[l] ;
+module HR = BetaIDS4HomReg[l] ;
+module HT = BetaIDS4HomThm[l] ;
+
+module NodeD (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o o' : S4.Obj[ev,phi,evN].IObj)
+  (ih : (s : S4.SSteps[ev,phi,evN].Step o) -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o s))
+  (ih' : (s : S4.SSteps[ev,phi,evN].Step o') -> S4.Main[ev,phi,evN,hPos].Q (S4.SSteps[ev,phi,evN].shiftO o' s))
+  (ihr : HT.Stmt[ev,phi,evN,hPos].IHR o o' ih ih')
+  (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z)) (rl : SH.Rel[ev,phi,evN].RelIn o o' c tau)
+  (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module BA = BetaAcc[l] ;
+  module ST = HT.Stmt[ev,phi,evN,hPos] ;
+  module D = S4.Disp[ev,phi,evN,hPos,o,ih,Y,wY] ;
+  module D' = S4.Disp[ev,phi,evN,hPos,o',ih',Y',wY'] ;
+  A : DP.LO = o.k Y ;
+  A' : DP.LO = o'.k Y' ;
+  top : A.car = O.topO o Y ;
+  top' : A'.car = O.topO o' Y' ;
+  beta : DP.Map A A' = ST.baseF o o' tau Y Y' f ;
+  bt : Id A'.car (beta.1 top) top' = ST.baseTop o o' c tau rl Y Y' f ;
+  HO (x : S4.OutM[ev,phi,A,top].Out (o.G Y)) (x' : S4.OutM[ev,phi,A',top'].Out (o'.G Y')) : U l = ST.HomOut A A' top top' beta bt (o.G Y) (o'.G Y') x x' ;
+  -- the stage relation required by RegPrem
+  SPR (sp : D.SP) (sp' : D'.SP) : U l =
+    (n : W.N) (nu : A.car) (e : Id W.Bool (I.br A top (o.R Y nilL) (n,inr nu)) true) (ec : Id W.Bool (I.ltB A nu top) true)
+    (e' : Id W.Bool (I.br A' top' (o'.R Y' nilL) (n,inr (beta.1 nu))) true) (ec' : Id W.Bool (I.ltB A' (beta.1 nu) top') true) ->
+    ST.HomOut A A' top top' beta bt (I.step A (o.G Y) (o.R Y nilL) (n,inr nu)) (I.step A' (o'.G Y') (o'.R Y' nilL) (n,inr (beta.1 nu)))
+      (sp n nu e ec) (sp' n (beta.1 nu) e' ec') ;
+  -- kept rules
+  regCase (sp : D.SP) (sp' : D'.SP) (spr : SPR sp sp') (rr : I.Rule A) (rr' : I.Rule A')
+      (eY : Id (I.Rule A) (o.R Y nilL) rr) (eY' : Id (I.Rule A') (o'.R Y' nilL) rr')
+      (rg : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].RR.Reg rr)
+      (kw : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].CTB.CutOK (inl top) (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].RR.rR rr))
+      (rg' : S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'].RR.Reg rr')
+      (kw' : S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'].CTB.CutOK (inl top') (S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'].RR.rR rr')) :
+      HO (D.regOut sp rr eY rg kw) (D'.regOut sp' rr' eY' rg' kw') =
+    HR.RegPrem[ev,phi,evN,hPos,o,o',ih,ih',ihr,c,tau,rl,Y,Y',wY,wY',f,sp,sp',spr].Node[
+      PL.subst (I.Rule A) (\ z -> S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].RR.Reg z) rr (o.R Y nilL) (PL.sym (I.Rule A) (o.R Y nilL) rr eY) rg,
+      PL.subst (I.Rule A) (\ z -> S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].CTB.CutOK (inl top) (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,sp].RR.rR z))
+        rr (o.R Y nilL) (PL.sym (I.Rule A) (o.R Y nilL) rr eY) kw,
+      PL.subst (I.Rule A') (\ z -> S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'].RR.Reg z) rr' (o'.R Y' nilL) (PL.sym (I.Rule A') (o'.R Y' nilL) rr' eY') rg',
+      PL.subst (I.Rule A') (\ z -> S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'].CTB.CutOK (inl top') (S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',sp'].RR.rR z))
+        rr' (o'.R Y' nilL) (PL.sym (I.Rule A') (o'.R Y' nilL) rr' eY') kw'].out ;
+  -- no stage branch: the stage relation is vacuous
+  sprAbs (rr : I.Rule A) (eY : Id (I.Rule A) (o.R Y nilL) rr) (hf : (n : W.N) (nu : A.car) -> Id W.Bool (I.br A top rr (n,inr nu)) false)
+      (sp' : D'.SP) : SPR (D.spAbs rr eY hf) sp' =
+    \ n nu e ec e' ec' -> S4.efq1 (ST.HomOut A A' top top' beta bt (I.step A (o.G Y) (o.R Y nilL) (n,inr nu))
+        (I.step A' (o'.G Y') (o'.R Y' nilL) (n,inr (beta.1 nu))) (D.spAbs rr eY hf n nu e ec) (sp' n (beta.1 nu) e' ec'))
+      (W.absurdB W.Empty (PL.trans W.Bool false (I.br A top rr (n,inr nu)) true (PL.sym W.Bool (I.br A top rr (n,inr nu)) false (hf n nu))
+        (PL.trans W.Bool (I.br A top rr (n,inr nu)) (I.br A top (o.R Y nilL) (n,inr nu)) true
+          (PL.ap (I.Rule A) W.Bool (\ z -> I.br A top z (n,inr nu)) rr (o.R Y nilL) (PL.sym (I.Rule A) (o.R Y nilL) rr eY)) e))) ;
+  simpleCase (rr : I.Rule A) (rr' : I.Rule A') (eY : Id (I.Rule A) (o.R Y nilL) rr) (eY' : Id (I.Rule A') (o'.R Y' nilL) rr')
+      (hf : (n : W.N) (nu : A.car) -> Id W.Bool (I.br A top rr (n,inr nu)) false)
+      (hf' : (n : W.N) (nu : A'.car) -> Id W.Bool (I.br A' top' rr' (n,inr nu)) false)
+      (rg : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs rr eY hf].RR.Reg rr)
+      (kw : S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs rr eY hf].CTB.CutOK (inl top) (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs rr eY hf].RR.rR rr))
+      (rg' : S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',D'.spAbs rr' eY' hf'].RR.Reg rr')
+      (kw' : S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',D'.spAbs rr' eY' hf'].CTB.CutOK (inl top')
+         (S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',D'.spAbs rr' eY' hf'].RR.rR rr')) :
+      HO (D.simple rr eY hf rg kw) (D'.simple rr' eY' hf' rg' kw') =
+    regCase (D.spAbs rr eY hf) (D'.spAbs rr' eY' hf') (sprAbs rr eY hf (D'.spAbs rr' eY' hf')) rr rr' eY eY' rg kw rg' kw' ;
+  ----------------------------------------------------------------------
+  -- the rule at E0, and the root rules at Y and Y'
+  module MZ = BT.Mp[ev,phi,o.k BA.E0,o'.k BA.E0,tau BA.E0,S4.evMap ev evN (o.k BA.E0) (o'.k BA.E0) (tau BA.E0),O.topO o BA.E0] ;
+  relE0 : Id (I.Rule (o'.k BA.E0)) D'.N0.r0 (MZ.mR D.N0.r0) = rl.2.2.1 BA.E0 nilL ;
+  module MC = HR.MpComp[ev,phi,evN,A,o.k Y',A',o.km Y Y' f,tau Y',top,O.topO o Y'] ;
+  er : Id (I.Rule A') (o'.R Y' nilL) (MC.MC.mR (o.R Y nilL)) =
+    PL.trans (I.Rule A') (o'.R Y' nilL) (MC.MH.mR (o.R Y' nilL)) (MC.MC.mR (o.R Y nilL)) (rl.2.2.1 Y' nilL)
+      (PL.trans (I.Rule A') (MC.MH.mR (o.R Y' nilL)) (MC.MH.mR (MC.MG.mR (o.R Y nilL))) (MC.MC.mR (o.R Y nilL))
+        (PL.ap (I.Rule (o.k Y')) (I.Rule A') MC.MH.mR (o.R Y' nilL) (MC.MG.mR (o.R Y nilL)) (o.nr Y Y' f nilL)) (MC.mRC (o.R Y nilL))) ;
+  xrCh : I.Rule A' -> A'.car = split {
+    axR i -> top' ; andR i -> top' ; orR i -> top' ; allR i -> top' ; exR i w -> top' ; cutR f e -> top' ; xrR i m -> m ; xlR i oo -> top' } ;
+  muEq (i : W.N) (mu : A.car) (mu' : A'.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) (eY' : Id (I.Rule A') (o'.R Y' nilL) (xrR i mu')) :
+      Id A'.car mu' (beta.1 mu) =
+    PL.ap (I.Rule A') A'.car xrCh (xrR i mu') (xrR i (beta.1 mu))
+      (PL.trans (I.Rule A') (xrR i mu') (o'.R Y' nilL) (xrR i (beta.1 mu)) (PL.sym (I.Rule A') (o'.R Y' nilL) (xrR i mu') eY')
+        (PL.trans (I.Rule A') (o'.R Y' nilL) (MC.MC.mR (o.R Y nilL)) (xrR i (beta.1 mu)) er
+          (PL.ap (I.Rule A) (I.Rule A') MC.MC.mR (o.R Y nilL) (xrR i mu) eY))) ;
+  ltBeta (mu : A.car) : Id W.Bool (I.ltB A' (beta.1 mu) top') (I.ltB A mu top) =
+    PL.trans W.Bool (I.ltB A' (beta.1 mu) top') (I.ltB A' (beta.1 mu) (beta.1 top)) (I.ltB A mu top)
+      (PL.ap A'.car W.Bool (\ z -> I.ltB A' (beta.1 mu) z) top' (beta.1 top) (PL.sym A'.car (beta.1 top) top' bt))
+      (PL.ap W.O3 W.Bool W.isLt (A'.cmp (beta.1 mu) (beta.1 top)) (A.cmp mu top) (beta.2 mu top)) ;
+  ltEq (i : W.N) (mu : A.car) (mu' : A'.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) (eY' : Id (I.Rule A') (o'.R Y' nilL) (xrR i mu')) :
+      Id W.Bool (I.ltB A' mu' top') (I.ltB A mu top) =
+    PL.trans W.Bool (I.ltB A' mu' top') (I.ltB A' (beta.1 mu) top') (I.ltB A mu top)
+      (PL.ap A'.car W.Bool (\ z -> I.ltB A' z top') mu' (beta.1 mu) (muEq i mu mu' eY eY')) (ltBeta mu) ;
+  noXbar (B : DP.LO) : (f0 : BI.Form) (e : LT.LL B) -> Id W.Bool (S4.noX f0) true -> Id W.Bool (O.barAt B f0 e) true -> W.Empty = split {
+    atF b k -> \ e h h' -> W.absurdB W.Empty h' ; andF p q -> \ e h h' -> W.absurdB W.Empty h' ; orF p q -> \ e h h' -> W.absurdB W.Empty h' ;
+    allF p -> \ e h h' -> W.absurdB W.Empty h' ; exF p -> \ e h h' -> W.absurdB W.Empty h' ; xF b s k -> \ e h h' -> W.absurdB W.Empty h } ;
+  -- the three remaining relations, as hypotheses for the case split
+  HxlT : U l+ = (i : W.N) (oo0 : W.Or W.Unit (o.k BA.E0).car) (e : Id (I.Rule (o.k BA.E0)) D.N0.r0 (xlR i oo0))
+    (e' : Id (I.Rule (o'.k BA.E0)) D'.N0.r0 (xlR i (MZ.om oo0))) -> SPR (D.spXl i oo0 e) (D'.spXl i (MZ.om oo0) e') ;
+  HrbT : U l+ = (i : W.N) (mu : A.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) (h : Id W.Bool (I.ltB A mu top) false)
+    (mu' : A'.car) (eY' : Id (I.Rule A') (o'.R Y' nilL) (xrR i mu')) (h' : Id W.Bool (I.ltB A' mu' top') false) ->
+    HO (S4.RBar[ev,phi,evN,hPos,o,ih,Y,wY,i,mu,eY,h].out) (S4.RBar[ev,phi,evN,hPos,o',ih',Y',wY',i,mu',eY',h'].out) ;
+  Hk3T : U l+ = (f0 : BI.Form) (e0 : LT.LL A) (e0' : LT.LL A') (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0))
+    (eY' : Id (I.Rule A') (o'.R Y' nilL) (cutR f0 e0')) (hb : Id W.Bool (O.barAt A f0 e0) true) (hb' : Id W.Bool (O.barAt A' f0 e0') true) ->
+    HO (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out f0 eY hb) (S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].out f0 eY' hb') ;
+  module Cases (hxl : HxlT) (hrb : HrbT) (hk3 : Hk3T) {
+    xrH (i : W.N) (mu : A.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) (mu' : A'.car) (eY' : Id (I.Rule A') (o'.R Y' nilL) (xrR i mu')) :
+        (b : W.Bool) (h : Id W.Bool (I.ltB A mu top) b) (b' : W.Bool) (h' : Id W.Bool (I.ltB A' mu' top') b') -> HO (D.xrC i mu eY b h) (D'.xrC i mu' eY' b' h') = split {
+      true -> \ h -> split {
+        true -> \ h' -> simpleCase (xrR i mu) (xrR i mu') eY eY' (\ n nu -> refl false) (\ n nu -> refl false) h tt h' tt ;
+        false -> \ h' -> W.absurdB (HO (D.xrC i mu eY true h) (D'.xrC i mu' eY' false h'))
+          (PL.trans W.Bool false (I.ltB A' mu' top') true (PL.sym W.Bool (I.ltB A' mu' top') false h') (PL.trans W.Bool (I.ltB A' mu' top') (I.ltB A mu top) true (ltEq i mu mu' eY eY') h)) } ;
+      false -> \ h -> split {
+        true -> \ h' -> W.absurdB (HO (D.xrC i mu eY false h) (D'.xrC i mu' eY' true h'))
+          (PL.trans W.Bool false (I.ltB A mu top) true (PL.sym W.Bool (I.ltB A mu top) false h)
+            (PL.trans W.Bool (I.ltB A mu top) (I.ltB A' mu' top') true (PL.sym W.Bool (I.ltB A' mu' top') (I.ltB A mu top) (ltEq i mu mu' eY eY')) h')) ;
+        false -> \ h' -> hrb i mu eY h mu' eY' h' } } ;
+    cutH (f0 : BI.Form) (e0 : LT.LL A) (e0' : LT.LL A') (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) (eY' : Id (I.Rule A') (o'.R Y' nilL) (cutR f0 e0')) :
+        (x : W.Or (Id W.Bool (S4.noX f0) true) (Id W.Bool (O.barAt A f0 e0) true))
+        (x' : W.Or (Id W.Bool (S4.noX f0) true) (Id W.Bool (O.barAt A' f0 e0') true)) -> HO (D.cutC f0 e0 eY x) (D'.cutC f0 e0' eY' x') = split {
+      inl h -> split {
+        inl h' -> simpleCase (cutR f0 e0) (cutR f0 e0') eY eY' (\ n nu -> refl false) (\ n nu -> refl false) tt
+          (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.noXSt (inl top) f0
+            (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.R.rE e0) h) tt
+          (S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',D'.spAbs (cutR f0 e0') eY' (\ n nu -> refl false)].RR.noXSt (inl top') f0
+            (S4.RegAsm[ev,phi,evN,hPos,o',ih',Y',wY',D'.spAbs (cutR f0 e0') eY' (\ n nu -> refl false)].RR.R.rE e0') h') ;
+        inr h' -> CF.efq (HO (D.cutC f0 e0 eY (inl h)) (D'.cutC f0 e0' eY' (inr h'))) (noXbar A' f0 e0' h h') } ;
+      inr h -> split {
+        inl h' -> CF.efq (HO (D.cutC f0 e0 eY (inr h)) (D'.cutC f0 e0' eY' (inl h'))) (noXbar A f0 e0 h' h) ;
+        inr h' -> hk3 f0 e0 e0' eY eY' h h' } } ;
+    -- the case split, with the target rule at E0 the image of the source one
+    dispH : (rr : I.Rule (o.k BA.E0)) (e : Id (I.Rule (o.k BA.E0)) D.N0.r0 rr) (e' : Id (I.Rule (o'.k BA.E0)) D'.N0.r0 (MZ.mR rr)) ->
+        HO (D.disp rr e) (D'.disp (MZ.mR rr) e') = split {
+      axR i -> \ e e' -> simpleCase (axR i) (axR i) (D.eYof (axR i) e) (D'.eYof (axR i) e') (\ n nu -> refl false) (\ n nu -> refl false) tt tt tt tt ;
+      andR i -> \ e e' -> simpleCase (andR i) (andR i) (D.eYof (andR i) e) (D'.eYof (andR i) e') (\ n nu -> refl false) (\ n nu -> refl false) tt tt tt tt ;
+      orR i -> \ e e' -> simpleCase (orR i) (orR i) (D.eYof (orR i) e) (D'.eYof (orR i) e') (\ n nu -> refl false) (\ n nu -> refl false) tt tt tt tt ;
+      allR i -> \ e e' -> simpleCase (allR i) (allR i) (D.eYof (allR i) e) (D'.eYof (allR i) e') (\ n nu -> refl false) (\ n nu -> refl false) tt tt tt tt ;
+      exR i w -> \ e e' -> simpleCase (exR i (D.MY.lm w)) (exR i (D'.MY.lm (MZ.lm w))) (D.eYof (exR i w) e) (D'.eYof (exR i (MZ.lm w)) e')
+        (\ n nu -> refl false) (\ n nu -> refl false) tt tt tt tt ;
+      cutR f0 e0 -> \ e e' -> cutH f0 (D.MY.mE e0) (D'.MY.mE (MZ.mE e0)) (D.eYof (cutR f0 e0) e) (D'.eYof (cutR f0 (MZ.mE e0)) e')
+        (PL.subst (I.Rule A) (\ z -> O.KindOK A z) (o.R Y nilL) (cutR f0 (D.MY.mE e0)) (D.eYof (cutR f0 e0) e) D.kdY)
+        (PL.subst (I.Rule A') (\ z -> O.KindOK A' z) (o'.R Y' nilL) (cutR f0 (D'.MY.mE (MZ.mE e0))) (D'.eYof (cutR f0 (MZ.mE e0)) e') D'.kdY) ;
+      xrR i mu0 -> \ e e' -> xrH i ((o.km BA.E0 Y (S4.Main[ev,phi,evN,hPos].e0 Y)).1 mu0) (D.eYof (xrR i mu0) e)
+        ((o'.km BA.E0 Y' (S4.Main[ev,phi,evN,hPos].e0 Y')).1 ((tau BA.E0).1 mu0)) (D'.eYof (xrR i ((tau BA.E0).1 mu0)) e')
+        (I.ltB A ((o.km BA.E0 Y (S4.Main[ev,phi,evN,hPos].e0 Y)).1 mu0) top) (refl (I.ltB A ((o.km BA.E0 Y (S4.Main[ev,phi,evN,hPos].e0 Y)).1 mu0) top))
+        (I.ltB A' ((o'.km BA.E0 Y' (S4.Main[ev,phi,evN,hPos].e0 Y')).1 ((tau BA.E0).1 mu0)) top')
+        (refl (I.ltB A' ((o'.km BA.E0 Y' (S4.Main[ev,phi,evN,hPos].e0 Y')).1 ((tau BA.E0).1 mu0)) top')) ;
+      xlR i oo0 -> \ e e' -> regCase (D.spXl i oo0 e) (D'.spXl i (MZ.om oo0) e') (hxl i oo0 e e')
+        (xlR i (D.MY.om oo0)) (xlR i (D'.MY.om (MZ.om oo0))) (D.eYof (xlR i oo0) e) (D'.eYof (xlR i (MZ.om oo0)) e') tt tt tt tt } ;
+    -- J on the rule at E0
+    out : HO (D.disp D.N0.r0 (refl D.N0.r0)) (D'.disp D'.N0.r0 (refl D'.N0.r0)) =
+      idJ (I.Rule (o'.k BA.E0)) (MZ.mR D.N0.r0) (\ z q -> (e' : Id (I.Rule (o'.k BA.E0)) D'.N0.r0 z) -> HO (D.disp D.N0.r0 (refl D.N0.r0)) (D'.disp z e'))
+        (dispH D.N0.r0 (refl D.N0.r0)) D'.N0.r0 (PL.sym (I.Rule (o'.k BA.E0)) D'.N0.r0 (MZ.mR D.N0.r0) relE0) (refl D'.N0.r0) ;
+  } ;
+} ;
