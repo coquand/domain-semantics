@@ -718,7 +718,7 @@ Hypotheses: EvN ev and posX phi 0 = true, the same as Thm.thm. Let o, o'
 be input families related by (c, tau) (`RelIn`), with accessibility
 certificates ac : AccI o and ac' : AccI o'. Let Y, Y' be well-orders and
 f : Y -> Y'. Put (E, d) = thm o ac Y wY and (E', d') = thm o' ac' Y' wY'.
-Then there is an embedding e : E -> E' with RelF d d' along
+For each f, hom constructs an embedding e : E -> E' and a witness of RelF d d' along
 beta + e : kY + E -> k'Y' + E', where beta = tau_Y' o k(f). The base map
 preserves top (`baseTop`) and the tops are inl top_Y, inl top'_Y'.
 
@@ -749,9 +749,8 @@ preserves top (`baseTop`) and the tops are inl top_Y, inl top'_Y'.
   e3 = e1 + ((1 + t1) + e2), with t1 the tail map of beta1 = tau_V1' o k(f1).
 - r-bar: the IH (label 0) gives e1. Then e2 = e1 + id_1, and the target
   principal closure is the beta-image (G' = beta G).
-- What this is NOT: the identity and composition laws of 11.4.4(iii), i.e.
-  that the e's form a functor (e_id = id, e_{f g} = e_f e_g), and any
-  trace-range law. Only existence of a related e along each f is proved.
+- The identity and composition laws for the constructed embeddings and
+  the trace-range laws of 11.4.4(iii) remain open.
   Kind II elimination for families and correct => accessible remain
   separate tasks.
 
