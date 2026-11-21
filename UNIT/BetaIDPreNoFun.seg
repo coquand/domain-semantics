@@ -1,0 +1,74 @@
+-- PLAN-ID1: the present input hypotheses do not make k a functor on its
+-- upper part.  natS and ntop fix km below and at top; above top (the Fp
+-- part) km is free.  Here: k Y = (0 + Y) + (1 + omega), km f acting on
+-- omega by the successor, with an axiom at every address.  This is an
+-- accessible input family satisfying the cut condition, but
+--   km (g . f) /= km g . km f   and   km id /= id   on the upper part.
+-- Since the extensions computed by S4 contain copies of the upper part
+-- (the Ext of variable stages, the tail maps of kind III), the
+-- composition law for the computed maps needs an extra input law.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module PS = PtyxSum[l] ;
+module LW = LOWF[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BO = BetaIDCfOps[l] ;
+module BA = BetaAcc[l] ;
+module S4 = BetaIDS4[l] ;
+module BTr = BetaIDTr[l] ;
+
+module Ex (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module SS = S4.SSteps[ev,phi,evN] ;
+  Fp (Y : DP.LO) : DP.LO = LW.omega ;
+  T : DP.LO = S4.Sm LT.one LW.omega ;
+  K (Y : DP.LO) : DP.LO = O.P BA.E0 Fp Y ;
+  sh : DP.Map LW.omega LW.omega = (\ n -> suc n,\ m n -> refl (W.cmpN m n)) ;
+  kmK (X Y : DP.LO) (f : DP.Map X Y) : DP.Map (K X) (K Y) =
+    PS.SumMap[S4.Sm BA.E0 X,T,S4.Sm BA.E0 Y,T,O.smapC BA.E0 X Y f,PS.SumMap[LT.one,LW.omega,LT.one,LW.omega,LC.idMap LT.one,sh].map].map ;
+  topK (Y : DP.LO) : (K Y).car = O.tp BA.E0 Fp Y ;
+  b0 : W.Bool = ev LT.one zero nilL ;
+  GK (Y : DP.LO) : I.Seq (K Y) = consL (atF b0 zero,nilL) nilL ;
+  RK (Y : DP.LO) : I.Rl (K Y) = \ zs -> axR zero ;
+  eqBoR : (b : W.Bool) -> Id W.Bool (BP.eqBo b b) true = split { false -> refl true ; true -> refl true } ;
+  axK (Y : DP.LO) : Id W.Bool (BP.eqBo (ev (K Y) zero nilL) b0) true =
+    PL.trans W.Bool (BP.eqBo (ev (K Y) zero nilL) b0) (BP.eqBo b0 b0) true
+      (PL.ap W.Bool W.Bool (\ b -> BP.eqBo b b0) (ev (K Y) zero nilL) b0 (evN (K Y) LT.one zero nilL nilL (refl nilL))) (eqBoR b0) ;
+  loK (Y : DP.LO) : I.LocOK (K Y) (topK Y) (RK Y) (GK Y) = split {
+    nilL -> \ h -> axK Y ;
+    consL a ys -> \ h -> W.absurdB (Id W.Bool (I.appl (K Y) (I.seqAt (K Y) (consL a ys) (RK Y) (GK Y)) (axR zero)) true) h } ;
+  o : O.IObj = new O.IObj[k := K, km := kmK, Cst := BA.E0, Fp := Fp,
+    sg := \ Y -> LC.idMap (K Y), sgi := \ Y -> LC.idMap (K Y),
+    sec := \ Y p -> refl p, ret := \ Y q -> refl q,
+    natS := \ X Y f w -> refl (inl ((O.smapC BA.E0 X Y f).1 w)),
+    ntop := \ X Y f -> refl (topK Y),
+    wC := BA.wfE0, wF := \ Y w -> LW.wf-omega,
+    G := GK, R := RK,
+    ng := \ X Y f -> refl (GK Y),
+    nr := \ X Y f zs -> refl (axR zero),
+    lo := loK, kd := \ Y zs h -> tt] ;
+  -- accessible: no address below the root is in the tree
+  emptyS : (s : SS.Step o) -> W.Empty = split {
+    inl st -> W.absurdB W.Empty (st.2.2 BA.E0) ;
+    inr st -> W.absurdB W.Empty (st.2.2.2.2 BA.E0) } ;
+  ac : SS.AccI o = SS.AO.acc o (\ s -> S4.efq1 (SS.AccI (SS.shiftO o s)) (emptyS s)) ;
+  -- km is neither functorial nor the identity at id, above top
+  isZT : T.car -> W.Bool = split { inl u -> true ; inr n -> BP.isZeroN n } ;
+  isZ : (K LT.one).car -> W.Bool = split { inl w -> true ; inr t -> isZT t } ;
+  isOneT : T.car -> W.Bool = split { inl u -> false ; inr n -> W.eqN n (suc zero) } ;
+  isOne : (K LT.one).car -> W.Bool = split { inl w -> false ; inr t -> isOneT t } ;
+  p0 : (K LT.one).car = inr (inr zero) ;
+  notId : Id (K LT.one).car ((o.km LT.one LT.one (LC.idMap LT.one)).1 p0) p0 -> W.Empty =
+    \ h -> W.absurdB W.Empty (PL.ap (K LT.one).car W.Bool (\ q -> isZ q) (inr (inr (suc zero))) (inr (inr zero)) h) ;
+  notComp : Id (K LT.one).car ((o.km LT.one LT.one (LC.compMap LT.one LT.one LT.one (LC.idMap LT.one) (LC.idMap LT.one))).1 p0)
+      ((o.km LT.one LT.one (LC.idMap LT.one)).1 ((o.km LT.one LT.one (LC.idMap LT.one)).1 p0)) -> W.Empty =
+    \ h -> W.absurdB W.Empty (PL.sym W.Bool true false (PL.ap (K LT.one).car W.Bool (\ q -> isOne q) (inr (inr (suc zero))) (inr (inr (suc (suc zero)))) h)) ;
+} ;

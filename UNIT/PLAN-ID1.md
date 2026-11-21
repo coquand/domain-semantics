@@ -714,6 +714,46 @@ Gamma~: stages >= top are replaced by Phi-bar.
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
+## From pointwise cut elimination to pre-proofs (2026-11-21; well-orders DONE, all linear orders OPEN)
+
+INTENDED THEOREM (ID1 analogue of BetaPre.Out).  For an accessible input
+family o (EvN, posX phi 0, the current cut condition) there are
+ (i)  an order E^(X) on every linear order X, functorial in embeddings,
+      with an isomorphism E^(Y) = E_Y at well-orders natural in the maps
+      e_f computed by hom;
+ (ii) rules R^_X on addresses of kX + E^(X) (top inl top_X, end sequent
+      rep G_X): locally correct, cut-free, natural along k(f) + E^(f);
+ (iii) at a well-order Y, R^_Y is the walk of Thm.thm's output relabelled
+      along id + iota_Y, hence well-founded.
+
+CHECKED (the strongest reconstruction proved):
+- `BetaIDPre.Walk` (M1): a cut-free ID derivation read as a pre-proof:
+  `loc` (local correctness), `wfp` (Brouwer bound), `walkNoCut`.
+- `BetaIDPre.WN.walkNat` (M2): walk commutes with BetaIDHom's RelF.
+- `BetaIDPreS4.Fam` (M3): for o accessible, at each well-order Y,
+  `At.Rr` on `At.B` = kY + E_Y, top inl top_Y, end sequent rep G_Y, with
+  `At.lo`, `At.wf`, `At.cutFree`; along every embedding f : Y -> Y',
+  `Nat.nat`: Rr_{Y'} (relabel along beta_f + e_f) = mR (Rr_Y) (e_f from
+  homSame).  A homogeneous cut-free pre-proof family on WELL-ORDERS.
+
+MISSING for all linear orders (where used):
+- (C) composition: e_{g.f} = e_g . e_f and beta_{g.f} = beta_g . beta_f
+  along inclusions of finite suborders.  Used to DEFINE E^(X) (direct
+  limit over finite suborders, or pairs (support P, point of E_P)
+  compared in E_{P u Q}: transitivity needs (C)) and in the agreement
+  lemma (BetaPre's Ag/Fun: relabelling along composite inclusions).
+  Needs an input law: k functorial (K1) at least on the upper part Fp;
+  `BetaIDPreNoFun.Ex` (checked): an accessible input family satisfying
+  all present hypotheses with km non-functorial (and km id /= id) above
+  top (k Y = (0+Y)+(1+omega), successor on omega).  The extensions E
+  contain copies of Fp (Ext of variable stages, tail maps of kind III).
+- (S) support: every point of E_Y is e_{S->Y} of a point of E_S for a
+  finite S <= Y.  Used to read an address containing a point of E_Y on a
+  finite suborder (BetaPre's Pts/sup step) and for E^(Y) = E_Y.  Needs an
+  input law (K2): k finitary (points of the Fp part have finite support).
+- (C) and (S) are the composition and trace-range laws of 11.4.4(iii),
+  open; the identity law (diagId, under the km identity law) is done.
+
 ## Stage growth forced by a cut (2026-11-21, BetaIDS4BarEx, checked)
 
 Length version of Part 3's bar: Child(n,m) iff m = n+1, G(n) iff n >= 2
