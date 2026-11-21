@@ -86,6 +86,20 @@ module Bar (g : W.N -> W.Bool) (ch : W.N -> W.N -> W.Bool) {
       jIn la s (\ k -> h (\ j -> jOut la s j k)) ;
     -- J after all of A (positive Phi-bar)
     Jall (s : W.N) : U l = BI.Not (BI.Not ((mu : A.car) * Phi (J mu) s)) ;
+    -- J is monotone in the stage
+    ltTr (x y z : A.car) (h : Lt x y) (h' : Lt y z) : Lt x z =
+      PL.ap W.O3 W.Bool W.isLt (A.cmp x z) lt (A.ctrans x y z (W.isLt-sound (A.cmp x y) h) (W.isLt-sound (A.cmp y z) h')) ;
+    jMon (mu la : A.car) (h : Lt mu la) (t : W.N) (j : J mu t) : J la t =
+      jIn la t (\ k -> jOut mu t j (\ z -> k (z.1,(ltTr z.1 mu la z.2.1 h,z.2.2)))) ;
+    -- THE DIRECT PROOF: for G monotone along children, J^lambda(s) -> J^lambda(t)
+    -- for every child t of s, at the SAME stage (good case: monotonicity of
+    -- G; hereditary case: J^mu(t) with mu < lambda, then jMon)
+    module Mono (mono : (s t : W.N) -> Id W.Bool (ch s t) true -> Id W.Bool (g s) true -> Id W.Bool (g t) true) {
+      jChild (la : A.car) (s t : W.N) (c : Id W.Bool (ch s t) true) (j : J la s) : J la t =
+        jStab la t (\ k -> jOut la s j (\ z -> CF.or-elim (Id W.Bool (g s) true) ((t' : W.N) -> Id W.Bool (ch s t') true -> J z.1 t') W.Empty
+          (\ gs -> k (jIn la t (\ k2 -> k2 (z.1,(z.2.1,inl (mono s t c gs))))))
+          (\ all -> k (jMon z.1 la z.2.1 t (all t c))) z.2.2)) ;
+    } ;
     ----------------------------------------------------------------------
     -- the split model
     MB : W.Bool -> W.N -> U l = split { true -> Jall ; false -> J top } ;
@@ -198,6 +212,24 @@ module Bar (g : W.N -> W.Bool) (ch : W.N -> W.N -> W.Bool) {
         BI.Not ((m : W.N) -> BI.Not (BI.Not (W.Or (Md.S.F pA (consL (m,inl tt) (consL (n,inl tt) (consL (nN,inl tt) (consL (nP,inl tt) nilL)))))
           (BI.Not (Md.Jall m))))) =
       C.Mixed[pA,nN,nP,eG].Bd[Md.M,Md.condR,Md.condL].stageBound n hx ;
+  } ;
+  ----------------------------------------------------------------------
+  -- THE CHILD SEQUENT  forall s t (not Child(s,t) or not B(s) or B(t)):
+  -- under s, t (env t :: s :: e0), the negative B reads bN at position 2
+  -- with argument s, the positive B reads bP at position 3 with argument t.
+  fC : BI.Form = allF (allF (orF (atF false (suc zero)) (orF (xF false (suc (suc zero)) (suc zero)) (xF true (suc (suc (suc zero))) zero)))) ;
+  module ChildCor (o : S4.Obj[ev,phi,evN].IObj) (ac : S4.SSteps[ev,phi,evN].AccI o) (Y : DP.LO) (wY : LW.WF Y) (nN nP : W.N)
+    (eG : Id (BI.ID[ev,phi].Seq (o.k Y)) (o.G Y) (consL (fC,consL (nN,inl tt) (consL (nP,inl tt) nilL)) nilL)) {
+    module C = SG.Cor[ev,phi,evN,hPos,o,ac,Y,wY] ;
+    module Md = Model[C.B,inl C.top,S4.wfSm C.A C.E (S4.wfKO ev phi evN o Y wY) C.out.2.1] ;
+    e0 : LT.LL C.B = consL (nN,inl tt) (consL (nP,inl tt) nilL) ;
+    vB : BI.Not (Md.S.F fC e0) = \ fv -> C.bound Md.M Md.condR Md.condL
+      (PL.subst (BI.ID[ev,phi].Seq C.A) (\ G -> Md.S.AllF (C.R.rS G)) (consL (fC,consL (nN,inl tt) (consL (nP,inl tt) nilL)) nilL) (o.G Y)
+        (PL.sym (BI.ID[ev,phi].Seq C.A) (o.G Y) (consL (fC,consL (nN,inl tt) (consL (nP,inl tt) nilL)) nilL) eG) (fv,tt)) ;
+    -- THE S4 BOUND: s in J at top_Y, t a child of s  ==>  t in J after all
+    -- of (Y+1)+E (no shift, no witness extraction: Jall is stable)
+    childBound (s t : W.N) (c : Id W.Bool (ch s t) true) (hs : Md.J (inl C.top) s) : Md.Jall t =
+      \ nj -> vB (\ k -> k (s,\ k2 -> k2 (t,(c,(\ nh -> nh hs,\ ja -> ja nj))))) ;
   } ;
 } ;
 
