@@ -461,6 +461,227 @@ at F~'(alpha)) but never recursed on.
   accessibility), combining BetaAcc, S2/S21 and the two homogeneity
   results.
 
+## S4 design (2026-11-21): pointwise, Cf-native
+
+Reading of ptlc2 11.4.4-11.4.7 (pp. 302-310):
+- Lemma 11.4.6 (transfer along T = id + T' : F -> G) works because in a
+  proof without cuts of kind II/III, every NEGATIVE stage is < a + alpha,
+  i.e. below top.
+- Outputs are F + F''-proofs: the extensions lie ABOVE top. Premise outputs
+  are combined in F + F1 + F2 (sums of the extensions).
+- Output sequents replace every I^t, t non-constant, by Phi-bar. With an
+  F-term t, non-constant means t >= top.
+
+Formal choices:
+- **Outputs are Cf derivations** (inductive, cut-free), not pre-proofs.
+  - The output for pi at a well-order Y lives on kY + E (E well-founded)
+    and has top = inl top_Y.
+  - It proves rep(G_Y): each stage label >= top_Y becomes Phi-bar (same
+    number), and stages < top_Y are kept.
+  - Pointwise first; homogeneity later, with BetaIDHom's RelF on Cf.
+- **Motive:** Q(pi) = for all Y WF, Out(pi, Y), by induction on the
+  ACCESSIBILITY of the input family (BetaAcc). Correctness of the input is
+  not needed, since Cf derivations are well-founded by construction.
+- **Input objects** carry the Pref structure explicitly: an order iso
+  sigma_Y : kY = (Cst + Y) + (1 + F'Y), natural, with top_Y = the point 1.
+  - Shifting by D gives Cst' = Cst + D and F'' = F'(D + -), and sigma is
+    re-associated. No subtypes are needed.
+  - The functor laws of k are needed for evaluating an ordinal premise at
+    E0: k(Y + 0) -> kY.
+- **Premises:**
+  - natural labels (numbers, binary, constant stages) are plain steps
+    (same k);
+  - variable ordinal premises nu = sigma^-1(inl (inr y)) are shifts with
+    D = Y, evaluated at E0, then pulled back along k(Y+0) -> kY.
+- **Combination:** B = kY + DSum_{a in Lab(kY)} E_a, a dependent
+  lexicographic sum. It is needed for ordinal-branching rules; this is
+  Girard's integral of dilators.
+  - The transfers kY + E_a -> B are initial only below top. The transport
+    of Cf (TrC with the bound predicate Bd) uses the invariant "negative
+    stages < top" of cut-free derivations. That is a subformula property,
+    from the syntactic hypothesis "phi has only positive X-atoms, all
+    reading the stage position".
+- **Cases at the root of pi_Y:**
+  - axioms and logical rules: the same rule with the premise outputs;
+  - (xl) with bound < top: the same rule;
+  - (xl) with bound >= top: (l-bar), keeping the premises nu < top;
+  - (xr) with principal predicate kept: the same rule;
+  - (xr) with principal predicate replaced, choice mu < top: (r-bar) with
+    mu;
+  - (xr) with principal predicate replaced, choice mu >= top: the premise
+    output proves Phi(Phi-bar, t). Extend by one point c = top of
+    kY + (E + 1), rename the marked Phi-bar inside Phi(Phi-bar, t) into I^c
+    (11.4.5, compound case: the label at the end of the environments of
+    the descendant closures), then (r-bar) with choice c;
+  - kind I cut (no X-atom): combine, then the BetaIDCfCut cut;
+  - kind III cut (Phi-bar(t)): L~ from Out(pi', Y) on A1 = kY + E1.
+    - Set V1 = Y + ((1 + F'Y) + E1), so that A1 = Cst + V1 by
+      re-association.
+    - R~ = Out(pi'', V1) on A2 = k(V1) + E2. Its context is the image of
+      L~'s context, by naturality of G and sigma.
+    - S2C (DONE) gives a Cf derivation on (A2, iota top).
+    - A2 = kY + E by an explicit iso.
+  - kind II cuts in the input are excluded (Girard: 11.4.3 first).
+- **Hypotheses on ev:** atoms depend only on the numbers of the labels.
+
+**Done so far:** `BetaIDCfOps.seg` (dev loop `_devcf.seg`, 4 s; in
+All.seg, green):
+- TrC: transport of Cf along embeddings, with a bound predicate;
+- ChopC;
+- RenPC (11.4.5 for an atom) and RenNC (11.4.7);
+- S2C: the Phi-bar cut between cut-free derivations on Cf, with the new
+  cut on I^topK eliminated by BetaIDCfCut.
+
+**Done since** (same files, green):
+- `DSumLO.seg`: the dependent lexicographic sum over an LO, with laws via
+  J and Hedberg, embeddings of the summands, and WF.
+- `BetaIDCfOps.Inv`: the invariant "negative stages < top" for cut-free
+  derivations, from posX phi 0 = true. posX says the X-atoms are positive,
+  read the stage position, and never use it as an argument.
+  - It also gives BetaIDCfCut's wfPhi at every order.
+- `BetaIDCfOps.TrL`: transport along embeddings that are initial below top
+  only (Lemma 11.4.6).
+- `BetaIDCfOps.RenM`: the compound case of 11.4.5. Marked closures are
+  (formula, prefix), with environment prefix ++ [t, xb]; the decision
+  "marked?" is made on data.
+
+**Refinements of the design:**
+- With sigma, NO functor laws for k are needed.
+  - The variable ordinal premise at nu = sigma^-1(inl(inr y)) is the
+    shift by D = Y with label sigma^-1_{Y+Z}(inl(inr(inl y))). It is
+    natural by the naturality of sigma below top.
+  - It is evaluated at E0. Its output on k(Y+0) + E goes into
+    kY + (F'(Y+0) + E): the part of k(Y+0) below top maps through
+    Cst + (Y+0) = Cst + Y, top maps to top, and the part F'(Y+0) above top
+    goes into the extension.
+- Node conditions of premise steps at ALL orders Z come from the root rule
+  at E0 (naturality along E0 -> Z).
+- Kind III: iota : kY + E1 -> k(V1) is sigma^-1 o inl o (re-association).
+  It is globally initial with image below top_{V1}, and
+  A2 = k(V1) + E2 = kY + ((E1 + T1) + E2) by explicit sum isos.
+- Naturality of sigma is needed only below top, plus k(f)(top) = top.
+
+**`BetaIDS4.seg` part 1 (green):**
+- Sm, wfSm, wfOpt, wfLab.
+- `Rep` (rO/rL/rE/rC/rS, nthR, memR, getR).
+- `OutM.Out G` = Sigma (E : LO) (WF E) * Res at (A + E, inl top) of rep G.
+- `EnvOK`: labels below top or Phi-bar give the invariant for every
+  formula.
+- EvN: atoms depend only on the numbers of the labels; evMap.
+- `Comb`: B = A + DSum[Lab A, Ex]; `move a G` transports an output on
+  A + Ex a to B (TrL, with the invariant from EO).
+
+**`BetaIDS4.seg` part 2 (green):**
+- `Assoc`: the re-association isos of sums.
+- `Obj`: `record IObj` with the fields listed below, plus noX, barAt,
+  KindOK, topO.
+- `Steps`: PStep and PSh.obj (plain predecessors).
+- `SSteps`:
+  - SStep and SSh.obj (shift by D: sigma re-associated, natS', sec',
+    ret');
+  - Step = plain + shifted; shiftO; AO = BetaAcc.AccR over IObj; AccI.
+- `OutBack`: moves an output on A' + E for mS_h X to an output on
+  A + (Ext + E) for X, along j : A' -> A + Ext.
+**`BetaIDS4.seg` part 3 (green, in All.seg: 33299 declarations):**
+- `Main`: Q o = for all Y WF, Out(kY, top_Y, G_Y); e0 : E0 -> Z; brMR.
+- `Main.Node`: rZ (the root rule at Z is mR of the rule at E0), brNum,
+  nodeNum, stNum. pNum gives the premise output at a number label, from
+  the induction hypothesis.
+- `Sig`: the sigma-decomposition of points (dec, belowW, ltTop, notTop).
+- `Main2.Bnd`: images of a bound of E0 (constZ, and bigZ for bounds
+  >= top).
+- `XL` (with `XL.Cn`) and `XLV` (with `XLV.Vr`): the premise outputs of a
+  root (xl) rule at stages nu < top below the bound (`XLV.pStage`).
+  - Constant nu: a plain step.
+  - Variable nu: a shift by D = Y, evaluated at E0, then OutBack along
+    the sigma-map j : k(Y+0) -> kY + Fp(Y+0).
+
+**Part 4 (green, dev loop):**
+- `RepR`: rR, Reg, stepRep, applRep, brN, preX, noXSt.
+- `CfDv`: cf2dv, okCD.
+- `RegAsm.Fin.out`: the output at a node whose root rule is kept. This
+  covers ax, and, or, all, ex, xr with choice < top, xl with any bound,
+  and kind I cuts. Route: the providers pv (pNum, sp for stage labels),
+  then Comb, then CT.okRule at B, then elim.
+- `RBar.out` (DONE): the root rule is (xr) with choice mu >= top. The
+  premise output is moved into kY + (E + 1), its Phi-bar is renamed into
+  I^c (RenM, with c the last point), and (r-bar) is applied with choice c.
+- `RepMap`, `subLast`, `pickF`, `fstAp`; `Iso` with isoComp, isoSum,
+  isoAG, isoAF, isoHr (DONE).
+- Still OPEN:
+  - **kind III**, with this exact design:
+    - Orientation first: barAt accepts Phi-bar(t) and not Phi-bar(t),
+      and branch 0 carries the displayed cut formula, branch 1 its
+      negation. Choose (labL, labR) by polarity BEFORE building E1 and
+      V1: positive formula gives labL = lab0 and labR = lab1; negative
+      gives labL = lab1 and labR = lab0. S2C.out needs the positive
+      premise at Y and the negative one at V1. Swapping its arguments
+      afterwards is too late, because V1 depends on E1.
+    - L~ = pNum(labL) on A1 = kY + E1.
+    - V1 = Y + ((one + Fp Y) + E1), f1 = inlS : Y -> V1.
+    - R~ = ih (plain step labR) at V1; its sequent is
+      mS_{km f1}(app G [not Phi-bar]) by ngGen.
+    - g : A1 -> A2 = k V1 + E2 is
+      inl o sgi_V1 o inl o alpha o (sg_Y + id), where
+      alpha = Assoc[Cst,Y,..].g o Assoc[Cst+Y,T0,E1].g and beta is its
+      inverse. rho uses sg_V1 and beta.
+    - Lemma: rL2 (lm (km f1) l) = lm g (rL1 l), by natS and belowW.
+    - Then S2C.out.
+    - theta : A2 = kY + ((E1 + T1) + E2) as an Iso composite:
+      isoSum (sg_V1)^-1, then beta + id, then isoAG, then isoSum sgi_Y,
+      then isoAG. theta (g (inl p)) = inl p; transport with TrC.
+  - the **dispatcher** on the E0 rule r0 (rZ: R_Y nil = mR r0):
+    - ax/and/or/all/ex: RegAsm with sp absurd;
+    - xl: RegAsm with sp = XLV.pStage;
+    - xr: inspect ltB mu top, then RegAsm or RBar;
+    - cut: kd gives noX (RegAsm, kw = noXSt) or barAt (kind III).
+  - `thm : AccI o -> Q o` by AO.ind.
+
+**NEXT (rule assembly), planned route:**
+- A rule map rR (rep on rules: choices mu < top become inl mu; the bounds
+  through rO), and the lemmas:
+  - stepRep: step (rS G) (rR r) (rL a) = rS (step G r a), for regular r;
+  - applRep;
+  - the preimage of the branch labels of B.
+- Then use BetaIDCfTr.CT.ruleDR at B = kY + DSum (premises as Dv), and
+  CT/KC.elim. This also eliminates the kind I cuts (StOK holds for noX).
+- Special cases:
+  - (xr) with choice mu >= top: RenM on kY + (E + 1), c = the last point;
+  - kind III: S2C at V1, then the iso to kY + E.
+- Finally `thm`: AccI o -> Q o by AO.ind.
+
+**Remaining plan (d)-(f), concrete:**
+- (d) `record IObj` inside a module (ev, phi, evN), with fields:
+  - k, km, Cst, Fp;
+  - sg : kY -> P Y and sgi : P Y -> kY, where
+    P Y = (Cst + Y) + (one + Fp Y); with sec and ret;
+  - natS: km f (sgi (inl w)) = sgi (inl (smapC f w)); ntop for
+    top = sgi (inr (inl tt));
+  - wC, wF;
+  - G, R, ng, nr (via BT.Mp with evMap);
+  - lo : LocOK at every Y;
+  - kd: in-tree cuts are of kind I (no X-atom) or III (Phi-bar atom).
+- Steps:
+  - plain: a natural label family in kY plus node at all Y; the same k.
+  - shift: D WF, a natural label family in k(D + Z) plus node; the object
+    is k(D + -) with Cst' = Cst + D, Fp' = Fp(D + -), and
+    sg' = re-association o sg_{D+Z}.
+  - AccR (BetaAcc) over IObj.
+- Branch labels at the root (rule r_Y = R_Y nil):
+  - numbers: plain steps with constant labels;
+  - stage nu < top with sg nu = inl (inl c): plain step, label
+    sgi_Z (inl (inl c));
+  - stage nu with sg nu = inl (inr y): shift by D = Y with label
+    sgi_{Y+Z}(inl (inr (inl y))), evaluated at E0, then moved into
+    kY + (Fp(Y+0) + E) by the sigma-map.
+  - Node at every Z: r_Z = mR(r_{E0}), by naturality along E0 -> Z.
+- (e) The rules: ax, and, or, all, ex, xr (3 subcases, 2a with RenM on
+  kY + (E + 1) and c = the last point), xl (bound < top, or >= top giving
+  l-bar), and kind I cut (Comb, then BetaIDCfCut cutAll).
+- (f) Kind III: V1 = Y + ((one + Fp Y) + E1); iota by re-association and
+  sgi_{V1}; R~ = IH(right premise, plain step) at V1; S2C; transport
+  along the iso A2 = kY + ((E1 + T1) + E2).
+
 ## Expected outcome / what would be new
 
 - A constructive, checked reconstruction of Girard's ID1 cut elimination,
@@ -471,6 +692,13 @@ at F~'(alpha)) but never recursed on.
   strength go?".
 
 ## Status
+- 2026-11-21: homogeneity committed (a3374f0). S4 design fixed (section
+  above). `DSumLO.seg` and `BetaIDCfOps.seg` (TrC/TrL, ChopC, RenPC/RenNC/
+  RenM, Inv, S2C) are in All.seg, green. Not committed.
+- 2026-11-21 (later): `BetaIDS4.seg` parts 1-3 (outputs, combination,
+  input objects, steps, accessibility, premise outputs at number and stage
+  labels) are in All.seg: 33299 declarations, green. The rule assembly,
+  the r-bar case, kind III and the final theorem are OPEN (in progress).
 - 2026-11-20: plan written.
 - 2026-11-20: S1 (pointwise) and S2+S1 DONE (see section above).
 - 2026-11-20: homogeneity of S1 (BetaIDHom) and of S2+S1 (BetaIDS2Hom) DONE;

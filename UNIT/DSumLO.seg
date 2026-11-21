@@ -1,0 +1,158 @@
+-- The lexicographic sum of a family of linear orders indexed by a linear
+-- order I: points (i, x) with x in E i, ordered by i, then in E i (the
+-- integral of a family of orders; PLAN-ID1 S4, to combine the outputs of
+-- the premises of a rule).  Equal indices are compared by J along the
+-- equality given by ceq; the carrier of I is a set (Hedberg, decidable
+-- equality from cmp), which gives the laws.  The summands embed, and the
+-- sum of well-founded orders over a well-founded index is well-founded.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LW = LOWF[l] ;
+
+ltEqC (X : U l) (e : Id W.O3 lt eq) : X = W.absurdB X (PL.ap W.O3 W.Bool W.isEq lt eq e) ;
+gtEqC (X : U l) (e : Id W.O3 gt eq) : X = W.absurdB X (PL.ap W.O3 W.Bool W.isEq gt eq e) ;
+eqLtC (X : U l) (e : Id W.O3 eq lt) : X = W.absurdB X (PL.ap W.O3 W.Bool W.isLt eq lt e) ;
+gtLtC (X : U l) (e : Id W.O3 gt lt) : X = W.absurdB X (PL.ap W.O3 W.Bool W.isLt gt lt e) ;
+
+module DSum (I : DP.LO) (E : I.car -> DP.LO) {
+  Car : U l = (i : I.car) * (E i).car ;
+
+  -- the index set is a set
+  decI (i j : I.car) : (c : W.O3) -> Id W.O3 (I.cmp i j) c -> W.Or (Id I.car i j) (Id I.car i j -> W.Empty) = split {
+    lt -> \ h -> inr (\ e -> ltEqC W.Empty (PL.trans W.O3 lt (I.cmp i i) eq
+        (PL.sym W.O3 (I.cmp i i) lt (PL.subst I.car (\ t -> Id W.O3 (I.cmp i t) lt) j i (PL.sym I.car i j e) h)) (I.crefl i))) ;
+    eq -> \ h -> inl (I.ceq i j h) ;
+    gt -> \ h -> inr (\ e -> gtEqC W.Empty (PL.trans W.O3 gt (I.cmp i i) eq
+        (PL.sym W.O3 (I.cmp i i) gt (PL.subst I.car (\ t -> Id W.O3 (I.cmp i t) gt) j i (PL.sym I.car i j e) h)) (I.crefl i))) } ;
+  module H = W.Hedberg[I.car,\ i j -> decI i j (I.cmp i j) (refl (I.cmp i j))] ;
+  uipI (i j : I.car) (p q : Id I.car i j) : Id (Id I.car i j) p q = H.uip i j p q ;
+
+  -- comparison of two points with equal indices
+  eqCmp (i j : I.car) (q : Id I.car i j) : (E i).car -> (E j).car -> W.O3 =
+    idJ I.car i (\ j0 q0 -> (E i).car -> (E j0).car -> W.O3) (E i).cmp j q ;
+  cmpAux (i j : I.car) (x : (E i).car) (y : (E j).car) : (c : W.O3) -> Id W.O3 (I.cmp i j) c -> W.O3 = split {
+    lt -> \ h -> lt ;
+    eq -> \ h -> eqCmp i j (I.ceq i j h) x y ;
+    gt -> \ h -> gt } ;
+  cmp (p q : Car) : W.O3 = cmpAux p.1 q.1 p.2 q.2 (I.cmp p.1 q.1) (refl (I.cmp p.1 q.1)) ;
+
+  -- on one summand, the order of the summand
+  sameIdx (i : I.car) (x y : (E i).car) : (c : W.O3) (h : Id W.O3 (I.cmp i i) c) -> Id W.O3 (cmpAux i i x y c h) ((E i).cmp x y) = split {
+    lt -> \ h -> ltEqC (Id W.O3 lt ((E i).cmp x y)) (PL.trans W.O3 lt (I.cmp i i) eq (PL.sym W.O3 (I.cmp i i) lt h) (I.crefl i)) ;
+    eq -> \ h -> PL.ap (Id I.car i i) W.O3 (\ q -> eqCmp i i q x y) (I.ceq i i h) (refl i) (uipI i i (I.ceq i i h) (refl i)) ;
+    gt -> \ h -> gtEqC (Id W.O3 gt ((E i).cmp x y)) (PL.trans W.O3 gt (I.cmp i i) eq (PL.sym W.O3 (I.cmp i i) gt h) (I.crefl i)) } ;
+  cmpSame (i : I.car) (x y : (E i).car) : Id W.O3 (cmp (i,x) (i,y)) ((E i).cmp x y) = sameIdx i x y (I.cmp i i) (refl (I.cmp i i)) ;
+  eqCmpRefl (i : I.car) (q : Id I.car i i) (x y : (E i).car) : Id W.O3 (eqCmp i i q x y) ((E i).cmp x y) =
+    PL.ap (Id I.car i i) W.O3 (\ q0 -> eqCmp i i q0 x y) q (refl i) (uipI i i q (refl i)) ;
+
+  -- laws
+  crefl (p : Car) : Id W.O3 (cmp p p) eq =
+    PL.trans W.O3 (cmp p p) ((E p.1).cmp p.2 p.2) eq (cmpSame p.1 p.2 p.2) ((E p.1).crefl p.2) ;
+
+  jEq (i : I.car) (j : I.car) (q : Id I.car i j) : (x : (E i).car) (y : (E j).car) -> Id W.O3 (eqCmp i j q x y) eq -> Id Car (i,x) (j,y) =
+    idJ I.car i (\ j0 q0 -> (x : (E i).car) (y : (E j0).car) -> Id W.O3 (eqCmp i j0 q0 x y) eq -> Id Car (i,x) (j0,y))
+      (\ x y h -> PL.ap (E i).car Car (\ u -> (i,u)) x y ((E i).ceq x y h)) j q ;
+  ceqAux (i j : I.car) (x : (E i).car) (y : (E j).car) : (c : W.O3) (hc : Id W.O3 (I.cmp i j) c) ->
+      Id W.O3 (cmpAux i j x y c hc) eq -> Id Car (i,x) (j,y) = split {
+    lt -> \ hc h -> ltEqC (Id Car (i,x) (j,y)) h ;
+    eq -> \ hc h -> jEq i j (I.ceq i j hc) x y h ;
+    gt -> \ hc h -> gtEqC (Id Car (i,x) (j,y)) h } ;
+  ceq (p q : Car) (h : Id W.O3 (cmp p q) eq) : Id Car p q = ceqAux p.1 q.1 p.2 q.2 (I.cmp p.1 q.1) (refl (I.cmp p.1 q.1)) h ;
+
+  jFlip (i : I.car) (j : I.car) (q : Id I.car i j) : (q' : Id I.car j i) (x : (E i).car) (y : (E j).car) ->
+      Id W.O3 (eqCmp j i q' y x) (W.flip (eqCmp i j q x y)) =
+    idJ I.car i (\ j0 q0 -> (q' : Id I.car j0 i) (x : (E i).car) (y : (E j0).car) -> Id W.O3 (eqCmp j0 i q' y x) (W.flip (eqCmp i j0 q0 x y)))
+      (\ q' x y -> PL.trans W.O3 (eqCmp i i q' y x) ((E i).cmp y x) (W.flip ((E i).cmp x y)) (eqCmpRefl i q' y x) ((E i).cflip x y)) j q ;
+  flipAux (i j : I.car) (x : (E i).car) (y : (E j).car) (hf : Id W.O3 (I.cmp j i) (W.flip (I.cmp i j))) :
+      (c : W.O3) (hc : Id W.O3 (I.cmp i j) c) (c' : W.O3) (hc' : Id W.O3 (I.cmp j i) c') ->
+      Id W.O3 (cmpAux j i y x c' hc') (W.flip (cmpAux i j x y c hc)) = split {
+    lt -> \ hc -> split {
+      lt -> \ hc' -> gtLtC (Id W.O3 lt gt) (PL.sym W.O3 lt gt (PL.trans W.O3 lt (I.cmp j i) gt (PL.sym W.O3 (I.cmp j i) lt hc')
+          (PL.trans W.O3 (I.cmp j i) (W.flip (I.cmp i j)) gt hf (PL.ap W.O3 W.O3 W.flip (I.cmp i j) lt hc)))) ;
+      eq -> \ hc' -> gtEqC (Id W.O3 (eqCmp j i (I.ceq j i hc') y x) gt) (PL.sym W.O3 eq gt (PL.trans W.O3 eq (I.cmp j i) gt (PL.sym W.O3 (I.cmp j i) eq hc')
+          (PL.trans W.O3 (I.cmp j i) (W.flip (I.cmp i j)) gt hf (PL.ap W.O3 W.O3 W.flip (I.cmp i j) lt hc)))) ;
+      gt -> \ hc' -> refl gt } ;
+    eq -> \ hc -> split {
+      lt -> \ hc' -> ltEqC (Id W.O3 lt (W.flip (eqCmp i j (I.ceq i j hc) x y))) (PL.trans W.O3 lt (I.cmp j i) eq (PL.sym W.O3 (I.cmp j i) lt hc')
+          (PL.trans W.O3 (I.cmp j i) (W.flip (I.cmp i j)) eq hf (PL.ap W.O3 W.O3 W.flip (I.cmp i j) eq hc))) ;
+      eq -> \ hc' -> jFlip i j (I.ceq i j hc) (I.ceq j i hc') x y ;
+      gt -> \ hc' -> gtEqC (Id W.O3 gt (W.flip (eqCmp i j (I.ceq i j hc) x y))) (PL.trans W.O3 gt (I.cmp j i) eq (PL.sym W.O3 (I.cmp j i) gt hc')
+          (PL.trans W.O3 (I.cmp j i) (W.flip (I.cmp i j)) eq hf (PL.ap W.O3 W.O3 W.flip (I.cmp i j) eq hc))) } ;
+    gt -> \ hc -> split {
+      lt -> \ hc' -> refl lt ;
+      eq -> \ hc' -> eqLtC (Id W.O3 (eqCmp j i (I.ceq j i hc') y x) lt) (PL.trans W.O3 eq (I.cmp j i) lt (PL.sym W.O3 (I.cmp j i) eq hc')
+          (PL.trans W.O3 (I.cmp j i) (W.flip (I.cmp i j)) lt hf (PL.ap W.O3 W.O3 W.flip (I.cmp i j) gt hc))) ;
+      gt -> \ hc' -> gtLtC (Id W.O3 gt lt) (PL.trans W.O3 gt (I.cmp j i) lt (PL.sym W.O3 (I.cmp j i) gt hc')
+          (PL.trans W.O3 (I.cmp j i) (W.flip (I.cmp i j)) lt hf (PL.ap W.O3 W.O3 W.flip (I.cmp i j) gt hc))) } } ;
+  cflip (p q : Car) : Id W.O3 (cmp q p) (W.flip (cmp p q)) =
+    flipAux p.1 q.1 p.2 q.2 (I.cflip p.1 q.1) (I.cmp p.1 q.1) (refl (I.cmp p.1 q.1)) (I.cmp q.1 p.1) (refl (I.cmp q.1 p.1)) ;
+
+  -- a strict inequality comes from the indices or from one summand
+  LtD (i j : I.car) (x : (E i).car) (y : (E j).car) : U l =
+    W.Or (Id W.O3 (I.cmp i j) lt) ((q : Id I.car i j) * Id W.O3 (eqCmp i j q x y) lt) ;
+  ltDec (i j : I.car) (x : (E i).car) (y : (E j).car) : (c : W.O3) (hc : Id W.O3 (I.cmp i j) c) ->
+      Id W.O3 (cmpAux i j x y c hc) lt -> LtD i j x y = split {
+    lt -> \ hc h -> inl hc ;
+    eq -> \ hc h -> inr (I.ceq i j hc,h) ;
+    gt -> \ hc h -> gtLtC (LtD i j x y) h } ;
+  ltD (p q : Car) (h : Id W.O3 (cmp p q) lt) : LtD p.1 q.1 p.2 q.2 = ltDec p.1 q.1 p.2 q.2 (I.cmp p.1 q.1) (refl (I.cmp p.1 q.1)) h ;
+  ltMkA (i j : I.car) (x : (E i).car) (y : (E j).car) : (c : W.O3) (hc : Id W.O3 (I.cmp i j) c) -> Id W.O3 c lt ->
+      Id W.O3 (cmpAux i j x y c hc) lt = split {
+    lt -> \ hc h -> refl lt ;
+    eq -> \ hc h -> eqLtC (Id W.O3 (eqCmp i j (I.ceq i j hc) x y) lt) h ;
+    gt -> \ hc h -> gtLtC (Id W.O3 gt lt) h } ;
+  ltMk1 (i j : I.car) (x : (E i).car) (y : (E j).car) (h : Id W.O3 (I.cmp i j) lt) : Id W.O3 (cmp (i,x) (j,y)) lt =
+    ltMkA i j x y (I.cmp i j) (refl (I.cmp i j)) h ;
+  tt2 (i : I.car) (x y : (E i).car) (a : Id W.O3 ((E i).cmp x y) lt) (k : I.car) (q2 : Id I.car i k) :
+      (z : (E k).car) -> Id W.O3 (eqCmp i k q2 y z) lt -> Id W.O3 (cmp (i,x) (k,z)) lt =
+    idJ I.car i (\ k0 q0 -> (z : (E k0).car) -> Id W.O3 (eqCmp i k0 q0 y z) lt -> Id W.O3 (cmp (i,x) (k0,z)) lt)
+      (\ z b -> PL.trans W.O3 (cmp (i,x) (i,z)) ((E i).cmp x z) lt (cmpSame i x z) ((E i).ctrans x y z a b)) k q2 ;
+  tt1 (i : I.car) (x : (E i).car) (j : I.car) (q1 : Id I.car i j) :
+      (y : (E j).car) -> Id W.O3 (eqCmp i j q1 x y) lt ->
+      (k : I.car) (q2 : Id I.car j k) (z : (E k).car) -> Id W.O3 (eqCmp j k q2 y z) lt -> Id W.O3 (cmp (i,x) (k,z)) lt =
+    idJ I.car i (\ j0 q0 -> (y : (E j0).car) -> Id W.O3 (eqCmp i j0 q0 x y) lt ->
+        (k : I.car) (q2 : Id I.car j0 k) (z : (E k).car) -> Id W.O3 (eqCmp j0 k q2 y z) lt -> Id W.O3 (cmp (i,x) (k,z)) lt)
+      (\ y a k q2 z b -> tt2 i x y a k q2 z b) j q1 ;
+  ctrans (p q r : Car) (h1 : Id W.O3 (cmp p q) lt) (h2 : Id W.O3 (cmp q r) lt) : Id W.O3 (cmp p r) lt =
+    CF.or-elim (Id W.O3 (I.cmp p.1 q.1) lt) ((q1 : Id I.car p.1 q.1) * Id W.O3 (eqCmp p.1 q.1 q1 p.2 q.2) lt) (Id W.O3 (cmp p r) lt)
+      (\ a -> CF.or-elim (Id W.O3 (I.cmp q.1 r.1) lt) ((q2 : Id I.car q.1 r.1) * Id W.O3 (eqCmp q.1 r.1 q2 q.2 r.2) lt) (Id W.O3 (cmp p r) lt)
+        (\ b -> ltMk1 p.1 r.1 p.2 r.2 (I.ctrans p.1 q.1 r.1 a b))
+        (\ t -> ltMk1 p.1 r.1 p.2 r.2 (PL.subst I.car (\ z -> Id W.O3 (I.cmp p.1 z) lt) q.1 r.1 t.1 a))
+        (ltD q r h2))
+      (\ s -> CF.or-elim (Id W.O3 (I.cmp q.1 r.1) lt) ((q2 : Id I.car q.1 r.1) * Id W.O3 (eqCmp q.1 r.1 q2 q.2 r.2) lt) (Id W.O3 (cmp p r) lt)
+        (\ b -> ltMk1 p.1 r.1 p.2 r.2 (PL.subst I.car (\ z -> Id W.O3 (I.cmp z r.1) lt) q.1 p.1 (PL.sym I.car p.1 q.1 s.1) b))
+        (\ t -> tt1 p.1 p.2 q.1 s.1 q.2 s.2 r.1 t.1 r.2 t.2)
+        (ltD q r h2))
+      (ltD p q h1) ;
+
+  lo : DP.LO = new DP.LO[car := Car, cmp := cmp, ceq := ceq, crefl := crefl, cflip := cflip, ctrans := ctrans] ;
+  -- the summands embed
+  inj (i : I.car) : DP.Map (E i) lo = (\ x -> (i,x),\ x y -> cmpSame i x y) ;
+
+  ----------------------------------------------------------------------
+  -- well-foundedness
+  module AI = W.Acc[I.car,W.ltO I.car I.cmp] ;
+  module AS = W.Acc[Car,W.ltO Car cmp] ;
+  accTr (j : I.car) (y : (E j).car) (i : I.car) (q1 : Id I.car j i) : (x : (E i).car) -> Id W.O3 (eqCmp j i q1 y x) lt ->
+      ((y' : (E i).car) -> W.Acc[(E i).car,W.ltO (E i).car (E i).cmp].Lt y' x -> AS.AccP (i,y')) -> AS.AccP (j,y) =
+    idJ I.car j (\ i0 q0 -> (x : (E i0).car) -> Id W.O3 (eqCmp j i0 q0 y x) lt ->
+        ((y' : (E i0).car) -> W.Acc[(E i0).car,W.ltO (E i0).car (E i0).cmp].Lt y' x -> AS.AccP (i0,y')) -> AS.AccP (j,y))
+      (\ x b ih -> ih y (PL.ap W.O3 W.Bool W.isLt ((E j).cmp y x) lt b)) i q1 ;
+  predS (i : I.car) (x : (E i).car) (ihI : (j : I.car) -> AI.Lt j i -> (y : (E j).car) -> AS.AccP (j,y))
+    (ihE : (y : (E i).car) -> W.Acc[(E i).car,W.ltO (E i).car (E i).cmp].Lt y x -> AS.AccP (i,y))
+    (q : Car) (h : AS.Lt q (i,x)) : AS.AccP q =
+    CF.or-elim (Id W.O3 (I.cmp q.1 i) lt) ((q1 : Id I.car q.1 i) * Id W.O3 (eqCmp q.1 i q1 q.2 x) lt) (AS.AccP q)
+      (\ a -> ihI q.1 (PL.ap W.O3 W.Bool W.isLt (I.cmp q.1 i) lt a) q.2)
+      (\ t -> accTr q.1 q.2 i t.1 x t.2 ihE)
+      (ltD q (i,x) (W.isLt-sound (cmp q (i,x)) h)) ;
+  accAll (wE : (i : I.car) -> LW.WF (E i)) (i : I.car) (ai : AI.AccP i) : (x : (E i).car) -> AS.AccP (i,x) =
+    AI.ind (\ i0 -> (x : (E i0).car) -> AS.AccP (i0,x))
+      (\ i0 ihI x0 -> W.Acc[(E i0).car,W.ltO (E i0).car (E i0).cmp].ind (\ x1 -> AS.AccP (i0,x1))
+         (\ x1 ihE -> AS.acc (i0,x1) (\ q h -> predS i0 x1 ihI ihE q h)) x0 (wE i0 x0))
+      i ai ;
+  wf (wI : LW.WF I) (wE : (i : I.car) -> LW.WF (E i)) : LW.WF lo = \ p -> accAll wE p.1 (wI p.1) p.2 ;
+} ;
