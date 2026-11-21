@@ -59,15 +59,18 @@ $I^\mu$ with $\mu$ in a linear order. Rules are the logical rules, the
 $x$-rules $(xr)$ (introduce $I^\mu(t)$ from $\Phi(I^{<\mu},t)$, with a
 choice $\nu<\mu$ recorded as a point) and $(xl)$ (an $\omega$- and
 ordinal-branching rule with a bound), the barred rules for $\Phib$, and
-cuts. Following 11.4.3, a cut is of \emph{kind I} if its formula has no
-$X$-atom, of \emph{kind II} if it is on a stage atom $I^\mu(t)$, and of
-\emph{kind III} if it is on $\Phib(t)$.
+cuts. Following Girard's Definition~11.4.2, a cut is of \emph{kind I}
+if its formula has no $X$-atom, and of \emph{kind III} if it is on
+$\Phib(t)$ (either polarity in our one-sided calculus). All remaining
+cuts are of \emph{kind II}, including cuts on stage atoms and cuts on
+compound formulas containing $X$-atoms.
 
 \paragraph{Two standing hypotheses.} Atoms depend only on the numbers of
 the labels (\tt{EvN}). The operator satisfies $\mathrm{posX}\,\phi\,0$: the
 $X$-atoms of $\phi$ are positive, read the stage position, and never use
-it as an argument. This gives the invariant ``negative stages lie below
-top'' for cut-free derivations, which is what makes Girard's transfer
+it as an argument. In a cut-free derivation, if negative stages in the
+end sequent lie below top, this bound propagates to the active premises.
+This is what makes Girard's transfer
 lemma 11.4.6 go through (\tt{BetaIDCfOps.Inv}, \tt{TrL}).
 
 \paragraph{Input families.} An input is a homogeneous $F$-proof, presented
@@ -266,8 +269,7 @@ $x_0=x$ and the certificates of the children. The pair consisting of $x_0$
 and this proof lies in a singleton type, so the root equation is handled
 by path induction, without any assumption that the type of objects is a
 set. Induction on the tree identifies corresponding children, and function
-extensionality identifies the two child families. (The argument is due to
-the reader of a first draft.)
+extensionality identifies the two child families.
 
 \begin{corollary}[\tt{BetaIDS4DiagIso.At.outputEq}]
 For fixed $o$ and $Y$, the outputs of Theorem~\ref{thm:pointwise} at any
@@ -363,8 +365,9 @@ homogeneity, certificate independence and the identity and inverse
 laws. The certificate itself comes from correctness by a bar argument with
 excluded middle and dependent choice. This is consistent with Girard's
 11.6.4, by which full cut elimination implies $\Pi^1_1$-$\mathrm{CA}$. The
-outputs are cut-free, so the constructive part has the subformula property
-up to the closure rules for the inductive predicate.
+cut-free rules introduce only subformulas when read from conclusion to
+active premise, allowing number instances and the prescribed unfoldings
+$\Phi(I^\nu,t)$ and their negations in the inductive rules.
 
 \paragraph{Status.} All theorems stated here are checked in Unit; the
 development has no holes and no postulates. The two standing hypotheses,
@@ -378,7 +381,8 @@ only the lemma \texttt{stLow} is checked.
 vol.~II, chapter~11 (\S11.4: cut elimination for the inductive logic;
 11.6.4: the reversal).
 \bibitem{am} R.~Akiyoshi and G.~Mints, \emph{An extension of the
-$\Omega$-rule}, Archive for Mathematical Logic, 2016.
+omega-rule}, Archive for Mathematical Logic \textbf{55} (2016),
+nos.~3--4, 593--603. \href{https://doi.org/10.1007/s00153-016-0482-y}{doi:10.1007/s00153-016-0482-y}.
 \end{thebibliography}
 
 \end{document}
