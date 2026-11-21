@@ -1,0 +1,214 @@
+-- PLAN-ID1, homogeneity of S4: kind III nodes.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module PS = PtyxSum[l] ;
+module LW = LOWF[l] ;
+module KT = KBTree[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BT = BetaIDTr[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module SH = BetaIDS4Hom[l] ;
+module BH = BetaIDHom[l] ;
+module HR = BetaIDS4HomReg[l] ;
+module HT = BetaIDS4HomThm[l] ;
+module DS = DSumLO[l] ;
+
+------------------------------------------------------------------------
+-- the upper-tail map read off a map b : kZ -> k'Z' preserving top
+module Tail (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (o o' : S4.Obj[ev,phi,evN].IObj) (Z Z' : DP.LO) (b : DP.Map (o.k Z) (o'.k Z'))
+  (bTop : Id (o'.k Z').car (b.1 (S4.Obj[ev,phi,evN].topO o Z)) (S4.Obj[ev,phi,evN].topO o' Z')) {
+  module O = S4.Obj[ev,phi,evN] ;
+  module SZ' = S4.Sig[ev,phi,evN,o',Z'] ;
+  K : DP.LO = o.k Z ;
+  K' : DP.LO = o'.k Z' ;
+  pT (t : (o.Fp Z).car) : K.car = (o.sgi Z).1 (inr (inr t)) ;
+  bAbove (t : (o.Fp Z).car) : Id W.O3 (K'.cmp (b.1 (pT t)) (O.topO o' Z')) gt =
+    PL.trans W.O3 (K'.cmp (b.1 (pT t)) (O.topO o' Z')) (K'.cmp (b.1 (pT t)) (b.1 (O.topO o Z))) gt
+      (PL.ap K'.car W.O3 (\ z -> K'.cmp (b.1 (pT t)) z) (O.topO o' Z') (b.1 (O.topO o Z)) (PL.sym K'.car (b.1 (O.topO o Z)) (O.topO o' Z') bTop))
+      (PL.trans W.O3 (K'.cmp (b.1 (pT t)) (b.1 (O.topO o Z))) (K.cmp (pT t) (O.topO o Z)) gt (b.2 (pT t) (O.topO o Z))
+        ((o.sgi Z).2 (inr (inr t)) (O.tp o.Cst o.Fp Z))) ;
+  TlP (t : (o.Fp Z).car) : U l = (t' : (o'.Fp Z').car) * Id K'.car (b.1 (pT t)) ((o'.sgi Z').1 (inr (inr t'))) ;
+  tlT (t : (o.Fp Z).car) : (t0 : (S4.Sm LT.one (o'.Fp Z')).car) -> Id K'.car (b.1 (pT t)) ((o'.sgi Z').1 (inr t0)) -> TlP t = split {
+    inl uu -> \ ee -> CF.efq (TlP t) (DS.gtEqC W.Empty
+      (PL.trans W.O3 gt (K'.cmp (b.1 (pT t)) (O.topO o' Z')) eq (PL.sym W.O3 (K'.cmp (b.1 (pT t)) (O.topO o' Z')) gt (bAbove t))
+        (PL.subst K'.car (\ z -> Id W.O3 (K'.cmp z (O.topO o' Z')) eq) ((o'.sgi Z').1 (inr (inl uu))) (b.1 (pT t))
+          (PL.sym K'.car (b.1 (pT t)) ((o'.sgi Z').1 (inr (inl uu))) ee)
+          ((o'.sgi Z').2 (inr (inl uu)) (O.tp o'.Cst o'.Fp Z'))))) ;
+    inr t' -> \ ee -> (t',ee) } ;
+  tlD (t : (o.Fp Z).car) : SZ'.DecP (b.1 (pT t)) -> TlP t = split {
+    inl u0 -> CF.efq (TlP t) (DS.gtLtC W.Empty
+      (PL.trans W.O3 gt (K'.cmp (b.1 (pT t)) (O.topO o' Z')) lt (PL.sym W.O3 (K'.cmp (b.1 (pT t)) (O.topO o' Z')) gt (bAbove t))
+        (PL.subst K'.car (\ z -> Id W.O3 (K'.cmp z (O.topO o' Z')) lt) ((o'.sgi Z').1 (inl u0.1)) (b.1 (pT t))
+          (PL.sym K'.car (b.1 (pT t)) ((o'.sgi Z').1 (inl u0.1)) u0.2) (SZ'.ltTop u0.1)))) ;
+    inr u0 -> tlT t u0.1 u0.2 } ;
+  tlp (t : (o.Fp Z).car) : TlP t = tlD t (SZ'.dec (b.1 (pT t))) ;
+  tl (t : (o.Fp Z).car) : (o'.Fp Z').car = (tlp t).1 ;
+  tlM (t1 t2 : (o.Fp Z).car) : Id W.O3 ((o'.Fp Z').cmp (tl t1) (tl t2)) ((o.Fp Z).cmp t1 t2) =
+    PL.trans W.O3 ((o'.Fp Z').cmp (tl t1) (tl t2)) (K'.cmp ((o'.sgi Z').1 (inr (inr (tl t1)))) ((o'.sgi Z').1 (inr (inr (tl t2)))))
+      ((o.Fp Z).cmp t1 t2)
+      (PL.sym W.O3 (K'.cmp ((o'.sgi Z').1 (inr (inr (tl t1)))) ((o'.sgi Z').1 (inr (inr (tl t2))))) ((o'.Fp Z').cmp (tl t1) (tl t2))
+        ((o'.sgi Z').2 (inr (inr (tl t1))) (inr (inr (tl t2)))))
+      (PL.trans W.O3 (K'.cmp ((o'.sgi Z').1 (inr (inr (tl t1)))) ((o'.sgi Z').1 (inr (inr (tl t2))))) (K'.cmp (b.1 (pT t1)) (b.1 (pT t2)))
+        ((o.Fp Z).cmp t1 t2)
+        (W.ap2 K'.car K'.car W.O3 K'.cmp ((o'.sgi Z').1 (inr (inr (tl t1)))) (b.1 (pT t1)) ((o'.sgi Z').1 (inr (inr (tl t2)))) (b.1 (pT t2))
+          (PL.sym K'.car (b.1 (pT t1)) ((o'.sgi Z').1 (inr (inr (tl t1)))) (tlp t1).2)
+          (PL.sym K'.car (b.1 (pT t2)) ((o'.sgi Z').1 (inr (inr (tl t2)))) (tlp t2).2))
+        (PL.trans W.O3 (K'.cmp (b.1 (pT t1)) (b.1 (pT t2))) (K.cmp (pT t1) (pT t2)) ((o.Fp Z).cmp t1 t2) (b.2 (pT t1) (pT t2))
+          ((o.sgi Z).2 (inr (inr t1)) (inr (inr t2))))) ;
+  tlMap : DP.Map (o.Fp Z) (o'.Fp Z') = (tl,tlM) ;
+  -- on the whole tail 1 + Fp
+  tT : DP.Map (S4.Sm LT.one (o.Fp Z)) (S4.Sm LT.one (o'.Fp Z')) = PS.SumMap[LT.one,o.Fp Z,LT.one,o'.Fp Z',LC.idMap LT.one,tlMap].map ;
+  tTop (uu : W.Unit) : Id K'.car (b.1 ((o.sgi Z).1 (inr (inl uu)))) ((o'.sgi Z').1 (inr (inl uu))) =
+    PL.subst W.Unit (\ v -> Id K'.car (b.1 ((o.sgi Z).1 (inr (inl v)))) ((o'.sgi Z').1 (inr (inl v)))) tt uu (LT.unitEq tt uu) bTop ;
+  tEq : (t : (S4.Sm LT.one (o.Fp Z)).car) -> Id K'.car (b.1 ((o.sgi Z).1 (inr t))) ((o'.sgi Z').1 (inr (tT.1 t))) = split {
+    inl uu -> tTop uu ;
+    inr t -> (tlp t).2 } ;
+} ;
+
+------------------------------------------------------------------------
+-- the structure map sg commutes with the base map b = tau . km h
+module SgNat (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o o' : S4.Obj[ev,phi,evN].IObj) (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z))
+  (rl : SH.Rel[ev,phi,evN].RelIn o o' c tau) (X X' : DP.LO) (h : DP.Map X X') {
+  module O = S4.Obj[ev,phi,evN] ;
+  module ST = HT.Stmt[ev,phi,evN,hPos] ;
+  K : DP.LO = o.k X ;
+  K' : DP.LO = o'.k X' ;
+  b : DP.Map K K' = ST.baseF o o' tau X X' h ;
+  bTop : Id K'.car (b.1 (O.topO o X)) (O.topO o' X') = ST.baseTop o o' c tau rl X X' h ;
+  module T = Tail[ev,phi,evN,o,o',X,X',b,bTop] ;
+  PX : DP.LO = O.P o.Cst o.Fp X ;
+  PX' : DP.LO = O.P o'.Cst o'.Fp X' ;
+  wC : DP.Map (S4.Sm o.Cst X) (S4.Sm o'.Cst X') =
+    LC.compMap (S4.Sm o.Cst X) (S4.Sm o.Cst X') (S4.Sm o'.Cst X') (O.smapC o.Cst X X' h) (SH.Rel[ev,phi,evN].cZ o.Cst o'.Cst c X') ;
+  Phi : DP.Map PX PX' = PS.SumMap[S4.Sm o.Cst X,S4.Sm LT.one (o.Fp X),S4.Sm o'.Cst X',S4.Sm LT.one (o'.Fp X'),wC,T.tT].map ;
+  sgiL (w : (S4.Sm o.Cst X).car) : Id K'.car (b.1 ((o.sgi X).1 (inl w))) ((o'.sgi X').1 (inl (wC.1 w))) =
+    PL.trans K'.car (b.1 ((o.sgi X).1 (inl w))) ((tau X').1 ((o.sgi X').1 (inl ((O.smapC o.Cst X X' h).1 w)))) ((o'.sgi X').1 (inl (wC.1 w)))
+      (PL.ap (o.k X').car K'.car (tau X').1 ((o.km X X' h).1 ((o.sgi X).1 (inl w))) ((o.sgi X').1 (inl ((O.smapC o.Cst X X' h).1 w))) (o.natS X X' h w))
+      (rl.2.2.2 X' ((O.smapC o.Cst X X' h).1 w)) ;
+  sgiN : (q : PX.car) -> Id K'.car (b.1 ((o.sgi X).1 q)) ((o'.sgi X').1 (Phi.1 q)) = split {
+    inl w -> sgiL w ; inr t -> T.tEq t } ;
+  sgN (p : K.car) : Id PX'.car ((o'.sg X').1 (b.1 p)) (Phi.1 ((o.sg X).1 p)) =
+    PL.trans PX'.car ((o'.sg X').1 (b.1 p)) ((o'.sg X').1 (b.1 ((o.sgi X).1 ((o.sg X).1 p)))) (Phi.1 ((o.sg X).1 p))
+      (PL.ap K.car PX'.car (\ z -> (o'.sg X').1 (b.1 z)) p ((o.sgi X).1 ((o.sg X).1 p)) (PL.sym K.car ((o.sgi X).1 ((o.sg X).1 p)) p (o.sec X p)))
+      (PL.trans PX'.car ((o'.sg X').1 (b.1 ((o.sgi X).1 ((o.sg X).1 p)))) ((o'.sg X').1 ((o'.sgi X').1 (Phi.1 ((o.sg X).1 p)))) (Phi.1 ((o.sg X).1 p))
+        (PL.ap K'.car PX'.car (o'.sg X').1 (b.1 ((o.sgi X).1 ((o.sg X).1 p))) ((o'.sgi X').1 (Phi.1 ((o.sg X).1 p))) (sgiN ((o.sg X).1 p)))
+        (o'.ret X' (Phi.1 ((o.sg X).1 p)))) ;
+} ;
+
+------------------------------------------------------------------------
+-- the squares of a kind III node: g' u1 = u2 g, rho' u2 = u1 rho,
+-- h' u2 = v3 h (h = theta then re-association)
+module K3Sq (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o o' : S4.Obj[ev,phi,evN].IObj) (c : DP.Map o.Cst o'.Cst) (tau : (Z : DP.LO) -> DP.Map (o.k Z) (o'.k Z))
+  (rl : SH.Rel[ev,phi,evN].RelIn o o' c tau) (Y Y' : DP.LO) (f : DP.Map Y Y')
+  (E1 E1' : DP.LO) (e1 : DP.Map E1 E1') (E2 E2' : DP.LO) (e2 : DP.Map E2 E2') {
+  module O = S4.Obj[ev,phi,evN] ;
+  module ST = HT.Stmt[ev,phi,evN,hPos] ;
+  module C = S4.K3Ctx[ev,phi,evN,o,Y,E1,E2] ;
+  module C' = S4.K3Ctx[ev,phi,evN,o',Y',E1',E2'] ;
+  module SN = SgNat[ev,phi,evN,hPos,o,o',c,tau,rl,Y,Y',f] ;
+  A : DP.LO = o.k Y ;
+  A' : DP.LO = o'.k Y' ;
+  beta : DP.Map A A' = SN.b ;
+  f1 : DP.Map C.V1 C'.V1 = PS.SumMap[Y,S4.Sm C.T0 E1,Y',S4.Sm C'.T0 E1',f,PS.SumMap[C.T0,E1,C'.T0,E1',SN.T.tT,e1].map].map ;
+  module SN1 = SgNat[ev,phi,evN,hPos,o,o',c,tau,rl,C.V1,C'.V1,f1] ;
+  beta1 : DP.Map C.KV C'.KV = SN1.b ;
+  u1 : DP.Map C.A1 C'.A1 = ST.extM A A' E1 E1' beta e1 ;
+  u2 : DP.Map C.A2 C'.A2 = ST.extM C.KV C'.KV E2 E2' beta1 e2 ;
+  -- g
+  alphaW : (w : (S4.Sm o.Cst Y).car) -> Id (S4.Sm o'.Cst C'.V1).car (C'.alpha.1.1 (inl (inl (SN.wC.1 w)))) (SN1.wC.1 (C.alpha.1.1 (inl (inl w)))) = split {
+    inl cc -> refl (inl (c.1 cc)) ; inr y -> refl (inr (inl (f.1 y))) } ;
+  alphaN : (q : C.PY.car) -> Id (S4.Sm o'.Cst C'.V1).car (C'.alpha.1.1 (inl (SN.Phi.1 q))) (SN1.wC.1 (C.alpha.1.1 (inl q))) = split {
+    inl w -> alphaW w ;
+    inr t -> refl (inr (inr (inl (SN.T.tT.1 t)))) } ;
+  inK (z : C'.KV.car) : C'.A2.car = inl z ;
+  F : (a : C.A1.car) -> Id C'.A2.car (C'.g.1 (u1.1 a)) (u2.1 (C.g.1 a)) = split {
+    inl p -> PL.ap C'.KV.car C'.A2.car inK ((o'.sgi C'.V1).1 (inl (C'.alpha.1.1 (inl ((o'.sg Y').1 (beta.1 p))))))
+      (beta1.1 ((o.sgi C.V1).1 (inl (C.alpha.1.1 (inl ((o.sg Y).1 p))))))
+      (PL.trans C'.KV.car ((o'.sgi C'.V1).1 (inl (C'.alpha.1.1 (inl ((o'.sg Y').1 (beta.1 p))))))
+        ((o'.sgi C'.V1).1 (inl (SN1.wC.1 (C.alpha.1.1 (inl ((o.sg Y).1 p))))))
+        (beta1.1 ((o.sgi C.V1).1 (inl (C.alpha.1.1 (inl ((o.sg Y).1 p))))))
+        (PL.trans C'.KV.car ((o'.sgi C'.V1).1 (inl (C'.alpha.1.1 (inl ((o'.sg Y').1 (beta.1 p))))))
+          ((o'.sgi C'.V1).1 (inl (C'.alpha.1.1 (inl (SN.Phi.1 ((o.sg Y).1 p))))))
+          ((o'.sgi C'.V1).1 (inl (SN1.wC.1 (C.alpha.1.1 (inl ((o.sg Y).1 p))))))
+          (PL.ap C'.PY.car C'.KV.car (\ z -> (o'.sgi C'.V1).1 (inl (C'.alpha.1.1 (inl z)))) ((o'.sg Y').1 (beta.1 p)) (SN.Phi.1 ((o.sg Y).1 p)) (SN.sgN p))
+          (PL.ap (S4.Sm o'.Cst C'.V1).car C'.KV.car (\ z -> (o'.sgi C'.V1).1 (inl z))
+            (C'.alpha.1.1 (inl (SN.Phi.1 ((o.sg Y).1 p)))) (SN1.wC.1 (C.alpha.1.1 (inl ((o.sg Y).1 p)))) (alphaN ((o.sg Y).1 p))))
+        (PL.sym C'.KV.car (beta1.1 ((o.sgi C.V1).1 (inl (C.alpha.1.1 (inl ((o.sg Y).1 p))))))
+          ((o'.sgi C'.V1).1 (inl (SN1.wC.1 (C.alpha.1.1 (inl ((o.sg Y).1 p)))))) (SN1.sgiL (C.alpha.1.1 (inl ((o.sg Y).1 p)))))) ;
+    inr e -> PL.ap C'.KV.car C'.A2.car inK ((o'.sgi C'.V1).1 (inl (SN1.wC.1 (C.alpha.1.1 (inr e))))) (beta1.1 ((o.sgi C.V1).1 (inl (C.alpha.1.1 (inr e)))))
+      (PL.sym C'.KV.car (beta1.1 ((o.sgi C.V1).1 (inl (C.alpha.1.1 (inr e))))) ((o'.sgi C'.V1).1 (inl (SN1.wC.1 (C.alpha.1.1 (inr e)))))
+        (SN1.sgiL (C.alpha.1.1 (inr e)))) } ;
+  -- theta
+  inA1' (z : A'.car) : C'.A1.car = inl z ;
+  betaZ : (z : (S4.Sm C.T0 E1).car) -> Id C'.A1.car (C'.betaA.1.1 (SN1.wC.1 (inr (inr z)))) (u1.1 (C.betaA.1.1 (inr (inr z)))) = split {
+    inl t -> PL.sym C'.A1.car (u1.1 (C.betaA.1.1 (inr (inr (inl t))))) (C'.betaA.1.1 (SN1.wC.1 (inr (inr (inl t)))))
+      (PL.ap A'.car C'.A1.car inA1' (beta.1 ((o.sgi Y).1 (inr t))) ((o'.sgi Y').1 (inr (SN.T.tT.1 t))) (SN.T.tEq t)) ;
+    inr e -> refl (inr (e1.1 e)) } ;
+  betaV : (v : C.V1.car) -> Id C'.A1.car (C'.betaA.1.1 (SN1.wC.1 (inr v))) (u1.1 (C.betaA.1.1 (inr v))) = split {
+    inl y -> PL.sym C'.A1.car (u1.1 (C.betaA.1.1 (inr (inl y)))) (C'.betaA.1.1 (SN1.wC.1 (inr (inl y))))
+      (PL.ap A'.car C'.A1.car inA1' (beta.1 ((o.sgi Y).1 (inl (inr y)))) ((o'.sgi Y').1 (inl (SN.wC.1 (inr y)))) (SN.sgiL (inr y))) ;
+    inr z -> betaZ z } ;
+  betaN : (w : (S4.Sm o.Cst C.V1).car) -> Id C'.A1.car (C'.betaA.1.1 (SN1.wC.1 w)) (u1.1 (C.betaA.1.1 w)) = split {
+    inl cc -> PL.sym C'.A1.car (u1.1 (C.betaA.1.1 (inl cc))) (C'.betaA.1.1 (SN1.wC.1 (inl cc)))
+      (PL.ap A'.car C'.A1.car inA1' (beta.1 ((o.sgi Y).1 (inl (inl cc)))) ((o'.sgi Y').1 (inl (SN.wC.1 (inl cc)))) (SN.sgiL (inl cc))) ;
+    inr v -> betaV v } ;
+  tT2 : DP.Map (S4.Sm C.T1 E2) (S4.Sm C'.T1 E2') = PS.SumMap[C.T1,E2,C'.T1,E2',SN1.T.tT,e2].map ;
+  Psi : DP.Map C.Tgt C'.Tgt = PS.SumMap[C.A1,S4.Sm C.T1 E2,C'.A1,S4.Sm C'.T1 E2',u1,tT2].map ;
+  inT' (z : C'.A1.car) : C'.Tgt.car = inl z ;
+  thQ : (q : C.PV.car) -> Id C'.Tgt.car ((S4.isoAG C'.A1 C'.T1 E2').1.1 (C'.th2.1.1 (inl (SN1.Phi.1 q))))
+      (Psi.1 ((S4.isoAG C.A1 C.T1 E2).1.1 (C.th2.1.1 (inl q)))) = split {
+    inl w -> PL.ap C'.A1.car C'.Tgt.car inT' (C'.betaA.1.1 (SN1.wC.1 w)) (u1.1 (C.betaA.1.1 w)) (betaN w) ;
+    inr t -> refl (Psi.1 ((S4.isoAG C.A1 C.T1 E2).1.1 (C.th2.1.1 (inl (inr t))))) } ;
+  thN : (b : C.A2.car) -> Id C'.Tgt.car (C'.theta.1.1 (u2.1 b)) (Psi.1 (C.theta.1.1 b)) = split {
+    inl p -> PL.trans C'.Tgt.car (C'.theta.1.1 (u2.1 (inl p)))
+        ((S4.isoAG C'.A1 C'.T1 E2').1.1 (C'.th2.1.1 (inl (SN1.Phi.1 ((o.sg C.V1).1 p))))) (Psi.1 (C.theta.1.1 (inl p)))
+      (PL.ap C'.PV.car C'.Tgt.car (\ z -> (S4.isoAG C'.A1 C'.T1 E2').1.1 (C'.th2.1.1 (inl z)))
+        ((o'.sg C'.V1).1 (beta1.1 p)) (SN1.Phi.1 ((o.sg C.V1).1 p)) (SN1.sgN p))
+      (thQ ((o.sg C.V1).1 p)) ;
+    inr e -> refl (Psi.1 (C.theta.1.1 (inr e))) } ;
+  -- the retraction
+  rhoN : (t : C.Tgt.car) -> Id C'.A1.car (u1.1 (C.rhoT t)) (C'.rhoT (Psi.1 t)) = split {
+    inl a -> refl (u1.1 a) ;
+    inr z -> PL.ap A'.car C'.A1.car inA1' (beta.1 C.top) C'.top SN.bTop } ;
+  Gr (b : C.A2.car) : Id C'.A1.car (u1.1 (C.rho b)) (C'.rho (u2.1 b)) =
+    PL.trans C'.A1.car (u1.1 (C.rho b)) (C'.rhoT (Psi.1 (C.theta.1.1 b))) (C'.rho (u2.1 b)) (rhoN (C.theta.1.1 b))
+      (PL.sym C'.A1.car (C'.rho (u2.1 b)) (C'.rhoT (Psi.1 (C.theta.1.1 b)))
+        (PL.ap C'.Tgt.car C'.A1.car C'.rhoT (C'.theta.1.1 (u2.1 b)) (Psi.1 (C.theta.1.1 b)) (thN b))) ;
+  -- the transport back to kY + E3
+  E3 : DP.LO = S4.Sm E1 (S4.Sm C.T1 E2) ;
+  E3' : DP.LO = S4.Sm E1' (S4.Sm C'.T1 E2') ;
+  e3 : DP.Map E3 E3' = PS.SumMap[E1,S4.Sm C.T1 E2,E1',S4.Sm C'.T1 E2',e1,tT2].map ;
+  v3 : DP.Map (S4.Sm A E3) (S4.Sm A' E3') = ST.extM A A' E3 E3' beta e3 ;
+  hI : S4.Iso C.A2 (S4.Sm A E3) = S4.isoComp C.A2 C.Tgt (S4.Sm A E3) C.theta (S4.isoAG A E1 (S4.Sm C.T1 E2)) ;
+  hI' : S4.Iso C'.A2 (S4.Sm A' E3') = S4.isoComp C'.A2 C'.Tgt (S4.Sm A' E3') C'.theta (S4.isoAG A' E1' (S4.Sm C'.T1 E2')) ;
+  agA : (a : C.A1.car) -> Id (S4.Sm A' E3').car ((S4.isoAG A' E1' (S4.Sm C'.T1 E2')).1.1 (Psi.1 (inl a))) (v3.1 ((S4.isoAG A E1 (S4.Sm C.T1 E2)).1.1 (inl a))) = split {
+    inl p -> refl (v3.1 ((S4.isoAG A E1 (S4.Sm C.T1 E2)).1.1 (inl (inl p)))) ;
+    inr e -> refl (v3.1 ((S4.isoAG A E1 (S4.Sm C.T1 E2)).1.1 (inl (inr e)))) } ;
+  agN : (t : C.Tgt.car) -> Id (S4.Sm A' E3').car ((S4.isoAG A' E1' (S4.Sm C'.T1 E2')).1.1 (Psi.1 t)) (v3.1 ((S4.isoAG A E1 (S4.Sm C.T1 E2)).1.1 t)) = split {
+    inl a -> agA a ;
+    inr z -> refl (v3.1 ((S4.isoAG A E1 (S4.Sm C.T1 E2)).1.1 (inr z))) } ;
+  hN (b : C.A2.car) : Id (S4.Sm A' E3').car (hI'.1.1 (u2.1 b)) (v3.1 (hI.1.1 b)) =
+    PL.trans (S4.Sm A' E3').car (hI'.1.1 (u2.1 b)) ((S4.isoAG A' E1' (S4.Sm C'.T1 E2')).1.1 (Psi.1 (C.theta.1.1 b))) (v3.1 (hI.1.1 b))
+      (PL.ap C'.Tgt.car (S4.Sm A' E3').car (S4.isoAG A' E1' (S4.Sm C'.T1 E2')).1.1 (C'.theta.1.1 (u2.1 b)) (Psi.1 (C.theta.1.1 b)) (thN b))
+      (agN (C.theta.1.1 b)) ;
+  hInvN (w : (S4.Sm A E3).car) : Id C'.A2.car (u2.1 (hI.2.1.1 w)) (hI'.2.1.1 (v3.1 w)) =
+    DP.map-inj C'.A2 (S4.Sm A' E3') hI'.1 (u2.1 (hI.2.1.1 w)) (hI'.2.1.1 (v3.1 w))
+      (PL.trans (S4.Sm A' E3').car (hI'.1.1 (u2.1 (hI.2.1.1 w))) (v3.1 (hI.1.1 (hI.2.1.1 w))) (hI'.1.1 (hI'.2.1.1 (v3.1 w)))
+        (hN (hI.2.1.1 w))
+        (PL.trans (S4.Sm A' E3').car (v3.1 (hI.1.1 (hI.2.1.1 w))) (v3.1 w) (hI'.1.1 (hI'.2.1.1 (v3.1 w)))
+          (PL.ap (S4.Sm A E3).car (S4.Sm A' E3').car v3.1 (hI.1.1 (hI.2.1.1 w)) w (hI.2.2 w))
+          (PL.sym (S4.Sm A' E3').car (hI'.1.1 (hI'.2.1.1 (v3.1 w))) (v3.1 w) (hI'.2.2 (v3.1 w))))) ;
+} ;
