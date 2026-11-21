@@ -36,6 +36,25 @@ module RelConv (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A
     cXl s k e o kk | r -> \ d' z -> (z.1,(z.2.1,\ x -> r x (z.1 (N1.lm x)) (z.2.2 x))) } ;
 } ;
 
+-- ... nor on the tops
+module RelConvT (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A B : DP.LO) (g : DP.Map A B)
+  (evI : (k : W.N) (e : LT.LL A) -> Id W.Bool (ev B k (LT.mapL A B g e)) (ev A k e))
+  (tA : A.car) (tB : B.car) (e1 : Id B.car (g.1 tA) tB) (tA' : A.car) (tB' : B.car) (e2 : Id B.car (g.1 tA') tB') {
+  module N1 = BH.NH[ev,phi,A,B,g,evI,tA,tB,e1] ;
+  module N2 = BH.NH[ev,phi,A,B,g,evI,tA',tB',e2] ;
+  relC : (d : N1.FA) (d' : N1.FB) -> N1.RelF d d' -> N2.RelF d d' = split {
+    cAx b k e -> \ d' r -> r ;
+    cAnd p q e d0 d1 | r0 r1 -> \ d' z -> (z.1,(z.2.1,(z.2.2.1,(r0 z.1 z.2.2.2.1,r1 z.2.1 z.2.2.2.2)))) ;
+    cOr p q e d | r -> \ d' z -> (z.1,(z.2.1,r z.1 z.2.2)) ;
+    cAll p e kk | r -> \ d' z -> (z.1,(z.2.1,\ x -> r x (z.1 (N1.lm x)) (z.2.2 x))) ;
+    cEx p e w d | r -> \ d' z -> (z.1,(z.2.1,r z.1 z.2.2)) ;
+    cXr s k e mu d | r -> \ d' z -> (z.1,(z.2.1,r z.1 z.2.2)) ;
+    cXl s k e o kk | r -> \ d' z -> (z.1,(z.2.1,\ x -> r x (z.1 (N1.lm x)) (z.2.2 x))) } ;
+  -- and RelF is transported along equalities of the two derivations
+  trL (d d1 : N1.FA) (d' : N1.FB) (e : Id N1.FA d d1) (r : N2.RelF d d') : N2.RelF d1 d' = PL.subst N1.FA (\ z -> N2.RelF z d') d d1 e r ;
+  trR (d : N1.FA) (d' d1' : N1.FB) (e : Id N1.FB d' d1') (r : N2.RelF d d') : N2.RelF d d1' = PL.subst N1.FB (\ z -> N2.RelF d z) d' d1' e r ;
+} ;
+
 ------------------------------------------------------------------------
 -- composition of the maps of sequents and rules
 module MpComp (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
