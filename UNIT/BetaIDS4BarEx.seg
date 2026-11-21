@@ -1,0 +1,433 @@
+-- PLAN-ID1, S6 benchmark: stage growth forced by a cut.  Part 3's bar on
+-- histories keeping only their length: Child(n,m) iff m = n+1, and
+-- G(n) iff n >= 2.  Stages (Unit's convention): 2 enters at stage 1, 1 at
+-- stage 2, 0 at stage 3.  The input family proves  B(2) -> B(0)  by a root
+-- cut on Phi-bar(1) between two one-step proofs B(n+1) -> B(n):
+--   branch 0 (B(2) -> B(1)): r-bar on Phi-bar(1) at top; for the child 2,
+--     l-bar on not Phi-bar(2), then I^top(2) at the premise stage, closed
+--     by G(2);
+--   branch 1 (B(1) -> B(0)): r-bar on Phi-bar(0) at top; for the child 1,
+--     l-bar on not Phi-bar(1) at nu, then I^top(1) at nu, whose unfolding
+--     needs I^nu(2): from not phi(I^nu,1) (and-rule, witness 2), l on
+--     not I^nu(2) at nu' < nu, I^nu(2) at nu', closed by G(2).
+-- kY = Y + 1 (k Y = (0+Y)+(1+0)).  At Y = 1 the hypothesis J^top(2)
+-- holds; if the extension E returned by S4 were empty the output order
+-- would have two points, on which Jall(0) is false; S4 gives Jall(0).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module PS = PtyxSum[l] ;
+module LW = LOWF[l] ;
+module BP = BetaProof[l] ;
+module BI = BetaID[l] ;
+module BT0 = BetaIDTr[l] ;
+module BO = BetaIDCfOps[l] ;
+module BA = BetaAcc[l] ;
+module S4 = BetaIDS4[l] ;
+module SG = BetaIDS4Stage[l] ;
+module BB = BetaIDS4Bar[l] ;
+
+gL : W.N -> W.Bool = split { zero -> false ; suc k -> W.notB (BP.isZeroN k) } ;
+chL (n m : W.N) : W.Bool = W.eqN m (suc n) ;
+module Bx = BB.Bar[gL,chL] ;
+module I = BI.ID[Bx.ev,Bx.phi] ;
+module O = S4.Obj[Bx.ev,Bx.phi,Bx.evN] ;
+module SS = S4.SSteps[Bx.ev,Bx.phi,Bx.evN] ;
+n1 : W.N = suc zero ;
+n2 : W.N = suc (suc zero) ;
+------------------------------------------------------------------------
+-- the input orders kY = (0 + Y) + (1 + 0)
+Fp (Y : DP.LO) : DP.LO = BA.E0 ;
+T : DP.LO = S4.Sm LT.one BA.E0 ;
+K (Y : DP.LO) : DP.LO = O.P BA.E0 Fp Y ;
+kmK (X Y : DP.LO) (f : DP.Map X Y) : DP.Map (K X) (K Y) =
+  PS.SumMap[S4.Sm BA.E0 X,T,S4.Sm BA.E0 Y,T,O.smapC BA.E0 X Y f,LC.idMap T].map ;
+topK (Y : DP.LO) : (K Y).car = O.tp BA.E0 Fp Y ;
+nuOf (Y : DP.LO) : W.Or W.Unit (K Y).car -> (K Y).car = split { inl u -> topK Y ; inr v -> v } ;
+lN (A : DP.LO) (n : W.N) : I.Lb A = (n,inl tt) ;
+-- the end sequent: not Phi-bar(2), Phi-bar(0); the cut formula Phi-bar(1)
+eG (A : DP.LO) : LT.LL A = consL (lN A zero) (consL (lN A n2) (consL (lN A zero) (consL (lN A n1) nilL))) ;
+nB2 : BI.Form = xF false zero (suc zero) ;
+pB0 : BI.Form = xF true zero (suc (suc zero)) ;
+cutf : BI.Form = xF true zero (suc (suc (suc zero))) ;
+GK (Y : DP.LO) : I.Seq (K Y) = consL (nB2,eG (K Y)) (consL (pB0,eG (K Y)) nilL) ;
+w2 (A : DP.LO) : I.Lb A = lN A n2 ;
+------------------------------------------------------------------------
+-- the rule function, piece by piece
+leafR (A : DP.LO) (i : W.N) : I.Rl A = \ zs -> axR i ;
+eqPick (A : DP.LO) (rT rF : I.Rule A) : W.N -> W.N -> I.Rule A = split {
+  zero -> split { zero -> rT ; suc m -> rF } ;
+  suc t | r -> split { zero -> rF ; suc m -> r m } } ;
+pick3b (A : DP.LO) (r1 r2 : I.Rule A) : W.N -> I.Rule A = split { zero -> r1 ; suc k -> r2 } ;
+pick3 (A : DP.LO) (r0 r1 r2 : I.Rule A) : W.N -> I.Rule A = split { zero -> r0 ; suc k -> pick3b A r1 r2 k } ;
+b7 (Y : DP.LO)  : I.Rl (K Y) = split { nilL -> orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))) ; consL a zs -> leafR (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))) zs } ;
+b6 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) : I.Rl (K Y) = split { nilL -> xrR (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))) (nuOf Y oo) ; consL a zs -> b7 Y zs } ;
+b5 (Y : DP.LO) (m : W.N) : I.Rl (K Y) = split { nilL -> eqPick (K Y) (xlR zero (inl tt)) (axR (suc (suc (suc (suc (suc (suc (suc zero)))))))) (suc (suc zero)) m ; consL a zs -> b6 Y a.2 zs } ;
+b4 (Y : DP.LO) (m : W.N) : I.Rl (K Y) = split { nilL -> orR (suc (suc (suc (suc (suc (suc zero)))))) ; consL a zs -> b5 Y m zs } ;
+b3 (Y : DP.LO)  : I.Rl (K Y) = split { nilL -> allR (suc (suc (suc (suc (suc zero))))) ; consL a zs -> b4 Y a.1 zs } ;
+b2 (Y : DP.LO)  : I.Rl (K Y) = split { nilL -> orR (suc (suc (suc zero))) ; consL a zs -> b3 Y zs } ;
+b1 (Y : DP.LO)  : I.Rl (K Y) = split { nilL -> xrR (suc (suc zero)) (topK Y) ; consL a zs -> b2 Y zs } ;
+c15 (Y : DP.LO)  : I.Rl (K Y) = split { nilL -> orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))))) ; consL a zs -> leafR (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))))))) zs } ;
+c14 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) : I.Rl (K Y) = split { nilL -> xrR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))) (nuOf Y oo) ; consL a zs -> c15 Y zs } ;
+c13 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (c : W.N) : I.Rl (K Y) = split { nilL -> pick3 (K Y) (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))))) (xlR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))) oo) (axR zero) c ; consL a zs -> c14 Y a.2 zs } ;
+c12 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) : I.Rl (K Y) = split { nilL -> andR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))) ; consL a zs -> c13 Y oo a.1 zs } ;
+c11 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (b : W.N) : I.Rl (K Y) = split { nilL -> pick3 (K Y) (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))) (exR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))) (w2 (K Y))) (axR zero) b ; consL a zs -> c12 Y oo zs } ;
+c10 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (m' : W.N) : I.Rl (K Y) = split { nilL -> eqPick (K Y) (andR (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))) (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))) (suc (suc zero)) m' ; consL a zs -> c11 Y oo a.1 zs } ;
+c9 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (m' : W.N) : I.Rl (K Y) = split { nilL -> orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))) ; consL a zs -> c10 Y oo m' zs } ;
+c8 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) : I.Rl (K Y) = split { nilL -> allR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))) ; consL a zs -> c9 Y oo a.1 zs } ;
+c7 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) : I.Rl (K Y) = split { nilL -> orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))) ; consL a zs -> c8 Y oo zs } ;
+c6 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) : I.Rl (K Y) = split { nilL -> xrR (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))) (nuOf Y oo) ; consL a zs -> c7 Y oo zs } ;
+c5 (Y : DP.LO) (m : W.N) : I.Rl (K Y) = split { nilL -> eqPick (K Y) (xlR (suc (suc zero)) (inl tt)) (axR (suc (suc (suc (suc (suc (suc (suc zero)))))))) (suc zero) m ; consL a zs -> c6 Y a.2 zs } ;
+c4 (Y : DP.LO) (m : W.N) : I.Rl (K Y) = split { nilL -> orR (suc (suc (suc (suc (suc (suc zero)))))) ; consL a zs -> c5 Y m zs } ;
+c3 (Y : DP.LO)  : I.Rl (K Y) = split { nilL -> allR (suc (suc (suc (suc (suc zero))))) ; consL a zs -> c4 Y a.1 zs } ;
+c2 (Y : DP.LO)  : I.Rl (K Y) = split { nilL -> orR (suc (suc (suc zero))) ; consL a zs -> c3 Y zs } ;
+c1 (Y : DP.LO)  : I.Rl (K Y) = split { nilL -> xrR (suc zero) (topK Y) ; consL a zs -> c2 Y zs } ;
+
+selB1 (Y : DP.LO) : W.N -> I.Rl (K Y) = split { zero -> c1 Y ; suc k -> leafR (K Y) zero } ;
+selB (Y : DP.LO) : W.N -> I.Rl (K Y) = split { zero -> b1 Y ; suc k -> selB1 Y k } ;
+RK (Y : DP.LO) : I.Rl (K Y) = split { nilL -> cutR cutf (eG (K Y)) ; consL a zs -> selB Y a.1 zs } ;
+------------------------------------------------------------------------
+-- naturality of the rules
+mRK (X Y : DP.LO) (f : DP.Map X Y) (r : I.Rule (K X)) : I.Rule (K Y) =
+  BT0.Mp[Bx.ev,Bx.phi,K X,K Y,kmK X Y f,S4.evMap Bx.ev Bx.evN (K X) (K Y) (kmK X Y f),topK X].mR r ;
+omK (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) : W.Or W.Unit (K Y).car = LT.omap (K X) (K Y) (kmK X Y f) oo ;
+nuNat (X Y : DP.LO) (f : DP.Map X Y) : (oo : W.Or W.Unit (K X).car) -> Id (K Y).car (nuOf Y (omK X Y f oo)) ((kmK X Y f).1 (nuOf X oo)) = split {
+  inl u -> refl (topK Y) ; inr v -> refl ((kmK X Y f).1 v) } ;
+eqPickNat (X Y : DP.LO) (f : DP.Map X Y) (rT rF : I.Rule (K X)) : (t m : W.N) ->
+    Id (I.Rule (K Y)) (eqPick (K Y) (mRK X Y f rT) (mRK X Y f rF) t m) (mRK X Y f (eqPick (K X) rT rF t m)) = split {
+  zero -> split { zero -> refl (mRK X Y f rT) ; suc m -> refl (mRK X Y f rF) } ;
+  suc t | r -> split { zero -> refl (mRK X Y f rF) ; suc m -> r m } } ;
+pick3bNat (X Y : DP.LO) (f : DP.Map X Y) (r1 r2 : I.Rule (K X)) : (c : W.N) ->
+    Id (I.Rule (K Y)) (pick3b (K Y) (mRK X Y f r1) (mRK X Y f r2) c) (mRK X Y f (pick3b (K X) r1 r2 c)) = split {
+  zero -> refl (mRK X Y f r1) ; suc k -> refl (mRK X Y f r2) } ;
+pick3Nat (X Y : DP.LO) (f : DP.Map X Y) (r0 r1 r2 : I.Rule (K X)) : (c : W.N) ->
+    Id (I.Rule (K Y)) (pick3 (K Y) (mRK X Y f r0) (mRK X Y f r1) (mRK X Y f r2) c) (mRK X Y f (pick3 (K X) r0 r1 r2 c)) = split {
+  zero -> refl (mRK X Y f r0) ; suc k -> pick3bNat X Y f r1 r2 k } ;
+nr_b7 (X Y : DP.LO) (f : DP.Map X Y)  : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (b7 Y  (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (b7 X  zs)) = split {
+  nilL -> refl (orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))) ;
+  consL a zs -> refl (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))) } ;
+nr_b6 (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (b6 Y (omK X Y f oo) (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (b6 X oo zs)) = split {
+  nilL -> PL.ap (K Y).car (I.Rule (K Y)) (\ z -> xrR (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))) z) (nuOf Y (omK X Y f oo)) ((kmK X Y f).1 (nuOf X oo)) (nuNat X Y f oo) ;
+  consL a zs -> nr_b7 X Y f  zs } ;
+nr_b5 (X Y : DP.LO) (f : DP.Map X Y) (m : W.N) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (b5 Y m (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (b5 X m zs)) = split {
+  nilL -> eqPickNat X Y f (xlR zero (inl tt)) (axR (suc (suc (suc (suc (suc (suc (suc zero)))))))) (suc (suc zero)) m ;
+  consL a zs -> nr_b6 X Y f a.2 zs } ;
+nr_b4 (X Y : DP.LO) (f : DP.Map X Y) (m : W.N) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (b4 Y m (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (b4 X m zs)) = split {
+  nilL -> refl (orR (suc (suc (suc (suc (suc (suc zero))))))) ;
+  consL a zs -> nr_b5 X Y f m zs } ;
+nr_b3 (X Y : DP.LO) (f : DP.Map X Y)  : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (b3 Y  (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (b3 X  zs)) = split {
+  nilL -> refl (allR (suc (suc (suc (suc (suc zero)))))) ;
+  consL a zs -> nr_b4 X Y f a.1 zs } ;
+nr_b2 (X Y : DP.LO) (f : DP.Map X Y)  : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (b2 Y  (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (b2 X  zs)) = split {
+  nilL -> refl (orR (suc (suc (suc zero)))) ;
+  consL a zs -> nr_b3 X Y f  zs } ;
+nr_b1 (X Y : DP.LO) (f : DP.Map X Y)  : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (b1 Y  (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (b1 X  zs)) = split {
+  nilL -> refl (xrR (suc (suc zero)) (topK Y)) ;
+  consL a zs -> nr_b2 X Y f  zs } ;
+nr_c15 (X Y : DP.LO) (f : DP.Map X Y)  : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c15 Y  (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c15 X  zs)) = split {
+  nilL -> refl (orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))))))) ;
+  consL a zs -> refl (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))))))) } ;
+nr_c14 (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c14 Y (omK X Y f oo) (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c14 X oo zs)) = split {
+  nilL -> PL.ap (K Y).car (I.Rule (K Y)) (\ z -> xrR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))) z) (nuOf Y (omK X Y f oo)) ((kmK X Y f).1 (nuOf X oo)) (nuNat X Y f oo) ;
+  consL a zs -> nr_c15 X Y f  zs } ;
+nr_c13 (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) (c : W.N) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c13 Y (omK X Y f oo) c (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c13 X oo c zs)) = split {
+  nilL -> pick3Nat X Y f (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))))) (xlR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))) oo) (axR zero) c ;
+  consL a zs -> nr_c14 X Y f a.2 zs } ;
+nr_c12 (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c12 Y (omK X Y f oo) (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c12 X oo zs)) = split {
+  nilL -> refl (andR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))) ;
+  consL a zs -> nr_c13 X Y f oo a.1 zs } ;
+nr_c11 (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) (b : W.N) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c11 Y (omK X Y f oo) b (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c11 X oo b zs)) = split {
+  nilL -> pick3Nat X Y f (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))) (exR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))) (w2 (K X))) (axR zero) b ;
+  consL a zs -> nr_c12 X Y f oo zs } ;
+nr_c10 (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) (m' : W.N) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c10 Y (omK X Y f oo) m' (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c10 X oo m' zs)) = split {
+  nilL -> eqPickNat X Y f (andR (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))) (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))) (suc (suc zero)) m' ;
+  consL a zs -> nr_c11 X Y f oo a.1 zs } ;
+nr_c9 (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) (m' : W.N) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c9 Y (omK X Y f oo) m' (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c9 X oo m' zs)) = split {
+  nilL -> refl (orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))) ;
+  consL a zs -> nr_c10 X Y f oo m' zs } ;
+nr_c8 (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c8 Y (omK X Y f oo) (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c8 X oo zs)) = split {
+  nilL -> refl (allR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))) ;
+  consL a zs -> nr_c9 X Y f oo a.1 zs } ;
+nr_c7 (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c7 Y (omK X Y f oo) (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c7 X oo zs)) = split {
+  nilL -> refl (orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))) ;
+  consL a zs -> nr_c8 X Y f oo zs } ;
+nr_c6 (X Y : DP.LO) (f : DP.Map X Y) (oo : W.Or W.Unit (K X).car) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c6 Y (omK X Y f oo) (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c6 X oo zs)) = split {
+  nilL -> PL.ap (K Y).car (I.Rule (K Y)) (\ z -> xrR (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))) z) (nuOf Y (omK X Y f oo)) ((kmK X Y f).1 (nuOf X oo)) (nuNat X Y f oo) ;
+  consL a zs -> nr_c7 X Y f oo zs } ;
+nr_c5 (X Y : DP.LO) (f : DP.Map X Y) (m : W.N) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c5 Y m (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c5 X m zs)) = split {
+  nilL -> eqPickNat X Y f (xlR (suc (suc zero)) (inl tt)) (axR (suc (suc (suc (suc (suc (suc (suc zero)))))))) (suc zero) m ;
+  consL a zs -> nr_c6 X Y f a.2 zs } ;
+nr_c4 (X Y : DP.LO) (f : DP.Map X Y) (m : W.N) : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c4 Y m (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c4 X m zs)) = split {
+  nilL -> refl (orR (suc (suc (suc (suc (suc (suc zero))))))) ;
+  consL a zs -> nr_c5 X Y f m zs } ;
+nr_c3 (X Y : DP.LO) (f : DP.Map X Y)  : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c3 Y  (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c3 X  zs)) = split {
+  nilL -> refl (allR (suc (suc (suc (suc (suc zero)))))) ;
+  consL a zs -> nr_c4 X Y f a.1 zs } ;
+nr_c2 (X Y : DP.LO) (f : DP.Map X Y)  : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c2 Y  (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c2 X  zs)) = split {
+  nilL -> refl (orR (suc (suc (suc zero)))) ;
+  consL a zs -> nr_c3 X Y f  zs } ;
+nr_c1 (X Y : DP.LO) (f : DP.Map X Y)  : (zs : LT.LL (K X)) -> Id (I.Rule (K Y)) (c1 Y  (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (c1 X  zs)) = split {
+  nilL -> refl (xrR (suc zero) (topK Y)) ;
+  consL a zs -> nr_c2 X Y f  zs } ;
+nr_leaf (X Y : DP.LO) (f : DP.Map X Y) (i : W.N) (zs : LT.LL (K X)) : Id (I.Rule (K Y)) (axR i) (axR i) = refl (axR i) ;
+nr_sel1 (X Y : DP.LO) (f : DP.Map X Y) : (k : W.N) (zs : LT.LL (K X)) ->
+    Id (I.Rule (K Y)) (selB1 Y k (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (selB1 X k zs)) = split {
+  zero -> nr_c1 X Y f ; suc k -> \ zs -> refl (axR zero) } ;
+nr_sel (X Y : DP.LO) (f : DP.Map X Y) : (k : W.N) (zs : LT.LL (K X)) ->
+    Id (I.Rule (K Y)) (selB Y k (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (selB X k zs)) = split {
+  zero -> nr_b1 X Y f ; suc k -> nr_sel1 X Y f k } ;
+nrK (X Y : DP.LO) (f : DP.Map X Y) : (zs : LT.LL (K X)) ->
+    Id (I.Rule (K Y)) (RK Y (LT.mapL (K X) (K Y) (kmK X Y f) zs)) (mRK X Y f (RK X zs)) = split {
+  nilL -> refl (cutR cutf (eG (K Y))) ;
+  consL a zs -> nr_sel X Y f a.1 zs } ;
+------------------------------------------------------------------------
+-- accessibility: if every address of length n carries an axiom, the
+-- family is accessible (induction on n; the predecessors are subtrees)
+isAxR (A : DP.LO) : I.Rule A -> W.Bool = split {
+  axR i -> true ; andR i -> false ; orR i -> false ; allR i -> false ; exR i w -> false ;
+  cutR f e -> false ; xrR i mu -> false ; xlR i o -> false } ;
+AxD (A : DP.LO) : W.N -> I.Rl A -> U l = split {
+  zero -> \ R -> Id W.Bool (isAxR A (R nilL)) true ;
+  suc n | r -> \ R -> (a : I.Lb A) -> r (I.shift A R a) } ;
+brAx (A : DP.LO) (tp : A.car) : (r : I.Rule A) -> Id W.Bool (isAxR A r) true -> (a : I.Lb A) -> Id W.Bool (I.br A tp r a) false = split {
+  axR i -> \ h a -> refl false ;
+  andR i -> \ h a -> W.absurdB (Id W.Bool (I.br A tp (andR i) a) false) h ;
+  orR i -> \ h a -> W.absurdB (Id W.Bool (I.br A tp (orR i) a) false) h ;
+  allR i -> \ h a -> W.absurdB (Id W.Bool (I.br A tp (allR i) a) false) h ;
+  exR i w -> \ h a -> W.absurdB (Id W.Bool (I.br A tp (exR i w) a) false) h ;
+  cutR f e -> \ h a -> W.absurdB (Id W.Bool (I.br A tp (cutR f e) a) false) h ;
+  xrR i mu -> \ h a -> W.absurdB (Id W.Bool (I.br A tp (xrR i mu) a) false) h ;
+  xlR i o -> \ h a -> W.absurdB (Id W.Bool (I.br A tp (xlR i o) a) false) h } ;
+brCon (A : DP.LO) (tp : A.car) (R : I.Rl A) (G : I.Seq A) (a : I.Lb A) (h : Id W.Bool (isAxR A (R nilL)) true)
+    (nd : Id W.Bool (I.inTree A tp (consL a nilL) R G) true) : W.Empty =
+  W.absurdB W.Empty (PL.trans W.Bool false (W.andB (I.br A tp (R nilL) a) true) true
+    (PL.sym W.Bool (W.andB (I.br A tp (R nilL) a) true) false
+      (PL.ap W.Bool W.Bool (\ b -> W.andB b true) (I.br A tp (R nilL) a) false (brAx A tp (R nilL) h a))) nd) ;
+emptyAx (x : O.IObj) (h : (Y : DP.LO) -> AxD (x.k Y) zero (x.R Y)) : (s : SS.Step x) -> W.Empty = split {
+  inl st -> brCon (x.k BA.E0) (O.topO x BA.E0) (x.R BA.E0) (x.G BA.E0) (st.1 BA.E0) (h BA.E0) (st.2.2 BA.E0) ;
+  inr st -> brCon (x.k (S4.Sm st.1 BA.E0)) (O.topO x (S4.Sm st.1 BA.E0)) (x.R (S4.Sm st.1 BA.E0)) (x.G (S4.Sm st.1 BA.E0))
+    (st.2.2.1 BA.E0) (h (S4.Sm st.1 BA.E0)) (st.2.2.2.2 BA.E0) } ;
+axShift (n : W.N) (x : O.IObj) (h : (Y : DP.LO) -> AxD (x.k Y) (suc n) (x.R Y)) : (s : SS.Step x) (Y : DP.LO) -> AxD ((SS.shiftO x s).k Y) n ((SS.shiftO x s).R Y) = split {
+  inl st -> \ Y -> h Y (st.1 Y) ;
+  inr st -> \ Y -> h (S4.Sm st.1 Y) (st.2.2.1 Y) } ;
+accAx : (n : W.N) (x : O.IObj) -> ((Y : DP.LO) -> AxD (x.k Y) n (x.R Y)) -> SS.AccI x = split {
+  zero -> \ x h -> SS.AO.acc x (\ s -> S4.efq1 (SS.AccI (SS.shiftO x s)) (emptyAx x h s)) ;
+  suc n | r -> \ x h -> SS.AO.acc x (\ s -> r (SS.shiftO x s) (axShift n x h s)) } ;
+axLeaf (A : DP.LO) (i : W.N) : (n : W.N) -> AxD A n (leafR A i) = split {
+  zero -> refl true ;
+  suc n | r -> \ a -> r } ;
+------------------------------------------------------------------------
+-- local correctness and the kind condition, node by node
+LK (A : DP.LO) (tp : A.car) (R : I.Rl A) (G : I.Seq A) : U l = (zs : LT.LL A) -> Id W.Bool (I.inTree A tp zs R G) true ->
+  Id W.Bool (I.appl A (I.seqAt A zs R G) (R zs)) true * O.KindOK A tp (R zs) ;
+lkNode (A : DP.LO) (tp : A.car) (R : I.Rl A) (G : I.Seq A) (h0 : Id W.Bool (I.appl A G (R nilL)) true) (k0 : O.KindOK A tp (R nilL))
+    (hb : (a : I.Lb A) -> Id W.Bool (I.br A tp (R nilL) a) true -> LK A tp (I.shift A R a) (I.step A G (R nilL) a)) : LK A tp R G = split {
+  nilL -> \ h -> (h0,k0) ;
+  consL a ys -> \ h -> hb a (W.andB-l (I.br A tp (R nilL) a) (I.inTree A tp ys (I.shift A R a) (I.step A G (R nilL) a)) h) ys
+    (W.andB-r (I.br A tp (R nilL) a) (I.inTree A tp ys (I.shift A R a) (I.step A G (R nilL) a)) h) } ;
+-- a node whose rule is an axiom has no branch
+lkAx (A : DP.LO) (tp : A.car) (R : I.Rl A) (G : I.Seq A) (i : W.N) (e : Id (I.Rule A) (R nilL) (axR i))
+    (h0 : Id W.Bool (I.appl A G (axR i)) true) : LK A tp R G =
+  lkNode A tp R G (PL.subst (I.Rule A) (\ r -> Id W.Bool (I.appl A G r) true) (axR i) (R nilL) (PL.sym (I.Rule A) (R nilL) (axR i) e) h0)
+    (PL.subst (I.Rule A) (\ r -> O.KindOK A tp r) (axR i) (R nilL) (PL.sym (I.Rule A) (R nilL) (axR i) e) tt)
+    (\ a hb -> W.absurdB (LK A tp (I.shift A R a) (I.step A G (R nilL) a))
+      (PL.trans W.Bool false (I.br A tp (R nilL) a) true
+        (PL.sym W.Bool (I.br A tp (R nilL) a) false (PL.subst (I.Rule A) (\ r -> Id W.Bool (I.br A tp r a) false) (axR i) (R nilL)
+          (PL.sym (I.Rule A) (R nilL) (axR i) e) (refl false))) hb)) ;
+ax_b7 (Y : DP.LO)  (n : W.N) : AxD (K Y) (suc n) (b7 Y ) = \ a -> axLeaf (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))) n ;
+ax_b6 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (n : W.N) : AxD (K Y) (suc (suc n)) (b6 Y oo) = \ a -> ax_b7 Y  n ;
+ax_b5 (Y : DP.LO) (m : W.N) (n : W.N) : AxD (K Y) (suc (suc (suc n))) (b5 Y m) = \ a -> ax_b6 Y a.2 n ;
+ax_b4 (Y : DP.LO) (m : W.N) (n : W.N) : AxD (K Y) (suc (suc (suc (suc n)))) (b4 Y m) = \ a -> ax_b5 Y m n ;
+ax_b3 (Y : DP.LO)  (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc n))))) (b3 Y ) = \ a -> ax_b4 Y a.1 n ;
+ax_b2 (Y : DP.LO)  (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc n)))))) (b2 Y ) = \ a -> ax_b3 Y  n ;
+ax_b1 (Y : DP.LO)  (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc n))))))) (b1 Y ) = \ a -> ax_b2 Y  n ;
+ax_c15 (Y : DP.LO)  (n : W.N) : AxD (K Y) (suc n) (c15 Y ) = \ a -> axLeaf (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))))))) n ;
+ax_c14 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (n : W.N) : AxD (K Y) (suc (suc n)) (c14 Y oo) = \ a -> ax_c15 Y  n ;
+ax_c13 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (c : W.N) (n : W.N) : AxD (K Y) (suc (suc (suc n))) (c13 Y oo c) = \ a -> ax_c14 Y a.2 n ;
+ax_c12 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (n : W.N) : AxD (K Y) (suc (suc (suc (suc n)))) (c12 Y oo) = \ a -> ax_c13 Y oo a.1 n ;
+ax_c11 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (b : W.N) (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc n))))) (c11 Y oo b) = \ a -> ax_c12 Y oo n ;
+ax_c10 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (m' : W.N) (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc n)))))) (c10 Y oo m') = \ a -> ax_c11 Y oo a.1 n ;
+ax_c9 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (m' : W.N) (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc n))))))) (c9 Y oo m') = \ a -> ax_c10 Y oo m' n ;
+ax_c8 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc n)))))))) (c8 Y oo) = \ a -> ax_c9 Y oo a.1 n ;
+ax_c7 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc n))))))))) (c7 Y oo) = \ a -> ax_c8 Y oo n ;
+ax_c6 (Y : DP.LO) (oo : W.Or W.Unit (K Y).car) (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n)))))))))) (c6 Y oo) = \ a -> ax_c7 Y oo n ;
+ax_c5 (Y : DP.LO) (m : W.N) (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n))))))))))) (c5 Y m) = \ a -> ax_c6 Y a.2 n ;
+ax_c4 (Y : DP.LO) (m : W.N) (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n)))))))))))) (c4 Y m) = \ a -> ax_c5 Y m n ;
+ax_c3 (Y : DP.LO)  (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n))))))))))))) (c3 Y ) = \ a -> ax_c4 Y a.1 n ;
+ax_c2 (Y : DP.LO)  (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n)))))))))))))) (c2 Y ) = \ a -> ax_c3 Y  n ;
+ax_c1 (Y : DP.LO)  (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n))))))))))))))) (c1 Y ) = \ a -> ax_c2 Y  n ;
+axSel1 (Y : DP.LO) (n : W.N) : (k : W.N) -> AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n))))))))))))))) (selB1 Y k) = split { zero -> ax_c1 Y n ; suc k -> axLeaf (K Y) zero (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n))))))))))))))) } ;
+axSel (Y : DP.LO) (n : W.N) : (k : W.N) -> AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n))))))))))))))) (selB Y k) = split { zero -> ax_b1 Y (suc (suc (suc (suc (suc (suc (suc (suc n)))))))) ; suc k -> axSel1 Y n k } ;
+axRK (Y : DP.LO) (n : W.N) : AxD (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n)))))))))))))))) (RK Y) = \ a -> axSel Y n a.1 ;
+sb1 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (GK Y) (cutR cutf (eG (K Y))) (zero,o1) ;
+sb2 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sb1 Y o1) (xrR (suc (suc zero)) (topK Y)) (n2,o2) ;
+sb3 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sb2 Y o1 n2 o2) (orR (suc (suc (suc zero)))) (n3,o3) ;
+sb4 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (m : W.N) (om : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sb3 Y o1 n2 o2 n3 o3) (allR (suc (suc (suc (suc (suc zero)))))) (m,om) ;
+sb5 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (m : W.N) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sb4 Y o1 n2 o2 n3 o3 m om) (orR (suc (suc (suc (suc (suc (suc zero))))))) (n5,o5) ;
+sb6 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) : I.Seq (K Y) = I.step (K Y) (sb5 Y o1 n2 o2 n3 o3 (suc (suc zero)) om n5 o5) (xlR zero (inl tt)) (nv,inr nu) ;
+sb7 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sb6 Y o1 n2 o2 n3 o3 om n5 o5 nv nu) (xrR (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))) nu) (n7,o7) ;
+sb8 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sb7 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7) (orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))) (n8,o8) ;
+lk_b8 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (leafR (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))) (sb8 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8) = lkAx (K Y) (topK Y) (leafR (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))) (sb8 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))) (refl true) ;
+lk_b7 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (b7 Y) (sb7 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7) = lkNode (K Y) (topK Y) (b7 Y) (sb7 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7) (refl true) tt (\ a hb -> lk_b8 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 a.1 a.2) ;
+lk_b6 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (hv : Id W.Bool (I.ltB (K Y) nu (topK Y)) true) : LK (K Y) (topK Y) (b6 Y (inr nu)) (sb6 Y o1 n2 o2 n3 o3 om n5 o5 nv nu) = lkNode (K Y) (topK Y) (b6 Y (inr nu)) (sb6 Y o1 n2 o2 n3 o3 om n5 o5 nv nu) hv tt (\ a hb -> lk_b7 Y o1 n2 o2 n3 o3 om n5 o5 nv nu a.1 a.2) ;
+lk_b6v (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) : (ov : W.Or W.Unit (K Y).car) -> Id W.Bool (I.below (K Y) (topK Y) (nv,ov)) true -> LK (K Y) (topK Y) (b6 Y ov) (I.step (K Y) (sb5 Y o1 n2 o2 n3 o3 (suc (suc zero)) om n5 o5) (xlR zero (inl tt)) (nv,ov)) = split {
+  inl u -> \ h -> W.absurdB (LK (K Y) (topK Y) (b6 Y (inl u)) (I.step (K Y) (sb5 Y o1 n2 o2 n3 o3 (suc (suc zero)) om n5 o5) (xlR zero (inl tt)) (nv,inl u))) (W.andB-r (BP.isZeroN nv) (I.ltO (K Y) (topK Y) (inl u)) h) ;
+  inr nu -> \ h -> lk_b6 Y o1 n2 o2 n3 o3 om n5 o5 nv nu (W.andB-r (BP.isZeroN nv) (I.ltO (K Y) (topK Y) (inr nu)) h) } ;
+lk_b5b (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) : (j : W.N) -> LK (K Y) (topK Y) (b5 Y (suc (suc j))) (sb5 Y o1 n2 o2 n3 o3 (suc (suc j)) om n5 o5) = split {
+  zero -> lkNode (K Y) (topK Y) (b5 Y (suc (suc zero))) (sb5 Y o1 n2 o2 n3 o3 (suc (suc zero)) om n5 o5) (refl true) tt (\ a hb -> lk_b6v Y o1 n2 o2 n3 o3 om n5 o5 a.1 a.2 hb) ;
+  suc i -> lkAx (K Y) (topK Y) (b5 Y (suc (suc (suc i)))) (sb5 Y o1 n2 o2 n3 o3 (suc (suc (suc i))) om n5 o5) (suc (suc (suc (suc (suc (suc (suc zero))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc zero))))))))) (refl true) } ;
+lk_b5a (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) : (k : W.N) -> LK (K Y) (topK Y) (b5 Y (suc k)) (sb5 Y o1 n2 o2 n3 o3 (suc k) om n5 o5) = split {
+  zero -> lkAx (K Y) (topK Y) (b5 Y (suc zero)) (sb5 Y o1 n2 o2 n3 o3 (suc zero) om n5 o5) (suc (suc (suc (suc (suc (suc (suc zero))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc zero))))))))) (refl true) ;
+  suc j -> lk_b5b Y o1 n2 o2 n3 o3 om n5 o5 j } ;
+lk_b5 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) : (m : W.N) -> LK (K Y) (topK Y) (b5 Y m) (sb5 Y o1 n2 o2 n3 o3 m om n5 o5) = split {
+  zero -> lkAx (K Y) (topK Y) (b5 Y zero) (sb5 Y o1 n2 o2 n3 o3 zero om n5 o5) (suc (suc (suc (suc (suc (suc (suc zero))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc zero))))))))) (refl true) ;
+  suc k -> lk_b5a Y o1 n2 o2 n3 o3 om n5 o5 k } ;
+lk_b4 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (m : W.N) (om : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (b4 Y m) (sb4 Y o1 n2 o2 n3 o3 m om) = lkNode (K Y) (topK Y) (b4 Y m) (sb4 Y o1 n2 o2 n3 o3 m om) (refl true) tt (\ a hb -> lk_b5 Y o1 n2 o2 n3 o3 om a.1 a.2 m) ;
+lk_b3 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (b3 Y) (sb3 Y o1 n2 o2 n3 o3) = lkNode (K Y) (topK Y) (b3 Y) (sb3 Y o1 n2 o2 n3 o3) (refl true) tt (\ a hb -> lk_b4 Y o1 n2 o2 n3 o3 a.1 a.2) ;
+lk_b2 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (b2 Y) (sb2 Y o1 n2 o2) = lkNode (K Y) (topK Y) (b2 Y) (sb2 Y o1 n2 o2) (refl true) tt (\ a hb -> lk_b3 Y o1 n2 o2 a.1 a.2) ;
+lk_b1 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (b1 Y) (sb1 Y o1) = lkNode (K Y) (topK Y) (b1 Y) (sb1 Y o1) (refl true) tt (\ a hb -> lk_b2 Y o1 a.1 a.2) ;
+sc1 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (GK Y) (cutR cutf (eG (K Y))) (suc zero,o1) ;
+sc2 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc1 Y o1) (xrR (suc zero) (topK Y)) (n2,o2) ;
+sc3 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc2 Y o1 n2 o2) (orR (suc (suc (suc zero)))) (n3,o3) ;
+sc4 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (m : W.N) (om : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc3 Y o1 n2 o2 n3 o3) (allR (suc (suc (suc (suc (suc zero)))))) (m,om) ;
+sc5 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (m : W.N) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc4 Y o1 n2 o2 n3 o3 m om) (orR (suc (suc (suc (suc (suc (suc zero))))))) (n5,o5) ;
+sc6 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc5 Y o1 n2 o2 n3 o3 (suc zero) om n5 o5) (xlR (suc (suc zero)) (inl tt)) (nv,inr nu) ;
+sc7 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc6 Y o1 n2 o2 n3 o3 om n5 o5 nv nu) (xrR (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))) nu) (n7,o7) ;
+sc8 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc7 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7) (orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))) (n8,o8) ;
+sc9 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (mp : W.N) (omp : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc8 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8) (allR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))) (mp,omp) ;
+sc10 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (mp : W.N) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc9 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 mp omp) (orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))) (n10,o10) ;
+sc11 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (b : W.N) (ob : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc10 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 (suc (suc zero)) omp n10 o10) (andR (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))) (b,ob) ;
+sc12 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc11 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 (suc zero) ob) (exR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))) (w2 (K Y))) (n12,o12) ;
+sc13 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) (c : W.N) (oc : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc12 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12) (andR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))) (c,oc) ;
+sc14 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) (oc : W.Or W.Unit (K Y).car) (nv' : W.N) (nu' : (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc13 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 (suc zero) oc) (xlR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))) (inr nu)) (nv',inr nu') ;
+sc15 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) (oc : W.Or W.Unit (K Y).car) (nv' : W.N) (nu' : (K Y).car) (n15 : W.N) (o15 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc14 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu') (xrR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))) nu') (n15,o15) ;
+sc16 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) (oc : W.Or W.Unit (K Y).car) (nv' : W.N) (nu' : (K Y).car) (n15 : W.N) (o15 : W.Or W.Unit (K Y).car) (n16 : W.N) (o16 : W.Or W.Unit (K Y).car) : I.Seq (K Y) = I.step (K Y) (sc15 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu' n15 o15) (orR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))))))) (n16,o16) ;
+lk_c16 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) (oc : W.Or W.Unit (K Y).car) (nv' : W.N) (nu' : (K Y).car) (n15 : W.N) (o15 : W.Or W.Unit (K Y).car) (n16 : W.N) (o16 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (leafR (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))))))) (sc16 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu' n15 o15 n16 o16) = lkAx (K Y) (topK Y) (leafR (K Y) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))))))) (sc16 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu' n15 o15 n16 o16) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))))))))))))))))) (refl true) ;
+lk_c15 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) (oc : W.Or W.Unit (K Y).car) (nv' : W.N) (nu' : (K Y).car) (n15 : W.N) (o15 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (c15 Y) (sc15 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu' n15 o15) = lkNode (K Y) (topK Y) (c15 Y) (sc15 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu' n15 o15) (refl true) tt (\ a hb -> lk_c16 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu' n15 o15 a.1 a.2) ;
+lk_c14 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) (oc : W.Or W.Unit (K Y).car) (nv' : W.N) (nu' : (K Y).car) (hv : Id W.Bool (I.ltB (K Y) nu' nu) true) : LK (K Y) (topK Y) (c14 Y (inr nu')) (sc14 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu') = lkNode (K Y) (topK Y) (c14 Y (inr nu')) (sc14 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu') hv tt (\ a hb -> lk_c15 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu' a.1 a.2) ;
+lk_c14v (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) (oc : W.Or W.Unit (K Y).car) (nv' : W.N) : (ov : W.Or W.Unit (K Y).car) -> Id W.Bool (I.below (K Y) nu (nv',ov)) true -> LK (K Y) (topK Y) (c14 Y ov) (I.step (K Y) (sc13 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 (suc zero) oc) (xlR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))) (inr nu)) (nv',ov)) = split {
+  inl u -> \ h -> W.absurdB (LK (K Y) (topK Y) (c14 Y (inl u)) (I.step (K Y) (sc13 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 (suc zero) oc) (xlR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))) (inr nu)) (nv',inl u))) (W.andB-r (BP.isZeroN nv') (I.ltO (K Y) nu (inl u)) h) ;
+  inr nu' -> \ h -> lk_c14 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc nv' nu' (W.andB-r (BP.isZeroN nv') (I.ltO (K Y) nu (inr nu')) h) } ;
+lk_c13a (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) (oc : W.Or W.Unit (K Y).car) : (k : W.N) -> Id W.Bool (I.isTwo (K Y) (suc k,oc)) true -> LK (K Y) (topK Y) (c13 Y (inr nu) (suc k)) (sc13 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 (suc k) oc) = split {
+  zero -> \ hc -> lkNode (K Y) (topK Y) (c13 Y (inr nu) (suc zero)) (sc13 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 (suc zero) oc) (PL.ap W.O3 W.Bool W.isEq ((K Y).cmp nu nu) eq ((K Y).crefl nu)) tt (\ a hb -> lk_c14v Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc a.1 a.2 hb) ;
+  suc j -> \ hc -> W.absurdB (LK (K Y) (topK Y) (c13 Y (inr nu) (suc (suc j))) (sc13 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 (suc (suc j)) oc)) (W.andB-r (BP.isInl W.Unit (K Y).car oc) false hc) } ;
+lk_c13 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) (oc : W.Or W.Unit (K Y).car) : (c : W.N) -> Id W.Bool (I.isTwo (K Y) (c,oc)) true -> LK (K Y) (topK Y) (c13 Y (inr nu) c) (sc13 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 c oc) = split {
+  zero -> \ hc -> lkAx (K Y) (topK Y) (c13 Y (inr nu) zero) (sc13 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 zero oc) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))))) (refl true) ;
+  suc k -> lk_c13a Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 oc k } ;
+lk_c12 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) (n12 : W.N) (o12 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (c12 Y (inr nu)) (sc12 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12) = lkNode (K Y) (topK Y) (c12 Y (inr nu)) (sc12 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12) (refl true) tt (\ a hb -> lk_c13 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob n12 o12 a.2 a.1 hb) ;
+lk_c11a (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) : (k : W.N) -> Id W.Bool (I.isTwo (K Y) (suc k,ob)) true -> LK (K Y) (topK Y) (c11 Y (inr nu) (suc k)) (sc11 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 (suc k) ob) = split {
+  zero -> \ hb0 -> lkNode (K Y) (topK Y) (c11 Y (inr nu) (suc zero)) (sc11 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 (suc zero) ob) (refl true) tt (\ a hb -> lk_c12 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob a.1 a.2) ;
+  suc j -> \ hb0 -> W.absurdB (LK (K Y) (topK Y) (c11 Y (inr nu) (suc (suc j))) (sc11 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 (suc (suc j)) ob)) (W.andB-r (BP.isInl W.Unit (K Y).car ob) false hb0) } ;
+lk_c11 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) (ob : W.Or W.Unit (K Y).car) : (b : W.N) -> Id W.Bool (I.isTwo (K Y) (b,ob)) true -> LK (K Y) (topK Y) (c11 Y (inr nu) b) (sc11 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 b ob) = split {
+  zero -> \ hb0 -> lkAx (K Y) (topK Y) (c11 Y (inr nu) zero) (sc11 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 zero ob) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))))) (refl true) ;
+  suc k -> lk_c11a Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 ob k } ;
+lk_c10b (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) : (j : W.N) -> LK (K Y) (topK Y) (c10 Y (inr nu) (suc (suc j))) (sc10 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 (suc (suc j)) omp n10 o10) = split {
+  zero -> lkNode (K Y) (topK Y) (c10 Y (inr nu) (suc (suc zero))) (sc10 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 (suc (suc zero)) omp n10 o10) (refl true) tt (\ a hb -> lk_c11 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 a.2 a.1 hb) ;
+  suc i -> lkAx (K Y) (topK Y) (c10 Y (inr nu) (suc (suc (suc i)))) (sc10 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 (suc (suc (suc i))) omp n10 o10) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))) (refl true) } ;
+lk_c10a (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) : (k : W.N) -> LK (K Y) (topK Y) (c10 Y (inr nu) (suc k)) (sc10 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 (suc k) omp n10 o10) = split {
+  zero -> lkAx (K Y) (topK Y) (c10 Y (inr nu) (suc zero)) (sc10 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 (suc zero) omp n10 o10) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))) (refl true) ;
+  suc j -> lk_c10b Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 j } ;
+lk_c10 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (omp : W.Or W.Unit (K Y).car) (n10 : W.N) (o10 : W.Or W.Unit (K Y).car) : (mp : W.N) -> LK (K Y) (topK Y) (c10 Y (inr nu) mp) (sc10 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 mp omp n10 o10) = split {
+  zero -> lkAx (K Y) (topK Y) (c10 Y (inr nu) zero) (sc10 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 zero omp n10 o10) (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))) (refl true) ;
+  suc k -> lk_c10a Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp n10 o10 k } ;
+lk_c9 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) (mp : W.N) (omp : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (c9 Y (inr nu) mp) (sc9 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 mp omp) = lkNode (K Y) (topK Y) (c9 Y (inr nu) mp) (sc9 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 mp omp) (refl true) tt (\ a hb -> lk_c10 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 omp a.1 a.2 mp) ;
+lk_c8 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) (n8 : W.N) (o8 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (c8 Y (inr nu)) (sc8 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8) = lkNode (K Y) (topK Y) (c8 Y (inr nu)) (sc8 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8) (refl true) tt (\ a hb -> lk_c9 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 n8 o8 a.1 a.2) ;
+lk_c7 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (n7 : W.N) (o7 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (c7 Y (inr nu)) (sc7 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7) = lkNode (K Y) (topK Y) (c7 Y (inr nu)) (sc7 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7) (refl true) tt (\ a hb -> lk_c8 Y o1 n2 o2 n3 o3 om n5 o5 nv nu n7 o7 a.1 a.2) ;
+lk_c6 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) (nu : (K Y).car) (hv : Id W.Bool (I.ltB (K Y) nu (topK Y)) true) : LK (K Y) (topK Y) (c6 Y (inr nu)) (sc6 Y o1 n2 o2 n3 o3 om n5 o5 nv nu) = lkNode (K Y) (topK Y) (c6 Y (inr nu)) (sc6 Y o1 n2 o2 n3 o3 om n5 o5 nv nu) hv tt (\ a hb -> lk_c7 Y o1 n2 o2 n3 o3 om n5 o5 nv nu a.1 a.2) ;
+lk_c6v (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) (nv : W.N) : (ov : W.Or W.Unit (K Y).car) -> Id W.Bool (I.below (K Y) (topK Y) (nv,ov)) true -> LK (K Y) (topK Y) (c6 Y ov) (I.step (K Y) (sc5 Y o1 n2 o2 n3 o3 (suc zero) om n5 o5) (xlR (suc (suc zero)) (inl tt)) (nv,ov)) = split {
+  inl u -> \ h -> W.absurdB (LK (K Y) (topK Y) (c6 Y (inl u)) (I.step (K Y) (sc5 Y o1 n2 o2 n3 o3 (suc zero) om n5 o5) (xlR (suc (suc zero)) (inl tt)) (nv,inl u))) (W.andB-r (BP.isZeroN nv) (I.ltO (K Y) (topK Y) (inl u)) h) ;
+  inr nu -> \ h -> lk_c6 Y o1 n2 o2 n3 o3 om n5 o5 nv nu (W.andB-r (BP.isZeroN nv) (I.ltO (K Y) (topK Y) (inr nu)) h) } ;
+lk_c5a (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) : (k : W.N) -> LK (K Y) (topK Y) (c5 Y (suc k)) (sc5 Y o1 n2 o2 n3 o3 (suc k) om n5 o5) = split {
+  zero -> lkNode (K Y) (topK Y) (c5 Y (suc zero)) (sc5 Y o1 n2 o2 n3 o3 (suc zero) om n5 o5) (refl true) tt (\ a hb -> lk_c6v Y o1 n2 o2 n3 o3 om n5 o5 a.1 a.2 hb) ;
+  suc j -> lkAx (K Y) (topK Y) (c5 Y (suc (suc j))) (sc5 Y o1 n2 o2 n3 o3 (suc (suc j)) om n5 o5) (suc (suc (suc (suc (suc (suc (suc zero))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc zero))))))))) (refl true) } ;
+lk_c5 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (om : W.Or W.Unit (K Y).car) (n5 : W.N) (o5 : W.Or W.Unit (K Y).car) : (m : W.N) -> LK (K Y) (topK Y) (c5 Y m) (sc5 Y o1 n2 o2 n3 o3 m om n5 o5) = split {
+  zero -> lkAx (K Y) (topK Y) (c5 Y zero) (sc5 Y o1 n2 o2 n3 o3 zero om n5 o5) (suc (suc (suc (suc (suc (suc (suc zero))))))) (refl (axR (suc (suc (suc (suc (suc (suc (suc zero))))))))) (refl true) ;
+  suc k -> lk_c5a Y o1 n2 o2 n3 o3 om n5 o5 k } ;
+lk_c4 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) (m : W.N) (om : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (c4 Y m) (sc4 Y o1 n2 o2 n3 o3 m om) = lkNode (K Y) (topK Y) (c4 Y m) (sc4 Y o1 n2 o2 n3 o3 m om) (refl true) tt (\ a hb -> lk_c5 Y o1 n2 o2 n3 o3 om a.1 a.2 m) ;
+lk_c3 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) (n3 : W.N) (o3 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (c3 Y) (sc3 Y o1 n2 o2 n3 o3) = lkNode (K Y) (topK Y) (c3 Y) (sc3 Y o1 n2 o2 n3 o3) (refl true) tt (\ a hb -> lk_c4 Y o1 n2 o2 n3 o3 a.1 a.2) ;
+lk_c2 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) (n2 : W.N) (o2 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (c2 Y) (sc2 Y o1 n2 o2) = lkNode (K Y) (topK Y) (c2 Y) (sc2 Y o1 n2 o2) (refl true) tt (\ a hb -> lk_c3 Y o1 n2 o2 a.1 a.2) ;
+lk_c1 (Y : DP.LO) (o1 : W.Or W.Unit (K Y).car) : LK (K Y) (topK Y) (c1 Y) (sc1 Y o1) = lkNode (K Y) (topK Y) (c1 Y) (sc1 Y o1) (refl true) tt (\ a hb -> lk_c2 Y o1 a.1 a.2) ;
+rootCh1 (Y : DP.LO) : (k : W.N) (o : W.Or W.Unit (K Y).car) -> Id W.Bool (I.isTwo (K Y) (suc k,o)) true -> LK (K Y) (topK Y) (selB1 Y k) (I.step (K Y) (GK Y) (cutR cutf (eG (K Y))) (suc k,o)) = split {
+  zero -> \ o hb -> lk_c1 Y o ;
+  suc j -> \ o hb -> W.absurdB (LK (K Y) (topK Y) (selB1 Y (suc j)) (I.step (K Y) (GK Y) (cutR cutf (eG (K Y))) (suc (suc j),o))) (W.andB-r (BP.isInl W.Unit (K Y).car o) false hb) } ;
+rootCh (Y : DP.LO) : (k : W.N) (o : W.Or W.Unit (K Y).car) -> Id W.Bool (I.isTwo (K Y) (k,o)) true -> LK (K Y) (topK Y) (selB Y k) (I.step (K Y) (GK Y) (cutR cutf (eG (K Y))) (k,o)) = split {
+  zero -> \ o hb -> lk_b1 Y o ;
+  suc k -> rootCh1 Y k } ;
+lkRK (Y : DP.LO) : LK (K Y) (topK Y) (RK Y) (GK Y) = lkNode (K Y) (topK Y) (RK Y) (GK Y) (refl true) (inr tt) (\ a hb -> rootCh Y a.1 a.2 hb) ;
+------------------------------------------------------------------------
+-- THE INPUT FAMILY: B(2) -> B(0) by a cut on Phi-bar(1), at kY = Y + 1
+o : O.IObj = new O.IObj[k := K, km := kmK, Cst := BA.E0, Fp := Fp,
+  sg := \ Y -> LC.idMap (K Y), sgi := \ Y -> LC.idMap (K Y),
+  sec := \ Y p -> refl p, ret := \ Y q -> refl q,
+  natS := \ X Y f w -> refl (inl ((O.smapC BA.E0 X Y f).1 w)),
+  ntop := \ X Y f -> refl (topK Y),
+  wC := BA.wfE0, wF := \ Y w -> BA.wfE0,
+  G := GK, R := RK,
+  ng := \ X Y f -> refl (GK Y),
+  nr := nrK,
+  lo := \ Y ys h -> (lkRK Y ys h).1, kd := \ Y zs h -> (lkRK Y zs h).2] ;
+-- accessible: every address of length 16 carries an axiom
+ac : SS.AccI o = accAx (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc zero)))))))))))))))) o (\ Y -> axRK Y zero) ;
+------------------------------------------------------------------------
+-- S4 at Y = 1
+module At1 {
+  module C = SG.Cor[Bx.ev,Bx.phi,Bx.evN,Bx.hPos,o,ac,LT.one,LT.wfUnit] ;
+  module Md = Bx.Model[C.B,inl C.top,S4.wfSm C.A C.E (S4.wfKO Bx.ev Bx.phi Bx.evN o LT.one LT.wfUnit) C.out.2.1] ;
+  E : DP.LO = C.E ;
+  yP : C.B.car = inl (inl (inr tt)) ;
+  tP : C.B.car = inl C.top ;
+  -- the hypothesis: 2 is in J at top_1
+  hJ2 : Md.J tP n2 = Md.jIn tP n2 (\ k -> k (yP,(refl true,inl (refl true)))) ;
+  -- S4: soundness of the output gives Jall(0)
+  jall0 : Md.Jall zero = \ nj -> C.bound Md.M Md.condR Md.condL ((\ nn -> nn hJ2),((\ ja -> ja nj),tt)) ;
+  -- THE TWO-POINT CALCULATION: if E is empty, the output order has the two
+  -- points 1 < top, no chain of three points, and Jall(0) is false
+  nbY2 : (q : (S4.Sm BA.E0 LT.one).car) -> Md.Lt (inl (inl q)) yP -> W.Empty = split {
+    inl e0 -> \ h -> CF.efq W.Empty e0 ;
+    inr u -> \ h -> W.absurdB W.Empty h } ;
+  nbY1 : (p : C.A.car) -> Md.Lt (inl p) yP -> W.Empty = split {
+    inl q -> nbY2 q ;
+    inr t -> \ h -> W.absurdB W.Empty h } ;
+  noBelowY (hE : E.car -> W.Empty) : (r : C.B.car) -> Md.Lt r yP -> W.Empty = split {
+    inl p -> nbY1 p ;
+    inr e -> \ h -> hE e } ;
+  naT3 : (t : T.car) -> Md.Lt tP (inl (inr t)) -> W.Empty = split {
+    inl u -> \ h -> W.absurdB W.Empty h ;
+    inr e0 -> \ h -> CF.efq W.Empty e0 } ;
+  naT2 : (q : (S4.Sm BA.E0 LT.one).car) -> Md.Lt tP (inl (inl q)) -> W.Empty = split {
+    inl e0 -> \ h -> CF.efq W.Empty e0 ;
+    inr u -> \ h -> W.absurdB W.Empty h } ;
+  naT1 : (p : C.A.car) -> Md.Lt tP (inl p) -> W.Empty = split {
+    inl q -> naT2 q ;
+    inr t -> naT3 t } ;
+  noAboveT (hE : E.car -> W.Empty) : (r : C.B.car) -> Md.Lt tP r -> W.Empty = split {
+    inl p -> naT1 p ;
+    inr e -> \ h -> hE e } ;
+  noChain3 (hE : E.car -> W.Empty) (r m : C.B.car) : (t : T.car) -> Md.Lt r (inl (inr t)) -> Md.Lt (inl (inr t)) m -> W.Empty = split {
+    inl u -> \ h1 h2 -> noAboveT hE m (PL.subst W.Unit (\ w -> Md.Lt (inl (inr (inl w))) m) u tt (LT.unitEq u tt) h2) ;
+    inr e0 -> \ h1 h2 -> CF.efq W.Empty e0 } ;
+  noChain2 (hE : E.car -> W.Empty) (r m : C.B.car) : (q : (S4.Sm BA.E0 LT.one).car) -> Md.Lt r (inl (inl q)) -> Md.Lt (inl (inl q)) m -> W.Empty = split {
+    inl e0 -> \ h1 h2 -> CF.efq W.Empty e0 ;
+    inr u -> \ h1 h2 -> noBelowY hE r (PL.subst W.Unit (\ w -> Md.Lt r (inl (inl (inr w)))) u tt (LT.unitEq u tt) h1) } ;
+  noChain1 (hE : E.car -> W.Empty) (r m : C.B.car) : (p : C.A.car) -> Md.Lt r (inl p) -> Md.Lt (inl p) m -> W.Empty = split {
+    inl q -> noChain2 hE r m q ;
+    inr t -> noChain3 hE r m t } ;
+  noChain (hE : E.car -> W.Empty) (r m : C.B.car) : (v : C.B.car) -> Md.Lt r v -> Md.Lt v m -> W.Empty = split {
+    inl p -> noChain1 hE r m p ;
+    inr e -> \ h1 h2 -> hE e } ;
+  notJall0 (hE : E.car -> W.Empty) : BI.Not (Md.Jall zero) = \ ja -> ja (\ z ->
+    CF.or-elim (Id W.Bool (gL zero) true) ((t : W.N) -> Id W.Bool (chL zero t) true -> Md.J z.1 t) W.Empty
+      (\ h -> W.absurdB W.Empty h)
+      (\ all -> Md.jOut z.1 n1 (all n1 (refl true)) (\ z2 ->
+        CF.or-elim (Id W.Bool (gL n1) true) ((t : W.N) -> Id W.Bool (chL n1 t) true -> Md.J z2.1 t) W.Empty
+          (\ h -> W.absurdB W.Empty h)
+          (\ all2 -> Md.jOut z2.1 n2 (all2 n2 (refl true)) (\ z3 -> noChain hE z3.1 z.1 z2.1 z3.2.1 z2.2.1)) z2.2.2))
+      z.2) ;
+  -- THE STOPPING POINT: the extension returned by S4 at Y = 1 is not empty
+  eNonEmpty : BI.Not (E.car -> W.Empty) = \ hE -> notJall0 hE jall0 ;
+} ;

@@ -714,6 +714,23 @@ Gamma~: stages >= top are replaced by Phi-bar.
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
+## Stage growth forced by a cut (2026-11-21, BetaIDS4BarEx, checked)
+
+Length version of Part 3's bar: Child(n,m) iff m = n+1, G(n) iff n >= 2
+(2 enters at stage 1, 1 at stage 2, 0 at stage 3).
+- Input family `o` (kY = Y + 1): B(2) -> B(0) by a root cut on Phi-bar(1)
+  between two one-step proofs B(n+1) -> B(n) (r-bar at top; l-bar on the
+  hypothesis; for B(1) -> B(0) the and/ex rule on not phi(I^nu,1) with
+  witness 2 and an l-rule on not I^nu(2)). Built from rule pieces; `nrK`
+  (naturality), `lkRK` (local correctness + KindOK, node lemma `lkNode`
+  over sequents given as I.step chains), `ac` (accessibility: every
+  address of length 16 carries an axiom, `accAx`).
+- `At1` (Y = 1): `hJ2` (2 in J at top), `jall0` (S4 + soundness:
+  Jall(0) on (Y+1)+E_1), `notJall0` (if E_1 is empty, the output order has
+  two points and no chain of three, so Jall(0) is false),
+  `eNonEmpty : not (E_1 -> Empty)`. So normalisation must add stages.
+  The order type of E_1 is not computed.
+
 ## Bar benchmark, child sequent (2026-11-21, 0d900dc; explicit family OPEN)
 
 - Direct: `Model.Mono.jChild`: J^la(s) -> J^la(t) for a child t (G monotone
