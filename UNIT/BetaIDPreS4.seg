@@ -1,0 +1,74 @@
+-- PLAN-ID1, from pointwise cut elimination to pre-proofs (M3): the outputs
+-- of BetaIDS4.Thm.thm at the well-orders, read as cut-free pre-proofs
+-- (BetaIDPre.Walk) on their own stage orders kY + E_Y, form a
+-- homogeneous family: at every well-order the walk is locally correct,
+-- cut-free and well-founded (a Brouwer bound), and along every embedding
+-- f : Y -> Y' its rules commute with the relabelling along
+-- beta_f + e_f, the maps computed by BetaIDS4HomFin (homSame).
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module PL = Prelude[l] ;
+module LT = LabTree[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module BI = BetaID[l] ;
+module BO = BetaIDCfOps[l] ;
+module S4 = BetaIDS4[l] ;
+module HT = BetaIDS4HomThm[l] ;
+module HR = BetaIDS4HomReg[l] ;
+module BPr = BetaIDPre[l] ;
+
+module Fam (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S4.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (o : S4.Obj[ev,phi,evN].IObj) (ac : S4.SSteps[ev,phi,evN].AccI o) {
+  module I = BI.ID[ev,phi] ;
+  module O = S4.Obj[ev,phi,evN] ;
+  module ST = HT.Stmt[ev,phi,evN,hPos] ;
+  module H = BetaIDS4HomFin[l].Hom[ev,phi,evN,hPos] ;
+  -- the cut-free pre-proof at a well-order Y
+  module At (Y : DP.LO) (wY : LW.WF Y) {
+    A : DP.LO = o.k Y ;
+    top : A.car = O.topO o Y ;
+    out : S4.OutM[ev,phi,A,top].Out (o.G Y) = ST.T.thm o ac Y wY ;
+    E : DP.LO = out.1 ;
+    -- the stage order of the new pre-proof at Y, and its top
+    B : DP.LO = S4.Sm A E ;
+    tB : B.car = inl top ;
+    module R = S4.Rep[ev,phi,A,top,B,S4.inlS A E] ;
+    GB : I.Seq B = R.rS (o.G Y) ;
+    module Wk = BPr.Walk[ev,phi,B,tB] ;
+    -- the rules
+    Rr : I.Rl B = Wk.walkR out.2.2.1 GB ;
+    lo : I.LocOK B tB Rr GB = Wk.loc out.2.2.1 GB out.2.2.2 ;
+    wf : I.WFP B tB Rr GB = Wk.wfp out.2.2.1 GB ;
+    cutFree (ys : LT.LL B) : Id W.Bool (Wk.isCut (Rr ys)) false = Wk.walkNoCut ys out.2.2.1 GB ;
+  } ;
+  -- homogeneity along an embedding of well-orders
+  module Nat (Y Y' : DP.LO) (wY : LW.WF Y) (wY' : LW.WF Y') (f : DP.Map Y Y') {
+    module P = At[Y,wY] ;
+    module P' = At[Y',wY'] ;
+    beta : DP.Map P.A P'.A = ST.baseF o o (H.tauId o) Y Y' f ;
+    bt : Id P'.A.car (beta.1 P.top) P'.top = ST.baseTop o o (LC.idMap o.Cst) (H.tauId o) (H.relId o) Y Y' f ;
+    hs : ST.HomOut P.A P'.A P.top P'.top beta bt (o.G Y) (o.G Y') P.out P'.out = H.homSame o ac ac Y Y' wY wY' f ;
+    -- the computed map of the extensions, and the relabelling of stage orders
+    e : DP.Map P.E P'.E = hs.1 ;
+    v : DP.Map P.B P'.B = ST.extM P.A P'.A P.E P'.E beta e ;
+    module RN = HR.RepNat[ev,phi,evN,P.A,P'.A,P.top,P'.top,beta,bt,P.E,P'.E,e] ;
+    module MC = HR.MpComp[ev,phi,evN,P.A,o.k Y',P'.A,o.km Y Y' f,H.tauId o Y',P.top,O.topO o Y'] ;
+    eG : Id (I.Seq P'.A) (o.G Y') (RN.MB.mS (o.G Y)) =
+      PL.trans (I.Seq P'.A) (o.G Y') (MC.MH.mS (o.G Y')) (RN.MB.mS (o.G Y)) ((H.relId o).2.1 Y')
+        (PL.trans (I.Seq P'.A) (MC.MH.mS (o.G Y')) (MC.MH.mS (MC.MG.mS (o.G Y))) (RN.MB.mS (o.G Y))
+          (PL.ap (I.Seq (o.k Y')) (I.Seq P'.A) MC.MH.mS (o.G Y') (MC.MG.mS (o.G Y)) (o.ng Y Y' f))
+          (MC.mSC (o.G Y))) ;
+    egB : Id (I.Seq P'.B) P'.GB (RN.MV.mS P.GB) =
+      PL.trans (I.Seq P'.B) P'.GB (P'.R.rS (RN.MB.mS (o.G Y))) (RN.MV.mS P.GB)
+        (PL.ap (I.Seq P'.A) (I.Seq P'.B) P'.R.rS (o.G Y') (RN.MB.mS (o.G Y)) eG) (RN.sN (o.G Y)) ;
+    module WN = BPr.WN[ev,phi,P.B,P'.B,v,S4.evMap ev evN P.B P'.B v,P.tB,P'.tB,ST.extTop P.A P'.A P.E P'.E beta e P.top P'.top bt] ;
+    -- HOMOGENEITY: the rules at Y' at the relabelled address are the
+    -- relabelled rules at Y
+    nat (zs : LT.LL P.B) : Id (I.Rule P'.B) (P'.Rr (LT.mapL P.B P'.B v zs)) (WN.M.mR (P.Rr zs)) =
+      WN.walkNat zs P.out.2.2.1 P'.out.2.2.1 hs.2 P.GB P'.GB egB ;
+  } ;
+} ;
