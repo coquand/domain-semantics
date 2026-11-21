@@ -714,6 +714,23 @@ Gamma~: stages >= top are replaced by Phi-bar.
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
+## Bar benchmark, child sequent (2026-11-21, 0d900dc; explicit family OPEN)
+
+- Direct: `Model.Mono.jChild`: J^la(s) -> J^la(t) for a child t (G monotone
+  along children), the same stage.
+- S4: `Bar.ChildCor.childBound`: from an accessible family proving
+  forall s t (Child(s,t) & B(s) -> B(t)), J^{top_Y}(s) -> Jall(t), Jall over
+  all of (Y+1)+E_Y.
+- OPEN: the explicit accessible family with kY = Y+1 and E_Y. Design: the
+  natural proof is cut-free (l-bar on not B(s); r-bar on B(t) at the
+  premise stage nu < top; mutual recursion Step(nu) / L(nu,nu) over stages
+  for the hereditary case). PREDICTION (not checked): with Cst = Fp = 0, no
+  cut and no r-bar above top, every S4 output extension is empty, so
+  E_Y = 0, the ambient order is Y+1, and the output uses only stages < top
+  (= Y). The difference between the bounds (J^top vs Jall) then comes from
+  reading positive Phi-bar by Jall, not from E. A cut in the input is
+  needed for E_Y to be non-trivial.
+
 ## S6 for Part 3's bar predicate (2026-11-21, BetaIDS4Bar, checked)
 
 phi(X,s) = G(s) or forall t (not ch(s,t) or X(t)), G and ch decidable
