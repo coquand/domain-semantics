@@ -122,24 +122,27 @@ module NodeD (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
       Id (I.Lb A') (I.nthL A' s e0') (MC.MC.lm (I.nthL A s e0)) =
     PL.trans (I.Lb A') (I.nthL A' s e0') (I.nthL A' s (MC.MC.mE e0)) (MC.MC.lm (I.nthL A s e0))
       (PL.ap (LT.LL A') (I.Lb A') (I.nthL A' s) e0' (MC.MC.mE e0) ee) (MC.MC.nthMap s e0) ;
-  lowInl : (oo : W.Or W.Unit A.car) -> O.LowS A top oo -> Id W.Bool (BP.isInl W.Unit A'.car (MC.MC.om oo)) true -> W.Empty = split {
-    inl u -> \ h h' -> h ; inr mu -> \ h h' -> W.absurdB W.Empty h' } ;
-  inlLow : (oo : W.Or W.Unit A.car) -> Id W.Bool (BP.isInl W.Unit A.car oo) true -> O.LowS A' top' (MC.MC.om oo) -> W.Empty = split {
-    inl u -> \ h h' -> h' ; inr mu -> \ h h' -> W.absurdB W.Empty h } ;
+  -- an embedding preserving top preserves and reflects "represented as Phi-bar"
+  rbPres : (oo : W.Or W.Unit A.car) -> S4.RepBar ev phi A top oo -> S4.RepBar ev phi A' top' (MC.MC.om oo) = split {
+    inl u -> \ h -> tt ;
+    inr mu -> \ h -> PL.trans W.Bool (I.ltB A' (beta.1 mu) top') (I.ltB A mu top) false (ltBeta mu) h } ;
+  rbRefl : (oo : W.Or W.Unit A.car) -> S4.RepBar ev phi A' top' (MC.MC.om oo) -> S4.RepBar ev phi A top oo = split {
+    inl u -> \ h -> tt ;
+    inr mu -> \ h -> PL.trans W.Bool (I.ltB A mu top) (I.ltB A' (beta.1 mu) top') false (PL.sym W.Bool (I.ltB A' (beta.1 mu) top') (I.ltB A mu top) (ltBeta mu)) h } ;
+  -- the same classification on both sides: the cross cases are impossible
   lowBar : (f0 : BI.Form) (e0 : LT.LL A) (e0' : LT.LL A') -> Id (LT.LL A') e0' (MC.MC.mE e0) ->
-      O.StLow A top f0 e0 -> Id W.Bool (O.barAt A' f0 e0') true -> W.Empty = split {
-    atF b k -> \ e0 e0' ee h h' -> W.absurdB W.Empty h' ; andF p q -> \ e0 e0' ee h h' -> W.absurdB W.Empty h' ;
-    orF p q -> \ e0 e0' ee h h' -> W.absurdB W.Empty h' ; allF p -> \ e0 e0' ee h h' -> W.absurdB W.Empty h' ;
-    exF p -> \ e0 e0' ee h h' -> W.absurdB W.Empty h' ;
-    xF b s k -> \ e0 e0' ee h h' -> lowInl (I.nthL A s e0).2 h
-      (PL.subst (I.Lb A') (\ z -> Id W.Bool (BP.isInl W.Unit A'.car z.2) true) (I.nthL A' s e0') (MC.MC.lm (I.nthL A s e0)) (nthE s e0 e0' ee) h') } ;
+      O.StLow A top f0 e0 -> O.BarR A' top' f0 e0' -> W.Empty = split {
+    atF b k -> \ e0 e0' ee h h' -> h' ; andF p q -> \ e0 e0' ee h h' -> h' ; orF p q -> \ e0 e0' ee h h' -> h' ;
+    allF p -> \ e0 e0' ee h h' -> h' ; exF p -> \ e0 e0' ee h h' -> h' ;
+    xF b s k -> \ e0 e0' ee h h' -> O.lowRep A top (I.nthL A s e0).2 h (rbRefl (I.nthL A s e0).2
+      (PL.subst (I.Lb A') (\ z -> S4.RepBar ev phi A' top' z.2) (I.nthL A' s e0') (MC.MC.lm (I.nthL A s e0)) (nthE s e0 e0' ee) h')) } ;
   barLow : (f0 : BI.Form) (e0 : LT.LL A) (e0' : LT.LL A') -> Id (LT.LL A') e0' (MC.MC.mE e0) ->
-      Id W.Bool (O.barAt A f0 e0) true -> O.StLow A' top' f0 e0' -> W.Empty = split {
-    atF b k -> \ e0 e0' ee h h' -> W.absurdB W.Empty h ; andF p q -> \ e0 e0' ee h h' -> W.absurdB W.Empty h ;
-    orF p q -> \ e0 e0' ee h h' -> W.absurdB W.Empty h ; allF p -> \ e0 e0' ee h h' -> W.absurdB W.Empty h ;
-    exF p -> \ e0 e0' ee h h' -> W.absurdB W.Empty h ;
-    xF b s k -> \ e0 e0' ee h h' -> inlLow (I.nthL A s e0).2 h
-      (PL.subst (I.Lb A') (\ z -> O.LowS A' top' z.2) (I.nthL A' s e0') (MC.MC.lm (I.nthL A s e0)) (nthE s e0 e0' ee) h') } ;
+      O.BarR A top f0 e0 -> O.StLow A' top' f0 e0' -> W.Empty = split {
+    atF b k -> \ e0 e0' ee h h' -> h ; andF p q -> \ e0 e0' ee h h' -> h ; orF p q -> \ e0 e0' ee h h' -> h ;
+    allF p -> \ e0 e0' ee h h' -> h ; exF p -> \ e0 e0' ee h h' -> h ;
+    xF b s k -> \ e0 e0' ee h h' -> O.lowRep A' top' (MC.MC.om (I.nthL A s e0).2)
+      (PL.subst (I.Lb A') (\ z -> O.LowS A' top' z.2) (I.nthL A' s e0') (MC.MC.lm (I.nthL A s e0)) (nthE s e0 e0' ee) h')
+      (rbPres (I.nthL A s e0).2 h) } ;
   -- the three remaining relations, as hypotheses for the case split
   HxlT : U l+ = (i : W.N) (oo0 : W.Or W.Unit (o.k BA.E0).car) (e : Id (I.Rule (o.k BA.E0)) D.N0.r0 (xlR i oo0))
     (e' : Id (I.Rule (o'.k BA.E0)) D'.N0.r0 (xlR i (MZ.om oo0))) -> SPR (D.spXl i oo0 e) (D'.spXl i (MZ.om oo0) e') ;
@@ -147,7 +150,7 @@ module NodeD (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
     (mu' : A'.car) (eY' : Id (I.Rule A') (o'.R Y' nilL) (xrR i mu')) (h' : Id W.Bool (I.ltB A' mu' top') false) ->
     HO (S4.RBar[ev,phi,evN,hPos,o,ih,Y,wY,i,mu,eY,h].out) (S4.RBar[ev,phi,evN,hPos,o',ih',Y',wY',i,mu',eY',h'].out) ;
   Hk3T : U l+ = (f0 : BI.Form) (e0 : LT.LL A) (e0' : LT.LL A') (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0))
-    (eY' : Id (I.Rule A') (o'.R Y' nilL) (cutR f0 e0')) (hb : Id W.Bool (O.barAt A f0 e0) true) (hb' : Id W.Bool (O.barAt A' f0 e0') true) ->
+    (eY' : Id (I.Rule A') (o'.R Y' nilL) (cutR f0 e0')) (hb : O.BarR A top f0 e0) (hb' : O.BarR A' top' f0 e0') ->
     HO (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out f0 eY hb) (S4.K3Sel[ev,phi,evN,hPos,o',ih',Y',wY',e0'].out f0 eY' hb') ;
   module Cases (hxl : HxlT) (hrb : HrbT) (hk3 : Hk3T) {
     xrH (i : W.N) (mu : A.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) (mu' : A'.car) (eY' : Id (I.Rule A') (o'.R Y' nilL) (xrR i mu')) :
@@ -162,8 +165,8 @@ module NodeD (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
             (PL.trans W.Bool (I.ltB A mu top) (I.ltB A' mu' top') true (PL.sym W.Bool (I.ltB A' mu' top') (I.ltB A mu top) (ltEq i mu mu' eY eY')) h')) ;
         false -> \ h' -> hrb i mu eY h mu' eY' h' } } ;
     cutH (f0 : BI.Form) (e0 : LT.LL A) (e0' : LT.LL A') (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) (eY' : Id (I.Rule A') (o'.R Y' nilL) (cutR f0 e0')) :
-        (x : W.Or (O.StLow A top f0 e0) (Id W.Bool (O.barAt A f0 e0) true))
-        (x' : W.Or (O.StLow A' top' f0 e0') (Id W.Bool (O.barAt A' f0 e0') true)) -> HO (D.cutC f0 e0 eY x) (D'.cutC f0 e0' eY' x') = split {
+        (x : W.Or (O.StLow A top f0 e0) (O.BarR A top f0 e0))
+        (x' : W.Or (O.StLow A' top' f0 e0') (O.BarR A' top' f0 e0')) -> HO (D.cutC f0 e0 eY x) (D'.cutC f0 e0' eY' x') = split {
       inl h -> split {
         inl h' -> simpleCase (cutR f0 e0) (cutR f0 e0') eY eY' (\ n nu -> refl false) (\ n nu -> refl false) tt
           (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.stLow f0 e0 h) tt

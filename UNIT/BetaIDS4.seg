@@ -77,6 +77,17 @@ module Rep (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : D
 } ;
 
 ------------------------------------------------------------------------
+-- an occurrence REPRESENTED as Phi-bar: Phi-bar, or a stage >= top
+RepBar (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) (top : A.car) : W.Or W.Unit A.car -> U l = split {
+  inl u -> W.Unit ; inr mu -> Id W.Bool (BI.ID[ev,phi].ltB A mu top) false } ;
+repBarP (X : U l) (x y : X) : (b : W.Bool) -> Id W.Bool b false -> Id X (BO.pickB X b x y) y = split {
+  false -> \ h -> refl y ; true -> \ h -> W.absurdB (Id X x y) (PL.sym W.Bool true false h) } ;
+repBar (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) (top : A.car) (B : DP.LO) (j : DP.Map A B) :
+    (oo : W.Or W.Unit A.car) -> RepBar ev phi A top oo -> Id (W.Or W.Unit B.car) (Rep[ev,phi,A,top,B,j].rO oo) (inl tt) = split {
+  inl u -> \ h -> PL.ap W.Unit (W.Or W.Unit B.car) (\ v -> inl v) u tt (LT.unitEq u tt) ;
+  inr mu -> \ h -> repBarP (W.Or W.Unit B.car) (inr (j.1 mu)) (inl tt) (BI.ID[ev,phi].ltB A mu top) h } ;
+
+------------------------------------------------------------------------
 -- outputs
 module OutM (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (A : DP.LO) (top : A.car) {
   module I = BI.ID[ev,phi] ;
@@ -244,7 +255,7 @@ module Obj (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN :
   P (Cst : DP.LO) (Fp : DP.LO -> DP.LO) (Y : DP.LO) : DP.LO = Sm (Sm Cst Y) (Sm LT.one (Fp Y)) ;
   tp (Cst : DP.LO) (Fp : DP.LO -> DP.LO) (Y : DP.LO) : (P Cst Fp Y).car = inr (inl tt) ;
   smapC (C X Y : DP.LO) (f : DP.Map X Y) : DP.Map (Sm C X) (Sm C Y) = PS.SumMap[C,X,C,Y,LC.idMap C,f].map ;
-  -- cuts of kind III (a Phi-bar atom)
+  -- cuts of kind III (a Phi-bar atom, as a Boolean test)
   barAt (A : DP.LO) : BI.Form -> LT.LL A -> W.Bool = split {
     atF b k -> \ e -> false ; andF p q -> \ e -> false ; orF p q -> \ e -> false ; allF p -> \ e -> false ; exF p -> \ e -> false ;
     xF b s k -> \ e -> BP.isInl W.Unit A.car (I.nthL A s e).2 } ;
@@ -265,9 +276,25 @@ module Obj (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN :
     allF p | rp -> \ e h x hx -> rp (consL x e) h ;
     exF p | rp -> \ e h x hx -> rp (consL x e) h ;
     xF b s k -> \ e h -> W.absurdB (StLow A top (xF b s k) e) h } ;
+  -- atomic cuts whose occurrence is represented as Phi-bar (kind III, and
+  -- atoms at stages >= top)
+  BarR (A : DP.LO) (top : A.car) : BI.Form -> LT.LL A -> U l = split {
+    atF b k -> \ e -> W.Empty ; andF p q -> \ e -> W.Empty ; orF p q -> \ e -> W.Empty ;
+    allF p -> \ e -> W.Empty ; exF p -> \ e -> W.Empty ;
+    xF b s k -> \ e -> RepBar ev phi A top (I.nthL A s e).2 } ;
+  inlBar (A : DP.LO) (top : A.car) : (oo : W.Or W.Unit A.car) -> Id W.Bool (BP.isInl W.Unit A.car oo) true -> RepBar ev phi A top oo = split {
+    inl u -> \ h -> tt ; inr mu -> \ h -> W.absurdB (RepBar ev phi A top (inr mu)) h } ;
+  barBarR (A : DP.LO) (top : A.car) : (f : BI.Form) (e : LT.LL A) -> Id W.Bool (barAt A f e) true -> BarR A top f e = split {
+    atF b k -> \ e h -> W.absurdB W.Empty h ; andF p q -> \ e h -> W.absurdB W.Empty h ; orF p q -> \ e h -> W.absurdB W.Empty h ;
+    allF p -> \ e h -> W.absurdB W.Empty h ; exF p -> \ e h -> W.absurdB W.Empty h ;
+    xF b s k -> \ e h -> inlBar A top (I.nthL A s e).2 h } ;
+  -- below top and represented as Phi-bar exclude each other
+  lowRep (A : DP.LO) (top : A.car) : (oo : W.Or W.Unit A.car) -> LowS A top oo -> RepBar ev phi A top oo -> W.Empty = split {
+    inl u -> \ h h' -> h ;
+    inr mu -> \ h h' -> W.absurdB W.Empty (PL.trans W.Bool false (I.ltB A mu top) true (PL.sym W.Bool (I.ltB A mu top) false h') h) } ;
   KindOK (A : DP.LO) (top : A.car) : I.Rule A -> U l = split {
     axR i -> W.Unit ; andR i -> W.Unit ; orR i -> W.Unit ; allR i -> W.Unit ; exR i w -> W.Unit ;
-    cutR f e -> W.Or (StLow A top f e) (Id W.Bool (barAt A f e) true) ;
+    cutR f e -> W.Or (StLow A top f e) (BarR A top f e) ;
     xrR i mu -> W.Unit ; xlR i o -> W.Unit } ;
   record IObj {
     k : DP.LO -> DP.LO ;
@@ -1638,7 +1665,7 @@ module K3Node (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (ev
      (BI.ID[ev,phi].app (o.k Y) (o.G Y) (consL (xF true s k,e0) nilL)))
   (eN : Id (BI.ID[ev,phi].Seq (o.k Y)) (BI.ID[ev,phi].step (o.k Y) (o.G Y) (o.R Y nilL) (nN,inl tt))
      (BI.ID[ev,phi].app (o.k Y) (o.G Y) (consL (xF false s k,e0) nilL)))
-  (hbar : Id (W.Or W.Unit (o.k Y).car) (BI.ID[ev,phi].nthL (o.k Y) s e0).2 (inl tt)) {
+  (hbar : RepBar ev phi (o.k Y) (Obj[ev,phi,evN].topO o Y) (BI.ID[ev,phi].nthL (o.k Y) s e0).2) {
   module I = BI.ID[ev,phi] ;
   module O = Obj[ev,phi,evN] ;
   module BA = BetaAcc[l] ;
@@ -1702,7 +1729,7 @@ module K3Node (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (ev
   hbar1 : Id (W.Or W.Unit C.A1.car) (I.nthL C.A1 s e1).2 (inl tt) =
     PL.trans (W.Or W.Unit C.A1.car) (I.nthL C.A1 s e1).2 (R1.rO (I.nthL A s e0).2) (inl tt)
       (PL.ap (I.Lb C.A1) (W.Or W.Unit C.A1.car) (\ z -> z.2) (I.nthL C.A1 s e1) (R1.rL (I.nthL A s e0)) (R1.nthR s e0))
-      (PL.ap (W.Or W.Unit A.car) (W.Or W.Unit C.A1.car) R1.rO (I.nthL A s e0).2 (inl tt) hbar) ;
+      (repBar ev phi A top C.A1 R1.j (I.nthL A s e0).2 hbar) ;
   wA2 : LW.WF C.A2 = wfSm C.KV E2 (wfKO ev phi evN o V1 wV1) y.2.1 ;
   module S = BO.S2C[ev,phi,C.A1,C.A2,C.g,C.rho,C.hr,evMap ev evN C.A1 C.A2 C.g,inl top,inl C.topV,C.gTop,wA2,
     BO.Inv[ev,phi,C.A2,C.g.1 (inl top),hPos].wfPhi,H,s,k,e1,hbar1] ;
@@ -1753,19 +1780,19 @@ module K3Sel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
   stL (f : BI.Form) (er : Id (I.Rule A) (o.R Y nilL) (cutR f e0)) (n : W.N) :
       Id (I.Seq A) (I.step A G (o.R Y nilL) (n,inl tt)) (I.app A G (consL (BI.pickF n f (BI.neg f),e0) nilL)) =
     PL.ap (I.Rule A) (I.Seq A) (\ rr -> I.step A G rr (n,inl tt)) (o.R Y nilL) (cutR f e0) er ;
-  sgn (s k : W.N) (hbar : Id (W.Or W.Unit A.car) (I.nthL A s e0).2 (inl tt)) :
+  sgn (s k : W.N) (hbar : RepBar ev phi A top (I.nthL A s e0).2) :
       (b : W.Bool) -> Id (I.Rule A) (o.R Y nilL) (cutR (xF b s k) e0) -> OutG = split {
     true -> \ er -> K3Node[ev,phi,evN,hPos,o,ih,Y,wY,zero,suc zero,s,k,e0,
       brL (xF true s k) er zero,brL (xF true s k) er (suc zero),stL (xF true s k) er zero,stL (xF true s k) er (suc zero),hbar].out ;
     false -> \ er -> K3Node[ev,phi,evN,hPos,o,ih,Y,wY,suc zero,zero,s,k,e0,
       brL (xF false s k) er (suc zero),brL (xF false s k) er zero,stL (xF false s k) er (suc zero),stL (xF false s k) er zero,hbar].out } ;
-  out : (f : BI.Form) -> Id (I.Rule A) (o.R Y nilL) (cutR f e0) -> Id W.Bool (O.barAt A f e0) true -> OutG = split {
-    atF b k -> \ er h -> efq1 OutG (W.absurdB W.Empty h) ;
-    andF p q -> \ er h -> efq1 OutG (W.absurdB W.Empty h) ;
-    orF p q -> \ er h -> efq1 OutG (W.absurdB W.Empty h) ;
-    allF p -> \ er h -> efq1 OutG (W.absurdB W.Empty h) ;
-    exF p -> \ er h -> efq1 OutG (W.absurdB W.Empty h) ;
-    xF b s k -> \ er h -> sgn s k (inlEq (I.nthL A s e0).2 h) b er } ;
+  out : (f : BI.Form) -> Id (I.Rule A) (o.R Y nilL) (cutR f e0) -> O.BarR A top f e0 -> OutG = split {
+    atF b k -> \ er h -> efq1 OutG h ;
+    andF p q -> \ er h -> efq1 OutG h ;
+    orF p q -> \ er h -> efq1 OutG h ;
+    allF p -> \ er h -> efq1 OutG h ;
+    exF p -> \ er h -> efq1 OutG h ;
+    xF b s k -> \ er h -> sgn s k h b er } ;
 } ;
 
 ------------------------------------------------------------------------
@@ -1815,9 +1842,9 @@ module Disp (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN 
   xrC (i : W.N) (mu : A.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) : (b : W.Bool) -> Id W.Bool (I.ltB A mu top) b -> OutG = split {
     true -> \ h -> simple (xrR i mu) eY (\ n nu -> refl false) h tt ;
     false -> \ h -> RBar[ev,phi,evN,hPos,o,ih,Y,wY,i,mu,eY,h].out } ;
-  -- cuts: kind II below top (kind I included) or kind III
+  -- cuts: below top (kind I included), or atomic represented as Phi-bar
   cutC (f : BI.Form) (e : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f e)) :
-      W.Or (O.StLow A top f e) (Id W.Bool (O.barAt A f e) true) -> OutG = split {
+      W.Or (O.StLow A top f e) (O.BarR A top f e) -> OutG = split {
     inl h -> simple (cutR f e) eY (\ n nu -> refl false) tt
       (RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,spAbs (cutR f e) eY (\ n nu -> refl false)].RR.stLow f e h) ;
     inr h -> K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e].out f eY h } ;

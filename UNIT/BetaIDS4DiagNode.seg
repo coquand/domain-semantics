@@ -74,7 +74,7 @@ module DNode (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
     (rbLaw : (i : W.N) (mu : A.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) (h : Id W.Bool (I.ltB A mu top) false)
        (z : (S4.RBar[ev,phi,evN,hPos,o,ih,Y,wY,i,mu,eY,h].out).1.car) ->
        Id (S4.RBar[ev,phi,evN,hPos,o,ih,Y,wY,i,mu,eY,h].out).1.car ((hrb i mu eY h mu eY h).1.1 z) z)
-    (k3Law : (f0 : BI.Form) (e0 : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) (hb : Id W.Bool (O.barAt A f0 e0) true)
+    (k3Law : (f0 : BI.Form) (e0 : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) (hb : O.BarR A top f0 e0)
        (z : (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out f0 eY hb).1.car) ->
        Id (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out f0 eY hb).1.car ((hk3 f0 e0 e0 eY eY hb hb).1.1 z) z) {
     -- kept rules in the diagonal
@@ -113,7 +113,7 @@ module DNode (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
     omZ (oo0 : W.Or W.Unit K0.car) : Id (W.Or W.Unit K0.car) oo0 (ND.MZ.om oo0) =
       PL.sym (W.Or W.Unit K0.car) (ND.MZ.om oo0) oo0 (DBs.omId K0 (tau BA.E0) (ht BA.E0) oo0) ;
     kmY (mu0 : K0.car) : A.car = (o.km BA.E0 Y (S4.Main[ev,phi,evN,hPos].e0 Y)).1 mu0 ;
-    kdS (f0 : BI.Form) (e1 : LT.LL K0) (q1 : Id RK r0 (cutR f0 e1)) : W.Or (O.StLow A top f0 (D.MY.mE e1)) (Id W.Bool (O.barAt A f0 (D.MY.mE e1)) true) =
+    kdS (f0 : BI.Form) (e1 : LT.LL K0) (q1 : Id RK r0 (cutR f0 e1)) : W.Or (O.StLow A top f0 (D.MY.mE e1)) (O.BarR A top f0 (D.MY.mE e1)) =
       PL.subst (I.Rule A) (\ z -> O.KindOK A top z) (o.R Y nilL) (cutR f0 (D.MY.mE e1)) (D.eYof (cutR f0 e1) q1) D.kdY ;
     -- the (xr) choice and the cut kinds, in the diagonal
     xrHD (i : W.N) (mu : A.car) (eY : Id (I.Rule A) (o.R Y nilL) (xrR i mu)) :
@@ -122,7 +122,7 @@ module DNode (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
       true -> \ h x -> simD (xrR i mu) eY (\ n nu -> refl false) h tt h tt x ;
       false -> \ h x -> rbLaw i mu eY h x } ;
     cutHD (f0 : BI.Form) (e0 : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) :
-        (k : W.Or (O.StLow A top f0 e0) (Id W.Bool (O.barAt A f0 e0) true)) (x : (D.cutC f0 e0 eY k).1.car) ->
+        (k : W.Or (O.StLow A top f0 e0) (O.BarR A top f0 e0)) (x : (D.cutC f0 e0 eY k).1.car) ->
         Id (D.cutC f0 e0 eY k).1.car ((CS.cutH f0 e0 e0 eY eY k k).1.1 x) x = split {
       inl h -> \ x -> simD (cutR f0 e0) eY (\ n nu -> refl false) tt
         (S4.RegAsm[ev,phi,evN,hPos,o,ih,Y,wY,D.spAbs (cutR f0 e0) eY (\ n nu -> refl false)].RR.stLow f0 e0 h) tt

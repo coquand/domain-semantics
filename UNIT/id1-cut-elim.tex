@@ -27,8 +27,8 @@ Girard's cut elimination for the inductive logic of $\mathrm{ID}_1$ in
 $\beta$-logic \cite[\S11.4]{ptlc2}. The input is a homogeneous family of
 proofs, presented by a functor on well-orders, and the induction is on an
 explicit \emph{accessibility certificate} of this family. For inputs whose
-cuts are of kind I, of kind II below top (every $X$-atom reads a stage
-below $\mathrm{top}_Y$), or of kind III, we obtain at every well-order $Y$ a cut-free
+cuts are atomic (of any polarity and stage), or compound with every
+$X$-atom reading a stage below $\mathrm{top}_Y$, we obtain at every well-order $Y$ a cut-free
 derivation on $kY+E$, where the well-order $E$ is itself an output of the
 construction. Embeddings of the parameter are carried to explicit
 embeddings of these outputs. The central point is Girard's treatment of
@@ -83,10 +83,14 @@ embeddings $f$;
 top, with $\mathrm{top}_Y=\sigma_Y^{-1}(\mathrm{inr}\,(\mathrm{inl}\,\ast))$ and
 $k(f)(\mathrm{top}_X)=\mathrm{top}_Y$;
 \item at each $Y$, an end sequent $G_Y$ and a rule function $R_Y$ on
-addresses, natural in $Y$, locally correct, with every cut either of kind III or \emph{below
-top}: every $X$-atom of the cut formula reads a stage $\mu<\mathrm{top}_Y$,
-never $\Phib$ (\texttt{Obj.StLow}; compound formulas and number
-quantifiers are allowed, and kind I is the case without $X$-atoms).
+addresses, natural in $Y$, locally correct, with every cut of one of two classes
+(\texttt{Obj.KindOK}): \emph{below top}, every $X$-atom of the cut formula
+reads a stage $\mu<\mathrm{top}_Y$, never $\Phib$ (\texttt{Obj.StLow};
+compound formulas and number quantifiers are allowed, and kind I is the
+case without $X$-atoms); or \emph{atomic represented as $\Phib$}, an
+$X$-atom reading $\Phib$ or a stage $\mu\ge\mathrm{top}_Y$
+(\texttt{Obj.BarR}; kind III is the first case). Together: every atomic
+cut, whatever its polarity and stage, and every compound cut below top.
 \end{itemize}
 No functor laws for $k$ are assumed. The decomposition $\sigma$ replaces
 Girard's subfunctor bookkeeping: shifting by an order $D$ gives the family
@@ -135,7 +139,7 @@ Girard's $\widetilde\Gamma$. The extension $E$ lies above top: it collects
 the ordinal material created by normalisation.
 
 \begin{theorem}[\texttt{BetaIDS4.Thm.thm}]\label{thm:pointwise}
-Let $o$ be an input family whose cuts are below top or of kind III, and let
+Let $o$ be an input family satisfying the cut condition above, and let
 $ac$ be an accessibility certificate for $o$. For every well-order $Y$
 there is a well-order $E$ and a cut-free derivation of $\rep(G_Y)$ on
 $(kY+E,\mathrm{inl}\,\mathrm{top}_Y)$. No excluded middle or choice is used.
@@ -356,15 +360,24 @@ unaffected. In the homogeneity proof the two sides cannot disagree on the
 kind of a cut, since the target environment is the image of the source
 one (\texttt{NodeD.lowBar}, \texttt{barLow}).
 
-Not covered: atoms reading stages $\geq\mathrm{top}$, which $\mathrm{rep}$
-turns into $\Phib$. Such cuts occur in unrestricted inputs (a cut on
-$I^{\mathrm{top}_Y}(0)$ in a context containing a true arithmetic atom is
-homogeneous, locally correct and accessible). The atomic case should
-reduce to the kind III construction if its interface asks only that the
-\emph{represented} occurrence be $\Phib$; compound formulas such as
-$I^\mu(t)\wedge I^\nu(u)$ with $\mu<\mathrm{top}\le\nu$ represent to a
-mixed formula $I^\mu(t)\wedge\Phib(u)$ and need a compound-cut argument.
-Until these are closed, the strength of unrestricted elimination is open.
+Atomic cuts at stages $\geq\mathrm{top}$ are covered as well. $\mathrm{rep}$
+turns such an occurrence into $\Phib$, and the kind III construction needs
+only that the \emph{represented} occurrence be $\Phib$
+(\texttt{K3Node} takes \texttt{RepBar}). For homogeneity, an embedding
+preserving top preserves and reflects this test on corresponding atoms
+(\texttt{NodeD.rbPres}, \texttt{rbRefl}), so both sides classify a cut
+alike. The boundary case is checked end to end
+(\texttt{BetaIDS4Bound}): a concrete accessible family whose root is a cut
+on $I^{\mathrm{top}_Y}(t)$, both premises closing on a true arithmetic
+atom, satisfies the input condition but not the below-top test, and the
+pointwise theorem, homogeneity and the diagonal law apply to it.
+
+What remains are \emph{compound cuts with at least one occurrence
+represented as $\Phib$}: mixed formulas such as $I^\mu(t)\wedge I^\nu(u)$
+with $\mu<\mathrm{top}\le\nu$, represented as $I^\mu(t)\wedge\Phib(u)$, and
+also formulas such as $\Phib(t)\wedge\Phib(u)$. They need a compound-cut
+argument. Until it is given, the strength of unrestricted elimination is
+open.
 
 \paragraph{Where the strength sits.} Under the restrictions above,
 everything after the certificate is constructive: normalisation,
@@ -378,10 +391,10 @@ $\Phi(I^\nu,t)$ and their negations in the inductive rules.
 
 \paragraph{Status.} All theorems stated here are checked in Unit; the
 development has no holes and no postulates. The two standing hypotheses,
-the restriction to cuts below top or of kind III, and (for
+the cut condition (no compound cut with an occurrence represented as
+$\Phib$), and (for
 Theorem~\ref{thm:diag} and its corollary) the km identity law are as
-stated. The remarks on composition and on cuts at stages $\geq\mathrm{top}$ are
-expectations, not results.
+stated. The remark on composition is an expectation, not a result.
 
 \begin{thebibliography}{9}
 \bibitem{ptlc2} J.-Y.~Girard, \emph{Proof Theory and Logical Complexity},

@@ -82,7 +82,7 @@ module DRbK3 (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
     (hbN : Id W.Bool (I.br A top (o.R Y nilL) (nN,inl tt)) true)
     (eP : Id (I.Seq A) (I.step A (o.G Y) (o.R Y nilL) (nP,inl tt)) (I.app A (o.G Y) (consL (xF true s k,e0) nilL)))
     (eN : Id (I.Seq A) (I.step A (o.G Y) (o.R Y nilL) (nN,inl tt)) (I.app A (o.G Y) (consL (xF false s k,e0) nilL)))
-    (hbar : Id (W.Or W.Unit A.car) (I.nthL A s e0).2 (inl tt))
+    (hbar : S4.RepBar ev phi A top (I.nthL A s e0).2)
     (eE0 : Id (LT.LL A) e0 (LT.mapL A A (ST.baseF o o tau Y Y f) e0)) {
     module KR = HK3N.K3NodeRel[ev,phi,evN,hPos,o,o,ih,ih,ihr,c,tau,rl,Y,Y,wY,wY,f,nP,nN,s,k,e0,hbP,hbN,eP,eN,hbar,e0,hbP,hbN,eP,eN,hbar,eE0] ;
     module KN = KR.KN ;
@@ -110,7 +110,7 @@ module DRbK3 (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
   ----------------------------------------------------------------------
   -- the kind III selection (sign of the displayed atom)
   module SR = HK3N.K3SelRel[ev,phi,evN,hPos,o,o,ih,ih,ihr,c,tau,rl,Y,Y,wY,wY,f] ;
-  sgnD (s k : W.N) (e0 : LT.LL A) (hbar : Id (W.Or W.Unit A.car) (I.nthL A s e0).2 (inl tt)) :
+  sgnD (s k : W.N) (e0 : LT.LL A) (hbar : S4.RepBar ev phi A top (I.nthL A s e0).2) :
       (b : W.Bool) (er : Id (I.Rule A) (o.R Y nilL) (cutR (xF b s k) e0))
       (z : (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].sgn s k hbar b er).1.car) ->
       Id (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].sgn s k hbar b er).1.car ((SR.sgnR s k e0 e0 hbar hbar b er er).1.1 z) z = split {
@@ -122,14 +122,14 @@ module DRbK3 (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN
         S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].brL (xF false s k) er (suc zero),S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].brL (xF false s k) er zero,
         S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].stL (xF false s k) er (suc zero),S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].stL (xF false s k) er zero,hbar,
         SR.eEnv (xF false s k) e0 e0 er er].law z } ;
-  K3T (f0 : BI.Form) (e0 : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) (hb : Id W.Bool (O.barAt A f0 e0) true) : U l =
+  K3T (f0 : BI.Form) (e0 : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) (hb : O.BarR A top f0 e0) : U l =
     (z : (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out f0 eY hb).1.car) ->
     Id (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].out f0 eY hb).1.car ((SR.hk3 f0 e0 e0 eY eY hb hb).1.1 z) z ;
-  k3D : (f0 : BI.Form) (e0 : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) (hb : Id W.Bool (O.barAt A f0 e0) true) -> K3T f0 e0 eY hb = split {
-    atF b k -> \ e0 eY hb -> W.absurdB (K3T (atF b k) e0 eY hb) hb ;
-    andF p q -> \ e0 eY hb -> W.absurdB (K3T (andF p q) e0 eY hb) hb ;
-    orF p q -> \ e0 eY hb -> W.absurdB (K3T (orF p q) e0 eY hb) hb ;
-    allF p -> \ e0 eY hb -> W.absurdB (K3T (allF p) e0 eY hb) hb ;
-    exF p -> \ e0 eY hb -> W.absurdB (K3T (exF p) e0 eY hb) hb ;
-    xF b s k -> \ e0 eY hb z -> sgnD s k e0 (S4.K3Sel[ev,phi,evN,hPos,o,ih,Y,wY,e0].inlEq (I.nthL A s e0).2 hb) b eY z } ;
+  k3D : (f0 : BI.Form) (e0 : LT.LL A) (eY : Id (I.Rule A) (o.R Y nilL) (cutR f0 e0)) (hb : O.BarR A top f0 e0) -> K3T f0 e0 eY hb = split {
+    atF b k -> \ e0 eY hb -> CF.efq (K3T (atF b k) e0 eY hb) hb ;
+    andF p q -> \ e0 eY hb -> CF.efq (K3T (andF p q) e0 eY hb) hb ;
+    orF p q -> \ e0 eY hb -> CF.efq (K3T (orF p q) e0 eY hb) hb ;
+    allF p -> \ e0 eY hb -> CF.efq (K3T (allF p) e0 eY hb) hb ;
+    exF p -> \ e0 eY hb -> CF.efq (K3T (exF p) e0 eY hb) hb ;
+    xF b s k -> \ e0 eY hb z -> sgnD s k e0 hb b eY z } ;
 } ;

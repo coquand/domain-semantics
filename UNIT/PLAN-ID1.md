@@ -714,6 +714,24 @@ Gamma~: stages >= top are replaced by Phi-bar.
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
+## Atomic cuts represented as Phi-bar DONE (2026-11-21)
+
+`Obj.KindOK A top` cut case: `StLow` (below top) or `BarR` (an atom whose
+label is RepBar: Phi-bar or a stage >= top). So every ATOMIC cut (any
+polarity, any stage) and every compound cut below top is admissible;
+pointwise theorem, homogeneity and diagonal law all hold.
+- K3Node takes `RepBar` (only the represented occurrence must be Phi-bar;
+  `repBar` gives hbar1). K3Sel.out takes BarR.
+- Homogeneity: `NodeD.rbPres`/`rbRefl` (an embedding preserving top
+  preserves and reflects RepBar on corresponding atoms) give the cross-case
+  exclusions `lowBar`/`barLow` (with `Obj.lowRep`).
+- Boundary test `BetaIDS4Bound.Ex`: a concrete accessible family, root cut
+  on I^{top_Y}(t) beside a true arithmetic atom (k Y = (0+Y)+(1+0),
+  sigma = id); kdK uses the BarR branch (`notLow`: not below top);
+  `out`, `hom`, `diag` instantiate the three theorems.
+- Remaining class: compound cuts with at least one occurrence represented
+  as Phi-bar (I^mu(t) & I^nu(u), mu < top <= nu; Phibar(t) & Phibar(u)).
+
 ## Cuts below top DONE (2026-11-21, All.seg 35525 declarations, green)
 
 The input kind condition is now `Obj.KindOK A top`: every cut is BELOW TOP
