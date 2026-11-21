@@ -714,6 +714,21 @@ Gamma~: stages >= top are replaced by Phi-bar.
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
+## Kind II input cuts: first test (2026-11-21)
+
+`BetaIDS4Kind2.Low.stLow` (in All.seg, green): a cut whose X-atoms all read
+stages below top (never Phi-bar) is of kind II at (A + Dl, inl top) after
+rep. So the kept-rule node of S4 (RegAsm.Fin: okRule, then KC.elim) handles
+it as it stands, and the premises are input predecessors, so there is no
+need to eliminate kind II cuts for families first (no accessibility of an
+elimination output).
+- TODO: add this disjunct to O.KindOK and thread it through Disp.cutC,
+  NodeD.cutH, DiagNode.cutHD (mechanical).
+- Not covered: atoms at stages >= top (rep makes them Phi-bar), compound
+  cut formulas mixing stage and Phi-bar atoms. Check whether input
+  environments can carry stages >= top at all (the NegOK invariant).
+- Write-up: UNIT/id1-cut-elim.tex (6 pages).
+
 ## Diagonal identity law for S4 homogeneity DONE (2026-11-21, All.seg 35471 declarations, green)
 
 **Theorem** (`BetaIDS4Diag.Fin[ev,phi,evN,hPos].diagId`). Same hypotheses as
