@@ -1,0 +1,497 @@
+-- Wainer, "Accessible recursive functions" (JSL 1989), Example 3.12:
+--   B(n) = n + 2^n,  B(sigma) : n + 2^{n0} + ... + 2^{nr} |-> m + 2^{sigma n0} + ... + 2^{sigma nr},
+--   Lim B = omega + 2^omega, "a presentation of the ordinal omega.2".
+-- Here D(X) = X + 2^X, with 2^X the finite subsets of X as strictly decreasing
+-- lists, ordered lexicographically (= binary order: S < T iff max(S xor T) in T),
+-- and D(f) = f + direct image.
+--   (1) phi n : D([n]) ~ [n + 2^n]: k |-> k,  S |-> n + sum_{s in S} 2^s;
+--       psi n is the inverse (binary expansion), both laws proved.
+--   (2) agree: for every increasing injection sigma : [n] -> [m], Wainer's
+--       numerical map Wn conjugates D(sigma): Wn (phi x) = phi (D sigma x).
+--   (3) Colim: chains of embeddings, colimits with the universal property;
+--       colimD: D along the standard inclusions [n] -> [n+1] has colimit
+--       omega + omega;  colimE: [n + 2^n] along initial-segment inclusions has
+--       colimit omega.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module W = Dilator[l] ;
+module DP = DilPtyx[l] ;
+module CF = CatEmbFin[l] ;
+module PL = Prelude[l] ;
+module LC = LOCat[l] ;
+module LW = LOWF[l] ;
+module PS = PtyxSum[l] ;
+module FOE = FinOrdEx[l] ;
+module SA = StabAmal[l] ;
+
+TT (b : W.Bool) : U l = Id W.Bool b true ;
+no (a b : W.O3) (h : Id W.Bool (SA.PF.eqO a b) false) (e : Id W.O3 a b) (Y : U l) : Y = CF.efq Y (SA.o3-ne a b h e) ;
+
+------------------------------------------------------------------------
+-- lexicographic order on lists; 2^X = decreasing lists
+module LexL (X : DP.LO) {
+  L : U l = W.List X.car ;
+  cmpL : L -> L -> W.O3 = split {
+    nilL -> split { nilL -> eq ; consL y t -> lt } ;
+    consL x s | r -> split { nilL -> gt ; consL y t -> W.lexO3 (X.cmp x y) (r t) } } ;
+  crefl : (s : L) -> Id W.O3 (cmpL s s) eq = split {
+    nilL -> refl eq ;
+    consL x s | r -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (X.cmp x x) eq (cmpL s s) eq (X.crefl x) r } ;
+  cflip : (s t : L) -> Id W.O3 (cmpL t s) (W.flip (cmpL s t)) = split {
+    nilL -> split { nilL -> refl eq ; consL y t -> refl gt } ;
+    consL x s | r -> split {
+      nilL -> refl lt ;
+      consL y t -> PL.trans W.O3 (W.lexO3 (X.cmp y x) (cmpL t s)) (W.lexO3 (W.flip (X.cmp x y)) (W.flip (cmpL s t)))
+          (W.flip (W.lexO3 (X.cmp x y) (cmpL s t)))
+        (W.ap2 W.O3 W.O3 W.O3 W.lexO3 (X.cmp y x) (W.flip (X.cmp x y)) (cmpL t s) (W.flip (cmpL s t)) (X.cflip x y) (r t))
+        (SA.lex-flip (X.cmp x y) (cmpL s t)) } } ;
+  ceq : (s t : L) -> Id W.O3 (cmpL s t) eq -> Id L s t = split {
+    nilL -> split {
+      nilL -> \ h -> refl nilL ;
+      consL y t -> \ h -> no lt eq (refl false) h (Id L nilL (consL y t)) } ;
+    consL x s | r -> split {
+      nilL -> \ h -> no gt eq (refl false) h (Id L (consL x s) nilL) ;
+      consL y t -> \ h -> W.ap2 X.car L L (\ a b -> consL a b) x y s t
+        (X.ceq x y (SA.lex-eq (X.cmp x y) (cmpL s t) h).1) (r t (SA.lex-eq (X.cmp x y) (cmpL s t) h).2) } } ;
+  Goal (s u : L) : U l = Id W.O3 (cmpL s u) lt ;
+  ltH (x z : X.car) (s u : L) (h : Id W.O3 (X.cmp x z) lt) : Goal (consL x s) (consL z u) =
+    PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (cmpL s u)) (X.cmp x z) lt h ;
+  tr (x y z : X.car) (s t u : L) (ih : Id W.O3 (cmpL s t) lt -> Id W.O3 (cmpL t u) lt -> Goal s u) :
+      (o1 : W.O3) -> Id W.O3 (X.cmp x y) o1 -> (o2 : W.O3) -> Id W.O3 (X.cmp y z) o2 ->
+      Id W.O3 (W.lexO3 o1 (cmpL s t)) lt -> Id W.O3 (W.lexO3 o2 (cmpL t u)) lt -> Goal (consL x s) (consL z u) = split {
+    lt -> \ e1 -> split {
+      lt -> \ e2 h1 h2 -> ltH x z s u (X.ctrans x y z e1 e2) ;
+      eq -> \ e2 h1 h2 -> ltH x z s u (PL.subst X.car (\ w -> Id W.O3 (X.cmp x w) lt) y z (X.ceq y z e2) e1) ;
+      gt -> \ e2 h1 h2 -> no gt lt (refl false) h2 (Goal (consL x s) (consL z u)) } ;
+    eq -> \ e1 -> split {
+      lt -> \ e2 h1 h2 -> ltH x z s u (PL.subst X.car (\ w -> Id W.O3 (X.cmp w z) lt) y x (PL.sym X.car x y (X.ceq x y e1)) e2) ;
+      eq -> \ e2 h1 h2 ->
+        PL.trans W.O3 (cmpL (consL x s) (consL z u)) (W.lexO3 eq (cmpL s u)) lt
+          (PL.ap W.O3 W.O3 (\ o -> W.lexO3 o (cmpL s u)) (X.cmp x z) eq
+            (PL.subst X.car (\ w -> Id W.O3 (X.cmp w z) eq) y x (PL.sym X.car x y (X.ceq x y e1)) e2))
+          (ih h1 h2) ;
+      gt -> \ e2 h1 h2 -> no gt lt (refl false) h2 (Goal (consL x s) (consL z u)) } ;
+    gt -> \ e1 o2 e2 h1 h2 -> no gt lt (refl false) h1 (Goal (consL x s) (consL z u)) } ;
+  nilR (Y : U l) : (t : L) -> Id W.O3 (cmpL t nilL) lt -> Y = split {
+    nilL -> \ h -> no eq lt (refl false) h Y ;
+    consL y t -> \ h -> no gt lt (refl false) h Y } ;
+  ctrans : (s t u : L) -> Id W.O3 (cmpL s t) lt -> Id W.O3 (cmpL t u) lt -> Goal s u = split {
+    nilL -> \ t -> split {
+      nilL -> \ h1 h2 -> nilR (Goal nilL nilL) t h2 ;
+      consL z u -> \ h1 h2 -> refl lt } ;
+    consL x s | r -> split {
+      nilL -> \ u h1 h2 -> no gt lt (refl false) h1 (Goal (consL x s) u) ;
+      consL y t -> split {
+        nilL -> \ h1 h2 -> no gt lt (refl false) h2 (Goal (consL x s) nilL) ;
+        consL z u -> \ h1 h2 -> tr x y z s t u (r t u) (X.cmp x y) (refl (X.cmp x y)) (X.cmp y z) (refl (X.cmp y z)) h1 h2 } } } ;
+  -- all elements below x; strictly decreasing
+  allLt (x : X.car) : L -> W.Bool = split { nilL -> true ; consL y t | r -> W.andB (W.isLt (X.cmp y x)) r } ;
+  decB : L -> W.Bool = split { nilL -> true ; consL x t | r -> W.andB (allLt x t) r } ;
+  Pw : U l = (s : L) * TT (decB s) ;
+  pwEq (p q : Pw) (e : Id L p.1 q.1) : Id Pw p q =
+    PL.Sigma-eq L (\ s -> TT (decB s)) p.1 q.1 p.2 q.2 e (W.HB.uip (decB q.1) true) ;
+  pow : DP.LO = new DP.LO[car := Pw, cmp := \ p q -> cmpL p.1 q.1, ceq := \ p q h -> pwEq p q (ceq p.1 q.1 h),
+    crefl := \ p -> crefl p.1, cflip := \ p q -> cflip p.1 q.1, ctrans := \ p q r -> ctrans p.1 q.1 r.1] ;
+} ;
+
+-- direct image along an embedding
+module PM (X Y : DP.LO) (f : DP.Map X Y) {
+  module A = LexL[X] ;
+  module B = LexL[Y] ;
+  mp (s : A.L) : B.L = W.map X.car Y.car f.1 s ;
+  allM (x : X.car) : (s : A.L) -> Id W.Bool (B.allLt (f.1 x) (mp s)) (A.allLt x s) = split {
+    nilL -> refl true ;
+    consL y t | r -> W.ap2 W.Bool W.Bool W.Bool W.andB (W.isLt (Y.cmp (f.1 y) (f.1 x))) (W.isLt (X.cmp y x))
+      (B.allLt (f.1 x) (mp t)) (A.allLt x t) (PL.ap W.O3 W.Bool W.isLt (Y.cmp (f.1 y) (f.1 x)) (X.cmp y x) (f.2 y x)) r } ;
+  decM : (s : A.L) -> Id W.Bool (B.decB (mp s)) (A.decB s) = split {
+    nilL -> refl true ;
+    consL x t | r -> W.ap2 W.Bool W.Bool W.Bool W.andB (B.allLt (f.1 x) (mp t)) (A.allLt x t) (B.decB (mp t)) (A.decB t) (allM x t) r } ;
+  cmpM : (s t : A.L) -> Id W.O3 (B.cmpL (mp s) (mp t)) (A.cmpL s t) = split {
+    nilL -> split { nilL -> refl eq ; consL y t -> refl lt } ;
+    consL x s | r -> split {
+      nilL -> refl gt ;
+      consL y t -> W.ap2 W.O3 W.O3 W.O3 W.lexO3 (Y.cmp (f.1 x) (f.1 y)) (X.cmp x y) (B.cmpL (mp s) (mp t)) (A.cmpL s t) (f.2 x y) (r t) } } ;
+  img : DP.Map A.pow B.pow =
+    (\ p -> (mp p.1,PL.trans W.Bool (B.decB (mp p.1)) (A.decB p.1) true (decM p.1) p.2),\ p q -> cmpM p.1 q.1) ;
+} ;
+
+-- the functor D(X) = X + 2^X
+Dob (X : DP.LO) : DP.LO = PS.SumLO[X,LexL[X].pow].lo ;
+Dar (X Y : DP.LO) (f : DP.Map X Y) : DP.Map (Dob X) (Dob Y) = PS.SumMap[X,LexL[X].pow,Y,LexL[Y].pow,f,PM[X,Y,f].img].map ;
+
+------------------------------------------------------------------------
+-- arithmetic
+lt1 (a b : W.N) : U l = TT (W.ltN a b) ;
+ltTr (a b c : W.N) (h1 : lt1 a b) (h2 : lt1 b c) : lt1 a c = W.ltN-le-lt a b c (W.ltN-sucR a b h1) h2 ;
+ltLe (c a b : W.N) (h1 : lt1 c a) (h2 : lt1 a (suc b)) : lt1 c b = W.ltN-le-lt (suc c) a (suc b) h1 h2 ;
+cmpLt (a b : W.N) (h : Id W.O3 (W.cmpN a b) lt) : lt1 a b =
+  PL.trans W.Bool (W.ltN a b) (W.isLt (W.cmpN a b)) true (PL.sym W.Bool (W.isLt (W.cmpN a b)) (W.ltN a b) (W.ltN-cmp a b))
+    (PL.ap W.O3 W.Bool W.isLt (W.cmpN a b) lt h) ;
+isLtN (a b : W.N) (h : TT (W.isLt (W.cmpN a b))) : lt1 a b =
+  PL.trans W.Bool (W.ltN a b) (W.isLt (W.cmpN a b)) true (PL.sym W.Bool (W.isLt (W.cmpN a b)) (W.ltN a b) (W.ltN-cmp a b)) h ;
+ltIs (a b : W.N) (h : lt1 a b) : TT (W.isLt (W.cmpN a b)) = PL.trans W.Bool (W.isLt (W.cmpN a b)) (W.ltN a b) true (W.ltN-cmp a b) h ;
+ltPlus (x L k : W.N) (h : lt1 x L) : lt1 x (W.plus L k) = cmpLt x (W.plus L k) (W.cmpN-lt-plus x L k h) ;
+plusLt2 (L x y : W.N) (h : lt1 x y) : lt1 (W.plus L x) (W.plus L y) =
+  PL.trans W.Bool (W.ltN (W.plus L x) (W.plus L y)) (W.ltN x y) true (W.ltN-plus L x y) h ;
+plusLtInv (L x y : W.N) (h : lt1 (W.plus L x) (W.plus L y)) : lt1 x y =
+  PL.trans W.Bool (W.ltN x y) (W.ltN (W.plus L x) (W.plus L y)) true (PL.sym W.Bool (W.ltN (W.plus L x) (W.plus L y)) (W.ltN x y) (W.ltN-plus L x y)) h ;
+noPlusLt : (n d : W.N) -> lt1 (W.plus n d) n -> W.Empty = split {
+  zero -> \ d h -> W.ltN-zero-abs W.Empty d h ;
+  suc n | r -> \ d h -> r d h } ;
+plusInj : (n c d : W.N) -> Id W.N (W.plus n c) (W.plus n d) -> Id W.N c d = split {
+  zero -> \ c d h -> h ;
+  suc n | r -> \ c d h -> r c d (W.sucInj (W.plus n c) (W.plus n d) h) } ;
+posP (x : W.N) : lt1 zero (W.pow2 x) =
+  PL.subst W.N (\ p -> lt1 zero p) (suc (W.pow2S x).1) (W.pow2 x) (PL.sym W.N (W.pow2 x) (suc (W.pow2S x).1) (W.pow2S x).2) (refl true) ;
+dblLe : (x y : W.N) -> lt1 x (suc y) -> lt1 (W.dblN x) (suc (W.dblN y)) = split {
+  zero -> \ y h -> refl true ;
+  suc x | r -> split {
+    zero -> \ h -> W.ltN-zero-abs (lt1 (W.dblN (suc x)) (suc zero)) x h ;
+    suc y -> \ h -> r y h } } ;
+powLe : (a b : W.N) -> lt1 a (suc b) -> lt1 (W.pow2 a) (suc (W.pow2 b)) = split {
+  zero -> \ b h -> posP b ;
+  suc a | r -> split {
+    zero -> \ h -> W.ltN-zero-abs (lt1 (W.pow2 (suc a)) (suc (W.pow2 zero))) a h ;
+    suc b -> \ h -> dblLe (W.pow2 a) (W.pow2 b) (r b h) } } ;
+-- trichotomy against a bound: p < a or p = a + d
+Cut (a p : W.N) : U l = W.Or (lt1 p a) ((d : W.N) * Id W.N p (W.plus a d)) ;
+cutS (a p : W.N) : Cut a p -> Cut (suc a) (suc p) = split {
+  inl h -> inl h ;
+  inr q -> inr (q.1,W.sucEq p (W.plus a q.1) q.2) } ;
+cutN : (a p : W.N) -> Cut a p = split {
+  zero -> \ p -> inr (p,refl p) ;
+  suc a | r -> split {
+    zero -> inl (refl true) ;
+    suc p -> cutS a p (r p) } } ;
+
+------------------------------------------------------------------------
+-- binary codes of decreasing lists of numbers
+module NL = LexL[LW.omega] ;
+bcode : W.List W.N -> W.N = split { nilL -> zero ; consL x t | r -> W.plus (W.pow2 x) r } ;
+allW (x k : W.N) (h : lt1 x k) : (s : W.List W.N) -> TT (NL.allLt x s) -> TT (NL.allLt k s) = split {
+  nilL -> \ a -> refl true ;
+  consL y t | r -> \ a -> W.andB-intro (W.isLt (W.cmpN y k)) (NL.allLt k t)
+    (ltIs y k (ltTr y x k (isLtN y x (W.andB-l (W.isLt (W.cmpN y x)) (NL.allLt x t) a)) h))
+    (r (W.andB-r (W.isLt (W.cmpN y x)) (NL.allLt x t) a)) } ;
+dR (x : W.N) (s : W.List W.N) (d : TT (NL.decB (consL x s))) : TT (NL.decB s) = W.andB-r (NL.allLt x s) (NL.decB s) d ;
+dL (x : W.N) (s : W.List W.N) (d : TT (NL.decB (consL x s))) : TT (NL.allLt x s) = W.andB-l (NL.allLt x s) (NL.decB s) d ;
+-- a decreasing list below k codes a number below 2^k
+codeB : (s : W.List W.N) (k : W.N) -> TT (NL.decB s) -> TT (NL.allLt k s) -> lt1 (bcode s) (W.pow2 k) = split {
+  nilL -> \ k d a -> posP k ;
+  consL x t | r -> \ k d a ->
+    ltLe (bcode (consL x t)) (W.pow2 (suc x)) (W.pow2 k)
+      (PL.subst W.N (\ q -> lt1 (W.plus (W.pow2 x) (bcode t)) q) (W.plus (W.pow2 x) (W.pow2 x)) (W.dblN (W.pow2 x))
+         (PL.sym W.N (W.dblN (W.pow2 x)) (W.plus (W.pow2 x) (W.pow2 x)) (W.dblN-plus (W.pow2 x)))
+         (plusLt2 (W.pow2 x) (bcode t) (W.pow2 x) (r x (dR x t d) (dL x t d))))
+      (powLe (suc x) k (isLtN x k (W.andB-l (W.isLt (W.cmpN x k)) (NL.allLt k t) a))) } ;
+codeLt (x y : W.N) (s t : W.List W.N) (h : lt1 x y) (ds : TT (NL.decB (consL x s))) :
+    Id W.O3 (W.cmpN (bcode (consL x s)) (bcode (consL y t))) lt =
+  W.cmpN-lt-plus (bcode (consL x s)) (W.pow2 y) (bcode t)
+    (codeB (consL x s) y ds (W.andB-intro (W.isLt (W.cmpN x y)) (NL.allLt y s) (ltIs x y h) (allW x y h s (dL x s ds)))) ;
+posC (y c : W.N) : Id W.O3 (W.cmpN zero (W.plus (W.pow2 y) c)) lt =
+  PL.subst W.N (\ p -> Id W.O3 (W.cmpN zero (W.plus p c)) lt) (suc (W.pow2S y).1) (W.pow2 y)
+    (PL.sym W.N (W.pow2 y) (suc (W.pow2S y).1) (W.pow2S y).2) (refl lt) ;
+negC (y c : W.N) : Id W.O3 (W.cmpN (W.plus (W.pow2 y) c) zero) gt =
+  PL.subst W.N (\ p -> Id W.O3 (W.cmpN (W.plus p c) zero) gt) (suc (W.pow2S y).1) (W.pow2 y)
+    (PL.sym W.N (W.pow2 y) (suc (W.pow2S y).1) (W.pow2S y).2) (refl gt) ;
+gtLt (x y : W.N) (e : Id W.O3 (W.cmpN x y) gt) : Id W.O3 (W.cmpN y x) lt =
+  PL.trans W.O3 (W.cmpN y x) (W.flip (W.cmpN x y)) lt (W.cmpN-flip x y) (PL.ap W.O3 W.O3 W.flip (W.cmpN x y) gt e) ;
+cc (x y : W.N) (s t : W.List W.N) (ih : Id W.O3 (W.cmpN (bcode s) (bcode t)) (NL.cmpL s t))
+    (ds : TT (NL.decB (consL x s))) (dt : TT (NL.decB (consL y t))) :
+    (o : W.O3) -> Id W.O3 (W.cmpN x y) o -> Id W.O3 (W.cmpN (bcode (consL x s)) (bcode (consL y t))) (W.lexO3 o (NL.cmpL s t)) = split {
+  lt -> \ e -> codeLt x y s t (cmpLt x y e) ds ;
+  eq -> \ e -> PL.trans W.O3 (W.cmpN (bcode (consL x s)) (bcode (consL y t))) (W.cmpN (bcode s) (bcode t)) (NL.cmpL s t)
+      (PL.subst W.N (\ z -> Id W.O3 (W.cmpN (W.plus (W.pow2 x) (bcode s)) (W.plus (W.pow2 z) (bcode t))) (W.cmpN (bcode s) (bcode t)))
+        x y (W.cmpN-eq x y e) (W.cmpN-plus (W.pow2 x) (bcode s) (bcode t)))
+      ih ;
+  gt -> \ e -> PL.trans W.O3 (W.cmpN (bcode (consL x s)) (bcode (consL y t))) (W.flip (W.cmpN (bcode (consL y t)) (bcode (consL x s)))) gt
+      (W.cmpN-flip (bcode (consL y t)) (bcode (consL x s)))
+      (PL.ap W.O3 W.O3 W.flip (W.cmpN (bcode (consL y t)) (bcode (consL x s))) lt (codeLt y x t s (cmpLt y x (gtLt x y e)) dt)) } ;
+-- the binary code is an order embedding of decreasing lists (lexicographic) into omega
+codeCmp : (s t : W.List W.N) -> TT (NL.decB s) -> TT (NL.decB t) -> Id W.O3 (W.cmpN (bcode s) (bcode t)) (NL.cmpL s t) = split {
+  nilL -> split {
+    nilL -> \ ds dt -> refl eq ;
+    consL y t -> \ ds dt -> posC y (bcode t) } ;
+  consL x s | r -> split {
+    nilL -> \ ds dt -> negC x (bcode s) ;
+    consL y t -> \ ds dt -> cc x y s t (r t (dR x s ds) (dR y t dt)) ds dt (W.cmpN x y) (refl (W.cmpN x y)) } } ;
+-- binary expansion: every c < 2^n is the code of a decreasing list below n
+Dec (n c : W.N) : U l = (s : W.List W.N) * (TT (NL.decB s) * (TT (NL.allLt n s) * Id W.N (bcode s) c)) ;
+ltSuc (n : W.N) : lt1 n (suc n) = W.ltN-suc n ;
+decL (n c : W.N) (rr : Dec n c) : Dec (suc n) c = (rr.1,(rr.2.1,(allW n (suc n) (ltSuc n) rr.1 rr.2.2.1,rr.2.2.2))) ;
+decR (n c : W.N) (q : (d : W.N) * Id W.N c (W.plus (W.pow2 n) d)) (rr : Dec n q.1) : Dec (suc n) c =
+  (consL n rr.1,(W.andB-intro (NL.allLt n rr.1) (NL.decB rr.1) rr.2.2.1 rr.2.1,
+    (W.andB-intro (W.isLt (W.cmpN n (suc n))) (NL.allLt (suc n) rr.1) (ltIs n (suc n) (ltSuc n)) (allW n (suc n) (ltSuc n) rr.1 rr.2.2.1),
+     PL.trans W.N (W.plus (W.pow2 n) (bcode rr.1)) (W.plus (W.pow2 n) q.1) c
+       (PL.ap W.N W.N (\ z -> W.plus (W.pow2 n) z) (bcode rr.1) q.1 rr.2.2.2) (PL.sym W.N c (W.plus (W.pow2 n) q.1) q.2)))) ;
+halfB (P c : W.N) (h : lt1 c (W.dblN P)) (q : (d : W.N) * Id W.N c (W.plus P d)) : lt1 q.1 P =
+  plusLtInv P q.1 P (PL.subst W.N (\ z -> lt1 z (W.plus P P)) c (W.plus P q.1) q.2
+    (PL.subst W.N (\ z -> lt1 c z) (W.dblN P) (W.plus P P) (W.dblN-plus P) h)) ;
+decS (n c : W.N) (h : lt1 c (W.pow2 (suc n))) (r : (c' : W.N) -> lt1 c' (W.pow2 n) -> Dec n c') : Cut (W.pow2 n) c -> Dec (suc n) c = split {
+  inl h' -> decL n c (r c h') ;
+  inr q -> decR n c q (r q.1 (halfB (W.pow2 n) c h q)) } ;
+decode : (n c : W.N) -> lt1 c (W.pow2 n) -> Dec n c = split {
+  zero -> split {
+    zero -> \ h -> (nilL,(refl true,(refl true,refl zero))) ;
+    suc c -> \ h -> W.ltN-zero-abs (Dec zero (suc c)) c h } ;
+  suc n | r -> \ c h -> decS n c h r (cutN (W.pow2 n) c) } ;
+
+------------------------------------------------------------------------
+-- subsets of [n] and their codes
+Pt (n : W.N) : U l = FOE.Pt n ;
+Pn (n : W.N) : DP.LO = LexL[LC.ord n].pow ;
+fstM (n : W.N) : DP.Map (LC.ord n) LW.omega = (\ p -> p.1,\ p q -> refl (W.cmpN p.1 q.1)) ;
+mfst (n : W.N) (s : W.List (Pt n)) : W.List W.N = W.map (Pt n) W.N (\ p -> p.1) s ;
+codeP (n : W.N) (S : (Pn n).car) : W.N = bcode (mfst n S.1) ;
+decF (n : W.N) (S : (Pn n).car) : TT (NL.decB (mfst n S.1)) =
+  PL.trans W.Bool (NL.decB (mfst n S.1)) (LexL[LC.ord n].decB S.1) true (PM[LC.ord n,LW.omega,fstM n].decM S.1) S.2 ;
+allFst (n : W.N) : (s : W.List (Pt n)) -> TT (NL.allLt n (mfst n s)) = split {
+  nilL -> refl true ;
+  consL p t | r -> W.andB-intro (W.isLt (W.cmpN p.1 n)) (NL.allLt n (mfst n t)) (ltIs p.1 n p.2) r } ;
+codeBP (n : W.N) (S : (Pn n).car) : lt1 (codeP n S) (W.pow2 n) = codeB (mfst n S.1) n (decF n S) (allFst n S.1) ;
+codeCmpP (n : W.N) (S S' : (Pn n).car) : Id W.O3 (W.cmpN (codeP n S) (codeP n S')) ((Pn n).cmp S S') =
+  PL.trans W.O3 (W.cmpN (codeP n S) (codeP n S')) (NL.cmpL (mfst n S.1) (mfst n S'.1)) ((Pn n).cmp S S')
+    (codeCmp (mfst n S.1) (mfst n S'.1) (decF n S) (decF n S')) (PM[LC.ord n,LW.omega,fstM n].cmpM S.1 S'.1) ;
+codeM (n : W.N) : DP.Map (Pn n) LW.omega = (codeP n,codeCmpP n) ;
+codeInj (n : W.N) (S S' : (Pn n).car) (e : Id W.N (codeP n S) (codeP n S')) : Id (Pn n).car S S' =
+  (Pn n).ceq S S' (PL.trans W.O3 ((Pn n).cmp S S') (W.cmpN (codeP n S) (codeP n S')) eq
+    (PL.sym W.O3 (W.cmpN (codeP n S) (codeP n S')) ((Pn n).cmp S S') (codeCmpP n S S'))
+    (PL.subst W.N (\ z -> Id W.O3 (W.cmpN (codeP n S) z) eq) (codeP n S) (codeP n S') e (W.cmpN-refl (codeP n S)))) ;
+-- from a decoded list to a subset of [n]
+lift (n : W.N) : (s : W.List W.N) -> TT (NL.allLt n s) -> W.List (Pt n) = split {
+  nilL -> \ a -> nilL ;
+  consL x t | r -> \ a -> consL (x,isLtN x n (W.andB-l (W.isLt (W.cmpN x n)) (NL.allLt n t) a)) (r (W.andB-r (W.isLt (W.cmpN x n)) (NL.allLt n t) a)) } ;
+liftFst (n : W.N) : (s : W.List W.N) (a : TT (NL.allLt n s)) -> Id (W.List W.N) (mfst n (lift n s a)) s = split {
+  nilL -> \ a -> refl nilL ;
+  consL x t | r -> \ a -> PL.ap (W.List W.N) (W.List W.N) (\ u -> consL x u) (mfst n (lift n t (W.andB-r (W.isLt (W.cmpN x n)) (NL.allLt n t) a))) t
+    (r (W.andB-r (W.isLt (W.cmpN x n)) (NL.allLt n t) a)) } ;
+liftP (n c : W.N) (dd : Dec n c) : (Pn n).car =
+  (lift n dd.1 dd.2.2.1,PL.trans W.Bool (LexL[LC.ord n].decB (lift n dd.1 dd.2.2.1)) (NL.decB (mfst n (lift n dd.1 dd.2.2.1))) true
+    (PL.sym W.Bool (NL.decB (mfst n (lift n dd.1 dd.2.2.1))) (LexL[LC.ord n].decB (lift n dd.1 dd.2.2.1)) (PM[LC.ord n,LW.omega,fstM n].decM (lift n dd.1 dd.2.2.1)))
+    (PL.subst (W.List W.N) (\ u -> TT (NL.decB u)) dd.1 (mfst n (lift n dd.1 dd.2.2.1)) (PL.sym (W.List W.N) (mfst n (lift n dd.1 dd.2.2.1)) dd.1 (liftFst n dd.1 dd.2.2.1)) dd.2.1)) ;
+codeLift (n c : W.N) (dd : Dec n c) : Id W.N (codeP n (liftP n c dd)) c =
+  PL.trans W.N (bcode (mfst n (lift n dd.1 dd.2.2.1))) (bcode dd.1) c
+    (PL.ap (W.List W.N) W.N bcode (mfst n (lift n dd.1 dd.2.2.1)) dd.1 (liftFst n dd.1 dd.2.2.1)) dd.2.2.2 ;
+
+------------------------------------------------------------------------
+-- (1) THE ISOMORPHISM  D([n]) ~ [n + 2^n]
+Dn (n : W.N) : DP.LO = Dob (LC.ord n) ;
+En (n : W.N) : DP.LO = LC.ord (W.plus n (W.pow2 n)) ;
+phiF (n : W.N) : (Dn n).car -> (En n).car = split {
+  inl k -> (k.1,ltPlus k.1 n (W.pow2 n) k.2) ;
+  inr S -> (W.plus n (codeP n S),plusLt2 n (codeP n S) (W.pow2 n) (codeBP n S)) } ;
+phiMono (n : W.N) : (x y : (Dn n).car) -> Id W.O3 (W.cmpN (phiF n x).1 (phiF n y).1) ((Dn n).cmp x y) = split {
+  inl k -> split {
+    inl k' -> refl (W.cmpN k.1 k'.1) ;
+    inr S -> W.cmpN-lt-plus k.1 n (codeP n S) k.2 } ;
+  inr S -> split {
+    inl k -> PL.trans W.O3 (W.cmpN (W.plus n (codeP n S)) k.1) (W.flip (W.cmpN k.1 (W.plus n (codeP n S)))) gt
+      (W.cmpN-flip k.1 (W.plus n (codeP n S))) (PL.ap W.O3 W.O3 W.flip (W.cmpN k.1 (W.plus n (codeP n S))) lt (W.cmpN-lt-plus k.1 n (codeP n S) k.2)) ;
+    inr S' -> PL.trans W.O3 (W.cmpN (W.plus n (codeP n S)) (W.plus n (codeP n S'))) (W.cmpN (codeP n S) (codeP n S')) ((Pn n).cmp S S')
+      (W.cmpN-plus n (codeP n S) (codeP n S')) (codeCmpP n S S') } } ;
+phi (n : W.N) : DP.Map (Dn n) (En n) = (phiF n,phiMono n) ;
+phiInj (n : W.N) (x y : (Dn n).car) (e : Id W.N (phiF n x).1 (phiF n y).1) : Id (Dn n).car x y =
+  (Dn n).ceq x y (PL.trans W.O3 ((Dn n).cmp x y) (W.cmpN (phiF n x).1 (phiF n y).1) eq
+    (PL.sym W.O3 (W.cmpN (phiF n x).1 (phiF n y).1) ((Dn n).cmp x y) (phiMono n x y))
+    (PL.subst W.N (\ z -> Id W.O3 (W.cmpN (phiF n x).1 z) eq) (phiF n x).1 (phiF n y).1 e (W.cmpN-refl (phiF n x).1))) ;
+bnd (n p : W.N) (hp : lt1 p (W.plus n (W.pow2 n))) (d : (d : W.N) * Id W.N p (W.plus n d)) : lt1 d.1 (W.pow2 n) =
+  plusLtInv n d.1 (W.pow2 n) (PL.subst W.N (\ z -> lt1 z (W.plus n (W.pow2 n))) p (W.plus n d.1) d.2 hp) ;
+psiO (n : W.N) (q : (En n).car) : Cut n q.1 -> (Dn n).car = split {
+  inl h -> inl (q.1,h) ;
+  inr d -> inr (liftP n d.1 (decode n d.1 (bnd n q.1 q.2 d))) } ;
+psiF (n : W.N) (q : (En n).car) : (Dn n).car = psiO n q (cutN n q.1) ;
+phiPsiO (n : W.N) (q : (En n).car) : (o : Cut n q.1) -> Id W.N (phiF n (psiO n q o)).1 q.1 = split {
+  inl h -> refl q.1 ;
+  inr d -> PL.trans W.N (W.plus n (codeP n (liftP n d.1 (decode n d.1 (bnd n q.1 q.2 d))))) (W.plus n d.1) q.1
+    (PL.ap W.N W.N (\ z -> W.plus n z) (codeP n (liftP n d.1 (decode n d.1 (bnd n q.1 q.2 d)))) d.1 (codeLift n d.1 (decode n d.1 (bnd n q.1 q.2 d))))
+    (PL.sym W.N q.1 (W.plus n d.1) d.2) } ;
+-- the two inverse laws
+phiPsi (n : W.N) (q : (En n).car) : Id (En n).car (phiF n (psiF n q)) q =
+  FOE.ptEq (W.plus n (W.pow2 n)) (phiF n (psiF n q)) q (phiPsiO n q (cutN n q.1)) ;
+psiPhi (n : W.N) (x : (Dn n).car) : Id (Dn n).car (psiF n (phiF n x)) x =
+  phiInj n (psiF n (phiF n x)) x (PL.ap (En n).car W.N (\ z -> z.1) (phiF n (psiF n (phiF n x))) (phiF n x) (phiPsi n (phiF n x))) ;
+psiMono (n : W.N) (q q' : (En n).car) : Id W.O3 ((Dn n).cmp (psiF n q) (psiF n q')) (W.cmpN q.1 q'.1) =
+  PL.trans W.O3 ((Dn n).cmp (psiF n q) (psiF n q')) (W.cmpN (phiF n (psiF n q)).1 (phiF n (psiF n q')).1) (W.cmpN q.1 q'.1)
+    (PL.sym W.O3 (W.cmpN (phiF n (psiF n q)).1 (phiF n (psiF n q')).1) ((Dn n).cmp (psiF n q) (psiF n q')) (phiMono n (psiF n q) (psiF n q')))
+    (W.ap2 W.N W.N W.O3 W.cmpN (phiF n (psiF n q)).1 q.1 (phiF n (psiF n q')).1 q'.1 (phiPsiO n q (cutN n q.1)) (phiPsiO n q' (cutN n q'.1))) ;
+psi (n : W.N) : DP.Map (En n) (Dn n) = (psiF n,psiMono n) ;
+
+------------------------------------------------------------------------
+-- (2) WAINER'S ACTION ON NUMBERS, and agreement with D
+--   Wn sigma p = sigma p                                   if p < n
+--   Wn sigma (n + 2^{n0} + ... + 2^{nr}) = m + 2^{sigma n0} + ... + 2^{sigma nr}
+-- (n0 > ... > nr the binary digits, found by decode)
+WO (n m : W.N) (sg : DP.Map (LC.ord n) (LC.ord m)) (p : W.N) (hp : lt1 p (W.plus n (W.pow2 n))) : Cut n p -> W.N = split {
+  inl h -> (sg.1 (p,h)).1 ;
+  inr d -> W.plus m (bcode (mfst m (W.map (Pt n) (Pt m) sg.1 (lift n (decode n d.1 (bnd n p hp d)).1 (decode n d.1 (bnd n p hp d)).2.2.1)))) } ;
+Wn (n m : W.N) (sg : DP.Map (LC.ord n) (LC.ord m)) (p : W.N) (hp : lt1 p (W.plus n (W.pow2 n))) : W.N = WO n m sg p hp (cutN n p) ;
+agreeL (n m : W.N) (sg : DP.Map (LC.ord n) (LC.ord m)) (k : Pt n) (hp : lt1 k.1 (W.plus n (W.pow2 n))) :
+    (o : Cut n k.1) -> Id W.N (WO n m sg k.1 hp o) (sg.1 k).1 = split {
+  inl h -> PL.ap (Pt n) W.N (\ z -> (sg.1 z).1) (k.1,h) k (FOE.ptEq n (k.1,h) k (refl k.1)) ;
+  inr d -> CF.efq (Id W.N (WO n m sg k.1 hp (inr d)) (sg.1 k).1) (noPlusLt n d.1 (PL.subst W.N (\ z -> lt1 z n) k.1 (W.plus n d.1) d.2 k.2)) } ;
+agreeR (n m : W.N) (sg : DP.Map (LC.ord n) (LC.ord m)) (S : (Pn n).car) (hp : lt1 (W.plus n (codeP n S)) (W.plus n (W.pow2 n))) :
+    (o : Cut n (W.plus n (codeP n S))) -> Id W.N (WO n m sg (W.plus n (codeP n S)) hp o) (W.plus m (bcode (mfst m (W.map (Pt n) (Pt m) sg.1 S.1)))) = split {
+  inl h -> CF.efq (Id W.N (WO n m sg (W.plus n (codeP n S)) hp (inl h)) (W.plus m (bcode (mfst m (W.map (Pt n) (Pt m) sg.1 S.1)))))
+    (noPlusLt n (codeP n S) h) ;
+  inr d -> PL.ap (W.List (Pt n)) W.N (\ u -> W.plus m (bcode (mfst m (W.map (Pt n) (Pt m) sg.1 u))))
+    (liftP n d.1 (decode n d.1 (bnd n (W.plus n (codeP n S)) hp d))).1 S.1
+    (PL.ap (Pn n).car (W.List (Pt n)) (\ z -> z.1) (liftP n d.1 (decode n d.1 (bnd n (W.plus n (codeP n S)) hp d))) S
+      (codeInj n (liftP n d.1 (decode n d.1 (bnd n (W.plus n (codeP n S)) hp d))) S
+        (PL.trans W.N (codeP n (liftP n d.1 (decode n d.1 (bnd n (W.plus n (codeP n S)) hp d)))) d.1 (codeP n S)
+          (codeLift n d.1 (decode n d.1 (bnd n (W.plus n (codeP n S)) hp d)))
+          (PL.sym W.N (codeP n S) d.1 (plusInj n (codeP n S) d.1 d.2))))) } ;
+-- AGREEMENT: phi_m . D(sigma) = Wn sigma . phi_n, for every increasing injection sigma
+agree (n m : W.N) (sg : DP.Map (LC.ord n) (LC.ord m)) : (x : (Dn n).car) ->
+    Id W.N (Wn n m sg (phiF n x).1 (phiF n x).2) (phiF m ((Dar (LC.ord n) (LC.ord m) sg).1 x)).1 = split {
+  inl k -> agreeL n m sg k (phiF n (inl k)).2 (cutN n k.1) ;
+  inr S -> agreeR n m sg S (phiF n (inr S)).2 (cutN n (W.plus n (codeP n S))) } ;
+-- Wainer's formula verbatim: a subset S goes to its direct image
+wainer (n m : W.N) (sg : DP.Map (LC.ord n) (LC.ord m)) (S : (Pn n).car) :
+    Id W.N (Wn n m sg (W.plus n (codeP n S)) (phiF n (inr S)).2) (W.plus m (bcode (mfst m (W.map (Pt n) (Pt m) sg.1 S.1)))) =
+  agree n m sg (inr S) ;
+-- and the whole conjugate is Wainer's map
+conj (n m : W.N) (sg : DP.Map (LC.ord n) (LC.ord m)) (q : (En n).car) :
+    Id W.N (phiF m ((Dar (LC.ord n) (LC.ord m) sg).1 (psiF n q))).1 (Wn n m sg q.1 q.2) =
+  PL.subst (En n).car (\ z -> Id W.N (phiF m ((Dar (LC.ord n) (LC.ord m) sg).1 (psiF n q))).1 (Wn n m sg z.1 z.2))
+    (phiF n (psiF n q)) q (phiPsi n q)
+    (PL.sym W.N (Wn n m sg (phiF n (psiF n q)).1 (phiF n (psiF n q)).2) (phiF m ((Dar (LC.ord n) (LC.ord m) sg).1 (psiF n q))).1 (agree n m sg (psiF n q))) ;
+
+------------------------------------------------------------------------
+-- (3) COLIMITS OF CHAINS OF EMBEDDINGS
+Diff (n m : W.N) : U l = W.Or ((k : W.N) * Id W.N m (W.plus k n)) ((k : W.N) * Id W.N n (W.plus k m)) ;
+diffS (n m : W.N) : Diff n m -> Diff (suc n) (suc m) = split {
+  inl q -> inl (q.1,PL.trans W.N (suc m) (suc (W.plus q.1 n)) (W.plus q.1 (suc n)) (W.sucEq m (W.plus q.1 n) q.2) (PL.sym W.N (W.plus q.1 (suc n)) (suc (W.plus q.1 n)) (W.plus-sucR q.1 n))) ;
+  inr q -> inr (q.1,PL.trans W.N (suc n) (suc (W.plus q.1 m)) (W.plus q.1 (suc m)) (W.sucEq n (W.plus q.1 m) q.2) (PL.sym W.N (W.plus q.1 (suc m)) (suc (W.plus q.1 m)) (W.plus-sucR q.1 m))) } ;
+diff : (n m : W.N) -> Diff n m = split {
+  zero -> \ m -> inl (m,PL.sym W.N (W.plus m zero) m (W.plus-zero m)) ;
+  suc n | r -> split {
+    zero -> inr (suc n,PL.sym W.N (W.plus (suc n) zero) (suc n) (W.plus-zero (suc n))) ;
+    suc m -> diffS n m (r m) } } ;
+mInj (A B : DP.LO) (f : DP.Map A B) (a a' : A.car) (e : Id B.car (f.1 a) (f.1 a')) : Id A.car a a' =
+  A.ceq a a' (PL.trans W.O3 (A.cmp a a') (B.cmp (f.1 a) (f.1 a')) eq (PL.sym W.O3 (B.cmp (f.1 a) (f.1 a')) (A.cmp a a') (f.2 a a'))
+    (PL.subst B.car (\ z -> Id W.O3 (B.cmp (f.1 a) z) eq) (f.1 a) (f.1 a') e (B.crefl (f.1 a)))) ;
+
+module Colim (C : W.N -> DP.LO) (c : (n : W.N) -> DP.Map (C n) (C (suc n))) {
+  Cocone (M : DP.LO) : U l = (g : (n : W.N) -> DP.Map (C n) M) *
+    ((n : W.N) (a : (C n).car) -> Id M.car ((g (suc n)).1 ((c n).1 a)) ((g n).1 a)) ;
+  -- a colimit: a cocone of embeddings, jointly surjective
+  Colimit (L : DP.LO) : U l = (i : Cocone L) * ((x : L.car) -> (n : W.N) * ((a : (C n).car) * Id L.car ((i.1 n).1 a) x)) ;
+  up (n : W.N) : (k : W.N) -> (C n).car -> (C (W.plus k n)).car = split {
+    zero -> \ a -> a ;
+    suc k | r -> \ a -> (c (W.plus k n)).1 (r a) } ;
+  upC (M : DP.LO) (g : Cocone M) (n : W.N) (a : (C n).car) : (k : W.N) -> Id M.car ((g.1 (W.plus k n)).1 (up n k a)) ((g.1 n).1 a) = split {
+    zero -> refl ((g.1 n).1 a) ;
+    suc k | r -> PL.trans M.car ((g.1 (suc (W.plus k n))).1 ((c (W.plus k n)).1 (up n k a))) ((g.1 (W.plus k n)).1 (up n k a)) ((g.1 n).1 a)
+      (g.2 (W.plus k n) (up n k a)) r } ;
+  -- universal property: a unique map to any other cocone, and it is an embedding
+  module UP (L : DP.LO) (cl : Colimit L) (M : DP.LO) (g : Cocone M) {
+    i : Cocone L = cl.1 ;
+    matchUp (n : W.N) (a : (C n).car) (k : W.N) (b : (C (W.plus k n)).car) (e : Id L.car ((i.1 (W.plus k n)).1 b) ((i.1 n).1 a)) :
+        Id M.car ((g.1 (W.plus k n)).1 b) ((g.1 n).1 a) =
+      PL.trans M.car ((g.1 (W.plus k n)).1 b) ((g.1 (W.plus k n)).1 (up n k a)) ((g.1 n).1 a)
+        (PL.ap (C (W.plus k n)).car M.car (g.1 (W.plus k n)).1 b (up n k a)
+          (mInj (C (W.plus k n)) L (i.1 (W.plus k n)) b (up n k a)
+            (PL.trans L.car ((i.1 (W.plus k n)).1 b) ((i.1 n).1 a) ((i.1 (W.plus k n)).1 (up n k a)) e
+              (PL.sym L.car ((i.1 (W.plus k n)).1 (up n k a)) ((i.1 n).1 a) (upC L i n a k)))))
+        (upC M g n a k) ;
+    matchD (n : W.N) (a : (C n).car) (m : W.N) (b : (C m).car) (e : Id L.car ((i.1 m).1 b) ((i.1 n).1 a)) :
+        Diff n m -> Id M.car ((g.1 m).1 b) ((g.1 n).1 a) = split {
+      inl q -> PL.subst W.N (\ m' -> (b' : (C m').car) -> Id L.car ((i.1 m').1 b') ((i.1 n).1 a) -> Id M.car ((g.1 m').1 b') ((g.1 n).1 a))
+        (W.plus q.1 n) m (PL.sym W.N m (W.plus q.1 n) q.2) (\ b' e' -> matchUp n a q.1 b' e') b e ;
+      inr q -> PL.sym M.car ((g.1 n).1 a) ((g.1 m).1 b)
+        (PL.subst W.N (\ n' -> (a' : (C n').car) -> Id L.car ((i.1 n').1 a') ((i.1 m).1 b) -> Id M.car ((g.1 n').1 a') ((g.1 m).1 b))
+          (W.plus q.1 m) n (PL.sym W.N n (W.plus q.1 m) q.2) (\ a' e' -> matchUp m b q.1 a' e') a
+          (PL.sym L.car ((i.1 m).1 b) ((i.1 n).1 a) e)) } ;
+    u (x : L.car) : M.car = (g.1 (cl.2 x).1).1 (cl.2 x).2.1 ;
+    uComm (n : W.N) (a : (C n).car) : Id M.car (u ((i.1 n).1 a)) ((g.1 n).1 a) =
+      matchD n a (cl.2 ((i.1 n).1 a)).1 (cl.2 ((i.1 n).1 a)).2.1 (cl.2 ((i.1 n).1 a)).2.2 (diff n (cl.2 ((i.1 n).1 a)).1) ;
+    uniq (v : L.car -> M.car) (hv : (n : W.N) (a : (C n).car) -> Id M.car (v ((i.1 n).1 a)) ((g.1 n).1 a)) (x : L.car) : Id M.car (v x) (u x) =
+      PL.trans M.car (v x) (v ((i.1 (cl.2 x).1).1 (cl.2 x).2.1)) (u x)
+        (PL.ap L.car M.car v x ((i.1 (cl.2 x).1).1 (cl.2 x).2.1) (PL.sym L.car ((i.1 (cl.2 x).1).1 (cl.2 x).2.1) x (cl.2 x).2.2))
+        (hv (cl.2 x).1 (cl.2 x).2.1) ;
+    cmpUp (n : W.N) (a : (C n).car) (k : W.N) (b : (C (W.plus k n)).car) :
+        Id W.O3 (M.cmp ((g.1 n).1 a) ((g.1 (W.plus k n)).1 b)) (L.cmp ((i.1 n).1 a) ((i.1 (W.plus k n)).1 b)) =
+      PL.trans W.O3 (M.cmp ((g.1 n).1 a) ((g.1 (W.plus k n)).1 b)) ((C (W.plus k n)).cmp (up n k a) b) (L.cmp ((i.1 n).1 a) ((i.1 (W.plus k n)).1 b))
+        (PL.subst M.car (\ z -> Id W.O3 (M.cmp z ((g.1 (W.plus k n)).1 b)) ((C (W.plus k n)).cmp (up n k a) b))
+          ((g.1 (W.plus k n)).1 (up n k a)) ((g.1 n).1 a) (upC M g n a k) ((g.1 (W.plus k n)).2 (up n k a) b))
+        (PL.sym W.O3 (L.cmp ((i.1 n).1 a) ((i.1 (W.plus k n)).1 b)) ((C (W.plus k n)).cmp (up n k a) b)
+          (PL.subst L.car (\ z -> Id W.O3 (L.cmp z ((i.1 (W.plus k n)).1 b)) ((C (W.plus k n)).cmp (up n k a) b))
+            ((i.1 (W.plus k n)).1 (up n k a)) ((i.1 n).1 a) (upC L i n a k) ((i.1 (W.plus k n)).2 (up n k a) b))) ;
+    cmpSw (n : W.N) (a : (C n).car) (m : W.N) (b : (C m).car)
+        (h : Id W.O3 (M.cmp ((g.1 m).1 b) ((g.1 n).1 a)) (L.cmp ((i.1 m).1 b) ((i.1 n).1 a))) :
+        Id W.O3 (M.cmp ((g.1 n).1 a) ((g.1 m).1 b)) (L.cmp ((i.1 n).1 a) ((i.1 m).1 b)) =
+      PL.trans W.O3 (M.cmp ((g.1 n).1 a) ((g.1 m).1 b)) (W.flip (L.cmp ((i.1 m).1 b) ((i.1 n).1 a))) (L.cmp ((i.1 n).1 a) ((i.1 m).1 b))
+        (PL.trans W.O3 (M.cmp ((g.1 n).1 a) ((g.1 m).1 b)) (W.flip (M.cmp ((g.1 m).1 b) ((g.1 n).1 a))) (W.flip (L.cmp ((i.1 m).1 b) ((i.1 n).1 a)))
+          (M.cflip ((g.1 m).1 b) ((g.1 n).1 a)) (PL.ap W.O3 W.O3 W.flip (M.cmp ((g.1 m).1 b) ((g.1 n).1 a)) (L.cmp ((i.1 m).1 b) ((i.1 n).1 a)) h))
+        (PL.sym W.O3 (L.cmp ((i.1 n).1 a) ((i.1 m).1 b)) (W.flip (L.cmp ((i.1 m).1 b) ((i.1 n).1 a))) (L.cflip ((i.1 m).1 b) ((i.1 n).1 a))) ;
+    cmpD (n : W.N) (a : (C n).car) (m : W.N) (b : (C m).car) :
+        Diff n m -> Id W.O3 (M.cmp ((g.1 n).1 a) ((g.1 m).1 b)) (L.cmp ((i.1 n).1 a) ((i.1 m).1 b)) = split {
+      inl q -> PL.subst W.N (\ m' -> (b' : (C m').car) -> Id W.O3 (M.cmp ((g.1 n).1 a) ((g.1 m').1 b')) (L.cmp ((i.1 n).1 a) ((i.1 m').1 b')))
+        (W.plus q.1 n) m (PL.sym W.N m (W.plus q.1 n) q.2) (\ b' -> cmpUp n a q.1 b') b ;
+      inr q -> cmpSw n a m b
+        (PL.subst W.N (\ n' -> (a' : (C n').car) -> Id W.O3 (M.cmp ((g.1 m).1 b) ((g.1 n').1 a')) (L.cmp ((i.1 m).1 b) ((i.1 n').1 a')))
+          (W.plus q.1 m) n (PL.sym W.N n (W.plus q.1 m) q.2) (\ a' -> cmpUp m b q.1 a') a) } ;
+    uMono (x y : L.car) : Id W.O3 (M.cmp (u x) (u y)) (L.cmp x y) =
+      PL.trans W.O3 (M.cmp (u x) (u y)) (L.cmp ((i.1 (cl.2 x).1).1 (cl.2 x).2.1) ((i.1 (cl.2 y).1).1 (cl.2 y).2.1)) (L.cmp x y)
+        (cmpD (cl.2 x).1 (cl.2 x).2.1 (cl.2 y).1 (cl.2 y).2.1 (diff (cl.2 x).1 (cl.2 y).1))
+        (W.ap2 L.car L.car W.O3 L.cmp ((i.1 (cl.2 x).1).1 (cl.2 x).2.1) x ((i.1 (cl.2 y).1).1 (cl.2 y).2.1) y (cl.2 x).2.2 (cl.2 y).2.2) ;
+    uMap : DP.Map L M = (u,uMono) ;
+  } ;
+} ;
+
+------------------------------------------------------------------------
+-- (3a) D along the standard inclusions [n] -> [n+1]: colimit omega + omega
+incl (n : W.N) : DP.Map (LC.ord n) (LC.ord (suc n)) = (\ p -> (p.1,W.ltN-sucR p.1 n p.2),\ p q -> refl (W.cmpN p.1 q.1)) ;
+dch (n : W.N) : DP.Map (Dn n) (Dn (suc n)) = Dar (LC.ord n) (LC.ord (suc n)) (incl n) ;
+OO : DP.LO = PS.SumLO[LW.omega,LW.omega].lo ;
+iD (n : W.N) : DP.Map (Dn n) OO = PS.SumMap[LC.ord n,Pn n,LW.omega,LW.omega,fstM n,codeM n].map ;
+fstIncl (n : W.N) : (s : W.List (Pt n)) -> Id (W.List W.N) (mfst (suc n) (W.map (Pt n) (Pt (suc n)) (incl n).1 s)) (mfst n s) = split {
+  nilL -> refl nilL ;
+  consL p t | r -> PL.ap (W.List W.N) (W.List W.N) (\ u -> consL p.1 u) (mfst (suc n) (W.map (Pt n) (Pt (suc n)) (incl n).1 t)) (mfst n t) r } ;
+iDcomm (n : W.N) : (x : (Dn n).car) -> Id OO.car ((iD (suc n)).1 ((dch n).1 x)) ((iD n).1 x) = split {
+  inl k -> refl (inl k.1) ;
+  inr S -> PL.ap W.N OO.car (\ z -> inr z) (bcode (mfst (suc n) (W.map (Pt n) (Pt (suc n)) (incl n).1 S.1))) (codeP n S)
+    (PL.ap (W.List W.N) W.N bcode (mfst (suc n) (W.map (Pt n) (Pt (suc n)) (incl n).1 S.1)) (mfst n S.1) (fstIncl n S.1)) } ;
+leDbl : (c : W.N) -> lt1 c (suc (W.dblN c)) = split {
+  zero -> refl true ;
+  suc c | r -> W.ltN-sucR c (suc (W.dblN c)) r } ;
+ltPow : (c : W.N) -> lt1 c (W.pow2 c) = split {
+  zero -> refl true ;
+  suc c | r -> W.ltN-le-lt (suc c) (suc (W.dblN c)) (W.dblN (W.pow2 c)) (leDbl c) (W.ltN-dbl1 c (W.pow2 c) r) } ;
+preD : (x : OO.car) -> (n : W.N) * ((a : (Dn n).car) * Id OO.car ((iD n).1 a) x) = split {
+  inl k -> (suc k,(inl (k,W.ltN-suc k),refl (inl k))) ;
+  inr c -> (c,(inr (liftP c c (decode c c (ltPow c))),
+    PL.ap W.N OO.car (\ z -> inr z) (codeP c (liftP c c (decode c c (ltPow c)))) c (codeLift c c (decode c c (ltPow c))))) } ;
+colimD : Colim[Dn,dch].Colimit OO = ((iD,iDcomm),preD) ;
+
+-- (3b) the same sizes [n + 2^n] along initial-segment inclusions: colimit omega
+posPP (P : W.N) (h : lt1 zero P) : lt1 P (W.plus P P) =
+  PL.subst W.N (\ z -> lt1 z (W.plus P P)) (W.plus P zero) P (W.plus-zero P)
+    (PL.trans W.Bool (W.ltN (W.plus P zero) (W.plus P P)) (W.ltN zero P) true (W.ltN-plus P zero P) h) ;
+wk (n x : W.N) (h : lt1 x (W.plus n (W.pow2 n))) : lt1 x (W.plus (suc n) (W.pow2 (suc n))) =
+  W.ltN-sucR x (W.plus n (W.dblN (W.pow2 n)))
+    (PL.subst W.N (\ z -> lt1 x (W.plus n z)) (W.plus (W.pow2 n) (W.pow2 n)) (W.dblN (W.pow2 n))
+      (PL.sym W.N (W.dblN (W.pow2 n)) (W.plus (W.pow2 n) (W.pow2 n)) (W.dblN-plus (W.pow2 n)))
+      (ltTr x (W.plus n (W.pow2 n)) (W.plus n (W.plus (W.pow2 n) (W.pow2 n))) h
+        (plusLt2 n (W.pow2 n) (W.plus (W.pow2 n) (W.pow2 n)) (posPP (W.pow2 n) (posP n))))) ;
+ech (n : W.N) : DP.Map (En n) (En (suc n)) = (\ p -> (p.1,wk n p.1 p.2),\ p q -> refl (W.cmpN p.1 q.1)) ;
+iE (n : W.N) : DP.Map (En n) LW.omega = fstM (W.plus n (W.pow2 n)) ;
+leSelf : (k j : W.N) -> lt1 k (suc (W.plus k j)) = split {
+  zero -> \ j -> refl true ;
+  suc k | r -> \ j -> r j } ;
+ltSelf (k : W.N) : lt1 k (W.plus k (W.pow2 k)) =
+  PL.subst W.N (\ z -> lt1 k (W.plus k z)) (suc (W.pow2S k).1) (W.pow2 k) (PL.sym W.N (W.pow2 k) (suc (W.pow2S k).1) (W.pow2S k).2)
+    (PL.subst W.N (\ z -> lt1 k z) (suc (W.plus k (W.pow2S k).1)) (W.plus k (suc (W.pow2S k).1))
+      (PL.sym W.N (W.plus k (suc (W.pow2S k).1)) (suc (W.plus k (W.pow2S k).1)) (W.plus-sucR k (W.pow2S k).1))
+      (leSelf k (W.pow2S k).1)) ;
+colimE : Colim[En,ech].Colimit LW.omega =
+  ((iE,\ n a -> refl a.1),\ k -> (k,((k,ltSelf k),refl k))) ;
+
+-- computed instances.  In [2 + 2^2] = [6], 5 = 2 + 2^1 + 2^0 is the subset {1,0};
+-- the shift k |-> k+1 : [2] -> [3] sends it to 3 + 2^2 + 2^1 = 9.
+shift : DP.Map (LC.ord (suc (suc zero))) (LC.ord (suc (suc (suc zero)))) = (\ p -> (suc p.1,p.2),\ p q -> refl (W.cmpN p.1 q.1)) ;
+exPsi : Id (Dn (suc (suc zero))).car (psiF (suc (suc zero)) (suc (suc (suc (suc (suc zero)))),refl true))
+    (inr (consL (suc zero,refl true) (consL (zero,refl true) nilL),refl true)) =
+  refl (inr (consL (suc zero,refl true) (consL (zero,refl true) nilL),refl true)) ;
+exShift : Id W.N (Wn (suc (suc zero)) (suc (suc (suc zero))) shift (suc (suc (suc (suc (suc zero))))) (refl true))
+    (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))) = refl (suc (suc (suc (suc (suc (suc (suc (suc (suc zero))))))))) ;
