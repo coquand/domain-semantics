@@ -711,6 +711,59 @@ Gamma~: stages >= top are replaced by Phi-bar.
   - kind II cuts in the input (11.4.3 for families);
   - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
 
+## Diagonal identity law for S4 homogeneity DONE (2026-11-21, All.seg 35471 declarations, green)
+
+**Theorem** (`BetaIDS4Diag.Fin[ev,phi,evN,hPos].diagId`). Same hypotheses as
+`Hom.hom` (EvN ev, posX phi 0 = true). Let o be an input family with
+certificate ac, Y a well-order with wY, c : Cst -> Cst, tau_Z : kZ -> kZ,
+f : Y -> Y, and rl : RelIn o o c tau ARBITRARY. Assume pointwise
+c w = w, tau_Z p = p, f y = y, and the pointwise km identity law
+(km Z Z id) p = p. Then for every z in E = (Thm.thm o ac Y wY).1,
+`(hom o o c tau rl ac ac Y Y wY wY f).1 .1 z = z`.
+- The km law is a clean sufficient hypothesis; minimality is open (see
+  the caveats in NEXT_SESSION_DIAG.md). No other extra hypothesis:
+  funext enters only through LOCat.map-eq (km along a pointwise identity).
+- The deliverable is about the map that hom computes; IObj, Thm.thm, hom
+  are unchanged. No holes, no postulates.
+
+Proof structure (files `BetaIDS4Diag*.seg`, about 960 lines):
+- `BetaIDS4Diag.Wrap`: the accessibility wrapper. The shared Good root
+  equation is eliminated ONCE (J on g.1 with both occurrences varying);
+  the recursion on the tree gives the induction hypothesis IHD for the
+  children (same step on both sides, any cs, taus, rs).
+- `BetaIDS4DiagBase`: the hypotheses (DB.KmId/CId/TId/FId), kmF, betaId,
+  IHD; UIP for LO carriers; UIP for rules (RuleSet: code into
+  N x N x Form x LL x Lb x Opt, decidable equality, Hedberg); omId/lmId/mEId;
+  based J at the endpoint (JE); PropFam (normalised transport over a
+  proposition, fixing every point).
+- The recursion is NOT diagonal definitionally: NodeD.Cases.out does J on
+  relE0 : r0' = tau-image of r0, and the target steps carry other proofs
+  or points (stage beta nu, constant c c0, variable f y). So the node law
+  is heterogeneous:
+  - `DiagNode` (dispatcher): the map at (rr, e) -> (MZ.mR rr, e') is the
+    transport Tr2 along the singleton (z, Id r0 z); split rr, J on the
+    mapped parameter (w = MZ.lm w, e0 = MZ.mE e0, mu0 = tau mu0,
+    oo0 = MZ.om oo0), UIP for rules; then the homogeneous case.
+  - `DiagReg` (kept rules): DSumMap(lmap, em) fixes every point; number
+    labels by IHD (the same plain step on both sides); stage labels after
+    the two Bool splits of pv reduce to the stage law SPRD (the summand
+    point at nu equals the image point at beta nu, through the embeddings
+    ib, i2 of the split providers).
+  - `DiagRbK3`: (r-bar) e2 = e1 + id; kind III e3 = e1 + ((1 + t1) + e2)
+    with f1 pointwise id and the tail maps t, t1 identities (DTail: from
+    tlp and injectivity of sigma^-1, no decision computed).
+  - `DiagXl`: SPRD for the (xl) stage relation. Points live in a total
+    space TW over (v, hm, hlt, w, ew); pWH moves the point at nu to the
+    point at beta nu: J on weq, split w, contract to the canonical stage
+    sigma^-1(inl w) by JE, then J on c0 = c c0 (constant) or y = f y
+    (variable) and UIP (O3, Bool), then IHD (the variable child at E0
+    through the shift data c + f, tau . k(f + id), with the upper-tail map
+    an identity). The bridge TW -> summands is PropFam over the
+    proposition (hm, hlt, w, ew).
+- Remaining: composition across three certificates, inverse laws,
+  certificate independence up to a specified isomorphism, the trace-range
+  laws of 11.4.4(iii); minimality of the km hypothesis.
+
 ## Homogeneity of S4 DONE (2026-11-21, All.seg 35005 declarations, green)
 
 **Theorem** (`BetaIDS4HomFin.Hom[ev,phi,evN,hPos].hom : Stmt.Goal`).
