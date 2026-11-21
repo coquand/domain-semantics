@@ -1,0 +1,47 @@
+-- Comparison of the cut-free premises and the one-rule assembly used by RegAsm.
+level l ;
+open Base ; open Prelude[l+] ; open ScottOrder[l] ;
+module P = Prelude[l] ; module W = Dilator[l] ; module DP = DilPtyx[l] ;
+module LT = LabTree[l] ; module BI = BetaID[l] ; module S = BetaIDS4[l] ;
+module Compare (ev : (X : DP.LO) -> W.N -> LT.LL X -> W.Bool) (phi : BI.Form) (evN : S.EvN ev)
+ (A B : DP.LO) (g : DP.Map A B) (t : A.car) (t' : B.car) (et : Id B.car (g.1 t) t') {
+ module N = BetaIDHom[l].NH[ev,phi,A,B,g,S.evMap ev evN A B g,t,t',et] ;
+ module I = BI.ID[ev,phi] ;
+ module WF (wa : LOWF[l].WF A) (wb : LOWF[l].WF B) (pa : N.WfA) (pb : N.WfB) {
+  module St = N.St[wa,wb,pa,pb] ;
+  module CA = S.CfDv[ev,phi,A,t,wa,pa] ;
+  module CB = S.CfDv[ev,phi,B,t',wb,pb] ;
+  cf2dvR : (d : N.FA) (d' : N.FB) -> N.RelF d d' -> N.RelD (CA.cf2dv d) (CB.cf2dv d') = split {
+   cAx b k e -> \ d' z -> P.ap N.FB N.DB CB.cf2dv d' (cAx b k (N.mE e)) z ;
+   cAnd p q e d0 d1 | rec0 rec1 -> \ d' z -> (CB.cf2dv z.1,(CB.cf2dv z.2.1,(P.ap N.FB N.DB CB.cf2dv d' (cAnd p q (N.mE e) z.1 z.2.1) z.2.2.1,(rec0 z.1 z.2.2.2.1,rec1 z.2.1 z.2.2.2.2)))) ;
+   cOr p q e d0 | rec -> \ d' z -> (CB.cf2dv z.1,(P.ap N.FB N.DB CB.cf2dv d' (cOr p q (N.mE e) z.1) z.2.1,rec z.1 z.2.2)) ;
+   cAll p e kk | rec -> \ d' z -> ((\ x -> CB.cf2dv (z.1 x)),(P.ap N.FB N.DB CB.cf2dv d' (cAll p (N.mE e) z.1) z.2.1,\ x h -> rec x (z.1 (N.lm x)) (z.2.2 x))) ;
+   cEx p e w d0 | rec -> \ d' z -> (CB.cf2dv z.1,(P.ap N.FB N.DB CB.cf2dv d' (cEx p (N.mE e) (N.lm w) z.1) z.2.1,rec z.1 z.2.2)) ;
+   cXr s k e mu d0 | rec -> \ d' z -> (CB.cf2dv z.1,(P.ap N.FB N.DB CB.cf2dv d' (cXr s k (N.mE e) (g.1 mu) z.1) z.2.1,rec z.1 z.2.2)) ;
+   cXl s k e o kk | rec -> \ d' z -> ((\ x -> CB.cf2dv (z.1 x)),(P.ap N.FB N.DB CB.cf2dv d' (cXl s k (N.mE e) (N.om o) z.1) z.2.1,\ x h -> rec x (z.1 (N.lm x)) (z.2.2 x))) } ;
+  -- CHR asks only for children at valid source branches.
+  assemble (r : I.Rule A) (r' : I.Rule B) (er : Id (I.Rule B) r' (N.M.mR r))
+   (H : N.SA) (H' : N.SB) (eg : Id N.SB H' (N.M.mS H))
+   (ch : N.LA -> N.DA) (ch' : N.LB -> N.DB) (children : St.CHR r ch ch')
+   (ok : St.KCA.OkD (St.CTA.ruleD H t r ch) H)
+   (ok' : St.KCB.OkD (St.CTB.ruleD H' t' r' ch') H') :
+   N.RelF (St.KCA.elim (St.CTA.ruleD H t r ch) H ok).1
+          (St.KCB.elim (St.CTB.ruleD H' t' r' ch') H' ok').1 =
+   St.elimR (St.CTA.ruleD H t r ch) (St.CTB.ruleD H' t' r' ch')
+    (St.ruleDR r r' er H H' eg t t' (P.sym B.car (g.1 t) t' et) ch ch' children) H H' ok ok' ;
+ } ;
+} ;
+
+
+-- premise selection at an ordinal branch: if the source branch stage z is
+-- inl nu and its image v z = (beta + dm) z is inl nu', then nu' = beta nu
+-- (the target preX selects the image of the source label; no comparison
+-- of the validity proofs is needed)
+selStage (A A' Dl Dl' : DP.LO) (beta : DP.Map A A') (dm : DP.Map Dl Dl')
+  (z : (S.Sm A Dl).car) (nu : A.car) (ez : Id (S.Sm A Dl).car z (inl nu))
+  (nu' : A'.car) (ez' : Id (S.Sm A' Dl').car ((PtyxSum[l].SumMap[A,Dl,A',Dl',beta,dm].map).1 z) (inl nu')) :
+    Id A'.car nu' (beta.1 nu) =
+  PtyxSum[l].SumLO[A',Dl'].inl-inj nu' (beta.1 nu)
+    (P.trans (S.Sm A' Dl').car (inl nu') ((PtyxSum[l].SumMap[A,Dl,A',Dl',beta,dm].map).1 z) (inl (beta.1 nu))
+      (P.sym (S.Sm A' Dl').car ((PtyxSum[l].SumMap[A,Dl,A',Dl',beta,dm].map).1 z) (inl nu') ez')
+      (P.ap (S.Sm A Dl).car (S.Sm A' Dl').car (PtyxSum[l].SumMap[A,Dl,A',Dl',beta,dm].map).1 z (inl nu) ez)) ;

@@ -129,3 +129,71 @@ module Variable (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (
     H.V0.RelF (B0.back G d).1 (B1.back G' d').1 = H.alg d.1 d'.1 rr ;
 } ;
 } ;
+
+------------------------------------------------------------------------
+-- the dependent sums of Comb, compared along a map of labels l and maps
+-- e_a : E_a -> E'_(l a):  (a, x) |-> (l a, e_a x)
+module DSumMap (I1 I2 : DP.LO) (E1 : I1.car -> DP.LO) (E2 : I2.car -> DP.LO) (lm : DP.Map I1 I2)
+  (em : (a : I1.car) -> DP.Map (E1 a) (E2 (lm.1 a))) {
+  module D1 = DSumLO[l].DSum[I1,E1] ;
+  module D2 = DSumLO[l].DSum[I2,E2] ;
+  dm (p : D1.Car) : D2.Car = (lm.1 p.1,(em p.1).1 p.2) ;
+  -- equal indices
+  eqI (a : I1.car) : (b : I1.car) (q : Id I1.car a b) (x : (E1 a).car) (y : (E1 b).car) ->
+      Id W.O3 (D2.cmp (dm (a,x)) (dm (b,y))) (D1.cmp (a,x) (b,y)) = \ b q ->
+    idJ I1.car a (\ b0 q0 -> (x : (E1 a).car) (y : (E1 b0).car) -> Id W.O3 (D2.cmp (dm (a,x)) (dm (b0,y))) (D1.cmp (a,x) (b0,y)))
+      (\ x y -> P.trans W.O3 (D2.cmp (dm (a,x)) (dm (a,y))) ((E1 a).cmp x y) (D1.cmp (a,x) (a,y))
+        (P.trans W.O3 (D2.cmp (dm (a,x)) (dm (a,y))) ((E2 (lm.1 a)).cmp ((em a).1 x) ((em a).1 y)) ((E1 a).cmp x y)
+          (D2.cmpSame (lm.1 a) ((em a).1 x) ((em a).1 y)) ((em a).2 x y))
+        (P.sym W.O3 (D1.cmp (a,x) (a,y)) ((E1 a).cmp x y) (D1.cmpSame a x y))) b q ;
+  ltI (a b : I1.car) (x : (E1 a).car) (y : (E1 b).car) (h : Id W.O3 (I1.cmp a b) lt) :
+      Id W.O3 (D2.cmp (dm (a,x)) (dm (b,y))) (D1.cmp (a,x) (b,y)) =
+    P.trans W.O3 (D2.cmp (dm (a,x)) (dm (b,y))) lt (D1.cmp (a,x) (b,y))
+      (D2.ltMk1 (lm.1 a) (lm.1 b) ((em a).1 x) ((em b).1 y) (P.trans W.O3 (I2.cmp (lm.1 a) (lm.1 b)) (I1.cmp a b) lt (lm.2 a b) h))
+      (P.sym W.O3 (D1.cmp (a,x) (b,y)) lt (D1.ltMk1 a b x y h)) ;
+  fl : (c : W.O3) -> Id W.O3 c (W.flip (W.flip c)) = split { lt -> refl lt ; eq -> refl eq ; gt -> refl gt } ;
+  flipEq (c c' : W.O3) (h : Id W.O3 (W.flip c) (W.flip c')) : Id W.O3 c c' =
+    P.trans W.O3 c (W.flip (W.flip c)) c' (fl c) (P.trans W.O3 (W.flip (W.flip c)) (W.flip (W.flip c')) c' (P.ap W.O3 W.O3 W.flip (W.flip c) (W.flip c') h) (P.sym W.O3 c' (W.flip (W.flip c')) (fl c'))) ;
+  cmpC (a b : I1.car) (x : (E1 a).car) (y : (E1 b).car) : (c : W.O3) -> Id W.O3 (I1.cmp a b) c ->
+      Id W.O3 (D2.cmp (dm (a,x)) (dm (b,y))) (D1.cmp (a,x) (b,y)) = split {
+    lt -> \ h -> ltI a b x y h ;
+    eq -> \ h -> eqI a b (I1.ceq a b h) x y ;
+    gt -> \ h -> flipEq (D2.cmp (dm (a,x)) (dm (b,y))) (D1.cmp (a,x) (b,y))
+      (P.trans W.O3 (W.flip (D2.cmp (dm (a,x)) (dm (b,y)))) (D2.cmp (dm (b,y)) (dm (a,x))) (W.flip (D1.cmp (a,x) (b,y)))
+        (P.sym W.O3 (D2.cmp (dm (b,y)) (dm (a,x))) (W.flip (D2.cmp (dm (a,x)) (dm (b,y)))) (D2.cflip (dm (a,x)) (dm (b,y))))
+        (P.trans W.O3 (D2.cmp (dm (b,y)) (dm (a,x))) (D1.cmp (b,y) (a,x)) (W.flip (D1.cmp (a,x) (b,y)))
+          (ltI b a y x (P.trans W.O3 (I1.cmp b a) (W.flip (I1.cmp a b)) lt (I1.cflip a b) (P.ap W.O3 W.O3 W.flip (I1.cmp a b) gt h)))
+          (D1.cflip (a,x) (b,y)))) } ;
+  map : DP.Map D1.lo D2.lo = (dm,\ p q -> cmpC p.1 q.1 p.2 q.2 (I1.cmp p.1 q.1) (refl (I1.cmp p.1 q.1))) ;
+} ;
+
+------------------------------------------------------------------------
+-- Comb.move commutes with the comparison maps: the forward square holds
+-- on each summand by definition, the retraction square by beta top = top'
+module CombRel (ev : (A : DP.LO) -> W.N -> LT.LL A -> W.Bool) (phi : BI.Form) (evN : S.EvN ev)
+  (hPos : Id W.Bool (BO.posX phi zero) true)
+  (A A' : DP.LO) (top : A.car) (top' : A'.car) (beta : DP.Map A A') (bt : Id A'.car (beta.1 top) top')
+  (Ex : (LT.Lab A).car -> DP.LO) (Ex' : (LT.Lab A').car -> DP.LO) (lmap : DP.Map (LT.Lab A) (LT.Lab A'))
+  (em : (a : (LT.Lab A).car) -> DP.Map (Ex a) (Ex' (lmap.1 a))) (a : (LT.Lab A).car) {
+  module C1 = S.Comb[ev,phi,evN,hPos,A,top,Ex] ;
+  module C2 = S.Comb[ev,phi,evN,hPos,A',top',Ex'] ;
+  module DM = DSumMap[LT.Lab A,LT.Lab A',Ex,Ex',lmap,em] ;
+  vB : DP.Map C1.B C2.B = PtyxSum[l].SumMap[A,C1.D.lo,A',C2.D.lo,beta,DM.map].map ;
+  uA : DP.Map (S.Sm A (Ex a)) (S.Sm A' (Ex' (lmap.1 a))) = PtyxSum[l].SumMap[A,Ex a,A',Ex' (lmap.1 a),beta,em a].map ;
+  F : (z : (S.Sm A (Ex a)).car) -> Id C2.B.car ((C2.tauMap (lmap.1 a)).1 (uA.1 z)) (vB.1 ((C1.tauMap a).1 z)) = split {
+    inl p -> refl (inl (beta.1 p)) ;
+    inr x -> refl (inr (lmap.1 a,(em a).1 x)) } ;
+  G : (b : C1.B.car) -> Id (S.Sm A' (Ex' (lmap.1 a))).car (uA.1 (C1.rhoT a b)) (C2.rhoT (lmap.1 a) (vB.1 b)) = split {
+    inl p -> refl (inl (beta.1 p)) ;
+    inr q -> P.ap A'.car (S.Sm A' (Ex' (lmap.1 a))).car (\ z -> inl z) (beta.1 top) top' bt } ;
+  et : Id (S.Sm A' (Ex' (lmap.1 a))).car (uA.1 (inl top)) (inl top') = P.ap A'.car (S.Sm A' (Ex' (lmap.1 a))).car (\ z -> inl z) (beta.1 top) top' bt ;
+  module TL1 = BO.TrL[ev,phi,S.Sm A (Ex a),C1.B,C1.tauMap a,C1.rhoT a,S.evMap ev evN (S.Sm A (Ex a)) C1.B (C1.tauMap a),inl top,C1.hrT a,hPos] ;
+  module TL2 = BO.TrL[ev,phi,S.Sm A' (Ex' (lmap.1 a)),C2.B,C2.tauMap (lmap.1 a),C2.rhoT (lmap.1 a),
+    S.evMap ev evN (S.Sm A' (Ex' (lmap.1 a))) C2.B (C2.tauMap (lmap.1 a)),inl top',C2.hrT (lmap.1 a),hPos] ;
+  module H = Square[ev,phi,evN,S.Sm A (Ex a),C1.B,S.Sm A' (Ex' (lmap.1 a)),C2.B,C1.tauMap a,C2.tauMap (lmap.1 a),uA,vB,
+    C1.rhoT a,C2.rhoT (lmap.1 a),inl top,inl top',et,F,G,TL1.V.Bd,TL2.V.Bd,TL1.hb,TL2.hb] ;
+  -- the moved derivations are related
+  moveRel (G0 : BI.ID[ev,phi].Seq A) (G1 : BI.ID[ev,phi].Seq A')
+    (x : S.OutM[ev,phi,A,top].OnE (Ex a) G0) (x' : S.OutM[ev,phi,A',top'].OnE (Ex' (lmap.1 a)) G1)
+    (rr : H.U0.RelF x.1 x'.1) : H.V0.RelF (C1.move a G0 x).1 (C2.move (lmap.1 a) G1 x').1 = H.alg x.1 x'.1 rr ;
+} ;

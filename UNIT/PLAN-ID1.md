@@ -728,6 +728,14 @@ Gamma~: stages >= top are replaced by Phi-bar.
   the two squares. `Variable.Back.backRel`: the two OutBack.back
   derivations of a variable ordinal premise are related, given the child
   RelF witness.
+- `TrCSquare.DSumMap` and `TrCSquare.CombRel.moveRel`: Comb.move preserves
+  RelF along beta + (a, x) |-> (l a, e_a x).
+- `AssemblyRel.seg` (written by the user): cf2dvR (RelF gives RelD of the
+  cf2dv translations) and `assemble` (BetaIDHom ruleDR + elimR applied to
+  RegAsm's one-rule assembly; needs CHR at valid source branches only).
+  `selStage`: the target preX selects the image of the source stage.
+- OPEN for RegAsm: the concrete CHR witness, i.e. the related pv
+  providers, moveRel, cf2dvR, and the selection of target labels.
 - Next: the same for the other operations (Comb.move, RepR/CT.okRule plus
   elim via BetaIDHom, RBar/RenM, K3Node/S2C), then the induction on
   ac.1 with Good, with arbitrary f and the target certificate quantified.
