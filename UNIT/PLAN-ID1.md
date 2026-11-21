@@ -626,6 +626,15 @@ All.seg, green):
       alpha = Assoc[Cst,Y,..].g o Assoc[Cst+Y,T0,E1].g and beta is its
       inverse. rho uses sg_V1 and beta.
     - Lemma: rL2 (lm (km f1) l) = lm g (rL1 l), by natS and belowW.
+      DONE as `K3Ctx.seqC` (with lC, envC, gBelow, ltK), together with
+      V1, f1, alpha and g (dev loop, green, uncommitted).
+    - DONE: theta : kV1 + E2 = A1 + (T1 + E2) as an Iso composite, with
+      `thetaG` (theta (g a) = inl a on all of A1). Also `rho` (read off
+      theta), `hr` (g is initial: from theta b < inl a, by map-inj) and
+      `gTop` (g a < inl top_V1).
+    - Next: the kind III node, which applies S2C.out with
+      (g, rho, hr, gTop) and then transports along theta followed by
+      re-association.
     - Then S2C.out.
     - theta : A2 = kY + ((E1 + T1) + E2) as an Iso composite:
       isoSum (sg_V1)^-1, then beta + id, then isoAG, then isoSum sgi_Y,
@@ -682,6 +691,26 @@ All.seg, green):
   sgi_{V1}; R~ = IH(right premise, plain step) at V1; S2C; transport
   along the iso A2 = kY + ((E1 + T1) + E2).
 
+## S4 pointwise THEOREM DONE (2026-11-21, All.seg 33683 declarations, green)
+
+`BetaIDS4.Thm.thm`: every ACCESSIBLE input family o (homogeneous, locally
+correct, with sigma : kY = (Cst+Y)+(1+F'Y), all cuts of kind I or III)
+gives, at every well-order Y, a well-founded E and a CUT-FREE
+derivation (Cf) of rep G_Y at (kY + E, inl top_Y). This is Girard's
+Gamma~: stages >= top are replaced by Phi-bar.
+- Proof: AccR induction (`Disp`) on the root rule, read off at E0:
+  - RegAsm for ax/and/or/all/ex, xr with choice < top, xl, and kind I
+    cuts;
+  - RBar for xr with choice >= top;
+  - K3Sel/K3Node for kind III: polarity choice, then L~ at Y, R~ at V1,
+    seqC, S2C, and transport along theta + re-association (thetaG).
+- Hypotheses: EvN (atoms see only the numbers of labels) and
+  posX phi 0 = true. No LEM, no choice.
+- Not covered:
+  - homogeneity of the outputs (F~ natural; 11.4.4 ii-iii);
+  - kind II cuts in the input (11.4.3 for families);
+  - correct => accessible, which is classical (10.2.9; BetaAcc.Classical).
+
 ## Expected outcome / what would be new
 
 - A constructive, checked reconstruction of Girard's ID1 cut elimination,
@@ -699,6 +728,8 @@ All.seg, green):
   input objects, steps, accessibility, premise outputs at number and stage
   labels) are in All.seg: 33299 declarations, green. The rule assembly,
   the r-bar case, kind III and the final theorem are OPEN (in progress).
+- 2026-11-21 (end): Thm.thm DONE (see the "S4 pointwise THEOREM" section).
+  Not committed past 84caca2.
 - 2026-11-20: plan written.
 - 2026-11-20: S1 (pointwise) and S2+S1 DONE (see section above).
 - 2026-11-20: homogeneity of S1 (BetaIDHom) and of S2+S1 (BetaIDS2Hom) DONE;
