@@ -1,3 +1,6 @@
+# SUPERSEDED 2026-11-22: Pi-injectivity for T_Tarski is not needed; see PLAN-TR.md.
+# Kept: TSem, TSound, TRed; the domain is now levelled (LTypes..LSoundF), TInv done.
+
 # PLAN-TPIINJ: Pi-injectivity for T_Tarski in Unit, by the filter-domain adequacy
 
 Goal (sterbac4 §2 Thms 8-10 for the GAT, by transfer through Thm 16 / L18-19):

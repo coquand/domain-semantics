@@ -8,11 +8,9 @@ Checker: from `UNIT/`,
   $SEG GATCheck.seg        (704 decls, 0 failed, 0.2 s)
 Full repo check: `python3 UNIT/check.py` from DOMAIN (All.seg imports the §4 files at the end).
 Nothing committed yet (branch hide-old-archives); ask before committing.
-NEXT (2026-11-22, user decision): development stays in UNIT.
-Pi-injectivity for T_Tarski by the filter-domain adequacy of Unit
-(Consequences.seg method), re-done for T_Tarski: UNIT/PLAN-TPIINJ.md.
-Done: TSem.seg. Next: TSound.seg.  (ERT/GAT/ Agda port and
-ERT/PiInjectivityT.agda are committed but PARKED.)
+NEXT (2026-11-22, user): §5 T_Tarski <=> T_Russell in UNIT: UNIT/PLAN-TR.md.
+Pi-inj not needed; U-inj + no-confusion DONE (TInv.seg, levelled domain
+LTypes..LSoundF).  ERT/GAT Agda port + ERT/PiInjectivityT.agda PARKED.
 
 ## State of the paper
 
