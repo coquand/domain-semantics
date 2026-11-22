@@ -13,6 +13,7 @@ import ERT.UniquenessTermPartial  -- Lemma 4.10 (type-uniq, term-uniq, uniq-El)
 import ERT.Equivalence            -- Theorem 4.13: section of erasure
 -- §4.3: annotated T_R ⇔ unannotated T_P
 import ERT.PiInjectivityR         -- Π-injectivity of T_R, from domain-model adequacy
+import ERT.PiInjectivityT         -- Π-injectivity of T_T, transferred from T_R
 import ERT.StripDeriv             -- Theorem 4.15
 import ERT.Gap417                 -- the gap in the paper's proof of Lemma 4.17
 import ERT.StripUniq              -- Lemma 4.18 under weak normalisation of T_P (superseded)

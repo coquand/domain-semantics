@@ -24,6 +24,7 @@ paper's proof of Lemma 4.17.
 | U-injectivity, U/Π no-confusion (from the model) | [`Injectivity`](Injectivity.agda) | `U-inj-Ty-T`, … |
 | Lemma 4.10 (uniqueness up to conversion / common lift) | [`UniquenessTermPartial`](UniquenessTermPartial.agda) | `type-uniq`, `term-uniq`, `uniq-El` |
 | Theorem 4.13 (section of erasure) | [`Equivalence`](Equivalence.agda) | `lift-*`, `equivalence` |
+| Π-injectivity of `T_T` (from `PiInj-R`, 4.6, 4.13, 4.10) | [`PiInjectivityT`](PiInjectivityT.agda) | `PiInj-T` |
 
 ## §4.3 — annotated `T_R` ⇔ unannotated `T_P`
 
