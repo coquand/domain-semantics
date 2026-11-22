@@ -9,7 +9,8 @@ Checker: from `UNIT/`,
 Full repo check: `python3 UNIT/check.py` from DOMAIN (All.seg imports the §4 files at the end).
 Nothing committed yet (branch hide-old-archives); ask before committing.
 NEXT (2026-11-22, user): §5 T_Tarski <=> T_Russell in UNIT: UNIT/PLAN-TR.md.
-Lemmas 21, 25, 26, Cor 27 DONE in UNIT (TUniq*.seg); next Theorem 28 (TSection.seg).
+Lemmas 21, 25, 26, Cor 27 DONE in UNIT (TUniq*.seg); Theorem 28 DONE (TSection.seg):
+§5 COMPLETE in UNIT (2026-11-22).
 Pi-inj not needed; U-inj + no-confusion DONE (TInv.seg, levelled domain
 LTypes..LSoundF).  ERT/GAT Agda port + ERT/PiInjectivityT.agda PARKED.
 
@@ -18,7 +19,7 @@ LTypes..LSoundF).  ERT/GAT Agda port + ERT/PiInjectivityT.agda PARKED.
 | sterbac4 | status | where |
 |---|---|---|
 | §4 GAT <-> T_Tarski (L15-19, Thm 20) | DONE, Ehrhard variant, bare GAT syntax | UNIT (seg) |
-| §5 T_Tarski <-> T_Russell | DONE | ERT/ (Agda --safe) |
+| §5 T_Tarski <-> T_Russell | DONE | ERT/ (Agda --safe); UNIT seg RTyping..TSection |
 | §6 T_Russell <-> T_PTS (joins/coercions, no normalisation) | DONE | ERT/StripUniqNF, SectionR |
 | §7 internal levels / constraints | DONE | BCDE4/ |
 | presup (L22-24) + lean systems | DONE | UNIT TPresup TLean GPresup GLean |
