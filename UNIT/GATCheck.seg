@@ -1,9 +1,10 @@
 -- GATCheck.seg: sterbac4 §4 with Ehrhard-GAT, checked on its own:
 -- the import closure is Base, Prelude, Lib and the files below (see PLAN-GAT.md).
-import Base ; import Prelude ; import Lib ; import Types ; import Consistency ; import Typing ; import Filter ;
+import Base ; import Prelude ; import Lib ; 
 import TSyntax ; import TTyping ; import TSubst ; import TSubCong ; import TSubLib ;
 import GAT ; import GSound ; import Ev ;
 import L18Base ; import L18Good ; import L18Var ; import L18Bind ; import L18Pi ; import L18App ; import L18U ; import L18Eq ;
 import L18BE ; import L18 ; import L19Base ; import L19 ; import Thm20 ;
 import TPresup ; import TLean ; import GPresup ; import GLean ;
-import TSem ;
+import LTypes ; import LConsistency ; import LTyping ; import LFilter ; import LSoundF ;
+import TSem ; import TSound ; import TRed ; import TInv ;

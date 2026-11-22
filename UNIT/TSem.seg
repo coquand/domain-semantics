@@ -1,14 +1,14 @@
 -- TSem.seg: the filter semantics of T_Tarski (unscoped), the semantics of
--- Sem.seg (paper Fig. 4) with universe levels collapsed:
---   [[U_n]] = [[U^n_m]] = U,  [[T_n a]] = [[t^n_m a]] = [[a]],
+-- Sem.seg (paper Fig. 4) in the levelled domain (LTypes .. LFilter):
+--   [[U_n]] = univF n,  [[U^n_m]] = univF m,  [[T_n a]] = [[t^n_m a]] = [[a]],
 --   [[Pi_n(a,b)]] = [[Pi(a,b)]] = piF,  lam and app ignore the annotations.
 -- Environments are Nat -> Filt.  Lemmas as in Sem.seg: tsem-mono, tsem-eq,
 -- tsem-cons (3.5), tcont (3.6), tcont-last, the traversal over a kit (3.7):
 -- twk-sem, tsubst1-sem.
 
 level l ;
-open Base ; open Prelude[l] ; open Lib[l] ; open Types[l] ; open Consistency[l] ; open Typing[l] ;
-open Filter[l] ; open TSyntax[l] ;
+open Base ; open Prelude[l] ; open Lib[l] ; open LTypes[l] ; open LConsistency[l] ; open LTyping[l] ;
+open LFilter[l] ; open TSyntax[l] ;
 
 ------------------------------------------------------------------------
 -- environments
@@ -42,10 +42,10 @@ tsem : Tm -> TEnv -> Filt = split {
   pi A B | rA rB -> \ rho -> piF (rA rho) (\ x -> rB (extT rho (prin x))) ;
   lam A B b | rA rB rb -> \ rho -> lamF (rA rho) (\ x -> rb (extT rho (prin x))) ;
   app A B c a | rA rB rc ra -> \ rho -> appF (rc rho) (ra rho) ;
-  uu n -> \ rho -> univF ;
+  uu n -> \ rho -> univF n ;
   el n a | ra -> \ rho -> ra rho ;
   pic n a b | ra rb -> \ rho -> piF (ra rho) (\ x -> rb (extT rho (prin x))) ;
-  uc m n -> \ rho -> univF ;
+  uc m n -> \ rho -> univF m ;
   lf m n a | ra -> \ rho -> ra rho } ;
 
 tfam (B : Tm) (rho : TEnv) (x : Ty) : Filt = tsem B (extT rho (prin x)) ;
@@ -63,12 +63,12 @@ tsem-mono : (M : Tm) -> (rho rho' : TEnv) -> TIncl rho rho' -> Incl (tsem M rho)
       (\ x hx -> rb (extT rho (prin x)) (extT rho' (prin x)) (extT-incl rho rho' (prin x) (prin x) h (incl-refl (prin x)))) ;
   app A B c a | rA rB rc ra -> \ rho rho' h ->
     appF-mono (tsem c rho) (tsem c rho') (tsem a rho) (tsem a rho') (rc rho rho' h) (ra rho rho' h) ;
-  uu n -> \ rho rho' h -> incl-refl univF ;
+  uu n -> \ rho rho' h -> incl-refl (univF n) ;
   el n a | ra -> \ rho rho' h -> ra rho rho' h ;
   pic n a b | ra rb -> \ rho rho' h ->
     piF-mono (tsem a rho) (tsem a rho') (tfam b rho) (tfam b rho') (ra rho rho' h)
       (\ x hx -> rb (extT rho (prin x)) (extT rho' (prin x)) (extT-incl rho rho' (prin x) (prin x) h (incl-refl (prin x)))) ;
-  uc m n -> \ rho rho' h -> incl-refl univF ;
+  uc m n -> \ rho rho' h -> incl-refl (univF m) ;
   lf m n a | ra -> \ rho rho' h -> ra rho rho' h } ;
 
 tsem-eq (M : Tm) (rho rho' : TEnv) (e : TEq rho rho') : FEq (tsem M rho) (tsem M rho') =
@@ -96,12 +96,12 @@ tsem-cons : (M : Tm) -> (rho : TEnv) -> TCons rho -> ConsF (tsem M rho) = split 
     OpCons[tsem A rho, tfam b rho, tfam-anti b rho,
            \ x cx -> rb (extT rho (prin x)) (tcons-ext rho (prin x) c (prin-cons x cx))].lamc ;
   app A B c0 a | rA rB rc ra -> \ rho c -> appF-cons (tsem c0 rho) (tsem a rho) (rc rho c) (ra rho c) ;
-  uu n -> \ rho c t h -> cons-down univ t h cons-univ ;
+  uu n -> \ rho c t h -> cons-down (univ n) t h (cons-univ n) ;
   el n a | ra -> \ rho c -> ra rho c ;
   pic n a b | ra rb -> \ rho c ->
     OpCons[tsem a rho, tfam b rho, tfam-anti b rho,
            \ x cx -> rb (extT rho (prin x)) (tcons-ext rho (prin x) c (prin-cons x cx))].pic (ra rho c) ;
-  uc m n -> \ rho c t h -> cons-down univ t h cons-univ ;
+  uc m n -> \ rho c t h -> cons-down (univ m) t h (cons-univ m) ;
   lf m n a | ra -> \ rho c -> ra rho c } ;
 
 ------------------------------------------------------------------------
@@ -299,12 +299,12 @@ module TSemTrav (K : Kit)
         (rA s rho) (\ x hx -> bind b s rho rb x) ;
     app A B c a | rA rB rc ra -> \ s rho ->
       appF-eq (tsem (T.trav c s) rho) (tsem c (senv s rho)) (tsem (T.trav a s) rho) (tsem a (senv s rho)) (rc s rho) (ra s rho) ;
-    uu n -> \ s rho -> feq-refl univF ;
+    uu n -> \ s rho -> feq-refl (univF n) ;
     el n a | ra -> \ s rho -> ra s rho ;
     pic n a b | ra rb -> \ s rho ->
       piF-eq (tsem (T.trav a s) rho) (tsem a (senv s rho)) (tfam (T.trav b (T.lift s)) rho) (tfam b (senv s rho))
         (ra s rho) (\ x hx -> bind b s rho rb x) ;
-    uc m n -> \ s rho -> feq-refl univF ;
+    uc m n -> \ s rho -> feq-refl (univF m) ;
     lf m n a | ra -> \ s rho -> ra s rho } ;
 } ;
 
