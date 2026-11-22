@@ -1,0 +1,294 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathpartir}
+\usepackage{xcolor}
+
+\newenvironment{theorem}[1]{\par\medskip\noindent\textbf{Theorem #1.}\ \itshape}{\par\medskip}
+\newenvironment{lemma}[1]{\par\medskip\noindent\textbf{Lemma #1.}\ \itshape}{\par\medskip}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+
+\newcommand{\vdashG}{\vdash_{\mathsf G}}
+\newcommand{\vdashT}{\vdash_{\mathsf T}}
+\newcommand{\U}{\mathsf U}
+\newcommand{\T}{\mathsf T}
+\newcommand{\p}{\mathsf p}
+\newcommand{\q}{\mathsf q}
+\newcommand{\id}{\mathsf{id}}
+\newcommand{\lift}{\mathsf{lift}}
+\newcommand{\sect}{\mathsf{sec}}
+\newcommand{\app}{\mathsf{app}}
+\newcommand{\er}[1]{|#1|_{\mathsf T}}
+\newcommand{\ev}[2]{[\![#1]\!]#2}
+\newcommand{\up}{\mathsf{up}}
+\newcommand{\idv}{\iota}
+\newcommand{\seg}[1]{\texttt{#1}}
+
+\title{Explicit and implicit substitutions with Ehrhard's generators\\[2pt]
+\large A variant of Section 4 of ``From Tarski to Russell'', formalised in Unit}
+\author{}
+\date{22 November 2026}
+
+\begin{document}
+\maketitle
+
+\noindent
+Section 4 of Coquand--Sterbac proves that $T_{\mathsf{GAT}}$, the fully
+explicit generalised algebraic theory with Dybjer's substitutions
+$\id,\ \sigma\delta,\ (),\ (\sigma,a),\ \p,\ \q$, is equivalent to
+$T_{\mathsf{Tarski}}$, where substitution is an operation on de Bruijn
+terms. We replace $T_{\mathsf{GAT}}$ by a theory $T_{\mathsf E}$ whose
+substitutions are generated as in Ehrhard's presentation of categories with
+families: $\id,\ \sigma\delta,\ (),\ \p,\ \lift_A(\sigma),\ \sect_A(a)$.
+We prove the analogues of Lemmas 15--19 and Theorem~20. Everything below
+is checked in Unit (file \seg{UNIT/GATCheck.seg}, 607 declarations, no
+failure, $0.2$\,s).
+
+\section{The theory $T_{\mathsf E}$}
+
+Raw expressions (contexts, types, terms and substitutions share one syntax):
+\begin{align*}
+\Gamma,\Delta &::= 1 \mid \Gamma.A \\
+A,B &::= \Pi(A,B) \mid \U_n \mid \T_n(a) \mid A\sigma\\
+a,b,c &::= \lambda(A,B,b) \mid \app(A,B,c,a) \mid \Pi_n(a,b) \mid \U^n_m \mid t^n_m(a) \mid \q \mid a\sigma \\
+\sigma,\delta &::= \id \mid \sigma\delta \mid () \mid \p \mid \lift_A(\sigma) \mid \sect_A(a)
+\end{align*}
+The judgements are $\vdashG\Gamma$, $\vdashG\Gamma=\Delta$,
+$\Gamma\vdashG A$, $\Gamma\vdashG a:A$, $\vdashG\sigma:\Delta\to\Gamma$ and
+the corresponding equalities. The substitution rules are
+\begin{mathpar}
+\inferrule{\vdashG\Gamma}{\vdashG\id:\Gamma\to\Gamma}\and
+\inferrule{\Gamma\vdashG A}{\vdashG\p:\Gamma.A\to\Gamma}\and
+\inferrule{\Gamma\vdashG A}{\Gamma.A\vdashG\q:A\p}\and
+\inferrule{\vdashG\sigma:\Delta\to\Gamma \\ \Gamma\vdashG A}{\vdashG\lift_A(\sigma):\Delta.A\sigma\to\Gamma.A}\and
+\inferrule{\Gamma\vdashG A \\ \Gamma\vdashG a:A}{\vdashG\sect_A(a):\Gamma\to\Gamma.A}
+\end{mathpar}
+and the type of an application is $\Gamma\vdashG\app(A,B,c,a):B\,\sect_A(a)$.
+Besides the category laws and the uniqueness of $()$, the equations are
+Ehrhard's:
+\begin{align*}
+&\lift_A(\id)=\id, &&\lift_A(\sigma\delta)=\lift_A(\sigma)\,\lift_{A\sigma}(\delta),
+&&\p\,\lift_A(\sigma)=\sigma\,\p, &&\p\,\sect_A(a)=\id,\\
+&\sect_A(a)\,\sigma=\lift_A(\sigma)\,\sect_{A\sigma}(a\sigma),
+&&\lift_A(\p)\,\sect_{A\p}(\q)=\id, &&\q\,\lift_A(\sigma)=\q, &&\q\,\sect_A(a)=a.
+\end{align*}
+The naturality equations are those of the paper with $\sigma^+$ replaced by
+$\lift_A(\sigma)$, e.g.\ $\Pi(A,B)\sigma=\Pi(A\sigma,B\,\lift_A(\sigma))$
+and $\app(A,B,c,a)\sigma=\app(A\sigma,B\lift_A(\sigma),c\sigma,a\sigma)$.
+The other rules are $\beta$, $\eta$ in the form
+$c=\lambda(A,B,\app(A\p,B\lift_A(\p),c\p,\q))$, and the six Tarski
+equations. Finally there are congruence rules, and rules converting
+judgements along $\vdashG\Gamma=\Delta$, including both ends of a
+substitution:
+\[
+\inferrule{\vdashG\sigma:\Delta\to\Gamma \\ \vdashG\Delta=\Delta' \\ \vdashG\Gamma=\Gamma' \\ \vdashG\Delta' \\ \vdashG\Gamma'}
+  {\vdashG\sigma:\Delta'\to\Gamma'}
+\]
+This last rule is needed for the presuppositions (Section~\ref{sec:presup}):
+without it the right-hand side of $\lift_A(\id)=\id:\Gamma.A\id\to\Gamma.A$
+is not typable, $\id$ having only the types $\Gamma\to\Gamma$.
+Dybjer's pairing is definable: $(\sigma,a):=\lift_A(\sigma)\sect_{A\sigma}(a)$.
+
+\begin{remark}
+Raw terms carry no context annotation: $\U_n$, $\U^n_m$, $\id$, $()$, $\p$
+and $\q$ are bare, and the context of the judgement serves as the annotation.
+The type annotations $\lambda(A,B,b)$, $\app(A,B,c,a)$, $\lift_A$, $\sect_A$
+are kept. This is what makes the lifting below independent of the context.
+With annotated $\p_{\Gamma,A}$, $\q_{\Gamma,A}$, the relational form of
+Lemma~18 would need presuppositions about the right-hand side of each
+equation.
+\end{remark}
+
+\section{Erasure (Theorem 16)}
+
+$T_{\mathsf{Tarski}}$ is the system of Appendix~A.2 over unscoped de Bruijn
+terms; a substitution is a map $\alpha:\mathbb N\to\mathsf{Tm}$. Erasure
+forgets the explicit substitutions:
+\begin{gather*}
+\er{A\sigma}=\er A[\er\sigma],\qquad \er{a\sigma}=\er a[\er\sigma],\qquad \er\q=v_0,\qquad
+\er\id=\er{()}=\mathrm{id},\qquad \er\p=\mathrm{wk},\\
+\er{\sigma\delta}=\er\sigma\circ\er\delta,\qquad
+\er{\lift_A(\sigma)}=\er\sigma^+,\qquad \er{\sect_A(a)}=[\er a].
+\end{gather*}
+So each generator erases to one of the operations that the typing rules
+of $T_{\mathsf{Tarski}}$ already use: weakening, lifting under a binder,
+and single substitution.
+
+\begin{theorem}{16}
+If $\Gamma\vdashG J$ then $\er\Gamma\vdashT\er J$. Typed substitutions go to
+typed substitutions, and equal ones to pointwise convertible ones.
+\end{theorem}
+The proof uses Lemma~15, the substitution lemma, in both its parts. Typed
+substitutions $\Delta\vdashT\alpha:\Gamma$ are defined by recursion on
+$\Gamma$, following the paper's variable rules. A single typed traversal over
+a ``kit'' gives renaming, which needs only the variable rules, and then
+substitution. Every Ehrhard equation erases to a pointwise syntactic
+identity. For instance, $\er{\sect_A(a)\sigma}=\er{\lift_A(\sigma)\sect_{A\sigma}(a\sigma)}$
+is the identity $([a])[\alpha]=\alpha^+\circ[a[\alpha]]$.
+
+\section{Lifting by evaluation (Lemma 17)}
+
+Instead of $\lceil-\rceil_\Gamma$ we evaluate a raw term of
+$T_{\mathsf{Tarski}}$ in an \emph{environment} $\rho:\mathbb N\to T_{\mathsf E}$:
+\[
+\ev{v_i}\rho=\rho(i),\qquad
+\ev{\Pi(A,B)}\rho=\Pi(\ev A\rho,\ev B{(\up\rho)}),\qquad
+\up\rho=(\q,\ \rho(0)\p,\ \rho(1)\p,\dots),
+\]
+and homomorphically otherwise. Set
+$\lceil t\rceil:=\ev t\idv$ with $\idv(i)=\q\,\p^i$.
+Since the environment under a binder is $\up\rho$, the paper's identity
+$(\lceil\alpha\rceil)^+=\lceil\alpha^+\rceil$ never has to be proved; it is
+built into the definition.
+
+\begin{lemma}{17}
+$\er{\ev t\rho}=t[\er\rho]$, hence $\er{\lceil t\rceil}=t$ and
+$\er{\lceil\Gamma\rceil}=\Gamma$, strictly.
+\end{lemma}
+Evaluation commutes strictly with renamings,
+$\ev{t[r]}\rho=\ev t{(\rho\circ r)}$; in particular
+$\ev{t[\mathrm{wk}]}\rho=\ev t{(\rho\circ\mathrm{suc})}$.
+
+\section{Lemma 18}
+
+An environment $\rho$ is \emph{typed} over $\Delta$ for $\Gamma$ when
+$\Delta\vdashG\rho(i):\ev{A_i}\rho_{>i}$ for each type $A_i$ of $\Gamma$.
+Two environments are \emph{related} when, in addition, $\rho_1(i)=\rho_2(i)$
+pointwise. For $\Gamma\vdashT A$ consider four properties: for all typed $\rho$,
+\begin{itemize}
+\item[(P)] $\Delta\vdashG\ev A\rho$;
+\item[(N)] $\Theta\vdashG(\ev A\rho)\sigma=\ev A{(\rho\sigma)}$ for
+  $\vdashG\sigma:\Theta\to\Delta$, where $(\rho\sigma)(i)=\rho(i)\sigma$;
+\item[(E)] $\Delta\vdashG\ev A{\rho_1}=\ev A{\rho_2}$ for related $\rho_1,\rho_2$;
+\item[(S)] $\Delta\vdashG\ev{A[\alpha]}\rho=\ev A{(\ev\alpha\rho)}$, for
+  substitutions $\alpha$ whose components satisfy (P), (N), (E).
+\end{itemize}
+Terms have the same four properties. For equality judgements the statement is
+\emph{relational}: related environments give equal values. Implicit
+substitution (S) and explicit substitution (N) are treated separately: the
+naturality of the GAT is used only in (N), never in (S).
+
+\begin{lemma}{18}
+Every derivation of $T_{\mathsf{Tarski}}$ satisfies (P), (N), (E) and (S),
+or the relational statement for an equality.
+In particular $\Gamma\vdashT J$ implies $\lceil\Gamma\rceil\vdashG\lceil J\rceil$,
+and $\lceil A[\alpha]\rceil$ is $\lceil A\rceil$ evaluated in $\lceil\alpha\rceil$.
+\end{lemma}
+
+\begin{proof}[Proof sketch]
+By one induction on derivations. The motive also carries the four properties
+of the types of the context. Every rule has a premise in the context of its
+conclusion, so this information is always available.
+
+Three relations between environments carry the proof. Each is an instance
+of Ehrhard's equations:
+\begin{align*}
+(\up\rho)\,\lift(\sigma)&\ \sim\ \up(\rho\sigma) &&\text{by } \q\lift(\sigma)=\q,\ \p\lift(\sigma)=\sigma\p
+ &&\text{(binders in (N))}\\
+(\up\rho)\,\sect(a)&\ \sim\ (\ev a\rho,\rho) &&\text{by } \q\sect(a)=a,\ \p\sect(a)=\id
+ &&\text{(application, $\beta$)}\\
+\ev{\alpha^+}{(\up\rho)}&\ \sim\ \up(\ev\alpha\rho) &&\text{by (N) for } \alpha(i) \text{ and } \sigma=\p
+ &&\text{(binders in (S))}
+\end{align*}
+Application uses $B\,\sect(a)=\ev B{(\ev a\rho,\rho)}=\ev{B[a]}\rho$, by (N),
+(E) and then (S) for $B$. Its naturality uses
+$\sect(a)\sigma=\lift(\sigma)\sect(a\sigma)$, and $\eta$ uses
+$\lift(\p)\sect(\q)=\id$. For a term, (N) and (S) are stated at the type
+$\ev A{(\rho\sigma)}$ (resp.\ $\ev A{(\ev\alpha\rho)}$) rather than
+$(\ev A\rho)\sigma$. With that choice the conversion rule needs no naturality
+of the type.
+\end{proof}
+
+\section{Lemma 19 and Theorem 20}
+
+\begin{lemma}{19}
+By induction on derivations of $T_{\mathsf E}$, using Theorem~16 and then
+Lemma~18 on the erased derivations:
+\begin{itemize}
+\item $\vdashG\Gamma$ implies $\vdashG\Gamma=\lceil\er\Gamma\rceil$, and $\idv$ is typed over $\Gamma$ for $\er\Gamma$;
+\item $\Gamma\vdashG A$ implies $\Gamma\vdashG A=\lceil\er A\rceil$, and
+$\Gamma\vdashG a:A$ implies $\Gamma\vdashG a=\lceil\er a\rceil:A$;
+\item $\vdashG\sigma:\Delta\to\Gamma$ implies that $\idv\sigma$ and $\ev{\er\sigma}\idv$ are related over $\Delta$.
+\end{itemize}
+\end{lemma}
+The substitution clause is the pointwise form of $\sigma=\lceil\er\sigma\rceil$.
+Its cases are the generators. For $\id$ and $\p$ it holds by definition.
+The cases $\lift$ and $\sect$ are the first two relations of Lemma~18.
+Composition uses (S) for the components of $\er\sigma$.
+
+\begin{theorem}{20}
+If $\Gamma\vdashT J$ then $\lceil\Gamma\rceil\vdashG\lceil J\rceil$, with
+$\er{\lceil\Gamma\rceil}=\Gamma$ and $\er{\lceil J\rceil}=J$. Two judgements
+of $T_{\mathsf E}$ over the same context with the same erasure are convertible,
+and every context is convertible to $\lceil\er\Gamma\rceil$.
+\end{theorem}
+
+\section{The formalisation}
+
+The files are in \seg{UNIT/} and are checked together by \seg{GATCheck.seg}.
+They are also part of \seg{All.seg}.
+\begin{center}\small
+\begin{tabular}{ll}
+\seg{TSyntax}, \seg{TTyping}, \seg{TSubst}, \seg{TSubCong}, \seg{TSubLib} & $T_{\mathsf{Tarski}}$, Lemma 15\\
+\seg{GAT}, \seg{GSound} & $T_{\mathsf E}$, erasure, Theorem 16\\
+\seg{Ev} & evaluation, Lemma 17\\
+\seg{L18Base} \dots\ \seg{L18BE}, \seg{L18} & Lemma 18\\
+\seg{L19Base}, \seg{L19}, \seg{Thm20} & Lemma 19, Theorem 20\\
+\seg{TPresup}, \seg{TLean} & presuppositions of $T_{\mathsf{Tarski}}$, lean rules\\
+\seg{GPresup}, \seg{GLean} & presuppositions of $T_{\mathsf E}$, lean rules
+\end{tabular}
+\end{center}
+The proof uses no postulates and no axioms. Some rules carry extra premises,
+all of them presuppositions.
+In $T_{\mathsf{Tarski}}$:
+\begin{itemize}
+\item the typing of application carries $\Gamma\vdash A$;
+\item the binder congruences carry $\Gamma\vdash A$ (or $\Gamma\vdash a:\U_n$);
+\item $\beta$ and $\eta$ carry $\Gamma\vdash A$ and $\Gamma.A\vdash B$;
+\item the congruence of application carries $\Gamma.A\vdash B$ and $\Gamma\vdash a:A$;
+\item symmetry of term equality carries $\Gamma\vdash A$.
+\end{itemize}
+In $T_{\mathsf E}$ the same, and in addition $a\sigma$ carries $\Gamma\vdashG A$
+(as in Cartmell's presentation, where $\mathrm{Tm}(\Gamma,A)$ presupposes
+$A:\mathrm{Ty}(\Gamma)$), the congruences of $A\sigma$, $a\sigma$, $\lift_A$
+carry the typings of their left-hand sides, and the congruence of $\sect_A$ carries
+$\Gamma\vdashG A$, $\Gamma\vdashG a:A$, $\Gamma\vdashG a':A$.
+
+\section{Presuppositions}\label{sec:presup}
+These premises are admissible, so the theorems hold for the lean systems too.
+
+\begin{lemma}[Lemmas 22--24 of the paper]
+In $T_{\mathsf{Tarski}}$: $\Gamma\vdash a:A$ implies $\Gamma\vdash A$;
+$\Gamma\vdash A=B$ implies $\Gamma\vdash A$ and $\Gamma\vdash B$;
+$\Gamma\vdash a=b:A$ implies $\Gamma\vdash A$, $\Gamma\vdash a:A$, $\Gamma\vdash b:A$.
+\end{lemma}
+One induction on derivations. The binder cases use context conversion; application,
+$\beta$ and the congruence of application use the substitution lemma
+($\Gamma\vdash B[a]=B'[a']$ from $\Gamma.A\vdash B=B'$ and $\Gamma\vdash a=a':A$).
+
+\begin{lemma}
+In $T_{\mathsf E}$ every judgement implies its presuppositions: $\vdashG\Gamma$ for
+$\Gamma\vdashG J$, $\Gamma\vdashG A$ for $\Gamma\vdashG a:A$, $\vdashG\Delta$ and $\vdashG\Gamma$
+for $\vdashG\sigma:\Delta\to\Gamma$, and both sides typed for every equality.
+\end{lemma}
+Since substitutions are explicit, there is no meta-level substitution lemma:
+each case is a short derivation from the rules. For instance
+$(A\p)\,\sect_A(a)=A(\p\,\sect_A(a))=A\,\id=A$ types $\q\,\sect_A(a)$, and
+$(B\lift_A(\p))\,\sect_{A\p}(\q)=B$ types the right-hand side of $\eta$.
+The equations $\lift_A(\id)=\id$, $\lift_A(\sigma\delta)=\lift_A(\sigma)\lift_{A\sigma}(\delta)$,
+the congruences of $\lift$ and $\sect$, and the congruence of application need
+the conversion rule for substitutions above.
+
+The lean systems ($T_{\mathsf{Tarski}}$ as in Appendix~A.2, $T_{\mathsf E}$ without the
+premises listed) are translated into the systems of the formalisation by recovering
+the premises from these lemmas. For $\eta$ this also needs inversion of
+$\Gamma\vdash\Pi(A,B)$, which holds in $T_{\mathsf{Tarski}}$ because only one rule
+concludes it, and in $T_{\mathsf E}$ by induction, going through the rule converting
+types along $\vdashG\Gamma=\Delta$. One difference with Appendix~A.2 remains: symmetry and
+transitivity are two premise-free rules, where A.2 has the single rule
+$A=B,\ A=C\Rightarrow B=C$.
+
+\end{document}
