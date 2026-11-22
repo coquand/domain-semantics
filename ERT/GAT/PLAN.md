@@ -30,7 +30,10 @@ domain model ported to seg; in Agda it is ~50 lines from PiInj-R).
 ## Files
 1. Syntax.agda    GE, GS, GC, erasure                       [x]
 2. Rules.agda     GJ, GDer (variable-generalised lengths)   [x]
-3. Sound.agda     Theorem 16                                [ ]
+3. TLib.agda      WtSub/ConvTmSub ops, CxEq (general ctx conv),
+                  record wrappers WtS/CTS (WtSub unfolds to a Pi in which
+                  the codomain only occurs under lookup: not inferable)   [x]
+   Sound.agda     Theorem 16                                [x]
 4. Ev.agda        ev, Lemma 17                              [ ]
 5. L18*.agda      Lemma 18                                  [ ]
 6. L19.agda, Thm20.agda                                     [ ]
