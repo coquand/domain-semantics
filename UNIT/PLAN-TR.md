@@ -14,6 +14,9 @@ LiftBack, Equivalence (paper Lemmas 21-28 = sterbac1 4.6-4.13).
 * STRICT LIFTS (user decision 2026-11-22): t^n_m and Russell cumulativity need
   m < n (with t^n_n, t^0_0 a and a break uniqueness).  All §4 files adapted.
 * RTyping (A.3), ErR (Lemma 21), TGen (generation) DONE.
+* Lemma 25, Lemma 26, Corollary 27 DONE 2026-11-22 (TUniqBase, TUniqComb,
+  TUniq; 771 lines, 0.35 s in GATCheck.seg, also in All.seg):
+  ty-uniq / el-uniq / tm-uniq (25.1-3), res-same (26), er-inj (27).
 
 ## Design
 * Russell raw syntax = TSyntax.Tm restricted to var/pi/lam/app/uu (reuse
@@ -21,10 +24,10 @@ LiftBack, Equivalence (paper Lemmas 21-28 = sterbac1 4.6-4.13).
 * Erasure er : Tm -> Tm (el, lf dropped; pic -> pi; uc m n -> U_m).
 
 ## Files
-1. RTyping.seg   Russell judgements (A.3)                      [ ]
-2. ErR.seg       erasure, raw lemmas, Lemma 21                 [ ]
-3. TGen.seg      generation lemmas for T_Tarski typing         [ ]
-4. TUniq*.seg    Lemma 25, 26, Corollary 27                    [ ]
+1. RTyping.seg   Russell judgements (A.3)                      [x]
+2. ErR.seg       erasure, raw lemmas, Lemma 21                 [x]
+3. TGen.seg      generation lemmas for T_Tarski typing         [x]
+4. TUniq*.seg    Lemma 25, 26, Corollary 27                    [x]
 5. TSection.seg  Theorem 28 (section of erasure)               [ ]
 
 ## Lemma 25 design (2026-11-22)
@@ -41,3 +44,16 @@ T(a1, a2); E(_, t a'') -> E(_, a''); E(Pi A B, Pi_l a b) -> E(A,a), E(B,b);
 T(t a, u1) -> T(a, u1); T(u0, t a) -> T(u0, a); binders: Q/T on parts.
 All decrease N.  Generation lemmas (TGen.seg) instead of recursion on
 derivations: no recursion through tm-conv.
+
+## Lemma 25 as formalised (2026-11-22), differences from the design above
+* lft k n v (TUniqBase) = v if k = n, lf k n v if k < n (ifB on eqN); all
+  case splits on k <= n go through le-elim.  Laws lft-tm/cong/el/lft/pic/uc.
+  Replaces the prototype's LiftStep (trivial | proper).
+* CLU[G, u0, u1, n0, n1]: ONE code v : U_k with u_i = lft k n_i v : U_n_i
+  (paper: v0 = v1 : U_k; equivalent by lft-cong).  CL adds A_i = U_n_i.
+* Pi-code case: common level K = max ka kb, common code
+  Pi_K(t^K_ka va, t^K_kb vb) (picV); no trichotomy on ka, kb.
+* Right lift case = res-sym of the left one (lf-left).
+* Measure: fuel N >= sz(left) + sz(right); uniq : (N : Nat) -> Hyp N.
+  TUniq.seg is generated: python3 gen_tuniq.py > TUniq.seg (from UNIT/);
+  regenerate if TSyntax.Tm changes (9x9 shape dispatch for T, E and Q).

@@ -9,6 +9,7 @@ Checker: from `UNIT/`,
 Full repo check: `python3 UNIT/check.py` from DOMAIN (All.seg imports the §4 files at the end).
 Nothing committed yet (branch hide-old-archives); ask before committing.
 NEXT (2026-11-22, user): §5 T_Tarski <=> T_Russell in UNIT: UNIT/PLAN-TR.md.
+Lemmas 21, 25, 26, Cor 27 DONE in UNIT (TUniq*.seg); next Theorem 28 (TSection.seg).
 Pi-inj not needed; U-inj + no-confusion DONE (TInv.seg, levelled domain
 LTypes..LSoundF).  ERT/GAT Agda port + ERT/PiInjectivityT.agda PARKED.
 
