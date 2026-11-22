@@ -24,3 +24,4 @@ import ERT.StripUniqNFTest        -- the Gap417 example, settled
 -- sterbac4 §4: Ehrhard-GAT over T_T (port of UNIT/GAT*.seg, in progress; ERT/GAT/PLAN.md)
 import ERT.GAT.Rules
 import ERT.GAT.Sound              -- Theorem 16: erasure of GAT derivations
+import ERT.GAT.Ev                 -- Lemma 17: lifting by evaluation, |ceil t| = t

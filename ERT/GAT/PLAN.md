@@ -34,8 +34,21 @@ domain model ported to seg; in Agda it is ~50 lines from PiInj-R).
                   record wrappers WtS/CTS (WtSub unfolds to a Pi in which
                   the codomain only occurs under lookup: not inferable)   [x]
    Sound.agda     Theorem 16                                [x]
-4. Ev.agda        ev, Lemma 17                              [ ]
+4. Ev.agda        ev, Lemma 17                              [x]
 5. L18*.agda      Lemma 18                                  [ ]
 6. L19.agda, Thm20.agda                                     [ ]
 7. Presup.agda    GAT presuppositions (port GPresup.seg)    [ ]
 8. Inversion.agda Thms 8-10 for the GAT by transfer         [ ]
+
+## Notes for the next steps (2026-11-22)
+* Lemma 18 (port UNIT/L18Base..L18BE.seg, motive L18Var.L18J): one case per
+  ERT T_T rule.  Differences with UNIT's T_Tarski: congruences are split
+  (conv-cong-Lam-body / -Lam-Ty, App-fun / -arg (with cross-subst premise)
+  / -Ty); ERT's binder congruences carry IsType G A like UNIT's; ERT
+  conv-sym has no premise (UNIT eqtm-sym carried G |- A because L18 needed
+  it: get it from TarskiMeta.presup-l-ConvTm).  ERT HasType has ty-var
+  with lookup (no v0/vs split): the var case of L18 needs an induction on i.
+* Agda inference: never leave WtSub / ConvTmSub / CxEq results in an
+  un-annotated let (use WtS / CTS wrappers, or give contexts explicitly).
+* Named implicit patterns must follow first-occurrence order of the
+  generalised variables in the rule's type (Rules.agda).

@@ -8,7 +8,12 @@ Checker: from `UNIT/`,
   $SEG GATCheck.seg        (704 decls, 0 failed, 0.2 s)
 Full repo check: `python3 UNIT/check.py` from DOMAIN (All.seg imports the §4 files at the end).
 Nothing committed yet (branch hide-old-archives); ask before committing.
-NEXT: item 2 below (GAT inversion by transfer).
+NEXT (2026-11-22, decided): items 2+3 merged. Pi-injectivity source = Agda
+(ERT/PiInjectivityT.agda PiInj-T, DONE, from PiInj-R + erasure + lift-back +
+type-uniq). A seg-native proof would need UNIT's 104-module relation redone
+for levelled T_Tarski, or ERT's ~18.7k-line model ported: rejected.
+So §4 is being PORTED to Agda over ERT's T_T: ERT/GAT/ (PLAN.md there).
+Done: Syntax, Rules, TLib, Sound (Thm 16), Ev (Lemma 17). Next: Lemma 18.
 
 ## State of the paper
 
