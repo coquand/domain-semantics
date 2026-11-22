@@ -93,7 +93,7 @@ c-uc (G : Cx) (m n : Nat) (lt : LeN (suc m) n) (r : L18J (jwf G)) : L18J (jtm G 
      (\ D e1 e2 wD r' -> gm-refl D (guc m n) (guu n) (gm-uc D m n wD lt),
       \ G0 s c0 g D e wD o -> (gm-uc D m n wD lt, gm-refl D (guc m n) (guu n) (gm-uc D m n wD lt)))))) ;
 
-c-lf (G : Cx) (m n : Nat) (a : Tm) (le : LeN m n) (r : L18J (jtm G a (uu m))) : L18J (jtm G (lf m n a) (uu n)) =
+c-lf (G : Cx) (m n : Nat) (a : Tm) (le : LeN (suc m) n) (r : L18J (jtm G a (uu m))) : L18J (jtm G (lf m n a) (uu n)) =
   (r.1,
    (\ D e wD o -> gm-lf D m n (ev a e) (r.2.1 D e wD o) le,
     (\ D e T s wD wT o hs ->

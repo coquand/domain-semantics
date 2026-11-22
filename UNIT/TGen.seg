@@ -25,7 +25,7 @@ GenTm (G : Cx) : Tm -> Tm -> U l = split {
   el n a -> \ T -> Empty ;
   pic n a b -> \ T -> Der (jtm G a (uu n)) * (Der (jtm (csnoc G (el n a)) b (uu n)) * Der (jeqty G (uu n) T)) ;
   uc m n -> \ T -> Der (jwf G) * (LeN (suc m) n * Der (jeqty G (uu n) T)) ;
-  lf m n a -> \ T -> Der (jtm G a (uu m)) * (LeN m n * Der (jeqty G (uu n) T)) } ;
+  lf m n a -> \ T -> Der (jtm G a (uu m)) * (LeN (suc m) n * Der (jeqty G (uu n) T)) } ;
 
 gen-conv (G : Cx) : (u T T' : Tm) -> GenTm G u T -> Der (jeqty G T T') -> GenTm G u T' = split {
   var i -> \ T T' g e -> (eqty-trans G (tlook G i) T T' g.1 e, g.2) ;

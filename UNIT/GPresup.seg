@@ -156,7 +156,7 @@ c-gm-eta (G A B f : GE) (hA : Ty G A) (hB : Ty (gext G A) B) (h : Tm' G f (gpi A
         (sb-eta G A B hA hB))))) ;
 
 c-gm-lf-pic (G : GE) (n p : Nat) (a b : GE) (h1 : Tm' G a (guu n)) (h2 : Tm' (gext G (gel n a)) b (guu n))
-    (le : LeN n p) (wG : W G) : GPJ (gjeqtm G (glf n p (gpic n a b)) (gpic p (glf n p a) (glf n p b)) (guu p)) =
+    (le : LeN (suc n) p) (wG : W G) : GPJ (gjeqtm G (glf n p (gpic n a b)) (gpic p (glf n p a) (glf n p b)) (guu p)) =
   (wG, (gt-uu G p wG, (gm-lf G n p (gpic n a b) (gm-pic G n a b h1 h2) le,
    gm-pic G p (glf n p a) (glf n p b) (gm-lf G n p a h1 le)
      (gm-lf (gext G (gel p (glf n p a))) n p b
@@ -354,9 +354,9 @@ gpresup : (J : GJ) -> GDer J -> GPJ J = split {
   gm-eta G A B f hA hB h | rA rB r -> c-gm-eta G A B f hA hB h rA ;
   gm-lf-pic G n p a b h1 h2 le | r1 r2 -> c-gm-lf-pic G n p a b h1 h2 le r1.1 ;
   gm-lf-uc G m n p h lt le ->
-    (h, (gt-uu G p h, (gm-lf G n p (guc m n) (gm-uc G m n h lt) le, gm-uc G m p h (leN-trans (suc m) n p lt le)))) ;
+    (h, (gt-uu G p h, (gm-lf G n p (guc m n) (gm-uc G m n h lt) le, gm-uc G m p h (leN-trans (suc m) n p lt (lt-le n p le))))) ;
   gm-lf-lf G m n p a h le1 le2 | r ->
-    (r.1, (gt-uu G p r.1, (gm-lf G n p (glf m n a) (gm-lf G m n a h le1) le2, gm-lf G m p a h (leN-trans m n p le1 le2)))) ;
+    (r.1, (gt-uu G p r.1, (gm-lf G n p (glf m n a) (gm-lf G m n a h le1) le2, gm-lf G m p a h (leN-trans (suc m) n p le1 (lt-le n p le2))))) ;
   gm-sb-id G a A h | r ->
     (r.1, (r.2, (gm-conv G (gsb a gid) (gsb A gid) A (gm-sb G G a A gid r.2 h (gs-id G r.1)) (ge-sb-id G A r.2), h))) ;
   gm-sb-comp T D G a A s d h0 h1 h2 | r0 r1 r2 -> c-gm-sb-comp T D G a A s d h0 h1 h2 r0.2 r2.1 ;

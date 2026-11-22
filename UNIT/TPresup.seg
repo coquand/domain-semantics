@@ -111,7 +111,7 @@ c-eqtm-pic (G : Cx) (n : Nat) (a a' b b' : Tm) (h0 : Der (jtm G a (uu n))) (h1 :
      (cx1-tm G (ok-of (jtm G a (uu n)) h0) (el n a) (el n a') (ty-el G n a' r1.2.2) (eqty-el G n a a' h1) b' (uu n) r2.2.2)) ;
 
 c-eqtm-lf-pic (G : Cx) (n p : Nat) (a b : Tm) (h1 : Der (jtm G a (uu n))) (h2 : Der (jtm (csnoc G (el n a)) b (uu n)))
-    (le : LeN n p) : PJ (jeqtm G (lf n p (pic n a b)) (pic p (lf n p a) (lf n p b)) (uu p)) =
+    (le : LeN (suc n) p) : PJ (jeqtm G (lf n p (pic n a b)) (pic p (lf n p a) (lf n p b)) (uu p)) =
   (ty-uu G p (wf-from-ok G (ok-of (jtm G a (uu n)) h1)),
    tm-lf G n p (pic n a b) (tm-pic G n a b h1 h2) le,
    tm-pic G p (lf n p a) (lf n p b) (tm-lf G n p a h1 le)
@@ -161,10 +161,10 @@ presup : (J : Jf) -> Der J -> PJ J = split {
   eqtm-eta G A B f hA hB h -> (ty-pi G A B hA hB, h, eta-tm G A B f hA hB h) ;
   eqtm-lf-pic G n p a b h1 h2 le -> c-eqtm-lf-pic G n p a b h1 h2 le ;
   eqtm-lf-uc G m n p h lt le ->
-    (ty-uu G p h, tm-lf G n p (uc m n) (tm-uc G m n h lt) le, tm-uc G m p h (leN-trans (suc m) n p lt le)) ;
+    (ty-uu G p h, tm-lf G n p (uc m n) (tm-uc G m n h lt) le, tm-uc G m p h (leN-trans (suc m) n p lt (lt-le n p le))) ;
   eqtm-lf-lf G m n p a h le1 le2 ->
     (ty-uu G p (wf-from-ok G (ok-of (jtm G a (uu m)) h)),
-     tm-lf G n p (lf m n a) (tm-lf G m n a h le1) le2, tm-lf G m p a h (leN-trans m n p le1 le2)) } ;
+     tm-lf G n p (lf m n a) (tm-lf G m n a h le1) le2, tm-lf G m p a h (leN-trans (suc m) n p le1 (lt-le n p le2))) } ;
 
 -- the three lemmas, as the paper states them
 presup-tm (G : Cx) (a A : Tm) (h : Der (jtm G a A)) : Der (jty G A) = presup (jtm G a A) h ;

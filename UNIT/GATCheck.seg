@@ -7,4 +7,4 @@ import L18Base ; import L18Good ; import L18Var ; import L18Bind ; import L18Pi 
 import L18BE ; import L18 ; import L19Base ; import L19 ; import Thm20 ;
 import TPresup ; import TLean ; import GPresup ; import GLean ;
 import LTypes ; import LConsistency ; import LTyping ; import LFilter ; import LSoundF ;
-import TSem ; import TSound ; import TRed ; import TInv ;
+import TSem ; import TSound ; import TRed ; import TInv ; import RTyping ; import ErR ; import TGen ;

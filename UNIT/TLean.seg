@@ -30,7 +30,7 @@ data DerL : (J : Jf) -> U l =
   | ltm-pic (G : Cx) (n : Nat) (a b : Tm) (h1 : DerL (jtm G a (uu n))) (h2 : DerL (jtm (csnoc G (el n a)) b (uu n))) :
       DerL (jtm G (pic n a b) (uu n))
   | ltm-uc (G : Cx) (m n : Nat) (h : DerL (jwf G)) (lt : LeN (suc m) n) : DerL (jtm G (uc m n) (uu n))
-  | ltm-lf (G : Cx) (m n : Nat) (a : Tm) (h : DerL (jtm G a (uu m))) (le : LeN m n) : DerL (jtm G (lf m n a) (uu n))
+  | ltm-lf (G : Cx) (m n : Nat) (a : Tm) (h : DerL (jtm G a (uu m))) (le : LeN (suc m) n) : DerL (jtm G (lf m n a) (uu n))
   | ltm-conv (G : Cx) (a A B : Tm) (h1 : DerL (jtm G a A)) (h2 : DerL (jeqty G A B)) : DerL (jtm G a B)
   | leqty-refl (G : Cx) (A : Tm) (h : DerL (jty G A)) : DerL (jeqty G A A)
   | leqty-sym (G : Cx) (A B : Tm) (h : DerL (jeqty G A B)) : DerL (jeqty G B A)
@@ -38,7 +38,7 @@ data DerL : (J : Jf) -> U l =
   | leqty-pi (G : Cx) (A A' B B' : Tm) (h1 : DerL (jeqty G A A')) (h2 : DerL (jeqty (csnoc G A) B B')) :
       DerL (jeqty G (pi A B) (pi A' B'))
   | leqty-el (G : Cx) (n : Nat) (a a' : Tm) (h : DerL (jeqtm G a a' (uu n))) : DerL (jeqty G (el n a) (el n a'))
-  | leqty-el-lf (G : Cx) (m n : Nat) (a : Tm) (h : DerL (jtm G a (uu m))) (le : LeN m n) :
+  | leqty-el-lf (G : Cx) (m n : Nat) (a : Tm) (h : DerL (jtm G a (uu m))) (le : LeN (suc m) n) :
       DerL (jeqty G (el n (lf m n a)) (el m a))
   | leqty-el-pic (G : Cx) (n : Nat) (a b : Tm) (h1 : DerL (jtm G a (uu n))) (h2 : DerL (jtm (csnoc G (el n a)) b (uu n))) :
       DerL (jeqty G (el n (pic n a b)) (pi (el n a) (el n b)))
@@ -54,17 +54,17 @@ data DerL : (J : Jf) -> U l =
       DerL (jeqtm G (app A B c a) (app A' B' c' a') (subst1 B a))
   | leqtm-pic (G : Cx) (n : Nat) (a a' b b' : Tm) (h1 : DerL (jeqtm G a a' (uu n)))
       (h2 : DerL (jeqtm (csnoc G (el n a)) b b' (uu n))) : DerL (jeqtm G (pic n a b) (pic n a' b') (uu n))
-  | leqtm-lf (G : Cx) (m n : Nat) (a a' : Tm) (h : DerL (jeqtm G a a' (uu m))) (le : LeN m n) :
+  | leqtm-lf (G : Cx) (m n : Nat) (a a' : Tm) (h : DerL (jeqtm G a a' (uu m))) (le : LeN (suc m) n) :
       DerL (jeqtm G (lf m n a) (lf m n a') (uu n))
   | leqtm-beta (G : Cx) (A B b a : Tm) (h1 : DerL (jtm (csnoc G A) b B)) (h2 : DerL (jtm G a A)) :
       DerL (jeqtm G (app A B (lam A B b) a) (subst1 b a) (subst1 B a))
   | leqtm-eta (G : Cx) (A B f : Tm) (h : DerL (jtm G f (pi A B))) :
       DerL (jeqtm G f (lam A B (app (wk A) (wkl B) (wk f) (var zero))) (pi A B))
   | leqtm-lf-pic (G : Cx) (n p : Nat) (a b : Tm) (h1 : DerL (jtm G a (uu n))) (h2 : DerL (jtm (csnoc G (el n a)) b (uu n)))
-      (le : LeN n p) : DerL (jeqtm G (lf n p (pic n a b)) (pic p (lf n p a) (lf n p b)) (uu p))
-  | leqtm-lf-uc (G : Cx) (m n p : Nat) (h : DerL (jwf G)) (lt : LeN (suc m) n) (le : LeN n p) :
+      (le : LeN (suc n) p) : DerL (jeqtm G (lf n p (pic n a b)) (pic p (lf n p a) (lf n p b)) (uu p))
+  | leqtm-lf-uc (G : Cx) (m n p : Nat) (h : DerL (jwf G)) (lt : LeN (suc m) n) (le : LeN (suc n) p) :
       DerL (jeqtm G (lf n p (uc m n)) (uc m p) (uu p))
-  | leqtm-lf-lf (G : Cx) (m n p : Nat) (a : Tm) (h : DerL (jtm G a (uu m))) (le1 : LeN m n) (le2 : LeN n p) :
+  | leqtm-lf-lf (G : Cx) (m n p : Nat) (a : Tm) (h : DerL (jtm G a (uu m))) (le1 : LeN (suc m) n) (le2 : LeN (suc n) p) :
       DerL (jeqtm G (lf n p (lf m n a)) (lf m p a) (uu p)) ;
 
 ------------------------------------------------------------------------

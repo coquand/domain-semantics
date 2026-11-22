@@ -152,5 +152,5 @@ er-der : (J : Jf) -> Der J -> RDer (erJ J) = split {
       (reqtm-eta (erC G) (er A) (er B) (er f) rA rB r) ;
   eqtm-lf-pic G n p a b h1 h2 le | r1 r2 ->
     reqtm-refl (erC G) (pi (er a) (er b)) (uu p) (rtm-cum (erC G) n p (pi (er a) (er b)) (rtm-pi (erC G) n (er a) (er b) r1 r2) le) ;
-  eqtm-lf-uc G m n p h lt le | r -> reqtm-refl (erC G) (uu m) (uu p) (rtm-uu (erC G) m p r (leN-trans (suc m) n p lt le)) ;
-  eqtm-lf-lf G m n p a h le1 le2 | r -> reqtm-refl (erC G) (er a) (uu p) (rtm-cum (erC G) m p (er a) r (leN-trans m n p le1 le2)) } ;
+  eqtm-lf-uc G m n p h lt le | r -> reqtm-refl (erC G) (uu m) (uu p) (rtm-uu (erC G) m p r (leN-trans (suc m) n p lt (lt-le n p le))) ;
+  eqtm-lf-lf G m n p a h le1 le2 | r -> reqtm-refl (erC G) (er a) (uu p) (rtm-cum (erC G) m p (er a) r (leN-trans (suc m) n p le1 (lt-le n p le2))) } ;

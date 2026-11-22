@@ -11,6 +11,9 @@ LiftBack, Equivalence (paper Lemmas 21-28 = sterbac1 4.6-4.13).
 * TSem, TSound (soundness of T_Tarski), TRed (head reduction, unused so far).
 * TInv: uu-inj (Thm 9), pi-uu-noconf (Thm 10), uc-inj, uc-pic-noconf.
 * TPresup (Lemmas 22-24), TSubLib.cxconv-* (Lemma 24 general).
+* STRICT LIFTS (user decision 2026-11-22): t^n_m and Russell cumulativity need
+  m < n (with t^n_n, t^0_0 a and a break uniqueness).  All §4 files adapted.
+* RTyping (A.3), ErR (Lemma 21), TGen (generation) DONE.
 
 ## Design
 * Russell raw syntax = TSyntax.Tm restricted to var/pi/lam/app/uu (reuse

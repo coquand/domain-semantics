@@ -7,7 +7,9 @@
 --   eqtm-app) or  G |- a : U_n  (eqtm-pic);
 --   eqtm-beta carries G |- A, G.A |- B ;  eqtm-eta carries G |- A, G.A |- B ;
 --   eqtm-app carries  G.A |- B, G |- a : A ;  eqtm-sym carries G |- A.
--- Levels: m < n is LeN (suc m) n.
+-- Levels: m < n is LeN (suc m) n.  Lifts t^n_m are strict (m < n), as the
+-- cumulativity of T_Russell (A.3): with t^n_n, erasure is not injective up
+-- to conversion (t^0_0 a and a), decided 2026-11-22.
 
 level l ;
 open Base ; open Prelude[l] ; open Lib[l] ; open TSyntax[l] ;
@@ -41,7 +43,7 @@ data Der : (J : Jf) -> U l =
   | tm-pic (G : Cx) (n : Nat) (a b : Tm) (h1 : Der (jtm G a (uu n))) (h2 : Der (jtm (csnoc G (el n a)) b (uu n))) :
       Der (jtm G (pic n a b) (uu n))
   | tm-uc (G : Cx) (m n : Nat) (h : Der (jwf G)) (lt : LeN (suc m) n) : Der (jtm G (uc m n) (uu n))
-  | tm-lf (G : Cx) (m n : Nat) (a : Tm) (h : Der (jtm G a (uu m))) (le : LeN m n) : Der (jtm G (lf m n a) (uu n))
+  | tm-lf (G : Cx) (m n : Nat) (a : Tm) (h : Der (jtm G a (uu m))) (le : LeN (suc m) n) : Der (jtm G (lf m n a) (uu n))
   | tm-conv (G : Cx) (a A B : Tm) (h1 : Der (jtm G a A)) (h2 : Der (jeqty G A B)) : Der (jtm G a B)
   -- type equality
   | eqty-refl (G : Cx) (A : Tm) (h : Der (jty G A)) : Der (jeqty G A A)
@@ -50,7 +52,7 @@ data Der : (J : Jf) -> U l =
   | eqty-pi (G : Cx) (A A' B B' : Tm) (h0 : Der (jty G A)) (h1 : Der (jeqty G A A')) (h2 : Der (jeqty (csnoc G A) B B')) :
       Der (jeqty G (pi A B) (pi A' B'))
   | eqty-el (G : Cx) (n : Nat) (a a' : Tm) (h : Der (jeqtm G a a' (uu n))) : Der (jeqty G (el n a) (el n a'))
-  | eqty-el-lf (G : Cx) (m n : Nat) (a : Tm) (h : Der (jtm G a (uu m))) (le : LeN m n) :
+  | eqty-el-lf (G : Cx) (m n : Nat) (a : Tm) (h : Der (jtm G a (uu m))) (le : LeN (suc m) n) :
       Der (jeqty G (el n (lf m n a)) (el m a))
   | eqty-el-pic (G : Cx) (n : Nat) (a b : Tm) (h1 : Der (jtm G a (uu n))) (h2 : Der (jtm (csnoc G (el n a)) b (uu n))) :
       Der (jeqty G (el n (pic n a b)) (pi (el n a) (el n b)))
@@ -68,20 +70,25 @@ data Der : (J : Jf) -> U l =
       Der (jeqtm G (app A B c a) (app A' B' c' a') (subst1 B a))
   | eqtm-pic (G : Cx) (n : Nat) (a a' b b' : Tm) (h0 : Der (jtm G a (uu n))) (h1 : Der (jeqtm G a a' (uu n)))
       (h2 : Der (jeqtm (csnoc G (el n a)) b b' (uu n))) : Der (jeqtm G (pic n a b) (pic n a' b') (uu n))
-  | eqtm-lf (G : Cx) (m n : Nat) (a a' : Tm) (h : Der (jeqtm G a a' (uu m))) (le : LeN m n) :
+  | eqtm-lf (G : Cx) (m n : Nat) (a a' : Tm) (h : Der (jeqtm G a a' (uu m))) (le : LeN (suc m) n) :
       Der (jeqtm G (lf m n a) (lf m n a') (uu n))
   | eqtm-beta (G : Cx) (A B b a : Tm) (hA : Der (jty G A)) (hB : Der (jty (csnoc G A) B)) (h1 : Der (jtm (csnoc G A) b B))
       (h2 : Der (jtm G a A)) : Der (jeqtm G (app A B (lam A B b) a) (subst1 b a) (subst1 B a))
   | eqtm-eta (G : Cx) (A B f : Tm) (hA : Der (jty G A)) (hB : Der (jty (csnoc G A) B)) (h : Der (jtm G f (pi A B))) :
       Der (jeqtm G f (lam A B (app (wk A) (wkl B) (wk f) (var zero))) (pi A B))
   | eqtm-lf-pic (G : Cx) (n p : Nat) (a b : Tm) (h1 : Der (jtm G a (uu n))) (h2 : Der (jtm (csnoc G (el n a)) b (uu n)))
-      (le : LeN n p) : Der (jeqtm G (lf n p (pic n a b)) (pic p (lf n p a) (lf n p b)) (uu p))
-  | eqtm-lf-uc (G : Cx) (m n p : Nat) (h : Der (jwf G)) (lt : LeN (suc m) n) (le : LeN n p) :
+      (le : LeN (suc n) p) : Der (jeqtm G (lf n p (pic n a b)) (pic p (lf n p a) (lf n p b)) (uu p))
+  | eqtm-lf-uc (G : Cx) (m n p : Nat) (h : Der (jwf G)) (lt : LeN (suc m) n) (le : LeN (suc n) p) :
       Der (jeqtm G (lf n p (uc m n)) (uc m p) (uu p))
-  | eqtm-lf-lf (G : Cx) (m n p : Nat) (a : Tm) (h : Der (jtm G a (uu m))) (le1 : LeN m n) (le2 : LeN n p) :
+  | eqtm-lf-lf (G : Cx) (m n p : Nat) (a : Tm) (h : Der (jtm G a (uu m))) (le1 : LeN (suc m) n) (le2 : LeN (suc n) p) :
       Der (jeqtm G (lf n p (lf m n a)) (lf m p a) (uu p)) ;
 
 ------------------------------------------------------------------------
+-- m < n gives m <= n
+lt-le : (m n : Nat) -> LeN (suc m) n -> LeN m n = split {
+  zero -> \ n h -> tt ;
+  suc m | r -> split { zero -> \ h -> efq h ; suc n -> \ h -> r n h } } ;
+
 -- a derivation moved along equations of raw terms
 
 der-tm-ty (G : Cx) (a A A' : Tm) (e : Id Tm A A') (d : Der (jtm G a A)) : Der (jtm G a A') =

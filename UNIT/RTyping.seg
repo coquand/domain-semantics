@@ -28,7 +28,7 @@ data RDer : (J : Jf) -> U l =
   | rtm-pi (G : Cx) (n : Nat) (A B : Tm) (h1 : RDer (jtm G A (uu n))) (h2 : RDer (jtm (csnoc G A) B (uu n))) :
       RDer (jtm G (pi A B) (uu n))
   | rtm-uu (G : Cx) (m n : Nat) (h : RDer (jwf G)) (lt : LeN (suc m) n) : RDer (jtm G (uu m) (uu n))
-  | rtm-cum (G : Cx) (m n : Nat) (A : Tm) (h : RDer (jtm G A (uu m))) (le : LeN m n) : RDer (jtm G A (uu n))
+  | rtm-cum (G : Cx) (m n : Nat) (A : Tm) (h : RDer (jtm G A (uu m))) (le : LeN (suc m) n) : RDer (jtm G A (uu n))
   | rtm-conv (G : Cx) (a A B : Tm) (h1 : RDer (jtm G a A)) (h2 : RDer (jeqty G A B)) : RDer (jtm G a B)
   -- type equality
   | reqty-refl (G : Cx) (A : Tm) (h : RDer (jty G A)) : RDer (jeqty G A A)
@@ -42,7 +42,7 @@ data RDer : (J : Jf) -> U l =
   | reqtm-sym (G : Cx) (a b A : Tm) (hA : RDer (jty G A)) (h : RDer (jeqtm G a b A)) : RDer (jeqtm G b a A)
   | reqtm-trans (G : Cx) (a b c A : Tm) (h1 : RDer (jeqtm G a b A)) (h2 : RDer (jeqtm G b c A)) : RDer (jeqtm G a c A)
   | reqtm-conv (G : Cx) (a b A B : Tm) (h1 : RDer (jeqtm G a b A)) (h2 : RDer (jeqty G A B)) : RDer (jeqtm G a b B)
-  | reqtm-cum (G : Cx) (m n : Nat) (a b : Tm) (h : RDer (jeqtm G a b (uu m))) (le : LeN m n) : RDer (jeqtm G a b (uu n))
+  | reqtm-cum (G : Cx) (m n : Nat) (a b : Tm) (h : RDer (jeqtm G a b (uu m))) (le : LeN (suc m) n) : RDer (jeqtm G a b (uu n))
   | reqtm-pi (G : Cx) (n : Nat) (A A' B B' : Tm) (h0 : RDer (jtm G A (uu n))) (h1 : RDer (jeqtm G A A' (uu n)))
       (h2 : RDer (jeqtm (csnoc G A) B B' (uu n))) : RDer (jeqtm G (pi A B) (pi A' B') (uu n))
   | reqtm-lam (G : Cx) (A A' B B' b b' : Tm) (h0 : RDer (jty G A)) (h1 : RDer (jeqty G A A')) (h2 : RDer (jeqty (csnoc G A) B B'))

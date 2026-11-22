@@ -112,7 +112,7 @@ data GDer : (J : GJ) -> U l =
   | gm-pic (G : GE) (n : Nat) (a b : GE) (h1 : GDer (gjtm G a (guu n)))
       (h2 : GDer (gjtm (gext G (gel n a)) b (guu n))) : GDer (gjtm G (gpic n a b) (guu n))
   | gm-uc (G : GE) (m n : Nat) (h : GDer (gjwf G)) (lt : LeN (suc m) n) : GDer (gjtm G (guc m n) (guu n))
-  | gm-lf (G : GE) (m n : Nat) (a : GE) (h : GDer (gjtm G a (guu m))) (le : LeN m n) :
+  | gm-lf (G : GE) (m n : Nat) (a : GE) (h : GDer (gjtm G a (guu m))) (le : LeN (suc m) n) :
       GDer (gjtm G (glf m n a) (guu n))
   | gm-q (G A : GE) (h : GDer (gjty G A)) : GDer (gjtm (gext G A) gq (gsb A gp))
   | gm-sb (D G a A s : GE) (hA : GDer (gjty G A)) (h1 : GDer (gjtm G a A)) (h2 : GDer (gjsub D s G)) : GDer (gjtm D (gsb a s) (gsb A s))
@@ -127,7 +127,7 @@ data GDer : (J : GJ) -> U l =
   | ge-el (G : GE) (n : Nat) (a a' : GE) (h : GDer (gjeqtm G a a' (guu n))) : GDer (gjeqty G (gel n a) (gel n a'))
   | ge-sb (D G A A' s s' : GE) (h0 : GDer (gjty G A)) (h1 : GDer (gjeqty G A A')) (h2 : GDer (gjsub D s G))
       (h3 : GDer (gjsub D s' G)) (h4 : GDer (gjeqsub D s s' G)) : GDer (gjeqty D (gsb A s) (gsb A' s'))
-  | ge-el-lf (G : GE) (m n : Nat) (a : GE) (h : GDer (gjtm G a (guu m))) (le : LeN m n) :
+  | ge-el-lf (G : GE) (m n : Nat) (a : GE) (h : GDer (gjtm G a (guu m))) (le : LeN (suc m) n) :
       GDer (gjeqty G (gel n (glf m n a)) (gel m a))
   | ge-el-pic (G : GE) (n : Nat) (a b : GE) (h1 : GDer (gjtm G a (guu n)))
       (h2 : GDer (gjtm (gext G (gel n a)) b (guu n))) :
@@ -157,7 +157,7 @@ data GDer : (J : GJ) -> U l =
   | gm-epic (G : GE) (n : Nat) (a a' b b' : GE) (h0 : GDer (gjtm G a (guu n))) (h1 : GDer (gjeqtm G a a' (guu n)))
       (h2 : GDer (gjeqtm (gext G (gel n a)) b b' (guu n))) :
       GDer (gjeqtm G (gpic n a b) (gpic n a' b') (guu n))
-  | gm-elf (G : GE) (m n : Nat) (a a' : GE) (h : GDer (gjeqtm G a a' (guu m))) (le : LeN m n) :
+  | gm-elf (G : GE) (m n : Nat) (a a' : GE) (h : GDer (gjeqtm G a a' (guu m))) (le : LeN (suc m) n) :
       GDer (gjeqtm G (glf m n a) (glf m n a') (guu n))
   | gm-esb (D G a a' A s s' : GE) (hA : GDer (gjty G A)) (h0 : GDer (gjtm G a A)) (h1 : GDer (gjeqtm G a a' A)) (h2 : GDer (gjsub D s G))
       (h3 : GDer (gjsub D s' G)) (h4 : GDer (gjeqsub D s s' G)) : GDer (gjeqtm D (gsb a s) (gsb a' s') (gsb A s))
@@ -166,11 +166,11 @@ data GDer : (J : GJ) -> U l =
   | gm-eta (G A B f : GE) (hA : GDer (gjty G A)) (hB : GDer (gjty (gext G A) B)) (h : GDer (gjtm G f (gpi A B))) :
       GDer (gjeqtm G f (glam A B (gapp (gsb A gp) (gsb B (glift A gp)) (gsb f gp) gq)) (gpi A B))
   | gm-lf-pic (G : GE) (n p : Nat) (a b : GE) (h1 : GDer (gjtm G a (guu n)))
-      (h2 : GDer (gjtm (gext G (gel n a)) b (guu n))) (le : LeN n p) :
+      (h2 : GDer (gjtm (gext G (gel n a)) b (guu n))) (le : LeN (suc n) p) :
       GDer (gjeqtm G (glf n p (gpic n a b)) (gpic p (glf n p a) (glf n p b)) (guu p))
-  | gm-lf-uc (G : GE) (m n p : Nat) (h : GDer (gjwf G)) (lt : LeN (suc m) n) (le : LeN n p) :
+  | gm-lf-uc (G : GE) (m n p : Nat) (h : GDer (gjwf G)) (lt : LeN (suc m) n) (le : LeN (suc n) p) :
       GDer (gjeqtm G (glf n p (guc m n)) (guc m p) (guu p))
-  | gm-lf-lf (G : GE) (m n p : Nat) (a : GE) (h : GDer (gjtm G a (guu m))) (le1 : LeN m n) (le2 : LeN n p) :
+  | gm-lf-lf (G : GE) (m n p : Nat) (a : GE) (h : GDer (gjtm G a (guu m))) (le1 : LeN (suc m) n) (le2 : LeN (suc n) p) :
       GDer (gjeqtm G (glf n p (glf m n a)) (glf m p a) (guu p))
   | gm-sb-id (G a A : GE) (h : GDer (gjtm G a A)) : GDer (gjeqtm G (gsb a gid) a A)
   | gm-sb-comp (T D G a A s d : GE) (h0 : GDer (gjtm G a A)) (h1 : GDer (gjsub D s G)) (h2 : GDer (gjsub T d D)) :
@@ -188,7 +188,7 @@ data GDer : (J : GJ) -> U l =
       GDer (gjeqtm D (gsb (gpic n a b) s) (gpic n (gsb a s) (gsb b (glift (gel n a) s))) (guu n))
   | gm-uc-sb (D G : GE) (m n : Nat) (s : GE) (h : GDer (gjsub D s G)) (lt : LeN (suc m) n) :
       GDer (gjeqtm D (gsb (guc m n) s) (guc m n) (guu n))
-  | gm-lf-sb (D G : GE) (m n : Nat) (a s : GE) (h1 : GDer (gjtm G a (guu m))) (h2 : GDer (gjsub D s G)) (le : LeN m n) :
+  | gm-lf-sb (D G : GE) (m n : Nat) (a s : GE) (h1 : GDer (gjtm G a (guu m))) (h2 : GDer (gjsub D s G)) (le : LeN (suc m) n) :
       GDer (gjeqtm D (gsb (glf m n a) s) (glf m n (gsb a s)) (guu n))
   | gm-q-lift (D G A s : GE) (h1 : GDer (gjty G A)) (h2 : GDer (gjsub D s G)) :
       GDer (gjeqtm (gext D (gsb A s)) (gsb gq (glift A s)) gq (gsb (gsb A s) gp))
