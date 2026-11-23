@@ -30,10 +30,11 @@
 \newcommand{\vdashR}{\vdash_{\mathsf R}}
 \newcommand{\erR}[1]{|#1|_{\mathsf R}}
 
-\title{Explicit and implicit substitutions with Ehrhard's generators\\[2pt]
-\large A variant of Section 4 of ``From Tarski to Russell'', and Section 5, formalised in Unit}
+\title{From Tarski to Russell with Ehrhard's generators\\[2pt]
+\large A variant of Sections 4 and 5 of ``From Tarski to Russell'',
+with context annotations and models}
 \author{}
-\date{22 November 2026}
+\date{23 November 2026}
 
 \begin{document}
 \maketitle
@@ -46,17 +47,23 @@ $T_{\mathsf{Tarski}}$, where substitution is an operation on de Bruijn
 terms. We replace $T_{\mathsf{GAT}}$ by a theory $T_{\mathsf E}$ whose
 substitutions are generated as in Ehrhard's presentation of categories with
 families: $\id,\ \sigma\delta,\ (),\ \p,\ \lift_A(\sigma),\ \sect_A(a)$.
-We prove the analogues of Lemmas 15--19 and Theorem~20. We then prove
-Section~5 of the paper, the equivalence of $T_{\mathsf{Tarski}}$ and
-$T_{\mathsf{Russell}}$: Lemma~21, Lemmas~25--26, Corollary~27 and
-Theorem~28 (Sections~\ref{sec:inv}--\ref{sec:section}), and compose them
-with Theorem~20 to relate $T_{\mathsf{Russell}}$ and $T_{\mathsf E}$
-directly (Section~\ref{sec:compose}). Finally, we use this relation to
-interpret $T_{\mathsf{Russell}}$ in Ehrhard models, including the
-iterative-set models (Section~\ref{sec:rsem}). The formal development
-is checked in Unit by \seg{UNIT/GATCheck.seg}.
+We prove the analogues of Lemmas 15--19 and Theorem~20
+(Sections~\ref{sec:te}--\ref{sec:thm20}). We then prove Section~5 of the
+paper, the equivalence of $T_{\mathsf{Tarski}}$ and $T_{\mathsf{Russell}}$:
+Lemma~21, Lemmas~25--26, Corollary~27 and Theorem~28
+(Sections~\ref{sec:inv}--\ref{sec:section}), and compose the two
+equivalences to relate $T_{\mathsf{Russell}}$ and $T_{\mathsf E}$ directly
+(Section~\ref{sec:compose}). The same relation holds for the theory with
+the context annotations of the paper and for the completely annotated
+theory, which derives exactly the judgements of the generalised algebraic
+theory with Ehrhard's generators (Sections~\ref{sec:annot}
+and~\ref{sec:fullannot}). Finally we use
+it to interpret $T_{\mathsf{Russell}}$ in every Ehrhard model, in
+particular in a model of iterative sets and in a univalent model with one
+universe (Section~\ref{sec:rsem}). Everything is checked in Unit;
+Section~\ref{sec:unit} describes the formalisation.
 
-\section{The theory $T_{\mathsf E}$}
+\section{The theory $T_{\mathsf E}$}\label{sec:te}
 
 Raw expressions (contexts, types, terms and substitutions share one syntax):
 \begin{align*}
@@ -108,8 +115,20 @@ The type annotations $\lambda(A,B,b)$, $\app(A,B,c,a)$, $\lift_A$, $\sect_A$
 are kept. This is what makes the lifting below independent of the context.
 With annotated $\p_{\Gamma,A}$, $\q_{\Gamma,A}$, the relational form of
 Lemma~18 would need presuppositions about the right-hand side of each
-equation.
+equation. The annotations of the paper are recovered afterwards
+(Section~\ref{sec:annot}).
 \end{remark}
+
+\paragraph{Lifts and levels.} Lifts $t^n_m(a)$ are strict ($m<n$), as the
+cumulativity of $T_{\mathsf{Russell}}$ in Appendix~A.3: with $t^n_n$ and no
+equation $t^n_n(a)=a$, the terms $t^0_0(a)$ and $a$ have the same Russell
+erasure without being convertible, and the equivalence with
+$T_{\mathsf{Russell}}$ fails. All the theories below are considered with
+levels $0,\ldots,N$ for a fixed bound $N$: each rule that introduces a
+level has the side condition that it is at most $N$. For $N=0$ there is one
+universe and the rules for $\U^n_m$, $t^n_m$ and cumulativity cannot
+apply. A derivation in the unbounded theories mentions finitely many
+levels, so it is a derivation for some $N$.
 
 \section{Erasure (Theorem 16)}
 
@@ -211,7 +230,7 @@ $(\ev A\rho)\sigma$. With that choice the conversion rule needs no naturality
 of the type.
 \end{proof}
 
-\section{Lemma 19 and Theorem 20}
+\section{Lemma 19 and Theorem 20}\label{sec:thm20}
 
 \begin{lemma}{19}
 By induction on derivations of $T_{\mathsf E}$, using Theorem~16 and then
@@ -235,40 +254,10 @@ of $T_{\mathsf E}$ over the same context with the same erasure are convertible,
 and every context is convertible to $\lceil\er\Gamma\rceil$.
 \end{theorem}
 
-\section{The formalisation}
+\section{Presuppositions}\label{sec:presup}
 
-The files are in \seg{UNIT/} and are checked together by \seg{GATCheck.seg}.
-They are also part of \seg{All.seg}.
-\begin{center}\small
-\begin{tabular}{ll}
-\seg{TSyntax}, \seg{TTyping}, \seg{TSubst}, \seg{TSubCong}, \seg{TSubLib} & $T_{\mathsf{Tarski}}$, Lemma 15\\
-\seg{GAT}, \seg{GSound} & $T_{\mathsf E}$, erasure, Theorem 16\\
-\seg{Ev} & evaluation, Lemma 17\\
-\seg{L18Base} \dots\ \seg{L18BE}, \seg{L18} & Lemma 18\\
-\seg{L19Base}, \seg{L19}, \seg{Thm20} & Lemma 19, Theorem 20\\
-\seg{TPresup}, \seg{TLean} & presuppositions of $T_{\mathsf{Tarski}}$, lean rules\\
-\seg{GPresup}, \seg{GLean} & presuppositions of $T_{\mathsf E}$, lean rules\\[3pt]
-\seg{LTypes} \dots\ \seg{LSoundF}, \seg{TSem}, \seg{TSound} & levelled filter model, soundness\\
-\seg{TInv} & inversion (Theorems 9, 10 for $T_{\mathsf{Tarski}}$)\\
-\seg{RTyping}, \seg{ErR} & $T_{\mathsf{Russell}}$, erasure, Lemma 21\\
-\seg{TGen} & generation lemmas\\
-\seg{TUniqBase}, \seg{TUniqComb}, \seg{TUniq} & Lemmas 25, 26, Corollary 27\\
-\seg{TSection} & Theorem 28\\
-\seg{RGAT} & $T_{\mathsf{Russell}}$ and $T_{\mathsf E}$ (Section~\ref{sec:compose})\\
-\seg{AGAT}, \seg{AForget}, \seg{AUniq}, \seg{AAnnot}, \seg{ARGAT} & context annotations (Section~\ref{sec:annot})\\
-\seg{EhrhardCwF}, \seg{EhrhardTEModel} & model interface\\
-\seg{TEDenote}, \seg{TEInterpSound} & interpretation and soundness of $T_{\mathsf E}$\\
-\seg{RSem}, \seg{RSemV} & Russell semantics (Section~\ref{sec:rsem})\\
-\seg{russell-posets/PosetTEModel} & univalent model, one universe (Section~\ref{sec:rsem})\\
-\seg{FGAT}, \seg{FForget}, \seg{FPresup}, \seg{FGen} & full syntax, erasure and generation\\
-\seg{FCoherence}, \seg{FAnnot}, \seg{FRGAT} & full annotations (Section~\ref{sec:fullannot})
-\end{tabular}
-\end{center}
-Lifts $t^n_m(a)$ are strict ($m<n$), as the cumulativity of $T_{\mathsf{Russell}}$ in Appendix~A.3: with $t^n_n$ and no equation $t^n_n(a)=a$, the terms $t^0_0(a)$ and $a$ have the same Russell erasure without being convertible, and the equivalence with $T_{\mathsf{Russell}}$ fails.
-
-The syntactic proofs use no postulates and no axioms. Some rules carry extra premises,
-all of them presuppositions.
-In $T_{\mathsf{Tarski}}$:
+Some rules of the systems carry extra premises, all of them
+presuppositions. In $T_{\mathsf{Tarski}}$:
 \begin{itemize}
 \item the typing of application carries $\Gamma\vdash A$;
 \item the binder congruences carry $\Gamma\vdash A$ (or $\Gamma\vdash a:\U_n$);
@@ -281,8 +270,6 @@ In $T_{\mathsf E}$ the same, and in addition $a\sigma$ carries $\Gamma\vdashG A$
 $A:\mathrm{Ty}(\Gamma)$), the congruences of $A\sigma$, $a\sigma$, $\lift_A$
 carry the typings of their left-hand sides, and the congruence of $\sect_A$ carries
 $\Gamma\vdashG A$, $\Gamma\vdashG a:A$, $\Gamma\vdashG a':A$.
-
-\section{Presuppositions}\label{sec:presup}
 These premises are admissible, so the theorems hold for the lean systems too.
 
 \begin{lemma}[Lemmas 22--24 of the paper]
@@ -308,8 +295,8 @@ the congruences of $\lift$ and $\sect$, and the congruence of application need
 the conversion rule for substitutions above.
 
 The lean systems ($T_{\mathsf{Tarski}}$ as in Appendix~A.2, $T_{\mathsf E}$ without the
-premises listed) are translated into the systems of the formalisation by recovering
-the premises from these lemmas. For $\eta$ this also needs inversion of
+premises listed) are translated into the systems with premises by recovering
+them from these lemmas. For $\eta$ this also needs inversion of
 $\Gamma\vdash\Pi(A,B)$, which holds in $T_{\mathsf{Tarski}}$ because only one rule
 concludes it, and in $T_{\mathsf E}$ by induction, going through the rule converting
 types along $\vdashG\Gamma=\Delta$. One difference with Appendix~A.2 remains: symmetry and
@@ -358,7 +345,10 @@ If $\Gamma\vdashT J$ then $\erR\Gamma\vdashR\erR J$.
 The proof is one induction. As in Section~4, the extra premises of
 $T_{\mathsf{Tarski}}$ are mirrored in $T_{\mathsf{Russell}}$, so that the
 erasure of each Tarski rule is an instance of a Russell rule. The six Tarski
-equations erase to reflexivity.
+equations erase to reflexivity. In the bounded systems, every level of a
+derivable Russell judgement is at most $N$; this is preserved by renaming
+and substitution, since substitution can expose a universe in the type of
+an application.
 
 \section{Uniqueness (Lemmas 25, 26 and Corollary 27)}
 
@@ -407,7 +397,8 @@ $\Pi_n(a,b)$ and $\Pi_{n'}(a',b')$, the induction hypothesis gives common
 codes $v_a:\U_{k_a}$ and $v_b:\U_{k_b}$. Their common code is
 $\Pi_K(\hat t^K_{k_a}(v_a),\hat t^K_{k_b}(v_b))$ with $K=\max(k_a,k_b)$,
 using $t^p_n(\Pi_n(a,b))=\Pi_p(t^p_n(a),t^p_n(b))$. This avoids the
-trichotomy on $k_a,k_b$.
+trichotomy on $k_a,k_b$. No level above the given ones is created, so the
+proof stays within the bound $N$.
 \end{proof}
 
 \begin{lemma}{26}
@@ -476,7 +467,7 @@ $T_{\mathsf{Russell}}$ are equivalent.
 \section{$T_{\mathsf{Russell}}$ and $T_{\mathsf E}$}\label{sec:compose}
 
 Write $\|X\| = \erR{\er X}$ for the double erasure from $T_{\mathsf E}$ to
-$T_{\mathsf{Russell}}$ (file \seg{RGAT}).
+$T_{\mathsf{Russell}}$.
 
 \begin{theorem}{(Russell and $T_{\mathsf E}$)}
 \begin{enumerate}
@@ -517,151 +508,6 @@ both are proved by induction on derivations. For symmetry, in the case of
 $\vdashG\Gamma.A=\Delta.B$ the equation $B=A$ is moved from $\Gamma$ to
 $\Delta$. For transitivity, the second derivation is inverted: only the rules
 for the empty context, reflexivity and extension conclude a context equality.
-
-\section{Semantics of $T_{\mathsf{Russell}}$}\label{sec:rsem}
-
-The checked versions of the three theories have levels $0,\ldots,N$.
-At $N=0$ there is one universe. The preceding sections give the rule
-schemes without a global bound. Each derivation uses finitely many levels,
-so it admits a finite bound. The formal comparison with the unbounded
-presentation is open.
-
-A $\seg{TEModel}[N]$ is a category with families in Ehrhard's presentation
-whose contexts, substitutions, types and terms form sets. It has dependent
-products, given by a term bijection natural under substitution, and a
-cumulative Tarski hierarchy through level $N$. The hierarchy has product
-and universe codes, decoding and lifts satisfying the $T_{\mathsf E}$ equations.
-
-The partial interpretation of raw $T_{\mathsf E}$ expressions has
-propositional domains, so denotation is functional. A context denotes a
-semantic telescope that records each successive type, supplying the last
-extension for $\p$ and $\q$. Over a supplied telescope, a term denotes a
-type and an element of it. A substitution returns a target telescope
-and a model substitution. In $\sigma\delta$, the target of $\delta$
-supplies the source for $\sigma$.
-
-Soundness is proved by induction on $T_{\mathsf E}$ derivations.
-Well-formed contexts have denotations, and convertible contexts denote the
-same telescope. At every denotation of the stated context, types and terms
-have values and the two sides of an equation share a value. For substitutions
-the computed target must equal the supplied denotation of the target context.
-
-\begin{theorem}{(Russell semantics)}
-For every $N$ and every $\seg{TEModel}[N]$:
-\begin{enumerate}\setlength{\itemsep}{0pt}
-\item Each bounded $T_{\mathsf{Russell}}$ judgement has a denotation
-through a $T_{\mathsf E}$ lift under double erasure.
-\item Any two lifts of that judgement have the same semantic value.
-For types and terms the value includes the telescope, and for terms
-it also includes the semantic type. An equality judgement has the common
-value of its two sides.
-\item Russell-convertible types and Russell-convertible terms have
-equal denotations, including when their denotations were obtained from
-independent typing derivations.
-\end{enumerate}
-\end{theorem}
-\begin{proof}
-For (1), apply the lifting theorem of Section~\ref{sec:compose} and
-$T_{\mathsf E}$ soundness. For (2), equality of the lifted contexts
-aligns the telescopes. Convert the second typing judgement to the first
-context and apply the uniqueness clauses of Section~\ref{sec:compose}.
-Soundness gives a common value in the aligned telescope, and functionality
-identifies both values with it. For equality judgements, compare the value
-of either side. For (3), lift and interpret the Russell equality. By (2)
-its common value agrees with the values obtained from any lifts of the
-individual typing judgements.
-\end{proof}
-
-Gylterud's tower $V_0,\ldots,V_N$ supplies the codes and lifts of a
-$\seg{TEModel}[N]$. Model assembly from a supplied tower and the Russell
-semantics theorem are uniform in $N$. Unit supplies the tower as a
-schema for closed $N$, since each tower uses a statically specified
-sequence of Seg meta-levels. The instances for $N=0,1,2$ are checked in
-\seg{RSemV}.
-
-The tower is built from W-types in Unit. Univalence is used once, to show
-that iterative sets form a set, and it is a parameter of the model. In
-this sense the model is a set-theoretic semantics in the style of Aczel
-and Werner, with $V_n$ playing the role of an inaccessible. The rule
-$a:\U_m\Rightarrow a:\U_n$ of $T_{\mathsf{Russell}}$ is interpreted by the
-lift $V_m\to V_n$ of codes. This lift is not the identity, but decoding
-does not see it: $\T_n(t^n_m(a))$ and $\T_m(a)$ denote the same type. This
-is the situation where the detour through $T_{\mathsf E}$ is needed: a
-direct interpretation of Russell derivations would have to decide where
-the lifts go, and prove that choice coherent. Theorem~28 and uniqueness
-do both once, syntactically.
-
-\paragraph{Other models.} The theorem holds for every
-$\seg{TEModel}[N]$, that is, every category with families in Ehrhard's
-form whose four sorts are sets, with $\Pi$ and a cumulative Tarski
-hierarchy satisfying the equations of $T_{\mathsf E}$. It is not specific
-to iterative sets. Context annotations play no role in it, since
-$T_{\mathsf E}$ derivations carry their contexts. Annotations matter for a
-different statement, namely that the syntax is the initial model of a
-generalised algebraic theory, so that the interpretation in a model is the
-\emph{unique} morphism of categories with families. That statement is not
-formalised here; Section~\ref{sec:annot} relates the annotated syntax to
-$T_{\mathsf E}$.
-
-\paragraph{A univalent model with one universe.} For $N=0$ the rules for
-$\U^n_m$, $t^n_m$ and cumulativity cannot apply, and a
-$\seg{TEModel}[0]$ is an Ehrhard category with families with $\Pi$ and
-one universe closed under $\Pi$. The univalent model in
-\seg{CANONICITY/unit/sag-model} is already in Ehrhard's form: it has the
-category with families of fibrant types over posets (\seg{FibCwF}, with
-sets as sorts), $\Pi$ (\seg{FPi}) and one universe $\U$ with decoding
-(\seg{CwFU}, instance \seg{FibUniv}). Here $\U(X)$ consists of all small
-fibrant types over $yX$, so every small fibrant type $A$ over $\Gamma$ has
-a code $\code{A}:\Gamma\to\U$, $\rho\mapsto A\hat\rho$ with its structure
-moved along $\hat\rho$. Following Huber (thesis, Definition~1.1.4), the
-strict equation $\T(\code{A})=A$, as fibrant types, makes codes for the
-type formers unnecessary: $\Pi_0(a,b):=\code{\Pi(\T a,\T b)}$ satisfies
-$\T(\Pi_0(a,b))=\Pi(\T a,\T b)$.
-
-\begin{theorem}{(univalent model)}
-The universe of the poset model is closed under $\Pi$ with strict
-decoding, natural in substitutions. Hence the model is a
-$\seg{TEModel}[0]$, and the Russell semantics theorem holds in it.
-\end{theorem}
-\begin{proof}
-On the underlying presheaves, $\T(\code{A})=A$ is the code-map lemma of
-the model, up to the identity law of composition, which suffices since
-types form a set. For the fibration structures, restrict along a Yoneda
-point $\hat\rho$: the code map restricted is the Yoneda code of
-$\code{A}\rho$, and the lemma \emph{El along a Yoneda code}
-(\seg{CPosEl5}) gives that the fibration of $\mathsf{El}$ moved along it is
-that of $A$ moved along $\hat\rho$. Two fibration structures that agree
-after moving along every Yoneda point are equal (\seg{FibLocal}): a
-relative contractibility structure is determined by its values, the value
-of a moved structure at the generic point is the original value at
-$\rho$, and since the interval is tiny on posets a composition problem
-at $X$ is reached from the generic point of $X\times[1]$. This gives
-$\T(\code{A})=A$ (\seg{FibName}, \seg{FibNameDec}), and also
-$\code{\T c}=c$ (\seg{FibUnivInj}). The $\Pi$-type of small types,
-built at the level of the universe, equals the $\Pi$-type of the model
-through the lift of iterative sets (\seg{FibPiSmall}). Naturality of
-codes, $\code{A}\sigma=\code{A\sigma}$, gives naturality of $\Pi_0$
-(\seg{FibUnivPi}). At $N=0$ the remaining fields of
-$\seg{TEModel}[0]$ concern pairs of levels $m<n\le 0$ and are vacuous;
-contexts form a set because a presheaf context is determined by its codes
-and action (\seg{PosetContextSet}). The instance is
-\seg{PosetTEModel}.
-\end{proof}
-
-The files of the classifier are in \seg{sag-model}. The instance and the
-Russell semantics at $N=0$ are in \seg{UNIT/russell-posets}, checked
-together with \seg{core} and \seg{sag-model} by its \seg{check.py}
-(15288 declarations, no failure) with the indexed checker. That checker
-now resolves \texttt{opaque} and \texttt{transparent} locks as the main
-checker does, so both accept the same sources. A closed example,
-$\lambda(A:\U_0).\,\Pi(x:A).\,A$ at type $\Pi(A:\U_0).\,\U_0$, checks
-that a direct derivation and one ending in a conversion have the same
-denotation (\seg{PosetRSemCheck}). The model is relative to function
-extensionality and univalence, which are parameters of the poset model.
-The syntax has no identity types, so univalence is not visible in
-$T_{\mathsf{Russell}}$; the result shows that the semantics applies in a
-model that is not set-theoretic. Adding identity types to the four
-theories is a separate project.
 
 \section{Context annotations}\label{sec:annot}
 
@@ -710,7 +556,7 @@ uniqueness theorem to the forgetful images of the given annotated
 judgements. Lift the resulting equations into the given annotated
 contexts. Coherence aligns the lifted endpoints with the original
 types and terms. Context equality lifts directly between the two
-given annotated contexts. The composition is checked in \seg{ARGAT}.
+given annotated contexts.
 \end{proof}
 
 \section{Complete sort annotations}\label{sec:fullannot}
@@ -759,6 +605,233 @@ By Section~\ref{sec:annot}, the four conclusions of
 Section~\ref{sec:compose} hold for $T_{\mathsf E}^{\mathrm{full}}$
 with erasure \mbox{$X\mapsto\|\mathrm{fg}(\mathrm{ff}(X))\|$}.
 For uniqueness, lift the $T_{\mathsf E}^{a}$ equations and align their
-sides by coherence. The composition is checked in \seg{FRGAT}.
+sides by coherence.
+
+\paragraph{The generalised algebraic theory.} Let $\Sigma_{\mathsf E}$ be
+the signature with sorts $\mathrm{ctx}$, $\mathrm{Sub}(\Delta,\Gamma)$,
+$\mathrm{Ty}(\Gamma)$ and $\mathrm{Tm}(\Gamma,A)$, the operations above, each
+with its typed telescope, and the equations of $T_{\mathsf E}$ as axioms,
+each with its typed telescope. Cartmell's rules generate from
+$\Sigma_{\mathsf E}$ a deductive system $\mathrm{GAT}(\Sigma_{\mathsf E})$:
+formation of each operation from its telescope; each axiom at every
+instance whose two sides are typed at a common sort; reflexivity,
+symmetry and transitivity at each sort; congruence of each operation in
+all its arguments simultaneously, sort arguments included; equality of
+sorts and conversion along it. For closed judgements no variables of the
+generalised algebraic theory are needed, since axioms can be instantiated
+directly by closed terms.
+
+\begin{theorem}{(the GAT)}
+$T_{\mathsf E}^{\mathrm{full}}$ and $\mathrm{GAT}(\Sigma_{\mathsf E})$
+derive the same closed judgements. Hence the four conclusions of
+Section~\ref{sec:compose} hold for $\mathrm{GAT}(\Sigma_{\mathsf E})$.
+\end{theorem}
+\begin{proof}
+From $\mathrm{GAT}(\Sigma_{\mathsf E})$ to $T_{\mathsf E}^{\mathrm{full}}$, by
+induction on derivations: a congruence in all arguments at once is a
+chain of congruences in one argument, joined by transitivity and
+conversion, and the conversion along an equality of sorts is a
+composite of the context and type conversion rules. Conversely, first
+the presuppositions of $\mathrm{GAT}(\Sigma_{\mathsf E})$ are proved; then
+every rule of $T_{\mathsf E}^{\mathrm{full}}$ is an instance of a rule of
+the generalised algebraic theory or derived from such instances, the
+typings of the two sides of an axiom being supplied by the
+presuppositions.
+\end{proof}
+So, at every level bound, $T_{\mathsf{Russell}}$ corresponds to the
+generalised algebraic theory with Ehrhard's generators itself, and not
+only to a deductive system written to match it. Initiality of its term
+model among Ehrhard models is Cartmell's general theorem and is not
+proved here.
+
+\section{Semantics of $T_{\mathsf{Russell}}$}\label{sec:rsem}
+
+\begin{definition}
+An \emph{Ehrhard model of level $N$} is a category with families in
+Ehrhard's presentation (substitutions generated by $\id$, composition,
+$()$, $\p$, $\lift$ and $\sect$, with Ehrhard's equations) whose
+contexts, substitutions, types and terms form sets. It has dependent
+products, given by a bijection on terms natural under substitution, and a
+cumulative Tarski hierarchy through level $N$: universes $\U_n$ with
+decoding $\T_n$, codes $\Pi_n$ and $\U^n_m$, and lifts $t^n_m$, satisfying
+the equations of $T_{\mathsf E}$, all natural under substitution.
+\end{definition}
+
+The partial interpretation of raw $T_{\mathsf E}$ expressions has
+propositional domains, so denotation is functional. A context denotes a
+semantic telescope that records each successive type, supplying the last
+extension for $\p$ and $\q$. Over a supplied telescope, a term denotes a
+type and an element of it. A substitution returns a target telescope
+and a model substitution. In $\sigma\delta$, the target of $\delta$
+supplies the source for $\sigma$.
+
+Soundness is proved by induction on $T_{\mathsf E}$ derivations.
+Well-formed contexts have denotations, and convertible contexts denote the
+same telescope. At every denotation of the stated context, types and terms
+have values and the two sides of an equation share a value. For substitutions
+the computed target must equal the supplied denotation of the target context.
+
+\begin{theorem}{(Russell semantics)}
+For every $N$ and every Ehrhard model of level $N$:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+\item Each $T_{\mathsf{Russell}}$ judgement has a denotation
+through a $T_{\mathsf E}$ lift under double erasure.
+\item Any two lifts of that judgement have the same semantic value.
+For types and terms the value includes the telescope, and for terms
+it also includes the semantic type. An equality judgement has the common
+value of its two sides.
+\item Russell-convertible types and Russell-convertible terms have
+equal denotations, including when their denotations were obtained from
+independent typing derivations.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+For (1), apply the lifting theorem of Section~\ref{sec:compose} and
+$T_{\mathsf E}$ soundness. For (2), equality of the lifted contexts
+aligns the telescopes. Convert the second typing judgement to the first
+context and apply the uniqueness clauses of Section~\ref{sec:compose}.
+Soundness gives a common value in the aligned telescope, and functionality
+identifies both values with it. For equality judgements, compare the value
+of either side. For (3), lift and interpret the Russell equality. By (2)
+its common value agrees with the values obtained from any lifts of the
+individual typing judgements.
+\end{proof}
+
+Context annotations play no role in this theorem, since $T_{\mathsf E}$
+derivations carry their contexts. Annotations matter for a different
+statement, namely that the annotated syntax is the initial model of a
+generalised algebraic theory, so that the interpretation in a model is the
+\emph{unique} morphism of categories with families. That statement is not
+proved here.
+
+\paragraph{Iterative sets.} Gylterud's iterative sets give, for each $N$,
+an Ehrhard model of level $N$: a type is a family of iterative sets, and
+$\U_n$ is the set $V_n$ of iterative sets built from the $n$-th universe of
+the metatheory, seen as an element of $V_{n+1}$. The metatheory has
+function extensionality and univalence; univalence is used once, to show
+that iterative sets form a set. In this sense the model is a
+set-theoretic semantics in the style of Aczel and Werner, with $V_n$
+playing the role of an inaccessible. The rule $a:\U_m\Rightarrow a:\U_n$ of
+$T_{\mathsf{Russell}}$ is interpreted by the lift $V_m\to V_n$ of codes.
+This lift is not the identity, but decoding does not see it:
+$\T_n(t^n_m(a))$ and $\T_m(a)$ denote the same type. This is the situation
+where the detour through $T_{\mathsf E}$ is needed: a direct interpretation
+of Russell derivations would have to decide where the lifts go, and prove
+that choice coherent. Theorem~28 and uniqueness do both once,
+syntactically.
+
+\paragraph{A univalent model with one universe.} For $N=0$ an Ehrhard
+model of level $0$ is an Ehrhard category with families with $\Pi$ and one
+universe closed under $\Pi$. The univalent model on finite posets, with
+fibrations given by relative contractibility, is already in Ehrhard's form.
+It has the category with families of fibrant types, with sets as sorts,
+$\Pi$, and one universe $\U$ with decoding $\T$. Here $\U(X)$ consists of
+all small fibrant types over $yX$, so every small fibrant type $A$ over
+$\Gamma$ has a code $\code{A}:\Gamma\to\U$, $\rho\mapsto A\hat\rho$ with
+its structure moved along $\hat\rho$. Following Huber (thesis,
+Definition~1.1.4), the strict equation $\T(\code{A})=A$, as fibrant types,
+makes codes for the type formers unnecessary: $\Pi_0(a,b):=\code{\Pi(\T
+a,\T b)}$ satisfies $\T(\Pi_0(a,b))=\Pi(\T a,\T b)$.
+
+\begin{theorem}{(univalent model)}
+The universe of the poset model is closed under $\Pi$ with strict
+decoding, natural in substitutions. Hence the model is an Ehrhard model of
+level $0$, and the Russell semantics theorem holds in it.
+\end{theorem}
+\begin{proof}
+On the underlying presheaves, $\T(\code{A})=A$ is the code-map lemma of
+the model, up to the identity law of composition, which suffices since
+types form a set. For the fibration structures, restrict along a Yoneda
+point $\hat\rho$: the code map restricted is the Yoneda code of
+$\code{A}\rho$, and the lemma \emph{El along a Yoneda code} of the model
+gives that the fibration of $\mathsf{El}$ moved along it is that of $A$
+moved along $\hat\rho$. Two fibration structures that agree after moving
+along every Yoneda point are equal: a relative contractibility structure
+is determined by its values, the value of a moved structure at the generic
+point is the original value at $\rho$, and since the interval is tiny on
+posets a composition problem at $X$ is reached from the generic point of
+$X\times[1]$. This gives $\T(\code{A})=A$, and also $\code{\T c}=c$. The
+$\Pi$-type of small types, built at the level of the universe, equals the
+$\Pi$-type of the model through the lift of iterative sets. Naturality of
+codes, $\code{A}\sigma=\code{A\sigma}$, gives naturality of $\Pi_0$. At
+$N=0$ the remaining data of an Ehrhard model concern pairs of levels
+$m<n\le 0$ and are vacuous; contexts form a set because a presheaf context
+is determined by its codes and action.
+\end{proof}
+
+The model is relative to function extensionality and univalence in the
+metatheory. The syntax has no identity types, so univalence is not
+visible in $T_{\mathsf{Russell}}$; the result shows that the semantics
+applies in a model that is not set-theoretic. Adding identity types to the
+four theories is a separate project.
+
+\section{The formalisation in Unit}\label{sec:unit}
+
+Everything above is checked in Unit, without postulates. The syntactic
+part and the iterative-set model are in \seg{DOMAIN/UNIT} and are checked
+by \seg{GATCheck.seg} (3910 declarations, no failure, 1.4\,s); they are also
+part of \seg{All.seg} (40127 declarations). The univalent model is in the
+Unit development of the cubical and simplicial models,
+\seg{CANONICITY/unit/sag-model}, and its connection with the Russell
+semantics is \seg{UNIT/russell-posets}, checked with that development by
+\seg{russell-posets/check.py} (15288 declarations, no failure).
+
+\begin{center}\small
+\begin{tabular}{ll}
+\seg{TSyntax}, \seg{TTyping}, \seg{TSubst}, \seg{TSubCong}, \seg{TSubLib} & $T_{\mathsf{Tarski}}$, Lemma 15\\
+\seg{GAT}, \seg{GSound} & $T_{\mathsf E}$, erasure, Theorem 16\\
+\seg{Ev} & evaluation, Lemma 17\\
+\seg{L18Base} \dots\ \seg{L18BE}, \seg{L18} & Lemma 18\\
+\seg{L19Base}, \seg{L19}, \seg{Thm20} & Lemma 19, Theorem 20\\
+\seg{TPresup}, \seg{TLean}, \seg{GPresup}, \seg{GLean} & presuppositions, lean rules\\
+\seg{LTypes} \dots\ \seg{LSoundF}, \seg{TSem}, \seg{TSound}, \seg{TInv} & filter model, inversion\\
+\seg{RTyping}, \seg{RLevels}, \seg{ErR} & $T_{\mathsf{Russell}}$, level bounds, Lemma 21\\
+\seg{TGen}, \seg{TUniqBase}, \seg{TUniqComb}, \seg{TUniq} & generation, Lemmas 25, 26, Corollary 27\\
+\seg{TSection} & Theorem 28\\
+\seg{RGAT} & $T_{\mathsf{Russell}}$ and $T_{\mathsf E}$ (Section~\ref{sec:compose})\\
+\seg{AGAT}, \seg{AForget}, \seg{AGen}, \seg{AUniq}, \seg{AAnnot}, \seg{ARGAT} & context annotations (Section~\ref{sec:annot})\\
+\seg{FGAT}, \seg{FForget}, \seg{FCoherence}, \seg{FAnnot}, \seg{FRGAT} & complete annotations (Section~\ref{sec:fullannot})\\
+\seg{CGAT}, \seg{CPresup}, \seg{CToFull}, \seg{CFromFull}, \seg{CRGAT} & the GAT generated by Cartmell's rules\\
+\seg{EhrhardCwF}, \seg{EhrhardTEModel} & Ehrhard models\\
+\seg{TEDenote}, \seg{TEInterpSound} & interpretation and soundness of $T_{\mathsf E}$\\
+\seg{RSem} & Russell semantics\\
+\seg{IterativeSets}, \seg{IterativeSetLift}, \seg{EhrhardV*}, \seg{RSemV} & iterative-set models\\
+\seg{sag-model/FibLocal}, \seg{FibName*}, \seg{FibPi*}, \seg{FibUnivPi} & $\Pi$-codes in the poset model\\
+\seg{russell-posets/PosetTEModel}, \seg{PosetRSemCheck} & univalent model, one universe
+\end{tabular}
+\end{center}
+
+\paragraph{Bounded levels.} The checked theories have levels $0,\ldots,N$
+for a parameter $N$, and all syntactic theorems hold for every $N$. The
+comparison with the unbounded presentation (a derivation is valid for the
+maximum of its levels) is not formalised.
+
+\paragraph{The iterative-set models.} Unit's universe levels are fixed in
+advance, so a hierarchy $V_0,\ldots,V_N$ needs $N+1$ distinct meta-levels.
+The construction of the model from a given hierarchy and the semantics
+theorem are uniform in $N$; the hierarchy itself is generated for each
+closed $N$, and the instances $N=0,1,2$ are checked. Function
+extensionality and univalence are parameters.
+
+\paragraph{The univalent model.} The classifier of the poset model was
+extended by a locality lemma for fibrations, codes of small fibrant types
+with $\T(\code{A})=A$ and $\code{\T c}=c$, and the $\Pi$-code. The Ehrhard
+model of level $0$ is assembled in \seg{russell-posets}, where a closed
+example, $\lambda(A:\U_0).\,\Pi(x:A).\,A$ at type $\Pi(A:\U_0).\,\U_0$,
+checks that a direct derivation and one ending in a conversion have the
+same denotation. Both developments are checked with the version of the
+checker that has indexed families; it resolves \texttt{opaque} and
+\texttt{transparent} declarations as the main checker does, so both accept
+the same sources.
+
+\paragraph{The generalised algebraic theory.} The signature
+$\Sigma_{\mathsf E}$ (19 operations, 32 axiom schemes) is a data file, and
+a script generates Cartmell's rules from it (\seg{CGAT}); the output is
+reproducible byte for byte. The hand-written rules of
+$T_{\mathsf E}^{\mathrm{full}}$ are generated in the same way from the
+rules of $T_{\mathsf E}^{a}$ and the sorts of the operations.
+
+\paragraph{Not formalised.} The bridge to unbounded levels, and the
+initiality of the term model of the generalised algebraic theory.
 
 \end{document}

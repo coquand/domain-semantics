@@ -1,0 +1,111 @@
+-- Isolated checker for Cartmell's closed presentation of the Ehrhard GAT.
+import Base ; import Prelude ; import Lib ;
+module BoundedSyntax (N : Base.Nat) {
+  import TSyntax ; import TTyping ; import TSubst ; import TSubCong ; import TSubLib ; import TPresup ;
+  import GAT ; import GSound ; import Ev ;
+  import L18Base ; import L18Good ; import L18Var ; import L18Bind ; import L18Pi ; import L18App ; import L18U ; import L18Eq ;
+  import L18BE ; import L18 ; import L19Base ; import L19 ; import Thm20 ; import GPresup ;
+  import LTypes ; import LConsistency ; import LTyping ; import LFilter ; import LSoundF ;
+  import TSem ; import TSound ; import TRed ; import TInv ;
+  import RTyping ; import RLevels ; import ErR ; import TGen ; import TUniqBase ; import TUniqComb ; import TUniq ; import TSection ; import RGAT ;
+  import AGAT ; import AForget ; import APresup ; import ACtx ; import AGen ; import AUniqCases ; import AShape ; import ACompareIntro ; import AUniq ;
+  import ALiftExpr ; import AAnnotBase ; import AAnnot ; import ARGAT ;
+  import FGAT ; import FForget ; import FTyping ; import FSubstLaws ; import FEquationFrames ; import FSubEquationFrames ; import FAnnotationFrames ;
+  import FPresup ; import FCtx ; import FGen ; import FSubTransport ; import FCompareBase ;
+  import FSubCompare ; import FActionCompare ; import FBinderCompare ; import FUniverseCompare ;
+  import FShape ; import FCoherence ; import FLiftExpr ; import FAnnotBase ; import FAnnot ; import FRGAT ;
+  import CGAT ; import CFullSub ; import CFullTerm ; import CToFull ; import CPresup ;
+  import CTyping ; import CAxiomBase ; import CAxiomAction ;
+  import CAxiomUniv ; import CAxiomProd ; import CFromFull ; import CRGAT ;
+} ;
+
+module Smoke (l : Level) (N : Base.Nat) {
+  open Base ; open Lib[l] ;
+  open BoundedSyntax[N].FGAT[l] ; open BoundedSyntax[N].CGAT[l] ; open BoundedSyntax[N].CToFull[l] ;
+  open BoundedSyntax[N].CPresup[l] ; open BoundedSyntax[N].CFromFull[l] ;
+
+  U0 : FA = fuu zero fnil ;
+  i0 : FA = fid fnil ;
+  A0 : FA = ftsb fnil fnil U0 i0 ;
+  G : FA = fext fnil U0 ;
+  H : FA = fext fnil A0 ;
+  iG : FA = fid G ;
+  iH : FA = fid H ;
+
+  hU : CDer (fjty fnil U0) = c-fuu zero fnil c-fnil tt ;
+  hi0 : CDer (fjsub fnil i0 fnil) = c-fid fnil c-fnil ;
+  hA0 : CDer (fjty fnil A0) = c-ftsb fnil fnil U0 i0 c-fnil c-fnil hU hi0 ;
+  hG : CDer (fjwf G) = c-fext fnil U0 c-fnil hU ;
+  hGG : CDer (fjeqcx G G) = c-refl-ctx G hG ;
+  eA0 : CDer (fjeqty fnil U0 A0) =
+    c-sym-ty fnil A0 U0 (c-fe-sb-id fnil U0 c-fnil hU hA0 hU) ;
+  eGH : CDer (fjeqcx G H) = c-eq-fext fnil U0 fnil A0 (c-refl-ctx fnil c-fnil) eA0 ;
+  hiG : CDer (fjsub G iG G) = c-fid G hG ;
+
+  -- Change the middle context and one operand in the same congruence.
+  ii : FA = fcomp G G G iG iG ;
+  eii : CDer (fjeqsub G ii iG G) =
+    c-fq-idl G G iG hG hG hiG (c-fcomp G G G iG iG hG hG hG hiG hiG) hiG ;
+  composition-index : FAJ = fjeqsub G (fcomp G G G ii iG) (fcomp G H G iG iG) G ;
+  composition : CDer composition-index =
+    c-eq-fcomp G G G ii iG G H G iG iG hGG eGH hGG eii (c-refl-sub G G iG hiG) ;
+  full-composition : FADer composition-index = c-to-full composition-index composition ;
+  converted-index : FAJ = fjeqsub H (fcomp G G G ii iG) (fcomp G H G iG iG) H ;
+  converted-composition : FADer converted-index = c-to-full converted-index
+      (c-eqconv-sub G G H H (fcomp G G G ii iG) (fcomp G H G iG iG) eGH eGH composition) ;
+  reverse-conversion : CDer converted-index = c-from-full converted-index converted-composition ;
+
+  -- Change both contexts, the stored operand type, and the substitution.
+  p : FA = fp fnil U0 ;
+  q : FA = fq fnil U0 ;
+  A : FA = ftsb G fnil U0 p ;
+  B : FA = ftsb G G A iG ;
+  hA : CDer (fjty G A) = c-ftsb G fnil U0 p hG c-fnil hU (c-fp fnil U0 c-fnil hU) ;
+  hB : CDer (fjty G B) = c-ftsb G G A iG hG hG hA hiG ;
+  hq : CDer (fjtm G q A) = c-fq fnil U0 c-fnil hU ;
+  eAB : CDer (fjeqty G A B) = c-sym-ty G B A (c-fe-sb-id G A hG hA hB hA) ;
+  action-index : FAJ = fjeqtm G (fmsb G G A q iG) (fmsb H H B q iH) B ;
+  action : CDer action-index =
+    c-eq-fmsb G G A q iG H H B q iH eGH eGH eAB (c-refl-tm G A q hq) (c-eq-fid G H eGH) ;
+  full-action : FADer action-index = c-to-full action-index action ;
+  right-action : CDer (fjtm G (fmsb H H B q iH) B) = (cpresup action-index action).2.2.2 ;
+
+  -- The identity on G starts with source G and is converted to source H.
+  lift-index : FAJ = fjeqsub H (flift fnil fnil U0 i0) iG G ;
+  lift-identity : CDer lift-index = c-fq-lift-id fnil U0 c-fnil hU
+    (c-flift fnil fnil U0 i0 c-fnil c-fnil hU hi0) (c-conv-sub G G H G iG eGH hGG hiG) ;
+  full-lift-identity : FADer lift-index = c-to-full lift-index lift-identity ;
+  reverse-lift-identity : CDer lift-index = c-from-full lift-index (fq-lift-id fnil U0 (ft-uu fnil zero f-nil tt)) ;
+} ;
+
+module PiCodeSmoke (l : Level) {
+  open Base ; open Lib[l] ;
+  module B = BoundedSyntax[suc zero] ;
+  open B.FGAT[l] ; open B.CGAT[l] ; open B.CPresup[l] ; open B.CFromFull[l] ;
+
+  n : Nat = suc zero ;
+  a : FA = fuc zero n fnil ;
+  A : FA = fel n fnil a ;
+  G : FA = fext fnil A ;
+  b : FA = fuc zero n G ;
+  s : FA = fid fnil ;
+  ha : FADer (fjtm fnil a (fuu n fnil)) = fm-uc fnil zero n f-nil tt tt ;
+  hb : FADer (fjtm G b (fuu n G)) = fm-uc G zero n (f-ext fnil A (ft-el fnil n a ha)) tt tt ;
+  D : FA = fext fnil (ftsb fnil fnil A s) ;
+  rhs : FA = fpic n fnil (fmsb fnil fnil (fuu n fnil) a s) (fmsb D G (fuu n G) b (flift fnil fnil A s)) ;
+  index : FAJ = fjeqtm fnil (fmsb fnil fnil (fuu n fnil) (fpic n fnil a b) s) rhs (fuu n fnil) ;
+  naturality : CDer index = c-from-full index (fm-pic-sb fnil fnil n a b s ha hb (fs-id fnil f-nil)) ;
+  right-code : CDer (fjtm fnil rhs (fuu n fnil)) = (cpresup index naturality).2.2.2 ;
+} ;
+
+module RussellSmoke (l : Level) (N : Base.Nat) {
+  open Base ; open Lib[l] ;
+  module B = BoundedSyntax[N] ;
+  open B.TSyntax[l] ; open B.TTyping[l] ; open B.RTyping[l] ; open B.CRGAT[l] ; open B.FRGAT[l] ;
+
+  G : Cx = csnoc cnil (uu zero) ;
+  variable : RDer (jtm G (var zero) (uu zero)) = rtm-v0 cnil (uu zero) (rty-uu cnil zero rwf-nil tt) ;
+  lifted : CTm G (var zero) (uu zero) = r2c-tm G (var zero) (uu zero) variable ;
+  erased : RDer (jtm (fC lifted.1) (fT lifted.2.1) (fT lifted.2.2.1)) =
+    c2r-tm lifted.1 lifted.2.1 lifted.2.2.1 lifted.2.2.2.1 ;
+} ;

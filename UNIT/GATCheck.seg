@@ -15,6 +15,9 @@ module BoundedSyntax (N : Base.Nat) {
   import FCtx ; import FGen ; import FSubTransport ; import FCompareBase ;
   import FSubCompare ; import FActionCompare ; import FBinderCompare ; import FUniverseCompare ;
   import FShape ; import FCoherence ; import FLiftExpr ; import FAnnotBase ; import FAnnot ; import FRGAT ;
+  import CGAT ; import CFullSub ; import CFullTerm ; import CToFull ; import CPresup ;
+  import CTyping ; import CAxiomBase ; import CAxiomAction ;
+  import CAxiomUniv ; import CAxiomProd ; import CFromFull ; import CRGAT ;
 } ;
 import Paths ; import Axioms ; import FunExtUA ;
 import EhrhardCwF ; import EhrhardTEModel ; import TEInterp ; import RSem ;
