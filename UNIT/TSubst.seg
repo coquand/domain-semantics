@@ -86,7 +86,7 @@ module TravDer (K : Kit)
     ty-pi G A B h1 h2 | r1 r2 -> \ D s so wD ->
       ty-pi D (T.trav A s) (T.trav B (T.lift s)) (r1 D s so wD)
         (r2 (csnoc D (T.trav A s)) (T.lift s) (subok-lift D G s A so (r1 D s so wD)) (wf-snoc D (T.trav A s) (r1 D s so wD))) ;
-    ty-uu G n h -> \ D s so wD -> ty-uu D n wD ;
+    ty-uu G n h nb -> \ D s so wD -> ty-uu D n wD nb ;
     ty-el G n a h | r -> \ D s so wD -> ty-el D n (T.trav a s) (r D s so wD) ;
     tm-lam G A B b h1 h2 h3 | r1 r2 r3 -> \ D s so wD ->
       tm-lam D (T.trav A s) (T.trav B (T.lift s)) (T.trav b (T.lift s)) (r1 D s so wD)
@@ -103,8 +103,8 @@ module TravDer (K : Kit)
       tm-pic D n (T.trav a s) (T.trav b (T.lift s)) (r1 D s so wD)
         (r2 (csnoc D (el n (T.trav a s))) (T.lift s) (subok-lift D G s (el n a) so (ty-el D n (T.trav a s) (r1 D s so wD)))
            (wf-snoc D (el n (T.trav a s)) (ty-el D n (T.trav a s) (r1 D s so wD)))) ;
-    tm-uc G m n h lt -> \ D s so wD -> tm-uc D m n wD lt ;
-    tm-lf G m n a h le | r -> \ D s so wD -> tm-lf D m n (T.trav a s) (r D s so wD) le ;
+    tm-uc G m n h lt nb -> \ D s so wD -> tm-uc D m n wD lt nb ;
+    tm-lf G m n a h le nb | r -> \ D s so wD -> tm-lf D m n (T.trav a s) (r D s so wD) le nb ;
     tm-conv G a A B h1 h2 | r1 r2 -> \ D s so wD ->
       tm-conv D (T.trav a s) (T.trav A s) (T.trav B s) (r1 D s so wD) (r2 D s so wD) ;
     eqty-refl G A h | r -> \ D s so wD -> eqty-refl D (T.trav A s) (r D s so wD) ;
@@ -115,12 +115,12 @@ module TravDer (K : Kit)
       eqty-pi D (T.trav A s) (T.trav A' s) (T.trav B (T.lift s)) (T.trav B' (T.lift s)) (r0 D s so wD) (r1 D s so wD)
         (r2 (csnoc D (T.trav A s)) (T.lift s) (subok-lift D G s A so (r0 D s so wD)) (wf-snoc D (T.trav A s) (r0 D s so wD))) ;
     eqty-el G n a a' h | r -> \ D s so wD -> eqty-el D n (T.trav a s) (T.trav a' s) (r D s so wD) ;
-    eqty-el-lf G m n a h le | r -> \ D s so wD -> eqty-el-lf D m n (T.trav a s) (r D s so wD) le ;
+    eqty-el-lf G m n a h le nb | r -> \ D s so wD -> eqty-el-lf D m n (T.trav a s) (r D s so wD) le nb ;
     eqty-el-pic G n a b h1 h2 | r1 r2 -> \ D s so wD ->
       eqty-el-pic D n (T.trav a s) (T.trav b (T.lift s)) (r1 D s so wD)
         (r2 (csnoc D (el n (T.trav a s))) (T.lift s) (subok-lift D G s (el n a) so (ty-el D n (T.trav a s) (r1 D s so wD)))
            (wf-snoc D (el n (T.trav a s)) (ty-el D n (T.trav a s) (r1 D s so wD)))) ;
-    eqty-el-uc G m n h lt -> \ D s so wD -> eqty-el-uc D m n wD lt ;
+    eqty-el-uc G m n h lt nb -> \ D s so wD -> eqty-el-uc D m n wD lt nb ;
     eqtm-refl G a A h | r -> \ D s so wD -> eqtm-refl D (T.trav a s) (T.trav A s) (r D s so wD) ;
     eqtm-sym G a b A hA h | rA r -> \ D s so wD -> eqtm-sym D (T.trav a s) (T.trav b s) (T.trav A s) (rA D s so wD) (r D s so wD) ;
     eqtm-trans G a b c A h1 h2 | r1 r2 -> \ D s so wD ->
@@ -147,7 +147,7 @@ module TravDer (K : Kit)
       eqtm-pic D n (T.trav a s) (T.trav a' s) (T.trav b (T.lift s)) (T.trav b' (T.lift s)) (r0 D s so wD) (r1 D s so wD)
         (r2 (csnoc D (el n (T.trav a s))) (T.lift s) (subok-lift D G s (el n a) so (ty-el D n (T.trav a s) (r0 D s so wD)))
            (wf-snoc D (el n (T.trav a s)) (ty-el D n (T.trav a s) (r0 D s so wD)))) ;
-    eqtm-lf G m n a a' h le | r -> \ D s so wD -> eqtm-lf D m n (T.trav a s) (T.trav a' s) (r D s so wD) le ;
+    eqtm-lf G m n a a' h le nb | r -> \ D s so wD -> eqtm-lf D m n (T.trav a s) (T.trav a' s) (r D s so wD) le nb ;
     eqtm-beta G A B b a hA hB h1 h2 | rA rB r1 r2 -> \ D s so wD ->
       der-eqtm-ty D (app (T.trav A s) (T.trav B (T.lift s)) (lam (T.trav A s) (T.trav B (T.lift s)) (T.trav b (T.lift s))) (T.trav a s))
         (T.trav (subst1 b a) s) (subst1 (T.trav B (T.lift s)) (T.trav a s)) (T.trav (subst1 B a) s)
@@ -169,12 +169,12 @@ module TravDer (K : Kit)
         (eqtm-eta D (T.trav A s) (T.trav B (T.lift s)) (T.trav f s) (rA D s so wD)
            (rB (csnoc D (T.trav A s)) (T.lift s) (subok-lift D G s A so (rA D s so wD)) (wf-snoc D (T.trav A s) (rA D s so wD)))
            (r D s so wD)) ;
-    eqtm-lf-pic G n p a b h1 h2 le | r1 r2 -> \ D s so wD ->
+    eqtm-lf-pic G n p a b h1 h2 le nb | r1 r2 -> \ D s so wD ->
       eqtm-lf-pic D n p (T.trav a s) (T.trav b (T.lift s)) (r1 D s so wD)
         (r2 (csnoc D (el n (T.trav a s))) (T.lift s) (subok-lift D G s (el n a) so (ty-el D n (T.trav a s) (r1 D s so wD)))
-           (wf-snoc D (el n (T.trav a s)) (ty-el D n (T.trav a s) (r1 D s so wD)))) le ;
-    eqtm-lf-uc G m n p h lt le -> \ D s so wD -> eqtm-lf-uc D m n p wD lt le ;
-    eqtm-lf-lf G m n p a h le1 le2 | r -> \ D s so wD -> eqtm-lf-lf D m n p (T.trav a s) (r D s so wD) le1 le2 } ;
+           (wf-snoc D (el n (T.trav a s)) (ty-el D n (T.trav a s) (r1 D s so wD)))) le nb ;
+    eqtm-lf-uc G m n p h lt le nb -> \ D s so wD -> eqtm-lf-uc D m n p wD lt le nb ;
+    eqtm-lf-lf G m n p a h le1 le2 nb | r -> \ D s so wD -> eqtm-lf-lf D m n p (T.trav a s) (r D s so wD) le1 le2 nb } ;
 } ;
 
 ------------------------------------------------------------------------
@@ -197,22 +197,22 @@ ok-of : (J : Jf) -> Der J -> CtxOk (ctxOf J) = split {
   tm-v0 G A h | r -> (r, h) ;
   tm-vs G B n A h1 h2 | r1 r2 -> (r2, h2) ;
   ty-pi G A B h1 h2 | r1 r2 -> r1 ;
-  ty-uu G n h | r -> r ;
+  ty-uu G n h nb | r -> r ;
   ty-el G n a h | r -> r ;
   tm-lam G A B b h1 h2 h3 | r1 r2 r3 -> r1 ;
   tm-app G A B c a h1 h2 h3 h4 | r1 r2 r3 r4 -> r1 ;
   tm-pic G n a b h1 h2 | r1 r2 -> r1 ;
-  tm-uc G m n h lt | r -> r ;
-  tm-lf G m n a h le | r -> r ;
+  tm-uc G m n h lt nb | r -> r ;
+  tm-lf G m n a h le nb | r -> r ;
   tm-conv G a A B h1 h2 | r1 r2 -> r1 ;
   eqty-refl G A h | r -> r ;
   eqty-sym G A B h | r -> r ;
   eqty-trans G A B C h1 h2 | r1 r2 -> r1 ;
   eqty-pi G A A' B B' h0 h1 h2 | r0 r1 r2 -> r0 ;
   eqty-el G n a a' h | r -> r ;
-  eqty-el-lf G m n a h le | r -> r ;
+  eqty-el-lf G m n a h le nb | r -> r ;
   eqty-el-pic G n a b h1 h2 | r1 r2 -> r1 ;
-  eqty-el-uc G m n h lt | r -> r ;
+  eqty-el-uc G m n h lt nb | r -> r ;
   eqtm-refl G a A h | r -> r ;
   eqtm-sym G a b A hA h | rA r -> rA ;
   eqtm-trans G a b c A h1 h2 | r1 r2 -> r1 ;
@@ -220,12 +220,12 @@ ok-of : (J : Jf) -> Der J -> CtxOk (ctxOf J) = split {
   eqtm-lam G A A' B B' b b' h0 h1 h2 h3 | r0 r1 r2 r3 -> r0 ;
   eqtm-app G A A' B B' c c' a a' h0 hB ha h1 h2 h3 h4 | r0 rB ra r1 r2 r3 r4 -> r0 ;
   eqtm-pic G n a a' b b' h0 h1 h2 | r0 r1 r2 -> r0 ;
-  eqtm-lf G m n a a' h le | r -> r ;
+  eqtm-lf G m n a a' h le nb | r -> r ;
   eqtm-beta G A B b a hA hB h1 h2 | rA rB r1 r2 -> rA ;
   eqtm-eta G A B f hA hB h | rA rB r -> rA ;
-  eqtm-lf-pic G n p a b h1 h2 le | r1 r2 -> r1 ;
-  eqtm-lf-uc G m n p h lt le | r -> r ;
-  eqtm-lf-lf G m n p a h le1 le2 | r -> r } ;
+  eqtm-lf-pic G n p a b h1 h2 le nb | r1 r2 -> r1 ;
+  eqtm-lf-uc G m n p h lt le nb | r -> r ;
+  eqtm-lf-lf G m n p a h le1 le2 nb | r -> r } ;
 
 ------------------------------------------------------------------------
 -- renamings

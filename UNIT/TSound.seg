@@ -81,7 +81,7 @@ tsound : (J : Jf) -> Der J -> TSoundJ J = split {
     sound-pi (tsem A rho) (tfam B rho) (r1 rho fi)
       (\ x hx -> r2 (extT rho (prin x)) (tfits-ext G A rho x fi (r1 rho fi) hx))
       (tsem-cons (pi A B) rho (tfits-cons G rho fi)) ;
-  ty-uu G n h -> \ rho fi -> univ-hasty n zero ;
+  ty-uu G n h nb -> \ rho fi -> univ-hasty n zero ;
   ty-el G n a h | r -> \ rho fi -> hasty-lev (tsem a rho) n zero (r rho fi) ;
   tm-lam G A B b h1 h2 h3 | r1 r2 r3 -> \ rho fi ->
     sound-lam (tsem A rho) (tfam b rho) (tfam B rho) (r1 rho fi)
@@ -101,8 +101,8 @@ tsound : (J : Jf) -> Der J -> TSoundJ J = split {
         (\ x hx -> hasty-lev (tfam b rho x) n zero
            (r2 (extT rho (prin x)) (tfits-ext G (el n a) rho x fi (hasty-lev (tsem a rho) n zero (r1 rho fi)) hx)))
         (tsem-cons (pic n a b) rho (tfits-cons G rho fi))) ;
-  tm-uc G m n h lt -> \ rho fi -> univ-hasty m n ;
-  tm-lf G m n a h le | r -> \ rho fi -> hasty-lev (tsem a rho) m n (r rho fi) ;
+  tm-uc G m n h lt nb -> \ rho fi -> univ-hasty m n ;
+  tm-lf G m n a h le nb | r -> \ rho fi -> hasty-lev (tsem a rho) m n (r rho fi) ;
   tm-conv G a A B h1 h2 | r1 r2 -> \ rho fi -> hasty-conv (tsem a rho) (tsem A rho) (tsem B rho) (r1 rho fi) (r2 rho fi).1 ;
   eqty-refl G A h -> \ rho fi -> feq-refl (tsem A rho) ;
   eqty-sym G A B h | r -> \ rho fi -> feq-sym (tsem A rho) (tsem B rho) (r rho fi) ;
@@ -111,9 +111,9 @@ tsound : (J : Jf) -> Der J -> TSoundJ J = split {
     piF-eq (tsem A rho) (tsem A' rho) (tfam B rho) (tfam B' rho) (r1 rho fi)
       (\ x hx -> r2 (extT rho (prin x)) (tfits-ext G A rho x fi (r0 rho fi) hx)) ;
   eqty-el G n a a' h | r -> \ rho fi -> r rho fi ;
-  eqty-el-lf G m n a h le -> \ rho fi -> feq-refl (tsem a rho) ;
+  eqty-el-lf G m n a h le nb -> \ rho fi -> feq-refl (tsem a rho) ;
   eqty-el-pic G n a b h1 h2 -> \ rho fi -> feq-refl (piF (tsem a rho) (tfam b rho)) ;
-  eqty-el-uc G m n h lt -> \ rho fi -> feq-refl (univF m) ;
+  eqty-el-uc G m n h lt nb -> \ rho fi -> feq-refl (univF m) ;
   eqtm-refl G a A h -> \ rho fi -> feq-refl (tsem a rho) ;
   eqtm-sym G a b A hA h | rA r -> \ rho fi -> feq-sym (tsem a rho) (tsem b rho) (r rho fi) ;
   eqtm-trans G a b c A h1 h2 | r1 r2 -> \ rho fi -> feq-trans (tsem a rho) (tsem b rho) (tsem c rho) (r1 rho fi) (r2 rho fi) ;
@@ -126,7 +126,7 @@ tsound : (J : Jf) -> Der J -> TSoundJ J = split {
   eqtm-pic G n a a' b b' h0 h1 h2 | r0 r1 r2 -> \ rho fi ->
     piF-eq (tsem a rho) (tsem a' rho) (tfam b rho) (tfam b' rho) (r1 rho fi)
       (\ x hx -> r2 (extT rho (prin x)) (tfits-ext G (el n a) rho x fi (hasty-lev (tsem a rho) n zero (r0 rho fi)) hx)) ;
-  eqtm-lf G m n a a' h le | r -> \ rho fi -> r rho fi ;
+  eqtm-lf G m n a a' h le nb | r -> \ rho fi -> r rho fi ;
   eqtm-beta G A B b a hA hB h1 h2 | rA rB r1 r2 -> \ rho fi ->
     feq-trans (appF (lamF (tsem A rho) (tfam b rho)) (tsem a rho)) (tsem b (extT rho (tsem a rho))) (tsem (subst1 b a) rho)
       (Beta[tsem A rho, tfam b rho, tfam-anti b rho, tsem a rho, tsem b (extT rho (tsem a rho)), r2 rho fi,
@@ -137,6 +137,6 @@ tsound : (J : Jf) -> Der J -> TSoundJ J = split {
   eqtm-eta G A B f hA hB h | rA rB r -> \ rho fi ->
     TEta[A, B, f, rho, rA rho fi, tfits-cons G rho fi, r rho fi].eq
       (\ x hx -> rB (extT rho (prin x)) (tfits-ext G A rho x fi (rA rho fi) hx)) ;
-  eqtm-lf-pic G n p a b h1 h2 le -> \ rho fi -> feq-refl (piF (tsem a rho) (tfam b rho)) ;
-  eqtm-lf-uc G m n p h lt le -> \ rho fi -> feq-refl (univF m) ;
-  eqtm-lf-lf G m n p a h le1 le2 -> \ rho fi -> feq-refl (tsem a rho) } ;
+  eqtm-lf-pic G n p a b h1 h2 le nb -> \ rho fi -> feq-refl (piF (tsem a rho) (tfam b rho)) ;
+  eqtm-lf-uc G m n p h lt le nb -> \ rho fi -> feq-refl (univF m) ;
+  eqtm-lf-lf G m n p a h le1 le2 nb -> \ rho fi -> feq-refl (tsem a rho) } ;

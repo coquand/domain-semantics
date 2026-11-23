@@ -64,7 +64,7 @@ sub-cong : (J : Jf) -> Der J -> CongJ J = split {
          (subok-lift' D G s' A (Sub.trav A s) so' (SubD.trav-der (jty G A) h1 D s so wD) (r1 D s s' so so' e wD))
          (subeq-lift D G s s' A e (SubD.trav-der (jty G A) h1 D s so wD))
          (wf-snoc D (Sub.trav A s) (SubD.trav-der (jty G A) h1 D s so wD))) ;
-  ty-uu G n h -> \ D s s' so so' e wD -> eqty-refl D (uu n) (ty-uu D n wD) ;
+  ty-uu G n h nb -> \ D s s' so so' e wD -> eqty-refl D (uu n) (ty-uu D n wD nb) ;
   ty-el G n a h | r -> \ D s s' so so' e wD -> eqty-el D n (Sub.trav a s) (Sub.trav a s') (r D s s' so so' e wD) ;
   tm-lam G A B b h1 h2 h3 | r1 r2 r3 -> \ D s s' so so' e wD ->
     eqtm-lam D (Sub.trav A s) (Sub.trav A s') (Sub.trav B (Sub.lift s)) (Sub.trav B (Sub.lift s'))
@@ -111,8 +111,8 @@ sub-cong : (J : Jf) -> Der J -> CongJ J = split {
             (eqty-el D n (Sub.trav a s) (Sub.trav a s') (r1 D s s' so so' e wD)))
          (subeq-lift D G s s' (el n a) e (ty-el D n (Sub.trav a s) (SubD.trav-der (jtm G a (uu n)) h1 D s so wD)))
          (wf-snoc D (el n (Sub.trav a s)) (ty-el D n (Sub.trav a s) (SubD.trav-der (jtm G a (uu n)) h1 D s so wD)))) ;
-  tm-uc G m n h lt -> \ D s s' so so' e wD -> eqtm-refl D (uc m n) (uu n) (tm-uc D m n wD lt) ;
-  tm-lf G m n a h le | r -> \ D s s' so so' e wD -> eqtm-lf D m n (Sub.trav a s) (Sub.trav a s') (r D s s' so so' e wD) le ;
+  tm-uc G m n h lt nb -> \ D s s' so so' e wD -> eqtm-refl D (uc m n) (uu n) (tm-uc D m n wD lt nb) ;
+  tm-lf G m n a h le nb | r -> \ D s s' so so' e wD -> eqtm-lf D m n (Sub.trav a s) (Sub.trav a s') (r D s s' so so' e wD) le nb ;
   tm-conv G a A B h1 h2 | r1 r2 -> \ D s s' so so' e wD ->
     eqtm-conv D (Sub.trav a s) (Sub.trav a s') (Sub.trav A s) (Sub.trav B s) (r1 D s s' so so' e wD)
       (SubD.trav-der (jeqty G A B) h2 D s so wD) ;
@@ -121,9 +121,9 @@ sub-cong : (J : Jf) -> Der J -> CongJ J = split {
   eqty-trans G A B C h1 h2 -> tt ;
   eqty-pi G A A' B B' h0 h1 h2 -> tt ;
   eqty-el G n a a' h -> tt ;
-  eqty-el-lf G m n a h le -> tt ;
+  eqty-el-lf G m n a h le nb -> tt ;
   eqty-el-pic G n a b h1 h2 -> tt ;
-  eqty-el-uc G m n h lt -> tt ;
+  eqty-el-uc G m n h lt nb -> tt ;
   eqtm-refl G a A h -> tt ;
   eqtm-sym G a b A hA h -> tt ;
   eqtm-trans G a b c A h1 h2 -> tt ;
@@ -131,9 +131,9 @@ sub-cong : (J : Jf) -> Der J -> CongJ J = split {
   eqtm-lam G A A' B B' b b' h0 h1 h2 h3 -> tt ;
   eqtm-app G A A' B B' c c' a a' h0 hB ha h1 h2 h3 h4 -> tt ;
   eqtm-pic G n a a' b b' h0 h1 h2 -> tt ;
-  eqtm-lf G m n a a' h le -> tt ;
+  eqtm-lf G m n a a' h le nb -> tt ;
   eqtm-beta G A B b a hA hB h1 h2 -> tt ;
   eqtm-eta G A B f hA hB h -> tt ;
-  eqtm-lf-pic G n p a b h1 h2 le -> tt ;
-  eqtm-lf-uc G m n p h lt le -> tt ;
-  eqtm-lf-lf G m n p a h le1 le2 -> tt } ;
+  eqtm-lf-pic G n p a b h1 h2 le nb -> tt ;
+  eqtm-lf-uc G m n p h lt le nb -> tt ;
+  eqtm-lf-lf G m n p a h le1 le2 nb -> tt } ;

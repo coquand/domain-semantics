@@ -155,7 +155,7 @@ qstep (N : Nat) (ih : Hyp N) (G : Cx) : (A B : Tm) -> LeN (add (sz A) (sz B)) (s
     pi A1 B1 -> \ h dA dB e -> efq (noconf (er (uu n0)) (er (pi A1 B1)) e tt) ;
     lam A1 B1 b1 -> \ h dA dB e -> efq (genty-ty G (lam A1 B1 b1) dB) ;
     app A1 B1 c1 a1 -> \ h dA dB e -> efq (genty-ty G (app A1 B1 c1 a1) dB) ;
-    uu n1 -> \ h dA dB e -> q-uu G n0 n1 (genty-ty G (uu n0) dA) (injN (er (uu n0)) (er (uu n1)) e) ;
+    uu n1 -> \ h dA dB e -> q-uu G n0 n1 dA (injN (er (uu n0)) (er (uu n1)) e) ;
     el n1 a1 -> \ h dA dB e -> ih.2.1 G (uu n0) a1 n1 (mRL (sz (uu n0)) (sz (el n1 a1)) (sz (uu n0)) (sz a1) N (leN-refl (sz (uu n0))) (leN-refl (sz a1)) h) dA (genty-ty G (el n1 a1) dB) e ;
     pic n1 a1 b1 -> \ h dA dB e -> efq (genty-ty G (pic n1 a1 b1) dB) ;
     uc m1 n1 -> \ h dA dB e -> efq (genty-ty G (uc m1 n1) dB) ;

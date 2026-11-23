@@ -110,24 +110,24 @@ er-der : (J : Jf) -> Der J -> RDer (erJ J) = split {
   tm-vs G B n A h1 h2 | r1 r2 -> rder-tm-ty (csnoc (erC G) (er B)) (var (suc n)) (wk (er A)) (er (wk A))
     (sym Tm (er (wk A)) (wk (er A)) (er-wk A)) (rtm-vs (erC G) (er B) n (er A) r1 r2) ;
   ty-pi G A B h1 h2 | r1 r2 -> rty-pi (erC G) (er A) (er B) r1 r2 ;
-  ty-uu G n h | r -> rty-uu (erC G) n r ;
+  ty-uu G n h nb | r -> rty-uu (erC G) n r nb ;
   ty-el G n a h | r -> rty-of (erC G) n (er a) r ;
   tm-lam G A B b h1 h2 h3 | r1 r2 r3 -> rtm-lam (erC G) (er A) (er B) (er b) r1 r2 r3 ;
   tm-app G A B c a h1 h2 h3 h4 | r1 r2 r3 r4 ->
     rder-tm-ty (erC G) (app (er A) (er B) (er c) (er a)) (subst1 (er B) (er a)) (er (subst1 B a))
       (sym Tm (er (subst1 B a)) (subst1 (er B) (er a)) (er-subst1 B a)) (rtm-app (erC G) (er A) (er B) (er c) (er a) r1 r2 r3 r4) ;
   tm-pic G n a b h1 h2 | r1 r2 -> rtm-pi (erC G) n (er a) (er b) r1 r2 ;
-  tm-uc G m n h lt | r -> rtm-uu (erC G) m n r lt ;
-  tm-lf G m n a h le | r -> rtm-cum (erC G) m n (er a) r le ;
+  tm-uc G m n h lt nb | r -> rtm-uu (erC G) m n r lt nb ;
+  tm-lf G m n a h le nb | r -> rtm-cum (erC G) m n (er a) r le nb ;
   tm-conv G a A B h1 h2 | r1 r2 -> rtm-conv (erC G) (er a) (er A) (er B) r1 r2 ;
   eqty-refl G A h | r -> reqty-refl (erC G) (er A) r ;
   eqty-sym G A B h | r -> reqty-sym (erC G) (er A) (er B) r ;
   eqty-trans G A B C h1 h2 | r1 r2 -> reqty-trans (erC G) (er A) (er B) (er C) r1 r2 ;
   eqty-pi G A A' B B' h0 h1 h2 | r0 r1 r2 -> reqty-pi (erC G) (er A) (er A') (er B) (er B') r0 r1 r2 ;
   eqty-el G n a a' h | r -> reqty-of (erC G) n (er a) (er a') r ;
-  eqty-el-lf G m n a h le | r -> reqty-refl (erC G) (er a) (rty-of (erC G) m (er a) r) ;
+  eqty-el-lf G m n a h le nb | r -> reqty-refl (erC G) (er a) (rty-of (erC G) m (er a) r) ;
   eqty-el-pic G n a b h1 h2 | r1 r2 -> reqty-refl (erC G) (pi (er a) (er b)) (rty-of (erC G) n (pi (er a) (er b)) (rtm-pi (erC G) n (er a) (er b) r1 r2)) ;
-  eqty-el-uc G m n h lt | r -> reqty-refl (erC G) (uu m) (rty-uu (erC G) m r) ;
+  eqty-el-uc G m n h lt nb | r -> reqty-refl (erC G) (uu m) (rty-uu (erC G) m r (leN-trans m n N (lt-le m n lt) nb)) ;
   eqtm-refl G a A h | r -> reqtm-refl (erC G) (er a) (er A) r ;
   eqtm-sym G a b A hA h | rA r -> reqtm-sym (erC G) (er a) (er b) (er A) rA r ;
   eqtm-trans G a b c A h1 h2 | r1 r2 -> reqtm-trans (erC G) (er a) (er b) (er c) (er A) r1 r2 ;
@@ -138,7 +138,7 @@ er-der : (J : Jf) -> Der J -> RDer (erJ J) = split {
       (sym Tm (er (subst1 B a)) (subst1 (er B) (er a)) (er-subst1 B a))
       (reqtm-app (erC G) (er A) (er A') (er B) (er B') (er c) (er c') (er a) (er a') r0 rB ra r1 r2 r3 r4) ;
   eqtm-pic G n a a' b b' h0 h1 h2 | r0 r1 r2 -> reqtm-pi (erC G) n (er a) (er a') (er b) (er b') r0 r1 r2 ;
-  eqtm-lf G m n a a' h le | r -> reqtm-cum (erC G) m n (er a) (er a') r le ;
+  eqtm-lf G m n a a' h le nb | r -> reqtm-cum (erC G) m n (er a) (er a') r le nb ;
   eqtm-beta G A B b a hA hB h1 h2 | rA rB r1 r2 ->
     rder-eqtm-ty (erC G) (app (er A) (er B) (lam (er A) (er B) (er b)) (er a)) (er (subst1 b a)) (subst1 (er B) (er a)) (er (subst1 B a))
       (sym Tm (er (subst1 B a)) (subst1 (er B) (er a)) (er-subst1 B a))
@@ -150,7 +150,7 @@ er-der : (J : Jf) -> Der J -> RDer (erJ J) = split {
       (er (lam A B (app (wk A) (wkl B) (wk f) (var zero)))) (pi (er A) (er B))
       (sym Tm (er (lam A B (app (wk A) (wkl B) (wk f) (var zero)))) (lam (er A) (er B) (app (wk (er A)) (wkl (er B)) (wk (er f)) (var zero))) (er-eta A B f))
       (reqtm-eta (erC G) (er A) (er B) (er f) rA rB r) ;
-  eqtm-lf-pic G n p a b h1 h2 le | r1 r2 ->
-    reqtm-refl (erC G) (pi (er a) (er b)) (uu p) (rtm-cum (erC G) n p (pi (er a) (er b)) (rtm-pi (erC G) n (er a) (er b) r1 r2) le) ;
-  eqtm-lf-uc G m n p h lt le | r -> reqtm-refl (erC G) (uu m) (uu p) (rtm-uu (erC G) m p r (leN-trans (suc m) n p lt (lt-le n p le))) ;
-  eqtm-lf-lf G m n p a h le1 le2 | r -> reqtm-refl (erC G) (er a) (uu p) (rtm-cum (erC G) m p (er a) r (leN-trans (suc m) n p le1 (lt-le n p le2))) } ;
+  eqtm-lf-pic G n p a b h1 h2 le nb | r1 r2 ->
+    reqtm-refl (erC G) (pi (er a) (er b)) (uu p) (rtm-cum (erC G) n p (pi (er a) (er b)) (rtm-pi (erC G) n (er a) (er b) r1 r2) le nb) ;
+  eqtm-lf-uc G m n p h lt le nb | r -> reqtm-refl (erC G) (uu m) (uu p) (rtm-uu (erC G) m p r (leN-trans (suc m) n p lt (lt-le n p le)) nb) ;
+  eqtm-lf-lf G m n p a h le1 le2 nb | r -> reqtm-refl (erC G) (er a) (uu p) (rtm-cum (erC G) m p (er a) r (leN-trans (suc m) n p le1 (lt-le n p le2)) nb) } ;

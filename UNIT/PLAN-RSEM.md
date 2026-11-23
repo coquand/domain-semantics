@@ -115,6 +115,18 @@ Caveat noted in `VLift.seg`: `Ix (liftV x)` does not compute for a
 variable x. So El(lift a) = El a will be a propositional equality in a
 set, not a judgemental one. That is fine for a set model.
 
+**DONE.** The local ports `IterativeSets.seg` and `IterativeSetLift.seg`
+use the existing foundation and the enclosing `ua` and `fe`. Both entry
+points import them. The full upstream `core/All.seg` stopped on a scope
+error at `Model.CBase.CB.CExt2` with the indexed checker.
+`GATCheck.seg` checked 1876 declarations in 0.41 s after each port
+independently rejected a deliberate error and was restored.
+`python3 UNIT/check.py` passed all checks and verified 40 vendor hashes.
+A scratch check built the universe code for `k+ <= l` and verified that
+it decodes to `V[k].V` by reflexivity. For a variable `x`, the equality
+of the index types of `liftV x` and `x` checks by splitting on the
+underlying multiset. Reflexivity alone is rejected.
+
 ### S1. Bound the levels by N (syntax)
 
 T_E has `uu n` for every n : Nat. A V-model needs a meta-level above all of
@@ -122,35 +134,46 @@ them, so add a bound N, a parameter of the systems, with every level ≤ N.
 
 - Add a side condition `LeN n N` (or `LeN p N`) to every rule that
   introduces a level not already in its premises:
-  - T_Tarski (`TTyping.seg`): `ty-uu`, `tm-uc`, `tm-lf`; the equality rules
-    with a fresh target level, e.g. `eqtm-lf-pic`, `eqtm-lf-uc`,
-    `eqtm-lf-lf` (level p).
-  - T_E (`GAT.seg`): `gt-uu`, `gm-uc`, `gm-lf`, `gm-elf`, `gm-lf-pic`,
-    `gm-lf-uc`, `gm-lf-lf`, `gm-uc-sb`, `gm-lf-sb`.
+  - T_Tarski (`TTyping.seg`): `ty-uu`, `tm-uc`, `tm-lf`, `eqty-el-lf`,
+    `eqty-el-uc`, `eqtm-lf`, `eqtm-lf-pic`, `eqtm-lf-uc`, `eqtm-lf-lf`.
+  - T_E (`GAT.seg`): `gt-uu`, `gm-uc`, `gm-lf`, `ge-el-lf`, `ge-el-uc`,
+    `ge-uu-sb`, `gm-elf`, `gm-lf-pic`, `gm-lf-uc`, `gm-lf-lf`,
+    `gm-uc-sb`, `gm-lf-sb`.
   - T_Russell (`RTyping.seg`): `rty-uu`, `rtm-uu`, `rtm-cum`, `reqtm-cum`.
 
-  Grep each typing file for `uu n`, `uc`, `lf` and `LeN (suc`.
-- Alternative: index levels by `Fin (suc N)`. Choose whichever touches
-  fewer proofs.
-- Then re-check the whole cone: TSubst ... TUniq*, TSection, GSound, Ev,
-  L18*, L19, Thm20, RGAT, TInv and the L* filter model. Fresh levels appear
-  in proofs only at:
-  - the Π-code level K = max(k_a, k_b) in TUniq*/TSection, which is ≤ N;
-  - the common code U^{m+1}_m, which comes from an existing `uc m n`;
-  - `lf` and `uc` in TSection (`s-cum'`, `s-ecum'`, the `rtm-uu` case).
+  The lean Tarski and Ehrhard rules carry the same premises.
 
-  I expect the changes to be mechanical, but this is not verified.
-- Easiest way to keep the old results: make N a module parameter (e.g.
-  `TTyping[l, N]`). Do not keep two copies.
+**DONE.** Both entry points use one `BoundedSyntax (N : Base.Nat)`
+module for the syntactic development. Raw terms retain natural-number
+annotations. The RGAT statements have the same form at the shared bound.
+The files for the filter model and `TInv` were unchanged. The soundness
+induction in `TSound` only accepts the additional constructor arguments.
 
-Acceptance: GATCheck and check.py green, with the RGAT statements unchanged
-apart from the parameter. Record any proof that needed more than threading
-the bound; that is mathematically interesting.
+- Tarski and Ehrhard recover the bound from a derivation of a universe
+  type, and use the existing presupposition lemmas for terms. Ehrhard
+  type inversion accounts for context conversion.
+- Russell uses `RLevels.seg` to prove that all levels of a derivable
+  judgement are bounded, using preservation under renaming and
+  substitution. An application type can expose a universe after
+  substitution. `cu-tm` and `cu-eqtm` recover their bounds by erasing
+  their existing Tarski premises and using the Russell lemma.
+- The Π-code proof in `TUniqComb` uses both component derivations to
+  bound `max ka kb`. For the universe-code successor, the original
+  typing premise gives `suc m <= n <= N`. The generic lift helpers
+  accept a target bound when their inputs only constrain the source.
+  No proof needs a universe above N.
+- `GATCheck.seg` checked 1918 declarations in 0.60 s after rejecting a
+  deliberate error in `RLevels.seg` and restoring it. `check.py` passed
+  all checks and verified 40 vendor hashes. Scratch checks verified
+  `U_0 : U_1` and its RGAT lift at `N = 1`, and rejected level 1 in
+  each system at `N = 0`.
 
 ### S2. The model: a CwF on V with Π and the hierarchy (new file(s), e.g. `SModel.seg`)
 
 Meta-level: a V-code at level t means `V[t].V`. Take the top level ≥ N+1.
 
+- First turn the S0 scratch check into a checked file. Construct the
+  universe code for `k+ <= l` and prove its decoding by reflexivity.
 - **Structure.**
   - Ctx: a type, a set if needed; e.g. Ctx = V-codes or meta types.
   - Ty G = G -> V_top (a set by funext and `isSetV`).
@@ -275,8 +298,8 @@ values.
 
 ## 7. Checklist
 
-- [ ] S0 environment: V and VLift usable under the indexed checker
-- [ ] S1 level bound N threaded through T_Tarski, T_E, T_Russell, all proofs
+- [x] S0 environment: V and VLift usable under the indexed checker
+- [x] S1 level bound N threaded through T_Tarski, T_E, T_Russell, all proofs
 - [ ] S2 `TEModel` record + `vModel` instance on V_0 ⊂ ... ⊂ V_N
 - [ ] S3 interpretation of T_E^N in any `TEModel` (soundness for all judgement forms)
 - [ ] S4 semantics of T_Russell (existence, independence of lift, soundness); tex section

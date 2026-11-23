@@ -87,15 +87,15 @@ sound : (J : GJ) -> GDer J -> SoundJ J = split {
              (cxconv-ok (ec G') (ec G) (cxeq-sym (ec G) (ec G') r0' r2) r.2.1)))
        (\ i -> sub-id (es s i)))) ;
   gt-pi G A B h1 h2 | r1 r2 -> ty-pi (ec G) (et A) (et B) r1 r2 ;
-  gt-uu G n h | r -> ty-uu (ec G) n (wfc G r) ;
+  gt-uu G n h nb | r -> ty-uu (ec G) n (wfc G r) nb ;
   gt-el G n a h | r -> ty-el (ec G) n (et a) r ;
   gt-sb D G A s h1 h2 | r1 r2 -> tyS D s G A r1 r2 ;
   gt-cx G D A h0 h1 h2 | r0 r1 r2 -> cxconv-ty (ec G) (ec D) r1 r0 (et A) r2 ;
   gm-lam G A B b h1 h2 h3 | r1 r2 r3 -> tm-lam (ec G) (et A) (et B) (et b) r1 r2 r3 ;
   gm-app G A B c a h1 h2 h3 h4 | r1 r2 r3 r4 -> tm-app (ec G) (et A) (et B) (et c) (et a) r1 r2 r3 r4 ;
   gm-pic G n a b h1 h2 | r1 r2 -> tm-pic (ec G) n (et a) (et b) r1 r2 ;
-  gm-uc G m n h lt | r -> tm-uc (ec G) m n (wfc G r) lt ;
-  gm-lf G m n a h le | r -> tm-lf (ec G) m n (et a) r le ;
+  gm-uc G m n h lt nb | r -> tm-uc (ec G) m n (wfc G r) lt nb ;
+  gm-lf G m n a h le nb | r -> tm-lf (ec G) m n (et a) r le nb ;
   gm-q G A h | r -> q-ok G A r ;
   gm-sb D G a A s hA h1 h2 | rA r1 r2 -> tmS D s G a A r1 r2 ;
   gm-conv G a A B h1 h2 | r1 r2 -> tm-conv (ec G) (et a) (et A) (et B) r1 r2 ;
@@ -109,9 +109,9 @@ sound : (J : GJ) -> GDer J -> SoundJ J = split {
     eqty-trans (ec D) (Sub.trav (et A) (es s)) (Sub.trav (et A) (es s')) (Sub.trav (et A') (es s'))
       (sub-cong (jty (ec G) (et A)) r0 (ec D) (es s) (es s') r2.2.2 r3.2.2 r4.2.2 (wfc D r2.1))
       (SubD.trav-der (jeqty (ec G) (et A) (et A')) r1 (ec D) (es s') r3.2.2 (wfc D r2.1)) ;
-  ge-el-lf G m n a h le | r -> eqty-el-lf (ec G) m n (et a) r le ;
+  ge-el-lf G m n a h le nb | r -> eqty-el-lf (ec G) m n (et a) r le nb ;
   ge-el-pic G n a b h1 h2 | r1 r2 -> eqty-el-pic (ec G) n (et a) (et b) r1 r2 ;
-  ge-el-uc G m n h lt | r -> eqty-el-uc (ec G) m n (wfc G r) lt ;
+  ge-el-uc G m n h lt nb | r -> eqty-el-uc (ec G) m n (wfc G r) lt nb ;
   ge-sb-id G A h | r ->
     der-eqty-l (ec G) (et A) (Sub.trav (et A) idS) (et A) (sym Tm (Sub.trav (et A) idS) (et A) (sub-id (et A)))
       (eqty-refl (ec G) (et A) r) ;
@@ -121,7 +121,7 @@ sound : (J : GJ) -> GDer J -> SoundJ J = split {
       (eqty-refl (ec T) (Sub.trav (Sub.trav (et A) (es s)) (es d)) (tyS T d D (gsb A s) (tyS D s G A r0 r1) r2)) ;
   ge-pi-sb D G A B s h1 h2 h3 | r1 r2 r3 ->
     eqty-refl (ec D) (Sub.trav (pi (et A) (et B)) (es s)) (tyS D s G (gpi A B) (ty-pi (ec G) (et A) (et B) r1 r2) r3) ;
-  ge-uu-sb D G n s h | r -> eqty-refl (ec D) (uu n) (ty-uu (ec D) n (wfc D r.1)) ;
+  ge-uu-sb D G n s h nb | r -> eqty-refl (ec D) (uu n) (ty-uu (ec D) n (wfc D r.1) nb) ;
   ge-el-sb D G n a s h1 h2 | r1 r2 ->
     eqty-refl (ec D) (el n (Sub.trav (et a) (es s))) (ty-el (ec D) n (Sub.trav (et a) (es s)) (tmS D s G a (guu n) r1 r2)) ;
   ge-cx G D A B h0 h1 h2 | r0 r1 r2 -> cxconv-eqty (ec G) (ec D) r1 r0 (et A) (et B) r2 ;
@@ -134,7 +134,7 @@ sound : (J : GJ) -> GDer J -> SoundJ J = split {
   gm-eapp G A A' B B' c c' a a' h0 hB ha h1 h2 h3 h4 | r0 rB ra r1 r2 r3 r4 ->
     eqtm-app (ec G) (et A) (et A') (et B) (et B') (et c) (et c') (et a) (et a') r0 rB ra r1 r2 r3 r4 ;
   gm-epic G n a a' b b' h0 h1 h2 | r0 r1 r2 -> eqtm-pic (ec G) n (et a) (et a') (et b) (et b') r0 r1 r2 ;
-  gm-elf G m n a a' h le | r -> eqtm-lf (ec G) m n (et a) (et a') r le ;
+  gm-elf G m n a a' h le nb | r -> eqtm-lf (ec G) m n (et a) (et a') r le nb ;
   gm-esb D G a a' A s s' hA h0 h1 h2 h3 h4 | rA r0 r1 r2 r3 r4 ->
     eqtm-trans (ec D) (Sub.trav (et a) (es s)) (Sub.trav (et a) (es s')) (Sub.trav (et a') (es s')) (Sub.trav (et A) (es s))
       (sub-cong (jtm (ec G) (et a) (et A)) r0 (ec D) (es s) (es s') r2.2.2 r3.2.2 r4.2.2 (wfc D r2.1))
@@ -148,9 +148,9 @@ sound : (J : GJ) -> GDer J -> SoundJ J = split {
       (lam (et A) (et B) (app (Sub.trav (et A) wkS) (Sub.trav (et B) (Sub.lift wkS)) (Sub.trav (et f) wkS) (var zero)))
       (pi (et A) (et B)) (eta-er (et A) (et B) (et f))
       (eqtm-eta (ec G) (et A) (et B) (et f) rA rB r) ;
-  gm-lf-pic G n p a b h1 h2 le | r1 r2 -> eqtm-lf-pic (ec G) n p (et a) (et b) r1 r2 le ;
-  gm-lf-uc G m n p h lt le | r -> eqtm-lf-uc (ec G) m n p (wfc G r) lt le ;
-  gm-lf-lf G m n p a h le1 le2 | r -> eqtm-lf-lf (ec G) m n p (et a) r le1 le2 ;
+  gm-lf-pic G n p a b h1 h2 le nb | r1 r2 -> eqtm-lf-pic (ec G) n p (et a) (et b) r1 r2 le nb ;
+  gm-lf-uc G m n p h lt le nb | r -> eqtm-lf-uc (ec G) m n p (wfc G r) lt le nb ;
+  gm-lf-lf G m n p a h le1 le2 nb | r -> eqtm-lf-lf (ec G) m n p (et a) r le1 le2 nb ;
   gm-sb-id G a A h | r ->
     der-eqtm-l (ec G) (et a) (Sub.trav (et a) idS) (et a) (et A) (sym Tm (Sub.trav (et a) idS) (et a) (sub-id (et a)))
       (eqtm-refl (ec G) (et a) (et A) r) ;
@@ -173,10 +173,10 @@ sound : (J : GJ) -> GDer J -> SoundJ J = split {
   gm-pic-sb D G n a b s h1 h2 h3 | r1 r2 r3 ->
     eqtm-refl (ec D) (Sub.trav (pic n (et a) (et b)) (es s)) (uu n)
       (tmS D s G (gpic n a b) (guu n) (tm-pic (ec G) n (et a) (et b) r1 r2) r3) ;
-  gm-uc-sb D G m n s h lt | r -> eqtm-refl (ec D) (uc m n) (uu n) (tm-uc (ec D) m n (wfc D r.1) lt) ;
-  gm-lf-sb D G m n a s h1 h2 le | r1 r2 ->
+  gm-uc-sb D G m n s h lt nb | r -> eqtm-refl (ec D) (uc m n) (uu n) (tm-uc (ec D) m n (wfc D r.1) lt nb) ;
+  gm-lf-sb D G m n a s h1 h2 le nb | r1 r2 ->
     eqtm-refl (ec D) (lf m n (Sub.trav (et a) (es s))) (uu n)
-      (tm-lf (ec D) m n (Sub.trav (et a) (es s)) (tmS D s G a (guu m) r1 r2) le) ;
+      (tm-lf (ec D) m n (Sub.trav (et a) (es s)) (tmS D s G a (guu m) r1 r2) le nb) ;
   gm-q-lift D G A s h1 h2 | r1 r2 ->
     eqtm-refl (csnoc (ec D) (Sub.trav (et A) (es s))) (var zero) (Sub.trav (Sub.trav (et A) (es s)) wkS)
       (q-ok D (gsb A s) (tyS D s G A r1 r2)) ;

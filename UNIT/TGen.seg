@@ -9,7 +9,7 @@
 --                 terms of other shapes are not types
 
 level l ;
-open Base ; open Prelude[l] ; open Lib[l] ; open TSyntax[l] ; open TTyping[l] ; open TSubst[l] ;
+open Base ; open Prelude[l] ; open Lib[l] ; open TSyntax[l] ; open TTyping[l] ; open TSubst[l] ; open TPresup[l] ;
 
 tlook : Cx -> Nat -> Tm = split {
   cnil -> \ i -> uu zero ;
@@ -47,22 +47,22 @@ gen : (J : Jf) -> Der J -> GenJ J = split {
   tm-v0 G A h -> (eqty-refl (csnoc G A) (wk A) (wk-ty G A A h h), tm-v0 G A h) ;
   tm-vs G B n A h1 h2 | r1 r2 -> (wk-eqty G B (tlook G n) A h2 r1.1, tm-vs G B n (tlook G n) r1.2 h2) ;
   ty-pi G A B h1 h2 -> tt ;
-  ty-uu G n h -> tt ;
+  ty-uu G n h nb -> tt ;
   ty-el G n a h -> tt ;
   tm-lam G A B b h1 h2 h3 -> (h1, (h2, (h3, eqty-refl G (pi A B) (ty-pi G A B h1 h2)))) ;
   tm-app G A B c a h1 h2 h3 h4 -> (h1, (h2, (h3, (h4, eqty-refl G (subst1 B a) (subst1-ty G A a B h4 h2))))) ;
-  tm-pic G n a b h1 h2 -> (h1, (h2, eqty-refl G (uu n) (ty-uu G n (wf-from-ok G (ok-of (jtm G a (uu n)) h1))))) ;
-  tm-uc G m n h lt -> (h, (lt, eqty-refl G (uu n) (ty-uu G n h))) ;
-  tm-lf G m n a h le -> (h, (le, eqty-refl G (uu n) (ty-uu G n (wf-from-ok G (ok-of (jtm G a (uu m)) h))))) ;
+  tm-pic G n a b h1 h2 -> (h1, (h2, eqty-refl G (uu n) (presup-tm G a (uu n) h1))) ;
+  tm-uc G m n h lt nb -> (h, (lt, eqty-refl G (uu n) (ty-uu G n h nb))) ;
+  tm-lf G m n a h le nb -> (h, (le, eqty-refl G (uu n) (ty-uu G n (wf-from-ok G (ok-of (jtm G a (uu m)) h)) nb))) ;
   tm-conv G a A B h1 h2 | r1 r2 -> gen-conv G a A B r1 h2 ;
   eqty-refl G A h -> tt ;
   eqty-sym G A B h -> tt ;
   eqty-trans G A B C h1 h2 -> tt ;
   eqty-pi G A A' B B' h0 h1 h2 -> tt ;
   eqty-el G n a a' h -> tt ;
-  eqty-el-lf G m n a h le -> tt ;
+  eqty-el-lf G m n a h le nb -> tt ;
   eqty-el-pic G n a b h1 h2 -> tt ;
-  eqty-el-uc G m n h lt -> tt ;
+  eqty-el-uc G m n h lt nb -> tt ;
   eqtm-refl G a A h -> tt ;
   eqtm-sym G a b A hA h -> tt ;
   eqtm-trans G a b c A h1 h2 -> tt ;
@@ -70,12 +70,12 @@ gen : (J : Jf) -> Der J -> GenJ J = split {
   eqtm-lam G A A' B B' b b' h0 h1 h2 h3 -> tt ;
   eqtm-app G A A' B B' c c' a a' h0 hB ha h1 h2 h3 h4 -> tt ;
   eqtm-pic G n a a' b b' h0 h1 h2 -> tt ;
-  eqtm-lf G m n a a' h le -> tt ;
+  eqtm-lf G m n a a' h le nb -> tt ;
   eqtm-beta G A B b a hA hB h1 h2 -> tt ;
   eqtm-eta G A B f hA hB h -> tt ;
-  eqtm-lf-pic G n p a b h1 h2 le -> tt ;
-  eqtm-lf-uc G m n p h lt le -> tt ;
-  eqtm-lf-lf G m n p a h le1 le2 -> tt } ;
+  eqtm-lf-pic G n p a b h1 h2 le nb -> tt ;
+  eqtm-lf-uc G m n p h lt le nb -> tt ;
+  eqtm-lf-lf G m n p a h le1 le2 nb -> tt } ;
 
 gen-tm (G : Cx) (u T : Tm) (h : Der (jtm G u T)) : GenTm G u T = gen (jtm G u T) h ;
 
@@ -99,22 +99,22 @@ genty : (J : Jf) -> Der J -> GenTyJ J = split {
   tm-v0 G A h -> tt ;
   tm-vs G B n A h1 h2 -> tt ;
   ty-pi G A B h1 h2 -> (h1, h2) ;
-  ty-uu G n h -> h ;
+  ty-uu G n h nb -> h ;
   ty-el G n a h -> h ;
   tm-lam G A B b h1 h2 h3 -> tt ;
   tm-app G A B c a h1 h2 h3 h4 -> tt ;
   tm-pic G n a b h1 h2 -> tt ;
-  tm-uc G m n h lt -> tt ;
-  tm-lf G m n a h le -> tt ;
+  tm-uc G m n h lt nb -> tt ;
+  tm-lf G m n a h le nb -> tt ;
   tm-conv G a A B h1 h2 -> tt ;
   eqty-refl G A h -> tt ;
   eqty-sym G A B h -> tt ;
   eqty-trans G A B C h1 h2 -> tt ;
   eqty-pi G A A' B B' h0 h1 h2 -> tt ;
   eqty-el G n a a' h -> tt ;
-  eqty-el-lf G m n a h le -> tt ;
+  eqty-el-lf G m n a h le nb -> tt ;
   eqty-el-pic G n a b h1 h2 -> tt ;
-  eqty-el-uc G m n h lt -> tt ;
+  eqty-el-uc G m n h lt nb -> tt ;
   eqtm-refl G a A h -> tt ;
   eqtm-sym G a b A hA h -> tt ;
   eqtm-trans G a b c A h1 h2 -> tt ;
@@ -122,11 +122,11 @@ genty : (J : Jf) -> Der J -> GenTyJ J = split {
   eqtm-lam G A A' B B' b b' h0 h1 h2 h3 -> tt ;
   eqtm-app G A A' B B' c c' a a' h0 hB ha h1 h2 h3 h4 -> tt ;
   eqtm-pic G n a a' b b' h0 h1 h2 -> tt ;
-  eqtm-lf G m n a a' h le -> tt ;
+  eqtm-lf G m n a a' h le nb -> tt ;
   eqtm-beta G A B b a hA hB h1 h2 -> tt ;
   eqtm-eta G A B f hA hB h -> tt ;
-  eqtm-lf-pic G n p a b h1 h2 le -> tt ;
-  eqtm-lf-uc G m n p h lt le -> tt ;
-  eqtm-lf-lf G m n p a h le1 le2 -> tt } ;
+  eqtm-lf-pic G n p a b h1 h2 le nb -> tt ;
+  eqtm-lf-uc G m n p h lt le nb -> tt ;
+  eqtm-lf-lf G m n p a h le1 le2 nb -> tt } ;
 
 genty-ty (G : Cx) (A : Tm) (h : Der (jty G A)) : GenTy G A = genty (jty G A) h ;

@@ -15,13 +15,14 @@
 
 level l ;
 open Base ; open Prelude[l] ; open Lib[l] ; open TSyntax[l] ; open TTyping[l] ; open TSubst[l] ;
-open TSubLib[l] ; open TPresup[l] ; open RTyping[l] ; open ErR[l] ; open TUniq[l] ;
+open TSubLib[l] ; open TPresup[l] ; open RTyping[l] ; open RLevels[l] ; open ErR[l] ; open TUniq[l] ;
 
 ------------------------------------------------------------------------
 -- small facts
 
 okw (G : Cx) (w : Der (jwf G)) : CtxOk G = ok-of (jwf G) w ;
-wfu (G : Cx) (hG : CtxOk G) (n : Nat) : Der (jty G (uu n)) = ty-uu G n (wf-from-ok G hG) ;
+wfu (G : Cx) (hG : CtxOk G) (n : Nat) (nb : LeN n N) : Der (jty G (uu n)) =
+  ty-uu G n (wf-from-ok G hG) nb ;
 
 pt-l (G : Cx) (X Y : Tm) (d : Der (jeqty G X Y)) : Der (jty G X) = (presup-eqty G X Y d).1 ;
 pt-r (G : Cx) (X Y : Tm) (d : Der (jeqty G X Y)) : Der (jty G Y) = (presup-eqty G X Y d).2 ;
@@ -75,11 +76,15 @@ co-eqtm (G : Cx) (a b T T' S : Tm) (d : Der (jeqtm G a b T)) (dT' : Der (jty G T
   eqtm-conv G a b T T' d (tu G T T' S (presup-eqtm G a b T d).1 dT' e e') ;
 
 cu-tm (G : Cx) (a T : Tm) (n : Nat) (hG : CtxOk G) (d : Der (jtm G a T)) (e : Id Tm (er T) (uu n)) : Der (jtm G a (uu n)) =
-  co-tm G a T (uu n) (uu n) d (wfu G hG n) e (refl (uu n)) ;
+  co-tm G a T (uu n) (uu n) d (wfu G hG n nb) e (refl (uu n))
+ where { nb : LeN n N = r-universe-tm-bound (erC G) (er a) n
+    (rder-tm-ty (erC G) (er a) (er T) (uu n) e (er-der (jtm G a T) d)) ; } ;
 
 cu-eqtm (G : Cx) (a b T : Tm) (n : Nat) (hG : CtxOk G) (d : Der (jeqtm G a b T)) (e : Id Tm (er T) (uu n)) :
     Der (jeqtm G a b (uu n)) =
-  co-eqtm G a b T (uu n) (uu n) d (wfu G hG n) e (refl (uu n)) ;
+  co-eqtm G a b T (uu n) (uu n) d (wfu G hG n nb) e (refl (uu n))
+ where { nb : LeN n N = r-universe-eqtm-bound (erC G) (er a) (er b) n
+    (rder-eqtm-ty (erC G) (er a) (er b) (er T) (uu n) e (er-der (jeqtm G a b T) d)) ; } ;
 
 ------------------------------------------------------------------------
 -- lifts
@@ -183,9 +188,9 @@ s-pic1 (G : Cx) (n : Nat) (A B : Tm) (D : Cx) (hD : CtxOk D) (eD : Id Cx (erC D)
     (h1 : Der (jtm D t1.t (uu n))) (r2 : AllJ (jtm (csnoc G A) B (uu n))) : LTm[D, pi A B, uu n] =
   s-pic' n A B D hD t1 h1 (r2 (csnoc D (el n t1.t)) (hD, ty-el D n t1.t h1) (ceq D G (el n t1.t) A eD t1.et)) ;
 
-s-cum' (m n : Nat) (A : Tm) (le : LeN (suc m) n) (D : Cx) (hD : CtxOk D) (t : LTm[D, A, uu m]) : LTm[D, A, uu n] =
+s-cum' (m n : Nat) (A : Tm) (le : LeN (suc m) n) (nb : LeN n N) (D : Cx) (hD : CtxOk D) (t : LTm[D, A, uu m]) : LTm[D, A, uu n] =
   new LTm[D, A, uu n, t := lf m n t.t, T := uu n, et := t.et, eT := refl (uu n),
-    dt := tm-lf D m n t.t (cu-tm D t.t t.T m hD t.dt t.eT) le] ;
+    dt := tm-lf D m n t.t (cu-tm D t.t t.T m hD t.dt t.eT) le nb] ;
 
 s-conv' (a A B : Tm) (D : Cx) (t : LTm[D, a, A]) (q : LEqTy[D, A, B]) : LTm[D, a, B] =
   new LTm[D, a, B, t := t.t, T := q.S, et := t.et, eT := q.eS,
@@ -244,10 +249,10 @@ s-econv' (a b A B : Tm) (D : Cx) (p : LEqTm[D, a, b, A]) (q : LEqTy[D, A, B]) : 
   new LEqTm[D, a, b, B, t := p.t, s := p.s, T := q.S, et := p.et, es := p.es, eT := q.eS,
     d := eqtm-conv D p.t p.s q.T q.S (co-eqtm D p.t p.s p.T q.T A p.d (pt-l D q.T q.S q.d) p.eT q.eT) q.d] ;
 
-s-ecum' (m n : Nat) (a b : Tm) (le : LeN (suc m) n) (D : Cx) (hD : CtxOk D) (p : LEqTm[D, a, b, uu m]) :
+s-ecum' (m n : Nat) (a b : Tm) (le : LeN (suc m) n) (nb : LeN n N) (D : Cx) (hD : CtxOk D) (p : LEqTm[D, a, b, uu m]) :
     LEqTm[D, a, b, uu n] =
   new LEqTm[D, a, b, uu n, t := lf m n p.t, s := lf m n p.s, T := uu n, et := p.et, es := p.es, eT := refl (uu n),
-    d := eqtm-lf D m n p.t p.s (cu-eqtm D p.t p.s p.T m hD p.d p.eT) le] ;
+    d := eqtm-lf D m n p.t p.s (cu-eqtm D p.t p.s p.T m hD p.d p.eT) le nb] ;
 
 s-epi' (n : Nat) (A A' B B' : Tm) (D : Cx) (hD : CtxOk D) (p1 : LEqTm[D, A, A', uu n])
     (e1 : Der (jeqtm D p1.t p1.s (uu n))) (p2 : LEqTm[csnoc D (el n p1.t), B, B', uu n]) :
@@ -345,7 +350,7 @@ sec : (J : Jf) -> RDer J -> SecJ J = split {
   rtm-v0 G A h | r -> (lcx-snoc G A r.1 r.2, s-v0 G A) ;
   rtm-vs G B n A h1 h2 | r1 r2 -> (lcx-snoc G B r2.1 r2.2, s-vsc G B n A r1.2) ;
   rty-pi G A B h1 h2 | r1 r2 -> (r1.1, s-pi G A B r1.2 r2.2) ;
-  rty-uu G n h | r -> (r.1, \ D hD eD -> new LTy[D, uu n, T := uu n, eT := refl (uu n), dT := wfu D hD n]) ;
+  rty-uu G n h nb | r -> (r.1, \ D hD eD -> new LTy[D, uu n, T := uu n, eT := refl (uu n), dT := wfu D hD n nb]) ;
   rty-of G n A h | r -> (r.1, \ D hD eD -> s-of' n A D hD (r.2 D hD eD)) ;
   rtm-lam G A B b h1 h2 h3 | r1 r2 r3 -> (r1.1, \ D hD eD -> s-lam1 G A B b D hD eD (r1.2 D hD eD) r2.2 r3.2) ;
   rtm-app G A B c a h1 h2 h3 h4 | r1 r2 r3 r4 ->
@@ -353,10 +358,10 @@ sec : (J : Jf) -> RDer J -> SecJ J = split {
   rtm-pi G n A B h1 h2 | r1 r2 ->
     (r1.1, \ D hD eD -> s-pic1 G n A B D hD eD (r1.2 D hD eD)
        (cu-tm D (r1.2 D hD eD).t (r1.2 D hD eD).T n hD (r1.2 D hD eD).dt (r1.2 D hD eD).eT) r2.2) ;
-  rtm-uu G m n h lt | r ->
+  rtm-uu G m n h lt nb | r ->
     (r.1, \ D hD eD -> new LTm[D, uu m, uu n, t := uc m n, T := uu n, et := refl (uu m), eT := refl (uu n),
-                                dt := tm-uc D m n (wf-from-ok D hD) lt]) ;
-  rtm-cum G m n A h le | r -> (r.1, \ D hD eD -> s-cum' m n A le D hD (r.2 D hD eD)) ;
+                                dt := tm-uc D m n (wf-from-ok D hD) lt nb]) ;
+  rtm-cum G m n A h le nb | r -> (r.1, \ D hD eD -> s-cum' m n A le nb D hD (r.2 D hD eD)) ;
   rtm-conv G a A B h1 h2 | r1 r2 -> (r1.1, \ D hD eD -> s-conv' a A B D (r1.2 D hD eD) (r2.2 D hD eD)) ;
   reqty-refl G A h | r -> (r.1, \ D hD eD -> s-trefl' A D (r.2 D hD eD)) ;
   reqty-sym G A B h | r -> (r.1, \ D hD eD -> s-tsym' A B D (r.2 D hD eD)) ;
@@ -367,7 +372,7 @@ sec : (J : Jf) -> RDer J -> SecJ J = split {
   reqtm-sym G a b A hA h | rA r -> (r.1, \ D hD eD -> s-esym' a b A D (r.2 D hD eD)) ;
   reqtm-trans G a b c A h1 h2 | r1 r2 -> (r1.1, \ D hD eD -> s-etrans' a b c A D (r1.2 D hD eD) (r2.2 D hD eD)) ;
   reqtm-conv G a b A B h1 h2 | r1 r2 -> (r1.1, \ D hD eD -> s-econv' a b A B D (r1.2 D hD eD) (r2.2 D hD eD)) ;
-  reqtm-cum G m n a b h le | r -> (r.1, \ D hD eD -> s-ecum' m n a b le D hD (r.2 D hD eD)) ;
+  reqtm-cum G m n a b h le nb | r -> (r.1, \ D hD eD -> s-ecum' m n a b le nb D hD (r.2 D hD eD)) ;
   reqtm-pi G n A A' B B' h0 h1 h2 | r0 r1 r2 ->
     (r1.1, \ D hD eD -> s-epi1 G n A A' B B' D hD eD (r1.2 D hD eD)
        (cu-eqtm D (r1.2 D hD eD).t (r1.2 D hD eD).s (r1.2 D hD eD).T n hD (r1.2 D hD eD).d (r1.2 D hD eD).eT) r2.2) ;

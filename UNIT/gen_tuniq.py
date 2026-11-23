@@ -140,7 +140,7 @@ for (c0,a0) in SH:
             sub.append(hd+'eqty-sym G %s %s (ih.2.1 G %s a0 n0 (le-comm (sz a0) %s N h) dB (genty-ty G %s dA) (sym Tm (er a0) %s e))'
                        %(B,A,B,sz(B),A,er(B))); continue
         if c0=='uu' and c1=='uu':
-            sub.append(hd+'q-uu G n0 n1 (genty-ty G %s dA) (injN %s %s e)'%(A,er(A),er(B))); continue
+            sub.append(hd+'q-uu G n0 n1 dA (injN %s %s e)'%(er(A),er(B))); continue
         if c0=='pi' and c1=='pi':
             def m(f,x0,x1):
                 return '(mLR %s %s %s %s N (%s (sz A0) (sz B0)) (le-suc-r %s (add (sz A1) (sz B1)) (%s (sz A1) (sz B1))) h)'%(sz(A),sz(B),sz(x0),sz(x1),f,sz(x1),f)
