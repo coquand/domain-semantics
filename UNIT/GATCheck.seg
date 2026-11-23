@@ -9,13 +9,13 @@ module BoundedSyntax (N : Base.Nat) {
   import TLean ; import GPresup ; import GLean ;
   import LTypes ; import LConsistency ; import LTyping ; import LFilter ; import LSoundF ;
   import TSem ; import TSound ; import TRed ; import TInv ; import RTyping ; import RLevels ; import ErR ; import TGen ; import TUniqBase ; import TUniqComb ; import TUniq ; import TSection ; import RGAT ;
-  import AGAT ; import AForget ; import APresup ; import ACtx ; import AGen ; import AUniqCases ;
+  import AGAT ; import AForget ; import APresup ; import ACtx ; import AGen ; import AUniqCases ; import AShape ; import ACompareIntro ; import AUniq ; import ALiftExpr ; import AAnnotBase ; import AAnnot ; import ARGAT ;
 } ;
 import Paths ; import Axioms ; import FunExtUA ;
-import EhrhardCwF ; import EhrhardTEModel ; import TEInterp ;
+import EhrhardCwF ; import EhrhardTEModel ; import TEInterp ; import RSem ;
 module Model (ua : [l] Axioms[l].Univalence) {
   fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
   import IterativeSets ; import IterativeSetLift ; import IterativeUniverse ;
   import IterativeSetPaths ; import IterativeLiftLaws ; import IterativeLiftPi ; import IterativeLiftCompose ;
-  import EhrhardV ; import EhrhardVHierarchy ; import EhrhardVModel ; import EhrhardVInstances ;
+  import EhrhardV ; import EhrhardVHierarchy ; import EhrhardVModel ; import EhrhardVInstances ; import RSemV ;
 } ;

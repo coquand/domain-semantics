@@ -50,9 +50,10 @@ Section~5 of the paper, the equivalence of $T_{\mathsf{Tarski}}$ and
 $T_{\mathsf{Russell}}$: Lemma~21, Lemmas~25--26, Corollary~27 and
 Theorem~28 (Sections~\ref{sec:inv}--\ref{sec:section}), and compose them
 with Theorem~20 to relate $T_{\mathsf{Russell}}$ and $T_{\mathsf E}$
-directly (Section~\ref{sec:compose}). Everything below
-is checked in Unit (file \seg{UNIT/GATCheck.seg}, 1748 declarations, no
-failure, $0.4$\,s).
+directly (Section~\ref{sec:compose}). Finally, we use this relation to
+interpret $T_{\mathsf{Russell}}$ in Ehrhard models, including the
+iterative-set models (Section~\ref{sec:rsem}). The formal development
+is checked in Unit by \seg{UNIT/GATCheck.seg}.
 
 \section{The theory $T_{\mathsf E}$}
 
@@ -252,12 +253,16 @@ They are also part of \seg{All.seg}.
 \seg{TGen} & generation lemmas\\
 \seg{TUniqBase}, \seg{TUniqComb}, \seg{TUniq} & Lemmas 25, 26, Corollary 27\\
 \seg{TSection} & Theorem 28\\
-\seg{RGAT} & $T_{\mathsf{Russell}}$ and $T_{\mathsf E}$ (Section~\ref{sec:compose})
+\seg{RGAT} & $T_{\mathsf{Russell}}$ and $T_{\mathsf E}$ (Section~\ref{sec:compose})\\
+\seg{AGAT}, \seg{AForget}, \seg{AUniq}, \seg{AAnnot}, \seg{ARGAT} & context annotations (Section~\ref{sec:annot})\\
+\seg{EhrhardCwF}, \seg{EhrhardTEModel} & model interface\\
+\seg{TEDenote}, \seg{TEInterpSound} & interpretation and soundness of $T_{\mathsf E}$\\
+\seg{RSem}, \seg{RSemV} & Russell semantics (Section~\ref{sec:rsem})
 \end{tabular}
 \end{center}
 Lifts $t^n_m(a)$ are strict ($m<n$), as the cumulativity of $T_{\mathsf{Russell}}$ in Appendix~A.3: with $t^n_n$ and no equation $t^n_n(a)=a$, the terms $t^0_0(a)$ and $a$ have the same Russell erasure without being convertible, and the equivalence with $T_{\mathsf{Russell}}$ fails.
 
-The proof uses no postulates and no axioms. Some rules carry extra premises,
+The syntactic proofs use no postulates and no axioms. Some rules carry extra premises,
 all of them presuppositions.
 In $T_{\mathsf{Tarski}}$:
 \begin{itemize}
@@ -508,5 +513,116 @@ both are proved by induction on derivations. For symmetry, in the case of
 $\vdashG\Gamma.A=\Delta.B$ the equation $B=A$ is moved from $\Gamma$ to
 $\Delta$. For transitivity, the second derivation is inverted: only the rules
 for the empty context, reflexivity and extension conclude a context equality.
+
+\section{Semantics of $T_{\mathsf{Russell}}$}\label{sec:rsem}
+
+The checked versions of the three theories have levels $0,\ldots,N$.
+At $N=0$ there is one universe. The preceding sections give the rule
+schemes without a global bound. Each derivation uses finitely many levels,
+so it admits a finite bound. The formal comparison with the unbounded
+presentation is open.
+
+A $\seg{TEModel}[N]$ is a category with families in Ehrhard's presentation
+whose contexts, substitutions, types and terms form sets. It has dependent
+products, given by a term bijection natural under substitution, and a
+cumulative Tarski hierarchy through level $N$. The hierarchy has product
+and universe codes, decoding and lifts satisfying the $T_{\mathsf E}$ equations.
+
+The partial interpretation of raw $T_{\mathsf E}$ expressions has
+propositional domains, so denotation is functional. A context denotes a
+semantic telescope that records each successive type, supplying the last
+extension for $\p$ and $\q$. Over a supplied telescope, a term denotes a
+type and an element of it. A substitution returns a target telescope
+and a model substitution. In $\sigma\delta$, the target of $\delta$
+supplies the source for $\sigma$.
+
+Soundness is proved by induction on $T_{\mathsf E}$ derivations.
+Well-formed contexts have denotations, and convertible contexts denote the
+same telescope. At every denotation of the stated context, types and terms
+have values and the two sides of an equation share a value. For substitutions
+the computed target must equal the supplied denotation of the target context.
+
+\begin{theorem}{(Russell semantics)}
+For every $N$ and every $\seg{TEModel}[N]$:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+\item Each bounded $T_{\mathsf{Russell}}$ judgement has a denotation
+through a $T_{\mathsf E}$ lift under double erasure.
+\item Any two lifts of that judgement have the same semantic value.
+For types and terms the value includes the telescope, and for terms
+it also includes the semantic type. An equality judgement has the common
+value of its two sides.
+\item Russell-convertible types and Russell-convertible terms have
+equal denotations, including when their denotations were obtained from
+independent typing derivations.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+For (1), apply the lifting theorem of Section~\ref{sec:compose} and
+$T_{\mathsf E}$ soundness. For (2), equality of the lifted contexts
+aligns the telescopes. Convert the second typing judgement to the first
+context and apply the uniqueness clauses of Section~\ref{sec:compose}.
+Soundness gives a common value in the aligned telescope, and functionality
+identifies both values with it. For equality judgements, compare the value
+of either side. For (3), lift and interpret the Russell equality. By (2)
+its common value agrees with the values obtained from any lifts of the
+individual typing judgements.
+\end{proof}
+
+Gylterud's tower $V_0,\ldots,V_N$ supplies the codes and lifts of a
+$\seg{TEModel}[N]$. Model assembly from a supplied tower and the Russell
+semantics theorem are uniform in $N$. Unit supplies the tower as a
+schema for closed $N$, since each tower uses a statically specified
+sequence of Seg meta-levels. The instances for $N=0,1,2$ are checked in
+\seg{RSemV}.
+
+\section{Context annotations}\label{sec:annot}
+
+The theory $T_{\mathsf E}^{a}$ gives context arguments to the six leaves
+$(\U_n)_\Gamma$, $(\U^n_m)_\Gamma$, $\id_\Gamma$, $()_\Gamma$,
+$\p_{\Gamma,A}$ and $\q_{\Gamma,A}$, as in Section~2.1 of
+Coquand--Sterbac. It uses Ehrhard's $\lift_A$ and $\sect_A$ and the same
+level bound $N$ as $T_{\mathsf E}$. Each leaf has a congruence rule in its
+annotation arguments. For example, $\Gamma=\Delta$ and $\Gamma\vdash A=B$
+give $\p_{\Gamma,A}=\p_{\Delta,B}:\Gamma.A\to\Gamma$ and
+$\Gamma.A\vdash\q_{\Gamma,A}=\q_{\Delta,B}:A\p_{\Gamma,A}$ in the
+annotated theory. The right projection is typed at the left endpoints
+by context conversion. The right variable is moved to $\Gamma.A$
+and its type is converted using the projection equation.
+
+Write $\mathrm{fg}$ for the map that drops the six leaves' annotation
+fields. It preserves derivability and sends the annotation congruences
+to reflexivity. The converse takes a derivable bare judgement $J$ to an
+annotated judgement $J^a$ with $\mathrm{fg}(J^a)=J$ as raw judgements.
+Any well-formed annotated representatives of the contexts of $J$ can
+be prescribed, including both endpoints of a substitution or a
+context equation.
+
+The lifting proof uses coherence for expressions with identical raw
+images under $\mathrm{fg}$. Generation recovers the introduction premises
+through context and type conversion. One induction on the common bare
+expression compares types, terms, substitutions and well-formed
+contexts. In the substitution case, equality of the domains gives both
+equality of the codomains and a substitution equation at the left
+endpoints. This supplies the context equality needed to compare $A$ and
+$A'$ in the case of $A\sigma$ and $A'\sigma'$. The presupposition
+induction also supplies symmetry of context equality. The lifting
+induction then aligns independently lifted premises using coherence,
+and context conversion places the resulting judgement over any
+prescribed representatives.
+
+\begin{theorem}{(Russell and $T_{\mathsf E}^{a}$)}
+The four conclusions of Section~\ref{sec:compose} hold for
+$T_{\mathsf E}^{a}$ with erasure \mbox{$X\mapsto\|\mathrm{fg}(X)\|$}.
+\end{theorem}
+\begin{proof}
+For soundness, forget annotations and apply the bare erasure theorem.
+For existence, apply the bare Russell lift and then annotate, using the
+raw identity $\mathrm{fg}(J^a)=J$. For uniqueness, apply the bare
+uniqueness theorem to the forgetful images of the given annotated
+judgements. Lift the resulting equations into the given annotated
+contexts. Coherence aligns the lifted endpoints with the original
+types and terms. Context equality lifts directly between the two
+given annotated contexts. The composition is checked in \seg{ARGAT}.
+\end{proof}
 
 \end{document}

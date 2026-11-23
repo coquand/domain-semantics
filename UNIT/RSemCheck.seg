@@ -6,7 +6,9 @@ module Smoke (l : Level) (N : Base.Nat) (M : EhrhardTEModel[l].TEModel[N]) {
   open Base ;
   module B = BoundedSyntax[N] ;
   open B.GAT[l] ;
+  open B.TSyntax[l] ; open B.TTyping[l] ; open B.RGAT[l] ;
   module S = TEInterp.Interpret[l,N,M] ;
+  module R = RSem.Interpret[l,N,M] ;
 
   G : GE = gext gnil (guu zero) ;
   A : GE = gsb (guu zero) gp ;
@@ -19,4 +21,38 @@ module Smoke (l : Level) (N : Base.Nat) (M : EhrhardTEModel[l].TEModel[N]) {
 
   checked : S.TEInterpJudgement.SoundJ (gjeqsub G (gcomp gp (gsec A gq)) gid G) =
     S.TEInterpSound.sound (gjeqsub G (gcomp gp (gsec A gq)) gid G) projection-section ;
+
+  -- A second lift of the Russell variable has an explicit identity in its context type.
+  U' : GE = gsb (guu zero) gid ;
+  G' : GE = gext gnil U' ;
+  A' : GE = gsb U' gp ;
+  hU' : GDer (gjty gnil U') = gt-sb gnil gnil (guu zero) gid hd (gs-id gnil g-nil) ;
+  ha' : GDer (gjtm G' gq A') = gm-q gnil U' hU' ;
+
+  D : Cx = csnoc cnil (uu zero) ;
+  J : Jf = jtm D (var zero) (uu zero) ;
+  first : R.Lift J = (G,(gq,(A,(ha,(refl D,(refl (var zero),refl (uu zero))))))) ;
+  second : R.Lift J = (G',(gq,(A',(ha',(refl D,(refl (var zero),refl (uu zero))))))) ;
+  v : (t : R.Value J) * R.Realizes J first t = R.interpret-lift J first ;
+  w : (t : R.Value J) * R.Realizes J second t = R.interpret-lift J second ;
+  independent : Id (R.Value J) v.1 w.1 = R.independent J first second v.1 w.1 v.2 w.2 ;
+} ;
+
+module IterativeSmoke (ua : [l] Axioms[l].Univalence) {
+  open Model[ua] ;
+  level k ;
+  open Base ; open Prelude[k++++] ; open Lib[k++++] ;
+  module V = EhrhardVInstances[k] ;
+  module B = BoundedSyntax[V.Bound2.N] ;
+  open B.TSyntax[k++++] ; open B.TTyping[k++++] ; open B.RTyping[k++++] ;
+  module R = RSemV[k].Bound2 ;
+
+  one : Nat = suc zero ;
+  two : Nat = suc one ;
+  J : Jf = jtm cnil (uu zero) (uu two) ;
+  direct : RDer J = rtm-uu cnil zero two rwf-nil tt tt ;
+  from-one : RDer J = rtm-cum cnil one two (uu zero) (rtm-uu cnil zero one rwf-nil tt tt) tt tt ;
+  same-universe-code : Id (R.Value J) (R.value J direct) (R.value J from-one) =
+    R.equal-terms cnil (uu zero) (uu zero) (uu two) direct from-one
+      (reqtm-refl cnil (uu zero) (uu two) from-one) ;
 } ;

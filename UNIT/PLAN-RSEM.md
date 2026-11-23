@@ -321,29 +321,32 @@ First check `TEDenote` with `gsb (guu 0) gp` over a one-type telescope
 and `gcomp gp (gsec A a)`. Check the computed targets in both examples.
 Then check the soundness files in dependency order.
 
-### S4. Semantics of T_Russell (small once S1-S3 are done, e.g. `RSem.seg`)
+### S4. Semantics of T_Russell
 
-- For an `RDer` judgement J over G, take the lift from `r2g-*` and its
-  T_E interpretation.
-- **Independence.** Any two T_E lifts with the same double erasure are
-  convertible by `gu-*` / `gu-cx1`; the contexts are first aligned by
-  `gu-cx1` and the `gt-cx`-style rules. So by S3 they have equal
-  interpretations.
-- **Soundness for Russell equality.** `r2g-eqty` / `r2g-eqtm` lift a
-  Russell equality to a T_E equality, which S3 interprets as an equality.
-- Final theorem, to state cleanly:
-  1. every T_Russell judgement has a meaning in any `TEModel`;
-  2. the meaning is independent of the lift;
-  3. Russell-convertible terms have equal meanings.
+**DONE.** In any `TEModel[N]`, `RSem.seg` uses `r2g-*` and S3 soundness
+to interpret all five `RDer` judgement forms. `independent` identifies
+the values of any two lifts. It aligns contexts by `gu-cx1`, uses `gu-ty`
+and `gu-tm` after context conversion, and compares both values with the
+common denotation. Context, type and term components are compared
+together in the dependent semantic value. An equality judgement has
+the common value of its two sides.
 
-  Instantiate at `vModel`.
-- Then add a section to `gat-ehrhard.tex` (the semantics of T_Russell)
-  and a row to its file table. Explain that the checked syntactic
-  theorems range over finite N. Each unbounded derivation mentions
-  finitely many levels. The formal bridge to the bounded system is open.
-  State soundness and lift independence for arbitrary N and
-  `TEModel[N]`. The iterative-set instances form a schema for closed N
-  because each tower uses a statically specified sequence of Seg levels.
+`equal-types` and `equal-terms` interpret `r2g-eqty` and `r2g-eqtm`,
+then use independence to compare meanings from arbitrary Russell typing
+derivations of the two sides. `RSemV.seg` specializes the development
+to `vModel` at N = 0, 1 and 2. `RSemCheck.seg` checks lift independence
+for two lifts of a variable with different context types and compares
+direct and cumulative typings of a universe code in the N = 2 instance.
+The checker rejected a deliberate error in each new Seg file.
+`RSemCheck.seg`, `GATCheck.seg` and the full `python3 UNIT/check.py`
+run passed.
+
+Section 13 of `gat-ehrhard.tex` and the file table describe the theorem.
+The checked syntactic theorems range over finite bounds. Each unbounded
+derivation mentions finitely many levels, and the formal bridge to
+bounded syntax is open. The semantics is uniform in N and `TEModel[N]`.
+The iterative-set instances form a schema for closed N because each
+tower uses a statically specified sequence of Seg levels.
 
 ## 5. Seg/Unit practicalities (learned the hard way)
 
@@ -392,4 +395,4 @@ Then check the soundness files in dependency order.
 - [x] S1 level bound N threaded through T_Tarski, T_E, T_Russell, all proofs
 - [x] S2 `TEModel` record + `vModel` instance on V_0 ⊂ ... ⊂ V_N
 - [x] S3 interpretation of T_E^N in any `TEModel` (soundness for all judgement forms)
-- [ ] S4 semantics of T_Russell (existence, independence of lift, soundness); tex section
+- [x] S4 semantics of T_Russell (existence, independence of lift, soundness); tex section

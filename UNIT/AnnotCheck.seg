@@ -1,0 +1,12 @@
+-- Standalone checker for the context-annotated syntax and its Russell correspondence.
+import Base ; import Prelude ; import Lib ; 
+module BoundedSyntax (N : Base.Nat) {
+  import TSyntax ; import TTyping ; import TSubst ; import TSubCong ; import TSubLib ; import TPresup ;
+  import GAT ; import GSound ; import Ev ;
+  import L18Base ; import L18Good ; import L18Var ; import L18Bind ; import L18Pi ; import L18App ; import L18U ; import L18Eq ;
+  import L18BE ; import L18 ; import L19Base ; import L19 ; import Thm20 ;
+  import TLean ; import GPresup ; import GLean ;
+  import LTypes ; import LConsistency ; import LTyping ; import LFilter ; import LSoundF ;
+  import TSem ; import TSound ; import TRed ; import TInv ; import RTyping ; import RLevels ; import ErR ; import TGen ; import TUniqBase ; import TUniqComb ; import TUniq ; import TSection ; import RGAT ;
+  import AGAT ; import AForget ; import APresup ; import ACtx ; import AGen ; import AUniqCases ; import AShape ; import ACompareIntro ; import AUniq ; import ALiftExpr ; import AAnnotBase ; import AAnnot ; import ARGAT ;
+} ;
