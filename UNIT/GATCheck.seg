@@ -11,7 +11,10 @@ module BoundedSyntax (N : Base.Nat) {
   import TSem ; import TSound ; import TRed ; import TInv ; import RTyping ; import RLevels ; import ErR ; import TGen ; import TUniqBase ; import TUniqComb ; import TUniq ; import TSection ; import RGAT ;
 } ;
 import Paths ; import Axioms ; import FunExtUA ;
+import EhrhardCwF ; import EhrhardTEModel ;
 module Model (ua : [l] Axioms[l].Univalence) {
   fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
-  import IterativeSets ; import IterativeSetLift ;
+  import IterativeSets ; import IterativeSetLift ; import IterativeUniverse ;
+  import IterativeSetPaths ; import IterativeLiftLaws ; import IterativeLiftPi ; import IterativeLiftCompose ;
+  import EhrhardV ; import EhrhardVHierarchy ; import EhrhardVModel ; import EhrhardVInstances ;
 } ;

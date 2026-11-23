@@ -135,7 +135,10 @@ module Theory
    import TSection ;
    import RGAT ;
  } ;
- import IterativeSets ; import IterativeSetLift ;
+ import EhrhardCwF ; import EhrhardTEModel ;
+ import IterativeSets ; import IterativeSetLift ; import IterativeUniverse ;
+ import IterativeSetPaths ; import IterativeLiftLaws ; import IterativeLiftPi ; import IterativeLiftCompose ;
+ import EhrhardV ; import EhrhardVHierarchy ; import EhrhardVModel ; import EhrhardVInstances ;
  import StableComposition ; import PrincipalProjection ;
  import StableProduct ;
  import StablePatches ;

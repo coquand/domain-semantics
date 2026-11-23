@@ -211,6 +211,31 @@ Package everything as a record, say `TEModel`: the CwF fields and Π plus
 `U n`, `El n`, `pic`, `uc`, `lf` and the equations above, each guarded by
 `LeN _ N`. Then build the instance `vModel : TEModel`.
 
+**DONE.** `IterativeUniverse.seg` checks the universe code and its
+decoding by reflexivity. `IterativeLiftLaws`, `IterativeLiftPi` and
+`IterativeLiftCompose` prove preservation of indices, members, `mkV`,
+Π and universe codes, and composition of lifts.
+
+- `EhrhardCwF` contains the Ehrhard interface and dependent products.
+  `EhrhardV` interprets them in the families of iterative-set codes.
+  Π β and η check by reflexivity, including η in the form used in
+  `GAT.seg`. Terminal uniqueness uses function extensionality.
+- `EhrhardTEModel` packages the model of bounded T_E with all six
+  Tarski equations and substitution naturality. `EhrhardVModel.vModel`
+  builds it from a `VHierarchy[N]`. The three equations between lifted
+  codes follow from the decoding equations and injectivity of decoding.
+  Universe operations commute with substitution by reflexivity.
+- Seg's meta-levels are static. For each closed N,
+  `gen_ehrhard_v_tower.py` assembles the stages and links at consecutive
+  meta-levels into a `VHierarchy[N]`. Its checked output
+  `EhrhardVInstances.seg` contains N = 0, 1 and 2. Scratch generation
+  and checking also succeeded at N = 3 and 5. The assembly of a
+  `TEModel` from a supplied hierarchy is uniform in N.
+- `GATCheck.seg` checked 2210 declarations in about 0.6 s.
+  A deliberate error was rejected independently in each of the 11 new
+  Seg files, and the restored imports checked. `python3 UNIT/check.py`
+  passed all checks and verified 40 vendor hashes.
+
 ### S3. Interpret T_E^N in any `TEModel` (new file, e.g. `TEInterp.seg`)
 
 This is the main engineering step. The conversion rules (`gt-cx`,
@@ -253,7 +278,9 @@ values.
 
   Instantiate at `vModel`.
 - Then add a section to `gat-ehrhard.tex` (the semantics of T_Russell)
-  and a row to its file table.
+  and a row to its file table. Explain that the checked syntactic
+  theorems range over finite N. Each unbounded derivation mentions
+  finitely many levels. The formal bridge to the bounded system is open.
 
 ## 5. Seg/Unit practicalities (learned the hard way)
 
@@ -300,6 +327,6 @@ values.
 
 - [x] S0 environment: V and VLift usable under the indexed checker
 - [x] S1 level bound N threaded through T_Tarski, T_E, T_Russell, all proofs
-- [ ] S2 `TEModel` record + `vModel` instance on V_0 ⊂ ... ⊂ V_N
+- [x] S2 `TEModel` record + `vModel` instance on V_0 ⊂ ... ⊂ V_N
 - [ ] S3 interpretation of T_E^N in any `TEModel` (soundness for all judgement forms)
 - [ ] S4 semantics of T_Russell (existence, independence of lift, soundness); tex section
