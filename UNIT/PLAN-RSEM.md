@@ -62,7 +62,7 @@ All files are parametrised by `level l`.
 |---|---|
 | `TSyntax.seg` | raw de Bruijn `Tm`: `var, pi, uu n, el n a, lam, app, pic n a b, uc m n, lf m n a`; `Cx = cnil / csnoc` |
 | `TTyping.seg` | T_Tarski: `data Der : Jf -> U l`, judgements `jwf, jty, jtm, jeqty, jeqtm`; `CxEq` |
-| `GAT.seg` | T_E: raw `GE` (contexts gnil/gext, types, terms, substitutions `gid, gcomp, geps, gp, glift A s, gsec A a`, variable `gq`); `data GDer : GJ -> U l` (104 constructors); erasure `et, es, ec` to T_Tarski |
+| `GAT.seg` | T_E: raw `GE` (contexts gnil/gext, types, terms, substitutions `gid, gcomp, geps, gp, glift A s, gsec A a`, variable `gq`); `data GDer : GJ -> U l` (81 constructors); erasure `et, es, ec` to T_Tarski |
 | `RTyping.seg` | T_Russell: `data RDer : Jf -> U l` (same raw `Tm`, `uu n` used as a term) |
 | `ErR.seg` | Russell erasure `er, erC, erJ`; Lemma 21 `er-der : (J : Jf) -> Der J -> RDer (erJ J)` |
 
@@ -236,30 +236,90 @@ decoding by reflexivity. `IterativeLiftLaws`, `IterativeLiftPi` and
   Seg files, and the restored imports checked. `python3 UNIT/check.py`
   passed all checks and verified 40 vendor hashes.
 
-### S3. Interpret T_E^N in any `TEModel` (new file, e.g. `TEInterp.seg`)
+### S3. Interpret T_E^N in any `TEModel`
 
-This is the main engineering step. The conversion rules (`gt-cx`,
-`gm-conv`, `gm-eqconv`, `ge-cx`, `gm-ecx`, `gs-cx`) transport along
-equalities, so a naive interpretation of derivations needs coherence: two
-derivations of the same judgement must give equal values. Options:
+**DONE.** `TEInterp.seg` interprets the bounded syntax in an arbitrary
+`TEModel[N]`. `TEInterpSound.sound` proves soundness for all eight
+judgement forms by induction over the 81 constructors of `GDer`.
+`gen_te_interp.py` regenerates the induction. Both the binder transport
+for lifted Π-codes and the Π η equation check in the generic model.
+`TEDenoteCheck.seg` checks the two raw examples and their computed
+targets. `RSemCheck.seg` also checks soundness on a projection–section
+derivation. `GATCheck.seg`, `RSemCheck.seg`, `All.seg` and the full
+`python3 UNIT/check.py` passed. A deliberate error was rejected
+independently in every new Seg file.
 
-- (recommended) **Partial interpretation à la Streicher.** Define the
-  meaning of raw `GE` by recursion (`split`) on raw syntax, relative to a
-  semantic context, as a partial value (e.g. a predicate "denotes" with
-  functionality). Then prove by induction on `GDer` that derivable
-  judgements denote, and that equality judgements denote equal values.
-  Functionality is by induction on raw syntax, so no coherence problem
-  arises.
-- Interpret derivations directly and prove coherence separately. Since Ty
-  and El are sets in the V-model, the coherence lemma is "equal up to
-  `Id`", with no higher paths. It still needs its own induction.
+Use semantic telescopes. A telescope stores each successive semantic type
+and projects to its model context. A bare `gp` or `gq` needs the last
+extension, which the model's `Ctx` alone need not determine. In Seg, a
+split on length can build both the telescope type for that length and its
+projection to `Ctx`. The zero layer is `Top` over `nil`. A successor
+layer consists of a prefix and a type over its projection. The total
+type of telescopes is a set by induction using `isSetTy` and sethood of
+`Nat`.
 
-Ehrhard's explicit substitutions help here: every T_E rule matches a model
-field, and no syntactic substitution lemma is needed.
+Use a partial value of type `X` with domain proposition `P` and a map
+`value : P -> X`. Its denotation predicate at `x` is
+`(p : P) * Id X (value p) x`. Domain proof irrelevance gives
+functionality. For a set `X`, the denotation predicate is also a
+proposition. Sequence partial values by dependent sums of their domains.
+Use equality in a model set and proof-irrelevant level bounds as guards.
 
-Statement shape: for `GDer (gjty G A)`, a semantic context ⟦G⟧ and a type
-⟦A⟧ in it; similarly for terms. For `gjeqty`/`gjeqtm`/`gjeqcx`, equal
-values.
+One recursion on raw `GE` builds four partial interpretations. Write
+`ctx Γ` for the model context of a semantic telescope `Γ`.
+
+| Mode | Input | Output when defined |
+|---|---|---|
+| Context | none | a telescope `Γ` |
+| Type | `Γ` | `A : Ty (ctx Γ)` |
+| Term | `Γ` | a pair `(A, a)` with `a : El (ctx Γ) A` |
+| Substitution | source telescope `Δ` | a pair `(Γ, σ)` with `σ : Sub (ctx Δ) (ctx Γ)` |
+
+Inapplicable constructors have empty domain. In `gcomp s d`, the
+interpretation of `d` supplies the intermediate telescope for `s`.
+In `glift A s`, interpret `s` on the source prefix and check that the
+source's last type equals the reindexing of the interpretation of `A`.
+`gsec` and applications check inferred term types against their
+annotations or expected types. The type and term modes of `gsb` obtain
+the operand's context from the substitution mode.
+
+Prove the following statements by one induction on `GDer`. Term and
+substitution denotation at a chosen type or target means denotation of
+the corresponding pair, with transport from the inferred pair as needed.
+
+| Judgement | Soundness |
+|---|---|
+| `gjwf G` | `G` denotes a telescope `Γ`. |
+| `gjty G A` | For every denotation `Γ` of `G`, `A` denotes a type over `Γ`. |
+| `gjtm G a A` | For every denotation `Γ` of `G`, there is a denotation of `A` over `Γ` and `a` denotes in it. |
+| `gjsub D s G` | For every denotation `Δ` of `D` and `Γ` of `G`, `s` at `Δ` denotes a pair `(Γ, σ)`. Its computed target thus equals the denotation of `G`. |
+| `gjeqcx G D` | Both contexts denote the same telescope. |
+| `gjeqty G A B` | Both types denote the same type over every denotation of `G`. |
+| `gjeqtm G a b A` | For every denotation of `G`, there is a denotation of `A` in which both terms denote the same element. |
+| `gjeqsub D s t G` | At every denotation `Δ` of `D`, both substitutions denote the same pair `(Γ, σ)` for every denotation `Γ` of `G`. |
+
+The context clause supplies existence for each well-formed context.
+Carry these witnesses in the induction where the premises need them.
+For context conversion, reuse the supplied telescope as a denotation
+of both raw contexts. Functionality aligns separately obtained values.
+For context extension equality, use the same prefix and last semantic
+type on both sides.
+For `gm-lf-pic`, identify transport of a code along the binder path with
+`code-sub` along `lift-binder`, by path induction and the CwF identity
+laws. Derive the generic application naturality and the stated Π η
+equation from `Pi-iso-nat` and the Ehrhard equations.
+
+Split the implementation by rule groups. Put telescopes, partial values
+and transport in `TEInterpBase`, and the raw fold in `TEDenote`. Put the
+soundness motive and assembly in the soundness files. Keep the cases in
+separate files for contexts and conversion, substitutions and their
+equations, dependent products, and universes and lifts. Generate the
+case patterns and recursive-result binders from the indexed `GDer`
+declaration with a script kept alongside the proof files.
+
+First check `TEDenote` with `gsb (guu 0) gp` over a one-type telescope
+and `gcomp gp (gsec A a)`. Check the computed targets in both examples.
+Then check the soundness files in dependency order.
 
 ### S4. Semantics of T_Russell (small once S1-S3 are done, e.g. `RSem.seg`)
 
@@ -281,6 +341,9 @@ values.
   and a row to its file table. Explain that the checked syntactic
   theorems range over finite N. Each unbounded derivation mentions
   finitely many levels. The formal bridge to the bounded system is open.
+  State soundness and lift independence for arbitrary N and
+  `TEModel[N]`. The iterative-set instances form a schema for closed N
+  because each tower uses a statically specified sequence of Seg levels.
 
 ## 5. Seg/Unit practicalities (learned the hard way)
 
@@ -290,7 +353,7 @@ values.
   self-reference.
 - **Splitting an indexed family** (`GDer`, `Der`, `RDer`) at a fixed index
   still lists ALL constructors. Use a motive `M : GJ -> U l` that is `Top`
-  off the index of interest, and return `tt` there. Generate the 104-case
+  off the index of interest, and return `tt` there. Generate the case
   list mechanically; copy the case patterns of `ext-inv` in `GLean.seg`.
   See `cx-sym-J`, `tr-inv` and `cx-trans-J` in `RGAT.seg`.
 - **Records** with manifest leading fields: `LTy[D, A]`,
@@ -328,5 +391,5 @@ values.
 - [x] S0 environment: V and VLift usable under the indexed checker
 - [x] S1 level bound N threaded through T_Tarski, T_E, T_Russell, all proofs
 - [x] S2 `TEModel` record + `vModel` instance on V_0 ⊂ ... ⊂ V_N
-- [ ] S3 interpretation of T_E^N in any `TEModel` (soundness for all judgement forms)
+- [x] S3 interpretation of T_E^N in any `TEModel` (soundness for all judgement forms)
 - [ ] S4 semantics of T_Russell (existence, independence of lift, soundness); tex section

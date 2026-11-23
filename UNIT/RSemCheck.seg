@@ -1,0 +1,22 @@
+-- Isolated checker for Ehrhard and Russell semantics.
+import GATCheck ;
+open GATCheck ;
+
+module Smoke (l : Level) (N : Base.Nat) (M : EhrhardTEModel[l].TEModel[N]) {
+  open Base ;
+  module B = BoundedSyntax[N] ;
+  open B.GAT[l] ;
+  module S = TEInterp.Interpret[l,N,M] ;
+
+  G : GE = gext gnil (guu zero) ;
+  A : GE = gsb (guu zero) gp ;
+
+  hd : GDer (gjty gnil (guu zero)) = gt-uu gnil zero g-nil tt ;
+  hA : GDer (gjty G A) = gt-sb G gnil (guu zero) gp hd (gs-p gnil (guu zero) hd) ;
+  ha : GDer (gjtm G gq A) = gm-q gnil (guu zero) hd ;
+  projection-section : GDer (gjeqsub G (gcomp gp (gsec A gq)) gid G) =
+    gq-p-sec G A gq hA ha ;
+
+  checked : S.TEInterpJudgement.SoundJ (gjeqsub G (gcomp gp (gsec A gq)) gid G) =
+    S.TEInterpSound.sound (gjeqsub G (gcomp gp (gsec A gq)) gid G) projection-section ;
+} ;

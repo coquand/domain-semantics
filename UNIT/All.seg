@@ -134,8 +134,9 @@ module Theory
    import TUniq ;
    import TSection ;
    import RGAT ;
+   import AGAT ; import AForget ; import APresup ; import ACtx ; import AGen ; import AUniqCases ;
  } ;
- import EhrhardCwF ; import EhrhardTEModel ;
+ import EhrhardCwF ; import EhrhardTEModel ; import TEInterp ;
  import IterativeSets ; import IterativeSetLift ; import IterativeUniverse ;
  import IterativeSetPaths ; import IterativeLiftLaws ; import IterativeLiftPi ; import IterativeLiftCompose ;
  import EhrhardV ; import EhrhardVHierarchy ; import EhrhardVModel ; import EhrhardVInstances ;

@@ -9,9 +9,10 @@ module BoundedSyntax (N : Base.Nat) {
   import TLean ; import GPresup ; import GLean ;
   import LTypes ; import LConsistency ; import LTyping ; import LFilter ; import LSoundF ;
   import TSem ; import TSound ; import TRed ; import TInv ; import RTyping ; import RLevels ; import ErR ; import TGen ; import TUniqBase ; import TUniqComb ; import TUniq ; import TSection ; import RGAT ;
+  import AGAT ; import AForget ; import APresup ; import ACtx ; import AGen ; import AUniqCases ;
 } ;
 import Paths ; import Axioms ; import FunExtUA ;
-import EhrhardCwF ; import EhrhardTEModel ;
+import EhrhardCwF ; import EhrhardTEModel ; import TEInterp ;
 module Model (ua : [l] Axioms[l].Univalence) {
   fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
   import IterativeSets ; import IterativeSetLift ; import IterativeUniverse ;
