@@ -26,9 +26,11 @@
 \newcommand{\up}{\mathsf{up}}
 \newcommand{\idv}{\iota}
 \newcommand{\seg}[1]{\texttt{#1}}
+\newcommand{\vdashR}{\vdash_{\mathsf R}}
+\newcommand{\erR}[1]{|#1|_{\mathsf R}}
 
 \title{Explicit and implicit substitutions with Ehrhard's generators\\[2pt]
-\large A variant of Section 4 of ``From Tarski to Russell'', formalised in Unit}
+\large A variant of Section 4 of ``From Tarski to Russell'', and Section 5, formalised in Unit}
 \author{}
 \date{22 November 2026}
 
@@ -43,9 +45,14 @@ $T_{\mathsf{Tarski}}$, where substitution is an operation on de Bruijn
 terms. We replace $T_{\mathsf{GAT}}$ by a theory $T_{\mathsf E}$ whose
 substitutions are generated as in Ehrhard's presentation of categories with
 families: $\id,\ \sigma\delta,\ (),\ \p,\ \lift_A(\sigma),\ \sect_A(a)$.
-We prove the analogues of Lemmas 15--19 and Theorem~20. Everything below
-is checked in Unit (file \seg{UNIT/GATCheck.seg}, 607 declarations, no
-failure, $0.2$\,s).
+We prove the analogues of Lemmas 15--19 and Theorem~20. We then prove
+Section~5 of the paper, the equivalence of $T_{\mathsf{Tarski}}$ and
+$T_{\mathsf{Russell}}$: Lemma~21, Lemmas~25--26, Corollary~27 and
+Theorem~28 (Sections~\ref{sec:inv}--\ref{sec:section}), and compose them
+with Theorem~20 to relate $T_{\mathsf{Russell}}$ and $T_{\mathsf E}$
+directly (Section~\ref{sec:compose}). Everything below
+is checked in Unit (file \seg{UNIT/GATCheck.seg}, 1748 declarations, no
+failure, $0.4$\,s).
 
 \section{The theory $T_{\mathsf E}$}
 
@@ -238,7 +245,14 @@ They are also part of \seg{All.seg}.
 \seg{L18Base} \dots\ \seg{L18BE}, \seg{L18} & Lemma 18\\
 \seg{L19Base}, \seg{L19}, \seg{Thm20} & Lemma 19, Theorem 20\\
 \seg{TPresup}, \seg{TLean} & presuppositions of $T_{\mathsf{Tarski}}$, lean rules\\
-\seg{GPresup}, \seg{GLean} & presuppositions of $T_{\mathsf E}$, lean rules
+\seg{GPresup}, \seg{GLean} & presuppositions of $T_{\mathsf E}$, lean rules\\[3pt]
+\seg{LTypes} \dots\ \seg{LSoundF}, \seg{TSem}, \seg{TSound} & levelled filter model, soundness\\
+\seg{TInv} & inversion (Theorems 9, 10 for $T_{\mathsf{Tarski}}$)\\
+\seg{RTyping}, \seg{ErR} & $T_{\mathsf{Russell}}$, erasure, Lemma 21\\
+\seg{TGen} & generation lemmas\\
+\seg{TUniqBase}, \seg{TUniqComb}, \seg{TUniq} & Lemmas 25, 26, Corollary 27\\
+\seg{TSection} & Theorem 28\\
+\seg{RGAT} & $T_{\mathsf{Russell}}$ and $T_{\mathsf E}$ (Section~\ref{sec:compose})
 \end{tabular}
 \end{center}
 Lifts $t^n_m(a)$ are strict ($m<n$), as the cumulativity of $T_{\mathsf{Russell}}$ in Appendix~A.3: with $t^n_n$ and no equation $t^n_n(a)=a$, the terms $t^0_0(a)$ and $a$ have the same Russell erasure without being convertible, and the equivalence with $T_{\mathsf{Russell}}$ fails.
@@ -292,5 +306,207 @@ concludes it, and in $T_{\mathsf E}$ by induction, going through the rule conver
 types along $\vdashG\Gamma=\Delta$. One difference with Appendix~A.2 remains: symmetry and
 transitivity are two premise-free rules, where A.2 has the single rule
 $A=B,\ A=C\Rightarrow B=C$.
+
+\section{Inversion for $T_{\mathsf{Tarski}}$}\label{sec:inv}
+
+Section~5 needs only the following inversion properties. Injectivity of
+$\Pi$ is \emph{not} needed, because the syntax of $T_{\mathsf{Russell}}$
+is annotated.
+
+\begin{lemma}{(Theorems 9, 10)}
+In $T_{\mathsf{Tarski}}$:
+$\Gamma\vdashT\U_m=\U_n$ implies $m=n$;
+$\Gamma\vdashT\Pi(A,B)=\U_n$ is not derivable;
+$\Gamma\vdashT\U^k_m=\U^k_n:\U_k$ implies $m=n$;
+$\Gamma\vdashT\U^k_m=\Pi_k(a,b):\U_k$ is not derivable.
+\end{lemma}
+These follow from soundness in a filter model. The model is the domain of
+Carneiro, Coquand et al.\ (``Definitional inversion, without normalisation'')
+with a hierarchy of codes $\mathsf{univ}\,n$. We interpret
+$\ev{\U_n}{}=\ev{\U^n_m}{}$ as the filter of $\mathsf{univ}\,n$
+(resp.\ $\mathsf{univ}\,m$); $\T_n$ and $t^n_m$ are interpreted as the
+identity, and $\Pi_n$ as $\Pi$. Consistency forbids two different levels,
+and also a level together with a $\Pi$-type. We evaluate in the bottom
+environment, which fits every well-formed context.
+
+\section{$T_{\mathsf{Russell}}$ and erasure (Lemma 21)}
+
+The raw syntax of $T_{\mathsf{Russell}}$ is the fragment
+$v_i,\ \Pi(A,B),\ \lambda(A,B,b),\ \app(A,B,c,a),\ \U_n$ of the Tarski
+syntax, so substitution and its laws are shared. The rules are those of
+Appendix~A.3, with strict cumulativity: $a:\U_m$ and $m<n$ give $a:\U_n$.
+Erasure is
+\[
+\erR{\T_n(a)}=\erR{t^n_m(a)}=\erR a,\qquad
+\erR{\Pi_n(a,b)}=\Pi(\erR a,\erR b),\qquad
+\erR{\U^n_m}=\U_m,
+\]
+and homomorphic otherwise. It commutes with renaming and substitution.
+
+\begin{lemma}{21}
+If $\Gamma\vdashT J$ then $\erR\Gamma\vdashR\erR J$.
+\end{lemma}
+The proof is one induction. As in Section~4, the extra premises of
+$T_{\mathsf{Tarski}}$ are mirrored in $T_{\mathsf{Russell}}$, so that the
+erasure of each Tarski rule is an instance of a Russell rule. The six Tarski
+equations erase to reflexivity.
+
+\section{Uniqueness (Lemmas 25, 26 and Corollary 27)}
+
+For $k\le n$ write $\hat t^n_k(v)$ for $v$ if $k=n$ and for $t^n_k(v)$ if
+$k<n$. This is a meta-level operation, since the lifts of the syntax are
+strict.
+
+\begin{lemma}{25}
+In $T_{\mathsf{Tarski}}$:
+\begin{enumerate}
+\item $\Gamma\vdashT A$, $\Gamma\vdashT B$ and $\erR A=\erR B$ imply $\Gamma\vdashT A=B$;
+\item $\Gamma\vdashT B$, $\Gamma\vdashT a:\U_n$ and $\erR B=\erR a$ imply $\Gamma\vdashT B=\T_n(a)$;
+\item $\Gamma\vdashT u_0:A_0$, $\Gamma\vdashT u_1:A_1$ and $\erR{u_0}=\erR{u_1}$
+imply one of two things:
+either $\Gamma\vdashT A_0=A_1$ and $\Gamma\vdashT u_0=u_1:A_0$;
+or $\Gamma\vdashT A_i=\U_{n_i}$ and there is one code $\Gamma\vdashT v:\U_k$,
+with $k\le n_0,n_1$ and $\Gamma\vdashT u_i=\hat t^{n_i}_k(v):\U_{n_i}$ for $i=0,1$.
+\end{enumerate}
+\end{lemma}
+The second outcome has one common code $v$ where the paper has two
+convertible codes $v_0=v_1:\U_k$. The two forms are equivalent by the
+congruence of lifts.
+
+\begin{proof}[Proof sketch]
+The three statements are proved together, by induction on
+$|u_0|+|u_1|$ (respectively $|A|+|B|$ and $|B|+|a|$), where $|t|$ is the size
+of the raw term. This replaces the paper's nested inductions on $u_0$ and
+$u_1$, which are needed because an erasure such as $\erR{u_1}=\Pi(A,B)$
+does not fix the shape of $u_1$. Derivations are not used as the induction
+measure. Instead, \emph{generation lemmas} read off the premises of the
+last non-conversion rule, together with a conversion from its type to the
+given type. So there is no recursion through the conversion rule.
+Each recursive call is on strict subterms:
+\begin{itemize}
+\item 25.1 on $(X,\T_n(b))$ calls 25.2 on $(X,b)$;
+\item 25.2 on $(\T_l(a_1),a_2)$ calls 25.3 on $(a_1,a_2)$; on $(B,t^n_m(a))$ it calls 25.2 on $(B,a)$;
+\item 25.2 on $(\Pi(A,B),\Pi_l(a,b))$ calls 25.2 on $(A,a)$ and on $(B,b)$;
+\item 25.3 on $(t^n_m(a),u_1)$ calls 25.3 on $(a,u_1)$.
+\end{itemize}
+The lift case on the right follows from the left one by symmetry. The cases
+where the shapes do not match (for instance a $\lambda$ and a lift of a
+code) are refuted by the inversion lemma: they would give
+$\Gamma\vdashT\Pi(C,B)=\U_n$. Two codes $\U^n_m$ and $\U^{n'}_m$ have the
+common code $\U^{m+1}_m$. For two $\Pi$-codes
+$\Pi_n(a,b)$ and $\Pi_{n'}(a',b')$, the induction hypothesis gives common
+codes $v_a:\U_{k_a}$ and $v_b:\U_{k_b}$. Their common code is
+$\Pi_K(\hat t^K_{k_a}(v_a),\hat t^K_{k_b}(v_b))$ with $K=\max(k_a,k_b)$,
+using $t^p_n(\Pi_n(a,b))=\Pi_p(t^p_n(a),t^p_n(b))$. This avoids the
+trichotomy on $k_a,k_b$.
+\end{proof}
+
+\begin{lemma}{26}
+In the second outcome of 25.3, if moreover $\Gamma\vdashT A_0=A_1$, then
+$\Gamma\vdashT u_0=u_1:A_0$.
+\end{lemma}
+The proof is as in the paper: $\U_{n_0}=\U_{n_1}$ gives $n_0=n_1$ by
+injectivity of universes.
+
+\begin{lemma}{(Corollary 27)}
+If $\Gamma\vdashT u_0:A_0$, $\Gamma\vdashT u_1:A_1$, $\erR{u_0}=\erR{u_1}$ and
+$\erR{A_0}=\erR{A_1}$, then $\Gamma\vdashT A_0=A_1$ and $\Gamma\vdashT u_0=u_1:A_0$.
+\end{lemma}
+
+\section{Section of erasure (Theorem 28)}\label{sec:section}
+
+\begin{theorem}{28}
+If $\Gamma\vdashR J$, then there is a judgement $\Gamma'\vdashT J'$ with
+$\erR{\Gamma'}=\Gamma$ and $\erR{J'}=J$. It is unique up to conversion. Two
+well-formed contexts with the same erasure are convertible. Two lifts of
+the same judgement are convertible componentwise; for terms this means
+$\Gamma'\vdashT A'=A''$ and $\Gamma'\vdashT a'=a'':A'$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+For existence we prove a stronger statement, by induction on the Russell
+derivation of $\Gamma\vdashR J$:
+\begin{enumerate}
+\item[(a)] there is $\Gamma'$ with $\vdashT\Gamma'$ and $\erR{\Gamma'}=\Gamma$;
+\item[(b)] for \emph{every} $\Delta$ whose types are well formed and with
+$\erR\Delta=\Gamma$, there is a lift $J'$ of $J$ with $\Delta\vdashT J'$
+and $\erR{J'}=J$.
+\end{enumerate}
+The theorem is (b) applied to the context given by (a).
+
+The paper applies the induction hypothesis to two premises and obtains
+lifts in two contexts $\Gamma'$ and $\Gamma''$. One premise must then be
+moved into the other context, and the Agda prototype has a separate stage
+for this. Fixing the target context $\Delta$ in advance removes that stage.
+In the case of $\Pi$, we lift $A$ to $A'$ in $\Delta$ and then apply (b)
+for $B$ to $\Delta.A'$, whose erasure is $\Gamma.A$.
+
+What remains is to align types. A premise gives $\Delta\vdashT a':T$ with
+$\erR T=A$, and another gives $\Delta\vdashT A'$ with $\erR{A'}=A$. Then
+Lemma~25.1 gives $\Delta\vdashT T=A'$, and we apply conversion. When the
+type is a universe, $A'$ is $\U_n$. This is how a lifted code is put at
+$\U_n$ before applying $\T_n$, $\Pi_n$ or $t^n_m$; for
+$\Pi_n(A,B)$ the context is extended by $\T_n(a')$.
+
+Transitivity of term equality needs more. The lifts $a'=b':T$ and
+$b''=c'':T'$ agree only up to erasure in the middle term, and
+Corollary~27 gives $T=T'$ and $b'=b'':T$. The variable cases split $\Delta$
+and weaken; they use $\erR{\mathrm{wk}\,X}=\mathrm{wk}\,\erR X$. The cases
+$\beta$, $\eta$ and application use the commutation of erasure with
+substitution.
+
+For uniqueness, contexts go by induction: the types at each position are
+convertible by Lemma~25.1, after moving one of them along the conversion
+of the prefixes (Lemma~24). A lift in $\Gamma''$ is then moved to
+$\Gamma'$ by context conversion, and Lemma~25.1 or Corollary~27 applies.
+\end{proof}
+
+Together with Lemma~21, this shows that $T_{\mathsf{Tarski}}$ and
+$T_{\mathsf{Russell}}$ are equivalent.
+
+\section{$T_{\mathsf{Russell}}$ and $T_{\mathsf E}$}\label{sec:compose}
+
+Write $\|X\| = \erR{\er X}$ for the double erasure from $T_{\mathsf E}$ to
+$T_{\mathsf{Russell}}$ (file \seg{RGAT}).
+
+\begin{theorem}{(Russell and $T_{\mathsf E}$)}
+\begin{enumerate}
+\item If $\vdashG\Gamma$ (resp.\ $\Gamma\vdashG J$) then
+$\vdashR\|\Gamma\|$ (resp.\ $\|\Gamma\|\vdashR\|J\|$).
+\item If $\vdashR\Gamma$ (resp.\ $\Gamma\vdashR J$) then there are
+$\Gamma'$, $J'$ with $\vdashG\Gamma'$ (resp.\ $\Gamma'\vdashG J'$),
+$\|\Gamma'\|=\Gamma$ and $\|J'\|=J$.
+\item If $\Gamma\vdashG A_1$, $\Gamma\vdashG A_2$ and $\|A_1\|=\|A_2\|$,
+then $\Gamma\vdashG A_1=A_2$. If $\Gamma\vdashG a_i:A_i$ with
+$\|a_1\|=\|a_2\|$ and $\|A_1\|=\|A_2\|$, then $\Gamma\vdashG A_1=A_2$ and
+$\Gamma\vdashG a_1=a_2:A_1$. For equality judgements over $\Gamma$ with the
+same double erasure, the corresponding sides are convertible.
+\item If $\vdashG\Gamma_1$, $\vdashG\Gamma_2$ and $\|\Gamma_1\|=\|\Gamma_2\|$,
+then $\vdashG\Gamma_1=\Gamma_2$.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+(1) is Theorem~16 followed by Lemma~21. (2) is Theorem~28 followed by
+Theorem~20: take $\Gamma'=\lceil\Delta\rceil$ and $J'=\lceil J''\rceil$ for the
+Tarski lift $\Delta\vdashT J''$. For (3), erase to $T_{\mathsf{Tarski}}$ over
+$\er\Gamma$. Lemma~25.1 (resp.\ Corollary~27) gives
+$\er\Gamma\vdashT\er{A_1}=\er{A_2}$ (resp.\ also
+$\er\Gamma\vdashT\er{a_1}=\er{a_2}:\er{A_1}$). Theorem~20 lifts this to
+$\lceil\er\Gamma\rceil$, and we move it to $\Gamma$ along
+$\vdashG\lceil\er\Gamma\rceil=\Gamma$. Lemma~19 gives
+$\Gamma\vdashG A_i=\lceil\er{A_i}\rceil$ and
+$\Gamma\vdashG a_i=\lceil\er{a_i}\rceil:A_i$, and we conclude by transitivity
+and conversion; equality judgements reduce to this through their
+presuppositions. For (4), the Tarski contexts $\er{\Gamma_1}$ and $\er{\Gamma_2}$
+are convertible (uniqueness in Theorem~28), and context conversion of
+$T_{\mathsf{Tarski}}$ lifts pointwise along $\lceil-\rceil$ by Theorem~20. This gives
+$\Gamma_1=\lceil\er{\Gamma_1}\rceil=\lceil\er{\Gamma_2}\rceil=\Gamma_2$, and we
+conclude by symmetry and transitivity of context equality.
+\end{proof}
+Symmetry and transitivity of context equality are not rules of $T_{\mathsf E}$;
+both are proved by induction on derivations. For symmetry, in the case of
+$\vdashG\Gamma.A=\Delta.B$ the equation $B=A$ is moved from $\Gamma$ to
+$\Delta$. For transitivity, the second derivation is inverted: only the rules
+for the empty context, reflexivity and extension conclude a context equality.
 
 \end{document}
