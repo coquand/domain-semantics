@@ -1,0 +1,81 @@
+-- The poset model of bounded T_E with only U_0.
+-- Every strict-level field follows from the impossibility of m < n <= 0.
+
+level a ;
+open Base ;
+open Prelude[a++] ;
+open Lib[a++] ;
+module F = FibCwF[a, a+] ;
+module C = EhrhardFromCore.Bridge[a++, F.fibCwF, F.fibPi] ;
+module Uv = FibUniv[a] ;
+module UP = FibUnivPi[a] ;
+module TE = EhrhardTEModel[a++] ;
+open Uv.PB.GPre[a+].PS ;
+
+no-strict (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n) : Empty =
+  leN-trans (suc m.1) n.1 zero lt n.2 ;
+
+lift-code (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+  (G : PCtx) (u : UP.Code G) : UP.Code G =
+  efq (no-strict m n lt) ;
+
+lift-dec (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+  (G : PCtx) (u : UP.Code G)
+  : Id (Uv.FC.STy G) (Uv.Dec G (lift-code m n lt G u)) (Uv.Dec G u) =
+  efq (no-strict m n lt) ;
+
+-- Spell out the binder transport so the checker can name its type
+-- while the TEModel record (and its derived lift-binder) is being built.
+module LiftPic (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+  (G : PCtx) (u : UP.Code G) {
+  lifted : UP.Code G = lift-code m n lt G u ;
+  K : PCtx = UP.Binder G u ;
+  K' : PCtx = UP.Binder G lifted ;
+
+  reindex : PSub[K', K] =
+    TE.ext-eq-sub C.cwf G (Uv.Dec G lifted) (Uv.Dec G u) (lift-dec m n lt G u) ;
+
+  law (v : UP.Code K)
+    : Id (UP.Code G) (lift-code m n lt G (UP.pic G u v))
+        (UP.pic G lifted (lift-code m n lt K' (Uv.DU.subU K' K v reindex))) =
+    efq (no-strict m n lt) ;
+} ;
+
+universe-code (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+  (G : PCtx) : UP.Code G =
+  efq (no-strict m n lt) ;
+
+universe-nat (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+  (D G : PCtx) (s : PSub[D, G])
+  : Id (UP.Code D) (Uv.DU.subU D G (universe-code m n lt G) s) (universe-code m n lt D) =
+  efq (no-strict m n lt) ;
+
+lift-nat (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+  (D G : PCtx) (s : PSub[D, G]) (u : UP.Code G)
+  : Id (UP.Code D) (Uv.DU.subU D G (lift-code m n lt G u) s)
+      (lift-code m n lt D (Uv.DU.subU D G u s)) =
+  efq (no-strict m n lt) ;
+
+model : TE.TEModel[zero] =
+  new TE.TEModel[zero,
+    cwf := C.cwf,
+    isSetCtx := PosetContextSet[a].isSet-PCtx,
+    products := C.products,
+    univ := \ _ -> Uv.Cod,
+    univ-nat := \ _ -> Uv.Cod-nat,
+    decode := \ _ -> Uv.Dec,
+    decode-nat := \ _ -> Uv.Dec-nat,
+    pic := \ _ -> UP.pic,
+    uc := universe-code,
+    lf := lift-code,
+    el-lf := lift-dec,
+    el-pic := \ _ -> UP.Dec-pic,
+    el-uc := \ m n lt -> efq (no-strict m n lt),
+    lf-pic := \ m n lt G u -> LiftPic[m, n, lt, G, u].law,
+    lf-uc := \ m n p lt -> efq (no-strict m n lt),
+    lf-lf := \ m n p lt -> efq (no-strict m n lt),
+    pic-nat := \ _ -> UP.pic-nat,
+    uc-nat := universe-nat,
+    lf-nat := lift-nat ] ;
+
+module Russell = RSem.Interpret[a++, zero, model] ;

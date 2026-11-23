@@ -175,9 +175,14 @@ Risk points:
 
 ## 6. Checklist
 
-- [ ] U0 locality lemma (reported to the user)
-- [ ] U1 code map, T(⌜A⌝) = A as fibrant types, ⌜T c⌝ = c
-- [ ] U2 Π of small types is small
-- [ ] U3 Π-code with strict decoding and naturality
-- [ ] U4 TEModel[0] instance, Russell semantics at N = 0 (integration decided with the user)
-- [ ] U5 tex paragraph updated
+DONE 2026-11-23: U0-U3 in sag-model (FibLocal*, FibName*, FibPi*, FibUnivInj,
+CwFUnivPi, FibUnivPi); U4 in UNIT/russell-posets (PosetTEModel, PosetRSemCheck,
+check.py: 15288 declarations, 0 failed); indexed checker ported to the main
+checker's lock resolution; U5 in gat-ehrhard.tex section 13.
+
+- [x] U0 locality lemma (reported to the user)
+- [x] U1 code map, T(⌜A⌝) = A as fibrant types, ⌜T c⌝ = c
+- [x] U2 Π of small types is small
+- [x] U3 Π-code with strict decoding and naturality
+- [x] U4 TEModel[0] instance, Russell semantics at N = 0 (integration decided with the user)
+- [x] U5 tex paragraph updated

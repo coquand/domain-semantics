@@ -259,6 +259,7 @@ They are also part of \seg{All.seg}.
 \seg{EhrhardCwF}, \seg{EhrhardTEModel} & model interface\\
 \seg{TEDenote}, \seg{TEInterpSound} & interpretation and soundness of $T_{\mathsf E}$\\
 \seg{RSem}, \seg{RSemV} & Russell semantics (Section~\ref{sec:rsem})\\
+\seg{russell-posets/PosetTEModel} & univalent model, one universe (Section~\ref{sec:rsem})\\
 \seg{FGAT}, \seg{FForget}, \seg{FPresup}, \seg{FGen} & full syntax, erasure and generation\\
 \seg{FCoherence}, \seg{FAnnot}, \seg{FRGAT} & full annotations (Section~\ref{sec:fullannot})
 \end{tabular}
@@ -602,48 +603,65 @@ generalised algebraic theory, so that the interpretation in a model is the
 formalised here; Section~\ref{sec:annot} relates the annotated syntax to
 $T_{\mathsf E}$.
 
-\paragraph{A univalent model with one universe (in progress).} For $N=0$
-the rules for $\U^n_m$, $t^n_m$ and cumulativity cannot apply, and a
+\paragraph{A univalent model with one universe.} For $N=0$ the rules for
+$\U^n_m$, $t^n_m$ and cumulativity cannot apply, and a
 $\seg{TEModel}[0]$ is an Ehrhard category with families with $\Pi$ and
 one universe closed under $\Pi$. The univalent model in
 \seg{CANONICITY/unit/sag-model} is already in Ehrhard's form: it has the
-category with families of fibrant types (\seg{FibCwF}, with sets as
-sorts), $\Pi$ (\seg{FPi}) and one universe $\U$ with decoding
+category with families of fibrant types over posets (\seg{FibCwF}, with
+sets as sorts), $\Pi$ (\seg{FPi}) and one universe $\U$ with decoding
 (\seg{CwFU}, instance \seg{FibUniv}). Here $\U(X)$ consists of all small
 fibrant types over $yX$, so every small fibrant type $A$ over $\Gamma$ has
 a code $\code{A}:\Gamma\to\U$, $\rho\mapsto A\hat\rho$ with its structure
-moved along $\hat\rho$. What is missing is the strict equation
-$\T(\code{A})=A$ in \seg{FibCwF}, that is, as fibrant types: the
-decoding carries the fibration of $\mathsf{El}$ moved along $\code{A}$, and this
-must be the given structure of $A$. Following Huber (thesis,
-Definition~1.1.4), this equation makes codes for the type formers
-unnecessary: $\Pi_0(a,b):=\code{\Pi(\T a,\T b)}$ satisfies
+moved along $\hat\rho$. Following Huber (thesis, Definition~1.1.4), the
+strict equation $\T(\code{A})=A$, as fibrant types, makes codes for the
+type formers unnecessary: $\Pi_0(a,b):=\code{\Pi(\T a,\T b)}$ satisfies
 $\T(\Pi_0(a,b))=\Pi(\T a,\T b)$.
 
-The equation holds informally. On the underlying presheaves it is the
-code-map lemma of the model ($\code{A}^*\mathsf{El}=A$, up to the identity law
-of composition, which is enough since types form a set). For the
-structures, restrict along a Yoneda point $\hat\rho$: the code map
-restricted is the Yoneda code of $\code{A}\rho$, and the formalised lemma
-\emph{El along a Yoneda code} (\seg{CPosEl5}) says that the fibration of
-$\mathsf{El}$ moved along it is the structure of $\code{A}\rho$, i.e.\ that of $A$
-moved along $\hat\rho$. A relative contractibility structure is
-determined by its values at points (extensionality), and the value of a
-moved structure at the generic point is the value of the original at
-$\rho$. Since the interval is tiny on posets, points of the line context are
-again Yoneda points, at $X\times[1]$. So the two structures agree. Two
-further steps are needed for the code of $\Pi$: $\Pi$ of small types is
-small (the codes of $\Pi$ at levels $a$ and $a^+$ agree through the lift
-of iterative sets), and the naturality $\code{A}\sigma=\code{A\sigma}$.
-None of this is formalised yet.
+\begin{theorem}{(univalent model)}
+The universe of the poset model is closed under $\Pi$ with strict
+decoding, natural in substitutions. Hence the model is a
+$\seg{TEModel}[0]$, and the Russell semantics theorem holds in it.
+\end{theorem}
+\begin{proof}
+On the underlying presheaves, $\T(\code{A})=A$ is the code-map lemma of
+the model, up to the identity law of composition, which suffices since
+types form a set. For the fibration structures, restrict along a Yoneda
+point $\hat\rho$: the code map restricted is the Yoneda code of
+$\code{A}\rho$, and the lemma \emph{El along a Yoneda code}
+(\seg{CPosEl5}) gives that the fibration of $\mathsf{El}$ moved along it is
+that of $A$ moved along $\hat\rho$. Two fibration structures that agree
+after moving along every Yoneda point are equal (\seg{FibLocal}): a
+relative contractibility structure is determined by its values, the value
+of a moved structure at the generic point is the original value at
+$\rho$, and since the interval is tiny on posets a composition problem
+at $X$ is reached from the generic point of $X\times[1]$. This gives
+$\T(\code{A})=A$ (\seg{FibName}, \seg{FibNameDec}), and also
+$\code{\T c}=c$ (\seg{FibUnivInj}). The $\Pi$-type of small types,
+built at the level of the universe, equals the $\Pi$-type of the model
+through the lift of iterative sets (\seg{FibPiSmall}). Naturality of
+codes, $\code{A}\sigma=\code{A\sigma}$, gives naturality of $\Pi_0$
+(\seg{FibUnivPi}). At $N=0$ the remaining fields of
+$\seg{TEModel}[0]$ concern pairs of levels $m<n\le 0$ and are vacuous;
+contexts form a set because a presheaf context is determined by its codes
+and action (\seg{PosetContextSet}). The instance is
+\seg{PosetTEModel}.
+\end{proof}
 
-The two developments can be checked together: the checker with indexed
-families accepts \seg{core} and \seg{sag-model} once one qualified
-\texttt{opaque} declaration is removed (18106 and 12305 declarations,
-no failure). The syntax has no identity types. So such a model does not
-make univalence visible in $T_{\mathsf{Russell}}$; it shows that the
-semantics also applies in a model that is not set-theoretic. Adding
-identity types to the four theories is a separate project.
+The files of the classifier are in \seg{sag-model}. The instance and the
+Russell semantics at $N=0$ are in \seg{UNIT/russell-posets}, checked
+together with \seg{core} and \seg{sag-model} by its \seg{check.py}
+(15288 declarations, no failure) with the indexed checker. That checker
+now resolves \texttt{opaque} and \texttt{transparent} locks as the main
+checker does, so both accept the same sources. A closed example,
+$\lambda(A:\U_0).\,\Pi(x:A).\,A$ at type $\Pi(A:\U_0).\,\U_0$, checks
+that a direct derivation and one ending in a conversion have the same
+denotation (\seg{PosetRSemCheck}). The model is relative to function
+extensionality and univalence, which are parameters of the poset model.
+The syntax has no identity types, so univalence is not visible in
+$T_{\mathsf{Russell}}$; the result shows that the semantics applies in a
+model that is not set-theoretic. Adding identity types to the four
+theories is a separate project.
 
 \section{Context annotations}\label{sec:annot}
 

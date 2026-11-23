@@ -1,0 +1,18 @@
+-- The two Ehrhard records have the same fields. Keep the operations
+-- and their laws when repackaging the model for the interpretation.
+
+open Base ;
+
+module Bridge (l : Level) (D : CwF.CwF[l]) (P : CwF.Formers[l, D].PiStr) {
+  cwf : EhrhardCwF.CwF[l] = new EhrhardCwF.CwF[l,
+    Ctx := D.Ctx, Sub := D.Sub, isSetSub := D.isSetSub, id := D.id, o := D.o, o-idl := D.o-idl, o-idr := D.o-idr, o-assoc := D.o-assoc,
+    nil := D.nil, eps := D.eps, eps-uniq := D.eps-uniq,
+    Ty := D.Ty, isSetTy := D.isSetTy, subT := D.subT, subT-id := D.subT-id, subT-o := D.subT-o,
+    El := D.El, isSetEl := D.isSetEl, subt := D.subt, subt-id := D.subt-id, subt-o := D.subt-o,
+    ext := D.ext, p := D.p, q := D.q, lift := D.lift, sec := D.sec,
+    lift-id := D.lift-id, lift-o := D.lift-o, p-lift := D.p-lift, p-sec := D.p-sec, sec-o := D.sec-o,
+    lift-p-sec-q := D.lift-p-sec-q, q-lift := D.q-lift, q-sec := D.q-sec ] ;
+
+  products : EhrhardCwF.PiStr[l, cwf] =
+    new EhrhardCwF.PiStr[l, cwf, P.Pi, P.Pi-nat, P.Pi-iso, P.Pi-iso-nat] ;
+} ;
