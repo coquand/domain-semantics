@@ -6,6 +6,7 @@ how to align the premises. The copied annotated rule determines the result
 syntax and its strict forgetful image.
 """
 
+import argparse
 import re
 from dataclasses import dataclass, field
 
@@ -559,4 +560,11 @@ open ALiftExpr[l] ; open AAnnotBase[l] ;
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--full", action="store_true", help="generate the full-annotation Seg files")
+    if parser.parse_args().full:
+        from gen_full_annot import generate_full
+
+        generate_full(expression, form)
+    else:
+        main()

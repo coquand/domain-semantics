@@ -135,6 +135,11 @@ module Theory
    import TSection ;
    import RGAT ;
    import AGAT ; import AForget ; import APresup ; import ACtx ; import AGen ; import AUniqCases ; import AShape ; import ACompareIntro ; import AUniq ; import ALiftExpr ; import AAnnotBase ; import AAnnot ; import ARGAT ;
+   import FGAT ; import FForget ; import FTyping ; import FSubstLaws ;
+   import FEquationFrames ; import FSubEquationFrames ; import FAnnotationFrames ; import FPresup ;
+   import FCtx ; import FGen ; import FSubTransport ; import FCompareBase ;
+   import FSubCompare ; import FActionCompare ; import FBinderCompare ; import FUniverseCompare ;
+   import FShape ; import FCoherence ; import FLiftExpr ; import FAnnotBase ; import FAnnot ; import FRGAT ;
  } ;
  import EhrhardCwF ; import EhrhardTEModel ; import TEInterp ; import RSem ;
  import IterativeSets ; import IterativeSetLift ; import IterativeUniverse ;

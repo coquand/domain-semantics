@@ -1,0 +1,83 @@
+-- Isolated checker for the completely annotated Ehrhard GAT.
+import GATCheck ;
+open GATCheck ;
+
+module Frames (l : Level) (N : Base.Nat) {
+  open Base ; open Lib[l] ;
+  open BoundedSyntax[N].AGAT[l] ;
+  open BoundedSyntax[N].FGAT[l] ; open BoundedSyntax[N].FTyping[l] ;
+  open BoundedSyntax[N].FForget[l] ; open BoundedSyntax[N].FPresup[l] ;
+  open BoundedSyntax[N].FGen[l] ;
+
+  U0 : FA = fuu zero fnil ;
+  A0 : FA = ftsb fnil fnil U0 (fid fnil) ;
+  G : FA = fext fnil U0 ;
+  H : FA = fext fnil A0 ;
+  hU : Ty fnil U0 = ft-uu fnil zero f-nil tt ;
+  wG : W G = f-ext fnil U0 hU ;
+  eq : CE G H = fc-ext fnil fnil U0 A0 fc-nil (fe-sym fnil A0 U0 (fe-sb-id fnil U0 hU)) ;
+
+  changed-middle : SE G (fcomp G G G (fid G) (fid G)) (fcomp G H G (fid G) (fid G)) G =
+    fq-comp-middle G G G (fid G) (fid G) (id-sub wG) (id-sub wG) H eq ;
+  middle-typing : Sb G (fcomp G H G (fid G) (fid G)) G =
+    (fpresup (fjeqsub G (fcomp G G G (fid G) (fid G)) (fcomp G H G (fid G) (fid G)) G) changed-middle).2.2.2 ;
+  middle-frame : SubIntro (fcomp G H G (fid G) (fid G)) =
+    (gen-sub G (fcomp G H G (fid G) (fid G)) G middle-typing).1 ;
+
+  q : FA = fq fnil U0 ;
+  A : FA = ftsb G fnil U0 (fp fnil U0) ;
+  B : FA = ftsb G G A (fid G) ;
+  hA : Ty G A = ty-sub hU (p-sub hU) ;
+  hq : Tm' G q A = q-tm hU ;
+  changed-type : ME G (fmsb G G A q (fid G)) (fmsb G G B q (fid G)) B =
+    fm-sb-type G G q A (fid G) hA hq (id-sub wG) B (fe-sym G B A (fe-sb-id G A hA)) ;
+  term-frame : TmIntro (fmsb G G B q (fid G)) =
+    (gen-tm G (fmsb G G B q (fid G)) B
+      (fpresup (fjeqtm G (fmsb G G A q (fid G)) (fmsb G G B q (fid G)) B) changed-type).2.2.2).1 ;
+  same-erasure : Id GA (ff (fmsb G G A q (fid G))) (ff (fmsb G G B q (fid G))) =
+    refl (asb (aq anil (auu zero anil)) (aid (aext anil (auu zero anil)))) ;
+
+  module C = BoundedSyntax[N].FCoherence[l] ;
+  module Ann = BoundedSyntax[N].FAnnot[l] ;
+  module Lift = BoundedSyntax[N].FAnnotBase[l] ;
+  module Russell = BoundedSyntax[N].FRGAT[l] ;
+
+  compare-actions : ME G (fmsb G G A q (fid G)) (fmsb G G B q (fid G)) B =
+    (C.same-tm (fmsb G G A q (fid G)) (fmsb G G B q (fid G)) same-erasure G G B B
+      (cx-refl wG) action-sides.2.2.1 action-sides.2.2.2).2
+   where {
+    action-sides : FPJ (fjeqtm G (fmsb G G A q (fid G)) (fmsb G G B q (fid G)) B) =
+      fpresup (fjeqtm G (fmsb G G A q (fid G)) (fmsb G G B q (fid G)) B) changed-type ;
+   } ;
+
+  lhs : Sb G (fcomp G G G (fid G) (fid G)) G = comp-sub (id-sub wG) (id-sub wG) ;
+  compare-compositions : SE G (fcomp G G G (fid G) (fid G)) (fcomp G H G (fid G) (fid G)) G =
+    (C.same-sub (fcomp G G G (fid G) (fid G)) (fcomp G H G (fid G) (fid G))
+      (refl (ff (fcomp G G G (fid G) (fid G)))) G G G G (cx-refl wG) lhs middle-typing).2 ;
+
+  -- The two endpoint representatives erase to the same AGAT context.
+  A' : FA = ftsb H fnil U0 (fp fnil U0) ;
+  D : FA = fext G A ;
+  E : FA = fext G A' ;
+  hA' : Ty G A' =
+    (fpresup (fjeqty G A A') (fe-sb-source G fnil U0 (fp fnil U0) hU (p-sub hU) H eq)).2.2 ;
+  wD : W D = ext-wf hA ;
+  wE : W E = ext-wf hA' ;
+  aD : GADer (ajwf (ff D)) = BoundedSyntax[N].FForget[l].forget-full (fjwf D) wD ;
+  id-eq : GADer (ajeqsub (ff D) (aid (ff D)) (aid (ff D)) (ff D)) =
+    aq-refl (ff D) (aid (ff D)) (ff D) (as-id (ff D) aD) ;
+  prescribed : Lift.LiftSE[ff D,aid (ff D),aid (ff D),ff D,Russell.given-cx D wD,Russell.given-cx E wE] =
+    Ann.annotate-at (ajeqsub (ff D) (aid (ff D)) (aid (ff D)) (ff D)) id-eq
+      (Russell.given-cx D wD) (Russell.given-cx E wE) ;
+
+  module Syn = BoundedSyntax[N].TSyntax[l] ;
+  module Judgement = BoundedSyntax[N].TTyping[l] ;
+  module Derivation = BoundedSyntax[N].RTyping[l] ;
+  open Syn ; open Judgement ; open Derivation ;
+  russell-ctx : Cx = csnoc cnil (uu zero) ;
+  lifted-variable : Russell.FTm russell-ctx (var zero) (uu zero) =
+    Russell.r2f-tm russell-ctx (var zero) (uu zero) (rtm-v0 cnil (uu zero) (rty-uu cnil zero rwf-nil tt)) ;
+  erased-variable : RDer (jtm (Russell.fC lifted-variable.1)
+      (Russell.fT lifted-variable.2.1) (Russell.fT lifted-variable.2.2.1)) =
+    Russell.f2r-tm lifted-variable.1 lifted-variable.2.1 lifted-variable.2.2.1 lifted-variable.2.2.2.1 ;
+} ;

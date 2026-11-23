@@ -15,6 +15,7 @@
 \newcommand{\vdashT}{\vdash_{\mathsf T}}
 \newcommand{\U}{\mathsf U}
 \newcommand{\T}{\mathsf T}
+\newcommand{\code}[1]{\ulcorner #1\urcorner}
 \newcommand{\p}{\mathsf p}
 \newcommand{\q}{\mathsf q}
 \newcommand{\id}{\mathsf{id}}
@@ -257,7 +258,9 @@ They are also part of \seg{All.seg}.
 \seg{AGAT}, \seg{AForget}, \seg{AUniq}, \seg{AAnnot}, \seg{ARGAT} & context annotations (Section~\ref{sec:annot})\\
 \seg{EhrhardCwF}, \seg{EhrhardTEModel} & model interface\\
 \seg{TEDenote}, \seg{TEInterpSound} & interpretation and soundness of $T_{\mathsf E}$\\
-\seg{RSem}, \seg{RSemV} & Russell semantics (Section~\ref{sec:rsem})
+\seg{RSem}, \seg{RSemV} & Russell semantics (Section~\ref{sec:rsem})\\
+\seg{FGAT}, \seg{FForget}, \seg{FPresup}, \seg{FGen} & full syntax, erasure and generation\\
+\seg{FCoherence}, \seg{FAnnot}, \seg{FRGAT} & full annotations (Section~\ref{sec:fullannot})
 \end{tabular}
 \end{center}
 Lifts $t^n_m(a)$ are strict ($m<n$), as the cumulativity of $T_{\mathsf{Russell}}$ in Appendix~A.3: with $t^n_n$ and no equation $t^n_n(a)=a$, the terms $t^0_0(a)$ and $a$ have the same Russell erasure without being convertible, and the equivalence with $T_{\mathsf{Russell}}$ fails.
@@ -575,6 +578,73 @@ schema for closed $N$, since each tower uses a statically specified
 sequence of Seg meta-levels. The instances for $N=0,1,2$ are checked in
 \seg{RSemV}.
 
+The tower is built from W-types in Unit. Univalence is used once, to show
+that iterative sets form a set, and it is a parameter of the model. In
+this sense the model is a set-theoretic semantics in the style of Aczel
+and Werner, with $V_n$ playing the role of an inaccessible. The rule
+$a:\U_m\Rightarrow a:\U_n$ of $T_{\mathsf{Russell}}$ is interpreted by the
+lift $V_m\to V_n$ of codes. This lift is not the identity, but decoding
+does not see it: $\T_n(t^n_m(a))$ and $\T_m(a)$ denote the same type. This
+is the situation where the detour through $T_{\mathsf E}$ is needed: a
+direct interpretation of Russell derivations would have to decide where
+the lifts go, and prove that choice coherent. Theorem~28 and uniqueness
+do both once, syntactically.
+
+\paragraph{Other models.} The theorem holds for every
+$\seg{TEModel}[N]$, that is, every category with families in Ehrhard's
+form whose four sorts are sets, with $\Pi$ and a cumulative Tarski
+hierarchy satisfying the equations of $T_{\mathsf E}$. It is not specific
+to iterative sets. Context annotations play no role in it, since
+$T_{\mathsf E}$ derivations carry their contexts. Annotations matter for a
+different statement, namely that the syntax is the initial model of a
+generalised algebraic theory, so that the interpretation in a model is the
+\emph{unique} morphism of categories with families. That statement is not
+formalised here; Section~\ref{sec:annot} relates the annotated syntax to
+$T_{\mathsf E}$.
+
+\paragraph{A univalent model with one universe (in progress).} For $N=0$
+the rules for $\U^n_m$, $t^n_m$ and cumulativity cannot apply, and a
+$\seg{TEModel}[0]$ is an Ehrhard category with families with $\Pi$ and
+one universe closed under $\Pi$. The univalent model in
+\seg{CANONICITY/unit/sag-model} is already in Ehrhard's form: it has the
+category with families of fibrant types (\seg{FibCwF}, with sets as
+sorts), $\Pi$ (\seg{FPi}) and one universe $\U$ with decoding
+(\seg{CwFU}, instance \seg{FibUniv}). Here $\U(X)$ consists of all small
+fibrant types over $yX$, so every small fibrant type $A$ over $\Gamma$ has
+a code $\code{A}:\Gamma\to\U$, $\rho\mapsto A\hat\rho$ with its structure
+moved along $\hat\rho$. What is missing is the strict equation
+$\T(\code{A})=A$ in \seg{FibCwF}, that is, as fibrant types: the
+decoding carries the fibration of $\mathsf{El}$ moved along $\code{A}$, and this
+must be the given structure of $A$. Following Huber (thesis,
+Definition~1.1.4), this equation makes codes for the type formers
+unnecessary: $\Pi_0(a,b):=\code{\Pi(\T a,\T b)}$ satisfies
+$\T(\Pi_0(a,b))=\Pi(\T a,\T b)$.
+
+The equation holds informally. On the underlying presheaves it is the
+code-map lemma of the model ($\code{A}^*\mathsf{El}=A$, up to the identity law
+of composition, which is enough since types form a set). For the
+structures, restrict along a Yoneda point $\hat\rho$: the code map
+restricted is the Yoneda code of $\code{A}\rho$, and the formalised lemma
+\emph{El along a Yoneda code} (\seg{CPosEl5}) says that the fibration of
+$\mathsf{El}$ moved along it is the structure of $\code{A}\rho$, i.e.\ that of $A$
+moved along $\hat\rho$. A relative contractibility structure is
+determined by its values at points (extensionality), and the value of a
+moved structure at the generic point is the value of the original at
+$\rho$. Since the interval is tiny on posets, points of the line context are
+again Yoneda points, at $X\times[1]$. So the two structures agree. Two
+further steps are needed for the code of $\Pi$: $\Pi$ of small types is
+small (the codes of $\Pi$ at levels $a$ and $a^+$ agree through the lift
+of iterative sets), and the naturality $\code{A}\sigma=\code{A\sigma}$.
+None of this is formalised yet.
+
+The two developments can be checked together: the checker with indexed
+families accepts \seg{core} and \seg{sag-model} once one qualified
+\texttt{opaque} declaration is removed (18106 and 12305 declarations,
+no failure). The syntax has no identity types. So such a model does not
+make univalence visible in $T_{\mathsf{Russell}}$; it shows that the
+semantics also applies in a model that is not set-theoretic. Adding
+identity types to the four theories is a separate project.
+
 \section{Context annotations}\label{sec:annot}
 
 The theory $T_{\mathsf E}^{a}$ gives context arguments to the six leaves
@@ -624,5 +694,53 @@ contexts. Coherence aligns the lifted endpoints with the original
 types and terms. Context equality lifts directly between the two
 given annotated contexts. The composition is checked in \seg{ARGAT}.
 \end{proof}
+
+\section{Complete sort annotations}\label{sec:fullannot}
+
+In Cartmell's style, $T_{\mathsf E}^{\mathrm{full}}$ keeps the six leaf
+annotations and gives the formers the ambient context
+$\Pi_\Gamma$, $\lambda_\Gamma$, $\app_\Gamma$, $\T_{n,\Gamma}$,
+$\Pi_{n,\Gamma}$ and $t^n_{m,\Gamma}$. For $\delta:\Theta\to\Delta$,
+$\sigma:\Delta\to\Gamma$ and $\Gamma\vdash a:A$, the other operations
+have the following sorts, with separate type and term actions.
+\begin{align*}
+ A[\sigma]_{\Delta,\Gamma} &:\mathrm{Ty}(\Delta),&
+ a[\sigma]_{\Delta,\Gamma,A} &:\mathrm{Tm}(\Delta,A[\sigma]_{\Delta,\Gamma}),\\
+ \sigma\circ_{\Theta,\Delta,\Gamma}\delta &:\Theta\to\Gamma,&
+ \lift_{\Delta,\Gamma,A}(\sigma) &:\Delta.A[\sigma]_{\Delta,\Gamma}\to\Gamma.A,\\
+ \sect_{\Gamma,A}(a)&:\Gamma\to\Gamma.A.
+\end{align*}
+The bound $N$ and Ehrhard's generators are the same as before.
+
+Each new sort argument has a congruence at the left formation frame.
+For $\Gamma\vdash A=A'$, the terms $a[\sigma]_{\Delta,\Gamma,A}$
+and $a[\sigma]_{\Delta,\Gamma,A'}$ are equal at $A[\sigma]_{\Delta,\Gamma}$.
+The map $\mathrm{ff}$ drops the new fields, sends both actions to
+the single action in $T_{\mathsf E}^{a}$, and erases the new congruences
+to reflexivity.
+
+\begin{theorem}{(Full annotation)}
+The map $\mathrm{ff}$ preserves derivability. Each derivable
+$T_{\mathsf E}^{a}$ judgement has a full lift with exactly that raw image,
+at any prescribed well-formed representatives of its contexts.
+Full expressions with the same raw image are convertible at compatible
+sorts. For substitutions, equality of the domains also gives equality
+of the codomains.
+\end{theorem}
+\begin{proof}
+Generation recovers the introduction frame through conversion.
+Coherence is by induction on the common raw image. For composition,
+the right operands identify the middle contexts. For term action,
+the substitutions identify the operand contexts, and comparison of
+the operands identifies their stored types even when those types
+have different raw images. The lifting induction uses coherence to
+align its premises and context conversion to prescribe its endpoints.
+\end{proof}
+
+By Section~\ref{sec:annot}, the four conclusions of
+Section~\ref{sec:compose} hold for $T_{\mathsf E}^{\mathrm{full}}$
+with erasure \mbox{$X\mapsto\|\mathrm{fg}(\mathrm{ff}(X))\|$}.
+For uniqueness, lift the $T_{\mathsf E}^{a}$ equations and align their
+sides by coherence. The composition is checked in \seg{FRGAT}.
 
 \end{document}
