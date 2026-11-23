@@ -1,0 +1,37 @@
+-- The closed Russell term (lambda A : U_0. Pi (x : A). A)
+-- has type Pi (A : U_0). U_0 and exercises the Pi-code interpretation.
+
+level a ;
+open Base ;
+module Check (lem : [b] (P : U b) -> Prelude[b].isProp P -> Arith[b].Plus P (P -> Empty)) {
+  module B = BoundedSyntax[zero] ;
+  open B.TSyntax[a++] ;
+  open B.TTyping[a++] ;
+  open B.RTyping[a++] ;
+  module R = DeltaTEModel[a].Interpretation[lem].Russell ;
+
+  U0 : Tm = uu zero ;
+  G : Cx = csnoc cnil U0 ;
+  hU : RDer (jty cnil U0) = rty-uu cnil zero rwf-nil tt ;
+  hUG : RDer (jty G U0) = rty-uu G zero (rwf-snoc cnil U0 hU) tt ;
+
+  code-A : RDer (jtm G (var zero) U0) = rtm-v0 cnil U0 hU ;
+  type-A : RDer (jty G (var zero)) = rty-of G zero (var zero) code-A ;
+  code-A-weakened : RDer (jtm (csnoc G (var zero)) (var (suc zero)) U0) =
+    rtm-vs G (var zero) zero U0 code-A type-A ;
+
+  body : Tm = pi (var zero) (var (suc zero)) ;
+  body-code : RDer (jtm G body U0) =
+    rtm-pi G zero (var zero) (var (suc zero)) code-A code-A-weakened ;
+
+  term : Tm = lam U0 U0 body ;
+  result-type : Tm = pi U0 U0 ;
+  J : Jf = jtm cnil term result-type ;
+  direct : RDer J = rtm-lam cnil U0 U0 body hU hUG body-code ;
+  converted : RDer J =
+    rtm-conv cnil term result-type result-type direct (reqty-refl cnil result-type (rty-pi cnil U0 U0 hU hUG)) ;
+
+  denotation : R.Value J = R.value J direct ;
+  same-denotation : Id (R.Value J) denotation (R.value J converted) =
+    R.equal-terms cnil term term result-type direct converted (reqtm-refl cnil term result-type direct) ;
+} ;

@@ -1,0 +1,84 @@
+-- The simplicial model of bounded T_E with one Russell universe.
+level a ;
+open Base ;
+open Prelude[a++] ;
+open Lib[a++] ;
+
+module Interpretation (lem : [b] (P : U b) -> Prelude[b].isProp P -> Arith[b].Plus P (P -> Empty)) {
+  module M = CDDeltaModel.Delta[lem].CDDeltaModelCore[a] ;
+  module C = EhrhardFromCore.Bridge[a++, M.cwf, M.products] ;
+  module TE = EhrhardTEModel[a++] ;
+  module Uv = M.Uv ;
+  module UP = M.CDCodePic ;
+  open M.P.PS ;
+
+  Code (G : PCtx) : U a+ = M.O.El G (Uv.universe G) ;
+
+  no-strict (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n) : Empty =
+    leN-trans (suc m.1) n.1 zero lt n.2 ;
+
+  lift-code (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+    (G : PCtx) (u : Code G) : Code G =
+    efq (no-strict m n lt) ;
+
+  lift-dec (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+    (G : PCtx) (u : Code G)
+    : Id (M.C.C.Ty G) (Uv.decode G (lift-code m n lt G u)) (Uv.decode G u) =
+    efq (no-strict m n lt) ;
+
+  -- Spell out the binder transport so the checker can name its type
+  -- while the TEModel record (and its derived lift-binder) is being built.
+  module LiftPic (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+    (G : PCtx) (u : Code G) {
+    lifted : Code G = lift-code m n lt G u ;
+    K : PCtx = M.O.ext G (Uv.decode G u) ;
+    K' : PCtx = M.O.ext G (Uv.decode G lifted) ;
+
+    reindex : PSub[K', K] =
+      TE.ext-eq-sub C.cwf G (Uv.decode G lifted) (Uv.decode G u) (lift-dec m n lt G u) ;
+
+    law (v : Code K)
+      : Id (Code G) (lift-code m n lt G (UP.pic G u v))
+          (UP.pic G lifted (lift-code m n lt K' (Uv.CDCodeUniverseSub.Sub[K', K, v, reindex].code-sub))) =
+      efq (no-strict m n lt) ;
+  } ;
+
+  universe-code (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+    (G : PCtx) : Code G =
+    efq (no-strict m n lt) ;
+
+  universe-nat (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+    (D G : PCtx) (s : PSub[D, G])
+    : Id (Code D) (Uv.CDCodeUniverseSub.Sub[D, G, universe-code m n lt G, s].code-sub) (universe-code m n lt D) =
+    efq (no-strict m n lt) ;
+
+  lift-nat (m n : TE.LevelAt zero) (lt : TE.StrictAt zero m n)
+    (D G : PCtx) (s : PSub[D, G]) (u : Code G)
+    : Id (Code D) (Uv.CDCodeUniverseSub.Sub[D, G, lift-code m n lt G u, s].code-sub)
+        (lift-code m n lt D (Uv.CDCodeUniverseSub.Sub[D, G, u, s].code-sub)) =
+    efq (no-strict m n lt) ;
+
+  model : TE.TEModel[zero] =
+    new TE.TEModel[zero,
+      cwf := C.cwf,
+      isSetCtx := M.isSetCtx,
+      products := C.products,
+      univ := \ _ -> Uv.universe,
+      univ-nat := \ _ -> Uv.univ-nat,
+      decode := \ _ -> Uv.decode,
+      decode-nat := \ _ -> \ D G u s -> Uv.CDCodeUniverseSub.Sub[D, G, u, s].law,
+      pic := \ _ -> UP.pic,
+      uc := universe-code,
+      lf := lift-code,
+      el-lf := lift-dec,
+      el-pic := \ _ -> UP.dec-pic,
+      el-uc := \ m n lt -> efq (no-strict m n lt),
+      lf-pic := \ m n lt G u -> LiftPic[m, n, lt, G, u].law,
+      lf-uc := \ m n p lt -> efq (no-strict m n lt),
+      lf-lf := \ m n p lt -> efq (no-strict m n lt),
+      pic-nat := \ _ -> \ D G s u v -> UP.CDCodePicNat.NatLaw[D, G, s, u, v].law,
+      uc-nat := universe-nat,
+      lf-nat := lift-nat ] ;
+
+  module Russell = RSem.Interpret[a++, zero, model] ;
+} ;

@@ -59,8 +59,8 @@ theory, which derives exactly the judgements of the generalised algebraic
 theory with Ehrhard's generators (Sections~\ref{sec:annot}
 and~\ref{sec:fullannot}). Finally we use
 it to interpret $T_{\mathsf{Russell}}$ in every Ehrhard model, in
-particular in a model of iterative sets and in a univalent model with one
-universe (Section~\ref{sec:rsem}). Everything is checked in Unit;
+particular in a model of iterative sets and in models with one universe built
+from fibrations on posets and on simplicial sets (Section~\ref{sec:rsem}). Everything is checked in Unit;
 Section~\ref{sec:unit} describes the formalisation.
 
 \section{The theory $T_{\mathsf E}$}\label{sec:te}
@@ -720,7 +720,7 @@ of Russell derivations would have to decide where the lifts go, and prove
 that choice coherent. Theorem~28 and uniqueness do both once,
 syntactically.
 
-\paragraph{A univalent model with one universe.} For $N=0$ an Ehrhard
+\paragraph{A poset model with one universe.} For $N=0$ an Ehrhard
 model of level $0$ is an Ehrhard category with families with $\Pi$ and one
 universe closed under $\Pi$. The univalent model on finite posets, with
 fibrations given by relative contractibility, is already in Ehrhard's form.
@@ -733,7 +733,7 @@ Definition~1.1.4), the strict equation $\T(\code{A})=A$, as fibrant types,
 makes codes for the type formers unnecessary: $\Pi_0(a,b):=\code{\Pi(\T
 a,\T b)}$ satisfies $\T(\Pi_0(a,b))=\Pi(\T a,\T b)$.
 
-\begin{theorem}{(univalent model)}
+\begin{theorem}{(poset model)}
 The universe of the poset model is closed under $\Pi$ with strict
 decoding, natural in substitutions. Hence the model is an Ehrhard model of
 level $0$, and the Russell semantics theorem holds in it.
@@ -760,21 +760,74 @@ is determined by its codes and action.
 \end{proof}
 
 The model is relative to function extensionality and univalence in the
-metatheory. The syntax has no identity types, so univalence is not
-visible in $T_{\mathsf{Russell}}$; the result shows that the semantics
-applies in a model that is not set-theoretic. Adding identity types to the
-four theories is a separate project.
+metatheory. It is the poset model of univalent type theory, but the
+syntax has no identity types (nor $\Sigma$-types), so univalence is not
+visible in $T_{\mathsf{Russell}}$; the result only shows that the
+semantics applies in a model that is not set-theoretic. Adding identity
+types to the four theories is a separate project.
+
+\paragraph{A simplicial model with one universe.} On simplicial sets the
+classifier consists of horn-filling operations, and the fibration
+structure of $\mathsf{El}$ is obtained by turning horn fillers into box
+fillers and back. Box-to-horn followed by horn-to-box is not the identity,
+so $\T(\code{A})=A$ fails on fibration structures and the argument above
+does not apply. Instead, we take two universes $\U_0\subseteq\U_1$ of
+horn-filling operations, with inclusion $\iota:\U_0\to\U_1$, and the
+\emph{code-map} category with families: a type over $\Gamma$ is a map
+$A:\Gamma\to\U_1$, its terms are the sections of $\mathsf{El}_1$ pulled
+back along $A$, and substitution is composition. Then
+$\Pi(A,B):=\code{\Pi(\mathsf{El}\,A,\mathsf{El}\,B)}_1$, the universe is
+the name of $\U_0$ in $\U_1$, decoding is $\T(a):=\iota\circ a$, and
+$\Pi_0(a,b):=\code{\Pi(\mathsf{El}_0\,a,\mathsf{El}_0\,b)}_0$. The point is
+that decoding is now postcomposition, so the strict equation needed is
+$\iota\circ\Pi_0(a,b)=\Pi(\iota\circ a,\iota\circ b)$, an equation between
+codes.
+
+\begin{lemma}{(filling along monomorphisms)}
+Horn-to-box filling commutes with moves along stagewise injective maps of
+families, also across a change of universe level; box-to-horn filling
+commutes with moves along arbitrary maps.
+\end{lemma}
+\begin{proof}
+A stagewise injective map reflects degeneracy of filling problems, so the
+two normalised fillers make the same case distinctions, and the prism
+construction respects the moved horn fillers. For box-to-horn, compare the
+composition problems on the retraction line.
+\end{proof}
+
+\begin{theorem}{(simplicial model)}
+Assume excluded middle for propositions. The code-map category with
+families on simplicial sets, with $\Pi$ and the universe $\U_0$, is an
+Ehrhard model of level $0$: $\T(\Pi_0(a,b))=\Pi(\T a,\T b)$ strictly,
+naturally in substitutions. Hence the Russell semantics theorem holds in
+it.
+\end{theorem}
+\begin{proof}
+Apply the lemma to $\iota$: the inclusion preserves horn operations and
+reflects equality of codes, and $\mathsf{El}_0\to\mathsf{El}_1$ is a
+cartesian map over $\iota$ that respects the horn operations. Hence
+$\iota$ preserves the name of a small fibrant type, in particular of the
+product of small types, which gives strict decoding. Naturality follows
+from naturality of names, $\code{A}\sigma=\code{A\sigma}$, of the product,
+and injectivity of $\iota$.
+\end{proof}
+
+Excluded middle is used, as in the simplicial model itself, to decide
+degeneracy of simplices; it is a parameter of the construction.
 
 \section{The formalisation in Unit}\label{sec:unit}
 
 Everything above is checked in Unit, without postulates. The syntactic
 part and the iterative-set model are in \seg{DOMAIN/UNIT} and are checked
 by \seg{GATCheck.seg} (3910 declarations, no failure, 1.4\,s); they are also
-part of \seg{All.seg} (40127 declarations). The univalent model is in the
+part of \seg{All.seg} (40127 declarations). The poset model is in the
 Unit development of the cubical and simplicial models,
 \seg{CANONICITY/unit/sag-model}, and its connection with the Russell
 semantics is \seg{UNIT/russell-posets}, checked with that development by
-\seg{russell-posets/check.py} (15288 declarations, no failure).
+\seg{russell-posets/check.py} (15288 declarations, no failure). The
+simplicial model is in \seg{CANONICITY/unit/core}, and its connection with
+the Russell semantics is \seg{UNIT/russell-delta}, checked by
+\seg{russell-delta/check.py} (14207 declarations, no failure).
 
 \begin{center}\small
 \begin{tabular}{ll}
@@ -797,7 +850,10 @@ semantics is \seg{UNIT/russell-posets}, checked with that development by
 \seg{RSem} & Russell semantics\\
 \seg{IterativeSets}, \seg{IterativeSetLift}, \seg{EhrhardV*}, \seg{RSemV} & iterative-set models\\
 \seg{sag-model/FibLocal}, \seg{FibName*}, \seg{FibPi*}, \seg{FibUnivPi} & $\Pi$-codes in the poset model\\
-\seg{russell-posets/PosetTEModel}, \seg{PosetRSemCheck} & univalent model, one universe
+\seg{russell-posets/PosetTEModel}, \seg{PosetRSemCheck} & poset model, one universe\\
+\seg{core/CDHornNat}, \seg{CDBoxNat}, \seg{CDUniverse*} & horn and box filling along monomorphisms\\
+\seg{core/CCodeCwF}, \seg{CDCodePi}, \seg{CDCodePic*} & code-map CwF, $\Pi$, $\Pi$-codes\\
+\seg{russell-delta/DeltaTEModel}, \seg{DeltaRSemCheck} & simplicial model, one universe
 \end{tabular}
 \end{center}
 
@@ -813,7 +869,7 @@ theorem are uniform in $N$; the hierarchy itself is generated for each
 closed $N$, and the instances $N=0,1,2$ are checked. Function
 extensionality and univalence are parameters.
 
-\paragraph{The univalent model.} The classifier of the poset model was
+\paragraph{The poset model.} The classifier of the poset model was
 extended by a locality lemma for fibrations, codes of small fibrant types
 with $\T(\code{A})=A$ and $\code{\T c}=c$, and the $\Pi$-code. The Ehrhard
 model of level $0$ is assembled in \seg{russell-posets}, where a closed
@@ -823,6 +879,14 @@ same denotation. Both developments are checked with the version of the
 checker that has indexed families; it resolves \texttt{opaque} and
 \texttt{transparent} declarations as the main checker does, so both accept
 the same sources.
+
+\paragraph{The simplicial model.} The code-map category with families
+(\seg{CCodeCwF}) is built over an arbitrary small base category and then
+instantiated with simplicial sets. To use the same simplex maps and sieves
+at both levels, the base category of $\U_0$ is lifted to the level of
+$\U_1$. The instance in \seg{russell-delta} reuses the adapter of
+\seg{russell-posets} and checks the same closed example. Excluded middle
+is a parameter.
 
 \paragraph{The generalised algebraic theory.} The signature
 $\Sigma_{\mathsf E}$ (19 operations, 32 axiom schemes) is a data file, and
