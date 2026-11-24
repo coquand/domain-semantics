@@ -1,0 +1,19 @@
+-- InitCheckU.seg (PLAN-INIT, Part U): driver for uniqueness of morphisms
+-- out of the term model.  Same shape as InitCheckF/A (axioms as module
+-- parameters); imports the F files, InitModelShape (Part A) and Part H.
+import GATCheck ; open GATCheck ;
+import Replacement ;
+import Paths ;
+import InitHom ;
+module InitU
+ (ua : [l] Axioms[l].Univalence)
+ (images : [l] [k] Replacement[l,k].Images)
+ (surjections : [l] [k] [j] (Replacement[l,k].Surjectivity (images @l @k)) @j)
+ (N : Base.Nat) {
+ fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
+ propUA : [l] Axioms[l].PropUnivalence = <l> Axioms[l].UnivalenceLemmas[ua @l].prop-univ ;
+ import Truncation ; import TruncationCombinators ;
+ import InitQuot ; import InitSorts ; import InitOpsCtx ; import InitOpsSub ; import InitOpsExt ; import InitOpsPi ; import InitOpsU ;
+ import InitModelShape ;
+ import InitUniqTot ; import InitUniqCls ; import InitUniqClsTm ; import InitUniqBase ; import InitUniqCaseA ; import InitUniqCaseB ; import InitUniqInd ; import InitUniq ;
+} ;

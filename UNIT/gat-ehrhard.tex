@@ -60,7 +60,8 @@ theory with Ehrhard's generators (Sections~\ref{sec:annot}
 and~\ref{sec:fullannot}). Finally we use
 it to interpret $T_{\mathsf{Russell}}$ in every Ehrhard model, in
 particular in a model of iterative sets and in models with one universe built
-from fibrations on posets and on simplicial sets (Section~\ref{sec:rsem}). Everything is checked in Unit;
+from fibrations on posets and on simplicial sets, and we show that the
+term model of $T_{\mathsf E}$ is the initial Ehrhard model (Section~\ref{sec:rsem}). Everything is checked in Unit;
 Section~\ref{sec:unit} describes the formalisation.
 
 \section{The theory $T_{\mathsf E}$}\label{sec:te}
@@ -640,9 +641,8 @@ presuppositions.
 \end{proof}
 So, at every level bound, $T_{\mathsf{Russell}}$ corresponds to the
 generalised algebraic theory with Ehrhard's generators itself, and not
-only to a deductive system written to match it. Initiality of its term
-model among Ehrhard models is Cartmell's general theorem and is not
-proved here.
+only to a deductive system written to match it. Initiality of the term
+model is proved in Section~\ref{sec:rsem}, directly for $T_{\mathsf E}$.
 
 \section{Semantics of $T_{\mathsf{Russell}}$}\label{sec:rsem}
 
@@ -698,11 +698,55 @@ individual typing judgements.
 \end{proof}
 
 Context annotations play no role in this theorem, since $T_{\mathsf E}$
-derivations carry their contexts. Annotations matter for a different
-statement, namely that the annotated syntax is the initial model of a
-generalised algebraic theory, so that the interpretation in a model is the
-\emph{unique} morphism of categories with families. That statement is not
-proved here.
+derivations carry their contexts. They play no role in initiality either,
+when the term model is built from judgements.
+
+\paragraph{Initiality.} A \emph{morphism} of Ehrhard models of level $N$
+consists of maps on contexts, substitutions, types and terms, over each
+other, preserving every operation: $1$, $\Gamma.A$, $\id$, composition,
+$()$, $\p$, $\q$, $\lift$, $\sect$, the actions of substitutions, $\Pi$,
+$\lambda$ (hence application), $\U_n$, $\T_n$, $\Pi_n$, $\U^n_m$ and
+$t^n_m$. Preservation of $\Gamma.A$ and of $1$ is an equality of contexts,
+and the other laws are stated along it.
+
+The \emph{term model} $\mathcal T_N$ has as contexts the well-formed
+contexts of $T_{\mathsf E}$ modulo $\vdash\Gamma=\Delta$. Over a class $c$ of
+contexts, the types are the pairs $(\Gamma,A)$ with $\Gamma\in c$ and
+$\Gamma\vdash A$, modulo $\Gamma\vdash A=B$, and similarly for terms over a
+type and for substitutions between two classes. The quotients are taken
+fibrewise over a fixed class, so no dependent elimination of quotients is
+needed, and the derivations are propositionally truncated. The rules of
+context conversion of $T_{\mathsf E}$ make the relations equivalences and
+make every operation independent of the representatives; each equation of
+an Ehrhard model is then a rule of $T_{\mathsf E}$, except the inverse law
+$\lambda$ after application, which follows from $\beta$ and $\eta$.
+
+\begin{theorem}{(initiality)}
+For every $N$, $\mathcal T_N$ is an Ehrhard model of level $N$, and it is
+initial: for every Ehrhard model $M$ of level $N$ there is a morphism
+$\mathcal T_N\to M$, the interpretation, and any two morphisms
+$\mathcal T_N\to M$ are equal.
+\end{theorem}
+\begin{proof}
+Existence: interpret each element of a class of types, terms or
+substitutions over the fixed telescope that every representative of its
+context class denotes; soundness for equality judgements shows independence
+of the representative, and the denotation clauses give the laws. Uniqueness:
+by induction on derivations, two morphisms agree on the class of every
+derivable context, type, term and substitution. A formation rule is the
+preservation law of its operation, a conversion rule does not change the
+class, and application is $\app(A,B,c,a)=\app(A\p,B\lift_A(\p),c\p,\q)\,\sect_A(a)$,
+from $\eta$ and $\beta$. Every element of a quotient is merely a class of a
+derivable judgement, and agreement is a proposition.
+\end{proof}
+
+With Theorem~28 and uniqueness of lifting, the elements of $\mathcal T_N$
+correspond to the $T_{\mathsf{Russell}}$ judgements modulo conversion, and
+the Russell semantics above is the unique morphism read through this
+correspondence. That Russell's own term model, with implicit substitution,
+is an Ehrhard model isomorphic to $\mathcal T_N$ is not proved here. At
+$N=0$ the theorem gives unique morphisms into the iterative-set, poset and
+simplicial models below.
 
 \paragraph{Iterative sets.} Gylterud's iterative sets give, for each $N$,
 an Ehrhard model of level $N$: a type is a family of iterative sets, and
@@ -848,6 +892,8 @@ the Russell semantics is \seg{UNIT/russell-delta}, checked by
 \seg{EhrhardCwF}, \seg{EhrhardTEModel} & Ehrhard models\\
 \seg{TEDenote}, \seg{TEInterpSound} & interpretation and soundness of $T_{\mathsf E}$\\
 \seg{RSem} & Russell semantics\\
+\seg{InitQuot}, \seg{InitSorts}, \seg{InitOps*}, \seg{InitModel*} & term model $\mathcal T_N$\\
+\seg{InitHom*}, \seg{InitExist*}, \seg{InitUniq*}, \seg{InitTheorem} & morphisms, initiality\\
 \seg{IterativeSets}, \seg{IterativeSetLift}, \seg{EhrhardV*}, \seg{RSemV} & iterative-set models\\
 \seg{sag-model/FibLocal}, \seg{FibName*}, \seg{FibPi*}, \seg{FibUnivPi} & $\Pi$-codes in the poset model\\
 \seg{russell-posets/PosetTEModel}, \seg{PosetRSemCheck} & poset model, one universe\\
@@ -895,7 +941,16 @@ reproducible byte for byte. The hand-written rules of
 $T_{\mathsf E}^{\mathrm{full}}$ are generated in the same way from the
 rules of $T_{\mathsf E}^{a}$ and the sorts of the operations.
 
+\paragraph{Initiality.} The quotients are the effective small quotients
+of propositional equivalence relations obtained from replacement, function
+extensionality and univalence for propositions; univalence and the
+replacement axiom (images and their surjectivity) are parameters. The term
+model, the notion of morphism, existence and uniqueness are checked by
+\seg{InitCheck.seg} (5516 declarations including the syntax, no failure,
+3\,s); the case list of the uniqueness induction is generated from the
+rules by \seg{gen\_init\_uniq.py}.
+
 \paragraph{Not formalised.} The bridge to unbounded levels, and the
-initiality of the term model of the generalised algebraic theory.
+isomorphism of Russell's own term model with $\mathcal T_N$.
 
 \end{document}

@@ -1,0 +1,24 @@
+-- InitCheckA.seg (PLAN-INIT, Part A): driver for the equations of the term
+-- model of T_E: InitModelShape (record Eqs, mk : Eqs -> TEModel[N]) and the
+-- proofs InitModel* (eqs : Eqs, TM : TEModel[N] = mk eqs).
+-- Same shape as InitCheckF.seg (axioms as module parameters).
+import GATCheck ; open GATCheck ;
+import Replacement ;
+module InitA
+ (ua : [l] Axioms[l].Univalence)
+ (images : [l] [k] Replacement[l,k].Images)
+ (surjections : [l] [k] [j] (Replacement[l,k].Surjectivity (images @l @k)) @j)
+ (N : Base.Nat) {
+ fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
+ propUA : [l] Axioms[l].PropUnivalence = <l> Axioms[l].UnivalenceLemmas[ua @l].prop-univ ;
+ import Truncation ; import TruncationCombinators ;
+ import InitQuot ; import InitSorts ; import InitOpsCtx ; import InitOpsSub ; import InitOpsExt ; import InitOpsPi ; import InitOpsU ; import InitOpsTest ;
+ import InitModelShape ;
+ import InitModelRep ;
+ import InitModelRepOps ;
+ import InitModelCat ;
+ import InitModelExt ;
+ import InitModelPi ;
+ import InitModelU ;
+ import InitModel ;
+} ;

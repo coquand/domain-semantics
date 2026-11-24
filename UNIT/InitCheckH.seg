@@ -1,0 +1,5 @@
+-- InitCheckH: driver for PLAN-INIT Part H (morphisms of TEModel[N]).
+import Base ; import Prelude ; import Lib ; import Paths ;
+import EhrhardCwF ; import EhrhardTEModel ;
+import InitHom ;
+import InitHomIdentity ;

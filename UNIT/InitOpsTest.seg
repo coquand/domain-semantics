@@ -1,0 +1,73 @@
+-- InitOpsTest.seg (PLAN-INIT, Part F): usage check of the interface of
+-- InitSorts/InitOps*: the first two CwF equations, subT-id and subt-id,
+-- by quotient induction, beta lemmas, relates (clsTy-eq / clsEl-eq) with
+-- the GDer rule, and (for subt-id) the El-transport lemma.  Part A may
+-- reuse these proofs verbatim.
+level l ;
+open Base ; open Prelude[l] ;
+module B = BoundedSyntax[N] ;
+open B.GAT[l] ;
+module GP = B.GPresup[l] ;
+open InitQuot[l] ;
+open InitSorts[l] ;
+open InitOpsCtx[l] ;
+open InitOpsSub[l] ;
+
+-- the representative of id c over a representative G of c
+id-rep (c : Ctx) (G : GE) (w : Pf (gjwf G)) (pc : Id Ctx (cls G w) c) : RepSub c c (id c) =
+  mkRepSub c c (id c) G gid G (pf-map (gjwf G) (gjsub G gid G) (\ k -> gs-id G k) w) w w pc pc
+    (sym (Sub c c) (id c) (clsSub c c G gid G (pf-map (gjwf G) (gjsub G gid G) (\ k -> gs-id G k) w) w w pc pc)
+      (id-beta c G G (pf-map (gjwf G) (gjsub G gid G) (\ k -> gs-id G k) w) w w pc pc)) ;
+
+sb-id-der (G A0 : GE) (h : Pf (gjty G A0)) : Pf (gjty G (gsb A0 gid)) =
+  pf-map (gjty G A0) (gjty G (gsb A0 gid)) (\ k -> gt-sb G G A0 gid k (gs-id G (GP.gpresup (gjty G A0) k))) h ;
+
+subT-id-at (c : Ctx) (G A0 : GE) (h : Pf (gjty G A0)) (w : Pf (gjwf G)) (pc : Id Ctx (cls G w) c) :
+  Id (Ty c) (subT c c (clsTy c G A0 h w pc) (id c)) (clsTy c G A0 h w pc) =
+  trans (Ty c) (subT c c (clsTy c G A0 h w pc) (id c)) (clsTy c G (gsb A0 gid) (sb-id-der G A0 h) w pc)
+    (clsTy c G A0 h w pc)
+    (subT-beta c c (clsTy c G A0 h w pc) (id c) (mkRepTy c (clsTy c G A0 h w pc) G A0 h w pc (refl (clsTy c G A0 h w pc)))
+      (id-rep c G w pc) G (sb-id-der G A0 h) w pc)
+    (clsTy-eq c G (gsb A0 gid) (sb-id-der G A0 h) w pc G A0 h w pc
+      (pf-map (gjty G A0) (gjeqty G (gsb A0 gid) A0) (\ k -> ge-sb-id G A0 k) h)) ;
+
+subT-id (c : Ctx) (A : Ty c) : Id (Ty c) (subT c c A (id c)) A =
+  ty-ind c (\ T -> Id (Ty c) (subT c c T (id c)) T) (\ T -> isSetTy c (subT c c T (id c)) T)
+    (\ G A0 h w pc -> subT-id-at c G A0 h w pc) A ;
+
+-- terms
+module SubtId (c : Ctx) (A : Ty c) (G A0 a0 : GE) (h : Pf (gjtm G a0 A0)) (hA : Pf (gjty G A0))
+  (w : Pf (gjwf G)) (pc : Id Ctx (cls G w) c) (pT : Id (Ty c) (clsTy c G A0 hA w pc) A) {
+  a : El c A = clsEl c A G A0 a0 h hA w pc pT ;
+  r : RepEl c A a = mkRepEl c A a G A0 a0 h hA w pc pT (refl a) ;
+  hA' : Pf (gjty G (gsb A0 gid)) = sb-id-der G A0 hA ;
+  h' : Pf (gjtm G (gsb a0 gid) (gsb A0 gid)) = subt-der c c A a (id c) r (id-rep c G w pc) ;
+  pT1 : Id (Ty c) (clsTy c G (gsb A0 gid) hA' w pc) (subT c c A (id c)) =
+    subT-beta' c c A (id c) (re-ty c A a r) (id-rep c G w pc) G hA' w pc ;
+  pT2 : Id (Ty c) (clsTy c G (gsb A0 gid) hA' w pc) A =
+    trans (Ty c) (clsTy c G (gsb A0 gid) hA' w pc) (subT c c A (id c)) A pT1 (subT-id c A) ;
+  step1 : Id (El c (subT c c A (id c))) (subt c c A a (id c))
+      (clsEl c (subT c c A (id c)) G (gsb A0 gid) (gsb a0 gid) h' hA' w pc pT1) =
+    subt-beta c c A a (id c) r (id-rep c G w pc) G (gsb A0 gid) h' hA' w pc pT1 ;
+  lhs : El c A = subst (Ty c) (El c) (subT c c A (id c)) A (subT-id c A) (subt c c A a (id c)) ;
+  result : Id (El c A) lhs a =
+    trans (El c A) lhs (subst (Ty c) (El c) (subT c c A (id c)) A (subT-id c A)
+        (clsEl c (subT c c A (id c)) G (gsb A0 gid) (gsb a0 gid) h' hA' w pc pT1)) a
+      (ap (El c (subT c c A (id c))) (El c A) (\ u -> subst (Ty c) (El c) (subT c c A (id c)) A (subT-id c A) u)
+        (subt c c A a (id c)) (clsEl c (subT c c A (id c)) G (gsb A0 gid) (gsb a0 gid) h' hA' w pc pT1) step1)
+      (trans (El c A) (subst (Ty c) (El c) (subT c c A (id c)) A (subT-id c A)
+          (clsEl c (subT c c A (id c)) G (gsb A0 gid) (gsb a0 gid) h' hA' w pc pT1))
+        (clsEl c A G (gsb A0 gid) (gsb a0 gid) h' hA' w pc pT2) a
+        (el-transport c (subT c c A (id c)) A (subT-id c A) G (gsb A0 gid) (gsb a0 gid) h' hA' w pc pT1 pT2)
+        (clsEl-eq c A G (gsb A0 gid) (gsb a0 gid) h' hA' w pc pT2 G A0 a0 h hA w pc pT
+          (pf-map2 (gjtm G a0 A0) (gjty G A0) (gjeqtm G (gsb a0 gid) a0 (gsb A0 gid))
+            (\ k kA -> gm-eqconv G (gsb a0 gid) a0 A0 (gsb A0 gid) (gm-sb-id G a0 A0 k)
+              (ge-sym G (gsb A0 gid) A0 (ge-sb-id G A0 kA)))
+            h hA))) ;
+} ;
+
+subt-id (c : Ctx) (A : Ty c) (a : El c A) :
+  Id (El c A) (subst (Ty c) (El c) (subT c c A (id c)) A (subT-id c A) (subt c c A a (id c))) a =
+  el-ind c A (\ t -> Id (El c A) (subst (Ty c) (El c) (subT c c A (id c)) A (subT-id c A) (subt c c A t (id c))) t)
+    (\ t -> isSetEl c A (subst (Ty c) (El c) (subT c c A (id c)) A (subT-id c A) (subt c c A t (id c))) t)
+    (\ G A0 a0 h hA w pc pT -> SubtId[c,A,G,A0,a0,h,hA,w,pc,pT].result) a ;

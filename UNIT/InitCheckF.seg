@@ -1,0 +1,15 @@
+-- InitCheckF.seg (PLAN-INIT, Part F): driver for the quotient library, the
+-- sorts of the term model of T_E and its operations with beta lemmas.
+-- The axioms are module parameters, as in SyntacticCategoryCheck.seg.
+import GATCheck ; open GATCheck ;
+import Replacement ;
+module InitF
+ (ua : [l] Axioms[l].Univalence)
+ (images : [l] [k] Replacement[l,k].Images)
+ (surjections : [l] [k] [j] (Replacement[l,k].Surjectivity (images @l @k)) @j)
+ (N : Base.Nat) {
+ fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
+ propUA : [l] Axioms[l].PropUnivalence = <l> Axioms[l].UnivalenceLemmas[ua @l].prop-univ ;
+ import Truncation ; import TruncationCombinators ;
+ import InitQuot ; import InitSorts ; import InitOpsCtx ; import InitOpsSub ; import InitOpsExt ; import InitOpsPi ; import InitOpsU ; import InitOpsTest ;
+} ;

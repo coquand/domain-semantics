@@ -1,0 +1,21 @@
+-- InitCheckE.seg (PLAN-INIT, Part E): driver for existence.  The
+-- interpretation of TEInterp into any M : TEModel[N] (same level l)
+-- descends to the quotient sorts of the term model (InitSorts/InitOps*)
+-- and satisfies every law of a morphism (InitHomLaws.Hom).
+-- The axioms are module parameters, as in InitCheckF.seg.
+import GATCheck ; open GATCheck ;
+import Replacement ;
+import InitHom ;
+module InitE
+ (ua : [l] Axioms[l].Univalence)
+ (images : [l] [k] Replacement[l,k].Images)
+ (surjections : [l] [k] [j] (Replacement[l,k].Surjectivity (images @l @k)) @j)
+ (N : Base.Nat) {
+ fe : [l] Axioms[l].FunExt = <l> FunExtUA[l].FE[ua @l].fe ;
+ propUA : [l] Axioms[l].PropUnivalence = <l> Axioms[l].UnivalenceLemmas[ua @l].prop-univ ;
+ import Truncation ; import TruncationCombinators ;
+ import InitQuot ; import InitSorts ; import InitOpsCtx ; import InitOpsSub ; import InitOpsExt ; import InitOpsPi ; import InitOpsU ; import InitModelShape ;
+ module Exist (l : Level) (M : EhrhardTEModel[l].TEModel[N]) {
+  import InitExistBase ; import InitExistMaps ; import InitExistLawsA ; import InitExistLawsB ; import InitExistHom ;
+ } ;
+} ;
