@@ -1,0 +1,35 @@
+-- InitUAEquiv.seg (PLAN-UAMOD, Phase 0, interface): bi-invertible maps as
+-- a Sigma type (the record IsEquiv of Prelude has no eta), and the
+-- statement "the four component maps of a morphism are equivalences",
+-- over explicitly given sorts, so that it can be used both for records
+-- TEModel[N] and for the Sigma form TEModelS.
+level l ;
+open Base ; open Prelude[l] ;
+
+BiInv (A B : U l) (f : A -> B) : U l =
+  ((g : B -> A) * ((b : B) -> Id B (f (g b)) b)) *
+  ((h : B -> A) * ((a : A) -> Id A (h (f a)) a)) ;
+
+idBiInv (A : U l) : BiInv A A (\ a -> a) =
+  ((\ a -> a, \ a -> refl a), (\ a -> a, \ a -> refl a)) ;
+
+-- to and from the record form
+biinv-rec (A B : U l) (f : A -> B) (e : BiInv A B f) : isEquiv A B f =
+  new IsEquiv[A, B, f, sec := e.1.1, sec-eq := e.1.2, ret := e.2.1, ret-eq := e.2.2] ;
+rec-biinv (A B : U l) (f : A -> B) (e : isEquiv A B f) : BiInv A B f =
+  ((e.sec, e.sec-eq), (e.ret, e.ret-eq)) ;
+rec-biinv-rec (A B : U l) (f : A -> B) (e : BiInv A B f) :
+  Id (BiInv A B f) (rec-biinv A B f (biinv-rec A B f e)) e = refl e ;
+
+-- the components of a morphism are equivalences (fibrewise for Sub, Ty, El)
+CompEqOver
+  (Ctx : U l) (Sub : Ctx -> Ctx -> U l) (Ty : Ctx -> U l) (El : (G : Ctx) -> Ty G -> U l)
+  (Ctx' : U l) (Sub' : Ctx' -> Ctx' -> U l) (Ty' : Ctx' -> U l) (El' : (G : Ctx') -> Ty' G -> U l)
+  (ctx : Ctx -> Ctx')
+  (sub : (D G : Ctx) -> Sub D G -> Sub' (ctx D) (ctx G))
+  (ty : (G : Ctx) -> Ty G -> Ty' (ctx G))
+  (tm : (G : Ctx) (A : Ty G) -> El G A -> El' (ctx G) (ty G A)) : U l =
+  BiInv Ctx Ctx' ctx *
+  ((D G : Ctx) -> BiInv (Sub D G) (Sub' (ctx D) (ctx G)) (sub D G)) *
+  ((G : Ctx) -> BiInv (Ty G) (Ty' (ctx G)) (ty G)) *
+  ((G : Ctx) (A : Ty G) -> BiInv (El G A) (El' (ctx G) (ty G A)) (tm G A)) ;

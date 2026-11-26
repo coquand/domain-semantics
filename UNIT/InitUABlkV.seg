@@ -1,0 +1,189 @@
+-- InitUABlkV.seg (PLAN-UAMOD, Part V): the block V is contractible at the
+-- centre of the previous blocks,  v-contr : InitUALayer.VContr.
+-- Segment with free l, N, fe, x (see InitUACheckV.seg), after InitUALayer.
+--
+-- At the centre (sorts, Ops1, Ops2, OpsP of x, identity maps, ce = refl)
+-- the block is (v : OpsV) * LawsV.  It is reshuffled (round trip refl)
+-- into R = (univ', tu) * (decode', td) * (pic', law) * (uc', law) * (lf', law),
+-- each pair a family of based path spaces once the earlier pairs are at
+-- the centre: at tu = refl codeS is the identity, at td = refl decExtS is
+-- refl (trans refl refl, ap refl) and mvCodeS is the identity.
+open Base ; open Prelude[l] ;
+module EM = EhrhardTEModel[l] ;
+module LY = InitUALayer ;
+module LB = InitUALib[l] ;
+
+Ctx : U l = LY.C.Ctx ;
+Ty (G : Ctx) : U l = LY.C.Ty G ;
+El (G : Ctx) (A : Ty G) : U l = LY.C.El G A ;
+ext (G : Ctx) (A : Ty G) : Ctx = LY.C.ext G A ;
+Lev : U l = EM.LevelAt N ;
+St (m n : Lev) : U l = EM.StrictAt N m n ;
+
+U0 (n : Lev) (G : Ctx) : Ty G = LY.M.univ n G ;
+D0 (n : Lev) (G : Ctx) (a : El G (U0 n G)) : Ty G = LY.M.decode n G a ;
+
+------------------------------------------------------------------------
+-- generic contraction: a Pi of centred pairs, (f, law) at (c, r0)
+
+piC (A : U l) (F : A -> U l) (R : (a : A) -> F a -> U l) (c : (a : A) -> F a)
+    (r0 : (a : A) -> R a (c a)) (h : (a : A) -> LB.Centred ((g : F a) * R a g) (c a, r0 a))
+  : LB.Centred ((f : (a : A) -> F a) * ((a : A) -> R a (f a))) (c, r0) =
+  LB.retract ((f : (a : A) -> F a) * ((a : A) -> R a (f a)))
+    ((a : A) -> (g : F a) * R a g)
+    (LB.sigma-pi A F R) (LB.pi-sigma A F R)
+    (\ w -> refl w)
+    (\ a -> (c a, r0 a))
+    (LB.pi fe A (\ a -> (g : F a) * R a g) (\ a -> (c a, r0 a)) h) ;
+
+-- based path space in each fibre
+sg1 (A : U l) (X : A -> U l) (c : (a : A) -> X a)
+  : LB.Centred ((f : (a : A) -> X a) * ((a : A) -> Id (X a) (c a) (f a))) (c, \ a -> refl (c a)) =
+  piC A X (\ a y -> Id (X a) (c a) y) c (\ a -> refl (c a)) (\ a -> LB.sing-l (X a) (c a)) ;
+
+------------------------------------------------------------------------
+-- the reshuffled block R
+
+UT : U l = (univ' : (n : Lev) (G : Ctx) -> Ty G) * ((n : Lev) (G : Ctx) -> Id (Ty G) (U0 n G) (univ' n G)) ;
+
+cS (u : UT) (n : Lev) (G : Ctx) (a : El G (U0 n G)) : El G (u.1 n G) =
+  subst (Ty G) (El G) (U0 n G) (u.1 n G) (u.2 n G) a ;
+
+DT (u : UT) : U l =
+  (dec : (n : Lev) (G : Ctx) -> El G (u.1 n G) -> Ty G)
+  * ((n : Lev) (G : Ctx) (a : El G (U0 n G)) -> Id (Ty G) (D0 n G a) (dec n G (cS u n G a))) ;
+
+decE (u : UT) (dd : DT u) (n : Lev) (G : Ctx) (a : El G (U0 n G))
+  : Id Ctx (ext G (D0 n G a)) (ext G (dd.1 n G (cS u n G a))) =
+  trans Ctx (ext G (D0 n G a)) (ext G (D0 n G a)) (ext G (dd.1 n G (cS u n G a)))
+    (refl (ext G (D0 n G a)))
+    (ap (Ty G) Ctx (\ T -> ext G T) (D0 n G a) (dd.1 n G (cS u n G a)) (dd.2 n G a)) ;
+
+mvS (u : UT) (dd : DT u) (n : Lev) (G : Ctx) (a : El G (U0 n G))
+    (b : El (ext G (D0 n G a)) (U0 n (ext G (D0 n G a))))
+  : El (ext G (dd.1 n G (cS u n G a))) (u.1 n (ext G (dd.1 n G (cS u n G a)))) =
+  subst Ctx (\ X -> El X (u.1 n X)) (ext G (D0 n G a)) (ext G (dd.1 n G (cS u n G a)))
+    (decE u dd n G a) (cS u n (ext G (D0 n G a)) b) ;
+
+PT (u : UT) (dd : DT u) : U l =
+  (pic' : (n : Lev) (G : Ctx) (a : El G (u.1 n G))
+          -> El (ext G (dd.1 n G a)) (u.1 n (ext G (dd.1 n G a))) -> El G (u.1 n G))
+  * ((n : Lev) (G : Ctx) (a : El G (U0 n G)) (b : El (ext G (D0 n G a)) (U0 n (ext G (D0 n G a)))) ->
+     Id (El G (u.1 n G)) (cS u n G (LY.M.pic n G a b)) (pic' n G (cS u n G a) (mvS u dd n G a b))) ;
+
+UcT (u : UT) : U l =
+  (uc' : (m n : Lev) -> St m n -> (G : Ctx) -> El G (u.1 n G))
+  * ((m n : Lev) (lt : St m n) (G : Ctx) ->
+     Id (El G (u.1 n G)) (cS u n G (LY.M.uc m n lt G)) (uc' m n lt G)) ;
+
+LfT (u : UT) : U l =
+  (lf' : (m n : Lev) -> St m n -> (G : Ctx) -> El G (u.1 m G) -> El G (u.1 n G))
+  * ((m n : Lev) (lt : St m n) (G : Ctx) (a : El G (U0 m G)) ->
+     Id (El G (u.1 n G)) (cS u n G (LY.M.lf m n lt G a)) (lf' m n lt G (cS u m G a))) ;
+
+RestD (u : UT) (dd : DT u) : U l = PT u dd * UcT u * LfT u ;
+RestU (u : UT) : U l = (dd : DT u) * RestD u dd ;
+R : U l = (u : UT) * RestU u ;
+
+VB : U l = LY.VBlk LY.sb0 LY.c1b0 LY.c2b0 LY.pb0 ;
+
+toR (w : VB) : R =
+  ((w.1.1, w.2.1), ((w.1.2.1, w.2.2.1), ((w.1.2.2.1, w.2.2.2.1),
+   ((w.1.2.2.2.1, w.2.2.2.2.1), (w.1.2.2.2.2, w.2.2.2.2.2))))) ;
+
+fromR (r : R) : VB =
+  ((r.1.1, (r.2.1.1, (r.2.2.1.1, (r.2.2.2.1.1, r.2.2.2.2.1)))),
+   (r.1.2, (r.2.1.2, (r.2.2.1.2, (r.2.2.2.1.2, r.2.2.2.2.2))))) ;
+
+------------------------------------------------------------------------
+-- the centre of R and its contraction, pair by pair
+
+u0 : UT = (U0, \ n G -> refl (U0 n G)) ;
+
+hU : LB.Centred UT u0 =
+  piC Lev (\ n -> (G : Ctx) -> Ty G) (\ n f -> (G : Ctx) -> Id (Ty G) (U0 n G) (f G))
+    U0 (\ n G -> refl (U0 n G)) (\ n -> sg1 Ctx Ty (U0 n)) ;
+
+-- at u0, cS u0 n G a = a
+d0 : DT u0 = (D0, \ n G a -> refl (D0 n G a)) ;
+
+hD : LB.Centred (DT u0) d0 =
+  piC Lev (\ n -> (G : Ctx) -> El G (U0 n G) -> Ty G)
+    (\ n f -> (G : Ctx) (a : El G (U0 n G)) -> Id (Ty G) (D0 n G a) (f G a))
+    D0 (\ n G a -> refl (D0 n G a))
+    (\ n -> piC Ctx (\ G -> El G (U0 n G) -> Ty G)
+              (\ G f -> (a : El G (U0 n G)) -> Id (Ty G) (D0 n G a) (f a))
+              (D0 n) (\ G a -> refl (D0 n G a))
+              (\ G -> sg1 (El G (U0 n G)) (\ a -> Ty G) (D0 n G))) ;
+
+-- at (u0, d0), mvS is the identity
+p0 : PT u0 d0 = (LY.M.pic, \ n G a b -> refl (LY.M.pic n G a b)) ;
+
+hP : LB.Centred (PT u0 d0) p0 =
+  piC Lev
+    (\ n -> (G : Ctx) (a : El G (U0 n G)) -> El (ext G (D0 n G a)) (U0 n (ext G (D0 n G a))) -> El G (U0 n G))
+    (\ n f -> (G : Ctx) (a : El G (U0 n G)) (b : El (ext G (D0 n G a)) (U0 n (ext G (D0 n G a)))) ->
+              Id (El G (U0 n G)) (LY.M.pic n G a b) (f G a b))
+    LY.M.pic (\ n G a b -> refl (LY.M.pic n G a b))
+    (\ n -> piC Ctx
+      (\ G -> (a : El G (U0 n G)) -> El (ext G (D0 n G a)) (U0 n (ext G (D0 n G a))) -> El G (U0 n G))
+      (\ G f -> (a : El G (U0 n G)) (b : El (ext G (D0 n G a)) (U0 n (ext G (D0 n G a)))) ->
+                Id (El G (U0 n G)) (LY.M.pic n G a b) (f a b))
+      (LY.M.pic n) (\ G a b -> refl (LY.M.pic n G a b))
+      (\ G -> piC (El G (U0 n G))
+        (\ a -> El (ext G (D0 n G a)) (U0 n (ext G (D0 n G a))) -> El G (U0 n G))
+        (\ a f -> (b : El (ext G (D0 n G a)) (U0 n (ext G (D0 n G a)))) ->
+                  Id (El G (U0 n G)) (LY.M.pic n G a b) (f b))
+        (LY.M.pic n G) (\ a b -> refl (LY.M.pic n G a b))
+        (\ a -> sg1 (El (ext G (D0 n G a)) (U0 n (ext G (D0 n G a)))) (\ b -> El G (U0 n G))
+                    (LY.M.pic n G a)))) ;
+
+c0 : UcT u0 = (LY.M.uc, \ m n lt G -> refl (LY.M.uc m n lt G)) ;
+
+hC : LB.Centred (UcT u0) c0 =
+  piC Lev (\ m -> (n : Lev) -> St m n -> (G : Ctx) -> El G (U0 n G))
+    (\ m f -> (n : Lev) (lt : St m n) (G : Ctx) -> Id (El G (U0 n G)) (LY.M.uc m n lt G) (f n lt G))
+    LY.M.uc (\ m n lt G -> refl (LY.M.uc m n lt G))
+    (\ m -> piC Lev (\ n -> St m n -> (G : Ctx) -> El G (U0 n G))
+      (\ n f -> (lt : St m n) (G : Ctx) -> Id (El G (U0 n G)) (LY.M.uc m n lt G) (f lt G))
+      (LY.M.uc m) (\ n lt G -> refl (LY.M.uc m n lt G))
+      (\ n -> piC (St m n) (\ lt -> (G : Ctx) -> El G (U0 n G))
+        (\ lt f -> (G : Ctx) -> Id (El G (U0 n G)) (LY.M.uc m n lt G) (f G))
+        (LY.M.uc m n) (\ lt G -> refl (LY.M.uc m n lt G))
+        (\ lt -> sg1 Ctx (\ G -> El G (U0 n G)) (LY.M.uc m n lt)))) ;
+
+f0 : LfT u0 = (LY.M.lf, \ m n lt G a -> refl (LY.M.lf m n lt G a)) ;
+
+hF : LB.Centred (LfT u0) f0 =
+  piC Lev (\ m -> (n : Lev) -> St m n -> (G : Ctx) -> El G (U0 m G) -> El G (U0 n G))
+    (\ m f -> (n : Lev) (lt : St m n) (G : Ctx) (a : El G (U0 m G)) ->
+              Id (El G (U0 n G)) (LY.M.lf m n lt G a) (f n lt G a))
+    LY.M.lf (\ m n lt G a -> refl (LY.M.lf m n lt G a))
+    (\ m -> piC Lev (\ n -> St m n -> (G : Ctx) -> El G (U0 m G) -> El G (U0 n G))
+      (\ n f -> (lt : St m n) (G : Ctx) (a : El G (U0 m G)) ->
+                Id (El G (U0 n G)) (LY.M.lf m n lt G a) (f lt G a))
+      (LY.M.lf m) (\ n lt G a -> refl (LY.M.lf m n lt G a))
+      (\ n -> piC (St m n) (\ lt -> (G : Ctx) -> El G (U0 m G) -> El G (U0 n G))
+        (\ lt f -> (G : Ctx) (a : El G (U0 m G)) -> Id (El G (U0 n G)) (LY.M.lf m n lt G a) (f G a))
+        (LY.M.lf m n) (\ lt G a -> refl (LY.M.lf m n lt G a))
+        (\ lt -> piC Ctx (\ G -> El G (U0 m G) -> El G (U0 n G))
+          (\ G f -> (a : El G (U0 m G)) -> Id (El G (U0 n G)) (LY.M.lf m n lt G a) (f a))
+          (LY.M.lf m n lt) (\ G a -> refl (LY.M.lf m n lt G a))
+          (\ G -> sg1 (El G (U0 m G)) (\ a -> El G (U0 n G)) (LY.M.lf m n lt G))))) ;
+
+-- the tail at (u0, d0): three independent pairs
+hRestD : LB.Centred (RestD u0 d0) (p0, (c0, f0)) =
+  LB.sigma (PT u0 d0) (\ _ -> UcT u0 * LfT u0) p0 hP (c0, f0)
+    (LB.sigma (UcT u0) (\ _ -> LfT u0) c0 hC f0 hF) ;
+
+hRestU : LB.Centred (RestU u0) (d0, (p0, (c0, f0))) =
+  LB.sigma (DT u0) (RestD u0) d0 hD (p0, (c0, f0)) hRestD ;
+
+r0 : R = (u0, (d0, (p0, (c0, f0)))) ;
+
+hR : LB.Centred R r0 = LB.sigma UT RestU u0 hU (d0, (p0, (c0, f0))) hRestU ;
+
+------------------------------------------------------------------------
+-- the block V: fromR r0 is vb0 definitionally
+
+v-contr : LY.VContr = LB.retract VB R toR fromR (\ w -> refl w) r0 hR ;

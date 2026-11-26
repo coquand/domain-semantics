@@ -1,0 +1,38 @@
+-- InitUAIsoProp (PLAN-UAMOD, Part I): in any precategory of Category.seg,
+-- being an iso is a proposition.  Inverses are unique: for two inverses
+-- g, g' of f,  g = g.1 = g.(f.g') = (g.f).g' = 1.g' = g'  (unit and
+-- associativity laws); the two path components are propositions since
+-- hom types are sets.  Generic, levels k l as in Category.seg.
+level k l ;
+open Base ;
+module Pl = Prelude[l] ;
+module K = Category[k,l] ;
+
+module On (C : K.Precategory) {
+
+  -- two inverses of f are equal
+  inv-unique (x y : C.ob) (f : C.hom x y) (u v : C.isIso x y f) : Id (C.hom y x) u.1 v.1 =
+    Pl.trans (C.hom y x) u.1 (C.comp y y x u.1 (C.idn y)) v.1
+      (Pl.sym (C.hom y x) (C.comp y y x u.1 (C.idn y)) u.1 (C.unit-r y x u.1))
+     (Pl.trans (C.hom y x) (C.comp y y x u.1 (C.idn y)) (C.comp y y x u.1 (C.comp y x y f v.1)) v.1
+      (Pl.ap (C.hom y y) (C.hom y x) (\ w -> C.comp y y x u.1 w)
+         (C.idn y) (C.comp y x y f v.1) (Pl.sym (C.hom y y) (C.comp y x y f v.1) (C.idn y) v.2.2))
+     (Pl.trans (C.hom y x) (C.comp y y x u.1 (C.comp y x y f v.1)) (C.comp y x x (C.comp x y x u.1 f) v.1) v.1
+      (C.assoc y x y x v.1 f u.1)
+     (Pl.trans (C.hom y x) (C.comp y x x (C.comp x y x u.1 f) v.1) (C.comp y x x (C.idn x) v.1) v.1
+      (Pl.ap (C.hom x x) (C.hom y x) (\ w -> C.comp y x x w v.1) (C.comp x y x u.1 f) (C.idn x) u.2.1)
+      (C.unit-l y x v.1)))) ;
+
+  -- the laws of a given inverse form a proposition
+  laws-prop (x y : C.ob) (f : C.hom x y) (g : C.hom y x)
+    : Pl.isProp (Id (C.hom x x) (C.comp x y x g f) (C.idn x) * Id (C.hom y y) (C.comp y x y f g) (C.idn y)) =
+    Pl.isProp-Sigma (Id (C.hom x x) (C.comp x y x g f) (C.idn x))
+      (\ p -> Id (C.hom y y) (C.comp y x y f g) (C.idn y))
+      (C.hom-set x x (C.comp x y x g f) (C.idn x))
+      (\ p -> C.hom-set y y (C.comp y x y f g) (C.idn y)) ;
+
+  iso-prop (x y : C.ob) (f : C.hom x y) : Pl.isProp (C.isIso x y f) = \ u v ->
+    Pl.Sigma-eq (C.hom y x)
+      (\ g -> Id (C.hom x x) (C.comp x y x g f) (C.idn x) * Id (C.hom y y) (C.comp y x y f g) (C.idn y))
+      u.1 v.1 u.2 v.2 (inv-unique x y f u v) (laws-prop x y f v.1) ;
+} ;

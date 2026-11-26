@@ -1,0 +1,66 @@
+-- InitUABlkSLem.seg (PLAN-UAMOD, Part S): univalence lemmas for the sort
+-- block.  Segment with free l, ua : Axioms[l].Univalence,
+-- fe : Axioms[l].FunExt, fe1 : Axioms[l+].FunExt (see InitUACheckS.seg).
+--
+--   eb-centred A        (B : U l) * (f : A -> B) * BiInv A B f is centred
+--                       at (A, id, idBiInv A): a retract (round trip refl)
+--                       of (B : U l) * Equiv A B, centred by eqind
+--   eb1-centred         fibrewise over an index type (one argument)
+--   eb2-centred         fibrewise over a dependent pair of arguments
+--   isProp-isSet        with fe
+-- fe1 (funext at l+) is used for families of types: the path between
+-- two families X -> U l is a path in X -> U l, a type in U l+.
+open Base ; open Prelude[l] ;
+module EQ = InitUAEquiv[l] ;
+module UL = Axioms[l].UnivalenceLemmas[ua] ;
+module FL = Axioms[l].FunExtLemmas[fe] ;
+module LibP = InitUALib[l+] ;
+
+-- one type
+EB (A : U l) : U l+ = (B : U l) * (f : A -> B) * EQ.BiInv A B f ;
+eb0 (A : U l) : EB A = (A, (\ a -> a, EQ.idBiInv A)) ;
+
+EE (A : U l) : U l+ = (B : U l) * Equiv A B ;
+
+ee-centred (A : U l) : LibP.Centred (EE A) (A, idEquiv A) = \ u ->
+  UL.eqind A (\ T e -> Id (EE A) (A, idEquiv A) (T, e)) (refl (A, idEquiv A)) u.1 u.2 ;
+
+eb-centred (A : U l) : LibP.Centred (EB A) (eb0 A) =
+  LibP.retract (EB A) (EE A)
+    (\ u -> (u.1, (u.2.1, EQ.biinv-rec A u.1 u.2.1 u.2.2)))
+    (\ v -> (v.1, (v.2.1, EQ.rec-biinv A v.1 v.2.1 v.2.2)))
+    (\ u -> refl u) (A, idEquiv A) (ee-centred A) ;
+
+-- a family over one index
+EB1 (X : U l) (F : X -> U l) : U l+ =
+  (F' : X -> U l) * (f : (a : X) -> F a -> F' a) * ((a : X) -> EQ.BiInv (F a) (F' a) (f a)) ;
+eb10 (X : U l) (F : X -> U l) : EB1 X F =
+  (F, (\ a b -> b, \ a -> EQ.idBiInv (F a))) ;
+
+eb1-centred (X : U l) (F : X -> U l) : LibP.Centred (EB1 X F) (eb10 X F) =
+  LibP.retract (EB1 X F) ((a : X) -> EB (F a))
+    (\ w a -> (w.1 a, (w.2.1 a, w.2.2 a)))
+    (\ g -> (\ a -> (g a).1, (\ a -> (g a).2.1, \ a -> (g a).2.2)))
+    (\ w -> refl w) (\ a -> eb0 (F a))
+    (LibP.pi fe1 X (\ a -> EB (F a)) (\ a -> eb0 (F a)) (\ a -> eb-centred (F a))) ;
+
+-- a family over a dependent pair of indices
+EB2 (X : U l) (J : X -> U l) (F : (a : X) -> J a -> U l) : U l+ =
+  (F' : (a : X) -> J a -> U l) * (f : (a : X) (b : J a) -> F a b -> F' a b)
+  * ((a : X) (b : J a) -> EQ.BiInv (F a b) (F' a b) (f a b)) ;
+eb20 (X : U l) (J : X -> U l) (F : (a : X) -> J a -> U l) : EB2 X J F =
+  (F, (\ a b c -> c, \ a b -> EQ.idBiInv (F a b))) ;
+
+eb2-centred (X : U l) (J : X -> U l) (F : (a : X) -> J a -> U l)
+  : LibP.Centred (EB2 X J F) (eb20 X J F) =
+  LibP.retract (EB2 X J F) ((a : X) (b : J a) -> EB (F a b))
+    (\ w a b -> (w.1 a b, (w.2.1 a b, w.2.2 a b)))
+    (\ g -> (\ a b -> (g a b).1, (\ a b -> (g a b).2.1, \ a b -> (g a b).2.2)))
+    (\ w -> refl w) (\ a b -> eb0 (F a b))
+    (LibP.pi fe1 X (\ a -> (b : J a) -> EB (F a b)) (\ a b -> eb0 (F a b))
+      (\ a -> LibP.pi fe1 (J a) (\ b -> EB (F a b)) (\ b -> eb0 (F a b)) (\ b -> eb-centred (F a b)))) ;
+
+-- being a set is a proposition
+isProp-isSet (A : U l) : isProp (isSet A) =
+  FL.isProp-Pi A (\ a -> (b : A) -> isProp (Id A a b)) (\ a ->
+    FL.isProp-Pi A (\ b -> isProp (Id A a b)) (\ b -> FL.isProp-isProp (Id A a b))) ;

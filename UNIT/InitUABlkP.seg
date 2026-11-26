@@ -1,0 +1,206 @@
+-- InitUABlkP.seg (PLAN-UAMOD, Part P): the Pi block is contractible at the
+-- centre of the previous blocks:  p-contr : InitUALayer.PContr.
+-- Segment with free l, N, fe, x (imported inside module X of the driver,
+-- after InitUALayer).
+--
+-- At the centre PBlk = (pp : OpsP) * LtyPi * LtmLam with mvTyS, mvElS the
+-- identity.  PBlk is a retract (round trip refl) of
+--   Q = (w : W) * (v : VT Pi') * FunT Pi' inv'
+--   W        = (G A B) -> (P : Ty G) * Id (Ty G) (Pi0 G A B) P       (singletons)
+--   VT Pi'   = (G A B b) -> (i : El G (Pi' G A B)) * Id (Term G) (Pi0, inv0 b) (Pi', i)
+--   FunT     = (fun' : ...) * fun-inv' * inv-fun'
+-- W is centred (funext, sing-l); at w0, VT is centred (each fibre is a
+-- retract of a singleton: Ty G is a set); at v0, fun' is forced
+-- (fun' f = fun' (inv0 (fun0 f)) = fun0 f) and the two laws are
+-- propositions (El are sets).
+open Base ; open Prelude[l] ;
+open InitUAObj[l] ;
+module LB = InitUALib[l] ;
+module FE = Axioms[l].FunExtLemmas[fe] ;
+module K0 = S0[x.1] ;
+module K2 = S2[x.1, x.2.2.1, x.2.2.2.1] ;
+module KP = SP[x.1, x.2.2.1, x.2.2.2.1, x.2.2.2.2.1] ;
+
+Ctx : U l = K0.Ctx ;
+Ty (G : Ctx) : U l = K0.Ty G ;
+El (G : Ctx) (A : Ty G) : U l = K0.El G A ;
+ext (G : Ctx) (A : Ty G) : Ctx = K2.ext G A ;
+
+sTy (G : Ctx) : isSet (Ty G) = x.2.1.2.2.1 G ;
+sEl (G : Ctx) (A : Ty G) : isSet (El G A) = x.2.1.2.2.2 G A ;
+
+Term (G : Ctx) : U l = (A : Ty G) * El G A ;
+sTerm (G : Ctx) : isSet (Term G) = isSet-Sigma (Ty G) (El G) (sTy G) (sEl G) ;
+
+Pi0 (G : Ctx) (A : Ty G) (B : Ty (ext G A)) : Ty G = KP.Pi G A B ;
+fun0 (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (f : El G (Pi0 G A B)) : El (ext G A) B = KP.fun G A B f ;
+inv0 (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (b : El (ext G A) B) : El G (Pi0 G A B) = KP.inv G A B b ;
+
+------------------------------------------------------------------------
+-- generic lemmas
+
+-- over a set, a path in the total space with equal first components
+-- gives a path in the fibre (copy of InitHomBase.fib)
+fib (A : U l) (sA : isSet A) (F : A -> U l) (a : A) (b b' : F a)
+    (f : Id ((z : A) * F z) (a, b) (a, b')) : Id (F a) b b' =
+  trans (F a) b (subst A F a a (ap ((z : A) * F z) A (\ w -> w.1) (a, b) (a, b') f) b) b'
+    (ap (Id A a a) (F a) (\ e -> subst A F a a e b)
+        (refl a) (ap ((z : A) * F z) A (\ w -> w.1) (a, b) (a, b') f)
+        (sym (Id A a a) (ap ((z : A) * F z) A (\ w -> w.1) (a, b) (a, b') f) (refl a)
+             (loop-refl A sA a (ap ((z : A) * F z) A (\ w -> w.1) (a, b) (a, b') f))))
+    (Sigma-snd A F a a b b' f) ;
+
+-- products over (G, A, B) and (G, A, B, b)
+cpi3 (F : (G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> U l)
+    (c : (G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> F G A B)
+    (h : (G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> LB.Centred (F G A B) (c G A B))
+  : LB.Centred ((G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> F G A B) c =
+  LB.pi fe Ctx (\ G -> (A : Ty G) (B : Ty (ext G A)) -> F G A B) c (\ G ->
+    LB.pi fe (Ty G) (\ A -> (B : Ty (ext G A)) -> F G A B) (c G) (\ A ->
+      LB.pi fe (Ty (ext G A)) (F G A) (c G A) (h G A))) ;
+
+cpi4 (F : (G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> El (ext G A) B -> U l)
+    (c : (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (b : El (ext G A) B) -> F G A B b)
+    (h : (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (b : El (ext G A) B) -> LB.Centred (F G A B b) (c G A B b))
+  : LB.Centred ((G : Ctx) (A : Ty G) (B : Ty (ext G A)) (b : El (ext G A) B) -> F G A B b) c =
+  cpi3 (\ G A B -> (b : El (ext G A) B) -> F G A B b) c (\ G A B ->
+    LB.pi fe (El (ext G A) B) (F G A B) (c G A B) (h G A B)) ;
+
+prop4 (Z : (G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> U l)
+    (R : (G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> Z G A B -> U l)
+    (h : (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (z : Z G A B) -> isProp (R G A B z))
+  : isProp ((G : Ctx) (A : Ty G) (B : Ty (ext G A)) (z : Z G A B) -> R G A B z) =
+  FE.isProp-Pi Ctx (\ G -> (A : Ty G) (B : Ty (ext G A)) (z : Z G A B) -> R G A B z) (\ G ->
+    FE.isProp-Pi (Ty G) (\ A -> (B : Ty (ext G A)) (z : Z G A B) -> R G A B z) (\ A ->
+      FE.isProp-Pi (Ty (ext G A)) (\ B -> (z : Z G A B) -> R G A B z) (\ B ->
+        FE.isProp-Pi (Z G A B) (R G A B) (h G A B)))) ;
+
+------------------------------------------------------------------------
+-- the reshuffled block Q
+
+PiT : U l = (G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> Ty G ;
+
+W : U l = (G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> (P : Ty G) * Id (Ty G) (Pi0 G A B) P ;
+
+LamT (PiF : PiT) (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (b : El (ext G A) B) : U l =
+  (i : El G (PiF G A B)) * Id (Term G) (Pi0 G A B, inv0 G A B b) (PiF G A B, i) ;
+
+VT (PiF : PiT) : U l =
+  (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (b : El (ext G A) B) -> LamT PiF G A B b ;
+
+FunTy (PiF : PiT) : U l =
+  (G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> El G (PiF G A B) -> El (ext G A) B ;
+
+InvTy (PiF : PiT) : U l =
+  (G : Ctx) (A : Ty G) (B : Ty (ext G A)) -> El (ext G A) B -> El G (PiF G A B) ;
+
+FILaw (PiF : PiT) (invF : InvTy PiF) (funF : FunTy PiF) : U l =
+  (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (b : El (ext G A) B)
+    -> Id (El (ext G A) B) (funF G A B (invF G A B b)) b ;
+
+IFLaw (PiF : PiT) (invF : InvTy PiF) (funF : FunTy PiF) : U l =
+  (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (f : El G (PiF G A B))
+    -> Id (El G (PiF G A B)) (invF G A B (funF G A B f)) f ;
+
+Laws (PiF : PiT) (invF : InvTy PiF) (funF : FunTy PiF) : U l =
+  FILaw PiF invF funF * IFLaw PiF invF funF ;
+
+FunT (PiF : PiT) (invF : InvTy PiF) : U l = (funF : FunTy PiF) * Laws PiF invF funF ;
+
+piOf (w : W) : PiT = \ G A B -> (w G A B).1 ;
+
+RT (w : W) : U l = (v : VT (piOf w)) * FunT (piOf w) (\ G A B b -> (v G A B b).1) ;
+
+Q : U l = (w : W) * RT w ;
+
+------------------------------------------------------------------------
+-- centres
+
+w0 : W = \ G A B -> (Pi0 G A B, refl (Pi0 G A B)) ;
+
+v0 : VT Pi0 = \ G A B b -> (inv0 G A B b, refl (Pi0 G A B, inv0 G A B b)) ;
+
+f0 : FunT Pi0 inv0 = (\ G A B f -> fun0 G A B f, (\ G A B b -> KP.fun-inv G A B b, \ G A B f -> KP.inv-fun G A B f)) ;
+
+q0 : Q = (w0, (v0, f0)) ;
+
+------------------------------------------------------------------------
+-- contraction of W
+
+cW : LB.Centred W w0 =
+  cpi3 (\ G A B -> (P : Ty G) * Id (Ty G) (Pi0 G A B) P) w0 (\ G A B -> LB.sing-l (Ty G) (Pi0 G A B)) ;
+
+------------------------------------------------------------------------
+-- contraction of VT at Pi0: each fibre is a retract of a singleton
+
+module Lam (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (b : El (ext G A) B) {
+  P : Ty G = Pi0 G A B ;
+  i0 : El G P = inv0 G A B b ;
+  Sg : U l = (i : El G P) * Id (El G P) i0 i ;
+  sL (u : LamT Pi0 G A B b) : Sg = (u.1, fib (Ty G) (sTy G) (El G) P i0 u.1 u.2) ;
+  rL (u : Sg) : LamT Pi0 G A B b = (u.1, ap (El G P) (Term G) (\ i -> (P, i)) i0 u.1 u.2) ;
+  rsL (u : LamT Pi0 G A B b) : Id (LamT Pi0 G A B b) (rL (sL u)) u =
+    ap (Id (Term G) (P, i0) (P, u.1)) (LamT Pi0 G A B b) (\ e -> (u.1, e))
+      (rL (sL u)).2 u.2 (sTerm G (P, i0) (P, u.1) (rL (sL u)).2 u.2) ;
+  cL : LB.Centred (LamT Pi0 G A B b) (i0, refl (P, i0)) =
+    LB.retract (LamT Pi0 G A B b) Sg sL rL rsL (i0, refl i0) (LB.sing-l (El G P) i0) ;
+} ;
+
+cV : LB.Centred (VT Pi0) v0 = cpi4 (LamT Pi0) v0 (\ G A B b -> Lam[G,A,B,b].cL) ;
+
+------------------------------------------------------------------------
+-- contraction of FunT at (Pi0, inv0): fun' is forced, the laws are props
+
+module Fun (u : FunT Pi0 inv0) {
+  pt (G : Ctx) (A : Ty G) (B : Ty (ext G A)) (f : El G (Pi0 G A B))
+    : Id (El (ext G A) B) (fun0 G A B f) (u.1 G A B f) =
+    trans (El (ext G A) B) (fun0 G A B f) (u.1 G A B (inv0 G A B (fun0 G A B f))) (u.1 G A B f)
+      (sym (El (ext G A) B) (u.1 G A B (inv0 G A B (fun0 G A B f))) (fun0 G A B f)
+         (u.2.1 G A B (fun0 G A B f)))
+      (ap (El G (Pi0 G A B)) (El (ext G A) B) (u.1 G A B) (inv0 G A B (fun0 G A B f)) f
+         (KP.inv-fun G A B f)) ;
+  path : Id (FunTy Pi0) f0.1 u.1 =
+    FE.funext Ctx (\ G -> (A : Ty G) (B : Ty (ext G A)) -> El G (Pi0 G A B) -> El (ext G A) B)
+      f0.1 u.1 (\ G ->
+    FE.funext (Ty G) (\ A -> (B : Ty (ext G A)) -> El G (Pi0 G A B) -> El (ext G A) B)
+      (f0.1 G) (u.1 G) (\ A ->
+    FE.funext (Ty (ext G A)) (\ B -> El G (Pi0 G A B) -> El (ext G A) B)
+      (f0.1 G A) (u.1 G A) (\ B ->
+    FE.funext (El G (Pi0 G A B)) (\ f -> El (ext G A) B)
+      (f0.1 G A B) (u.1 G A B) (\ f -> pt G A B f)))) ;
+} ;
+
+laws-prop (funF : FunTy Pi0) : isProp (Laws Pi0 inv0 funF) =
+  isProp-Sigma (FILaw Pi0 inv0 funF) (\ z -> IFLaw Pi0 inv0 funF)
+    (prop4 (\ G A B -> El (ext G A) B)
+       (\ G A B b -> Id (El (ext G A) B) (funF G A B (inv0 G A B b)) b)
+       (\ G A B b -> sEl (ext G A) B (funF G A B (inv0 G A B b)) b))
+    (\ z -> prop4 (\ G A B -> El G (Pi0 G A B))
+       (\ G A B f -> Id (El G (Pi0 G A B)) (inv0 G A B (funF G A B f)) f)
+       (\ G A B f -> sEl G (Pi0 G A B) (inv0 G A B (funF G A B f)) f)) ;
+
+cF : LB.Centred (FunT Pi0 inv0) f0 = \ u ->
+  Sigma-eq (FunTy Pi0) (Laws Pi0 inv0) f0.1 u.1 f0.2 u.2 Fun[u].path (laws-prop u.1) ;
+
+------------------------------------------------------------------------
+-- contraction of Q and of the block
+
+cQ : LB.Centred Q q0 =
+  LB.sigma W RT w0 cW (v0, f0)
+    (LB.sigma (VT Pi0) (\ v -> FunT Pi0 (\ G A B b -> (v G A B b).1)) v0 cV f0 cF) ;
+
+PB : U l = InitUALayer.PBlk InitUALayer.sb0 InitUALayer.c1b0 InitUALayer.c2b0 ;
+
+sP (u : PB) : Q =
+  (\ G A B -> (u.1.1 G A B, u.2.1 G A B),
+   (\ G A B b -> (u.1.2.2.1 G A B b, u.2.2 G A B b),
+    (u.1.2.1, (u.1.2.2.2.1, u.1.2.2.2.2)))) ;
+
+rP (q : Q) : PB =
+  ((\ G A B -> (q.1 G A B).1,
+    (q.2.2.1, (\ G A B b -> (q.2.1 G A B b).1, (q.2.2.2.1, q.2.2.2.2)))),
+   (\ G A B -> (q.1 G A B).2, \ G A B b -> (q.2.1 G A B b).2)) ;
+
+rsP (u : PB) : Id PB (rP (sP u)) u = refl u ;
+
+p-contr : InitUALayer.PContr = LB.retract PB Q sP rP rsP q0 cQ ;

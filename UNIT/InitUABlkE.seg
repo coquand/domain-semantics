@@ -1,0 +1,489 @@
+-- InitUABlkE.seg (PLAN-UAMOD, Part G, block E): the equations Eqs of a
+-- model (29 equations, InitUAObj.SE) form a proposition when the sorts
+-- are sets: each equation is a Pi of paths in a set (funext), and Eqs is
+-- a nested Sigma of propositions.  Segment with free l, N, fe (import
+-- after InitUAObj, see InitUACheckG.seg).
+--   eqPropK      a K-fold dependent Pi of paths in sets is a proposition
+--   EP[s,h,c1,c2,pp,v].eqs-prop : isProp (Eqs s c1 c2 pp v)
+-- The tails T1 .. T29 of Eqs are named, with the earlier equations they
+-- depend on as parameters; T1 is Eqs by unfolding.
+open Base ; open Prelude[l] ;
+open Axioms[l].FunExtLemmas[fe] ;
+module EM = EhrhardTEModel[l] ;
+open InitUAObj[l] ;
+
+eqProp1 (A1 : U l) (X : (a1 : A1) -> U l) (sX : (a1 : A1) -> isSet (X a1)) (f g : (a1 : A1) -> X a1)
+  : isProp ((a1 : A1) -> Id (X a1) (f a1) (g a1)) =
+  isProp-Pi A1 (\ a1 -> Id (X a1) (f a1) (g a1)) (\ a1 -> sX a1 (f a1) (g a1)) ;
+
+eqProp2 (A1 : U l) (A2 : (a1 : A1) -> U l) (X : (a1 : A1) (a2 : A2 a1) -> U l) (sX : (a1 : A1) (a2 : A2 a1) -> isSet (X a1 a2)) (f g : (a1 : A1) (a2 : A2 a1) -> X a1 a2)
+  : isProp ((a1 : A1) (a2 : A2 a1) -> Id (X a1 a2) (f a1 a2) (g a1 a2)) =
+  isProp-Pi A1 (\ a1 -> (a2 : A2 a1) -> Id (X a1 a2) (f a1 a2) (g a1 a2))
+    (\ a1 -> eqProp1 (A2 a1) (X a1) (sX a1) (f a1) (g a1)) ;
+
+eqProp3 (A1 : U l) (A2 : (a1 : A1) -> U l) (A3 : (a1 : A1) (a2 : A2 a1) -> U l) (X : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) -> U l) (sX : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) -> isSet (X a1 a2 a3)) (f g : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) -> X a1 a2 a3)
+  : isProp ((a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) -> Id (X a1 a2 a3) (f a1 a2 a3) (g a1 a2 a3)) =
+  isProp-Pi A1 (\ a1 -> (a2 : A2 a1) (a3 : A3 a1 a2) -> Id (X a1 a2 a3) (f a1 a2 a3) (g a1 a2 a3))
+    (\ a1 -> eqProp2 (A2 a1) (A3 a1) (X a1) (sX a1) (f a1) (g a1)) ;
+
+eqProp4 (A1 : U l) (A2 : (a1 : A1) -> U l) (A3 : (a1 : A1) (a2 : A2 a1) -> U l) (A4 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) -> U l) (X : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) -> U l) (sX : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) -> isSet (X a1 a2 a3 a4)) (f g : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) -> X a1 a2 a3 a4)
+  : isProp ((a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) -> Id (X a1 a2 a3 a4) (f a1 a2 a3 a4) (g a1 a2 a3 a4)) =
+  isProp-Pi A1 (\ a1 -> (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) -> Id (X a1 a2 a3 a4) (f a1 a2 a3 a4) (g a1 a2 a3 a4))
+    (\ a1 -> eqProp3 (A2 a1) (A3 a1) (A4 a1) (X a1) (sX a1) (f a1) (g a1)) ;
+
+eqProp5 (A1 : U l) (A2 : (a1 : A1) -> U l) (A3 : (a1 : A1) (a2 : A2 a1) -> U l) (A4 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) -> U l) (A5 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) -> U l) (X : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) -> U l) (sX : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) -> isSet (X a1 a2 a3 a4 a5)) (f g : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) -> X a1 a2 a3 a4 a5)
+  : isProp ((a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) -> Id (X a1 a2 a3 a4 a5) (f a1 a2 a3 a4 a5) (g a1 a2 a3 a4 a5)) =
+  isProp-Pi A1 (\ a1 -> (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) -> Id (X a1 a2 a3 a4 a5) (f a1 a2 a3 a4 a5) (g a1 a2 a3 a4 a5))
+    (\ a1 -> eqProp4 (A2 a1) (A3 a1) (A4 a1) (A5 a1) (X a1) (sX a1) (f a1) (g a1)) ;
+
+eqProp6 (A1 : U l) (A2 : (a1 : A1) -> U l) (A3 : (a1 : A1) (a2 : A2 a1) -> U l) (A4 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) -> U l) (A5 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) -> U l) (A6 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) -> U l) (X : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) -> U l) (sX : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) -> isSet (X a1 a2 a3 a4 a5 a6)) (f g : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) -> X a1 a2 a3 a4 a5 a6)
+  : isProp ((a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) -> Id (X a1 a2 a3 a4 a5 a6) (f a1 a2 a3 a4 a5 a6) (g a1 a2 a3 a4 a5 a6)) =
+  isProp-Pi A1 (\ a1 -> (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) -> Id (X a1 a2 a3 a4 a5 a6) (f a1 a2 a3 a4 a5 a6) (g a1 a2 a3 a4 a5 a6))
+    (\ a1 -> eqProp5 (A2 a1) (A3 a1) (A4 a1) (A5 a1) (A6 a1) (X a1) (sX a1) (f a1) (g a1)) ;
+
+eqProp7 (A1 : U l) (A2 : (a1 : A1) -> U l) (A3 : (a1 : A1) (a2 : A2 a1) -> U l) (A4 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) -> U l) (A5 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) -> U l) (A6 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) -> U l) (A7 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) -> U l) (X : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) -> U l) (sX : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) -> isSet (X a1 a2 a3 a4 a5 a6 a7)) (f g : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) -> X a1 a2 a3 a4 a5 a6 a7)
+  : isProp ((a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) -> Id (X a1 a2 a3 a4 a5 a6 a7) (f a1 a2 a3 a4 a5 a6 a7) (g a1 a2 a3 a4 a5 a6 a7)) =
+  isProp-Pi A1 (\ a1 -> (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) -> Id (X a1 a2 a3 a4 a5 a6 a7) (f a1 a2 a3 a4 a5 a6 a7) (g a1 a2 a3 a4 a5 a6 a7))
+    (\ a1 -> eqProp6 (A2 a1) (A3 a1) (A4 a1) (A5 a1) (A6 a1) (A7 a1) (X a1) (sX a1) (f a1) (g a1)) ;
+
+eqProp8 (A1 : U l) (A2 : (a1 : A1) -> U l) (A3 : (a1 : A1) (a2 : A2 a1) -> U l) (A4 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) -> U l) (A5 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) -> U l) (A6 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) -> U l) (A7 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) -> U l) (A8 : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) -> U l) (X : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) (a8 : A8 a1 a2 a3 a4 a5 a6 a7) -> U l) (sX : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) (a8 : A8 a1 a2 a3 a4 a5 a6 a7) -> isSet (X a1 a2 a3 a4 a5 a6 a7 a8)) (f g : (a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) (a8 : A8 a1 a2 a3 a4 a5 a6 a7) -> X a1 a2 a3 a4 a5 a6 a7 a8)
+  : isProp ((a1 : A1) (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) (a8 : A8 a1 a2 a3 a4 a5 a6 a7) -> Id (X a1 a2 a3 a4 a5 a6 a7 a8) (f a1 a2 a3 a4 a5 a6 a7 a8) (g a1 a2 a3 a4 a5 a6 a7 a8)) =
+  isProp-Pi A1 (\ a1 -> (a2 : A2 a1) (a3 : A3 a1 a2) (a4 : A4 a1 a2 a3) (a5 : A5 a1 a2 a3 a4) (a6 : A6 a1 a2 a3 a4 a5) (a7 : A7 a1 a2 a3 a4 a5 a6) (a8 : A8 a1 a2 a3 a4 a5 a6 a7) -> Id (X a1 a2 a3 a4 a5 a6 a7 a8) (f a1 a2 a3 a4 a5 a6 a7 a8) (g a1 a2 a3 a4 a5 a6 a7 a8))
+    (\ a1 -> eqProp7 (A2 a1) (A3 a1) (A4 a1) (A5 a1) (A6 a1) (A7 a1) (A8 a1) (X a1) (sX a1) (f a1) (g a1)) ;
+
+
+module EP (s : Srt) (h : Sets s) (c1 : Ops1 s) (c2 : Ops2 s c1) (pp : OpsP s c1 c2) (v : OpsV s c1 c2 pp) {
+  open S0[s] ; open S1[s,c1] ; open S2[s,c1,c2] ; open SP[s,c1,c2,pp] ; open SV[s,c1,c2,pp,v] ;
+  open SE[s,c1,c2,pp,v] ;
+  sCtx : isSet Ctx = h.1 ;
+  sSub (D G : Ctx) : isSet (Sub D G) = h.2.1 D G ;
+  sTy (G : Ctx) : isSet (Ty G) = h.2.2.1 G ;
+  sEl (G : Ctx) (A : Ty G) : isSet (El G A) = h.2.2.2 G A ;
+
+  -- each equation is a proposition
+  pOIdl : isProp (OIdl) =
+    eqProp3
+      (Ctx)
+      (\ D -> Ctx)
+      (\ D G -> Sub D G)
+      (\ D G s0 -> Sub D G)
+      (\ D G s0 -> sSub D G)
+      (\ D G s0 -> o D G G (id G) s0)
+      (\ D G s0 -> s0) ;
+  
+  pOIdr : isProp (OIdr) =
+    eqProp3
+      (Ctx)
+      (\ D -> Ctx)
+      (\ D G -> Sub D G)
+      (\ D G s0 -> Sub D G)
+      (\ D G s0 -> sSub D G)
+      (\ D G s0 -> o D D G s0 (id D))
+      (\ D G s0 -> s0) ;
+  
+  pOAssoc : isProp (OAssoc) =
+    eqProp7
+      (Ctx)
+      (\ Q -> Ctx)
+      (\ Q T -> Ctx)
+      (\ Q T D -> Ctx)
+      (\ Q T D G -> Sub D G)
+      (\ Q T D G s0 -> Sub T D)
+      (\ Q T D G s0 s1 -> Sub Q T)
+      (\ Q T D G s0 s1 s2 -> Sub Q G)
+      (\ Q T D G s0 s1 s2 -> sSub Q G)
+      (\ Q T D G s0 s1 s2 -> o Q T G (o T D G s0 s1) s2)
+      (\ Q T D G s0 s1 s2 -> o Q D G s0 (o Q T D s1 s2)) ;
+  
+  pEpsUniq : isProp (EpsUniq) =
+    eqProp2
+      (Ctx)
+      (\ G -> Sub G nil)
+      (\ G s0 -> Sub G nil)
+      (\ G s0 -> sSub G nil)
+      (\ G s0 -> s0)
+      (\ G s0 -> eps G) ;
+  
+  pSubTIdT : isProp (SubTIdT) =
+    eqProp2
+      (Ctx)
+      (\ G -> Ty G)
+      (\ G A -> Ty G)
+      (\ G A -> sTy G)
+      (\ G A -> subT G G A (id G))
+      (\ G A -> A) ;
+  
+  pSubTOT : isProp (SubTOT) =
+    eqProp6
+      (Ctx)
+      (\ T -> Ctx)
+      (\ T D -> Ctx)
+      (\ T D G -> Ty G)
+      (\ T D G A -> Sub D G)
+      (\ T D G A s0 -> Sub T D)
+      (\ T D G A s0 s1 -> Ty T)
+      (\ T D G A s0 s1 -> sTy T)
+      (\ T D G A s0 s1 -> subT T G A (o T D G s0 s1))
+      (\ T D G A s0 s1 -> subT T D (subT D G A s0) s1) ;
+  
+  pSubtIdT (sti : SubTIdT) : isProp (SubtIdT sti) =
+    eqProp3
+      (Ctx)
+      (\ G -> Ty G)
+      (\ G A -> El G A)
+      (\ G A a -> El G A)
+      (\ G A a -> sEl G A)
+      (\ G A a -> subst (Ty G) (El G) (subT G G A (id G)) A (sti G A) (subt G G A a (id G)))
+      (\ G A a -> a) ;
+  
+  pSubtOT (sto : SubTOT) : isProp (SubtOT sto) =
+    eqProp7
+      (Ctx)
+      (\ T -> Ctx)
+      (\ T D -> Ctx)
+      (\ T D G -> Ty G)
+      (\ T D G A -> El G A)
+      (\ T D G A a -> Sub D G)
+      (\ T D G A a s0 -> Sub T D)
+      (\ T D G A a s0 s1 -> El T (subT T D (subT D G A s0) s1))
+      (\ T D G A a s0 s1 -> sEl T (subT T D (subT D G A s0) s1))
+      (\ T D G A a s0 s1 -> subst (Ty T) (El T) (subT T G A (o T D G s0 s1)) (subT T D (subT D G A s0) s1) (sto T D G A s0 s1) (subt T G A a (o T D G s0 s1)))
+      (\ T D G A a s0 s1 -> subt T D (subT D G A s0) (subt D G A a s0) s1) ;
+  
+  pLiftIdT (sti : SubTIdT) : isProp (LiftIdT sti) =
+    eqProp2
+      (Ctx)
+      (\ G -> Ty G)
+      (\ G A -> Sub (ext G A) (ext G A))
+      (\ G A -> sSub (ext G A) (ext G A))
+      (\ G A -> subst (Ty G) (\ B -> Sub (ext G B) (ext G A)) (subT G G A (id G)) A (sti G A) (lift G G A (id G)))
+      (\ G A -> id (ext G A)) ;
+  
+  pLiftOT (sto : SubTOT) : isProp (LiftOT sto) =
+    eqProp6
+      (Ctx)
+      (\ T -> Ctx)
+      (\ T D -> Ctx)
+      (\ T D G -> Ty G)
+      (\ T D G A -> Sub D G)
+      (\ T D G A s0 -> Sub T D)
+      (\ T D G A s0 s1 -> Sub (ext T (subT T D (subT D G A s0) s1)) (ext G A))
+      (\ T D G A s0 s1 -> sSub (ext T (subT T D (subT D G A s0) s1)) (ext G A))
+      (\ T D G A s0 s1 -> subst (Ty T) (\ B -> Sub (ext T B) (ext G A)) (subT T G A (o T D G s0 s1)) (subT T D (subT D G A s0) s1) (sto T D G A s0 s1) (lift T G A (o T D G s0 s1)))
+      (\ T D G A s0 s1 -> o (ext T (subT T D (subT D G A s0) s1)) (ext D (subT D G A s0)) (ext G A) (lift D G A s0) (lift T D (subT D G A s0) s1)) ;
+  
+  pPLiftT : isProp (PLiftT) =
+    eqProp4
+      (Ctx)
+      (\ D -> Ctx)
+      (\ D G -> Ty G)
+      (\ D G A -> Sub D G)
+      (\ D G A s0 -> Sub (ext D (subT D G A s0)) G)
+      (\ D G A s0 -> sSub (ext D (subT D G A s0)) G)
+      (\ D G A s0 -> o (ext D (subT D G A s0)) (ext G A) G (p G A) (lift D G A s0))
+      (\ D G A s0 -> o (ext D (subT D G A s0)) D G s0 (p D (subT D G A s0))) ;
+  
+  pPSecT : isProp (PSecT) =
+    eqProp3
+      (Ctx)
+      (\ G -> Ty G)
+      (\ G A -> El G A)
+      (\ G A a -> Sub G G)
+      (\ G A a -> sSub G G)
+      (\ G A a -> o G (ext G A) G (p G A) (sec G A a))
+      (\ G A a -> id G) ;
+  
+  pSecOT : isProp (SecOT) =
+    eqProp5
+      (Ctx)
+      (\ D -> Ctx)
+      (\ D G -> Ty G)
+      (\ D G A -> El G A)
+      (\ D G A a -> Sub D G)
+      (\ D G A a s0 -> Sub D (ext G A))
+      (\ D G A a s0 -> sSub D (ext G A))
+      (\ D G A a s0 -> o D G (ext G A) (sec G A a) s0)
+      (\ D G A a s0 -> o D (ext D (subT D G A s0)) (ext G A) (lift D G A s0) (sec D (subT D G A s0) (subt D G A a s0))) ;
+  
+  pLiftPSecQT : isProp (LiftPSecQT) =
+    eqProp2
+      (Ctx)
+      (\ G -> Ty G)
+      (\ G A -> Sub (ext G A) (ext G A))
+      (\ G A -> sSub (ext G A) (ext G A))
+      (\ G A -> o (ext G A) (ext (ext G A) (subT (ext G A) G A (p G A))) (ext G A) (lift (ext G A) G A (p G A)) (sec (ext G A) (subT (ext G A) G A (p G A)) (q G A)))
+      (\ G A -> id (ext G A)) ;
+  
+  pQLiftT (sto : SubTOT) (pl : PLiftT) : isProp (QLiftT sto pl) =
+    eqProp4
+      (Ctx)
+      (\ D -> Ctx)
+      (\ D G -> Ty G)
+      (\ D G A -> Sub D G)
+      (\ D G A s0 -> El (ext D (subT D G A s0)) (subT (ext D (subT D G A s0)) D (subT D G A s0) (p D (subT D G A s0))))
+      (\ D G A s0 -> sEl (ext D (subT D G A s0)) (subT (ext D (subT D G A s0)) D (subT D G A s0) (p D (subT D G A s0))))
+      (\ D G A s0 -> subst (Ty (ext D (subT D G A s0))) (El (ext D (subT D G A s0))) (subT (ext D (subT D G A s0)) (ext G A) (subT (ext G A) G A (p G A)) (lift D G A s0)) (subT (ext D (subT D G A s0)) D (subT D G A s0) (p D (subT D G A s0))) (p-lift-T sto pl D G A A s0) (subt (ext D (subT D G A s0)) (ext G A) (subT (ext G A) G A (p G A)) (q G A) (lift D G A s0)))
+      (\ D G A s0 -> q D (subT D G A s0)) ;
+  
+  pQSecT (sti : SubTIdT) (sto : SubTOT) (ps : PSecT) : isProp (QSecT sti sto ps) =
+    eqProp3
+      (Ctx)
+      (\ G -> Ty G)
+      (\ G A -> El G A)
+      (\ G A a -> El G A)
+      (\ G A a -> sEl G A)
+      (\ G A a -> subst (Ty G) (El G) (subT G (ext G A) (subT (ext G A) G A (p G A)) (sec G A a)) A (p-sec-T sti sto ps G A A a) (subt G (ext G A) (subT (ext G A) G A (p G A)) (q G A) (sec G A a)))
+      (\ G A a -> a) ;
+  
+  pPiNatT : isProp (PiNatT) =
+    eqProp5
+      (Ctx)
+      (\ D -> Ctx)
+      (\ D G -> Ty G)
+      (\ D G A -> Ty (ext G A))
+      (\ D G A B -> Sub D G)
+      (\ D G A B s0 -> Ty D)
+      (\ D G A B s0 -> sTy D)
+      (\ D G A B s0 -> subT D G (Pi G A B) s0)
+      (\ D G A B s0 -> Pi D (subT D G A s0) (subT (ext D (subT D G A s0)) (ext G A) B (lift D G A s0))) ;
+  
+  pPiIsoNatT (pn : PiNatT) : isProp (PiIsoNatT pn) =
+    eqProp6
+      (Ctx)
+      (\ D -> Ctx)
+      (\ D G -> Ty G)
+      (\ D G A -> Ty (ext G A))
+      (\ D G A B -> El (ext G A) B)
+      (\ D G A B f0 -> Sub D G)
+      (\ D G A B f0 s0 -> El D (Pi D (subT D G A s0) (subT (ext D (subT D G A s0)) (ext G A) B (lift D G A s0))))
+      (\ D G A B f0 s0 -> sEl D (Pi D (subT D G A s0) (subT (ext D (subT D G A s0)) (ext G A) B (lift D G A s0))))
+      (\ D G A B f0 s0 -> subst (Ty D) (El D) (subT D G (Pi G A B) s0) (Pi D (subT D G A s0) (subT (ext D (subT D G A s0)) (ext G A) B (lift D G A s0))) (pn D G A B s0) (subt D G (Pi G A B) (inv G A B f0) s0))
+      (\ D G A B f0 s0 -> inv D (subT D G A s0) (subT (ext D (subT D G A s0)) (ext G A) B (lift D G A s0)) (subt (ext D (subT D G A s0)) (ext G A) B f0 (lift D G A s0))) ;
+  
+  pUnivNatT : isProp (UnivNatT) =
+    eqProp4
+      (EM.LevelAt N)
+      (\ n -> Ctx)
+      (\ n D -> Ctx)
+      (\ n D G -> Sub D G)
+      (\ n D G s0 -> Ty D)
+      (\ n D G s0 -> sTy D)
+      (\ n D G s0 -> subT D G (univ n G) s0)
+      (\ n D G s0 -> univ n D) ;
+  
+  pDecodeNatT (un : UnivNatT) : isProp (DecodeNatT un) =
+    eqProp5
+      (EM.LevelAt N)
+      (\ n -> Ctx)
+      (\ n D -> Ctx)
+      (\ n D G -> El G (univ n G))
+      (\ n D G a -> Sub D G)
+      (\ n D G a s0 -> Ty D)
+      (\ n D G a s0 -> sTy D)
+      (\ n D G a s0 -> subT D G (decode n G a) s0)
+      (\ n D G a s0 -> decode n D (code-sub un n D G a s0)) ;
+  
+  pElLfT : isProp (ElLfT) =
+    eqProp5
+      (EM.LevelAt N)
+      (\ m -> EM.LevelAt N)
+      (\ m n -> EM.StrictAt N m n)
+      (\ m n lt -> Ctx)
+      (\ m n lt G -> El G (univ m G))
+      (\ m n lt G a -> Ty G)
+      (\ m n lt G a -> sTy G)
+      (\ m n lt G a -> decode n G (lf m n lt G a))
+      (\ m n lt G a -> decode m G a) ;
+  
+  pElPicT : isProp (ElPicT) =
+    eqProp4
+      (EM.LevelAt N)
+      (\ n -> Ctx)
+      (\ n G -> El G (univ n G))
+      (\ n G a -> El (ext G (decode n G a)) (univ n (ext G (decode n G a))))
+      (\ n G a b -> Ty G)
+      (\ n G a b -> sTy G)
+      (\ n G a b -> decode n G (pic n G a b))
+      (\ n G a b -> Pi G (decode n G a) (decode n (ext G (decode n G a)) b)) ;
+  
+  pElUcT : isProp (ElUcT) =
+    eqProp4
+      (EM.LevelAt N)
+      (\ m -> EM.LevelAt N)
+      (\ m n -> EM.StrictAt N m n)
+      (\ m n lt -> Ctx)
+      (\ m n lt G -> Ty G)
+      (\ m n lt G -> sTy G)
+      (\ m n lt G -> decode n G (uc m n lt G))
+      (\ m n lt G -> univ m G) ;
+  
+  pLfPicT (un : UnivNatT) (el : ElLfT) : isProp (LfPicT un el) =
+    eqProp6
+      (EM.LevelAt N)
+      (\ m -> EM.LevelAt N)
+      (\ m n -> EM.StrictAt N m n)
+      (\ m n lt -> Ctx)
+      (\ m n lt G -> El G (univ m G))
+      (\ m n lt G a -> El (ext G (decode m G a)) (univ m (ext G (decode m G a))))
+      (\ m n lt G a b -> El G (univ n G))
+      (\ m n lt G a b -> sEl G (univ n G))
+      (\ m n lt G a b -> lf m n lt G (pic m G a b))
+      (\ m n lt G a b -> pic n G (lf m n lt G a) (lf m n lt (ext G (decode n G (lf m n lt G a))) (code-sub un m (ext G (decode n G (lf m n lt G a))) (ext G (decode m G a)) b (lift-binder el m n lt G a)))) ;
+  
+  pLfUcT : isProp (LfUcT) =
+    eqProp7
+      (EM.LevelAt N)
+      (\ m -> EM.LevelAt N)
+      (\ m n -> EM.LevelAt N)
+      (\ m n p0 -> EM.StrictAt N m n)
+      (\ m n p0 mn -> EM.StrictAt N n p0)
+      (\ m n p0 mn np -> EM.StrictAt N m p0)
+      (\ m n p0 mn np mp -> Ctx)
+      (\ m n p0 mn np mp G -> El G (univ p0 G))
+      (\ m n p0 mn np mp G -> sEl G (univ p0 G))
+      (\ m n p0 mn np mp G -> lf n p0 np G (uc m n mn G))
+      (\ m n p0 mn np mp G -> uc m p0 mp G) ;
+  
+  pLfLfT : isProp (LfLfT) =
+    eqProp8
+      (EM.LevelAt N)
+      (\ m -> EM.LevelAt N)
+      (\ m n -> EM.LevelAt N)
+      (\ m n p0 -> EM.StrictAt N m n)
+      (\ m n p0 mn -> EM.StrictAt N n p0)
+      (\ m n p0 mn np -> EM.StrictAt N m p0)
+      (\ m n p0 mn np mp -> Ctx)
+      (\ m n p0 mn np mp G -> El G (univ m G))
+      (\ m n p0 mn np mp G a -> El G (univ p0 G))
+      (\ m n p0 mn np mp G a -> sEl G (univ p0 G))
+      (\ m n p0 mn np mp G a -> lf n p0 np G (lf m n mn G a))
+      (\ m n p0 mn np mp G a -> lf m p0 mp G a) ;
+  
+  pPicNatT (un : UnivNatT) (dn : DecodeNatT un) : isProp (PicNatT un dn) =
+    eqProp6
+      (EM.LevelAt N)
+      (\ n -> Ctx)
+      (\ n D -> Ctx)
+      (\ n D G -> Sub D G)
+      (\ n D G s0 -> El G (univ n G))
+      (\ n D G s0 a -> El (ext G (decode n G a)) (univ n (ext G (decode n G a))))
+      (\ n D G s0 a b -> El D (univ n D))
+      (\ n D G s0 a b -> sEl D (univ n D))
+      (\ n D G s0 a b -> code-sub un n D G (pic n G a b) s0)
+      (\ n D G s0 a b -> pic n D (code-sub un n D G a s0) (code-sub un n (ext D (decode n D (code-sub un n D G a s0))) (ext G (decode n G a)) b (up-code un dn n D G a s0))) ;
+  
+  pUcNatT (un : UnivNatT) : isProp (UcNatT un) =
+    eqProp6
+      (EM.LevelAt N)
+      (\ m -> EM.LevelAt N)
+      (\ m n -> EM.StrictAt N m n)
+      (\ m n lt -> Ctx)
+      (\ m n lt D -> Ctx)
+      (\ m n lt D G -> Sub D G)
+      (\ m n lt D G s0 -> El D (univ n D))
+      (\ m n lt D G s0 -> sEl D (univ n D))
+      (\ m n lt D G s0 -> code-sub un n D G (uc m n lt G) s0)
+      (\ m n lt D G s0 -> uc m n lt D) ;
+  
+  pLfNatT (un : UnivNatT) : isProp (LfNatT un) =
+    eqProp7
+      (EM.LevelAt N)
+      (\ m -> EM.LevelAt N)
+      (\ m n -> EM.StrictAt N m n)
+      (\ m n lt -> Ctx)
+      (\ m n lt D -> Ctx)
+      (\ m n lt D G -> Sub D G)
+      (\ m n lt D G s0 -> El G (univ m G))
+      (\ m n lt D G s0 a -> El D (univ n D))
+      (\ m n lt D G s0 a -> sEl D (univ n D))
+      (\ m n lt D G s0 a -> code-sub un n D G (lf m n lt G a) s0)
+      (\ m n lt D G s0 a -> lf m n lt D (code-sub un m D G a s0)) ;
+  T29 (un : UnivNatT) : U l = LfNatT un ;
+  T28 (un : UnivNatT) : U l = (z : UcNatT un) * T29 un ;
+  T27 (un : UnivNatT) (dn : DecodeNatT un) : U l = (z : PicNatT un dn) * T28 un ;
+  T26 (un : UnivNatT) (dn : DecodeNatT un) : U l = (z : LfLfT) * T27 un dn ;
+  T25 (un : UnivNatT) (dn : DecodeNatT un) : U l = (z : LfUcT) * T26 un dn ;
+  T24 (un : UnivNatT) (dn : DecodeNatT un) (el : ElLfT) : U l = (z : LfPicT un el) * T25 un dn ;
+  T23 (un : UnivNatT) (dn : DecodeNatT un) (el : ElLfT) : U l = (z : ElUcT) * T24 un dn el ;
+  T22 (un : UnivNatT) (dn : DecodeNatT un) (el : ElLfT) : U l = (z : ElPicT) * T23 un dn el ;
+  T21 (un : UnivNatT) (dn : DecodeNatT un) : U l = (el : ElLfT) * T22 un dn el ;
+  T20 (un : UnivNatT) : U l = (dn : DecodeNatT un) * T21 un dn ;
+  T19  : U l = (un : UnivNatT) * T20 un ;
+  T18 (pn : PiNatT) : U l = (z : PiIsoNatT pn) * T19  ;
+  T17  : U l = (pn : PiNatT) * T18 pn ;
+  T16 (sti : SubTIdT) (sto : SubTOT) (ps : PSecT) : U l = (z : QSecT sti sto ps) * T17  ;
+  T15 (sti : SubTIdT) (sto : SubTOT) (pl : PLiftT) (ps : PSecT) : U l = (z : QLiftT sto pl) * T16 sti sto ps ;
+  T14 (sti : SubTIdT) (sto : SubTOT) (pl : PLiftT) (ps : PSecT) : U l = (z : LiftPSecQT) * T15 sti sto pl ps ;
+  T13 (sti : SubTIdT) (sto : SubTOT) (pl : PLiftT) (ps : PSecT) : U l = (z : SecOT) * T14 sti sto pl ps ;
+  T12 (sti : SubTIdT) (sto : SubTOT) (pl : PLiftT) : U l = (ps : PSecT) * T13 sti sto pl ps ;
+  T11 (sti : SubTIdT) (sto : SubTOT) : U l = (pl : PLiftT) * T12 sti sto pl ;
+  T10 (sti : SubTIdT) (sto : SubTOT) : U l = (z : LiftOT sto) * T11 sti sto ;
+  T9 (sti : SubTIdT) (sto : SubTOT) : U l = (z : LiftIdT sti) * T10 sti sto ;
+  T8 (sti : SubTIdT) (sto : SubTOT) : U l = (z : SubtOT sto) * T9 sti sto ;
+  T7 (sti : SubTIdT) (sto : SubTOT) : U l = (z : SubtIdT sti) * T8 sti sto ;
+  T6 (sti : SubTIdT) : U l = (sto : SubTOT) * T7 sti sto ;
+  T5  : U l = (sti : SubTIdT) * T6 sti ;
+  T4  : U l = (z : EpsUniq) * T5  ;
+  T3  : U l = (z : OAssoc) * T4  ;
+  T2  : U l = (z : OIdr) * T3  ;
+  T1  : U l = (z : OIdl) * T2  ;
+  P29 (un : UnivNatT) : isProp (T29 un) = pLfNatT un ;
+  P28 (un : UnivNatT) : isProp (T28 un) =
+    isProp-Sigma (UcNatT un) (\ z -> T29 un) (pUcNatT un) (\ z -> P29 un) ;
+  P27 (un : UnivNatT) (dn : DecodeNatT un) : isProp (T27 un dn) =
+    isProp-Sigma (PicNatT un dn) (\ z -> T28 un) (pPicNatT un dn) (\ z -> P28 un) ;
+  P26 (un : UnivNatT) (dn : DecodeNatT un) : isProp (T26 un dn) =
+    isProp-Sigma (LfLfT) (\ z -> T27 un dn) (pLfLfT) (\ z -> P27 un dn) ;
+  P25 (un : UnivNatT) (dn : DecodeNatT un) : isProp (T25 un dn) =
+    isProp-Sigma (LfUcT) (\ z -> T26 un dn) (pLfUcT) (\ z -> P26 un dn) ;
+  P24 (un : UnivNatT) (dn : DecodeNatT un) (el : ElLfT) : isProp (T24 un dn el) =
+    isProp-Sigma (LfPicT un el) (\ z -> T25 un dn) (pLfPicT un el) (\ z -> P25 un dn) ;
+  P23 (un : UnivNatT) (dn : DecodeNatT un) (el : ElLfT) : isProp (T23 un dn el) =
+    isProp-Sigma (ElUcT) (\ z -> T24 un dn el) (pElUcT) (\ z -> P24 un dn el) ;
+  P22 (un : UnivNatT) (dn : DecodeNatT un) (el : ElLfT) : isProp (T22 un dn el) =
+    isProp-Sigma (ElPicT) (\ z -> T23 un dn el) (pElPicT) (\ z -> P23 un dn el) ;
+  P21 (un : UnivNatT) (dn : DecodeNatT un) : isProp (T21 un dn) =
+    isProp-Sigma (ElLfT) (\ el -> T22 un dn el) (pElLfT) (\ el -> P22 un dn el) ;
+  P20 (un : UnivNatT) : isProp (T20 un) =
+    isProp-Sigma (DecodeNatT un) (\ dn -> T21 un dn) (pDecodeNatT un) (\ dn -> P21 un dn) ;
+  P19  : isProp (T19 ) =
+    isProp-Sigma (UnivNatT) (\ un -> T20 un) (pUnivNatT) (\ un -> P20 un) ;
+  P18 (pn : PiNatT) : isProp (T18 pn) =
+    isProp-Sigma (PiIsoNatT pn) (\ z -> T19 ) (pPiIsoNatT pn) (\ z -> P19 ) ;
+  P17  : isProp (T17 ) =
+    isProp-Sigma (PiNatT) (\ pn -> T18 pn) (pPiNatT) (\ pn -> P18 pn) ;
+  P16 (sti : SubTIdT) (sto : SubTOT) (ps : PSecT) : isProp (T16 sti sto ps) =
+    isProp-Sigma (QSecT sti sto ps) (\ z -> T17 ) (pQSecT sti sto ps) (\ z -> P17 ) ;
+  P15 (sti : SubTIdT) (sto : SubTOT) (pl : PLiftT) (ps : PSecT) : isProp (T15 sti sto pl ps) =
+    isProp-Sigma (QLiftT sto pl) (\ z -> T16 sti sto ps) (pQLiftT sto pl) (\ z -> P16 sti sto ps) ;
+  P14 (sti : SubTIdT) (sto : SubTOT) (pl : PLiftT) (ps : PSecT) : isProp (T14 sti sto pl ps) =
+    isProp-Sigma (LiftPSecQT) (\ z -> T15 sti sto pl ps) (pLiftPSecQT) (\ z -> P15 sti sto pl ps) ;
+  P13 (sti : SubTIdT) (sto : SubTOT) (pl : PLiftT) (ps : PSecT) : isProp (T13 sti sto pl ps) =
+    isProp-Sigma (SecOT) (\ z -> T14 sti sto pl ps) (pSecOT) (\ z -> P14 sti sto pl ps) ;
+  P12 (sti : SubTIdT) (sto : SubTOT) (pl : PLiftT) : isProp (T12 sti sto pl) =
+    isProp-Sigma (PSecT) (\ ps -> T13 sti sto pl ps) (pPSecT) (\ ps -> P13 sti sto pl ps) ;
+  P11 (sti : SubTIdT) (sto : SubTOT) : isProp (T11 sti sto) =
+    isProp-Sigma (PLiftT) (\ pl -> T12 sti sto pl) (pPLiftT) (\ pl -> P12 sti sto pl) ;
+  P10 (sti : SubTIdT) (sto : SubTOT) : isProp (T10 sti sto) =
+    isProp-Sigma (LiftOT sto) (\ z -> T11 sti sto) (pLiftOT sto) (\ z -> P11 sti sto) ;
+  P9 (sti : SubTIdT) (sto : SubTOT) : isProp (T9 sti sto) =
+    isProp-Sigma (LiftIdT sti) (\ z -> T10 sti sto) (pLiftIdT sti) (\ z -> P10 sti sto) ;
+  P8 (sti : SubTIdT) (sto : SubTOT) : isProp (T8 sti sto) =
+    isProp-Sigma (SubtOT sto) (\ z -> T9 sti sto) (pSubtOT sto) (\ z -> P9 sti sto) ;
+  P7 (sti : SubTIdT) (sto : SubTOT) : isProp (T7 sti sto) =
+    isProp-Sigma (SubtIdT sti) (\ z -> T8 sti sto) (pSubtIdT sti) (\ z -> P8 sti sto) ;
+  P6 (sti : SubTIdT) : isProp (T6 sti) =
+    isProp-Sigma (SubTOT) (\ sto -> T7 sti sto) (pSubTOT) (\ sto -> P7 sti sto) ;
+  P5  : isProp (T5 ) =
+    isProp-Sigma (SubTIdT) (\ sti -> T6 sti) (pSubTIdT) (\ sti -> P6 sti) ;
+  P4  : isProp (T4 ) =
+    isProp-Sigma (EpsUniq) (\ z -> T5 ) (pEpsUniq) (\ z -> P5 ) ;
+  P3  : isProp (T3 ) =
+    isProp-Sigma (OAssoc) (\ z -> T4 ) (pOAssoc) (\ z -> P4 ) ;
+  P2  : isProp (T2 ) =
+    isProp-Sigma (OIdr) (\ z -> T3 ) (pOIdr) (\ z -> P3 ) ;
+  P1  : isProp (T1 ) =
+    isProp-Sigma (OIdl) (\ z -> T2 ) (pOIdl) (\ z -> P2 ) ;
+
+  eqs-prop : isProp (Eqs s c1 c2 pp v) = P1 ;
+} ;

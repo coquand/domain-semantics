@@ -1,0 +1,46 @@
+-- InitUACheck: final driver for PLAN-UAMOD.  The precategory preS of models
+-- of level N (objects TEModelS, strict morphisms HomS) is univalent:
+-- the six block proofs (Parts S, C1, C2, P, V, E) instantiate the
+-- assembly of Part G (InitUAUnivX, InitUAUniv).  Axiom: univalence at
+-- every level (funext derived from it, FunExtUA).
+import Base ; import Prelude ; import Lib ; import Paths ; import Axioms ;
+import FunExtUA ;
+import EhrhardCwF ; import EhrhardTEModel ;
+import InitHom ; import InitHomIdentity ;
+import Replacement ; import EquivalenceLemmas ; import Category ;
+import InitHomS ;
+import InitUAEquiv ; import InitUALib ;
+import InitUAIsoProp ; import InitUAIsoLemmas ; import InitUAIso ;
+import InitUABlkC1Lib ; import InitUABlkC2Lib ;
+module UA (uaA : [l] Axioms[l].Univalence) (N : Base.Nat) {
+  import InitUAObj ;
+  module C (l : Level) {
+    ua : Axioms[l].Univalence = uaA @l ;
+    fe : Axioms[l].FunExt = FunExtUA[l].FE[uaA @l].fe ;
+    fe1 : Axioms[l+].FunExt = FunExtUA[l+].FE[uaA @l+].fe ;
+    import InitUACat ;
+    import InitUABlkSLem ;
+    import InitUABlkE ;
+    module X (x : InitUAObj[l].TEModelS) {
+      import InitUALayer ;
+      import InitUABlkS ;
+      import InitUABlkC1 ;
+      import InitUABlkC2 ;
+      import InitUABlkP ;
+      import InitUABlkV ;
+      import InitUABlkEX ;
+    } ;
+    hS (x : InitUAObj[l].TEModelS) : X[x].InitUALayer.SContr = X[x].InitUABlkS.s-contr ;
+    hC1 (x : InitUAObj[l].TEModelS) : X[x].InitUALayer.C1Contr = X[x].InitUABlkC1.c1-contr ;
+    hC2 (x : InitUAObj[l].TEModelS) : X[x].InitUALayer.C2Contr = X[x].InitUABlkC2.c2-contr ;
+    hP (x : InitUAObj[l].TEModelS) : X[x].InitUALayer.PContr = X[x].InitUABlkP.p-contr ;
+    hV (x : InitUAObj[l].TEModelS) : X[x].InitUALayer.VContr = X[x].InitUABlkV.v-contr ;
+    module Ux (x : InitUAObj[l].TEModelS) {
+      import InitUAUnivX ;
+    } ;
+    import InitUAUniv ;
+    -- the result
+    univalent : Category[l+,l].Univalent InitUACat.preS = InitUAUniv.univalent ;
+    category : Category[l+,l].Category = InitUAUniv.category ;
+  } ;
+} ;

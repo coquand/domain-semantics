@@ -1,0 +1,19 @@
+-- InitUACat.seg (PLAN-UAMOD, Phase 0): the precategory of models with
+-- objects in Sigma form.  Segment of a module with free l, N, fe;
+-- imports after InitUAObj[l] (see InitUACheckCat.seg).
+--   preS   ob = TEModelS, hom x y = pre.hom (toRec x) (toRec y),
+--          identity, composition and laws those of pre (InitModelsCat).
+open Base ;
+module K = Category[l+,l] ;
+module PRE = InitHomS.ModelsCat[l,N,fe] ;
+open InitUAObj[l] ;
+
+preS : K.Precategory = new K.Precategory[
+  ob := TEModelS,
+  hom := \ x y -> PRE.InitModelsCat.pre.hom (toRec x) (toRec y),
+  hom-set := \ x y -> PRE.InitModelsCat.pre.hom-set (toRec x) (toRec y),
+  idn := \ x -> PRE.InitModelsCat.pre.idn (toRec x),
+  comp := \ x y z g f -> PRE.InitModelsCat.pre.comp (toRec x) (toRec y) (toRec z) g f,
+  unit-l := \ x y f -> PRE.InitModelsCat.pre.unit-l (toRec x) (toRec y) f,
+  unit-r := \ x y f -> PRE.InitModelsCat.pre.unit-r (toRec x) (toRec y) f,
+  assoc := \ w x y z f g h -> PRE.InitModelsCat.pre.assoc (toRec w) (toRec x) (toRec y) (toRec z) f g h] ;

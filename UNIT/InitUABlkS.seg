@@ -1,0 +1,115 @@
+-- InitUABlkS.seg (PLAN-UAMOD, Part S): the sort block SBlk is centred at
+-- sb0 (univalence for the four sorts).  Segment with free l, N, fe, ua,
+-- fe1, x (see InitUACheckS.seg); uses InitUALayer and InitUABlkSLem.
+--
+-- SBlk is a retract (round trip refl) of the layered type
+--   Lay = (cp : CP) * (sp : SP cp) * (tp : TP cp) * EP cp tp
+-- each part = ((sort, map, BiInv), set-ness).  CP is centred by
+-- eb-centred (base) and a proposition (fibre); SP, TP, EP at the centre
+-- of CP (ctx = identity) by eb2-centred / eb1-centred and propositions.
+open Base ; open Prelude[l] ;
+open InitUAObj[l] ;
+module EQ = InitUAEquiv[l] ;
+module ULib = InitUALib[l] ;
+module LibP = InitUALib[l+] ;
+module FL = Axioms[l].FunExtLemmas[fe] ;
+module SL = InitUABlkSLem ;
+module LY = InitUALayer ;
+
+C : EhrhardCwF.CwF[l] = LY.C ;
+
+------------------------------------------------------------------------
+-- the layered type
+
+CP : U l+ = (w : SL.EB C.Ctx) * isSet w.1 ;
+
+SP (cp : CP) : U l+ =
+  (w : (S : cp.1.1 -> cp.1.1 -> U l)
+     * (sub : (D G : C.Ctx) -> C.Sub D G -> S (cp.1.2.1 D) (cp.1.2.1 G))
+     * ((D G : C.Ctx) -> EQ.BiInv (C.Sub D G) (S (cp.1.2.1 D) (cp.1.2.1 G)) (sub D G)))
+  * ((D G : cp.1.1) -> isSet (w.1 D G)) ;
+
+TP (cp : CP) : U l+ =
+  (w : (T : cp.1.1 -> U l)
+     * (ty : (G : C.Ctx) -> C.Ty G -> T (cp.1.2.1 G))
+     * ((G : C.Ctx) -> EQ.BiInv (C.Ty G) (T (cp.1.2.1 G)) (ty G)))
+  * ((G : cp.1.1) -> isSet (w.1 G)) ;
+
+EP (cp : CP) (tp : TP cp) : U l+ =
+  (w : (E : (G : cp.1.1) -> tp.1.1 G -> U l)
+     * (tm : (G : C.Ctx) (A : C.Ty G) -> C.El G A -> E (cp.1.2.1 G) (tp.1.2.1 G A))
+     * ((G : C.Ctx) (A : C.Ty G) -> EQ.BiInv (C.El G A) (E (cp.1.2.1 G) (tp.1.2.1 G A)) (tm G A)))
+  * ((G : cp.1.1) (A : tp.1.1 G) -> isSet (w.1 G A)) ;
+
+Lay : U l+ = (cp : CP) * (sp : SP cp) * (tp : TP cp) * EP cp tp ;
+
+toLay (u : LY.SBlk) : Lay =
+  (((u.1.1, (u.2.2.1.1, u.2.2.2.1)), u.2.1.1),
+  (((u.1.2.1, (u.2.2.1.2.1, u.2.2.2.2.1)), u.2.1.2.1),
+  (((u.1.2.2.1, (u.2.2.1.2.2.1, u.2.2.2.2.2.1)), u.2.1.2.2.1),
+   ((u.1.2.2.2, (u.2.2.1.2.2.2, u.2.2.2.2.2.2)), u.2.1.2.2.2)))) ;
+
+fromLay (v : Lay) : LY.SBlk =
+  ((v.1.1.1, (v.2.1.1.1, (v.2.2.1.1.1, v.2.2.2.1.1))),
+  ((v.1.2, (v.2.1.2, (v.2.2.1.2, v.2.2.2.2))),
+  ((v.1.1.2.1, (v.2.1.1.2.1, (v.2.2.1.1.2.1, v.2.2.2.1.2.1))),
+   (v.1.1.2.2, (v.2.1.1.2.2, (v.2.2.1.1.2.2, v.2.2.2.1.2.2)))))) ;
+
+from-to (u : LY.SBlk) : Id LY.SBlk (fromLay (toLay u)) u = refl u ;
+
+------------------------------------------------------------------------
+-- the centre (fromLay lay0 = sb0 definitionally)
+
+hs : Sets x.1 = x.2.1 ;
+
+cp0 : CP = (SL.eb0 C.Ctx, hs.1) ;
+sp0 : SP cp0 = (SL.eb20 C.Ctx (\ D -> C.Ctx) C.Sub, hs.2.1) ;
+tp0 : TP cp0 = (SL.eb10 C.Ctx C.Ty, hs.2.2.1) ;
+ep0 : EP cp0 tp0 = (SL.eb20 C.Ctx C.Ty C.El, hs.2.2.2) ;
+lay0 : Lay = (cp0, (sp0, (tp0, ep0))) ;
+
+centre-ok : Id LY.SBlk (fromLay lay0) LY.sb0 = refl LY.sb0 ;
+
+------------------------------------------------------------------------
+-- part by part
+
+cp-c : LibP.Centred CP cp0 =
+  ULib.sigmaH (SL.EB C.Ctx) (\ w -> isSet w.1) (SL.eb0 C.Ctx) (SL.eb-centred C.Ctx)
+    hs.1 (ULib.prop (isSet C.Ctx) (SL.isProp-isSet C.Ctx) hs.1) ;
+
+sp-c : LibP.Centred (SP cp0) sp0 =
+  ULib.sigmaH (SL.EB2 C.Ctx (\ D -> C.Ctx) C.Sub) (\ w -> (D G : C.Ctx) -> isSet (w.1 D G))
+    (SL.eb20 C.Ctx (\ D -> C.Ctx) C.Sub) (SL.eb2-centred C.Ctx (\ D -> C.Ctx) C.Sub)
+    hs.2.1
+    (ULib.prop ((D G : C.Ctx) -> isSet (C.Sub D G))
+      (FL.isProp-Pi C.Ctx (\ D -> (G : C.Ctx) -> isSet (C.Sub D G)) (\ D ->
+        FL.isProp-Pi C.Ctx (\ G -> isSet (C.Sub D G)) (\ G -> SL.isProp-isSet (C.Sub D G))))
+      hs.2.1) ;
+
+tp-c : LibP.Centred (TP cp0) tp0 =
+  ULib.sigmaH (SL.EB1 C.Ctx C.Ty) (\ w -> (G : C.Ctx) -> isSet (w.1 G))
+    (SL.eb10 C.Ctx C.Ty) (SL.eb1-centred C.Ctx C.Ty)
+    hs.2.2.1
+    (ULib.prop ((G : C.Ctx) -> isSet (C.Ty G))
+      (FL.isProp-Pi C.Ctx (\ G -> isSet (C.Ty G)) (\ G -> SL.isProp-isSet (C.Ty G)))
+      hs.2.2.1) ;
+
+ep-c : LibP.Centred (EP cp0 tp0) ep0 =
+  ULib.sigmaH (SL.EB2 C.Ctx C.Ty C.El) (\ w -> (G : C.Ctx) (A : C.Ty G) -> isSet (w.1 G A))
+    (SL.eb20 C.Ctx C.Ty C.El) (SL.eb2-centred C.Ctx C.Ty C.El)
+    hs.2.2.2
+    (ULib.prop ((G : C.Ctx) (A : C.Ty G) -> isSet (C.El G A))
+      (FL.isProp-Pi C.Ctx (\ G -> (A : C.Ty G) -> isSet (C.El G A)) (\ G ->
+        FL.isProp-Pi (C.Ty G) (\ A -> isSet (C.El G A)) (\ A -> SL.isProp-isSet (C.El G A))))
+      hs.2.2.2) ;
+
+lay-c : LibP.Centred Lay lay0 =
+  LibP.sigma CP (\ cp -> (sp : SP cp) * (tp : TP cp) * EP cp tp) cp0 cp-c (sp0, (tp0, ep0))
+    (LibP.sigma (SP cp0) (\ sp -> (tp : TP cp0) * EP cp0 tp) sp0 sp-c (tp0, ep0)
+      (LibP.sigma (TP cp0) (EP cp0) tp0 tp-c ep0 ep-c)) ;
+
+------------------------------------------------------------------------
+-- the result
+
+s-contr : LY.SContr =
+  LibP.retract LY.SBlk Lay toLay fromLay from-to lay0 lay-c ;

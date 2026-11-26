@@ -1,0 +1,158 @@
+-- InitUABlkC1.seg (PLAN-UAMOD, Part C1): C1Contr, the block of Ops1 and
+-- its laws is contractible at the centre sb0.  Segment inside module X
+-- (free l, N, fe, x), after InitUALayer.
+-- C1Blk sb0 is a retract (refl round trip) of
+--   K = (nil', law) * (id', law) * (o', law) * (eps', law) * (subT', law) * (subt', law)
+-- each pair a singleton: sing-l, psig (choice + funext), and embSing for
+-- the laws in the total spaces SubT and Term (over sets); eps' and subt'
+-- are contracted after nil' and subT', at which point their laws have
+-- fixed base points.
+open Base ; open Prelude[l] ;
+open InitUALayer ;
+module LB = InitUALib[l] ;
+module CL = InitUABlkC1Lib[l] ;
+module IL = InitUAIsoLemmas[l] ;
+
+Ct : U l = C.Ctx ;
+Sb (D G : Ct) : U l = C.Sub D G ;
+Tp (G : Ct) : U l = C.Ty G ;
+Tm (G : Ct) (A : Tp G) : U l = C.El G A ;
+sCt : isSet Ct = x.2.1.1 ;
+sSb (D G : Ct) : isSet (Sb D G) = x.2.1.2.1 D G ;
+sTp (G : Ct) : isSet (Tp G) = x.2.1.2.2.1 G ;
+sTm (G : Ct) (A : Tp G) : isSet (Tm G A) = x.2.1.2.2.2 G A ;
+
+CodT (X : Ct) : U l = (Y : Ct) * Sb X Y ;
+SubT : U l = (X : Ct) * CodT X ;
+Term (X : Ct) : U l = (A : Tp X) * Tm X A ;
+SubTyT : U l = (D G : Ct) -> Tp G -> Sb D G -> Tp D ;
+
+sSubT : isSet SubT =
+  isSet-Sigma Ct CodT sCt (\ X -> isSet-Sigma Ct (\ Y -> Sb X Y) sCt (\ Y -> sSb X Y)) ;
+sTerm (X : Ct) : isSet (Term X) = isSet-Sigma (Tp X) (Tm X) (sTp X) (sTm X) ;
+
+------------------------------------------------------------------------
+-- the reordered block
+
+NW : U l = (n : Ct) * Id Ct C.nil n ;
+IW : U l = (i : (G : Ct) -> Sb G G) * ((G : Ct) -> Id (Sb G G) (C.id G) (i G)) ;
+OW : U l = (o : (T D G : Ct) -> Sb D G -> Sb T D -> Sb T G)
+  * ((T D G : Ct) (s0 : Sb D G) (s1 : Sb T D) -> Id (Sb T G) (C.o T D G s0 s1) (o T D G s0 s1)) ;
+EW (n : Ct) : U l = (e : (G : Ct) -> Sb G n)
+  * ((G : Ct) -> Id SubT (G, (C.nil, C.eps G)) (G, (n, e G))) ;
+TW : U l = (t : SubTyT)
+  * ((D G : Ct) (A : Tp G) (s0 : Sb D G) -> Id (Tp D) (C.subT D G A s0) (t D G A s0)) ;
+SW (t : SubTyT) : U l = (u : (D G : Ct) (A : Tp G) (a : Tm G A) (s0 : Sb D G) -> Tm D (t D G A s0))
+  * ((D G : Ct) (A : Tp G) (a : Tm G A) (s0 : Sb D G) ->
+       Id (Term D) (C.subT D G A s0, C.subt D G A a s0) (t D G A s0, u D G A a s0)) ;
+TS : U l = (tw : TW) * SW tw.1 ;
+Rest (n : Ct) : U l = IW * (OW * (EW n * TS)) ;
+K : U l = (nw : NW) * Rest nw.1 ;
+
+toK (u : C1Blk sb0) : K =
+  ((u.1.1, u.2.1), ((u.1.2.1, u.2.2.1), ((u.1.2.2.1, u.2.2.2.1), ((u.1.2.2.2.1, u.2.2.2.2.1),
+   ((u.1.2.2.2.2.1, u.2.2.2.2.2.1), (u.1.2.2.2.2.2, u.2.2.2.2.2.2)))))) ;
+
+fromK (k : K) : C1Blk sb0 =
+  ((k.1.1, (k.2.1.1, (k.2.2.1.1, (k.2.2.2.1.1, (k.2.2.2.2.1.1, k.2.2.2.2.2.1))))),
+   (k.1.2, (k.2.1.2, (k.2.2.1.2, (k.2.2.2.1.2, (k.2.2.2.2.1.2, k.2.2.2.2.2.2)))))) ;
+
+------------------------------------------------------------------------
+-- centres and contractions
+
+nw0 : NW = (C.nil, refl C.nil) ;
+iw0 : IW = (C.id, \ G -> refl (C.id G)) ;
+ow0 : OW = (C.o, \ T D G s0 s1 -> refl (C.o T D G s0 s1)) ;
+ew0 : EW C.nil = (C.eps, \ G -> refl (G, (C.nil, C.eps G))) ;
+tw0 : TW = (C.subT, \ D G A s0 -> refl (C.subT D G A s0)) ;
+sw0 : SW C.subT = (C.subt, \ D G A a s0 -> refl (C.subT D G A s0, C.subt D G A a s0)) ;
+k0 : K = (nw0, (iw0, (ow0, (ew0, (tw0, sw0))))) ;
+
+hN : LB.Centred NW nw0 = LB.sing-l Ct C.nil ;
+
+hI : LB.Centred IW iw0 =
+  CL.psig fe Ct (\ G -> Sb G G) (\ G b -> Id (Sb G G) (C.id G) b) C.id (\ G -> refl (C.id G))
+    (\ G -> LB.sing-l (Sb G G) (C.id G)) ;
+
+hO : LB.Centred OW ow0 =
+  CL.psig fe Ct (\ T -> (D G : Ct) -> Sb D G -> Sb T D -> Sb T G)
+    (\ T f -> (D G : Ct) (s0 : Sb D G) (s1 : Sb T D) -> Id (Sb T G) (C.o T D G s0 s1) (f D G s0 s1))
+    C.o (\ T D G s0 s1 -> refl (C.o T D G s0 s1))
+    (\ T -> CL.psig fe Ct (\ D -> (G : Ct) -> Sb D G -> Sb T D -> Sb T G)
+      (\ D f -> (G : Ct) (s0 : Sb D G) (s1 : Sb T D) -> Id (Sb T G) (C.o T D G s0 s1) (f G s0 s1))
+      (C.o T) (\ D G s0 s1 -> refl (C.o T D G s0 s1))
+      (\ D -> CL.psig fe Ct (\ G -> Sb D G -> Sb T D -> Sb T G)
+        (\ G f -> (s0 : Sb D G) (s1 : Sb T D) -> Id (Sb T G) (C.o T D G s0 s1) (f s0 s1))
+        (C.o T D) (\ G s0 s1 -> refl (C.o T D G s0 s1))
+        (\ G -> CL.psig fe (Sb D G) (\ s0 -> Sb T D -> Sb T G)
+          (\ s0 f -> (s1 : Sb T D) -> Id (Sb T G) (C.o T D G s0 s1) (f s1))
+          (C.o T D G) (\ s0 s1 -> refl (C.o T D G s0 s1))
+          (\ s0 -> CL.psig fe (Sb T D) (\ s1 -> Sb T G)
+            (\ s1 b -> Id (Sb T G) (C.o T D G s0 s1) b)
+            (C.o T D G s0) (\ s1 -> refl (C.o T D G s0 s1))
+            (\ s1 -> LB.sing-l (Sb T G) (C.o T D G s0 s1)))))) ;
+
+backE (G : Ct) (b b' : Sb G C.nil) (p : Id SubT (G, (C.nil, b)) (G, (C.nil, b'))) : Id (Sb G C.nil) b b' =
+  IL.fib-any Ct sCt (\ Y -> Sb G Y) C.nil C.nil (refl C.nil) b b'
+    (IL.fib-any Ct sCt CodT G G (refl G) (C.nil, b) (C.nil, b') p) ;
+
+hE : LB.Centred (EW C.nil) ew0 =
+  CL.psig fe Ct (\ G -> Sb G C.nil) (\ G b -> Id SubT (G, (C.nil, C.eps G)) (G, (C.nil, b)))
+    C.eps (\ G -> refl (G, (C.nil, C.eps G)))
+    (\ G -> CL.embSing (Sb G C.nil) SubT sSubT (\ b -> (G, (C.nil, b))) (backE G) (C.eps G)) ;
+
+hT : LB.Centred TW tw0 =
+  CL.psig fe Ct (\ D -> (G : Ct) -> Tp G -> Sb D G -> Tp D)
+    (\ D f -> (G : Ct) (A : Tp G) (s0 : Sb D G) -> Id (Tp D) (C.subT D G A s0) (f G A s0))
+    C.subT (\ D G A s0 -> refl (C.subT D G A s0))
+    (\ D -> CL.psig fe Ct (\ G -> Tp G -> Sb D G -> Tp D)
+      (\ G f -> (A : Tp G) (s0 : Sb D G) -> Id (Tp D) (C.subT D G A s0) (f A s0))
+      (C.subT D) (\ G A s0 -> refl (C.subT D G A s0))
+      (\ G -> CL.psig fe (Tp G) (\ A -> Sb D G -> Tp D)
+        (\ A f -> (s0 : Sb D G) -> Id (Tp D) (C.subT D G A s0) (f s0))
+        (C.subT D G) (\ A s0 -> refl (C.subT D G A s0))
+        (\ A -> CL.psig fe (Sb D G) (\ s0 -> Tp D)
+          (\ s0 b -> Id (Tp D) (C.subT D G A s0) b)
+          (C.subT D G A) (\ s0 -> refl (C.subT D G A s0))
+          (\ s0 -> LB.sing-l (Tp D) (C.subT D G A s0))))) ;
+
+backS (D : Ct) (A0 : Tp D) (b b' : Tm D A0) (p : Id (Term D) (A0, b) (A0, b')) : Id (Tm D A0) b b' =
+  IL.fib-any (Tp D) (sTp D) (Tm D) A0 A0 (refl A0) b b' p ;
+
+hS : LB.Centred (SW C.subT) sw0 =
+  CL.psig fe Ct (\ D -> (G : Ct) (A : Tp G) (a : Tm G A) (s0 : Sb D G) -> Tm D (C.subT D G A s0))
+    (\ D f -> (G : Ct) (A : Tp G) (a : Tm G A) (s0 : Sb D G) ->
+       Id (Term D) (C.subT D G A s0, C.subt D G A a s0) (C.subT D G A s0, f G A a s0))
+    C.subt (\ D G A a s0 -> refl (C.subT D G A s0, C.subt D G A a s0))
+    (\ D -> CL.psig fe Ct (\ G -> (A : Tp G) (a : Tm G A) (s0 : Sb D G) -> Tm D (C.subT D G A s0))
+      (\ G f -> (A : Tp G) (a : Tm G A) (s0 : Sb D G) ->
+         Id (Term D) (C.subT D G A s0, C.subt D G A a s0) (C.subT D G A s0, f A a s0))
+      (C.subt D) (\ G A a s0 -> refl (C.subT D G A s0, C.subt D G A a s0))
+      (\ G -> CL.psig fe (Tp G) (\ A -> (a : Tm G A) (s0 : Sb D G) -> Tm D (C.subT D G A s0))
+        (\ A f -> (a : Tm G A) (s0 : Sb D G) ->
+           Id (Term D) (C.subT D G A s0, C.subt D G A a s0) (C.subT D G A s0, f a s0))
+        (C.subt D G) (\ A a s0 -> refl (C.subT D G A s0, C.subt D G A a s0))
+        (\ A -> CL.psig fe (Tm G A) (\ a -> (s0 : Sb D G) -> Tm D (C.subT D G A s0))
+          (\ a f -> (s0 : Sb D G) ->
+             Id (Term D) (C.subT D G A s0, C.subt D G A a s0) (C.subT D G A s0, f s0))
+          (C.subt D G A) (\ a s0 -> refl (C.subT D G A s0, C.subt D G A a s0))
+          (\ a -> CL.psig fe (Sb D G) (\ s0 -> Tm D (C.subT D G A s0))
+            (\ s0 b -> Id (Term D) (C.subT D G A s0, C.subt D G A a s0) (C.subT D G A s0, b))
+            (C.subt D G A a) (\ s0 -> refl (C.subT D G A s0, C.subt D G A a s0))
+            (\ s0 -> CL.embSing (Tm D (C.subT D G A s0)) (Term D) (sTerm D)
+                       (\ b -> (C.subT D G A s0, b)) (backS D (C.subT D G A s0))
+                       (C.subt D G A a s0)))))) ;
+
+hTS : LB.Centred TS (tw0, sw0) = LB.sigma TW (\ tw -> SW tw.1) tw0 hT sw0 hS ;
+
+hRest : LB.Centred (Rest C.nil) (iw0, (ow0, (ew0, (tw0, sw0)))) =
+  LB.sigma IW (\ _ -> OW * (EW C.nil * TS)) iw0 hI (ow0, (ew0, (tw0, sw0)))
+    (LB.sigma OW (\ _ -> EW C.nil * TS) ow0 hO (ew0, (tw0, sw0))
+      (LB.sigma (EW C.nil) (\ _ -> TS) ew0 hE (tw0, sw0) hTS)) ;
+
+hK : LB.Centred K k0 = LB.sigma NW (\ nw -> Rest nw.1) nw0 hN (iw0, (ow0, (ew0, (tw0, sw0)))) hRest ;
+
+------------------------------------------------------------------------
+-- the block statement
+
+c1-contr : C1Contr = LB.retract (C1Blk sb0) K toK fromK (\ u -> refl u) k0 hK ;

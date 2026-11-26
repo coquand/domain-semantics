@@ -1,0 +1,20 @@
+-- InitUACheckS: driver for PLAN-UAMOD Part S (the sort block SBlk is
+-- contractible, by univalence).  Shape of InitUACheckLayer.seg, with
+-- ua (univalence at l) and fe1 (funext at l+) as parameters of C.
+import Base ; import Prelude ; import Lib ; import Paths ; import Axioms ;
+import EhrhardCwF ; import EhrhardTEModel ;
+import InitHom ; import InitHomIdentity ;
+import Replacement ; import EquivalenceLemmas ; import Category ;
+import InitHomS ;
+import InitUAEquiv ; import InitUALib ;
+module T (N : Base.Nat) {
+  import InitUAObj ;
+  module C (l : Level) (fe : Axioms[l].FunExt) (ua : Axioms[l].Univalence) (fe1 : Axioms[l+].FunExt) {
+    import InitUACat ;
+    import InitUABlkSLem ;
+    module X (x : InitUAObj[l].TEModelS) {
+      import InitUALayer ;
+      import InitUABlkS ;
+    } ;
+  } ;
+} ;

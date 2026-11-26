@@ -1,0 +1,31 @@
+-- InitUACheckG: driver for PLAN-UAMOD Part G (block E, and the assembly
+-- with the other five block proofs as module parameters).
+import Base ; import Prelude ; import Lib ; import Paths ; import Axioms ;
+import EhrhardCwF ; import EhrhardTEModel ;
+import InitHom ; import InitHomIdentity ;
+import Replacement ; import EquivalenceLemmas ; import Category ;
+import InitHomS ;
+import InitUAEquiv ; import InitUALib ;
+import InitUAIsoProp ; import InitUAIsoLemmas ; import InitUAIso ;
+module T (N : Base.Nat) {
+  import InitUAObj ;
+  module C (l : Level) (fe : Axioms[l].FunExt) {
+    import InitUACat ;
+    import InitUABlkE ;
+    module X (x : InitUAObj[l].TEModelS) {
+      import InitUALayer ;
+      import InitUABlkEX ;
+    } ;
+    module G
+      (hS : (x : InitUAObj[l].TEModelS) -> X[x].InitUALayer.SContr)
+      (hC1 : (x : InitUAObj[l].TEModelS) -> X[x].InitUALayer.C1Contr)
+      (hC2 : (x : InitUAObj[l].TEModelS) -> X[x].InitUALayer.C2Contr)
+      (hP : (x : InitUAObj[l].TEModelS) -> X[x].InitUALayer.PContr)
+      (hV : (x : InitUAObj[l].TEModelS) -> X[x].InitUALayer.VContr) {
+      module Ux (x : InitUAObj[l].TEModelS) {
+        import InitUAUnivX ;
+      } ;
+      import InitUAUniv ;
+    } ;
+  } ;
+} ;

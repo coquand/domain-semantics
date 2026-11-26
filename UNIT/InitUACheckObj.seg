@@ -1,0 +1,2 @@
+import Base ; import Prelude ; import Lib ; import Paths ; import EhrhardCwF ; import EhrhardTEModel ;
+module T (N : Base.Nat) { import InitUAObj ; } ;

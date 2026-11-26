@@ -1,0 +1,13 @@
+-- InitUABlkEX.seg (PLAN-UAMOD, Part G, block E at x): EContr.  At the
+-- centre the block is Eqs of x's own operations, a proposition since
+-- the sorts of x are sets (InitUABlkE.EP.eqs-prop); an inhabited
+-- proposition is centred at any point, here eb0.  Segment with free
+-- l, N, fe, x; import after InitUALayer (and InitUABlkE in the
+-- enclosing module), see InitUACheckG.seg.
+module LY = InitUALayer ;
+
+e-prop : Prelude[l].isProp (LY.EBlk LY.sb0 LY.c1b0 LY.c2b0 LY.pb0 LY.vb0) =
+  InitUABlkE.EP[x.1, x.2.1, x.2.2.1, x.2.2.2.1, x.2.2.2.2.1, x.2.2.2.2.2.1].eqs-prop ;
+
+e-contr : LY.EContr =
+  InitUALib[l].prop (LY.EBlk LY.sb0 LY.c1b0 LY.c2b0 LY.pb0 LY.vb0) e-prop LY.eb0 ;

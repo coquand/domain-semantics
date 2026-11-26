@@ -1,0 +1,16 @@
+-- InitUACheckP.seg (PLAN-UAMOD, Part P): driver for InitUABlkP (p-contr : InitUALayer.PContr).
+import Base ; import Prelude ; import Lib ; import Paths ; import Axioms ;
+import EhrhardCwF ; import EhrhardTEModel ;
+import InitHom ; import InitHomIdentity ;
+import Replacement ; import EquivalenceLemmas ; import Category ;
+import InitHomS ;
+import InitUAEquiv ; import InitUALib ;
+module T (N : Base.Nat) {
+  import InitUAObj ;
+  module C (l : Level) (fe : Axioms[l].FunExt) {
+    import InitUACat ;
+    module X (x : InitUAObj[l].TEModelS) {
+      import InitUALayer ; import InitUABlkP ;
+    } ;
+  } ;
+} ;

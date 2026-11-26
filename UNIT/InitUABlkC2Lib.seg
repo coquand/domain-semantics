@@ -1,0 +1,35 @@
+-- InitUABlkC2Lib.seg (PLAN-UAMOD, Part C2): generic lemmas, level l.
+--   fib-any   (copy of InitUAIsoLemmas.fib-any) over a set A, a path
+--             (x, b) = (y, b') gives subst e b = b' for any e : x = y
+--   emb       if W is a set and i : B -> W has a "fibre" map
+--             f : i b = i b' -> b = b', then (b : B) * Id W (i b0) (i b)
+--             is centred at (b0, refl): retract of the based path space
+--             of B (round trip by isSet W).
+level l ;
+open Base ; open Prelude[l] ;
+module LB = InitUALib[l] ;
+
+fib-any (A : U l) (sA : isSet A) (F : A -> U l) (x y : A) (e : Id A x y) (b : F x) (b' : F y)
+    (Q : Id ((z : A) * F z) (x, b) (y, b')) : Id (F y) (subst A F x y e b) b' =
+  trans (F y) (subst A F x y e b)
+    (subst A F x y (ap ((z : A) * F z) A (\ w -> w.1) (x, b) (y, b') Q) b) b'
+    (ap (Id A x y) (F y) (\ e1 -> subst A F x y e1 b)
+       e (ap ((z : A) * F z) A (\ w -> w.1) (x, b) (y, b') Q)
+       (sA x y e (ap ((z : A) * F z) A (\ w -> w.1) (x, b) (y, b') Q)))
+    (Sigma-snd A F x y b b' Q) ;
+
+-- same first component, along refl
+fib (A : U l) (sA : isSet A) (F : A -> U l) (x : A) (b b' : F x)
+    (Q : Id ((z : A) * F z) (x, b) (x, b')) : Id (F x) b b' =
+  fib-any A sA F x x (refl x) b b' Q ;
+
+emb (B W : U l) (sW : isSet W) (i : B -> W)
+    (f : (b b' : B) -> Id W (i b) (i b') -> Id B b b') (b0 : B)
+  : LB.Centred ((b : B) * Id W (i b0) (i b)) (b0, refl (i b0)) =
+  LB.retract ((b : B) * Id W (i b0) (i b)) ((b : B) * Id B b0 b)
+    (\ u -> (u.1, f b0 u.1 u.2))
+    (\ v -> (v.1, ap B W i b0 v.1 v.2))
+    (\ u -> ap (Id W (i b0) (i u.1)) ((b : B) * Id W (i b0) (i b)) (\ Q -> (u.1, Q))
+              (ap B W i b0 u.1 (f b0 u.1 u.2)) u.2
+              (sW (i b0) (i u.1) (ap B W i b0 u.1 (f b0 u.1 u.2)) u.2))
+    (b0, refl b0) (LB.sing-l B b0) ;

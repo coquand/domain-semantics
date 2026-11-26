@@ -1,0 +1,19 @@
+-- InitUAUniv.seg (PLAN-UAMOD, Part G): the precategory preS of models of
+-- level N (objects in Sigma form, strict morphisms) is univalent, given
+-- the block contractions at every object.  Segment with free l, N, fe,
+-- hS hC1 hC2 hP hV; the module Ux (x) of the enclosing module holds
+-- InitUAUnivX at x (see InitUACheckG.seg).
+--   univalent : Category[l+,l].Univalent preS   (Category.FromTotal)
+--   category  : Category[l+,l].Category         (pre = preS)
+open Base ;
+open InitUAObj[l] ;
+module K = Category[l+,l] ;
+
+singl-prop (x : TEModelS) : Prelude[l+].isProp (K.Singletons[InitUACat.preS].Singl x) =
+  Ux[x].InitUAUnivX.singl-prop ;
+
+module FT = K.FromTotal[InitUACat.preS, singl-prop] ;
+
+univalent : K.Univalent InitUACat.preS = FT.univalent ;
+
+category : K.Category = new K.Category[pre := InitUACat.preS, univalent := univalent] ;

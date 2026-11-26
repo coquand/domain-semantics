@@ -1,0 +1,99 @@
+-- InitUAIsoComp (PLAN-UAMOD, Part I): the components of an iso of models
+-- are bi-invertible.  Segment of InitUAIso.IsoComp (l, N, fe, M, M').
+-- For f : M -> M' with inverse g = i.1, the paths i.2.1 : g.f = 1 and
+-- i.2.2 : f.g = 1 (in HomS) give Agree of the records (hom-agree); the
+-- maps of a composite are the composed maps by definition.  ctx: g.ctx
+-- is a two-sided inverse.  Sub, Ty, El: InitUAIsoLemmas.Fib over the
+-- bases Ctx x Ctx, Ctx and TyT = (G : Ctx) * Ty G respectively (sets);
+-- the fibrewise inverse is g's component followed by the transport
+-- along the agreement of g.f with the identity on the base.
+open Base ;
+open Prelude[l] ;
+module E = InitUAEquiv[l] ;
+module Lm = InitUAIsoLemmas[l] ;
+module MC = InitHomS.ModelsCat[l,N,fe].InitModelsCat ;
+module S11 = InitHomS.MorphismS[l,N,M,M,fe] ;
+module S22 = InitHomS.MorphismS[l,N,M',M',fe] ;
+module Mo11 = InitHom.Morphism[l,N,M,M] ;
+module Mo22 = InitHom.Morphism[l,N,M',M'] ;
+
+C : EhrhardCwF.CwF[l] = M.cwf ;
+C' : EhrhardCwF.CwF[l] = M'.cwf ;
+
+-- the statement
+CompEq (f : MC.pre.hom M M') : U l =
+  E.CompEqOver C.Ctx C.Sub C.Ty C.El C'.Ctx C'.Sub C'.Ty C'.El
+    f.1.1 f.1.2.1 f.1.2.2.1 f.1.2.2.2 ;
+
+-- bases and their sets
+CC : U l = C.Ctx * C.Ctx ;
+CC' : U l = C'.Ctx * C'.Ctx ;
+set-CC : isSet CC = isSet-Sigma C.Ctx (\ G -> C.Ctx) M.isSetCtx (\ G -> M.isSetCtx) ;
+set-CC' : isSet CC' = isSet-Sigma C'.Ctx (\ G -> C'.Ctx) M'.isSetCtx (\ G -> M'.isSetCtx) ;
+TyT : U l = (G : C.Ctx) * C.Ty G ;
+TyT' : U l = (G : C'.Ctx) * C'.Ty G ;
+set-TyT : isSet TyT = isSet-Sigma C.Ctx C.Ty M.isSetCtx C.isSetTy ;
+set-TyT' : isSet TyT' = isSet-Sigma C'.Ctx C'.Ty M'.isSetCtx C'.isSetTy ;
+
+module On (f : MC.pre.hom M M') (i : MC.pre.isIso M M' f) {
+  g : MC.pre.hom M' M = i.1 ;
+  fc : C.Ctx -> C'.Ctx = f.1.1 ;
+  gc : C'.Ctx -> C.Ctx = g.1.1 ;
+
+  -- g.f = 1 and f.g = 1, pointwise
+  ag1 : Mo11.InitHomLaws.Agree[S11.InitHomSig.fromS (MC.pre.comp M M' M g f), S11.InitHomSig.fromS (MC.pre.idn M)] =
+    S11.InitHomExt.hom-agree (MC.pre.comp M M' M g f) (MC.pre.idn M) i.2.1 ;
+  ag2 : Mo22.InitHomLaws.Agree[S22.InitHomSig.fromS (MC.pre.comp M' M M' f g), S22.InitHomSig.fromS (MC.pre.idn M')] =
+    S22.InitHomExt.hom-agree (MC.pre.comp M' M M' f g) (MC.pre.idn M') i.2.2 ;
+
+  -- contexts
+  eq-ctx : E.BiInv C.Ctx C'.Ctx fc =
+    ((gc, \ X -> ag2.ctx-ag X), (gc, \ G -> ag1.ctx-ag G)) ;
+
+  -- substitutions, over Ctx x Ctx
+  module FS = Lm.Fib[CC, set-CC, \ w -> C.Sub w.1 w.2,
+                     CC', set-CC', \ w -> C'.Sub w.1 w.2,
+                     \ w -> (fc w.1, fc w.2), \ w s -> f.1.2.1 w.1 w.2 s,
+                     \ w -> (gc w.1, gc w.2), \ w s -> g.1.2.1 w.1 w.2 s,
+                     \ w -> Lm.pair-path C.Ctx C.Ctx (gc (fc w.1)) w.1 (gc (fc w.2)) w.2
+                              (ag1.ctx-ag w.1) (ag1.ctx-ag w.2),
+                     \ w s -> Lm.regroup-path C.Ctx (\ G -> C.Ctx) (\ D G -> C.Sub D G)
+                                (gc (fc w.1), (gc (fc w.2), g.1.2.1 (fc w.1) (fc w.2) (f.1.2.1 w.1 w.2 s)))
+                                (w.1, (w.2, s)) (ag1.sub-ag w.1 w.2 s),
+                     \ w s -> Lm.regroup-path C'.Ctx (\ G -> C'.Ctx) (\ D G -> C'.Sub D G)
+                                (fc (gc w.1), (fc (gc w.2), f.1.2.1 (gc w.1) (gc w.2) (g.1.2.1 w.1 w.2 s)))
+                                (w.1, (w.2, s)) (ag2.sub-ag w.1 w.2 s)] ;
+  eq-sub (D G : C.Ctx) : E.BiInv (C.Sub D G) (C'.Sub (fc D) (fc G)) (f.1.2.1 D G) = FS.biinv (D, G) ;
+
+  -- types, over Ctx
+  module FT = Lm.Fib[C.Ctx, M.isSetCtx, C.Ty, C'.Ctx, M'.isSetCtx, C'.Ty,
+                     fc, f.1.2.2.1, gc, g.1.2.2.1,
+                     \ G -> ag1.ctx-ag G,
+                     \ G A -> ag1.ty-ag G A,
+                     \ X B -> ag2.ty-ag X B] ;
+  eq-ty (G : C.Ctx) : E.BiInv (C.Ty G) (C'.Ty (fc G)) (f.1.2.2.1 G) = FT.biinv G ;
+
+  -- terms, over TyT
+  module FE = Lm.Fib[TyT, set-TyT, \ w -> C.El w.1 w.2,
+                     TyT', set-TyT', \ w -> C'.El w.1 w.2,
+                     \ w -> (fc w.1, f.1.2.2.1 w.1 w.2), \ w a -> f.1.2.2.2 w.1 w.2 a,
+                     \ w -> (gc w.1, g.1.2.2.1 w.1 w.2), \ w a -> g.1.2.2.2 w.1 w.2 a,
+                     \ w -> ag1.ty-ag w.1 w.2,
+                     \ w a -> Lm.regroup-path C.Ctx C.Ty C.El
+                                (gc (fc w.1), (g.1.2.2.1 (fc w.1) (f.1.2.2.1 w.1 w.2),
+                                  g.1.2.2.2 (fc w.1) (f.1.2.2.1 w.1 w.2) (f.1.2.2.2 w.1 w.2 a)))
+                                (w.1, (w.2, a)) (ag1.tm-ag w.1 w.2 a),
+                     \ w a -> Lm.regroup-path C'.Ctx C'.Ty C'.El
+                                (fc (gc w.1), (f.1.2.2.1 (gc w.1) (g.1.2.2.1 w.1 w.2),
+                                  f.1.2.2.2 (gc w.1) (g.1.2.2.1 w.1 w.2) (g.1.2.2.2 w.1 w.2 a)))
+                                (w.1, (w.2, a)) (ag2.tm-ag w.1 w.2 a)] ;
+  eq-tm (G : C.Ctx) (A : C.Ty G)
+    : E.BiInv (C.El G A) (C'.El (fc G) (f.1.2.2.1 G A)) (f.1.2.2.2 G A) = FE.biinv (G, A) ;
+
+  compeq : CompEq f = (eq-ctx, (eq-sub, (eq-ty, eq-tm))) ;
+} ;
+
+iso-compeq (f : MC.pre.hom M M') (i : MC.pre.isIso M M' f)
+  : E.CompEqOver M.cwf.Ctx M.cwf.Sub M.cwf.Ty M.cwf.El M'.cwf.Ctx M'.cwf.Sub M'.cwf.Ty M'.cwf.El
+      f.1.1 f.1.2.1 f.1.2.2.1 f.1.2.2.2 =
+  On[f,i].compeq ;

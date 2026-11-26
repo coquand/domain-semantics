@@ -1,0 +1,17 @@
+-- InitUACheckC1: driver for PLAN-UAMOD Part C1 (C1Contr).
+import Base ; import Prelude ; import Lib ; import Paths ; import Axioms ;
+import EhrhardCwF ; import EhrhardTEModel ;
+import InitHom ; import InitHomIdentity ;
+import Replacement ; import EquivalenceLemmas ; import Category ;
+import InitHomS ;
+import InitUAEquiv ; import InitUALib ; import InitUAIsoLemmas ; import InitUABlkC1Lib ;
+module T (N : Base.Nat) {
+  import InitUAObj ;
+  module C (l : Level) (fe : Axioms[l].FunExt) {
+    import InitUACat ;
+    module X (x : InitUAObj[l].TEModelS) {
+      import InitUALayer ;
+      import InitUABlkC1 ;
+    } ;
+  } ;
+} ;

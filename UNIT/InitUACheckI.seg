@@ -1,0 +1,12 @@
+-- InitUACheckI: driver for PLAN-UAMOD Part I (isIso is a proposition;
+-- the components of an iso of models are bi-invertible).
+import Base ; import Prelude ; import Lib ; import Paths ; import Axioms ;
+import EhrhardCwF ; import EhrhardTEModel ;
+import InitHom ;
+import InitHomIdentity ;
+import Replacement ; import EquivalenceLemmas ; import Category ;
+import InitHomS ;
+import InitUAEquiv ;
+import InitUAIsoProp ;
+import InitUAIsoLemmas ;
+import InitUAIso ;

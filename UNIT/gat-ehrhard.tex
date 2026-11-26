@@ -748,6 +748,36 @@ is an Ehrhard model isomorphic to $\mathcal T_N$ is not proved here. At
 $N=0$ the theorem gives unique morphisms into the iterative-set, poset and
 simplicial models below.
 
+\paragraph{Univalence of the category of models.} Ehrhard models of level
+$N$ and their morphisms form a category, and an isomorphism is a morphism
+with an inverse. Assuming univalence, this category is univalent: the
+canonical map from equalities of models to isomorphisms is an equivalence.
+In particular the initial model $\mathcal T_N$ is unique up to equality, not
+only up to isomorphism.
+
+\begin{theorem}{(univalence)}
+For every $N$, the category of Ehrhard models of level $N$ is univalent.
+\end{theorem}
+\begin{proof}
+It suffices that for a fixed model $M$ the type of pairs $(M',f)$, with
+$f:M\to M'$ an isomorphism, is a proposition. Being an isomorphism is a
+proposition, and the four component maps of an isomorphism (on contexts,
+substitutions, types and terms) are equivalences, fibrewise over the map
+on contexts. It is therefore enough that the type of pairs $(M',f)$ with
+$f$ a morphism whose components are equivalences is contractible. Regroup
+this type into blocks, each operation of $M'$ next to the law that $f$
+preserves it: the four sorts with the components of $f$, then
+$1,\id,\circ,(),$ the actions of substitutions, then $\Gamma.A,\p,\q,\lift,
+\sect$, then $\Pi$ and $\lambda$ with application, then $\U_n,\T_n,\Pi_n,
+\U^n_m,t^n_m$, and last the equations of $M'$. Each block is contractible
+at the centre of the previous ones (the data of $M$, identity maps):
+the sorts by univalence, each operation with its law as a singleton (the
+law is an equality, in a set, between the new operation and that of $M$,
+possibly in a total space over the set of contexts), application with no
+law of its own because it is determined as the inverse of $\lambda$, and
+the equations because they are propositions that hold in $M$.
+\end{proof}
+
 \paragraph{Iterative sets.} Gylterud's iterative sets give, for each $N$,
 an Ehrhard model of level $N$: a type is a family of iterative sets, and
 $\U_n$ is the set $V_n$ of iterative sets built from the $n$-th universe of
@@ -894,6 +924,7 @@ the Russell semantics is \seg{UNIT/russell-delta}, checked by
 \seg{RSem} & Russell semantics\\
 \seg{InitQuot}, \seg{InitSorts}, \seg{InitOps*}, \seg{InitModel*} & term model $\mathcal T_N$\\
 \seg{InitHom*}, \seg{InitExist*}, \seg{InitUniq*}, \seg{InitTheorem} & morphisms, initiality\\
+\seg{InitUAObj}, \seg{InitUALayer}, \seg{InitUAIso*}, \seg{InitUABlk*}, \seg{InitUAUniv*} & univalence of the category of models\\
 \seg{IterativeSets}, \seg{IterativeSetLift}, \seg{EhrhardV*}, \seg{RSemV} & iterative-set models\\
 \seg{sag-model/FibLocal}, \seg{FibName*}, \seg{FibPi*}, \seg{FibUnivPi} & $\Pi$-codes in the poset model\\
 \seg{russell-posets/PosetTEModel}, \seg{PosetRSemCheck} & poset model, one universe\\
@@ -949,6 +980,19 @@ model, the notion of morphism, existence and uniqueness are checked by
 \seg{InitCheck.seg} (5516 declarations including the syntax, no failure,
 3\,s); the case list of the uniqueness induction is generated from the
 rules by \seg{gen\_init\_uniq.py}.
+
+\paragraph{Univalence of the category of models.} Records of the checker
+have no $\eta$-rule, so equalities of models given as records cannot be
+computed field by field. The objects of the univalent category are
+therefore models presented as iterated $\Sigma$-types (\seg{InitUAObj},
+with a conversion to records whose round trip is the identity by
+definition); the morphisms, composition and identities are those of the
+records. The regrouping into blocks is a reordering of $\Sigma$-types, the
+identity by definition both ways, and at the centre every preservation law
+is reflexivity, because transport along reflexivity computes. Univalence at
+every level is the only parameter (function extensionality is derived from
+it, also one level up, where families of sorts live). Checked by
+\seg{InitUACheck.seg} (1516 declarations, no failure, 0.5\,s).
 
 \paragraph{Not formalised.} The bridge to unbounded levels, and the
 isomorphism of Russell's own term model with $\mathcal T_N$.

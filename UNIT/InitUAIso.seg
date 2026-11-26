@@ -1,0 +1,7 @@
+-- InitUAIso (PLAN-UAMOD, Part I): module wrapper for InitUAIsoComp.
+-- For models M, M' of level N, an iso f : M -> M' of the precategory
+-- InitModelsCat.pre has bi-invertible components (CompEqOver).
+module IsoComp (l : Level) (N : Base.Nat) (fe : Axioms[l].FunExt)
+  (M : EhrhardTEModel[l].TEModel[N]) (M' : EhrhardTEModel[l].TEModel[N]) {
+  import InitUAIsoComp ;
+} ;

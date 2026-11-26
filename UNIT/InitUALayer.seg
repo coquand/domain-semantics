@@ -1,0 +1,240 @@
+-- InitUALayer.seg (PLAN-UAMOD, Phase 0, interface): the layered type L and
+-- the type B of section 3 of PLAN-UAMOD, for a FIXED x : TEModelS, M = toRec x.
+-- Segment with free l, N, fe, x (see InitUACheckLayer.seg).
+--
+--   SBlk                    sorts of the target, set-ness, the four maps,
+--                           and that they are bi-invertible (CompEqOver)
+--   C1Blk sb                Ops1 of the target + laws ctx-nil sub-id sub-o
+--                           sub-eps ty-subT tm-subt
+--   C2Blk sb c1b            Ops2 + laws ctx-ext (ce) sub-p sub-lift sub-sec tm-q
+--   PBlk sb c1b c2b         OpsP + laws ty-Pi tm-lam
+--   VBlk sb c1b c2b pb      OpsV + laws ty-univ ty-decode tm-pic tm-uc tm-lf
+--   EBlk sb c1b c2b pb vb   the equations of the target (Eqs)
+--   L = (sb : SBlk) * (c1b : C1Blk sb) * ... * EBlk ...
+--   B = (y : TEModelS) * (h : HomS M (toRec y)) * CompEqOver ... h.1
+--   toL : B -> L, fromL : L -> B, fromL (toL b) = b by refl.
+-- The law families are those of InitHomSig with the target model given
+-- by components (the conversions toL/fromL check that they agree).
+-- Centres sb0 c1b0 c2b0 pb0 vb0 eb0: x's own data, identity maps, refl laws.
+open Base ; open Prelude[l] ; open Paths[l] ;
+open EhrhardCwF ;
+module EM = EhrhardTEModel[l] ;
+open InitUAObj[l] ;
+module EQ = InitUAEquiv[l] ;
+
+M : EM.TEModel[N] = toRec x ;
+C : CwF[l] = M.cwf ;
+P : PiStr[l, C] = M.products ;
+
+------------------------------------------------------------------------
+-- maps into a target with sorts s
+
+DataO (s : Srt) : U l =
+  (ctx : C.Ctx -> S0[s].Ctx)
+  * (sub : (D G : C.Ctx) -> C.Sub D G -> S0[s].Sub (ctx D) (ctx G))
+  * (ty : (G : C.Ctx) -> C.Ty G -> S0[s].Ty (ctx G))
+  * ((G : C.Ctx) (A : C.Ty G) -> C.El G A -> S0[s].El (ctx G) (ty G A)) ;
+
+CompEqO (s : Srt) (d : DataO s) : U l =
+  EQ.CompEqOver C.Ctx C.Sub C.Ty C.El S0[s].Ctx S0[s].Sub S0[s].Ty S0[s].El d.1 d.2.1 d.2.2.1 d.2.2.2 ;
+
+module D0 (s : Srt) (d : DataO s) {
+  open S0[s] ;
+  ctx (G : C.Ctx) : Ctx = d.1 G ;
+  sub (D G : C.Ctx) (s0 : C.Sub D G) : Sub (ctx D) (ctx G) = d.2.1 D G s0 ;
+  ty (G : C.Ctx) (A : C.Ty G) : Ty (ctx G) = d.2.2.1 G A ;
+  tm (G : C.Ctx) (A : C.Ty G) (a : C.El G A) : El (ctx G) (ty G A) = d.2.2.2 G A a ;
+  Term (X : Ctx) : U l = (A : Ty X) * El X A ;
+  TmT : U l = (X : Ctx) * Term X ;
+  CodT (X : Ctx) : U l = (Y : Ctx) * Sub X Y ;
+  SubT : U l = (X : Ctx) * CodT X ;
+} ;
+
+------------------------------------------------------------------------
+-- the laws, block by block
+
+module L1 (s : Srt) (d : DataO s) (c1 : Ops1 s) {
+  open S0[s] ; open S1[s,c1] ; open D0[s,d] ;
+  LctxNil : U l = Id Ctx (ctx C.nil) nil ;
+  LsubId : U l = (G : C.Ctx) -> Id (Sub (ctx G) (ctx G)) (sub G G (C.id G)) (id (ctx G)) ;
+  LsubO : U l = (T D G : C.Ctx) (s0 : C.Sub D G) (s1 : C.Sub T D) ->
+    Id (Sub (ctx T) (ctx G)) (sub T G (C.o T D G s0 s1)) (o (ctx T) (ctx D) (ctx G) (sub D G s0) (sub T D s1)) ;
+  LsubEps : U l = (G : C.Ctx) ->
+    Id SubT (ctx G, (ctx C.nil, sub G C.nil (C.eps G))) (ctx G, (nil, eps (ctx G))) ;
+  LtySubT : U l = (D G : C.Ctx) (A : C.Ty G) (s0 : C.Sub D G) ->
+    Id (Ty (ctx D)) (ty D (C.subT D G A s0)) (subT (ctx D) (ctx G) (ty G A) (sub D G s0)) ;
+  LtmSubt : U l = (D G : C.Ctx) (A : C.Ty G) (a : C.El G A) (s0 : C.Sub D G) ->
+    Id (Term (ctx D)) (ty D (C.subT D G A s0), tm D (C.subT D G A s0) (C.subt D G A a s0))
+       (subT (ctx D) (ctx G) (ty G A) (sub D G s0), subt (ctx D) (ctx G) (ty G A) (tm G A a) (sub D G s0)) ;
+  Laws1 : U l = LctxNil * LsubId * LsubO * LsubEps * LtySubT * LtmSubt ;
+} ;
+
+module L2 (s : Srt) (d : DataO s) (c1 : Ops1 s) (c2 : Ops2 s c1) {
+  open S0[s] ; open S1[s,c1] ; open S2[s,c1,c2] ; open D0[s,d] ;
+  CtxExt : U l = (G : C.Ctx) (A : C.Ty G) -> Id Ctx (ctx (C.ext G A)) (ext (ctx G) (ty G A)) ;
+  LsubP : U l = (G : C.Ctx) (A : C.Ty G) ->
+    Id SubT (ctx (C.ext G A), (ctx G, sub (C.ext G A) G (C.p G A)))
+            (ext (ctx G) (ty G A), (ctx G, p (ctx G) (ty G A))) ;
+  LsubLift : U l = (D G : C.Ctx) (A : C.Ty G) (s0 : C.Sub D G) ->
+    Id SubT (ctx (C.ext D (C.subT D G A s0)),
+             (ctx (C.ext G A), sub (C.ext D (C.subT D G A s0)) (C.ext G A) (C.lift D G A s0)))
+            (ext (ctx D) (subT (ctx D) (ctx G) (ty G A) (sub D G s0)),
+             (ext (ctx G) (ty G A), lift (ctx D) (ctx G) (ty G A) (sub D G s0))) ;
+  LsubSec : U l = (G : C.Ctx) (A : C.Ty G) (a : C.El G A) ->
+    Id SubT (ctx G, (ctx (C.ext G A), sub G (C.ext G A) (C.sec G A a)))
+            (ctx G, (ext (ctx G) (ty G A), sec (ctx G) (ty G A) (tm G A a))) ;
+  LtmQ : U l = (G : C.Ctx) (A : C.Ty G) ->
+    Id TmT (ctx (C.ext G A), (ty (C.ext G A) (C.subT (C.ext G A) G A (C.p G A)),
+                              tm (C.ext G A) (C.subT (C.ext G A) G A (C.p G A)) (C.q G A)))
+           (ext (ctx G) (ty G A), (subT (ext (ctx G) (ty G A)) (ctx G) (ty G A) (p (ctx G) (ty G A)),
+                                   q (ctx G) (ty G A))) ;
+  Laws2 : U l = (ce : CtxExt) * LsubP * LsubLift * LsubSec * LtmQ ;
+} ;
+
+module LP (s : Srt) (d : DataO s) (c1 : Ops1 s) (c2 : Ops2 s c1) (pp : OpsP s c1 c2)
+    (ce : L2[s,d,c1,c2].CtxExt) {
+  open S0[s] ; open S1[s,c1] ; open S2[s,c1,c2] ; open SP[s,c1,c2,pp] ; open D0[s,d] ;
+  mvTy (X Y : Ctx) (e : Id Ctx X Y) (A : Ty X) : Ty Y = subst Ctx Ty X Y e A ;
+  mvEl (X Y : Ctx) (e : Id Ctx X Y) (A : Ty X) (a : El X A) : El Y (mvTy X Y e A) =
+    idJ Ctx X (\ Z e1 -> El Z (mvTy X Z e1 A)) a Y e ;
+  mvTyS (G : C.Ctx) (A : C.Ty G) (B : C.Ty (C.ext G A)) : Ty (ext (ctx G) (ty G A)) =
+    mvTy (ctx (C.ext G A)) (ext (ctx G) (ty G A)) (ce G A) (ty (C.ext G A) B) ;
+  mvElS (G : C.Ctx) (A : C.Ty G) (B : C.Ty (C.ext G A)) (b : C.El (C.ext G A) B)
+    : El (ext (ctx G) (ty G A)) (mvTyS G A B) =
+    mvEl (ctx (C.ext G A)) (ext (ctx G) (ty G A)) (ce G A) (ty (C.ext G A) B) (tm (C.ext G A) B b) ;
+  LtyPi : U l = (G : C.Ctx) (A : C.Ty G) (B : C.Ty (C.ext G A)) ->
+    Id (Ty (ctx G)) (ty G (P.Pi G A B)) (Pi (ctx G) (ty G A) (mvTyS G A B)) ;
+  LtmLam : U l = (G : C.Ctx) (A : C.Ty G) (B : C.Ty (C.ext G A)) (b : C.El (C.ext G A) B) ->
+    Id (Term (ctx G)) (ty G (P.Pi G A B), tm G (P.Pi G A B) ((P.Pi-iso G A B).inv b))
+       (Pi (ctx G) (ty G A) (mvTyS G A B), inv (ctx G) (ty G A) (mvTyS G A B) (mvElS G A B b)) ;
+  LawsP : U l = LtyPi * LtmLam ;
+} ;
+
+module LV (s : Srt) (d : DataO s) (c1 : Ops1 s) (c2 : Ops2 s c1) (pp : OpsP s c1 c2)
+    (v : OpsV s c1 c2 pp) (ce : L2[s,d,c1,c2].CtxExt) {
+  open S0[s] ; open S1[s,c1] ; open S2[s,c1,c2] ; open SP[s,c1,c2,pp] ; open SV[s,c1,c2,pp,v] ;
+  open D0[s,d] ;
+  CodeF (n : EM.LevelAt N) (X : Ctx) : U l = El X (univ n X) ;
+  TyUniv : U l = (n : EM.LevelAt N) (G : C.Ctx) -> Id (Ty (ctx G)) (ty G (M.univ n G)) (univ n (ctx G)) ;
+  codeS (tu : TyUniv) (n : EM.LevelAt N) (G : C.Ctx) (a : C.El G (M.univ n G)) : CodeF n (ctx G) =
+    subst (Ty (ctx G)) (El (ctx G)) (ty G (M.univ n G)) (univ n (ctx G)) (tu n G) (tm G (M.univ n G) a) ;
+  TyDecode (tu : TyUniv) : U l = (n : EM.LevelAt N) (G : C.Ctx) (a : C.El G (M.univ n G)) ->
+    Id (Ty (ctx G)) (ty G (M.decode n G a)) (decode n (ctx G) (codeS tu n G a)) ;
+  decExtS (tu : TyUniv) (td : TyDecode tu) (n : EM.LevelAt N) (G : C.Ctx) (a : C.El G (M.univ n G))
+    : Id Ctx (ctx (C.ext G (M.decode n G a))) (ext (ctx G) (decode n (ctx G) (codeS tu n G a))) =
+    trans Ctx (ctx (C.ext G (M.decode n G a))) (ext (ctx G) (ty G (M.decode n G a)))
+      (ext (ctx G) (decode n (ctx G) (codeS tu n G a)))
+      (ce G (M.decode n G a))
+      (ap (Ty (ctx G)) Ctx (\ T -> ext (ctx G) T)
+          (ty G (M.decode n G a)) (decode n (ctx G) (codeS tu n G a)) (td n G a)) ;
+  mvCode (n : EM.LevelAt N) (X Y : Ctx) (e : Id Ctx X Y) (a : CodeF n X) : CodeF n Y =
+    subst Ctx (CodeF n) X Y e a ;
+  mvCodeS (tu : TyUniv) (td : TyDecode tu) (n : EM.LevelAt N) (G : C.Ctx) (a : C.El G (M.univ n G))
+      (b : C.El (C.ext G (M.decode n G a)) (M.univ n (C.ext G (M.decode n G a))))
+    : CodeF n (ext (ctx G) (decode n (ctx G) (codeS tu n G a))) =
+    mvCode n (ctx (C.ext G (M.decode n G a))) (ext (ctx G) (decode n (ctx G) (codeS tu n G a)))
+      (decExtS tu td n G a) (codeS tu n (C.ext G (M.decode n G a)) b) ;
+  LtmPic (tu : TyUniv) (td : TyDecode tu) : U l =
+    (n : EM.LevelAt N) (G : C.Ctx) (a : C.El G (M.univ n G))
+    (b : C.El (C.ext G (M.decode n G a)) (M.univ n (C.ext G (M.decode n G a)))) ->
+    Id (CodeF n (ctx G)) (codeS tu n G (M.pic n G a b))
+       (pic n (ctx G) (codeS tu n G a) (mvCodeS tu td n G a b)) ;
+  LtmUc (tu : TyUniv) : U l = (m n : EM.LevelAt N) (lt : EM.StrictAt N m n) (G : C.Ctx) ->
+    Id (CodeF n (ctx G)) (codeS tu n G (M.uc m n lt G)) (uc m n lt (ctx G)) ;
+  LtmLf (tu : TyUniv) : U l = (m n : EM.LevelAt N) (lt : EM.StrictAt N m n) (G : C.Ctx) (a : C.El G (M.univ m G)) ->
+    Id (CodeF n (ctx G)) (codeS tu n G (M.lf m n lt G a)) (lf m n lt (ctx G) (codeS tu m G a)) ;
+  LawsV : U l = (tu : TyUniv) * (td : TyDecode tu) * LtmPic tu td * LtmUc tu * LtmLf tu ;
+} ;
+
+------------------------------------------------------------------------
+-- the blocks
+
+SBlk : U l+ = (s : Srt) * (h : Sets s) * (d : DataO s) * CompEqO s d ;
+C1Blk (sb : SBlk) : U l = (c1 : Ops1 sb.1) * L1[sb.1, sb.2.2.1, c1].Laws1 ;
+C2Blk (sb : SBlk) (c1b : C1Blk sb) : U l = (c2 : Ops2 sb.1 c1b.1) * L2[sb.1, sb.2.2.1, c1b.1, c2].Laws2 ;
+PBlk (sb : SBlk) (c1b : C1Blk sb) (c2b : C2Blk sb c1b) : U l =
+  (pp : OpsP sb.1 c1b.1 c2b.1) * LP[sb.1, sb.2.2.1, c1b.1, c2b.1, pp, c2b.2.1].LawsP ;
+VBlk (sb : SBlk) (c1b : C1Blk sb) (c2b : C2Blk sb c1b) (pb : PBlk sb c1b c2b) : U l =
+  (v : OpsV sb.1 c1b.1 c2b.1 pb.1) * LV[sb.1, sb.2.2.1, c1b.1, c2b.1, pb.1, v, c2b.2.1].LawsV ;
+EBlk (sb : SBlk) (c1b : C1Blk sb) (c2b : C2Blk sb c1b) (pb : PBlk sb c1b c2b) (vb : VBlk sb c1b c2b pb) : U l =
+  Eqs sb.1 c1b.1 c2b.1 pb.1 vb.1 ;
+
+L : U l+ = (sb : SBlk) * (c1b : C1Blk sb) * (c2b : C2Blk sb c1b) * (pb : PBlk sb c1b c2b)
+  * (vb : VBlk sb c1b c2b pb) * EBlk sb c1b c2b pb vb ;
+
+------------------------------------------------------------------------
+-- B and the reshuffling
+
+HomTo (y : TEModelS) : U l = InitHomS.MorphismS[l,N,M,toRec y,fe].InitHomSig.HomS ;
+
+B : U l+ = (y : TEModelS) * (h : HomTo y) * CompEqO y.1 h.1 ;
+
+toL (b : B) : L =
+  ((b.1.1, (b.1.2.1, (b.2.1.1, b.2.2))),
+   ((b.1.2.2.1, (b.2.1.2.1, (b.2.1.2.2.2.1, (b.2.1.2.2.2.2.1, (b.2.1.2.2.2.2.2.1, (b.2.1.2.2.2.2.2.2.2.2.2.1, b.2.1.2.2.2.2.2.2.2.2.2.2.2.2.2.1)))))),
+   ((b.1.2.2.2.1, (b.2.1.2.2.1, (b.2.1.2.2.2.2.2.2.1, (b.2.1.2.2.2.2.2.2.2.1, (b.2.1.2.2.2.2.2.2.2.2.1, b.2.1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1))))),
+   ((b.1.2.2.2.2.1, (b.2.1.2.2.2.2.2.2.2.2.2.2.1, b.2.1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)),
+   ((b.1.2.2.2.2.2.1, (b.2.1.2.2.2.2.2.2.2.2.2.2.2.1, (b.2.1.2.2.2.2.2.2.2.2.2.2.2.2.1, (b.2.1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, (b.2.1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, b.2.1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2))))),
+    b.1.2.2.2.2.2.2))))) ;
+
+fromL (u : L) : B =
+  ((u.1.1, (u.1.2.1, (u.2.1.1, (u.2.2.1.1, (u.2.2.2.1.1, (u.2.2.2.2.1.1, u.2.2.2.2.2)))))),
+   ((u.1.2.2.1, (u.2.1.2.1, (u.2.2.1.2.1, (u.2.1.2.2.1, (u.2.1.2.2.2.1, (u.2.1.2.2.2.2.1, (u.2.2.1.2.2.1, (u.2.2.1.2.2.2.1, (u.2.2.1.2.2.2.2.1, (u.2.1.2.2.2.2.2.1, (u.2.2.2.1.2.1, (u.2.2.2.2.1.2.1, (u.2.2.2.2.1.2.2.1, (u.2.1.2.2.2.2.2.2, (u.2.2.1.2.2.2.2.2, (u.2.2.2.1.2.2, (u.2.2.2.2.1.2.2.2.1, (u.2.2.2.2.1.2.2.2.2.1, u.2.2.2.2.1.2.2.2.2.2)))))))))))))))))),
+    u.1.2.2.2)) ;
+
+from-to-L (b : B) : Id B (fromL (toL b)) b = refl b ;
+
+------------------------------------------------------------------------
+-- the centres: x's own components, identity maps, refl laws
+
+idD : DataO x.1 = (\ G -> G, (\ D G s0 -> s0, (\ G A -> A, \ G A a -> a))) ;
+
+idCE : CompEqO x.1 idD =
+  (EQ.idBiInv C.Ctx, (\ D G -> EQ.idBiInv (C.Sub D G), (\ G -> EQ.idBiInv (C.Ty G),
+    \ G A -> EQ.idBiInv (C.El G A)))) ;
+
+sb0 : SBlk = (x.1, (x.2.1, (idD, idCE))) ;
+
+c1b0 : C1Blk sb0 =
+  (x.2.2.1,
+   (refl C.nil,
+   (\ G -> refl (C.id G),
+   (\ T D G s0 s1 -> refl (C.o T D G s0 s1),
+   (\ G -> refl (G, (C.nil, C.eps G)),
+   (\ D G A s0 -> refl (C.subT D G A s0),
+    \ D G A a s0 -> refl (C.subT D G A s0, C.subt D G A a s0))))))) ;
+
+c2b0 : C2Blk sb0 c1b0 =
+  (x.2.2.2.1,
+   (\ G A -> refl (C.ext G A),
+   (\ G A -> refl (C.ext G A, (G, C.p G A)),
+   (\ D G A s0 -> refl (C.ext D (C.subT D G A s0), (C.ext G A, C.lift D G A s0)),
+   (\ G A a -> refl (G, (C.ext G A, C.sec G A a)),
+    \ G A -> refl (C.ext G A, (C.subT (C.ext G A) G A (C.p G A), C.q G A))))))) ;
+
+pb0 : PBlk sb0 c1b0 c2b0 =
+  (x.2.2.2.2.1,
+   (\ G A B -> refl (P.Pi G A B),
+    \ G A B b -> refl (P.Pi G A B, (P.Pi-iso G A B).inv b))) ;
+
+vb0 : VBlk sb0 c1b0 c2b0 pb0 =
+  (x.2.2.2.2.2.1,
+   (\ n G -> refl (M.univ n G),
+   (\ n G a -> refl (M.decode n G a),
+   (\ n G a b -> refl (M.pic n G a b),
+   (\ m n lt G -> refl (M.uc m n lt G),
+    \ m n lt G a -> refl (M.lf m n lt G a)))))) ;
+
+eb0 : EBlk sb0 c1b0 c2b0 pb0 vb0 = x.2.2.2.2.2.2 ;
+
+centre : L = (sb0, (c1b0, (c2b0, (pb0, (vb0, eb0))))) ;
+
+------------------------------------------------------------------------
+-- the block statements (proved in Parts S, C1, C2, P, V, E)
+
+SContr : U l+ = (u : SBlk) -> Id SBlk sb0 u ;
+C1Contr : U l = (u : C1Blk sb0) -> Id (C1Blk sb0) c1b0 u ;
+C2Contr : U l = (u : C2Blk sb0 c1b0) -> Id (C2Blk sb0 c1b0) c2b0 u ;
+PContr : U l = (u : PBlk sb0 c1b0 c2b0) -> Id (PBlk sb0 c1b0 c2b0) pb0 u ;
+VContr : U l = (u : VBlk sb0 c1b0 c2b0 pb0) -> Id (VBlk sb0 c1b0 c2b0 pb0) vb0 u ;
+EContr : U l = (u : EBlk sb0 c1b0 c2b0 pb0 vb0) -> Id (EBlk sb0 c1b0 c2b0 pb0 vb0) eb0 u ;

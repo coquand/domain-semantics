@@ -1,0 +1,77 @@
+-- InitUAUnivX.seg (PLAN-UAMOD, Part G, assembly at x): for the object x,
+-- Singl x = (y : TEModelS) * preS.Iso x y is a proposition, given the
+-- six block contractions at x.
+--   hL         L is centred at centre (sigmaH over SBlk, then sigma)
+--   hB         B is centred at fromL centre (retract, round trip refl)
+--   phi        Singl x -> B, (y, (f, i)) |-> (y, (f, iso-compeq f i))
+--   singl-prop equal images give equal (y, f) (ap of a projection);
+--              the iso part is a proposition (InitUAIsoProp)
+-- Segment with free l, N, fe, the block hypotheses hS hC1 hC2 hP hV
+-- (functions of x) and x; the module X of the enclosing module holds
+-- InitUALayer and InitUABlkEX at each x (see InitUACheckG.seg).
+open Base ;
+open InitUAObj[l] ;
+module LY = X[x].InitUALayer ;
+open LY ;
+module LB = InitUALib[l] ;
+module LP = InitUALib[l+] ;
+module PP = Prelude[l+] ;
+module K = Category[l+,l] ;
+module CS = K.Singletons[InitUACat.preS] ;
+
+-- (a) the layered type is centred
+Rest (sb : SBlk) : U l =
+  (c1b : C1Blk sb) * (c2b : C2Blk sb c1b) * (pb : PBlk sb c1b c2b)
+  * (vb : VBlk sb c1b c2b pb) * EBlk sb c1b c2b pb vb ;
+
+hV-E : LB.Centred ((vb : VBlk sb0 c1b0 c2b0 pb0) * EBlk sb0 c1b0 c2b0 pb0 vb) (vb0, eb0) =
+  LB.sigma (VBlk sb0 c1b0 c2b0 pb0) (\ vb -> EBlk sb0 c1b0 c2b0 pb0 vb) vb0 (hV x)
+    eb0 X[x].InitUABlkEX.e-contr ;
+
+hP-E : LB.Centred ((pb : PBlk sb0 c1b0 c2b0) * (vb : VBlk sb0 c1b0 c2b0 pb) * EBlk sb0 c1b0 c2b0 pb vb)
+    (pb0, (vb0, eb0)) =
+  LB.sigma (PBlk sb0 c1b0 c2b0) (\ pb -> (vb : VBlk sb0 c1b0 c2b0 pb) * EBlk sb0 c1b0 c2b0 pb vb)
+    pb0 (hP x) (vb0, eb0) hV-E ;
+
+hC2-E : LB.Centred ((c2b : C2Blk sb0 c1b0) * (pb : PBlk sb0 c1b0 c2b) * (vb : VBlk sb0 c1b0 c2b pb)
+      * EBlk sb0 c1b0 c2b pb vb) (c2b0, (pb0, (vb0, eb0))) =
+  LB.sigma (C2Blk sb0 c1b0)
+    (\ c2b -> (pb : PBlk sb0 c1b0 c2b) * (vb : VBlk sb0 c1b0 c2b pb) * EBlk sb0 c1b0 c2b pb vb)
+    c2b0 (hC2 x) (pb0, (vb0, eb0)) hP-E ;
+
+hRest : LB.Centred (Rest sb0) (c1b0, (c2b0, (pb0, (vb0, eb0)))) =
+  LB.sigma (C1Blk sb0)
+    (\ c1b -> (c2b : C2Blk sb0 c1b) * (pb : PBlk sb0 c1b c2b) * (vb : VBlk sb0 c1b c2b pb)
+      * EBlk sb0 c1b c2b pb vb)
+    c1b0 (hC1 x) (c2b0, (pb0, (vb0, eb0))) hC2-E ;
+
+hL : (u : L) -> Id L centre u =
+  LB.sigmaH SBlk Rest sb0 (hS x) (c1b0, (c2b0, (pb0, (vb0, eb0)))) hRest ;
+
+-- (b) B is centred, hence a proposition
+hB : LP.Centred B (fromL centre) = LP.retract B L toL fromL (\ b -> refl b) centre hL ;
+
+propB : PP.isProp B = \ u v ->
+  PP.trans B u (fromL centre) v (PP.sym B (fromL centre) u (hB u)) (hB v) ;
+
+-- (c) Singl x is a proposition
+phi (w : CS.Singl x) : B =
+  (w.1, (w.2.1, InitUAIso.IsoComp[l, N, fe, toRec x, toRec w.1].InitUAIsoComp.iso-compeq w.2.1 w.2.2)) ;
+
+Tw : U l+ = (y : TEModelS) * InitUACat.preS.hom x y ;
+
+pr (b : B) : Tw = (b.1, b.2.1) ;
+
+same-hom (u v : CS.Singl x) : Id Tw (u.1, u.2.1) (v.1, v.2.1) =
+  PP.ap B Tw pr (phi u) (phi v) (propB (phi u) (phi v)) ;
+
+iso-prop (y : TEModelS) (f : InitUACat.preS.hom x y) : Prelude[l].isProp (InitUACat.preS.isIso x y f) =
+  InitUAIsoProp[l+,l].On[InitUACat.preS].iso-prop x y f ;
+
+singl-prop : Prelude[l+].isProp (CS.Singl x) = \ u v ->
+  idJ Tw (u.1, u.2.1)
+    (\ w q -> (i : InitUACat.preS.isIso x w.1 w.2) -> Id (CS.Singl x) u (w.1, (w.2, i)))
+    (\ i -> idJ (InitUACat.preS.isIso x u.1 u.2.1) u.2.2
+       (\ i1 q1 -> Id (CS.Singl x) u (u.1, (u.2.1, i1)))
+       (refl u) i (iso-prop u.1 u.2.1 u.2.2 i))
+    (v.1, v.2.1) (same-hom u v) v.2.2 ;

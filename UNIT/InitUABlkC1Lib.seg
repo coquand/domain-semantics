@@ -1,0 +1,25 @@
+-- InitUABlkC1Lib.seg (PLAN-UAMOD, Part C1): generic contraction lemmas, level l.
+--   psig     a Sigma of a dependent function and a pointwise relation is
+--            centred if each fibre Sigma is (choice + funext)
+--   embSing  for j : B -> E into a set E with a "back" map on paths,
+--            (b : B) * Id E (j c) (j b) is centred at (c, refl)
+level l ;
+open Base ; open Prelude[l] ;
+module LB = InitUALib[l] ;
+
+psig (fe : Axioms[l].FunExt) (A : U l) (F : A -> U l) (R : (a : A) -> F a -> U l)
+    (c : (a : A) -> F a) (r0 : (a : A) -> R a (c a))
+    (h : (a : A) -> LB.Centred ((b : F a) * R a b) (c a, r0 a))
+  : LB.Centred ((f : (a : A) -> F a) * ((a : A) -> R a (f a))) (c, r0) =
+  LB.retract ((f : (a : A) -> F a) * ((a : A) -> R a (f a))) ((a : A) -> (b : F a) * R a b)
+    (LB.sigma-pi A F R) (LB.pi-sigma A F R) (\ u -> refl u)
+    (\ a -> (c a, r0 a)) (LB.pi fe A (\ a -> (b : F a) * R a b) (\ a -> (c a, r0 a)) h) ;
+
+embSing (B E : U l) (sE : isSet E) (j : B -> E) (back : (b b' : B) -> Id E (j b) (j b') -> Id B b b')
+    (c : B) : LB.Centred ((b : B) * Id E (j c) (j b)) (c, refl (j c)) =
+  LB.retract ((b : B) * Id E (j c) (j b)) ((b : B) * Id B c b)
+    (\ u -> (u.1, back c u.1 u.2))
+    (\ v -> (v.1, ap B E j c v.1 v.2))
+    (\ u -> ap (Id E (j c) (j u.1)) ((b : B) * Id E (j c) (j b)) (\ z -> (u.1, z))
+              (ap B E j c u.1 (back c u.1 u.2)) u.2 (sE (j c) (j u.1) (ap B E j c u.1 (back c u.1 u.2)) u.2))
+    (c, refl c) (LB.sing-l B c) ;

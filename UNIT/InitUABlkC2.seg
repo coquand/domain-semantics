@@ -1,0 +1,204 @@
+-- InitUABlkC2.seg (PLAN-UAMOD, Part C2): C2Contr, the block Ops2 + Laws2 at
+-- the centre (sb0, c1b0) is contractible.  Segment of the X module of the
+-- driver (free l, N, fe, x), after InitUALayer.
+--
+-- The block is reordered (refl round trip) into
+--   R = (ext', ce) * (p', lp) * (lift', ll) * (sec', ls) * (q', lq);
+-- (ext', ce) is a product of based path spaces; at ext' = C.ext each
+-- other pair is a product (funext) of types (b : F) * Id W (i b0) (i b)
+-- with W = SubT or TmT a set, contracted by InitUABlkC2Lib.emb; q' comes
+-- after p' (its type mentions p').
+--
+-- Interface: c2-contr : InitUALayer.C2Contr.
+open Base ; open Prelude[l] ;
+module LB = InitUALib[l] ;
+module K = InitUABlkC2Lib[l] ;
+module LY = InitUALayer ;
+
+C : EhrhardCwF.CwF[l] = LY.C ;
+
+Ctx : U l = C.Ctx ;
+Sub (D G : Ctx) : U l = C.Sub D G ;
+Ty (G : Ctx) : U l = C.Ty G ;
+El (G : Ctx) (A : Ty G) : U l = C.El G A ;
+
+sC : isSet Ctx = x.2.1.1 ;
+sSub (D G : Ctx) : isSet (Sub D G) = x.2.1.2.1 D G ;
+sTy (G : Ctx) : isSet (Ty G) = x.2.1.2.2.1 G ;
+sEl (G : Ctx) (A : Ty G) : isSet (El G A) = x.2.1.2.2.2 G A ;
+
+CodT (X : Ctx) : U l = (Y : Ctx) * Sub X Y ;
+SubT : U l = (X : Ctx) * CodT X ;
+Term (X : Ctx) : U l = (A : Ty X) * El X A ;
+TmT : U l = (X : Ctx) * Term X ;
+
+sSubT : isSet SubT =
+  isSet-Sigma Ctx CodT sC (\ X -> isSet-Sigma Ctx (Sub X) sC (\ Y -> sSub X Y)) ;
+sTmT : isSet TmT =
+  isSet-Sigma Ctx Term sC (\ X -> isSet-Sigma (Ty X) (El X) (sTy X) (\ A -> sEl X A)) ;
+
+fibSub (X Y : Ctx) (b b' : Sub X Y) (Q : Id SubT (X, (Y, b)) (X, (Y, b'))) : Id (Sub X Y) b b' =
+  K.fib Ctx sC (Sub X) Y b b' (K.fib Ctx sC CodT X (Y, b) (Y, b') Q) ;
+
+fibTm (X : Ctx) (A : Ty X) (a a' : El X A) (Q : Id TmT (X, (A, a)) (X, (A, a'))) : Id (El X A) a a' =
+  K.fib (Ty X) (sTy X) (El X) A a a' (K.fib Ctx sC Term X (A, a) (A, a') Q) ;
+
+-- pointwise contractions
+cS (X Y : Ctx) (b0 : Sub X Y) :
+    LB.Centred ((b : Sub X Y) * Id SubT (X, (Y, b0)) (X, (Y, b))) (b0, refl (X, (Y, b0))) =
+  K.emb (Sub X Y) SubT sSubT (\ b -> (X, (Y, b))) (fibSub X Y) b0 ;
+
+cT (X : Ctx) (A : Ty X) (a0 : El X A) :
+    LB.Centred ((a : El X A) * Id TmT (X, (A, a0)) (X, (A, a))) (a0, refl (X, (A, a0))) =
+  K.emb (El X A) TmT sTmT (\ a -> (X, (A, a))) (fibTm X A) a0 ;
+
+------------------------------------------------------------------------
+-- the reordered block
+
+ExtT : U l = (G : Ctx) -> Ty G -> Ctx ;
+
+E1 : U l = (e : ExtT) * ((G : Ctx) (A : Ty G) -> Id Ctx (C.ext G A) (e G A)) ;
+
+P2 (e : ExtT) : U l =
+  (p : (G : Ctx) (A : Ty G) -> Sub (e G A) G)
+  * ((G : Ctx) (A : Ty G) -> Id SubT (C.ext G A, (G, C.p G A)) (e G A, (G, p G A))) ;
+
+P3 (e : ExtT) : U l =
+  (lift : (D G : Ctx) (A : Ty G) (s0 : Sub D G) -> Sub (e D (C.subT D G A s0)) (e G A))
+  * ((D G : Ctx) (A : Ty G) (s0 : Sub D G) ->
+       Id SubT (C.ext D (C.subT D G A s0), (C.ext G A, C.lift D G A s0))
+               (e D (C.subT D G A s0), (e G A, lift D G A s0))) ;
+
+P4 (e : ExtT) : U l =
+  (sec : (G : Ctx) (A : Ty G) (a : El G A) -> Sub G (e G A))
+  * ((G : Ctx) (A : Ty G) (a : El G A) ->
+       Id SubT (G, (C.ext G A, C.sec G A a)) (G, (e G A, sec G A a))) ;
+
+P5 (e : ExtT) (p : (G : Ctx) (A : Ty G) -> Sub (e G A) G) : U l =
+  (q : (G : Ctx) (A : Ty G) -> El (e G A) (C.subT (e G A) G A (p G A)))
+  * ((G : Ctx) (A : Ty G) ->
+       Id TmT (C.ext G A, (C.subT (C.ext G A) G A (C.p G A), C.q G A))
+              (e G A, (C.subT (e G A) G A (p G A), q G A))) ;
+
+Rest (e : ExtT) : U l = (w2 : P2 e) * P3 e * P4 e * P5 e w2.1 ;
+
+R : U l = (w1 : E1) * Rest w1.1 ;
+
+Blk : U l = LY.C2Blk LY.sb0 LY.c1b0 ;
+
+toR (u : Blk) : R =
+  ((u.1.1, u.2.1),
+   ((u.1.2.1, u.2.2.1),
+   ((u.1.2.2.2.1, u.2.2.2.1),
+   ((u.1.2.2.2.2, u.2.2.2.2.1),
+    (u.1.2.2.1, u.2.2.2.2.2))))) ;
+
+fromR (r : R) : Blk =
+  ((r.1.1, (r.2.1.1, (r.2.2.2.2.1, (r.2.2.1.1, r.2.2.2.1.1)))),
+   (r.1.2, (r.2.1.2, (r.2.2.1.2, (r.2.2.2.1.2, r.2.2.2.2.2))))) ;
+
+------------------------------------------------------------------------
+-- centres and contractions of the pieces
+
+e0 : ExtT = \ G A -> C.ext G A ;
+
+w1c : E1 = (e0, \ G A -> refl (C.ext G A)) ;
+w2c : P2 e0 = (\ G A -> C.p G A, \ G A -> refl (C.ext G A, (G, C.p G A))) ;
+w3c : P3 e0 = (\ D G A s0 -> C.lift D G A s0,
+               \ D G A s0 -> refl (C.ext D (C.subT D G A s0), (C.ext G A, C.lift D G A s0))) ;
+w4c : P4 e0 = (\ G A a -> C.sec G A a, \ G A a -> refl (G, (C.ext G A, C.sec G A a))) ;
+w5c : P5 e0 w2c.1 = (\ G A -> C.q G A,
+                     \ G A -> refl (C.ext G A, (C.subT (C.ext G A) G A (C.p G A), C.q G A))) ;
+
+-- (ext', ce)
+PiE1 : U l = (G : Ctx) (A : Ty G) -> (X : Ctx) * Id Ctx (C.ext G A) X ;
+hE1 : LB.Centred E1 w1c =
+  LB.retract E1 PiE1
+    (\ w G A -> (w.1 G A, w.2 G A))
+    (\ f -> (\ G A -> (f G A).1, \ G A -> (f G A).2))
+    (\ w -> refl w)
+    (\ G A -> (C.ext G A, refl (C.ext G A)))
+    (LB.pi fe Ctx (\ G -> (A : Ty G) -> (X : Ctx) * Id Ctx (C.ext G A) X)
+       (\ G A -> (C.ext G A, refl (C.ext G A)))
+       (\ G -> LB.pi fe (Ty G) (\ A -> (X : Ctx) * Id Ctx (C.ext G A) X)
+                 (\ A -> (C.ext G A, refl (C.ext G A)))
+                 (\ A -> LB.sing-l Ctx (C.ext G A)))) ;
+
+-- (p', lp)
+FP2 (G : Ctx) (A : Ty G) : U l =
+  (b : Sub (C.ext G A) G) * Id SubT (C.ext G A, (G, C.p G A)) (C.ext G A, (G, b)) ;
+hP2 : LB.Centred (P2 e0) w2c =
+  LB.retract (P2 e0) ((G : Ctx) (A : Ty G) -> FP2 G A)
+    (\ w G A -> (w.1 G A, w.2 G A))
+    (\ f -> (\ G A -> (f G A).1, \ G A -> (f G A).2))
+    (\ w -> refl w)
+    (\ G A -> (C.p G A, refl (C.ext G A, (G, C.p G A))))
+    (LB.pi fe Ctx (\ G -> (A : Ty G) -> FP2 G A)
+       (\ G A -> (C.p G A, refl (C.ext G A, (G, C.p G A))))
+       (\ G -> LB.pi fe (Ty G) (\ A -> FP2 G A)
+                 (\ A -> (C.p G A, refl (C.ext G A, (G, C.p G A))))
+                 (\ A -> cS (C.ext G A) G (C.p G A)))) ;
+
+-- (lift', ll)
+FP3 (D G : Ctx) (A : Ty G) (s0 : Sub D G) : U l =
+  (b : Sub (C.ext D (C.subT D G A s0)) (C.ext G A))
+  * Id SubT (C.ext D (C.subT D G A s0), (C.ext G A, C.lift D G A s0))
+            (C.ext D (C.subT D G A s0), (C.ext G A, b)) ;
+cP3 (D G : Ctx) (A : Ty G) (s0 : Sub D G) : FP3 D G A s0 =
+  (C.lift D G A s0, refl (C.ext D (C.subT D G A s0), (C.ext G A, C.lift D G A s0))) ;
+hP3 : LB.Centred (P3 e0) w3c =
+  LB.retract (P3 e0) ((D G : Ctx) (A : Ty G) (s0 : Sub D G) -> FP3 D G A s0)
+    (\ w D G A s0 -> (w.1 D G A s0, w.2 D G A s0))
+    (\ f -> (\ D G A s0 -> (f D G A s0).1, \ D G A s0 -> (f D G A s0).2))
+    (\ w -> refl w)
+    cP3
+    (LB.pi fe Ctx (\ D -> (G : Ctx) (A : Ty G) (s0 : Sub D G) -> FP3 D G A s0) cP3
+       (\ D -> LB.pi fe Ctx (\ G -> (A : Ty G) (s0 : Sub D G) -> FP3 D G A s0) (cP3 D)
+          (\ G -> LB.pi fe (Ty G) (\ A -> (s0 : Sub D G) -> FP3 D G A s0) (cP3 D G)
+             (\ A -> LB.pi fe (Sub D G) (\ s0 -> FP3 D G A s0) (cP3 D G A)
+                (\ s0 -> cS (C.ext D (C.subT D G A s0)) (C.ext G A) (C.lift D G A s0)))))) ;
+
+-- (sec', ls)
+FP4 (G : Ctx) (A : Ty G) (a : El G A) : U l =
+  (b : Sub G (C.ext G A)) * Id SubT (G, (C.ext G A, C.sec G A a)) (G, (C.ext G A, b)) ;
+cP4 (G : Ctx) (A : Ty G) (a : El G A) : FP4 G A a =
+  (C.sec G A a, refl (G, (C.ext G A, C.sec G A a))) ;
+hP4 : LB.Centred (P4 e0) w4c =
+  LB.retract (P4 e0) ((G : Ctx) (A : Ty G) (a : El G A) -> FP4 G A a)
+    (\ w G A a -> (w.1 G A a, w.2 G A a))
+    (\ f -> (\ G A a -> (f G A a).1, \ G A a -> (f G A a).2))
+    (\ w -> refl w)
+    cP4
+    (LB.pi fe Ctx (\ G -> (A : Ty G) (a : El G A) -> FP4 G A a) cP4
+       (\ G -> LB.pi fe (Ty G) (\ A -> (a : El G A) -> FP4 G A a) (cP4 G)
+          (\ A -> LB.pi fe (El G A) (\ a -> FP4 G A a) (cP4 G A)
+             (\ a -> cS G (C.ext G A) (C.sec G A a))))) ;
+
+-- (q', lq), at p' = C.p
+TQ (G : Ctx) (A : Ty G) : Ty (C.ext G A) = C.subT (C.ext G A) G A (C.p G A) ;
+FP5 (G : Ctx) (A : Ty G) : U l =
+  (b : El (C.ext G A) (TQ G A)) * Id TmT (C.ext G A, (TQ G A, C.q G A)) (C.ext G A, (TQ G A, b)) ;
+cP5 (G : Ctx) (A : Ty G) : FP5 G A = (C.q G A, refl (C.ext G A, (TQ G A, C.q G A))) ;
+hP5 : LB.Centred (P5 e0 w2c.1) w5c =
+  LB.retract (P5 e0 w2c.1) ((G : Ctx) (A : Ty G) -> FP5 G A)
+    (\ w G A -> (w.1 G A, w.2 G A))
+    (\ f -> (\ G A -> (f G A).1, \ G A -> (f G A).2))
+    (\ w -> refl w)
+    cP5
+    (LB.pi fe Ctx (\ G -> (A : Ty G) -> FP5 G A) cP5
+       (\ G -> LB.pi fe (Ty G) (\ A -> FP5 G A) (cP5 G)
+          (\ A -> cT (C.ext G A) (TQ G A) (C.q G A)))) ;
+
+------------------------------------------------------------------------
+-- assembly
+
+hRest : LB.Centred (Rest e0) (w2c, (w3c, (w4c, w5c))) =
+  LB.sigma (P2 e0) (\ w2 -> P3 e0 * P4 e0 * P5 e0 w2.1) w2c hP2 (w3c, (w4c, w5c))
+    (LB.sigma (P3 e0) (\ w3 -> P4 e0 * P5 e0 w2c.1) w3c hP3 (w4c, w5c)
+       (LB.sigma (P4 e0) (\ w4 -> P5 e0 w2c.1) w4c hP4 w5c hP5)) ;
+
+hR : LB.Centred R (w1c, (w2c, (w3c, (w4c, w5c)))) =
+  LB.sigma E1 (\ w1 -> Rest w1.1) w1c hE1 (w2c, (w3c, (w4c, w5c))) hRest ;
+
+c2-contr : LY.C2Contr =
+  LB.retract Blk R toR fromR (\ u -> refl u) (w1c, (w2c, (w3c, (w4c, w5c)))) hR ;

@@ -1,0 +1,66 @@
+-- InitUAIsoLemmas (PLAN-UAMOD, Part I): generic lemmas, level l.
+-- Over a set A, a path (x, b) = (y, b') in the total space gives
+-- subst e b = b' along ANY path e : x = y (fib-any).  Fibrewise
+-- bi-invertibility (biinv-fib): a map of families pi over c : A -> A',
+-- with a map of families rho over d : A' -> A, a homotopy r : d.c ~ 1
+-- of the bases, and total-space round trips in both directions, is
+-- bi-invertible on each fibre; the fibrewise inverse is rho followed by
+-- the transport along r (both A and A' sets).
+level l ;
+open Base ; open Prelude[l] ;
+module E = InitUAEquiv[l] ;
+
+fib-any (A : U l) (sA : isSet A) (F : A -> U l) (x y : A) (e : Id A x y) (b : F x) (b' : F y)
+    (Q : Id ((z : A) * F z) (x, b) (y, b')) : Id (F y) (subst A F x y e b) b' =
+  trans (F y) (subst A F x y e b)
+    (subst A F x y (ap ((z : A) * F z) A (\ w -> w.1) (x, b) (y, b') Q) b) b'
+    (ap (Id A x y) (F y) (\ e1 -> subst A F x y e1 b)
+       e (ap ((z : A) * F z) A (\ w -> w.1) (x, b) (y, b') Q)
+       (sA x y e (ap ((z : A) * F z) A (\ w -> w.1) (x, b) (y, b') Q)))
+    (Sigma-snd A F x y b b' Q) ;
+
+-- paths of pairs
+pair-path (A B : U l) (a a' : A) (b b' : B) (p : Id A a a') (q : Id B b b')
+  : Id (A * B) (a, b) (a', b') =
+  idJ A a (\ z p1 -> Id (A * B) (a, b) (z, b'))
+    (ap B (A * B) (\ y -> (a, y)) b b' q) a' p ;
+
+-- regrouping a doubly dependent Sigma type
+regroup (A : U l) (B : A -> U l) (D : (a : A) -> B a -> U l)
+    (u : (a : A) * (b : B a) * D a b) : (w : (a : A) * B a) * D w.1 w.2 =
+  ((u.1, u.2.1), u.2.2) ;
+regroup-path (A : U l) (B : A -> U l) (D : (a : A) -> B a -> U l)
+    (u v : (a : A) * (b : B a) * D a b) (Q : Id ((a : A) * (b : B a) * D a b) u v)
+  : Id ((w : (a : A) * B a) * D w.1 w.2) (regroup A B D u) (regroup A B D v) =
+  ap ((a : A) * (b : B a) * D a b) ((w : (a : A) * B a) * D w.1 w.2) (regroup A B D) u v Q ;
+
+module Fib
+  (A : U l) (sA : isSet A) (F : A -> U l)
+  (A' : U l) (sA' : isSet A') (F' : A' -> U l)
+  (c : A -> A') (pi : (a : A) -> F a -> F' (c a))
+  (d : A' -> A) (rho : (a' : A') -> F' a' -> F (d a'))
+  (r : (a : A) -> Id A (d (c a)) a)
+  (rt : (a : A) (u : F a) -> Id ((z : A) * F z) (d (c a), rho (c a) (pi a u)) (a, u))
+  (st : (a' : A') (v : F' a') -> Id ((z : A') * F' z) (c (d a'), pi (d a') (rho a' v)) (a', v)) {
+
+  back (a : A) (v : F' (c a)) : F a = subst A F (d (c a)) a (r a) (rho (c a) v) ;
+
+  -- pi commutes with transport
+  nat (a : A) (v : F' (c a))
+    : Id (F' (c a)) (pi a (back a v))
+         (subst A' F' (c (d (c a))) (c a) (ap A A' c (d (c a)) a (r a)) (pi (d (c a)) (rho (c a) v))) =
+    subst-proj A A' c F F' pi (d (c a)) a (r a) (rho (c a) v) ;
+
+  sec-eq (a : A) (v : F' (c a)) : Id (F' (c a)) (pi a (back a v)) v =
+    trans (F' (c a)) (pi a (back a v))
+      (subst A' F' (c (d (c a))) (c a) (ap A A' c (d (c a)) a (r a)) (pi (d (c a)) (rho (c a) v))) v
+      (nat a v)
+      (fib-any A' sA' F' (c (d (c a))) (c a) (ap A A' c (d (c a)) a (r a))
+         (pi (d (c a)) (rho (c a) v)) v (st (c a) v)) ;
+
+  ret-eq (a : A) (u : F a) : Id (F a) (back a (pi a u)) u =
+    fib-any A sA F (d (c a)) a (r a) (rho (c a) (pi a u)) u (rt a u) ;
+
+  biinv (a : A) : E.BiInv (F a) (F' (c a)) (pi a) =
+    ((back a, sec-eq a), (back a, ret-eq a)) ;
+} ;
